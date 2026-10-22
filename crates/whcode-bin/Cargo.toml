@@ -14,6 +14,8 @@ path = "src/main.rs"
 
 [dependencies]
 whcode-app = { path = "../whcode-app" }
+# CUI 命令树（批次 2 调度装配；契约 contracts/cui-cli.md §1）。
+whcode-cui = { path = "../whcode-cui" }
 whcode-domain = { path = "../whcode-domain" }
 whcode-platform = { path = "../whcode-platform" }
 whcode-store = { path = "../whcode-store" }

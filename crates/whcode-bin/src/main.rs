@@ -14,6 +14,7 @@
 
 mod bench;
 mod config;
+mod cui_dispatch;
 mod logging;
 mod serve;
 mod store_source;
@@ -42,7 +43,10 @@ fn main() -> ExitCode {
         }
         Some("bench") => bench_command(&args[1..]),
         Some("serve") => serve::serve_command(&args[1..]),
-        _ => launch_interactive(&args),
+        // 批次 2：CUI 命令调度（contracts/cui-cli.md §1）；未知参数 → 用法错误（退出码 2），
+        // 不再落入 TUI 分支（旧行为的隐式兜底会掩盖拼写错误）。
+        Some(_) => cui_dispatch::dispatch(&args),
+        None => launch_interactive(&args),
     }
 }
 

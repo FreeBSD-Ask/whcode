@@ -8,8 +8,10 @@
 //!    `authz` 判定——拒绝均为 `permission_denied`（不可重试）；
 //! 3. **错误码一致**：两前端的错误信封同源（`output::error_envelope`）。
 //!
-//! T082 交付后须在本文件追加"同命令最终状态一致"用例（任务文档既定要求），
-//! 不得删除既有断言。
+//! 同命令最终状态一致（2026-10-22 补齐，T082/T084/T090 交付后）：同一夹具库上，
+//! CUI 命令路径（`whcode_cui` 视图函数 + `whcode-app` 只读命令）与 Web API
+//! （`handle_request`）返回同一份数据（事件序列/会话清单/任务总览）；写命令的跨端
+//! 一致性仍阻塞于 Web 写 API（未交付）。不得删除既有断言。
 
 use whcode_app::{Actor, Capability, DefaultPolicy, actor_with_all_capabilities};
 use whcode_cui::cli::{Cli, Command, parse};
@@ -81,6 +83,129 @@ fn permission_semantics_identical_for_both_frontends() {
         );
         assert!(allowed_for_admin, "有能力调用必须放行：{capability:?}");
     }
+}
+
+/// 同命令最终状态一致（V-109 追加用例，2026-10-22）：
+/// 同一夹具库、同一应用服务——CUI 视图/只读命令与 Web API 的数据必须一致。
+#[test]
+fn same_read_commands_yield_identical_state_across_cui_and_web() {
+    use duckdb::Connection;
+
+    use whcode_app::{DefaultPolicy, actor_with_all_capabilities};
+    use whcode_web::api::Method;
+
+    fn migrated() -> Connection {
+        let conn = Connection::open_in_memory().expect("内存库");
+        conn.execute_batch(concat!(
+            include_str!("../../crates/whcode-store/migrations/0001_initial.sql"),
+            include_str!("../../crates/whcode-store/migrations/0002_event_trace_indexes.sql"),
+            include_str!("../../crates/whcode-store/migrations/0003_query_indexes.sql"),
+            include_str!("../../crates/whcode-store/migrations/0004_session_id_sequence.sql"),
+            include_str!("../../crates/whcode-store/migrations/0005_session_stage.sql"),
+        ))
+        .expect("迁移");
+        conn
+    }
+
+    let conn = migrated();
+    conn.execute(
+        "INSERT INTO sessions (id, title, created_at, last_active_at, status, stage)
+         VALUES ('S-P', '一致性', epoch_ms(1000), epoch_ms(1000), 'active', 'implement')",
+        [],
+    )
+    .expect("会话");
+    for (seq, kind) in [(1_i64, "RequestStarted"), (2, "StreamingChunk")] {
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                 kind, payload_json, ts, persistence_level)
+             VALUES (?, ?, 'S-P', NULL, NULL, NULL, ?, '{}', current_timestamp, 'redacted')",
+            duckdb::params![seq, format!("E-{seq}"), kind],
+        )
+        .expect("事件");
+    }
+    let policy = DefaultPolicy;
+    let actor = actor_with_all_capabilities("parity");
+
+    let request = |method: Method, path: &str| whcode_web::api::HttpRequest {
+        method,
+        path: path.to_string(),
+        headers: vec![("origin".to_string(), "http://127.0.0.1".to_string())],
+        body: Vec::new(),
+    };
+
+    // 1) 事件列表：CUI 视图函数 vs Web /api/events。
+    let cui_events = whcode_cui::events_cmd::events_json(
+        &conn,
+        &policy,
+        &actor,
+        "S-P",
+        0,
+        100,
+        whcode_domain::TraceLevel::default(),
+    )
+    .expect("CUI 事件");
+    let web_events = whcode_web::api::handle_request(
+        &conn,
+        false,
+        None,
+        &request(Method::Get, "/api/events?session=S-P&after=0"),
+        &actor,
+    );
+    assert_eq!(web_events.status, 200);
+    let web_events: serde_json::Value = serde_json::from_slice(&web_events.body).expect("Web JSON");
+    let cui_seq: Vec<i64> = cui_events["events"]
+        .as_array()
+        .expect("数组")
+        .iter()
+        .map(|event| event["seq"].as_i64().expect("seq"))
+        .collect();
+    let web_seq: Vec<i64> = web_events["events"]
+        .as_array()
+        .expect("数组")
+        .iter()
+        .map(|event| event["seq"].as_i64().expect("seq"))
+        .collect();
+    assert_eq!(cui_seq, web_seq, "同命令事件序列必须一致");
+    assert_eq!(
+        cui_events["trace_level"], web_events["trace_level"],
+        "脱敏策略注明一致"
+    );
+
+    // 2) 会话清单：CUI 命令路径（app::list_sessions）vs Web /api/sessions。
+    let cui_sessions =
+        whcode_app::list_sessions(&conn, &policy, &actor, false, 200).expect("CUI 会话");
+    let web_sessions = whcode_web::api::handle_request(
+        &conn,
+        false,
+        None,
+        &request(Method::Get, "/api/sessions"),
+        &actor,
+    );
+    let web_sessions: serde_json::Value =
+        serde_json::from_slice(&web_sessions.body).expect("Web JSON");
+    let cui_ids: Vec<&str> = cui_sessions.iter().map(|row| row.id.as_str()).collect();
+    let web_ids: Vec<&str> = web_sessions["sessions"]
+        .as_array()
+        .expect("数组")
+        .iter()
+        .filter_map(|row| row["id"].as_str())
+        .collect();
+    assert_eq!(cui_ids, web_ids, "同命令会话清单必须一致");
+
+    // 3) 任务总览：CUI 命令路径（app::task_overview）vs Web /api/tasks。
+    let cui_tasks =
+        whcode_app::task_overview(&conn, &policy, &actor, Some("S-P")).expect("CUI 任务总览");
+    let web_tasks = whcode_web::api::handle_request(
+        &conn,
+        false,
+        None,
+        &request(Method::Get, "/api/tasks?session=S-P"),
+        &actor,
+    );
+    let web_tasks: serde_json::Value = serde_json::from_slice(&web_tasks.body).expect("Web JSON");
+    assert_eq!(cui_tasks.total, web_tasks["total"], "任务总数一致");
+    assert_eq!(cui_tasks.done, web_tasks["done"], "完成任务数一致");
+    assert_eq!(cui_tasks.blocked, web_tasks["blocked"], "阻塞任务数一致");
 }
 
 #[test]

@@ -464,6 +464,36 @@ Task: "实现 SSH 客户端原型 in crates/whcode-ssh/src/proto.rs"           #
 - 性能预算未冻结（T027 基准夹具进行中，T028—T031 未完成）。
 - 因此 T027—T031 保持未勾选。
 
+### 实现记录（2026-10-22，批次 2：CUI 命令调度装配——T084/T085 接线）
+
+**背景**：CUI 的 clap 命令树、信封与三个视图模块早已交付，但 `whcode` 无任何 CUI
+子命令可执行（Check 90 阻塞、T088 的"同命令"用例无法落地）——又一处"组件在、功能不在"。
+
+**交付**：
+
+1. `whcode <command>` 调度（`crates/whcode-bin/src/cui_dispatch.rs`）：解析用
+   `whcode_cui::cli::parse_outcome`（区分帮助/版本与用法错误）；执行经 `whcode-app`
+   （权限判定 FR-604）与 `whcode-store`（SQL 只在 store，ADR-018）；`--json` 统一信封、
+   错误四字段落 stderr、稳定退出码（0/2/10…99）；`--workspace` 与 `--json` 为全局旗标。
+2. 已接线：`session new/list/show/rename/archive/delete`（默认 dry-run，`--yes` 执行，
+   `--dry-run --yes` 互斥）、`status`、`task list/show/retry/abort`、
+   `events list/export`（json/jsonl）、`spec status`、`db stats/check/purge/compact/archive/
+   explain`（explain 只读白名单 + 长度上限）。
+3. 未接线命令显式失败（`run`、`events show`、`spec next/validate/analyze/converge/
+   force-advance`、`runtime *`、`db checkpoint`）——错误信息说明原因，退出码 50，不静默成功。
+4. 同命令一致性用例（V-109 追加）：`test_tui_cui_parity.rs::same_read_commands_yield_
+   identical_state_across_cui_and_web`（CUI 事件视图/会话清单/任务总览 vs Web `/api/*`）。
+
+**验证证据**：`artifacts/cui-2026-10-22-batch2.txt`（真实 24 条命令与退出码）；
+`cargo test --workspace` **395 例通过 / 0 失败**（另 4 例 #[ignore]）；bin 26、cui 13、parity 4 绿。
+
+**发现并修复**：`session delete` 初版套用 TTL 活跃窗口保护 → 删除刚创建的会话被静默
+跳过；显式按 ID 删除改为不套活跃窗口（TTL 清理保留保护）。`--json` 初版只允许放在
+子命令前（clap 非全局）→ 改为全局旗标。
+
+**未完成**：Web 写 API 未交付 → "写命令跨端一致"（Check 90 完整）未取得；
+`spec` 门禁命令需 SDD 产物工作区上下文。
+
 ### 实现记录（2026-10-22，批次 1：前端数据接入——TUI 真实数据源 + Web 任务/会话选择）
 
 **交付**：

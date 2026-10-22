@@ -17,9 +17,13 @@ use clap::{Parser, Subcommand};
 #[derive(Debug, Clone, PartialEq, Parser)]
 #[command(name = "whcode", version, about = "WHCode 编码助手")]
 pub struct Cli {
-    /// 输出 JSON（schema_version 信封，FR-602）。
-    #[arg(long)]
+    /// 输出 JSON（schema_version 信封，FR-602）；可放在子命令前后任意位置。
+    #[arg(long, global = true)]
     pub json: bool,
+
+    /// 工作区目录（默认配置工作区/cwd；装配根用于定位 `<workspace>/whcode.duckdb`）。
+    #[arg(long, global = true)]
+    pub workspace: Option<String>,
 
     /// 子命令。
     #[command(subcommand)]
@@ -348,6 +352,38 @@ where
     T: Into<std::ffi::OsString> + Clone,
 {
     Cli::try_parse_from(args).map_err(|err| err.to_string())
+}
+
+/// 解析结果（装配根用：区分帮助输出与用法错误，退出码语义见 contracts/cui-cli.md §3）。
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParseOutcome {
+    /// 解析成功。
+    Command(Cli),
+    /// `--help` / `--version`：原样打印后以成功退出。
+    Display(String),
+    /// 用法错误：打印后以 `EXIT_USAGE`（2）退出。
+    Usage(String),
+}
+
+/// 解析命令行（保留 clap 的错误类别：帮助/版本 vs 用法错误）。
+#[must_use]
+pub fn parse_outcome<I, T>(args: I) -> ParseOutcome
+where
+    I: IntoIterator<Item = T>,
+    T: Into<std::ffi::OsString> + Clone,
+{
+    use clap::error::ErrorKind;
+    match Cli::try_parse_from(args) {
+        Ok(cli) => ParseOutcome::Command(cli),
+        Err(err) => match err.kind() {
+            ErrorKind::DisplayHelp
+            | ErrorKind::DisplayVersion
+            | ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand => {
+                ParseOutcome::Display(err.to_string())
+            }
+            _ => ParseOutcome::Usage(err.to_string()),
+        },
+    }
 }
 
 #[cfg(test)]

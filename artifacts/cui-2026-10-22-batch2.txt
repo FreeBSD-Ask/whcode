@@ -1,0 +1,50 @@
+WHCode CUI 命令调度取证（批次 2；contracts/cui-cli.md §1/§3；2026-10-22）
+二进制：target/release/whcode.exe（release，嵌入前端不影响 CLI）
+工作区：A = /tmp/cui-ws（新建，会话生命周期）；B = artifacts/web-demo（演示数据）
+
+一、会话生命周期（工作区 A）
+  session new --title "CUI 演示" --json   → 退出码 0；信封 {schema_version, data.session{id:S-1, stage:specify}}
+  session list                            → 退出码 0；"S-1 CUI 演示 [specify] active"
+  session show --session S-1              → 退出码 0
+  session rename --session S-1 --title 改名后 → 退出码 0；标题更新
+  session archive --session S-1           → 退出码 0；行尾 (archived)
+  session delete --session S-1            → 退出码 0；dry-run 预览（默认不执行）
+  session delete --session S-1 --yes      → 退出码 0；实际删除
+  session delete --dry-run --yes          → 退出码 50（invalid_state：互斥旗标）
+  nonsense                                → 退出码 2（clap 用法错误）
+  --help                                  → 退出码 0（帮助）
+
+二、读命令（工作区 B，同一应用服务）
+  task list --session S-DEMO-1            → 退出码 0；"总计 3 · 完成 1 · 阻塞 0 · 活跃 1"
+  task list --session S-DEMO-1 --json     → 退出码 0；信封含 active/by_stage/total
+  events list --session S-DEMO-1 --after 0→ 退出码 0；"1 RequestStarted … 6 RequestCompleted"
+  status --session S-DEMO-1               → 退出码 0；implement / cursor=6
+  spec status --session S-DEMO-1          → 退出码 0；"阶段 implement · 事件游标 6"
+  spec status --session S-DEMO-1 --json   → 退出码 0；信封含 stage/event_cursor/overview
+
+三、维护命令（工作区 A）
+  db stats --json                         → 退出码 0；引擎 v1.5.6 / schema 5 / 文件 1.5 MiB / 块自洽
+  db check                                → 退出码 0；"索引完整"
+  db explain --query "SELECT count(*) FROM events" → 退出码 0（只读，不执行查询）
+  db explain --query "DELETE FROM events" → 退出码 80（parse_error：只读白名单拒绝）
+  db purge --before 0（dry-run）          → 退出码 0；预览计数
+  db purge --before 0 --yes               → 退出码 0；按活跃窗口保护跳过（默认 24h）
+  db compact（dry-run）                   → 退出码 0；文件/WAL 大小 + 不承诺缩小文件
+  db archive --export /tmp/cui-ws/export.duckdb → 退出码 0；导出 + FNV-1a 64 校验
+
+四、未接线命令（显式失败，退出码 50，不静默成功）
+  runtime list                            → "未实现：runtime 未接线…"
+  spec next --session S-DEMO-1            → "未实现：spec 门禁命令需 SDD 产物工作区上下文…"
+  spec force-advance / validate / analyze / converge、run、events show → 同上（代码路径）
+
+五、同命令一致性（契约测试，V-109 追加）
+  tests/contract/test_tui_cui_parity.rs::same_read_commands_yield_identical_state_across_cui_and_web
+  同一夹具库：CUI 事件视图 vs Web /api/events（seq 序列与脱敏注明一致）、
+  CUI 会话清单 vs /api/sessions（ID 序列一致）、CUI 任务总览 vs /api/tasks（total/done/blocked 一致）。
+
+六、说明与限制
+  - 会话定位为显式 --session/--task（契约 §1），不设隐式"当前会话"。
+  - session delete 为显式按 ID 删除：不套用 TTL 的活跃窗口保护（否则"删除刚创建的会话"
+    会被静默跳过）；TTL 清理（db purge）仍保留活跃窗口保护。
+  - 写命令（session new/rename/archive/delete、task retry/abort）尚无 Web 写 API，
+    "写命令跨端一致"未取得；Check 90 保持未勾选并注明。

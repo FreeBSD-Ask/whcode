@@ -13,6 +13,12 @@
 
 ### 变更
 
+- 批次 2：CUI 命令调度装配（2026-10-22，T084/T085 接线）：`whcode <command>` 经
+  `whcode-app` 执行会话/任务/事件/状态/SDD 状态与 `db` 维护命令（stats/check/purge/
+  compact/archive/explain），`--json` 统一信封、错误四字段、稳定退出码（新增用法错误
+  `2`）；`--workspace`/`--json` 为全局旗标；未接线命令（run/events show/spec 门禁/
+  runtime/db checkpoint）显式失败。新增写入并修复：显式删除不套 TTL 活跃窗口保护
+  （避免"删除刚创建的会话"被静默跳过）。同命令一致性用例（CUI vs Web 读命令）落地。
 - 批次 1：前端数据接入（2026-10-22）：TUI 新增 `StoreViewSource`（装配根实现）——六视图
   经 `whcode-app` 只读命令供给（会话/任务/事件/上下文/Spec 真实数据；`j`/`k` 选择会话、
   `r` 刷新、`> ` 选中标记；数据源错误显式写入摘要行，打开失败回退空数据源并告警）。

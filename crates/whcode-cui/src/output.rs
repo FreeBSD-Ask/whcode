@@ -12,6 +12,9 @@ use whcode_domain::{ErrorCode, SCHEMA_VERSION, WhError};
 /// 成功退出码。
 pub const EXIT_SUCCESS: i32 = 0;
 
+/// 用法/参数错误退出码（clap 解析失败；contracts/cui-cli.md §3 稳定退出码）。
+pub const EXIT_USAGE: i32 = 2;
+
 /// 成功信封（数据 + schema_version）。
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Envelope<T: Serialize> {

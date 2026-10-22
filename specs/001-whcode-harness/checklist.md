@@ -127,7 +127,7 @@
 
 ### Phase 9 US7 M6（T090—T095）
 
-- [ ] Check 90: 浏览器经 HTTP/WebSocket 完成与 CUI 相同命令并得到一致结果（来源：Task T090、FR-603）——**部分证据（2026-10-22）**：浏览器经 HTTP 读取会话/事件/状态（与 app 服务同源）；**阻塞**：CUI 命令执行入口未装配（`whcode` 尚无 CUI 调度），无法执行「同一命令」对比——留待 CUI 装配后
+- [ ] Check 90: 浏览器经 HTTP/WebSocket 完成与 CUI 相同命令并得到一致结果（来源：Task T090、FR-603）——**部分证据（2026-10-22，批次 2 更新）**：CUI 命令调度已装配；**读命令跨端一致已取证**（`test_tui_cui_parity::same_read_commands_yield_identical_state_across_cui_and_web`：事件/会话/任务三组数据一致；CUI 真实命令见 `artifacts/cui-2026-10-22-batch2.txt`）；**未取得**：写命令（session new/rename/delete、task retry/abort）尚无 Web 写 API——不得据此勾选
 - [x] Check 91: 默认启动仅绑定 127.0.0.1；无认证时外部绑定启动失败并给出原因（来源：Task T091、FR-606）——**已取得**：`whcode serve --web --bind 0.0.0.0:8740` → `invalid_state: 对外监听 … 必须显式开启认证与 Origin 检查（FR-606、V-110）：拒绝启动`（退出码 1）；默认 `127.0.0.1` 监听实测可用；契约测试 `v110_default_loopback_and_external_requires_auth` ✓
 - [ ] Check 92: 未携带有效凭证的 WS 连接被拒；跨 Origin 被拒；超限消息被拒；URL 中无 token（来源：Task T092、§10.2）——**部分证据（2026-10-22）**：跨 Origin 403、请求体超限拒绝、URL 无 token 均有测试；**缺口**：`serve` 未提供 token 配置（回环模式认证关闭为 V-110 默认），认证模式的 WS 凭证路径不可达——对外部署前置
 - [ ] Check 93: Web 七类业务操作（会话/任务/历史/追踪/SDD/清理/运行时）各有手动或自动化验证记录（来源：Task T093、FR-609）——**部分证据（2026-10-22，批次 1 更新）**：会话清单（可点击选择）/任务（`/api/tasks` 总览 + 活跃任务）/历史（事件尾部）/SDD（状态快照）**已在真实浏览器验证（4/7）**；追踪/清理/运行时未接入 Web——不得据此勾选
@@ -240,7 +240,7 @@
 - [ ] Check 177: 历史注入达预算即停止并返回截断原因（来源：spec FR-505／Task T060）
 - [ ] Check 178: 未经基准证明不启用额外缓存/分区/分库/物化结构（来源：spec FR-511／research TBD-10）
 - [ ] Check 179: TUI 六视图完整交付（来源：spec FR-601／Task T082）——**部分证据（2026-10-22，批次 1 更新）**：六视图结构/切换/固定尺寸帧 + **真实数据源已接线**（`StoreViewSource`：会话/任务/事件/上下文/Spec 五视图来自 workcode-app 只读命令；`j`/`k` 选择会话、`r` 刷新；真实控制台 13/13 通过）；**未取得**：Diff 视图无数据源（converge 差异未接线）——六分之五，未勾选
-- [ ] Check 180: CUI 退出码表文档化且测试覆盖（来源：spec FR-602／Task T084、T085）
+- [x] Check 180: CUI 退出码表文档化且测试覆盖（来源：spec FR-602／Task T084、T085）——**已取得（2026-10-22，批次 2）**：`docs/guides/cui-manual.md` §1 列出 0/2/10…99 稳定码表；`output.rs::exit_codes_are_stable_across_error_codes` 断言互异与端点；调度测试覆盖 0（成功）/2（用法）/50（未接线/状态）/80（只读白名单拒绝）；真实命令退出码见 `artifacts/cui-2026-10-22-batch2.txt`
 - [x] Check 181: Web 经 HTTP/WebSocket 访问同一应用服务，状态由同一事件流驱动（来源：spec FR-603／Task T090）——**已取得**：`serve --web` 装配访问真实工作区库；浏览器 GET `/api/sessions`、`/api/events`、`/api/status` 均经 `whcode_app` 同一服务层（事件读取同一 events 表）；WS 握手 open→close:1000；证据 `artifacts/web-browser-2026-10-22.txt`
 - [ ] Check 182: SSH 默认无任意系统 Shell（来源：spec FR-608／Task T097）
 - [ ] Check 183: Web 七类业务操作不经 PTY（来源：spec FR-609／Task T093）

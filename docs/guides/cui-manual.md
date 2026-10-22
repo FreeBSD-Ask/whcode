@@ -5,8 +5,12 @@
 ## 1. 全局约定
 
 - 所有 JSON 输出含 `schema_version`；错误对象恒四字段（`code`/`message`/`retryable`/
-  `details`）；稳定退出码：成功 `0`，错误按类别 `10`（权限）/`20`（门禁）/`30`（运行时）/
-  `40`（背压）/`50`（状态）/`60`（不存在）/`70`（I/O）/`80`（解析）/`90`（超时）/`99`（内部）。
+  `details`）；稳定退出码：成功 `0`、用法/参数错误 `2`（clap 解析失败），错误按类别
+  `10`（权限）/`20`（门禁）/`30`（运行时）/`40`（背压）/`50`（状态）/`60`（不存在）/
+  `70`（I/O）/`80`（解析）/`90`（超时）/`99`（内部）。
+- `--workspace DIR` 指定工作区（默认 cwd；数据库 `<workspace>/whcode.duckdb`）；
+  `--json` 可放在子命令前后（全局旗标）。
+- 会话定位为显式 `--session`/`--task`：不设隐式"当前会话"（脚本路径不依赖隐藏状态）。
 - 非交互脚本路径可用（ADR-009）：`--json` + 退出码即可编程消费。
 - 权限：全部命令经应用服务统一判定，拒绝不可重试（FR-604）。
 
@@ -21,8 +25,9 @@ whcode session archive --session S-1 [--unarchive]
 whcode session delete --session S-1 [--dry-run] [--yes]   # 破坏性：默认只预览
 ```
 
-删除有预览/确认/审计/活跃会话保护（FR-509）四项机制；删除当前打开的会话
-须先把其 ID 从保护名单移除（应用层管理）。
+删除有预览/确认/审计/活跃会话保护（FR-509）四项机制；显式按 ID 删除（`--yes`）时
+不套用 TTL 的活跃窗口保护（否则"删除刚创建的会话"会被静默跳过）；`db purge` 仍保留
+活跃窗口保护。
 
 ## 3. 任务命令
 
@@ -75,3 +80,18 @@ whcode db explain --query "SELECT ..."   # 只读查询的查询计划
 ```bash
 whcode doctor [--json]              # 环境与配置自检
 ```
+
+## 7. 实现状态（2026-10-22 批次 2）
+
+已接线（真实执行，退出码见 §1）：
+`session new/list/show/rename/archive/delete`、`status`、`task list/show/retry/abort`、
+`events list/export`（json/jsonl）、`spec status`、`db stats/check/purge/compact/archive/explain`。
+
+未接线（显式失败，退出码 `50`，不静默成功）：
+`run`（Provider 流式装配）、`events show`（按 ID 查询接口未提供）、
+`spec next/validate/analyze/converge/force-advance`（需 SDD 产物工作区上下文）、
+`runtime *`（运行时装配开关属后续）、`db checkpoint`（压缩内部步骤，不单独公开）。
+
+同命令一致性：读命令见 `tests/contract/test_tui_cui_parity.rs`
+（CUI 视图 vs Web `/api/*` 同数据）；写命令跨端一致仍阻塞于 Web 写 API（未交付）。
+批次 2 取证：`artifacts/cui-2026-10-22-batch2.txt`。
