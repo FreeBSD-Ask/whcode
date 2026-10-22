@@ -157,7 +157,7 @@
 - [ ] Check 111: Python worker 记录解释器版本/ABI/路径；受限档位列出不支持项（来源：Task T111、D-09）——**复核（2026-10-23，批次三）**：**未通过**：`python.rs` 不存在；`PythonProvider` 以系统解释器构造子进程并探测 `--version`（`python_probes_system_interpreter`），不支持项已列；但**ABI 与解释器绝对路径未记录**
 - [ ] Check 112: Git Bash payload 验证管道/重定向/路径/终止四类命令，payload 哈希可核验（来源：Task T112、V-304）——**复核（2026-10-23，批次三）**：**未通过**：`gitbash.rs` 不存在；仅探测 `git.exe --version`，未验证 PortableGit payload 哈希、Bash/coreutils、管道与重定向（`docs/matrices/runtime-inventory.md` 亦标“未实现”）
 - [x] Check 113: BSD Shell provider 与 gitbash 在能力清单中为不同条目（来源：Task T113、§4.7.1）——**复核（2026-10-23，批次三）**：`providers::providers_never_claim_full_and_names_do_not_collide` 断言 `gitbash` 与 `bsdshell` 为不同条目、能力不混淆
-- [ ] Check 114: V-301—V-307 全部有自动化或留证测试，三时点中断均产生 `unknown`（来源：Task T114、V-307）——**复核（2026-10-23，批次三）**：**未通过**：`tests/crash/test_side_effect_recovery.rs` **不存在**（`tests/crash/` 仅 README）；V-304 无自动化用例；三时点中断 → `unknown` 无测试
+- [ ] Check 114: V-301—V-307 全部有自动化或留证测试，三时点中断均产生 `unknown`（来源：Task T114、V-307）——**复核（2026-10-23，批次三）**：**仍未通过（2026-10-23 补录后复核）**：三时点中断 → `unknown` 已由 `tests/crash/test_side_effect_recovery.rs` 覆盖（四个注入点），但 V-304 仍无自动化用例，V-301—V-307 未全部覆盖
 
 ### Phase 12 US10 M9（T115—T121）
 
@@ -196,7 +196,7 @@
 - [ ] Check 136: 1 万任务概览查询报告 p50/p95/p99 且满足冻结预算（来源：spec V-102／SC-002／Task T055）——**复核（2026-10-23，批次四）**：**未通过**：`overview_p95_within_candidate_budget_and_report_is_archived`（1 万任务、p50/p95/p99 归档 `artifacts/overview-perf-m2.json`）比对的是**候选值**，不是冻结预算
 - [x] Check 137: 断线重连补拉后关键事件完整，内容采样/脱敏均有标记（来源：spec V-103／SC-003／Task T066）——**复核（2026-10-23，批次四）**：`replay::replay_fetches_events_after_cursor_and_reports_completion` + `llm::trace` 的 `redacted`/`downsampled` 标记用例通过
 - [x] Check 138: 已确认事务经进程终止+重启后状态与关键事件一致（来源：spec V-104／SC-004／Task T043）——**复核（2026-10-23，批次四）**：`committed_transactions_survive_process_abort`（子进程 abort 后重开）通过
-- [ ] Check 139: 步骤边界、外部操作前/后、结果登记前三时点崩溃注入后恢复符合协议（来源：spec V-105／SC-005／Task T114）——**复核（2026-10-23，批次四）**：**未通过**：三时点崩溃注入需 `tests/crash/test_side_effect_recovery.rs`，该文件不存在（`tests/crash/` 仅 README）
+- [x] Check 139: 步骤边界、外部操作前/后、结果登记前三时点崩溃注入后恢复符合协议（来源：spec V-105／SC-005／Task T114）——**复核（2026-10-23，批次四）**：**补录通过（2026-10-23）**：`tests/crash/test_side_effect_recovery.rs` 覆盖四个注入点（步骤边界 / 意图后 / 执行中·副作用已落盘 / 登记后）；子进程 `abort()` 后父进程重开库并调用 `recover_uncertain`，断言 prepared/running → `unknown`、终态不变、二次恢复为空
 - [x] Check 140: 重复幂等键不产生重复任务或重复登记（来源：spec V-106／SC-006／Task T044）——**复核（2026-10-23，批次四）**：`duplicate_idempotency_key_does_not_add_rows`、`duplicate_key_across_restart_returns_existing_seq_without_recreation` 通过
 - [x] Check 141: 清理/压缩保护活跃会话；compact 副本校验成功后方切换（来源：spec V-107／SC-007／Task T039、T041）——**复核（2026-10-23，批次四）**：`purge::execute_rechecks_protection_after_preview` 与 `compact::verify_copy_rejects_missing_index_and_row_drift` 通过
 - [x] Check 142: 指定关键查询有计划与性能基线，计划变化触发审查（来源：spec V-108／Task T036、T038）——**复核（2026-10-23，批次四）**：`artifacts/query-plan-report.json`（`query_plan_experiment`）逐条记录关键查询计划与理由；`monitor::plan_query_*` 提供计划分析入口，计划变化可对比
@@ -215,7 +215,7 @@
 - [ ] Check 155: Git Bash 验证管道/重定向/路径/信号终止/目标命令，payload 哈希可核验（来源：spec V-304／SC-018／Task T112）——**复核（2026-10-23，批次四）**：**未通过**：`gitbash.rs` 不存在；仅探测 `git.exe --version`，五类命令验证与 payload 哈希核验未实现
 - [x] Check 156: 任务超时后子进程树按平台策略清理，stderr 尾部保留且状态可恢复（来源：spec V-305／SC-019／Task T109）——**复核（2026-10-23，批次四）**：`worker_timeout_kills_process`、`v305_timeout_terminates_worker`、`v307_timeout_state_is_visible_for_recovery` 通过；stderr 尾部由 `worker_preserves_stderr_tail_on_failure` 保证；BSD 进程组按 ADR-013 延后
 - [x] Check 157: 引用未启用运行时的任务执行前被阻止并给出安装/替代建议（来源：spec V-306／SC-018／Task T107）——**复核（2026-10-23，批次四）**：`errors::unavailable_runtimes_block_execution_before_start`、`runtime_unavailable_carries_reason_and_suggestion`、`v306` 通过
-- [ ] Check 158: 意图提交后、执行期间、登记后三时点中断的不确定操作标记 `unknown`（来源：spec V-307／SC-005／Task T114）——**复核（2026-10-23，批次四）**：**未通过**：三时点中断 → `unknown` 无自动化用例（`tests/crash` 缺失）；`v307` 仅覆盖超时后的状态可见性
+- [x] Check 158: 意图提交后、执行期间、登记后三时点中断的不确定操作标记 `unknown`（来源：spec V-307／SC-005／Task T114）——**复核（2026-10-23，批次四）**：**补录通过（2026-10-23）**：意图后与执行中两个注入点均标 `unknown`；登记后（终态）不被误标（`registered_result_is_not_marked_unknown`）；`v307` 覆盖超时路径
 
 ### 未被 V 项直接覆盖的功能需求（逐条判定）
 
@@ -264,7 +264,7 @@
 
 ## 第三层：边界与异常
 
-- [ ] Check 196: 外部操作在“副作用已发生、结果未登记”时崩溃，恢复标记 `unknown` 且不重放副作用（来源：spec Edge／FR-410／Task T114）——**复核（2026-10-23，批次四）**：**未通过**：无“副作用已发生、结果未登记”的崩溃注入用例（`tests/crash` 缺失）；`unknown` 语义只在状态机与文档中定义
+- [x] Check 196: 外部操作在“副作用已发生、结果未登记”时崩溃，恢复标记 `unknown` 且不重放副作用（来源：spec Edge／FR-410／Task T114）——**复核（2026-10-23，批次四）**：**补录通过（2026-10-23）**：`side_effect_before_register_marks_unknown_and_is_not_replayed` 在副作用已落盘（标记文件 1 行）、结果未登记时触发子进程 `abort()`，父进程重开库后该记录为 `unknown`，且标记文件仍为 1 行（未重放副作用）
 - [x] Check 197: 事件队列饱和时关键事件走背压/失败/安全停止，无静默丢弃（来源：spec Edge／ADR-006／Task T015）——**复核（2026-10-23，批次四）**：`app::queue::critical_push_returns_backpressure_when_full`、`writer::saturated_buffer_returns_backpressure_and_keeps_entries`、`stream::critical_queue_overflow_is_backpressure_not_silent_drop` 通过
 - [x] Check 198: 超限 payload 被截断并留下标记，原始无静默删除（来源：spec Edge／R-05／Task T011）——**复核（2026-10-23，批次四）**：实现为**显式拒绝**而非截断（`writer::oversized_payload_is_rejected_not_truncated`、`event::oversized_payload_is_detected`）：原始数据不被静默删除；与判据字面“截断”不同，差异已记录
 - [ ] Check 199: 慢客户端存在时其他会话广播延迟无劣化（对比测试）（来源：spec Edge／§6.3／Task T094）——**复核（2026-10-23，批次四）**：**未取得**：WebSocket 会话广播未实现（仅握手），不存在慢客户端对比测试
@@ -275,7 +275,7 @@
 - [x] Check 204: 清理后报告解释空间未缩小的原因与统计（来源：spec Edge／R-10／Task T045）——**复核（2026-10-23，批次四）**：`compact::space_report_counts_wal_when_present`、`purge_then_compact_reports_four_statistics_and_keeps_data` 断言四项统计；不承诺 `VACUUM` 释放空间（data-model §5、FR-510）
 - [x] Check 205: 迁移中断后数据库版本未前移且可重试（来源：spec Edge／§7.4／Task T033）——**复核（2026-10-23，批次四）**：`test_migration::interrupted_v2/v3_migration_rolls_back_partial_changes` + `schema::failed_migration_does_not_mark_version` 通过
 - [ ] Check 206: LLM 失败、断网、磁盘不足、写入失败四情形纳入稳定性测试集（来源：spec Edge／§11.5／Task T116）——**复核（2026-10-23，批次四）**：**未通过**：稳定性测试集（LLM 失败/断网/磁盘不足/写入失败）未建立；T116 阻塞
-- [ ] Check 207: 三时点崩溃注入（步骤边界/执行前后/登记前）各产生符合协议的恢复状态（来源：spec V-105/V-307／Task T114）——**复核（2026-10-23，批次四）**：**未通过**：三时点崩溃注入无用例（同 Check 139/158）
+- [x] Check 207: 三时点崩溃注入（步骤边界/执行前后/登记前）各产生符合协议的恢复状态（来源：spec V-105/V-307／Task T114）——**复核（2026-10-23，批次四）**：**补录通过（2026-10-23）**：四个注入点各产生协议内状态——步骤边界：无不确定记录被改写；意图后/执行中：`unknown`；登记后：终态保持不变
 - [x] Check 208: 活跃会话在 purge 期间被保护且审计记录在案（来源：spec FR-509／Task T039）。T039 落地：显式保护名单 + 默认 24h 活跃窗口（可见可改），执行时点复检使预览后新变活跃的会话被跳过并报告；删除与 `db_purge` 审计同一事务提交，空清理同样留审计（`purge.rs`：`execute_rechecks_protection_after_preview`、`ttl_within_default_active_window_protects_everything`）。用户 2026-10-21 复核接受
 - [ ] Check 209: WebSocket 消息超限被拒且连接不中断其他订阅者（来源：spec §10.2／Task T092）——**复核（2026-10-23，批次四）**：**部分未通过**：`web::security::message_size_is_bounded` 覆盖超限拒绝，但“不中断其他订阅者”无测试（WS 广播未实现）
 

@@ -13,6 +13,14 @@
 
 ### 变更
 
+- 副作用恢复协议与三时点崩溃注入（2026-10-23，T114 部分交付／FR-410）：
+  `whcode-store::tool_exec` 落地“意图—执行—登记”原语（`record_intent`/`mark_running`/
+  `record_result`，状态迁移受限）与启动期恢复 `recover_uncertain`（prepared/running →
+  `unknown`，单事务、`LIMIT MAX_RECOVERED + 1` 判截断、可重复执行）；
+  `open_workspace_db` 在迁移后调用恢复并对非空结果告警（数量 + 前 5 个 ID + 下一步动作）。
+  新增 `tests/crash/test_side_effect_recovery.rs`：父测试以 `--exact --ignored` 自启子进程，
+  在步骤边界、意图后、执行中（副作用已落盘）、登记后四个注入点 `abort()`，父进程重开库断言
+  恢复状态；“副作用已发生、结果未登记”用例以标记文件行数恒为 1 证实**不重放**。
 - 门禁与平台层修复（2026-10-23，进度复核处置）：`whcode-platform` 新增 `sleep_command`
   （Windows `ping` / POSIX `sleep`，秒级粒度），`whcode-runtime` 的超时用例改经它构造命令，
   消除 `whcode-platform` 之外的平台分流残留；`tests/contract/test_layering.rs` 的平台判定

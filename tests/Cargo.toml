@@ -89,6 +89,11 @@ path = "integration/test_overview_perf.rs"
 name = "seed_web_demo"
 path = "integration/seed_web_demo.rs"
 
+# 三时点崩溃注入与不确定恢复（T114、V-105/V-307、SC-005、FR-409/410、ADR-007）。
+[[test]]
+name = "side_effect_recovery"
+path = "crash/test_side_effect_recovery.rs"
+
 # 脱敏、链路串联、预算截断与重连补拉（T067、V-103 关联）。
 [[test]]
 name = "trace_and_context"

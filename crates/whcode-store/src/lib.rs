@@ -19,7 +19,8 @@
 //! - [`export`]：工作区导出/导入，清单、分块校验和与兼容/冲突检查（T040、FR-508、§7.4）；
 //! - [`compact`]：复制—校验—原子切换与四项空间统计（T041、FR-510、R-09/D-10）；
 //! - [`wal`]：WAL 阈值策略、显式与空闲窗口 checkpoint（T042、§5.4）；
-//! - [`directory`] / [`tasks`]：会话目录与任务投影存储原语（M2/T046—T052 支撑、ADR-018）。
+//! - [`directory`] / [`tasks`]：会话目录与任务投影存储原语（M2/T046—T052 支撑、ADR-018）；
+//! - [`tool_exec`]：工具执行“意图—执行—登记”与不确定恢复（T114、FR-409/410、ADR-007）。
 //!
 //! M1 存储基座（T032—T042）已在本 crate 交付；跨进程/跨连接的验收集成测试
 //! （T043—T045）位于仓库 `tests/integration/`（whcode-tests）。
@@ -39,6 +40,7 @@ pub mod schema;
 pub mod service;
 pub mod smoke;
 pub mod tasks;
+pub mod tool_exec;
 pub mod wal;
 pub mod writer;
 
@@ -78,6 +80,10 @@ pub use tasks::{
     ArtifactRefRow, CheckpointRow, MAX_ACTIVE_TASKS, MAX_DETAIL_CHECKPOINTS, MAX_RECENT_EVENTS,
     TaskRow, active_tasks, get_task, insert_task, recent_task_events, stage_distribution,
     status_distribution, task_artifacts, task_checkpoints, update_task_status,
+};
+pub use tool_exec::{
+    MAX_RECOVERED, RecoveredExec, RecoveryReport, ToolExecRow, UNCERTAIN_NEXT_ACTION, load,
+    mark_running, record_intent, record_result, recover_uncertain,
 };
 pub use wal::{
     CheckpointReason, CheckpointReport, EffectiveWalSettings, WalPolicy, apply_wal_policy,

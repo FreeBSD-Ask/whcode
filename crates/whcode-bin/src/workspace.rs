@@ -79,6 +79,27 @@ pub fn open_workspace_db(workspace: &Path, config: &Config) -> Result<Connection
         )
     })?;
     whcode_store::apply_migrations(&conn)?;
+    // 恢复协议（FR-410、V-105/V-307）：上次进程可能在“意图—执行—登记”之间中断。
+    // 只把不确定记录标为 unknown 并报告，不重放任何副作用（处置由使用者决定）。
+    let mut conn = conn;
+    let recovery = whcode_store::recover_uncertain(&mut conn)?;
+    if !recovery.is_empty() {
+        let ids: Vec<&str> = recovery
+            .recovered
+            .iter()
+            .take(5)
+            .map(|item| item.id.as_str())
+            .collect();
+        eprintln!(
+            "警告：{} 个工具执行在上次中断时无法判定副作用是否已发生，已标记 unknown（{}）。{}",
+            recovery.len(),
+            ids.join(", "),
+            recovery.next_action
+        );
+        if recovery.truncated {
+            eprintln!("（本次扫描有界，剩余记录将在下次启动继续处理）");
+        }
+    }
     Ok(conn)
 }
 
@@ -114,5 +135,29 @@ mod tests {
             workspace_db_path(Path::new("D:/ws")),
             PathBuf::from("D:/ws").join("whcode.duckdb")
         );
+    }
+
+    /// 打开工作区即执行恢复协议（FR-410）：上一次进程遗留的 running 记录必须变 `unknown`。
+    #[test]
+    fn opening_workspace_recovers_uncertain_executions() {
+        let dir = std::env::temp_dir().join(format!("whcode-ws-recover-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let config = Config::for_workspace(dir.clone());
+        let conn = open_workspace_db(&dir, &config).expect("首次打开");
+        whcode_store::record_intent(&conn, "X-1", "C-1", "hash").expect("登记意图");
+        whcode_store::mark_running(&conn, "X-1", 1_700_000_000_000).expect("进入执行");
+        drop(conn);
+
+        let conn = open_workspace_db(&dir, &config).expect("再次打开");
+        let row = whcode_store::load(&conn, "X-1")
+            .expect("查询")
+            .expect("记录存在");
+        assert_eq!(
+            row.state,
+            whcode_domain::RuntimeExecutionStatus::Unknown,
+            "打开工作区必须把中断遗留的执行标为 unknown（不重放副作用）"
+        );
+        drop(conn);
+        let _ = fs::remove_dir_all(&dir);
     }
 }

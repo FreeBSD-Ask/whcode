@@ -269,7 +269,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [ ] T111 [P] [US9] 在 `crates/whcode-runtime/src/python.rs` 实现 Python 子进程 worker 与受限实现档位（D-09、§4.7.1） **未完成（2026-10-23 复核）**：`runtime/src/python.rs` 不存在；`PythonProvider` 仅以系统解释器探测 `--version` 并构造受控子进程，未记录 ABI/解释器绝对路径，完整 worker 协议未实现（Check 111 未通过）
 - [ ] T112 [P] [US9] 在 `crates/whcode-runtime/src/gitbash.rs` 实现 Windows PortableGit payload 校验与 Bash/coreutils/管道/重定向验证（V-304） **未完成（2026-10-23 复核）**：`runtime/src/gitbash.rs` 不存在；仅探测 `git.exe --version`，未验证 PortableGit payload 哈希、Bash/coreutils、管道与重定向（`runtime-inventory.md` 亦标“未实现”，Check 112 未通过）
 - [x] T113 [P] [US9] 在 `crates/whcode-runtime/src/bsdshell.rs` 实现 BSD Shell provider，名称与能力不与 `gitbash` 混同（§4.7.1）
-- [ ] T114 [US9] 在 `tests/integration/test_runtime_acceptance.rs` 与 `tests/crash/test_side_effect_recovery.rs` 覆盖 V-301—V-307（含三时点中断 → `unknown`） **未完成（2026-10-23 复核）**：`tests/crash/test_side_effect_recovery.rs` 不存在，V-304 无用例，三时点中断 → `unknown` 无测试（Check 114 未通过）
+- [ ] T114 [US9] 在 `tests/integration/test_runtime_acceptance.rs` 与 `tests/crash/test_side_effect_recovery.rs` 覆盖 V-301—V-307（含三时点中断 → `unknown`） **部分完成（2026-10-23）**：`tests/crash/test_side_effect_recovery.rs` 已交付（四个注入点覆盖三时点中断 → `unknown`，V-105/V-307）；V-304 仍无用例，任务保持未完成（Check 114 未通过）
 
 **Checkpoint**: 运行时能力矩阵与限制可公开声明
 
