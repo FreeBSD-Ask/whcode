@@ -54,76 +54,76 @@
 
 ### Phase 4 US2 M1（T032—T045）
 
-- [ ] Check 32: 14 张表 schema 存在且 `schema_migrations` 可重复执行不报错（来源：Task T032、FR-501）
-- [ ] Check 33: 从上两个受支持 schema 版本的迁移测试通过；人为中断迁移后版本号未前移（来源：Task T033、NFR-103、§7.4）
-- [ ] Check 34: 写者服务测试：队列有界、幂等键去重、500 行/50 ms 阈值可配置、关键事件 flush 返回确认（来源：Task T034、FR-502/503）
-- [ ] Check 35: 游标分页测试：同页请求两次结果一致，向前/向后翻页无重复无遗漏（来源：Task T035、FR-504）
-- [ ] Check 36: events/messages/tasks 索引存在，基准报告显示关键查询使用索引或已论证计划合理（来源：Task T036、§7.2）
-- [ ] Check 37: `session_overview` 预聚合可由原始数据重建且重建结果与统计一致（来源：Task T037、FR-506）
-- [ ] Check 38: 监控输出含数据库统计、查询计划、WAL 状态、写者队列深度四类信息（来源：Task T038、FR-507）
+- [x] Check 32: 14 张表 schema 存在且 `schema_migrations` 可重复执行不报错（来源：Task T032、FR-501）——**复核（2026-10-23，批次二）**：`schema::creates_all_tables_and_is_idempotent`、`version_matches_latest_migration`、`migration_versions_are_strictly_increasing` 通过；迁移脚本 `0001`—`0005` 可重复执行
+- [x] Check 33: 从上两个受支持 schema 版本的迁移测试通过；人为中断迁移后版本号未前移（来源：Task T033、NFR-103、§7.4）——**复核（2026-10-23，批次二）**：`test_migration` 覆盖 v1—v5 逐级升级与 `interrupted_v2/v3_migration_rolls_back_partial_changes`；`schema::failed_migration_does_not_mark_version` 断言失败不前移版本号
+- [x] Check 34: 写者服务测试：队列有界、幂等键去重、500 行/50 ms 阈值可配置、关键事件 flush 返回确认（来源：Task T034、FR-502/503）——**复核（2026-10-23，批次二）**：写者服务：`queue_is_bounded_and_reports_backpressure`、`batch_row_threshold_triggers_commit`、`batch_window_deadline_triggers_commit`、`critical_event_is_committed_and_confirmed`、`batch_row_threshold_is_configurable` 全通过
+- [x] Check 35: 游标分页测试：同页请求两次结果一致，向前/向后翻页无重复无遗漏（来源：Task T035、FR-504）——**复核（2026-10-23，批次二）**：`query::forward_pages_cover_events_without_gaps_or_duplicates`、`backward_pages_…`、`cursors_are_exclusive_in_both_directions`、`page_size_is_bounded_and_validated` 通过
+- [x] Check 36: events/messages/tasks 索引存在，基准报告显示关键查询使用索引或已论证计划合理（来源：Task T036、§7.2）——**复核（2026-10-23，批次二）**：`indexes::required_indexes_exist_after_migration` + `artifacts/query-plan-report.json`（`query_plan_experiment` 记录，逐条给出计划与理由）
+- [x] Check 37: `session_overview` 预聚合可由原始数据重建且重建结果与统计一致（来源：Task T037、FR-506）——**复核（2026-10-23，批次二）**：`overview::rebuild_persists_row_and_load_matches_compute`、`stale_row_is_detected_and_rebuild_refreshes_it`、`consistency_annotation_partitions_fields` 通过（强/最终一致字段已分区）
+- [x] Check 38: 监控输出含数据库统计、查询计划、WAL 状态、写者队列深度四类信息（来源：Task T038、FR-507）——**复核（2026-10-23，批次二）**：`monitor::collect_reports_database_tables_wal_writer_and_plans` 断言四类信息齐备；`plan_query_rejects_write_statements` 拒绝写计划
 - [x] Check 39: 清理操作在活跃会话存在时被拒绝或跳过该会话，且预览输出与实际删除集合一致（来源：Task T039、FR-509）。T039 落地：Skip（默认跳过）/Abort（整体拒绝）双策略，预览与执行两时点复检；预览集合与实际删除集合、各表行数一致由测试断言（`purge.rs`：`preview_selects_by_time_and_reports_protected`、`preview_set_matches_executed_deletions`、`abort_policy_rejects_at_preview_and_execute`）。用户 2026-10-21 复核接受
-- [ ] Check 40: 导出文件含版本与清单，导入校验拒绝不兼容 schema 与重复 ID（来源：Task T040、§7.4）
-- [ ] Check 41: compact 流程在副本校验失败时不切换文件且原库可写（来源：Task T041、V-107）
-- [ ] Check 42: WAL 超阈值触发 checkpoint 的记录可查，高负载路径无强制 checkpoint（来源：Task T042、§5.4）
-- [ ] Check 43: 已确认事务进程终止+重启后，关键事件与状态一致性测试通过（来源：Task T043、V-104）
-- [ ] Check 44: 同一幂等键第二次提交返回首次结果或确定冲突，库内无重复记录（来源：Task T044、V-106）
-- [ ] Check 45: 清理/维护报告含文件大小、WAL、已用块、可用块四项统计（来源：Task T045、FR-510）
+- [x] Check 40: 导出文件含版本与清单，导入校验拒绝不兼容 schema 与重复 ID（来源：Task T040、§7.4）——**复核（2026-10-23，批次二）**：`export::export_import_round_trip_preserves_all_tables`、`import_rejects_format_and_schema_mismatch`、`import_rejects_duplicate_ids_against_populated_target`、`import_rejects_checksum_drift_and_wrong_hash` 通过
+- [x] Check 41: compact 流程在副本校验失败时不切换文件且原库可写（来源：Task T041、V-107）——**复核（2026-10-23，批次二）**：`compact::verify_copy_rejects_missing_index_and_row_drift`、`compact_rejects_missing_db_and_concurrent_maintenance`、`compact_switches_file_and_preserves_data` 通过（校验失败不切换）
+- [x] Check 42: WAL 超阈值触发 checkpoint 的记录可查，高负载路径无强制 checkpoint（来源：Task T042、§5.4）——**复核（2026-10-23，批次二）**：`wal::run_checkpoint_reports_wal_sizes_and_reason`、`policy_overrides_are_effective_and_rejected_when_invalid` 通过；`store/src` 全目录 grep `CHECKPOINT` 仅命 `wal.rs`——写者与查询路径不调用，符合“高负载无强制 checkpoint”
+- [x] Check 43: 已确认事务进程终止+重启后，关键事件与状态一致性测试通过（来源：Task T043、V-104）——**复核（2026-10-23，批次二）**：`committed_transactions_survive_process_abort`（子进程 `abort` 后重开断言 20 个已确认事件完好、seq 唯一）通过
+- [x] Check 44: 同一幂等键第二次提交返回首次结果或确定冲突，库内无重复记录（来源：Task T044、V-106）——**复核（2026-10-23，批次二）**：`duplicate_idempotency_key_does_not_add_rows`、`duplicate_key_across_restart_returns_existing_seq_without_recreation`、`same_key_with_different_payload_is_deterministically_deduplicated` 通过
+- [x] Check 45: 清理/维护报告含文件大小、WAL、已用块、可用块四项统计（来源：Task T045、FR-510）——**复核（2026-10-23，批次二）**：`purge_then_compact_reports_four_statistics_and_keeps_data`、`compact::space_report_counts_wal_when_present` 断言文件/WAL/已用块/可用块四项
 
 ### Phase 5 US3 M2（T046—T055）
 
-- [ ] Check 46: 六个会话命令（new/list/show/rename/archive/delete）各自有通过的正向与失败路径测试（来源：Task T046、FR-101）
-- [ ] Check 47: 切换 10 万事件会话后进程仅加载元数据+概览+有界尾部，内存增量符合冻结预算（来源：Task T047、FR-102、V-101）
-- [ ] Check 48: 任务总览输出含阶段分布、完成度、阻塞、活跃任务四类字段（来源：Task T048、FR-103）
-- [ ] Check 49: 任务详情返回依赖、步骤、产物引用、最近事件、失败原因五类信息（来源：Task T049、FR-104）
-- [ ] Check 50: 无权限调用返回 `permission_denied`（retryable=false），四端错误码一致（来源：Task T050、FR-604）
-- [ ] Check 51: 状态快照含 schema_version 与 event_cursor，且与库内状态一致（来源：Task T051、FR-314）
-- [ ] Check 52: 任务 retry 递增 retry_count；abort 后状态为 aborted 且会话不丢失（来源：Task T052、FR-401/408）
-- [ ] Check 53: 夹具生成器可稳定产出 10 万事件/1 万任务数据集并有规模断言（来源：Task T053）
-- [ ] Check 54: 分页游标在 10 万事件数据集上无重复、无遗漏（边界探测脚本输出零差集）（来源：Task T054、V-101）
-- [ ] Check 55: 概览查询在 1 万任务数据集上报告 p50/p95/p99 且 p95 ≤ 冻结预算（来源：Task T055、V-102）
+- [x] Check 46: 六个会话命令（new/list/show/rename/archive/delete）各自有通过的正向与失败路径测试（来源：Task T046、FR-101）——**复核（2026-10-23，批次二）**：`session::session_lifecycle_commands_roundtrip`（六命令正向）+ `missing_session_reports_not_found_on_show_rename_switch`、`delete_requires_confirmation_and_respects_protection`、`permission_denial_is_uniform_across_all_session_commands`（失败路径）通过
+- [ ] Check 47: 切换 10 万事件会话后进程仅加载元数据+概览+有界尾部，内存增量符合冻结预算（来源：Task T047、FR-102、V-101）——**复核（2026-10-23，批次二）**：**未通过（判据不可满足）**：有界性已实测——`switch_loads_bounded_tail_overview_and_cursor` 断言尾部恒定 50 条，`session_switch` 进程峰值 RSS 69.7 MB（预算 512 MB，`artifacts/resource-report.json`）；但判据要求“符合**冻结**预算”，而 D-06 预算未冻结（V-006），待冻结后复核
+- [x] Check 48: 任务总览输出含阶段分布、完成度、阻塞、活跃任务四类字段（来源：Task T048、FR-103）——**复核（2026-10-23，批次二）**：`app::overview_reports_stage_done_blocked_active_for_both_scopes` 断言阶段分布/完成度/阻塞/活跃四类（会话与工作区两种范围）
+- [x] Check 49: 任务详情返回依赖、步骤、产物引用、最近事件、失败原因五类信息（来源：Task T049、FR-104）——**复核（2026-10-23，批次二）**：`task::detail_returns_five_information_classes`（依赖/步骤/产物引用/最近事件/失败原因）与 `detail_of_healthy_task_has_no_failure_reason…` 通过
+- [x] Check 50: 无权限调用返回 `permission_denied`（retryable=false），四端错误码一致（来源：Task T050、FR-604）——**复核（2026-10-23，批次二）**：`authz::denial_is_permission_denied_and_non_retryable` + 契约 `permission_semantics_identical_for_both_frontends`、`error_codes_are_frontend_agnostic` 通过
+- [x] Check 51: 状态快照含 schema_version 与 event_cursor，且与库内状态一致（来源：Task T051、FR-314）——**复核（2026-10-23，批次二）**：`snapshot::snapshot_fields_match_database_state`、`snapshot_of_empty_session_has_no_overview_or_active_task`、契约 `v207_snapshot_is_single_source_for_all_frontends` 通过
+- [x] Check 52: 任务 retry 递增 retry_count；abort 后状态为 aborted 且会话不丢失（来源：Task T052、FR-401/408）——**复核（2026-10-23，批次二）**：`task::retry_moves_failed_to_ready_and_increments_count_without_touching_session`、`retry_allows_aborted_and_interrupted`、`retry_rejects_completed_running_pending_and_unknown`、`abort_moves_active_to_aborted…` 通过
+- [x] Check 53: 夹具生成器可稳定产出 10 万事件/1 万任务数据集并有规模断言（来源：Task T053）——**复核（2026-10-23，批次二）**：`tests/fixtures/gen_dataset.rs::generate(events, tasks)` 支持任意规模；`overview_perf` 以 1 000 事件 + **10 000 任务**断言 `total == 10 000`，`extreme_scale` 以 **1 000 000 事件**断言精确行数与页数；`dataset_generator_is_deterministic_across_runs` 保证可复现
+- [x] Check 54: 分页游标在 10 万事件数据集上无重复、无遗漏（边界探测脚本输出零差集）（来源：Task T054、V-101）——**复核（2026-10-23，批次二）**：`session_switch_is_bounded_and_cursor_pages_have_no_duplicates_or_gaps`（10 万事件）与 `extreme_scale_pagination_aggregation_cleanup_and_switch`（100 万事件、1000 页、无重无漏）通过
+- [ ] Check 55: 概览查询在 1 万任务数据集上报告 p50/p95/p99 且 p95 ≤ 冻结预算（来源：Task T055、V-102）——**复核（2026-10-23，批次二）**：**未通过（判据不可满足）**：`overview_p95_within_candidate_budget_and_report_is_archived` 实测 p95 7.6 ms 并归档 `artifacts/overview-perf-m2.json`，但比对的是**候选值**；判据要求“≤ **冻结**预算”，D-06 未冻结，待冻结后复核
 
 ### Phase 6 US4 M3（T056—T067）
 
-- [ ] Check 56: Provider 语义六项（能力探测/取消/流式/计量/超时/错误归一化）各有对应测试（来源：Task T056、§8.4）
-- [ ] Check 57: 流式积压注入测试中，关键状态转换事件零丢失，仅展示类事件被合并（来源：Task T057、FR-206）
-- [ ] Check 58: 四个追踪级别行为差异测试通过；redacted 下疑似秘密字段不出现在输出（来源：Task T058、FR-203）
-- [ ] Check 59: 一次调用可在事件流中按 request_id/session_id/task_id/tool_call_id 完整串联（来源：Task T059、FR-204）
-- [ ] Check 60: 上下文加载返回 items+next_cursor+consumed_budget+truncated_reason 四元组（来源：Task T060、FR-105）
-- [ ] Check 61: 压缩后 summary 指针可定位且原始历史仍可完整读取（来源：Task T061、FR-107）
-- [ ] Check 62: 预算视图输出当前预算、装入来源、截断原因三项（来源：Task T062、FR-108）
-- [ ] Check 63: 计量记录区分估算与供应商计量值，估算带 estimate 标记（来源：Task T063、FR-207）
-- [ ] Check 64: 完整性标记四类（缺失 chunk/脱敏/降采样/持久化失败）可被查询（来源：Task T064、FR-208）
-- [ ] Check 65: `events export` 输出头部注明脱敏策略（来源：Task T065、FR-205）
-- [ ] Check 66: 断线重连按游标补拉后，事件集合与在线流一致（来源：Task T066、FR-202）
-- [ ] Check 67: `tests/integration/test_trace_and_context.rs` 全部通过（来源：Task T067、V-103）
+- [x] Check 56: Provider 语义六项（能力探测/取消/流式/计量/超时/错误归一化）各有对应测试（来源：Task T056、§8.4）——**复核（2026-10-23，批次二）**：`provider::provider_contract_six_elements`（能力探测/取消/流式/计量/超时/错误归一化）+ `cancel_takes_effect_before_next_chunk`、`timeout_is_normalized_with_provider_details`、`stub_streams_chunks_and_reports_estimated_usage_on_final` 通过
+- [x] Check 57: 流式积压注入测试中，关键状态转换事件零丢失，仅展示类事件被合并（来源：Task T057、FR-206）——**复核（2026-10-23，批次二）**：`stream::critical_queue_overflow_is_backpressure_not_silent_drop`、`display_overflow_merges_and_leaves_queryable_marker`、`pump_coalesces_progress_and_protects_critical_transitions` 通过
+- [x] Check 58: 四个追踪级别行为差异测试通过；redacted 下疑似秘密字段不出现在输出（来源：Task T058、FR-203）——**复核（2026-10-23，批次二）**：`llm::trace` 四例（off/metadata/redacted/full）行为差异 + `redacted_masks_suspicious_fields_and_marks_integrity` 断言疑似秘密字段不外泄
+- [x] Check 59: 一次调用可在事件流中按 request_id/session_id/task_id/tool_call_id 完整串联（来源：Task T059、FR-204）——**复核（2026-10-23，批次二）**：`correlation::correlation_applies_all_four_ids_and_validates`、`link_groups_by_request_id_and_chain_breaks_are_detectable` 通过
+- [x] Check 60: 上下文加载返回 items+next_cursor+consumed_budget+truncated_reason 四元组（来源：Task T060、FR-105）——**复核（2026-10-23，批次二）**：`context::load_context_returns_contract_tuple_and_reports_truncation_reason` 断言 items/next_cursor/consumed_budget/truncated_reason 四元组
+- [x] Check 61: 压缩后 summary 指针可定位且原始历史仍可完整读取（来源：Task T061、FR-107）——**复核（2026-10-23，批次二）**：`context::compress_records_pointer_without_deleting_history` 断言 summary 指针可定位且原历史仍可读
+- [x] Check 62: 预算视图输出当前预算、装入来源、截断原因三项（来源：Task T062、FR-108）——**复核（2026-10-23，批次二）**：`context_cmd::budget_view_reports_budget_sources_and_truncation_reason` 断言预算/装入来源/截断原因三项
+- [x] Check 63: 计量记录区分估算与供应商计量值，估算带 estimate 标记（来源：Task T063、FR-207）——**复核（2026-10-23，批次二）**：`metering::estimate_marks_cost_as_estimate_and_uses_heuristic`、`provider_reported_keeps_claimed_estimate_flag` 通过
+- [x] Check 64: 完整性标记四类（缺失 chunk/脱敏/降采样/持久化失败）可被查询（来源：Task T064、FR-208）——**复核（2026-10-23，批次二）**：`llm::trace::IntegrityFlags` 四布尔（`missing_chunks`/`redacted`/`downsampled`/`persistence_failed`），`integrity_flags_are_queryable_via_json` 断言 JSON 可查
+- [x] Check 65: `events export` 输出头部注明脱敏策略（来源：Task T065、FR-205）——**复核（2026-10-23，批次二）**：`events_cmd::events_jsonl_first_line_is_header_with_policy`、`events::export_annotates_trace_policy_and_redacts_at_redacted_level`、`export_is_incremental_from_cursor_and_bounded` 通过
+- [x] Check 66: 断线重连按游标补拉后，事件集合与在线流一致（来源：Task T066、FR-202）——**复核（2026-10-23，批次二）**：`replay::replay_fetches_events_after_cursor_and_reports_completion`、`replay_requires_capability` 通过（按游标补拉）；浏览器侧重连一致性见 Check 94
+- [x] Check 67: `tests/integration/test_trace_and_context.rs` 全部通过（来源：Task T067、V-103）——**复核（2026-10-23，批次二）**：`trace_and_context_passes_four_paths`（integration）通过，对应 `tests/integration/test_trace_and_context.rs`
 
 ### Phase 7 US5 M4（T068—T081）
 
-- [ ] Check 68: 工作流配置带版本号，阶段定义含允许输入/必需产物/校验器/转换四要素（来源：Task T068、FR-302）
-- [ ] Check 69: 解析器对损坏样例报告无法解析段落、重复 ID、未识别字段，无信息丢弃（来源：Task T069、FR-303）
-- [ ] Check 70: Constitution 创建/导入产生版本记录，变更留审计（来源：Task T070、FR-301）
-- [ ] Check 71: 需求/任务 ID 稳定：重解析产物后 ID 不变（来源：Task T071、FR-304）
-- [ ] Check 72: 追溯检查：任一任务可回溯至需求与计划决策，断链被检出（来源：Task T072、FR-305）
-- [ ] Check 73: 五类缺陷样例（遗漏需求/孤儿任务/无效引用/循环依赖/覆盖不足）均被 Analyze 检出（来源：Task T073、FR-306）
-- [ ] Check 74: 高优先级澄清未解决时 Plan 转换被应用服务拒绝（非提示词）（来源：Task T074、FR-307/308）
-- [ ] Check 75: 连续 2 次纠偏失败后任务为 blocked，原文与错误可查询（来源：Task T075、FR-309）
-- [ ] Check 76: Converge 对每条验收条件输出 pass/fail/not_tested/not_applicable 之一并附证据引用（来源：Task T076、FR-310）
-- [ ] Check 77: 存在 fail/not_tested 验收条件的任务不得为 completed，且差异报告可查（来源：Task T077、FR-311）
-- [ ] Check 78: `force-advance` 无 `--reason` 时被拒绝；有 reason 时审计含 actor/reason/跳过门禁/产物版本（来源：Task T078、FR-312）
-- [ ] Check 79: 模型调用请求含显式阶段角色字段，取值来自状态机而非历史推断（来源：Task T079、FR-313）
-- [ ] Check 80: 三端请求 spec 状态返回相同阶段、门禁结果与产物版本（来源：Task T080、FR-314）
-- [ ] Check 81: `tests/fixtures/sdd/` 夹具触发 V-201—V-207 七项判定各至少一次（来源：Task T081）
+- [x] Check 68: 工作流配置带版本号，阶段定义含允许输入/必需产物/校验器/转换四要素（来源：Task T068、FR-302）——**复核（2026-10-23，批次二）**：`workflow::stage_definitions_carry_four_elements`（允许输入/必需产物/校验器/转换）、`default_workflow_matches_contract_loop`、`stage_parse_is_strict_on_unknown_names` 通过
+- [x] Check 69: 解析器对损坏样例报告无法解析段落、重复 ID、未识别字段，无信息丢弃（来源：Task T069、FR-303）——**复核（2026-10-23，批次二）**：`parser::reports_unparsable_sections_duplicates_and_unknown_fields`、`parses_all_three_sections_with_annotations` 通过（原文保留，无信息丢弃）
+- [x] Check 70: Constitution 创建/导入产生版本记录，变更留审计（来源：Task T070、FR-301）——**复核（2026-10-23，批次二）**：`constitution::create_import_and_version_records`、`change_audits_and_failing_audit_prevents_change`、`duplicate_article_ids_are_rejected` 通过
+- [x] Check 71: 需求/任务 ID 稳定：重解析产物后 ID 不变（来源：Task T071、FR-304）——**复核（2026-10-23，批次二）**：`ids::normalization_is_stable_across_reparse`、`registry_rejects_unknown_prefix_and_finds_invalid_refs` 通过
+- [x] Check 72: 追溯检查：任一任务可回溯至需求与计划决策，断链被检出（来源：Task T072、FR-305）——**复核（2026-10-23，批次二）**：`trace::forward_and_backward_traces_are_bidirectional`、`trace_gaps_detect_tasks_without_requirement_refs` 通过
+- [x] Check 73: 五类缺陷样例（遗漏需求/孤儿任务/无效引用/循环依赖/覆盖不足）均被 Analyze 检出（来源：Task T073、FR-306）——**复核（2026-10-23，批次二）**：`analyze::five_defects_are_detected_and_gate_fails`、`clean_project_passes_analyze` 通过（集成 `v203_analyze_detects_five_defects_and_blocks_implement`）
+- [x] Check 74: 高优先级澄清未解决时 Plan 转换被应用服务拒绝（非提示词）（来源：Task T074、FR-307/308）——**复核（2026-10-23，批次二）**：`gates::unresolved_clarifications_block_plan_transition` 与应用服务拒绝路径；集成 `v202_unresolved_clarification_blocks_plan` 通过
+- [x] Check 75: 连续 2 次纠偏失败后任务为 blocked，原文与错误可查询（来源：Task T075、FR-309）——**复核（2026-10-23，批次二）**：`parser::correction_exhaustion_blocks_with_original_preserved`、`correction_retry_normalizes_loose_input`；集成 `v204_correction_exhaustion_marks_blocked_with_original` 通过
+- [x] Check 76: Converge 对每条验收条件输出 pass/fail/not_tested/not_applicable 之一并附证据引用（来源：Task T076、FR-310）——**复核（2026-10-23，批次二）**：`converge::all_pass_with_evidence_yields_no_differences`、`pass_without_evidence_and_na_without_note_are_differences`、`untested_criterion_defaults_to_not_tested_and_empty_criteria_rejected` 通过
+- [x] Check 77: 存在 fail/not_tested 验收条件的任务不得为 completed，且差异报告可查（来源：Task T077、FR-311）——**复核（2026-10-23，批次二）**：`converge::fail_and_not_tested_produce_differences_not_silent_completion` 与集成 `v205_failed_acceptance_produces_differences` 通过
+- [x] Check 78: `force-advance` 无 `--reason` 时被拒绝；有 reason 时审计含 actor/reason/跳过门禁/产物版本（来源：Task T078、FR-312）——**复核（2026-10-23，批次二）**：`gates::force_advance_requires_reason_and_audits_full_elements`、`cli::force_advance_requires_reason_per_contract`、集成 `v206_force_advance_audits_full_elements` 通过
+- [x] Check 79: 模型调用请求含显式阶段角色字段，取值来自状态机而非历史推断（来源：Task T079、FR-313）——**复核（2026-10-23，批次二）**：`stage_role::roles_come_from_state_machine_not_history` 断言角色取自状态机
+- [x] Check 80: 三端请求 spec 状态返回相同阶段、门禁结果与产物版本（来源：Task T080、FR-314）——**复核（2026-10-23，批次二）**：契约 `v207_snapshot_is_single_source_for_all_frontends` 与 `same_read_commands_yield_identical_state_across_cui_and_web` 通过（CUI/Web 读命令同源；TUI 经同一 `whcode-app` 快照）
+- [x] Check 81: `tests/fixtures/sdd/` 夹具触发 V-201—V-207 七项判定各至少一次（来源：Task T081）——**复核（2026-10-23，批次二）**：`tests/fixtures/sdd/` 三份违规/澄清夹具驱动集成 `v201`—`v207` 七项判定各至少一次，全部通过
 
 ### Phase 8 US6 M5（T082—T089）
 
 - [x] Check 82: TUI 六视图（会话树/任务/上下文/事件/Spec 状态/diff）均可在固定终端尺寸下截图取证（来源：Task T082、FR-601）——**可执行形式已取得**：单元测试 `six_views_render_at_fixed_terminal_size`（80×24 逐视图帧 + 内容断言）；真实控制台帧 `artifacts/tui-views-2026-10-22.txt`（release 二进制，`1`—`6` 切换逐帧落盘，`script/tui_views_smoke.py` 可重跑）；视图数据源未装配，正文显式“暂无数据”（数据接线见 Check 179 备注）
 - [x] Check 83: 渲染路径无完整历史克隆与帧内 JSON 反序列化（代码审查+基准确认帧预算）（来源：Task T083、§5.3）——**三证**：①结构断言（`render.rs`/`views.rs` 剥离注释与测试模块后无 serde_json）；②帧路径强制限行投影 `render_lines_limited`（帧成本由终端尺寸界定，完整历史不进帧路径——10k 行快照同阶，测试 `limited_projection_is_bounded_and_consistent`）；③帧预算归档 `artifacts/tui-frame-budget.json`（release 实测 p50 250 µs / p95 281 µs，候选预算 p95 ≤ 16 ms **未冻结**）
-- [ ] Check 84: CUI 命令树与 contracts/cui-cli.md §1 一致且 `whcode --help` 可枚举（来源：Task T084、FR-602）
-- [ ] Check 85: 每个 CUI 命令 `--json` 输出含 schema_version；错误输出含四字段（来源：Task T085）
-- [ ] Check 86: 破坏性命令 dry-run 输出与实际执行影响集一致（来源：Task T086、§8.1）
-- [ ] Check 87: `docs/matrices/feature-parity.md` 覆盖全部已交付命令并标注三端支持状态（来源：Task T087、FR-610）
-- [ ] Check 88: TUI/CUI 同命令一致性契约测试通过（最终状态/权限/错误码）（来源：Task T088、V-109）
-- [ ] Check 89: JSON 信封契约测试覆盖全部命令（来源：Task T089）
+- [x] Check 84: CUI 命令树与 contracts/cui-cli.md §1 一致且 `whcode --help` 可枚举（来源：Task T084、FR-602）——**复核（2026-10-23，批次二）**：`cli::command_tree_matches_contract_shape` 通过；`cargo run -p whcode-bin -- --help` 实测枚举 session/run/status/task/spec/events/db/runtime/serve/doctor，与 contracts/cui-cli.md §1 一致（未接线命令在分发层显式报错）
+- [x] Check 85: 每个 CUI 命令 `--json` 输出含 schema_version；错误输出含四字段（来源：Task T085）——**复核（2026-10-23，批次二）**：`all_cui_views_emit_schema_version_envelope`、`success_envelope_carries_schema_version`、`error_envelope_contract_four_fields_and_exit_codes`、`output::exit_codes_are_stable_across_error_codes` 通过
+- [x] Check 86: 破坏性命令 dry-run 输出与实际执行影响集一致（来源：Task T086、§8.1）——**复核（2026-10-23，批次二）**：`confirm::dry_run_consistency_requires_equal_sets`、`default_is_dry_run_and_execution_requires_explicit_yes`、`cli::destructive_commands_carry_dry_run_flags` 通过
+- [x] Check 87: `docs/matrices/feature-parity.md` 覆盖全部已交付命令并标注三端支持状态（来源：Task T087、FR-610）——**复核（2026-10-23，批次二）**：`docs/matrices/feature-parity.md` 已按 `cui_dispatch.rs` 实测复核 CUI 列（2026-10-23），逐命令标注 app/CUI/TUI/Web 状态与未接线清单
+- [x] Check 88: TUI/CUI 同命令一致性契约测试通过（最终状态/权限/错误码）（来源：Task T088、V-109）——**复核（2026-10-23，批次二）**：契约 `cui_command_tree_routes_to_app_capabilities`、`permission_semantics_identical_for_both_frontends`、`error_codes_are_frontend_agnostic`、`same_read_commands_yield_identical_state_across_cui_and_web` 通过
+- [x] Check 89: JSON 信封契约测试覆盖全部命令（来源：Task T089）——**复核（2026-10-23，批次二）**：`all_cui_views_emit_schema_version_envelope`（逐视图枚举）+ `test_json_envelope.rs` 四例覆盖成功/错误/确认默认值信封
 
 ### Phase 9 US7 M6（T090—T095）
 
