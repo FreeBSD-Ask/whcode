@@ -117,7 +117,7 @@
 ### Phase 8 US6 M5（T082—T089）
 
 - [x] Check 82: TUI 六视图（会话树/任务/上下文/事件/Spec 状态/diff）均可在固定终端尺寸下截图取证（来源：Task T082、FR-601）——**可执行形式已取得**：单元测试 `six_views_render_at_fixed_terminal_size`（80×24 逐视图帧 + 内容断言）；真实控制台帧 `artifacts/tui-views-2026-10-22.txt`（release 二进制，`1`—`6` 切换逐帧落盘，`script/tui_views_smoke.py` 可重跑）；视图数据源未装配，正文显式「暂无数据」（数据接线见 Check 179 备注）
-- [x] Check 83: 渲染路径无完整历史克隆与帧内 JSON 反序列化（代码审查+基准确认帧预算）（来源：Task T083、§5.3）——**三证**：①结构断言（`render.rs`/`views.rs` 剥离注释与测试模块后无 serde_json）；②帧路径强制限行投影 `render_lines_limited`（帧成本由终端尺寸界定，完整历史不进帧路径——10k 行快照同阶，测试 `limited_projection_is_bounded_and_consistent`）；③帧预算归档 `artifacts/tui-frame-budget.json`（release 实测 p50 324 µs / p95 448 µs，候选预算 p95 ≤ 16 ms **未冻结**）
+- [x] Check 83: 渲染路径无完整历史克隆与帧内 JSON 反序列化（代码审查+基准确认帧预算）（来源：Task T083、§5.3）——**三证**：①结构断言（`render.rs`/`views.rs` 剥离注释与测试模块后无 serde_json）；②帧路径强制限行投影 `render_lines_limited`（帧成本由终端尺寸界定，完整历史不进帧路径——10k 行快照同阶，测试 `limited_projection_is_bounded_and_consistent`）；③帧预算归档 `artifacts/tui-frame-budget.json`（release 实测 p50 250 µs / p95 281 µs，候选预算 p95 ≤ 16 ms **未冻结**）
 - [ ] Check 84: CUI 命令树与 contracts/cui-cli.md §1 一致且 `whcode --help` 可枚举（来源：Task T084、FR-602）
 - [ ] Check 85: 每个 CUI 命令 `--json` 输出含 schema_version；错误输出含四字段（来源：Task T085）
 - [ ] Check 86: 破坏性命令 dry-run 输出与实际执行影响集一致（来源：Task T086、§8.1）

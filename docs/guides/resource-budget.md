@@ -27,7 +27,7 @@ NFR-215 有界容器纪律。D-06 预算未冻结——本文件把候选值**�
 | C4 | 会话切换响应 | ≤ 200 ms（NFR-207 候选，10 万事件） | T054 有界加载（尾部 50 条恒定）——测量脚本覆盖 |
 | C5 | 任务概览查询 | p95 ≤ 50 ms（NFR-208 候选，1 万任务） | T055 `overview-perf-m2.json`（实测 p95 7.6 ms ✓） |
 | C6 | 历史单页查询 | p95 ≤ 30 ms（NFR-209 候选） | 分页上限 1000（store 既有门禁） |
-| C7 | TUI 帧预算（Check 83） | 帧渲染 p95 ≤ 16 ms（候选，未冻结）；帧成本由终端尺寸界定 | `artifacts/tui-frame-budget.json`（release 实测 p50 324 µs / p95 448 µs，10k 行快照 80×24；限行投影 `render_lines_limited`） |
+| C7 | TUI 帧预算（Check 83） | 帧渲染 p95 ≤ 16 ms（候选，未冻结）；帧成本由终端尺寸界定 | `artifacts/tui-frame-budget.json`（release 实测 p50 250 µs / p95 281 µs，10k 行快照 80×24；限行投影 `render_lines_limited`） |
 
 ### 1.3 判定与处置
 
