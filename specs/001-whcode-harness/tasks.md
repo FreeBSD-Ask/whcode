@@ -223,8 +223,8 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T090 [US7] 在 `crates/whcode-web/src/api.rs` 实现 HTTP API 与 WebSocket，复用应用服务命令/快照/事件（FR-603、ADR-004）
 - [x] T091 [US7] 在 `crates/whcode-web/src/bind.rs` 实现默认 `127.0.0.1` 绑定；对外监听必须显式开启认证与 Origin 检查（FR-606）
 - [x] T092 [US7] 在 `crates/whcode-web/src/security.rs` 实现认证、授权、Origin 校验、消息大小限制，token 不经 URL query（§10.2）
-- [x] T093 [P] [US7] 在 `crates/whcode-web/frontend/` 实现会话、任务、历史、追踪、SDD、清理与运行时业务界面（FR-609）
-- [x] T094 [P] [US7] 在 `crates/whcode-web/frontend/src/events.ts` 实现断线重连与按游标补齐（FR-605）
+- [ ] T093 [P] [US7] 在 `crates/whcode-web/frontend/` 实现会话、任务、历史、追踪、SDD、清理与运行时业务界面（FR-609） **未完成（2026-10-23 复核）**：会话/任务/历史/SDD 四类已交付并在真实浏览器验证；追踪、清理、运行时三类未接入 Web（Check 93/183 未通过）
+- [x] T094 [P] [US7] 在 `crates/whcode-web/frontend/src/events.ts` 实现断线重连与按游标补齐（FR-605）（落点修订：ADR-014 不设打包器，前端为 `frontend/app.js` 单文件，无 `src/events.ts`；重连与游标续拉在 `app.js` 实现，浏览器实测见 `artifacts/web-browser-2026-10-22.txt`）
 - [x] T095 [US7] 在 `tests/contract/test_web_security_defaults.rs` 验证 V-110 安全默认值与三端（含 Web）一致性（V-109）
 
 **Checkpoint**: 三端对等闭环完成
@@ -264,7 +264,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T106 [P] [US9] 在 `crates/whcode-runtime/src/cache.rs` 限制重复执行缓存仅用于纯函数或显式启用缓存的任务（FR-707）
 - [x] T107 [US9] 在 `crates/whcode-runtime/src/errors.rs` 实现能力不足/缺失/不兼容的结构化错误，并接入 Analyze 阻止执行（FR-708/710）
 - [x] T108 [P] [US9] 在 `crates/whcode-speckit/src/converge.rs` 支持绑定运行时测试（命令、环境指纹、退出状态、结果引用）（FR-709）
-- [x] T109 [US9] 在 `crates/whcode-platform/src/process.rs` 实现 Windows 子进程树与 BSD 进程组/信号的终止清理，保留 stderr 尾部（FR-409、§10.2）
+- [x] T109 [US9] 在 `crates/whcode-platform/src/process.rs` 实现 Windows 子进程树与 BSD 进程组/信号的终止清理，保留 stderr 尾部（FR-409、§10.2）（复核注记 2026-10-23：Windows 子进程树经 `taskkill /T /F /PID` 已实现并有用例；**BSD 进程组分支未实现**——`terminate_tree` 在非 Windows 返回结构化错误并注明属 M7，不静默伪装成功；Check 201 的“零残留进程”验证未取得）
 - [ ] T110 [P] [US9] 在 `crates/whcode-runtime/src/js.rs` 接入受限 ECMAScript 引擎，Node API 缺失时返回能力不足（D-08、§4.7.1） **未完成（2026-10-23 复核）**：`runtime/src/js.rs` 不存在，未接入受限 ECMAScript 引擎；`JsProvider` 仅声明 `Restricted` 并在无引擎时返回 `runtime_unavailable`（Check 110 未通过）
 - [ ] T111 [P] [US9] 在 `crates/whcode-runtime/src/python.rs` 实现 Python 子进程 worker 与受限实现档位（D-09、§4.7.1） **未完成（2026-10-23 复核）**：`runtime/src/python.rs` 不存在；`PythonProvider` 仅以系统解释器探测 `--version` 并构造受控子进程，未记录 ABI/解释器绝对路径，完整 worker 协议未实现（Check 111 未通过）
 - [ ] T112 [P] [US9] 在 `crates/whcode-runtime/src/gitbash.rs` 实现 Windows PortableGit payload 校验与 Bash/coreutils/管道/重定向验证（V-304） **未完成（2026-10-23 复核）**：`runtime/src/gitbash.rs` 不存在；仅探测 `git.exe --version`，未验证 PortableGit payload 哈希、Bash/coreutils、管道与重定向（`runtime-inventory.md` 亦标“未实现”，Check 112 未通过）
