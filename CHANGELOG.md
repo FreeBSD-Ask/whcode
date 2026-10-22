@@ -13,6 +13,16 @@
 
 ### 变更
 
+- T082/T083/T129/T135 TUI 接线 + T136 收口 + T128 配置接线（2026-10-22）：六视图接入
+  真实运行循环（`1`—`6` 切换、`ViewSource` 准备层、`EmptyViewSource` 空数据源显式
+  「暂无数据」不伪造）；脏标记门控与空闲零重绘进入循环，重放证据 `run_scripted_steps`
+  与真实循环共用 `LoopCore`（探测计数/最小化跳过/还原单次重绘均断言）；窗口最小化
+  探测接线（ADR-021 修订：仅待绘制帧 + 输入静默 ≥1s 时探测、间隔 5s→60s 指数退避、
+  检测到最小化回落 5s——空闲零探测）；帧路径限行投影 `render_lines_limited`（帧成本
+  由终端尺寸界定，帧预算归档 `artifacts/tui-frame-budget.json`，release p95 448 µs）；
+  主题经 `ui.theme` + `WHCODE_UI_THEME` 选择并进入渲染单元（FR-612）；前端审计扩展
+  `suspend.js` 与 NFR-212 断言（运行时路径禁 GPU 上下文探测、无 `requestAnimationFrame`）；
+  真实控制台六视图取证 `artifacts/tui-views-2026-10-22.txt`。
 - T068—T081 SDD 门禁状态机（M4）：`whcode-speckit` 交付版本化工作流配置与应用层
   状态机（FR-302）、Markdown 解析器（未解析段落/重复 ID/未识别字段报告 + 纠偏重试
   ≤2 次，仍失败 blocked 并保留原文，FR-303/309/R-06）、Constitution 创建/导入/变更
@@ -111,6 +121,14 @@
 - 契约测试新增 workspace lints 继承校验，确保全部成员保持 `unsafe_code = "forbid"`；
   clippy 增 `mem_forget = "deny"`。
 - 新增 `docs/guides/test-model-sensenova.md`，记录图像输入实测与 `thinking` 对象形态。
+
+### 修复
+
+- `whcode-tui` 的 `theme` 模块此前**未在 `lib.rs` 声明**（文件在盘但未编译，测试从未
+  运行）——已声明并接线（T128 收口，2026-10-22）。
+- `tests/stability/run_stability.sh` 工作负载（`extreme_scale` 循环）在异常退出路径
+  **不清理**：曾遗留负载循环 4 小时（干扰后续构建与测试）。修复：`EXIT`/`INT`/`TERM`
+  trap + `taskkill /T` 进程树清理（Windows 无进程组语义，单杀子 shell 不终止 cargo 下游）。
 
 ### 计划
 

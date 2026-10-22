@@ -8,11 +8,20 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use whcode_domain::{TraceLevel, WhError};
 use whcode_platform::{paths, resources};
+use whcode_tui::Theme;
 
 /// DuckDB 缓冲管理器默认内存上限（MiB），§5.4。
 pub const DEFAULT_MEMORY_LIMIT_MB: u32 = 192;
 /// DuckDB 缓冲管理器候选最大内存上限（MiB），§5.4。
 pub const CANDIDATE_MAX_MEMORY_LIMIT_MB: u32 = 384;
+
+/// UI 配置（FR-612）：主题经配置选择（`ui.theme`），可被环境变量 `WHCODE_UI_THEME` 覆盖。
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct UiConfig {
+    /// 渲染主题；默认 `eink-day`（ui-design §主题：最保守、最省电）。
+    #[serde(default)]
+    pub theme: Theme,
+}
 
 /// 数据库配置基线（§5.4）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,6 +57,9 @@ pub struct Config {
     pub db: DbConfig,
     /// 追踪基线。
     pub trace: TraceConfig,
+    /// UI 基线（主题等，FR-612）。
+    #[serde(default)]
+    pub ui: UiConfig,
 }
 
 impl Config {
@@ -65,6 +77,7 @@ impl Config {
                 max_temp_directory_size_mb: None,
             },
             trace: TraceConfig::default(),
+            ui: UiConfig::default(),
             workspace_path,
         }
     }
@@ -95,6 +108,38 @@ impl Config {
         }
         Ok(())
     }
+
+    /// 生效主题：环境变量 `WHCODE_UI_THEME` 优先于配置值（ui-design §主题：可覆盖）。
+    #[must_use]
+    pub fn effective_theme(&self) -> Theme {
+        self.theme_from_override(std::env::var("WHCODE_UI_THEME").ok().as_deref())
+    }
+
+    /// [`Config::effective_theme`] 的纯函数形式（不触碰进程环境，可测试）。
+    ///
+    /// 覆盖值非法时输出警告并回落配置值——环境变量笔误不得拒绝启动（错误可见、
+    /// 可改、可撤销），但也不静默：警告写明合法取值与生效值。
+    #[must_use]
+    pub fn theme_from_override(&self, override_value: Option<&str>) -> Theme {
+        let Some(raw) = override_value else {
+            return self.ui.theme;
+        };
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return self.ui.theme;
+        }
+        match trimmed.parse::<Theme>() {
+            Ok(theme) => theme,
+            Err(_) => {
+                eprintln!(
+                    "WHCODE_UI_THEME={trimmed:?} 不是合法主题\
+                     （amoled-night/eink-day/eink-night），使用配置值 {}",
+                    self.ui.theme.as_str()
+                );
+                self.ui.theme
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -113,6 +158,11 @@ mod tests {
         assert_eq!(config.trace.default_level, TraceLevel::Redacted);
         assert_eq!(config.db.temp_directory, PathBuf::from("D:/ws").join("tmp"));
         assert_eq!(config.db.max_temp_directory_size_mb, None);
+        assert_eq!(
+            config.ui.theme,
+            Theme::EinkDay,
+            "ui-design §主题：默认 eink-day（最保守、最省电）"
+        );
     }
 
     #[test]
@@ -157,5 +207,69 @@ mod tests {
             .check_temp_directory()
             .expect_err("不存在的临时目录必须报错");
         assert_eq!(err.code, whcode_domain::ErrorCode::IoError);
+    }
+
+    /// FR-612：`ui.theme` 参与 JSON 往返；未给出 `ui` 键时取默认值。
+    #[test]
+    fn ui_theme_roundtrips_and_defaults() {
+        let mut config = Config::for_workspace("/tmp/ws");
+        config.ui.theme = Theme::AmoledNight;
+        let json = serde_json::to_string_pretty(&config).expect("序列化");
+        assert!(json.contains("\"theme\": \"amoled-night\""), "{json}");
+        let restored = Config::from_json(&json).expect("反序列化");
+        assert_eq!(restored.ui.theme, Theme::AmoledNight);
+
+        let without_ui = r#"{
+            "workspace_path": "/tmp/ws",
+            "db": {
+                "memory_limit_mb": 96,
+                "max_memory_limit_mb": 384,
+                "threads": 2,
+                "temp_directory": "/tmp/ws/tmp",
+                "max_temp_directory_size_mb": null
+            },
+            "trace": { "default_level": "redacted" }
+        }"#;
+        let config = Config::from_json(without_ui).expect("缺 ui 键应取默认值");
+        assert_eq!(config.ui.theme, Theme::EinkDay);
+        // 非法主题名必须显式失败（可操作错误），不得静默回落。
+        let bad = without_ui.replace(
+            "\"trace\"",
+            "\"ui\": { \"theme\": \"midnight\" }, \"trace\"",
+        );
+        let err = Config::from_json(&bad).expect_err("未知主题名必须失败");
+        assert_eq!(err.code, whcode_domain::ErrorCode::ParseError);
+    }
+
+    /// 环境变量覆盖：合法值生效、空值忽略、非法值可见回落（警告 + 配置值）。
+    #[test]
+    fn theme_override_is_visible_and_reversible() {
+        let mut config = Config::for_workspace("/tmp/ws");
+        config.ui.theme = Theme::EinkNight;
+        assert_eq!(
+            config.theme_from_override(None),
+            Theme::EinkNight,
+            "无覆盖取配置值"
+        );
+        assert_eq!(
+            config.theme_from_override(Some("  ")),
+            Theme::EinkNight,
+            "空白覆盖视为未设置"
+        );
+        assert_eq!(
+            config.theme_from_override(Some("amoled-night")),
+            Theme::AmoledNight,
+            "合法覆盖生效"
+        );
+        assert_eq!(
+            config.theme_from_override(Some(" eink-day ")),
+            Theme::EinkDay,
+            "覆盖值两端空白被容忍"
+        );
+        assert_eq!(
+            config.theme_from_override(Some("midnight")),
+            Theme::EinkNight,
+            "非法覆盖回落配置值（不拒绝启动）"
+        );
     }
 }

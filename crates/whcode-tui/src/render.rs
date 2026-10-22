@@ -70,28 +70,47 @@ impl Renderer {
         }
     }
 
-    /// 渲染快照：仅脏且未最小化时绘制（返回 `true` = 实际绘制）；
-    /// 最小化期间跳过并计数（关键事件已记账，还原后单次全量补绘）。
-    pub fn render(&mut self, snapshot: &ViewSnapshot) -> bool {
+    /// 渲染快照：仅脏且未最小化时返回**待绘制的文本行**（实际写入终端由调用方完成）；
+    /// 未脏（空闲）或最小化时返回 `None`。
+    ///
+    /// `max_lines` 为帧路径的行数上界（终端行数，Check 83 帧预算）：投影只格式化可见
+    /// 行——帧成本由终端尺寸界定，与快照行数无关（完整行数由准备层按「有界尾部」裁剪）。
+    ///
+    /// - 空闲期零重绘（T129）：未脏时不增加重绘计数；
+    /// - 最小化门控（T135/FR-617）：跳过绘制并计数（关键事件已按类型记账置脏，
+    ///   还原后单次全量补绘）。
+    #[must_use]
+    pub fn render(&mut self, snapshot: &ViewSnapshot, max_lines: usize) -> Option<Vec<String>> {
         if self.minimized {
             if self.dirty {
                 self.skipped_while_minimized += 1;
             }
-            return false;
+            return None;
         }
         if !self.dirty {
-            return false; // 空闲期零重绘（T129）。
+            return None; // 空闲期零重绘（T129）。
         }
         self.dirty = false;
         self.redraw_count += 1;
-        let _ = snapshot.render_lines(); // 只读消费；不反序列化（§5.3）。
-        true
+        Some(snapshot.render_lines_limited(max_lines)) // 只读投影；不反序列化（§5.3）。
     }
 
-    /// 强制单次全量重绘（还原路径，FR-617）。
-    pub fn force_full_redraw(&mut self, snapshot: &ViewSnapshot) -> bool {
+    /// 强制单次全量重绘（还原路径，FR-617）：返回待绘制的文本行。
+    #[must_use]
+    pub fn force_full_redraw(
+        &mut self,
+        snapshot: &ViewSnapshot,
+        max_lines: usize,
+    ) -> Option<Vec<String>> {
         self.dirty = true;
-        self.render(snapshot)
+        self.render(snapshot, max_lines)
+    }
+
+    /// 是否存在待绘制帧（脏）——事件循环据此决定是否进入最小化探测
+    /// （T135/ADR-021：无待绘制帧时不探测，空闲成本为零）。
+    #[must_use]
+    pub const fn is_dirty(&self) -> bool {
+        self.dirty
     }
 
     /// 重绘计数（T129 空闲期零重绘断言的可执行依据）。
@@ -137,34 +156,43 @@ mod tests {
         ViewSnapshot::empty(ViewId::Sessions)
     }
 
-    /// T083：脏标记重绘——重绘后清脏，数据未变不重绘。
+    /// T083：脏标记重绘——重绘后清脏，数据未变不重绘；返回的文本行即帧内容。
     #[test]
     fn dirty_flag_redraws_only_when_dirty() {
         let mut renderer = Renderer::new();
-        assert!(renderer.render(&snapshot()), "首帧必须绘制");
+        let expected = snapshot().render_lines();
+        assert_eq!(
+            renderer.render(&snapshot(), 24),
+            Some(expected.clone()),
+            "首帧必须绘制且给出文本行"
+        );
         assert_eq!(renderer.redraw_count(), 1);
 
         // 空闲期：数据未变不重绘（T129 零重绘）。
-        assert!(!renderer.render(&snapshot()), "未脏不得重绘");
+        assert!(renderer.render(&snapshot(), 24).is_none(), "未脏不得重绘");
         renderer.handle_event(RenderEvent::IdleTick);
-        assert!(!renderer.render(&snapshot()), "空闲心跳不得触发重绘");
+        assert!(
+            renderer.render(&snapshot(), 24).is_none(),
+            "空闲心跳不得触发重绘"
+        );
         assert_eq!(renderer.redraw_count(), 1, "空闲期零重绘（T129）");
 
         // 数据变更：置脏后重绘一次。
         renderer.handle_event(RenderEvent::DataChanged);
-        assert!(renderer.render(&snapshot()));
+        assert_eq!(renderer.render(&snapshot(), 24), Some(expected));
         assert_eq!(renderer.redraw_count(), 2);
+        assert!(!renderer.is_dirty(), "重绘后必须清脏");
     }
 
     /// T129：空闲期零重绘——连续空闲心跳重绘计数不增。
     #[test]
     fn idle_period_has_zero_redraws() {
         let mut renderer = Renderer::new();
-        renderer.render(&snapshot());
+        let _ = renderer.render(&snapshot(), 24);
         let baseline = renderer.redraw_count();
         for _ in 0..100 {
             renderer.handle_event(RenderEvent::IdleTick);
-            renderer.render(&snapshot());
+            assert!(renderer.render(&snapshot(), 24).is_none());
         }
         assert_eq!(
             renderer.redraw_count(),
@@ -177,24 +205,31 @@ mod tests {
     #[test]
     fn minimize_gates_drawing_and_restores_with_full_redraw() {
         let mut renderer = Renderer::new();
-        renderer.render(&snapshot());
+        let _ = renderer.render(&snapshot(), 24);
         let before = renderer.redraw_count();
 
         renderer.handle_event(RenderEvent::Minimized);
         assert!(renderer.is_minimized());
         // 首帧后已清脏：无待绘制帧可跳过，跳过计数为 0。
-        assert!(!renderer.render(&snapshot()), "最小化期间跳过绘制");
+        assert!(
+            renderer.render(&snapshot(), 24).is_none(),
+            "最小化期间跳过绘制"
+        );
         assert_eq!(renderer.skipped_while_minimized(), 0);
 
         // 关键事件在最小化期间继续记账置脏（FR-617）：待绘制帧被跳过并计数。
         renderer.handle_event(RenderEvent::CriticalTransition);
-        assert!(!renderer.render(&snapshot()), "仍最小化，不绘制");
+        assert!(renderer.is_dirty(), "关键转换在最小化期间仍置脏记账");
+        assert!(
+            renderer.render(&snapshot(), 24).is_none(),
+            "仍最小化，不绘制"
+        );
         assert_eq!(renderer.skipped_while_minimized(), 1);
 
         // 还原：单次全量重绘。
         renderer.handle_event(RenderEvent::Restored);
         assert!(
-            renderer.force_full_redraw(&snapshot()),
+            renderer.force_full_redraw(&snapshot(), 24).is_some(),
             "还原后单次全量重绘"
         );
         assert_eq!(renderer.redraw_count(), before + 1);

@@ -2,98 +2,212 @@
 //!
 //! ratatui/crossterm 终端界面：会话树、任务、上下文、事件、Spec 状态、diff 预览（FR-601）。
 //!
-//! **当前状态：M0 最小闭环原型已实现（tasks.md T024 / V-003 的逻辑层）。** 已交付：终端
-//! 尺寸探测、进入/恢复的生命周期守卫、键盘输入、resize、退出与异常恢复的可测试核心，以及
-//! 由主程序装配的真实事件循环。六视图与渲染纪律已交付（T082/T083/T129：[`views`]/
-//! [`render`]——只读快照、脏标记重绘、空闲期零重绘、不在帧路径反序列化 JSON）。
+//! **当前状态：六视图与渲染纪律已接入真实运行循环（T082/T083/T129/T135 接线）。**
+//! 已交付并接线：终端尺寸探测、进入/恢复的生命周期守卫、键盘输入（含 `1`—`6` 视图
+//! 切换）、resize、退出与异常恢复；六视图（[`views`]）经 [`ViewSource`] 准备层供给
+//! 只读快照；[`Renderer`] 脏标记门控重绘（空闲期零重绘，T129）；窗口最小化探测
+//! （[`RunOptions::minimize_probe`]，T135/ADR-021）在最小化期间跳过绘制、还原后
+//! 单次全量重绘；主题精确色值（[`theme`]，FR-612）经 [`RunOptions::theme`] 应用。
 //!
 //! 渲染纪律（§5.3）：渲染线程只读取不可变快照或轻量状态，**不**执行 LLM 网络 I/O、阻塞
 //! 数据库查询或长时间工具调用；以脏标记或事件驱动触发重绘；不在渲染帧路径反序列化完整
 //! JSON payload。所有状态变更经 `whcode-app` 命令，本 crate 不得直接触库（ADR-003）。
+//!
+//! 数据接线边界（诚实标注）：本 crate 当前只交付**视图与渲染接线**；六视图的业务数据
+//! 由装配根经 [`ViewSource`] 注入，`whcode-bin` 目前传入 [`EmptyViewSource`]（应用服务
+//! 数据源装配前六视图可切换、可绘制，帧内显式提示「暂无数据」）。
 
 mod event;
 mod render;
 mod session;
 mod state;
+mod theme;
 mod views;
 
+#[cfg(test)]
+mod tests_support;
+
 use std::io;
+use std::time::{Duration, Instant};
 
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
+use ratatui::layout::{Constraint, Layout};
+use ratatui::style::{Color, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph};
 use whcode_domain::{ErrorCode, WhError};
 
 pub use event::UiEvent;
 pub use render::{RenderEvent, Renderer};
-pub use session::{CrosstermSession, TerminalGuard, TerminalSession};
+pub use session::{CrosstermSession, PollOutcome, TerminalGuard, TerminalSession};
 pub use state::TuiState;
-pub use views::{DiffLine, EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot};
+pub use theme::Theme;
+pub use views::{DiffLine, EventRow, SessionRow, TaskRow, VIEW_COUNT, ViewId, ViewSnapshot};
 
 /// 探测不到尺寸时使用的兜底尺寸（列, 行）。
 const DEFAULT_SIZE: (u16, u16) = (80, 24);
+
+/// 事件轮询超时：空闲唤醒粒度。无事件时也周期性回到循环头（心跳与低频探测都在此处）。
+const POLL_TIMEOUT: Duration = Duration::from_millis(250);
+
+/// 输入静默阈值：键/resize 事件本身即证明窗口可见；静默 ≥ 此值后才值得探测最小化。
+const QUIET_BEFORE_PROBE: Duration = Duration::from_secs(1);
+
+/// 最小化探测的最小间隔（ADR-021：≥ 5s——探测成本 200—500ms/次，不得高频调用）；
+/// 检测到最小化后回落此值，以尽快发现还原。
+const MINIMIZE_PROBE_INTERVAL: Duration = Duration::from_secs(5);
+
+/// 最小化探测的退避上限：连续「未最小化」结果后最多 60s 探一次
+/// （≈ 0.5% 单核占用的上界，NFR-205 空闲 CPU 预算之内；空闲无待绘制帧时完全不探测）。
+const MAX_PROBE_INTERVAL: Duration = Duration::from_secs(60);
+
+/// 无终端重放模式的模拟时钟步长（每步 1s；使 ≥1s/≥5s 之类阈值在重放中可复现）。
+const SCRIPT_STEP: Duration = Duration::from_secs(1);
 
 /// 把 I/O 错误包装为结构化 `WhError`。
 pub(crate) fn io_error(action: &str, err: io::Error) -> WhError {
     WhError::new(ErrorCode::IoError, format!("{action}：{err}"))
 }
 
-/// 启动最小 TUI 闭环：进入会话、画一帧、按事件循环直至退出（tasks.md T024、FR-601）。
+/// 视图数据源（准备层）：为给定视图准备**只读快照**（T082 接线）。
+///
+/// 实现方必须立即返回纯数据：查询/整理应在调用方的准备阶段完成，不得在快照准备中
+/// 执行 LLM 网络 I/O 或长时间工具调用（§5.3 渲染线程纪律）。视图切换与数据变更时
+/// 各准备一次；**帧路径不反序列化 JSON**（快照即纯数据）。
+pub trait ViewSource {
+    /// 准备指定视图的只读快照。
+    fn snapshot(&self, view: ViewId) -> ViewSnapshot;
+}
+
+/// 空数据源：应用服务数据源装配前的默认实现——六视图可切换、可绘制，帧内提示「暂无数据」。
+#[derive(Debug, Default, Clone, Copy)]
+pub struct EmptyViewSource;
+
+impl ViewSource for EmptyViewSource {
+    fn snapshot(&self, view: ViewId) -> ViewSnapshot {
+        ViewSnapshot::empty(view)
+    }
+}
+
+/// TUI 运行选项。
+#[derive(Default)]
+pub struct RunOptions<'a> {
+    /// 渲染主题（FR-612）；默认 `eink-day`（ui-design 默认值：最保守、最省电）。
+    pub theme: Theme,
+    /// 窗口最小化探测（T135/FR-617）：`Some` 时由事件循环低频调用
+    /// （仅在有**待绘制帧**且输入静默 ≥1s 时；间隔 5s→60s 退避，ADR-021）。
+    /// `None` = 不探测（门控保持「未最小化」，行为与接线前一致）。
+    pub minimize_probe: Option<&'a dyn Fn() -> Option<bool>>,
+}
+
+/// 启动 TUI 闭环：默认数据源（空）、默认主题、不探测最小化（tasks.md T024、FR-601）。
+///
+/// # Errors
+///
+/// 进入终端、初始化渲染后端、绘制或读取事件失败时返回 `WhError`（`io_error`）。
+pub fn run() -> Result<(), WhError> {
+    run_with(&EmptyViewSource, RunOptions::default())
+}
+
+/// 启动 TUI 闭环：装配根注入数据源、主题与最小化探测。
 ///
 /// 终端生命周期由 [`TerminalGuard`] 管理——任何提前返回或 panic 都会触发恢复。
 ///
 /// # Errors
 ///
 /// 进入终端、初始化渲染后端、绘制或读取事件失败时返回 `WhError`（`io_error`）。
-pub fn run() -> Result<(), WhError> {
+pub fn run_with(source: &dyn ViewSource, options: RunOptions<'_>) -> Result<(), WhError> {
     let mut session = CrosstermSession::new();
     let mut guard = TerminalGuard::enter(&mut session)?;
 
     let (cols, rows) = guard.session().size().unwrap_or(DEFAULT_SIZE);
-    let mut state = TuiState::new(cols, rows);
+    let mut core = LoopCore::new(source, cols, rows, Instant::now());
 
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))
         .map_err(|err| io_error("初始化终端失败", err))?;
 
-    while !state.quit() {
-        terminal
-            .draw(|frame| draw_frame(frame, &state))
-            .map_err(|err| io_error("绘制界面失败", err))?;
-        match guard.session_mut().next_event()? {
-            Some(event) => state.handle(event),
+    while !core.state.quit() {
+        let now = Instant::now();
+        // 低频最小化探测（ADR-021：非帧路径；仅待绘制帧 + 输入静默时）。
+        if let Some(probe) = options.minimize_probe {
+            core.maybe_probe(probe, now);
+        }
+        // 脏标记门控：仅脏且未最小化时绘制（T083/T129/T135）。
+        if let Some(lines) = core.render_frame() {
+            terminal
+                .draw(|frame| draw_frame(frame, &core.state, &lines, options.theme))
+                .map_err(|err| io_error("绘制界面失败", err))?;
+        }
+        match guard.session_mut().poll_event(POLL_TIMEOUT)? {
+            PollOutcome::Event(event) => core.on_input(event, Instant::now()),
+            PollOutcome::Timeout => core.on_idle(),
             // 输入流结束（例如管道关闭）：退出循环，终端交由 guard 恢复。
-            None => break,
+            PollOutcome::Eof => break,
         }
     }
     Ok(())
 }
 
-/// 无终端重放：按顺序把事件喂给 [`TuiState`]，返回最终状态报告（供自动化证据）。
-///
-/// 初始尺寸未知，置 `(0, 0)`，由 `Resize` 事件更新。循环在 `quit` 置位时停止，因此
-/// `events_consumed` 可能小于 `events.len()`——与真实事件循环“退出即停”的语义保持一致。
-#[must_use]
-pub fn run_scripted(events: &[UiEvent]) -> ScriptReport {
-    let mut state = TuiState::new(0, 0);
-    let mut events_consumed = 0;
-    for event in events {
-        state.handle(*event);
-        events_consumed += 1;
-        if state.quit() {
-            break;
-        }
-    }
-    ScriptReport {
-        quit: state.quit(),
-        cols: state.cols(),
-        rows: state.rows(),
-        keys_seen: state.keys_seen(),
-        events_consumed,
-    }
+/// 无终端重放的一个步骤（供自动化证据；与真实循环共用 [`LoopCore`] 逻辑）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScriptStep {
+    /// 输入事件（键盘/resize；收到输入即证明窗口可见，直接置脏绘制且不触发探测）。
+    Input(UiEvent),
+    /// 数据变更通知（模拟应用服务数据通道：**不**视为输入——需经最小化探测门控）。
+    DataChanged,
+    /// 空闲心跳（一次轮询超时；不置脏——T129）。
+    Idle,
 }
 
-/// [`run_scripted`] 的最终状态报告。
+/// 无终端重放：按步骤驱动与真实循环相同的核心逻辑，返回最终报告（供自动化证据）。
+///
+/// 时间模型：初始时刻为创建时，每步前进 [`SCRIPT_STEP`]（1s）；每步之后执行
+/// 「最小化探测判断 → 渲染判断」，与真实循环的循环体顺序一致。`quit` 置位后
+/// 不再消费剩余步骤（与真实循环「退出即停」语义一致）。
+#[must_use]
+pub fn run_scripted_steps(
+    source: &dyn ViewSource,
+    steps: &[ScriptStep],
+    options: &RunOptions<'_>,
+) -> ScriptReport {
+    let mut now = Instant::now();
+    let mut core = LoopCore::new(source, 0, 0, now);
+    let mut events_consumed = 0;
+    let mut steps_consumed = 0;
+    for step in steps {
+        if core.state.quit() {
+            break;
+        }
+        now += SCRIPT_STEP;
+        match step {
+            ScriptStep::Input(event) => {
+                core.on_input(*event, now);
+                events_consumed += 1;
+            }
+            ScriptStep::DataChanged => core.on_data_changed(),
+            ScriptStep::Idle => core.on_idle(),
+        }
+        steps_consumed += 1;
+        if let Some(probe) = options.minimize_probe {
+            core.maybe_probe(probe, now);
+        }
+        let _ = core.render_frame();
+    }
+    core.report(events_consumed, steps_consumed)
+}
+
+/// 无终端重放（输入事件便捷入口）：等价于把每个事件作为 [`ScriptStep::Input`]。
+#[must_use]
+pub fn run_scripted(events: &[UiEvent]) -> ScriptReport {
+    let steps: Vec<ScriptStep> = events
+        .iter()
+        .map(|event| ScriptStep::Input(*event))
+        .collect();
+    run_scripted_steps(&EmptyViewSource, &steps, &RunOptions::default())
+}
+
+/// [`run_scripted_steps`] 的最终状态报告。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ScriptReport {
     /// 结束时是否已请求退出。
@@ -102,32 +216,212 @@ pub struct ScriptReport {
     pub cols: u16,
     /// 结束时的行数。
     pub rows: u16,
-    /// 已接收的非退出字符键数量。
+    /// 已接收的非退出、非导航字符键数量。
     pub keys_seen: usize,
-    /// 实际消费的事件数量（`quit` 置位后不再消费）。
+    /// 实际消费的输入事件数量（`quit` 置位后不再消费）。
     pub events_consumed: usize,
+    /// 实际消费的重放步骤数量（含输入/数据变更/空闲）。
+    pub steps_consumed: usize,
+    /// 结束时的当前视图。
+    pub view: ViewId,
+    /// 实际产生的重绘次数（渲染门控放行的帧数）。
+    pub redraws: usize,
+    /// 最小化期间跳过绘制的累计次数（FR-617）。
+    pub skipped_while_minimized: usize,
+    /// 最小化探测的实际调用次数（T135/ADR-021 成本证据）。
+    pub probes: usize,
+    /// 结束时是否处于最小化门控。
+    pub minimized: bool,
 }
 
-/// 画最小一帧：标题、当前状态与退出提示。
-fn draw_frame(frame: &mut ratatui::Frame<'_>, state: &TuiState) {
-    let lines = vec![
-        Line::from(format!(
-            "窗口尺寸：{} 列 × {} 行",
-            state.cols(),
-            state.rows()
-        )),
-        Line::from(format!("已接收按键（不含退出键）：{}", state.keys_seen())),
-        Line::from("按 q 或 Ctrl-C 退出"),
-    ];
+/// 事件循环核心：状态 + 渲染器 + 视图快照 + 最小化探测时序（无终端依赖）。
+///
+/// 真实循环（[`run_with`]）与无终端重放（[`run_scripted_steps`]）共用本结构——
+/// 保证重放证据与真实行为同源，而不是另写一套仿真。
+struct LoopCore<'a> {
+    state: TuiState,
+    renderer: Renderer,
+    snapshot: ViewSnapshot,
+    source: &'a dyn ViewSource,
+    last_input_at: Instant,
+    last_probe_at: Instant,
+    probe_interval: Duration,
+    probes: usize,
+    redraws: usize,
+    skipped: usize,
+}
+
+impl<'a> LoopCore<'a> {
+    fn new(source: &'a dyn ViewSource, cols: u16, rows: u16, now: Instant) -> Self {
+        let state = TuiState::new(cols, rows);
+        Self {
+            snapshot: source.snapshot(state.view()),
+            state,
+            renderer: Renderer::new(),
+            source,
+            last_input_at: now,
+            last_probe_at: now,
+            probe_interval: MINIMIZE_PROBE_INTERVAL,
+            probes: 0,
+            redraws: 0,
+            skipped: 0,
+        }
+    }
+
+    /// 输入事件（键/resize）：更新状态并置脏；收到输入即证明窗口可见——若此前处于
+    /// 最小化门控则按「还原」记账（还原后单次全量重绘，FR-617）。视图切换时重新
+    /// 准备快照（准备层允许做同步整理，但不得做 LLM/长工具调用，§5.3）。
+    fn on_input(&mut self, event: UiEvent, now: Instant) {
+        self.last_input_at = now;
+        self.state.handle(event);
+        if self.renderer.is_minimized() {
+            self.renderer.handle_event(RenderEvent::Restored);
+        }
+        let view = self.state.view();
+        if self.snapshot.view != view {
+            self.snapshot = self.source.snapshot(view);
+        }
+        self.renderer.handle_event(RenderEvent::DataChanged);
+    }
+
+    /// 数据变更通知（模拟应用服务数据通道；本 crate 尚无数据通道，暂由重放步骤注入）。
+    fn on_data_changed(&mut self) {
+        self.renderer.handle_event(RenderEvent::DataChanged);
+    }
+
+    /// 空闲心跳：不置脏（T129 空闲期零重绘）。
+    fn on_idle(&mut self) {
+        self.renderer.handle_event(RenderEvent::IdleTick);
+    }
+
+    /// 最小化探测（T135/ADR-021）：仅在有**待绘制帧**且输入静默 ≥1s 时调用；
+    /// 连续「未最小化」结果按指数退避（5s→60s 上限），检测到最小化后回落 5s。
+    ///
+    /// 成本纪律：空闲（无待绘制帧）与连续输入期间**不探测**——无待绘制帧时探测
+    /// 不改变任何行为，只会白烧 200—500ms；输入连续时窗口必然可见。
+    fn maybe_probe(&mut self, probe: &dyn Fn() -> Option<bool>, now: Instant) {
+        if !self.renderer.is_dirty() {
+            return;
+        }
+        if now.duration_since(self.last_input_at) < QUIET_BEFORE_PROBE {
+            return;
+        }
+        if now.duration_since(self.last_probe_at) < self.probe_interval {
+            return;
+        }
+        self.last_probe_at = now;
+        self.probes += 1;
+        match probe() {
+            Some(true) => {
+                self.renderer.handle_event(RenderEvent::Minimized);
+                // 已最小化：心跳回落到最小间隔，尽快发现还原（还原后单次全量重绘）。
+                self.probe_interval = MINIMIZE_PROBE_INTERVAL;
+            }
+            Some(false) => {
+                if self.renderer.is_minimized() {
+                    self.renderer.handle_event(RenderEvent::Restored);
+                }
+                self.probe_interval = (self.probe_interval * 2).min(MAX_PROBE_INTERVAL);
+            }
+            None => {
+                // 平台不支持或探测失败：不改变门控状态（不伪装），按退避继续低频复核。
+                self.probe_interval = (self.probe_interval * 2).min(MAX_PROBE_INTERVAL);
+            }
+        }
+    }
+
+    /// 尝试渲染一帧：返回待绘制文本行；最小化期间跳过并计入累计（FR-617）。
+    fn render_frame(&mut self) -> Option<Vec<String>> {
+        let was_minimized = self.renderer.is_minimized();
+        let frame = self.renderer.render(&self.snapshot, self.frame_limit());
+        match frame {
+            Some(lines) => {
+                self.redraws += 1;
+                Some(lines)
+            }
+            None => {
+                if was_minimized && self.renderer.is_dirty() {
+                    self.skipped += 1; // 最小化期间的待绘制帧被跳过（关键事件已记账）。
+                }
+                None
+            }
+        }
+    }
+
+    /// 帧路径行数上界（Check 83 帧预算）：终端行数——帧成本由终端尺寸界定；
+    /// 脚本模式初始尺寸未知（0）时按兜底尺寸。
+    fn frame_limit(&self) -> usize {
+        match self.state.rows() {
+            0 => usize::from(DEFAULT_SIZE.1),
+            rows => usize::from(rows),
+        }
+    }
+
+    fn report(&self, events_consumed: usize, steps_consumed: usize) -> ScriptReport {
+        ScriptReport {
+            quit: self.state.quit(),
+            cols: self.state.cols(),
+            rows: self.state.rows(),
+            keys_seen: self.state.keys_seen(),
+            events_consumed,
+            steps_consumed,
+            view: self.state.view(),
+            redraws: self.redraws,
+            skipped_while_minimized: self.skipped,
+            probes: self.probes,
+            minimized: self.renderer.is_minimized(),
+        }
+    }
+}
+
+/// 画一帧：标题（视图名/序号）、视图文本、页脚（尺寸/按键/快捷键提示），
+/// 应用主题精确色值（FR-612）。纯投影：不做查询、不反序列化 JSON（§5.3）。
+fn draw_frame(frame: &mut ratatui::Frame<'_>, state: &TuiState, lines: &[String], theme: Theme) {
+    let (background, foreground) = theme.colors();
+    let style = match (theme::parse_rgb(background), theme::parse_rgb(foreground)) {
+        (Some(bg), Some(fg)) => Style::default()
+            .fg(Color::Rgb(fg.0, fg.1, fg.2))
+            .bg(Color::Rgb(bg.0, bg.1, bg.2)),
+        _ => Style::default(), // 常量色值恒合法；防御式回退到终端默认配色。
+    };
+
+    let view = state.view();
     let block = Block::default()
+        .style(style)
         .borders(Borders::ALL)
-        .title("whcode TUI —— M0 最小闭环原型");
-    frame.render_widget(Paragraph::new(lines).block(block), frame.area());
+        .title(format!(
+            "whcode —— {}（{}/{}）",
+            view.title(),
+            view.index(),
+            VIEW_COUNT
+        ));
+    let area = frame.area();
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let chunks = Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(inner);
+    let body: Vec<Line<'_>> = if lines.is_empty() {
+        // 数据源未装配（或视图为空）：显式提示，不伪造内容（不伪装原则）。
+        vec![Line::from("（暂无数据）")]
+    } else {
+        lines.iter().map(|line| Line::from(line.as_str())).collect()
+    };
+    frame.render_widget(Paragraph::new(body).style(style), chunks[0]);
+    let footer = format!(
+        "窗口 {}×{} · 按键 {} · 1—6 切换视图 · q 退出",
+        state.cols(),
+        state.rows(),
+        state.keys_seen()
+    );
+    frame.render_widget(Paragraph::new(Line::from(footer)).style(style), chunks[1]);
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{UiEvent, run_scripted};
+    use super::{RunOptions, ScriptStep, UiEvent, ViewId, run_scripted, run_scripted_steps};
+    use crate::tests_support::{
+        FakeProbe, fixture_snapshot, render_empty_frame, render_fixture_frame, view_switch_key,
+    };
 
     #[test]
     fn scripted_run_consumes_all_events_when_not_quitting() {
@@ -148,6 +442,7 @@ mod tests {
             events.len(),
             "无退出事件时应消费全部事件"
         );
+        assert_eq!(report.view, ViewId::Sessions, "默认视图为会话");
     }
 
     #[test]
@@ -170,5 +465,276 @@ mod tests {
         assert!(!report.quit);
         assert_eq!(report.events_consumed, 0);
         assert_eq!((report.cols, report.rows, report.keys_seen), (0, 0, 0));
+        assert_eq!(report.redraws, 0, "无步骤不绘制");
+    }
+
+    /// T082：`1`—`6` 视图切换进入真实循环逻辑（重放报告给出最终视图）。
+    #[test]
+    fn scripted_run_switches_views_with_digit_keys() {
+        for view in ViewId::ALL {
+            let steps = [ScriptStep::Input(UiEvent::Key(view_switch_key(view)))];
+            let report = run_scripted_steps(&EmptySourceForTest, &steps, &RunOptions::default());
+            assert_eq!(report.view, view, "键应切换到 {view:?}");
+            assert_eq!(report.keys_seen, 0, "导航键不计入普通按键");
+        }
+    }
+
+    /// T083/T129：空闲（无事件）零重绘——100 个空闲步骤不增加重绘计数。
+    #[test]
+    fn scripted_idle_steps_produce_zero_redraws() {
+        let single = [ScriptStep::Input(UiEvent::Key('a'))];
+        let baseline = run_scripted_steps(&EmptySourceForTest, &single, &RunOptions::default());
+        assert_eq!(baseline.redraws, 1, "一次输入绘制一帧");
+
+        let mut with_idle = vec![ScriptStep::Input(UiEvent::Key('a'))];
+        with_idle.extend(std::iter::repeat_n(ScriptStep::Idle, 100));
+        let report = run_scripted_steps(&EmptySourceForTest, &with_idle, &RunOptions::default());
+        assert_eq!(
+            report.redraws, baseline.redraws,
+            "100 个空闲步骤必须零重绘（T129）"
+        );
+        assert_eq!(report.probes, 0, "无探测源时不得探测");
+        assert_eq!(report.steps_consumed, 101);
+    }
+
+    /// T135：数据变更 + 静默 → 探测到最小化则跳过绘制；还原后单次全量重绘（FR-617）。
+    ///
+    /// 时间线（每步 1s；探测间隔 5s）：第 12 步数据变更触发探测 1（最小化）；
+    /// 第 17 步探测 2（仍最小化）；第 22 步探测 3（已还原 → 单次全量重绘）。
+    #[test]
+    fn scripted_minimize_gates_redraws_and_restores_once() {
+        let probe = FakeProbe::new([Some(true), Some(true), Some(false)]);
+        let probe_fn = probe.closure();
+        let options = RunOptions {
+            minimize_probe: Some(&probe_fn),
+            ..RunOptions::default()
+        };
+        let mut steps = vec![ScriptStep::DataChanged];
+        steps.extend(std::iter::repeat_n(ScriptStep::Idle, 10));
+        steps.push(ScriptStep::DataChanged);
+        steps.extend(std::iter::repeat_n(ScriptStep::Idle, 10));
+        let report = run_scripted_steps(&EmptySourceForTest, &steps, &options);
+
+        assert_eq!(report.probes, 3, "仅在有待绘制帧且静默时探测");
+        assert_eq!(report.redraws, 2, "最小化期间不重绘；还原后单次全量重绘");
+        assert!(!report.minimized, "第三次探测报告已还原");
+        assert_eq!(
+            report.skipped_while_minimized, 10,
+            "第 12—21 步共 10 次渲染尝试在最小化期间被跳过（每次尝试计数，与 Renderer 同语义）"
+        );
+    }
+
+    /// T135 成本纪律：无待绘制帧（空闲）时**不探测**——空闲成本为零。
+    #[test]
+    fn scripted_idle_without_pending_frames_never_probes() {
+        let probe = FakeProbe::new([Some(true)]);
+        let probe_fn = probe.closure();
+        let options = RunOptions {
+            minimize_probe: Some(&probe_fn),
+            ..RunOptions::default()
+        };
+        let steps: Vec<ScriptStep> = std::iter::repeat_n(ScriptStep::Idle, 200).collect();
+        let report = run_scripted_steps(&EmptySourceForTest, &steps, &options);
+        assert_eq!(report.probes, 0);
+        assert_eq!(report.redraws, 1, "仅初始帧绘制一次");
+        assert_eq!(probe.calls(), 0);
+    }
+
+    /// T135 成本纪律：连续输入（静默 < 1s）期间**不探测**——输入即证明窗口可见。
+    #[test]
+    fn scripted_continuous_input_never_probes() {
+        let probe = FakeProbe::new([Some(true)]);
+        let probe_fn = probe.closure();
+        let options = RunOptions {
+            minimize_probe: Some(&probe_fn),
+            ..RunOptions::default()
+        };
+        let steps: Vec<ScriptStep> =
+            std::iter::repeat_n(ScriptStep::Input(UiEvent::Key('a')), 30).collect();
+        let report = run_scripted_steps(&EmptySourceForTest, &steps, &options);
+        assert_eq!(report.probes, 0);
+        assert_eq!(report.redraws, 30, "每个输入各绘制一帧");
+        assert_eq!(probe.calls(), 0);
+    }
+
+    /// T135：输入事件证明窗口可见——最小化判定被输入「还原」并单次全量重绘。
+    #[test]
+    fn scripted_input_proves_window_visible_and_restores() {
+        let probe = FakeProbe::new([Some(true)]);
+        let probe_fn = probe.closure();
+        let options = RunOptions {
+            minimize_probe: Some(&probe_fn),
+            ..RunOptions::default()
+        };
+        let mut steps = vec![ScriptStep::DataChanged];
+        steps.extend(std::iter::repeat_n(ScriptStep::Idle, 11));
+        steps.push(ScriptStep::DataChanged); // 第 13 步：触发探测 → 最小化，帧被跳过
+        steps.push(ScriptStep::Input(UiEvent::Key('a'))); // 第 14 步：输入 → 还原 + 全量重绘
+        let report = run_scripted_steps(&EmptySourceForTest, &steps, &options);
+        assert!(!report.minimized, "输入后门控必须解除");
+        assert_eq!(report.redraws, 2, "初始帧 + 还原后的单次全量重绘");
+        assert_eq!(report.probes, 1);
+        assert_eq!(report.skipped_while_minimized, 1);
+    }
+
+    /// Check 82：六视图在固定终端尺寸（80×24）下渲染出稳定文本帧（截图取证的可执行形式）。
+    #[test]
+    fn six_views_render_at_fixed_terminal_size() {
+        for view in ViewId::ALL {
+            let text = render_fixture_frame(view, 80, 24);
+            println!("===== TUI VIEW: {} =====", view.as_str());
+            print!("{text}");
+            assert!(
+                text.contains(&format!("whcode —— {}（{}/6）", view.title(), view.index())),
+                "{view:?} 帧必须含视图标题"
+            );
+            assert!(text.contains("1—6 切换视图"), "{view:?} 帧必须含快捷键提示");
+            assert!(text.contains("q 退出"), "{view:?} 帧必须含退出提示");
+            for line in fixture_snapshot(view).render_lines() {
+                assert!(
+                    line.is_empty() || text.contains(line.as_str()),
+                    "{view:?} 帧必须包含准备层数据行 {line:?}"
+                );
+            }
+            // 尺寸固定：恰好 24 行（多余列按终端裁剪语义承载，不越界的断言在数据行上）。
+            assert_eq!(text.lines().count(), 24, "{view:?} 帧必须为 24 行");
+        }
+    }
+
+    /// FR-612：主题色值实际进入渲染单元（背景精确为纯黑/纯白）。
+    #[test]
+    fn theme_colors_are_applied_to_cells() {
+        use ratatui::style::Color;
+
+        use crate::tests_support::frame_buffer;
+        let eink = frame_buffer(ViewId::Sessions, 40, 10, crate::Theme::EinkDay);
+        let amoled = frame_buffer(ViewId::Sessions, 40, 10, crate::Theme::AmoledNight);
+        assert_eq!(eink.content()[0].bg, Color::Rgb(0xFF, 0xFF, 0xFF));
+        assert_eq!(eink.content()[0].fg, Color::Rgb(0, 0, 0));
+        assert_eq!(amoled.content()[0].bg, Color::Rgb(0, 0, 0));
+        assert_eq!(amoled.content()[0].fg, Color::Rgb(0xE6, 0xE6, 0xE6));
+    }
+
+    /// 空数据源帧：显式「暂无数据」，不伪造内容。
+    #[test]
+    fn empty_source_renders_explicit_placeholder() {
+        let text = render_empty_frame(ViewId::Tasks, 60, 12);
+        assert!(text.contains("（暂无数据）"), "空视图必须显式提示：{text}");
+        assert!(text.contains("任务（2/6）"));
+    }
+
+    /// Check 83（帧预算）：帧渲染分位数归档到 `artifacts/tui-frame-budget.json`。
+    ///
+    /// 测量纪律（§5.2 同族）：固定夹具（10k 行事件快照）、预热 5 次、采样 50 次，
+    /// 报告微秒分位数；对比的是**候选**预算（未冻结）。
+    ///
+    /// 两段测量：
+    /// 1. **帧路径**（`render_lines_limited(rows)` + 绘制到 80×24 缓冲）——帧成本由
+    ///    终端尺寸界定：10k 行快照与有界快照同阶（这是帧预算断言的对象）；
+    /// 2. **完整投影参照**（`render_lines()` 全部 10k 行）——仅作参照记录：若把完整
+    ///    历史带进帧路径，单帧即达毫秒级，故有界尾部必须由准备层（V-101）裁剪。
+    #[test]
+    fn frame_budget_is_measured_and_archived() {
+        use std::time::Instant;
+
+        use super::{EventRow, ViewSnapshot};
+        use crate::tests_support::draw_snapshot;
+
+        const WARMUP: usize = 5;
+        const SAMPLES: usize = 50;
+        const CANDIDATE_P95_BUDGET_US: u128 = 16_000;
+
+        let mut snapshot = ViewSnapshot::empty(ViewId::Events);
+        snapshot.events = (1..=10_000)
+            .map(|seq| EventRow {
+                seq,
+                kind: "StreamingChunk".into(),
+                summary: format!("chunk {seq}/10000"),
+            })
+            .collect();
+
+        let percentile = |samples: &[u128], p: usize| -> u128 {
+            let index = ((SAMPLES - 1) * p) / 100;
+            samples[index]
+        };
+
+        // 1) 帧路径（有界投影 + 绘制；与真实循环同路径）。
+        for _ in 0..WARMUP {
+            let _ = draw_snapshot(&snapshot, 80, 24, crate::Theme::EinkDay);
+        }
+        let mut frame_samples: Vec<u128> = Vec::with_capacity(SAMPLES);
+        for _ in 0..SAMPLES {
+            let started = Instant::now();
+            let _ = draw_snapshot(&snapshot, 80, 24, crate::Theme::EinkDay);
+            frame_samples.push(started.elapsed().as_micros());
+        }
+        frame_samples.sort_unstable();
+        let (p50, p95, p99) = (
+            percentile(&frame_samples, 50),
+            percentile(&frame_samples, 95),
+            percentile(&frame_samples, 99),
+        );
+        assert!(p50 <= p95 && p95 <= p99, "分位数必须单调");
+        eprintln!(
+            "TUI 帧渲染（事件视图 10k 行快照，80×24，有界投影）：p50 {p50} µs / \
+             p95 {p95} µs / p99 {p99} µs（候选预算 p95 ≤ {CANDIDATE_P95_BUDGET_US} µs；未冻结）"
+        );
+        assert!(
+            p95 <= CANDIDATE_P95_BUDGET_US,
+            "帧渲染 p95 {p95} µs 超出候选预算 {CANDIDATE_P95_BUDGET_US} µs（Check 83）；\
+             须走性能归因流程（NFR-216）"
+        );
+
+        // 2) 完整投影参照（不进帧路径；记录为何准备层必须有界裁剪）。
+        let started = Instant::now();
+        let full = snapshot.render_lines();
+        let full_projection_us = started.elapsed().as_micros();
+        assert_eq!(full.len(), 10_000, "参照测量必须覆盖完整 10k 行");
+        drop(full);
+        eprintln!(
+            "完整投影参照（10k 行全量格式化，不进帧路径）：{full_projection_us} µs/次——\
+             准备层按有界尾部（V-101）裁剪，帧路径只做限行投影"
+        );
+
+        let payload = serde_json::json!({
+            "task": "T083/T129",
+            "fixture": { "view": "events", "rows": 10_000, "terminal": "80x24" },
+            "measurement": {
+                "warmup": WARMUP,
+                "samples": SAMPLES,
+                "unit": "microseconds",
+                "clock": "std::time::Instant",
+                "scope": "frame_path = render_lines_limited(rows) + draw_frame -> TestBackend buffer (含主题应用；不含文本提取)",
+                "profile": if cfg!(debug_assertions) { "debug（未优化，数量级偏悲观；release 运行约低一个数量级）" } else { "release" }
+            },
+            "p50_us": p50,
+            "p95_us": p95,
+            "p99_us": p99,
+            "reference_full_projection_us": full_projection_us,
+            "budget": {
+                "candidate_p95_us": CANDIDATE_P95_BUDGET_US,
+                "frozen": false,
+                "note": "候选预算未冻结（同 D-06 家族）：缺跨平台基线与 72h 时间序列；本报告不作验收承诺"
+            },
+            "platform": "windows-amd64",
+            "date": "2026-10-22"
+        });
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../artifacts/tui-frame-budget.json");
+        std::fs::write(
+            &path,
+            serde_json::to_vec_pretty(&payload).expect("序列化报告"),
+        )
+        .expect("写入帧预算报告");
+        eprintln!("帧预算报告已写入 {}", path.display());
+    }
+
+    /// 测试用空数据源（与 [`super::EmptyViewSource`] 等价，独立声明以固定证据语义）。
+    struct EmptySourceForTest;
+
+    impl super::ViewSource for EmptySourceForTest {
+        fn snapshot(&self, view: ViewId) -> super::ViewSnapshot {
+            super::ViewSnapshot::empty(view)
+        }
     }
 }

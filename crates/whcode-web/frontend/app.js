@@ -10,7 +10,10 @@ const state = {
   connected: false,
 };
 
-import { SuspendMachine, State, probeGpu } from "./suspend.js";
+// T136/FR-617：只接线挂起状态机；`probeGpu` 不被运行时路径调用——
+// WHCode 前端不使用 Canvas/WebGL（ADR-014/FR-618），运行时调用探测即创建 GPU 上下文，
+// 违反 NFR-212（默认不创建）。未来引入 Canvas 时按 gui-suspend §3.1 先探测后降级。
+import { SuspendMachine, State } from "./suspend.js";
 
 const el = (id) => document.getElementById(id);
 

@@ -5,6 +5,7 @@
 //! “退出”与“异常也恢复”（V-003 的逻辑层证据）。
 
 use std::io;
+use std::time::{Duration, Instant};
 
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
@@ -14,7 +15,21 @@ use whcode_domain::WhError;
 use crate::event::{UiEvent, map_event};
 use crate::io_error;
 
-/// 一次终端会话：尺寸探测、进入/恢复、阻塞读事件。
+/// 带超时轮询的结果（[`TerminalSession::poll_event`]）。
+///
+/// 区分超时与 EOF 是必要的：超时只表示“这一轮没有事件”（事件循环继续低频探测/
+/// 心跳），EOF 表示输入流已结束（须退出循环并恢复终端）——两者不得混为一谈。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PollOutcome {
+    /// 收到一个归一化事件。
+    Event(UiEvent),
+    /// 超时未收到事件。
+    Timeout,
+    /// 输入流结束（如终端被关闭）。
+    Eof,
+}
+
+/// 一次终端会话：尺寸探测、进入/恢复、带超时轮询事件。
 ///
 /// 实现者负责让 `enter` 与 `restore` 成对使用；配对由 [`TerminalGuard`] 强制。
 pub trait TerminalSession {
@@ -24,8 +39,8 @@ pub trait TerminalSession {
     fn enter(&mut self) -> Result<(), WhError>;
     /// 把终端恢复到进入前状态。
     fn restore(&mut self) -> Result<(), WhError>;
-    /// 阻塞读取下一个归一化事件；输入流结束返回 `Ok(None)`。
-    fn next_event(&mut self) -> Result<Option<UiEvent>, WhError>;
+    /// 等待至多 `timeout`，返回下一个归一化事件、超时或 EOF。
+    fn poll_event(&mut self, timeout: Duration) -> Result<PollOutcome, WhError>;
 }
 
 /// 生产实现：经 crossterm 操作标准输出。
@@ -64,16 +79,25 @@ impl TerminalSession for CrosstermSession {
         leave.and(raw)
     }
 
-    fn next_event(&mut self) -> Result<Option<UiEvent>, WhError> {
+    fn poll_event(&mut self, timeout: Duration) -> Result<PollOutcome, WhError> {
+        let deadline = Instant::now() + timeout;
         loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            let ready = crossterm::event::poll(remaining)
+                .map_err(|err| io_error("轮询终端事件失败", err))?;
+            if !ready {
+                return Ok(PollOutcome::Timeout);
+            }
             match crossterm::event::read() {
                 Ok(event) => {
                     if let Some(ui) = map_event(event) {
-                        return Ok(Some(ui));
+                        return Ok(PollOutcome::Event(ui));
                     }
-                    // 与最小闭环无关的事件：跳过，继续阻塞等待下一个。
+                    // 与 TUI 无关的事件（鼠标、按键释放等）：跳过，继续等待。
                 }
-                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
+                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => {
+                    return Ok(PollOutcome::Eof);
+                }
                 Err(err) => return Err(io_error("读取终端事件失败", err)),
             }
         }
@@ -160,8 +184,9 @@ mod tests {
     use std::collections::VecDeque;
     use std::panic::{AssertUnwindSafe, catch_unwind};
     use std::rc::Rc;
+    use std::time::Duration;
 
-    use super::{TerminalGuard, TerminalSession};
+    use super::{PollOutcome, TerminalGuard, TerminalSession};
     use crate::event::UiEvent;
     use whcode_domain::{ErrorCode, WhError};
 
@@ -216,8 +241,11 @@ mod tests {
             }
         }
 
-        fn next_event(&mut self) -> Result<Option<UiEvent>, WhError> {
-            Ok(self.events.pop_front())
+        fn poll_event(&mut self, _timeout: Duration) -> Result<PollOutcome, WhError> {
+            Ok(match self.events.pop_front() {
+                Some(event) => PollOutcome::Event(event),
+                None => PollOutcome::Timeout,
+            })
         }
     }
 
@@ -285,12 +313,28 @@ mod tests {
             fn restore(&mut self) -> Result<(), WhError> {
                 panic!("未进入的会话不应被恢复");
             }
-            fn next_event(&mut self) -> Result<Option<UiEvent>, WhError> {
-                Ok(None)
+            fn poll_event(&mut self, _timeout: Duration) -> Result<PollOutcome, WhError> {
+                Ok(PollOutcome::Eof)
             }
         }
 
         let mut session = FailingEnter;
         assert!(TerminalGuard::enter(&mut session).is_err());
+    }
+
+    /// 替身轮询语义：队列有事件时逐个给出，随后返回超时（事件循环据此走空闲心跳）。
+    #[test]
+    fn fake_poll_reports_events_then_timeout() {
+        let recorder = Rc::new(RefCell::new(Recorder::default()));
+        let mut session = FakeSession::new(recorder);
+        session.events.push_back(UiEvent::Key('a'));
+        assert_eq!(
+            session.poll_event(Duration::ZERO).expect("轮询"),
+            PollOutcome::Event(UiEvent::Key('a'))
+        );
+        assert_eq!(
+            session.poll_event(Duration::ZERO).expect("轮询"),
+            PollOutcome::Timeout
+        );
     }
 }

@@ -2,9 +2,10 @@
 """极简前端基线审计（T137、FR-618、ADR-014）。
 
 规则（FR-618 预算）：
-  - JS ≤ 50 KB（gzip 压缩后）；
+  - JS ≤ 50 KB（gzip 压缩后；审计 app.js 与 suspend.js）；
   - CSS ≤ 20 KB（gzip 压缩后）；
   - 无 WebGL / 视频 / 自动播放；
+  - 运行时路径（app.js）不得创建/探测 GPU 上下文（NFR-212）；
   - 无第三方字体、无第三方 JS 依赖、无 node 构建链产物（package.json / node_modules）。
 
 用法：python ci/benchmarks/check-frontend-budget.py   # 审计，违规即非零退出
@@ -21,7 +22,12 @@ JS_BUDGET_BYTES = 50 * 1024
 CSS_BUDGET_BYTES = 20 * 1024
 
 FORBIDDEN_MARKERS = {
-    ".js": [b"new WebSocket(", b"<video", b"autoplay"],
+    ".js": [
+        b"new WebSocket(",
+        b"<video",
+        b"autoplay",
+        b"requestanimationframe(",
+    ],
     ".html": [b"<video", b"autoplay"],
 }
 
@@ -36,7 +42,7 @@ def main() -> int:
         return 1
 
     failures: list[str] = []
-    for name in ["app.js", "index.html", "styles.css"]:
+    for name in ["app.js", "suspend.js", "index.html", "styles.css"]:
         path = FRONTEND / name
         if not path.is_file():
             failures.append(f"缺少 {name}")
@@ -53,6 +59,18 @@ def main() -> int:
             failures.append(
                 f"{name} gzip {gzip_size(data)} 字节超过预算 {CSS_BUDGET_BYTES}（FR-618）"
             )
+
+    # NFR-212：运行时路径不得创建/探测 GPU 上下文——app.js 不得调用 getContext/probeGpu
+    # （suspend.js 的 probeGpu 是显式启用的能力探测，未被运行时路径调用；见 app.js 注释）。
+    app = FRONTEND / "app.js"
+    if app.is_file():
+        text = app.read_bytes().lower()
+        # 标记按“调用形态”匹配（允许注释中提及函数名，不允许实际调用）。
+        for marker in [b"getcontext(", b"probegpu("]:
+            if marker in text:
+                failures.append(
+                    f"app.js 含 {marker.decode()}：运行时路径不得创建/探测 GPU 上下文（NFR-212）"
+                )
 
     for banned in ["package.json", "node_modules"]:
         if (FRONTEND / banned).exists():

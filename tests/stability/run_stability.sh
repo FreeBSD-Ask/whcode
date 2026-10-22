@@ -56,6 +56,19 @@ if [[ "${WORKLOAD:-0}" == "1" ]]; then
     echo "工作负载已启动（PID $WORKLOAD_PID）：extreme_scale 循环（写入/查询/删除）"
 fi
 
+# 工作负载清理（2026-10-22 实测缺陷修复）：异常退出（Ctrl-C、父 shell 被杀、
+# set -e 触发）曾导致负载循环遗留 4 小时（agent 会话中断遗产）。清理必须：
+#   1. 覆盖 EXIT/INT/TERM 三条路径；
+#   2. 杀**进程树**（taskkill /T）——单独 kill 子 shell 不会终止其子进程
+#      cargo.exe 及其下游（Windows 无进程组语义）。
+cleanup_workload() {
+    if [[ -n "${WORKLOAD_PID:-}" ]]; then
+        taskkill //PID "$WORKLOAD_PID" //T //F >/dev/null 2>&1 || kill "$WORKLOAD_PID" 2>/dev/null || true
+        WORKLOAD_PID=""
+    fi
+}
+trap cleanup_workload EXIT INT TERM
+
 SAMPLES=""
 for i in $(seq 1 "$TOTAL_SAMPLES"); do
     TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -86,10 +99,8 @@ done
 # 输出时间序列（去尾逗号）。
 printf '{"task": "T116", "duration_hours": %s, "smoke": %s, "samples": [%s]}\n' \
     "$HOURS" "$SMOKE" "${SAMPLES%,}" > "$OUT_FILE"
-# 终止工作负载。
-if [[ -n "$WORKLOAD_PID" ]]; then
-    kill "$WORKLOAD_PID" 2>/dev/null || true
-fi
+# 终止工作负载（正常路径显式调用；异常路径由 EXIT trap 兜底）。
+cleanup_workload
 
 echo "时间序列已写入 $OUT_FILE"
 echo "注意：24/72 小时连续执行的稳定性结论须以非冒烟运行的结果为准（T116 验收）。"

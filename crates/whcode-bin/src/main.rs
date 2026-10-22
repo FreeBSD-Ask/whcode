@@ -36,7 +36,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("bench") => bench_command(&args[1..]),
-        _ => launch_interactive(),
+        _ => launch_interactive(&args),
     }
 }
 
@@ -170,23 +170,42 @@ fn print_bench_summary(report: &bench::BaselineReport, out: &Path) {
 ///
 /// 双重判定（B-05 实测教训）：仅 `terminal_size()` 会把“管道 stdin + 控制台 stdout”
 /// 误判为可用 TUI（输出侧有控制台），导致挂起；`stdin_is_interactive()` 补上输入侧检查。
-fn launch_interactive() -> ExitCode {
-    if whcode_platform::term::terminal_size().is_some()
-        && whcode_platform::term::stdin_is_interactive()
+/// 交互入口：有交互控制台时进入 TUI；否则打印骨架提示。
+///
+/// 装配根接线（T082/T083/T129/T135）：
+/// - 主题（FR-612）经配置 `ui.theme` 选择，可被 `WHCODE_UI_THEME` 覆盖；
+/// - 最小化探测（T135/ADR-021）注入 `whcode-platform` 的 `is_window_minimized`
+///   ——事件循环只在「有待绘制帧且输入静默」时低频调用（≥5s 间隔，非帧路径）；
+/// - 视图数据源：应用服务装配前传空数据源，六视图可切换、显式显示「暂无数据」。
+fn launch_interactive(args: &[String]) -> ExitCode {
+    if !(whcode_platform::term::terminal_size().is_some()
+        && whcode_platform::term::stdin_is_interactive())
     {
-        return match whcode_tui::run() {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(err) => {
-                eprintln!("TUI 运行失败：{err}");
-                ExitCode::FAILURE
-            }
-        };
+        println!("whcode {} —— 骨架阶段", env!("CARGO_PKG_VERSION"));
+        println!("可用：--version、doctor [--config PATH] [--json]");
+        println!("其余命令自 M2 起交付（specs/001-whcode-harness/tasks.md）");
+        return ExitCode::SUCCESS;
     }
 
-    println!("whcode {} —— 骨架阶段", env!("CARGO_PKG_VERSION"));
-    println!("可用：--version、doctor [--config PATH] [--json]");
-    println!("其余命令自 M2 起交付（specs/001-whcode-harness/tasks.md）");
-    ExitCode::SUCCESS
+    let theme = match load_config(args) {
+        Ok(config) => config.effective_theme(),
+        Err(err) => {
+            eprintln!("配置加载失败（TUI 使用默认主题）：{err}");
+            whcode_tui::Theme::default()
+        }
+    };
+    let probe: fn() -> Option<bool> = whcode_platform::term::is_window_minimized;
+    let options = whcode_tui::RunOptions {
+        theme,
+        minimize_probe: Some(&probe),
+    };
+    match whcode_tui::run_with(&whcode_tui::EmptyViewSource, options) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("TUI 运行失败：{err}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 fn doctor(args: &[String]) {

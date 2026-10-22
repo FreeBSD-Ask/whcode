@@ -11,6 +11,9 @@
 
 use serde::Serialize;
 
+/// 视图总数（切换键 1—6 与之一一对应）。
+pub const VIEW_COUNT: usize = 6;
+
 /// 视图标识（六视图，FR-601）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum ViewId {
@@ -29,6 +32,16 @@ pub enum ViewId {
 }
 
 impl ViewId {
+    /// 全部视图（固定顺序：切换键 `1`—`6` 依次对应）。
+    pub const ALL: [ViewId; VIEW_COUNT] = [
+        Self::Sessions,
+        Self::Tasks,
+        Self::Context,
+        Self::Events,
+        Self::Spec,
+        Self::Diff,
+    ];
+
     /// 稳定标识（配置与切换）。
     #[must_use]
     pub const fn as_str(self) -> &'static str {
@@ -39,6 +52,46 @@ impl ViewId {
             Self::Events => "events",
             Self::Spec => "spec",
             Self::Diff => "diff",
+        }
+    }
+
+    /// 显示标题（帧标题与切换提示；FR-601 六视图名称）。
+    #[must_use]
+    pub const fn title(self) -> &'static str {
+        match self {
+            Self::Sessions => "会话",
+            Self::Tasks => "任务",
+            Self::Context => "上下文",
+            Self::Events => "事件",
+            Self::Spec => "Spec 状态",
+            Self::Diff => "diff 预览",
+        }
+    }
+
+    /// 序号（从 1 起；切换键与帧标题 `{n}/{VIEW_COUNT}`）。
+    #[must_use]
+    pub const fn index(self) -> usize {
+        match self {
+            Self::Sessions => 1,
+            Self::Tasks => 2,
+            Self::Context => 3,
+            Self::Events => 4,
+            Self::Spec => 5,
+            Self::Diff => 6,
+        }
+    }
+
+    /// 切换键映射：`'1'`—`'6'` → 对应视图；其他键返回 `None`。
+    #[must_use]
+    pub const fn from_key(key: char) -> Option<ViewId> {
+        match key {
+            '1' => Some(Self::Sessions),
+            '2' => Some(Self::Tasks),
+            '3' => Some(Self::Context),
+            '4' => Some(Self::Events),
+            '5' => Some(Self::Spec),
+            '6' => Some(Self::Diff),
+            _ => None,
         }
     }
 }
@@ -123,18 +176,28 @@ impl ViewSnapshot {
         }
     }
 
-    /// 渲染为文本行（只读投影；**不反序列化 JSON**——数据已由准备层处理）。
+    /// 渲染为文本行（完整投影；测试与准备层证据用；**不反序列化 JSON**）。
     #[must_use]
     pub fn render_lines(&self) -> Vec<String> {
+        self.render_lines_limited(usize::MAX)
+    }
+
+    /// 渲染至多 `max` 行为文本行（**帧路径的投影**：帧成本由终端尺寸界定，与快照
+    /// 行数无关——10k 行快照与 200 行快照的帧投影同阶。完整行数由准备层按
+    /// 「有界尾部」裁剪（V-101），此处只是安全上界）。**不反序列化 JSON**。
+    #[must_use]
+    pub fn render_lines_limited(&self, max: usize) -> Vec<String> {
         match self.view {
             ViewId::Sessions => self
                 .sessions
                 .iter()
+                .take(max)
                 .map(|row| format!("{} {} [{}] {}", row.id, row.title, row.stage, row.status))
                 .collect(),
             ViewId::Tasks => self
                 .tasks
                 .iter()
+                .take(max)
                 .map(|row| {
                     format!(
                         "{} {} [{}] retry={}",
@@ -145,16 +208,27 @@ impl ViewSnapshot {
             ViewId::Events => self
                 .events
                 .iter()
+                .take(max)
                 .map(|row| format!("{} {} {}", row.seq, row.kind, row.summary))
                 .collect(),
-            ViewId::Spec => vec![self.spec_status.clone()],
-            ViewId::Context => vec![self.context_summary.clone()],
+            ViewId::Spec => text_lines(&self.spec_status, max),
+            ViewId::Context => text_lines(&self.context_summary, max),
             ViewId::Diff => self
                 .diff
                 .iter()
+                .take(max)
                 .map(|line| format!("{}{}", line.marker, line.text))
                 .collect(),
         }
+    }
+}
+
+/// 单文本行视图的投影：空文本投影 0 行（帧内显示「暂无数据」，不伪造空行）。
+fn text_lines(text: &str, max: usize) -> Vec<String> {
+    if max == 0 || text.is_empty() {
+        Vec::new()
+    } else {
+        vec![text.to_string()]
     }
 }
 
@@ -184,17 +258,62 @@ mod tests {
 
     #[test]
     fn view_ids_are_stable() {
-        for view in [
-            ViewId::Sessions,
-            ViewId::Tasks,
-            ViewId::Context,
-            ViewId::Events,
-            ViewId::Spec,
-            ViewId::Diff,
-        ] {
+        for view in ViewId::ALL {
             assert!(!view.as_str().is_empty());
         }
         assert_eq!(ViewId::Sessions.as_str(), "sessions");
         assert_eq!(ViewId::Diff.as_str(), "diff");
+    }
+
+    /// 切换键 `1`—`6` 与六视图一一对应（`from_key`/`index`/`ALL` 三者一致）。
+    #[test]
+    fn switching_keys_map_to_all_six_views() {
+        assert_eq!(ViewId::ALL.len(), VIEW_COUNT);
+        for (offset, view) in ViewId::ALL.into_iter().enumerate() {
+            let key = char::from_digit(u32::try_from(offset + 1).expect("序号在 u32 内"), 10)
+                .expect("十进制数字");
+            assert_eq!(
+                ViewId::from_key(key),
+                Some(view),
+                "键 {key} 应切换到 {view:?}"
+            );
+            assert_eq!(view.index(), offset + 1);
+            assert!(!view.title().is_empty());
+        }
+        for other in ['0', '7', 'a', ' ', '\u{4e2d}'] {
+            assert_eq!(ViewId::from_key(other), None, "{other:?} 不是视图切换键");
+        }
+    }
+
+    /// 帧路径投影（Check 83）：`render_lines_limited` 的行数受上界约束，
+    /// 且与完整投影前缀一致——帧成本由终端尺寸界定，与快照行数无关。
+    #[test]
+    fn limited_projection_is_bounded_and_consistent() {
+        let mut snapshot = ViewSnapshot::empty(ViewId::Events);
+        for seq in 1..=100 {
+            snapshot.events.push(EventRow {
+                seq,
+                kind: "StreamingChunk".to_string(),
+                summary: format!("chunk {seq}"),
+            });
+        }
+        let full = snapshot.render_lines();
+        assert_eq!(full.len(), 100);
+        for max in [0_usize, 1, 22, 24, 99, 100, 200] {
+            let limited = snapshot.render_lines_limited(max);
+            assert_eq!(limited.len(), full.len().min(max), "max={max}");
+            assert_eq!(limited, full[..limited.len()], "前缀必须与完整投影一致");
+        }
+
+        // 空文本视图投影 0 行（帧内提示「暂无数据」，不伪造空行）。
+        let spec = ViewSnapshot::empty(ViewId::Spec);
+        assert!(spec.render_lines().is_empty());
+        let mut context = ViewSnapshot::empty(ViewId::Context);
+        context.context_summary = "预算 1/2".to_string();
+        assert_eq!(
+            context.render_lines_limited(10),
+            vec!["预算 1/2".to_string()]
+        );
+        assert!(context.render_lines_limited(0).is_empty());
     }
 }

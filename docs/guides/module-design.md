@@ -148,11 +148,19 @@ whcode-bin           （装配根：配置、日志、feature）
 
 ### whcode-tui
 
-- **职责**：最小闭环（尺寸探测、事件循环、键盘/resize、退出、终端恢复守卫）；M5 六视图。
-- **不负责**：业务命令（经 app）；不在帧路径反序列化 JSON。
-- **关键类型**：`UiEvent`、`TuiState`、`TerminalSession`、`TerminalGuard`。
-- **失败模式**：stdin 非交互时**不得**进入事件循环（Check 226）；Drop 中恢复失败不 panic。
-- **测试**：内联 15 例 + 真实控制台冒烟脚本。
+- **职责**：六视图闭环（会话/任务/上下文/事件/Spec/diff，FR-601）+ 渲染纪律（只读快照、
+  脏标记重绘、空闲零重绘、帧行数上界，§5.3/T083/T129）；事件循环接线最小化探测
+  （T135/ADR-021）与主题精确色值（FR-612）；进入/恢复守卫。
+- **不负责**：业务命令（经 app）；不在帧路径反序列化 JSON；**视图数据准备**——数据由
+  装配根经 `ViewSource` 注入（当前为 `EmptyViewSource`，应用服务装配前显式「暂无数据」）。
+- **关键类型**：`UiEvent`、`TuiState`、`ViewId`/`ViewSnapshot`、`ViewSource`、
+  `Renderer`、`RunOptions`、`ScriptStep`/`ScriptReport`、`TerminalSession`/`TerminalGuard`、
+  `Theme`。
+- **失败模式**：stdin 非交互时**不得**进入事件循环（Check 226）；Drop 中恢复失败不 panic；
+  最小化探测失败按「未知」处理（不伪装最小化状态，见 ADR-021 修订）。
+- **测试**：内联 41 例（含六视图固定尺寸帧、帧预算归档、脚本化门控/零重绘证据——
+  `run_scripted_steps` 与真实循环共用 `LoopCore`）+ 真实控制台取证
+  `script/tui_views_smoke.py`（六视图帧落盘 artifacts/）。
 
 ### whcode-cui
 

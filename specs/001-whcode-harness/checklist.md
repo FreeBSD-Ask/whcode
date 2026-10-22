@@ -116,8 +116,8 @@
 
 ### Phase 8 US6 M5（T082—T089）
 
-- [ ] Check 82: TUI 六视图（会话树/任务/上下文/事件/Spec 状态/diff）均可在固定终端尺寸下截图取证（来源：Task T082、FR-601）
-- [ ] Check 83: 渲染路径无完整历史克隆与帧内 JSON 反序列化（代码审查+基准确认帧预算）（来源：Task T083、§5.3）
+- [x] Check 82: TUI 六视图（会话树/任务/上下文/事件/Spec 状态/diff）均可在固定终端尺寸下截图取证（来源：Task T082、FR-601）——**可执行形式已取得**：单元测试 `six_views_render_at_fixed_terminal_size`（80×24 逐视图帧 + 内容断言）；真实控制台帧 `artifacts/tui-views-2026-10-22.txt`（release 二进制，`1`—`6` 切换逐帧落盘，`script/tui_views_smoke.py` 可重跑）；视图数据源未装配，正文显式「暂无数据」（数据接线见 Check 179 备注）
+- [x] Check 83: 渲染路径无完整历史克隆与帧内 JSON 反序列化（代码审查+基准确认帧预算）（来源：Task T083、§5.3）——**三证**：①结构断言（`render.rs`/`views.rs` 剥离注释与测试模块后无 serde_json）；②帧路径强制限行投影 `render_lines_limited`（帧成本由终端尺寸界定，完整历史不进帧路径——10k 行快照同阶，测试 `limited_projection_is_bounded_and_consistent`）；③帧预算归档 `artifacts/tui-frame-budget.json`（release 实测 p50 324 µs / p95 448 µs，候选预算 p95 ≤ 16 ms **未冻结**）
 - [ ] Check 84: CUI 命令树与 contracts/cui-cli.md §1 一致且 `whcode --help` 可枚举（来源：Task T084、FR-602）
 - [ ] Check 85: 每个 CUI 命令 `--json` 输出含 schema_version；错误输出含四字段（来源：Task T085）
 - [ ] Check 86: 破坏性命令 dry-run 输出与实际执行影响集一致（来源：Task T086、§8.1）
@@ -239,7 +239,7 @@
 - [ ] Check 176: 历史默认分页不使用大 OFFSET（来源：spec FR-504／Task T035）
 - [ ] Check 177: 历史注入达预算即停止并返回截断原因（来源：spec FR-505／Task T060）
 - [ ] Check 178: 未经基准证明不启用额外缓存/分区/分库/物化结构（来源：spec FR-511／research TBD-10）
-- [ ] Check 179: TUI 六视图完整交付（来源：spec FR-601／Task T082）
+- [ ] Check 179: TUI 六视图完整交付（来源：spec FR-601／Task T082）——**部分证据（2026-10-22）**：六视图结构、切换（`1`—`6`）、固定尺寸帧与真实控制台取证已交付（见 Check 82）；**未接线**：视图业务数据源（`ViewSource` 由装配根注入，当前 `EmptyViewSource`——会话树/任务/事件的真实数据装配属 M5 应用服务集成，未取得前不勾选）
 - [ ] Check 180: CUI 退出码表文档化且测试覆盖（来源：spec FR-602／Task T084、T085）
 - [ ] Check 181: Web 经 HTTP/WebSocket 访问同一应用服务，状态由同一事件流驱动（来源：spec FR-603／Task T090）
 - [ ] Check 182: SSH 默认无任意系统 Shell（来源：spec FR-608／Task T097）
@@ -285,14 +285,14 @@
 
 ### 新增需求（2026-10-21，显示适配与资源纪律 FR-612—FR-616）
 
-- [ ] Check 219: 三套主题可配置切换，A 屏夜间与墨水屏夜间背景精确为 #000000、墨水屏日间背景精确为 #FFFFFF 且前景黑字（来源：spec FR-612／Task T128）
-- [ ] Check 220: TUI 空闲期重绘计数为零、无周期性全量重绘；Web 动效总开关生效且尊重 prefers-reduced-motion（来源：spec FR-613／Task T129、T133）
+- [x] Check 219: 三套主题可配置切换，A 屏夜间与墨水屏夜间背景精确为 #000000、墨水屏日间背景精确为 #FFFFFF 且前景黑字（来源：spec FR-612／Task T128）——**已取得**：`ui.theme`（kebab 稳定名）+ 环境变量 `WHCODE_UI_THEME` 覆盖（非法值警告回落，测试 `theme_override_is_visible_and_reversible`）；主题进入渲染单元（`theme_colors_are_applied_to_cells`：eink-day 背景 `#FFFFFF`/前景黑、amoled-night 背景 `#000000`/前景 `#E6E6E6`）；默认 `eink-day`（ui-design）
+- [ ] Check 220: TUI 空闲期重绘计数为零、无周期性全量重绘；Web 动效总开关生效且尊重 prefers-reduced-motion（来源：spec FR-613／Task T129、T133）——**TUI 侧已取得（2026-10-22）**：重放证据 100 空闲步零重绘、无待绘制帧零探测；**Web 侧未取得运行时证据**（`animationsEnabled` 门控与仅 `transform`/`opacity` 为代码级；浏览器实测待 Web 服务入口装配）
 - [ ] Check 221: 空闲会话卸载后内存可观测下降，唤醒后事件无重复无缺失，卸载/唤醒行为可查询（来源：spec FR-614／Task T131）
 - [ ] Check 222: zh-CN 与 en 双语输出语义一致；缺失 locale 回退 en；RTL 双向文本处理接口存在且渲染层无 LTR 硬编码（来源：spec FR-615／Task T130）
 - [ ] Check 223: 传输层进度事件（连接/断开/重连/字节计数/RTT/原因码）可经 CUI JSON 导出（来源：spec FR-616／Task T132）
 - [ ] Check 224: gettext PO 接口契约测试通过：i18n 资源目录结构、PO 加载器、zh-CN→en 回退链（来源：spec FR-615／Task T130）
-- [ ] Check 227: 最小化/不可见期间无绘制与动画调用（CPU 近空闲基线），无 `requestAnimationFrame` 调用；恢复时单次全量重绘且事件游标连续、关键事件零丢失（来源：spec FR-617／Task T135、T136／`docs/guides/gui-suspend.md`）
-- [ ] Check 228: 图形稳定性：禁用 GPU/软件渲染下功能可用无崩溃；连续最小化-还原 20 次无上下文泄漏；关闭动效或 `prefers-reduced-motion` 时不创建动画定时器（来源：spec FR-617／Task T136）
+- [ ] Check 227: 最小化/不可见期间无绘制与动画调用（CPU 近空闲基线），无 `requestAnimationFrame` 调用；恢复时单次全量重绘且事件游标连续、关键事件零丢失（来源：spec FR-617／Task T135、T136／`docs/guides/gui-suspend.md`）——**TUI 侧已取得（2026-10-22）**：重放证据（最小化期间跳过绘制并记账、还原单次全量重绘、空闲零探测、连续输入零探测；真实控制台六视图帧复验）；**Web 侧未取得**：无 `requestAnimationFrame` 调用由预算门禁静态断言（T137 审计扩展），"最小化 60s CPU 近空闲基线"与"事件游标连续"的浏览器实测待 Web 服务入口装配后补
+- [ ] Check 228: 图形稳定性：禁用 GPU/软件渲染下功能可用无崩溃；连续最小化-还原 20 次无上下文泄漏；关闭动效或 `prefers-reduced-motion` 时不创建动画定时器（来源：spec FR-617／Task T136）——**部分证据（2026-10-22）**：GPU 维度按 NFR-212 为"默认不创建上下文"（运行时路径禁 `getContext`/GPU 探测，门禁静态断言）——禁用 GPU 场景下无依赖可用；**浏览器侧 20 次最小化-还原与定时器断言未取得**（Web 服务入口未装配）
 - [ ] Check 229: 前端预算与依赖审计通过：首屏 JS ≤ 50 KB（gzip）、CSS ≤ 20 KB（gzip）、无 WebGL/视频/自动播放/第三方字体、无 `node_modules` 与打包产物；无 JS 时只读视图可用（来源：spec FR-618／ADR-014／Task T137）
 - [ ] Check 230: 过程门禁 G0—G5 各有输入/活动/产物/退出判据，且产物映射到真实仓库文件；单人项目的评审替代机制已写明（来源：`docs/guides/software-engineering-process.md`／Task T138）
 - [ ] Check 231: 需求工程规范含 FR 模板、六条需求质量判据、三方追溯抽查命令与变更控制流程，并用 ADR-012/ADR-013 两个真实案例验证流程可运行（来源：`docs/guides/requirements-engineering.md`／Task T139）
