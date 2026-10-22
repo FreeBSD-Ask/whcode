@@ -265,11 +265,11 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T107 [US9] 在 `crates/whcode-runtime/src/errors.rs` 实现能力不足/缺失/不兼容的结构化错误，并接入 Analyze 阻止执行（FR-708/710）
 - [x] T108 [P] [US9] 在 `crates/whcode-speckit/src/converge.rs` 支持绑定运行时测试（命令、环境指纹、退出状态、结果引用）（FR-709）
 - [x] T109 [US9] 在 `crates/whcode-platform/src/process.rs` 实现 Windows 子进程树与 BSD 进程组/信号的终止清理，保留 stderr 尾部（FR-409、§10.2）
-- [x] T110 [P] [US9] 在 `crates/whcode-runtime/src/js.rs` 接入受限 ECMAScript 引擎，Node API 缺失时返回能力不足（D-08、§4.7.1）
-- [x] T111 [P] [US9] 在 `crates/whcode-runtime/src/python.rs` 实现 Python 子进程 worker 与受限实现档位（D-09、§4.7.1）
-- [x] T112 [P] [US9] 在 `crates/whcode-runtime/src/gitbash.rs` 实现 Windows PortableGit payload 校验与 Bash/coreutils/管道/重定向验证（V-304）
+- [ ] T110 [P] [US9] 在 `crates/whcode-runtime/src/js.rs` 接入受限 ECMAScript 引擎，Node API 缺失时返回能力不足（D-08、§4.7.1） **未完成（2026-10-23 复核）**：`runtime/src/js.rs` 不存在，未接入受限 ECMAScript 引擎；`JsProvider` 仅声明 `Restricted` 并在无引擎时返回 `runtime_unavailable`（Check 110 未通过）
+- [ ] T111 [P] [US9] 在 `crates/whcode-runtime/src/python.rs` 实现 Python 子进程 worker 与受限实现档位（D-09、§4.7.1） **未完成（2026-10-23 复核）**：`runtime/src/python.rs` 不存在；`PythonProvider` 仅以系统解释器探测 `--version` 并构造受控子进程，未记录 ABI/解释器绝对路径，完整 worker 协议未实现（Check 111 未通过）
+- [ ] T112 [P] [US9] 在 `crates/whcode-runtime/src/gitbash.rs` 实现 Windows PortableGit payload 校验与 Bash/coreutils/管道/重定向验证（V-304） **未完成（2026-10-23 复核）**：`runtime/src/gitbash.rs` 不存在；仅探测 `git.exe --version`，未验证 PortableGit payload 哈希、Bash/coreutils、管道与重定向（`runtime-inventory.md` 亦标“未实现”，Check 112 未通过）
 - [x] T113 [P] [US9] 在 `crates/whcode-runtime/src/bsdshell.rs` 实现 BSD Shell provider，名称与能力不与 `gitbash` 混同（§4.7.1）
-- [x] T114 [US9] 在 `tests/integration/test_runtime_acceptance.rs` 与 `tests/crash/test_side_effect_recovery.rs` 覆盖 V-301—V-307（含三时点中断 → `unknown`）
+- [ ] T114 [US9] 在 `tests/integration/test_runtime_acceptance.rs` 与 `tests/crash/test_side_effect_recovery.rs` 覆盖 V-301—V-307（含三时点中断 → `unknown`） **未完成（2026-10-23 复核）**：`tests/crash/test_side_effect_recovery.rs` 不存在，V-304 无用例，三时点中断 → `unknown` 无测试（Check 114 未通过）
 
 **Checkpoint**: 运行时能力矩阵与限制可公开声明
 
@@ -284,8 +284,8 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [ ] T115 [US10] 在 `crates/*/src/` 按冻结预算优化热点（先测量后优化，禁止 `Box::leak` 通用化）（NFR-201—210、§5.3）**阻塞（2026-10-22）**：D-06 预算未冻结（缺跨平台基线与 72h 时间序列）；分配器决策已按 ADR-020 冻结（默认系统分配器），热点优化在其前置就绪前不得进行
 - [ ] T116 [P] [US10] 在 `tests/stability/run_stability.sh` 执行 24 小时（候选发布 72 小时）稳定性测试并采集规定指标（§11.5）**阻塞（2026-10-22）**：需 24/72h 连续运行环境；NFR-204 长时泄漏斜率未测量
 - [x] T117 [P] [US10] 在 `docs/adr/ADR-ALLOCATOR.md` 记录分配器决策：默认系统分配器，除非基准证明有益（D-11）
-- [x] T118 [US10] 在 `ci/` 与 `docs/matrices/` 产出 Windows 11 amd64 发布包、平台兼容矩阵与已知限制说明（BSD 延后并在限制中注明；§12.2、§9.1、ADR-013）
-- [x] T119 [P] [US10] 在 `docs/guides/` 完成 CUI 手册、TUI 键位表、Web 部署与安全配置、灾难恢复说明（§12.2）
+- [ ] T118 [US10] 在 `ci/` 与 `docs/matrices/` 产出 Windows 11 amd64 发布包、平台兼容矩阵与已知限制说明（BSD 延后并在限制中注明；§12.2、§9.1、ADR-013） **未完成（2026-10-23 复核）**：`ci/` 无打包脚本、无发布包与安装验证；“兼容矩阵与已知限制”部分已交付（Check 118 未通过）
+- [ ] T119 [P] [US10] 在 `docs/guides/` 完成 CUI 手册、TUI 键位表、Web 部署与安全配置、灾难恢复说明（§12.2） **未完成（2026-10-23 复核）**：`cui-manual.md` 已交付；TUI 键位表、Web 部署与安全配置、灾难恢复说明缺失（Check 119 未通过）
 - [x] T120 [P] [US10] 在 `docs/matrices/runtime-inventory.md` 产出运行时能力清单、payload 校验与许可证清单（§12.2）
 - [x] T121 [US10] 在 `docs/adr/` 与 `docs/risk-register.md` 更新 ADR 与风险台账，并落实每 PR 清单检查（§13、§15）（落点修订：风险台账实际并入 `docs/matrices/decisions.md`（R-12 未解除、R-13 新增），`docs/risk-register.md` 未建立；本行保留原路径以便追溯）
 
@@ -298,11 +298,11 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 **Purpose**: 跨里程碑收尾与一致性加固
 
 - [x] T122 [P] 同步 `docs/adr/` 与 D-01—D-14 的最终决策状态，消除 spec/plan 中的遗留 `[待验证]` 标记
-- [x] T123 安全加固复查：默认脱敏、权限白名单、最小环境、审计保留策略、Web/SSH 边界（§10）
-- [x] T124 [P] 按 `quickstart.md` 全流程执行一次端到端验证并记录产物（§10 验证记录要求）
+- [ ] T123 安全加固复查：默认脱敏、权限白名单、最小环境、审计保留策略、Web/SSH 边界（§10） **未完成（2026-10-23 复核）**：无复查记录产物；“最小环境”与“审计保留策略”仅有设计陈述（Check 123 未通过）
+- [ ] T124 [P] 按 `quickstart.md` 全流程执行一次端到端验证并记录产物（§10 验证记录要求） **未完成（2026-10-23 复核）**：仅有 `doctor` 冒烟，未按 `quickstart.md` 全流程执行并归档产物（Check 124 未通过）
 - [x] T125 [P] 契约兼容审查：事件 schema、快照 schema、CUI JSON 的版本与变更记录（§8.3、§15）
 - [x] T126 清理与重构：clippy 清理、模块边界复核、删除未使用 feature 与死代码
-- [x] T127 追溯审计：spec FR ↔ tasks ↔ checklist.md 三方引用完整性复核（FR-305/306）
+- [ ] T127 追溯审计：spec FR ↔ tasks ↔ checklist.md 三方引用完整性复核（FR-305/306） **未完成（2026-10-23 复核）**：`ci/check_counts.py` 只校验数量一致，无断链审计输出（Check 127 未通过）
 - [x] T134 [P] 目录分类门禁：`tests/contract/test_layout.rs` 将 `docs/guides/repository-layout.md` 的五类分层编码为可执行检查（顶层条目白名单、crate 命名、tests 六类 + README、docs/ci 子目录、specs 命名、本地目录防源码混入），随 CI 与每 PR 运行（7 例检查全过，门禁首跑即抓到并清除误建目录；LF/编码策略与 SECURITY.md 白名单已并入）
 - [x] T138 [P] 建立软件工程过程文档 `docs/guides/software-engineering-process.md`：迭代增量模型、阶段门禁 G0—G5（输入/活动/产物/退出判据）、单人项目下的评审替代机制、产物映射表
 - [x] T139 [P] 建立需求工程规范 `docs/guides/requirements-engineering.md`：FR 模板、需求质量判据、三方追溯抽查方法、变更控制流程（以 ADR-012/ADR-013 为案例）

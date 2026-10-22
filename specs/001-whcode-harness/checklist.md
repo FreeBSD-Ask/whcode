@@ -136,48 +136,48 @@
 
 ### Phase 10 US8 M7（T096—T099）
 
-- [ ] Check 96: FreeBSD/NetBSD 各验证服务端公钥认证、会话隔离、resize、安全退出四项；OpenBSD/DragonFly BSD 由内置 SSH 客户端验证连通性与受限入口（来源：Task T096、FR-607、FR-611、ADR-011）
-- [ ] Check 97: SSH 服务端与内置 SSH 客户端默认入口均无系统 Shell；显式授权路径单独配置且有审计（来源：Task T097、FR-608、FR-611、ADR-011）
-- [ ] Check 98: SSH 会话期间写者服务为唯一写入方，无第二数据库连接写路径（来源：Task T098、ADR-005）
-- [ ] Check 99: `artifacts/ssh-acceptance/` 含 FreeBSD/NetBSD 服务端证据与四平台客户端连通性证据；未完成平台有明确阻塞原因（来源：Task T099、V-004、FR-611、ADR-011）
+- [ ] Check 96: FreeBSD/NetBSD 各验证服务端公钥认证、会话隔离、resize、安全退出四项；OpenBSD/DragonFly BSD 由内置 SSH 客户端验证连通性与受限入口（来源：Task T096、FR-607、FR-611、ADR-011）——**复核（2026-10-23，批次三）**：**未通过（延后，不作验收结论）**：ADR-013 将 FreeBSD/NetBSD/OpenBSD/DragonFly 全部延后，本机无平台环境（M0 阻塞项 B-01）；恢复须新 ADR 并补齐分平台证据
+- [ ] Check 97: SSH 服务端与内置 SSH 客户端默认入口均无系统 Shell；显式授权路径单独配置且有审计（来源：Task T097、FR-608、FR-611、ADR-011）——**复核（2026-10-23，批次三）**：**未通过（延后，不作验收结论）**：ADR-013 将 FreeBSD/NetBSD/OpenBSD/DragonFly 全部延后，本机无平台环境（M0 阻塞项 B-01）；恢复须新 ADR 并补齐分平台证据
+- [ ] Check 98: SSH 会话期间写者服务为唯一写入方，无第二数据库连接写路径（来源：Task T098、ADR-005）——**复核（2026-10-23，批次三）**：**未取得**：SSH 客户端原型经 `whcode-app` 复用应用服务（`proto.rs` 无独立写路径），但服务端会话未交付，无法验证“服务端为唯一写入方”
+- [ ] Check 99: `artifacts/ssh-acceptance/` 含 FreeBSD/NetBSD 服务端证据与四平台客户端连通性证据；未完成平台有明确阻塞原因（来源：Task T099、V-004、FR-611、ADR-011）——**复核（2026-10-23，批次三）**：**未取得**：`artifacts/ssh-acceptance/` 不存在；四平台连通性与服务端证据属 M7（V-004）
 
 ### Phase 11 US9 M8（T100—T114）
 
-- [ ] Check 100: Runtime Provider 六接口（name/capability/is_available/env_fingerprint/execute/terminate）有契约测试（来源：Task T100、FR-701）
-- [ ] Check 101: 三档能力等级（Full/Restricted/ShellOnly）在 UI 与门禁输出中可见（来源：Task T101、FR-702）
-- [ ] Check 102: payload 安装校验拒绝来源不明/哈希不符/平台不符三类输入（来源：Task T102、FR-703）
-- [ ] Check 103: 运行时 feature 关闭构建中，相关动态库不加载、端口不占用、工具不注册（来源：Task T103、FR-704、V-301）
-- [ ] Check 104: 子进程超时/输出上限/取消/资源限制四项各有触发测试（来源：Task T104、FR-705）
-- [ ] Check 105: 每次脚本执行前存在检查点记录，含脚本哈希与输入哈希（来源：Task T105、FR-706）
-- [ ] Check 106: 有副作用的脚本重复执行不命中缓存（来源：Task T106、FR-707）
-- [ ] Check 107: 引用未启用运行时的任务被 Analyze/执行前检查阻止并给出安装建议（来源：Task T107、FR-708/710）
-- [ ] Check 108: Converge 绑定的运行时测试记录含命令、指纹、退出状态、结果引用（来源：Task T108、FR-709）
-- [ ] Check 109: Windows 子进程树与 BSD 进程组终止后无残留进程，stderr 尾部入库（来源：Task T109、FR-409）
-- [ ] Check 110: JS 引擎对 Node API 调用返回能力不足错误，而非崩溃或静默失败（来源：Task T110、D-08）
-- [ ] Check 111: Python worker 记录解释器版本/ABI/路径；受限档位列出不支持项（来源：Task T111、D-09）
-- [ ] Check 112: Git Bash payload 验证管道/重定向/路径/终止四类命令，payload 哈希可核验（来源：Task T112、V-304）
-- [ ] Check 113: BSD Shell provider 与 gitbash 在能力清单中为不同条目（来源：Task T113、§4.7.1）
-- [ ] Check 114: V-301—V-307 全部有自动化或留证测试，三时点中断均产生 `unknown`（来源：Task T114、V-307）
+- [x] Check 100: Runtime Provider 六接口（name/capability/is_available/env_fingerprint/execute/terminate）有契约测试（来源：Task T100、FR-701）——**复核（2026-10-23，批次三）**：`runtime::provider::provider_contract_six_elements` 断言 name/capability/is_available/env_fingerprint/execute/terminate 六接口齐备
+- [ ] Check 101: 三档能力等级（Full/Restricted/ShellOnly）在 UI 与门禁输出中可见（来源：Task T101、FR-702）——**复核（2026-10-23，批次三）**：**未通过**：`capability::capability_levels_are_stable` 证明三档枚举稳定，但 TUI/Web 均无能力等级展示（`crates/whcode-tui` grep `Capability` 零命中）——判据要求“UI 与门禁输出中可见”
+- [ ] Check 102: payload 安装校验拒绝来源不明/哈希不符/平台不符三类输入（来源：Task T102、FR-703）——**复核（2026-10-23，批次三）**：**未通过**：`payload::validate` 校验平台与校验和（`platform_mismatch_and_checksum_drift_are_rejected`），但 `PayloadMeta.source` 仅记录、未做“来源不明”拒绝；三类输入只覆盖两类
+- [x] Check 103: 运行时 feature 关闭构建中，相关动态库不加载、端口不占用、工具不注册（来源：Task T103、FR-704、V-301）——**复核（2026-10-23，批次三）**：`v301_default_build_runs_without_runtimes`（integration）通过；`whcode-runtime`/`whcode-bin` 的 `default = []`，运行时依赖不在默认构建图内
+- [ ] Check 104: 子进程超时/输出上限/取消/资源限制四项各有触发测试（来源：Task T104、FR-705）——**复核（2026-10-23，批次三）**：**未通过**：超时（`worker_timeout_kills_process`、`v305_timeout_terminates_worker`）与输出上限（`end_to_end_large_output_is_truncated_to_tail`、`MAX_OUTPUT_BYTES`）有测试；**取消与资源限制**无实现亦无触发测试
+- [x] Check 105: 每次脚本执行前存在检查点记录，含脚本哈希与输入哈希（来源：Task T105、FR-706）——**复核（2026-10-23，批次三）**：`checkpoint::checkpoint_validates_four_elements` 断言脚本哈希/输入哈希/运行时指纹/工作目录策略四项记录
+- [x] Check 106: 有副作用的脚本重复执行不命中缓存（来源：Task T106、FR-707）——**复核（2026-10-23，批次三）**：`cache::cache_only_applies_when_explicitly_enabled` 断言缓存仅在显式启用（纯函数）时生效
+- [x] Check 107: 引用未启用运行时的任务被 Analyze/执行前检查阻止并给出安装建议（来源：Task T107、FR-708/710）——**复核（2026-10-23，批次三）**：`errors::unavailable_runtimes_block_execution_before_start`、`runtime_unavailable_carries_reason_and_suggestion`、`v306_unavailable_runtimes_block_execution` 通过
+- [x] Check 108: Converge 绑定的运行时测试记录含命令、指纹、退出状态、结果引用（来源：Task T108、FR-709）——**复核（2026-10-23，批次三）**：`converge::runtime_binding_maps_exit_status_to_acceptance_states` 断言命令/环境指纹/退出状态/结果引用四要素
+- [ ] Check 109: Windows 子进程树与 BSD 进程组终止后无残留进程，stderr 尾部入库（来源：Task T109、FR-409）——**复核（2026-10-23，批次三）**：**未通过**：`worker_preserves_stderr_tail_on_failure` 与 `terminate_tree` 已交付，但 BSD 进程组属 M7（延后）；且无“终止后无残留进程”的断言（本轮实测中 `durability` 子进程曾残留，见复核报告 §9）
+- [ ] Check 110: JS 引擎对 Node API 调用返回能力不足错误，而非崩溃或静默失败（来源：Task T110、D-08）——**复核（2026-10-23，批次三）**：**未通过**：`crates/whcode-runtime/src/js.rs` 不存在；`JsProvider` 仅声明 `Restricted` 并在无引擎时返回 `runtime_unavailable`（`unavailable_providers_return_structured_errors`），**未接入任何受限 ECMAScript 引擎**
+- [ ] Check 111: Python worker 记录解释器版本/ABI/路径；受限档位列出不支持项（来源：Task T111、D-09）——**复核（2026-10-23，批次三）**：**未通过**：`python.rs` 不存在；`PythonProvider` 以系统解释器构造子进程并探测 `--version`（`python_probes_system_interpreter`），不支持项已列；但**ABI 与解释器绝对路径未记录**
+- [ ] Check 112: Git Bash payload 验证管道/重定向/路径/终止四类命令，payload 哈希可核验（来源：Task T112、V-304）——**复核（2026-10-23，批次三）**：**未通过**：`gitbash.rs` 不存在；仅探测 `git.exe --version`，未验证 PortableGit payload 哈希、Bash/coreutils、管道与重定向（`docs/matrices/runtime-inventory.md` 亦标“未实现”）
+- [x] Check 113: BSD Shell provider 与 gitbash 在能力清单中为不同条目（来源：Task T113、§4.7.1）——**复核（2026-10-23，批次三）**：`providers::providers_never_claim_full_and_names_do_not_collide` 断言 `gitbash` 与 `bsdshell` 为不同条目、能力不混淆
+- [ ] Check 114: V-301—V-307 全部有自动化或留证测试，三时点中断均产生 `unknown`（来源：Task T114、V-307）——**复核（2026-10-23，批次三）**：**未通过**：`tests/crash/test_side_effect_recovery.rs` **不存在**（`tests/crash/` 仅 README）；V-304 无自动化用例；三时点中断 → `unknown` 无测试
 
 ### Phase 12 US10 M9（T115—T121）
 
-- [ ] Check 115: 优化后测量报告对比冻结预算，未达标项有热点分析与 ADR（来源：Task T115、NFR-201—210）
-- [ ] Check 116: 24 小时稳定性报告存在；候选发布另含 72 小时报告，二者含 §11.5 全部指标（来源：Task T116）
-- [ ] Check 117: 分配器 ADR 记录基准数据；无基准时不更换默认分配器（来源：Task T117、D-11）
-- [ ] Check 118: Windows 11 amd64 发布包可安装运行；BSD 延后并在已知限制中说明；兼容矩阵随包发布（来源：Task T118、§12.2、ADR-013）
-- [ ] Check 119: 四份指南文档（CUI/TUI/Web 部署安全/灾难恢复）存在且与实现一致（来源：Task T119）
-- [ ] Check 120: 运行时能力清单含 payload 校验方式与许可证清单（来源：Task T120）
-- [ ] Check 121: 风险台账 R-01—R-12 状态有更新，每条有处置记录或关闭依据（来源：Task T121、§13）
+- [ ] Check 115: 优化后测量报告对比冻结预算，未达标项有热点分析与 ADR（来源：Task T115、NFR-201—210）——**复核（2026-10-23，批次三）**：**阻塞**：D-06 预算未冻结（缺跨平台基线与 72 h 时间序列），T115 未执行；无优化后测量报告可对比
+- [ ] Check 116: 24 小时稳定性报告存在；候选发布另含 72 小时报告，二者含 §11.5 全部指标（来源：Task T116）——**复核（2026-10-23，批次三）**：**阻塞**：24/72 小时长跑未执行，无 §11.5 指标报告
+- [x] Check 117: 分配器 ADR 记录基准数据；无基准时不更换默认分配器（来源：Task T117、D-11）——**复核（2026-10-23，批次三）**：ADR-020 明写“无基准数据不更换默认分配器、当前零分配器依赖”，与 D-11 一致；基准测量属 T115 前置（阻塞）
+- [ ] Check 118: Windows 11 amd64 发布包可安装运行；BSD 延后并在已知限制中说明；兼容矩阵随包发布（来源：Task T118、§12.2、ADR-013）——**复核（2026-10-23，批次三）**：**未通过**：`ci/` 无打包脚本、`artifacts/` 无发布包与安装验证；`compatibility.md` 只描述发布包构成，未取得“可安装运行”证据
+- [ ] Check 119: 四份指南文档（CUI/TUI/Web 部署安全/灾难恢复）存在且与实现一致（来源：Task T119）——**复核（2026-10-23，批次三）**：**未通过**：`cui-manual.md` 已交付；TUI 键位表、Web 部署与安全配置、灾难恢复说明**缺失**（`docs/guides/README.md` 仍将其列为“计划”）
+- [x] Check 120: 运行时能力清单含 payload 校验方式与许可证清单（来源：Task T120）——**复核（2026-10-23，批次三）**：`docs/matrices/runtime-inventory.md` §2 记录 payload 校验方式（来源/版本/哈希/平台），§3 给出许可证清单与“未捆绑任何运行时 payload”声明
+- [x] Check 121: 风险台账 R-01—R-12 状态有更新，每条有处置记录或关闭依据（来源：Task T121、§13）——**复核（2026-10-23，批次三）**：`docs/matrices/decisions.md` 的 R-01—R-13 逐条有状态与处置依据（R-06 已关闭路径、R-12 未解除、R-13 新增）
 
 ### Phase 13 Polish（T122—T127）
 
-- [ ] Check 122: D-01—D-14 在 decisions 文档中均有最终状态，spec/plan 无残留未解释的 `[待验证]`（来源：Task T122）
-- [ ] Check 123: 安全复查清单逐项通过：脱敏默认、白名单、最小环境、审计保留、Web/SSH 边界（来源：Task T123、§10）
-- [ ] Check 124: quickstart.md 全流程端到端执行一次且各步预期结果成立（来源：Task T124）
-- [ ] Check 125: 事件/快照/CUI JSON 三类 schema 的版本变更记录存在且向后兼容策略明确（来源：Task T125、§8.3）
-- [ ] Check 126: clippy 零告警，无未使用 feature 与死代码（来源：Task T126）
-- [ ] Check 225: 目录分类门禁通过：顶层条目全部在 repository-layout.md 白名单内，crate 命名 / tests 六类（含 README）/ docs 三类 / ci 两类 / specs 命名均符合，本地目录无入库形态源码（来源：Task T134／docs/guides/repository-layout.md）
-- [ ] Check 127: 三方追溯（spec FR↔tasks↔本清单）审计输出零断链（来源：Task T127、FR-305/306）
+- [x] Check 122: D-01—D-14 在 decisions 文档中均有最终状态，spec/plan 无残留未解释的 `[待验证]`（来源：Task T122）——**复核（2026-10-23，批次三）**：D-01—D-14 在 `decisions.md` 均有终态；plan.md 剩余 5 处 `[待验证]` 的“开放决策”性质在 tasks.md 的 T122 实现记录中逐条解释
+- [ ] Check 123: 安全复查清单逐项通过：脱敏默认、白名单、最小环境、审计保留、Web/SSH 边界（来源：Task T123、§10）——**复核（2026-10-23，批次三）**：**未通过**：无复查记录产物；脱敏（`logging`/`llm::trace`）、权限白名单（`authz`）、Web/SSH 边界（`test_web_security_defaults`、`proto` 校验）有测试，但“最小环境”与“审计保留策略”仅有设计陈述，无测试或留证
+- [ ] Check 124: quickstart.md 全流程端到端执行一次且各步预期结果成立（来源：Task T124）——**复核（2026-10-23，批次三）**：**未通过**：实现记录仅有 `doctor` 冒烟；未按 `quickstart.md` 全流程执行并归档产物
+- [x] Check 125: 事件/快照/CUI JSON 三类 schema 的版本变更记录存在且向后兼容策略明确（来源：Task T125、§8.3）——**复核（2026-10-23，批次三）**：`contracts/event-schema.md`（字段必需性/兼容规则/`schema_version` 提升要求）、`state-snapshot.md`（变更需兼容审查）、`cui-cli.md` §3（信封版本）共同构成三类 schema 的版本与兼容策略
+- [x] Check 126: clippy 零告警，无未使用 feature 与死代码（来源：Task T126）——**复核（2026-10-23，批次三）**：本轮 `cargo clippy --workspace --all-targets -- -D warnings` 零告警；`runtime-js/python/gitbash` 为 FR-704 门控占位特性（默认关闭、空实现），非死代码
+- [x] Check 225: 目录分类门禁通过：顶层条目全部在 repository-layout.md 白名单内，crate 命名 / tests 六类（含 README）/ docs 三类 / ci 两类 / specs 命名均符合，本地目录无入库形态源码（来源：Task T134／docs/guides/repository-layout.md）——**复核（2026-10-23，批次三）**：`layout` 契约 7/7：顶层白名单、crate 命名、tests 六类含 README、docs 三类、ci 两类、specs 命名、本地目录无源码
+- [ ] Check 127: 三方追溯（spec FR↔tasks↔本清单）审计输出零断链（来源：Task T127、FR-305/306）——**复核（2026-10-23，批次三）**：**未通过**：`ci/check_counts.py` 只校验 FR/任务/Check **数量**一致，未产出“三方引用断链”审计结果；判据要求零断链的审计输出
 
 ---
 
