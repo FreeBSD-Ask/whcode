@@ -267,3 +267,54 @@ Web 写命令与 WS 广播（143/183/199/209）→ 预算冻结（133/136/195）
 **附带教训（已体现在本报告）**：门禁按**源码文本**扫描，注释中书写该字面量同样命中；
 首次修复即因注释措辞被门禁再次拒绝，改述后复绿。
 
+---
+
+## 10. 第二、三层复核续（2026-10-23 第二轮，Check 128—249）
+
+**方法**：不重读旧注记，直接以源码与目录事实复验该区间 26 项未通过的判据；同时对区间内
+通过记录所引用的具名证据做引用核对（防止“引用不存在的用例”这类伪造）。
+
+**引用核对结果**：该区间共引用 53 个具名证据，49 个在 `crates/**`、`tests/**` 的源码中命中；
+其余 4 个为契约测试文件名（`test_tui_cui_parity`、`test_web_security_defaults`，文件实际存在，
+用例数分别为 4、5）与 `script/tui_smoke.py` 的检查项名（`graceful_exit_on_closed_stdin`，
+脚本第 106 行有该键，产物 `artifacts/tui-smoke/20261022-185913/summary.json` 存在）。
+**未发现虚构引用**。
+
+**改判情况**：无。26 项未通过的理由经复验全部成立（未新增通过、未新增未通过），
+总数维持 195 / 54。
+
+**本轮复验所依据的直接事实**：
+
+- `crates/whcode-runtime/src/` 仅 9 个文件，**无** `js.rs`／`python.rs`／`gitbash.rs`；
+- `payload.rs` 的 `PayloadMeta.source` 只记录、`validate` 不判来源；
+- `checkpoint.rs` 只有 `Checkpoint` 结构与四要素 `validate`，无触发方式与保留数配置；
+- `provider.rs`／`worker.rs` **无** `env_clear`／`env_remove`（子进程继承父环境）；
+- `whcode-tui`／`whcode-web` 对 `Capability` 零命中（三档能力等级无 UI 展示）；
+- `whcode-web/src/ws.rs` 只有握手与帧解析，**无订阅/广播**；
+- `tests/stability/` 只有 `baseline_check.rs`（计数/分位数、幂等键 2 例），无四类故障情形；
+- `.github/workflows` **不存在**；ADR-005/010/012 状态为“部分批准”；
+- TUI Diff 视图数据仅来自 `tests_support.rs` 夹具，`StoreViewSource` 未供数。
+
+**缺口收敛表（26 项 → 14 类）**：
+
+| # | 根因 | Check | 闭环最小动作 | 门禁落点 |
+|---|---|---|---|---|
+| 1 | 预算未冻结（D-06／V-006） | 133、136、195、243 | 取得跨平台基线与 72 h 时间序列 → 冻结或 ADR 修订 | 预算状态位 + 新增预算冻结校验脚本 |
+| 2 | M8 引擎／provider 未接入 | 153、154、155 | 实现 `js.rs`（固定 ECMAScript 测试集）、`python.rs`（版本/ABI/路径/依赖/C 扩展）、`gitbash.rs`（payload 哈希 + 五类命令）；或出正式降级 ADR | `cargo test -p whcode-runtime` |
+| 3 | Web 写命令与 WS 广播缺失 | 183、199、209 | 会话/任务写 API + `/ws` 订阅广播 + 慢客户端对比用例 | `test_web_security_defaults`、新增广播用例 |
+| 4 | TUI Diff 视图无数据源 | 179 | converge 差异接入 `StoreViewSource` | TUI 快照用例 |
+| 5 | 子进程未剥离凭据环境 | 144 | 构造子进程前 `env_clear` + 白名单注入，并断言凭据变量不可见 | `whcode-runtime` 用例 |
+| 6 | 检查点无触发策略 | 171 | 定时／按步骤／危险操作前三类触发 + 保留数配置项 | `whcode-runtime` 用例 |
+| 7 | 零残留进程无自动化验证 | 201 | 终止后枚举子进程/句柄断言为空（Windows Job Object 优先） | `tests/stability` 或平台用例 |
+| 8 | 稳定性四情形未纳入 | 206 | LLM 失败／断网／磁盘不足／写入失败四类注入用例 | `tests/stability` |
+| 9 | 卸载内存下降未实测 | 221 | 卸载前后 RSS 采样对比 | `script/measure_resources.py` 扩展 |
+| 10 | gettext PO 加载器未实现 | 224 | PO 解析 + 资源目录结构 + zh-CN→en 回退链契约测试 | 契约测试 |
+| 11 | 浏览器运行时证据缺口 | 220、227、228、229 | 桌面浏览器验证 `visibilityState=hidden`、20 次最小化-还原、`prefers-reduced-motion`、无 JS 只读视图 | 人工留证 + 预算门禁 |
+| 12 | 单人流程／CI 未接线 | 184、217、249 | 建立 PR 或等价记录（矩阵 + §15 七项清单）；落地 `.github/workflows/` 并跑 `check_counts.py` | CI |
+| 13 | ADR 部分批准 | 134 | 解除 ADR-005/010/012 未决条件（依赖第 1、2 类） | ADR 状态位 |
+| 14 | M7 SSH 服务端延后 | 182 | 按 ADR-013 保持延后；恢复须新 ADR | — |
+
+**排序建议**：闭环成本低且可自动化门禁的前置项（第 5、6、7、8、9、10 类）先做；
+第 2 类（M8）无论实现还是降级都需要 ADR，宜尽早定性；第 1 类锁死发布口径，
+在第 2 类定性后再启动冻结，避免预算随实现变动反复冻结。
+
