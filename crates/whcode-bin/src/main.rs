@@ -376,30 +376,51 @@ fn load_config(args: &[String]) -> Result<config::Config, whcode_domain::WhError
 mod tests {
     use super::BUILD_STAMP;
 
-    /// 版本号 = 构建时间（UTC，精确到分钟：`YYYY-MM-DDTHH:MMZ`）。
+    /// 版本号 = 构建时间：本地时间 `YYYY-MM-DDTHH:MM±HH:MM`（精确到分钟）；
+    /// 平台时间命令失败时回退 UTC `...Z`（构建脚本显式标注，不伪装本地时区）。
+    /// Windows 验收平台必须显示本地偏移（非 Z）——本机 PowerShell 可用。
     #[test]
-    fn build_stamp_is_minute_precision_utc() {
+    fn build_stamp_is_minute_precision_build_time() {
         assert_ne!(
             BUILD_STAMP, "unknown",
             "build.rs 必须注入 WHCODE_BUILD_STAMP"
         );
-        let bytes = BUILD_STAMP.as_bytes();
-        assert_eq!(
-            bytes.len(),
-            17,
-            "格式长度：YYYY-MM-DDTHH:MMZ：{BUILD_STAMP}"
-        );
-        for (index, byte) in bytes.iter().enumerate() {
-            match index {
-                4 | 7 => assert_eq!(*byte, b'-', "日期分隔符：{BUILD_STAMP}"),
-                10 => assert_eq!(*byte, b'T', "日期时间分隔符：{BUILD_STAMP}"),
-                13 => assert_eq!(*byte, b':', "时间分隔符：{BUILD_STAMP}"),
-                16 => assert_eq!(*byte, b'Z', "UTC 标记：{BUILD_STAMP}"),
-                _ => assert!(byte.is_ascii_digit(), "必须是数字：{BUILD_STAMP}"),
+        let (head, tail) = BUILD_STAMP.split_at(16);
+        if tail == "Z" {
+            if cfg!(windows) {
+                panic!(
+                    "Windows 构建必须显示本地时区偏移（UTC 回退仅限平台命令不可用）：{BUILD_STAMP}"
+                );
             }
+            assert_eq!(BUILD_STAMP.len(), 17, "回退 UTC 格式：{BUILD_STAMP}");
+        } else {
+            assert_eq!(BUILD_STAMP.len(), 22, "本地时间格式长度：{BUILD_STAMP}");
+        }
+        let bytes = head.as_bytes();
+        assert_eq!(bytes[4], b'-', "日期分隔符：{BUILD_STAMP}");
+        assert_eq!(bytes[7], b'-', "日期分隔符：{BUILD_STAMP}");
+        assert_eq!(bytes[10], b'T', "日期时间分隔符：{BUILD_STAMP}");
+        assert_eq!(bytes[13], b':', "时间分隔符：{BUILD_STAMP}");
+        for (index, byte) in bytes.iter().enumerate() {
+            if matches!(index, 4 | 7 | 10 | 13) {
+                continue;
+            }
+            assert!(byte.is_ascii_digit(), "必须是数字：{BUILD_STAMP}");
+        }
+        if tail != "Z" {
+            let tail_bytes = tail.as_bytes();
+            assert!(
+                (tail_bytes[0] == b'+' || tail_bytes[0] == b'-') && tail_bytes[3] == b':',
+                "时区偏移须为 ±HH:MM：{BUILD_STAMP}"
+            );
+            assert!(
+                tail_bytes[1..3].iter().all(u8::is_ascii_digit)
+                    && tail_bytes[4..6].iter().all(u8::is_ascii_digit),
+                "偏移须为数字：{BUILD_STAMP}"
+            );
         }
         // 年份 plausibility（防止把其它字符串误当时间戳）。
-        let year: u32 = BUILD_STAMP[0..4].parse().expect("年份数字");
+        let year: u32 = head[0..4].parse().expect("年份数字");
         assert!((2024..2100).contains(&year), "年份不合理：{BUILD_STAMP}");
     }
 }

@@ -7,9 +7,9 @@
 
 **许可证**：BSD-2-Clause（见 [LICENSE](./LICENSE)）｜ **版权**：FreeBSD 中文社区（FreeBSD Chinese Community）
 
-**版本**：`whcode --version` 与 `doctor` 报告**二进制构建时间**（UTC，精确到分钟，如
-`2026-10-22T17:06Z`）；Cargo 包版本仍为 `0.1.0`（M0 基线，**未发布**；变更见
-[CHANGELOG.md](./CHANGELOG.md)）
+**版本**：`whcode --version` 与 `doctor` 报告**二进制构建时间**（本地时间、精确到分钟并带
+时区偏移，如 `2026-10-23T01:17+08:00`；平台时间命令不可用时回退 UTC `...Z`）；Cargo 包
+版本仍为 `0.1.0`（M0 基线，**未发布**；变更见 [CHANGELOG.md](./CHANGELOG.md)）
 
 ## 当前状态
 
