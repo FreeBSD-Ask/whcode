@@ -42,9 +42,6 @@ jobs:
       - name: 计数一致性（FR/任务/Check）
         run: python ci/check_counts.py
 
-      - name: 计数一致性（FR/任务/Check）
-        run: python ci/check_counts.py
-
       - name: 产出依赖记录（V-001，含测量纪律字段）
         run: python ci/platform-matrix/record_deps.py artifacts
 
