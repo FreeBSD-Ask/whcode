@@ -68,7 +68,7 @@ fn main() -> ExitCode {
         }
         Some("bench") => bench_command(&args[1..]),
         Some("serve") => serve::serve_command(&args[1..]),
-        // 批次 2/3：区分「CUI 命令」与「交互入口」——
+        // 批次 2/3：区分“CUI 命令”与“交互入口”——
         // - 含位置参数（子命令或拼写错误）→ CUI 调度（未知子命令由 clap 报用法错误，退出码 2）；
         // - 仅含旗标（如 `--workspace DIR`）或无参数 → 交互入口（TUI/骨架提示）；
         // - `--help`/`-h` → CUI 帮助（成功退出）。
@@ -218,7 +218,7 @@ fn print_bench_summary(report: &bench::BaselineReport, out: &Path) {
 /// 装配根接线（T082/T083/T129/T135 + 批次 1 数据接入）：
 /// - 主题（FR-612）经配置 `ui.theme` 选择，可被 `WHCODE_UI_THEME` 覆盖；
 /// - 最小化探测（T135/ADR-021）注入 `whcode-platform` 的 `is_window_minimized`
-///   ——事件循环只在「有待绘制帧且输入静默」时低频调用（≥5s 间隔，非帧路径）；
+///   ——事件循环只在“有待绘制帧且输入静默”时低频调用（≥5s 间隔，非帧路径）；
 /// - 视图数据源：打开工作区库（`--workspace DIR` 或配置工作区）并经 `whcode-app`
 ///   只读命令生成快照；打开失败（含跨进程锁）时**显式警告并回退空数据源**——
 ///   TUI 仍可用，但不伪造数据。
@@ -255,7 +255,7 @@ fn launch_interactive(args: &[String]) -> ExitCode {
         match workspace::open_workspace_db(&workspace, &config) {
             Ok(conn) => Box::new(store_source::StoreViewSource::new(conn, texts.clone())),
             Err(err) => {
-                eprintln!("数据源不可用（TUI 以空数据源运行，视图显示「暂无数据」）：{err}");
+                eprintln!("数据源不可用（TUI 以空数据源运行，视图显示“暂无数据”）：{err}");
                 Box::new(whcode_tui::EmptyViewSource)
             }
         };

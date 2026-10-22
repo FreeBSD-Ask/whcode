@@ -15,7 +15,7 @@
 //!
 //! 数据接线边界（诚实标注）：本 crate 当前只交付**视图与渲染接线**；六视图的业务数据
 //! 由装配根经 [`ViewSource`] 注入，`whcode-bin` 目前传入 [`EmptyViewSource`]（应用服务
-//! 数据源装配前六视图可切换、可绘制，帧内显式提示「暂无数据」）。
+//! 数据源装配前六视图可切换、可绘制，帧内显式提示“暂无数据”）。
 
 mod event;
 mod render;
@@ -59,7 +59,7 @@ const QUIET_BEFORE_PROBE: Duration = Duration::from_secs(1);
 /// 检测到最小化后回落此值，以尽快发现还原。
 const MINIMIZE_PROBE_INTERVAL: Duration = Duration::from_secs(5);
 
-/// 最小化探测的退避上限：连续「未最小化」结果后最多 60s 探一次
+/// 最小化探测的退避上限：连续“未最小化”结果后最多 60s 探一次
 /// （≈ 0.5% 单核占用的上界，NFR-205 空闲 CPU 预算之内；空闲无待绘制帧时完全不探测）。
 const MAX_PROBE_INTERVAL: Duration = Duration::from_secs(60);
 
@@ -83,7 +83,7 @@ pub trait ViewSource {
     fn snapshot(&self, view: ViewId, session: Option<&str>) -> ViewSnapshot;
 }
 
-/// 空数据源：应用服务数据源装配前的默认实现——六视图可切换、可绘制，帧内提示「暂无数据」。
+/// 空数据源：应用服务数据源装配前的默认实现——六视图可切换、可绘制，帧内提示“暂无数据”。
 #[derive(Debug, Default, Clone, Copy)]
 pub struct EmptyViewSource;
 
@@ -102,7 +102,7 @@ pub struct RunOptions<'a> {
     pub texts: I18n,
     /// 窗口最小化探测（T135/FR-617）：`Some` 时由事件循环低频调用
     /// （仅在有**待绘制帧**且输入静默 ≥1s 时；间隔 5s→60s 退避，ADR-021）。
-    /// `None` = 不探测（门控保持「未最小化」，行为与接线前一致）。
+    /// `None` = 不探测（门控保持“未最小化”，行为与接线前一致）。
     pub minimize_probe: Option<&'a dyn Fn() -> Option<bool>>,
 }
 
@@ -168,8 +168,8 @@ pub enum ScriptStep {
 /// 无终端重放：按步骤驱动与真实循环相同的核心逻辑，返回最终报告（供自动化证据）。
 ///
 /// 时间模型：初始时刻为创建时，每步前进 [`SCRIPT_STEP`]（1s）；每步之后执行
-/// 「最小化探测判断 → 渲染判断」，与真实循环的循环体顺序一致。`quit` 置位后
-/// 不再消费剩余步骤（与真实循环「退出即停」语义一致）。
+/// “最小化探测判断 → 渲染判断”，与真实循环的循环体顺序一致。`quit` 置位后
+/// 不再消费剩余步骤（与真实循环“退出即停”语义一致）。
 #[must_use]
 pub fn run_scripted_steps(
     source: &dyn ViewSource,
@@ -316,7 +316,7 @@ impl<'a> LoopCore<'a> {
     }
 
     /// 输入事件（键/resize）：更新状态并置脏；收到输入即证明窗口可见——若此前处于
-    /// 最小化门控则按「还原」记账（还原后单次全量重绘，FR-617）。视图切换时重新
+    /// 最小化门控则按“还原”记账（还原后单次全量重绘，FR-617）。视图切换时重新
     /// 准备快照（准备层允许做同步整理，但不得做 LLM/长工具调用，§5.3）。
     ///
     /// 导航键（`j`/`k` 选择会话、`r` 刷新）由本层消费，不计入普通按键计数。
@@ -356,7 +356,7 @@ impl<'a> LoopCore<'a> {
     }
 
     /// 最小化探测（T135/ADR-021）：仅在有**待绘制帧**且输入静默 ≥1s 时调用；
-    /// 连续「未最小化」结果按指数退避（5s→60s 上限），检测到最小化后回落 5s。
+    /// 连续“未最小化”结果按指数退避（5s→60s 上限），检测到最小化后回落 5s。
     ///
     /// 成本纪律：空闲（无待绘制帧）与连续输入期间**不探测**——无待绘制帧时探测
     /// 不改变任何行为，只会白烧 200—500ms；输入连续时窗口必然可见。
@@ -632,7 +632,7 @@ mod tests {
         assert_eq!(probe.calls(), 0);
     }
 
-    /// T135：输入事件证明窗口可见——最小化判定被输入「还原」并单次全量重绘。
+    /// T135：输入事件证明窗口可见——最小化判定被输入“还原”并单次全量重绘。
     #[test]
     fn scripted_input_proves_window_visible_and_restores() {
         let probe = FakeProbe::new([Some(true)]);
@@ -694,7 +694,7 @@ mod tests {
         assert_eq!(amoled.content()[0].fg, Color::Rgb(0xE6, 0xE6, 0xE6));
     }
 
-    /// 空数据源帧：显式「暂无数据」，不伪造内容。
+    /// 空数据源帧：显式“暂无数据”，不伪造内容。
     #[test]
     fn empty_source_renders_explicit_placeholder() {
         let text = render_empty_frame(ViewId::Tasks, 60, 12);

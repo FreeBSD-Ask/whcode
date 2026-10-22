@@ -116,7 +116,7 @@
 
 ### Phase 8 US6 M5（T082—T089）
 
-- [x] Check 82: TUI 六视图（会话树/任务/上下文/事件/Spec 状态/diff）均可在固定终端尺寸下截图取证（来源：Task T082、FR-601）——**可执行形式已取得**：单元测试 `six_views_render_at_fixed_terminal_size`（80×24 逐视图帧 + 内容断言）；真实控制台帧 `artifacts/tui-views-2026-10-22.txt`（release 二进制，`1`—`6` 切换逐帧落盘，`script/tui_views_smoke.py` 可重跑）；视图数据源未装配，正文显式「暂无数据」（数据接线见 Check 179 备注）
+- [x] Check 82: TUI 六视图（会话树/任务/上下文/事件/Spec 状态/diff）均可在固定终端尺寸下截图取证（来源：Task T082、FR-601）——**可执行形式已取得**：单元测试 `six_views_render_at_fixed_terminal_size`（80×24 逐视图帧 + 内容断言）；真实控制台帧 `artifacts/tui-views-2026-10-22.txt`（release 二进制，`1`—`6` 切换逐帧落盘，`script/tui_views_smoke.py` 可重跑）；视图数据源未装配，正文显式“暂无数据”（数据接线见 Check 179 备注）
 - [x] Check 83: 渲染路径无完整历史克隆与帧内 JSON 反序列化（代码审查+基准确认帧预算）（来源：Task T083、§5.3）——**三证**：①结构断言（`render.rs`/`views.rs` 剥离注释与测试模块后无 serde_json）；②帧路径强制限行投影 `render_lines_limited`（帧成本由终端尺寸界定，完整历史不进帧路径——10k 行快照同阶，测试 `limited_projection_is_bounded_and_consistent`）；③帧预算归档 `artifacts/tui-frame-budget.json`（release 实测 p50 250 µs / p95 281 µs，候选预算 p95 ≤ 16 ms **未冻结**）
 - [ ] Check 84: CUI 命令树与 contracts/cui-cli.md §1 一致且 `whcode --help` 可枚举（来源：Task T084、FR-602）
 - [ ] Check 85: 每个 CUI 命令 `--json` 输出含 schema_version；错误输出含四字段（来源：Task T085）
@@ -131,7 +131,7 @@
 - [x] Check 91: 默认启动仅绑定 127.0.0.1；无认证时外部绑定启动失败并给出原因（来源：Task T091、FR-606）——**已取得**：`whcode serve --web --bind 0.0.0.0:8740` → `invalid_state: 对外监听 … 必须显式开启认证与 Origin 检查（FR-606、V-110）：拒绝启动`（退出码 1）；默认 `127.0.0.1` 监听实测可用；契约测试 `v110_default_loopback_and_external_requires_auth` ✓
 - [x] Check 92: 未携带有效凭证的 WS 连接被拒；跨 Origin 被拒；超限消息被拒；URL 中无 token（来源：Task T092、§10.2）——**已取得（2026-10-22，批次 4）**：认证模式下 WS 无 token → 403、带 token + Origin → 101（`artifacts/web-lan-2026-10-22-batch4.txt`）；跨 Origin 403、请求体超限拒绝、URL 无 token（fragment 传递，不经 query）均有测试与实测；ADR-023 锁定局域网边界
 - [ ] Check 93: Web 七类业务操作（会话/任务/历史/追踪/SDD/清理/运行时）各有手动或自动化验证记录（来源：Task T093、FR-609）——**部分证据（2026-10-22，批次 1 更新）**：会话清单（可点击选择）/任务（`/api/tasks` 总览 + 活跃任务）/历史（事件尾部）/SDD（状态快照）**已在真实浏览器验证（4/7）**；追踪/清理/运行时未接入 Web——不得据此勾选
-- [x] Check 94: 浏览器断网重连后状态与快照一致，事件无缺失（来源：Task T094、FR-605）——**已取得**：真实浏览器断线（服务停止）→ 页脚「未连接」、游标保留；服务重启后指数退避重连 → 「已连接」、游标 6、事件 6 行无重复无缺失（`artifacts/web-browser-2026-10-22.txt`）
+- [x] Check 94: 浏览器断网重连后状态与快照一致，事件无缺失（来源：Task T094、FR-605）——**已取得**：真实浏览器断线（服务停止）→ 页脚“未连接”、游标保留；服务重启后指数退避重连 → “已连接”、游标 6、事件 6 行无重复无缺失（`artifacts/web-browser-2026-10-22.txt`）
 - [x] Check 95: `tests/contract/test_web_security_defaults.rs` 通过（V-110 五项默认值）（来源：Task T095）——**已取得**：契约测试 5 例通过（含 ADR-022 修订后的 Origin 语义）；全工作区测试链覆盖
 
 ### Phase 10 US8 M7（T096—T099）

@@ -160,7 +160,7 @@ pub struct DiffLine {
 pub struct ViewSnapshot {
     /// 当前视图。
     pub view: ViewId,
-    /// 摘要行（准备层生成；非空时作为首行显示，如「会话 S-1 · 总计 12 · 完成 3」）。
+    /// 摘要行（准备层生成；非空时作为首行显示，如“会话 S-1 · 总计 12 · 完成 3”）。
     pub summary: String,
     /// 会话树（会话视图）。
     pub sessions: Vec<SessionRow>,
@@ -203,7 +203,7 @@ impl ViewSnapshot {
 
     /// 渲染至多 `max` 行为文本行（**帧路径的投影**：帧成本由终端尺寸界定，与快照
     /// 行数无关——10k 行快照与 200 行快照的帧投影同阶。完整行数由准备层按
-    /// 「有界尾部」裁剪（V-101），此处只是安全上界）。**不反序列化 JSON**。
+    /// “有界尾部”裁剪（V-101），此处只是安全上界）。**不反序列化 JSON**。
     #[must_use]
     pub fn render_lines_limited(&self, max: usize) -> Vec<String> {
         if max == 0 {
@@ -263,7 +263,7 @@ impl ViewSnapshot {
     }
 }
 
-/// 单文本行视图的投影：空文本投影 0 行（帧内显示「暂无数据」，不伪造空行）。
+/// 单文本行视图的投影：空文本投影 0 行（帧内显示“暂无数据”，不伪造空行）。
 fn text_lines(text: &str, max: usize) -> Vec<String> {
     if max == 0 || text.is_empty() {
         Vec::new()
@@ -359,7 +359,7 @@ mod tests {
         assert_eq!(snapshot.render_lines_limited(2).len(), 2);
         assert!(snapshot.render_lines_limited(0).is_empty());
 
-        // 摘要 + 空数据：摘要仍显示（正确的空不是「暂无数据」）。
+        // 摘要 + 空数据：摘要仍显示（正确的空不是“暂无数据”）。
         let mut tasks = ViewSnapshot::empty(ViewId::Tasks);
         tasks.summary = "会话 S-1 · 总计 0".to_string();
         assert_eq!(tasks.render_lines(), vec!["会话 S-1 · 总计 0"]);
@@ -385,7 +385,7 @@ mod tests {
             assert_eq!(limited, full[..limited.len()], "前缀必须与完整投影一致");
         }
 
-        // 空文本视图投影 0 行（帧内提示「暂无数据」，不伪造空行）。
+        // 空文本视图投影 0 行（帧内提示“暂无数据”，不伪造空行）。
         let spec = ViewSnapshot::empty(ViewId::Spec);
         assert!(spec.render_lines().is_empty());
         let mut context = ViewSnapshot::empty(ViewId::Context);

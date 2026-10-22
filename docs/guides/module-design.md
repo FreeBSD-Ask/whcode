@@ -158,7 +158,7 @@ whcode-bin           （装配根：配置、日志、feature）
   `Renderer`、`RunOptions`、`ScriptStep`/`ScriptReport`、`TerminalSession`/`TerminalGuard`、
   `Theme`。
 - **失败模式**：stdin 非交互时**不得**进入事件循环（Check 226）；Drop 中恢复失败不 panic；
-  最小化探测失败按「未知」处理（不伪装最小化状态，见 ADR-021 修订）。
+  最小化探测失败按“未知”处理（不伪装最小化状态，见 ADR-021 修订）。
 - **测试**：内联 41 例（含六视图固定尺寸帧、帧预算归档、脚本化门控/零重绘证据——
   `run_scripted_steps` 与真实循环共用 `LoopCore`）+ 真实控制台取证
   `script/tui_views_smoke.py`（六视图帧落盘 artifacts/）。

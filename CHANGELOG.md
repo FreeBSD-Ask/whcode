@@ -31,7 +31,7 @@
   两者均不可用时回退 UTC `...Z` 并输出 `cargo:warning`（不静默降级）；零新依赖、零 unsafe。
   `whcode --version`、`doctor` 文本与 `doctor --json` 的 `whcode_version`
   均报告该时间戳。Cargo 包版本保持 `0.1.0`（语义化版本用于依赖与打包；展示版本 = 构建时间）。
-- 程序中文名调整为「旺皇 Code」（2026-10-23）：中文文本层 `app.title`、TUI 中文标题、
+- 程序中文名调整为“旺皇 Code”（2026-10-23）：中文文本层 `app.title`、TUI 中文标题、
   CUI `--help` 简介、Web 页首标题与 README 标题同步；英文名保持
   `WHCode Coding Harness` / `whcode` 不变（`?locale=en` 与 `LANG=en` 路径不受影响）。
 - 批次 4：Web 仅限局域网 + 认证边界（2026-10-22，ADR-023）：`serve --web` 增加
@@ -68,7 +68,7 @@
   `artifacts/tui-computeruse-2026-10-22.txt`（截图 `web-browser-2026-10-22/history-view.png`）。
 - T082/T083/T129/T135 TUI 接线 + T136 收口 + T128 配置接线（2026-10-22）：六视图接入
   真实运行循环（`1`—`6` 切换、`ViewSource` 准备层、`EmptyViewSource` 空数据源显式
-  「暂无数据」不伪造）；脏标记门控与空闲零重绘进入循环，重放证据 `run_scripted_steps`
+  “暂无数据”不伪造）；脏标记门控与空闲零重绘进入循环，重放证据 `run_scripted_steps`
   与真实循环共用 `LoopCore`（探测计数/最小化跳过/还原单次重绘均断言）；窗口最小化
   探测接线（ADR-021 修订：仅待绘制帧 + 输入静默 ≥1s 时探测、间隔 5s→60s 指数退避、
   检测到最小化回落 5s——空闲零探测）；帧路径限行投影 `render_lines_limited`（帧成本

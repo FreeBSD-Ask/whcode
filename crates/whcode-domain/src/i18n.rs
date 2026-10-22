@@ -212,7 +212,7 @@ mod tests {
         assert_eq!(i18n.resolve("nonexistent.key"), "nonexistent.key");
     }
 
-    /// 双语键表必须一致（Check 222「zh-CN 与 en 语义一致」的结构前提）：
+    /// 双语键表必须一致（Check 222“zh-CN 与 en 语义一致”的结构前提）：
     /// 任一语言缺键都会导致回退到另一种语言或键名——发现即失败。
     #[test]
     fn both_catalogs_define_the_same_keys() {

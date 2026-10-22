@@ -1,6 +1,6 @@
 ## 概述
 
-WHCode 的运行时配置由 `crates/whcode-bin` crate 提供，采用「默认值基线 + JSON 覆盖」的两层模型。当前骨架阶段仅暴露 `--version`、`doctor [--config PATH] [--json]` 三个入口，完整命令面待 M2 迁移至 `whcode-cui`。
+WHCode 的运行时配置由 `crates/whcode-bin` crate 提供，采用“默认值基线 + JSON 覆盖”的两层模型。当前骨架阶段仅暴露 `--version`、`doctor [--config PATH] [--json]` 三个入口，完整命令面待 M2 迁移至 `whcode-cui`。
 
 ## 核心文件与类型
 

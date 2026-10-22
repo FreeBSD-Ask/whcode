@@ -18,7 +18,7 @@ use whcode_tui::{EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource
 
 /// 会话清单上限。
 const SESSION_LIMIT: usize = 200;
-/// 事件尾部条数（V-101「有界尾部」口径）。
+/// 事件尾部条数（V-101“有界尾部”口径）。
 const EVENT_TAIL: usize = 200;
 /// 上下文展示预算（token 数；仅用于概览行）。
 const CONTEXT_DISPLAY_BUDGET: usize = 4096;
@@ -218,7 +218,7 @@ impl ViewSource for StoreViewSource {
     }
 }
 
-/// 未选择会话时的显式提示（正确的空：不是「暂无数据」而是「还没有选择」）。
+/// 未选择会话时的显式提示（正确的空：不是“暂无数据”而是“还没有选择”）。
 fn no_session(view: ViewId, texts: &I18n) -> ViewSnapshot {
     let mut snapshot = ViewSnapshot::empty(view);
     snapshot.summary = texts.resolve("tui.no_session").to_string();

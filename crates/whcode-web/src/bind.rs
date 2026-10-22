@@ -126,7 +126,7 @@ pub fn bind(config: &BindConfig) -> Result<TcpListener, WhError> {
 mod tests {
     use super::*;
 
-    /// ADR-023：「仅限局域网」地址边界。
+    /// ADR-023：“仅限局域网”地址边界。
     #[test]
     fn lan_policy_allows_private_ranges_only() {
         for lan in ["10.0.0.5:8080", "172.16.8.9:1", "192.168.5.4:8737"] {

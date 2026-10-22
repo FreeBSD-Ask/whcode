@@ -267,7 +267,7 @@ fn session_command(
             let is_dry_run = confirm_flags(*dry_run, *yes)?;
             let mut conn = open_db(workspace, config)?;
             // 显式按 ID 删除（用户点名 + --yes）：不套用 TTL 的活跃窗口保护，
-            // 否则「删除刚创建的会话」会被静默跳过（预览/执行同口径）。
+            // 否则“删除刚创建的会话”会被静默跳过（预览/执行同口径）。
             let protection = PurgeProtection {
                 active_window_ms: 0,
                 ..PurgeProtection::default()
