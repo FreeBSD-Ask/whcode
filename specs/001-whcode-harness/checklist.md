@@ -127,12 +127,12 @@
 
 ### Phase 9 US7 M6（T090—T095）
 
-- [ ] Check 90: 浏览器经 HTTP/WebSocket 完成与 CUI 相同命令并得到一致结果（来源：Task T090、FR-603）
-- [ ] Check 91: 默认启动仅绑定 127.0.0.1；无认证时外部绑定启动失败并给出原因（来源：Task T091、FR-606）
-- [ ] Check 92: 未携带有效凭证的 WS 连接被拒；跨 Origin 被拒；超限消息被拒；URL 中无 token（来源：Task T092、§10.2）
-- [ ] Check 93: Web 七类业务操作（会话/任务/历史/追踪/SDD/清理/运行时）各有手动或自动化验证记录（来源：Task T093、FR-609）
-- [ ] Check 94: 浏览器断网重连后状态与快照一致，事件无缺失（来源：Task T094、FR-605）
-- [ ] Check 95: `tests/contract/test_web_security_defaults.rs` 通过（V-110 五项默认值）（来源：Task T095）
+- [ ] Check 90: 浏览器经 HTTP/WebSocket 完成与 CUI 相同命令并得到一致结果（来源：Task T090、FR-603）——**部分证据（2026-10-22）**：浏览器经 HTTP 读取会话/事件/状态（与 app 服务同源）；**阻塞**：CUI 命令执行入口未装配（`whcode` 尚无 CUI 调度），无法执行「同一命令」对比——留待 CUI 装配后
+- [x] Check 91: 默认启动仅绑定 127.0.0.1；无认证时外部绑定启动失败并给出原因（来源：Task T091、FR-606）——**已取得**：`whcode serve --web --bind 0.0.0.0:8740` → `invalid_state: 对外监听 … 必须显式开启认证与 Origin 检查（FR-606、V-110）：拒绝启动`（退出码 1）；默认 `127.0.0.1` 监听实测可用；契约测试 `v110_default_loopback_and_external_requires_auth` ✓
+- [ ] Check 92: 未携带有效凭证的 WS 连接被拒；跨 Origin 被拒；超限消息被拒；URL 中无 token（来源：Task T092、§10.2）——**部分证据（2026-10-22）**：跨 Origin 403、请求体超限拒绝、URL 无 token 均有测试；**缺口**：`serve` 未提供 token 配置（回环模式认证关闭为 V-110 默认），认证模式的 WS 凭证路径不可达——对外部署前置
+- [ ] Check 93: Web 七类业务操作（会话/任务/历史/追踪/SDD/清理/运行时）各有手动或自动化验证记录（来源：Task T093、FR-609）——**部分证据（2026-10-22）**：会话清单/历史（事件）/SDD（状态快照）已在真实浏览器验证；任务视图**无数据源与 API 路由**（UI 缺口）；追踪/清理/运行时未接入 Web——不得据此勾选
+- [x] Check 94: 浏览器断网重连后状态与快照一致，事件无缺失（来源：Task T094、FR-605）——**已取得**：真实浏览器断线（服务停止）→ 页脚「未连接」、游标保留；服务重启后指数退避重连 → 「已连接」、游标 6、事件 6 行无重复无缺失（`artifacts/web-browser-2026-10-22.txt`）
+- [x] Check 95: `tests/contract/test_web_security_defaults.rs` 通过（V-110 五项默认值）（来源：Task T095）——**已取得**：契约测试 5 例通过（含 ADR-022 修订后的 Origin 语义）；全工作区测试链覆盖
 
 ### Phase 10 US8 M7（T096—T099）
 
@@ -241,7 +241,7 @@
 - [ ] Check 178: 未经基准证明不启用额外缓存/分区/分库/物化结构（来源：spec FR-511／research TBD-10）
 - [ ] Check 179: TUI 六视图完整交付（来源：spec FR-601／Task T082）——**部分证据（2026-10-22）**：六视图结构、切换（`1`—`6`）、固定尺寸帧与真实控制台取证已交付（见 Check 82）；**未接线**：视图业务数据源（`ViewSource` 由装配根注入，当前 `EmptyViewSource`——会话树/任务/事件的真实数据装配属 M5 应用服务集成，未取得前不勾选）
 - [ ] Check 180: CUI 退出码表文档化且测试覆盖（来源：spec FR-602／Task T084、T085）
-- [ ] Check 181: Web 经 HTTP/WebSocket 访问同一应用服务，状态由同一事件流驱动（来源：spec FR-603／Task T090）
+- [x] Check 181: Web 经 HTTP/WebSocket 访问同一应用服务，状态由同一事件流驱动（来源：spec FR-603／Task T090）——**已取得**：`serve --web` 装配访问真实工作区库；浏览器 GET `/api/sessions`、`/api/events`、`/api/status` 均经 `whcode_app` 同一服务层（事件读取同一 events 表）；WS 握手 open→close:1000；证据 `artifacts/web-browser-2026-10-22.txt`
 - [ ] Check 182: SSH 默认无任意系统 Shell（来源：spec FR-608／Task T097）
 - [ ] Check 183: Web 七类业务操作不经 PTY（来源：spec FR-609／Task T093）
 - [ ] Check 184: 新能力同 PR 更新能力矩阵与测试（抽查最近 5 个功能 PR）（来源：spec FR-610／Task T087）
@@ -291,9 +291,9 @@
 - [ ] Check 222: zh-CN 与 en 双语输出语义一致；缺失 locale 回退 en；RTL 双向文本处理接口存在且渲染层无 LTR 硬编码（来源：spec FR-615／Task T130）
 - [ ] Check 223: 传输层进度事件（连接/断开/重连/字节计数/RTT/原因码）可经 CUI JSON 导出（来源：spec FR-616／Task T132）
 - [ ] Check 224: gettext PO 接口契约测试通过：i18n 资源目录结构、PO 加载器、zh-CN→en 回退链（来源：spec FR-615／Task T130）
-- [ ] Check 227: 最小化/不可见期间无绘制与动画调用（CPU 近空闲基线），无 `requestAnimationFrame` 调用；恢复时单次全量重绘且事件游标连续、关键事件零丢失（来源：spec FR-617／Task T135、T136／`docs/guides/gui-suspend.md`）——**TUI 侧已取得（2026-10-22）**：重放证据（最小化期间跳过绘制并记账、还原单次全量重绘、空闲零探测、连续输入零探测；真实控制台六视图帧复验）；**Web 侧未取得**：无 `requestAnimationFrame` 调用由预算门禁静态断言（T137 审计扩展），"最小化 60s CPU 近空闲基线"与"事件游标连续"的浏览器实测待 Web 服务入口装配后补
-- [ ] Check 228: 图形稳定性：禁用 GPU/软件渲染下功能可用无崩溃；连续最小化-还原 20 次无上下文泄漏；关闭动效或 `prefers-reduced-motion` 时不创建动画定时器（来源：spec FR-617／Task T136）——**部分证据（2026-10-22）**：GPU 维度按 NFR-212 为"默认不创建上下文"（运行时路径禁 `getContext`/GPU 探测，门禁静态断言）——禁用 GPU 场景下无依赖可用；**浏览器侧 20 次最小化-还原与定时器断言未取得**（Web 服务入口未装配）
-- [ ] Check 229: 前端预算与依赖审计通过：首屏 JS ≤ 50 KB（gzip）、CSS ≤ 20 KB（gzip）、无 WebGL/视频/自动播放/第三方字体、无 `node_modules` 与打包产物；无 JS 时只读视图可用（来源：spec FR-618／ADR-014／Task T137）
+- [ ] Check 227: 最小化/不可见期间无绘制与动画调用（CPU 近空闲基线），无 `requestAnimationFrame` 调用；恢复时单次全量重绘且事件游标连续、关键事件零丢失（来源：spec FR-617／Task T135、T136／`docs/guides/gui-suspend.md`）——**两侧主要证据已取得（2026-10-22）**：TUI 侧——重放证据（最小化跳过绘制并记账、还原单次全量重绘、空闲零探测）+ computer-use 真实窗口最小化/还原（内容完整）；Web 侧——**实测缺陷并修复**：挂起（blur）期间轮询由 9 次/2.5s 降为 **0**，恢复后单次刷新 + 续拉，游标/日志不重复不遗漏；无 `requestAnimationFrame` 由预算门禁静态断言；**剩余缺口**：真实 `visibilityState=hidden` 分支在当前内置浏览器不可触发（后台标签仍报告 visible）——桌面浏览器人工验证前不勾选
+- [ ] Check 228: 图形稳定性：禁用 GPU/软件渲染下功能可用无崩溃；连续最小化-还原 20 次无上下文泄漏；关闭动效或 `prefers-reduced-motion` 时不创建动画定时器（来源：spec FR-617／Task T136）——**部分证据（2026-10-22）**：GPU 维度按 NFR-212 为"默认不创建上下文"（运行时路径禁 `getContext`/GPU 探测；浏览器实测 canvas=0、无 WebGL）；**缺口**：20 次最小化-还原循环与 `prefers-reduced-motion` 运行时定时器断言需桌面浏览器（内置浏览器无该控制面）——不勾选
+- [ ] Check 229: 前端预算与依赖审计通过：首屏 JS ≤ 50 KB（gzip）、CSS ≤ 20 KB（gzip）、无 WebGL/视频/自动播放/第三方字体、无 `node_modules` 与打包产物；无 JS 时只读视图可用（来源：spec FR-618／ADR-014／Task T137）——**部分证据（2026-10-22）**：预算门禁扩展审计 `suspend.js`（JS gzip 2477 B / CSS 763 B）并新增 NFR-212（运行时路径禁 GPU 上下文）与 `requestAnimationFrame` 断言，全部通过；**缺口**：无 JS 时只读视图可用性未在真实浏览器验证（会话数据经 JS 拉取）——不勾选
 - [ ] Check 230: 过程门禁 G0—G5 各有输入/活动/产物/退出判据，且产物映射到真实仓库文件；单人项目的评审替代机制已写明（来源：`docs/guides/software-engineering-process.md`／Task T138）
 - [ ] Check 231: 需求工程规范含 FR 模板、六条需求质量判据、三方追溯抽查命令与变更控制流程，并用 ADR-012/ADR-013 两个真实案例验证流程可运行（来源：`docs/guides/requirements-engineering.md`／Task T139）
 - [ ] Check 232: 模块设计覆盖 13 个 crate 的六项（职责/不负责/关键类型/依赖/失败模式/测试位置），且与 `test_layering` 的依赖方向一致（来源：`docs/guides/module-design.md`／Task T140）
@@ -317,7 +317,7 @@
 
 ### 新增验收边界（2026-10-21，TUI 非交互）
 
-- [ ] Check 226: TUI 不得在 stdin 非交互时进入事件循环：管道调用必须立即退出（退出码 0），证据为 `script/tui_smoke.py` 的 `graceful_exit_on_closed_stdin`（来源：spec Assumptions／Task T024／V-003）
+- [x] Check 226: TUI 不得在 stdin 非交互时进入事件循环：管道调用必须立即退出（退出码 0），证据为 `script/tui_smoke.py` 的 `graceful_exit_on_closed_stdin`（来源：spec Assumptions／Task T024／V-003）——**已取得（2026-10-22 复跑）**：`script/tui_smoke.py` 三项自动检查全部通过（管道 stdin 退出码 0 / `--version` / `doctor` 非交互），产物 `artifacts/tui-smoke/20261022-185913/summary.json`；`script/tui_non_tty_smoke.py` 的 headless/detached 用例同样通过
 
 ---
 

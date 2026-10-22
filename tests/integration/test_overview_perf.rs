@@ -24,6 +24,8 @@ const CANDIDATE_P95_BUDGET_US: u128 = 50_000;
 fn temp_db(tag: &str) -> Connection {
     let dir =
         std::env::temp_dir().join(format!("whcode-overview-perf-{}-{tag}", std::process::id()));
+    // 上次运行被中断（进程被杀）时目录会遗留；Windows 会复用 PID，先清再建（夹具幂等）。
+    let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("创建临时目录");
     let conn = Connection::open(dir.join("perf.duckdb")).expect("打开库");
     apply_migrations(&conn).expect("迁移");

@@ -11,6 +11,7 @@
 //! query 传递，WebSocket 须校验来源、身份、授权与消息大小（§10.2）。
 
 pub mod api;
+pub mod assets;
 pub mod bind;
 pub mod security;
 pub mod ws;

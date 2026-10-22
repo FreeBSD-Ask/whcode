@@ -84,6 +84,11 @@ path = "integration/test_session_switch.rs"
 name = "overview_perf"
 path = "integration/test_overview_perf.rs"
 
+# Web 演示工作区夹具（浏览器端到端测试用；可重跑幂等，非验收断言）。
+[[test]]
+name = "seed_web_demo"
+path = "integration/seed_web_demo.rs"
+
 # 脱敏、链路串联、预算截断与重连补拉（T067、V-103 关联）。
 [[test]]
 name = "trace_and_context"

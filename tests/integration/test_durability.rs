@@ -25,6 +25,8 @@ const KEY_PREFIX: &str = "dur-k-";
 
 fn temp_dir(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("whcode-durability-{}-{tag}", std::process::id()));
+    // 上次运行被中断（进程被杀）时目录会遗留；Windows 会复用 PID，先清再建（夹具幂等）。
+    let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("创建临时目录");
     dir
 }

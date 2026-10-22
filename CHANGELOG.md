@@ -13,6 +13,15 @@
 
 ### 变更
 
+- Web 服务装配与端到端测试（2026-10-22，T090—T095 补装配 + T135/T136 收口）：
+  `whcode serve --web [--bind HOST:PORT] [--workspace DIR] [--config PATH]`
+  （contracts/cui-cli.md §1）——静态前端**编译期嵌入**（固定白名单路由、无目录遍历面）
+  + `/api/*` 经同一应用服务；顺序服务循环（DuckDB 连接 `Send` 非 `Sync`，ADR-002）；
+  WebSocket 握手 + 正常关闭（会话推送未实现，前端不依赖）；外部绑定拒绝（FR-606 实测）。
+  ADR-022 修订 Origin 匹配（scheme+host、端口不参与；回环模式缺失 Origin 放行，
+  非回环 host 仍拒绝）。新增演示工作区夹具 `tests/integration/seed_web_demo.rs`（幂等）。
+  真实浏览器与桌面取证：`artifacts/web-browser-2026-10-22.txt`、
+  `artifacts/tui-computeruse-2026-10-22.txt`（截图 `web-browser-2026-10-22/history-view.png`）。
 - T082/T083/T129/T135 TUI 接线 + T136 收口 + T128 配置接线（2026-10-22）：六视图接入
   真实运行循环（`1`—`6` 切换、`ViewSource` 准备层、`EmptyViewSource` 空数据源显式
   「暂无数据」不伪造）；脏标记门控与空闲零重绘进入循环，重放证据 `run_scripted_steps`
@@ -124,6 +133,12 @@
 
 ### 修复
 
+- Web Origin 校验全串精确比较误伤真实浏览器（Origin 含端口；同源 GET 不带 Origin →
+  一律 403）：按 ADR-022 改为 scheme + host 匹配（回环模式缺失 Origin 放行，
+  非回环 host 仍拒绝；认证模式仍要求 Origin）。
+- `serve --web` 静态路由未剥离查询串：`GET /?session=…` 落入 404——已修复并加回归断言。
+- Web 挂起（blur/visibilitychange）期间未暂停轮询（FR-617）：真实浏览器实测挂起
+  2.5 s 内仍发出 9 次 API 请求 → 修复后 0 次；恢复单次刷新后续拉，游标不重复不遗漏。
 - `whcode-tui` 的 `theme` 模块此前**未在 `lib.rs` 声明**（文件在盘但未编译，测试从未
   运行）——已声明并接线（T128 收口，2026-10-22）。
 - `tests/stability/run_stability.sh` 工作负载（`extreme_scale` 循环）在异常退出路径

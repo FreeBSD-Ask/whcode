@@ -174,8 +174,14 @@ whcode-bin           （装配根：配置、日志、feature）
 
 ### whcode-web
 
-- **职责**（M6）：HTTP/WebSocket 适配器、默认回环绑定、认证与 Origin 校验；极简前端（ADR-014）。
-- **失败模式**：无认证时对外监听拒绝启动（V-110）。
+- **职责**（M6）：HTTP/WebSocket 适配器、默认回环绑定、认证与 Origin 校验（ADR-022）；
+  极简前端（ADR-014）；`assets` 静态资产在**编译期嵌入**二进制（固定白名单路由，
+  无目录遍历面）。
+- **进程入口**：`whcode-bin` 的 `serve --web` 装配（contracts/cui-cli.md §1）：
+  工作区库 → 回环监听 → 顺序服务循环（单线程；DuckDB `Connection` 为 `Send` 非
+  `Sync`，ADR-002）；WS 为 RFC 6455 握手 + 正常关闭（会话级推送未实现，前端不依赖）。
+- **失败模式**：无认证时对外监听拒绝启动（V-110）；非回环 Origin 拒绝（ADR-022）；
+  请求体有界（`MAX_MESSAGE_BYTES`）。
 
 ### whcode-ssh
 

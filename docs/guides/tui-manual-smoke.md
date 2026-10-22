@@ -49,6 +49,8 @@ cargo run -p whcode-bin --release
 未取得记录时，V-003 保持“未通过”；不得以自动冒烟代替人工项。
 桌面自动化记录见 `artifacts/tui-manual-2026-10-21.txt`；用户 2026-10-21 复核接受为 V-003 关闭依据。
 六视图自动化取证见 `artifacts/tui-views-2026-10-22.txt`（同法可重跑）。
+桌面控制（computer-use）实测见 `artifacts/tui-computeruse-2026-10-22.txt`
+（六视图按键、最大化/还原、最小化/还原、Ctrl-C、eink-day/amoled-night 双主题截图）。
 
 ## 4. 已知限制
 

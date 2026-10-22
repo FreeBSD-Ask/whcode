@@ -74,7 +74,27 @@ async function loadStatus() {
 }
 
 // 轮询循环：失败退避重连（T094/FR-605），恢复后重置退避。
+// FR-617：挂起期间**暂停主动轮询**——取消定时器、游标保留，恢复后从游标续拉
+// （不重复、不遗漏）。实测缺陷修复（2026-10-22）：此前挂起期间定时器照常触发。
+let pollTimer = null;
+let suspendMachine = null;
+
+function schedulePoll(delayMs) {
+  if (pollTimer !== null) {
+    window.clearTimeout(pollTimer);
+    pollTimer = null;
+  }
+  if (suspendMachine !== null && suspendMachine.state !== State.Active) {
+    return; // 挂起/恢复中不排轮询；恢复由 onChange(Active) 重启（FR-617）。
+  }
+  pollTimer = window.setTimeout(pollLoop, delayMs);
+}
+
 async function pollLoop() {
+  pollTimer = null;
+  if (suspendMachine !== null && suspendMachine.state !== State.Active) {
+    return; // 挂起竞态：即使定时器已触发也不再发起请求。
+  }
   try {
     await loadSessions();
     await pollEvents();
@@ -87,7 +107,7 @@ async function pollLoop() {
     setConnected(false);
     state.backoffMs = Math.min(state.backoffMs * 2, state.backoffMaxMs);
   }
-  window.setTimeout(pollLoop, state.connected ? 1000 : state.backoffMs);
+  schedulePoll(state.connected ? 1000 : state.backoffMs);
 }
 
 // 标签切换（会话/任务/历史/SDD）。
@@ -118,14 +138,27 @@ document.addEventListener("DOMContentLoaded", () => {
   // 挂起状态机（T136/FR-617）：visibilitychange + blur/focus 判定；恢复去抖
   // ≥250 ms；恢复时取一次快照并丢弃中间帧（轮询游标即快照——不重复不遗漏）。
   const machine = new SuspendMachine(() => {
-    el("connection-state").textContent = "恢复中…";
+    // 恢复（去抖到期、单次）：从游标续拉；后续轮询由 onChange(Active) 重启。
     loadStatus();
     pollEvents();
   });
+  suspendMachine = machine;
   machine.attach(() => state.cursor);
   machine.onChange((newState) => {
-    if (newState === State.Active && state.connected) {
-      setConnected(true);
+    if (newState === State.Active) {
+      if (state.connected) {
+        setConnected(true);
+      }
+      schedulePoll(250); // 恢复后尽快续拉（FR-617：单次全量刷新后继续正常节奏）。
+    } else {
+      // 挂起/恢复中：暂停主动轮询（FR-617）。
+      if (pollTimer !== null) {
+        window.clearTimeout(pollTimer);
+        pollTimer = null;
+      }
+      if (newState === State.Recovering) {
+        el("connection-state").textContent = "恢复中…";
+      }
     }
   });
   window.addEventListener("unload", () => machine.detach());

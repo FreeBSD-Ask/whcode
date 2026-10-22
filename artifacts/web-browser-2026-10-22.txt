@@ -1,0 +1,53 @@
+WHCode Web 前端浏览器实测记录（T090—T095/T136/T133 验收证据）
+日期：2026-10-22
+方法：ZCode 内置浏览器（in-app browser，Playwright 接口 + DOM 节点点击；1280×720）
+服务：target/release/whcode.exe serve --web --bind 127.0.0.1:8737 --workspace artifacts/web-demo
+夹具：artifacts/web-demo/whcode.duckdb（cargo test -p whcode-tests --test seed_web_demo，
+      2 会话 S-DEMO-1/S-DEMO-2，S-DEMO-1 含 6 条事件（seq 1—6））
+截图：artifacts/web-browser-2026-10-22/history-view.png
+
+一、服务端（curl 冒烟，修复后）
+  1. GET /                     → 200 text/html（1087 B）
+  2. GET /app.js               → 200 text/javascript（4430 B）
+  3. GET /api/sessions         → 200，2 个会话（S-DEMO-1/S-DEMO-2，含 stage）
+  4. GET /api/events?session=S-DEMO-1&after=0 → 200，6 条事件 seq=[1..6]
+  5. GET /api/status?session=S-DEMO-1         → 200，event_cursor=6
+  6. GET /nope                 → 404
+  7. GET /api/sessions（Origin: http://evil.example）→ 403（威胁模型保持）
+  8. GET /api/sessions（Origin: http://127.0.0.1:8737）→ 200（ADR-022 修正后）
+
+二、浏览器（真实页面，DOM 断言 + 截图）
+  1. 页面加载：标题 WHCode；页脚「已连接」「游标 6」；styles.css/app.js/suspend.js 均 200。
+  2. 会话清单：S-DEMO-2 演示：归档候选 [specify] / S-DEMO-1 演示：六视图与 Web 联调 [implement]。
+  3. 标签点击（会话/任务/历史/SDD，各一次真实点击）：
+     - aria-selected 严格单选（sessions=true → tasks=true → history=true → spec=true）；
+     - 对应 section 显隐正确（view-sessions → view-tasks → view-history → view-spec）。
+  4. 历史视图：1 RequestStarted / 2—4 StreamingChunk / 5 ToolCallStarted /
+     6 RequestCompleted（与 /api/events 一致，无重复无遗漏）。
+  5. SDD 视图：/api/status JSON 文本（含 "event_cursor": 6、"stage": "implement"）。
+  6. 轮询节律：空闲 3 秒 3 次 /api/* 请求（1 次/秒）；累计 84 次 /api/events 请求，
+     游标恒为 after=6（无重复拉取）。
+  7. 挂起/恢复（blur/focus 真实事件分发，同一状态机）：
+     - 修复前：挂起 2.5 s 内仍发出 9 次 API 请求（FR-617「挂起暂停前端轮询」未实现）；
+     - 修复后：挂起 2.6 s 内 0 次请求；恢复后 2 次（去抖后单次全量刷新 + 续拉）；
+       恢复后游标 6、日志 6 行（事件游标连续、关键事件零丢失）。
+  8. WebSocket：页面内 new WebSocket("ws://127.0.0.1:8737/ws") → open → close:1000
+     （RFC 6455 握手成功 + 服务器正常关闭；会话级事件推送未实现，前端不依赖 WS）。
+  9. NFR-212：document 中 canvas 数量 0，无 WebGL 上下文创建。
+ 10. 控制台：四个标签点击期间 0 个 error、0 个 unhandledrejection。
+
+三、发现并修复的缺陷
+  1. Origin 全串精确比较误伤真实浏览器（端口 + 同源 GET 无 Origin → 一律 403）：
+     按 ADR-022 改为 scheme+host 匹配；回环模式缺失 Origin 放行；威胁模型不变（非回环 host 仍 403）。
+  2. 静态路由未剥离查询串：`GET /?session=S-DEMO-1` 曾落 404（"not found"）——已修复并加回归断言。
+  3. FR-617 未暂停轮询：挂起期间定时器照常触发（实测 9 次/2.5s）——已修复（挂起清定时器、
+     恢复单次刷新后重启；竞态守卫：触发中的定时器在非 Active 状态直接返回）。
+
+四、未取得 / 待验证（不得据此勾选）
+  - 真实 `visibilityState=hidden` 路径：当前内置浏览器环境即使隐藏窗格或切到后台标签，
+    页面仍报告 visible——visibilitychange 的 hidden 分支需在桌面浏览器人工验证（标 [待验证]）；
+    本次经 blur/focus 同一状态机验证了挂起与恢复的全部副作用。
+  - 任务视图无数据源、无 /api/tasks 路由（标签可切换但为空——UI 缺口，待后续任务）。
+  - 会话条目不可点击选择：仅显示文本，切换会话依赖 URL 参数 ?session=（UI 缺口，待后续任务）。
+  - 浏览器侧 20 次最小化-还原循环与 prefers-reduced-motion 运行时断言未取得
+    （内置浏览器无该控制面）；动效门控为代码级 + 前端预算静态门禁。

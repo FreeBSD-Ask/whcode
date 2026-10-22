@@ -1,0 +1,52 @@
+WHCode TUI 桌面控制实测记录（computer-use；T082/T083/T129/T135 + T128 主题）
+日期：2026-10-22
+方法：computer-use（Windows UI Automation 树 + 窗口截图 + 真实键盘注入）
+二进制：target/release/whcode.exe（独立控制台，Windows Terminal 承载）
+实例：A = 默认主题（eink-day）；B = WHCODE_UI_THEME=amoled-night
+
+一、启动首帧（实例 A）
+  - 标题：`whcode —— 会话（1/6）`；正文「（暂无数据）」；页脚
+    `窗口 120×30 · 按键 0 · 1—6 切换视图 · q 退出`。
+  - 主题可见：应用区**白底黑字**（eink-day，FR-612 默认主题）——截图确认。
+
+二、六视图切换（真实按键，逐帧核对标题）
+  - `2` → `whcode —— 任务（2/6）`
+  - `3` → `whcode —— 上下文（3/6）`
+  - `4` → `whcode —— 事件（4/6）`
+  - `5` → `whcode —— Spec 状态（5/6）`
+  - `6` → `whcode —— diff 预览（6/6）`
+  - `1` → 回到 `whcode —— 会话（1/6）`
+  - 页脚「按键」计数保持 0 —— 导航键不计入普通按键（T082 语义）。
+
+三、键盘计数
+  - 依次按 `a`、`z`、`a` → 页脚 `按键 3`（字符键计数生效）。
+
+四、窗口 resize（真实窗口状态变化）
+  - 点击「最大化」：页脚变为 `窗口 209×51`（resize 事件触发重绘，计数保持 3）。
+  - 点击「还原」：页脚回到 `窗口 120×30`（尺寸回退重绘正确）。
+
+五、最小化 / 还原（T135/FR-617 用户可见行为）
+  - 点击「最小化」：窗口 bounds → `[-32000,-32000,160,28]`（Windows 最小化位置）；
+    最小化期间未请求截图（截图会解除最小化）；AX 树仍可读（应用存活）。
+  - 还原后截图核对：视图仍为 `会话（1/6）`、页脚 `窗口 120×30 · 按键 3` —— 内容完整、
+    无花屏/重复。
+  - 诚实边界：最小化期间「不绘制」无法从窗口外部观测；该路径由重放测试断言
+    （最小化跳过绘制并计数、还原单次全量重绘——`scripted_minimize_gates_redraws_and_restores_once`）。
+  - 还原方式说明：本机任务栏不在 UI Automation 树中（explorer 树无任务栏项），
+    还原经 CUA 观察工具的 include_screenshot 路径（其文档行为：截图会解除最小化）。
+
+六、Ctrl-C 退出
+  - 发送 `Control_L+c` → 窗口关闭、进程消失（UIA 返回 "no window"，Get-Process 无该 pid）。
+  - 终端恢复由 TerminalGuard 负责（自动化冒烟另有 exit code 0 证据）。
+
+七、暗色主题（实例 B，环境变量覆盖）
+  - `WHCODE_UI_THEME=amoled-night` 启动 → 应用区**黑底浅字**（截图确认），标题/页脚同构。
+  - 页脚 `窗口 120×30 · 按键 0 · 1—6 切换视图 · q 退出`。
+
+八、未取得 / 限制（不得据此勾选）
+  - `q` 退出在实例 B 上未通过 CUA 按键生效（同工具对 `a/z/1—6` 均生效；`q` 退出已由
+    两个真实控制台冒烟脚本覆盖：exit code 0，见 `artifacts/tui-views-smoke/` 与
+    `artifacts/tui-smoke/`）；实例 B 已用进程终止清理。
+  - 任务栏还原路径不可用（任务栏无 AX 节点）——已按上文说明替代。
+  - 拖动边缘手动 resize 未做（窗口边框在 CUA 光栅之外）：改以最大化/还原验证
+    resize 重绘；真实拖拽 resize 属人工冒烟条款（`docs/guides/tui-manual-smoke.md`）。

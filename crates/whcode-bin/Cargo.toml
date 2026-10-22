@@ -18,6 +18,8 @@ whcode-domain = { path = "../whcode-domain" }
 whcode-platform = { path = "../whcode-platform" }
 whcode-store = { path = "../whcode-store" }
 whcode-tui = { path = "../whcode-tui" }
+# `serve --web` 装配（contracts/cui-cli.md §1）：静态前端 + `/api/*` 路由与安全判定。
+whcode-web = { path = "../whcode-web" }
 serde.workspace = true
 serde_json.workspace = true
 # 基线夹具需要打开临时数据库连接并交给 `whcode_store::EventWriter`（tasks.md T027）。

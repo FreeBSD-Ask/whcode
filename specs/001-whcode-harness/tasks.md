@@ -464,6 +464,57 @@ Task: "实现 SSH 客户端原型 in crates/whcode-ssh/src/proto.rs"           #
 - 性能预算未冻结（T027 基准夹具进行中，T028—T031 未完成）。
 - 因此 T027—T031 保持未勾选。
 
+### 实现记录（2026-10-22，Web 服务装配 + 浏览器/桌面端到端测试；ADR-022）
+
+**背景**：用户要求以电脑操作（computer-use）与浏览器控制（browser-use）对「需要点击/网页
+调试」的功能做全量测试。测试前置暴露两处「库层通过、端到端从未运行」的缺口，先装配后测试：
+`serve --web` 未装配（契约 contracts/cui-cli.md §1 已定义）；Origin 校验按全串精确比较——
+真实浏览器（Origin 含端口、同源 GET 不带 Origin）一律 403。
+
+**验证证据**：`cargo test --workspace` **383 例通过 / 0 失败**（另 4 例 `#[ignore]` 实验）；
+fmt/clippy 零差异零告警；分层/布局/EOL/workflow/计数/前端预算门禁全绿（JS gzip 2477 B /
+CSS 763 B）；真实浏览器与桌面取证：`artifacts/web-browser-2026-10-22.txt`（截图
+`web-browser-2026-10-22/history-view.png`）、`artifacts/tui-computeruse-2026-10-22.txt`。
+
+**已交付**：
+
+1. `whcode serve --web [--bind HOST:PORT] [--workspace DIR] [--config PATH]`：
+   静态前端**编译期嵌入**（固定白名单、无目录遍历面）+ `/api/*` 经 `handle_request`；
+   顺序服务循环（DuckDB `Connection` 为 `Send` 非 `Sync`，单线程）；WS 握手 + 正常关闭
+   （事件推送未实现，前端不依赖）；外部绑定按 FR-606 拒绝（实测退出码 1）；临时目录归
+   **有效工作区**（`<workspace>/tmp`）。`whcode-bin` 新增 `whcode-web` 依赖（装配根职责）。
+2. ADR-022：Origin 按 scheme+host 匹配（端口不参与）；回环模式缺失 Origin 放行
+   （同源 GET/CLI），认证模式仍要求；威胁模型不变（非回环 host 一律 403）。
+3. FR-617 修复：Web 挂起（blur/visibilitychange）期间**暂停轮询**——真实浏览器实测
+   修复前 2.5 s 内 9 次请求 → 修复后 0 次；恢复去抖后单次刷新并续拉（游标不重复不遗漏）；
+   定时器竞态守卫（非 Active 状态即使触发也不发请求）。
+4. 静态路由剥离查询串（`GET /?session=…` 曾 404，回归断言补齐）。
+5. 夹具与测试：`tests/integration/seed_web_demo.rs`（幂等演示工作区）；`whcode-web/src/assets.rs`
+   （嵌入资产 + 路由白名单/首页结构断言）；serve 单测（参数解析/静态/API/404/403/WS）。
+6. 浏览器实测：标签点击（aria-selected 单选 + section 显隐）、会话清单、历史 6 事件、
+   状态 JSON、轮询 1 Hz（84 请求游标恒 6）、WS open→close:1000、canvas=0、无 JS 错误、
+   断线（未连接）→ 重连（已连接、游标 6、日志 6 行无缺失）。
+7. 桌面实测（computer-use）：六视图标题逐帧核对、按键计数（导航键不计）、最大化/还原
+   （120×30↔209×51）、最小化/还原内容完整、Ctrl-C 退出、eink-day/amoled-night 双主题截图。
+
+**发现并修复的缺陷（诚实记录）**：
+
+1. Origin 全串比较误伤真实浏览器（ADR-022）；
+2. `serve` 临时目录取 `--config` 工作区而非 `--workspace`——曾污染仓库根 `tmp/`，
+   触发布局门禁失败；已改为工作区约定并设 DuckDB `temp_directory`；
+3. 集成测试夹具目录「先清再建」缺失：进程被杀后遗留 + Windows 复用 PID →
+   `S-DET` 主键冲突（本轮实测失败）；已为 6 个夹具补齐幂等清理。
+
+**未取得／阻塞（显式标记，不得勾选）**：任务视图无数据源与 `/api/tasks` 路由
+（Check 93 仅部分）；会话条目不可点击选择（仅 URL 参数 `?session=`）；CUI 命令执行
+入口未装配（Check 90 阻塞）；内置浏览器无法触发真实 `visibilityState=hidden`
+（后台标签仍报 visible）——Check 227/228 遗留缺口；`q` 退出在 computer-use 暗色实例
+未生效（同工具 a/z/1—6 均生效；q 退出由两个控制台冒烟脚本覆盖 exit code 0）。
+
+**资源（铁律）**：Web 服务进程（1 Hz 轮询客户端在线 26 min）RSS **25.6 MB**、线程 4、
+句柄 135、CPU 8.95 s / 1579 s ≈ 0.6% 单核——预算 ≤512 MB 达标；TUI 进程 8.3 MB /
+1 线程（上批）；帧预算 release p95 281 µs（`artifacts/tui-frame-budget.json`）。
+
 ### 实现记录（2026-10-22，T082/T083/T129/T135 接线 + T136/T128 收口）
 
 **背景**：上批交付把六视图/渲染纪律/最小化门控做成了**组件**（`views.rs`/`render.rs`

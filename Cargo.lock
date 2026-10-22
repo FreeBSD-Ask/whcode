@@ -3734,6 +3734,7 @@ dependencies = [
  "whcode-platform",
  "whcode-store",
  "whcode-tui",
+ "whcode-web",
 ]
 
 [[package]]

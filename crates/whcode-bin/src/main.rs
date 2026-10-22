@@ -3,9 +3,11 @@
 //! 主程序、配置加载、日志初始化与 feature 装配（任务书 §6.2 `whcode-bin`）。
 //!
 //! **当前状态：骨架。** 可用入口：`--version`、`doctor [--config PATH] [--json]`、
-//! `bench baseline --out PATH [--events N] [--repeat R]`（tasks.md T027、V-006）；无参数启动
-//! 且存在可用控制台时进入 `whcode-tui` 的最小闭环（tasks.md T024 / FR-601）。完整命令面在
-//! M2 起（tasks.md T046+）迁移至 `whcode-cui` 并由本程序装配。
+//! `bench baseline --out PATH [--events N] [--repeat R]`（tasks.md T027、V-006）、
+//! `serve --web [--bind 127.0.0.1:PORT] [--workspace DIR]`（M6 装配：静态前端 +
+//! `/api/*`，默认仅回环）；无参数启动且存在可用控制台时进入 `whcode-tui` 的六视图
+//! 闭环（tasks.md T024/T082 / FR-601）。完整命令面自 M2 起（tasks.md T046+）迁移至
+//! `whcode-cui` 并由本程序装配。
 //!
 //! 未实现事项明确标记（宪法原则 VII / §15）：DuckDB 存取 M1/T032+；命令面 M2/T046+；
 //! SDD 门禁 M4/T068+；Web/SSH M6—M7；运行时 M8/T100+。
@@ -13,6 +15,7 @@
 mod bench;
 mod config;
 mod logging;
+mod serve;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -36,6 +39,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("bench") => bench_command(&args[1..]),
+        Some("serve") => serve::serve_command(&args[1..]),
         _ => launch_interactive(&args),
     }
 }
