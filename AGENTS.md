@@ -80,6 +80,7 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 | 13 | `docs/guides/performance-and-concurrency.md`、`docs/adr/ADR-015-design-first-concurrency-and-assembly.md` | 并发档案、文献门槛、汇编例外 |
 | 14 | `docs/guides/yike-philosophy.md` | 一刻哲学源流、二十九章命题与工程翻译 |
 | 15 | `engineering-doctrine/README.md` | 可移植工程哲学与开发准则（供其他项目复制） |
+| 16 | `docs/guides/signal-chain-completeness.md` | 信号链完备原则（T116 复盘：交付 = 信号存在，而非执行存在） |
 
 ## 3. 环境与常用命令
 
@@ -236,6 +237,9 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 
 一个工作单元完成需同时满足：
 
+0. **信号链完备**（`docs/guides/signal-chain-completeness.md`）：工具/采样/测试
+   交付的验收标准是"输出包含可归因信号"，不是"工具不崩溃"。null/空/零是歧义
+   证据，须区分正确的空与错误的空（前置缺失）；歧义无法区分时**必须提问**；
 1. 对应 `tasks.md` 任务可勾选，且 `checklist.md` 有可判定的 Check；
 2. `fmt` / `clippy` / `test` 全绿，新增行为有正向与失败路径测试（含零 unsafe、有界性与
    资源释放测试）；
