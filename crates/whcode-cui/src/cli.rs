@@ -15,7 +15,7 @@ use clap::{Parser, Subcommand};
 
 /// whcode 命令行入口（contracts/cui-cli.md §1 命令树）。
 #[derive(Debug, Clone, PartialEq, Parser)]
-#[command(name = "whcode", version, about = "WHCode 编码助手")]
+#[command(name = "whcode", version, about = "旺皇 Code")]
 pub struct Cli {
     /// 输出 JSON（schema_version 信封，FR-602）；可放在子命令前后任意位置。
     #[arg(long, global = true)]

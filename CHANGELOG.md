@@ -13,6 +13,9 @@
 
 ### 变更
 
+- 程序中文名调整为「旺皇 Code」（2026-10-23）：中文文本层 `app.title`、TUI 中文标题、
+  CUI `--help` 简介、Web 页首标题与 README 标题同步；英文名保持
+  `WHCode Coding Harness` / `whcode` 不变（`?locale=en` 与 `LANG=en` 路径不受影响）。
 - 批次 4：Web 仅限局域网 + 认证边界（2026-10-22，ADR-023）：`serve --web` 增加
   `--token-file`；地址边界只允许回环或 RFC1918 私网（公网/`0.0.0.0` 拒绝）；局域网
   监听强制认证与 Origin 检查；前端从 URL fragment 读取 token 并以 Bearer 调用 API；

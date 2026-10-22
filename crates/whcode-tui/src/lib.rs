@@ -660,7 +660,11 @@ mod tests {
             println!("===== TUI VIEW: {} =====", view.as_str());
             print!("{text}");
             assert!(
-                text.contains(&format!("whcode —— {}（{}/6）", view.title(), view.index())),
+                text.contains(&format!(
+                    "旺皇 Code —— {}（{}/6）",
+                    view.title(),
+                    view.index()
+                )),
                 "{view:?} 帧必须含视图标题"
             );
             assert!(text.contains("1—6 视图"), "{view:?} 帧必须含快捷键提示");

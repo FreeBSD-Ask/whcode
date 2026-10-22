@@ -1,4 +1,4 @@
-# WHCode — Rust 原生 LLM 编码 Harness
+# WHCode（旺皇 Code）— Rust 原生 LLM 编码 Harness
 
 面向 Windows 11 amd64 的本地优先 LLM 编码智能体底座（保留 BSD 代码兼容，BSD 验收延后，ADR-013）：可追踪、可验证、可恢复，
 指标可复现。以《WHCode 技术任务书 v3.0》为需求基线，规格驱动开发（spec-driven），
