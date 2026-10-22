@@ -14,7 +14,8 @@ pub mod term;
 
 pub use paths::{default_temp_dir, workspace_config_dir, workspace_temp_dir};
 pub use process::{
-    TerminationPolicy, shell_command, sleep_command, terminate_tree, termination_policy_for,
+    TerminationPolicy, child_pids, process_exists, shell_command, sleep_command, terminate_tree,
+    termination_policy_for,
 };
 pub use resources::{
     ResourceLimits, available_physical_cores, memory_limit_defaults, thread_budget,

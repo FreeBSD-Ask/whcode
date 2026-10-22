@@ -148,6 +148,97 @@ pub fn terminate_tree(pid: u32) -> Result<(), whcode_domain::WhError> {
     }
 }
 
+/// 判断进程是否仍存在（Check 201：终止后零残留验证）。
+///
+/// Windows 经 `tasklist` 查询；其他平台返回结构化错误（BSD 进程组语义属 M7，
+/// ADR-013 延后）——调用方不得把 `Err` 当作“进程不存在”。
+///
+/// # Errors
+///
+/// 查询命令不可用或执行失败时返回 `io_error`。
+pub fn process_exists(pid: u32) -> Result<bool, whcode_domain::WhError> {
+    #[cfg(target_os = "windows")]
+    {
+        let output = std::process::Command::new("tasklist")
+            .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
+            .output()
+            .map_err(|err| {
+                whcode_domain::WhError::new(
+                    whcode_domain::ErrorCode::IoError,
+                    format!("tasklist 不可用：{err}"),
+                )
+            })?;
+        let text = String::from_utf8_lossy(&output.stdout);
+        // CSV 首个数据行形如 `"image","1234","Console","1","12,345 K"`；
+        // 无匹配时 tasklist 输出本地化提示（无 PID 列）。
+        Ok(text.lines().any(|line| {
+            line.split(',')
+                .nth(1)
+                .is_some_and(|field| field.trim_matches('"') == pid.to_string())
+        }))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = pid;
+        Err(whcode_domain::WhError::new(
+            whcode_domain::ErrorCode::IoError,
+            "进程存在性查询在非 Windows 平台未实现（BSD 进程组验证属 M7，ADR-013 延后）：不静默伪装结论",
+        ))
+    }
+}
+
+/// 列出某进程的**直接**子进程 PID（Check 201：零残留验证）。
+///
+/// Windows 经 PowerShell `Get-CimInstance Win32_Process` 查询；其他平台返回结构化
+/// 错误（未实现，不伪装）。返回值可能为空（进程尚无子进程）。
+///
+/// # Errors
+///
+/// 查询工具不可用、输出无法解析时返回 `io_error`。
+pub fn child_pids(pid: u32) -> Result<Vec<u32>, whcode_domain::WhError> {
+    #[cfg(target_os = "windows")]
+    {
+        let script = format!(
+            "Get-CimInstance Win32_Process -Filter 'ParentProcessId={pid}' | Select-Object -ExpandProperty ProcessId"
+        );
+        let output = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .output()
+            .map_err(|err| {
+                whcode_domain::WhError::new(
+                    whcode_domain::ErrorCode::IoError,
+                    format!("powershell 不可用：{err}"),
+                )
+            })?;
+        if !output.status.success() {
+            return Err(whcode_domain::WhError::new(
+                whcode_domain::ErrorCode::IoError,
+                format!(
+                    "子进程查询失败：{}（stderr 尾部：{}）",
+                    output.status.code().unwrap_or(-1),
+                    String::from_utf8_lossy(&output.stderr)
+                ),
+            ));
+        }
+        let text = String::from_utf8_lossy(&output.stdout);
+        let mut pids: Vec<u32> = text
+            .split_whitespace()
+            .filter_map(|token| token.trim().parse::<u32>().ok())
+            .collect();
+        pids.sort_unstable();
+        pids.dedup();
+        Ok(pids)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = pid;
+        Err(whcode_domain::WhError::new(
+            whcode_domain::ErrorCode::IoError,
+            "子进程枚举在非 Windows 平台未实现（BSD 进程组验证属 M7，ADR-013 延后）：不静默伪装结论",
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,5 +272,45 @@ mod tests {
             let err = result.expect_err("无效 PID");
             assert!(err.to_string().contains("taskkill"), "{err}");
         }
+    }
+
+    /// Check 201：自进程存在性可查询（其他平台返回“延后”错误而非伪结论）。
+    #[test]
+    fn process_exists_probes_current_process() {
+        match process_exists(std::process::id()) {
+            Ok(exists) => assert!(exists, "本进程必须存在"),
+            Err(err) => assert!(err.message.contains("延后"), "非实现错误须写明延后：{err}"),
+        }
+    }
+
+    /// Check 201：子进程枚举能看到刚启动的子进程，终止后消失。
+    #[test]
+    fn child_pids_lists_spawned_child_and_lifecycle_is_observable() {
+        let mut child = sleep_command(5).spawn().expect("启动子进程");
+        let pid = child.id();
+        match child_pids(std::process::id()) {
+            Ok(pids) => assert!(pids.contains(&pid), "应列出子进程 {pid}：{pids:?}"),
+            Err(err) => {
+                assert!(err.message.contains("延后"), "非实现错误须写明延后：{err}");
+                let _ = child.kill();
+                let _ = child.wait();
+                return;
+            }
+        }
+        assert!(
+            process_exists(pid).expect("查询子进程"),
+            "子进程 {pid} 应存在"
+        );
+        let _ = child.kill();
+        let _ = child.wait();
+        let mut gone = false;
+        for _ in 0..50 {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            if !process_exists(pid).unwrap_or(true) {
+                gone = true;
+                break;
+            }
+        }
+        assert!(gone, "子进程 {pid} 终止后不应存在");
     }
 }

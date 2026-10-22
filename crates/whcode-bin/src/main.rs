@@ -55,6 +55,35 @@ fn first_positional(args: &[String]) -> Option<&str> {
     None
 }
 
+/// 文本层装配（FR-615）：PO 资源目录覆盖内建资源，加载失败时告警并回退内建。
+///
+/// 资源根依次取 `WHCODE_I18N_DIR`（显式、可撤销）与可执行文件所在目录；
+/// PO 文件不存在属正常形态（未安装翻译），静默使用内建资源；只有存在但不可读或
+/// 解析失败才告警——不把“未安装翻译”误报为错误，也不静默吞掉真实的加载失败。
+pub(crate) fn load_texts(
+    locale: &str,
+    source: whcode_domain::i18n::LocaleSource,
+) -> whcode_domain::i18n::I18n {
+    use whcode_domain::i18n::I18n;
+    let root = std::env::var_os("WHCODE_I18N_DIR")
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(Path::to_path_buf))
+        });
+    let Some(root) = root else {
+        return I18n::load(locale, source);
+    };
+    match I18n::load_with_po(&root, locale, source) {
+        Ok(texts) => texts,
+        Err(err) => {
+            eprintln!("PO 文本层加载失败，回退内建资源（{locale}）：{err}");
+            I18n::load(locale, source)
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -241,9 +270,9 @@ fn launch_interactive(args: &[String]) -> ExitCode {
         }
     };
     let theme = config.effective_theme();
-    // 文本层（FR-615）：显式配置 → LANG/LC_ALL → 默认 zh-CN；en 回退由 I18n 负责。
+    // 文本层（FR-615）：显式配置 → LANG/LC_ALL → 默认 zh-CN；PO 覆盖内建，en 回退由 I18n 负责。
     let (locale, locale_source) = whcode_domain::i18n::detect_locale(None);
-    let texts = whcode_domain::i18n::I18n::load(&locale, locale_source);
+    let texts = load_texts(&locale, locale_source);
     let workspace = match workspace::resolve_workspace(args, &config) {
         Ok(workspace) => workspace,
         Err(err) => {

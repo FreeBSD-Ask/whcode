@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use whcode_domain::{TraceLevel, WhError};
+use whcode_domain::{CheckpointPolicy, TraceLevel, WhError};
 use whcode_platform::{paths, resources};
 use whcode_tui::Theme;
 
@@ -60,6 +60,9 @@ pub struct Config {
     /// UI 基线（主题等，FR-612）。
     #[serde(default)]
     pub ui: UiConfig,
+    /// 检查点触发策略（FR-405：定时 / 按步骤 / 危险操作前的间隔与保留数）。
+    #[serde(default)]
+    pub checkpoint: CheckpointPolicy,
 }
 
 impl Config {
@@ -78,6 +81,7 @@ impl Config {
             },
             trace: TraceConfig::default(),
             ui: UiConfig::default(),
+            checkpoint: CheckpointPolicy::default(),
             workspace_path,
         }
     }
@@ -86,11 +90,17 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// JSON 解析失败时返回 `parse_error`（`retryable = false`）：配置错误必须由人修正，
-    /// 自动重试没有意义且会掩盖问题。
+    /// JSON 解析失败或检查点策略越界时返回 `parse_error`（`retryable = false`）：配置错误
+    /// 必须由人修正，自动重试没有意义且会掩盖问题。
     pub fn from_json(json: &str) -> Result<Self, WhError> {
-        serde_json::from_str(json)
-            .map_err(|err| WhError::parse_error(format!("配置解析失败：{err}")))
+        let config: Self = serde_json::from_str(json)
+            .map_err(|err| WhError::parse_error(format!("配置解析失败：{err}")))?;
+        // FR-405：策略边界在加载期校验，越界配置不得进入运行期。
+        config
+            .checkpoint
+            .validate()
+            .map_err(|err| WhError::parse_error(format!("检查点策略非法：{err}")))?;
+        Ok(config)
     }
 
     /// 启动期检查：临时目录必须存在且可写（§5.4）。
@@ -271,5 +281,45 @@ mod tests {
             Theme::EinkNight,
             "非法覆盖回落配置值（不拒绝启动）"
         );
+    }
+
+    /// FR-405（Check 171）：检查点策略随配置读写；缺省键取默认值，越界值加载期拒绝。
+    #[test]
+    fn checkpoint_policy_is_configurable_and_validated_at_load() {
+        let defaults = Config::for_workspace("/tmp/ws");
+        assert_eq!(
+            defaults.checkpoint,
+            whcode_domain::CheckpointPolicy::default(),
+            "默认策略可见"
+        );
+
+        let json = r#"{
+            "workspace_path": "/tmp/ws",
+            "db": {
+                "memory_limit_mb": 96,
+                "max_memory_limit_mb": 384,
+                "threads": 2,
+                "temp_directory": "/tmp/ws/tmp",
+                "max_temp_directory_size_mb": null
+            },
+            "trace": { "default_level": "redacted" },
+            "checkpoint": {
+                "interval_seconds": 60,
+                "every_steps": 5,
+                "before_dangerous": false,
+                "retain": 3
+            }
+        }"#;
+        let config = Config::from_json(json).expect("合法策略");
+        assert_eq!(config.checkpoint.interval_seconds, 60);
+        assert_eq!(config.checkpoint.every_steps, 5);
+        assert!(!config.checkpoint.before_dangerous);
+        assert_eq!(config.checkpoint.retain, 3);
+
+        // 越界（保留数 0）必须在加载期失败，不得进入运行期。
+        let bad = json.replace("\"retain\": 3", "\"retain\": 0");
+        let err = Config::from_json(&bad).expect_err("越界保留数必须拒绝");
+        assert_eq!(err.code, whcode_domain::ErrorCode::ParseError);
+        assert!(err.message.contains("检查点策略"), "{err}");
     }
 }

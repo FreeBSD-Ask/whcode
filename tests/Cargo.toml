@@ -20,6 +20,11 @@ path = "contract/test_layering.rs"
 name = "baseline_check"
 path = "stability/baseline_check.rs"
 
+# 进程树终止后零残留（Check 201、FR-409、§10.2）。
+[[test]]
+name = "process_cleanup"
+path = "stability/test_process_cleanup.rs"
+
 # 目录分类门禁（docs/guides/repository-layout.md 的可执行强制）。
 [[test]]
 name = "layout"

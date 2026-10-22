@@ -90,10 +90,11 @@ impl Default for PythonProvider {
 
 impl PythonProvider {
     fn probe(&self) -> Option<String> {
-        let output = std::process::Command::new(&self.interpreter)
-            .arg("--version")
-            .output()
-            .ok()?;
+        let mut command = std::process::Command::new(&self.interpreter);
+        command.arg("--version");
+        // 探测同样不携带凭据（§10.2）。
+        let _ = worker::strip_credentials(&mut command);
+        let output = command.output().ok()?;
         output
             .status
             .success()
@@ -166,10 +167,11 @@ impl RuntimeProvider for GitBashProvider {
         self.git_path
             .as_ref()
             .map(|path| {
-                std::process::Command::new(path)
-                    .arg("--version")
-                    .output()
-                    .is_ok_and(|output| output.status.success())
+                let mut command = std::process::Command::new(path);
+                command.arg("--version");
+                // 探测同样不携带凭据（§10.2）。
+                let _ = worker::strip_credentials(&mut command);
+                command.output().is_ok_and(|output| output.status.success())
             })
             .unwrap_or(false)
     }

@@ -7,7 +7,7 @@
 //! - [`capability`]：能力等级 Full/Restricted/ShellOnly（FR-702）与运行时声明；
 //! - [`payload`]：payload 独立分发校验（来源/版本/哈希/平台，FR-703/D-07）；
 //! - [`worker`]：受控子进程（超时/输出上限/退出码/stderr 尾部，FR-705）；
-//! - [`checkpoint`]：执行前检查点四要素（FR-706/ADR-007）；
+//! - [`checkpoint`]：执行前检查点四要素（FR-706/ADR-007）与触发策略（FR-405）；
 //! - [`cache`]：重复执行缓存仅显式启用（FR-707）；
 //! - [`errors`]：能力不足结构化错误与未启用运行时检出（FR-708/710、V-306）；
 //! - [`providers`]：js/python/gitbash/bsdshell 四 Provider（诚实能力门控，
@@ -39,7 +39,9 @@ pub mod providers;
 pub mod worker;
 
 pub use capability::{Capability, RuntimeDeclaration};
-pub use checkpoint::Checkpoint;
+pub use checkpoint::{
+    Checkpoint, CheckpointPolicy, CheckpointState, CheckpointTrigger, retain_recent,
+};
 pub use errors::{UnavailableReason, requires_unavailable_runtime, runtime_unavailable};
 pub use payload::{PayloadMeta, fnv64, validate};
 pub use provider::{RuntimeProvider, Script, ensure_available};

@@ -19,7 +19,7 @@ DuckDB 运行期 `v1.5.6`，复核时提交 `c3a76e5`，本地时间 `2026-10-23
 |---|---|---|
 | 任务清单（tasks.md） | 132 勾选 / 16 未勾选（其中 10 条经复核回退） | 复核前 142 条中有 10 条无实现或证据 |
 | 门禁链（fmt/clippy/test/契约/布局） | **2 项失败**（clippy、layering） | **不通过** |
-| 验收检查点（checklist.md） | 249 项全部有复核记录：**195 通过 / 54 未通过** | 复核完成 |
+| 验收检查点（checklist.md） | 249 项全部有复核记录：**198 通过 / 51 未通过** | 复核完成 |
 
 ---
 
@@ -101,7 +101,7 @@ DuckDB 运行期 `v1.5.6`，复核时提交 `c3a76e5`，本地时间 `2026-10-23
 
 ---
 
-## 4. 验收层结果（checklist.md：249 项全部有复核记录，195 通过 / 54 未通过）
+## 4. 验收层结果（checklist.md：249 项全部有复核记录，198 通过 / 51 未通过）
 
 **批次一（Check 1—31，Phase 1—3 / M0）**：25 项通过，5 项未通过——Check 3（CI 未接线）、
 Check 20/21/22（分平台口径缺 FreeBSD/NetBSD 证据）、Check 25（SSH 四平台记录未取得）。
@@ -134,15 +134,15 @@ M9 四项（115/116 阻塞、118 无发布包、119 缺三份指南）；Phase 1
 T109（Windows 子进程树已实现；BSD 进程组分支未实现，显式返回错误）。
 
 `checklist.md` 的勾选权归复核人，生成时一律 `[ ]`；现状 **249 项全部有复核记录**：
-195 通过（14 项为 2026-10-21/22 的用户复核，177 项为本轮，4 项为 2026-10-23 补齐后补录）、
-54 未通过。这意味着：
+198 通过（14 项为 2026-10-21/22 的用户复核，177 项为本轮，4 项为补录，3 项为收敛表修复后补录）、
+51 未通过。这意味着：
 
-- G4 验收门禁**仍未成立**：54 项未通过即意味着对应里程碑不能宣称验收通过；
+- G4 验收门禁**仍未成立**：51 项未通过即意味着对应里程碑不能宣称验收通过；
 - `check_counts.py` 只校验“FR/任务/检查点数量一致”，不校验勾选比例，故该缺口不会被现有门禁抓到。
 
 复核前最大的结构性风险是进度指标（95.9%）与验收指标（5.6%）背离；本轮把 249 项判据
 逐条落笔、回退 10 条虚高任务。此后任何对外“完成度”表述若只引用 tasks.md 而回避
-“195/249 通过”，即构成 AGENTS §1.4“不伪造”与 §5“禁止跨门禁跳跃”的反面案例。
+“198/249 通过”，即构成 AGENTS §1.4“不伪造”与 §5“禁止跨门禁跳跃”的反面案例。
 
 ---
 
@@ -238,7 +238,7 @@ ADR 清单更新至 023；`compatibility.md` 已知限制第 4/5 条改写（M7 
 放行后随仓库版本化（README 引用它作为复核依据）。
 
 **复核进度（2026-10-23 续）**：checklist 四个批次（Check 1—249）已逐条取证落笔，
-**249 项全部有复核记录：195 通过 / 54 未通过**；并据实回退 10 条任务
+**249 项全部有复核记录：198 通过 / 51 未通过**；并据实回退 10 条任务
 （T093/T110/T111/T112/T114/T118/T119/T123/T124/T127）。
 复核同时暴露并处置四处缺陷——① 仓库无 `.github/workflows/`，`ci/platform-matrix/*.yml` 从未被平台执行；
 ② `decisions.md` 的 D-07—D-11 状态停留在“待实现”；③ `feature-parity.md` 的 CUI 列仍标“未交付”；
@@ -280,8 +280,8 @@ Web 写命令与 WS 广播（143/183/199/209）→ 预算冻结（133/136/195）
 脚本第 106 行有该键，产物 `artifacts/tui-smoke/20261022-185913/summary.json` 存在）。
 **未发现虚构引用**。
 
-**改判情况**：无。26 项未通过的理由经复验全部成立（未新增通过、未新增未通过），
-总数维持 195 / 54。
+**改判情况**：无。26 项未通过的理由经复验全部成立（当时未新增通过、未新增未通过，
+总数维持 195 / 54）。后续按 §10 排序修复了 3 项，现行计数见 §11。
 
 **本轮复验所依据的直接事实**：
 
@@ -317,4 +317,31 @@ Web 写命令与 WS 广播（143/183/199/209）→ 预算冻结（133/136/195）
 **排序建议**：闭环成本低且可自动化门禁的前置项（第 5、6、7、8、9、10 类）先做；
 第 2 类（M8）无论实现还是降级都需要 ADR，宜尽早定性；第 1 类锁死发布口径，
 在第 2 类定性后再启动冻结，避免预算随实现变动反复冻结。
+
+---
+
+## 11. 收敛表修复进展（2026-10-23）
+
+按 §10 排序执行第 5、6、7、10 类；计数由 195 / 54 变为 **198 / 51**。
+
+| 类别 | Check | 交付内容 | 证据 |
+|---|---|---|---|
+| 5 凭据隔离 | 144 → **通过** | `whcode-runtime::worker::strip_credentials`：父进程继承与调用方显式设置的凭据型变量一并剥离（`KEY`/`TOKEN`/`SECRET`/`PASSWORD`/`CREDENTIAL`/`COOKIE`/`SIGNATURE`、`SSH_AUTH_SOCK`、`GPG_AGENT_INFO`、`WHCODE_*`）；`worker::execute` 与 python／git 探测统一调用 | `credential_variable_detection_covers_common_channels`、`strip_credentials_removes_credentials_from_child`（子进程探针 + 阳性对照：未剥离时退出码 7，剥离后 0，且 stdout 证明探针确已执行） |
+| 6 检查点策略 | 171 → **通过** | `whcode-domain::checkpoint::CheckpointPolicy`（定时/按步骤/危险操作前 + 保留数，越界即拒）+ `retain_recent` 有界裁剪；`Config.checkpoint` 参与 JSON 配置并在加载期校验；运行时重导出同一份定义（不新增依赖边） | `policy_triggers_on_timer_steps_and_dangerous_actions`、`policy_rejects_out_of_range_values`、`retention_keeps_recent_items_and_reports_drops`、`policy_roundtrips_through_json_with_defaults`、`checkpoint_policy_is_configurable_and_validated_at_load` |
+| 10 PO 接口 | 224 → **通过** | `parse_po`（续行/转义/`msgctxt`，跳过 fuzzy／复数／废弃）、`Catalog::from_po`、`I18n::load_with_po`（`<root>/i18n/po/<locale>.po`，256 KiB 上限、语言标识白名单禁穿越）；`whcode-bin::load_texts` 接线（`WHCODE_I18N_DIR` → 可执行文件目录，失败告警回退） | 6 个用例：解析边界、PO 覆盖 + en 回退 + 键名兜底、无 PO 等价内建、非法语言标识、超限拒绝、目录结构（BOM/LF）+ 内建目录 PO 往返无损 |
+| 7 零残留（Windows） | 201 → **部分通过**（维持未勾选） | `whcode-platform::process_exists`／`child_pids`；`tests/stability/test_process_cleanup.rs` 启动真实 `cmd → ping` 树，`terminate_tree` 后断言父与子 PID 均消失，并先断言确实观测到子进程 | 用例通过（0.82 s）；**BSD 进程组仍无实现与平台证据（ADR-013）**，故整条判据未满足 |
+
+**未执行（如实标注）**：第 9 类（Check 221 卸载内存下降）需要 RSS 级观测与真实会话
+负载，本轮未动；第 8 类（Check 206 稳定性四情形）中的“磁盘不足”缺可复现注入手段，
+需要临时卷或故障注入层，未动；第 1—4、11—14 类按 §10 排序在其后。
+
+**新增/修改文件**：`crates/whcode-domain/src/checkpoint.rs`（新）、`crates/whcode-domain/src/i18n.rs`、
+`crates/whcode-runtime/src/{worker.rs,providers.rs,checkpoint.rs,lib.rs}`、
+`crates/whcode-platform/src/{process.rs,lib.rs}`、`crates/whcode-bin/src/{main.rs,cui_dispatch.rs,config.rs}`、
+`tests/stability/test_process_cleanup.rs`（新）、`tests/Cargo.toml`、`tests/stability/README.md`。
+
+**门禁**：`cargo test --locked --workspace` **49 个目标 / 429 通过 / 0 失败 / 6 忽略**（含
+`layering`、`layout`、`process_cleanup`）；`cargo fmt --all --check` 零差异；
+`clippy --workspace --all-targets -- -D warnings` 零告警；`normalize_eol.py`（297 文件，
+CRLF/BOM 均 0）与 `ci/check_counts.py`（FR=79/tasks=148/checks=249）通过。
 

@@ -13,6 +13,22 @@
 
 ### 变更
 
+- 收敛表优先项修复（2026-10-23，Check 144／171／224 通过、201 Windows 侧通过）：
+  - **凭据隔离**：`whcode-runtime` 新增 `strip_credentials`（父进程继承与调用方显式设置的
+    凭据型环境变量一并剥离：`KEY`/`TOKEN`/`SECRET`/`PASSWORD`/`CREDENTIAL`/`COOKIE`/
+    `SIGNATURE`、`SSH_AUTH_SOCK`、`GPG_AGENT_INFO`、`WHCODE_*`），`worker::execute` 与
+    provider 探测统一在启动前调用；用子进程探针 + 阳性对照证明“未剥离可见 / 剥离不可见”。
+  - **检查点触发策略**：`whcode-domain::checkpoint::CheckpointPolicy`（定时 300 s、按步骤
+    关闭、危险操作前开启、保留 10，三类阈值与保留数可配、越界即拒）经 `Config.checkpoint`
+    加载期校验；`whcode-runtime::checkpoint` 重导出，避免新增依赖边。调度器接线仍属 M8
+    装配，已在模块文档显式标注未接线。
+  - **gettext PO 接口**：`whcode-domain::i18n` 新增 `parse_po`（续行、转义、`msgctxt`，
+    跳过 fuzzy／复数／废弃条目）与 `I18n::load_with_po`（运行时 `<root>/i18n/po/<locale>.po`，
+    256 KiB 上限、语言标识白名单禁路径穿越、缺失即回退内建）；`whcode-bin::load_texts`
+    接线（`WHCODE_I18N_DIR` → 可执行文件目录；加载失败告警回退，不静默）。
+  - **零残留进程（Windows）**：`whcode-platform` 新增 `process_exists`／`child_pids`，
+    新增 `tests/stability/test_process_cleanup.rs` 启动真实 `cmd → ping` 进程树并断言父与子
+    PID 在 `terminate_tree` 后均消失；BSD 进程组仍按 ADR-013 延后，Check 201 维持未勾选。
 - 副作用恢复协议与三时点崩溃注入（2026-10-23，T114 部分交付／FR-410）：
   `whcode-store::tool_exec` 落地“意图—执行—登记”原语（`record_intent`/`mark_running`/
   `record_result`，状态迁移受限）与启动期恢复 `recover_uncertain`（prepared/running →

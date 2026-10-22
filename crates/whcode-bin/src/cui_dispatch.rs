@@ -59,9 +59,9 @@ fn dispatch_code(args: &[String]) -> i32 {
         .workspace
         .as_deref()
         .map_or_else(default_workspace, PathBuf::from);
-    // 文本层（FR-615）：环境检测（LANG/LC_ALL）→ 默认 zh-CN；数据字段不翻译。
+    // 文本层（FR-615）：环境检测（LANG/LC_ALL）→ 默认 zh-CN；PO 覆盖内建；数据字段不翻译。
     let (locale, locale_source) = detect_locale(None);
-    let texts = I18n::load(&locale, locale_source);
+    let texts = crate::load_texts(&locale, locale_source);
     match execute(&cli.command, &workspace, &texts) {
         Ok((data, human)) => {
             if json_mode {

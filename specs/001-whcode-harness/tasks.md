@@ -203,7 +203,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 
 - [x] T128 [P] [US6] 在 `crates/whcode-tui/src/theme.rs` 实现三套渲染主题（FR-612）：A 屏夜间（纯黑 #000000 背景）、墨水屏日间（纯白 #FFFFFF 背景 + 黑字）、墨水屏夜间（纯黑背景 + 白字）；主题经配置选择，测试断言背景色精确为纯黑/纯白（OLED 仅纯黑关断像素；e-ink 黑→白转换残影最重）
 - [x] T129 [US6] 在 `crates/whcode-tui/src/render.rs` 强化渲染纪律（FR-613）：事件驱动 + 脏标记重绘已有基线，新增空闲期零重绘断言（重绘计数器）并接入 NFR-205 空闲 CPU 验证；文档写明“终端绘制由终端模拟器承担，WHCode 不直接调度 GPU”
-- [x] T130 [P] [US6] 在 `crates/whcode-domain/src/i18n.rs` 与 `i18n/` 资源目录实现文本层（FR-615）：zh-CN 与 en 双语、gettext PO 加载接口、运行时区域检测、zh-CN→en 回退链；为 RTL 语言预留双向文本处理接口（渲染层不假设 LTR；依据：GNU gettext 已支持 Rust 提取）
+- [x] T130 [P] [US6] 在 `crates/whcode-domain/src/i18n.rs` 与 `i18n/` 资源目录实现文本层（FR-615）：zh-CN 与 en 双语、gettext PO 加载接口、运行时区域检测、zh-CN→en 回退链；为 RTL 语言预留双向文本处理接口（渲染层不假设 LTR；依据：GNU gettext 已支持 Rust 提取）（2026-10-23 补记：`parse_po`/`Catalog::from_po`/`I18n::load_with_po` 落地，运行时读 `<root>/i18n/po/<locale>.po`（有界、语言标识白名单）；`whcode-bin::load_texts` 接线；Check 224 已通过）
 - [x] T131 [US6] 在 `crates/whcode-app/src/residency.rs` 实现会话驻留策略（FR-614）：空闲会话卸载为“元数据+游标”、按需唤醒、卸载不丢已确认事件、卸载与唤醒可查询；禁止会话级预分配固定大缓冲
 - [x] T133 [P] [US7] 在 `crates/whcode-web/frontend/` 实现动效总开关（FR-613 前端部分）：尊重 `prefers-reduced-motion`、默认关闭非必要动效、CSS 仅使用 GPU 合成友好的 transform/opacity（M6 交付）
 - [x] T135 [US6] 在 `crates/whcode-platform/src/term.rs` 与 `crates/whcode-tui/src/render.rs` 实现 TUI 窗口最小化检测（Windows `GetConsoleWindow`+`IsIconic`）与渲染门控：最小化期间跳过绘制、关键事件继续记账，还原后单次全量重绘（FR-617）（2026-10-22 完成接线）：检测源经 ADR-021（PowerShell 子进程 P/Invoke，零 unsafe、零新依赖，本机实测 `Some(false)`）；门控消费端在 `tui/render.rs`（minimized 跳过绘制、关键事件记账、还原单次全量重绘）；**事件循环接线**（`tui/lib.rs`）：仅在有待绘制帧且输入静默 ≥1s 时探测，间隔 5s→60s 指数退避、检测到最小化回落 5s——空闲（无待绘制帧）与连续输入期间零探测，空闲成本为零；输入事件证明窗口可见（直接按还原记账）；重放证据 `run_scripted_steps`（探测计数/跳过计数/还原单次重绘均断言）
@@ -259,12 +259,12 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T101 [US9] 在 `crates/whcode-runtime/src/capability.rs` 实现能力等级 `Full/Restricted/ShellOnly` 并接入界面与门禁展示（FR-702）
 - [x] T102 [US9] 在 `crates/whcode-runtime/src/payload.rs` 实现 payload 独立分发与来源/版本/哈希/平台校验（FR-703、D-07）
 - [x] T103 [US9] 在 `Cargo.toml` 与 `crates/whcode-runtime/src/lib.rs` 落实 feature 门控：未启用运行时不加载动态库、不占端口、不注册工具（FR-704）
-- [x] T104 [US9] 在 `crates/whcode-runtime/src/worker.rs` 实现受控子进程：超时、输出上限、取消、可用资源限制（FR-705）
-- [x] T105 [US9] 在 `crates/whcode-runtime/src/checkpoint.rs` 实现执行前检查点与脚本哈希/输入哈希/运行时指纹/工作目录策略记录（FR-706）
+- [x] T104 [US9] 在 `crates/whcode-runtime/src/worker.rs` 实现受控子进程：超时、输出上限、取消、可用资源限制（FR-705）（2026-10-23 补记：新增启动前凭据环境剥离 `strip_credentials`，`worker::execute` 统一调用并有跨进程阳性/阴性对照用例；**取消与资源限制仍未实现**，Check 104 维持未通过）
+- [x] T105 [US9] 在 `crates/whcode-runtime/src/checkpoint.rs` 实现执行前检查点与脚本哈希/输入哈希/运行时指纹/工作目录策略记录（FR-706）（2026-10-23 补记：触发策略 `CheckpointPolicy`（定时/按步骤/危险操作前 + 保留数）落于 `whcode-domain::checkpoint`，运行时重导出；配置经 `Config.checkpoint` 加载期校验；调度器接线仍属 M8 装配，未接入 Provider 路径）
 - [x] T106 [P] [US9] 在 `crates/whcode-runtime/src/cache.rs` 限制重复执行缓存仅用于纯函数或显式启用缓存的任务（FR-707）
 - [x] T107 [US9] 在 `crates/whcode-runtime/src/errors.rs` 实现能力不足/缺失/不兼容的结构化错误，并接入 Analyze 阻止执行（FR-708/710）
 - [x] T108 [P] [US9] 在 `crates/whcode-speckit/src/converge.rs` 支持绑定运行时测试（命令、环境指纹、退出状态、结果引用）（FR-709）
-- [x] T109 [US9] 在 `crates/whcode-platform/src/process.rs` 实现 Windows 子进程树与 BSD 进程组/信号的终止清理，保留 stderr 尾部（FR-409、§10.2）（复核注记 2026-10-23：Windows 子进程树经 `taskkill /T /F /PID` 已实现并有用例；**BSD 进程组分支未实现**——`terminate_tree` 在非 Windows 返回结构化错误并注明属 M7，不静默伪装成功；Check 201 的“零残留进程”验证未取得）
+- [x] T109 [US9] 在 `crates/whcode-platform/src/process.rs` 实现 Windows 子进程树与 BSD 进程组/信号的终止清理，保留 stderr 尾部（FR-409、§10.2）（复核注记 2026-10-23：Windows 子进程树经 `taskkill /T /F /PID` 已实现并有用例；2026-10-23 补记：新增 `process_exists`/`child_pids` 与 `tests/stability/test_process_cleanup.rs`，Windows 零残留已自动化验证；**BSD 进程组分支仍未实现**——`terminate_tree` 在非 Windows 返回结构化错误并注明属 M7，不静默伪装成功；Check 201 因 BSD 证据缺失维持未勾选）
 - [ ] T110 [P] [US9] 在 `crates/whcode-runtime/src/js.rs` 接入受限 ECMAScript 引擎，Node API 缺失时返回能力不足（D-08、§4.7.1） **未完成（2026-10-23 复核）**：`runtime/src/js.rs` 不存在，未接入受限 ECMAScript 引擎；`JsProvider` 仅声明 `Restricted` 并在无引擎时返回 `runtime_unavailable`（Check 110 未通过）
 - [ ] T111 [P] [US9] 在 `crates/whcode-runtime/src/python.rs` 实现 Python 子进程 worker 与受限实现档位（D-09、§4.7.1） **未完成（2026-10-23 复核）**：`runtime/src/python.rs` 不存在；`PythonProvider` 仅以系统解释器探测 `--version` 并构造受控子进程，未记录 ABI/解释器绝对路径，完整 worker 协议未实现（Check 111 未通过）
 - [ ] T112 [P] [US9] 在 `crates/whcode-runtime/src/gitbash.rs` 实现 Windows PortableGit payload 校验与 Bash/coreutils/管道/重定向验证（V-304） **未完成（2026-10-23 复核）**：`runtime/src/gitbash.rs` 不存在；仅探测 `git.exe --version`，未验证 PortableGit payload 哈希、Bash/coreutils、管道与重定向（`runtime-inventory.md` 亦标“未实现”，Check 112 未通过）

@@ -7,6 +7,7 @@
 //! 必须使用同一套定义（§3.1）。
 
 pub mod audit;
+pub mod checkpoint;
 pub mod error;
 pub mod event;
 pub mod gate;
@@ -15,6 +16,10 @@ pub mod state;
 pub mod trace;
 
 pub use audit::{AuditAction, AuditRecord, AuditSink, CollectingAuditSink};
+pub use checkpoint::{
+    CheckpointPolicy, CheckpointState, CheckpointTrigger, DEFAULT_INTERVAL_SECONDS, DEFAULT_RETAIN,
+    MAX_EVERY_STEPS, MAX_INTERVAL_SECONDS, MAX_RETAINED, retain_recent,
+};
 pub use error::{ErrEnvelope, ErrorCode, OkEnvelope, SCHEMA_VERSION, WhError};
 pub use event::{
     EventCriticality, EventKind, EventRecord, MAX_PAYLOAD_BYTES, PersistenceLevel,

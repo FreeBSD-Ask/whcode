@@ -14,12 +14,19 @@
   本目录的测试通过 `#[path]` 引入**同一份源码**，不复制第二套逻辑。
 - 编排脚本：`ci/benchmarks/run-baseline.py`，产出
   `artifacts/baseline-<系统>-<体系结构>.json`（本机为 `baseline-windows-amd64.json`）。
+- `test_process_cleanup.rs`：进程树终止后**零残留**验证（Check 201、FR-409、§10.2）。
+  启动真实的 `cmd → ping` 进程树，经 `whcode_platform::terminate_tree` 终止后逐个断言
+  父、子 PID 消失。平台边界：非 Windows 的 `child_pids`/`process_exists` 返回结构化
+  “延后”错误，用例显式跳过并打印原因，不产生通过结论。
 
 ## 如何运行
 
 ```powershell
 # 仅运行基线夹具正确性检查（不判定性能达标）
 cargo test -p whcode-tests --test baseline_check
+
+# 零残留验证（Windows 上会真实启停进程树）
+cargo test -p whcode-tests --test process_cleanup
 
 # 本机基线测量（release 构建；结果写入 artifacts/baseline-windows-amd64.json）
 python ci/benchmarks/run-baseline.py
@@ -29,9 +36,9 @@ python ci/benchmarks/run-baseline.py
 
 - **24 小时稳定性测试未实现**；
 - **候选发布版本的 72 小时压力测试未实现**；
-- 本目录当前只有基线基准夹具，不含长时间 RSS/CPU 时间序列、慢客户端、LLM 请求失败、
-  断网、磁盘空间不足、数据库写入失败、重启、终止子进程与迁移中断等故障注入场景
-  （T116 交付）。
+- 本目录当前只有基线夹具正确性检查与零残留验证，不含长时间 RSS/CPU 时间序列、慢客户端、
+  LLM 请求失败、断网、磁盘空间不足、数据库写入失败、重启与迁移中断等故障注入场景
+  （T116 交付；Check 206 未通过）。
 
 ## 纪律（§11.5、R-12）
 

@@ -4,6 +4,10 @@
 //! 子进程经 `std::process::Command`（ADR-008：主进程不得直接嵌入不受信任脚本）；
 //! 超时经轮询 `try_wait`（std 无 wait_timeout）。
 //!
+//! 凭据隔离（§10.2、Check 144）：启动前统一剥离父进程与调用方显式设置中的
+//! 凭据型环境变量（见 [`strip_credentials`]），子进程拿不到 API Key、令牌与
+//! 代理套接字；剥离只记变量名、不记值。
+//!
 //! 边界：worker 执行由具体 Provider 调用（`provider.rs`）；进程树清理属
 //! `whcode_platform`（FR-409，M8/T109）。
 
@@ -14,6 +18,67 @@ use whcode_domain::{ErrorCode, WhError};
 
 /// 默认输出上限（字节，FR-705）。
 pub const MAX_OUTPUT_BYTES: usize = 1024 * 1024;
+
+/// 凭据型环境变量名的子串标记（大写比较；命中即从子进程环境移除）。
+///
+/// 选择“名字特征”而不是枚举产品变量：新增服务（云厂商、模型提供商）无需改代码；
+/// 代价是同名特征可能误删无害变量，因此只移除**子进程环境**，不影响本进程。
+const CREDENTIAL_MARKERS: &[&str] = &[
+    "KEY",
+    "TOKEN",
+    "SECRET",
+    "PASSWORD",
+    "PASSWD",
+    "CREDENTIAL",
+    "COOKIE",
+    "SIGNATURE",
+];
+
+/// 需要显式移除的凭据通道（名称不含上述标记，但同样不得透传）。
+const CREDENTIAL_EXACT: &[&str] = &["SSH_AUTH_SOCK", "GPG_AGENT_INFO"];
+
+/// 本程序自身前缀（配置与凭据不进入子进程）。
+const APP_ENV_PREFIX: &str = "WHCODE_";
+
+/// 判定环境变量名是否属于凭据类（纯函数，便于测试与审计）。
+#[must_use]
+pub fn is_credential_var(name: &str) -> bool {
+    let upper = name.to_ascii_uppercase();
+    upper.starts_with(APP_ENV_PREFIX)
+        || CREDENTIAL_EXACT.contains(&upper.as_str())
+        || CREDENTIAL_MARKERS
+            .iter()
+            .any(|marker| upper.contains(marker))
+}
+
+/// 从待启动命令中剥离凭据型环境变量，返回被移除的变量名（只记名，不记值）。
+///
+/// 同时覆盖两类来源：父进程继承的环境，以及调用方经 [`Command::env`] 显式设置的
+/// 变量；两者都命中 [`is_credential_var`] 时移除。返回值已排序，供调用方记录审计。
+pub fn strip_credentials(command: &mut Command) -> Vec<String> {
+    let mut removed: Vec<String> = Vec::new();
+    for (name, _) in std::env::vars_os() {
+        if let Some(name) = name.to_str()
+            && is_credential_var(name)
+        {
+            command.env_remove(name);
+            removed.push(name.to_string());
+        }
+    }
+    let explicit: Vec<String> = command
+        .get_envs()
+        .filter_map(|(name, _)| name.to_str().map(ToOwned::to_owned))
+        .collect();
+    for name in explicit {
+        if is_credential_var(&name) {
+            command.env_remove(&name);
+            removed.push(name);
+        }
+    }
+    removed.sort();
+    removed.dedup();
+    removed
+}
 
 /// 子进程执行结果（输出尾部保留，FR-705）。
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -44,6 +109,8 @@ pub fn execute(
     timeout: Duration,
     max_output: usize,
 ) -> Result<WorkerResult, WhError> {
+    // 凭据隔离（§10.2）：先剥离再接管管道；只记名不记值。
+    let _ = strip_credentials(command);
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child: Child = command
         .spawn()
@@ -114,5 +181,79 @@ mod tests {
             execute(&mut command, Duration::from_millis(200), MAX_OUTPUT_BYTES).expect("超时执行");
         assert!(result.timed_out, "超时必须终止");
         assert_eq!(result.exit_code, None);
+    }
+
+    /// 凭据特征判定：覆盖 API Key、令牌、口令、云厂商与代理通道，不误伤常规变量。
+    #[test]
+    fn credential_variable_detection_covers_common_channels() {
+        for name in [
+            "OPENAI_API_KEY",
+            "WHCODE_LLM_TOKEN",
+            "AWS_SECRET_ACCESS_KEY",
+            "DB_PASSWORD",
+            "SSH_AUTH_SOCK",
+            "GPG_AGENT_INFO",
+            "ANTHROPIC_CREDENTIALS",
+            "HTTP_COOKIE",
+        ] {
+            assert!(is_credential_var(name), "{name} 必须视为凭据");
+        }
+        for name in ["PATH", "TEMP", "HOME", "LANG", "PATHEXT", "SYSTEMROOT"] {
+            assert!(!is_credential_var(name), "{name} 不得被剥离");
+        }
+    }
+
+    /// 子进程探针：父测试以 `--exact --ignored` 启动；看到凭据即退出码 7。
+    #[test]
+    #[ignore = "仅由 strip_credentials_removes_credentials_from_child（父测试）以子进程调用"]
+    fn env_probe_child() {
+        let visible = std::env::var("WHCODE_TEST_FAKE_TOKEN").is_ok();
+        println!("probe-ran token={}", if visible { "yes" } else { "no" });
+        std::process::exit(if visible { 7 } else { 0 });
+    }
+
+    /// Check 144：剥离后子进程看不到凭据；未剥离的阳性对照必须能看到（证明探针有效）。
+    #[test]
+    fn strip_credentials_removes_credentials_from_child() {
+        let exe = std::env::current_exe().expect("测试可执行文件路径");
+        // 返回（退出码，子进程 stdout）：stdout 用于证明探针确实执行，而不是“没匹配到用例”。
+        let probe = |sanitize: bool| -> (Option<i32>, String) {
+            let mut command = Command::new(&exe);
+            command.args([
+                "--exact",
+                "worker::tests::env_probe_child",
+                "--ignored",
+                "--nocapture",
+            ]);
+            command.env("WHCODE_TEST_FAKE_TOKEN", "leak");
+            if sanitize {
+                let removed = strip_credentials(&mut command);
+                assert!(
+                    removed.iter().any(|name| name == "WHCODE_TEST_FAKE_TOKEN"),
+                    "显式设置的凭据变量必须被移除：{removed:?}"
+                );
+                let result = execute(&mut command, Duration::from_secs(30), MAX_OUTPUT_BYTES)
+                    .expect("探针执行");
+                return (result.exit_code, result.stdout_tail);
+            }
+            // 阳性对照绕开 `execute` 的统一剥离，直接读原始退出码。
+            let output = command.output().expect("探针执行");
+            (
+                output.status.code(),
+                String::from_utf8_lossy(&output.stdout).to_string(),
+            )
+        };
+        let (code, stdout) = probe(false);
+        assert_eq!(code, Some(7), "阳性对照：未剥离时子进程可见凭据");
+        assert!(
+            stdout.contains("probe-ran token=yes"),
+            "探针未执行：{stdout}"
+        );
+        let (code, stdout) = probe(true);
+        assert_eq!(code, Some(0), "剥离后子进程不得看到凭据");
+        assert!(
+            stdout.contains("probe-ran token=no"),
+            "探针未执行：{stdout}"
+        );
     }
 }
