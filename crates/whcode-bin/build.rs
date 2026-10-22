@@ -3,10 +3,14 @@
 //! 版本号定义为二进制构建时间（用户要求，2026-10-23）：构建脚本在运行时取系统时钟
 //! 并注入 `cargo:rustc-env`，`whcode --version` / `doctor` 原样报告。
 //!
-//! 时区获取（零新依赖、零 unsafe）：
-//! - Windows：PowerShell `Get-Date -Format yyyy-MM-ddTHH:mmzzz`（子进程，构建期一次）；
-//! - 其他平台：`date +%Y-%m-%dT%H:%M%z`（POSIX）；
-//! - 两者失败时**显式回退 UTC（带 `Z`）**——不伪装本地时区。
+//! 时区获取（零新依赖、零 unsafe、**不做平台判定**）：
+//! 契约测试把 `build.rs` 计入 crate 源码，平台条件编译必须集中在 `whcode-platform`
+//! （NFR-101），因此本脚本不按平台名分流，改为按**可用性**依次探测外部时间
+//! 命令：先 `powershell`（`Get-Date -Format yyyy-MM-ddTHH:mmzzz`，Windows 形态），
+//! 失败再 `date +%Y-%m-%dT%H:%M%z`（POSIX 形态）；命令不存在或输出不合格式时该次
+//! 探测自然返回 `None`。两者均不可用时**显式回退 UTC（带 `Z`）并输出构建告警**——
+//! 不伪装本地时区，也不静默降级。此为 `whcode-store/build.rs` 同款纪律：以载荷/可用性
+//! 分流，而非以平台名分流。
 //!
 //! 缓存行为（诚实说明）：未输出 `rerun-if-changed` 指令时，Cargo 默认在**本包内**任一
 //! 文件变化时重跑本脚本——版本戳随本包源码构建更新；若仅依赖变化导致重链接，版本戳
@@ -15,16 +19,39 @@
 use std::process::Command;
 
 fn main() {
-    let stamp = local_minute_stamp();
-    println!("cargo:rustc-env=WHCODE_BUILD_STAMP={stamp}");
+    match local_minute_stamp() {
+        Some(stamp) => println!("cargo:rustc-env=WHCODE_BUILD_STAMP={stamp}"),
+        None => {
+            let stamp = format!("{}Z", utc_minute(unix_seconds()));
+            println!(
+                "cargo:warning=构建期外部时间命令（powershell/date）均不可用，\
+                 版本戳回退 UTC（非本地时区）：{stamp}"
+            );
+            println!("cargo:rustc-env=WHCODE_BUILD_STAMP={stamp}");
+        }
+    }
 }
 
-/// 本地构建时间戳：`YYYY-MM-DDTHH:MM±HH:MM`（失败回退 UTC `YYYY-MM-DDTHH:MMZ`）。
-fn local_minute_stamp() -> String {
-    if let Some(stamp) = query_local() {
-        return stamp;
+/// 本地构建时间戳：`YYYY-MM-DDTHH:MM±HH:MM`；按可用性探测，无平台条件编译（NFR-101）。
+fn local_minute_stamp() -> Option<String> {
+    query_stamp(&[
+        "powershell",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Get-Date -Format yyyy-MM-ddTHH:mmzzz",
+    ])
+    .or_else(|| query_stamp(&["date", "+%Y-%m-%dT%H:%M%z"]))
+}
+
+/// 运行 `argv[0]`（其余为参数）并规范化输出；命令缺失、非零退出或格式不符均返回 `None`。
+fn query_stamp(argv: &[&str]) -> Option<String> {
+    let (program, args) = argv.split_first()?;
+    let output = Command::new(program).args(args).output().ok()?;
+    if !output.status.success() {
+        return None;
     }
-    format!("{}Z", utc_minute(unix_seconds()))
+    normalize_stamp(&String::from_utf8_lossy(&output.stdout))
 }
 
 fn unix_seconds() -> u64 {
@@ -32,35 +59,6 @@ fn unix_seconds() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|elapsed| elapsed.as_secs())
         .unwrap_or(0)
-}
-
-#[cfg(target_os = "windows")]
-fn query_local() -> Option<String> {
-    let output = Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            "Get-Date -Format yyyy-MM-ddTHH:mmzzz",
-        ])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    normalize_stamp(&String::from_utf8_lossy(&output.stdout))
-}
-
-#[cfg(not(target_os = "windows"))]
-fn query_local() -> Option<String> {
-    let output = Command::new("date")
-        .args(["+%Y-%m-%dT%H:%M%z"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    normalize_stamp(&String::from_utf8_lossy(&output.stdout))
 }
 
 /// 规范化为 `YYYY-MM-DDTHH:MM±HH:MM`；格式不符或偏移缺失时返回 `None`。
