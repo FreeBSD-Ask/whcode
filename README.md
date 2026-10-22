@@ -13,8 +13,26 @@
 
 ## 当前状态
 
-M0（平台可行性与基线冻结）已完成 Windows 侧工程交付，整体判定与逐平台结论见
-[artifacts/m0-report.md](./artifacts/m0-report.md)：
+**里程碑进度**（权威口径：[tasks.md](./specs/001-whcode-harness/tasks.md)）：
+
+| 里程碑 | 状态 |
+|---|---|
+| M0 平台可行性与基线冻结 | Windows 工程基线**有条件通过**（ADR-016）；V-004 延后至 M7、V-006 预算不冻结 |
+| M1 存储与事件基座、M2 会话与任务服务、M3 LLM 与上下文、M4 SDD 门禁、M5 TUI/CUI、M6 Web、M8 可选运行时 | **实现完成**（各里程碑实现记录与测试在库） |
+| M7 BSD SSH 服务端 | **延后**（ADR-013）：不作验收结论，恢复须新 ADR 并补齐证据链 |
+| M9 优化与发布 | 文档侧完成；热点优化（T115）与 24/72 小时稳定性（T116）**阻塞**（预算未冻结、缺长跑环境） |
+| Phase 13 跨里程碑收尾 | 完成（含计数门禁 `ci/check_counts.py`） |
+
+148 条任务中 142 条完成，未完成 6 条均有书面阻塞理由（T096—T099 延后、T115/T116 阻塞）。
+
+**验收口径**：`checklist.md` 的 249 个验收检查点仅 14 项经复核勾选（勾选权归复核人），
+其余为“实现已完成、判据待复核”。**不得以任务完成率代替验收结论。**
+2026-10-23 的进度复核记录见 `artifacts/progress-review-2026-10-23.md`（本地证据，默认不入库）。
+
+**工程门禁（2026-10-23 实测）**：`cargo fmt --all --check` 无差异、
+`cargo clippy --workspace --all-targets -D warnings` 零告警、
+`cargo test --locked --workspace` 全绿（47 个测试目标、403 例通过、4 例默认忽略的
+实验记录器）、`layout`/`layering` 契约测试、EOL 与 workflow 审计、前端预算与资源铁律均通过。
 
 **平台范围（ADR-013）**：唯一验收目标是 **Windows 11 amd64**；不考虑任何 32 位平台；
 FreeBSD/NetBSD/OpenBSD/DragonFly 全部**延后**（代码与文档保留，不验收，CI 手工触发）。
@@ -28,12 +46,28 @@ FreeBSD/NetBSD/OpenBSD/DragonFly 全部**延后**（代码与文档保留，不�
 
 ## 核心能力（已交付部分）
 
-- 单文件 DuckDB 持久化（官方预编译动态库，SHA256 校验），单写者服务：有界队列、幂等键、
-  批次提交、关键事件确认
-- 结构化错误与 `schema_version` 信封（四端共用）；事件体系按关键/内容/展示三级背压
-- 最小 TUI 闭环（ratatui/crossterm，真实控制台渲染实测）
-- 内置 SSH 客户端原型：公钥认证、受限命令、超时与输出上限、按“意图—执行—登记”协议留痕
+- **存储与事件基座**：单文件 DuckDB 持久化（官方预编译动态库，SHA256 校验）、14 张表版本化
+  schema 与可重复迁移、单写者服务（有界队列/幂等键/批次提交/关键事件确认）、稳定排序游标分页、
+  预聚合概览、归档清理/压缩/导入导出/数据库监控
+- **应用服务**：会话/任务/事件/上下文/状态/SDD 命令统一经 `whcode-app`；结构化错误与
+  `schema_version` 信封四端共用；快照对四端同源；三级事件背压（关键/内容/展示）
+- **SDD 门禁状态机**：Constitution、spec/tasks 解析与纠偏重试、门禁强制执行与
+  force-advance 审计、双向追溯与断链检出、Analyze 五类缺陷、Converge 四态判定
+- **LLM 层**：Provider 语义（能力探测/取消/流式/计量/超时/错误归一化）、四级追踪与双层脱敏、
+  传输层进度事件；**真实 HTTP Provider 未接线**（当前为桩实现）
+- **TUI**：六视图（会话/任务/事件/上下文/Spec/运行时）接真实数据源、三套主题、
+  脏标记零重绘与最小化挂起、终端尺寸变化恢复（FR-617）
+- **CUI**：命令树经应用服务执行，`--json` 统一信封与稳定退出码；未接线命令显式失败，不静默降级
+- **Web**：`serve --web` 编译期嵌入静态前端，**仅限回环或 RFC1918 私网**且局域网强制认证
+  （ADR-023）；i18n（zh-CN/en，含 RTL 标记）；无外部 CDN 与第三方字体
+- **可选执行运行时**（feature 默认关闭，FR-704）：能力等级、payload 校验、检查点、
+  受控子进程与执行缓存策略
+- **内置 SSH 客户端原型**：公钥认证、受限命令、超时与输出上限、按“意图—执行—登记”协议留痕；
+  **M7 服务端未交付**
 - 五平台 CI 定义：Windows 绿路径必过；BSD 手工触发、原生构建作为显式 Go/No-Go 门禁（延后，不作验收结论）
+
+已知限制（性能预算未冻结、长时稳定性未测、真实 Provider 未接线、M7 延后等）逐条列在
+[compatibility.md](./docs/matrices/compatibility.md) 第 2 节，随包发布时须一并给出。
 
 ## 工程原则（摘要）
 
@@ -84,7 +118,7 @@ cargo run -p whcode-bin --release --                 # 有控制台时进入 TUI
 |---|---|
 | [docs/guides/philosophy.md](./docs/guides/philosophy.md) | 核心哲学与工程方法论（形式审查/0 信任） |
 | [docs/guides/repository-layout.md](./docs/guides/repository-layout.md) | 目录分类原则（由契约测试强制） |
-| [docs/adr/](./docs/adr/) | 架构决策记录（ADR-001—017 + DB 构建决策） |
+| [docs/adr/](./docs/adr/) | 架构决策记录（ADR-001—023 + DB 构建决策） |
 | [docs/matrices/](./docs/matrices/) | 平台矩阵、决策台账（D-01—D-14） |
 | [docs/guides/bsd-interface.md](./docs/guides/bsd-interface.md) | BSD 平台接口预留契约 |
 | [docs/guides/software-engineering-process.md](./docs/guides/software-engineering-process.md) | 软件工程过程与 G0—G5 门禁 |

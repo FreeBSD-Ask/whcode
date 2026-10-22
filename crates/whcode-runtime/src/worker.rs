@@ -108,12 +108,8 @@ mod tests {
 
     #[test]
     fn worker_timeout_kills_process() {
-        let sleep_script = if cfg!(windows) {
-            "ping -n 30 127.0.0.1 > NUL"
-        } else {
-            "sleep 30"
-        };
-        let mut command = whcode_platform::shell_command(sleep_script);
+        // 平台延时命令由 whcode-platform 提供（NFR-101：本 crate 不做平台分流）。
+        let mut command = whcode_platform::sleep_command(30);
         let result =
             execute(&mut command, Duration::from_millis(200), MAX_OUTPUT_BYTES).expect("超时执行");
         assert!(result.timed_out, "超时必须终止");

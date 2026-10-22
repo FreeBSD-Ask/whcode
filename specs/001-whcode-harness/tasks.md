@@ -287,7 +287,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T118 [US10] 在 `ci/` 与 `docs/matrices/` 产出 Windows 11 amd64 发布包、平台兼容矩阵与已知限制说明（BSD 延后并在限制中注明；§12.2、§9.1、ADR-013）
 - [x] T119 [P] [US10] 在 `docs/guides/` 完成 CUI 手册、TUI 键位表、Web 部署与安全配置、灾难恢复说明（§12.2）
 - [x] T120 [P] [US10] 在 `docs/matrices/runtime-inventory.md` 产出运行时能力清单、payload 校验与许可证清单（§12.2）
-- [x] T121 [US10] 在 `docs/adr/` 与 `docs/risk-register.md` 更新 ADR 与风险台账，并落实每 PR 清单检查（§13、§15）
+- [x] T121 [US10] 在 `docs/adr/` 与 `docs/risk-register.md` 更新 ADR 与风险台账，并落实每 PR 清单检查（§13、§15）（落点修订：风险台账实际并入 `docs/matrices/decisions.md`（R-12 未解除、R-13 新增），`docs/risk-register.md` 未建立；本行保留原路径以便追溯）
 
 **Checkpoint**: 强制验收全通过，剩余偏差形成公开限制说明
 
@@ -463,6 +463,33 @@ Task: "实现 SSH 客户端原型 in crates/whcode-ssh/src/proto.rs"           #
 - V-004 服务端验收未取得（T025 仅客户端原型）。
 - 性能预算未冻结（T027 基准夹具进行中，T028—T031 未完成）。
 - 因此 T027—T031 保持未勾选。
+
+### 实现记录（2026-10-23，门禁修复 + 文档同步；复核报告 `artifacts/progress-review-2026-10-23.md`）
+
+**背景**：用户要求“版本号 = 二进制构建时间”后，`76bbf98`/`c3a76e5` 两次提交在门禁红灯状态下
+进入 main——`c3a76e5` 的构建脚本含平台条件编译（NFR-101），版本戳用例为对编译目标恒真的断言，
+导致 `clippy -D warnings` 与 `test_layering` 双红。进度复核时以实测复现（见报告 §2.1）。
+
+**交付**：
+
+1. `crates/whcode-bin/build.rs`：删除平台条件编译，改按**可用性**依次探测外部时间命令
+   （`powershell` → `date`）；两者均不可用时回退 UTC 并输出 `cargo:warning`（不静默降级）。
+   与 `whcode-store/build.rs` 的“以可用性分流、不以平台名分流”纪律一致。
+2. `crates/whcode-bin/src/main.rs`：版本戳用例只校验格式（长度 17/22、分隔符、偏移形状）与
+   年份合理性，去掉平台分支与恒真断言；回退情形由构建告警人工复核。
+3. `crates/whcode-platform/src/process.rs`：新增 `sleep_command`（Windows `ping` / POSIX `sleep`），
+   导出至 crate 根；`crates/whcode-runtime/src/worker.rs` 的超时用例改经它构造命令，
+   消除平台分流在 `whcode-platform` 之外的残留（T104 纪律）。
+4. `tests/contract/test_layering.rs`：marker 表补 `cfg!(windows`/`cfg!(unix` 宏形态——
+   原表只覆盖属性写法，宏调用形态长期未被检出（本次在 `worker.rs` 中实测命中）。
+5. 文档同步：README 当前状态（里程碑表、验收口径、门禁实测）与核心能力、ADR 清单更新至
+   023；`docs/matrices/compatibility.md` 已知限制第 4/5 条改写（M7 只交付客户端；
+   实现完成 ≠ 验收通过）；T121 落点注明风险台账并入 `docs/matrices/decisions.md`。
+
+**验证证据**：`cargo fmt --all --check` 无差异；`cargo clippy --workspace --all-targets -- -D warnings`
+零告警；`cargo test --locked --workspace` 退出码 0（47 个测试目标、403 例通过、4 例默认忽略）；
+`layering` 6/6、`layout` 7/7；EOL 294 文件零违规；`whcode --version` 实测
+`2026-10-23T01:55+08:00`（本地偏移生效）。
 
 ### 实现记录（2026-10-22，批次 4：Web 仅限局域网 + 认证边界；ADR-023）
 

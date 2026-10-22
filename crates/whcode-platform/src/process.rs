@@ -86,6 +86,24 @@ pub fn shell_command(script: &str) -> std::process::Command {
     }
 }
 
+/// 平台延时命令（超时类用例共用，cfg 集中于本 crate）：Windows 用 `ping` 轮询，
+/// 类 Unix 用 `sleep`。
+///
+/// 秒级粒度，`0` 按 1 秒处理；Windows 的 `ping -n N` 实际墙钟约 `N-1` 秒，
+/// 调用方只应把它当作“明显长于被测超时”的延时，不得用于精确计时。
+#[must_use]
+pub fn sleep_command(seconds: u64) -> std::process::Command {
+    let seconds = seconds.max(1);
+    #[cfg(target_os = "windows")]
+    {
+        shell_command(&format!("ping -n {seconds} 127.0.0.1 > NUL"))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        shell_command(&format!("sleep {seconds}"))
+    }
+}
+
 /// 终止子进程树并保留 stderr 尾部（T109、FR-409、§10.2）。
 ///
 /// Windows：`taskkill /T /F /PID`（Job Object 语义的 std 等价路径，ADR-019 同口径

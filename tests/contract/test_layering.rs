@@ -62,9 +62,11 @@ fn rust_sources(dir: &Path, out: &mut Vec<PathBuf>) {
 /// 平台分支的判定模式（NFR-101）。
 ///
 /// 覆盖易漏写法：`cfg(all(target_os …))`、`cfg_attr`、`target_family`、裸 `cfg(windows)`/
-/// `cfg(unix)`，以及构建脚本常用的 `CARGO_CFG_*` 环境判定。审查结论：只匹配三种字面量
-/// 会让门禁形同虚设（例如构建脚本用 `CARGO_CFG_WINDOWS` 直接判平台而不被检出）。
-const PLATFORM_BRANCH_MARKERS: [&str; 10] = [
+/// `cfg(unix)`、**宏形态 `cfg!(windows)`/`cfg!(unix)`**（宏调用不是 `cfg(...)` 属性，
+/// 早期 marker 表漏检，实测已在 `whcode-runtime` 的测试代码中命中），以及构建脚本常用的
+/// `CARGO_CFG_*` 环境判定。审查结论：只匹配三种字面量会让门禁形同虚设（例如构建脚本用
+/// `CARGO_CFG_WINDOWS` 直接判平台而不被检出）。
+const PLATFORM_BRANCH_MARKERS: [&str; 12] = [
     "cfg(target_os",
     "cfg!(target_os",
     "cfg(any(target_os",
@@ -73,6 +75,8 @@ const PLATFORM_BRANCH_MARKERS: [&str; 10] = [
     "target_family",
     "cfg(windows)",
     "cfg(unix)",
+    "cfg!(windows",
+    "cfg!(unix",
     "CARGO_CFG_WINDOWS",
     "CARGO_CFG_TARGET_OS",
 ];

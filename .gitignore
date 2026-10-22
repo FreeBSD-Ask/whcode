@@ -9,6 +9,8 @@
 !/artifacts/m0-report.md
 !/artifacts/m0-report/
 !/artifacts/tui-manual-2026-10-21.txt
+# 进度复核报告属治理交付物（README“当前状态”引用其结论），与 m0 报告同口径放行。
+!/artifacts/progress-review-2026-10-23.md
 # M0 退出报告是治理交付物（tasks.md T031、§12.2），必须随仓库版本化。
 
 # 工作区数据库与 WAL（运行时产物，不进版本库）

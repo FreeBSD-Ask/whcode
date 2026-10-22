@@ -13,6 +13,17 @@
 
 ### 变更
 
+- 门禁与平台层修复（2026-10-23，进度复核处置）：`whcode-platform` 新增 `sleep_command`
+  （Windows `ping` / POSIX `sleep`，秒级粒度），`whcode-runtime` 的超时用例改经它构造命令，
+  消除 `whcode-platform` 之外的平台分流残留；`tests/contract/test_layering.rs` 的平台判定
+  marker 表补 `cfg!(windows`/`cfg!(unix` 宏形态（原表只覆盖属性写法，该类写法长期漏检）。
+  构建脚本的平台条件编译同时改为按可用性探测外部时间命令（见下条）。
+- 文档同步（2026-10-23）：README “当前状态”改为里程碑状态表 + 验收口径 + 门禁实测摘要，
+  “核心能力”按 M1—M8 实际交付重写（并显式标注真实 LLM Provider 未接线、M7 服务端未交付）；
+  ADR 清单更新至 023；`docs/matrices/compatibility.md` 已知限制第 4/5 条改写
+  （M7 仅交付 SSH 客户端；实现完成不等于验收通过）；T121 注明风险台账落点为
+  `docs/matrices/decisions.md`；进度复核报告 `artifacts/progress-review-2026-10-23.md`
+  经 `.gitignore` 放行入库。
 - 版本号改为**二进制构建时间**（2026-10-23，用户要求）：`crates/whcode-bin/build.rs` 在
   构建时取系统时钟注入 `WHCODE_BUILD_STAMP`（**本地时间** `YYYY-MM-DDTHH:MM±HH:MM`、
   精确到分钟）。时区获取**不做平台判定**（NFR-101：平台条件编译集中在 `whcode-platform`，
