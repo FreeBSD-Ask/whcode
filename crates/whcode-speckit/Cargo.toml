@@ -1,0 +1,16 @@
+[package]
+name = "whcode-speckit"
+description = "WHCode SDD 工作流配置、产物解析、校验、追溯与门禁"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+whcode-domain = { path = "../whcode-domain" }
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

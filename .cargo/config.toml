@@ -1,0 +1,14 @@
+# 构建期环境（tasks.md T022、docs/adr/ADR-DB-BUILD.md）。
+[env]
+# 预编译 DuckDB（唯一默认持久化后端，ADR-001）。由 ci/fetch-duckdb.py 拉取并校验
+# SHA256 后解包至此目录；该目录不入库（.gitignore），未拉取时构建显式失败——
+# 禁止静默改用其他后端或未经批准的源码构建（§9.1）。
+# 说明：本目录只有 Windows 预编译包；BSD 平台走 pkg/ports 或源码构建（见 ADR-DB-BUILD）。
+DUCKDB_LIB_DIR = { value = "vendor/duckdb/1.5.6", relative = true }
+
+# 构建期环境（tasks.md T025）：SSH 客户端原型引入 russh → aws-lc-rs → aws-lc-sys。
+# aws-lc-sys 在 Windows x86_64 上默认调用 nasm.exe 汇编优化代码；本机未安装 NASM，
+# 而该 crate 自带 win64 的预编译目标文件（builder/prebuilt-nasm）。此开关只在该条件下
+# 生效（`use_prebuilt_nasm` 要求 target_os = windows 且 x86_64 且检测不到 NASM），
+# 其他平台与 BSD 交叉检查不受影响；机器上装有 NASM 时仍优先本地汇编。
+AWS_LC_SYS_PREBUILT_NASM = "1"

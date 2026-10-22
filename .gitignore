@@ -1,0 +1,25 @@
+/.specify
+/.workbuddy-ai
+
+# Rust 构建产物与本地验证产物（tasks.md T006）
+/target
+# 本地证据（依赖记录、基准、时间序列）不入库；“忽略目录、再放行治理报告”的写法是必需的，
+# 否则 !/artifacts/m0-report.md 无法生效（父目录被忽略时 Git 不会进入目录匹配例外）。
+/artifacts/*
+!/artifacts/m0-report.md
+!/artifacts/m0-report/
+!/artifacts/tui-manual-2026-10-21.txt
+# M0 退出报告是治理交付物（tasks.md T031、§12.2），必须随仓库版本化。
+
+# 工作区数据库与 WAL（运行时产物，不进版本库）
+*.duckdb
+*.duckdb.wal
+
+# 预编译 DuckDB（由 ci/fetch-duckdb.py 拉取并校验 SHA256；不入库，PROVENANCE 留证）
+/vendor
+
+# 本地临时脚本与运行日志（用户规则：置于 script/ 且保留在本地，不入库）
+/script/
+
+# 环境工具自动重建的本地状态目录（内容不入库）
+/state/

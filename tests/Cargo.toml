@@ -1,0 +1,126 @@
+[package]
+name = "whcode-tests"
+description = "WHCode 跨 crate 契约测试与夹具（分层、JSON 信封、三端一致性）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+# 集成测试位于本包的非标准子目录，显式声明目标（cargo 只自动发现 tests/*.rs 与 tests/*/main.rs）。
+[[test]]
+name = "layering"
+path = "contract/test_layering.rs"
+
+# 基线夹具正确性检查（tasks.md T027、V-006）。
+[[test]]
+name = "baseline_check"
+path = "stability/baseline_check.rs"
+
+# 目录分类门禁（docs/guides/repository-layout.md 的可执行强制）。
+[[test]]
+name = "layout"
+path = "contract/test_layout.rs"
+
+# CUI JSON 信封契约（T089、FR-602）。
+[[test]]
+name = "json_envelope"
+path = "contract/test_json_envelope.rs"
+
+# TUI/CUI 一致性契约（T088、FR-604）。
+[[test]]
+name = "tui_cui_parity"
+path = "contract/test_tui_cui_parity.rs"
+
+# Web 安全默认值契约（T095、V-110、FR-606）。
+[[test]]
+name = "web_security_defaults"
+path = "contract/test_web_security_defaults.rs"
+
+# 运行时验收集成测试（T114、V-301—V-307）。
+[[test]]
+name = "runtime_acceptance"
+path = "integration/test_runtime_acceptance.rs"
+
+# 极限规模（1M 事件，资源铁律 X1—X5；60GB 会话库同构访问模式）。
+[[test]]
+name = "extreme_scale"
+path = "integration/test_extreme_scale.rs"
+
+# 内存上限基线复核实验（ADR-012）。测试标注 #[ignore]，须显式 --ignored 运行。
+[[test]]
+name = "memory_limit"
+path = "integration/test_memory_limit.rs"
+
+[[test]]
+name = "migration"
+path = "integration/test_migration.rs"
+
+# 已确认事务的进程终止 + 重启一致性（T043、V-104）。
+[[test]]
+name = "durability"
+path = "integration/test_durability.rs"
+
+# 重复幂等键不重复创建（T044、V-106）。
+[[test]]
+name = "idempotency"
+path = "integration/test_idempotency.rs"
+
+# 清理/压缩空间统计四项，不承诺 VACUUM 释放空间（T045、V-107、FR-510）。
+[[test]]
+name = "space_report"
+path = "integration/test_space_report.rs"
+
+# 10 万事件会话切换的有界加载与游标完整性（T054、V-101、SC-001）。
+[[test]]
+name = "session_switch"
+path = "integration/test_session_switch.rs"
+
+# 1 万任务概览查询 p50/p95/p99 与候选预算对比（T055、V-102、SC-002）。
+[[test]]
+name = "overview_perf"
+path = "integration/test_overview_perf.rs"
+
+# 脱敏、链路串联、预算截断与重连补拉（T067、V-103 关联）。
+[[test]]
+name = "trace_and_context"
+path = "integration/test_trace_and_context.rs"
+
+# SDD 门禁状态机（T081、V-201—V-207）。
+[[test]]
+name = "sdd_gates"
+path = "integration/test_sdd_gates.rs"
+
+# 写者服务并发压力实验（T034、ADR-017）。测试标注 #[ignore]，须显式 --ignored 运行。
+[[test]]
+name = "writer_stress"
+path = "integration/test_writer_stress.rs"
+
+# 查询计划基准实验（T036、§7.2）。测试标注 #[ignore]，须显式 --ignored 运行。
+[[test]]
+name = "query_plan"
+path = "integration/test_query_plan.rs"
+
+[dependencies]
+
+# 集成测试依赖。放在 dev-dependencies：`cargo check`（不含 --all-targets）不构建 dev 依赖，
+# 因此 BSD 交叉检查不会因 DuckDB 动态库不可用而失败（BSD 原生构建仍需平台自身的 DuckDB）。
+[dev-dependencies]
+whcode-domain = { path = "../crates/whcode-domain" }
+whcode-store = { path = "../crates/whcode-store" }
+whcode-app = { path = "../crates/whcode-app" }
+whcode-llm = { path = "../crates/whcode-llm" }
+whcode-speckit = { path = "../crates/whcode-speckit" }
+whcode-cui = { path = "../crates/whcode-cui" }
+whcode-web = { path = "../crates/whcode-web" }
+whcode-runtime = { path = "../crates/whcode-runtime" }
+whcode-platform = { path = "../crates/whcode-platform" }
+serde.workspace = true
+serde_json.workspace = true
+duckdb = { version = "1.10506.1", default-features = false }
+
+[lints]
+workspace = true

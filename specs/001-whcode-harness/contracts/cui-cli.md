@@ -1,0 +1,54 @@
+# Contract: CUI 命令行、退出码与 JSON 输出
+
+**Feature**: [spec.md](../spec.md) | **Date**: 2026-10-20
+
+**来源**：任务书 §8.1（CUI 命令草案与修订说明）、FR-205/602。
+
+## 1. 命令树（接口草案）
+
+```text
+whcode
+  session new|list|show|rename|archive|delete
+  run [--session ID] [--model MODEL] [--trace-level LEVEL]
+  status [--json]
+  task list|show|retry|abort
+  spec status|next|validate|analyze|converge|force-advance
+  events list|show|export --session ID [--after SEQ] [--format jsonl]
+  db stats|check|purge --before TS|checkpoint|compact|archive --export PATH|explain QUERY
+  runtime list|status|enable|disable|install NAME
+  serve --web [--bind 127.0.0.1:PORT]
+  serve --ssh [--port PORT]
+  doctor [--json]
+```
+
+实现时必须统一参数命名、退出码、错误 JSON 与 `--json` 语义；破坏性命令需支持 dry-run 或确认机制（§8.1）。
+
+## 2. 修订约束（不得回退）
+
+1. `db vacuum` 不作为通用空间回收承诺：可提供与 DuckDB 原生命令一致的子命令，但必须提示其语义与局限；用户关心的磁盘压缩能力命名为 `db compact`（FR-510、R-09）
+2. 数据库命令不接受任意未受控 SQL 作为默认公开 API；`db explain` 只运行只读查询或内部预定义模板，并实施超时与输出限制
+3. `spec force-advance` 必须要求 `--reason`，且只用于明确列出的门禁；不得绕过完整性或安全约束而不留下审计（FR-312）
+
+## 3. 输出契约
+
+- 所有 JSON 输出必须包含 `schema_version`
+- 错误对象必须包含 `code`、`message`、`retryable`、`details`
+- 退出码必须稳定且文档化；非交互路径必须可供脚本使用（ADR-009）
+- `events export` 必须在导出中注明脱敏策略（FR-205）；`--format jsonl` 输出逐行事件，与事件 schema 一致
+- 命令输出字段变更视为 schema 变更，须做版本兼容审查（§15 PR 清单）
+
+## 4. 非交互与脚本化要求
+
+| 能力 | 要求 |
+|---|---|
+| 会话/任务查询 | `--json` 提供稳定结构，不依赖终端宽度或颜色 |
+| 事件导出 | `--after SEQ` 游标增量导出，断线流程可脚本化 |
+| 维护命令 | 全部支持 dry-run 预览；输出清理前后空间统计 |
+| 自检 | `doctor --json` 输出环境、平台、运行时与 schema 版本 |
+| 门禁 | `spec analyze/validate` 以退出码区分通过/失败，失败时列出未通过项 |
+
+## 5. 验证点
+
+- 契约测试：每个命令的 `--json` 输出对 `schema_version` 与错误对象字段做断言
+- 破坏性命令：dry-run 输出与实际执行前的确认语义一致
+- 与 TUI/Web 一致性：同命令在三端最终状态、权限与错误码一致（V-109）

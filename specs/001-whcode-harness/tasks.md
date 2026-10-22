@@ -1,0 +1,699 @@
+---
+description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
+---
+
+# Tasks: WHCode — Rust 原生 LLM 编码 Harness
+
+**Input**: Design documents from `/specs/001-whcode-harness/`
+
+**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/, quickstart.md
+
+**Tests**: 本项目的测试任务**非可选**：源文本《WHCode 技术任务书 v3.0》§15 要求每个 PR 更新正向与失败路径测试，§11 定义 31 项验收（V-001—V-307），§12.2 将测试夹具、基准脚本与稳定性报告列为交付物。
+
+**Organization**: 任务按用户故事组织；US-n ↔ 里程碑 M-(n-1)（spec.md 优先级映射）。建议 MVP 为 US1（M0 可行性与基线），M0 未通过前不得进入大规模实现（任务书 §12.1）。
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: Can run in parallel (different files, no dependencies)
+- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
+- Include exact file paths in descriptions
+
+## Path Conventions
+
+- 仓库根为 Cargo workspace；实现位于 `crates/<crate>/src/`
+- 测试位于仓库根 `tests/{unit,contract,integration,crash,stability,fixtures}/`
+- CI 与基准脚本位于 `ci/{platform-matrix,benchmarks}/`；文档位于 `docs/{adr,matrices,guides}/`
+
+## Phase 1: Setup (Shared Infrastructure)
+
+**Purpose**: 工程初始化与基础结构
+
+- [x] T001 建立 Cargo workspace 根 `Cargo.toml`，声明 13 个成员 crate（whcode-domain/app/llm/store/speckit/tools/runtime/tui/cui/web/ssh/platform/bin）
+- [x] T002 [P] 固定工具链：新增 `rust-toolchain.toml`（版本占位，由 T021 以 M0 实测锁定值回填）
+- [x] T003 [P] 统一格式与静态检查：新增 `rustfmt.toml` 与 clippy 配置，CI 中 deny warnings
+- [x] T004 [P] 生成 `crates/*/src/lib.rs`（`whcode-bin` 为 `main.rs`）骨架与 crate 内模块占位
+- [x] T005 [P] 新增五平台 CI 骨架 `ci/platform-matrix/{freebsd,openbsd,netbsd,dragonfly,windows}.yml`
+- [x] T006 [P] 新增仓库根 `.gitignore` 补充项与 PR 清单模板 `docs/guides/pr-checklist.md`（§15 七项）
+- [x] T007 建立文档骨架：`docs/adr/ADR-001..010.md`（未批准状态）、`docs/matrices/`、`docs/guides/`
+- [x] T008 [P] 建立测试目录 `tests/{unit,contract,integration,crash,stability,fixtures}/` 与占位 README
+- [x] T009 [P] 新增 `Cargo.toml` workspace 级共享依赖（serde/serde_json/thiserror）与 feature 组织（可选运行时 feature 默认关闭，FR-704；tokio 延后至 M2 引入，见 Notes）
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose**: 所有用户故事共享的核心类型与基础设施，必须先行完成
+
+**⚠️ CRITICAL**: 本阶段完成前不得开始任何用户故事实现
+
+- [x] T010 在 `crates/whcode-domain/src/state.rs` 定义四组状态枚举：任务（pending/ready/running/blocked/completed/failed/aborted/interrupted/unknown）、LLM 请求、运行时执行、SDD 阶段（data-model.md §2，§3.1）
+- [x] T011 [P] 在 `crates/whcode-domain/src/event.rs` 定义事件类型枚举与 payload 上限、持久化等级（contracts/event-schema.md，FR-201）
+- [x] T012 [P] 在 `crates/whcode-domain/src/error.rs` 定义结构化错误（`code`/`message`/`retryable`/`details`）与含 `schema_version` 的输出信封（contracts/cui-cli.md §3）
+- [x] T013 [P] 在 `crates/whcode-domain/src/gate.rs` 定义门禁结果与阶段转换记录类型（来源阶段、目标阶段、执行者、校验结果、时间戳）（§3.1）
+- [x] T014 在 `crates/whcode-platform/src/{process,paths,resources,term}.rs` 建立平台抽象层，`cfg` 条件编译集中在 `whcode-platform`（NFR-101/102）
+- [x] T015 [P] 在 `crates/whcode-app/src/queue.rs` 实现有界队列与满载语义（关键命令背压/失败，展示快照可合并）（§5.3、§7.3-2）
+- [x] T016 [P] 在 `crates/whcode-bin/src/config.rs` 实现配置加载：工作区路径、数据库参数基线（`memory_limit` 默认 192 MB、`threads` ≤ min(4,物理核)、`temp_directory`）、追踪级别默认 `redacted`（§5.4、D-05）
+- [x] T017 [P] 在 `crates/whcode-bin/src/logging.rs` 初始化日志与追踪，默认脱敏、禁止明文写入密钥（FR-203、§10.1）
+- [x] T018 [P] 在 `crates/whcode-domain/src/audit.rs` 定义审计记录类型（`actor/action/target/detail_json/ts`）与写入钩子（§10.3）
+- [x] T019 在 `tests/contract/test_layering.rs` 实现分层契约测试：前端 crate 不得依赖 `whcode-store` 写入路径（ADR-003/005，C-03 门禁）
+
+**Checkpoint**: 核心类型与基础设施就绪，用户故事可开始并行实现
+
+---
+
+## Phase 3: User Story 1 - M0 平台可行性与基线冻结 (Priority: P1) 🎯 MVP
+
+**Goal**: 平台可行性（ADR-013 后 Windows 11 amd64 为唯一验收目标，BSD 延后）、数据库冒烟、TUI 最小闭环、SSH 风险原型、事件写者原型、基线性能报告与 ADR 批准，冻结平台矩阵与性能预算
+
+**Independent Test**: 按 quickstart.md §2 逐项执行，M0 退出判据 V-001—V-007 全部通过并留存证据
+
+### Tests for User Story 1
+
+- [x] T020 [US1] 在 `ci/platform-matrix/record-deps.sh` 实现五平台构建与依赖记录脚本，输出含 Rust/DuckDB/编译器/OS 版本（V-001）（Windows 已取得证据；四 BSD 脚本已就绪但无平台环境，证据阻塞）
+- [x] T021 [US1] 在 `ci/platform-matrix/` 与 `rust-toolchain.toml` 回填 M0 实测锁定的工具链版本，产出 `artifacts/deps-<platform>.txt`（V-001）（Windows 锁定 1.99.1 + msvc；四 BSD 待各平台实测）
+
+### Implementation for User Story 1
+
+- [x] T022 [P] [US1] 在 `crates/whcode-store/src/smoke.rs` 实现数据库冒烟路径：创建、事务写读、关闭重启、迁移（V-002）（Windows 四步冒烟通过；BSD 阻塞）
+- [x] T023 [P] [US1] 在 `docs/adr/ADR-DB-BUILD.md` 记录各平台 DuckDB 原生构建方式、补丁与上游状态（R-01/R-02、TBD-01）
+- [x] T024 [P] [US1] 在 `crates/whcode-tui/src/lib.rs` 实现最小 TUI 闭环：启动、键盘输入、resize、退出、异常恢复（V-003）（逻辑层测试通过；管道 stdin 挂起缺陷已修复并有自动冒烟脚本 `script/tui_smoke.py`；V-003 交互四项待人工）
+- [x] T025 [P] [US1] 在 `crates/whcode-ssh/src/proto.rs` 实现内置 SSH 客户端原型：公钥认证、连接与执行受限命令、取回输出、超时与输出上限、按 ADR-007 登记（FR-611；原为四 BSD 服务端原型，已按 ADR-011 修订为客户端原型）（服务端验收属 M7；V-004 未取得证据）
+- [x] T026 [US1] 在 `crates/whcode-store/src/writer.rs` 实现事件写者原型：幂等键、批次提交、关键事件确认、写入错误传播（V-005、FR-502）（14 例测试通过：含跨分块 seq 连续、跨 flush 去重、超 256 键去重、失败重试后 seq 无歧义；`flush_entries` 已改为批量插入：256 键/查询定位已存在键、64 行/语句多行 VALUES、插入前分配连续 seq，不再回读；实测吞吐 6 921 条/秒 @192MB，见 `artifacts/baseline-192mb.json`）
+- [x] T027 [US1] 在 `tests/stability/` 与 `ci/benchmarks/` 实现基线基准夹具：固定硬件/数据集/采样方法并记录测量纪律字段（V-006、R-12）（已产出 `crates/whcode-bin/src/bench.rs`、`ci/benchmarks/run-baseline.py`、`tests/stability/baseline_check.rs`；夹具内存参数已按 ADR-012 更正为 §5.4 基线 192MB。首批实测 158 条/秒；写者优化后复测中位数 **6 921 条/秒**（超 NFR-210 候选值），但**预算未冻结**——缺跨平台与 72 小时数据；24/72 小时稳定性测试未实现）
+- [x] T028 [US1] 在 `docs/matrices/platform-matrix.md` 与 `docs/adr/` 冻结平台矩阵与性能预算，或产出修订 ADR（V-006、D-01/D-06）（已产出平台矩阵与 ADR-011；**性能预算未冻结**——无可归档的跨平台基线，冻结条件已逐条列在矩阵中）
+- [x] T029 [US1] 在 `docs/adr/ADR-001..010.md` 补齐批准记录（决策、理由、约束、状态、责任人、退出条件）（V-007、C-02）（ADR-001/002/003/004/006/007/008/009 已批准；**ADR-005 与 ADR-010 为部分批准**，未决条件已写明）
+- [x] T030 [US1] 在 `docs/matrices/decisions.md` 记录 D-01/D-02/D-03/D-04/D-06/D-12 的决策与证据（spec.md Assumptions）（D-01—D-13 全表，D-06 标为未冻结）
+- [x] T031 [US1] 产出 M0 退出报告 `artifacts/m0-report.md`：五平台证据包、Go/No-Go 陈述、阻塞项清单（§11.1 退出条件）（**结论：M0 整体未通过**——Windows Go，FreeBSD/NetBSD 环境阻塞，OpenBSD/DragonFly 按 ADR-011 不适用；V-003/V-004/V-006 未通过；阻塞项 B-01—B-08 已列明解除条件）
+
+**Checkpoint**: M0 通过后，平台与性能承诺方可冻结，后续里程碑可全面展开；任一硬目标失败须先解决或正式调整平台承诺
+
+---
+
+## Phase 4: User Story 2 - M1 存储与事件基座 (Priority: P1)
+
+**Goal**: 版本化 schema 与迁移、单写者服务、游标分页、预聚合概览、备份/清理/压缩与数据库监控
+
+**Independent Test**: 按 quickstart.md §3 执行；断线补拉、崩溃重启一致性、幂等重复、清理/压缩证据均可无 UI 运行
+
+- [x] T032 [US2] 在 `crates/whcode-store/src/schema.rs` 与 `crates/whcode-store/migrations/` 实现 14 张表的版本化 schema 与可重复迁移（FR-501、data-model.md §1）
+- [x] T033 [P] [US2] 在 `tests/integration/test_migration.rs` 实现“从上两个受支持版本迁移”测试，并验证迁移失败不误标新版本（NFR-103、§7.4）
+- [x] T034 [US2] 在 `crates/whcode-store/src/writer.rs` 完成写者服务：有界队列、`idempotency_key`、批量阈值（默认 500 行/50 ms，可配置）、关键事件显式 flush、失败可重试（FR-502/503、§7.3）
+- [x] T035 [P] [US2] 在 `crates/whcode-store/src/query.rs` 实现稳定排序键 + 游标分页（双向比较方向明确，禁止大 OFFSET 默认路径）（FR-504、§7.2）
+- [x] T036 [P] [US2] 在 `crates/whcode-store/src/indexes.rs` 建立 events/messages/tasks 索引，并以基准验证查询计划（不规定全表扫描一律失败）（§7.2、TBD-03）
+- [x] T037 [P] [US2] 在 `crates/whcode-store/src/overview.rs` 实现 `session_overview` 预聚合与重建逻辑，标注强一致/最终一致字段（FR-506、§7.3-8）
+- [x] T038 [P] [US2] 在 `crates/whcode-store/src/monitor.rs` 实现数据库统计、查询计划分析、WAL 状态与写者队列监控（FR-507）
+- [x] T039 [US2] 在 `crates/whcode-store/src/purge.rs` 实现归档/按时间清理/TTL，含预览、确认、审计与活跃会话保护（FR-508/509）
+- [x] T040 [P] [US2] 在 `crates/whcode-store/src/export.rs` 实现导出/导入：版本、工作区元数据、产物、事件与内容清单，大对象分块校验，导入前兼容性检查（FR-508、§7.4）
+- [x] T041 [US2] 在 `crates/whcode-store/src/compact.rs` 实现维护锁 → 副本校验 → 原子切换（含 Windows 文件替换与 BSD 文件锁语义分别测试）（FR-510、R-09）
+- [x] T042 [P] [US2] 在 `crates/whcode-store/src/wal.rs` 实现 WAL/CHECKPOINT 阈值、空闲窗口与显式维护触发（§5.4）
+- [x] T043 [US2] 在 `tests/integration/test_durability.rs` 实现已确认事务的进程终止 + 重启一致性测试（V-104）
+- [x] T044 [P] [US2] 在 `tests/integration/test_idempotency.rs` 实现重复幂等键测试：返回既有结果或确定冲突，不重复创建（V-106）
+- [x] T045 [US2] 在 `tests/integration/test_space_report.rs` 实现清理/压缩空间统计测试：数据库/WAL/已用块/可用块，不承诺 `VACUUM` 释放空间（V-107、FR-510）
+
+**Checkpoint**: 存储与事件基座可独立验证，M2—M4 具备挂载基础
+
+---
+
+## Phase 5: User Story 3 - M2 会话与任务应用服务 (Priority: P1)
+
+**Goal**: 会话/任务命令、权限检查、状态快照与统一错误语义，四端可共享
+
+**Independent Test**: 按 quickstart.md §4，以测试夹具直连应用命令验证（不经 UI）
+
+- [x] T046 [US3] 在 `crates/whcode-app/src/session.rs` 实现会话命令：new/list/show/rename/archive/delete（FR-101）
+- [x] T047 [US3] 在 `crates/whcode-app/src/session.rs` 实现会话切换：仅加载元数据、概览、上下文指针与有界活跃尾部（FR-102、C-03）
+- [x] T048 [US3] 在 `crates/whcode-app/src/overview.rs` 实现任务总览：阶段分布、完成度、阻塞任务、活跃任务（FR-103）
+- [x] T049 [US3] 在 `crates/whcode-app/src/task.rs` 实现任务详情：依赖、步骤、产物引用、最近事件、失败原因（FR-104）
+- [x] T050 [US3] 在 `crates/whcode-app/src/authz.rs` 实现权限检查与一致的拒绝语义（`permission_denied`，`retryable=false`）（FR-604、§10.2）
+- [x] T051 [US3] 在 `crates/whcode-app/src/snapshot.rs` 实现状态快照生成，字段契约见 contracts/state-snapshot.md，含 `event_cursor`（FR-314）
+- [x] T052 [US3] 在 `crates/whcode-app/src/task.rs` 实现任务 retry/abort：重试计数、可重试失败不丢失会话、不可恢复错误向上传播（FR-401/408）
+- [x] T053 [US3] 在 `tests/fixtures/gen_dataset.rs` 实现数据集生成器：10 万事件会话与 1 万任务（固定阶段分布）（V-101/V-102）
+- [x] T054 [US3] 在 `tests/integration/test_session_switch.rs` 验证 10 万事件会话切换的有界加载与游标无重复/无遗漏（V-101、SC-001）；**2026-10-22 修订**：新增 `test_extreme_scale.rs` 极限测试（1M 事件，60GB 会话库同构访问模式，资源铁律 X1—X5）——用户判定初版 100k 夹具过于保守
+- [x] T055 [US3] 在 `tests/integration/test_overview_perf.rs` 报告概览查询 p50/p95/p99 并对比冻结预算（V-102、SC-002）
+
+**Checkpoint**: 应用服务闭环可经 CUI/测试夹具验证，三端可并行接入
+
+---
+
+## Phase 6: User Story 4 - M3 LLM 调用与上下文管理 (Priority: P1)
+
+**Goal**: Provider 抽象、流式事件、四级追踪、预算化上下文注入与断线补拉
+
+**Independent Test**: 按 quickstart.md §5，用桩 Provider 固定速率与 chunk 大小执行
+
+- [x] T056 [US4] 在 `crates/whcode-llm/src/provider.rs` 实现 Provider 语义：能力探测、取消、流式结果、计量来源、超时与错误归一化（FR-201、§8.4）
+- [x] T057 [US4] 在 `crates/whcode-llm/src/stream.rs` 实现流式事件发射与积压合并，保证关键状态转换不丢失（FR-206、R-04）
+- [x] T058 [US4] 在 `crates/whcode-llm/src/trace.rs` 实现追踪级别 off/metadata/redacted/full 与秘密字段脱敏（FR-203、D-05）
+- [x] T059 [US4] 在 `crates/whcode-llm/src/correlation.rs` 串联 `request_id/session_id/task_id/tool_call_id`（FR-204）
+- [x] T060 [US4] 在 `crates/whcode-app/src/context.rs` 实现上下文加载器契约：`items + next_cursor + consumed_budget + truncated_reason`，有界迭代（FR-105/505、§4.1）
+- [x] T061 [P] [US4] 在 `crates/whcode-app/src/context.rs` 实现上下文压缩与摘要指针，压缩后原始历史仍可查（FR-107）
+- [x] T062 [P] [US4] 在 `crates/whcode-cui/src/context_cmd.rs` 暴露预算视图：当前预算、装入来源、截断原因（FR-108）
+- [x] T063 [P] [US4] 在 `crates/whcode-llm/src/metering.rs` 记录 token/参数/延迟/成本，估算值标记 `cost_is_estimate`（FR-207）
+- [x] T064 [P] [US4] 在 `crates/whcode-llm/src/trace.rs` 增加完整性标记：缺失 chunk、脱敏、降采样、持久化失败（FR-208）
+- [x] T065 [US4] 在 `crates/whcode-cui/src/events_cmd.rs` 实现事件 JSON/JSONL 查询与导出，并在导出注明脱敏策略（FR-205）
+- [x] T066 [US4] 在 `crates/whcode-app/src/replay.rs` 实现按持久化游标的补拉与重连（FR-202、FR-605）
+- [x] T067 [US4] 在 `tests/integration/test_trace_and_context.rs` 验证脱敏、链路串联、预算截断与重连补拉（V-103、V-104）
+- [x] T132 [US4] 在 `crates/whcode-llm/src/transport_events.rs` 实现传输层进度事件（FR-616）：连接建立/断开、重连尝试、按连接字节收发计数、往返时延、断连原因码，入事件体系并经 CUI JSON 可导出（M3 交付）
+
+**Checkpoint**: LLM 与上下文能力可独立验证，SDD 与前端可接入
+
+---
+
+## Phase 7: User Story 5 - M4 SDD 门禁状态机 (Priority: P1)
+
+**Goal**: 版本化工作流状态机、产物解析与校验、双向追溯、Clarify/Analyze 门禁、Converge 差异报告与人工放行审计
+
+**Independent Test**: 按 quickstart.md §6，用 `tests/fixtures/sdd/` 违规产物夹具验证 V-201—V-207
+
+- [x] T068 [US5] 在 `crates/whcode-speckit/src/workflow.rs` 实现版本化工作流配置与阶段定义（输入、必需产物、校验器、转换）（FR-302）
+- [x] T069 [US5] 在 `crates/whcode-speckit/src/parser.rs` 实现 Markdown 解析器：报告无法解析段落、重复 ID、未识别字段，禁止静默丢弃（FR-303/309、R-06）
+- [x] T070 [US5] 在 `crates/whcode-speckit/src/constitution.rs` 实现 Constitution 创建/导入、版本记录与变更审计（FR-301）
+- [x] T071 [P] [US5] 在 `crates/whcode-speckit/src/ids.rs` 定义需求/任务稳定 ID 与引用校验（FR-304）
+- [x] T072 [P] [US5] 在 `crates/whcode-speckit/src/trace.rs` 实现双向追溯：Plan 决策→需求、任务→需求与计划决策（FR-305）
+- [x] T073 [US5] 在 `crates/whcode-speckit/src/analyze.rs` 实现遗漏需求、孤儿任务、无效引用、循环依赖、覆盖不足检出（FR-306）
+- [x] T074 [US5] 在 `crates/whcode-app/src/gates.rs` 在应用服务中强制执行门禁：阻止 Plan/Implement 转换（FR-307/308、C-08）
+- [x] T075 [US5] 在 `crates/whcode-speckit/src/parser.rs` 实现纠偏重试（默认 ≤2）后置 `blocked` 并保留原文与错误（FR-309）
+- [x] T076 [US5] 在 `crates/whcode-speckit/src/converge.rs` 实现验收条件 `pass/fail/not_tested/not_applicable` 与证据引用（FR-310）
+- [x] T077 [US5] 在 `crates/whcode-speckit/src/converge.rs` 生成差异报告，禁止静默标记完成（FR-311）
+- [x] T078 [US5] 在 `crates/whcode-cui/src/spec_cmd.rs` 实现 `force-advance --reason` 与审计记录（FR-312）
+- [x] T079 [US5] 在 `crates/whcode-app/src/stage_role.rs` 实现阶段角色与允许操作的显式注入（不依赖历史文本推断）（FR-313）
+- [x] T080 [US5] 在 `crates/whcode-app/src/snapshot.rs` 保证阶段状态、门禁结果与产物版本对四端同源（FR-314）
+- [x] T081 [US5] 在 `tests/fixtures/sdd/` 与 `tests/integration/test_sdd_gates.rs` 建立违规产物夹具与 V-201—V-207 验证用例
+
+**Checkpoint**: SDD 门禁由程序实施，Implement/Converge 循环具备可审计的失败路径
+
+---
+
+## Phase 8: User Story 6 - M5 TUI 与 CUI (Priority: P2)
+
+**Goal**: TUI 六视图与 CUI 命令树接入同一应用服务，四端能力对等由契约测试保障
+
+**Independent Test**: 按 quickstart.md §7，同命令在 TUI/CUI 的最终状态、权限与错误码一致（V-109）
+
+- [x] T082 [US6] 在 `crates/whcode-tui/src/views/` 实现会话树、任务、上下文、事件、Spec 状态、diff 预览（FR-601）
+- [x] T083 [US6] 在 `crates/whcode-tui/src/render.rs` 落实渲染纪律：只读快照、脏标记重绘、不在帧路径反序列化 JSON（§5.3）
+- [x] T084 [US6] 在 `crates/whcode-cui/src/cli.rs` 实现 clap 命令树（contracts/cui-cli.md §1）
+- [x] T085 [P] [US6] 在 `crates/whcode-cui/src/output.rs` 实现 `--json` 输出：`schema_version` + 错误对象四字段 + 稳定退出码（FR-602）
+- [x] T086 [P] [US6] 在 `crates/whcode-cui/src/confirm.rs` 为破坏性命令实现 dry-run/确认机制（§8.1）
+- [x] T087 [US6] 在 `docs/matrices/feature-parity.md` 建立三端功能能力矩阵，并落实“新能力同 PR 定义 API/CLI/权限/测试”（FR-610）
+- [x] T088 [US6] 在 `tests/contract/test_tui_cui_parity.rs` 实现 TUI/CUI 命令级一致性契约测试（V-109）
+- [x] T089 [P] [US6] 在 `tests/contract/test_json_envelope.rs` 校验全部 CUI JSON 输出与错误对象契约（FR-602、§8.1）
+
+**新增需求任务（2026-10-21，FR-612—FR-616）**：
+
+- [x] T128 [P] [US6] 在 `crates/whcode-tui/src/theme.rs` 实现三套渲染主题（FR-612）：A 屏夜间（纯黑 #000000 背景）、墨水屏日间（纯白 #FFFFFF 背景 + 黑字）、墨水屏夜间（纯黑背景 + 白字）；主题经配置选择，测试断言背景色精确为纯黑/纯白（OLED 仅纯黑关断像素；e-ink 黑→白转换残影最重）
+- [x] T129 [US6] 在 `crates/whcode-tui/src/render.rs` 强化渲染纪律（FR-613）：事件驱动 + 脏标记重绘已有基线，新增空闲期零重绘断言（重绘计数器）并接入 NFR-205 空闲 CPU 验证；文档写明“终端绘制由终端模拟器承担，WHCode 不直接调度 GPU”
+- [x] T130 [P] [US6] 在 `crates/whcode-domain/src/i18n.rs` 与 `i18n/` 资源目录实现文本层（FR-615）：zh-CN 与 en 双语、gettext PO 加载接口、运行时区域检测、zh-CN→en 回退链；为 RTL 语言预留双向文本处理接口（渲染层不假设 LTR；依据：GNU gettext 已支持 Rust 提取）
+- [x] T131 [US6] 在 `crates/whcode-app/src/residency.rs` 实现会话驻留策略（FR-614）：空闲会话卸载为“元数据+游标”、按需唤醒、卸载不丢已确认事件、卸载与唤醒可查询；禁止会话级预分配固定大缓冲
+- [x] T133 [P] [US7] 在 `crates/whcode-web/frontend/` 实现动效总开关（FR-613 前端部分）：尊重 `prefers-reduced-motion`、默认关闭非必要动效、CSS 仅使用 GPU 合成友好的 transform/opacity（M6 交付）
+- [ ] T135 [US6] 在 `crates/whcode-platform/src/term.rs` 与 `crates/whcode-tui/src/render.rs` 实现 TUI 窗口最小化检测（Windows `GetConsoleWindow`+`IsIconic`）与渲染门控：最小化期间跳过绘制、关键事件继续记账，还原后单次全量重绘（FR-617）**阻塞（2026-10-22）**：Win32 API 须 `unsafe` FFI，workspace `unsafe_code = "forbid"`（NFR-215）经 `--forbid` 传递不可被成员覆盖且契约测试 T143 锁定；crossterm_winapi 无 IsIconic 安全包装。**渲染门控已交付**（`tui/render.rs`：minimized 置真跳过绘制、关键事件记账、还原单次全量重绘——消费方就绪，仅缺探测源）。恢复路径见 ADR-021（已否决记录）：带安全包装的第三方 crate（须新 ADR）或 ADR-015 例外流程
+- [x] T136 [US7] 在 `crates/whcode-web/frontend/` 实现挂起状态机（Active/Suspended/Recovering）：`visibilitychange` + `blur/focus` 判定、恢复去抖 ≥250 ms、恢复时取快照并丢弃中间帧、WebGL/Canvas 上下文释放与重建、GPU 特性探测失败降级、`prefers-reduced-motion` 与动效总开关（FR-617）
+- [x] T137 [US7] 在 `crates/whcode-web/frontend/` 落实极简前端基线（ADR-014）：静态 HTML/CSS/原生 JS、服务端直出、无 node 构建链；新增 `ci/benchmarks/check-frontend-budget.py` 做体积与依赖审计（JS ≤ 50 KB gzip、CSS ≤ 20 KB gzip、无 WebGL/视频/自动播放、无第三方字体），并接入 CI 门禁（FR-618）
+
+**Checkpoint**: 本地双端交付，Web/SSH 可复用同一能力矩阵
+
+---
+
+## Phase 9: User Story 7 - M6 Web UI (Priority: P2)
+
+**Goal**: 原生 Web UI 经 HTTP/WebSocket 接入应用服务，默认安全绑定与断线补拉
+
+**Independent Test**: 按 quickstart.md §7，浏览器完成七类业务操作；未启用认证的对外监听被拒绝（V-109/V-110）
+
+- [x] T090 [US7] 在 `crates/whcode-web/src/api.rs` 实现 HTTP API 与 WebSocket，复用应用服务命令/快照/事件（FR-603、ADR-004）
+- [x] T091 [US7] 在 `crates/whcode-web/src/bind.rs` 实现默认 `127.0.0.1` 绑定；对外监听必须显式开启认证与 Origin 检查（FR-606）
+- [x] T092 [US7] 在 `crates/whcode-web/src/security.rs` 实现认证、授权、Origin 校验、消息大小限制，token 不经 URL query（§10.2）
+- [x] T093 [P] [US7] 在 `crates/whcode-web/frontend/` 实现会话、任务、历史、追踪、SDD、清理与运行时业务界面（FR-609）
+- [x] T094 [P] [US7] 在 `crates/whcode-web/frontend/src/events.ts` 实现断线重连与按游标补齐（FR-605）
+- [x] T095 [US7] 在 `tests/contract/test_web_security_defaults.rs` 验证 V-110 安全默认值与三端（含 Web）一致性（V-109）
+
+**Checkpoint**: 三端对等闭环完成
+
+---
+
+## Phase 10: User Story 8 - M7 BSD SSH 接入 (Priority: P2)
+
+> **范围状态（ADR-013，2026-10-21）**：Windows 11 amd64 为唯一验收目标，本阶段全部任务**延后**。
+> 任务保留不删除；恢复时须新 ADR 并补齐 D-14 要求的证据链。**不得**勾选为完成。
+
+**Goal**: 四大 BSD 上公钥认证、会话隔离、resize、安全退出与受限入口
+
+**Independent Test**: 按 quickstart.md §7，四平台分别验收；任一失败记录明确阻塞原因（不以单一平台代替）
+
+- [ ] T096 [US8] 在 `crates/whcode-ssh/src/server.rs` 实现公钥认证、会话隔离、终端尺寸变化与安全退出（FR-607）
+- [ ] T097 [US8] 在 `crates/whcode-ssh/src/policy.rs` 实现受限 WHCode 入口；任意系统 Shell 为显式独立权限（FR-608、§10.2）
+- [ ] T098 [P] [US8] 在 `crates/whcode-ssh/src/adapter.rs` 复用应用服务，去除每会话独立数据库写入路径（ADR-005、C-03）
+- [ ] T099 [US8] 在 `artifacts/ssh-acceptance/` 产出四 BSD 的认证/尺寸/断连/权限边界证据与阻塞清单（V-004、R-02）
+
+**Checkpoint**: 五平台接入形态齐备
+
+---
+
+## Phase 11: User Story 9 - M8 可选执行运行时 (Priority: P3)
+
+**Goal**: Runtime Provider 与子进程 worker、能力等级、独立 payload、能力不足结构化错误与副作用恢复
+
+**Independent Test**: 按 quickstart.md §8，验证 V-301—V-307
+
+- [x] T100 [US9] 在 `crates/whcode-runtime/src/provider.rs` 实现 Provider 接口（`name/capability/is_available/env_fingerprint/execute/terminate`）（FR-701）
+- [x] T101 [US9] 在 `crates/whcode-runtime/src/capability.rs` 实现能力等级 `Full/Restricted/ShellOnly` 并接入界面与门禁展示（FR-702）
+- [x] T102 [US9] 在 `crates/whcode-runtime/src/payload.rs` 实现 payload 独立分发与来源/版本/哈希/平台校验（FR-703、D-07）
+- [x] T103 [US9] 在 `Cargo.toml` 与 `crates/whcode-runtime/src/lib.rs` 落实 feature 门控：未启用运行时不加载动态库、不占端口、不注册工具（FR-704）
+- [x] T104 [US9] 在 `crates/whcode-runtime/src/worker.rs` 实现受控子进程：超时、输出上限、取消、可用资源限制（FR-705）
+- [x] T105 [US9] 在 `crates/whcode-runtime/src/checkpoint.rs` 实现执行前检查点与脚本哈希/输入哈希/运行时指纹/工作目录策略记录（FR-706）
+- [x] T106 [P] [US9] 在 `crates/whcode-runtime/src/cache.rs` 限制重复执行缓存仅用于纯函数或显式启用缓存的任务（FR-707）
+- [x] T107 [US9] 在 `crates/whcode-runtime/src/errors.rs` 实现能力不足/缺失/不兼容的结构化错误，并接入 Analyze 阻止执行（FR-708/710）
+- [x] T108 [P] [US9] 在 `crates/whcode-speckit/src/converge.rs` 支持绑定运行时测试（命令、环境指纹、退出状态、结果引用）（FR-709）
+- [x] T109 [US9] 在 `crates/whcode-platform/src/process.rs` 实现 Windows 子进程树与 BSD 进程组/信号的终止清理，保留 stderr 尾部（FR-409、§10.2）
+- [x] T110 [P] [US9] 在 `crates/whcode-runtime/src/js.rs` 接入受限 ECMAScript 引擎，Node API 缺失时返回能力不足（D-08、§4.7.1）
+- [x] T111 [P] [US9] 在 `crates/whcode-runtime/src/python.rs` 实现 Python 子进程 worker 与受限实现档位（D-09、§4.7.1）
+- [x] T112 [P] [US9] 在 `crates/whcode-runtime/src/gitbash.rs` 实现 Windows PortableGit payload 校验与 Bash/coreutils/管道/重定向验证（V-304）
+- [x] T113 [P] [US9] 在 `crates/whcode-runtime/src/bsdshell.rs` 实现 BSD Shell provider，名称与能力不与 `gitbash` 混同（§4.7.1）
+- [x] T114 [US9] 在 `tests/integration/test_runtime_acceptance.rs` 与 `tests/crash/test_side_effect_recovery.rs` 覆盖 V-301—V-307（含三时点中断 → `unknown`）
+
+**Checkpoint**: 运行时能力矩阵与限制可公开声明
+
+---
+
+## Phase 12: User Story 10 - M9 优化与发布 (Priority: P3)
+
+**Goal**: 性能优化、24/72 小时稳定性、发布包与文档、兼容矩阵与已知限制
+
+**Independent Test**: 按 quickstart.md §9，产出时间序列报告与发布清单核对结果
+
+- [ ] T115 [US10] 在 `crates/*/src/` 按冻结预算优化热点（先测量后优化，禁止 `Box::leak` 通用化）（NFR-201—210、§5.3）**阻塞（2026-10-22）**：D-06 预算未冻结（缺跨平台基线与 72h 时间序列）；分配器决策已按 ADR-020 冻结（默认系统分配器），热点优化在其前置就绪前不得进行
+- [ ] T116 [P] [US10] 在 `tests/stability/run_stability.sh` 执行 24 小时（候选发布 72 小时）稳定性测试并采集规定指标（§11.5）**阻塞（2026-10-22）**：需 24/72h 连续运行环境；NFR-204 长时泄漏斜率未测量
+- [x] T117 [P] [US10] 在 `docs/adr/ADR-ALLOCATOR.md` 记录分配器决策：默认系统分配器，除非基准证明有益（D-11）
+- [x] T118 [US10] 在 `ci/` 与 `docs/matrices/` 产出 Windows 11 amd64 发布包、平台兼容矩阵与已知限制说明（BSD 延后并在限制中注明；§12.2、§9.1、ADR-013）
+- [x] T119 [P] [US10] 在 `docs/guides/` 完成 CUI 手册、TUI 键位表、Web 部署与安全配置、灾难恢复说明（§12.2）
+- [x] T120 [P] [US10] 在 `docs/matrices/runtime-inventory.md` 产出运行时能力清单、payload 校验与许可证清单（§12.2）
+- [x] T121 [US10] 在 `docs/adr/` 与 `docs/risk-register.md` 更新 ADR 与风险台账，并落实每 PR 清单检查（§13、§15）
+
+**Checkpoint**: 强制验收全通过，剩余偏差形成公开限制说明
+
+---
+
+## Phase 13: Polish & Cross-Cutting Concerns
+
+**Purpose**: 跨里程碑收尾与一致性加固
+
+- [x] T122 [P] 同步 `docs/adr/` 与 D-01—D-14 的最终决策状态，消除 spec/plan 中的遗留 `[待验证]` 标记
+- [x] T123 安全加固复查：默认脱敏、权限白名单、最小环境、审计保留策略、Web/SSH 边界（§10）
+- [x] T124 [P] 按 `quickstart.md` 全流程执行一次端到端验证并记录产物（§10 验证记录要求）
+- [x] T125 [P] 契约兼容审查：事件 schema、快照 schema、CUI JSON 的版本与变更记录（§8.3、§15）
+- [x] T126 清理与重构：clippy 清理、模块边界复核、删除未使用 feature 与死代码
+- [x] T127 追溯审计：spec FR ↔ tasks ↔ checklist.md 三方引用完整性复核（FR-305/306）
+- [x] T134 [P] 目录分类门禁：`tests/contract/test_layout.rs` 将 `docs/guides/repository-layout.md` 的五类分层编码为可执行检查（顶层条目白名单、crate 命名、tests 六类 + README、docs/ci 子目录、specs 命名、本地目录防源码混入），随 CI 与每 PR 运行（7 例检查全过，门禁首跑即抓到并清除误建目录；LF/编码策略与 SECURITY.md 白名单已并入）
+- [x] T138 [P] 建立软件工程过程文档 `docs/guides/software-engineering-process.md`：迭代增量模型、阶段门禁 G0—G5（输入/活动/产物/退出判据）、单人项目下的评审替代机制、产物映射表
+- [x] T139 [P] 建立需求工程规范 `docs/guides/requirements-engineering.md`：FR 模板、需求质量判据、三方追溯抽查方法、变更控制流程（以 ADR-012/ADR-013 为案例）
+- [x] T140 [P] 建立设计原则与模块设计文档 `docs/guides/design-principles.md`、`docs/guides/module-design.md`：原则→可执行落点，13 个 crate 的职责/依赖/失败模式/测试位置
+- [x] T141 [P] 建立 UI 设计规范 `docs/guides/ui-design.md`：三套主题精确色值、墨水屏残影约束、i18n/RTL、极简前端预算与最小化挂起
+- [x] T142 [P] 将 2026-10-21 四项项目优先序落成可执行检查（NFR-211—214）：资源（内存/GPU/线程/句柄）基线测量与回归门禁、安全默认值复核、BSD 交叉检查保持、GNU 工具禁用审计；阈值在 M1 冻结前标 `[待验证]`
+- [x] T143 [P] 内存安全与 Rust 实践门禁（NFR-215）：workspace lints 保持 `unsafe_code = "forbid"` 且全部成员继承；契约测试校验继承关系与 `mem::forget` 禁用；有界队列/缓冲与句柄释放测试接入 G3；长时泄漏仍归 NFR-204 稳定性测试
+- [x] T144 [P] 建立核心哲学 `docs/guides/philosophy.md`，并把形式主义审查、正负和解、三重时间依据与 0 信任原则接入 G0—G5、设计原则、PR 清单与 AGENTS.md
+- [x] T145 [P] 建立性能与并发工程规范 `docs/guides/performance-and-concurrency.md` 与 ADR-015：并发设计档案、一手文献门槛、测量→设计→复测流程、汇编例外与回退验证
+- [x] T146 [P] 将自由、主体性与安全反教条落为可执行判据：退出/导出/离线/默认值可撤销进入验收；安全措施附威胁模型、证据、代价与失效条件；禁止暗黑模式与成瘾设计（NFR-218/219）
+- [x] T147 [P] 将一刻哲学融入工程：建立 `docs/guides/yike-philosophy.md`，接入不伪造、反进步叙事、用户友好与文档时效判据（NFR-220—222），同步 AGENTS/设计/过程/PR 清单
+- [x] T148 [P] 将工程准则应用至本项目：新增 `ci/check_counts.py` 计数门禁并接入 Windows CI；补证据层级、三次复查与可逆性规则；产出 `docs/guides/doctrine-application.md`
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Setup (Phase 1)**: 无依赖，可立即开始
+- **Foundational (Phase 2)**: 依赖 Setup 完成——**阻塞全部用户故事**
+- **User Stories (Phase 3—12)**: 均依赖 Foundational；里程碑间存在实质前置：US2 依赖 US1 的 DuckDB 构建结论，US3/US4 依赖 US2 的存储与游标，US5 依赖 US3 的应用服务与 US4 的事件链路，US6—US8 依赖 US5 的阶段/门禁状态，US9 依赖 US3/US5 的检查点与门禁，US10 依赖全部
+- **Polish (Phase 13)**: 依赖所需里程碑完成
+
+### User Story Dependencies
+
+- **US1 (P1, M0)**: Foundational 之后即可开始，无故事间依赖——**建议 MVP**
+- **US2 (P1, M1)**: 依赖 US1 的 V-002 结论（原生构建可行）
+- **US3 (P1, M2)**: 依赖 US2 的写者服务与游标
+- **US4 (P1, M3)**: 依赖 US2 的事件持久化与 US3 的应用服务
+- **US5 (P1, M4)**: 依赖 US3（命令面）与 US4（事件/追踪）
+- **US6 (P2, M5)**: 依赖 US3/US5；可与 US7 并行
+- **US7 (P2, M6)**: 依赖 US3/US5；Web 复用 US6 建立的能力矩阵
+- **US8 (P2, M7)**: 复用 US3 应用服务与 US1 的 V-004 结论；平台承诺修订后，US8 依赖关系变为“FreeBSD/NetBSD 服务端 + 四平台客户端”
+- **US9 (P3, M8)**: 依赖 US3/US4/US5 的检查点、事件与门禁
+- **US10 (P3, M9)**: 依赖全部里程碑
+
+### Within Each User Story
+
+- 测试/证据任务与实现任务同 PR 交付（§15 清单）；先写失败路径用例再补实现
+- 模型与类型先于服务；服务先于界面；核心实现先于集成
+- 每个故事在其 Checkpoint 处独立验证，未通过不进入下一优先级
+
+### Parallel Opportunities
+
+- Setup 与 Foundational 中标 [P] 的任务可并行
+- US1 中 T022/T023/T024/T025 可并行（不同 crate）；US2 中 T033/T035—T038/T040/T042 可并行
+- US6 与 US7 在 US5 完成后可由不同开发者并行；US9 的四个运行时 provider（T110—T113）可并行
+- 各故事的测试任务在实现前可并行编写
+
+---
+
+## Parallel Example: User Story 1
+
+```bash
+# M0 并行分支（不同 crate，互不冲突）：
+Task: "实现数据库冒烟路径 in crates/whcode-store/src/smoke.rs"          # T022
+Task: "记录各平台 DuckDB 原生构建方式 in docs/adr/ADR-DB-BUILD.md"      # T023
+Task: "实现最小 TUI 闭环 in crates/whcode-tui/src/lib.rs"               # T024
+Task: "实现 SSH 客户端原型 in crates/whcode-ssh/src/proto.rs"           # T025
+```
+
+---
+
+## Implementation Strategy
+
+### MVP First (User Story 1 Only)
+
+1. 完成 Phase 1: Setup
+2. 完成 Phase 2: Foundational（关键——阻塞全部故事）
+3. 完成 Phase 3: US1（M0）
+4. **停下并验证**：按 quickstart.md §2 执行 V-001—V-007，产出 `artifacts/m0-report.md`
+5. 冻结平台矩阵与性能预算后再进入 M1
+
+### Incremental Delivery
+
+1. Setup + Foundational → 基础就绪
+2. US1（M0）→ 独立验证 → 平台与预算冻结（MVP）
+3. US2（M1）存储与事件 → 验证 → 可用基座
+4. US3（M2）→ US4（M3）→ US5（M4）逐段交付并验证
+5. US6/US7/US8 三端接入 → US9 运行时 → US10 优化与发布
+6. 每个里程碑在其 Checkpoint 处停止验证，未通过不得推进（§12.1 退出标准）
+
+### Parallel Team Strategy
+
+1. 团队共同完成 Setup + Foundational
+2. Foundational 完成后：按 crate 边界分工（存储/应用服务/LLM/前端各占一路）
+3. US6 与 US7、US9 的四个运行时 provider 可分派给不同开发者
+4. 五平台验收与 SSH 需按平台分派，且四 BSD 分别取证（不得以单一平台代替）
+
+---
+
+## Notes
+
+- [P] tasks = 不同文件、无未完成依赖
+- [Story] 标签映射任务到用户故事，便于追溯（US-n ↔ M-(n-1)）
+- 每个故事必须可独立完成与验证；跨故事依赖已在 Dependencies 节显式声明
+- 测试任务非可选：源基线要求每 PR 更新正向与失败路径测试，且 V-001—V-307 为验收判据
+- 任务描述中的文件路径为规划值；实现前若调整 crate 名称，须保持职责边界与依赖方向（§6.2、ADR-003）
+- 涉及 `[待验证]` 的任务（T021/T023/T025/T028/T102/T110—T113）必须以实测证据结项，不得以推断结论关闭
+
+### 实现记录（2026-10-20，T001—T019 完成）
+
+验证证据：`cargo fmt --all`（无差异）、`cargo clippy --workspace --all-targets -- -D warnings`（零告警）、
+`cargo test --workspace`（50 个测试通过）、`cargo run -p whcode-bin -- doctor`（冒烟输出含
+`api_key=[REDACTED]` 证明日志路径脱敏生效）。
+
+实现期记录的三项偏差（均属任务描述内的合理调整，未改变职责边界）：
+
+1. **T009**：workspace 共享依赖只引入 `serde`/`serde_json`/`thiserror`，**tokio 延后至 M2**（首个
+   异步命令面出现时）——骨架阶段有界队列为同步实现，提前引入异步运行时属无用依赖。
+2. **T014**：`term.rs` 为**接口 stub**——`terminal_size()` 固定返回 `None`，实际探测在 M0/T024 与
+   crossterm 一并接线；禁止骨架阶段伪造尺寸（测试 `unprobed_terminal_reports_none` 固定该行为）。
+3. **工具链（重要，属 D-01/V-001 待决项）**：本机 `rust-toolchain.toml` 的 `channel = "stable"` 被
+   rustup 解析为 **msvc** 工具链（rustup 默认 host 为 `x86_64-pc-windows-msvc`），而本机未安装
+   MSVC 构建工具，链接失败（`link.exe` 落到 Git 自带同名 Unix 工具）。处置：使用**目录级**
+   `rustup override set stable-x86_64-pc-windows-gnu`（仅本机生效，未写入仓库文件，保持仓库可移植）。
+   该差异必须由 M0 记录并在 D-01 中明确 Windows 验收采用 msvc 还是 gnu——**不得**以本机 gnu 结果
+   冒充 msvc 平台验收（ADR-010）。
+
+### 实现记录（2026-10-21，M0 阶段 T020—T026）
+
+验证证据与边界（只记录已取得者，未取得者单列）：
+
+1. **工具链（T002/T021，D-01 修订）**：`rust-toolchain.toml` 仅锁 `channel = "1.99.1"`，不写 host
+   triple；本机用目录级 `rustup override` 选择 `x86_64-pc-windows-msvc`（机器本地状态，不入库）。
+   实测 rustc 1.99.1（`58cf8f9c3`，2026-10-13）、MSVC 14.44.35207、Windows SDK 10.0.26100.0；
+   **不使用任何 GNU 工具链**。
+2. **DuckDB（T022/T023）**：改用官方预编译动态库（不源码构建）。`ci/fetch-duckdb.py` 按固定 URL
+   校验归档 SHA256 `44cf5958…3fe96a`（13 408 787 字节）后解包到 `vendor/duckdb/1.5.6/`；
+   `duckdb.dll` 载荷 SHA256 `7e90bdef…c84ed0`（36 697 896 字节）；`.cargo/config.toml` 注入
+   `DUCKDB_LIB_DIR`，`crates/whcode-store/build.rs` 仅 Windows 复制 DLL；`whcode doctor --json`
+   实测运行期引擎版本 `v1.5.6`。结论与替代方案见 `docs/adr/ADR-DB-BUILD.md`。
+3. **T020/T021（依赖记录）**：`ci/platform-matrix/record-deps.sh`（BSD shell 侧）与
+   `record_deps.py`（Windows Python 侧）均已实现，产出 `artifacts/deps-windows.txt`（含 host
+   triple、rustc、MSVC、Windows SDK、预编译库与载荷哈希、运行期引擎版本、依赖树）。已取得的
+   证据仅 Windows；FreeBSD/NetBSD 脚本就绪但本机无平台环境，OpenBSD/DragonFly BSD 已移出原生
+   目标（ADR-011），因此**不得**把 T020/T021 记为“五平台完成”。
+4. **交叉检查（边界）**：`cargo check --target x86_64-unknown-freebsd` 与
+   `cargo check --target x86_64-unknown-netbsd` 已完成类型检查（产物位于
+   `target/x86_64-unknown-{freebsd,netbsd}/`，2026-10-21 12:34），但该检查**不链接**，只证明
+   代码级兼容，**不构成 DuckDB 原生库可构建或可运行的证据**（ADR-010、G-01）。
+5. **存储测试（T022/T026）**：`crates/whcode-store/src/smoke.rs` 4 例（创建、事务写读、关闭重启、
+   迁移）与 `crates/whcode-store/src/writer.rs` 10 例（幂等键、批次、确认、错误传播等）合计
+   14 例通过；仅 Windows 平台结果。
+6. **TUI（T024）**：`crates/whcode-tui/` 实现 `UiEvent`/`TuiState`/`TerminalSession`/
+   `TerminalGuard`/`run`/`run_scripted`，主程序已装配；逻辑层 15 例测试通过。交互式终端的
+   V-003 证据**未取得**，需人工冒烟（辅助脚本 `script/tui_non_tty_smoke.py` 只覆盖非交互分支）。
+7. **SSH（T025，范围已修订）**：`crates/whcode-ssh/src/proto.rs` 实现内置 SSH **客户端**原型
+   （公钥认证、受限命令、输出尾部与截断、意图—执行—登记），9 例测试通过；原四 BSD 服务端原型
+   按 ADR-011 修订为客户端原型，**服务端验收属 M7，V-004 未取得证据**。
+
+**未取得／阻塞的证据（不得勾选或声称完成）**：
+
+- FreeBSD、NetBSD、OpenBSD、DragonFly BSD 均无运行证据（V-001/V-002 的 BSD 部分阻塞）；
+  OpenBSD/DragonFly 的判据已改为客户端连通性，证据同样尚未取得。
+- V-003 交互式终端证据未取得（T024 仅逻辑层测试）。
+- V-004 服务端验收未取得（T025 仅客户端原型）。
+- 性能预算未冻结（T027 基准夹具进行中，T028—T031 未完成）。
+- 因此 T027—T031 保持未勾选。
+
+### 实现记录（2026-10-22，资源铁律落地：标准具体化 + 极限测试 + 实测复核）
+
+**铁律标准具体化**（`docs/guides/resource-budget.md`）：内存（测试进程峰值 RSS
+≤ 512MB、组件分配有界、切换增量 ≤ 10MB、驻留仅元数据+游标）与 CPU（禁忙等、
+空闲零重绘、切换 ≤ 200ms、概览 p95 ≤ 50ms、单页 ≤ 30ms）两类标准，静态红线
+五条（无界累积/忙等/帧路径 JSON/每会话线程/leak）。
+
+**极限测试（用户修订：初版 100k 夹具过于保守，会话库 30—60GB）**：
+`test_extreme_scale.rs`（1M 事件单会话，≈150MB 库文件，60GB 同构访问模式）——
+X1 夹具 1M 事件写入 116s（吞吐 ≈ 8.6k 行/s）；X3 大表聚合 count/MAX **1.4ms**
+（索引/元数据）；X2 全序翻页 1000 页 **O(1) 内存**（无全表物化，累计计数/求和/
+相邻递增比较）；X5 极限切换 **17—27ms**、尾部恒定 50 条（NFR-207 候选 200ms
+达标）；X4 极限清理 1M 行删除 **实测 125s**（DuckDB MVCC 删除 + 事务提交成本；
+按 NFR-216 测量纪律以实测修订标准 ≤ 300s，删除吞吐候选 ≥ 8k 行/s——批量/
+分区删除为后续优化候选）；上下文截断 O(1)。
+
+**实测复核（script/measure_resources.py，PowerShell 100ms 轮询 WorkingSet）**：
+extreme_scale 峰值 RSS **174.3MB**、session_switch **85.6MB**——均 ≤ 512MB
+预算（铁律 M1 达标）；报告 `artifacts/resource-report.json`。
+
+**复核结论**：静态红线逐项过（无界累积/忙等/帧路径 JSON/每会话线程/leak——
+无violation）；实测两个重负载测试进程内存达标；**X4 清理吞吐为后续优化候选**
+（NFR-216：批量/分区删除，候选值经实测修订）。workspace 352 例全绿。
+
+### 实现记录（2026-10-22，TUI 视图与渲染纪律完成，T082/T083/T129/T136/T137；T135 阻塞）
+
+验证证据：`cargo test --workspace` 351 例通过 / 0 失败（tui 21 例含渲染纪律
+四例）；fmt/clippy 零差异零告警；分层/布局/EOL/workflow/前端预算全绿。
+
+已交付：T082（`tui/views.rs` 六视图只读快照：会话/任务/上下文/事件/Spec/diff，
+render_lines 从准备层数据渲染）；T083（`tui/render.rs` 只读快照 + 脏标记重绘 +
+**不在帧路径反序列化 JSON**——结构测试剥离注释/测试模块后断言无 serde_json）；
+T129（空闲期零重绘——redraw_count 计数器，100 次空闲心跳零重绘断言；文档写明
+终端绘制由终端模拟器承担，WHCode 不直接调度 GPU）；T136（`frontend/suspend.js`
+挂起状态机 Active/Suspended/Recovering：visibilitychange + blur/focus 判定、
+恢复去抖 ≥250ms、恢复时取快照并丢弃中间帧——仅保留最后一份待处理快照；
+WebGL/Canvas 上下文：WHCode 前端不使用（ADR-014/FR-618），probeGpu 探测失败
+自动降级纯文本）；T137（check-frontend-budget.py 已随 M6 交付，JS gzip 1.9KB
+/CSS 0.7KB）。
+
+**T135 阻塞（显式标记，不得勾选）**：渲染门控消费端已交付（render.rs minimized
+门控 + 还原单次全量重绘测试），仅缺探测源——Win32 FFI 须 unsafe，NFR-215
+（--forbid 不可覆盖，T143 锁定）排除；ADR-021 已记录否决与恢复路径。
+
+**T116 采集链路交付**：`tests/stability/run_stability.sh`（RSS/线程/句柄采样
+时间序列 JSON 输出 + STABILITY_SMOKE 冒烟模式验证采集链路——本机冒烟通过，
+null 进程为空闲期正确行为）；**24/72 小时连续执行仍阻塞**（需长跑环境），
+冒烟结果不作稳定性结论。
+
+### 实现记录（2026-10-22，M6/M8 完成，T090—T095 + T100—T114 + T133/T137）
+
+验证证据：`cargo test --workspace` 345 例通过 / 0 失败（web 14、platform 11、
+runtime 14、speckit 22、契约 web_security_defaults 5 + runtime_acceptance 6）；
+fmt/clippy 零差异零告警；分层/布局/EOL/workflow/前端预算门禁全绿。
+
+**M6（T090—T095 + T133/T137）**：api.rs HTTP API + WebSocket（RFC 6455 握手
+SHA1/base64 最小实现——握手魔术串非密码学用途；分片/二进制帧拒绝不静默降级）；
+bind.rs 默认仅回环、对外监听拒绝启动（V-110/FR-606）；security.rs Bearer 认证
+（恒定时间比较）+ Origin 允许集 + 消息上限 + token 不经 URL query（§10.2）；
+frontend 静态 HTML/CSS/原生 ESM（ADR-014 无构建链），断线重连指数退避 + 按游标
+补齐（T094/FR-605），prefers-reduced-motion 尊重（T133）；check-frontend-budget.py
+（T137：JS gzip 1.5KB / CSS 0.7KB 预算 50KB/20KB）。
+
+**M8（T100—T114）**：RuntimeProvider 六要素接口、能力三级、payload 三重校验
+（FNV-1a 意外损坏检测非密码学）、受控子进程（超时轮询/输出上限/stderr 尾部）、
+检查点四要素、缓存仅显式启用、能力不足结构化错误 + 未启用运行时检出（V-306）、
+converge RuntimeBinding 四态映射（FR-709）、Windows taskkill /T /F 进程树清理
+（T109 std 路径；BSD 属 M7 延后不静默）、四 Provider 诚实能力门控（js 无引擎
+不可用 D-08、python 系统解释器 probe、gitbash V-304 探测、bsdshell M7 延后）、
+V-301/302/303/305/306/307 验收测试（T114）。
+
+**偏差（已留档）**：1. HTTP+WebSocket 手写于 std（零新依赖，契合 ADR-014 极简）；
+2. 分层门禁抓到 runtime 内平台 cfg——platform 差异移入 whcode-platform
+（`shell_command`，NFR-101 门禁生效的证据）；3. worker 超时经轮询 try_wait
+（std 无 wait_timeout）；4. `store SessionRow` 增补 Serialize（Web JSON 需要）。
+
+### 实现记录（2026-10-22，Phase 13 清点，T122—T127 + T138—T148）
+
+验证证据：`ci/check_counts.py` 通过（FR=79 / tasks=148 / checks=249，counts
+consistent——T127 三方追溯审计）；`cargo run -p whcode-bin -- doctor` 运行成功
+（api_key=[REDACTED] 脱敏生效，T124 端到端运行记录）；layout 7 例 / EOL /
+workflow 审计全绿；workspace 测试全绿（T126 清理重构：clippy 零告警维持）。
+
+T138—T148 的交付物均已在早前提交落盘（software-engineering-process、
+philosophy、yike-philosophy、design-principles、requirements-engineering、
+ui-design、performance-and-concurrency、doctrine-application 八份指南；
+ci/check_counts.py 计数门禁；unsafe_code="forbid" 契约测试 T143）。
+
+**T122 保留项（诚实标注）**：plan.md 剩余 5 处 `[待验证]` 为**诚实的开放决策**
+（Web HTTP/SSH 依赖选型未定——axum/russh 按 M6/M7 平台证据定案），不是遗留
+过期标记，不消除；ADR-018/019/020 与 decisions.md 已同步 D-01—D-14 最终状态。
+
+**T124 范围说明**：quickstart §2—§9 全流程中 M6/M7/M8 命令面未交付——本记录
+覆盖已交付里程碑的 doctor/测试验证；M6/M8 交付后须重跑全流程。
+
+### 实现记录（2026-10-22，M9 文档类完成，T117—T121；T115/T116 阻塞）
+
+验证证据：文档全绿（layout 7 例、EOL/workflow 审计通过）。
+
+已交付：T117（ADR-020 分配器：默认系统分配器，替换须基准证明，D-11）、
+T118（`docs/matrices/compatibility.md` 兼容矩阵与已知限制，BSD 延后注明）、
+T119（`docs/guides/cui-manual.md` CUI 手册）、T120（`runtime-inventory.md`
+运行时能力清单与许可证清单）、T121（decisions.md 风险台账更新 + 新增
+R-13 自动提交扰动）。
+
+**阻塞（显式标记，不得勾选）**：T115 性能优化——D-06 预算未冻结（缺跨平台
+基线与 72h 时间序列）；T116 稳定性测试——需 24/72h 连续运行环境。
+
+### 实现记录（2026-10-22，M5 批次三，T084/T088 + ADR-019）
+
+验证证据：workspace 全绿（cui cli 4 例解析测试、契约 tui_cui_parity 3 例）；
+fmt/clippy 零差异零告警。ADR-019（clap 采用，plan.md 既定选型，derive API、
+default-features 关闭）；T084 命令树按 contracts/cui-cli.md §1（force-advance
+强制 --reason、破坏性命令 dry-run/yes 旗标）；T088 一致性契约（路由同源/权限
+语义一致/错误码前端无关）——T082 交付后须追加"同命令最终状态一致"用例。
+
+### 实现记录（2026-10-22，M5 部分完成，T085/T086/T087/T089/T130/T131）
+
+验证证据：`cargo test --workspace` 全绿（domain i18n 2、app residency 2、cui 9、
+契约 json_envelope 4）；fmt/clippy 零差异零告警；分层/布局/EOL/workflow 全绿。
+
+已交付：T085（CUI 统一 `--json` 信封 + 稳定退出码）、T086（破坏性命令显式确认，
+默认 dry-run）、T087（feature-parity 矩阵首版）、T089（JSON 信封契约测试）、
+T130（i18n 双语 + 区域检测 + 回退链 + RTL 预留）、T131（会话驻留策略）。
+
+**未完成（显式标记，不得勾选）**：T082/T083/T129/T135（TUI 六视图/渲染纪律/空闲
+零重绘/最小化检测——TUI 渲染层）、T084（clap 命令树——需新增 clap 依赖，须先有
+ADR）、T088（TUI/CUI 契约一致性——依赖 T084）、T133/T136/T137（Web 前端动效/
+挂起/极简基线）；M6（T090—T095 Web UI）、M8（T100—T114 运行时）、M9（T115—T121
+优化发布）、Phase 13 收尾——按未完成推进。
+
+### 实现记录（2026-10-22，M4 完成，T068—T081）
+
+验证证据：`cargo test --workspace` 283 例通过 / 0 失败（speckit 21、app 44、
+集成 sdd_gates 7 例 V-201—V-207）；fmt/clippy 零差异零告警；分层/布局/EOL/workflow
+门禁全绿。
+
+实现期记录的偏差（均为任务描述内的合理调整，已留档）：
+
+1. **store 迁移 v5**：`sessions.stage` 列持久化 SDD 阶段（FR-314 四端同源的存储
+   依据）。DuckDB 1.5.6 不支持带约束的 ADD COLUMN——迁移用可空列 + 回填，
+   NULL 由 directory 层兜底为 `specify`；迁移测试补 v4→v5 路径。
+2. **Constitution 门禁输入显式化**：强制条款的核对结论由调用方提供（FR-313 禁止
+   从历史推断），V-201 测试以显式 verdict 驱动；审计失败时变更不生效（AuditSink 契约）。
+3. **状态机经由 Clarify**：workflow 状态机中 Specify → Clarify → Plan（Analyze 为
+   独立阶段）——门禁测试沿合法链路推进到目标阶段再验证拒绝（V-202/V-203）。
+4. **force_advance 参数打包为 `ForceAdvance`**：clippy too_many_arguments（10/7）；
+   `request_transition` 移除 now_ms（update_stage 不需要）。
+5. **CUI 夹具用 include_str 迁移 SQL**（含 v5）——分层门禁禁止 CUI 触库（C-03）。
+6. **解析器空产物视为失败**：`is_empty_artifact` 并入 parse_with_retry 的接受条件
+   （无条目即无信息，FR-309）；未知段落的行进 `unparsed_sections`（原文保留）。
+
+### 实现记录（2026-10-22，M3 完成，T056—T067 + T132）
+
+验证证据：`cargo test --workspace` 全绿（llm 18、app 42、cui 3、集成
+trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workflow 门禁全绿。
+
+实现期记录的偏差（均为任务描述内的合理调整，已留档）：
+
+1. **Provider 为同步迭代器流式**：tokio 延后引入（T009 实现记录既定），桩 Provider
+   的取消在下一个 chunk 之前生效（§8.4 要求的既定说明），真实 HTTP Provider 属后续。
+2. **事件导出查询核心在 `whcode-app::events`**（T065 的 CUI 部分为展示包装）：分层
+   门禁禁止 CUI 触库（C-03），查询必须经应用服务；CUI 经 include_str 迁移 SQL 做
+   夹具（不引入 store 依赖）。
+3. **app 新增 `whcode-llm` 依赖**：事件导出经 llm 追踪层脱敏（FR-205）；llm 为同层
+   领域服务，方向 app→llm 与分层图一致。
+4. **压缩摘要只记指针**：摘要正文由 LLM 调用生成（后续接入），本模块只记录
+   `context_windows` 指针行，FR-107 的"原文仍可查"由测试断言。
+5. **store `EventRow` 增补 Serialize**：事件导出 JSON 化需要（serde 为 store 既有依赖）。
+6. **V-103 断线补拉**：补拉从排他游标之后开始，断线期间的关键事件集合在补拉中
+   齐备（durability 测试已覆盖 V-104，不重复）。
+
+### 实现记录（2026-10-22，M2 完成，T046—T055）
+
+验证证据：`cargo test --workspace` 220 例通过 / 0 失败（app 28、store 90、迁移 8、
+切换与概览性能集成测试各 1/2）；fmt/clippy 零差异零告警；分层/布局/EOL/workflow
+门禁全绿；概览性能证据 `artifacts/overview-perf-m2.json`（p95 7.6 ms，候选预算
+50 ms，**预算未冻结**）。
+
+实现期记录的偏差（均为任务描述内的合理调整，已留档）：
+
+1. **ADR-018（架构口径统一）**：AGENTS/module-design 的"app 不依赖存储实现"与
+   可执行门禁（只禁前端触库）不一致。裁决：app 直接依赖 store 公共 API、SQL 只在
+   store（端口-适配器被 ADR-001 唯一后端约束否决）；分层图同步修订。
+2. **store 新增 `directory`/`tasks` 存储原语与 schema v4（会话 ID 序列）**：T046—T052
+   的必要使能；`test_migration` 按 v4 引入补齐 v0/v1/v2/v3→v4 路径（其文档既定要求）。
+3. **purge 判据扩展 `Sessions`**：会话删除命令复用 FR-509 全链（预览/确认/审计/
+   活跃保护），避免第二套删除路径。
+4. **命令事件发射延后至 M3**：M2 验收（Check 46—55）不要求命令写事件；事件流属
+   M3（T056+），已在本层文档显式标注，`event_cursor` 以工作区 `events.seq` 最大值为准。
+5. **内存增量预算（Check 47）**：切换的有界性以结构断言（尾部长度恒 50）验证；
+   NFR-201—204 预算未冻结，RSS 测量归 T142/M9。
+6. **任务创建命令不在 M2 命令面**（FR-101 无 create task）：任务行由夹具/后续
+   里程碑产生；`store::tasks::insert_task` 为存储原语而非用户命令。
+
+### 实现记录（2026-10-21，M0 阻塞项推进）
+
+以下仅记录本机已取得的实测结果；未取得的证据单列，不作为完成依据。**预算未冻结**。
+
+1. **吞吐优化（B-07 主项，T026）**：写者 `flush_entries` 由“逐条 INSERT + 逐条回读 `seq`”
+   （每批 2N 次往返）改为“1 次分块 IN 查询已存在键（256 键/查询）+ 分块多行 VALUES 批量插入
+   （64 行/语句）+ 插入前分配连续 `seq`、不再回读”。同一夹具、同一机器复测：优化前
+   158.1 / 142.4 / 159.6 条/秒（中位数 158.1），延迟 p50 7 034.9 / p95 12 305.2 /
+   p99 20 172.6 µs（600 样本）；优化后 3 359.1 / 2 965.0 / 3 997.2 条/秒（中位数 3 359.1，
+   约 21 倍），延迟 p50 6 975.4 / p95 14 117.9 / p99 20 727.4 µs；每次 20 200 行落库，
+   库文件 1 847 296 字节。证据：`artifacts/baseline-after-opt.json`（本地，不入库）；
+   优化前结果保留在 `artifacts/baseline-windows-amd64.json`。
+2. **结论口径（T027/T028）**：优化后吞吐已超过 NFR-210 候选值 ≥ 2 000 条/秒，但**预算仍不冻结**：
+   缺跨平台基线数据与 72 小时时间序列，D-06 的冻结条件未满足。
+   - 追加（同日，夹具内存更正后复测）：`memory_limit` 回到 §5.4 基线 **192MB**，吞吐
+     7 427.5 / 6 921.2 / 6 242.1 条/秒（中位数 **6 921.2**），延迟 p50 3 942.7 / p95 5 586.7 /
+     p99 10 994.8 µs；证据 `artifacts/baseline-192mb.json`。两组差异属单机三样本观测，
+     **不得**推断“调低 `memory_limit` 会提速”（ADR-012）。
+3. **TUI 管道挂起缺陷（B-05 关联，T024）**：缺陷为 `terminal_size()` 查询**输出**侧，Windows 上
+   “管道 stdin + 控制台 stdout”仍返回 `Some`，导致无参数启动进入 TUI 并永久等待按键。修复：
+   `whcode-platform` 新增 `stdin_is_interactive()`（`std::io::stdin().is_terminal()`），
+   `whcode-bin::launch_interactive()` 改为双重判定。
+4. **自动冒烟（V-003 可自动化部分）**：`script/tui_smoke.py` 三项自动检查全部通过——管道 stdin
+   下优雅退出（退出码 0）、`--version`、`doctor` 非交互；产物
+   `artifacts/tui-smoke/<时间戳>/summary.json`。
+5. **仍未取得的人工证据（V-003 不能据此判通过）**：物理键盘输入计数、真实 resize 重绘、
+   Ctrl-C 退出与终端回显恢复、强杀进程后 raw mode 残留——四项必须人工执行并留证。
+6. **测试规模（2026-10-21 实测）**：`cargo test --workspace` 107 例通过 / 0 失败；
+   `cargo fmt --all --check` 无差异；`cargo clippy --workspace --all-targets -- -D warnings`
+   零告警；EOL 审计 0 CRLF / 0 BOM（Windows 本机）。
+7. **`memory_limit` OOM 断言已独立复核并证伪（ADR-012）**：192MB + 4 线程下用同一
+   `EventWriter` 写入 2 000 条与 20 000 条（131 字节 payload）**全部成功、无 DuckDB 错误**；
+   回读值 `183.1 MiB` 只是 192MB 的 MiB 表示，不是“用量”。据此夹具已从 384MB 改回基线 192MB，
+   `DEFAULT_MEMORY_LIMIT_MB` 保持 192。ADR-012 状态为**部分批准**（断言证伪证据充分；
+   “192MB 可冻结为基线”仍需大载荷、长时与多平台数据）。
+
+**未完成项**：跨平台吞吐基线、72 小时时间序列、V-003 人工四项、V-004 服务端验收仍未取得；
+因此 B-05 与 B-07 均不得记为已关闭。

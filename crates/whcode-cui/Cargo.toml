@@ -1,0 +1,23 @@
+[package]
+name = "whcode-cui"
+description = "WHCode 命令行界面（clap 命令树、JSON/JSONL 输出）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+whcode-app = { path = "../whcode-app" }
+whcode-domain = { path = "../whcode-domain" }
+# spec_cmd 视图透传 SDD 阶段与工作流类型（FR-312）；同层领域服务。
+whcode-speckit = { path = "../whcode-speckit" }
+serde.workspace = true
+serde_json.workspace = true
+# ADR-019：CUI 命令树参数解析（语义执行仍在 app 层）。
+clap.workspace = true
+# 仅使用 duckdb::Connection 类型（视图函数签名透传）；连接管理在 store/装配根。
+duckdb = { version = "1.10506.1", default-features = false }
+
+[lints]
+workspace = true

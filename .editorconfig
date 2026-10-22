@@ -1,0 +1,23 @@
+# 编辑器行为统一（所有成员、所有平台）。本文件与 .gitattributes、rustfmt.toml 互补。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{rs,py}]
+indent_style = space
+indent_size = 4
+
+[*.{toml,yml,yaml,json}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+# Markdown 允许行尾双空格表示硬换行。
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab

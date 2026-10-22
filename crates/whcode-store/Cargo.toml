@@ -1,0 +1,17 @@
+[package]
+name = "whcode-store"
+description = "WHCode DuckDB schema、迁移、单写者服务、事务、清理与导出"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+whcode-domain = { path = "../whcode-domain" }
+serde.workspace = true
+serde_json.workspace = true
+duckdb = { version = "1.10506.1", default-features = false }
+
+[lints]
+workspace = true

@@ -1,0 +1,58 @@
+# WHCode — Rust 原生 LLM 编码 Harness
+#
+# 结构决策见 specs/001-whcode-harness/plan.md：单仓库 Cargo workspace，13 个成员 crate，
+# 职责边界依任务书 §6.2；依赖方向 domain → app → 各适配器，前端不得直接触库（ADR-003）。
+[workspace]
+resolver = "3"
+members = [
+    "crates/whcode-domain",
+    "crates/whcode-app",
+    "crates/whcode-llm",
+    "crates/whcode-store",
+    "crates/whcode-speckit",
+    "crates/whcode-tools",
+    "crates/whcode-runtime",
+    "crates/whcode-tui",
+    "crates/whcode-cui",
+    "crates/whcode-web",
+    "crates/whcode-ssh",
+    "crates/whcode-platform",
+    "crates/whcode-bin",
+    "tests",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+# 分工（重要，勿混用两个概念）：
+#   - 本字段 = **MSRV**（最低可用 rustc 下限）：edition 2024 需 1.85，duckdb crate 需 1.88，
+#     故下限取 1.88。它决定“能不能用”某个较旧工具链，不得写成当前最新版（那会把
+#     FreeBSD/NetBSD 的 pkg/pkgsrc rust 一次性判死）。
+#   - 可复现构建 = `rust-toolchain.toml` 锁定的 1.99.1（rustup 自动配给）。
+# MSRV 声明尚未在 1.88 工具链上实测编译（本机未装该版本）；构建与验收一律以锁定工具链为准。
+rust-version = "1.88"
+publish = false
+# 开源许可：BSD-2-Clause，版权主体 FreeBSD 中文社区（见根目录 LICENSE）。
+license = "BSD-2-Clause"
+
+[workspace.dependencies]
+# 共享依赖（tasks.md T009）。可选运行时（JS/Python/Shell）的依赖**不**在此声明，
+# 必须留在运行时 crate 的 feature 之后，默认构建不引入（FR-704、NFR-102）。
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", default-features = false, features = ["derive", "std", "help", "usage", "error-context"] }
+thiserror = "2"
+# 终端 UI 依赖（tasks.md T024、FR-601）。二者均为纯 Rust，无 C/构建期编译器依赖，
+# 因而 **不** 破坏 BSD 交叉检查；ratatui 0.30 的 crossterm 后端（ratatui-crossterm）
+# 即绑定 crossterm 0.29，与本声明同版本，全工作区只解析出一份 crossterm（见 Cargo.lock）。
+crossterm = "0.29.0"
+ratatui = "0.30.2"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+# 内存安全（NFR-215）：禁止以 mem::forget 主动泄漏；restriction 组需显式登记。
+mem_forget = "deny"

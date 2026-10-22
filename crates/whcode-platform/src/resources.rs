@@ -1,0 +1,82 @@
+//! 资源约束默认值（§5.4、FR-705）。
+//!
+//! 数值是**可配置基线**，不是架构定理（§0.3-6）：`memory_limit` 仅约束 DuckDB 缓冲
+//! 管理器，不代表进程 RSS 上限；`threads` 初始不高于 `min(4, 可用物理核数)`。
+
+/// DuckDB 缓冲管理器默认内存上限（字节）：192 MiB。
+pub const DUCKDB_MEMORY_LIMIT_DEFAULT: u64 = 192 * 1024 * 1024;
+/// DuckDB 缓冲管理器候选最大内存上限（字节）：384 MiB。
+pub const DUCKDB_MEMORY_LIMIT_MAX_CANDIDATE: u64 = 384 * 1024 * 1024;
+
+/// 数据库相关的资源默认值（§5.4 表格）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ResourceLimits {
+    /// DuckDB `memory_limit`（字节）。
+    pub duckdb_memory_limit: u64,
+    /// DuckDB `threads` 初始值。
+    pub duckdb_threads: u32,
+}
+
+/// 返回数据库资源默认值。`available_physical_cores` 为探测到的可用物理核数。
+///
+/// # Panics
+///
+/// `available_physical_cores == 0` 时 panic——核数探测失败属于启动期致命配置错误。
+#[must_use]
+pub fn memory_limit_defaults(available_physical_cores: u32) -> ResourceLimits {
+    assert!(available_physical_cores > 0, "物理核数探测值必须大于 0");
+    ResourceLimits {
+        duckdb_memory_limit: DUCKDB_MEMORY_LIMIT_DEFAULT,
+        duckdb_threads: available_physical_cores.min(4),
+    }
+}
+
+/// 通用工作线程预算：`min(4, cores)`（§5.4 `threads` 行）。
+#[must_use]
+pub fn thread_budget(available_physical_cores: u32) -> u32 {
+    available_physical_cores.clamp(1, 4)
+}
+
+/// 探测可用并行度。
+///
+/// 说明：`std::thread::available_parallelism` 返回的是**可用并行度**（受 cgroup 配额、
+/// CPU 亲和性等影响），并非严格物理核数。§5.4 的 `min(4, 物理核)` 基线在此以可用并行度
+/// 实现；M0 基线报告（V-006）必须记录实际取值与探测方式的偏差，不得把该值当作物理核数
+/// 写进性能结论。
+#[must_use]
+pub fn available_physical_cores() -> u32 {
+    std::thread::available_parallelism()
+        .map(|n| n.get() as u32)
+        .unwrap_or(1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn memory_defaults_match_task_book() {
+        let limits = memory_limit_defaults(8);
+        assert_eq!(limits.duckdb_memory_limit, 192 * 1024 * 1024);
+        assert_eq!(limits.duckdb_threads, 4);
+        assert!(limits.duckdb_memory_limit < DUCKDB_MEMORY_LIMIT_MAX_CANDIDATE);
+    }
+
+    #[test]
+    fn threads_capped_at_four_even_on_big_machines() {
+        assert_eq!(thread_budget(64), 4);
+        assert_eq!(thread_budget(2), 2);
+        assert_eq!(thread_budget(1), 1);
+    }
+
+    #[test]
+    fn single_core_machine_gets_one_thread() {
+        assert_eq!(memory_limit_defaults(1).duckdb_threads, 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "大于 0")]
+    fn zero_cores_is_fatal() {
+        let _ = memory_limit_defaults(0);
+    }
+}

@@ -1,0 +1,15 @@
+[package]
+name = "whcode-platform"
+description = "WHCode 平台差异集中层：进程控制、路径、终端与资源探测"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+whcode-domain = { path = "../whcode-domain" }
+crossterm.workspace = true
+
+[lints]
+workspace = true

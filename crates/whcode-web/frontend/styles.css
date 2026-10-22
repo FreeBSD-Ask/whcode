@@ -1,0 +1,39 @@
+/* WHCode 极简样式（T137/ADR-014）：无第三方字体、无渐变、无自动播放；
+   仅 GPU 合成友好的 transform/opacity（T133/FR-613）；
+   主题色值与 tui/theme.rs 一致（T128：纯黑 #000000 / 纯白 #FFFFFF）。 */
+:root {
+  --bg: #ffffff;
+  --fg: #000000;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #000000; --fg: #e6e6e6; }
+}
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+header { border-bottom: 1px solid var(--fg); padding: 0.5rem; }
+h1 { font-size: 1rem; margin: 0 0 0.5rem; }
+nav button {
+  background: none;
+  border: 1px solid var(--fg);
+  color: var(--fg);
+  cursor: pointer;
+  padding: 0.25rem 0.75rem;
+}
+nav button[aria-selected="true"] { opacity: 0.6; }
+main { flex: 1; padding: 0.5rem; }
+pre, ul { white-space: pre-wrap; word-break: break-all; }
+footer { border-top: 1px solid var(--fg); padding: 0.25rem 0.5rem; display: flex; gap: 1rem; }
+/* 动效总开关（T133/FR-613）：仅 opacity 过渡（GPU 合成友好）；系统要求减动效时禁用。 */
+@media (prefers-reduced-motion: no-preference) {
+  nav button { transition: opacity 150ms linear; }
+}
+@media (prefers-reduced-motion: reduce) {
+  nav button { transition: none; }
+}

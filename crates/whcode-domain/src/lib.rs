@@ -1,0 +1,25 @@
+//! # whcode-domain
+//!
+//! 核心领域类型：状态常量、事件类型、门禁结果、错误与审计记录。
+//!
+//! 依赖原则（任务书 §6.2）：**不**依赖 UI、网络与数据库具体实现。其他 crate 不得
+//! 复制本 crate 的状态枚举——状态名在代码、数据库、CUI JSON Schema 与 Web 协议中
+//! 必须使用同一套定义（§3.1）。
+
+pub mod audit;
+pub mod error;
+pub mod event;
+pub mod gate;
+pub mod i18n;
+pub mod state;
+pub mod trace;
+
+pub use audit::{AuditAction, AuditRecord, AuditSink, CollectingAuditSink};
+pub use error::{ErrEnvelope, ErrorCode, OkEnvelope, SCHEMA_VERSION, WhError};
+pub use event::{
+    EventCriticality, EventKind, EventRecord, MAX_PAYLOAD_BYTES, PersistenceLevel,
+    epoch_ms_to_iso8601, iso8601_to_epoch_ms,
+};
+pub use gate::{GateId, GateResult, StageTransition};
+pub use state::{LlmRequestStatus, RuntimeExecutionStatus, SddStage, TaskStatus};
+pub use trace::TraceLevel;

@@ -1,0 +1,16 @@
+[package]
+name = "whcode-domain"
+description = "WHCode 核心领域类型：状态常量、事件类型、门禁结果、错误与审计记录"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

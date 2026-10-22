@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WHCode</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1 id="app-title">WHCode</h1>
+    <nav id="tabs" role="tablist">
+      <button data-tab="sessions" role="tab">会话</button>
+      <button data-tab="tasks" role="tab">任务</button>
+      <button data-tab="history" role="tab">历史</button>
+      <button data-tab="spec" role="tab">SDD</button>
+    </nav>
+  </header>
+  <main id="main" aria-live="polite">
+    <section id="view-sessions" hidden><ul id="session-list"></ul></section>
+    <section id="view-tasks" hidden><ul id="task-list"></ul></section>
+    <section id="view-history" hidden><pre id="event-log"></pre></section>
+    <section id="view-spec" hidden><pre id="spec-status"></pre></section>
+  </main>
+  <footer id="footer">
+    <span id="connection-state">未连接</span>
+    <span id="event-cursor"></span>
+  </footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

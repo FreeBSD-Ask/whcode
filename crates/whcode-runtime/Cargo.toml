@@ -1,0 +1,26 @@
+[package]
+name = "whcode-runtime"
+description = "WHCode 运行时 provider、payload 管理与 worker 子进程协议"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+whcode-domain = { path = "../whcode-domain" }
+# 平台 Shell 构造与终止策略（cfg 集中于 platform，NFR-101）。
+whcode-platform = { path = "../whcode-platform" }
+serde.workspace = true
+serde_json.workspace = true
+
+[features]
+default = []
+# 可选运行时（FR-704、NFR-102）：默认全部关闭。启用前必须通过能力测试，
+# 且不得把受限引擎表述为完整生态运行时（D-08/D-09、§4.7.1）。
+runtime-js = []
+runtime-python = []
+runtime-gitbash = []
+
+[lints]
+workspace = true

@@ -1,0 +1,19 @@
+[package]
+name = "whcode-tui"
+description = "WHCode ratatui 终端界面"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+crossterm.workspace = true
+ratatui.workspace = true
+whcode-app = { path = "../whcode-app" }
+whcode-domain = { path = "../whcode-domain" }
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

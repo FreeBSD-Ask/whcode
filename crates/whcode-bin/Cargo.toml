@@ -1,0 +1,37 @@
+[package]
+name = "whcode-bin"
+description = "WHCode 主程序：配置加载、日志初始化与 feature 装配"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+# 对外二进制名固定为 `whcode`（package 名仅为仓库内部命名，§6.2）。
+[[bin]]
+name = "whcode"
+path = "src/main.rs"
+
+[dependencies]
+whcode-app = { path = "../whcode-app" }
+whcode-domain = { path = "../whcode-domain" }
+whcode-platform = { path = "../whcode-platform" }
+whcode-store = { path = "../whcode-store" }
+whcode-tui = { path = "../whcode-tui" }
+serde.workspace = true
+serde_json.workspace = true
+# 基线夹具需要打开临时数据库连接并交给 `whcode_store::EventWriter`（tasks.md T027）。
+# 版本与特性同 `whcode-store`：同一份预编译动态库，避免出现两份 libduckdb-sys 实例。
+duckdb = { version = "1.10506.1", default-features = false }
+
+[features]
+default = []
+# 可选运行时装配开关（FR-704、D-07）。
+# 默认全部关闭：未启用运行时不加载动态库、不占端口、不注册可执行工具。
+# 目前为空实现——真正的运行时装配在 M8（tasks.md T103）接入 `whcode-runtime`。
+runtime-js = []
+runtime-python = []
+runtime-gitbash = []
+
+[lints]
+workspace = true

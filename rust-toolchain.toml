@@ -1,0 +1,20 @@
+# 工具链固定（tasks.md T002/T021；V-001、D-01）。
+#
+# 锁定策略：
+#   - 本文件只锁定**版本号**，与主机三元组无关，保持仓库跨平台可移植；
+#   - 各平台的主机三元组选择记录在 docs/matrices/platform-matrix.md；
+#   - 本机 rustup 默认 host 为 x86_64-pc-windows-gnu，故在仓库目录另用机器级
+#     `rustup override set 1.99.1-x86_64-pc-windows-msvc` 选择 msvc；该 override 属机器本地
+#     状态，不入库（D-01：Windows 验收使用 msvc，不使用任何 GNU 工具链）。
+#
+# GitHub Actions 适配（CI 必须可在 runner 上运行）：
+#   - profile = "minimal" 减小 runner 上的下载体积；
+#   - components 显式列出 rustfmt/clippy（CI 的 fmt/clippy 门禁依赖它们）；
+#   - 非 rustup 分发的 cargo（如 pkg/pkgsrc 安装）会忽略本文件——其 rustc 实际版本由
+#     ci/platform-matrix/record_deps.{sh,py} 如实记录，与锁定值的任何偏差都是可见证据。
+#
+# 版本来源：M0 实测（T021）。实测值：rustc 1.99.1 (58cf8f9c3 2026-10-13)。
+[toolchain]
+channel = "1.99.1"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

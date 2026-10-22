@@ -1,0 +1,50 @@
+schema_version: 1
+module_path: root
+title: WHCode Rust 工作区根配置
+scope:
+    - Cargo.toml
+    - Cargo.lock
+    - rust-toolchain.toml
+    - rustfmt.toml
+    - .gitignore
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 3fb547f5-ebd0-474e-96d3-e91c693b0865
+kk_cards:
+    architecture_design:
+        id: 6778a7e5-d71f-4258-918d-62c1f364d21a
+        title: WHCode Rust 工作区根配置
+    coding_conventions:
+        id: dcead417-c5ad-42b5-8f08-4f86813ce199
+        title: WHCode Rust 工作区根配置
+    overview:
+        id: bd4f3baf-bb31-4e59-be18-7883f318ed29
+        title: WHCode Rust 工作区根配置
+    tech_stack:
+        id: 24cc813d-cea6-4436-9bff-5ecb81770dcb
+        title: WHCode Rust 工作区根配置
+    unique_setup_and_commands:
+        id: 3b210276-2fc9-4920-a24c-919ad6bdadb7
+        title: WHCode Rust 工作区根配置
+    build_system:
+        id: 2e0b2431-fd93-49c7-a5a7-6d4a6ae46a2e
+        title: Cargo Workspace 构建与跨平台 CI 矩阵
+    configuration_system:
+        id: 7bd08936-c961-411d-993b-a07df788e5ab
+        title: WHCode 二进制配置加载系统（JSON + 工作区基线）
+    dependency_management:
+        id: 6f6498bc-bd09-40f5-94cc-f2a4dd116a40
+        title: WHCode Rust 工作区依赖管理（Cargo workspace + 共享依赖 + toolchain 锁定）
+    error_handling:
+        id: 4f8803bc-9f23-4fb9-b037-8c0f4b3486a6
+        title: whcode-domain 结构化错误与信封（WhError / ErrorCode）
+    logging_system:
+        id: 538ddca8-89c1-4ccb-a8df-0e0a0558aa33
+        title: WHCode 最小日志器与脱敏输出系统
+kk_repo_cards:
+    - build_system
+    - configuration_system
+    - dependency_management
+    - error_handling
+    - logging_system

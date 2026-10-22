@@ -1,0 +1,997 @@
+//! SSH 客户端风险原型：意图—执行—登记（tasks.md T025、ADR-007）。
+//!
+//! **范围（平台承诺已修订）**：OpenBSD 与 DragonFly 不再作为原生安装目标，改由 WHCode 内置
+//! SSH **客户端**控制；M0 只交付“经 SSH 通道执行命令”的风险原型，完整客户端能力与多平台
+//! 验收属 M7（tasks.md T096—T099）。本模块**不**实现 SSH 服务端。
+//!
+//! 三段协议（ADR-007）与语义规则：
+//! 1. **校验先于意图**：`host`/`user`/`command` 为空、私钥缺失或不可读、`timeout_ms` 为 0
+//!    （无界超时）时返回 [`WhError::invalid_state`]，**不**发生任何登记副作用；
+//! 2. **意图先于连接**：校验通过后、建立连接之前必须调用 [`ExecRegistry::record_intent`]；
+//! 3. 连接或认证失败：状态 `failed`、`exit_code` 为 `None`，`note` 写明失败阶段；**仍然**
+//!    调用 [`ExecRegistry::record_result`] 并返回 `Ok(report)`；
+//! 4. 命令已发出但结果不可知（超时、通道异常关闭且未收到退出状态）：状态 `unknown`，`note`
+//!    明确写出“命令可能已执行，必须核对，不得盲目重放”；
+//! 5. 收到明确退出状态：`0` → `completed`，非 `0` → `failed`；
+//! 6. 任何情况下**不得**把不确定情形记为 `completed`/`failed`；
+//! 7. 输出有界：只保留**尾部** [`MAX_TAIL_BYTES`] 字节，超出时 `truncated = true` 且在
+//!    `note` 中写明截断事实（不得静默丢弃原始输出这一事实）；
+//! 8. [`ExecRegistry::record_result`] 失败时整个调用返回该错误（登记失败不得视为成功）。
+//!
+//! 已知限制（本原型不承诺、且未验证的能力）：
+//! - **不校验主机密钥**：客户端的 `check_server_key` 恒返回接受，存在中间人风险；M7 必须接入
+//!   known_hosts 校验；
+//! - **不产出 `timed_out`**：SSH 通道无法确认远端进程确实已终止，因此超时一律上报 `unknown`
+//!   （ADR-007 要求不确定不得谎报）；只有能确认终止时才允许 `timed_out`；
+//! - 口令保护的私钥不支持（以空口令加载）；
+//! - 不向远端传递任何本地环境变量；`note` 与登记内容**不**包含私钥内容或口令。
+
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+use russh::client;
+use russh::keys::{PrivateKeyWithHashAlg, PublicKeyOrCertificate, load_secret_key};
+use russh::{ChannelMsg, Disconnect};
+use whcode_domain::{RuntimeExecutionStatus, WhError};
+
+/// 保留的输出上限（字节）。只保留**尾部**，超出部分丢弃但必须显式标记（规则 7）。
+pub const MAX_TAIL_BYTES: usize = 64 * 1024;
+
+/// 不确定情形固定的提示语：要求核对、禁止盲目重放（规则 4、FR-410）。
+const INDETERMINATE_ADVICE: &str = "命令可能已执行，必须核对，不得盲目重放";
+
+/// SSH 执行目标。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SshTarget {
+    /// 主机名或 IP 字面量。
+    pub host: String,
+    /// SSH 端口。
+    pub port: u16,
+    /// 远端登录用户名。
+    pub user: String,
+    /// 私钥路径（OpenSSH 格式；口令保护的私钥在本原型中不支持）。
+    pub private_key_path: PathBuf,
+    /// 在远端执行的命令（由远端 shell 解释，因此需由调用方保证参数转义）。
+    pub command: String,
+    /// 整个调用的超时上限（毫秒）。必须大于 0：默认超时必须是有界的（安全默认）。
+    pub timeout_ms: u64,
+}
+
+/// 一次远程执行的结果报告。
+///
+/// `status` 复用 [`RuntimeExecutionStatus`]（§3.1 唯一出处），本模块**不**另造状态枚举。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecReport {
+    /// 执行状态。
+    pub status: RuntimeExecutionStatus,
+    /// 远端退出码；未收到明确退出状态时为 `None`。
+    pub exit_code: Option<i32>,
+    /// 标准输出尾部（最多 [`MAX_TAIL_BYTES`] 字节，按 UTF-8 有损解码）。
+    pub stdout_tail: String,
+    /// 标准错误尾部（最多 [`MAX_TAIL_BYTES`] 字节，按 UTF-8 有损解码）。
+    pub stderr_tail: String,
+    /// 调用耗时（毫秒）。
+    pub duration_ms: u64,
+    /// 任一输出流是否发生截断（规则 7）。
+    pub truncated: bool,
+    /// 人可读说明：失败阶段、截断事实或“必须核对”的提示。**不得**含私钥内容或口令。
+    pub note: String,
+}
+
+/// 执行协议登记接口（ADR-007 的“意图—结果”两段登记）。
+///
+/// 实现方返回错误时调用方**不得**把操作视为成功：意图登记失败则不得发起连接，结果登记失败
+/// 则整个调用返回该错误。
+pub trait ExecRegistry {
+    /// 记录执行意图（必须在建立连接之前调用）。
+    fn record_intent(&self, target: &SshTarget) -> Result<(), WhError>;
+
+    /// 登记执行结果（含连接/认证失败与不确定状态）。
+    fn record_result(&self, report: &ExecReport) -> Result<(), WhError>;
+}
+
+/// 已登记的协议调用，供测试断言调用顺序与内容。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RegistryCall {
+    /// 意图记录。
+    Intent {
+        /// 目标主机。
+        host: String,
+        /// 目标端口。
+        port: u16,
+        /// 登录用户。
+        user: String,
+        /// 待执行命令。
+        command: String,
+    },
+    /// 结果登记。
+    Result {
+        /// 执行状态。
+        status: RuntimeExecutionStatus,
+        /// 退出码。
+        exit_code: Option<i32>,
+        /// 说明。
+        note: String,
+    },
+}
+
+/// 内存登记缓冲（`Mutex<Vec<...>>`），供测试断言调用顺序与内容。
+///
+/// 注意：本类型不持久化，**不得**作为发布路径的实现（持久化登记属 M2 的 store 层）。
+#[derive(Debug, Default)]
+pub struct CollectingExecRegistry {
+    calls: Mutex<Vec<RegistryCall>>,
+}
+
+impl CollectingExecRegistry {
+    /// 空缓冲。
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 已登记的调用快照（按发生顺序）。
+    pub fn calls(&self) -> Vec<RegistryCall> {
+        self.calls
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_default()
+    }
+
+    /// 已登记调用数。
+    pub fn len(&self) -> usize {
+        self.calls.lock().map(|guard| guard.len()).unwrap_or(0)
+    }
+
+    /// 是否没有任何登记调用（校验失败时应为 `true`）。
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl ExecRegistry for CollectingExecRegistry {
+    fn record_intent(&self, target: &SshTarget) -> Result<(), WhError> {
+        let mut guard = self
+            .calls
+            .lock()
+            .map_err(|_| WhError::internal("执行登记缓冲锁中毒：意图未登记，不得发起连接"))?;
+        guard.push(RegistryCall::Intent {
+            host: target.host.clone(),
+            port: target.port,
+            user: target.user.clone(),
+            command: target.command.clone(),
+        });
+        Ok(())
+    }
+
+    fn record_result(&self, report: &ExecReport) -> Result<(), WhError> {
+        let mut guard = self
+            .calls
+            .lock()
+            .map_err(|_| WhError::internal("执行登记缓冲锁中毒：结果未登记，调用不得视为成功"))?;
+        guard.push(RegistryCall::Result {
+            status: report.status,
+            exit_code: report.exit_code,
+            note: report.note.clone(),
+        });
+        Ok(())
+    }
+}
+
+/// 经 SSH 在远端执行 `target.command`，按三段协议登记并返回报告。
+///
+/// 返回值语义：
+/// - `Err` 只表示**协议前提被破坏**：目标非法（规则 1）或登记失败（规则 8）；
+/// - `Ok(report)` 表示协议已完整执行并已登记；远端失败、认证失败与“结果不确定”都通过
+///   `report.status` 表达（规则 3、4）。
+///
+/// # Errors
+/// 目标校验失败返回 [`ErrorCode::InvalidState`](whcode_domain::ErrorCode::InvalidState)；
+/// 登记失败返回登记实现方给出的错误。
+pub async fn run_command(
+    target: &SshTarget,
+    registry: &dyn ExecRegistry,
+) -> Result<ExecReport, WhError> {
+    // 规则 1：校验先于意图——校验失败不得产生任何副作用。
+    validate_target(target)?;
+    // 规则 2：意图先于连接——登记失败则不得发起连接。
+    registry.record_intent(target)?;
+
+    let report = execute(target).await;
+
+    // 规则 8：结果登记失败时整体失败。
+    registry.record_result(&report)?;
+    Ok(report)
+}
+
+/// 校验目标；失败返回 `invalid_state`（不可重试）。
+fn validate_target(target: &SshTarget) -> Result<(), WhError> {
+    if target.host.trim().is_empty() {
+        return Err(WhError::invalid_state("SSH 目标非法：host 为空"));
+    }
+    if target.user.trim().is_empty() {
+        return Err(WhError::invalid_state("SSH 目标非法：user 为空"));
+    }
+    if target.command.trim().is_empty() {
+        return Err(WhError::invalid_state("SSH 目标非法：command 为空"));
+    }
+    if target.timeout_ms == 0 {
+        // 安全默认：超时必须是有界的，0 视为非法配置而非“无限等待”。
+        return Err(WhError::invalid_state(
+            "SSH 目标非法：timeout_ms 为 0，超时必须有界",
+        ));
+    }
+    let key_path = &target.private_key_path;
+    let metadata = std::fs::metadata(key_path).map_err(|err| {
+        WhError::invalid_state(format!("私钥不可用：{}（{err}）", key_path.display()))
+    })?;
+    if !metadata.is_file() {
+        return Err(WhError::invalid_state(format!(
+            "私钥不是普通文件：{}",
+            key_path.display()
+        )));
+    }
+    // 只验证可读性，不读取内容、不记录内容（私钥材料不得进入日志或报告）。
+    std::fs::File::open(key_path).map_err(|err| {
+        WhError::invalid_state(format!("私钥不可读：{}（{err}）", key_path.display()))
+    })?;
+    Ok(())
+}
+
+/// 客户端的会话级处理器。
+///
+/// 主机密钥校验在本原型中未实现（恒定接受），这是已记录的已知风险，M7 必须补齐。
+struct ProtoClient;
+
+impl client::Handler for ProtoClient {
+    type Error = russh::Error;
+
+    async fn check_server_key(
+        &mut self,
+        _server_public_key: &PublicKeyOrCertificate,
+    ) -> Result<bool, Self::Error> {
+        // 原型范围：不做主机密钥校验；不得据此声称具备中间人防护能力。
+        Ok(true)
+    }
+}
+
+/// 执行阶段：连接、认证、发命令、收集输出，并把结果映射为 [`ExecReport`]。
+///
+/// 本函数不返回 `Err`：所有失败都以报告形式表达，以便调用方无条件登记结果（规则 3、8）。
+async fn execute(target: &SshTarget) -> ExecReport {
+    let started = Instant::now();
+    let budget = Duration::from_millis(target.timeout_ms);
+    // 单一时限覆盖整个调用：各阶段只消费剩余预算，不得每阶段各用一份完整预算
+    // （否则实际总耗时可达到 timeout_ms 的数倍，与字段语义不符）。
+    let deadline = started + budget;
+
+    let key = match load_secret_key(&target.private_key_path, None) {
+        Ok(key) => key,
+        Err(err) => {
+            return failure_report(
+                started,
+                format!("私钥加载失败：{err}（命令未发出；口令保护的私钥在本原型不支持）"),
+            );
+        }
+    };
+
+    let config = Arc::new(client::Config {
+        inactivity_timeout: Some(budget),
+        ..Default::default()
+    });
+
+    // 阶段一：连接。此阶段失败意味着命令从未发出（规则 3）。
+    let mut session = match tokio::time::timeout(
+        budget,
+        client::connect(config, (target.host.as_str(), target.port), ProtoClient),
+    )
+    .await
+    {
+        Ok(Ok(session)) => session,
+        Ok(Err(err)) => {
+            return failure_report(started, format!("连接阶段失败：{err}（命令未发出）"));
+        }
+        Err(_) => {
+            return failure_report(
+                started,
+                format!("连接阶段超时（{} ms）：命令未发出", target.timeout_ms),
+            );
+        }
+    };
+
+    // 阶段二：公钥认证。失败时命令仍未发出（规则 3）。
+    let rsa_hash = match tokio::time::timeout(
+        remaining_budget(deadline),
+        session.best_supported_rsa_hash(),
+    )
+    .await
+    {
+        Ok(Ok(hash)) => hash.flatten(),
+        Ok(Err(err)) => {
+            return failure_report(started, format!("认证阶段失败：{err}（命令未发出）"));
+        }
+        Err(_) => return failure_report(started, "认证阶段超时：命令未发出".to_string()),
+    };
+    let auth = tokio::time::timeout(
+        remaining_budget(deadline),
+        session.authenticate_publickey(
+            target.user.clone(),
+            PrivateKeyWithHashAlg::new(Arc::new(key), rsa_hash),
+        ),
+    )
+    .await;
+    match auth {
+        Ok(Ok(result)) if result.success() => {}
+        Ok(Ok(_)) => {
+            return failure_report(
+                started,
+                "认证阶段失败：服务端拒绝公钥（命令未发出）".to_string(),
+            );
+        }
+        Ok(Err(err)) => {
+            return failure_report(started, format!("认证阶段失败：{err}（命令未发出）"));
+        }
+        Err(_) => return failure_report(started, "认证阶段超时：命令未发出".to_string()),
+    }
+
+    // 阶段三：打开会话通道。失败时命令仍未发出。
+    let mut channel = match tokio::time::timeout(
+        remaining_budget(deadline),
+        session.channel_open_session(),
+    )
+    .await
+    {
+        Ok(Ok(channel)) => channel,
+        Ok(Err(err)) => {
+            return failure_report(started, format!("通道阶段失败：{err}（命令未发出）"));
+        }
+        Err(_) => return failure_report(started, "通道阶段超时：命令未发出".to_string()),
+    };
+
+    // 阶段四：发出执行请求。此调用之后，命令**可能**已在远端启动——此后任何异常都不得判为
+    // `completed`/`failed`（规则 4、6）。
+    let send = tokio::time::timeout(
+        remaining_budget(deadline),
+        channel.exec(true, target.command.clone()),
+    )
+    .await;
+    match send {
+        Ok(Ok(())) => {}
+        Ok(Err(err)) => {
+            return indeterminate_report(
+                started,
+                TailBuffer::default(),
+                TailBuffer::default(),
+                format!("执行请求发送失败（{err}）：{INDETERMINATE_ADVICE}"),
+            );
+        }
+        Err(_) => {
+            return indeterminate_report(
+                started,
+                TailBuffer::default(),
+                TailBuffer::default(),
+                format!("执行请求发送超时：{INDETERMINATE_ADVICE}"),
+            );
+        }
+    }
+
+    // 阶段五：收集输出与退出状态。预算用尽即停止等待——远端是否仍在运行无法确认。
+    let mut stdout = TailBuffer::default();
+    let mut stderr = TailBuffer::default();
+    let mut exit_code: Option<u32> = None;
+    let mut exit_signal: Option<String> = None;
+    let mut timed_out = false;
+
+    loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            timed_out = true;
+            break;
+        }
+        match tokio::time::timeout(remaining, channel.wait()).await {
+            Ok(Some(ChannelMsg::Data { data })) => stdout.push(&data),
+            Ok(Some(ChannelMsg::ExtendedData { data, ext: 1 })) => stderr.push(&data),
+            Ok(Some(ChannelMsg::ExitStatus { exit_status })) => exit_code = Some(exit_status),
+            Ok(Some(ChannelMsg::ExitSignal { signal_name, .. })) => {
+                exit_signal = Some(format!("{signal_name:?}"));
+            }
+            // 其他消息（含非标准错误流的扩展数据）不影响判定。
+            Ok(Some(_)) => {}
+            // 通道关闭：正常收尾，也可能是异常收尾——由是否有退出状态决定。
+            Ok(None) => break,
+            Err(_) => {
+                timed_out = true;
+                break;
+            }
+        }
+    }
+
+    // 收尾（失败不影响判定结果，忽略错误）。
+    let _ = channel.close().await;
+    let _ = session.disconnect(Disconnect::ByApplication, "", "").await;
+
+    let truncated = stdout.truncated || stderr.truncated;
+    let truncation_note = if truncated {
+        format!(
+            "；输出超过上限 {} 字节，仅保留尾部（原始输出未完整保留）",
+            MAX_TAIL_BYTES
+        )
+    } else {
+        String::new()
+    };
+    let duration_ms = elapsed_ms(started);
+
+    // 规则 5：收到明确退出状态即为确定结果。
+    if let Some(code) = exit_code {
+        return ExecReport {
+            status: map_exit_status(code),
+            exit_code: Some(exit_code_to_i32(code)),
+            stdout_tail: stdout.into_string(),
+            stderr_tail: stderr.into_string(),
+            duration_ms,
+            truncated,
+            note: format!("已收到退出状态 {code}：命令结束（退出状态为确定结果）{truncation_note}"),
+        };
+    }
+
+    // 远端报告进程被信号终止：这是关于终止的明确报告，按 `failed` 记录（§3.1）。
+    if let Some(signal) = exit_signal {
+        return ExecReport {
+            status: RuntimeExecutionStatus::Failed,
+            exit_code: None,
+            stdout_tail: stdout.into_string(),
+            stderr_tail: stderr.into_string(),
+            duration_ms,
+            truncated,
+            note: format!("远端报告进程被信号 {signal} 终止：判为失败{truncation_note}"),
+        };
+    }
+
+    // 规则 4、6：没有退出状态时不得声称确定结果。
+    let reason = if timed_out {
+        "等待结果超时且未收到退出状态"
+    } else {
+        "通道关闭但未收到退出状态"
+    };
+    ExecReport {
+        status: RuntimeExecutionStatus::Unknown,
+        exit_code: None,
+        stdout_tail: stdout.into_string(),
+        stderr_tail: stderr.into_string(),
+        duration_ms,
+        truncated,
+        note: format!("{reason}：{INDETERMINATE_ADVICE}{truncation_note}"),
+    }
+}
+
+/// 明确退出状态到执行状态的映射（规则 5）。
+fn map_exit_status(exit_code: u32) -> RuntimeExecutionStatus {
+    if exit_code == 0 {
+        RuntimeExecutionStatus::Completed
+    } else {
+        RuntimeExecutionStatus::Failed
+    }
+}
+
+/// 退出码转 `i32`（协议字段为 `u32`；超出 `i32` 范围在实际协议中不会出现，取饱和值）。
+fn exit_code_to_i32(exit_code: u32) -> i32 {
+    i32::try_from(exit_code).unwrap_or(i32::MAX)
+}
+
+/// 耗时毫秒（饱和转换，避免极端情况下的截断）。
+fn elapsed_ms(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+}
+
+/// 距总时限还剩多少预算。返回零表示已耗尽：`tokio::time::timeout` 会立即到期，
+/// 从而把该阶段判为超时，而不是再给一份完整预算。
+fn remaining_budget(deadline: Instant) -> Duration {
+    deadline.saturating_duration_since(Instant::now())
+}
+
+/// 明确失败（连接/认证/通道阶段）的报告：命令未发出，故可安全重试。
+fn failure_report(started: Instant, note: String) -> ExecReport {
+    ExecReport {
+        status: RuntimeExecutionStatus::Failed,
+        exit_code: None,
+        stdout_tail: String::new(),
+        stderr_tail: String::new(),
+        duration_ms: elapsed_ms(started),
+        truncated: false,
+        note,
+    }
+}
+
+/// 结果不确定（命令已发出）的报告：状态必须为 `unknown`（规则 4、6）。
+fn indeterminate_report(
+    started: Instant,
+    stdout: TailBuffer,
+    stderr: TailBuffer,
+    note: String,
+) -> ExecReport {
+    ExecReport {
+        status: RuntimeExecutionStatus::Unknown,
+        exit_code: None,
+        stdout_tail: stdout.into_string(),
+        stderr_tail: stderr.into_string(),
+        duration_ms: elapsed_ms(started),
+        truncated: false,
+        note,
+    }
+}
+
+/// 尾部有界缓冲：只保留最后 [`MAX_TAIL_BYTES`] 字节，并记录是否发生截断。
+#[derive(Debug, Default)]
+struct TailBuffer {
+    bytes: Vec<u8>,
+    truncated: bool,
+}
+
+impl TailBuffer {
+    /// 追加一段输出，超出上限时丢弃最早的部分并置截断标记。
+    fn push(&mut self, chunk: &[u8]) {
+        if chunk.len() >= MAX_TAIL_BYTES {
+            // 单块本身已达到上限：只保留其尾部；仅当确有字节被丢弃时才算截断。
+            let (_, tail) = chunk.split_at(chunk.len() - MAX_TAIL_BYTES);
+            self.truncated |= !self.bytes.is_empty() || chunk.len() > MAX_TAIL_BYTES;
+            self.bytes.clear();
+            self.bytes.extend_from_slice(tail);
+            return;
+        }
+        let total = self.bytes.len() + chunk.len();
+        if total > MAX_TAIL_BYTES {
+            self.bytes.drain(..total - MAX_TAIL_BYTES);
+            self.truncated = true;
+        }
+        self.bytes.extend_from_slice(chunk);
+    }
+
+    /// 有损解码为字符串（远端输出不保证是合法 UTF-8）。
+    fn into_string(self) -> String {
+        String::from_utf8_lossy(&self.bytes).into_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::net::SocketAddr;
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use russh::keys::ssh_key::LineEnding;
+    use russh::keys::{Algorithm, PrivateKey};
+    use russh::server::{Auth, Msg, Server as _, Session as ServerSession};
+    use russh::{Channel, ChannelId};
+    use tokio::net::TcpListener;
+    use whcode_domain::ErrorCode;
+
+    /// 临时私钥文件名序号（并发测试之间不得冲突）。
+    static KEY_SEQ: AtomicU64 = AtomicU64::new(0);
+
+    /// 测试用临时私钥：析构时删除文件。
+    struct TestKey {
+        path: PathBuf,
+    }
+
+    impl TestKey {
+        fn generate(tag: &str) -> Self {
+            let key = PrivateKey::random(&mut rand::rng(), Algorithm::Ed25519)
+                .expect("生成测试私钥应成功");
+            let encoded = key
+                .to_openssh(LineEnding::LF)
+                .expect("编码 OpenSSH 私钥应成功");
+            let seq = KEY_SEQ.fetch_add(1, Ordering::Relaxed);
+            let mut path = std::env::temp_dir();
+            path.push(format!("whcode-ssh-{tag}-{}-{seq}.key", std::process::id()));
+            std::fs::write(&path, encoded.as_bytes()).expect("写入测试私钥应成功");
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TestKey {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.path);
+        }
+    }
+
+    /// 内存测试服务端行为。
+    #[derive(Clone)]
+    enum TestBehavior {
+        /// 接受 exec 后回显固定输出并返回退出状态。
+        Echo {
+            stdout: Vec<u8>,
+            stderr: Vec<u8>,
+            exit_code: u32,
+        },
+        /// 接受 exec 但**不**给出任何结果：用于验证“命令已发出、结果不确定”。
+        Silent,
+    }
+
+    struct TestSshServer {
+        behavior: TestBehavior,
+    }
+
+    struct TestSshSession {
+        behavior: TestBehavior,
+    }
+
+    impl russh::server::Server for TestSshServer {
+        type Handler = TestSshSession;
+
+        fn new_client(&mut self, _peer: Option<SocketAddr>) -> TestSshSession {
+            TestSshSession {
+                behavior: self.behavior.clone(),
+            }
+        }
+    }
+
+    impl russh::server::Handler for TestSshSession {
+        type Error = russh::Error;
+
+        async fn auth_publickey(
+            &mut self,
+            _user: &str,
+            _key: &russh::keys::PublicKey,
+        ) -> Result<Auth, Self::Error> {
+            Ok(Auth::Accept)
+        }
+
+        async fn channel_open_session(
+            &mut self,
+            _channel: Channel<Msg>,
+            reply: russh::server::ChannelOpenHandle,
+            _session: &mut ServerSession,
+        ) -> Result<(), Self::Error> {
+            reply.accept().await;
+            Ok(())
+        }
+
+        async fn exec_request(
+            &mut self,
+            channel: ChannelId,
+            _command: &[u8],
+            session: &mut ServerSession,
+        ) -> Result<(), Self::Error> {
+            if let TestBehavior::Echo {
+                stdout,
+                stderr,
+                exit_code,
+            } = &self.behavior
+            {
+                session.channel_success(channel)?;
+                if !stdout.is_empty() {
+                    session.data(channel, stdout.clone())?;
+                }
+                if !stderr.is_empty() {
+                    session.extended_data(channel, 1, stderr.clone())?;
+                }
+                session.exit_status_request(channel, *exit_code)?;
+                session.eof(channel)?;
+                session.close(channel)?;
+            }
+            Ok(())
+        }
+    }
+
+    /// 在进程内起一个最小 SSH 服务端，运行一次客户端调用；返回报告与登记缓冲。
+    ///
+    /// 登记缓冲以 `Arc` 返回：客户端调用尚未析构时不得移动缓冲本体（借用仍存活）。
+    async fn run_against_test_server(
+        behavior: TestBehavior,
+        timeout_ms: u64,
+    ) -> (Result<ExecReport, WhError>, Arc<CollectingExecRegistry>) {
+        let key = TestKey::generate("e2e");
+        let host_key = PrivateKey::random(&mut rand::rng(), Algorithm::Ed25519)
+            .expect("生成测试主机密钥应成功");
+        let listener = TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .expect("绑定测试端口应成功");
+        let addr = listener.local_addr().expect("读取测试端口应成功");
+
+        let config = Arc::new(russh::server::Config {
+            auth_rejection_time: Duration::from_millis(1),
+            auth_rejection_time_initial: Some(Duration::ZERO),
+            keys: vec![host_key],
+            inactivity_timeout: Some(Duration::from_secs(30)),
+            ..Default::default()
+        });
+        let mut server = TestSshServer { behavior };
+        let mut running = server.run_on_socket(config, &listener);
+        let shutdown = running.handle();
+
+        let registry = Arc::new(CollectingExecRegistry::new());
+        let target = SshTarget {
+            host: "127.0.0.1".to_string(),
+            port: addr.port(),
+            user: "tester".to_string(),
+            private_key_path: key.path().to_path_buf(),
+            command: "whcode-proto-echo".to_string(),
+            timeout_ms,
+        };
+
+        let call = run_command(&target, registry.as_ref());
+        tokio::pin!(call);
+        let outcome = tokio::select! {
+            result = &mut call => result,
+            _ = &mut running => panic!("测试服务端不应提前退出"),
+        };
+
+        shutdown.shutdown("测试结束".to_string());
+        let drained = tokio::time::timeout(Duration::from_secs(5), &mut running).await;
+        assert!(drained.is_ok(), "测试服务端应在收到关闭请求后退出");
+        (outcome, Arc::clone(&registry))
+    }
+
+    #[test]
+    fn exit_status_maps_to_completed_or_failed() {
+        assert_eq!(map_exit_status(0), RuntimeExecutionStatus::Completed);
+        assert_eq!(map_exit_status(1), RuntimeExecutionStatus::Failed);
+        assert_eq!(map_exit_status(255), RuntimeExecutionStatus::Failed);
+    }
+
+    #[test]
+    fn tail_buffer_keeps_tail_and_flags_truncation() {
+        let mut buffer = TailBuffer::default();
+        buffer.push(&vec![b'a'; MAX_TAIL_BYTES]);
+        assert!(!buffer.truncated, "恰好达到上限不应视为截断");
+        buffer.push(b"tail");
+        assert!(buffer.truncated, "超出上限必须标记截断");
+        let text = buffer.into_string();
+        assert_eq!(text.len(), MAX_TAIL_BYTES);
+        assert!(text.ends_with("tail"));
+
+        let mut single = TailBuffer::default();
+        single.push(&vec![b'z'; MAX_TAIL_BYTES + 128]);
+        assert!(single.truncated);
+        assert_eq!(single.into_string().len(), MAX_TAIL_BYTES);
+    }
+
+    #[tokio::test]
+    async fn validation_rejects_invalid_targets_without_any_registry_call() {
+        let key = TestKey::generate("validation");
+        let missing = std::env::temp_dir().join("whcode-ssh-nonexistent-key");
+        let base = SshTarget {
+            host: "127.0.0.1".to_string(),
+            port: 22,
+            user: "tester".to_string(),
+            private_key_path: key.path().to_path_buf(),
+            command: "true".to_string(),
+            timeout_ms: 1000,
+        };
+        let cases = [
+            SshTarget {
+                host: String::new(),
+                ..base.clone()
+            },
+            SshTarget {
+                host: "   ".to_string(),
+                ..base.clone()
+            },
+            SshTarget {
+                user: String::new(),
+                ..base.clone()
+            },
+            SshTarget {
+                command: String::new(),
+                ..base.clone()
+            },
+            SshTarget {
+                timeout_ms: 0,
+                ..base.clone()
+            },
+            SshTarget {
+                private_key_path: missing.clone(),
+                ..base.clone()
+            },
+        ];
+
+        for target in cases {
+            let registry = CollectingExecRegistry::new();
+            let error = run_command(&target, &registry)
+                .await
+                .expect_err("非法目标必须返回错误");
+            assert_eq!(error.code, ErrorCode::InvalidState, "目标：{target:?}");
+            assert!(
+                registry.is_empty(),
+                "校验失败不得发生任何登记副作用（既无意图也无结果）：{target:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn connection_failure_is_failed_and_records_intent_before_result() {
+        let key = TestKey::generate("connfail");
+        let registry = CollectingExecRegistry::new();
+        let target = SshTarget {
+            host: "127.0.0.1".to_string(),
+            // 端口 1 上不会有监听者，连接必然被拒绝。
+            port: 1,
+            user: "tester".to_string(),
+            private_key_path: key.path().to_path_buf(),
+            command: "true".to_string(),
+            timeout_ms: 2000,
+        };
+
+        let report = run_command(&target, &registry)
+            .await
+            .expect("连接失败必须返回报告而不是错误");
+        assert_eq!(report.status, RuntimeExecutionStatus::Failed);
+        assert_eq!(report.exit_code, None);
+        assert!(report.note.contains("连接阶段"), "note：{}", report.note);
+
+        let calls = registry.calls();
+        assert_eq!(calls.len(), 2, "必须既有意图也有结果：{calls:?}");
+        assert!(matches!(calls[0], RegistryCall::Intent { .. }));
+        assert!(matches!(
+            calls[1],
+            RegistryCall::Result {
+                status: RuntimeExecutionStatus::Failed,
+                exit_code: None,
+                ..
+            }
+        ));
+    }
+
+    struct FailingIntentRegistry;
+
+    impl ExecRegistry for FailingIntentRegistry {
+        fn record_intent(&self, _target: &SshTarget) -> Result<(), WhError> {
+            Err(WhError::internal("意图登记失败（测试）"))
+        }
+
+        fn record_result(&self, _report: &ExecReport) -> Result<(), WhError> {
+            Ok(())
+        }
+    }
+
+    struct FailingResultRegistry;
+
+    impl ExecRegistry for FailingResultRegistry {
+        fn record_intent(&self, _target: &SshTarget) -> Result<(), WhError> {
+            Ok(())
+        }
+
+        fn record_result(&self, _report: &ExecReport) -> Result<(), WhError> {
+            Err(WhError::internal("结果登记失败（测试）"))
+        }
+    }
+
+    #[tokio::test]
+    async fn registry_failures_are_propagated() {
+        let key = TestKey::generate("registry");
+        let target = SshTarget {
+            host: "127.0.0.1".to_string(),
+            port: 1,
+            user: "tester".to_string(),
+            private_key_path: key.path().to_path_buf(),
+            command: "true".to_string(),
+            timeout_ms: 2000,
+        };
+
+        let error = run_command(&target, &FailingIntentRegistry)
+            .await
+            .expect_err("意图登记失败必须返回错误");
+        assert_eq!(error.code, ErrorCode::Internal);
+
+        let error = run_command(&target, &FailingResultRegistry)
+            .await
+            .expect_err("结果登记失败不得被视为成功");
+        assert_eq!(error.code, ErrorCode::Internal);
+    }
+
+    #[tokio::test]
+    async fn end_to_end_exec_reports_completed_with_output() {
+        let (outcome, registry) = run_against_test_server(
+            TestBehavior::Echo {
+                stdout: b"whcode-proto-stdout\n".to_vec(),
+                stderr: b"whcode-proto-stderr\n".to_vec(),
+                exit_code: 0,
+            },
+            10_000,
+        )
+        .await;
+
+        let report = outcome.expect("远端正常结束时必须返回报告");
+        assert_eq!(report.status, RuntimeExecutionStatus::Completed);
+        assert_eq!(report.exit_code, Some(0));
+        assert!(
+            report.stdout_tail.contains("whcode-proto-stdout"),
+            "stdout 尾部：{}",
+            report.stdout_tail
+        );
+        assert!(
+            report.stderr_tail.contains("whcode-proto-stderr"),
+            "stderr 尾部：{}",
+            report.stderr_tail
+        );
+        assert!(!report.truncated);
+
+        let calls = registry.calls();
+        assert_eq!(calls.len(), 2, "必须既有意图也有结果：{calls:?}");
+        assert!(matches!(calls[0], RegistryCall::Intent { .. }));
+        assert!(matches!(
+            calls[1],
+            RegistryCall::Result {
+                status: RuntimeExecutionStatus::Completed,
+                exit_code: Some(0),
+                ..
+            }
+        ));
+    }
+
+    #[tokio::test]
+    async fn end_to_end_nonzero_exit_is_failed() {
+        let (outcome, _registry) = run_against_test_server(
+            TestBehavior::Echo {
+                stdout: Vec::new(),
+                stderr: b"boom\n".to_vec(),
+                exit_code: 7,
+            },
+            10_000,
+        )
+        .await;
+
+        let report = outcome.expect("非零退出同样必须返回报告");
+        assert_eq!(report.status, RuntimeExecutionStatus::Failed);
+        assert_eq!(report.exit_code, Some(7));
+        assert!(report.stderr_tail.contains("boom"));
+    }
+
+    #[tokio::test]
+    async fn end_to_end_large_output_is_truncated_to_tail() {
+        let marker = b"WHCODE-TAIL-END";
+        let mut data = vec![b'a'; MAX_TAIL_BYTES + 4096];
+        let marker_start = data.len() - marker.len();
+        let (_, tail) = data.split_at_mut(marker_start);
+        tail.copy_from_slice(marker);
+        let expected_tail = data[data.len() - MAX_TAIL_BYTES..].to_vec();
+
+        let (outcome, registry) = run_against_test_server(
+            TestBehavior::Echo {
+                stdout: data.clone(),
+                stderr: Vec::new(),
+                exit_code: 0,
+            },
+            20_000,
+        )
+        .await;
+
+        let report = outcome.expect("大输出同样必须返回报告");
+        assert_eq!(report.status, RuntimeExecutionStatus::Completed);
+        assert_eq!(report.exit_code, Some(0));
+        assert!(report.truncated, "超过上限必须标记截断");
+        assert_eq!(report.stdout_tail.len(), MAX_TAIL_BYTES);
+        assert_eq!(report.stdout_tail.as_bytes(), expected_tail.as_slice());
+        assert!(report.stdout_tail.ends_with("WHCODE-TAIL-END"));
+        assert!(
+            report.note.contains("截断") || report.note.contains("仅保留尾部"),
+            "note 必须写明截断事实：{}",
+            report.note
+        );
+        assert_eq!(registry.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn command_without_exit_status_is_unknown_not_completed_or_failed() {
+        let (outcome, registry) = run_against_test_server(TestBehavior::Silent, 300).await;
+
+        let report = outcome.expect("结果不确定同样必须返回报告");
+        assert_eq!(report.status, RuntimeExecutionStatus::Unknown);
+        assert_ne!(report.status, RuntimeExecutionStatus::Completed);
+        assert_ne!(report.status, RuntimeExecutionStatus::Failed);
+        assert_eq!(report.exit_code, None);
+        assert!(report.note.contains("必须核对"), "note：{}", report.note);
+        assert!(
+            report.note.contains("不得盲目重放"),
+            "note：{}",
+            report.note
+        );
+        assert_eq!(registry.calls().len(), 2, "不确定状态同样必须登记结果");
+    }
+}
