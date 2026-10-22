@@ -20,7 +20,7 @@ DuckDB 以**官方预编译动态库**（而非源码构建）引入，理由有
 |---|---|
 | `ci/fetch-duckdb.py` | 按固定 URL + SHA256 拉取官方预编译包并解包到 `vendor/duckdb/<version>/` |
 | `.cargo/config.toml` `[env] DUCKDB_LIB_DIR` | 指向解包目录（相对仓库根；未拉取时构建**显式失败**） |
-| `crates/whcode-store/build.rs` | 仅 Windows：把 `duckdb.dll` 复制到 `<profile>/` 与 `<profile>/deps/`，使二进制与测试进程能加载 |
+| `crates/whcode-store/build.rs` | 存在 `duckdb.dll` 的平台上把该文件复制到 `<profile>/` 与 `<profile>/deps/`，使二进制与测试进程能加载（按载荷存在性分流，不做平台判定，NFR-101） |
 | `.gitignore` `/vendor` | 预编译二进制不入库；`PROVENANCE.txt` 留证 |
 
 **禁止**在没有新 ADR 的情况下切换默认持久化后端，或以某平台构建困难为由静默降级（任务书封面约束、§9.1）。

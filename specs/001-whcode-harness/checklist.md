@@ -14,43 +14,43 @@
 
 ### Phase 1 Setup（T001—T009）
 
-- [ ] Check 1: 仓库根 `Cargo.toml` 声明 13 个成员 crate（whcode-domain—whcode-bin）且 `cargo metadata` 解析成功（来源：Task T001）
-- [ ] Check 2: 仓库根存在 `rust-toolchain.toml`，版本号已锁定 1.99.1（无占位字符串）；host triple 按平台 runner 默认值、Windows 使用 msvc（来源：Task T002、T021、D-01 修订）
-- [ ] Check 3: `rustfmt.toml` 存在且 CI 对 fmt/clippy 运行并 deny warnings（来源：Task T003）
-- [ ] Check 4: `crates/` 下 13 个 crate 目录各有可编译入口（lib.rs 或 main.rs）（来源：Task T004）
-- [ ] Check 5: `ci/platform-matrix/` 含 freebsd/openbsd/netbsd/dragonfly/windows 五个 CI 配置文件（来源：Task T005）
-- [ ] Check 6: `docs/guides/pr-checklist.md` 含任务书 §15 七项清单且被 PR 模板引用（来源：Task T006）
-- [ ] Check 7: `docs/adr/ADR-001.md`—`ADR-010.md` 存在并标注未批准/批准状态（来源：Task T007、T029）
-- [ ] Check 8: `tests/{unit,contract,integration,crash,stability,fixtures}/` 六个目录存在且各有 README 说明用途（来源：Task T008）
-- [ ] Check 9: workspace `Cargo.toml` 中可选运行时 feature 默认关闭，默认 `cargo build` 不引入运行时依赖（来源：Task T009、FR-704）
+- [x] Check 1: 仓库根 `Cargo.toml` 声明 13 个成员 crate（whcode-domain—whcode-bin）且 `cargo metadata` 解析成功（来源：Task T001）——**复核（2026-10-23，批次一）**：`Cargo.toml` members 列出 13 个 crate（另含 `tests` 包）；`cargo build/test --workspace` 本轮通过，元数据可解析
+- [x] Check 2: 仓库根存在 `rust-toolchain.toml`，版本号已锁定 1.99.1（无占位字符串）；host triple 按平台 runner 默认值、Windows 使用 msvc（来源：Task T002、T021、D-01 修订）——**复核（2026-10-23，批次一）**：`rust-toolchain.toml` `channel = "1.99.1"`（无占位），components 含 rustfmt/clippy；与 `artifacts/deps-windows.txt` 的 `pinned_channel = 1.99.1` 一致
+- [ ] Check 3: `rustfmt.toml` 存在且 CI 对 fmt/clippy 运行并 deny warnings（来源：Task T003）——**复核（2026-10-23，批次一）**：**未通过**：`rustfmt.toml` 存在，`ci/platform-matrix/windows.yml` 亦含 `cargo fmt --all --check` 与 `clippy … -D warnings`；但仓库无 `.github/workflows/`，该工作流从未被平台执行——CI 侧运行证据未取得（缺陷已登记）
+- [x] Check 4: `crates/` 下 13 个 crate 目录各有可编译入口（lib.rs 或 main.rs）（来源：Task T004）——**复核（2026-10-23，批次一）**：13 个 crate 均有 `src/lib.rs`（`whcode-bin` 为 `src/main.rs`），`cargo build --workspace` 通过
+- [x] Check 5: `ci/platform-matrix/` 含 freebsd/openbsd/netbsd/dragonfly/windows 五个 CI 配置文件（来源：Task T005）——**复核（2026-10-23，批次一）**：`ci/platform-matrix/{freebsd,openbsd,netbsd,dragonfly,windows}.yml` 均存在，`python script/check_workflows.py` 五份全 OK
+- [x] Check 6: `docs/guides/pr-checklist.md` 含任务书 §15 七项清单且被 PR 模板引用（来源：Task T006）——**复核（2026-10-23，批次一）**：`docs/guides/pr-checklist.md` §15 七项齐备；`.github/PULL_REQUEST_TEMPLATE.md` 引用并逐项复制（本轮同时删除该清单的三条重复项）
+- [x] Check 7: `docs/adr/ADR-001.md`—`ADR-010.md` 存在并标注未批准/批准状态（来源：Task T007、T029）——**复核（2026-10-23，批次一）**：`docs/adr/ADR-001.md`—`ADR-010.md` 均存在且首部标状态（001—004/006—009 已批准，005/010 部分批准并写明未决条件）
+- [x] Check 8: `tests/{unit,contract,integration,crash,stability,fixtures}/` 六个目录存在且各有 README 说明用途（来源：Task T008）——**复核（2026-10-23，批次一）**：`tests/{unit,contract,integration,crash,stability,fixtures}/` 六目录存在且各有 README；`layout` 7/7 强制
+- [x] Check 9: workspace `Cargo.toml` 中可选运行时 feature 默认关闭，默认 `cargo build` 不引入运行时依赖（来源：Task T009、FR-704）——**复核（2026-10-23，批次一）**：`whcode-runtime/Cargo.toml` 与 `whcode-bin/Cargo.toml` 的 `default = []`，`runtime-js/python/gitbash` 均为空特性，运行时依赖不在 workspace 依赖表内
 
 ### Phase 2 Foundational（T010—T019）
 
-- [ ] Check 10: `crates/whcode-domain/src/state.rs` 定义任务/LLM 请求/运行时执行/SDD 阶段四组枚举，取值与 data-model.md §2 完全一致（来源：Task T010、spec §3.1）
-- [ ] Check 11: `crates/whcode-domain/src/event.rs` 定义全部事件类型枚举与 payload 上限常量（来源：Task T011、FR-201）
-- [ ] Check 12: `crates/whcode-domain/src/error.rs` 的错误对象含 code/message/retryable/details 四字段且有序列化测试（来源：Task T012）
-- [ ] Check 13: `crates/whcode-domain/src/gate.rs` 阶段转换记录含来源阶段、目标阶段、执行者、校验结果、时间戳五要素（来源：Task T013）
-- [ ] Check 14: `crates/whcode-platform/` 之外无 `cfg(target_os)` 平台分支（grep 验证）（来源：Task T014、NFR-101）
-- [ ] Check 15: `crates/whcode-app/src/queue.rs` 有界队列对关键命令返回背压错误、对展示快照执行合并（单元测试断言两种行为）（来源：Task T015）
-- [ ] Check 16: 配置默认值符合基线：`memory_limit`=192 MB、`threads`≤min(4,物理核)、追踪级别=redacted（配置加载测试断言）（来源：Task T016、§5.4、D-05）
-- [ ] Check 17: 日志初始化含脱敏过滤器，测试断言 API Key 形态字符串不出现在日志输出（来源：Task T017、FR-203）
-- [ ] Check 18: 审计记录类型含 actor/action/target/detail_json/ts 且提供强制写入钩子（来源：Task T018、§10.3）
-- [ ] Check 19: `tests/contract/test_layering.rs` 通过：前端 crate 依赖图中无指向 `whcode-store` 写入路径的边（来源：Task T019、ADR-003）
+- [x] Check 10: `crates/whcode-domain/src/state.rs` 定义任务/LLM 请求/运行时执行/SDD 阶段四组枚举，取值与 data-model.md §2 完全一致（来源：Task T010、spec §3.1）——**复核（2026-10-23，批次一）**：`state.rs` 四组枚举逐值与 data-model.md §2 一致：Task 9 值、LLM 6 值、Runtime 7 值、SDD 6 值（`state.rs` 36—44/82—87/122—128/170—175）
+- [x] Check 11: `crates/whcode-domain/src/event.rs` 定义全部事件类型枚举与 payload 上限常量（来源：Task T011、FR-201）——**复核（2026-10-23，批次一）**：`event.rs`：`EventKind`、`MAX_PAYLOAD_BYTES = 1 MiB`、`PersistenceLevel`；超限载荷用例（`event.rs` 350 起）断言被拒
+- [x] Check 12: `crates/whcode-domain/src/error.rs` 的错误对象含 code/message/retryable/details 四字段且有序列化测试（来源：Task T012）——**复核（2026-10-23，批次一）**：`error.rs` 四字段（code/message/retryable/details）+ `SCHEMA_VERSION`；用例 `error_envelope_has_schema_version_and_four_fields`、`ok_envelope_flattens_payload_next_to_schema_version` 通过
+- [x] Check 13: `crates/whcode-domain/src/gate.rs` 阶段转换记录含来源阶段、目标阶段、执行者、校验结果、时间戳五要素（来源：Task T013）——**复核（2026-10-23，批次一）**：`gate.rs` `StageTransition { from, to, actor, validation, ts_ms }` 五要素齐备，`GateResult` 记录门禁判定与理由
+- [x] Check 14: `crates/whcode-platform/` 之外无 `cfg(target_os)` 平台分支（grep 验证）（来源：Task T014、NFR-101）——**复核（2026-10-23，批次一）**：`cargo test -p whcode-tests --test layering` 6/6 通过（本轮补入 `cfg!(windows`/`cfg!(unix` 宏形态后仍全绿）
+- [x] Check 15: `crates/whcode-app/src/queue.rs` 有界队列对关键命令返回背压错误、对展示快照执行合并（单元测试断言两种行为）（来源：Task T015）——**复核（2026-10-23，批次一）**：`app/queue.rs`：`critical_push_returns_backpressure_when_full`、`snapshot_push_drops_oldest_snapshot_and_counts`、`snapshot_must_not_evict_critical_entries` 等 6 例通过
+- [x] Check 16: 配置默认值符合基线：`memory_limit`=192 MB、`threads`≤min(4,物理核)、追踪级别=redacted（配置加载测试断言）（来源：Task T016、§5.4、D-05）——**复核（2026-10-23，批次一）**：`bin/config.rs`：`DEFAULT_MEMORY_LIMIT_MB = 192`、`threads = thread_budget(cores)`（断言精确值且 ≤4）、默认 `TraceLevel::Redacted`（`config.rs` 152—158）
+- [x] Check 17: 日志初始化含脱敏过滤器，测试断言 API Key 形态字符串不出现在日志输出（来源：Task T017、FR-203）——**复核（2026-10-23，批次一）**：`bin/logging.rs` 脱敏 7 例通过，含 `log_path_never_emits_raw_secret`（`sk-`/`Bearer`/`ghp_` 三类前缀 + 敏感键名）
+- [x] Check 18: 审计记录类型含 actor/action/target/detail_json/ts 且提供强制写入钩子（来源：Task T018、§10.3）——**复核（2026-10-23，批次一）**：`audit.rs`：`AuditRecord { actor, action, target, detail, ts_ms }` 与 `AuditSink` 强制写入钩子（`CollectingAuditSink` 实现）
+- [x] Check 19: `tests/contract/test_layering.rs` 通过：前端 crate 依赖图中无指向 `whcode-store` 写入路径的边（来源：Task T019、ADR-003）——**复核（2026-10-23，批次一）**：同一 `layering` 目标 6/6：前端 crate 依赖图无 `whcode-store` 边、domain 无内部依赖、前端互不依赖
 
 ### Phase 3 US1 M0（T020—T031）🎯 MVP
 
-- [ ] Check 20: Windows 与 FreeBSD/NetBSD 各产出一份 `artifacts/deps-<platform>.txt`，含 Rust/DuckDB/编译器/OS 四类版本号；分平台判定，Windows 与四 BSD 分别取证，不得以单一平台代替；OpenBSD/DragonFly BSD 已移出原生目标，不要求原生依赖记录（来源：Task T020、V-001、ADR-011）
-- [ ] Check 21: `rust-toolchain.toml` 锁定版本与各平台依赖记录中 Rust 版本一致；分平台判定，Windows 与四 BSD 分别取证，不得以单一平台代替（来源：Task T021、V-001）
-- [ ] Check 22: Windows 与 FreeBSD/NetBSD 的数据库冒烟（创建/事务写读/关闭重启/迁移）通过并留存日志；分平台判定，Windows 与四 BSD 分别取证，不得以单一平台代替；OpenBSD/DragonFly BSD 不作为原生目标判定（来源：Task T022、V-002、ADR-011）
-- [ ] Check 23: `docs/adr/ADR-DB-BUILD.md` 按平台记录构建方式、补丁与上游状态，且与实际构建产物一致（来源：Task T023、R-01）
+- [ ] Check 20: Windows 与 FreeBSD/NetBSD 各产出一份 `artifacts/deps-<platform>.txt`，含 Rust/DuckDB/编译器/OS 四类版本号；分平台判定，Windows 与四 BSD 分别取证，不得以单一平台代替；OpenBSD/DragonFly BSD 已移出原生目标，不要求原生依赖记录（来源：Task T020、V-001、ADR-011）——**复核（2026-10-23，批次一）**：**部分未通过（分平台口径）**：`artifacts/deps-windows.txt` 含 OS/host triple、rustc/cargo、MSVC、DuckDB 四类记录；FreeBSD/NetBSD 无平台环境（M0 阻塞项 B-01），不得以 Windows 代替
+- [ ] Check 21: `rust-toolchain.toml` 锁定版本与各平台依赖记录中 Rust 版本一致；分平台判定，Windows 与四 BSD 分别取证，不得以单一平台代替（来源：Task T021、V-001）——**复核（2026-10-23，批次一）**：**部分未通过（分平台口径）**：Windows 锁定版本与依赖记录一致（1.99.1）；FreeBSD/NetBSD 无依赖记录可校
+- [ ] Check 22: Windows 与 FreeBSD/NetBSD 的数据库冒烟（创建/事务写读/关闭重启/迁移）通过并留存日志；分平台判定，Windows 与四 BSD 分别取证，不得以单一平台代替；OpenBSD/DragonFly BSD 不作为原生目标判定（来源：Task T022、V-002、ADR-011）——**复核（2026-10-23，批次一）**：**部分未通过（分平台口径）**：Windows 冒烟四步（建库/事务写读/关闭重启/迁移）由 `whcode-store` 内联用例覆盖并通过；FreeBSD/NetBSD 未取得
+- [x] Check 23: `docs/adr/ADR-DB-BUILD.md` 按平台记录构建方式、补丁与上游状态，且与实际构建产物一致（来源：Task T023、R-01）——**复核（2026-10-23，批次一）**：`ADR-DB-BUILD.md` 记录自官方预编译动态库、`ci/fetch-duckdb.py` 的 URL+SHA256、运行期 `v1.5.6` 实测，与 `deps-windows.txt` 载荷哈希一致
 - [x] Check 24: Windows 11 amd64 TUI 冒烟（启动/字符键盘/resize/Ctrl-C/q）有桌面自动化记录，强杀后可读作为异常恢复补充；方向键/选中项未实现不计入；raw mode 残留未独立验证。用户 2026-10-21 复核接受（来源：Task T024、V-003、`artifacts/tui-manual-2026-10-21.txt`）
-- [ ] Check 25: 内置 SSH 客户端（FR-611）在 Windows 与四类 BSD 的连通性、受限命令、超时与输出上限有客户端侧记录；FreeBSD/NetBSD 服务端验收属 M7，V-004 未取得证据者须标明阻塞（来源：Task T025、FR-611、ADR-011）
-- [ ] Check 26: 写者原型测试通过：重复幂等键去重、批次阈值触发、关键事件 flush 确认、写入失败返回可重试错误（来源：Task T026、V-005）
-- [ ] Check 27: 基线报告含全部测量纪律字段（OS/硬件/编译类型/工具链/DuckDB 版本/参数/数据规模/采样窗口/脚本）（来源：Task T027、V-006）
-- [ ] Check 28: `docs/matrices/platform-matrix.md` 标注各预算为“已冻结”或链接修订 ADR，无“未测量即承诺”表述（来源：Task T028、V-006）
-- [ ] Check 29: ADR-001—014 批准记录各含决策、理由、约束、状态、责任人、退出条件六要素（来源：Task T029、V-007）
-- [ ] Check 30: `docs/matrices/decisions.md` 对 D-01/D-02/D-03/D-04/D-06/D-12/D-13/D-14 各有决策结果与证据引用（来源：Task T030）
-- [ ] Check 31: `artifacts/m0-report.md` 含五平台证据包链接与逐平台 Go/No-Go 陈述；ADR-013 后仅 Windows 作为验收结论，其余平台标注延后（来源：Task T031、§11.1、ADR-013）
+- [ ] Check 25: 内置 SSH 客户端（FR-611）在 Windows 与四类 BSD 的连通性、受限命令、超时与输出上限有客户端侧记录；FreeBSD/NetBSD 服务端验收属 M7，V-004 未取得证据者须标明阻塞（来源：Task T025、FR-611、ADR-011）——**复核（2026-10-23，批次一）**：**未通过**：客户端原型 9 例（含连接失败/退出码映射/超时）通过，但 Windows 与四类 BSD 的连通性、受限命令、超时与输出上限的**平台记录未取得**（V-004 属 M7，ADR-013 延后）
+- [x] Check 26: 写者原型测试通过：重复幂等键去重、批次阈值触发、关键事件 flush 确认、写入失败返回可重试错误（来源：Task T026、V-005）——**复核（2026-10-23，批次一）**：`whcode-store` 90 例通过，含幂等键去重、批次阈值、关键事件 flush 确认、失败后重试 seq 无歧义（`writer.rs` 相关用例）
+- [x] Check 27: 基线报告含全部测量纪律字段（OS/硬件/编译类型/工具链/DuckDB 版本/参数/数据规模/采样窗口/脚本）（来源：Task T027、V-006）——**复核（2026-10-23，批次一）**：`artifacts/m0-report.md` §2 测量纪律 11 字段齐备（OS/CPU/内存/编译类型/工具链/DuckDB/参数/规模/采样/脚本）；`baseline-192mb.json` 中机器采集字段显式标注由编排脚本补齐，未伪造
+- [x] Check 28: `docs/matrices/platform-matrix.md` 标注各预算为“已冻结”或链接修订 ADR，无“未测量即承诺”表述（来源：Task T028、V-006）——**复核（2026-10-23，批次一）**：`docs/matrices/platform-matrix.md` 明写“**结论：未冻结**”并列出 5 条冻结条件；无“未测量即承诺”的表述
+- [x] Check 29: ADR-001—014 批准记录各含决策、理由、约束、状态、责任人、退出条件六要素（来源：Task T029、V-007）——**复核（2026-10-23，批次一）**：抽查 ADR-001/005/010/012/016：均含决策、理由与约束、状态、责任人、退出条件；005/010/012 为部分批准并写明未决条件与解除路径
+- [x] Check 30: `docs/matrices/decisions.md` 对 D-01/D-02/D-03/D-04/D-06/D-12/D-13/D-14 各有决策结果与证据引用（来源：Task T030）——**复核（2026-10-23，批次一）**：`docs/matrices/decisions.md` 含 D-01—D-14 全表（决策/依据/责任人/状态）与 R-01—R-13 风险台账；D-06 标未冻结
+- [x] Check 31: `artifacts/m0-report.md` 含五平台证据包链接与逐平台 Go/No-Go 陈述；ADR-013 后仅 Windows 作为验收结论，其余平台标注延后（来源：Task T031、§11.1、ADR-013）——**复核（2026-10-23，批次一）**：`artifacts/m0-report.md` §1 逐平台 Go/No-Go（Windows Go；FreeBSD/NetBSD 环境阻塞；OpenBSD/DragonFly 不适用），并引用 ADR-013/016 的当前口径
 
 ### Phase 4 US2 M1（T032—T045）
 
