@@ -54,9 +54,9 @@ fn token_never_passes_through_url_query() {
 
 /// Origin 必须命中允许集（§10.2）；回环默认放行。
 ///
-/// 2026-10-22 修订（ADR-022）：命中按 scheme + host（端口不参与——浏览器携带实际
-/// 端口）；缺失 Origin 在**回环模式**放行（同源 GET 与 CLI 客户端不带 Origin），
-/// **认证模式**（对外监听）仍要求 Origin。威胁模型不变：非回环 host 一律拒绝。
+/// 2026-10-22 修订（ADR-022/ADR-023）：命中按 scheme + host（端口不参与——浏览器
+/// 携带实际端口）；**缺失 Origin 两种模式均放行**（同源 GET 与 CLI 客户端不带
+/// Origin；认证模式由 Bearer token 阻断跨站）。威胁模型不变：非回环 host 一律拒绝。
 #[test]
 fn origin_checks_apply() {
     // 回环来源：任意端口命中；真实浏览器 Origin 形如 http://127.0.0.1:<port>。
@@ -72,8 +72,8 @@ fn origin_checks_apply() {
         "回环模式缺 Origin 放行（ADR-022）"
     );
     assert!(
-        check_origin(true, &whcode_web::security::ALLOWED_ORIGINS, None).is_err(),
-        "认证模式缺 Origin 必须拒绝"
+        check_origin(true, &whcode_web::security::ALLOWED_ORIGINS, None).is_ok(),
+        "认证模式缺 Origin 放行（ADR-023）；跨站由 Bearer 阻断"
     );
 }
 
@@ -97,6 +97,7 @@ fn web_error_envelope_matches_cui() {
         &conn,
         true,
         Some("tok"),
+        &whcode_web::security::ALLOWED_ORIGINS,
         &request(Method::Get, "/api/sessions", vec![]),
         &actor,
     );

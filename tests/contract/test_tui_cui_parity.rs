@@ -148,6 +148,7 @@ fn same_read_commands_yield_identical_state_across_cui_and_web() {
         &conn,
         false,
         None,
+        &whcode_web::security::ALLOWED_ORIGINS,
         &request(Method::Get, "/api/events?session=S-P&after=0"),
         &actor,
     );
@@ -178,6 +179,7 @@ fn same_read_commands_yield_identical_state_across_cui_and_web() {
         &conn,
         false,
         None,
+        &whcode_web::security::ALLOWED_ORIGINS,
         &request(Method::Get, "/api/sessions"),
         &actor,
     );
@@ -199,6 +201,7 @@ fn same_read_commands_yield_identical_state_across_cui_and_web() {
         &conn,
         false,
         None,
+        &whcode_web::security::ALLOWED_ORIGINS,
         &request(Method::Get, "/api/tasks?session=S-P"),
         &actor,
     );

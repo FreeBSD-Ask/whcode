@@ -1,0 +1,48 @@
+WHCode Web 局域网部署取证（批次 4；ADR-023；2026-10-22）
+二进制：target/release/whcode.exe（release）
+工作区：artifacts/web-demo（演示数据）
+绑定：192.168.5.4:8742（以太网 2，RFC1918）；token 文件 /tmp/whcode-token.txt（内容为一次性测试
+token，取证后删除；本记录不写入 token 值）
+
+一、地址边界（"仅限局域网"）
+  1. `--bind 192.168.5.4:8742`（无 --token-file）→ 退出码 1：
+     "局域网监听必须提供 --token-file（ADR-023…）"。
+  2. `--bind 8.8.8.8:8743 --token-file …` → 退出码 1：
+     "绑定 8.8.8.8:8743 不在局域网范围（仅回环或 RFC1918 私网，ADR-023）：拒绝启动"。
+  3. `--bind 0.0.0.0:8743 --token-file …` → 退出码 1（同上，通配拒绝）。
+  4. `--bind 127.0.0.1:8737`（默认回环）→ 正常启动（既有行为不变）。
+  单元测试：`bind::lan_policy_allows_private_ranges_only`（10/8、172.16/12、192.168/16 允许；
+  公网与通配拒绝；即使开启认证）。
+
+二、认证与 Origin 矩阵（局域网监听，Bearer token）
+  | 请求 | 结果 |
+  |---|---|
+  | 无 token（同源无 Origin） | 403 |
+  | 错误 token | 403 |
+  | 正确 token + 正确 Origin | 200 |
+  | 正确 token + 其他 Origin（evil.example） | 403 |
+  | 无 Origin + 正确 token（同源 GET 真实形态） | 200（ADR-023 修订：缺失 Origin 放行） |
+  | 静态外壳 `/`（无 token） | 200（界面壳无业务数据；数据全部经 /api/*） |
+  | WS 握手无 token | 403 |
+  | WS 握手 + token + Origin | 101 Switching Protocols |
+
+三、浏览器（真实页面，局域网地址）
+  - `http://192.168.5.4:8742/?locale=en&session=S-DEMO-1`（无 token）：
+    页面可打开（外壳），API 403 → 页脚「未连接」、事件 0 行。
+  - `http://192.168.5.4:8742/?locale=en&session=S-DEMO-1#token=<TEST-TOKEN>`：
+    页脚「Connected · Cursor 6」、事件 6 行、任务「total 3 · done 1 · blocked 0」+
+    「T-DEMO-1 … [running]」——**token 经 fragment 传递，未出现在任何请求 URL/服务器日志**。
+  - 说明：首次复核因浏览器缓存旧 app.js 而失败（新增 `cache-control: no-store` 后
+    强制刷新即通过）；该响应头已固化到静态/API 响应，避免前端版本陈旧。
+
+四、实现要点（ADR-023）
+  - `--token-file PATH`：token 只从文件读取（不经命令行），空文件拒绝启动；
+  - 局域网绑定强制 auth + origin 检查；Origin 允许集 = 绑定地址 + localhost/127.0.0.1 同端口；
+  - 认证模式缺失 Origin 放行（同源 GET/CLI；跨站由 Bearer 阻断）；Origin 存在时必须命中；
+  - 前端从 URL fragment 读取 token（`#token=`），内存保存并以 `Authorization` 头调用 API；
+  - 浏览器无法为 WebSocket 设置自定义头 → 认证模式下列表页不使用 WS（前端轮询，T094）。
+
+五、未取得 / 限制（显式标注）
+  - 不承诺公网暴露、TLS、暴力破解防护（ADR-023 退出条件）；
+  - 多用户隔离/审计未实现（token 为单令牌）；
+  - 浏览器端 20 次最小化循环等 Check 228 项仍缺运行时断言（见 Check 227/228 备注）。

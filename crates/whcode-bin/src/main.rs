@@ -65,9 +65,8 @@ fn main() -> ExitCode {
         // - 仅含旗标（如 `--workspace DIR`）或无参数 → 交互入口（TUI/骨架提示）；
         // - `--help`/`-h` → CUI 帮助（成功退出）。
         _ => {
-            if args.iter().any(|arg| arg == "--help" || arg == "-h") {
-                cui_dispatch::dispatch(&args)
-            } else if first_positional(&args).is_some() {
+            let wants_help = args.iter().any(|arg| arg == "--help" || arg == "-h");
+            if wants_help || first_positional(&args).is_some() {
                 cui_dispatch::dispatch(&args)
             } else {
                 launch_interactive(&args)

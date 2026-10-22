@@ -199,6 +199,7 @@ pub fn handle_request(
     conn: &Connection,
     auth_enabled: bool,
     token: Option<&str>,
+    allowed_origins: &[&str],
     request: &HttpRequest,
     actor: &Actor,
 ) -> HttpResponse {
@@ -207,11 +208,9 @@ pub fn handle_request(
         return error_response(&error);
     }
     // Origin 允许集默认回环来源；对外部署须显式扩展（V-110 门禁在 bind 层）。
-    if let Err(error) = security::check_origin(
-        auth_enabled,
-        &security::ALLOWED_ORIGINS,
-        request.header("origin"),
-    ) {
+    if let Err(error) =
+        security::check_origin(auth_enabled, allowed_origins, request.header("origin"))
+    {
         return error_response(&error);
     }
 
@@ -375,7 +374,7 @@ mod tests {
         let conn = migrated();
         let actor = actor_with_all_capabilities("tester");
         let req = request(Method::Get, "/api/i18n?locale=en", false);
-        let response = handle_request(&conn, false, None, &req, &actor);
+        let response = handle_request(&conn, false, None, &security::ALLOWED_ORIGINS, &req, &actor);
         assert_eq!(response.status, 200);
         let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
         assert_eq!(body["locale"], "en");
@@ -385,7 +384,7 @@ mod tests {
 
         // 阿拉伯语：rtl=true（文本回退 en——未提供阿语目录，不伪造翻译）。
         let req = request(Method::Get, "/api/i18n?locale=ar", false);
-        let response = handle_request(&conn, false, None, &req, &actor);
+        let response = handle_request(&conn, false, None, &security::ALLOWED_ORIGINS, &req, &actor);
         let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
         assert_eq!(body["rtl"], true);
 
@@ -393,7 +392,7 @@ mod tests {
         let mut req = request(Method::Get, "/api/i18n", false);
         req.headers
             .push(("accept-language".into(), "en-US,en;q=0.9".into()));
-        let response = handle_request(&conn, false, None, &req, &actor);
+        let response = handle_request(&conn, false, None, &security::ALLOWED_ORIGINS, &req, &actor);
         let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
         assert_eq!(body["entries"]["web.conn.connected"], "Connected");
     }
@@ -411,7 +410,7 @@ mod tests {
         let mut req = request(Method::Get, "/api/tasks?session=S-T", false);
         req.headers
             .push(("origin".into(), "http://127.0.0.1".into()));
-        let response = handle_request(&conn, false, None, &req, &actor);
+        let response = handle_request(&conn, false, None, &security::ALLOWED_ORIGINS, &req, &actor);
         assert_eq!(response.status, 200);
         let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
         assert_eq!(body["session_id"], "S-T");
@@ -420,7 +419,7 @@ mod tests {
 
         // 工作区级（缺 session）：session_id 为 null。
         let req = request(Method::Get, "/api/tasks", false);
-        let response = handle_request(&conn, false, None, &req, &actor);
+        let response = handle_request(&conn, false, None, &security::ALLOWED_ORIGINS, &req, &actor);
         assert_eq!(response.status, 200);
         let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
         assert!(body["session_id"].is_null());
@@ -442,6 +441,7 @@ mod tests {
             &conn,
             false,
             None,
+            &security::ALLOWED_ORIGINS,
             &request(Method::Get, "/api/status?session=S-1", false),
             &actor,
         );
@@ -455,6 +455,7 @@ mod tests {
             &conn,
             false,
             None,
+            &security::ALLOWED_ORIGINS,
             &request(Method::Get, "/api/sessions", false),
             &actor,
         );
@@ -467,6 +468,7 @@ mod tests {
             &conn,
             false,
             None,
+            &security::ALLOWED_ORIGINS,
             &request(Method::Get, "/api/events?session=S-1&after=0", false),
             &actor,
         );
@@ -489,6 +491,7 @@ mod tests {
             &conn,
             true,
             Some("tok"),
+            &security::ALLOWED_ORIGINS,
             &request(Method::Get, "/api/sessions", false),
             &actor,
         );
@@ -504,6 +507,7 @@ mod tests {
             &conn,
             true,
             Some("tok"),
+            &security::ALLOWED_ORIGINS,
             &request(Method::Get, "/api/sessions", true),
             &actor,
         );
@@ -512,7 +516,14 @@ mod tests {
         // Origin 非法：403。
         let mut evil = request(Method::Get, "/api/sessions", true);
         evil.headers[0] = ("origin".to_string(), "http://evil.example".to_string());
-        let response = handle_request(&conn, true, Some("tok"), &evil, &actor);
+        let response = handle_request(
+            &conn,
+            true,
+            Some("tok"),
+            &security::ALLOWED_ORIGINS,
+            &evil,
+            &actor,
+        );
         assert_eq!(response.status, 403);
     }
 
@@ -526,6 +537,7 @@ mod tests {
             &conn,
             false,
             None,
+            &security::ALLOWED_ORIGINS,
             &request(Method::Get, "/ws", false),
             &actor,
         );
@@ -535,7 +547,14 @@ mod tests {
             "sec-websocket-key".to_string(),
             "dGhlIHNhbXBsZSBub25jZQ==".to_string(),
         ));
-        let response = handle_request(&conn, false, None, &upgrade, &actor);
+        let response = handle_request(
+            &conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &upgrade,
+            &actor,
+        );
         assert_eq!(response.status, 101);
         assert_eq!(
             response.header("sec-websocket-accept").expect("Accept"),
@@ -548,6 +567,7 @@ mod tests {
             &conn,
             false,
             None,
+            &security::ALLOWED_ORIGINS,
             &request(Method::Get, "/nope", false),
             &actor,
         );

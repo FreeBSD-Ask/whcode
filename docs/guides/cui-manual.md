@@ -95,3 +95,17 @@ whcode doctor [--json]              # 环境与配置自检
 同命令一致性：读命令见 `tests/contract/test_tui_cui_parity.rs`
 （CUI 视图 vs Web `/api/*` 同数据）；写命令跨端一致仍阻塞于 Web 写 API（未交付）。
 批次 2 取证：`artifacts/cui-2026-10-22-batch2.txt`。
+
+## 8. Web 服务（`serve --web`，ADR-023）
+
+```bash
+whcode serve --web                                   # 回环默认（127.0.0.1:8080），无认证
+whcode serve --web --bind 192.168.5.4:8737        --token-file /secure/token.txt                # 局域网（RFC1918）必须带 token 文件
+```
+
+- 地址边界：只允许回环或 RFC1918 私网；公网 IP 与 `0.0.0.0` 拒绝启动（"仅限局域网"）。
+- 局域网监听强制认证与 Origin 检查；token 只从文件读取（不经命令行）。
+- 浏览器凭据：`http://<ip>:<port>/#token=<token>`——fragment 不发送给服务器；
+  前端以 `Authorization: Bearer` 调用 `/api/*`。
+- 静态外壳（`/`、`app.js` 等）无认证即可加载；**业务数据全部经 `/api/*` 且需 token**。
+- 不承诺公网暴露、TLS 与暴力破解防护（ADR-023 退出条件）。

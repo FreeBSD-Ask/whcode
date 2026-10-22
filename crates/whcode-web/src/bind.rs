@@ -60,6 +60,22 @@ pub fn is_loopback(addr: &str) -> bool {
     parse_addr(addr).is_ok_and(|socket| socket.ip().is_loopback())
 }
 
+/// 地址是否 RFC1918 私网（局域网范围，ADR-023）。
+///
+/// 允许 `10/8`、`172.16/12`、`192.168/16`；通配（`0.0.0.0`）、公网与 IPv6 均不属于
+/// 本范围（"Web 仅限局域网"）。
+#[must_use]
+pub fn is_lan(addr: &str) -> bool {
+    parse_addr(addr).is_ok_and(|socket| {
+        let ip = socket.ip();
+        if let std::net::IpAddr::V4(ip) = ip {
+            ip.is_private()
+        } else {
+            false
+        }
+    })
+}
+
 /// 校验绑定配置并生成监听器。
 ///
 /// 门禁（FR-606、V-110）：**非回环**地址且未显式开启认证与 Origin 检查时
@@ -70,6 +86,18 @@ pub fn is_loopback(addr: &str) -> bool {
 /// 地址非法、对外监听未开启认证/Origin 检查、或端口绑定失败时返回 [`WhError`]。
 pub fn bind(config: &BindConfig) -> Result<TcpListener, WhError> {
     let socket = parse_addr(&config.addr)?;
+    // 地址边界（ADR-023）：仅回环或 RFC1918 私网——公网/通配一律拒绝（"仅限局域网"）。
+    if !socket.ip().is_loopback() && !is_lan(&config.addr) {
+        return Err(WhError {
+            code: ErrorCode::InvalidState,
+            message: format!(
+                "绑定 {} 不在局域网范围（仅回环或 RFC1918 私网，ADR-023）：拒绝启动",
+                config.addr
+            ),
+            retryable: false,
+            details: Some(serde_json::json!({ "addr": config.addr, "policy": "lan-only" })),
+        });
+    }
     if !socket.ip().is_loopback() && (!config.auth_enabled || !config.origin_check_enabled) {
         return Err(WhError {
             code: ErrorCode::InvalidState,
@@ -97,6 +125,29 @@ pub fn bind(config: &BindConfig) -> Result<TcpListener, WhError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ADR-023：「仅限局域网」地址边界。
+    #[test]
+    fn lan_policy_allows_private_ranges_only() {
+        for lan in ["10.0.0.5:8080", "172.16.8.9:1", "192.168.5.4:8737"] {
+            assert!(is_lan(lan), "{lan} 属 RFC1918");
+            assert!(!is_loopback(lan));
+        }
+        for other in ["8.8.8.8:80", "0.0.0.0:8080", "172.32.0.1:80", "1.1.1.1:1"] {
+            assert!(!is_lan(other), "{other} 不属局域网范围");
+        }
+        // 公网/通配地址拒绝启动（即使开启了认证）。
+        for addr in ["8.8.8.8:8080", "0.0.0.0:8080"] {
+            let config = BindConfig {
+                addr: addr.to_string(),
+                auth_enabled: true,
+                origin_check_enabled: true,
+            };
+            let err = bind(&config).expect_err("公网/通配必须拒绝（ADR-023）");
+            assert_eq!(err.code, ErrorCode::InvalidState);
+            assert!(err.message.contains("局域网"), "{}", err.message);
+        }
+    }
 
     #[test]
     fn external_listener_without_auth_is_refused() {

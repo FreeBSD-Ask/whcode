@@ -14,9 +14,10 @@
 //! `Origin` 放行（同源 GET 与本机 CLI 客户端）；`serve` 无 token 参数——对外监听
 //! 由 bind 层直接拒绝（FR-606），token 配置属未来任务。
 
+use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -39,8 +40,10 @@ pub struct ServeCli {
     pub web: bool,
     /// `--ssh`：SSH 服务（M7 延后，未实现）。
     pub ssh: bool,
-    /// `--bind host:port`（默认 `whcode_web::bind::DEFAULT_BIND`）。
+    /// `--bind host:port`（默认 `whcode_web::bind::DEFAULT_BIND`；仅回环或 RFC1918）。
     pub bind: Option<String>,
+    /// `--token-file PATH`：认证 token 文件（局域网监听必填；token 只从文件读取）。
+    pub token_file: Option<PathBuf>,
 }
 
 impl ServeCli {
@@ -57,6 +60,9 @@ impl ServeCli {
                 "--web" => cli.web = true,
                 "--ssh" => cli.ssh = true,
                 "--bind" => cli.bind = Some(next_value(&mut iter, "--bind")?),
+                "--token-file" => {
+                    cli.token_file = Some(PathBuf::from(next_value(&mut iter, "--token-file")?));
+                }
                 "--workspace" => {
                     // 值由 `workspace::resolve_workspace` 统一读取；此处仅校验缺值。
                     let _ = next_value(&mut iter, "--workspace")?;
@@ -68,7 +74,7 @@ impl ServeCli {
                 other => {
                     return Err(WhError::parse_error(format!(
                         "未知参数 {other:?}：可用 --web / --ssh / --bind host:port / \
-                         --workspace DIR / --config PATH"
+                         --token-file PATH / --workspace DIR / --config PATH"
                     )));
                 }
             }
@@ -123,7 +129,12 @@ pub fn serve_command(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    match serve_web(&workspace, &config, cli.bind.as_deref()) {
+    match serve_web(
+        &workspace,
+        &config,
+        cli.bind.as_deref(),
+        cli.token_file.as_deref(),
+    ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             eprintln!("Web 服务失败：{err}");
@@ -132,28 +143,98 @@ pub fn serve_command(args: &[String]) -> ExitCode {
     }
 }
 
-/// 启动 Web 服务：工作区库 → 回环监听 → 顺序服务循环。
-fn serve_web(workspace: &Path, config: &Config, bind_addr: Option<&str>) -> Result<(), WhError> {
+/// 服务安全配置（认证/Origin 允许集，ADR-023）。
+struct ServeSecurity {
+    auth_enabled: bool,
+    token: Option<String>,
+    /// Origin 允许集（认证模式生效；回环模式由 `security::ALLOWED_ORIGINS` 兜底）。
+    origins: Vec<String>,
+}
+
+impl ServeSecurity {
+    /// 回环默认（无认证；仅测试使用）。
+    #[cfg(test)]
+    fn loopback() -> Self {
+        Self {
+            auth_enabled: false,
+            token: None,
+            origins: Vec::new(),
+        }
+    }
+}
+
+/// 启动 Web 服务：工作区库 → 监听（回环或 RFC1918）→ 顺序服务循环。
+///
+/// 安全边界（ADR-023）：局域网监听必须提供 `--token-file`（认证 + Origin 检查）；
+/// 公网/通配地址由 `bind` 层拒绝。
+fn serve_web(
+    workspace: &Path,
+    config: &Config,
+    bind_addr: Option<&str>,
+    token_file: Option<&Path>,
+) -> Result<(), WhError> {
     let db_path = workspace::workspace_db_path(workspace);
     let conn = workspace::open_workspace_db(workspace, config)?;
     let actor = actor_with_all_capabilities("web-local");
 
+    let addr_text = bind_addr
+        .unwrap_or(whcode_web::bind::DEFAULT_BIND)
+        .to_string();
+    let lan = whcode_web::bind::is_lan(&addr_text);
+    let token = match token_file {
+        Some(path) => {
+            let raw = fs::read_to_string(path).map_err(|err| {
+                WhError::new(
+                    ErrorCode::IoError,
+                    format!("读取 token 文件失败（{}）：{err}", path.display()),
+                )
+            })?;
+            let token = raw.trim().to_string();
+            if token.is_empty() {
+                return Err(WhError::invalid_state(format!(
+                    "token 文件为空（{}）：拒绝启动（ADR-023）",
+                    path.display()
+                )));
+            }
+            Some(token)
+        }
+        None => None,
+    };
+    if lan && token.is_none() {
+        return Err(WhError::invalid_state(
+            "局域网监听必须提供 --token-file（ADR-023：认证仅在显式 token 下启用；\
+             token 只从文件读取，不经命令行传递）",
+        ));
+    }
+    let auth_enabled = token.is_some();
     let bind_config = BindConfig {
-        addr: bind_addr
-            .unwrap_or(whcode_web::bind::DEFAULT_BIND)
-            .to_string(),
-        auth_enabled: false,
-        origin_check_enabled: false,
+        addr: addr_text,
+        auth_enabled,
+        origin_check_enabled: auth_enabled,
     };
     let listener = bind(&bind_config)?;
     let addr = listener
         .local_addr()
         .map_err(|err| WhError::new(ErrorCode::IoError, format!("读取监听地址失败：{err}")))?;
-    println!(
-        "WHCode Web 服务：http://{addr}/（仅回环，Ctrl-C 退出；FR-606：对外监听被 bind 门禁拒绝）"
-    );
+    let mut origins = vec![format!("http://{addr}")];
+    if !addr.ip().is_loopback() {
+        origins.push(format!("http://localhost:{}", addr.port()));
+        origins.push(format!("http://127.0.0.1:{}", addr.port()));
+    }
+    if lan {
+        println!("WHCode Web 服务：http://{addr}/（局域网 · 认证启用；Ctrl-C 退出；ADR-023）");
+    } else {
+        println!(
+            "WHCode Web 服务：http://{addr}/（仅回环，Ctrl-C 退出；FR-606：外网地址被 bind 门禁拒绝）"
+        );
+    }
     println!("工作区数据库：{}", db_path.display());
-    serve_loop(listener, &conn, &actor)
+    let security = ServeSecurity {
+        auth_enabled,
+        token,
+        origins,
+    };
+    serve_loop(listener, &conn, &actor, &security)
 }
 
 /// 一次响应：HTTP 响应 + WebSocket 握手后的关闭帧标记。
@@ -177,6 +258,7 @@ fn serve_loop(
     listener: TcpListener,
     conn: &Connection,
     actor: &whcode_app::Actor,
+    security: &ServeSecurity,
 ) -> Result<(), WhError> {
     for incoming in listener.incoming() {
         let mut stream = match incoming {
@@ -188,7 +270,7 @@ fn serve_loop(
         };
         let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
         let reply = match read_request(&mut stream) {
-            Ok(raw) => respond(conn, &raw, actor),
+            Ok(raw) => respond(conn, &raw, actor, security),
             Err(_) => Reply::plain(HttpResponse::text(400, "bad request")),
         };
         if write_response(&mut stream, &reply).is_err() {
@@ -256,7 +338,12 @@ fn header_content_length(headers: &[u8]) -> usize {
 
 /// 路由一个请求：静态资产（GET，路由前剥离查询串）→ `/api/*`（handle_request，
 /// ADR-022 Origin 语义）。
-fn respond(conn: &Connection, raw: &[u8], actor: &whcode_app::Actor) -> Reply {
+fn respond(
+    conn: &Connection,
+    raw: &[u8],
+    actor: &whcode_app::Actor,
+    security: &ServeSecurity,
+) -> Reply {
     let request = match api::parse_request(raw) {
         Ok(request) => request,
         Err(_) => return Reply::plain(HttpResponse::text(400, "bad request")),
@@ -277,7 +364,15 @@ fn respond(conn: &Connection, raw: &[u8], actor: &whcode_app::Actor) -> Reply {
         }
     }
     let is_ws = request.path == "/ws";
-    let response = api::handle_request(conn, false, None, &request, actor);
+    let origins: Vec<&str> = security.origins.iter().map(String::as_str).collect();
+    let response = api::handle_request(
+        conn,
+        security.auth_enabled,
+        security.token.as_deref(),
+        &origins,
+        &request,
+        actor,
+    );
     Reply {
         ws_close_frame: is_ws && response.status == 101,
         response,
@@ -332,7 +427,7 @@ fn reason(status: u16) -> &'static str {
 mod tests {
     use duckdb::Connection;
 
-    use super::{Reply, ServeCli, header_content_length, reason, respond};
+    use super::{Reply, ServeCli, ServeSecurity, header_content_length, reason, respond};
     use crate::workspace::WORKSPACE_DB_FILE;
     use whcode_app::{Actor, actor_with_all_capabilities};
     use whcode_domain::{ErrorCode, SCHEMA_VERSION};
@@ -363,6 +458,21 @@ mod tests {
         // 带值参数解析。
         let with_bind: [String; 2] = ["--web".into(), "--bind".into()];
         assert!(ServeCli::parse(&with_bind).is_err(), "--bind 缺值必须报错");
+        // --token-file：缺值报错；有值时解析为路径（ADR-023）。
+        let with_token: [String; 2] = ["--web".into(), "--token-file".into()];
+        assert!(
+            ServeCli::parse(&with_token).is_err(),
+            "--token-file 缺值必须报错"
+        );
+        let token_file: [String; 3] = [
+            "--web".into(),
+            "--token-file".into(),
+            "C:/tmp/token.txt".into(),
+        ];
+        assert_eq!(
+            ServeCli::parse(&token_file).expect("解析").token_file,
+            Some(std::path::PathBuf::from("C:/tmp/token.txt"))
+        );
     }
 
     /// 装配路由：静态资产、API（ADR-022 Origin 语义）、404 与 WS 握手。
@@ -376,6 +486,7 @@ mod tests {
             &conn,
             &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
             &actor,
+            &ServeSecurity::loopback(),
         );
         assert_eq!(reply.response.status, 200);
         assert_eq!(
@@ -383,7 +494,12 @@ mod tests {
             Some("text/html; charset=utf-8")
         );
         assert!(String::from_utf8_lossy(&reply.response.body).contains("WHCode"));
-        let reply = respond(&conn, &raw_request("GET /app.js HTTP/1.1\r\n\r\n"), &actor);
+        let reply = respond(
+            &conn,
+            &raw_request("GET /app.js HTTP/1.1\r\n\r\n"),
+            &actor,
+            &ServeSecurity::loopback(),
+        );
         assert!(
             reply
                 .response
@@ -395,12 +511,18 @@ mod tests {
             &conn,
             &raw_request("GET /?session=S-DEMO-1 HTTP/1.1\r\n\r\n"),
             &actor,
+            &ServeSecurity::loopback(),
         );
         assert_eq!(reply.response.status, 200);
         assert!(String::from_utf8_lossy(&reply.response.body).contains("WHCode"));
 
         // POST 不属于静态路由 → 404。
-        let reply = respond(&conn, &raw_request("POST / HTTP/1.1\r\n\r\n"), &actor);
+        let reply = respond(
+            &conn,
+            &raw_request("POST / HTTP/1.1\r\n\r\n"),
+            &actor,
+            &ServeSecurity::loopback(),
+        );
         assert_eq!(reply.response.status, 404);
 
         // API：回环模式缺 Origin 放行（ADR-022）；数据为空数组（正确的空）。
@@ -408,6 +530,7 @@ mod tests {
             &conn,
             &raw_request("GET /api/sessions HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
             &actor,
+            &ServeSecurity::loopback(),
         );
         assert_eq!(reply.response.status, 200);
         let body: serde_json::Value = serde_json::from_slice(&reply.response.body).expect("JSON");
@@ -419,16 +542,23 @@ mod tests {
             &conn,
             &raw_request("GET /api/sessions HTTP/1.1\r\norigin: http://evil.example\r\n\r\n"),
             &actor,
+            &ServeSecurity::loopback(),
         );
         assert_eq!(reply.response.status, 403);
 
         // WS：缺 Sec-WebSocket-Key → 400；有 key → 101 + 关闭帧。
-        let reply = respond(&conn, &raw_request("GET /ws HTTP/1.1\r\n\r\n"), &actor);
+        let reply = respond(
+            &conn,
+            &raw_request("GET /ws HTTP/1.1\r\n\r\n"),
+            &actor,
+            &ServeSecurity::loopback(),
+        );
         assert_eq!(reply.response.status, 400);
         let reply = respond(
             &conn,
             &raw_request("GET /ws HTTP/1.1\r\nsec-websocket-key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n"),
             &actor,
+            &ServeSecurity::loopback(),
         );
         assert_eq!(reply.response.status, 101);
         assert!(reply.ws_close_frame, "握手后必须发送正常关闭帧");
@@ -438,6 +568,7 @@ mod tests {
             &conn,
             &raw_request("GET /api/nope HTTP/1.1\r\n\r\n"),
             &actor,
+            &ServeSecurity::loopback(),
         );
         assert_eq!(reply.response.status, 404);
     }

@@ -65,8 +65,20 @@ function setConnected(connected) {
 const animationsEnabled =
   window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
 
+// 认证 token（ADR-023）：仅从 URL fragment（#token=…）读取——fragment 由浏览器本地
+// 保存、**从不发送给服务器**（§10.2 禁止 query token）；内存保存，不写 localStorage。
+const authToken = (() => {
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const token = hash.get("token");
+  return token && token.trim() ? token.trim() : null;
+})();
+
 async function fetchJson(url) {
-  const response = await fetch(url);
+  const headers = {};
+  if (authToken !== null) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  const response = await fetch(url, { headers });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }

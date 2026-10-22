@@ -13,6 +13,11 @@
 
 ### 变更
 
+- 批次 4：Web 仅限局域网 + 认证边界（2026-10-22，ADR-023）：`serve --web` 增加
+  `--token-file`；地址边界只允许回环或 RFC1918 私网（公网/`0.0.0.0` 拒绝）；局域网
+  监听强制认证与 Origin 检查；前端从 URL fragment 读取 token 并以 Bearer 调用 API；
+  响应加 `cache-control: no-store`。Origin 语义修订：缺失 Origin 两种模式均放行
+  （同源 GET 真实形态；跨站由 Bearer 阻断），带 Origin 必须命中允许集。
 - 批次 3：文本层端到端接线（2026-10-22，T130）：zh-CN/en 词表扩至 55 键并新增
   `resolve_fmt`/`entries`；TUI 标题/页脚/空态与视图摘要、CUI 人类可读输出、Web 标签/
   状态/摘要统一经 `whcode-domain::i18n`；Web 新增 `GET /api/i18n`（?locale= →
