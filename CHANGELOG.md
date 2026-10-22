@@ -13,6 +13,12 @@
 
 ### 变更
 
+- 批次 3：文本层端到端接线（2026-10-22，T130）：zh-CN/en 词表扩至 55 键并新增
+  `resolve_fmt`/`entries`；TUI 标题/页脚/空态与视图摘要、CUI 人类可读输出、Web 标签/
+  状态/摘要统一经 `whcode-domain::i18n`；Web 新增 `GET /api/i18n`（?locale= →
+  Accept-Language → zh-CN，返回 rtl 与词条）与前端 `data-i18n`/`<html lang dir>`；
+  `?locale=` 显式覆盖。修复主入口路由回归（`whcode --workspace DIR` 误入 clap）与
+  首屏任务列表延迟。数据字段/错误码/退出码不随语言变化。
 - 批次 2：CUI 命令调度装配（2026-10-22，T084/T085 接线）：`whcode <command>` 经
   `whcode-app` 执行会话/任务/事件/状态/SDD 状态与 `db` 维护命令（stats/check/purge/
   compact/archive/explain），`--json` 统一信封、错误四字段、稳定退出码（新增用法错误

@@ -17,9 +17,48 @@ import { SuspendMachine, State } from "./suspend.js";
 
 const el = (id) => document.getElementById(id);
 
+// 文本层（FR-615，批次 3）：服务端 /api/i18n 下发 zh-CN/en 词条。
+// 词条缺失时回落内置默认文本（可见降级，不显示键名）。
+let texts = {};
+
+function t(key, fallback, args = {}) {
+  let text = typeof texts[key] === "string" ? texts[key] : fallback;
+  for (const [name, value] of Object.entries(args)) {
+    text = text.split(`{${name}}`).join(String(value));
+  }
+  return text;
+}
+
+/** 加载文本层并应用到静态标签（data-i18n）与 <html lang/dir>。 */
+async function loadLocale() {
+  // 语言选择：显式 `?locale=` 优先（可见、可改、可撤销），否则浏览器语言。
+  const locale =
+    new URL(window.location.href).searchParams.get("locale") ||
+    navigator.language ||
+    "zh-CN";
+  const data = await fetchJson(`/api/i18n?locale=${encodeURIComponent(locale)}`);
+  texts = data.entries || {};
+  document.documentElement.lang = data.locale || locale;
+  document.documentElement.dir = data.rtl ? "rtl" : "ltr";
+  for (const node of document.querySelectorAll("[data-i18n]")) {
+    const key = node.dataset.i18n;
+    if (typeof texts[key] === "string") {
+      node.textContent = texts[key];
+    }
+  }
+  setConnected(state.connected);
+  updateCursorLabel();
+}
+
+function updateCursorLabel() {
+  el("event-cursor").textContent = t("web.cursor", "游标 {n}", { n: state.cursor });
+}
+
 function setConnected(connected) {
   state.connected = connected;
-  el("connection-state").textContent = connected ? "已连接" : "未连接";
+  el("connection-state").textContent = connected
+    ? t("web.conn.connected", "已连接")
+    : t("web.conn.disconnected", "未连接");
 }
 
 // 动效总开关（T133/FR-613）：尊重 prefers-reduced-motion，默认关闭非必要动效。
@@ -80,7 +119,7 @@ function selectSession(sessionId) {
   state.session = sessionId;
   state.cursor = 0;
   el("event-log").textContent = "";
-  el("event-cursor").textContent = "游标 0";
+  updateCursorLabel();
   const url = new URL(window.location.href);
   url.searchParams.set("session", sessionId);
   window.history.replaceState(null, "", url);
@@ -113,7 +152,11 @@ async function loadTasks() {
   const list = el("task-list");
   list.textContent = "";
   const summary = document.createElement("li");
-  summary.textContent = `总计 ${data.total} · 完成 ${data.done} · 阻塞 ${data.blocked}`;
+  summary.textContent = t(
+    "web.tasks_summary",
+    "总计 {total} · 完成 {done} · 阻塞 {blocked}",
+    { total: data.total, done: data.done, blocked: data.blocked },
+  );
   list.append(summary);
   for (const task of data.active ?? []) {
     const item = document.createElement("li");
@@ -148,7 +191,7 @@ async function pollEvents() {
       log.textContent += `${event.seq} ${event.kind}\n`;
       state.cursor = event.seq;
     }
-    el("event-cursor").textContent = `游标 ${state.cursor}`;
+    updateCursorLabel();
   } finally {
     eventsInFlight = false;
   }
@@ -257,11 +300,17 @@ document.addEventListener("DOMContentLoaded", () => {
         pollTimer = null;
       }
       if (newState === State.Recovering) {
-        el("connection-state").textContent = "恢复中…";
+        el("connection-state").textContent = t("web.recovering", "恢复中…");
       }
     }
   });
   window.addEventListener("unload", () => machine.detach());
 
+  // 文本层失败不阻塞界面（内置默认文本可见）。
+  loadLocale().catch(() => {});
+  // 带 ?session= 直接进入时首屏即拉取任务（否则要等第 15 个轮询周期）。
+  if (state.session) {
+    loadTasks().catch(() => {});
+  }
   pollLoop();
 });

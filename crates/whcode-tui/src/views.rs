@@ -68,6 +68,19 @@ impl ViewId {
         }
     }
 
+    /// 文本层键（FR-615）：`title()` 是 zh-CN 的静态投影，渲染层用 I18n 取本地化标题。
+    #[must_use]
+    pub const fn title_key(self) -> &'static str {
+        match self {
+            Self::Sessions => "view.sessions",
+            Self::Tasks => "view.tasks",
+            Self::Context => "view.context",
+            Self::Events => "view.events",
+            Self::Spec => "view.spec",
+            Self::Diff => "view.diff",
+        }
+    }
+
     /// 序号（从 1 起；切换键与帧标题 `{n}/{VIEW_COUNT}`）。
     #[must_use]
     pub const fn index(self) -> usize {
@@ -290,6 +303,17 @@ mod tests {
         }
         assert_eq!(ViewId::Sessions.as_str(), "sessions");
         assert_eq!(ViewId::Diff.as_str(), "diff");
+    }
+
+    /// 标题键（FR-615）：六视图各有稳定键，且与 `title()` 同序。
+    #[test]
+    fn view_title_keys_are_stable() {
+        for view in ViewId::ALL {
+            assert!(view.title_key().starts_with("view."), "{view:?}");
+            assert!(!view.title().is_empty());
+        }
+        assert_eq!(ViewId::Sessions.title_key(), "view.sessions");
+        assert_eq!(ViewId::Diff.title_key(), "view.diff");
     }
 
     /// 切换键 `1`—`6` 与六视图一一对应（`from_key`/`index`/`ALL` 三者一致）。

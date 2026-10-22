@@ -464,6 +464,35 @@ Task: "实现 SSH 客户端原型 in crates/whcode-ssh/src/proto.rs"           #
 - 性能预算未冻结（T027 基准夹具进行中，T028—T031 未完成）。
 - 因此 T027—T031 保持未勾选。
 
+### 实现记录（2026-10-22，批次 3：文本层接线——T130 端到端落地）
+
+**背景**：`whcode-domain::i18n`（T130）已交付并有测试，但 TUI/Web/CUI 全部硬编码中文
+（55 个键中仅 10 个且无消费方）——又一处"组件在、功能不在"。
+
+**交付**：
+
+1. 资源与接口：zh-CN/en 键表扩充到 55 个（TUI 标题/页脚/空态、视图摘要、CUI 人类行、
+   Web 标签/状态），新增 `I18n::resolve_fmt`（`{name}` 占位符）与 `entries()`（Web 下发）；
+   `Default = zh-CN`。
+2. TUI：`RunOptions.texts: I18n`；标题/页脚/空提示经文本层；`ViewId::title_key()`；
+   `StoreViewSource` 的视图摘要与数据源错误经 `resolve_fmt`（数据字段不翻译）。
+3. CUI：调度的人类可读输出经文本层（`cui.*` 键）；数据字段、错误码与退出码不随语言变化。
+4. Web：`GET /api/i18n`（`?locale=` → Accept-Language → zh-CN；返回 locale/rtl/entries）；
+   前端 `data-i18n` 覆盖标签、`<html lang/dir>` 设置、状态/游标/任务摘要经词条；
+   `?locale=` 显式覆盖（可见、可改、可撤销），失败时保持内置默认文本（可见降级）。
+
+**验证证据**：`artifacts/i18n-2026-10-22-batch3.txt`——双语键表/占位符一致性测试；
+TUI 真实控制台 zh 13/13、en 13/13；CUI 同一命令 zh/en 输出（数据字段不变）;
+浏览器 `?locale=en|zh-CN|ar`（lang/dir=rtl、标签/状态/摘要、回退不伪造）。
+
+**发现并修复**：主入口路由回归——`whcode --workspace DIR`（无子命令）被误送 CUI
+clap（要求子命令）；改为「含位置参数 → CUI；仅旗标 → 交互入口」，并跳过带值旗标的值
+（`--workspace DIR` 的路径不再是"位置参数"）。另修复首屏带 `?session=` 时任务列表
+需等 15 个轮询周期才出现（启动即拉取）。
+
+**未完成（显式标注）**：clap `--help` 文本与应用/存储层错误消息仍为中文（需
+错误码→文本映射，属后续）；RTL 的 BiDi 重排属渲染层后续（接口已备）。
+
 ### 实现记录（2026-10-22，批次 2：CUI 命令调度装配——T084/T085 接线）
 
 **背景**：CUI 的 clap 命令树、信封与三个视图模块早已交付，但 `whcode` 无任何 CUI

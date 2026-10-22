@@ -11,6 +11,8 @@ use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
 
 use crate::views::{DiffLine, EventRow, SessionRow, TaskRow};
+use whcode_domain::i18n::I18n;
+
 use crate::{Theme, TuiState, UiEvent, ViewId, ViewSnapshot, draw_frame};
 
 /// 假最小化探测源：按序返回预置结果（耗尽后返回 `None`＝探测失败），并记录调用次数。
@@ -135,15 +137,26 @@ pub fn fixture_snapshot(view: ViewId) -> ViewSnapshot {
 }
 
 /// 绘制快照到固定尺寸缓冲（**真实帧路径**：有界投影 + `draw_frame`；不含文本提取，
-/// 可作帧预算测量的对象）。
+/// 可作帧预算测量的对象）。文本层用默认 `zh-CN`。
 pub fn draw_snapshot(snapshot: &ViewSnapshot, cols: u16, rows: u16, theme: Theme) -> Buffer {
+    draw_snapshot_with(snapshot, cols, rows, theme, &I18n::default())
+}
+
+/// 以指定文本层绘制（FR-615 双语取证）。
+pub fn draw_snapshot_with(
+    snapshot: &ViewSnapshot,
+    cols: u16,
+    rows: u16,
+    theme: Theme,
+    texts: &I18n,
+) -> Buffer {
     let backend = TestBackend::new(cols, rows);
     let mut terminal = Terminal::new(backend).expect("测试终端");
     let mut state = TuiState::new(cols, rows);
     state.handle(UiEvent::Key(view_switch_key(snapshot.view)));
     let lines = snapshot.render_lines_limited(usize::from(rows));
     terminal
-        .draw(|frame| draw_frame(frame, &state, &lines, theme))
+        .draw(|frame| draw_frame(frame, &state, &lines, theme, texts))
         .expect("绘制测试帧");
     terminal.backend().buffer().clone()
 }

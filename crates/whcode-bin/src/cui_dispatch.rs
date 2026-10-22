@@ -25,6 +25,7 @@ use whcode_cui::cli::{
     parse_outcome,
 };
 use whcode_cui::output::{EXIT_USAGE, error_envelope, error_exit_code, success_envelope};
+use whcode_domain::i18n::{I18n, detect_locale};
 use whcode_domain::{ErrorCode, TraceLevel, WhError};
 use whcode_store::{PurgeCriteria, PurgeProtection};
 
@@ -58,7 +59,10 @@ fn dispatch_code(args: &[String]) -> i32 {
         .workspace
         .as_deref()
         .map_or_else(default_workspace, PathBuf::from);
-    match execute(&cli.command, &workspace) {
+    // 文本层（FR-615）：环境检测（LANG/LC_ALL）→ 默认 zh-CN；数据字段不翻译。
+    let (locale, locale_source) = detect_locale(None);
+    let texts = I18n::load(&locale, locale_source);
+    match execute(&cli.command, &workspace, &texts) {
         Ok((data, human)) => {
             if json_mode {
                 match serde_json::to_string_pretty(&success_envelope(data)) {
@@ -130,14 +134,14 @@ fn confirm_flags(dry_run: bool, yes: bool) -> Result<bool, WhError> {
 }
 
 /// 执行一条命令：返回 (JSON 数据, 人类可读文本)。
-fn execute(command: &Command, workspace: &Path) -> Result<(Value, String), WhError> {
+fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, String), WhError> {
     let config = config_for(workspace);
     let actor = local_actor();
     let policy = policy();
     let now = now_ms()?;
     match command {
         Command::Session { command } => {
-            session_command(command, workspace, &config, &policy, &actor, now)
+            session_command(command, workspace, &config, &policy, &actor, now, texts)
         }
         Command::Status { session } => {
             let conn = open_db(workspace, &config)?;
@@ -160,22 +164,29 @@ fn execute(command: &Command, workspace: &Path) -> Result<(Value, String), WhErr
                     "id": task.id, "status": task.status, "retry_count": task.retry_count,
                 })),
             });
-            let human = format!(
-                "{} {} [{}] status={} cursor={}",
-                snapshot.session.id,
-                snapshot.session.title,
-                snapshot.session.stage.as_deref().unwrap_or("[unknown]"),
-                snapshot.session.status,
-                snapshot.event_cursor
+            let human = texts.resolve_fmt(
+                "cui.status_line",
+                &[
+                    ("session", &snapshot.session.id),
+                    ("title", &snapshot.session.title),
+                    (
+                        "stage",
+                        snapshot.session.stage.as_deref().unwrap_or("[unknown]"),
+                    ),
+                    ("status", &snapshot.session.status),
+                    ("cursor", &snapshot.event_cursor.to_string()),
+                ],
             );
             Ok((value, human))
         }
         Command::Task { command } => {
-            task_command(command, workspace, &config, &policy, &actor, now)
+            task_command(command, workspace, &config, &policy, &actor, now, texts)
         }
-        Command::Spec { command } => spec_command(command, workspace, &config, &policy, &actor),
+        Command::Spec { command } => {
+            spec_command(command, workspace, &config, &policy, &actor, texts)
+        }
         Command::Events { command } => events_command(command, workspace, &config, &policy, &actor),
-        Command::Db { command } => db_command(command, workspace, &config, &actor, now),
+        Command::Db { command } => db_command(command, workspace, &config, &actor, now, texts),
         Command::Run { .. } => Err(not_wired(
             "run 未接线：LLM 流式交互需 Provider 与会话流装配（M3 桩已交付，CLI 执行属后续）",
         )),
@@ -205,6 +216,7 @@ fn session_command(
     policy: &DefaultPolicy,
     actor: &Actor,
     now: u64,
+    texts: &I18n,
 ) -> Result<(Value, String), WhError> {
     match command {
         SessionCommand::New { title, model } => {
@@ -276,11 +288,14 @@ fn session_command(
                     "skipped_protected": preview.skipped_protected,
                     "counts": counts_json(&preview.counts),
                 });
-                let human = format!(
-                    "dry-run：将删除会话 {session}（事件 {} 行，任务 {} 行；受保护跳过 {} 个）——加 --yes 执行",
-                    preview.counts.events,
-                    preview.counts.tasks,
-                    preview.skipped_protected.len()
+                let human = texts.resolve_fmt(
+                    "cui.delete_dry_run",
+                    &[
+                        ("session", session),
+                        ("events", &preview.counts.events.to_string()),
+                        ("tasks", &preview.counts.tasks.to_string()),
+                        ("skipped", &preview.skipped_protected.len().to_string()),
+                    ],
                 );
                 return Ok((value, human));
             }
@@ -299,7 +314,10 @@ fn session_command(
                 "skipped_protected": result.skipped_protected,
                 "deleted": counts_json(&result.deleted),
             });
-            Ok((value, format!("已删除会话 {session}")))
+            Ok((
+                value,
+                texts.resolve_fmt("cui.deleted", &[("session", session)]),
+            ))
         }
     }
 }
@@ -311,6 +329,7 @@ fn task_command(
     policy: &DefaultPolicy,
     actor: &Actor,
     now: u64,
+    texts: &I18n,
 ) -> Result<(Value, String), WhError> {
     match command {
         TaskCommand::List { session } => {
@@ -336,12 +355,15 @@ fn task_command(
                 "by_stage": overview.by_stage,
                 "active": active,
             });
-            let human = format!(
-                "会话 {session}：总计 {} · 完成 {} · 阻塞 {} · 活跃 {}",
-                overview.total,
-                overview.done,
-                overview.blocked,
-                overview.active.len()
+            let human = texts.resolve_fmt(
+                "cui.tasks_summary",
+                &[
+                    ("session", session),
+                    ("total", &overview.total.to_string()),
+                    ("done", &overview.done.to_string()),
+                    ("blocked", &overview.blocked.to_string()),
+                    ("active", &overview.active.len().to_string()),
+                ],
             );
             Ok((value, human))
         }
@@ -403,6 +425,7 @@ fn spec_command(
     config: &Config,
     policy: &DefaultPolicy,
     actor: &Actor,
+    texts: &I18n,
 ) -> Result<(Value, String), WhError> {
     match command {
         SpecCommand::Status { session } => {
@@ -420,10 +443,16 @@ fn spec_command(
                     "refreshed_at_ms": overview.refreshed_at_ms,
                 })),
             });
-            let human = format!(
-                "会话 {session}：阶段 {} · 事件游标 {}",
-                snapshot.session.stage.as_deref().unwrap_or("[unknown]"),
-                snapshot.event_cursor
+            let human = texts.resolve_fmt(
+                "cui.spec_status",
+                &[
+                    ("session", session),
+                    (
+                        "stage",
+                        snapshot.session.stage.as_deref().unwrap_or("[unknown]"),
+                    ),
+                    ("cursor", &snapshot.event_cursor.to_string()),
+                ],
             );
             Ok((value, human))
         }
@@ -507,6 +536,7 @@ fn db_command(
     config: &Config,
     actor: &Actor,
     now: u64,
+    texts: &I18n,
 ) -> Result<(Value, String), WhError> {
     match command {
         DbCommand::Stats => {
@@ -550,7 +580,7 @@ fn db_command(
                 ));
             }
             let value = json!({ "ok": true, "missing_indexes": Vec::<String>::new() });
-            Ok((value, "索引完整".to_string()))
+            Ok((value, texts.resolve("cui.indexes_ok").to_string()))
         }
         DbCommand::Purge {
             before,
@@ -570,11 +600,13 @@ fn db_command(
                     "skipped_protected": preview.skipped_protected,
                     "counts": counts_json(&preview.counts),
                 });
-                let human = format!(
-                    "dry-run：{} 个会话、{} 条事件将被清理（受保护跳过 {} 个）——加 --yes 执行",
-                    preview.selected_sessions.len(),
-                    preview.counts.events,
-                    preview.skipped_protected.len()
+                let human = texts.resolve_fmt(
+                    "cui.purge_dry_run",
+                    &[
+                        ("sessions", &preview.selected_sessions.len().to_string()),
+                        ("events", &preview.counts.events.to_string()),
+                        ("skipped", &preview.skipped_protected.len().to_string()),
+                    ],
                 );
                 return Ok((value, human));
             }
@@ -592,7 +624,13 @@ fn db_command(
                 "skipped_protected": result.skipped_protected,
                 "deleted": counts_json(&result.deleted),
             });
-            Ok((value, format!("已清理 {} 条事件", result.deleted.events)))
+            Ok((
+                value,
+                texts.resolve_fmt(
+                    "cui.purged",
+                    &[("events", &result.deleted.events.to_string())],
+                ),
+            ))
         }
         DbCommand::Compact { dry_run, yes } => {
             let is_dry_run = confirm_flags(*dry_run, *yes)?;
@@ -608,9 +646,12 @@ fn db_command(
                     "wal_size_bytes": space.wal_size_bytes,
                     "note": "compact 为复制—校验—切换；不承诺缩小文件（FR-510、R-09）",
                 });
-                let human = format!(
-                    "dry-run：文件 {} B、WAL {} B——加 --yes 执行 compact（不承诺缩小文件）",
-                    space.file_size_bytes, space.wal_size_bytes
+                let human = texts.resolve_fmt(
+                    "cui.compact_dry_run",
+                    &[
+                        ("file", &space.file_size_bytes.to_string()),
+                        ("wal", &space.wal_size_bytes.to_string()),
+                    ],
                 );
                 return Ok((value, human));
             }
@@ -621,7 +662,13 @@ fn db_command(
                 "before_file_size_bytes": report.before.file_size_bytes,
                 "after_file_size_bytes": report.after.file_size_bytes,
             });
-            Ok((value, format!("compact 完成（切换={}）", report.switched)))
+            Ok((
+                value,
+                texts.resolve_fmt(
+                    "cui.compact_done",
+                    &[("switched", &report.switched.to_string())],
+                ),
+            ))
         }
         DbCommand::Archive { export } => {
             let conn = open_db(workspace, config)?;
@@ -631,7 +678,10 @@ fn db_command(
                 "content_hash": report.content_hash,
                 "schema_version": report.manifest.schema_version,
             });
-            let human = format!("已导出到 {}（hash {}）", report.path, report.content_hash);
+            let human = texts.resolve_fmt(
+                "cui.exported",
+                &[("path", &report.path), ("hash", &report.content_hash)],
+            );
             Ok((value, human))
         }
         DbCommand::Explain { query } => {
@@ -656,7 +706,8 @@ fn db_command(
                 "analyze": plan.analyze,
                 "rows": plan.rows.iter().map(|row| json!({ "key": row.key, "value": row.value })).collect::<Vec<_>>(),
             });
-            let human = format!("计划行 {} 条（analyze=false，不执行查询）", plan.rows.len());
+            let human =
+                texts.resolve_fmt("cui.plan_rows", &[("rows", &plan.rows.len().to_string())]);
             Ok((value, human))
         }
         DbCommand::Checkpoint => Err(not_wired(
@@ -718,7 +769,7 @@ fn task_json(row: &whcode_store::tasks::TaskRow) -> Value {
 mod tests {
     use super::{dispatch_code, execute};
     use std::path::PathBuf;
-    use whcode_cui::cli::{Command, SessionCommand};
+    use whcode_cui::cli::{Command, SessionCommand, TaskCommand};
 
     fn temp_workspace(tag: &str) -> PathBuf {
         let dir =
@@ -747,6 +798,7 @@ mod tests {
                 },
             },
             &workspace,
+            &whcode_domain::i18n::I18n::default(),
         )
         .expect("创建会话");
         let id = create.0["session"]["id"]
@@ -760,6 +812,7 @@ mod tests {
                 command: SessionCommand::List { all: false },
             },
             &workspace,
+            &whcode_domain::i18n::I18n::default(),
         )
         .expect("列出会话");
         assert_eq!(list.0["sessions"].as_array().map(Vec::len), Some(1));
@@ -772,6 +825,7 @@ mod tests {
                 },
             },
             &workspace,
+            &whcode_domain::i18n::I18n::default(),
         )
         .expect("重命名");
         assert_eq!(rename.0["session"]["title"], "改名");
@@ -784,6 +838,7 @@ mod tests {
                 },
             },
             &workspace,
+            &whcode_domain::i18n::I18n::default(),
         )
         .expect("归档");
         assert_eq!(archive.0["session"]["archived"], true);
@@ -797,6 +852,7 @@ mod tests {
                 },
             },
             &workspace,
+            &whcode_domain::i18n::I18n::default(),
         )
         .expect("dry-run 删除");
         assert_eq!(preview.0["dry_run"], true, "默认 dry-run");
@@ -810,6 +866,7 @@ mod tests {
                 },
             },
             &workspace,
+            &whcode_domain::i18n::I18n::default(),
         )
         .expect("确认删除");
         assert_eq!(deleted.0["dry_run"], false);
@@ -820,6 +877,47 @@ mod tests {
         assert_eq!(code, 0, "--json 成功退出码 0");
         let usage = dispatch_code(&args(&["--nonsense"]));
         assert_eq!(usage, 2, "未知参数 → 用法错误退出码 2");
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// FR-615：CUI 人类可读输出随文本层切换；数据字段（ID/状态）不翻译。
+    #[test]
+    fn human_output_localizes_while_data_fields_stay_stable() {
+        let workspace = temp_workspace("i18n");
+        let en = whcode_domain::i18n::I18n::load("en", whcode_domain::i18n::LocaleSource::Explicit);
+        let created = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "I18n".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &en,
+        )
+        .expect("创建会话");
+        let id = created.0["session"]["id"].as_str().expect("ID").to_string();
+        let (_, human) = execute(
+            &Command::Task {
+                command: TaskCommand::List {
+                    session: id.clone(),
+                },
+            },
+            &workspace,
+            &en,
+        )
+        .expect("任务列表");
+        assert!(human.starts_with("Session "), "英文摘要：{human}");
+        let zh = whcode_domain::i18n::I18n::default();
+        let (_, human) = execute(
+            &Command::Task {
+                command: TaskCommand::List { session: id },
+            },
+            &workspace,
+            &zh,
+        )
+        .expect("任务列表");
+        assert!(human.starts_with("会话 "), "中文摘要：{human}");
         let _ = std::fs::remove_dir_all(&workspace);
     }
 
@@ -842,7 +940,8 @@ mod tests {
                 },
             },
         ] {
-            let err = execute(&command, &workspace).expect_err("必须显式失败");
+            let err = execute(&command, &workspace, &whcode_domain::i18n::I18n::default())
+                .expect_err("必须显式失败");
             assert!(
                 err.message.contains("未实现"),
                 "错误必须标注未实现：{}",

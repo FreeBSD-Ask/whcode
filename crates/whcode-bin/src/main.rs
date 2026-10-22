@@ -30,6 +30,23 @@ const DEFAULT_BENCH_EVENTS: usize = 20_000;
 /// 基线默认重复次数。
 const DEFAULT_BENCH_REPEAT: usize = 3;
 
+/// 第一个非旗标参数（用于区分 CUI 子命令与纯旗标启动）。
+///
+/// 跳过带值旗标的值（`--workspace DIR`/`--config PATH`）：否则路径会被误认成子命令。
+fn first_positional(args: &[String]) -> Option<&str> {
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "--workspace" | "--config" => {
+                let _ = iter.next();
+            }
+            other if other.starts_with('-') => {}
+            other => return Some(other),
+        }
+    }
+    None
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -43,10 +60,19 @@ fn main() -> ExitCode {
         }
         Some("bench") => bench_command(&args[1..]),
         Some("serve") => serve::serve_command(&args[1..]),
-        // 批次 2：CUI 命令调度（contracts/cui-cli.md §1）；未知参数 → 用法错误（退出码 2），
-        // 不再落入 TUI 分支（旧行为的隐式兜底会掩盖拼写错误）。
-        Some(_) => cui_dispatch::dispatch(&args),
-        None => launch_interactive(&args),
+        // 批次 2/3：区分「CUI 命令」与「交互入口」——
+        // - 含位置参数（子命令或拼写错误）→ CUI 调度（未知子命令由 clap 报用法错误，退出码 2）；
+        // - 仅含旗标（如 `--workspace DIR`）或无参数 → 交互入口（TUI/骨架提示）；
+        // - `--help`/`-h` → CUI 帮助（成功退出）。
+        _ => {
+            if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+                cui_dispatch::dispatch(&args)
+            } else if first_positional(&args).is_some() {
+                cui_dispatch::dispatch(&args)
+            } else {
+                launch_interactive(&args)
+            }
+        }
     }
 }
 
@@ -208,6 +234,9 @@ fn launch_interactive(args: &[String]) -> ExitCode {
         }
     };
     let theme = config.effective_theme();
+    // 文本层（FR-615）：显式配置 → LANG/LC_ALL → 默认 zh-CN；en 回退由 I18n 负责。
+    let (locale, locale_source) = whcode_domain::i18n::detect_locale(None);
+    let texts = whcode_domain::i18n::I18n::load(&locale, locale_source);
     let workspace = match workspace::resolve_workspace(args, &config) {
         Ok(workspace) => workspace,
         Err(err) => {
@@ -217,7 +246,7 @@ fn launch_interactive(args: &[String]) -> ExitCode {
     };
     let source: Box<dyn whcode_tui::ViewSource> =
         match workspace::open_workspace_db(&workspace, &config) {
-            Ok(conn) => Box::new(store_source::StoreViewSource::new(conn)),
+            Ok(conn) => Box::new(store_source::StoreViewSource::new(conn, texts.clone())),
             Err(err) => {
                 eprintln!("数据源不可用（TUI 以空数据源运行，视图显示「暂无数据」）：{err}");
                 Box::new(whcode_tui::EmptyViewSource)
@@ -226,6 +255,7 @@ fn launch_interactive(args: &[String]) -> ExitCode {
     let probe: fn() -> Option<bool> = whcode_platform::term::is_window_minimized;
     let options = whcode_tui::RunOptions {
         theme,
+        texts,
         minimize_probe: Some(&probe),
     };
     match whcode_tui::run_with(source.as_ref(), options) {

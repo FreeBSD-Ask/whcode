@@ -162,6 +162,13 @@ pub fn parse_request(bytes: &[u8]) -> Result<HttpRequest, WhError> {
     })
 }
 
+/// 从 `Accept-Language` 提取首选语言标签（取第一段，忽略 q 权重——完整协商属后续）。
+fn preferred_locale(request: &HttpRequest) -> Option<String> {
+    let accept = request.header("accept-language")?;
+    let first = accept.split(',').next()?.split(';').next()?.trim();
+    (!first.is_empty()).then(|| first.to_string())
+}
+
 fn error_response(error: &WhError) -> HttpResponse {
     let status = match error.code {
         ErrorCode::PermissionDenied => 403,
@@ -292,6 +299,28 @@ pub fn handle_request(
                 Err(error) => error_response(&error),
             }
         }
+        (Method::Get, "/api/i18n") => {
+            // 文本层下发（FR-615，批次 3）：locale 参数优先，其次 Accept-Language。
+            let locale = query_value("locale")
+                .map(str::trim)
+                .filter(|locale| !locale.is_empty())
+                .map(str::to_string)
+                .or_else(|| preferred_locale(request))
+                .unwrap_or_else(|| "zh-CN".to_string());
+            let texts = whcode_domain::i18n::I18n::load(
+                &locale,
+                whcode_domain::i18n::LocaleSource::Explicit,
+            );
+            HttpResponse::json(
+                200,
+                &serde_json::json!({
+                    "schema_version": whcode_domain::SCHEMA_VERSION,
+                    "locale": texts.locale,
+                    "rtl": whcode_domain::i18n::is_rtl_locale(&texts.locale),
+                    "entries": texts.entries(),
+                }),
+            )
+        }
         (Method::Get, "/ws") => {
             // WebSocket 升级：Origin 校验（安全层已做）+ Sec-WebSocket-Key。
             let Some(key) = request.header("sec-websocket-key") else {
@@ -340,6 +369,35 @@ mod tests {
     }
 
     /// 任务视图路由（批次 1）：会话范围与工作区级总览均可用（FR-103）。
+    /// 文本层路由（FR-615）：locale 参数与 Accept-Language；未知 locale 回退 en；RTL 判定。
+    #[test]
+    fn i18n_route_serves_entries_and_rtl_flag() {
+        let conn = migrated();
+        let actor = actor_with_all_capabilities("tester");
+        let req = request(Method::Get, "/api/i18n?locale=en", false);
+        let response = handle_request(&conn, false, None, &req, &actor);
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["locale"], "en");
+        assert_eq!(body["rtl"], false);
+        assert_eq!(body["entries"]["web.tab.tasks"], "Tasks");
+        assert_eq!(body["entries"]["view.sessions"], "Sessions");
+
+        // 阿拉伯语：rtl=true（文本回退 en——未提供阿语目录，不伪造翻译）。
+        let req = request(Method::Get, "/api/i18n?locale=ar", false);
+        let response = handle_request(&conn, false, None, &req, &actor);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["rtl"], true);
+
+        // Accept-Language 回退（无 locale 参数）。
+        let mut req = request(Method::Get, "/api/i18n", false);
+        req.headers
+            .push(("accept-language".into(), "en-US,en;q=0.9".into()));
+        let response = handle_request(&conn, false, None, &req, &actor);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["entries"]["web.conn.connected"], "Connected");
+    }
+
     #[test]
     fn tasks_route_reports_overview() {
         let conn = migrated();

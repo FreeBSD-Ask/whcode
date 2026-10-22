@@ -12,6 +12,7 @@
 
 use duckdb::Connection;
 use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
+use whcode_domain::i18n::I18n;
 use whcode_domain::{TraceLevel, WhError};
 use whcode_tui::{EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource};
 
@@ -29,16 +30,18 @@ pub struct StoreViewSource {
     conn: Connection,
     policy: DefaultPolicy,
     actor: Actor,
+    texts: I18n,
 }
 
 impl StoreViewSource {
-    /// 以已打开的工作区连接构造（连接由装配根持有）。
+    /// 以已打开的工作区连接构造（连接与文本层由装配根持有）。
     #[must_use]
-    pub fn new(conn: Connection) -> Self {
+    pub fn new(conn: Connection, texts: I18n) -> Self {
         Self {
             conn,
             policy: DefaultPolicy,
             actor: actor_with_all_capabilities("tui-local"),
+            texts,
         }
     }
 
@@ -51,8 +54,7 @@ impl StoreViewSource {
             ViewId::Spec => self.build_spec(session),
             ViewId::Diff => {
                 let mut snapshot = ViewSnapshot::empty(view);
-                snapshot.summary =
-                    "（diff 数据源未接入：converge 差异属后续接线，当前不显示伪造内容）".into();
+                snapshot.summary = self.texts.resolve("tui.diff_unwired").to_string();
                 Ok(snapshot)
             }
         }
@@ -76,14 +78,19 @@ impl StoreViewSource {
 
     fn build_tasks(&self, session: Option<&str>) -> Result<ViewSnapshot, WhError> {
         let Some(session) = session else {
-            return Ok(no_session(ViewId::Tasks));
+            return Ok(no_session(ViewId::Tasks, &self.texts));
         };
         let overview =
             whcode_app::task_overview(&self.conn, &self.policy, &self.actor, Some(session))?;
         let mut snapshot = ViewSnapshot::empty(ViewId::Tasks);
-        snapshot.summary = format!(
-            "会话 {session} · 总计 {} · 完成 {} · 阻塞 {}",
-            overview.total, overview.done, overview.blocked
+        snapshot.summary = self.texts.resolve_fmt(
+            "summary.tasks",
+            &[
+                ("session", session),
+                ("total", &overview.total.to_string()),
+                ("done", &overview.done.to_string()),
+                ("blocked", &overview.blocked.to_string()),
+            ],
         );
         snapshot.tasks = overview
             .active
@@ -100,7 +107,7 @@ impl StoreViewSource {
 
     fn build_events(&self, session: Option<&str>) -> Result<ViewSnapshot, WhError> {
         let Some(session) = session else {
-            return Ok(no_session(ViewId::Events));
+            return Ok(no_session(ViewId::Events, &self.texts));
         };
         let cursor = whcode_app::build_snapshot(&self.conn, &self.policy, &self.actor, session)?
             .event_cursor;
@@ -117,8 +124,15 @@ impl StoreViewSource {
             TraceLevel::default(),
         )?;
         let mut snapshot = ViewSnapshot::empty(ViewId::Events);
-        snapshot.summary =
-            format!("会话 {session} · 游标 {after}..{cursor}（尾部最 {EVENT_TAIL} 条）");
+        snapshot.summary = self.texts.resolve_fmt(
+            "summary.events",
+            &[
+                ("session", session),
+                ("from", &after.to_string()),
+                ("to", &cursor.to_string()),
+                ("limit", &EVENT_TAIL.to_string()),
+            ],
+        );
         snapshot.events = export
             .events
             .into_iter()
@@ -133,7 +147,7 @@ impl StoreViewSource {
 
     fn build_context(&self, session: Option<&str>) -> Result<ViewSnapshot, WhError> {
         let Some(session) = session else {
-            return Ok(no_session(ViewId::Context));
+            return Ok(no_session(ViewId::Context, &self.texts));
         };
         let window = whcode_app::load_context(
             &self.conn,
@@ -143,33 +157,46 @@ impl StoreViewSource {
             CONTEXT_DISPLAY_BUDGET,
         )?;
         let mut snapshot = ViewSnapshot::empty(ViewId::Context);
-        snapshot.summary = format!(
-            "会话 {session} · 预算 {CONTEXT_DISPLAY_BUDGET} · 已用 {} · 条目 {}{}",
-            window.consumed_budget,
-            window.items.len(),
-            window
-                .truncated_reason
-                .map(|reason| format!(" · 截断原因 {reason}"))
-                .unwrap_or_default()
+        let truncated = window
+            .truncated_reason
+            .map(|reason| {
+                self.texts
+                    .resolve_fmt("summary.context_truncated", &[("reason", reason)])
+            })
+            .unwrap_or_default();
+        snapshot.summary = self.texts.resolve_fmt(
+            "summary.context",
+            &[
+                ("session", session),
+                ("budget", &CONTEXT_DISPLAY_BUDGET.to_string()),
+                ("used", &window.consumed_budget.to_string()),
+                ("items", &window.items.len().to_string()),
+                ("truncated", &truncated),
+            ],
         );
         Ok(snapshot)
     }
 
     fn build_spec(&self, session: Option<&str>) -> Result<ViewSnapshot, WhError> {
         let Some(session) = session else {
-            return Ok(no_session(ViewId::Spec));
+            return Ok(no_session(ViewId::Spec, &self.texts));
         };
         let snapshot = whcode_app::build_snapshot(&self.conn, &self.policy, &self.actor, session)?;
         let stage = snapshot.session.stage.as_deref().unwrap_or("[unknown]");
+        let active = snapshot
+            .active_task
+            .as_ref()
+            .map(|task| format!("{} [{}]", task.id, task.status))
+            .unwrap_or_else(|| self.texts.resolve("summary.none").to_string());
         let mut view = ViewSnapshot::empty(ViewId::Spec);
-        view.summary = format!(
-            "会话 {session} · 阶段 {stage} · 事件游标 {} · 活跃任务 {}",
-            snapshot.event_cursor,
-            snapshot
-                .active_task
-                .as_ref()
-                .map(|task| format!("{} [{}]", task.id, task.status))
-                .unwrap_or_else(|| "无".into())
+        view.summary = self.texts.resolve_fmt(
+            "summary.spec",
+            &[
+                ("session", session),
+                ("stage", stage),
+                ("cursor", &snapshot.event_cursor.to_string()),
+                ("task", &active),
+            ],
         );
         Ok(view)
     }
@@ -182,7 +209,9 @@ impl ViewSource for StoreViewSource {
             Err(err) => {
                 // 显式失败：摘要行写明错误（不伪造数据，不静默为空）。
                 let mut snapshot = ViewSnapshot::empty(view);
-                snapshot.summary = format!("数据源错误：{err}");
+                snapshot.summary = self
+                    .texts
+                    .resolve_fmt("error.datasource", &[("error", &err.to_string())]);
                 snapshot
             }
         }
@@ -190,9 +219,9 @@ impl ViewSource for StoreViewSource {
 }
 
 /// 未选择会话时的显式提示（正确的空：不是「暂无数据」而是「还没有选择」）。
-fn no_session(view: ViewId) -> ViewSnapshot {
+fn no_session(view: ViewId, texts: &I18n) -> ViewSnapshot {
     let mut snapshot = ViewSnapshot::empty(view);
-    snapshot.summary = "（未选择会话——按 j/k 选择会话）".into();
+    snapshot.summary = texts.resolve("tui.no_session").to_string();
     snapshot
 }
 
@@ -213,6 +242,7 @@ fn summarize_payload(payload: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{StoreViewSource, summarize_payload};
+    use whcode_domain::i18n::I18n;
     use whcode_tui::{ViewId, ViewSource};
 
     fn migrated_conn() -> duckdb::Connection {
@@ -223,7 +253,7 @@ mod tests {
 
     #[test]
     fn empty_workspace_reports_correct_emptiness() {
-        let source = StoreViewSource::new(migrated_conn());
+        let source = StoreViewSource::new(migrated_conn(), I18n::default());
         let sessions = source.snapshot(ViewId::Sessions, None);
         assert!(sessions.sessions.is_empty(), "空工作区无会话");
         assert!(sessions.summary.is_empty(), "会话视图不带摘要");
@@ -233,6 +263,13 @@ mod tests {
             tasks.summary, "（未选择会话——按 j/k 选择会话）",
             "未选择会话是显式状态"
         );
+        // 英文文本层：同一快照的摘要切换语言（数据字段不翻译）。
+        let english = StoreViewSource::new(
+            migrated_conn(),
+            I18n::load("en", whcode_domain::i18n::LocaleSource::Explicit),
+        );
+        let tasks = english.snapshot(ViewId::Tasks, None);
+        assert_eq!(tasks.summary, "(no session selected — press j/k)");
     }
 
     #[test]
@@ -250,7 +287,7 @@ mod tests {
             [],
         )
         .expect("插入事件");
-        let source = StoreViewSource::new(conn);
+        let source = StoreViewSource::new(conn, I18n::default());
 
         let sessions = source.snapshot(ViewId::Sessions, None);
         assert_eq!(sessions.sessions.len(), 1);

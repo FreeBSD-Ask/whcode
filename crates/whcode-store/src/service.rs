@@ -562,14 +562,17 @@ mod tests {
         assert_eq!(service.queued_len(), 2, "被拒绝的请求不得计入队列深度");
 
         gate.set_open(true);
-        // 写线程排空有延迟：背压时让出 CPU 重试，直到关键事件被接收。
-        let mut attempts = 0;
+        // 写线程排空有延迟：等待背压解除（有界时限 + sleep 1ms——非忙等；高负载下
+        // 纯 yield 计数会偶发耗尽，实测于批次 3 全量套件复现）。
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         loop {
             match service.submit(event(3, EventKind::ToolCallStarted), "k-critical") {
                 Ok(_) => break,
-                Err(err) if err.code == ErrorCode::Backpressure && attempts < 1_000 => {
-                    attempts += 1;
-                    std::thread::yield_now();
+                Err(err)
+                    if err.code == ErrorCode::Backpressure
+                        && std::time::Instant::now() < deadline =>
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(1));
                 }
                 Err(err) => panic!("关键事件确认失败：{err}"),
             }

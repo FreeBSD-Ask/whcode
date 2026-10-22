@@ -36,6 +36,7 @@ use ratatui::layout::{Constraint, Layout};
 use ratatui::style::{Color, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph};
+use whcode_domain::i18n::I18n;
 use whcode_domain::{ErrorCode, WhError};
 
 pub use event::UiEvent;
@@ -97,6 +98,8 @@ impl ViewSource for EmptyViewSource {
 pub struct RunOptions<'a> {
     /// 渲染主题（FR-612）；默认 `eink-day`（ui-design 默认值：最保守、最省电）。
     pub theme: Theme,
+    /// 界面文本层（FR-615）：默认 `zh-CN` + `en` 回退（`I18n::default()`）。
+    pub texts: I18n,
     /// 窗口最小化探测（T135/FR-617）：`Some` 时由事件循环低频调用
     /// （仅在有**待绘制帧**且输入静默 ≥1s 时；间隔 5s→60s 退避，ADR-021）。
     /// `None` = 不探测（门控保持「未最小化」，行为与接线前一致）。
@@ -138,7 +141,7 @@ pub fn run_with(source: &dyn ViewSource, options: RunOptions<'_>) -> Result<(), 
         // 脏标记门控：仅脏且未最小化时绘制（T083/T129/T135）。
         if let Some(lines) = core.render_frame() {
             terminal
-                .draw(|frame| draw_frame(frame, &core.state, &lines, options.theme))
+                .draw(|frame| draw_frame(frame, &core.state, &lines, options.theme, &options.texts))
                 .map_err(|err| io_error("绘制界面失败", err))?;
         }
         match guard.session_mut().poll_event(POLL_TIMEOUT)? {
@@ -436,8 +439,14 @@ impl<'a> LoopCore<'a> {
 }
 
 /// 画一帧：标题（视图名/序号）、视图文本、页脚（尺寸/按键/快捷键提示），
-/// 应用主题精确色值（FR-612）。纯投影：不做查询、不反序列化 JSON（§5.3）。
-fn draw_frame(frame: &mut ratatui::Frame<'_>, state: &TuiState, lines: &[String], theme: Theme) {
+/// 应用主题精确色值（FR-612）与文本层（FR-615）。纯投影：不做查询、不反序列化 JSON（§5.3）。
+fn draw_frame(
+    frame: &mut ratatui::Frame<'_>,
+    state: &TuiState,
+    lines: &[String],
+    theme: Theme,
+    texts: &I18n,
+) {
     let (background, foreground) = theme.colors();
     let style = match (theme::parse_rgb(background), theme::parse_rgb(foreground)) {
         (Some(bg), Some(fg)) => Style::default()
@@ -447,15 +456,18 @@ fn draw_frame(frame: &mut ratatui::Frame<'_>, state: &TuiState, lines: &[String]
     };
 
     let view = state.view();
+    let title = texts.resolve_fmt(
+        "tui.title",
+        &[
+            ("view", texts.resolve(view.title_key())),
+            ("index", &view.index().to_string()),
+            ("count", &VIEW_COUNT.to_string()),
+        ],
+    );
     let block = Block::default()
         .style(style)
         .borders(Borders::ALL)
-        .title(format!(
-            "whcode —— {}（{}/{}）",
-            view.title(),
-            view.index(),
-            VIEW_COUNT
-        ));
+        .title(title);
     let area = frame.area();
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -463,16 +475,18 @@ fn draw_frame(frame: &mut ratatui::Frame<'_>, state: &TuiState, lines: &[String]
     let chunks = Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(inner);
     let body: Vec<Line<'_>> = if lines.is_empty() {
         // 数据源未装配（或视图为空）：显式提示，不伪造内容（不伪装原则）。
-        vec![Line::from("（暂无数据）")]
+        vec![Line::from(texts.resolve("tui.empty"))]
     } else {
         lines.iter().map(|line| Line::from(line.as_str())).collect()
     };
     frame.render_widget(Paragraph::new(body).style(style), chunks[0]);
-    let footer = format!(
-        "窗口 {}×{} · 按键 {} · 1—6 视图 · j/k 会话 · r 刷新 · q 退出",
-        state.cols(),
-        state.rows(),
-        state.keys_seen()
+    let footer = texts.resolve_fmt(
+        "tui.footer",
+        &[
+            ("cols", &state.cols().to_string()),
+            ("rows", &state.rows().to_string()),
+            ("keys", &state.keys_seen().to_string()),
+        ],
     );
     frame.render_widget(Paragraph::new(Line::from(footer)).style(style), chunks[1]);
 }
@@ -682,6 +696,27 @@ mod tests {
         let text = render_empty_frame(ViewId::Tasks, 60, 12);
         assert!(text.contains("（暂无数据）"), "空视图必须显式提示：{text}");
         assert!(text.contains("任务（2/6）"));
+    }
+
+    /// FR-615：英文文本层进入渲染帧（标题/页脚/空提示），数据字段不翻译。
+    #[test]
+    fn english_texts_render_in_frame() {
+        use whcode_domain::i18n::{I18n, LocaleSource};
+
+        use crate::tests_support::{buffer_text, draw_snapshot_with};
+        let texts = I18n::load("en", LocaleSource::Explicit);
+        let buffer = draw_snapshot_with(
+            &super::ViewSnapshot::empty(ViewId::Tasks),
+            70,
+            12,
+            crate::Theme::EinkDay,
+            &texts,
+        );
+        let text = buffer_text(&buffer);
+        assert!(text.contains("whcode — Tasks (2/6)"), "英文标题：{text}");
+        assert!(text.contains("Window 70×12"), "英文页脚：{text}");
+        assert!(text.contains("(no data)"), "英文空提示：{text}");
+        // 数据字段（会话 ID/事件类型）不翻译——由准备层原样提供。
     }
 
     /// 会话选择与刷新（批次 1）：`j`/`k` 移动并重新准备；`r` 重新准备；导航键不计入按键。

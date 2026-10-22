@@ -91,6 +91,13 @@ pub fn detect_locale(explicit: Option<&str>) -> (String, LocaleSource) {
     ("zh-CN".to_string(), LocaleSource::Default)
 }
 
+/// 默认文本层：`zh-CN` + `en` 回退（FR-615 默认语言）。
+impl Default for I18n {
+    fn default() -> Self {
+        Self::load("zh-CN", LocaleSource::Default)
+    }
+}
+
 /// 文本目录加载与回退（FR-615）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct I18n {
@@ -134,6 +141,29 @@ impl I18n {
             .or_else(|| self.fallback.entries.get(key))
             .map(String::as_str)
             .unwrap_or(key)
+    }
+
+    /// 已加载条目（合并：回退语言打底，主语言覆盖）——供 Web `/api/i18n` 下发。
+    #[must_use]
+    pub fn entries(&self) -> BTreeMap<String, String> {
+        let mut merged = self.fallback.entries.clone();
+        for (key, value) in &self.primary.entries {
+            merged.insert(key.clone(), value.clone());
+        }
+        merged
+    }
+
+    /// 带占位符的解析：`{name}` 由 `args` 顺序替换（未提供的占位符原样保留）。
+    ///
+    /// 键缺失时返回键名本身（与 [`I18n::resolve`] 一致，不伪造文本）。
+    #[must_use]
+    pub fn resolve_fmt(&self, key: &str, args: &[(&str, &str)]) -> String {
+        let mut text = self.resolve(key).to_string();
+        for (name, value) in args {
+            let placeholder = format!("{{{name}}}");
+            text = text.replace(&placeholder, value);
+        }
+        text
     }
 
     /// 已加载条目数（诊断）。
@@ -180,6 +210,57 @@ mod tests {
         assert_eq!(i18n.resolve("menu.sessions"), "Sessions");
         // 键缺失时返回键名本身（不伪造文本）。
         assert_eq!(i18n.resolve("nonexistent.key"), "nonexistent.key");
+    }
+
+    /// 双语键表必须一致（Check 222「zh-CN 与 en 语义一致」的结构前提）：
+    /// 任一语言缺键都会导致回退到另一种语言或键名——发现即失败。
+    #[test]
+    fn both_catalogs_define_the_same_keys() {
+        let zh = parse_properties(ZH_CN);
+        let en = parse_properties(EN);
+        let mut zh_keys: Vec<&String> = zh.keys().collect();
+        let mut en_keys: Vec<&String> = en.keys().collect();
+        zh_keys.sort();
+        en_keys.sort();
+        assert_eq!(zh_keys, en_keys, "zh-CN 与 en 的键集合必须一致");
+        // 占位符集合一致（同一键在两种语言中必须引用同一组参数）。
+        for key in zh_keys {
+            let placeholders = |text: &str| {
+                let mut names: Vec<String> = Vec::new();
+                let mut rest = text;
+                while let Some(start) = rest.find('{') {
+                    let tail = &rest[start + 1..];
+                    let Some(end) = tail.find('}') else { break };
+                    names.push(tail[..end].to_string());
+                    rest = &tail[end + 1..];
+                }
+                names.sort();
+                names
+            };
+            assert_eq!(
+                placeholders(&zh[key]),
+                placeholders(&en[key]),
+                "键 {key} 的占位符集合不一致"
+            );
+        }
+    }
+
+    #[test]
+    fn formatted_resolution_substitutes_placeholders() {
+        let zh = I18n::load("zh-CN", LocaleSource::Default);
+        let text = zh.resolve_fmt(
+            "tui.footer",
+            &[("cols", "120"), ("rows", "30"), ("keys", "3")],
+        );
+        assert!(text.contains("窗口 120×30"), "{text}");
+        assert!(text.contains("按键 3"), "{text}");
+        let en = I18n::load("en", LocaleSource::Explicit);
+        let text = en.resolve_fmt("web.cursor", &[("n", "6")]);
+        assert_eq!(text, "Cursor 6");
+        // 缺键 → 键名（不伪造）；未提供占位符原样保留。
+        assert_eq!(zh.resolve_fmt("missing.key", &[]), "missing.key");
+        let partial = zh.resolve_fmt("web.cursor", &[]);
+        assert_eq!(partial, "游标 {n}");
     }
 
     #[test]

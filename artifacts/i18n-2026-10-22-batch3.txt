@@ -1,0 +1,45 @@
+WHCode 文本层接线取证（批次 3；FR-615 / T130；2026-10-22）
+范围：TUI 固定界面与视图摘要、CUI 人类可读输出、Web 界面标签与状态——统一经
+`whcode-domain::i18n`（zh-CN 主目录 + en 回退；缺键返回键名，不伪造）。
+
+一、资源与回退（单元测试）
+  - `both_catalogs_define_the_same_keys`：zh-CN 与 en 键集合一致，且每键占位符集合一致
+    （55 个键）。
+  - `formatted_resolution_substitutes_placeholders`：`tui.footer`/`web.cursor` 占位符替换；
+    缺键返回键名；未提供的占位符原样保留。
+  - `detect_locale`：显式 → LANG/LC_ALL → 默认 zh-CN（来源语义可查）。
+
+二、TUI（真实控制台，script/tui_views_smoke.py --workspace artifacts/web-demo）
+  - LANG=zh_CN.UTF-8：13/13 通过（产物 artifacts/tui-views-smoke/20261022-230902/）：
+    标题「whcode —— 会话（1/6）」、页脚「窗口 120×30 · 按键 0 · 1—6 视图 · j/k 会话 ·
+    r 刷新 · q 退出」、任务摘要「会话 S-DEMO-1 · 总计 3 · 完成 1 · 阻塞 0」。
+  - LANG=en_US.UTF-8（--lang en）：13/13 通过（产物 .../20261022-230801/）：
+    标题「whcode — Sessions (1/6)」、页脚「Window 120×30 · keys 0 · 1—6 views ·
+    j/k session · r refresh · q quit」、任务摘要「Session S-DEMO-1 · total 3 ·
+    done 1 · blocked 0」；**数据字段不翻译**（会话标题、任务标题、状态名、事件类型原样）。
+  - 英文帧单元取证：`english_texts_render_in_frame`（标题/页脚/空提示）。
+
+三、CUI（真实命令，LANG=en_US.UTF-8）
+  - `task list --session S-DEMO-1` → "Session S-DEMO-1: total 3 · done 1 · blocked 0 · active 1"
+  - LANG=zh_CN.UTF-8 → "会话 S-DEMO-1：总计 3 · 完成 1 · 阻塞 0 · 活跃 1"
+  - 单元测试 `human_output_localizes_while_data_fields_stay_stable`（数据字段不变）。
+  - 错误对象四字段与退出码不随语言变化（code/retryable 稳定）。
+
+四、Web（真实浏览器 + API）
+  - GET /api/i18n?locale=en → locale=en、rtl=false、entries=55；
+    entries["web.tab.tasks"]="Tasks"、["web.conn.connected"]="Connected"。
+  - GET /api/i18n?locale=ar → rtl=true（文本回退 en——无阿语目录，不伪造翻译）。
+  - 页面 `/?locale=en&session=S-DEMO-1`：`<html lang="en" dir="ltr">`；标签
+    Sessions/Tasks/History/SDD；页脚 Connected / Cursor 6；任务摘要
+    "total 3 · done 1 · blocked 0"；事件日志 6 行。
+  - 页面 `/?locale=zh-CN`：lang=zh-CN；标签 会话/任务/历史/SDD；已连接 / 游标 6；
+    任务摘要「总计 3 · 完成 1 · 阻塞 0」。
+  - 页面 `/?locale=ar`：lang=ar、**dir=rtl**；文本回退英文（不伪造）。
+  - 语言选择顺序：`?locale=` 显式参数 → 浏览器语言（navigator.language）→ zh-CN。
+
+五、说明与限制
+  - 视觉排版为逻辑顺序渲染（TUI 无 LTR 硬编码；Web 无方向性 CSS 属性），
+    阿拉伯语等 RTL 的 BiDi 重排属渲染层后续工作（接口 `is_rtl_locale`/`logical_order` 已提供）。
+  - 数据字段（ID、事件类型、状态稳定名）与错误码不翻译：跨端一致性与脚本可编程性优先。
+  - clap 帮助文本（CUI `--help`）仍为中文（derive 文档字符串）：本地化属后续（显式标注）。
+  - 动态错误消息来自应用/存储层（中文）：本地化需错误码→文本映射，属后续（显式标注）。
