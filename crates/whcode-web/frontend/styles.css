@@ -29,6 +29,11 @@ nav button {
 nav button[aria-selected="true"] { opacity: 0.6; }
 main { flex: 1; padding: 0.5rem; }
 pre, ul { white-space: pre-wrap; word-break: break-all; }
+/* 会话选择（批次 1）：条目可点击；选中态用加粗 + `> ` 前缀（不只靠颜色，ui-design）。 */
+#session-list li { cursor: pointer; }
+#session-list li:focus-visible { outline: 1px dashed var(--fg); }
+#session-list li[aria-current="true"] { font-weight: bold; }
+#session-list li[aria-current="true"]::before { content: "> "; }
 footer { border-top: 1px solid var(--fg); padding: 0.25rem 0.5rem; display: flex; gap: 1rem; }
 /* 动效总开关（T133/FR-613）：仅 opacity 过渡（GPU 合成友好）；系统要求减动效时禁用。 */
 @media (prefers-reduced-motion: no-preference) {

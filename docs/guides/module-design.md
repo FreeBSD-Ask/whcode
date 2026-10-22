@@ -152,7 +152,8 @@ whcode-bin           （装配根：配置、日志、feature）
   脏标记重绘、空闲零重绘、帧行数上界，§5.3/T083/T129）；事件循环接线最小化探测
   （T135/ADR-021）与主题精确色值（FR-612）；进入/恢复守卫。
 - **不负责**：业务命令（经 app）；不在帧路径反序列化 JSON；**视图数据准备**——数据由
-  装配根经 `ViewSource` 注入（当前为 `EmptyViewSource`，应用服务装配前显式「暂无数据」）。
+  装配根经 `ViewSource` 注入（当前为 `StoreViewSource`：`whcode-bin` 打开工作区库并经
+  `whcode-app` 只读命令生成快照；打开失败时回退 `EmptyViewSource` 并显式告警）。
 - **关键类型**：`UiEvent`、`TuiState`、`ViewId`/`ViewSnapshot`、`ViewSource`、
   `Renderer`、`RunOptions`、`ScriptStep`/`ScriptReport`、`TerminalSession`/`TerminalGuard`、
   `Theme`。

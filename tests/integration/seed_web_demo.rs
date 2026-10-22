@@ -14,12 +14,31 @@
 use std::path::PathBuf;
 
 use duckdb::{Connection, params};
+use whcode_domain::TaskStatus;
 use whcode_store::apply_migrations;
+use whcode_store::tasks::{NewTask, insert_task, update_task_status};
 
 /// 演示会话（ID 固定，便于浏览器用例断言与重复清理）。
-const DEMO_SESSIONS: [(&str, &str, &str, &str); 2] = [
-    ("S-DEMO-1", "演示：六视图与 Web 联调", "implement", "active"),
-    ("S-DEMO-2", "演示：归档候选", "specify", "idle"),
+/// 演示会话（ID 固定，便于浏览器用例断言与重复清理）；
+/// `created_at` 偏移（毫秒）使 `ORDER BY created_at DESC` 下 S-DEMO-1 排首位
+/// （默认选中即有数据可看，排序确定可复现）。
+const DEMO_SESSIONS: [(&str, &str, &str, &str, i64); 2] = [
+    (
+        "S-DEMO-1",
+        "演示：六视图与 Web 联调",
+        "implement",
+        "active",
+        0,
+    ),
+    ("S-DEMO-2", "演示：归档候选", "specify", "idle", -60_000),
+];
+
+/// 演示事件序列（类型, 载荷）——有界尾部，模拟一次完整请求生命周期。
+/// 演示任务（状态经 `update_task_status` 落到 running/failed/completed，供任务视图）。
+const DEMO_TASKS: [(&str, &str, TaskStatus, i64); 3] = [
+    ("T-DEMO-1", "接线任务视图数据源", TaskStatus::Running, 0),
+    ("T-DEMO-2", "修复失败路径", TaskStatus::Failed, 2),
+    ("T-DEMO-3", "完成回归测试", TaskStatus::Completed, 1),
 ];
 
 /// 演示事件序列（类型, 载荷）——有界尾部，模拟一次完整请求生命周期。
@@ -52,6 +71,11 @@ fn seed_demo_workspace_is_idempotent() {
 
     // 清理演示数据（可重跑：只删演示 ID，不动其他数据）。
     conn.execute(
+        "DELETE FROM tasks WHERE session_id = 'S-DEMO-1' OR session_id = 'S-DEMO-2'",
+        [],
+    )
+    .expect("清理演示任务");
+    conn.execute(
         "DELETE FROM events WHERE session_id = 'S-DEMO-1' OR session_id = 'S-DEMO-2'",
         [],
     )
@@ -63,13 +87,32 @@ fn seed_demo_workspace_is_idempotent() {
     .expect("清理演示会话");
 
     let now_ms = 1_761_000_000_000i64;
-    for (id, title, stage, status) in DEMO_SESSIONS {
+    for (id, title, stage, status, created_offset_ms) in DEMO_SESSIONS {
+        let created_ms = now_ms + created_offset_ms;
         conn.execute(
             "INSERT INTO sessions (id, title, created_at, last_active_at, model, archived, status, stage)
              VALUES (?, ?, epoch_ms(?), epoch_ms(?), NULL, FALSE, ?, ?)",
-            params![id, title, now_ms, now_ms, status, stage],
+            params![id, title, created_ms, now_ms, status, stage],
         )
         .expect("插入演示会话");
+    }
+
+    let now_ms_u64 = u64::try_from(now_ms).expect("时间戳非负");
+    for (id, title, status, retry_count) in DEMO_TASKS {
+        insert_task(
+            &conn,
+            &NewTask {
+                id,
+                session_id: "S-DEMO-1",
+                title,
+                stage: "implement",
+                parent_id: None,
+                acceptance_json: "{}",
+            },
+            now_ms_u64,
+        )
+        .expect("插入演示任务");
+        update_task_status(&conn, id, status, retry_count, now_ms_u64).expect("设置演示任务状态");
     }
 
     let base: i64 = conn
@@ -109,6 +152,17 @@ fn seed_demo_workspace_is_idempotent() {
         i64::try_from(DEMO_EVENTS.len()).expect("长度"),
         "演示事件数量必须与夹具一致"
     );
+    let running: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM tasks WHERE session_id = 'S-DEMO-1' AND status = 'running'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("统计运行中任务");
+    assert_eq!(
+        running, 1,
+        "演示任务必须包含 1 个 running（任务视图活跃行）"
+    );
     let cursor: i64 = conn
         .query_row(
             "SELECT MAX(seq) FROM events WHERE session_id = 'S-DEMO-1'",
@@ -122,9 +176,10 @@ fn seed_demo_workspace_is_idempotent() {
     );
 
     eprintln!(
-        "Web 演示工作区就绪：{}（S-DEMO-1 / S-DEMO-2，事件 {} 条，游标 {}）",
+        "Web 演示工作区就绪：{}（S-DEMO-1 / S-DEMO-2，事件 {} 条，任务 {} 个，游标 {}）",
         db.display(),
         DEMO_EVENTS.len(),
+        DEMO_TASKS.len(),
         cursor
     );
     eprintln!("启动服务：whcode serve --web --bind 127.0.0.1:8737 --workspace artifacts/web-demo");

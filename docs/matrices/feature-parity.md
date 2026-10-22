@@ -14,15 +14,15 @@ Web 当前为**只读**：会话列表 / 事件列表（脱敏注明）/ 状态�
 
 | 域 | 命令 | app 层（API） | CUI | TUI | Web | 依据 |
 |---|---|---|---|---|---|---|
-| session | new/list/show/rename/archive | ✅（M2/T046） | 🚧（T084） | 🚧（T082） | 🚧 仅列表只读 | FR-101 |
+| session | new/list/show/rename/archive | ✅（M2/T046） | 🚧（T084） | 🚧 列表只读 + 选择 | 🚧 列表只读（可点击选择） | FR-101 |
 | session | delete（预览+确认+审计） | ✅（M2/T046） | 🚧 | 🚧 | ⛔ | FR-101、FR-509 |
 | session | switch（有界加载） | ✅（M2/T047） | 🚧 | 🚧 | ⛔ | FR-102、V-101 |
-| task | list/show（详情五类） | ✅（M2/T048/T049） | 🚧 | 🚧 | ⛔ | FR-103/104 |
+| task | list/show（详情五类） | ✅（M2/T048/T049） | 🚧 | ✅ 总览 + 活跃（只读） | ✅ 总览 + 活跃（只读） | FR-103/104 |
 | task | retry/abort | ✅（M2/T052） | 🚧 | 🚧 | ⛔ | FR-401/408 |
-| spec | 状态机/门禁/force-advance | ✅（M4/T074/T078） | ✅ 视图（spec_cmd） | 🚧 | 🚧 状态快照只读 | FR-307/312 |
-| context | budget/compact（指针） | ✅（M3/T060/T061） | ✅ 视图（context_cmd） | 🚧 | ⛔ | FR-105/107/108 |
+| spec | 状态机/门禁/force-advance | ✅（M4/T074/T078） | ✅ 视图（spec_cmd） | ✅ 状态摘要只读 | 🚧 状态快照只读 | FR-307/312 |
+| context | budget/compact（指针） | ✅（M3/T060/T061） | ✅ 视图（context_cmd） | ✅ 预算摘要只读 | ⛔ | FR-105/107/108 |
 | llm | run/cancel（Provider） | ✅（M3/T056 桩） | ⛔ | ⛔ | ⛔ | FR-201 |
-| events | list/export（脱敏注明） | ✅（M3/T065/T066） | ✅ 视图（events_cmd） | 🚧 | 🚧 列表只读（无导出） | FR-202/205 |
+| events | list/export（脱敏注明） | ✅（M3/T065/T066） | ✅ 视图（events_cmd） | ✅ 尾部只读 | 🚧 列表只读（无导出） | FR-202/205 |
 | db | stats/check/purge/checkpoint/compact/archive | ✅（M1/T038—T042） | 🚧 | 🚧 | ⛔ | FR-507—510 |
 | doctor | 环境自检 | ✅（M0） | ✅（whcode-bin） | — | — | §10 |
 

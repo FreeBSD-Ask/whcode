@@ -16,6 +16,8 @@ mod bench;
 mod config;
 mod logging;
 mod serve;
+mod store_source;
+mod workspace;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -176,11 +178,13 @@ fn print_bench_summary(report: &bench::BaselineReport, out: &Path) {
 /// 误判为可用 TUI（输出侧有控制台），导致挂起；`stdin_is_interactive()` 补上输入侧检查。
 /// 交互入口：有交互控制台时进入 TUI；否则打印骨架提示。
 ///
-/// 装配根接线（T082/T083/T129/T135）：
+/// 装配根接线（T082/T083/T129/T135 + 批次 1 数据接入）：
 /// - 主题（FR-612）经配置 `ui.theme` 选择，可被 `WHCODE_UI_THEME` 覆盖；
 /// - 最小化探测（T135/ADR-021）注入 `whcode-platform` 的 `is_window_minimized`
 ///   ——事件循环只在「有待绘制帧且输入静默」时低频调用（≥5s 间隔，非帧路径）；
-/// - 视图数据源：应用服务装配前传空数据源，六视图可切换、显式显示「暂无数据」。
+/// - 视图数据源：打开工作区库（`--workspace DIR` 或配置工作区）并经 `whcode-app`
+///   只读命令生成快照；打开失败（含跨进程锁）时**显式警告并回退空数据源**——
+///   TUI 仍可用，但不伪造数据。
 fn launch_interactive(args: &[String]) -> ExitCode {
     if !(whcode_platform::term::terminal_size().is_some()
         && whcode_platform::term::stdin_is_interactive())
@@ -191,19 +195,36 @@ fn launch_interactive(args: &[String]) -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    let theme = match load_config(args) {
-        Ok(config) => config.effective_theme(),
+    let config = match load_config(args) {
+        Ok(config) => config,
         Err(err) => {
-            eprintln!("配置加载失败（TUI 使用默认主题）：{err}");
-            whcode_tui::Theme::default()
+            eprintln!("配置加载失败（使用默认主题与当前目录工作区）：{err}");
+            let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            config::Config::for_workspace(cwd)
         }
     };
+    let theme = config.effective_theme();
+    let workspace = match workspace::resolve_workspace(args, &config) {
+        Ok(workspace) => workspace,
+        Err(err) => {
+            eprintln!("工作区解析失败：{err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let source: Box<dyn whcode_tui::ViewSource> =
+        match workspace::open_workspace_db(&workspace, &config) {
+            Ok(conn) => Box::new(store_source::StoreViewSource::new(conn)),
+            Err(err) => {
+                eprintln!("数据源不可用（TUI 以空数据源运行，视图显示「暂无数据」）：{err}");
+                Box::new(whcode_tui::EmptyViewSource)
+            }
+        };
     let probe: fn() -> Option<bool> = whcode_platform::term::is_window_minimized;
     let options = whcode_tui::RunOptions {
         theme,
         minimize_probe: Some(&probe),
     };
-    match whcode_tui::run_with(&whcode_tui::EmptyViewSource, options) {
+    match whcode_tui::run_with(source.as_ref(), options) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             eprintln!("TUI 运行失败：{err}");

@@ -73,11 +73,13 @@ pub(crate) fn io_error(action: &str, err: io::Error) -> WhError {
 /// 视图数据源（准备层）：为给定视图准备**只读快照**（T082 接线）。
 ///
 /// 实现方必须立即返回纯数据：查询/整理应在调用方的准备阶段完成，不得在快照准备中
-/// 执行 LLM 网络 I/O 或长时间工具调用（§5.3 渲染线程纪律）。视图切换与数据变更时
-/// 各准备一次；**帧路径不反序列化 JSON**（快照即纯数据）。
+/// 执行 LLM 网络 I/O 或长时间工具调用（§5.3 渲染线程纪律）。视图切换、会话选择
+/// （`j`/`k`）与显式刷新（`r`）时各准备一次；**帧路径不反序列化 JSON**（快照即纯数据）。
+///
+/// `session` 为当前选中的会话 ID（`None` = 尚未选择）；会话树视图忽略该参数。
 pub trait ViewSource {
-    /// 准备指定视图的只读快照。
-    fn snapshot(&self, view: ViewId) -> ViewSnapshot;
+    /// 准备指定视图的只读快照（含会话范围）。
+    fn snapshot(&self, view: ViewId, session: Option<&str>) -> ViewSnapshot;
 }
 
 /// 空数据源：应用服务数据源装配前的默认实现——六视图可切换、可绘制，帧内提示「暂无数据」。
@@ -85,7 +87,7 @@ pub trait ViewSource {
 pub struct EmptyViewSource;
 
 impl ViewSource for EmptyViewSource {
-    fn snapshot(&self, view: ViewId) -> ViewSnapshot {
+    fn snapshot(&self, view: ViewId, _session: Option<&str>) -> ViewSnapshot {
         ViewSnapshot::empty(view)
     }
 }
@@ -208,7 +210,7 @@ pub fn run_scripted(events: &[UiEvent]) -> ScriptReport {
 }
 
 /// [`run_scripted_steps`] 的最终状态报告。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScriptReport {
     /// 结束时是否已请求退出。
     pub quit: bool,
@@ -224,6 +226,12 @@ pub struct ScriptReport {
     pub steps_consumed: usize,
     /// 结束时的当前视图。
     pub view: ViewId,
+    /// 结束时会话清单条数（准备层返回）。
+    pub sessions: usize,
+    /// 结束时会话选择序号（`j`/`k` 选择）。
+    pub session_cursor: usize,
+    /// 结束时会话选择（会话 ID；空清单为 `None`）。
+    pub selected_session: Option<String>,
     /// 实际产生的重绘次数（渲染门控放行的帧数）。
     pub redraws: usize,
     /// 最小化期间跳过绘制的累计次数（FR-617）。
@@ -234,7 +242,7 @@ pub struct ScriptReport {
     pub minimized: bool,
 }
 
-/// 事件循环核心：状态 + 渲染器 + 视图快照 + 最小化探测时序（无终端依赖）。
+/// 事件循环核心：状态 + 渲染器 + 视图快照 + 会话选择 + 最小化探测时序（无终端依赖）。
 ///
 /// 真实循环（[`run_with`]）与无终端重放（[`run_scripted_steps`]）共用本结构——
 /// 保证重放证据与真实行为同源，而不是另写一套仿真。
@@ -243,6 +251,12 @@ struct LoopCore<'a> {
     renderer: Renderer,
     snapshot: ViewSnapshot,
     source: &'a dyn ViewSource,
+    /// 会话清单（每次准备时刷新；供 `j`/`k` 选择与边界钳制）。
+    sessions: Vec<SessionRow>,
+    /// 会话选择序号（`usize::MAX` 等越界值在准备时钳制为 0）。
+    session_cursor: usize,
+    /// 当前选中的会话 ID（由 `sessions[session_cursor]` 解析）。
+    selected_session: Option<String>,
     last_input_at: Instant,
     last_probe_at: Instant,
     probe_interval: Duration,
@@ -254,32 +268,76 @@ struct LoopCore<'a> {
 impl<'a> LoopCore<'a> {
     fn new(source: &'a dyn ViewSource, cols: u16, rows: u16, now: Instant) -> Self {
         let state = TuiState::new(cols, rows);
-        Self {
-            snapshot: source.snapshot(state.view()),
+        let mut core = Self {
+            snapshot: ViewSnapshot::empty(state.view()),
             state,
             renderer: Renderer::new(),
             source,
+            sessions: Vec::new(),
+            session_cursor: 0,
+            selected_session: None,
             last_input_at: now,
             last_probe_at: now,
             probe_interval: MINIMIZE_PROBE_INTERVAL,
             probes: 0,
             redraws: 0,
             skipped: 0,
+        };
+        core.prepare();
+        core
+    }
+
+    /// 重新准备快照（准备层）：刷新会话清单 → 钳制选择 → 取当前视图快照 → 置脏。
+    ///
+    /// 查询发生在这里（视图切换/会话选择/显式刷新的边界），帧路径只消费快照（§5.3）。
+    fn prepare(&mut self) {
+        let sessions_snapshot = self.source.snapshot(ViewId::Sessions, None);
+        self.sessions = sessions_snapshot.sessions.clone();
+        if self.sessions.is_empty() {
+            self.session_cursor = 0;
+        } else if self.session_cursor >= self.sessions.len() {
+            self.session_cursor = self.sessions.len() - 1;
         }
+        self.selected_session = self
+            .sessions
+            .get(self.session_cursor)
+            .map(|row| row.id.clone());
+        self.snapshot = if self.state.view() == ViewId::Sessions {
+            sessions_snapshot
+        } else {
+            self.source
+                .snapshot(self.state.view(), self.selected_session.as_deref())
+        };
+        self.snapshot.selected_index = Some(self.session_cursor);
+        self.renderer.handle_event(RenderEvent::DataChanged);
     }
 
     /// 输入事件（键/resize）：更新状态并置脏；收到输入即证明窗口可见——若此前处于
     /// 最小化门控则按「还原」记账（还原后单次全量重绘，FR-617）。视图切换时重新
     /// 准备快照（准备层允许做同步整理，但不得做 LLM/长工具调用，§5.3）。
+    ///
+    /// 导航键（`j`/`k` 选择会话、`r` 刷新）由本层消费，不计入普通按键计数。
     fn on_input(&mut self, event: UiEvent, now: Instant) {
         self.last_input_at = now;
-        self.state.handle(event);
         if self.renderer.is_minimized() {
             self.renderer.handle_event(RenderEvent::Restored);
         }
-        let view = self.state.view();
-        if self.snapshot.view != view {
-            self.snapshot = self.source.snapshot(view);
+        match event {
+            UiEvent::Key('j') => {
+                self.session_cursor = self.session_cursor.saturating_add(1);
+                self.prepare();
+            }
+            UiEvent::Key('k') => {
+                self.session_cursor = self.session_cursor.saturating_sub(1);
+                self.prepare();
+            }
+            UiEvent::Key('r') => self.prepare(),
+            _ => {
+                self.state.handle(event);
+                if self.snapshot.view != self.state.view() {
+                    self.prepare();
+                }
+            }
         }
         self.renderer.handle_event(RenderEvent::DataChanged);
     }
@@ -366,6 +424,9 @@ impl<'a> LoopCore<'a> {
             events_consumed,
             steps_consumed,
             view: self.state.view(),
+            sessions: self.sessions.len(),
+            session_cursor: self.session_cursor,
+            selected_session: self.selected_session.clone(),
             redraws: self.redraws,
             skipped_while_minimized: self.skipped,
             probes: self.probes,
@@ -408,7 +469,7 @@ fn draw_frame(frame: &mut ratatui::Frame<'_>, state: &TuiState, lines: &[String]
     };
     frame.render_widget(Paragraph::new(body).style(style), chunks[0]);
     let footer = format!(
-        "窗口 {}×{} · 按键 {} · 1—6 切换视图 · q 退出",
+        "窗口 {}×{} · 按键 {} · 1—6 视图 · j/k 会话 · r 刷新 · q 退出",
         state.cols(),
         state.rows(),
         state.keys_seen()
@@ -588,7 +649,7 @@ mod tests {
                 text.contains(&format!("whcode —— {}（{}/6）", view.title(), view.index())),
                 "{view:?} 帧必须含视图标题"
             );
-            assert!(text.contains("1—6 切换视图"), "{view:?} 帧必须含快捷键提示");
+            assert!(text.contains("1—6 视图"), "{view:?} 帧必须含快捷键提示");
             assert!(text.contains("q 退出"), "{view:?} 帧必须含退出提示");
             for line in fixture_snapshot(view).render_lines() {
                 assert!(
@@ -621,6 +682,125 @@ mod tests {
         let text = render_empty_frame(ViewId::Tasks, 60, 12);
         assert!(text.contains("（暂无数据）"), "空视图必须显式提示：{text}");
         assert!(text.contains("任务（2/6）"));
+    }
+
+    /// 会话选择与刷新（批次 1）：`j`/`k` 移动并重新准备；`r` 重新准备；导航键不计入按键。
+    #[test]
+    fn scripted_session_selection_and_refresh() {
+        use std::cell::RefCell;
+
+        use super::{SessionRow, ViewSource};
+
+        struct RecordingSource {
+            sessions: Vec<SessionRow>,
+            calls: RefCell<Vec<(ViewId, Option<String>)>>,
+        }
+
+        impl ViewSource for RecordingSource {
+            fn snapshot(&self, view: ViewId, session: Option<&str>) -> super::ViewSnapshot {
+                self.calls
+                    .borrow_mut()
+                    .push((view, session.map(str::to_string)));
+                let mut snapshot = super::ViewSnapshot::empty(view);
+                if view == ViewId::Sessions {
+                    snapshot.sessions = self.sessions.clone();
+                } else {
+                    snapshot.summary =
+                        format!("会话 {} · {}", session.unwrap_or("(未选择)"), view.as_str());
+                }
+                snapshot
+            }
+        }
+
+        let source = RecordingSource {
+            sessions: vec![
+                SessionRow {
+                    id: "S-1".into(),
+                    title: "甲".into(),
+                    stage: "plan".into(),
+                    status: "active".into(),
+                },
+                SessionRow {
+                    id: "S-2".into(),
+                    title: "乙".into(),
+                    stage: "implement".into(),
+                    status: "idle".into(),
+                },
+            ],
+            calls: RefCell::new(Vec::new()),
+        };
+        let steps = [
+            ScriptStep::Input(UiEvent::Key('2')),
+            ScriptStep::Input(UiEvent::Key('j')),
+            ScriptStep::Input(UiEvent::Key('k')),
+            ScriptStep::Input(UiEvent::Key('r')),
+        ];
+        let report = run_scripted_steps(&source, &steps, &RunOptions::default());
+        assert_eq!(report.view, ViewId::Tasks);
+        assert_eq!(report.sessions, 2);
+        assert_eq!(report.session_cursor, 0, "k 回到首个会话");
+        assert_eq!(report.selected_session.as_deref(), Some("S-1"));
+        assert_eq!(report.keys_seen, 0, "j/k/r 是导航键，不计入普通按键");
+        let calls = source.calls.borrow();
+        assert_eq!(
+            calls.as_slice(),
+            [
+                // 构造时准备一次（会话清单）。
+                (ViewId::Sessions, None),
+                // 切到任务视图：会话清单 + 任务快照（会话 S-1）。
+                (ViewId::Sessions, None),
+                (ViewId::Tasks, Some("S-1".to_string())),
+                // j → S-2；k → S-1；r → 重取 S-1。
+                (ViewId::Sessions, None),
+                (ViewId::Tasks, Some("S-2".to_string())),
+                (ViewId::Sessions, None),
+                (ViewId::Tasks, Some("S-1".to_string())),
+                (ViewId::Sessions, None),
+                (ViewId::Tasks, Some("S-1".to_string())),
+            ],
+            "准备调用序列：切换/选择/刷新各触发一次会话清单 + 视图快照"
+        );
+    }
+
+    /// 会话选择越界钳制：连续 `j` 停在最后一个会话；空清单 selected 为 None。
+    #[test]
+    fn session_selection_clamps_at_bounds() {
+        use super::{SessionRow, ViewSource};
+
+        struct FixedSource(Vec<SessionRow>);
+        impl ViewSource for FixedSource {
+            fn snapshot(&self, view: ViewId, _session: Option<&str>) -> super::ViewSnapshot {
+                let mut snapshot = super::ViewSnapshot::empty(view);
+                snapshot.sessions = self.0.clone();
+                snapshot
+            }
+        }
+
+        let two = FixedSource(vec![
+            SessionRow {
+                id: "S-1".into(),
+                title: "甲".into(),
+                stage: "plan".into(),
+                status: "active".into(),
+            },
+            SessionRow {
+                id: "S-2".into(),
+                title: "乙".into(),
+                stage: "plan".into(),
+                status: "active".into(),
+            },
+        ]);
+        let steps: Vec<ScriptStep> =
+            std::iter::repeat_n(ScriptStep::Input(UiEvent::Key('j')), 5).collect();
+        let report = run_scripted_steps(&two, &steps, &RunOptions::default());
+        assert_eq!(report.session_cursor, 1, "越界必须钳制到最后一个会话");
+        assert_eq!(report.selected_session.as_deref(), Some("S-2"));
+
+        let empty = FixedSource(Vec::new());
+        let report = run_scripted_steps(&empty, &steps, &RunOptions::default());
+        assert_eq!(report.sessions, 0);
+        assert_eq!(report.session_cursor, 0);
+        assert_eq!(report.selected_session, None, "空清单无选择（正确的空）");
     }
 
     /// Check 83（帧预算）：帧渲染分位数归档到 `artifacts/tui-frame-budget.json`。
@@ -733,7 +913,7 @@ mod tests {
     struct EmptySourceForTest;
 
     impl super::ViewSource for EmptySourceForTest {
-        fn snapshot(&self, view: ViewId) -> super::ViewSnapshot {
+        fn snapshot(&self, view: ViewId, _session: Option<&str>) -> super::ViewSnapshot {
             super::ViewSnapshot::empty(view)
         }
     }

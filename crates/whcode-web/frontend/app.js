@@ -34,42 +34,136 @@ async function fetchJson(url) {
   return response.json();
 }
 
-// 会话清单（FR-101）。
+// 会话清单（FR-101）：条目可点击选择（批次 1）；渲染按签名去重（避免每秒重建 DOM）。
+let lastSessionsSignature = "";
+
 async function loadSessions() {
   const data = await fetchJson("/api/sessions");
-  const list = el("session-list");
+  const sessions = data.sessions ?? [];
+  const signature = JSON.stringify(
+    sessions.map((s) => [s.id, s.title, s.stage, s.status, s.archived]),
+  );
+  if (signature === lastSessionsSignature) {
+    updateSessionHighlight();
+  } else {
+    lastSessionsSignature = signature;
+    const list = el("session-list");
+    list.textContent = "";
+    for (const session of sessions) {
+      const item = document.createElement("li");
+      item.textContent = `${session.id} ${session.title} [${session.stage}]`;
+      item.dataset.session = session.id;
+      item.tabIndex = 0;
+      item.setAttribute("role", "button");
+      item.addEventListener("click", () => selectSession(session.id));
+      item.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          selectSession(session.id);
+        }
+      });
+      list.append(item);
+    }
+    updateSessionHighlight();
+  }
+  if (state.session === null && sessions.length > 0) {
+    selectSession(sessions[0].id); // 无 ?session= 参数时自动选中首个会话
+  }
+}
+
+/** 切换当前会话：重置游标与事件日志，立即拉取任务/状态/事件，并同步 URL。 */
+function selectSession(sessionId) {
+  if (state.session === sessionId) {
+    updateSessionHighlight();
+    return;
+  }
+  state.session = sessionId;
+  state.cursor = 0;
+  el("event-log").textContent = "";
+  el("event-cursor").textContent = "游标 0";
+  const url = new URL(window.location.href);
+  url.searchParams.set("session", sessionId);
+  window.history.replaceState(null, "", url);
+  updateSessionHighlight();
+  loadTasks().catch(() => {});
+  loadStatus().catch(() => {});
+  pollEvents().catch(() => {});
+}
+
+/** 选中态（aria-current；样式不依赖颜色）。 */
+function updateSessionHighlight() {
+  for (const item of document.querySelectorAll("#session-list li")) {
+    item.setAttribute(
+      "aria-current",
+      item.dataset.session === state.session ? "true" : "false",
+    );
+  }
+}
+
+// 任务视图（FR-103，批次 1）：会话范围的任务总览 + 活跃任务（有界）。
+async function loadTasks() {
+  const session = state.session;
+  if (!session) {
+    return;
+  }
+  const data = await fetchJson(`/api/tasks?session=${encodeURIComponent(session)}`);
+  if (session !== state.session) {
+    return; // 会话已切换：丢弃过期响应
+  }
+  const list = el("task-list");
   list.textContent = "";
-  for (const session of data.sessions ?? []) {
+  const summary = document.createElement("li");
+  summary.textContent = `总计 ${data.total} · 完成 ${data.done} · 阻塞 ${data.blocked}`;
+  list.append(summary);
+  for (const task of data.active ?? []) {
     const item = document.createElement("li");
-    item.textContent = `${session.id} ${session.title} [${session.stage}]`;
+    item.textContent = `${task.id} ${task.title} [${task.status}] retry=${task.retry_count}`;
     list.append(item);
   }
 }
 
 // 事件增量（T094/FR-605）：从游标补齐，恢复后不重复不遗漏。
+// 并发守卫：会话切换时 selectSession 与轮询循环可能同时从游标 0 拉取——
+// 在途请求不重入；响应到达时会话已切换则丢弃；seq <= cursor 一律跳过（去重）。
+let eventsInFlight = false;
+
 async function pollEvents() {
-  if (!state.session) {
+  const session = state.session;
+  if (!session || eventsInFlight) {
     return;
   }
-  const data = await fetchJson(
-    `/api/events?session=${encodeURIComponent(state.session)}&after=${state.cursor}`,
-  );
-  const log = el("event-log");
-  for (const event of data.events ?? []) {
-    log.textContent += `${event.seq} ${event.kind}\n`;
-    state.cursor = event.seq;
+  eventsInFlight = true;
+  try {
+    const data = await fetchJson(
+      `/api/events?session=${encodeURIComponent(session)}&after=${state.cursor}`,
+    );
+    if (session !== state.session) {
+      return; // 会话已切换：丢弃过期响应
+    }
+    const log = el("event-log");
+    for (const event of data.events ?? []) {
+      if (event.seq <= state.cursor) {
+        continue; // 游标去重
+      }
+      log.textContent += `${event.seq} ${event.kind}\n`;
+      state.cursor = event.seq;
+    }
+    el("event-cursor").textContent = `游标 ${state.cursor}`;
+  } finally {
+    eventsInFlight = false;
   }
-  el("event-cursor").textContent = `游标 ${state.cursor}`;
 }
 
 // 状态快照（FR-314）。
 async function loadStatus() {
-  if (!state.session) {
+  const session = state.session;
+  if (!session) {
     return;
   }
-  const data = await fetchJson(
-    `/api/status?session=${encodeURIComponent(state.session)}`,
-  );
+  const data = await fetchJson(`/api/status?session=${encodeURIComponent(session)}`);
+  if (session !== state.session) {
+    return; // 会话已切换：丢弃过期响应
+  }
   el("spec-status").textContent = JSON.stringify(data, null, 2);
 }
 
@@ -78,6 +172,7 @@ async function loadStatus() {
 // （不重复、不遗漏）。实测缺陷修复（2026-10-22）：此前挂起期间定时器照常触发。
 let pollTimer = null;
 let suspendMachine = null;
+let pollTicks = 0;
 
 function schedulePoll(delayMs) {
   if (pollTimer !== null) {
@@ -99,6 +194,10 @@ async function pollLoop() {
     await loadSessions();
     await pollEvents();
     await loadStatus();
+    pollTicks += 1;
+    if (pollTicks % 15 === 0) {
+      await loadTasks(); // 任务变化低频：每 15 个轮询（≈15s）刷新一次
+    }
     if (!state.connected) {
       state.backoffMs = 500;
     }
@@ -139,6 +238,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ≥250 ms；恢复时取一次快照并丢弃中间帧（轮询游标即快照——不重复不遗漏）。
   const machine = new SuspendMachine(() => {
     // 恢复（去抖到期、单次）：从游标续拉；后续轮询由 onChange(Active) 重启。
+    loadTasks().catch(() => {});
     loadStatus();
     pollEvents();
   });

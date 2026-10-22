@@ -147,6 +147,8 @@ pub struct DiffLine {
 pub struct ViewSnapshot {
     /// 当前视图。
     pub view: ViewId,
+    /// 摘要行（准备层生成；非空时作为首行显示，如「会话 S-1 · 总计 12 · 完成 3」）。
+    pub summary: String,
     /// 会话树（会话视图）。
     pub sessions: Vec<SessionRow>,
     /// 任务（任务视图）。
@@ -159,6 +161,8 @@ pub struct ViewSnapshot {
     pub context_summary: String,
     /// diff 行（diff 视图）。
     pub diff: Vec<DiffLine>,
+    /// 会话视图的选中行（`j`/`k` 选择；`None` 表示无选中）。
+    pub selected_index: Option<usize>,
 }
 
 impl ViewSnapshot {
@@ -167,12 +171,14 @@ impl ViewSnapshot {
     pub fn empty(view: ViewId) -> Self {
         Self {
             view,
+            summary: String::new(),
             sessions: Vec::new(),
             tasks: Vec::new(),
             events: Vec::new(),
             spec_status: String::new(),
             context_summary: String::new(),
             diff: Vec::new(),
+            selected_index: None,
         }
     }
 
@@ -187,17 +193,37 @@ impl ViewSnapshot {
     /// 「有界尾部」裁剪（V-101），此处只是安全上界）。**不反序列化 JSON**。
     #[must_use]
     pub fn render_lines_limited(&self, max: usize) -> Vec<String> {
-        match self.view {
+        if max == 0 {
+            return Vec::new();
+        }
+        let mut lines: Vec<String> = Vec::new();
+        if !self.summary.is_empty() && lines.len() < max {
+            lines.push(self.summary.clone());
+        }
+        let remaining = max - lines.len();
+        lines.extend(match self.view {
             ViewId::Sessions => self
                 .sessions
                 .iter()
-                .take(max)
-                .map(|row| format!("{} {} [{}] {}", row.id, row.title, row.stage, row.status))
-                .collect(),
+                .enumerate()
+                .take(remaining)
+                .map(|(index, row)| {
+                    // 选中态用 `> ` 前缀（ui-design：反显或前缀，不依赖颜色）。
+                    let marker = if self.selected_index == Some(index) {
+                        "> "
+                    } else {
+                        ""
+                    };
+                    format!(
+                        "{marker}{} {} [{}] {}",
+                        row.id, row.title, row.stage, row.status
+                    )
+                })
+                .collect::<Vec<_>>(),
             ViewId::Tasks => self
                 .tasks
                 .iter()
-                .take(max)
+                .take(remaining)
                 .map(|row| {
                     format!(
                         "{} {} [{}] retry={}",
@@ -208,18 +234,19 @@ impl ViewSnapshot {
             ViewId::Events => self
                 .events
                 .iter()
-                .take(max)
+                .take(remaining)
                 .map(|row| format!("{} {} {}", row.seq, row.kind, row.summary))
                 .collect(),
-            ViewId::Spec => text_lines(&self.spec_status, max),
-            ViewId::Context => text_lines(&self.context_summary, max),
+            ViewId::Spec => text_lines(&self.spec_status, remaining),
+            ViewId::Context => text_lines(&self.context_summary, remaining),
             ViewId::Diff => self
                 .diff
                 .iter()
-                .take(max)
+                .take(remaining)
                 .map(|line| format!("{}{}", line.marker, line.text))
                 .collect(),
-        }
+        });
+        lines
     }
 }
 
@@ -283,6 +310,35 @@ mod tests {
         for other in ['0', '7', 'a', ' ', '\u{4e2d}'] {
             assert_eq!(ViewId::from_key(other), None, "{other:?} 不是视图切换键");
         }
+    }
+
+    /// 摘要行 + 会话选中标记：summary 作首行；选中行以 `> ` 前缀（不依赖颜色）。
+    #[test]
+    fn summary_and_selection_marker_render_in_order() {
+        let mut snapshot = ViewSnapshot::empty(ViewId::Sessions);
+        snapshot.summary = "工作区 · 会话 2".to_string();
+        for (index, title) in ["甲", "乙"].iter().enumerate() {
+            snapshot.sessions.push(SessionRow {
+                id: format!("S-{}", index + 1),
+                title: (*title).to_string(),
+                stage: "plan".to_string(),
+                status: "active".to_string(),
+            });
+        }
+        snapshot.selected_index = Some(1);
+        let lines = snapshot.render_lines();
+        assert_eq!(lines[0], "工作区 · 会话 2", "summary 必须是首行");
+        assert_eq!(lines[1], "S-1 甲 [plan] active", "未选中行不加前缀");
+        assert_eq!(lines[2], "> S-2 乙 [plan] active", "选中行加 > 前缀");
+
+        // 行数上界包含 summary；max=0 投影 0 行。
+        assert_eq!(snapshot.render_lines_limited(2).len(), 2);
+        assert!(snapshot.render_lines_limited(0).is_empty());
+
+        // 摘要 + 空数据：摘要仍显示（正确的空不是「暂无数据」）。
+        let mut tasks = ViewSnapshot::empty(ViewId::Tasks);
+        tasks.summary = "会话 S-1 · 总计 0".to_string();
+        assert_eq!(tasks.render_lines(), vec!["会话 S-1 · 总计 0"]);
     }
 
     /// 帧路径投影（Check 83）：`render_lines_limited` 的行数受上界约束，

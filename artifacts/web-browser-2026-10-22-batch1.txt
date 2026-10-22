@@ -1,0 +1,42 @@
+WHCode 批次 1 前端数据接入取证（T082/T093 数据接线；2026-10-22）
+服务：target/release/whcode.exe serve --web --bind 127.0.0.1:8737 --workspace artifacts/web-demo
+夹具：artifacts/web-demo（2 会话：S-DEMO-1 含 6 事件与 3 任务[1 running/1 failed/1 completed]，
+      S-DEMO-2 空）
+
+一、TUI（真实控制台，script/tui_views_smoke.py --workspace artifacts/web-demo）
+  自动检查 13/13 通过：
+  1. 启动帧：会话（1/6），清单 S-DEMO-1（选中，`> ` 前缀）/ S-DEMO-2；页脚含
+     「1—6 视图 · j/k 会话 · r 刷新 · q 退出」。
+  2. 任务视图（`2`）：摘要「会话 S-DEMO-1 · 总计 3 · 完成 1 · 阻塞 0」+ 活跃任务
+     「T-DEMO-1 接线任务视图数据源 [running] retry=0」。
+  3. 选择移动（`j`）：标记移到 S-DEMO-2；任务视图摘要「总计 0」（**正确的空**）。
+  4. 回选（`k`）+ 事件视图（`4`）：「会话 S-DEMO-1 · 游标 0..6（尾部最 200 条）」+
+     RequestStarted/StreamingChunk… 真实尾部。
+  5. 显式刷新（`r`）后帧有效；六视图切换与 q 退出仍通过。
+  帧文件：artifacts/tui-views-smoke/20261022-210400/（01、08—10 为数据帧）。
+
+二、Web（真实浏览器，DOM 断言）
+  1. 无 ?session= 打开：自动选中 S-DEMO-1（aria-current=true，URL 同步为 ?session=S-DEMO-1），
+     事件游标 6、日志 6 行。
+  2. 任务标签点击：view-tasks 显示；任务列表「总计 3 · 完成 1 · 阻塞 0」+
+     「T-DEMO-1 接线任务视图数据源 [running] retry=0」。
+  3. 点击 S-DEMO-2：URL 变为 ?session=S-DEMO-2；aria-current 迁移；任务「总计 0」；
+     事件日志清空、游标重置 0；状态快照切换（active_task: null）。
+  4. 点击 S-DEMO-1：任务/日志/游标恢复（总计 3、6 行、游标 6）。
+  5. **并发竞态回归**：快速 S2→S1 切换后等待多个轮询周期，日志保持 6 行、游标 6
+     （修复前出现 12 行重复——在途守卫 + 会话快照校验 + seq 去重）。
+  方法说明：本轮内置浏览器的截图/指针表面不可用（screenshot surface timeout），
+  标签与会话点击经 DOM 事件派发验证同一 handler；真实指针点击路径已在上一轮取证中
+  对同一标签 handler 验证。
+
+三、本轮发现并修复
+  1. 会话切换时 selectSession 与轮询循环并发拉取 → 事件重复（12 行）：在途守卫 +
+     会话快照校验 + `seq <= cursor` 去重。
+  2. 事件视图游标起点负数（`6 - 200` 饱和为 -194）：改为 `.max(0)`。
+  3. 页面无 ?session= 时不选中任何会话 → 自动选中首个会话并同步 URL。
+
+四、未完成 / 待验证
+  - Diff 视图无数据源（converge 差异未接线，摘要行显式标注）。
+  - TUI 与 serve 同时打开同一工作区会因 DuckDB 跨进程锁失败（TUI 回退空数据源并告警；
+    单写者服务统一所有权属后续任务）。
+  - Check 93 仍为 4/7 类操作（追踪/清理/运行时代理未接 Web）。

@@ -14,10 +14,9 @@
 //! `Origin` 放行（同源 GET 与本机 CLI 客户端）；`serve` 无 token 参数——对外监听
 //! 由 bind 层直接拒绝（FR-606），token 配置属未来任务。
 
-use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -31,9 +30,7 @@ use whcode_web::security;
 
 use crate::config::Config;
 use crate::load_config;
-
-/// 工作区数据库文件名（工作区根下的单文件 DuckDB，ADR-001）。
-pub const WORKSPACE_DB_FILE: &str = "whcode.duckdb";
+use crate::workspace;
 
 /// `serve` 命令参数。
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -44,8 +41,6 @@ pub struct ServeCli {
     pub ssh: bool,
     /// `--bind host:port`（默认 `whcode_web::bind::DEFAULT_BIND`）。
     pub bind: Option<String>,
-    /// `--workspace DIR`（默认配置的工作区路径）。
-    pub workspace: Option<PathBuf>,
 }
 
 impl ServeCli {
@@ -63,7 +58,8 @@ impl ServeCli {
                 "--ssh" => cli.ssh = true,
                 "--bind" => cli.bind = Some(next_value(&mut iter, "--bind")?),
                 "--workspace" => {
-                    cli.workspace = Some(PathBuf::from(next_value(&mut iter, "--workspace")?));
+                    // 值由 `workspace::resolve_workspace` 统一读取；此处仅校验缺值。
+                    let _ = next_value(&mut iter, "--workspace")?;
                 }
                 // `--config PATH` 由 `load_config` 统一处理；此处跳过其值。
                 "--config" => {
@@ -120,9 +116,13 @@ pub fn serve_command(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let workspace = cli
-        .workspace
-        .unwrap_or_else(|| config.workspace_path.clone());
+    let workspace = match workspace::resolve_workspace(args, &config) {
+        Ok(workspace) => workspace,
+        Err(err) => {
+            eprintln!("工作区解析失败：{err}");
+            return ExitCode::FAILURE;
+        }
+    };
     match serve_web(&workspace, &config, cli.bind.as_deref()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
@@ -134,14 +134,8 @@ pub fn serve_command(args: &[String]) -> ExitCode {
 
 /// 启动 Web 服务：工作区库 → 回环监听 → 顺序服务循环。
 fn serve_web(workspace: &Path, config: &Config, bind_addr: Option<&str>) -> Result<(), WhError> {
-    let db_path = workspace.join(WORKSPACE_DB_FILE);
-    // 临时目录属**有效工作区**（`<workspace>/tmp`，platform::paths 约定）：`--workspace`
-    // 与配置工作区不一致时，不得在配置工作区/cwd 下创建目录（实测缺陷：曾污染仓库根
-    // `tmp/`，触发布局门禁失败）。
-    let temp_directory = whcode_platform::paths::workspace_temp_dir(workspace);
-    fs::create_dir_all(&temp_directory)
-        .map_err(|err| WhError::new(ErrorCode::IoError, format!("创建工作区目录失败：{err}")))?;
-    let conn = open_workspace_db(&db_path, config, &temp_directory)?;
+    let db_path = workspace::workspace_db_path(workspace);
+    let conn = workspace::open_workspace_db(workspace, config)?;
     let actor = actor_with_all_capabilities("web-local");
 
     let bind_config = BindConfig {
@@ -160,38 +154,6 @@ fn serve_web(workspace: &Path, config: &Config, bind_addr: Option<&str>) -> Resu
     );
     println!("工作区数据库：{}", db_path.display());
     serve_loop(listener, &conn, &actor)
-}
-
-/// 打开并初始化工作区数据库（幂等迁移；数据库参数取自配置基线，临时目录属工作区）。
-fn open_workspace_db(
-    db_path: &Path,
-    config: &Config,
-    temp_directory: &Path,
-) -> Result<Connection, WhError> {
-    let conn = Connection::open(db_path).map_err(|err| {
-        WhError::new(
-            ErrorCode::IoError,
-            format!("打开数据库失败（{}）：{err}", db_path.display()),
-        )
-    })?;
-    // DuckDB 接受正斜杠路径；单引号按 SQL 字面量规则转义（工作区路径含 `'` 的极端情形）。
-    let temp_literal = temp_directory
-        .display()
-        .to_string()
-        .replace('\\', "/")
-        .replace('\'', "''");
-    conn.execute_batch(&format!(
-        "SET memory_limit = '{}MB'; SET threads = {}; SET temp_directory = '{}';",
-        config.db.memory_limit_mb, config.db.threads, temp_literal
-    ))
-    .map_err(|err| {
-        WhError::new(
-            ErrorCode::InvalidState,
-            format!("配置数据库参数失败：{err}"),
-        )
-    })?;
-    whcode_store::apply_migrations(&conn)?;
-    Ok(conn)
 }
 
 /// 一次响应：HTTP 响应 + WebSocket 握手后的关闭帧标记。
@@ -370,7 +332,8 @@ fn reason(status: u16) -> &'static str {
 mod tests {
     use duckdb::Connection;
 
-    use super::{Reply, ServeCli, WORKSPACE_DB_FILE, header_content_length, reason, respond};
+    use super::{Reply, ServeCli, header_content_length, reason, respond};
+    use crate::workspace::WORKSPACE_DB_FILE;
     use whcode_app::{Actor, actor_with_all_capabilities};
     use whcode_domain::{ErrorCode, SCHEMA_VERSION};
     use whcode_store::apply_migrations;

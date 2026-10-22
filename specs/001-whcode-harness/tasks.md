@@ -464,6 +464,38 @@ Task: "实现 SSH 客户端原型 in crates/whcode-ssh/src/proto.rs"           #
 - 性能预算未冻结（T027 基准夹具进行中，T028—T031 未完成）。
 - 因此 T027—T031 保持未勾选。
 
+### 实现记录（2026-10-22，批次 1：前端数据接入——TUI 真实数据源 + Web 任务/会话选择）
+
+**交付**：
+
+1. TUI `StoreViewSource`（装配根）：经 `whcode-app` 只读命令（`list_sessions` /
+   `task_overview` / `events_export` / `load_context` / `build_snapshot`）产出六视图快照；
+   查询只在准备层（视图切换、`j`/`k` 会话选择、`r` 显式刷新）；`ViewSource` 增加会话
+   范围参数；`ViewSnapshot` 增加 summary 首行与选中标记（`> ` 前缀，不依赖颜色）；
+   数据源错误写入摘要行（显式失败，不伪造）。工作区库打开失败（含跨进程锁）→ 显式
+   警告并回退空数据源（TUI 仍可用）。
+2. Web：`/api/tasks`（会话/工作区总览，FR-103）+ 前端任务列表（总计/完成/阻塞 +
+   活跃任务）；会话条目可点击选择（`role=button`、`aria-current`、URL 同步、键盘
+   Enter/Space），无 `?session=` 时自动选中首个会话。
+3. 演示夹具扩展：3 个任务（running/failed/completed）+ 会话 `created_at` 排序确定。
+
+**验证证据**：`cargo test`（tui 44 + 24、bin 19、web 18、layout 7、seed 1 绿）；
+真实控制台 `script/tui_views_smoke.py --workspace artifacts/web-demo` 13/13
+（会话标记 / 任务数据 / 选择移动 / 正确的空 / 事件尾部 / 刷新）；
+浏览器实测与快速切换回归、发现项与修复见
+`artifacts/web-browser-2026-10-22-batch1.txt`。
+
+**本轮发现并修复**：
+
+1. 会话切换时 `selectSession` 与轮询循环并发拉取 → 事件重复（实测 12 行）：在途守卫 +
+   会话快照校验 + `seq <= cursor` 去重（快速 S2→S1 后保持 6 行）；
+2. 事件视图游标起点负数（`6 - 200` 饱和为 -194）：`.max(0)`；
+3. 无 `?session=` 时页面不选中任何会话：自动选中首个并同步 URL。
+
+**未完成**：Diff 视图无数据源（converge 差异未接线，摘要行显式标注）；
+Check 93 仍为 4/7 类操作；TUI 与 serve 同时打开同一工作区受 DuckDB 跨进程锁限制
+（单写者服务统一所有权属后续任务）。
+
 ### 实现记录（2026-10-22，Web 服务装配 + 浏览器/桌面端到端测试；ADR-022）
 
 **背景**：用户要求以电脑操作（computer-use）与浏览器控制（browser-use）对「需要点击/网页

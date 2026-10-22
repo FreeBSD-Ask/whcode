@@ -268,6 +268,30 @@ pub fn handle_request(
                 Err(error) => error_response(&error),
             }
         }
+        (Method::Get, "/api/tasks") => {
+            // 任务视图（FR-103）：session 可选——缺省为工作区级总览。
+            let session = query_value("session");
+            match whcode_app::task_overview(conn, &policy, actor, session) {
+                Ok(overview) => HttpResponse::json(
+                    200,
+                    &serde_json::json!({
+                        "schema_version": whcode_domain::SCHEMA_VERSION,
+                        "session_id": overview.session_id,
+                        "total": overview.total,
+                        "done": overview.done,
+                        "blocked": overview.blocked,
+                        "by_stage": overview.by_stage,
+                        "active": overview.active.iter().map(|row| serde_json::json!({
+                            "id": row.id,
+                            "title": row.title,
+                            "status": row.status.as_str(),
+                            "retry_count": row.retry_count,
+                        })).collect::<Vec<_>>(),
+                    }),
+                ),
+                Err(error) => error_response(&error),
+            }
+        }
         (Method::Get, "/ws") => {
             // WebSocket 升级：Origin 校验（安全层已做）+ Sec-WebSocket-Key。
             let Some(key) = request.header("sec-websocket-key") else {
@@ -313,6 +337,35 @@ mod tests {
             headers,
             body: Vec::new(),
         }
+    }
+
+    /// 任务视图路由（批次 1）：会话范围与工作区级总览均可用（FR-103）。
+    #[test]
+    fn tasks_route_reports_overview() {
+        let conn = migrated();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-T', '任务视图', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("创建");
+        let actor = actor_with_all_capabilities("tester");
+        let mut req = request(Method::Get, "/api/tasks?session=S-T", false);
+        req.headers
+            .push(("origin".into(), "http://127.0.0.1".into()));
+        let response = handle_request(&conn, false, None, &req, &actor);
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["session_id"], "S-T");
+        assert_eq!(body["total"], 0, "正确的空：会话存在但无任务");
+        assert_eq!(body["active"], serde_json::json!([]));
+
+        // 工作区级（缺 session）：session_id 为 null。
+        let req = request(Method::Get, "/api/tasks", false);
+        let response = handle_request(&conn, false, None, &req, &actor);
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert!(body["session_id"].is_null());
     }
 
     #[test]
