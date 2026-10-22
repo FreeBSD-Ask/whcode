@@ -7,7 +7,9 @@
 
 **许可证**：BSD-2-Clause（见 [LICENSE](./LICENSE)）｜ **版权**：FreeBSD 中文社区（FreeBSD Chinese Community）
 
-**版本**：`0.1.0`（M0 基线，**未发布**；版本约定与变更见 [CHANGELOG.md](./CHANGELOG.md)）
+**版本**：`whcode --version` 与 `doctor` 报告**二进制构建时间**（UTC，精确到分钟，如
+`2026-10-22T17:06Z`）；Cargo 包版本仍为 `0.1.0`（M0 基线，**未发布**；变更见
+[CHANGELOG.md](./CHANGELOG.md)）
 
 ## 当前状态
 

@@ -13,6 +13,10 @@
 
 ### 变更
 
+- 版本号改为**二进制构建时间**（2026-10-23，用户要求）：`crates/whcode-bin/build.rs` 在
+  构建时取系统时钟注入 `WHCODE_BUILD_STAMP`（UTC、`YYYY-MM-DDTHH:MMZ`、精确到分钟，
+  零新依赖）；`whcode --version`、`doctor` 文本与 `doctor --json` 的 `whcode_version`
+  均报告该时间戳。Cargo 包版本保持 `0.1.0`（语义化版本用于依赖与打包；展示版本 = 构建时间）。
 - 程序中文名调整为「旺皇 Code」（2026-10-23）：中文文本层 `app.title`、TUI 中文标题、
   CUI `--help` 简介、Web 页首标题与 README 标题同步；英文名保持
   `WHCode Coding Harness` / `whcode` 不变（`?locale=en` 与 `LANG=en` 路径不受影响）。

@@ -25,6 +25,14 @@ use std::process::ExitCode;
 
 use whcode_domain::{ErrorCode, SCHEMA_VERSION, WhError};
 
+/// 二进制构建时间戳（UTC，精确到分钟；由 `build.rs` 注入 `WHCODE_BUILD_STAMP`）。
+///
+/// 版本号定义为**构建时间**（用户要求，2026-10-23）；未注入时显式 `unknown`（不伪装）。
+const BUILD_STAMP: &str = match option_env!("WHCODE_BUILD_STAMP") {
+    Some(stamp) => stamp,
+    None => "unknown",
+};
+
 /// 基线默认事件数（每次重复）。
 const DEFAULT_BENCH_EVENTS: usize = 20_000;
 /// 基线默认重复次数。
@@ -51,7 +59,7 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("--version") | Some("-V") => {
-            println!("whcode {}", env!("CARGO_PKG_VERSION"));
+            println!("whcode {BUILD_STAMP}");
             ExitCode::SUCCESS
         }
         Some("doctor") => {
@@ -218,7 +226,7 @@ fn launch_interactive(args: &[String]) -> ExitCode {
     if !(whcode_platform::term::terminal_size().is_some()
         && whcode_platform::term::stdin_is_interactive())
     {
-        println!("whcode {} —— 骨架阶段", env!("CARGO_PKG_VERSION"));
+        println!("whcode {BUILD_STAMP} —— 骨架阶段");
         println!("可用：--version、doctor [--config PATH] [--json]");
         println!("其余命令自 M2 起交付（specs/001-whcode-harness/tasks.md）");
         return ExitCode::SUCCESS;
@@ -286,8 +294,8 @@ fn doctor(args: &[String]) {
         };
         let payload = serde_json::json!({
             "schema_version": SCHEMA_VERSION,
-            // 版本标记：与 `--version` 同源（CARGO_PKG_VERSION），供脚本与 CI 校验。
-            "whcode_version": env!("CARGO_PKG_VERSION"),
+            // 版本标记：与 `--version` 同源（构建时间戳，精确到分钟），供脚本与 CI 校验。
+            "whcode_version": BUILD_STAMP,
             "duckdb_engine_version": engine_version,
             "duckdb_error": engine_error,
             "doctor": &config,
@@ -298,7 +306,7 @@ fn doctor(args: &[String]) {
         }
     } else {
         println!("whcode doctor（schema v{SCHEMA_VERSION}）");
-        println!("whcode_version: {}", env!("CARGO_PKG_VERSION"));
+        println!("whcode_version: {BUILD_STAMP}");
         println!("workspace: {}", config.workspace_path.display());
         println!("platform: {}", whcode_platform::termination_policy_for());
         println!("threads_baseline: {}", config.db.threads);
@@ -361,5 +369,37 @@ fn load_config(args: &[String]) -> Result<config::Config, whcode_domain::WhError
             let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
             Ok(config::Config::for_workspace(cwd))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BUILD_STAMP;
+
+    /// 版本号 = 构建时间（UTC，精确到分钟：`YYYY-MM-DDTHH:MMZ`）。
+    #[test]
+    fn build_stamp_is_minute_precision_utc() {
+        assert_ne!(
+            BUILD_STAMP, "unknown",
+            "build.rs 必须注入 WHCODE_BUILD_STAMP"
+        );
+        let bytes = BUILD_STAMP.as_bytes();
+        assert_eq!(
+            bytes.len(),
+            17,
+            "格式长度：YYYY-MM-DDTHH:MMZ：{BUILD_STAMP}"
+        );
+        for (index, byte) in bytes.iter().enumerate() {
+            match index {
+                4 | 7 => assert_eq!(*byte, b'-', "日期分隔符：{BUILD_STAMP}"),
+                10 => assert_eq!(*byte, b'T', "日期时间分隔符：{BUILD_STAMP}"),
+                13 => assert_eq!(*byte, b':', "时间分隔符：{BUILD_STAMP}"),
+                16 => assert_eq!(*byte, b'Z', "UTC 标记：{BUILD_STAMP}"),
+                _ => assert!(byte.is_ascii_digit(), "必须是数字：{BUILD_STAMP}"),
+            }
+        }
+        // 年份 plausibility（防止把其它字符串误当时间戳）。
+        let year: u32 = BUILD_STAMP[0..4].parse().expect("年份数字");
+        assert!((2024..2100).contains(&year), "年份不合理：{BUILD_STAMP}");
     }
 }
