@@ -13,6 +13,31 @@
 
 ### 变更
 
+- 功能缺口清偿批次（2026-10-24）：**八项功能缺口一次性落地**（T110—T112、T114、T156/G-01、
+  Check 179/199/209、导出缺陷），全部有自动化测试与实测证据。
+  - 受限 JS 引擎（T110，ADR-029 修订 ADR-024 的 D-08 条款）：Boa 0.21.1 经
+    `runtime-js` feature 接入，默认构建零依赖零开销（`cargo tree` 无 boa）；
+    Node API 六名字显式“能力不足”拒绝桩；固定 ECMAScript 测试集 9 例；
+    基准：release 28 579.9 次/秒求值、测试进程 RSS 15.1 MiB、feature 二进制 +11.7 MiB
+    （默认构建零增量）、许可证 Unlicense OR MIT。
+  - Python worker（T111）：stdin 单行 JSON 协议（请求 ≤4 MiB、输出 8 KiB 有界缓冲），
+    `PythonEnv` 记录解释器绝对路径/版本/实现名/ABI/C 扩展探测；受限档位五项不支持项，
+    文档写明“承诺边界不是沙箱”。
+  - GitBash payload（T112）：`verify_payload` 四重校验复用；五类能力探测（管道/重定向/
+    含空格路径/超时终止/目标命令）本机 bash 5.3.9 真实取证；V-304 集成用例补齐（T114）。
+  - 检查点事务语义（T156，撤销缺口登记 G-01）：增量差分写入（delta ≤64 KiB、保留有界）、
+    任务状态+事件+检查点同事务提交（失败三表全回滚）、按引用恢复加载元数据/产物/游标；
+    新增 `Check 256—258`。
+  - TUI Diff 视图（Check 179）：接 `converge_differences`，按任务状态诚实映射验收判定，
+    GUI 共用同一 ViewSource。
+  - WS 事件广播（Check 199/209）：有界队列 64 帧/客户端 + 单线程非阻塞多路复用（生产路径
+    零新增线程）；慢客户端断开不停别人（正常客户端最大帧间隔 199—209 ms ≈ 一个轮询周期）；
+    >1 MiB 帧拒绝只断发送者（close 1009）。
+  - 导出缺陷修复（Check 124 登记）：`events export` 对不存在的会话返回 `not_found`
+    （退出码 60 + 可操作指引），不再与“存在但无事件”混淆。
+  - CLI：`db checkpoint [--threshold|--autocheckpoint]` 与 `db restore --from --yes`
+    接线（应用层判权、空库保护、审计沿用既有机制）；灾备指南 §8 同步改写。
+
 - 内置字体批次（2026-10-23）：**四类 OFL 字体本地化与 GUI 分段渲染**（T153／T154，ADR-028）。
   - 资产：Inter（英语比例）、Noto Sans CJK SC（简中比例）、JetBrains Mono（英语等宽）、
     Sarasa Mono SC（简中等宽）四份**完整字体**与许可原文入库 `assets/fonts/`，

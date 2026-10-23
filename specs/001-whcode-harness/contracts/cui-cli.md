@@ -14,7 +14,7 @@ whcode
   task list|show|retry|abort
   spec status|next|validate|analyze|converge|force-advance
   events list|show|export --session ID [--after SEQ] [--format jsonl]
-  db stats|check|purge --before TS|checkpoint|compact|archive --export PATH|explain QUERY
+  db stats|check|purge --before TS|checkpoint [--threshold V] [--autocheckpoint V]|compact|archive --export PATH|restore --from PATH --yes|explain QUERY
   runtime list|status|enable|disable|install NAME
   font install [--from DIR] [--dry-run]
   font status

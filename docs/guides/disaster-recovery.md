@@ -137,13 +137,21 @@ whcode session delete --session S-001 --dry-run
 
 ## 8. 未实现（显式登记，勿依赖）
 
-1. **无 restore/import 子命令**：`import_workspace` 仅库函数（`export.rs:555`）。
-2. `whcode db checkpoint` 公开命令未接线，显式返回失败（`cui_dispatch.rs:719-721`）。
-3. WAL 自动检查点策略（`apply_wal_policy`/`run_checkpoint`）未被任何命令或循环调用
-   （`crates/whcode-store/src/wal.rs:123-166`；导出点 `lib.rs:92-95`）。
-4. 无启动期完整性校验、无自动备份、无快照保留策略（检查点策略 `CheckpointPolicy`
+> 2026-10-24 功能缺口清偿批次接线原第 1—3 条：`db restore --from PATH --yes`（恢复到
+> 空库，非空目标拒绝且零写入——`whcode_app::maintenance::restore_workspace`）；
+> `db checkpoint [--threshold V] [--autocheckpoint V]`（显式 CHECKPOINT + WAL 策略覆盖，
+> 经 `whcode_app::maintenance::checkpoint_database` → `apply_wal_policy`/`run_checkpoint`，
+> 两函数自此有命令调用方）。端到端实测：export→restore 往返 1 会话/2 事件一致；
+> 非空目标退出码 50 且零写入；`--threshold 32MB` 读回 `30.5 MiB`（DuckDB 原文）；
+> 不存在的会话导出（同批修复）退出码 60 + `not_found` 可操作错误。
+
+1. 空闲窗口自动 checkpoint（`should_checkpoint_on_idle`）仍无事件循环调用方——空闲
+   维护属调用方职责，显式命令已覆盖实际需要；如需自动空闲维护须先立并发设计档案
+   （ADR-015）再接入。
+2. 无启动期完整性校验、无自动备份、无快照保留策略（检查点策略 `CheckpointPolicy`
    仅存在于配置与领域类型，未接入写路径）。
-5. 无“删除整库/卸载自身”命令；数据带离唯一出口是 `db archive --export`。
+3. 无“删除整库/卸载自身”命令；数据带离出口是 `db archive --export`，恢复入口是
+   `db restore --from`。
 
 ## 9. 演练清单（建议每次发布前执行）
 
