@@ -13,5 +13,6 @@
 pub mod api;
 pub mod assets;
 pub mod bind;
+pub mod broadcast;
 pub mod security;
 pub mod ws;

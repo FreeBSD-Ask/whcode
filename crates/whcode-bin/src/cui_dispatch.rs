@@ -862,9 +862,57 @@ fn db_command(
                 texts.resolve_fmt("cui.plan_rows", &[("rows", &plan.rows.len().to_string())]);
             Ok((value, human))
         }
-        DbCommand::Checkpoint => Err(not_wired(
-            "db checkpoint 未接线：独立 CHECKPOINT 属 compact 内部步骤（M1/T041），不作为公开命令",
-        )),
+        DbCommand::Checkpoint {
+            threshold,
+            autocheckpoint,
+        } => {
+            let mut conn = open_db(workspace, config)?;
+            let wal = whcode_app::maintenance::WalPolicyOverride {
+                checkpoint_threshold: threshold.clone(),
+                wal_autocheckpoint: autocheckpoint.clone(),
+            };
+            // 经应用层入口：权限与 purge 同口径（maintenance 模块注释）。
+            let outcome =
+                whcode_app::maintenance::checkpoint_database(&mut conn, policy, actor, &wal)?;
+            let value = json!({
+                "checkpoint_threshold": outcome.effective.checkpoint_threshold,
+                "wal_autocheckpoint": outcome.effective.wal_autocheckpoint,
+                "wal_size_before": outcome.report.wal_size_before,
+                "wal_size_after": outcome.report.wal_size_after,
+                "reason": outcome.report.reason.as_str(),
+            });
+            let human = texts.resolve_fmt(
+                "cui.checkpoint_done",
+                &[
+                    ("before", &outcome.report.wal_size_before),
+                    ("after", &outcome.report.wal_size_after),
+                ],
+            );
+            Ok((value, human))
+        }
+        DbCommand::Restore { from, yes } => {
+            // 恢复是写操作且无预览：缺 --yes 一律拒绝（maintenance::restore_workspace 同判）。
+            if !*yes {
+                return Err(WhError::new(
+                    ErrorCode::InvalidState,
+                    "db restore 是写操作且无预览：确认目标为空工作区后加 --yes 执行",
+                ));
+            }
+            let mut conn = open_db(workspace, config)?;
+            let report = whcode_app::maintenance::restore_workspace(
+                &mut conn,
+                policy,
+                actor,
+                Path::new(from),
+                true,
+            )?;
+            let value = json!({
+                "source": report.source,
+                "inserted": report.inserted,
+            });
+            let human = texts.resolve_fmt("cui.restore_done", &[("source", &report.source)]);
+            Ok((value, human))
+        }
     }
 }
 

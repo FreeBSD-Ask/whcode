@@ -289,8 +289,24 @@ pub enum DbCommand {
         #[arg(long)]
         yes: bool,
     },
-    /// 显式 checkpoint（FR-510 关联）。
-    Checkpoint,
+    /// 显式 checkpoint（FR-510；可顺带应用 WAL 策略覆盖，disaster-recovery §5）。
+    Checkpoint {
+        /// 覆盖 WAL 自动 checkpoint 阈值（如 16MB；缺省保持现状）。
+        #[arg(long)]
+        threshold: Option<String>,
+        /// 覆盖 wal_autocheckpoint（如 1MB；缺省保持现状）。
+        #[arg(long)]
+        autocheckpoint: Option<String>,
+    },
+    /// 从导出文件恢复到空工作区（`db archive` 的逆操作；显式确认，无预览）。
+    Restore {
+        /// 导出文件路径（whcode-export 格式）。
+        #[arg(long)]
+        from: String,
+        /// 显式确认执行（恢复是写操作；目标库必须为空）。
+        #[arg(long)]
+        yes: bool,
+    },
     /// 磁盘压缩（复制—校验—切换，FR-510；默认 dry-run）。
     Compact {
         /// 只预览不执行（默认）。

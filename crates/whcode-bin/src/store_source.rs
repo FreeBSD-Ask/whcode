@@ -2,13 +2,15 @@
 //!
 //! 渲染纪律（§5.3）：查询发生在**准备层**——视图切换、会话选择（`j`/`k`）与显式刷新
 //! （`r`）的边界；帧路径只消费快照。每个视图只取自己需要的数据，且全部有界：
-//! 会话 ≤ 200、事件尾部 ≤ 200、活跃任务由 `task_overview` 有界返回。
+//! 会话 ≤ 200、事件尾部 ≤ 200、活跃任务由 `task_overview` 有界返回、diff 视图的
+//! 会话任务 ≤ 200 且差异行 ≤ 200（`converge_differences`）。
 //!
 //! 错误处理：查询失败**不 panic、不伪造**——快照的 `summary` 写明数据源错误（显式失败），
 //! 视图其余内容为空。
 //!
 //! 边界：本类型在装配根（`whcode-bin`）中构造并注入，`whcode-tui` 不接触数据库
-//! （C-03）；Diff 视图暂无数据源（converge 差异属后续接线），摘要行显式标注。
+//! （C-03）；Diff 视图经 `whcode_app::overview::converge_differences` 产出 converge
+//! 差异（Check 179），TUI 与原生 GUI 共用本 trait 实现，自动同源。
 
 use duckdb::Connection;
 use whcode_app::view_source::{EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource};
@@ -52,11 +54,7 @@ impl StoreViewSource {
             ViewId::Events => self.build_events(session),
             ViewId::Context => self.build_context(session),
             ViewId::Spec => self.build_spec(session),
-            ViewId::Diff => {
-                let mut snapshot = ViewSnapshot::empty(view);
-                snapshot.summary = self.texts.resolve("tui.diff_unwired").to_string();
-                Ok(snapshot)
-            }
+            ViewId::Diff => self.build_diff(session),
         }
     }
 
@@ -208,6 +206,41 @@ impl StoreViewSource {
         );
         Ok(view)
     }
+
+    /// diff 视图：会话任务的 converge 差异（Check 179、FR-310/311）。
+    ///
+    /// 数据由 `whcode_app::overview::converge_differences` 产出（权限、状态映射、
+    /// 有界与截断标记都在应用层）；本方法只做 i18n 摘要与行投影。
+    fn build_diff(&self, session: Option<&str>) -> Result<ViewSnapshot, WhError> {
+        let Some(session) = session else {
+            return Ok(no_session(ViewId::Diff, &self.texts));
+        };
+        let view = whcode_app::overview::converge_differences(
+            &self.conn,
+            &self.policy,
+            &self.actor,
+            session,
+        )?;
+        let truncated = if view.truncated {
+            self.texts.resolve("summary.diff.truncated").to_string()
+        } else {
+            String::new()
+        };
+        let mut snapshot = ViewSnapshot::empty(ViewId::Diff);
+        snapshot.summary = self.texts.resolve_fmt(
+            "summary.diff",
+            &[
+                ("session", session),
+                ("total", &view.task_count.to_string()),
+                ("pass", &view.pass_count.to_string()),
+                ("fail", &view.fail_count.to_string()),
+                ("untested", &view.not_tested_count.to_string()),
+                ("truncated", &truncated),
+            ],
+        );
+        snapshot.diff = view.differences;
+        Ok(snapshot)
+    }
 }
 
 impl ViewSource for StoreViewSource {
@@ -251,7 +284,10 @@ fn summarize_payload(payload: &str) -> String {
 mod tests {
     use super::{StoreViewSource, summarize_payload};
     use whcode_app::view_source::{ViewId, ViewSource};
-    use whcode_domain::i18n::I18n;
+    use whcode_domain::TaskStatus;
+    use whcode_domain::i18n::{I18n, LocaleSource};
+    use whcode_store::tasks::NewTask;
+    use whcode_store::{insert_task, update_task_status};
 
     fn migrated_conn() -> duckdb::Connection {
         let conn = duckdb::Connection::open_in_memory().expect("内存库");
@@ -311,6 +347,75 @@ mod tests {
             "摘要行写明会话与游标：{}",
             events.summary
         );
+    }
+
+    /// diff 夹具：S-T 三个任务（completed 2 条件 / failed 1 条件 / running 1 条件）。
+    fn seed_diff_fixture(conn: &duckdb::Connection) {
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, model, archived, status, stage)
+             VALUES ('S-T', '差异测试', epoch_ms(1000), epoch_ms(1000), NULL, FALSE, 'active', 'implement')",
+            [],
+        )
+        .expect("插入会话");
+        for (id, acceptance, ts) in [
+            ("T-1", "[\"条件甲\",\"条件乙\"]", 1_000_u64),
+            ("T-2", "[\"条件丙\"]", 2_000),
+            ("T-3", "[\"条件丁\"]", 3_000),
+        ] {
+            insert_task(
+                conn,
+                &NewTask {
+                    id,
+                    session_id: "S-T",
+                    title: "任务",
+                    stage: "implement",
+                    parent_id: None,
+                    acceptance_json: acceptance,
+                },
+                ts,
+            )
+            .expect("插入任务");
+        }
+        update_task_status(conn, "T-1", TaskStatus::Completed, 0, 4_100).expect("完成");
+        update_task_status(conn, "T-2", TaskStatus::Failed, 0, 4_200).expect("失败");
+        update_task_status(conn, "T-3", TaskStatus::Running, 0, 4_300).expect("执行中");
+    }
+
+    #[test]
+    fn diff_view_wires_converge_differences() {
+        let conn = migrated_conn();
+        seed_diff_fixture(&conn);
+        let source = StoreViewSource::new(conn, I18n::default());
+
+        let diff = source.snapshot(ViewId::Diff, Some("S-T"));
+        assert_eq!(
+            diff.summary, "会话 S-T · 任务 3 · 通过 2 / 失败 1 / 未测 1",
+            "摘要行写明核对结果：{}",
+            diff.summary
+        );
+        // 差异行按 updated_at 倒序：T-3（未测，marker 空格）→ T-2（失败，marker '-'）；
+        // T-1 全部通过不产生差异行。
+        assert_eq!(diff.diff.len(), 2);
+        assert_eq!(diff.diff[0].marker, ' ');
+        assert_eq!(diff.diff[0].text, "T-3 条件丁 — 未测试：无运行结果引用");
+        assert_eq!(diff.diff[1].marker, '-');
+        assert_eq!(diff.diff[1].text, "T-2 条件丙 — 验收失败：task:T-2:failed");
+
+        // 未选择会话是显式状态（正确的空），不是“暂无数据”。
+        let none = source.snapshot(ViewId::Diff, None);
+        assert_eq!(none.summary, "（未选择会话——按 j/k 选择会话）");
+        assert!(none.diff.is_empty());
+
+        // 英文文本层：摘要切换语言，差异行数据字段不翻译。
+        let english_conn = migrated_conn();
+        seed_diff_fixture(&english_conn);
+        let english = StoreViewSource::new(english_conn, I18n::load("en", LocaleSource::Explicit));
+        let diff = english.snapshot(ViewId::Diff, Some("S-T"));
+        assert_eq!(
+            diff.summary,
+            "Session S-T · tasks 3 · pass 2 / fail 1 / untested 1"
+        );
+        assert_eq!(diff.diff.len(), 2);
     }
 
     #[test]
