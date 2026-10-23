@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "exe": "D:\\WHCode\\target\\release\\whcode.exe",
-  "workspace": "C:\\Users\\ykla\\AppData\\Local\\Temp\\whcode-gui-run-rh9a_x25",
+  "workspace": "C:\\Users\\ykla\\AppData\\Local\\Temp\\whcode-gui-run-w97ybaux",
   "themes": [
     {
       "theme": "eink-day",
@@ -33,27 +33,28 @@
         "top_colors": [
           {
             "rgb": "#FFFFFF",
-            "ratio": 0.9616
+            "ratio": 0.9621
           },
           {
             "rgb": "#000000",
-            "ratio": 0.0171
+            "ratio": 0.0158
           },
           {
-            "rgb": "#0F0F0F",
-            "ratio": 0.0005
+            "rgb": "#737373",
+            "ratio": 0.0003
           }
         ],
-        "mid_gray_ratio": 0.0139
+        "mid_gray_ratio": 0.0143
       },
       "resources": {
-        "working_set_mb": 41.1,
-        "private_mb": 17.3,
+        "working_set_mb": 71.9,
+        "private_mb": 40.6,
         "threads": 24,
-        "handles": 244,
+        "handles": 243,
         "idle_cpu_single_core_pct": 0.0
       },
       "title_after_keys": "旺皇大模型执行框架 —— 上下文（3/6）",
+      "title_after_diff": "旺皇大模型执行框架 —— diff 预览（6/6）",
       "theme_cycle": {
         "expected": [
           [
@@ -105,18 +106,18 @@
         "top_colors": [
           {
             "rgb": "#FFFFFF",
-            "ratio": 0.9801
+            "ratio": 0.9807
           },
           {
             "rgb": "#000000",
-            "ratio": 0.0086
+            "ratio": 0.008
           },
           {
-            "rgb": "#BFBFBF",
-            "ratio": 0.0003
+            "rgb": "#D4D4D4",
+            "ratio": 0.0002
           }
         ],
-        "mid_gray_ratio": 0.0076
+        "mid_gray_ratio": 0.0078
       },
       "quit_key_delivered": true,
       "exit_code": 0
@@ -151,20 +152,21 @@
         "top_colors": [
           {
             "rgb": "#000000",
-            "ratio": 0.9616
+            "ratio": 0.9621
           },
           {
             "rgb": "#FFFFFF",
-            "ratio": 0.0171
+            "ratio": 0.0158
           },
           {
-            "rgb": "#F0F0F0",
-            "ratio": 0.0005
+            "rgb": "#8C8C8C",
+            "ratio": 0.0003
           }
         ],
-        "mid_gray_ratio": 0.0139
+        "mid_gray_ratio": 0.0143
       },
       "title_after_keys": "旺皇大模型执行框架 —— 上下文（3/6）",
+      "title_after_diff": "旺皇大模型执行框架 —— diff 预览（6/6）",
       "theme_cycle": {
         "expected": [
           [
@@ -229,20 +231,21 @@
         "top_colors": [
           {
             "rgb": "#000000",
-            "ratio": 0.9616
+            "ratio": 0.9621
           },
           {
             "rgb": "#E6E6E6",
-            "ratio": 0.0171
+            "ratio": 0.0158
           },
           {
-            "rgb": "#D8D8D8",
-            "ratio": 0.0006
+            "rgb": "#7E7E7E",
+            "ratio": 0.0003
           }
         ],
-        "mid_gray_ratio": 0.0162
+        "mid_gray_ratio": 0.0166
       },
       "title_after_keys": "旺皇大模型执行框架 —— 上下文（3/6）",
+      "title_after_diff": "旺皇大模型执行框架 —— diff 预览（6/6）",
       "theme_cycle": {
         "expected": [
           [

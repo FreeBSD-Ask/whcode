@@ -197,9 +197,10 @@ whcode-bin           （装配根：配置、日志、feature）
 - **依赖**：仅 `whcode-app`（只读快照 `view_source`）与 `whcode-domain`（i18n）；不触库。
 - **关键类型**：`RunOptions`、`GuiTheme`（三套精确色值，`t` 键循环切换、不重启）、
   `State`（快照 + 选择位置）。
-- **失败模式**：窗口/渲染后端初始化失败返回 `iced::Error`；CJK 字体按**族名**交给系统字体栈
-  （微软雅黑不可再分发，不随包分发子集、也不把字体字节读进进程），候选文件都不存在时回退
-  `Microsoft YaHei` 族名；缺字由系统回退处理，界面降级但不 panic。
+- **失败模式**：窗口/渲染后端初始化失败返回 `iced::Error`；字体来自仓库内置的
+  OFL 子集（FR-716／ADR-028），四类文本按字符显式分段：比例文本拉丁 Inter／CJK
+  Noto Sans CJK SC，等宽文本拉丁 JetBrains Mono／CJK Sarasa Mono SC；子集缺字由
+  系统字体栈回退，界面降级但不 panic。
 - **资源预算**：空闲 1200×800 下 RSS ≤ 96 MB、私有 ≤ 80 MB、线程 ≤ 24、句柄 ≤ 256、
   CPU ≤ 0.2% 单核（实测见 `artifacts/gui-run-2026-10-23/summary.json`）。
 

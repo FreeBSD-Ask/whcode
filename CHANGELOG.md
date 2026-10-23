@@ -13,6 +13,19 @@
 
 ### 变更
 
+- 内置字体批次（2026-10-23）：**四类 OFL 字体本地化与 GUI 分段渲染**（T153／T154，ADR-028）。
+  - 资产：Inter（英语比例）、Noto Sans CJK SC（简中比例）、JetBrains Mono（英语等宽）、
+    Sarasa Mono SC（简中等宽）四份**完整字体**与许可原文入库 `assets/fonts/`，
+    `SOURCES.md` 记录上游、版本与 SHA-256；全部 SIL OFL 1.1，可再分发。
+  - 子集：新增 `ci/subset-fonts.py`，字符集为 ASCII/Latin + GB2312 + 仓库文本字符，
+    四份子集合计 7.68 MiB（完整文件不嵌入可执行文件）。
+  - GUI：加载四份子集并按字符显式分段——比例文本拉丁 Inter／CJK Noto Sans CJK SC，
+    等宽文本（diff 预览）拉丁 JetBrains Mono／CJK Sarasa Mono SC；不依赖字体回退顺序。
+    空闲 RSS 41.1→71.8 MB、私有 17.3→40.3 MB，线程 24、句柄 243、CPU 0.00%，
+    仍在 FR-712 预算内（余量约 24 MB）。
+  - 未完成：TUI 字体安装/状态命令（T155／FR-717）；终端字体不可由程序强制，
+    该命令只做用户级安装与终端配置提示。
+
 - GUI 达标批次（2026-10-23）：**字体、主题切换与最小化停绘**（T152）。
   - 字体：CJK 由“读入 19.7 MB `msyh.ttc`”改为**按族名使用系统字体**
     （`Font::with_name("Microsoft YaHei")`，候选 `SimHei`）。系统字体不可再分发，

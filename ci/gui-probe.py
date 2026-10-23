@@ -87,6 +87,7 @@ user32.GetDpiForWindow.restype = ctypes.c_uint
 user32.keybd_event.argtypes = [wintypes.BYTE, wintypes.BYTE, wintypes.DWORD, ctypes.c_size_t]
 
 VK_3 = 0x33
+VK_6 = 0x36
 VK_Q = 0x51
 VK_R = 0x52
 VK_T = 0x54
@@ -343,6 +344,14 @@ def run_theme(
         time.sleep(1.0)
         result["title_after_keys"] = window_title(hwnd)
         grab_client(hwnd, out_dir / f"gui-{theme}-view3.png")
+
+        # 等宽字体证据：diff 预览使用 JetBrains Mono（拉丁）+ Sarasa Mono SC（CJK）
+        press(VK_6, hwnd)
+        time.sleep(0.8)
+        result["title_after_diff"] = window_title(hwnd)
+        grab_client(hwnd, out_dir / f"gui-{theme}-diff.png")
+        press(VK_3, hwnd)
+        time.sleep(0.5)
 
         # FR-713：`t` 键循环三套主题，切换不重启（三次后回到起始主题）
         start = THEMES.index(theme)

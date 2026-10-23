@@ -16,6 +16,9 @@ whcode
   events list|show|export --session ID [--after SEQ] [--format jsonl]
   db stats|check|purge --before TS|checkpoint|compact|archive --export PATH|explain QUERY
   runtime list|status|enable|disable|install NAME
+  font install [--from DIR] [--dry-run]
+  font status
+  font uninstall [--dry-run]
   serve --web [--bind 127.0.0.1:PORT]
   serve --ssh [--port PORT]
   gui [--workspace DIR]
@@ -26,6 +29,10 @@ whcode
 `gui` 为装配根入口（与 `serve` 同层）：只读六视图，非交互、无 stdout 协议，退出码 0/1（FR-711）。
 `gui` 的按键：`1`—`6` 切视图、`j`/`k` 上下选择会话、`r` 刷新、`t` 循环三套主题（不重启，FR-713）、
 `q`／`Esc` 退出。
+`font` 为本机资源命令（不触库、不经过会话授权）：把内置 OFL 字体安装到用户级字体目录并写
+HKCU 注册（显式、可逆，`uninstall` 撤销）；`install` 输出 Windows Terminal 配置片段供用户自行
+粘贴，**不自动改写用户终端配置**（FR-717、ADR-028）；终端字形由终端模拟器控制，程序不声称
+可强制更换。
 
 ## 2. 修订约束（不得回退）
 

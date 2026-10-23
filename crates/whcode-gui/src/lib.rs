@@ -14,7 +14,7 @@
 use std::rc::Rc;
 
 use iced::keyboard::{Key, key};
-use iced::widget::{column, container, row, scrollable, text};
+use iced::widget::{column, container, rich_text, row, scrollable, span, text};
 use iced::{
     Background, Border, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme,
     window,
@@ -25,14 +25,12 @@ use whcode_domain::i18n::I18n;
 /// 窗口初始逻辑尺寸（与 FR-712 的预算口径一致）。
 const WINDOW_SIZE: Size = Size::new(1200.0, 800.0);
 
-/// 中文字体候选族名（按顺序取系统里第一个可用的；不把字体字节读进进程）。
-///
-/// 说明（FR-712）：微软雅黑等系统字体**不可再分发**，因此不能把子集化字体随包发布；
-/// 改为按族名交给系统字体栈按需加载，进程不常驻整份字体字节。
-const FONT_FAMILIES: [(&str, &str); 2] = [
-    (r"C:\Windows\Fonts\msyh.ttc", "Microsoft YaHei"),
-    (r"C:\Windows\Fonts\simhei.ttf", "SimHei"),
-];
+/// 内置字体子集（FR-716／ADR-028）：完整字体在 `assets/fonts/source`，
+/// 这里只嵌入 `ci/subset-fonts.py` 生成的子集，避免整份 CJK 字体常驻。
+const FONT_INTER: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.subset.ttf");
+const FONT_NOTO: &[u8] = include_bytes!("../assets/fonts/NotoSansCJKsc-Regular.subset.otf");
+const FONT_JETBRAINS: &[u8] = include_bytes!("../assets/fonts/JetBrainsMono-Regular.subset.ttf");
+const FONT_SARASA: &[u8] = include_bytes!("../assets/fonts/SarasaMonoSC-Regular.subset.ttf");
 
 /// GUI 主题（三套精确色值，FR-612／FR-713）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -240,9 +238,8 @@ impl State {
 pub fn run(source: Box<dyn ViewSource>, options: RunOptions) -> iced::Result {
     let source: Rc<dyn ViewSource> = Rc::from(source);
     let RunOptions { theme, texts } = options;
-    let family = pick_font_family();
 
-    iced::application(
+    let mut app = iced::application(
         move || State::new(Rc::clone(&source), texts.clone(), theme),
         update,
         view,
@@ -255,18 +252,61 @@ pub fn run(source: Box<dyn ViewSource>, options: RunOptions) -> iced::Result {
         position: window::Position::Centered,
         ..window::Settings::default()
     })
-    .default_font(Font::with_name(family))
-    .run()
+    .default_font(Font::with_name("Inter"));
+    for bytes in [FONT_INTER, FONT_NOTO, FONT_JETBRAINS, FONT_SARASA] {
+        app = app.font(bytes.to_vec());
+    }
+    app.run()
 }
 
-/// 选择系统中文字体族名：取第一个存在的字体文件对应的族名，都不存在时回落雅黑。
-fn pick_font_family() -> &'static str {
-    for (path, family) in FONT_FAMILIES {
-        if std::path::Path::new(path).is_file() {
-            return family;
+/// 字符是否属于 CJK 区（汉字、假名、CJK 标点与全角符号）。
+fn is_cjk(ch: char) -> bool {
+    matches!(
+        ch as u32,
+        0x2E80..=0x9FFF | 0xF900..=0xFAFF | 0xFE30..=0xFE4F | 0xFF00..=0xFFEF
+    )
+}
+
+/// 四类文本的字体（FR-716）：比例／等宽 × 拉丁／CJK。
+fn font_for(cjk: bool, mono: bool) -> Font {
+    match (mono, cjk) {
+        (false, false) => Font::with_name("Inter"),
+        (false, true) => Font::with_name("Noto Sans CJK SC"),
+        (true, false) => Font::with_name("JetBrains Mono"),
+        (true, true) => Font::with_name("Sarasa Mono SC"),
+    }
+}
+
+/// 按“拉丁 / CJK”切分文本，保证每段显式使用对应字体（不依赖回退顺序）。
+fn split_runs(line: &str) -> Vec<(bool, &str)> {
+    let mut runs: Vec<(bool, &str)> = Vec::new();
+    let mut start = 0;
+    let mut current: Option<bool> = None;
+    for (index, ch) in line.char_indices() {
+        let cjk = is_cjk(ch);
+        match current {
+            Some(value) if value == cjk => {}
+            Some(value) => {
+                runs.push((value, &line[start..index]));
+                start = index;
+                current = Some(cjk);
+            }
+            None => current = Some(cjk),
         }
     }
-    "Microsoft YaHei"
+    if let Some(value) = current {
+        runs.push((value, &line[start..]));
+    }
+    runs
+}
+
+/// 一行富文本：按字符类别分段指定字体。
+fn rich_line(line: &str, mono: bool, size: f32) -> Element<'static, Message> {
+    let spans: Vec<text::Span<'static, (), Font>> = split_runs(line)
+        .into_iter()
+        .map(|(cjk, run)| span(run.to_string()).font(font_for(cjk, mono)).size(size))
+        .collect();
+    rich_text(spans).into()
 }
 
 fn update(state: &mut State, message: Message) -> Task<Message> {
@@ -342,9 +382,11 @@ fn view(state: &State) -> Element<'_, Message> {
             .iter()
             .map(|view| {
                 let marker = if state.view == *view { "> " } else { "  " };
-                text!("{}{}", marker, state.texts.resolve(view.title_key()))
-                    .size(18)
-                    .into()
+                rich_line(
+                    format!("{}{}", marker, state.texts.resolve(view.title_key())).as_str(),
+                    false,
+                    18.0,
+                )
             })
             .collect::<Vec<Element<'_, Message>>>(),
     )
@@ -352,14 +394,16 @@ fn view(state: &State) -> Element<'_, Message> {
     .width(Length::Fixed(180.0));
 
     let lines = state.snapshot.render_lines_limited(500);
+    // diff 预览用等宽字体（拉丁 JetBrains Mono／CJK Sarasa Mono SC），其余用比例字体。
+    let mono = state.view == ViewId::Diff;
     let body: Element<'_, Message> = if lines.is_empty() {
-        text(state.texts.resolve("tui.empty")).size(16).into()
+        rich_line(state.texts.resolve("tui.empty"), false, 16.0)
     } else {
         scrollable(
             column(
                 lines
                     .into_iter()
-                    .map(|line| text(line).size(16).into())
+                    .map(|line| rich_line(line.as_str(), mono, 16.0))
                     .collect::<Vec<_>>(),
             )
             .spacing(4),
@@ -369,9 +413,12 @@ fn view(state: &State) -> Element<'_, Message> {
         .into()
     };
 
-    let main = column![body, container(text(state.footer()).size(13)).padding(6)]
-        .spacing(8)
-        .width(Length::Fill);
+    let main = column![
+        body,
+        container(rich_line(state.footer().as_str(), false, 13.0)).padding(6)
+    ]
+    .spacing(8)
+    .width(Length::Fill);
 
     container(row![sidebar, main].spacing(16))
         .padding(12)
@@ -432,5 +479,34 @@ mod tests {
             assert_eq!(rail.background, Some(Background::Color(background)));
             assert_eq!(rail.scroller.background, Background::Color(foreground));
         }
+    }
+
+    #[test]
+    fn runs_split_latin_and_cjk() {
+        assert_eq!(
+            split_runs("会话 Sessions 1/6 核对"),
+            vec![(true, "会话"), (false, " Sessions 1/6 "), (true, "核对")]
+        );
+        assert!(split_runs("").is_empty());
+        assert_eq!(split_runs("sessions"), vec![(false, "sessions")]);
+        assert_eq!(split_runs("会话"), vec![(true, "会话")]);
+    }
+
+    #[test]
+    fn font_selection_covers_four_categories() {
+        assert_eq!(font_for(false, false), Font::with_name("Inter"));
+        assert_eq!(font_for(true, false), Font::with_name("Noto Sans CJK SC"));
+        assert_eq!(font_for(false, true), Font::with_name("JetBrains Mono"));
+        assert_eq!(font_for(true, true), Font::with_name("Sarasa Mono SC"));
+    }
+
+    #[test]
+    fn cjk_ranges_cover_punctuation_and_fullwidth() {
+        assert!(is_cjk('会'));
+        assert!(is_cjk('，'));
+        assert!(is_cjk('（'));
+        assert!(!is_cjk('S'));
+        // 通用标点（U+2014）由 Inter/Noto 的拉丁子集覆盖，不按 CJK 切段。
+        assert!(!is_cjk('—'));
     }
 }

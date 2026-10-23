@@ -45,6 +45,16 @@ DOC_FILES: dict[str, str] = {
     "docs/matrices/platform-matrix.md": "platform-matrix.md",
 }
 
+#: 内置字体的来源与许可（仓库相对路径 -> 包内路径）。
+#: 可执行文件内嵌了 OFL 字体子集，按许可要求必须随包附版权声明与许可原文。
+FONT_FILES: dict[str, str] = {
+    "assets/fonts/SOURCES.md": "assets/fonts/SOURCES.md",
+    "assets/fonts/source/inter/LICENSE.txt": "assets/fonts/Inter-LICENSE.txt",
+    "assets/fonts/source/noto-sans-sc/LICENSE": "assets/fonts/NotoSansCJKsc-LICENSE.txt",
+    "assets/fonts/source/jetbrains-mono/OFL.txt": "assets/fonts/JetBrainsMono-OFL.txt",
+    "assets/fonts/source/sarasa-mono-sc/LICENSE": "assets/fonts/SarasaMonoSC-LICENSE.txt",
+}
+
 
 def fail(message: str) -> int:
     print(f"打包失败：{message}", file=sys.stderr)
@@ -160,6 +170,21 @@ def build_package(out_dir: pathlib.Path) -> tuple[pathlib.Path, list[dict[str, o
                 "origin": relative,
             }
         )
+    for relative, packed in FONT_FILES.items():
+        source = REPO_ROOT / relative
+        if not source.is_file():
+            raise RuntimeError(f"缺失字体许可文件：{relative}")
+        target = staging / packed
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        entries.append(
+            {
+                "file": packed,
+                "bytes": source.stat().st_size,
+                "sha256": sha256(source),
+                "origin": relative,
+            }
+        )
 
     stamp = subprocess.run(
         [str(staging / "whcode.exe"), "--version"],
@@ -208,6 +233,7 @@ def build_package(out_dir: pathlib.Path) -> tuple[pathlib.Path, list[dict[str, o
         "自检：whcode doctor        （人类可读）",
         "      whcode doctor --json （脚本可读，含 duckdb_engine_version 与三档运行时等级）",
         "数据：默认在当前目录创建 whcode.duckdb；用 --workspace DIR 指定工作区。",
+        "字体：可执行文件内嵌 SIL OFL 1.1 字体子集；来源与许可见 assets/fonts/SOURCES.md 与 *-LICENSE.txt。",
         "退出权：数据经 `whcode db archive --export <PATH>` 带走；删除该目录即完全卸载（无系统级注册）。",
     ]
     (staging / "PACKAGE-INFO.txt").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")

@@ -62,6 +62,8 @@ fn top_level_entries_follow_layout() {
     let root = repo_root();
     let allowed_dirs = [
         "artifacts",
+        // 可再分发的内置资源（字体与许可）；只放 OFL 等允许再分发的文件。
+        "assets",
         "ci",
         "crates",
         "docs",
