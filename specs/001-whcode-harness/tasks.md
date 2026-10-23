@@ -204,7 +204,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T128 [P] [US6] 在 `crates/whcode-tui/src/theme.rs` 实现三套渲染主题（FR-612）：A 屏夜间（纯黑 #000000 背景）、墨水屏日间（纯白 #FFFFFF 背景 + 黑字）、墨水屏夜间（纯黑背景 + 白字）；主题经配置选择，测试断言背景色精确为纯黑/纯白（OLED 仅纯黑关断像素；e-ink 黑→白转换残影最重）
 - [x] T129 [US6] 在 `crates/whcode-tui/src/render.rs` 强化渲染纪律（FR-613）：事件驱动 + 脏标记重绘已有基线，新增空闲期零重绘断言（重绘计数器）并接入 NFR-205 空闲 CPU 验证；文档写明“终端绘制由终端模拟器承担，WHCode 不直接调度 GPU”
 - [x] T130 [P] [US6] 在 `crates/whcode-domain/src/i18n.rs` 与 `i18n/` 资源目录实现文本层（FR-615）：zh-CN 与 en 双语、gettext PO 加载接口、运行时区域检测、zh-CN→en 回退链；为 RTL 语言预留双向文本处理接口（渲染层不假设 LTR；依据：GNU gettext 已支持 Rust 提取）（2026-10-23 补记：`parse_po`/`Catalog::from_po`/`I18n::load_with_po` 落地，运行时读 `<root>/i18n/po/<locale>.po`（有界、语言标识白名单）；`whcode-bin::load_texts` 接线；Check 224 已通过）
-- [x] T131 [US6] 在 `crates/whcode-app/src/residency.rs` 实现会话驻留策略（FR-614）：空闲会话卸载为“元数据+游标”、按需唤醒、卸载不丢已确认事件、卸载与唤醒可查询；禁止会话级预分配固定大缓冲
+- [x] T131 [US6] 在 `crates/whcode-app/src/residency.rs` 实现会话驻留策略（FR-614）：空闲会话卸载为“元数据+游标”、按需唤醒、卸载不丢已确认事件、卸载与唤醒可查询；禁止会话级预分配固定大缓冲（2026-10-23 补记：新增有界驻留缓冲（200 条 / 256 KiB，超限背压）+ `accounted_bytes` 占用统计；`tests/stability/test_residency_memory.rs` 实测 RSS 下降 31.48 MiB；Check 221 通过）
 - [x] T133 [P] [US7] 在 `crates/whcode-web/frontend/` 实现动效总开关（FR-613 前端部分）：尊重 `prefers-reduced-motion`、默认关闭非必要动效、CSS 仅使用 GPU 合成友好的 transform/opacity（M6 交付）
 - [x] T135 [US6] 在 `crates/whcode-platform/src/term.rs` 与 `crates/whcode-tui/src/render.rs` 实现 TUI 窗口最小化检测（Windows `GetConsoleWindow`+`IsIconic`）与渲染门控：最小化期间跳过绘制、关键事件继续记账，还原后单次全量重绘（FR-617）（2026-10-22 完成接线）：检测源经 ADR-021（PowerShell 子进程 P/Invoke，零 unsafe、零新依赖，本机实测 `Some(false)`）；门控消费端在 `tui/render.rs`（minimized 跳过绘制、关键事件记账、还原单次全量重绘）；**事件循环接线**（`tui/lib.rs`）：仅在有待绘制帧且输入静默 ≥1s 时探测，间隔 5s→60s 指数退避、检测到最小化回落 5s——空闲（无待绘制帧）与连续输入期间零探测，空闲成本为零；输入事件证明窗口可见（直接按还原记账）；重放证据 `run_scripted_steps`（探测计数/跳过计数/还原单次重绘均断言）
 - [x] T136 [US7] 在 `crates/whcode-web/frontend/` 实现挂起状态机（Active/Suspended/Recovering）：`visibilitychange` + `blur/focus` 判定、恢复去抖 ≥250 ms、恢复时取快照并丢弃中间帧、WebGL/Canvas 上下文释放与重建、GPU 特性探测失败降级、`prefers-reduced-motion` 与动效总开关（FR-617）
@@ -282,7 +282,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 **Independent Test**: 按 quickstart.md §9，产出时间序列报告与发布清单核对结果
 
 - [ ] T115 [US10] 在 `crates/*/src/` 按冻结预算优化热点（先测量后优化，禁止 `Box::leak` 通用化）（NFR-201—210、§5.3）**阻塞（2026-10-22）**：D-06 预算未冻结（缺跨平台基线与 72h 时间序列）；分配器决策已按 ADR-020 冻结（默认系统分配器），热点优化在其前置就绪前不得进行
-- [ ] T116 [P] [US10] 在 `tests/stability/run_stability.sh` 执行 24 小时（候选发布 72 小时）稳定性测试并采集规定指标（§11.5）**阻塞（2026-10-22）**：需 24/72h 连续运行环境；NFR-204 长时泄漏斜率未测量
+- [ ] T116 [P] [US10] 在 `tests/stability/run_stability.sh` 执行 24 小时（候选发布 72 小时）稳定性测试并采集规定指标（§11.5）**阻塞（2026-10-22）**：需 24/72h 连续运行环境；NFR-204 长时泄漏斜率未测量。**部分进展（2026-10-23）**：四类故障情形已纳入 `tests/stability/test_failure_modes.rs`（Check 206 通过）；长跑与指标时间序列仍未取得，任务保持未完成
 - [x] T117 [P] [US10] 在 `docs/adr/ADR-ALLOCATOR.md` 记录分配器决策：默认系统分配器，除非基准证明有益（D-11）
 - [ ] T118 [US10] 在 `ci/` 与 `docs/matrices/` 产出 Windows 11 amd64 发布包、平台兼容矩阵与已知限制说明（BSD 延后并在限制中注明；§12.2、§9.1、ADR-013） **未完成（2026-10-23 复核）**：`ci/` 无打包脚本、无发布包与安装验证；“兼容矩阵与已知限制”部分已交付（Check 118 未通过）
 - [ ] T119 [P] [US10] 在 `docs/guides/` 完成 CUI 手册、TUI 键位表、Web 部署与安全配置、灾难恢复说明（§12.2） **未完成（2026-10-23 复核）**：`cui-manual.md` 已交付；TUI 键位表、Web 部署与安全配置、灾难恢复说明缺失（Check 119 未通过）

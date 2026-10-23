@@ -704,9 +704,7 @@ mod tests {
     use duckdb::params;
 
     fn temp_path(tag: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("whcode-export-{}-{tag}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("创建临时目录");
-        dir.join(format!("{tag}.json"))
+        crate::test_util::dir(tag).join(format!("{tag}.json"))
     }
 
     fn migrated() -> Connection {

@@ -50,6 +50,62 @@ pub fn available_physical_cores() -> u32 {
         .unwrap_or(1)
 }
 
+/// 进程当前工作集（RSS）字节数（Check 221 内存可观测性；NFR-201—204）。
+///
+/// Windows 经 `tasklist /FO CSV` 读取 “Mem Usage” 列；其他平台返回结构化错误
+/// （BSD/Linux 的 RSS 读取属 M7，ADR-013 延后）——调用方**不得**把 `Err` 当作 0。
+///
+/// # Errors
+///
+/// 查询工具不可用、PID 不存在或输出无法解析时返回 [`WhError`]
+/// （`io_error` / `not_found` / `parse_error`）。
+pub fn process_rss_bytes(pid: u32) -> Result<u64, whcode_domain::WhError> {
+    #[cfg(target_os = "windows")]
+    {
+        let output = std::process::Command::new("tasklist")
+            .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
+            .output()
+            .map_err(|err| whcode_domain::WhError::io("查询进程工作集", &err))?;
+        let text = String::from_utf8_lossy(&output.stdout);
+        for line in text.lines() {
+            // 形如 `"whcode.exe","1234","Console","1","12,345 K"`
+            let fields: Vec<&str> = line.split("\",\"").collect();
+            if fields.len() < 5 || fields[1] != pid.to_string() {
+                continue;
+            }
+            let digits: String = fields[4].chars().filter(char::is_ascii_digit).collect();
+            let kilobytes: u64 = digits.parse().map_err(|_| {
+                whcode_domain::WhError::new(
+                    whcode_domain::ErrorCode::ParseError,
+                    format!("无法解析 tasklist 的内存列：{line}"),
+                )
+            })?;
+            return Ok(kilobytes.saturating_mul(1024));
+        }
+        Err(whcode_domain::WhError::new(
+            whcode_domain::ErrorCode::NotFound,
+            format!("进程不存在或无可读工作集（PID {pid}）"),
+        ))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = pid;
+        Err(whcode_domain::WhError::new(
+            whcode_domain::ErrorCode::IoError,
+            "进程工作集读取在非 Windows 平台未实现（BSD/Linux RSS 属 M7，ADR-013 延后）：不返回 0 伪装成功",
+        ))
+    }
+}
+
+/// 当前进程工作集（RSS）字节数。
+///
+/// # Errors
+///
+/// 同 [`process_rss_bytes`]。
+pub fn current_rss_bytes() -> Result<u64, whcode_domain::WhError> {
+    process_rss_bytes(std::process::id())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,5 +134,25 @@ mod tests {
     #[should_panic(expected = "大于 0")]
     fn zero_cores_is_fatal() {
         let _ = memory_limit_defaults(0);
+    }
+
+    /// Check 221：自进程 RSS 可读，量级合理；不存在的 PID 必须报错而不是返回 0。
+    #[test]
+    fn rss_probe_reads_current_process_and_rejects_missing_pid() {
+        match current_rss_bytes() {
+            Ok(bytes) => {
+                assert!(
+                    bytes > 1024 * 1024,
+                    "工作集应大于 1 MiB（实测 {bytes} 字节）"
+                );
+                assert!(
+                    bytes < 1024_u64.pow(4),
+                    "工作集不可能超过 1 TiB（实测 {bytes} 字节）"
+                );
+            }
+            Err(err) => assert!(err.message.contains("延后"), "非实现错误须写明延后：{err}"),
+        }
+        let missing = process_rss_bytes(u32::MAX);
+        assert!(missing.is_err(), "不存在的 PID 必须返回错误（不得返回 0）");
     }
 }

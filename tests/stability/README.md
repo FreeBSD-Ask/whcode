@@ -18,6 +18,14 @@
   启动真实的 `cmd → ping` 进程树，经 `whcode_platform::terminate_tree` 终止后逐个断言
   父、子 PID 消失。平台边界：非 Windows 的 `child_pids`/`process_exists` 返回结构化
   “延后”错误，用例显式跳过并打印原因，不产生通过结论。
+- `test_residency_memory.rs`：空闲会话卸载后**内存可观测下降**（Check 221、FR-614）。
+  装载 128 个会话 × 240 KiB 事件缓冲（占用统计约 30 MiB），卸载后断言占用归零、
+  工作集（`whcode_platform::current_rss_bytes`）下降 ≥ 8 MiB，唤醒不预分配缓冲。
+  平台边界：非 Windows 的 RSS 读取返回结构化错误，此时只跑占用统计断言。
+- `test_failure_modes.rs`：四类稳定性故障（Check 206、§11.5）——LLM 请求失败、
+  断网（临时端口 + 补拉无重复无缺失）、只读库写入失败（零半完成状态）、磁盘不足
+  （`WhError::io` 分类 `StorageFull`/Windows 112）。真实满盘写入需设置
+  `WHCODE_DISK_FULL_DIR` 指向已耗尽卷；未设置时用例打印“未执行”，不伪造通过。
 
 ## 如何运行
 
@@ -28,6 +36,12 @@ cargo test -p whcode-tests --test baseline_check
 # 零残留验证（Windows 上会真实启停进程树）
 cargo test -p whcode-tests --test process_cleanup
 
+# 卸载内存观测（需要 Windows 工作集读取）
+cargo test -p whcode-tests --test residency_memory -- --nocapture
+
+# 四类故障情形（真实满盘需先设置 WHCODE_DISK_FULL_DIR）
+cargo test -p whcode-tests --test failure_modes -- --nocapture
+
 # 本机基线测量（release 构建；结果写入 artifacts/baseline-windows-amd64.json）
 python ci/benchmarks/run-baseline.py
 ```
@@ -36,9 +50,9 @@ python ci/benchmarks/run-baseline.py
 
 - **24 小时稳定性测试未实现**；
 - **候选发布版本的 72 小时压力测试未实现**；
-- 本目录当前只有基线夹具正确性检查与零残留验证，不含长时间 RSS/CPU 时间序列、慢客户端、
-  LLM 请求失败、断网、磁盘空间不足、数据库写入失败、重启与迁移中断等故障注入场景
-  （T116 交付；Check 206 未通过）。
+- 本目录已有基线夹具正确性检查、零残留验证、卸载内存观测与四类故障情形用例；
+  仍缺长时间 RSS/CPU 时间序列、慢客户端、重启与迁移中断等场景（T116 交付）；
+  真实满盘写入需专用环境（`WHCODE_DISK_FULL_DIR`）。
 
 ## 纪律（§11.5、R-12）
 

@@ -213,8 +213,7 @@ mod tests {
 
     /// 在系统临时目录下建一个独占子目录，返回 (目录, 数据库路径)。
     fn temp_db(tag: &str) -> (PathBuf, PathBuf) {
-        let dir = std::env::temp_dir().join(format!("whcode-smoke-{}-{tag}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("创建临时目录");
+        let dir = crate::test_util::dir(tag);
         let db = dir.join("smoke.duckdb");
         (dir, db)
     }

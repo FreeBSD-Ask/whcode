@@ -25,6 +25,16 @@ path = "stability/baseline_check.rs"
 name = "process_cleanup"
 path = "stability/test_process_cleanup.rs"
 
+# 卸载内存可观测下降（Check 221、FR-614）。
+[[test]]
+name = "residency_memory"
+path = "stability/test_residency_memory.rs"
+
+# 四类稳定性故障情形（Check 206、§11.5）。
+[[test]]
+name = "failure_modes"
+path = "stability/test_failure_modes.rs"
+
 # 目录分类门禁（docs/guides/repository-layout.md 的可执行强制）。
 [[test]]
 name = "layout"

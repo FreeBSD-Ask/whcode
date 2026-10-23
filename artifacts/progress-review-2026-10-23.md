@@ -19,7 +19,7 @@ DuckDB 运行期 `v1.5.6`，复核时提交 `c3a76e5`，本地时间 `2026-10-23
 |---|---|---|
 | 任务清单（tasks.md） | 132 勾选 / 16 未勾选（其中 10 条经复核回退） | 复核前 142 条中有 10 条无实现或证据 |
 | 门禁链（fmt/clippy/test/契约/布局） | **2 项失败**（clippy、layering） | **不通过** |
-| 验收检查点（checklist.md） | 249 项全部有复核记录：**198 通过 / 51 未通过** | 复核完成 |
+| 验收检查点（checklist.md） | 249 项全部有复核记录：**200 通过 / 49 未通过** | 复核完成 |
 
 ---
 
@@ -101,7 +101,7 @@ DuckDB 运行期 `v1.5.6`，复核时提交 `c3a76e5`，本地时间 `2026-10-23
 
 ---
 
-## 4. 验收层结果（checklist.md：249 项全部有复核记录，198 通过 / 51 未通过）
+## 4. 验收层结果（checklist.md：249 项全部有复核记录，200 通过 / 49 未通过）
 
 **批次一（Check 1—31，Phase 1—3 / M0）**：25 项通过，5 项未通过——Check 3（CI 未接线）、
 Check 20/21/22（分平台口径缺 FreeBSD/NetBSD 证据）、Check 25（SSH 四平台记录未取得）。
@@ -134,15 +134,15 @@ M9 四项（115/116 阻塞、118 无发布包、119 缺三份指南）；Phase 1
 T109（Windows 子进程树已实现；BSD 进程组分支未实现，显式返回错误）。
 
 `checklist.md` 的勾选权归复核人，生成时一律 `[ ]`；现状 **249 项全部有复核记录**：
-198 通过（14 项为 2026-10-21/22 的用户复核，177 项为本轮，4 项为补录，3 项为收敛表修复后补录）、
-51 未通过。这意味着：
+200 通过（14 项为 2026-10-21/22 的用户复核，177 项为本轮，4 项为补录，5 项为收敛表修复后补录）、
+49 未通过。这意味着：
 
-- G4 验收门禁**仍未成立**：51 项未通过即意味着对应里程碑不能宣称验收通过；
+- G4 验收门禁**仍未成立**：49 项未通过即意味着对应里程碑不能宣称验收通过；
 - `check_counts.py` 只校验“FR/任务/检查点数量一致”，不校验勾选比例，故该缺口不会被现有门禁抓到。
 
 复核前最大的结构性风险是进度指标（95.9%）与验收指标（5.6%）背离；本轮把 249 项判据
 逐条落笔、回退 10 条虚高任务。此后任何对外“完成度”表述若只引用 tasks.md 而回避
-“198/249 通过”，即构成 AGENTS §1.4“不伪造”与 §5“禁止跨门禁跳跃”的反面案例。
+“200/249 通过”，即构成 AGENTS §1.4“不伪造”与 §5“禁止跨门禁跳跃”的反面案例。
 
 ---
 
@@ -238,7 +238,7 @@ ADR 清单更新至 023；`compatibility.md` 已知限制第 4/5 条改写（M7 
 放行后随仓库版本化（README 引用它作为复核依据）。
 
 **复核进度（2026-10-23 续）**：checklist 四个批次（Check 1—249）已逐条取证落笔，
-**249 项全部有复核记录：198 通过 / 51 未通过**；并据实回退 10 条任务
+**249 项全部有复核记录：200 通过 / 49 未通过**；并据实回退 10 条任务
 （T093/T110/T111/T112/T114/T118/T119/T123/T124/T127）。
 复核同时暴露并处置四处缺陷——① 仓库无 `.github/workflows/`，`ci/platform-matrix/*.yml` 从未被平台执行；
 ② `decisions.md` 的 D-07—D-11 状态停留在“待实现”；③ `feature-parity.md` 的 CUI 列仍标“未交付”；
@@ -331,9 +331,8 @@ Web 写命令与 WS 广播（143/183/199/209）→ 预算冻结（133/136/195）
 | 10 PO 接口 | 224 → **通过** | `parse_po`（续行/转义/`msgctxt`，跳过 fuzzy／复数／废弃）、`Catalog::from_po`、`I18n::load_with_po`（`<root>/i18n/po/<locale>.po`，256 KiB 上限、语言标识白名单禁穿越）；`whcode-bin::load_texts` 接线（`WHCODE_I18N_DIR` → 可执行文件目录，失败告警回退） | 6 个用例：解析边界、PO 覆盖 + en 回退 + 键名兜底、无 PO 等价内建、非法语言标识、超限拒绝、目录结构（BOM/LF）+ 内建目录 PO 往返无损 |
 | 7 零残留（Windows） | 201 → **部分通过**（维持未勾选） | `whcode-platform::process_exists`／`child_pids`；`tests/stability/test_process_cleanup.rs` 启动真实 `cmd → ping` 树，`terminate_tree` 后断言父与子 PID 均消失，并先断言确实观测到子进程 | 用例通过（0.82 s）；**BSD 进程组仍无实现与平台证据（ADR-013）**，故整条判据未满足 |
 
-**未执行（如实标注）**：第 9 类（Check 221 卸载内存下降）需要 RSS 级观测与真实会话
-负载，本轮未动；第 8 类（Check 206 稳定性四情形）中的“磁盘不足”缺可复现注入手段，
-需要临时卷或故障注入层，未动；第 1—4、11—14 类按 §10 排序在其后。
+**当时未执行**：第 8 类（Check 206）与第 9 类（Check 221）随后在 §12 补齐；
+第 1—4、11—14 类按 §10 排序在其后。
 
 **新增/修改文件**：`crates/whcode-domain/src/checkpoint.rs`（新）、`crates/whcode-domain/src/i18n.rs`、
 `crates/whcode-runtime/src/{worker.rs,providers.rs,checkpoint.rs,lib.rs}`、
@@ -344,4 +343,33 @@ Web 写命令与 WS 广播（143/183/199/209）→ 预算冻结（133/136/195）
 `layering`、`layout`、`process_cleanup`）；`cargo fmt --all --check` 零差异；
 `clippy --workspace --all-targets -- -D warnings` 零告警；`normalize_eol.py`（297 文件，
 CRLF/BOM 均 0）与 `ci/check_counts.py`（FR=79/tasks=148/checks=249）通过。
+
+---
+
+## 12. 收敛表第 8、9 类修复（2026-10-23 续）
+
+| 类别 | Check | 交付内容 | 证据 |
+|---|---|---|---|
+| 9 卸载内存 | 221 → **通过** | `whcode-app::residency` 新增有界驻留缓冲（200 条 / 256 KiB 双上限，超限 `backpressure`）、`accounted_bytes`、`event_cursor`；卸载释放缓冲、唤醒从空开始、已卸载会话再收事件显式 `invalid_state`；`whcode-platform` 新增 `process_rss_bytes`／`current_rss_bytes`（Windows `tasklist` 工作集，非 Windows 结构化“延后”错误） | 单元：`unload_releases_buffer_memory_and_wake_starts_empty`、`buffering_is_bounded_by_count_and_bytes_with_backpressure`、`buffering_into_unloaded_session_is_rejected`、`unload_then_wake_replays_without_duplicates_or_gaps`（缓冲 1—4 + 补拉 5—10 = 全集且无重复）；实测：`residency_memory` 装载 128 会话 × 240 KiB 后卸载，accounted 31 469 350 B，**RSS 37 756 928 → 6 275 072 B（下降 31 481 856 B ≈ 30.0 MiB）**，唤醒不预分配 |
+| 8 稳定性故障 | 206 → **通过** | `tests/stability/test_failure_modes.rs`：① LLM 失败（失败 Provider → 结构化错误 + `details` 原文 + 按错误码的重试语义）；② 断网（临时端口连接失败有界可归类 + 恢复后补拉无重复无缺失）；③ 写入失败（只读库写入 → `io_error` 且零半完成状态）；④ 磁盘不足（`WhError::io` 分类 `StorageFull`／Windows 112，消息含“清理空间后可重试”；真实满盘写入由 `WHCODE_DISK_FULL_DIR` 门控，本机未执行并显式打印） | 4 个用例全部通过（2.05 s）；域层分类用例 `io_error_classifies_disk_full_and_keeps_other_errors_verbatim` |
+
+**边界与代价**：驻留缓冲以“超限背压”换取有界内存——缓冲区满时调用方需补拉或延后；
+这符合 FR-614“禁止会话级预分配固定大缓冲”，但把压力转移给了调用方，需在 UI 层把
+`backpressure` 呈现为可操作提示（当前仅结构化错误，UI 接线属 M8）。真实满盘与 24/72 h
+长跑仍未取得，T116 保持未完成。
+
+**计数**：200 通过 / 49 未通过；第二、三层未通过 21 项，归并为 9 类（§10 表中第 1—4、
+7、11—14 类）。
+
+**过程中发现并修复的测试隔离缺陷**：`whcode-store` 多个测试辅助函数用
+`进程 ID + tag` 命名临时库；进程崩溃后残留的库文件在 PID 复用时被读到，导致
+`Deduplicated` 之类的假失败（本轮全量跑中出现 3 例）。改为 `crates/whcode-store/src/test_util.rs`：
+进程内单例根目录（PID + 纳秒戳，每进程唯一），同一 `tag` 仍映射同一路径。
+教训：测试隔离的“唯一键”必须同时覆盖“跨运行”，不能只覆盖“跨用例”。
+
+**门禁**：`cargo test --locked --workspace` **51 个目标 / 440 通过 / 0 失败 / 6 忽略**；
+`cargo fmt --all --check` 零差异；`clippy --workspace --all-targets -- -D warnings` 零告警；
+`normalize_eol.py`（299 文件，CRLF/BOM 均 0）与 `ci/check_counts.py`（FR=79/tasks=148/checks=249）
+通过。另：全量跑前需清理锁住 `target` 下测试二进制的残留进程（LNK1104），本轮已用
+`script/` 临时脚本清理并删除。
 

@@ -482,8 +482,7 @@ mod tests {
     use whcode_domain::{EventKind, PersistenceLevel};
 
     fn temp_db(tag: &str) -> (PathBuf, PathBuf) {
-        let dir = std::env::temp_dir().join(format!("whcode-writer-{}-{tag}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("创建临时目录");
+        let dir = crate::test_util::dir(tag);
         let db = dir.join("writer.duckdb");
         (dir, db)
     }

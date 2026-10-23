@@ -13,6 +13,22 @@
 
 ### 变更
 
+- 稳定性与驻留修复（2026-10-23，Check 206／221 通过）：
+  - **会话驻留缓冲**：`whcode-app::residency` 新增有界事件缓冲（200 条 / 256 KiB 双上限，
+    超限返回 `backpressure` 而非静默丢弃）、`accounted_bytes` 占用统计与 `event_cursor`；
+    卸载立即释放缓冲（只留元数据 + 游标），唤醒从空缓冲开始，历史由补拉还原；
+    已卸载会话再收事件显式报 `invalid_state`。
+  - **内存可观测性**：`whcode-platform::resources` 新增 `process_rss_bytes` /
+    `current_rss_bytes`（Windows 经 `tasklist` 读工作集；其他平台返回结构化“延后”错误，
+    不返回 0 伪装成功）。
+  - **稳定性故障情形**：新增 `tests/stability/test_failure_modes.rs`（LLM 失败、断网、
+    只读库写入失败、磁盘不足）与 `tests/stability/test_residency_memory.rs`
+    （实测 RSS 37 756 928 → 6 275 072 字节，下降 31.48 MiB）。
+  - **满盘错误分类**：`WhError::io` 将 `ErrorKind::StorageFull` 与 Windows `ERROR_DISK_FULL`
+    （112）统一标注为“磁盘空间不足 / 清理空间后可重试”，其余 I/O 错误保留原文。
+  - **测试隔离修复**：`whcode-store` 的临时库路径原为“PID + tag”，崩溃残留遇 PID 复用
+    会读到旧库造成假失败（本轮全量跑暴露 3 例）；改为 `test_util` 进程内单例根目录
+    （PID + 纳秒戳），同一 `tag` 仍映射同一路径。
 - 收敛表优先项修复（2026-10-23，Check 144／171／224 通过、201 Windows 侧通过）：
   - **凭据隔离**：`whcode-runtime` 新增 `strip_credentials`（父进程继承与调用方显式设置的
     凭据型环境变量一并剥离：`KEY`/`TOKEN`/`SECRET`/`PASSWORD`/`CREDENTIAL`/`COOKIE`/

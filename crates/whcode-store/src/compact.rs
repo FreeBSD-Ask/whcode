@@ -251,9 +251,7 @@ mod tests {
     use duckdb::params;
 
     fn temp_db(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("whcode-compact-{}-{tag}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("创建临时目录");
-        dir.join(format!("{tag}.duckdb"))
+        crate::test_util::dir(tag).join(format!("{tag}.duckdb"))
     }
 
     fn seeded_file_db(tag: &str, event_count: i64) -> Connection {

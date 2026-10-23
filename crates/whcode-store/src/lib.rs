@@ -44,6 +44,10 @@ pub mod tool_exec;
 pub mod wal;
 pub mod writer;
 
+/// 测试临时目录（仅测试构建；见模块文档）。
+#[cfg(test)]
+mod test_util;
+
 pub use compact::{CompactReport, SpaceReport, capture_space, compact_database};
 pub use directory::{
     MAX_LIST_LIMIT, SessionRow, create_session, create_session_with_id, event_cursor, get_session,

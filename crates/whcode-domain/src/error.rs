@@ -135,6 +135,25 @@ impl WhError {
     pub fn internal(message: impl Into<String>) -> Self {
         Self::new(ErrorCode::Internal, message)
     }
+
+    /// 从 I/O 错误构造（统一分类，§11.5 稳定性故障处置）。
+    ///
+    /// 磁盘空间不足（`ErrorKind::StorageFull`，以及 Windows 的 `ERROR_DISK_FULL` =
+    /// 112 这类被归入 `Other` 的原始码）单独说明：它是环境问题、修好空间后可重试，
+    /// 不得与“权限/参数错误”混为一谈；其余 I/O 失败按原文报告。
+    #[must_use]
+    pub fn io(context: &str, err: &std::io::Error) -> Self {
+        let disk_full =
+            err.kind() == std::io::ErrorKind::StorageFull || err.raw_os_error() == Some(112);
+        if disk_full {
+            Self::new(
+                ErrorCode::IoError,
+                format!("{context}：磁盘空间不足（{err}）；清理空间后可重试"),
+            )
+        } else {
+            Self::new(ErrorCode::IoError, format!("{context}：{err}"))
+        }
+    }
 }
 
 /// 成功信封：`data` 必须序列化为 map（扁平化后与 `schema_version` 同级）。
@@ -210,6 +229,27 @@ mod tests {
         assert!(!WhError::permission_denied("x").retryable);
         assert!(WhError::backpressure("x").retryable);
         assert!(!WhError::runtime_unavailable("x").retryable);
+    }
+
+    /// Check 206“磁盘不足”：满盘单独分类（可重试，消息可操作）；其他 I/O 失败按原文报告。
+    #[test]
+    fn io_error_classifies_disk_full_and_keeps_other_errors_verbatim() {
+        let full = std::io::Error::new(std::io::ErrorKind::StorageFull, "no space left");
+        let err = WhError::io("写出导出文件", &full);
+        assert_eq!(err.code, ErrorCode::IoError);
+        assert!(err.retryable, "满盘属环境问题，清理空间后可重试");
+        assert!(err.message.contains("磁盘空间不足"), "{}", err.message);
+
+        // Windows 的 ERROR_DISK_FULL=112 会被归入 Other：仍须按满盘处置。
+        let raw = std::io::Error::from_raw_os_error(112);
+        let err = WhError::io("写出导出文件", &raw);
+        assert!(err.message.contains("磁盘空间不足"), "{}", err.message);
+
+        let denied = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
+        let err = WhError::io("写出导出文件", &denied);
+        assert_eq!(err.code, ErrorCode::IoError);
+        assert!(!err.message.contains("磁盘空间不足"), "{}", err.message);
+        assert!(err.message.contains("写出导出文件"), "{}", err.message);
     }
 
     #[test]
