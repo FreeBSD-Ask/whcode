@@ -16,16 +16,22 @@
     "font uninstall --json → uninstall.json（四份均 unregistered=true、file_deleted=true、无 file_error）",
     "font status --json → status-after.json（恢复到安装前状态）",
     "reg query 复查 → 四条注册值已消失，键内仅剩用户原有第三方字体（不误删他人条目）",
-    "dir 复查 → 用户字体目录无四份内置文件残留"
+    "dir 复查 → 用户字体目录无四份内置文件残留",
+    "【视觉证据，2026-10-24 用户豁免代改】重新 install → 代改 WT settings.json（profiles.defaults.font.face = \"Sarasa Mono SC\"，原值 null，备份 settings.json.bak-20261024）→ wt.exe 启动 TUI（zh-CN 环境、空 workspace）→ 截图 tui-wt-sarasa-on.png",
+    "【对照】恢复 settings.json（face 回到 null）→ 同流程再截 tui-wt-default.png（唯一变量为 font.face）",
+    "【恢复】font uninstall → status 确认四字体回到未安装、WT 不再命中内置字体；临时 workspace 已删，settings.json 已还原为备份原样"
   ],
   "findings": [
     "安装/检测/卸载全链在真机可用：显式（命令即意图）、可逆（uninstall 完全撤销）、未触碰用户原有字体条目",
     "0 信任交叉验证抓出并修复一个真实缺陷：Windows Terminal 包族名误写为 8wekybeld3zzbb，实际为 8wekyb3d8bbwe——修复前 status 永远检测不到已安装的 WT；修复后命中本机 settings.json",
     "本机 WT settings.json 无 font/face 字段（grep 计数 0），status 的 declared_faces=[] 为正确的空，非漏检",
+    "视觉证据成立：声明 face=\"Sarasa Mono SC\" 后，TUI（旺皇大模型执行框架 —会话（1/6）—）的 CJK 为更纱黑体字形、拉丁为 Iosevka 窄幅字形；恢复默认后同一 TUI 变为 Cascadia Mono + 系统回退 CJK，字形与混排间距肉眼可辨（tui-wt-sarasa-on.png vs tui-wt-default.png）",
+    "探针技法：wt.exe 会把内联命令串的分号当新标签页分隔符（实测 0x80070002），必须经 -File 传入 ps1；截图复用 ci/gui-probe.py 的 DPI/前台/客户区技术",
     "终端声明检测为只读；install 不改写用户终端配置，只输出配置片段（见 install.json 的 terminal_hint）"
   ],
+  "waiver": "用户于 2026-10-24 明确豁免『不自动改写用户配置』一次，授权代理代改 settings.json 完成视觉取证；取证后已恢复原配置（face=null，与备份一致）并卸载字体。产品行为不变：font install 仍只输出片段。",
   "coverage_notes": [
-    "未取证：Windows Terminal 实际使用内置字体渲染 TUI 的视觉证据——需要用户自行把配置片段粘入 settings.json 后重启终端（程序不得代改，FR-717）；本机默认字体未声明 face",
-    "uninstall 的 file_error 分支（文件被占用）以单元测试同名目录夹具覆盖（uninstall_reports_file_error_without_stopping），未在真机复现"
+    "uninstall 的 file_error 分支（文件被占用）以单元测试同名目录夹具覆盖（uninstall_reports_file_error_without_stopping），未在真机复现",
+    "settings.json.bak-20261024 保留在用户 LOCALAPPDATA（WT LocalState 目录）作为回滚保险，可自行删除"
   ]
 }
