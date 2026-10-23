@@ -404,3 +404,68 @@ CRLF/BOM 均 0）与 `ci/check_counts.py`（FR=79/tasks=148/checks=249）通过�
 **未取得**：真实浏览器逐项点按新按钮的记录（API 层自动化已齐）；V-304（Git Bash 五类命令）；
 Python ABI/C 扩展探测记录；72 h 时间序列。
 
+---
+
+## §14 交付批次（2026-10-23）：CI 接线、发布包、指南与 quickstart
+
+**结论**：Check 118、119 转入通过；209 → **211 通过 / 38 未通过**；Check 3／124／249 因此前
+口径未变（缺平台执行记录、缺交互与长跑证据）维持未通过，未做“接线即通过”的替换。
+
+### 14.1 CI 接线（Check 3／5／249）
+
+**过去来源**：五份 workflow 一直放在 `ci/platform-matrix/`，而 GitHub Actions 只执行
+`.github/workflows/`，因此从未被平台执行（批次一已登记该缺陷）。
+
+**本轮动作**：五份迁入 `.github/workflows/platform-*.yml`；`ci/platform-matrix/` 只留依赖记录与
+交叉检查脚本；Windows 流水线补齐计数、三方追溯、前端预算、打包安装四个步骤；自检脚本
+`script/check_workflows.py` 改扫新目录并新增“必须在 `.github/workflows/` 下”的位置判据。
+
+**正负和解**：正面是流水线终于可被执行、配置单一来源；负面是路径变更波及 7 处文档与
+Check 5 的取证口径（已逐处同步，非静默改名）；承担者是后续维护者。
+
+**未取得**：本仓库无远程、无 runner，平台执行记录仍为空。Check 3／249 按此维持未通过，
+不以本机 `fmt/clippy/test` 通过冒充 CI 证据。
+
+### 14.2 发布包与安装验证（Check 118）
+
+新增 `ci/package-windows.py`：白名单打包（exe + `duckdb.dll` + README/LICENSE/CHANGELOG +
+兼容矩阵 + PACKAGE-INFO），并在**仓库外**临时目录解包、切换 cwd 后运行三条命令。
+证据 `artifacts/install-verify-windows-amd64.txt`：
+
+| 命令 | 退出码 | 可归因信号 |
+|---|---|---|
+| `whcode.exe --version` | 0 | `whcode 2026-10-23T12:56+08:00` |
+| `whcode.exe doctor --json` | 0 | `duckdb_engine_version = v1.5.6`（运行期实测）、三档运行时等级 |
+| `whcode.exe --workspace <tmp> db stats --json` | 0 | 临时工作区实际生成 1 060 864 字节库文件 |
+
+包产物 `target/dist/whcode-0.1.0-windows-amd64.zip`（14 652 047 字节）不入库，可复现：
+`cargo build --release --locked -p whcode-bin` + `python ci/package-windows.py --verify`。
+
+### 14.3 三份指南（Check 119）
+
+`docs/guides/tui.md`、`web-deployment-security.md`、`disaster-recovery.md`。写法约束：每条结论
+附 `文件:行号`；**未实现项单列**（TUI 无命令面板/翻页/帮助/鼠标/粘贴、Web 无 TLS/无安全响应头/
+无 Host 校验/无 CSRF token/无限速、无 restore 子命令、WAL 自动检查点未接入循环、无启动期
+完整性校验）。同时纠正一处文档与实现冲突：`db compact` 不承诺缩小文件。
+
+### 14.4 quickstart 全流程留证（Check 124，维持未通过）
+
+`artifacts/quickstart-run-2026-10-23.md`：30 条目 = 成功取证 20、预期失败 5、未取得 5、
+缺陷登记 1、异常 0。命令全部在仓库外临时工作区执行。
+
+**发现的文档漂移（已按实测修正 `quickstart.md`）**：`status`／`task list`／`spec status|validate`
+的 `--session` 为必填；`db compact` 没有 `--export`（备份走 `db archive --export`）；
+`db purge --before` 取 Unix 毫秒；`db compact` 参数冲突退出码 2。
+
+**新登记缺陷（待修）**：`whcode events export --session S-NOT-EXIST` 返回 `count=0` 且退出码 0，
+与“会话存在但无事件”不可区分（错误的空，违反信号链完备原则）。退出条件：不存在的会话返回
+`not_found`，并新增“不存在会话 vs 空会话”对照用例；修好后重跑本节留证。
+
+**未取得**：交互式 TUI（V-003）、真实 SSH 节点（V-004）、72 小时长跑——三项无替代证据，
+Check 124 不得判通过。
+
+### 14.5 复审触发
+
+1. 仓库接入远程 runner 后，重跑 Check 3／249 并只以平台执行记录为准；
+2. 发布包构成变化（新增 payload 或运行时）时必须重跑 `ci/package-windows.py --verify`；
+3. 上述缺陷修复后，Check 124 的结论需重新评估，而不是沿用本节。

@@ -12,7 +12,10 @@
 | `requirements-engineering.md` | FR 模板、需求质量判据、三方追溯抽查方法、变更控制 |
 | `repository-layout.md` | 目录分类原则（由 `tests/contract/test_layout.rs` 强制） |
 | `pr-checklist.md` | 每 PR 必过的 §15 七项清单（含宪法与 spec 的补充约束） |
-| `cui-manual.md` | CUI 命令树、退出码表与 `--json` 契约（T119 已交付部分） |
+| `cui-manual.md` | CUI 命令树、退出码表与 `--json` 契约（T119） |
+| `tui.md` | TUI 启动/键位/六视图/主题与**未实现项**清单（T119，2026-10-23） |
+| `web-deployment-security.md` | Web 监听边界、令牌与 Origin、端点清单、有界性、已知缺口（T119，2026-10-23） |
+| `disaster-recovery.md` | 备份导出、文件级还原、compact 语义、清理保护、未接线能力（T119，2026-10-23） |
 | `tui-manual-smoke.md` | TUI 人工冒烟协议（resize/Ctrl-C） |
 | `ui-design.md` | 主题精确色值、墨水屏约束、i18n/RTL、前端预算 |
 | `gui-suspend.md` | 窗口最小化/不可见时的挂起与恢复规则 |
@@ -24,12 +27,12 @@
 | `doctrine-application.md` | 工程准则应用记录（审计/改动/缺口） |
 | `yike-philosophy.md` | 一刻哲学源流与工程翻译 |
 
-## 未交付（T119 复核结论，2026-10-23）
+## T119 交付记录（2026-10-23）
 
-以下三份文档**尚不存在**，T119 因此未完成（Check 119 未通过）：
+四份指南齐备：`cui-manual.md`（命令面与退出码）、`tui.md`（键位与未实现项）、
+`web-deployment-security.md`（监听边界、令牌/Origin、端点、有界性）、
+`disaster-recovery.md`（导出/还原/compact/清理保护）。
 
-- TUI 键位表（当前键位散见 `crates/whcode-tui/src` 与 `ui-design.md`，未成独立表）；
-- Web 部署与安全配置指南（默认回环绑定、局域网认证/Origin/TLS 配置；现仅有 ADR-022/023）；
-- 灾难恢复说明（备份、导出/导入、迁移失败与 compact 回滚流程）。
-
-恢复条件：三份文档补齐并与实现逐条对照后，重跑 Check 119。
+一致性口径：三份新指南逐条引用实现位置（`文件:行号`），并把**未实现/未接线**项单列
+（如 TUI 无命令面板与翻页键、Web 无 TLS/安全响应头/限速、无 restore 子命令），
+不以设计意图替代当前行为。文档与实现出现分歧时，以实现为准并同步修订本文。

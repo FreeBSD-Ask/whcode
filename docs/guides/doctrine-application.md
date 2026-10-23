@@ -21,7 +21,7 @@
 ## 2. 本轮应用
 
 1. **计数门禁**：新增 `ci/check_counts.py`，从 `spec.md`/`tasks.md`/`checklist.md` 计算
-   FR/任务/Check 实际数量，并核对文档声明；接入 `ci/platform-matrix/windows.yml`。
+   FR/任务/Check 实际数量，并核对文档声明；接入 `.github/workflows/platform-windows.yml`。
 2. **证据层级与三次复查**：写入 AGENTS §4.2、过程 G4、需求工程 §3.1、PR 清单。
 3. **可逆性分级**：可逆决策快速验证；不可逆决策（数据格式、协议、权限、并发内存序）
    设计先行并留回退证据。

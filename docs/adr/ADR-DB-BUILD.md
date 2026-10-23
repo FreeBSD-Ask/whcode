@@ -69,7 +69,7 @@ DuckDB 以**官方预编译动态库**（而非源码构建）引入，理由有
 - 约束 crate：`whcode-store`（唯一静态链接点）、`whcode-bin`（`doctor` 报告运行期引擎版本）。
 - 构建前置：任何构建/测试前必须先执行 `python ci/fetch-duckdb.py`，否则 cargo 会因
   `DUCKDB_LIB_DIR` 指向不存在的目录而显式失败（这是刻意的失败模式，避免静默改用其他后端）。
-- CI：`ci/platform-matrix/*.yml` 需在构建前加入拉取步骤（Windows 用 `record_deps.py` 同源逻辑；
+- CI：`.github/workflows/*.yml` 需在构建前加入拉取步骤（Windows 用 `record_deps.py` 同源逻辑；
   BSD runner 需改为 `pkg` 或源码构建，属后续真实平台验证项）。
 - 遗留项：BSD 侧 V-002 证据缺失；`docs/matrices/platform-matrix.md` 与 `artifacts/m0-report.md`
   必须如实登记为阻塞，不得标记为“已交付”。

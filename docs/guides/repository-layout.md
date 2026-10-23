@@ -11,7 +11,7 @@
 |---|---|---|---|
 | `crates/` | 产品代码 | 13 个成员 crate，按 §6.2 单向依赖（domain → app → 服务 → 前端适配器） | 入库 |
 | `tests/` | 验证 | 六类测试：unit / contract / integration / crash / stability / fixtures；每类有 README | 入库 |
-| `ci/` | 验证（自动化） | `platform-matrix/`（五平台 workflow + 依赖记录 + 交叉检查）、`benchmarks/`（基线脚本） | 入库 |
+| `ci/` | 验证（自动化） | `platform-matrix/`（依赖记录与交叉检查脚本）、`benchmarks/`（基线脚本）；打包脚本与门禁脚本在根级 | 入库 |
 | `docs/` | 治理文档 | `adr/`（决策记录）、`matrices/`（平台/能力/决策矩阵）、`guides/`（操作指南） | 入库 |
 | `engineering-doctrine/` | 治理（可移植） | 工程哲学与开发准则的独立版本，供其他项目复制；不依赖本仓库代码 | 入库 |
 | `specs/` | 治理（需求基线） | 规格、计划、任务、清单、契约；`source-*.md` 为只读源基线 | 入库（源基线禁改） |
@@ -20,7 +20,7 @@
 | `script/` | 本地 | 临时脚本、探测脚本、运行日志（保留不清理，但不出库） | **忽略** |
 | `target/` | 本地 | Rust 构建产物 | **忽略** |
 | `state/` | 本地 | 环境工具自动重建的状态目录（内容不可控，视为不存在） | **忽略** |
-| `.github/` | 治理（流程） | PR/Issue 模板（开源流程） | 入库 |
+| `.github/` | 治理（流程） | `workflows/`（五平台流水线：Windows 在范围内自动运行，四 BSD 仅手工触发）；PR/Issue 模板 | 入库 |
 
 根文件只允许工程清单（`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、`rustfmt.toml`）、
 标准开源文件（`LICENSE`、`README.md`、`CONTRIBUTING.md`、`SECURITY.md`、`CHANGELOG.md`）、

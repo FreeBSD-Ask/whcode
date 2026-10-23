@@ -1,0 +1,93 @@
+# Windows 平台构建、门禁与依赖记录（tasks.md T005/T020/T021/T118；V-001、V-002）
+#
+# 位置说明（2026-10-23）：GitHub Actions 只执行 `.github/workflows/` 下的文件。原先五份
+# 工作流放在 `ci/platform-matrix/`，从未被平台执行（Check 3／249 登记的缺陷）。本次把五份
+# 工作流统一迁入本目录；`ci/platform-matrix/` 只保留依赖记录与交叉检查脚本。
+#
+# 平台结论（M0）：Go——本机已取得完整实测证据（见 artifacts/m0-report.md）。
+#
+# 工具链纪律（D-01 修订）：Windows 验收使用 runner 默认的 x86_64-pc-windows-msvc；
+# **不使用任何 GNU 工具链**。rust-toolchain.toml 只锁版本号（1.99.1），host triple 由
+# runner 默认值决定。
+#
+# 构建前置：DuckDB 采用官方预编译动态库（ADR-DB-BUILD），任何构建前必须先执行
+# ci/fetch-duckdb.py 拉取并校验 SHA256，否则链接阶段显式失败。
+#
+# 未取得证据（诚实标注）：本工作流已接线，但截至 2026-10-23 本仓库无远程、无 runner，
+# 尚未取得平台执行记录；Check 3／118／249 的执行证据仍以本机运行为准。
+name: platform-windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test-gates:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 显示锁定工具链（rust-toolchain.toml）
+        run: rustup show
+
+      - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
+        run: python ci/fetch-duckdb.py
+
+      - name: 构建（锁定依赖图）
+        run: cargo build --locked --workspace
+
+      - name: 格式与静态检查（T003）
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+
+      - name: 测试（含分层与目录分类契约）
+        run: cargo test --locked --workspace
+
+      - name: 计数一致性（FR/任务/Check）
+        run: python ci/check_counts.py
+
+      - name: 三方追溯（FR↔任务↔Check，含缺口登记合规）
+        run: python ci/traceability.py
+
+      - name: 前端预算（FR-618／ADR-014）
+        run: python ci/benchmarks/check-frontend-budget.py
+
+      - name: 产出依赖记录（V-001，含测量纪律字段）
+        run: python ci/platform-matrix/record_deps.py artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deps-windows
+          path: artifacts/deps-windows.txt
+
+  # 发布包（tasks.md T118／Check 118）：release 构建 → 打包 → 解包到仓库外目录安装验证。
+  package-install:
+    needs: build-test-gates
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
+        run: python ci/fetch-duckdb.py
+
+      - name: 发布构建
+        run: cargo build --release --locked -p whcode-bin
+
+      - name: 打包并安装验证（T118）
+        run: python ci/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: whcode-windows-amd64
+          path: target/dist/*.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: install-verify-windows-amd64
+          path: artifacts/install-verify-windows-amd64.txt
+
+      # M0 状态：TUI 交互式冒烟（V-003）需真实 TTY，CI 无法取证，见 m0-report.md B-05；
+      # 基线性能报告（T027）命令：python ci/benchmarks/run-baseline.py

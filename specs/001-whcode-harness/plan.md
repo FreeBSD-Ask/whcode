@@ -103,7 +103,7 @@ tests/
 ├── stability/                # 24/72 小时稳定性脚本与指标采集
 └── fixtures/                 # 数据集生成器（10 万事件、1 万任务）、损坏产物样例
 ci/
-├── platform-matrix/          # 五平台构建与原生冒烟（V-001—V-004）
+├── platform-matrix/          # 依赖记录与交叉检查脚本（五平台 workflow 在 .github/workflows/）
 └── benchmarks/               # 基线性能报告脚本（V-006）
 docs/
 ├── adr/                      # ADR-001—010 及后续决策记录

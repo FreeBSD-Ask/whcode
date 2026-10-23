@@ -31,7 +31,8 @@ python ci/platform-matrix/cross-check.py
 
 # 2) 数据库冒烟：创建 / 事务写读 / 关闭重启 / 迁移
 whcode doctor --json
-whcode session new --title smoke && whcode status --json
+whcode session new --title smoke --json            # 返回会话 ID，下文以 <SESSION> 指代
+whcode status --session <SESSION> --json
 # 预期：数据库创建成功、事务写读通过、重启后状态一致、迁移可重复执行（V-002）
 
 # 3) TUI 最小闭环
@@ -68,10 +69,12 @@ cargo run -p whcode-bin --release -- bench baseline --out artifacts/baseline-$(u
 
 ```bash
 cargo test -p whcode-store            # schema/迁移/事务/幂等
-whcode events export --session S-001 --after 9900 --format jsonl > /tmp/tail.jsonl
+whcode events export --session <SESSION> --after 9900 --format jsonl > /tmp/tail.jsonl
 whcode db stats --json                # 数据库/WAL/已用块/可用块
-whcode db purge --before 2026-01-01 --dry-run
-whcode db compact --export /tmp/backup.duckdb   # 复制—校验—切换
+whcode db check --json                # 必需索引齐全性
+whcode db purge --before 1767225600000 --dry-run
+whcode db archive --export /tmp/whcode-export.json   # 备份（whcode-export v1）
+whcode db compact --yes               # 复制—校验—原子切换（不承诺缩小文件）
 ```
 
 预期：断线按游标补拉后关键事件完整（V-103）；已确认事务经进程终止+重启后状态一致（V-104）；重复幂等键不重复创建（V-106）；清理有预览/确认/审计与活跃会话保护，compact 副本校验成功后才切换（V-107）。
@@ -81,7 +84,7 @@ whcode db compact --export /tmp/backup.duckdb   # 复制—校验—切换
 ```bash
 cargo test -p whcode-app                     # 命令/权限/错误语义
 whcode session list --json
-whcode task list --session S-001 --json
+whcode task list --session <SESSION> --json
 # 大数据集：10 万事件会话切换、1 万任务概览
 cargo run --release -p whcode-bin -- bench session-switch --session S-BIG --repeat 20
 ```
@@ -101,12 +104,16 @@ whcode events list --session S-001 --after 0 --format jsonl | head
 ## 6. M4 —— SDD 门禁
 
 ```bash
-whcode spec status --json
-whcode spec validate --json
+whcode spec status --session <SESSION> --json
+whcode spec validate --session <SESSION> --json
 whcode spec analyze --json          # 期望：检出遗漏需求/孤儿任务/无效引用/循环依赖
 whcode spec converge --json         # 期望：fail/not_tested 生成差异报告
 whcode spec force-advance --reason "..."   # 期望：审计含 actor/reason/门禁/产物版本
 ```
+
+**当前状态（2026-10-23 实测）**：`spec` 子命令除 `status` 外均**未接线**，以显式
+`not_wired` 失败返回（`crates/whcode-bin/src/cui_dispatch.rs:13`、`185`）；本节命令属
+M4 契约草案，不得按“已可用”引用。
 
 夹具：`tests/fixtures/sdd/`（违规 Constitution 产物、未解决澄清项、循环依赖、连续解析失败样例）。
 

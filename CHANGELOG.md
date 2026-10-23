@@ -13,6 +13,21 @@
 
 ### 变更
 
+- 交付批次（2026-10-23）：**CI 接线 + 发布包安装验证 + 三份指南 + quickstart 全流程留证**。
+  - CI：五份 workflow 从 `ci/platform-matrix/` 迁入 `.github/workflows/platform-*.yml`
+    （GitHub 只执行该目录，原位置等于从未运行）；Windows 流水线补齐计数、三方追溯、
+    前端预算与打包安装四个门禁步骤。平台执行记录仍未取得（无远程/runner），
+    Check 3／249 维持未通过。
+  - 发布包：新增 `ci/package-windows.py`（白名单打包、仓库外解包运行验证），
+    证据 `artifacts/install-verify-windows-amd64.txt`（Check 118 通过）。
+  - 指南：新增 `docs/guides/tui.md`、`web-deployment-security.md`、`disaster-recovery.md`
+    （逐条标注实现位置与未实现项），Check 119 通过。
+  - quickstart：`artifacts/quickstart-run-2026-10-23.md` 记录 30 条目（成功 20、预期失败 5、
+    未取得 5、缺陷登记 1、异常 0）；同步修正 `quickstart.md` 的命令面（`--session` 必填、
+    `db compact`／`db archive` 的真实形态、`db purge --before` 为 Unix 毫秒）。
+    交互式 TUI、真实 SSH 节点、72 h 长跑仍无证据，Check 124 维持未通过。
+  - 新登记缺陷：`whcode events export --session <不存在>` 返回 `count=0` 且退出码 0，
+    与“存在但无事件”不可区分（错误的空），待修。
 - 决策（2026-10-23）：**ADR-026 记录 GUI 铁律——桌面界面必须原生，严禁浏览器套壳**。
   禁止 WebView／WebView2、CEF、Tauri／wry、Electron、NW.js 以及“自绘窗口 + 内嵌 Web UI”
   等价形态；`whcode-web` 仅作独立浏览器前端（FR-603）。`AGENTS.md` §1 硬边界／§6 UI 纪律／

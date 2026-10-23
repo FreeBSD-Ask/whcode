@@ -36,7 +36,7 @@
 - `docs/matrices/platform-matrix.md`：矩阵区分“在范围内（Windows）”与“延后（BSD，不验收）”；性能预算冻结条件中的“分平台数据”改为“延后平台豁免，但需在恢复时补齐”。
 - `docs/matrices/decisions.md`：新增 D-14（平台范围收敛）。
 - `tasks.md`：US8（M7）与 BSD 相关任务标注“延后（ADR-013）”；不删除任务，不勾选为完成。
-- `ci/platform-matrix/{freebsd,netbsd,openbsd,dragonfly}.yml`：触发器改为仅 `workflow_dispatch`，文件头写明“延后，不随 push 运行”。
+- `.github/workflows/platform-{freebsd,netbsd,openbsd,dragonfly}.yml`：触发器改为仅 `workflow_dispatch`，文件头写明“延后，不随 push 运行”。
 - `README.md`：平台表改为“在范围内 / 延后”。
 - **不受影响**：`whcode-domain`/`whcode-app`/`whcode-store`/`whcode-tui`/`whcode-cui` 的代码本身保持平台无关；`whcode-platform` 的 `cfg` 分支继续保留（未来恢复时无需重写）。
 

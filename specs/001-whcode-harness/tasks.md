@@ -30,9 +30,9 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 
 - [x] T001 建立 Cargo workspace 根 `Cargo.toml`，声明 13 个成员 crate（whcode-domain/app/llm/store/speckit/tools/runtime/tui/cui/web/ssh/platform/bin）
 - [x] T002 [P] 固定工具链：新增 `rust-toolchain.toml`（版本占位，由 T021 以 M0 实测锁定值回填）
-- [x] T003 [P] 统一格式与静态检查：新增 `rustfmt.toml` 与 clippy 配置，CI 中 deny warnings
+- [x] T003 [P] 统一格式与静态检查：新增 `rustfmt.toml` 与 clippy 配置，CI 中 deny warnings（**边界（2026-10-23）**：流水线已迁入 `.github/workflows/platform-windows.yml`，fmt/clippy 步骤就位；本仓库无远程与 runner，平台执行记录未取得，见 Check 3）
 - [x] T004 [P] 生成 `crates/*/src/lib.rs`（`whcode-bin` 为 `main.rs`）骨架与 crate 内模块占位
-- [x] T005 [P] 新增五平台 CI 骨架 `ci/platform-matrix/{freebsd,openbsd,netbsd,dragonfly,windows}.yml`
+- [x] T005 [P] 新增五平台 CI 骨架 `ci/platform-matrix/{freebsd,openbsd,netbsd,dragonfly,windows}.yml`（**迁移（2026-10-23）**：五份迁至 `.github/workflows/platform-*.yml`——GitHub 只执行该目录；`ci/platform-matrix/` 保留依赖记录与交叉检查脚本）
 - [x] T006 [P] 新增仓库根 `.gitignore` 补充项与 PR 清单模板 `docs/guides/pr-checklist.md`（§15 七项）
 - [x] T007 建立文档骨架：`docs/adr/ADR-001..010.md`（未批准状态）、`docs/matrices/`、`docs/guides/`
 - [x] T008 [P] 建立测试目录 `tests/{unit,contract,integration,crash,stability,fixtures}/` 与占位 README
@@ -284,8 +284,8 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [ ] T115 [US10] 在 `crates/*/src/` 按冻结预算优化热点（先测量后优化，禁止 `Box::leak` 通用化）（NFR-201—210、§5.3）**阻塞（2026-10-23 更新）**：预算已由 ADR-025 冻结，但“按冻结预算优化热点”的前置（热点定位 + 同夹具前后对比）未取得，任务保持未完成；分配器决策已按 ADR-020 冻结（默认系统分配器）
 - [ ] T116 [P] [US10] 在 `tests/stability/run_stability.sh` 执行 24 小时（候选发布 72 小时）稳定性测试并采集规定指标（§11.5）**阻塞（2026-10-22）**：需 24/72h 连续运行环境；NFR-204 长时泄漏斜率未测量。**部分进展（2026-10-23）**：四类故障情形已纳入 `tests/stability/test_failure_modes.rs`（Check 206 通过）；长跑与指标时间序列仍未取得，任务保持未完成
 - [x] T117 [P] [US10] 在 `docs/adr/ADR-ALLOCATOR.md` 记录分配器决策：默认系统分配器，除非基准证明有益（D-11）
-- [ ] T118 [US10] 在 `ci/` 与 `docs/matrices/` 产出 Windows 11 amd64 发布包、平台兼容矩阵与已知限制说明（BSD 延后并在限制中注明；§12.2、§9.1、ADR-013） **未完成（2026-10-23 复核）**：`ci/` 无打包脚本、无发布包与安装验证；“兼容矩阵与已知限制”部分已交付（Check 118 未通过）
-- [ ] T119 [P] [US10] 在 `docs/guides/` 完成 CUI 手册、TUI 键位表、Web 部署与安全配置、灾难恢复说明（§12.2） **未完成（2026-10-23 复核）**：`cui-manual.md` 已交付；TUI 键位表、Web 部署与安全配置、灾难恢复说明缺失（Check 119 未通过）
+- [x] T118 [US10] 在 `ci/` 与 `docs/matrices/` 产出 Windows 11 amd64 发布包、平台兼容矩阵与已知限制说明（BSD 延后并在限制中注明；§12.2、§9.1、ADR-013） **完成（2026-10-23，交付批次）**：新增 `ci/package-windows.py`（白名单打包 + 仓库外临时目录解包运行验证），产出 `target/dist/whcode-0.1.0-windows-amd64.zip`；证据 `artifacts/install-verify-windows-amd64.txt`（三条命令退出码 0，`duckdb_engine_version = v1.5.6` 为运行期实测，临时工作区实际生成 1 060 864 字节库文件）；兼容矩阵与已知限制随包发布（`compatibility.md`、`platform-matrix.md`），BSD 延后写入已知限制第 8 条（Check 118 通过）
+- [x] T119 [P] [US10] 在 `docs/guides/` 完成 CUI 手册、TUI 键位表、Web 部署与安全配置、灾难恢复说明（§12.2） **完成（2026-10-23，交付批次）**：`cui-manual.md`、`tui.md`、`web-deployment-security.md`、`disaster-recovery.md` 四份齐备；每份逐条给出实现位置（`文件:行号`），并把未实现/未接线能力单列（TUI 无命令面板与翻页键、Web 无 TLS/安全响应头/限速、无 restore 子命令、WAL 自动检查点未接入循环）；`docs/guides/README.md` 的“未交付”节改为交付记录（Check 119 通过）
 - [x] T120 [P] [US10] 在 `docs/matrices/runtime-inventory.md` 产出运行时能力清单、payload 校验与许可证清单（§12.2）
 - [x] T121 [US10] 在 `docs/adr/` 与 `docs/risk-register.md` 更新 ADR 与风险台账，并落实每 PR 清单检查（§13、§15）（落点修订：风险台账实际并入 `docs/matrices/decisions.md`（R-12 未解除、R-13 新增），`docs/risk-register.md` 未建立；本行保留原路径以便追溯）
 
@@ -299,7 +299,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 
 - [x] T122 [P] 同步 `docs/adr/` 与 D-01—D-14 的最终决策状态，消除 spec/plan 中的遗留 `[待验证]` 标记
 - [ ] T123 安全加固复查：默认脱敏、权限白名单、最小环境、审计保留策略、Web/SSH 边界（§10） **未完成（2026-10-23 复核）**：无复查记录产物；“最小环境”与“审计保留策略”仅有设计陈述（Check 123 未通过）
-- [ ] T124 [P] 按 `quickstart.md` 全流程执行一次端到端验证并记录产物（§10 验证记录要求） **未完成（2026-10-23 复核）**：仅有 `doctor` 冒烟，未按 `quickstart.md` 全流程执行并归档产物（Check 124 未通过）
+- [ ] T124 [P] 按 `quickstart.md` 全流程执行一次端到端验证并记录产物（§10 验证记录要求） **部分完成（2026-10-23，交付批次）**：可执行子集全流程留证于 `artifacts/quickstart-run-2026-10-23.md`（30 条目：成功取证 20、预期失败 5、未取得 5、缺陷登记 1、异常 0）；同步修正文档 3 处（`status`／`task list`／`spec status|validate` 缺必填 `--session`；`db compact` 无 `--export`；`db purge --before` 需 Unix 毫秒）；登记缺陷 1 项（不存在的会话导出返回 `count=0` 且退出码 0，与“存在但无事件”不可区分）；**维持未完成**：交互式 TUI（V-003）、真实 SSH 节点（V-004）、72 小时长跑三项无替代证据（Check 124 未通过）
 - [x] T125 [P] 契约兼容审查：事件 schema、快照 schema、CUI JSON 的版本与变更记录（§8.3、§15）
 - [x] T126 清理与重构：clippy 清理、模块边界复核、删除未使用 feature 与死代码
 - [x] T127 追溯审计：spec FR ↔ tasks ↔ checklist.md 三方引用完整性复核（FR-305/306）（2026-10-23 交付 `ci/traceability.py`：六条判据含缺口登记合规；输出“FR→任务缺 0，FR→验收缺 0，幻影 0，已登记缺口 3，无断链”；检查点家族（增量差分／同事务提交／恢复加载引用）的三个缺口以登记节承载，不在正文冒充覆盖）
@@ -314,7 +314,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T145 [P] 建立性能与并发工程规范 `docs/guides/performance-and-concurrency.md` 与 ADR-015：并发设计档案、一手文献门槛、测量→设计→复测流程、汇编例外与回退验证
 - [x] T146 [P] 将自由、主体性与安全反教条落为可执行判据：退出/导出/离线/默认值可撤销进入验收；安全措施附威胁模型、证据、代价与失效条件；禁止暗黑模式与成瘾设计（NFR-218/219）
 - [x] T147 [P] 将一刻哲学融入工程：建立 `docs/guides/yike-philosophy.md`，接入不伪造、反进步叙事、用户友好与文档时效判据（NFR-220—222），同步 AGENTS/设计/过程/PR 清单
-- [x] T148 [P] 将工程准则应用至本项目：新增 `ci/check_counts.py` 计数门禁并接入 Windows CI；补证据层级、三次复查与可逆性规则；产出 `docs/guides/doctrine-application.md`
+- [x] T148 [P] 将工程准则应用至本项目：新增 `ci/check_counts.py` 计数门禁并接入 Windows CI；补证据层级、三次复查与可逆性规则；产出 `docs/guides/doctrine-application.md`（**接线（2026-10-23）**：计数与三方追溯（`ci/traceability.py`）均已进入 `.github/workflows/platform-windows.yml`；平台执行记录未取得，见 Check 249）
 
 ---
 
