@@ -15,15 +15,21 @@ use std::rc::Rc;
 
 use iced::keyboard::{Key, key};
 use iced::widget::{column, container, row, scrollable, text};
-use iced::{Color, Element, Font, Length, Size, Subscription, Task, Theme, window};
+use iced::{
+    Background, Border, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme,
+    window,
+};
 use whcode_app::view_source::{VIEW_COUNT, ViewId, ViewSnapshot, ViewSource};
 use whcode_domain::i18n::I18n;
 
 /// 窗口初始逻辑尺寸（与 FR-712 的预算口径一致）。
 const WINDOW_SIZE: Size = Size::new(1200.0, 800.0);
 
-/// 中文字体候选（按顺序取第一个可读者）。
-const FONT_CANDIDATES: [(&str, &str); 2] = [
+/// 中文字体候选族名（按顺序取系统里第一个可用的；不把字体字节读进进程）。
+///
+/// 说明（FR-712）：微软雅黑等系统字体**不可再分发**，因此不能把子集化字体随包发布；
+/// 改为按族名交给系统字体栈按需加载，进程不常驻整份字体字节。
+const FONT_FAMILIES: [(&str, &str); 2] = [
     (r"C:\Windows\Fonts\msyh.ttc", "Microsoft YaHei"),
     (r"C:\Windows\Fonts\simhei.ttf", "SimHei"),
 ];
@@ -62,6 +68,16 @@ impl GuiTheme {
         }
     }
 
+    /// 下一套主题（`t` 键循环；FR-713：切换不得要求重启）。
+    #[must_use]
+    const fn next(self) -> Self {
+        match self {
+            Self::EinkDay => Self::EinkNight,
+            Self::EinkNight => Self::AmoledNight,
+            Self::AmoledNight => Self::EinkDay,
+        }
+    }
+
     /// 背景色与前景色（精确 RGB）。
     #[must_use]
     pub const fn colors(self) -> (Color, Color) {
@@ -87,6 +103,31 @@ impl GuiTheme {
             },
         )
     }
+
+    /// 滚动条样式：轨道取背景色、滑块取前景色（FR-713：不引入主题外的灰色）。
+    fn scrollbar(self) -> scrollable::Style {
+        let (background, foreground) = self.colors();
+        let rail = scrollable::Rail {
+            background: Some(Background::Color(background)),
+            border: Border::default(),
+            scroller: scrollable::Scroller {
+                background: Background::Color(foreground),
+                border: Border::default(),
+            },
+        };
+        scrollable::Style {
+            container: container::Style::default(),
+            vertical_rail: rail,
+            horizontal_rail: rail,
+            gap: None,
+            auto_scroll: scrollable::AutoScroll {
+                background: Background::Color(background),
+                border: Border::default(),
+                shadow: Shadow::default(),
+                icon: foreground,
+            },
+        }
+    }
 }
 
 /// 启动参数。
@@ -105,6 +146,7 @@ enum Message {
     NextSession,
     PrevSession,
     Refresh,
+    CycleTheme,
     Resized(Size),
     Quit,
 }
@@ -113,6 +155,8 @@ enum Message {
 struct State {
     source: Rc<dyn ViewSource>,
     texts: I18n,
+    /// 主题（同时用于 iced 主题与滚动条样式）。
+    theme: GuiTheme,
     view: ViewId,
     /// 会话选择位置（`None` = 未选择）。
     selected: Option<usize>,
@@ -127,7 +171,7 @@ struct State {
 }
 
 impl State {
-    fn new(source: Rc<dyn ViewSource>, texts: I18n) -> Self {
+    fn new(source: Rc<dyn ViewSource>, texts: I18n, theme: GuiTheme) -> Self {
         let snapshot = source.snapshot(ViewId::Sessions, None);
         let session_ids = snapshot
             .sessions
@@ -137,6 +181,7 @@ impl State {
         Self {
             source,
             texts,
+            theme,
             view: ViewId::Sessions,
             selected: None,
             session_ids,
@@ -195,15 +240,15 @@ impl State {
 pub fn run(source: Box<dyn ViewSource>, options: RunOptions) -> iced::Result {
     let source: Rc<dyn ViewSource> = Rc::from(source);
     let RunOptions { theme, texts } = options;
-    let (font_bytes, family) = load_font();
+    let family = pick_font_family();
 
     iced::application(
-        move || State::new(Rc::clone(&source), texts.clone()),
+        move || State::new(Rc::clone(&source), texts.clone(), theme),
         update,
         view,
     )
     .title(|state: &State| state.title())
-    .theme(move |_: &State| theme.iced())
+    .theme(|state: &State| state.theme.iced())
     .subscription(subscription)
     .window(window::Settings {
         size: WINDOW_SIZE,
@@ -211,18 +256,17 @@ pub fn run(source: Box<dyn ViewSource>, options: RunOptions) -> iced::Result {
         ..window::Settings::default()
     })
     .default_font(Font::with_name(family))
-    .font(font_bytes)
     .run()
 }
 
-/// 读取中文字体；全部候选都不可读时回退框架默认字体（不 panic，中文字形可能缺失）。
-fn load_font() -> (Vec<u8>, &'static str) {
-    for (path, family) in FONT_CANDIDATES {
-        if let Ok(bytes) = std::fs::read(path) {
-            return (bytes, family);
+/// 选择系统中文字体族名：取第一个存在的字体文件对应的族名，都不存在时回落雅黑。
+fn pick_font_family() -> &'static str {
+    for (path, family) in FONT_FAMILIES {
+        if std::path::Path::new(path).is_file() {
+            return family;
         }
     }
-    (Vec::new(), "Microsoft YaHei")
+    "Microsoft YaHei"
 }
 
 fn update(state: &mut State, message: Message) -> Task<Message> {
@@ -253,6 +297,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             state.keys = state.keys.saturating_add(1);
             state.prepare();
         }
+        Message::CycleTheme => state.theme = state.theme.next(),
         Message::Resized(size) => state.size = size,
         Message::Quit => return iced::exit(),
     }
@@ -281,6 +326,7 @@ fn handle_event(
                 "j" => Some(Message::NextSession),
                 "k" => Some(Message::PrevSession),
                 "r" => Some(Message::Refresh),
+                "t" => Some(Message::CycleTheme),
                 "q" => Some(Message::Quit),
                 _ => None,
             },
@@ -318,6 +364,8 @@ fn view(state: &State) -> Element<'_, Message> {
             )
             .spacing(4),
         )
+        .style(move |_, _| state.theme.scrollbar())
+        .height(Length::Fill)
         .into()
     };
 
@@ -330,4 +378,59 @@ fn view(state: &State) -> Element<'_, Message> {
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn theme_names_round_trip_and_unknown_is_rejected() {
+        for theme in [
+            GuiTheme::EinkDay,
+            GuiTheme::EinkNight,
+            GuiTheme::AmoledNight,
+        ] {
+            assert_eq!(GuiTheme::parse(theme.name()), Some(theme));
+        }
+        assert_eq!(GuiTheme::parse("solarized"), None);
+    }
+
+    #[test]
+    fn theme_colors_are_exact() {
+        assert_eq!(GuiTheme::EinkDay.colors(), (Color::WHITE, Color::BLACK));
+        assert_eq!(GuiTheme::EinkNight.colors(), (Color::BLACK, Color::WHITE));
+        let (background, foreground) = GuiTheme::AmoledNight.colors();
+        assert_eq!(background, Color::BLACK);
+        assert!((foreground.r - 0.902).abs() < f32::EPSILON);
+        assert_eq!(foreground.r, foreground.g);
+        assert_eq!(foreground.g, foreground.b);
+    }
+
+    #[test]
+    fn theme_cycle_returns_to_start_after_three_steps() {
+        let mut theme = GuiTheme::EinkDay;
+        let mut seen = Vec::new();
+        for _ in 0..3 {
+            theme = theme.next();
+            seen.push(theme.name());
+        }
+        assert_eq!(seen, ["eink-night", "amoled-night", "eink-day"]);
+        assert_eq!(theme, GuiTheme::EinkDay);
+    }
+
+    #[test]
+    fn scrollbar_uses_only_theme_colors() {
+        for theme in [
+            GuiTheme::EinkDay,
+            GuiTheme::EinkNight,
+            GuiTheme::AmoledNight,
+        ] {
+            let (background, foreground) = theme.colors();
+            let style = theme.scrollbar();
+            let rail = style.vertical_rail;
+            assert_eq!(rail.background, Some(Background::Color(background)));
+            assert_eq!(rail.scroller.background, Background::Color(foreground));
+        }
+    }
 }

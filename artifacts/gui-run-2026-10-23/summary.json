@@ -1,100 +1,280 @@
 {
   "schema_version": 1,
   "exe": "D:\\WHCode\\target\\release\\whcode.exe",
-  "workspace": "C:\\Users\\ykla\\AppData\\Local\\Temp\\whcode-gui-run",
+  "workspace": "C:\\Users\\ykla\\AppData\\Local\\Temp\\whcode-gui-run-rh9a_x25",
   "themes": [
     {
       "theme": "eink-day",
+      "focus_initial": true,
+      "dpi_scale": 2.0,
+      "default_client_size": [
+        2400,
+        1600
+      ],
+      "fitted_client_size": [
+        1100,
+        900
+      ],
       "title_initial": "旺皇大模型执行框架 —— 会话（1/6）",
+      "client_box": [
+        23,
+        68,
+        1123,
+        968
+      ],
+      "client_on_screen": true,
       "screenshot": "D:\\WHCode\\artifacts\\gui-run-2026-10-23\\gui-eink-day.png",
       "client_size": [
-        1200,
-        800
+        1100,
+        900
       ],
       "pixels": {
-        "pixels": 960000,
+        "pixels": 990000,
         "top_colors": [
           {
             "rgb": "#FFFFFF",
-            "ratio": 0.9744
+            "ratio": 0.9616
           },
           {
             "rgb": "#000000",
-            "ratio": 0.0041
+            "ratio": 0.0171
           },
           {
-            "rgb": "#070707",
+            "rgb": "#0F0F0F",
             "ratio": 0.0005
           }
         ],
-        "mid_gray_ratio": 0.0134
+        "mid_gray_ratio": 0.0139
       },
-      "title_after_keys": "旺皇大模型执行框架 —— 上下文（3/6）",
       "resources": {
-        "working_set_mb": 95.7,
-        "private_mb": 72.4,
+        "working_set_mb": 41.1,
+        "private_mb": 17.3,
         "threads": 24,
-        "handles": 234,
+        "handles": 244,
         "idle_cpu_single_core_pct": 0.0
       },
+      "title_after_keys": "旺皇大模型执行框架 —— 上下文（3/6）",
+      "theme_cycle": {
+        "expected": [
+          [
+            "#000000",
+            "#FFFFFF"
+          ],
+          [
+            "#000000",
+            "#E6E6E6"
+          ],
+          [
+            "#000000",
+            "#FFFFFF"
+          ]
+        ],
+        "actual": [
+          [
+            "#000000",
+            "#FFFFFF"
+          ],
+          [
+            "#000000",
+            "#E6E6E6"
+          ],
+          [
+            "#000000",
+            "#FFFFFF"
+          ]
+        ],
+        "ok": true
+      },
+      "minimized_iconic": true,
+      "minimized": {
+        "cpu_single_core_pct": 0.0,
+        "cpu_seconds_delta": 0.0
+      },
+      "focus_after_restore": true,
+      "title_after_restore": "旺皇大模型执行框架 —— 上下文（3/6）",
+      "restored_client_box": [
+        23,
+        68,
+        1123,
+        968
+      ],
+      "restored_on_screen": true,
+      "restored_screenshot": "D:\\WHCode\\artifacts\\gui-run-2026-10-23\\gui-eink-day-restored.png",
+      "restored_pixels": {
+        "pixels": 990000,
+        "top_colors": [
+          {
+            "rgb": "#FFFFFF",
+            "ratio": 0.9801
+          },
+          {
+            "rgb": "#000000",
+            "ratio": 0.0086
+          },
+          {
+            "rgb": "#BFBFBF",
+            "ratio": 0.0003
+          }
+        ],
+        "mid_gray_ratio": 0.0076
+      },
+      "quit_key_delivered": true,
       "exit_code": 0
     },
     {
       "theme": "eink-night",
+      "focus_initial": true,
+      "dpi_scale": 2.0,
+      "default_client_size": [
+        2400,
+        1600
+      ],
+      "fitted_client_size": [
+        1100,
+        900
+      ],
       "title_initial": "旺皇大模型执行框架 —— 会话（1/6）",
+      "client_box": [
+        23,
+        68,
+        1123,
+        968
+      ],
+      "client_on_screen": true,
       "screenshot": "D:\\WHCode\\artifacts\\gui-run-2026-10-23\\gui-eink-night.png",
       "client_size": [
-        1200,
-        800
+        1100,
+        900
       ],
       "pixels": {
-        "pixels": 960000,
+        "pixels": 990000,
         "top_colors": [
           {
             "rgb": "#000000",
-            "ratio": 0.9744
+            "ratio": 0.9616
           },
           {
             "rgb": "#FFFFFF",
-            "ratio": 0.0041
+            "ratio": 0.0171
           },
           {
-            "rgb": "#F8F8F8",
+            "rgb": "#F0F0F0",
             "ratio": 0.0005
           }
         ],
-        "mid_gray_ratio": 0.0134
+        "mid_gray_ratio": 0.0139
       },
       "title_after_keys": "旺皇大模型执行框架 —— 上下文（3/6）",
+      "theme_cycle": {
+        "expected": [
+          [
+            "#000000",
+            "#E6E6E6"
+          ],
+          [
+            "#000000",
+            "#FFFFFF"
+          ],
+          [
+            "#000000",
+            "#FFFFFF"
+          ]
+        ],
+        "actual": [
+          [
+            "#000000",
+            "#E6E6E6"
+          ],
+          [
+            "#000000",
+            "#FFFFFF"
+          ],
+          [
+            "#000000",
+            "#FFFFFF"
+          ]
+        ],
+        "ok": true
+      },
+      "quit_key_delivered": true,
       "exit_code": 0
     },
     {
       "theme": "amoled-night",
+      "focus_initial": true,
+      "dpi_scale": 2.0,
+      "default_client_size": [
+        2400,
+        1600
+      ],
+      "fitted_client_size": [
+        1100,
+        900
+      ],
       "title_initial": "旺皇大模型执行框架 —— 会话（1/6）",
+      "client_box": [
+        23,
+        68,
+        1123,
+        968
+      ],
+      "client_on_screen": true,
       "screenshot": "D:\\WHCode\\artifacts\\gui-run-2026-10-23\\gui-amoled-night.png",
       "client_size": [
-        1200,
-        800
+        1100,
+        900
       ],
       "pixels": {
-        "pixels": 960000,
+        "pixels": 990000,
         "top_colors": [
           {
             "rgb": "#000000",
-            "ratio": 0.9744
+            "ratio": 0.9616
           },
           {
             "rgb": "#E6E6E6",
-            "ratio": 0.0041
+            "ratio": 0.0171
           },
           {
-            "rgb": "#E0E0E0",
-            "ratio": 0.0005
+            "rgb": "#D8D8D8",
+            "ratio": 0.0006
           }
         ],
-        "mid_gray_ratio": 0.0161
+        "mid_gray_ratio": 0.0162
       },
       "title_after_keys": "旺皇大模型执行框架 —— 上下文（3/6）",
+      "theme_cycle": {
+        "expected": [
+          [
+            "#000000",
+            "#FFFFFF"
+          ],
+          [
+            "#000000",
+            "#FFFFFF"
+          ],
+          [
+            "#000000",
+            "#E6E6E6"
+          ]
+        ],
+        "actual": [
+          [
+            "#000000",
+            "#FFFFFF"
+          ],
+          [
+            "#000000",
+            "#FFFFFF"
+          ],
+          [
+            "#000000",
+            "#E6E6E6"
+          ]
+        ],
+        "ok": true
+      },
+      "quit_key_delivered": true,
       "exit_code": 0
     }
   ]

@@ -13,6 +13,24 @@
 
 ### 变更
 
+- GUI 达标批次（2026-10-23）：**字体、主题切换与最小化停绘**（T152）。
+  - 字体：CJK 由“读入 19.7 MB `msyh.ttc`”改为**按族名使用系统字体**
+    （`Font::with_name("Microsoft YaHei")`，候选 `SimHei`）。系统字体不可再分发，
+    因此不随包发布子集；进程只探测文件存在性，不把字体字节读进内存。
+    空闲 RSS 95.7→41.1 MB、私有内存 72.4→17.3 MB、句柄 234→244（仍 ≤ 256）。
+  - 主题：新增 `t` 键循环三套主题（不重启，FR-713）；滚动条轨道改背景色、滑块改前景色，
+    去掉主题外的 `#BEBEBE` 中间灰（灰阶占比 4.6%→1.4%）；`scrollable` 显式 `Fill`，
+    修复长列表把页脚挤出可视区。
+  - FR-714：最小化 10 s 的 CPU 增量为 0.000 s，还原后标题与画面一致；证据由
+    `ci/gui-probe.py` 落 `artifacts/gui-run-2026-10-23/`（含 `theme_cycle` 逐帧色值比对）。
+  - 证据脚本修正：声明 per-monitor v2 DPI 感知（物理像素口径）、按屏幕调整窗口并记录
+    `dpi_scale`、`AttachThreadInput` 切前台后再注入按键、资源采样移到按键注入之前。
+  - 发布包：`whcode.exe` 3.71→7.66 MB、zip 14.65→16.28 MB（iced + tiny-skia 依赖）；
+    `ci/package-windows.py --verify` 三条命令通过，记录已刷新。
+  - 未取得：125%/150% 缩放与 RTL 证据；应用初始窗口尚未适配工作区（探针代调尺寸）；
+    恢复去抖未做帧级计时。详见 `docs/adr/ADR-027-native-gui-framework.md` 修订记录与
+    `artifacts/progress-review-2026-10-23.md` §18。
+
 - 交付批次（2026-10-23）：**CI 接线 + 发布包安装验证 + 三份指南 + quickstart 全流程留证**。
   - CI：五份 workflow 从 `ci/platform-matrix/` 迁入 `.github/workflows/platform-*.yml`
     （GitHub 只执行该目录，原位置等于从未运行）；Windows 流水线补齐计数、三方追溯、
