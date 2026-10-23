@@ -1,4 +1,4 @@
-# 决策台账（D-01—D-14）
+# 决策台账（D-01—D-15）
 
 本文件记录 tasks.md T030 要求的决策点、结论、证据引用与责任人。状态取值：**已决策**（方向已批准）、**待验证**（结论未取得证据）、**已修订**（原结论被正式修订）。责任人以角色标注，具名责任人待项目排期后回填。
 
@@ -20,6 +20,7 @@
 | D-12 | P1 运行时不阻塞首版 | 方向已定：全部可选运行时默认关闭（`default = []`，不加载动态库、不占端口、不注册工具），首版在无运行时的情况下可用；发布级验证**待实现**（V-301，归属 M8/M9） | `crates/whcode-runtime/Cargo.toml`；`spec.md` FR-704、V-301；`docs/adr/ADR-008.md` | 运行时负责人 | 已决策 |
 | D-13 | 平台承诺修订 | OpenBSD 与 DragonFly BSD **不再作为原生安装目标**，改为经 WHCode 内置 SSH 客户端控制；`whcode-ssh` 职责扩展为“客户端 + 服务端”，完整能力属 M7；V-004 判据改为“FreeBSD/NetBSD 服务端验收 + 四平台客户端连通性/命令执行证据”；M0 仅交付客户端风险原型，四平台无节点证据 | `docs/adr/ADR-011-platform-commitment-revision.md`；`docs/adr/ADR-DB-BUILD.md`；`docs/matrices/platform-matrix.md`；`spec.md` FR-607、FR-611 | 平台矩阵负责人 | 已决策 |
 | D-14 | 平台范围收敛 | **Windows 11 amd64 为唯一验收目标**；不考虑任何 32 位平台；FreeBSD/NetBSD/OpenBSD/DragonFly 全部**延后**（保留代码与文档，不验收；BSD CI 改为手工触发）。恢复任一平台须新 ADR 并补齐完整证据链 | `docs/adr/ADR-013-platform-scope-windows-only.md`；`docs/matrices/platform-matrix.md`；`spec.md` US1、Assumptions；`ci/platform-matrix/*.yml` | 平台矩阵负责人 | 已决策 |
+| D-15 | GUI 形态（铁律） | **已决策（2026-10-23，用户指令）**：桌面 GUI 必须**原生**（平台原生控件或自绘渲染）；**禁止浏览器套壳**——WebView／WebView2、CEF、Tauri／wry、Electron、NW.js，以及“自绘窗口 + 内嵌 Web UI”等价形态一律禁止；`whcode-web` 只作独立浏览器前端（FR-603）。GUI 当前无 FR，落地前须先立需求与 ADR，并给资源、三套主题、无障碍与能力矩阵扩列证据 | `docs/adr/ADR-026-native-gui-only.md`；`docs/adr/ADR-014-minimal-frontend.md`；`docs/adr/ADR-004.md`；`AGENTS.md` §1／§6／§8 | UI 与前端负责人 | 已决策（铁律） |
 
 ## 与 ADR 的对应关系
 
@@ -37,6 +38,7 @@
 | D-12 | ADR-008 | 默认可选运行时关闭 |
 | D-13 | ADR-011 | 平台承诺修订 |
 | D-14 | ADR-013 | 平台范围收敛（Windows 11 amd64 唯一验收目标） |
+| D-15 | ADR-026 | GUI 必须原生；禁止浏览器套壳（铁律） |
 
 ## 维护纪律
 

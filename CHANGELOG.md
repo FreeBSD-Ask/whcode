@@ -13,6 +13,11 @@
 
 ### 变更
 
+- 决策（2026-10-23）：**ADR-026 记录 GUI 铁律——桌面界面必须原生，严禁浏览器套壳**。
+  禁止 WebView／WebView2、CEF、Tauri／wry、Electron、NW.js 以及“自绘窗口 + 内嵌 Web UI”
+  等价形态；`whcode-web` 仅作独立浏览器前端（FR-603）。`AGENTS.md` §1 硬边界／§6 UI 纪律／
+  §8 禁止事项、`decisions.md`（新增 D-15）、`compatibility.md` 已知限制同步登记；
+  不新增 FR 与检查点，`checklist.md` 计数不变（GUI 尚无需求条目，落地前须先立需求与 ADR）。
 - 里程碑批次（2026-10-23，Check 55／93／101／102／104／127／133／136／183 通过）：
   - **ADR-024（M8 运行时范围定性）**：JS 不交付引擎（`JsProvider` 声明 `Restricted`，
     执行返回结构化 `runtime_unavailable`，不得表述为 Node.js 支持）；Python 走子进程

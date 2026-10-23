@@ -4,7 +4,7 @@
 > 作用等价于 `AGENTS.md` / `CLAUDE.md`。它是**入口与摘要**，不复制规范正文；
 > 与 `docs/guides/`、`specs/`、ADR 冲突时，以那些文档为准。
 
-**最后更新**：2026-10-21 | **适用版本**：`0.1.0`（M0 基线，未发布）
+**最后更新**：2026-10-23 | **适用版本**：`0.1.0`（M0 基线，未发布）
 
 ## 1. 项目定位与硬边界
 
@@ -17,7 +17,10 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 - **不支持任何 32 位平台**；
 - FreeBSD/NetBSD/OpenBSD/DragonFly **延后**：代码与文档保留，不作验收结论，CI 手工触发；
 - 不使用任何 GNU 工具链；Rust 锁定 1.99.1（`rust-toolchain.toml`），MSRV 声明为 1.88；
-- 许可证 BSD-2-Clause，版权主体 FreeBSD 中文社区。
+- 许可证 BSD-2-Clause，版权主体 FreeBSD 中文社区；
+- **GUI 必须原生**：禁止以内嵌浏览器引擎（WebView／WebView2、CEF、Tauri／wry、Electron、
+  NW.js 等）作为桌面界面外壳；Web UI 只作独立浏览器前端（FR-603），不得充当桌面 GUI
+  （ADR-026，铁律级；GUI 当前无 FR，新增须先立需求与 ADR）。
 
 ### 1.1 项目优先序（2026-10-21）
 
@@ -204,6 +207,9 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 减少无效动效；能交给 GPU 的交给 GPU，不能的关闭；不得为每个会话增加固定资源占用。
 - 窗口最小化/不可见时停止绘制与动画：恢复去抖 ≥250 ms，单次全量重绘，事件游标连续（FR-617）。
 - i18n：简体中文与英语必须同时可用；其他语言经 gettext PO 接口；阿拉伯语等 RTL 需逻辑属性与 BiDi 处理。
+- **原生 GUI 铁律**（ADR-026）：桌面界面必须原生渲染或原生控件；禁止任何内嵌浏览器引擎的
+  壳层（WebView／WebView2、CEF、Tauri／wry、Electron、NW.js）。GUI 当前无 FR，落地前
+  须先立需求与 ADR，并给出资源（RSS/CPU/线程/句柄）与三套主题的验证方案。
 
 ## 7. 编码与文档规范
 
@@ -224,6 +230,8 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 禁止修改全局 git 配置；本机无签名密钥时用 `git commit --no-gpg-sign`，不得改配置绕过。
 - 禁止把交叉编译通过、静态推断、单次样本当作平台或性能结论。
 - 禁止在未获用户批准时扩大平台范围、引入 GNU 工具链、增加 32 位目标或替换核心依赖。
+- 禁止浏览器套壳式桌面 GUI（WebView／WebView2、CEF、Tauri／wry、Electron、NW.js 等，
+  含“自绘窗口 + 内嵌 Web UI”）；桌面界面必须原生（ADR-026）。
 - 禁止普通 Rust 的 `unsafe` 块、`unsafe fn`、`unsafe impl`、`mem::forget`，以及任何无容量上限的容器累积；汇编仅按 ADR-015 例外执行。
 - 禁止暗黑模式、隐藏导出、强制账户/联网、排行榜/连胜/羞耻驱动与行为操纵。
 - 禁止以“最佳安全实践/行业标准/检查清单”替代威胁模型、证据与代价分析。

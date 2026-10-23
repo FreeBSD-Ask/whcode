@@ -126,8 +126,8 @@ cargo run -p whcode-bin --release --                 # 有控制台时进入 TUI
 |---|---|
 | [docs/guides/philosophy.md](./docs/guides/philosophy.md) | 核心哲学与工程方法论（形式审查/0 信任） |
 | [docs/guides/repository-layout.md](./docs/guides/repository-layout.md) | 目录分类原则（由契约测试强制） |
-| [docs/adr/](./docs/adr/) | 架构决策记录（ADR-001—023 + DB 构建决策） |
-| [docs/matrices/](./docs/matrices/) | 平台矩阵、决策台账（D-01—D-14） |
+| [docs/adr/](./docs/adr/) | 架构决策记录（ADR-001—026 + DB 构建决策） |
+| [docs/matrices/](./docs/matrices/) | 平台矩阵、决策台账（D-01—D-15） |
 | [docs/guides/bsd-interface.md](./docs/guides/bsd-interface.md) | BSD 平台接口预留契约 |
 | [docs/guides/software-engineering-process.md](./docs/guides/software-engineering-process.md) | 软件工程过程与 G0—G5 门禁 |
 | [docs/guides/requirements-engineering.md](./docs/guides/requirements-engineering.md) | 需求工程规范（模板/追溯/变更控制） |
