@@ -34,7 +34,7 @@ whcode-platform ← 唯一允许平台分支（cfg(target_os) / CARGO_CFG_*）�
 whcode-app      ← 命令编排/权限/快照；禁止依赖前端与存储实现
 whcode-store    ← 唯一 DuckDB 链接点与写者服务
 whcode-llm / whcode-speckit / whcode-tools / whcode-runtime ← 领域服务
-whcode-tui / whcode-cui / whcode-web / whcode-ssh ← 前端适配器：只依赖 whcode-app，禁止触库
+whcode-tui / whcode-cui / whcode-web / whcode-ssh / whcode-gui ← 前端适配器：只依赖 whcode-app，禁止触库（`whcode-gui` 规划中，见 ADR-027／T150）
 whcode-bin      ← 装配根：配置、日志、feature 组装
 ```
 

@@ -10,7 +10,7 @@
 
 为 WHCode——Rust 原生 LLM 编码 Harness——建立可追踪、可验证、可恢复、指标可复现的全量需求基线与实施设计。基线源文本为《WHCode 技术任务书 v3.0》（`source-whcode-taskbook-v3.md`）。本计划覆盖任务书 M0—M9 全部里程碑：M0 平台可行性与基线冻结（建议 MVP）、M1 存储与事件基座、M2 会话/任务应用服务、M3 LLM 与上下文、M4 SDD 门禁状态机、M5 TUI/CUI、M6 Web UI、M7 BSD SSH、M8 可选执行运行时、M9 优化与发布。
 
-技术路线：Cargo 多 crate workspace（`whcode-domain`/`app`/`llm`/`store`/`speckit`/`tools`/`runtime`/`tui`/`cui`/`web`/`ssh`/`platform`/`bin`），DuckDB 作为唯一默认持久化后端（每工作区一个数据库文件、应用层单写者服务串行化写入），TUI/CUI/Web/SSH 四端共享同一应用服务层，外部工具执行采用"意图记录—执行—结果登记"协议，运行时（JavaScript/Python/Shell）一律在受控子进程中执行。
+技术路线：Cargo 多 crate workspace（`whcode-domain`/`app`/`llm`/`store`/`speckit`/`tools`/`runtime`/`tui`/`cui`/`web`/`ssh`/`gui`/`platform`/`bin`），DuckDB 作为唯一默认持久化后端（每工作区一个数据库文件、应用层单写者服务串行化写入），TUI/CUI/Web/SSH 四端共享同一应用服务层，外部工具执行采用"意图记录—执行—结果登记"协议，运行时（JavaScript/Python/Shell）一律在受控子进程中执行。
 
 ## Technical Context
 
@@ -93,6 +93,7 @@ crates/
 ├── whcode-cui/               # clap 命令、JSON/JSONL 输出、退出码
 ├── whcode-web/               # HTTP API、WebSocket、认证与 Origin 校验、静态前端
 ├── whcode-ssh/               # SSH 认证、会话隔离、终端尺寸、受限入口
+├── whcode-gui/               # 规划中（T150 创建）：原生桌面 GUI，只读 v1；iced + tiny-skia（ADR-027）
 ├── whcode-platform/          # OS 差异：进程/信号/PTY/路径/资源探测（cfg 集中于此）
 └── whcode-bin/               # 主程序、配置加载、日志初始化、feature 装配
 tests/

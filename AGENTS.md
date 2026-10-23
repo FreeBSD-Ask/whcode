@@ -20,7 +20,7 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 - 许可证 BSD-2-Clause，版权主体 FreeBSD 中文社区；
 - **GUI 必须原生**：禁止以内嵌浏览器引擎（WebView／WebView2、CEF、Tauri／wry、Electron、
   NW.js 等）作为桌面界面外壳；Web UI 只作独立浏览器前端（FR-603），不得充当桌面 GUI
-  （ADR-026，铁律级；GUI 当前无 FR，新增须先立需求与 ADR）。
+  （ADR-026 铁律级）。GUI 需求见 FR-711—FR-715（只读 v1），选型与资源预算见 ADR-027。
 
 ### 1.1 项目优先序（2026-10-21）
 
@@ -209,8 +209,9 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 窗口最小化/不可见时停止绘制与动画：恢复去抖 ≥250 ms，单次全量重绘，事件游标连续（FR-617）。
 - i18n：简体中文与英语必须同时可用；其他语言经 gettext PO 接口；阿拉伯语等 RTL 需逻辑属性与 BiDi 处理。
 - **原生 GUI 铁律**（ADR-026）：桌面界面必须原生渲染或原生控件；禁止任何内嵌浏览器引擎的
-  壳层（WebView／WebView2、CEF、Tauri／wry、Electron、NW.js）。GUI 当前无 FR，落地前
-  须先立需求与 ADR，并给出资源（RSS/CPU/线程/句柄）与三套主题的验证方案。
+  壳层（WebView／WebView2、CEF、Tauri／wry、Electron、NW.js）。GUI 需求已立（FR-711—FR-715，
+  只读 v1），选型与预算见 ADR-027（iced + `tiny-skia` 软件光栅，默认不建 GPU 上下文）：
+  空闲 1200×800 下 RSS ≤ 96 MB、线程 ≤ 24、句柄 ≤ 256、CPU ≤ 0.2% 单核，三套主题精确色值。
 
 ## 7. 编码与文档规范
 

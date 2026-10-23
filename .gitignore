@@ -16,6 +16,9 @@
 !/artifacts/quickstart-run-2026-10-23.md
 # V-003 交互式 TUI 取证属验收证据（Check 24）：修复前后帧、像素截图、宽度与 resize 实测。
 !/artifacts/tui-v003-2026-10-23/
+# GUI 选型实测属 ADR-027 的事实依据（Check 250）：同口径资源数据与四张截图。
+!/artifacts/gui-spike-2026-10-23.md
+!/artifacts/gui-spike-2026-10-23/
 # M0 退出报告是治理交付物（tasks.md T031、§12.2），必须随仓库版本化。
 
 # 工作区数据库与 WAL（运行时产物，不进版本库）

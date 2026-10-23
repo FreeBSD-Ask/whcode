@@ -43,6 +43,13 @@
 - 程序中文名由“旺皇 Code”改为**旺皇大模型执行框架**（2026-10-23，用户指定）：
   同步 `app.title`、`tui.title`、CLI `about`、Web 首页标题、TUI 视图断言与 README 标题；
   英文标识 `whcode`／`WHCode` 不变，历史变更记录不改写。
+- GUI 立项（2026-10-23）：新增 FR-711—FR-715（原生桌面 GUI，只读 v1）与
+  `docs/adr/ADR-027-native-gui-framework.md`（选型 iced + `tiny-skia` 软件光栅，
+  默认不创建 GPU 上下文）。选型依据为五条路线的同口径实测：TUI 27.4 MB／4 线程、
+  Win32 53.6 MB／8 线程（需 19 处 `unsafe`）、iced+软件光栅 80.9 MB／22 线程、
+  iced+wgpu 206.5 MB、egui 350.8 MB（后两者必须 GPU）；证据
+  `artifacts/gui-spike-2026-10-23.md` 与四张截图。新增 Task T149—T152、Check 250—252
+  （250 通过，251／252 未通过：实现为零代码）；`whcode-gui` crate 尚未创建。
 - 决策（2026-10-23）：**ADR-026 记录 GUI 铁律——桌面界面必须原生，严禁浏览器套壳**。
   禁止 WebView／WebView2、CEF、Tauri／wry、Electron、NW.js 以及“自绘窗口 + 内嵌 Web UI”
   等价形态；`whcode-web` 仅作独立浏览器前端（FR-603）。`AGENTS.md` §1 硬边界／§6 UI 纪律／
