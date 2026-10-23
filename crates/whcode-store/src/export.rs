@@ -697,6 +697,40 @@ pub fn import_workspace(
     Ok(ImportReport { inserted })
 }
 
+/// 目标库是否已有工作区数据：`sessions`/`events`/`tasks` 任一有行即非空。
+///
+/// 恢复（[`import_workspace`]）的空库前置校验——拒绝发生在任何写入之前。
+/// 尚未迁移的库（三表均不存在）视为空：迁移缺失由 `import_workspace` 自己给出
+/// 明确的 `invalid_state`，本原语不抢先报存储错误。
+///
+/// # Errors
+///
+/// 数据库查询失败时返回 [`WhError`]。
+pub fn has_any_workspace_data(conn: &Connection) -> Result<bool, WhError> {
+    let present: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM information_schema.tables
+             WHERE table_schema = 'main'
+               AND table_name IN ('sessions', 'events', 'tasks')",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|err| export_err("检查工作区表是否存在", err))?;
+    if present < 3 {
+        return Ok(false);
+    }
+    let total: i64 = conn
+        .query_row(
+            "SELECT (SELECT count(*) FROM sessions)
+                  + (SELECT count(*) FROM events)
+                  + (SELECT count(*) FROM tasks)",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|err| export_err("检查目标库是否为空", err))?;
+    Ok(total > 0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -979,5 +1013,49 @@ mod tests {
         let err = import_workspace(&mut raw, &path, None).expect_err("未迁移目标必须拒绝");
         assert!(err.to_string().contains("尚未迁移"));
         let _ = std::fs::remove_file(&path);
+    }
+
+    /// 恢复的空库前置：三表任一有行即非空；未迁移库视为空（迁移错误由导入给出）。
+    #[test]
+    fn has_any_workspace_data_reflects_any_of_the_three_tables() {
+        let conn = migrated();
+        assert!(!has_any_workspace_data(&conn).expect("空库"));
+
+        // 仅 events 有行（session_id 可空）。
+        let conn = migrated();
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                 kind, payload_json, ts, persistence_level)
+             VALUES (1, 'E-1', NULL, NULL, NULL, NULL, 'SessionStarted', '{}',
+                     current_timestamp, 'redacted')",
+            [],
+        )
+        .expect("插入事件");
+        assert!(has_any_workspace_data(&conn).expect("仅 events 非空"));
+
+        // 仅 tasks 有行（schema 无外键约束，session_id 允许指向不存在会话）。
+        let conn = migrated();
+        conn.execute(
+            "INSERT INTO tasks (id, session_id, title, stage, status, parent_id,
+                                acceptance_json, retry_count, updated_at)
+             VALUES ('T-1', 'S-x', '任务', 'plan', 'pending', NULL, '[]', 0, current_timestamp)",
+            [],
+        )
+        .expect("插入任务");
+        assert!(has_any_workspace_data(&conn).expect("仅 tasks 非空"));
+
+        // 仅 sessions 有行。
+        let conn = migrated();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-1', '会话', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("插入会话");
+        assert!(has_any_workspace_data(&conn).expect("仅 sessions 非空"));
+
+        // 未迁移库：三表不存在，视为空。
+        let raw = Connection::open_in_memory().expect("内存库");
+        assert!(!has_any_workspace_data(&raw).expect("未迁移库视为空"));
     }
 }

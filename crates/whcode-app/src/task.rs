@@ -16,10 +16,22 @@
 //! - 其余非法迁移返回 `invalid_state`（`retryable = false`）向上传播，不静默修正。
 //!
 //! 重试与中止只改任务行，不触碰会话——可重试失败不丢失会话（FR-401）。
+//!
+//! ## 检查点三条件（G-01、FR-402/403/404）
+//!
+//! [`transition_task_with_checkpoint`] 把任务状态变化、关键事件与可选检查点交给
+//! 存储层在**同一事务**内提交（FR-403）；检查点差分体积、引用数量与保留上限由
+//! 存储层校验与裁剪（FR-402）。[`recover_task`] 按引用恢复检查点、产物元数据与
+//! 消息游标，完整历史不在恢复路径加载（FR-404）。二者均先经 [`require`] 判权，
+//! 拒绝语义与本文其余命令一致。
 
 use duckdb::Connection;
 use whcode_domain::{ErrorCode, TaskStatus, WhError};
 use whcode_store::tasks::{self, TaskRow};
+use whcode_store::{
+    CheckpointRecovery, TaskTransition, TaskTransitionReport, recover_from_checkpoint,
+    task_transition,
+};
 
 use crate::authz::{Actor, Capability, Policy, require};
 
@@ -160,6 +172,48 @@ pub fn abort_task(
     }
     tasks::update_task_status(conn, task_id, TaskStatus::Aborted, task.retry_count, now_ms)?;
     load_task(conn, task_id)
+}
+
+/// 推进任务状态并把事件与可选检查点在同一事务内提交（FR-403，G-01）。
+///
+/// 编排职责：先经 [`require`] 判权，再转调 `whcode_store::task_transition` 的
+/// 原子事务；本函数不做状态机裁剪——`from_status` 由调用方给定，存储层在事务内
+/// 核对（不符即 `invalid_state` 回滚）。检查点差分与引用的有界性校验同样在存储层。
+///
+/// 能力口径：`Capability::TaskWrite` 尚未定义，而 `authz.rs` 不在本次改动边界内；
+/// 按 [`retry_task`] 的既有用例取 [`Capability::TaskRetry`]——任务状态变更类命令
+/// 的最小已登记能力。新增专用能力须先经 ADR 与 FR 追溯，不得顺手放宽。
+///
+/// # Errors
+///
+/// 权限拒绝、状态不符、事件/检查点校验失败或存储失败时返回 [`WhError`]。
+pub fn transition_task_with_checkpoint(
+    conn: &mut Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    transition: &TaskTransition,
+) -> Result<TaskTransitionReport, WhError> {
+    require(policy, actor, Capability::TaskRetry)?;
+    task_transition(conn, transition)
+}
+
+/// 从检查点恢复任务上下文（FR-404，G-01）：加载检查点、产物引用与消息游标。
+///
+/// `checkpoint_id` 为 `None` 时取该任务 `step` 最大的检查点；完整历史不在恢复
+/// 路径加载（按需经 `task_detail` 的检查点投影与 `events_export` 有界读取）。
+///
+/// # Errors
+///
+/// 权限拒绝、任务/检查点不存在或存储失败时返回 [`WhError`]。
+pub fn recover_task(
+    conn: &Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    task_id: &str,
+    checkpoint_id: Option<&str>,
+) -> Result<CheckpointRecovery, WhError> {
+    require(policy, actor, Capability::TaskRead)?;
+    recover_from_checkpoint(conn, task_id, checkpoint_id)
 }
 
 #[cfg(test)]
@@ -425,5 +479,125 @@ mod tests {
             .expect("库可读")
             .expect("存在");
         assert_eq!(task.status, TaskStatus::Failed, "拒绝路径不得改变状态");
+    }
+
+    fn artifact(conn: &Connection, id: &str, task_id: &str) {
+        conn.execute(
+            "INSERT INTO stage_artifacts (id, session_id, task_id, stage, artifact_type,
+                                          content, refs_json, parser_version, validated,
+                                          version, created_at)
+             VALUES (?, 'S-1', ?, 'implement', 'diff', '大对象正文不进恢复路径', '[]',
+                     'v1', TRUE, 1, current_timestamp)",
+            params![id, task_id],
+        )
+        .expect("插入产物");
+    }
+
+    fn transition(task_id: &str, refs: &str) -> whcode_store::TaskTransition {
+        whcode_store::TaskTransition {
+            task_id: task_id.to_string(),
+            from_status: TaskStatus::Pending,
+            to_status: TaskStatus::Running,
+            event: whcode_store::EventInsertInfo {
+                session_id: Some("S-1".to_string()),
+                kind: "TaskStatusChanged".to_string(),
+                payload_json: r#"{"from":"pending","to":"running"}"#.to_string(),
+                request_id: None,
+                tool_call_id: None,
+                persistence_level: "redacted".to_string(),
+            },
+            checkpoint: Some(whcode_store::CheckpointInsert {
+                task_id: task_id.to_string(),
+                step: 1,
+                delta_json: r#"{"from":"pending","to":"running"}"#.to_string(),
+                message_cursor: Some("cursor-1".to_string()),
+                artifact_refs_json: refs.to_string(),
+            }),
+        }
+    }
+
+    #[test]
+    fn transition_and_recover_require_capability_and_reject_without_side_effects() {
+        let conn = migrated();
+        task_with_status(&conn, "T-1", TaskStatus::Pending);
+        let policy = DefaultPolicy;
+        let actor = crate::authz::Actor::new("无能力", []);
+
+        let mut conn = conn;
+        let err =
+            transition_task_with_checkpoint(&mut conn, &policy, &actor, &transition("T-1", "[]"))
+                .expect_err("无能力必须拒绝转移");
+        assert_eq!(err.code, ErrorCode::PermissionDenied);
+        assert!(!err.retryable);
+        let err =
+            recover_task(&conn, &policy, &actor, "T-1", None).expect_err("无能力必须拒绝恢复");
+        assert_eq!(err.code, ErrorCode::PermissionDenied);
+
+        // 三表零副作用。
+        let task = tasks::get_task(&conn, "T-1")
+            .expect("库可读")
+            .expect("存在");
+        assert_eq!(task.status, TaskStatus::Pending);
+        assert_eq!(recent_event_and_checkpoint_counts(&conn), (0, 0));
+    }
+
+    fn recent_event_and_checkpoint_counts(conn: &Connection) -> (i64, i64) {
+        let events: i64 = conn
+            .query_row("SELECT count(*) FROM events", [], |row| row.get(0))
+            .expect("统计事件");
+        let checkpoints: i64 = conn
+            .query_row("SELECT count(*) FROM checkpoints", [], |row| row.get(0))
+            .expect("统计检查点");
+        (events, checkpoints)
+    }
+
+    #[test]
+    fn transition_orchestrates_atomic_commit_and_recovery_reads_it_back() {
+        let conn = migrated();
+        task_with_status(&conn, "T-1", TaskStatus::Pending);
+        artifact(&conn, "A-1", "T-1");
+        let policy = DefaultPolicy;
+        let actor = actor_with_all_capabilities("tester");
+
+        let mut conn = conn;
+        let report = transition_task_with_checkpoint(
+            &mut conn,
+            &policy,
+            &actor,
+            &transition("T-1", r#"["A-1"]"#),
+        )
+        .expect("编排转移");
+        assert_eq!(report.task_id, "T-1");
+        assert_eq!(report.to_status, TaskStatus::Running);
+        assert_eq!(report.event_seq, 1);
+        assert!(
+            report
+                .checkpoint_id
+                .as_deref()
+                .is_some_and(|id| id.starts_with("cp-T-1-1-")),
+            "检查点 ID 形如 cp-<task>-<step>-<毫秒>：{:?}",
+            report.checkpoint_id
+        );
+
+        // 三表同变（FR-403）：任务、事件、检查点。
+        let task = tasks::get_task(&conn, "T-1")
+            .expect("库可读")
+            .expect("存在");
+        assert_eq!(task.status, TaskStatus::Running);
+        assert_eq!(recent_event_and_checkpoint_counts(&conn), (1, 1));
+
+        // FR-404：恢复默认取 step 最大者，带回产物引用与消息游标。
+        let recovery = recover_task(&conn, &policy, &actor, "T-1", None).expect("编排恢复");
+        assert_eq!(
+            recovery.checkpoint.id,
+            report.checkpoint_id.expect("有检查点")
+        );
+        assert_eq!(recovery.message_cursor.as_deref(), Some("cursor-1"));
+        assert_eq!(recovery.artifacts.len(), 1);
+        assert_eq!(recovery.artifacts[0].id, "A-1");
+
+        let err = recover_task(&conn, &policy, &actor, "T-1", Some("cp-missing"))
+            .expect_err("缺失检查点向上传播");
+        assert_eq!(err.code, ErrorCode::NotFound);
     }
 }

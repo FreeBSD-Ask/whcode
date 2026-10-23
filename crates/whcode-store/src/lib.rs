@@ -20,7 +20,8 @@
 //! - [`compact`]：复制—校验—原子切换与四项空间统计（T041、FR-510、R-09/D-10）；
 //! - [`wal`]：WAL 阈值策略、显式与空闲窗口 checkpoint（T042、§5.4）；
 //! - [`directory`] / [`tasks`]：会话目录与任务投影存储原语（M2/T046—T052 支撑、ADR-018）；
-//! - [`tool_exec`]：工具执行“意图—执行—登记”与不确定恢复（T114、FR-409/410、ADR-007）。
+//! - [`tool_exec`]：工具执行“意图—执行—登记”与不确定恢复（T114、FR-409/410、ADR-007）；
+//! - [`checkpoints`]：检查点写入、任务状态转移原子事务与恢复读取（G-01、FR-402/403/404）。
 //!
 //! M1 存储基座（T032—T042）已在本 crate 交付；跨进程/跨连接的验收集成测试
 //! （T043—T045）位于仓库 `tests/integration/`（whcode-tests）。
@@ -28,6 +29,7 @@
 //! 边界（ADR-002）：**唯一**接受应用数据库写命令的组件；其他 crate 不得自行打开写连接。
 //! SQL 只在本 crate 内出现（ADR-018）；`whcode-app` 经本 crate 公共 API 编排命令。
 
+pub mod checkpoints;
 pub mod compact;
 pub mod directory;
 pub mod export;
@@ -48,6 +50,11 @@ pub mod writer;
 #[cfg(test)]
 mod test_util;
 
+pub use checkpoints::{
+    CheckpointInsert, CheckpointRecovery, EventInsertInfo, MAX_ARTIFACT_REFS, MAX_DELTA_JSON_BYTES,
+    TaskTransition, TaskTransitionReport, insert_checkpoint, recover_from_checkpoint,
+    task_transition,
+};
 pub use compact::{CompactReport, SpaceReport, capture_space, compact_database};
 pub use directory::{
     MAX_LIST_LIMIT, SessionRow, create_session, create_session_with_id, event_cursor, get_session,
@@ -55,7 +62,8 @@ pub use directory::{
 };
 pub use export::{
     EXCLUDED_TABLES, EXPORT_FORMAT, EXPORT_FORMAT_VERSION, EXPORT_TABLES, ExportFile,
-    ExportManifest, ExportReport, ImportReport, ROWS_PER_CHUNK, export_workspace, import_workspace,
+    ExportManifest, ExportReport, ImportReport, ROWS_PER_CHUNK, export_workspace,
+    has_any_workspace_data, import_workspace,
 };
 pub use indexes::{
     REQUIRED_INDEXES, RequiredIndex, installed_indexes, missing_indexes, verify_indexes,
@@ -82,8 +90,9 @@ pub use service::WriterService;
 pub use smoke::{SMOKE_STEPS, SmokeReport, SmokeStep, engine_version};
 pub use tasks::{
     ArtifactRefRow, CheckpointRow, MAX_ACTIVE_TASKS, MAX_DETAIL_CHECKPOINTS, MAX_RECENT_EVENTS,
-    TaskRow, active_tasks, get_task, insert_task, recent_task_events, stage_distribution,
-    status_distribution, task_artifacts, task_checkpoints, update_task_status,
+    MAX_SESSION_TASKS, TaskRow, active_tasks, get_task, insert_task, recent_task_events,
+    stage_distribution, status_distribution, task_artifacts, task_checkpoints, tasks_of_session,
+    update_task_status,
 };
 pub use tool_exec::{
     MAX_RECOVERED, RecoveredExec, RecoveryReport, ToolExecRow, UNCERTAIN_NEXT_ACTION, load,

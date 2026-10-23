@@ -88,6 +88,9 @@ pub const MAX_RECENT_EVENTS: usize = 20;
 /// 活跃任务清单上限。
 pub const MAX_ACTIVE_TASKS: usize = 100;
 
+/// 会话任务清单上限（含全部状态的有界读取；converge 差异视图共用）。
+pub const MAX_SESSION_TASKS: usize = 200;
+
 /// 把 `status` 列的稳定名解析回 `TaskStatus`；未知取值显式报错。
 fn status_from_str(value: &str) -> Result<TaskStatus, WhError> {
     const ALL: [TaskStatus; 9] = [
@@ -318,6 +321,39 @@ pub fn active_tasks(conn: &Connection, session_id: Option<&str>) -> Result<Vec<T
         .map_err(|err| task_err("活跃任务", err))?;
     let mut tasks = Vec::new();
     while let Some(row) = rows.next().map_err(|err| task_err("活跃任务", err))? {
+        tasks.push(read_task_row(row)?);
+    }
+    Ok(tasks)
+}
+
+/// 会话的全部任务（**含全部状态**），最近更新在前，有界：`limit` 与
+/// [`MAX_SESSION_TASKS`] 取小者，不使用 `OFFSET`。
+///
+/// 与 [`active_tasks`] 的差别：不过滤状态——converge 差异核对需要看到
+/// pending/completed/failed 等全部事实，而不是只有 running。
+///
+/// # Errors
+///
+/// 状态列含未知取值或查询失败时返回 [`WhError`]。
+pub fn tasks_of_session(
+    conn: &Connection,
+    session_id: &str,
+    limit: usize,
+) -> Result<Vec<TaskRow>, WhError> {
+    // limit 由调用方提供但封顶于常量上限；整数内插无注入面（同 active_tasks 风格）。
+    let effective = limit.min(MAX_SESSION_TASKS);
+    let sql = format!(
+        "SELECT {TASK_COLUMNS} FROM tasks WHERE session_id = ?
+         ORDER BY updated_at DESC, id DESC LIMIT {effective}"
+    );
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|err| task_err("会话任务", err))?;
+    let mut rows = stmt
+        .query(params![session_id])
+        .map_err(|err| task_err("会话任务", err))?;
+    let mut tasks = Vec::new();
+    while let Some(row) = rows.next().map_err(|err| task_err("会话任务", err))? {
         tasks.push(read_task_row(row)?);
     }
     Ok(tasks)
@@ -594,6 +630,80 @@ mod tests {
         assert!(
             active_tasks(&conn, Some("S-2"))
                 .expect("S-2 活跃")
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn tasks_of_session_returns_all_statuses_ordered_and_bounded() {
+        let conn = migrated();
+        for (id, session, ts) in [
+            ("T-1", "S-A", 1_000),
+            ("T-2", "S-A", 2_000),
+            ("T-3", "S-A", 3_000),
+            ("T-4", "S-A", 4_000),
+            ("T-5", "S-B", 5_000),
+        ] {
+            insert_task(
+                &conn,
+                &NewTask {
+                    id,
+                    session_id: session,
+                    title: "任务",
+                    stage: "plan",
+                    parent_id: None,
+                    acceptance_json: "[]",
+                },
+                ts,
+            )
+            .expect("插入任务");
+        }
+        update_task_status(&conn, "T-1", TaskStatus::Completed, 0, 6_100).expect("完成");
+        update_task_status(&conn, "T-2", TaskStatus::Failed, 0, 6_200).expect("失败");
+        update_task_status(&conn, "T-3", TaskStatus::Running, 0, 6_300).expect("执行中");
+
+        // 含全部状态，按 updated_at 倒序；不跨会话。
+        let all = tasks_of_session(&conn, "S-A", MAX_SESSION_TASKS).expect("会话任务");
+        let ids: Vec<&str> = all.iter().map(|row| row.id.as_str()).collect();
+        assert_eq!(ids, vec!["T-3", "T-2", "T-1", "T-4"], "updated_at 倒序");
+        let statuses: Vec<TaskStatus> = all.iter().map(|row| row.status).collect();
+        assert!(
+            statuses.contains(&TaskStatus::Pending)
+                && statuses.contains(&TaskStatus::Running)
+                && statuses.contains(&TaskStatus::Failed)
+                && statuses.contains(&TaskStatus::Completed),
+            "全部状态都在：{statuses:?}"
+        );
+        assert!(all.iter().all(|row| row.session_id == "S-A"));
+
+        // limit 生效：取倒序前缀。
+        let limited = tasks_of_session(&conn, "S-A", 2).expect("限额任务");
+        let ids: Vec<&str> = limited.iter().map(|row| row.id.as_str()).collect();
+        assert_eq!(ids, vec!["T-3", "T-2"]);
+
+        // 常量封顶：limit 再大也只取 MAX_SESSION_TASKS 条（205 条插入取 200）。
+        for index in 0..(MAX_SESSION_TASKS + 5) {
+            insert_task(
+                &conn,
+                &NewTask {
+                    id: &format!("B-{index}"),
+                    session_id: "S-Bulk",
+                    title: "批量",
+                    stage: "plan",
+                    parent_id: None,
+                    acceptance_json: "[]",
+                },
+                u64::try_from(index + 1).expect("序号非负"),
+            )
+            .expect("批量插入");
+        }
+        let bulk = tasks_of_session(&conn, "S-Bulk", usize::MAX).expect("封顶任务");
+        assert_eq!(bulk.len(), MAX_SESSION_TASKS, "读取必须封顶于常量上限");
+
+        // limit = 0 是显式的空。
+        assert!(
+            tasks_of_session(&conn, "S-A", 0)
+                .expect("零限额")
                 .is_empty()
         );
     }

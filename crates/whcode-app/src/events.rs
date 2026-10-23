@@ -43,9 +43,12 @@ fn invalid(context: &str) -> WhError {
 
 /// 导出会话事件（FR-202/205）：按游标之后增量查询，载荷按追踪级别脱敏。
 ///
+/// 会话存在性先于查询校验（Check 124）：不存在的会话返回 `not_found`，与
+/// 存在但零事件的“正确的空”可区分。
+///
 /// # Errors
 ///
-/// 权限拒绝、`limit` 越界或存储失败时返回 [`WhError`]。
+/// 权限拒绝、会话不存在、`limit` 越界或存储失败时返回 [`WhError`]。
 pub fn events_export(
     conn: &Connection,
     policy: &dyn Policy,
@@ -56,6 +59,12 @@ pub fn events_export(
     level: TraceLevel,
 ) -> Result<EventsExport, WhError> {
     require(policy, actor, Capability::SessionRead)?;
+    if whcode_store::get_session(conn, session_id)?.is_none() {
+        return Err(WhError::new(
+            ErrorCode::NotFound,
+            format!("会话不存在：{session_id}；用 session list 查看现存会话，或核对会话 ID 后重试"),
+        ));
+    }
     if limit == 0 || limit > EXPORT_PAGE_LIMIT {
         return Err(invalid(&format!(
             "export limit 须在 1..={EXPORT_PAGE_LIMIT}，实际 {limit}"
@@ -232,5 +241,46 @@ mod tests {
         )
         .expect_err("超限必须拒绝");
         assert_eq!(err.code, ErrorCode::InvalidState);
+    }
+
+    /// Check 124：不存在的会话必须 `not_found`（含会话 ID 与可操作提示），
+    /// 存在但零事件必须是成功的空——两个结果可区分。
+    #[test]
+    fn export_rejects_missing_session_and_allows_empty_existing_session() {
+        let conn = migrated();
+        create_session_with_id(&conn, "S-empty", "空会话", "active", 1_000).expect("创建");
+        let policy = DefaultPolicy;
+        let actor = actor_with_all_capabilities("tester");
+
+        let export = events_export(
+            &conn,
+            &policy,
+            &actor,
+            "S-empty",
+            0,
+            EXPORT_PAGE_LIMIT,
+            TraceLevel::Full,
+        )
+        .expect("存在但零事件是正确的空");
+        assert_eq!(export.session_id, "S-empty");
+        assert!(export.events.is_empty());
+
+        let err = events_export(
+            &conn,
+            &policy,
+            &actor,
+            "S-missing",
+            0,
+            EXPORT_PAGE_LIMIT,
+            TraceLevel::Full,
+        )
+        .expect_err("不存在的会话必须拒绝");
+        assert_eq!(err.code, ErrorCode::NotFound);
+        let message = err.to_string();
+        assert!(message.contains("S-missing"), "错误须含会话 ID：{message}");
+        assert!(
+            message.contains("session list"),
+            "错误须给出可操作提示：{message}"
+        );
     }
 }
