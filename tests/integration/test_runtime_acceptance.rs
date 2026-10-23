@@ -8,7 +8,8 @@
 //! - **V-306**：引用未启用运行时的任务在执行前被阻止；
 //! - **V-307**：三时点中断 → `unknown`（超时即一种——`timed_out` 状态可见）。
 //!
-//! V-304（gitbash PortableGit）在 probe 缺失时诚实不可用（本机验证路径）。
+//! V-304：gitbash payload 四重校验在任何机器上都断言；五类能力探测仅在定位到
+//! Git Bash 时逐条断言，否则显式说明前提不满足（payload 断言已完成，非静默跳过）。
 
 use std::time::Duration;
 use whcode_runtime::provider::RuntimeProvider as _;
@@ -152,4 +153,95 @@ fn v307_timeout_state_is_visible_for_recovery() {
         result.timed_out,
         "V-307：中断状态必须显式（unknown/timed_out 可见）"
     );
+}
+
+/// V-304：gitbash PortableGit payload 四重校验正反 + 五类能力探测（T112、Check 112/155）。
+///
+/// payload 断言（来源白名单/平台/版本/哈希，ADR-024 决策 3）在任何机器上都执行；
+/// 五类探测（管道、重定向、含空格路径、信号终止、目标命令）仅在定位到 Git Bash 时
+/// 逐条断言，否则显式打印说明——前提不满足不是静默跳过，payload 断言已完成。
+#[test]
+fn v304_gitbash_payload_and_bash_capability() {
+    // ① payload 四重校验：面向 PortableGit 归档字节（zip/7z 独立分发，不随主二进制）。
+    let data = b"portablegit-archive-bytes";
+    let meta = PayloadMeta {
+        source: "https://example.com/portablegit".to_string(),
+        version: "2.54.0".to_string(),
+        platform: "windows-amd64".to_string(),
+        checksum: whcode_runtime::fnv64(data),
+    };
+    let allowlist = whcode_runtime::SourceAllowlist::new(["https://example.com/portablegit"]);
+    whcode_runtime::gitbash::verify_payload(data, &meta, &allowlist).expect("四重校验放行");
+
+    // 来源不在白名单 → permission_denied（不可重试）。
+    let mut unknown_source = meta.clone();
+    unknown_source.source = "https://evil.example/portablegit".to_string();
+    let err = whcode_runtime::gitbash::verify_payload(data, &unknown_source, &allowlist)
+        .expect_err("来源不在白名单必须拒绝");
+    assert_eq!(err.code, whcode_domain::ErrorCode::PermissionDenied);
+
+    // 平台不符 / 版本为空 / 哈希漂移 → runtime_unavailable（不静默接受）。
+    let mut wrong_platform = meta.clone();
+    wrong_platform.platform = "linux-amd64".to_string();
+    let err = whcode_runtime::gitbash::verify_payload(data, &wrong_platform, &allowlist)
+        .expect_err("平台不符必须拒绝");
+    assert_eq!(err.code, whcode_domain::ErrorCode::RuntimeUnavailable);
+
+    let mut no_version = meta.clone();
+    no_version.version = String::new();
+    assert!(
+        whcode_runtime::gitbash::verify_payload(data, &no_version, &allowlist).is_err(),
+        "空版本必须拒绝"
+    );
+    assert!(
+        whcode_runtime::gitbash::verify_payload(b"tampered-bytes", &meta, &allowlist).is_err(),
+        "哈希漂移必须拒绝"
+    );
+
+    // ② 五类能力探测（bash 可在时逐条断言；信号终止类由超时终止路径覆盖）。
+    let Some(bash) = whcode_runtime::gitbash::locate_bash(None) else {
+        eprintln!(
+            "本机未定位到 Git Bash：V-304 五类探测前提不满足，显式跳过（payload 四重校验断言已完成）"
+        );
+        return;
+    };
+    eprintln!("V-304 实测 bash 路径：{}", bash.display());
+    for (name, script) in whcode_runtime::gitbash::capability_probes() {
+        let timeout = if *name == "signal_terminate" {
+            Duration::from_millis(300)
+        } else {
+            Duration::from_secs(30)
+        };
+        let result = whcode_runtime::gitbash::run_probe(&bash, script, timeout)
+            .unwrap_or_else(|err| panic!("{name} 探测执行失败：{err}"));
+        if *name == "signal_terminate" {
+            assert!(result.timed_out, "信号终止类必须由超时终止覆盖：{result:?}");
+            assert_eq!(result.exit_code, None);
+            continue;
+        }
+        assert_eq!(result.exit_code, Some(0), "{name} 探测非零退出：{result:?}");
+        match *name {
+            "pipe" => assert!(
+                result.stdout_tail.trim() == "A",
+                "管道探测须输出 “A”：{:?}",
+                result.stdout_tail
+            ),
+            "redirect" => assert!(
+                result.stdout_tail.contains('x'),
+                "重定向探测须读回 “x”：{:?}",
+                result.stdout_tail
+            ),
+            "space_path" => assert!(
+                result.stdout_tail.contains("ok"),
+                "含空格路径探测须执行成功：{:?}",
+                result.stdout_tail
+            ),
+            "target_command" => assert!(
+                result.stdout_tail.contains("git"),
+                "目标命令探测须输出 git 版本：{:?}",
+                result.stdout_tail
+            ),
+            other => panic!("未知探测项，清单须与断言同步：{other}"),
+        }
+    }
 }

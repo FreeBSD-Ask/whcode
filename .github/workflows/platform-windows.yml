@@ -46,6 +46,11 @@ jobs:
       - name: 测试（含分层与目录分类契约）
         run: cargo test --locked --workspace
 
+      - name: 运行时 feature 门控测试（T110／ADR-029：默认构建外再验引擎路径）
+        run: |
+          cargo test --locked -p whcode-runtime --lib --features runtime-js
+          cargo clippy --locked -p whcode-runtime --lib --features runtime-js -- -D warnings
+
       - name: 计数一致性（FR/任务/Check）
         run: python ci/check_counts.py
 

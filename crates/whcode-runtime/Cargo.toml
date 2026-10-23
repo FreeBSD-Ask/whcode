@@ -13,12 +13,14 @@ whcode-domain = { path = "../whcode-domain" }
 whcode-platform = { path = "../whcode-platform" }
 serde.workspace = true
 serde_json.workspace = true
+boa_engine = { version = "0.21.1", optional = true }
 
 [features]
 default = []
 # 可选运行时（FR-704、NFR-102）：默认全部关闭。启用前必须通过能力测试，
 # 且不得把受限引擎表述为完整生态运行时（D-08/D-09、§4.7.1）。
-runtime-js = []
+# runtime-js 引入 Boa 引擎（纯 Rust，ADR-029）；默认构建零依赖零开销。
+runtime-js = ["dep:boa_engine"]
 runtime-python = []
 runtime-gitbash = []
 

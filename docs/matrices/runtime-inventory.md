@@ -6,10 +6,10 @@
 
 | 运行时 | capability | 状态 | 说明 |
 |---|---|---|---|
-| `js`（受限 ECMAScript 引擎） | Restricted | **未实现**（T110，M8） | D-08：不宣称完整 Node.js；未覆盖能力返回结构化错误（`runtime_unavailable`） |
-| `python`（子进程 worker） | Restricted | **未实现**（T111，M8） | D-09：先验证子进程协议与平台解释器再决定是否捆绑 |
-| `gitbash`（PortableGit payload） | ShellOnly | **未实现**（T112，M8） | V-304：Windows PortableGit 校验与 Bash/coreutils 验证 |
-| `bsdshell` | ShellOnly | **未实现**（T113，M8） | 与 `gitbash` 是不同能力，不共用名称伪装等价（§4.7.1） |
+| `js`（受限 ECMAScript 引擎） | Restricted | **已实现**（T110，2026-10-24；feature `runtime-js` 门控，默认构建不引入） | ADR-029（修订 ADR-024 的 D-08 条款）：Boa 0.21.1，Node API 六名字显式“能力不足”拒绝桩；声明不宣称完整 Node.js；未覆盖能力返回结构化错误 |
+| `python`（子进程 worker） | Restricted | **已实现**（T111，2026-10-24） | D-09：stdin 单行 JSON worker 协议（请求 ≤4 MiB、输出有界缓冲）；`PythonEnv` 记录解释器绝对路径/版本/实现名/ABI/C 扩展探测；受限档位五项不支持项（承诺边界不是沙箱） |
+| `gitbash`（PortableGit payload） | ShellOnly | **已实现**（T112，2026-10-24） | V-304：payload 四重校验（来源/版本/平台/哈希）+ Bash 五类能力探测（管道/重定向/含空格路径/超时终止/目标命令）真实取证 |
+| `bsdshell` | ShellOnly | **未实现**（T113 注册条目已交付；实现属 M7，ADR-013 延后） | 与 `gitbash` 是不同能力，不共用名称伪装等价（§4.7.1） |
 
 **能力等级**（FR-702）：`Full` / `Restricted` / `ShellOnly`——当前全部运行时
 **未安装即不可用**（`enabled=false` 不被工具注册表加载，FR-704）。

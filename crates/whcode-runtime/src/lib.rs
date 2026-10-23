@@ -33,9 +33,12 @@ pub mod cache;
 pub mod capability;
 pub mod checkpoint;
 pub mod errors;
+pub mod gitbash;
+pub mod js;
 pub mod payload;
 pub mod provider;
 pub mod providers;
+pub mod python;
 pub mod worker;
 
 pub use capability::{Capability, RuntimeDeclaration};
