@@ -76,7 +76,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 
 - [x] T022 [P] [US1] 在 `crates/whcode-store/src/smoke.rs` 实现数据库冒烟路径：创建、事务写读、关闭重启、迁移（V-002）（Windows 四步冒烟通过；BSD 阻塞）
 - [x] T023 [P] [US1] 在 `docs/adr/ADR-DB-BUILD.md` 记录各平台 DuckDB 原生构建方式、补丁与上游状态（R-01/R-02、TBD-01）
-- [x] T024 [P] [US1] 在 `crates/whcode-tui/src/lib.rs` 实现最小 TUI 闭环：启动、键盘输入、resize、退出、异常恢复（V-003）（逻辑层测试通过；管道 stdin 挂起缺陷已修复并有自动冒烟脚本 `script/tui_smoke.py`；V-003 交互四项待人工）
+- [x] T024 [P] [US1] 在 `crates/whcode-tui/src/lib.rs` 实现最小 TUI 闭环：启动、键盘输入、resize、退出、异常恢复（V-003）（逻辑层测试通过；管道 stdin 挂起缺陷已修复并有自动冒烟脚本 `script/tui_smoke.py`；V-003 交互四项待人工）——**2026-10-23 补**：V-003 改由真实控制台驱动完成（`script/tui_v003.py`，10 项检查全过，证据 `artifacts/tui-v003-2026-10-23/`）；同轮修复“歧义宽度字符缺字”缺陷：新增 `crates/whcode-tui/src/rowbackend.rs`（整行连续输出 + 运行时实测字形宽度 + 溢出行末格锚定），58 例单测通过
 - [x] T025 [P] [US1] 在 `crates/whcode-ssh/src/proto.rs` 实现内置 SSH 客户端原型：公钥认证、连接与执行受限命令、取回输出、超时与输出上限、按 ADR-007 登记（FR-611；原为四 BSD 服务端原型，已按 ADR-011 修订为客户端原型）（服务端验收属 M7；V-004 未取得证据）
 - [x] T026 [US1] 在 `crates/whcode-store/src/writer.rs` 实现事件写者原型：幂等键、批次提交、关键事件确认、写入错误传播（V-005、FR-502）（14 例测试通过：含跨分块 seq 连续、跨 flush 去重、超 256 键去重、失败重试后 seq 无歧义；`flush_entries` 已改为批量插入：256 键/查询定位已存在键、64 行/语句多行 VALUES、插入前分配连续 seq，不再回读；实测吞吐 6 921 条/秒 @192MB，见 `artifacts/baseline-192mb.json`）
 - [x] T027 [US1] 在 `tests/stability/` 与 `ci/benchmarks/` 实现基线基准夹具：固定硬件/数据集/采样方法并记录测量纪律字段（V-006、R-12）（已产出 `crates/whcode-bin/src/bench.rs`、`ci/benchmarks/run-baseline.py`、`tests/stability/baseline_check.rs`；夹具内存参数已按 ADR-012 更正为 §5.4 基线 192MB。首批实测 158 条/秒；写者优化后复测中位数 **6 921 条/秒**（超 NFR-210 候选值）；**预算已按 ADR-025 冻结（2026-10-23，Windows 11 amd64）**，跨平台与 72 小时数据仍缺；24/72 小时稳定性测试未实现）

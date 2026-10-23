@@ -13,12 +13,20 @@
 //! 数据库查询或长时间工具调用；以脏标记或事件驱动触发重绘；不在渲染帧路径反序列化完整
 //! JSON payload。所有状态变更经 `whcode-app` 命令，本 crate 不得直接触库（ADR-003）。
 //!
-//! 数据接线边界（诚实标注）：本 crate 当前只交付**视图与渲染接线**；六视图的业务数据
-//! 由装配根经 [`ViewSource`] 注入，`whcode-bin` 目前传入 [`EmptyViewSource`]（应用服务
-//! 数据源装配前六视图可切换、可绘制，帧内显式提示“暂无数据”）。
+//! 数据接线边界（诚实标注）：本 crate 只交付**视图与渲染接线**；六视图的业务数据由装配根
+//! 经 [`ViewSource`] 注入。`whcode-bin` 打开工作区库后优先注入 `StoreViewSource`（真实
+//! 数据）；仅当库打开失败时回退 [`EmptyViewSource`] 并打印提示，此时帧内显式显示
+//! “暂无数据”。
+//!
+//! 渲染后端（2026-10-23）：不用 crossterm 后端的逐格绝对定位，改用
+//! [`rowbackend::RowBackend`] 的**整行连续输出**。原因是 V-003 实测发现 Windows 控制台
+//! 把 East Asian Ambiguous 宽度字符（`·`、`×`、`—` 等）渲染为 2 格，而 `unicode-width`
+//! 判为 1 格，逐格定位会把后续字符写进尾格而擦掉整字（界面上“按键”显示成“键”）。
+//! 详见 `docs/guides/tui.md` §7 与 `artifacts/tui-v003-2026-10-23/`。
 
 mod event;
 mod render;
+mod rowbackend;
 mod session;
 mod state;
 mod theme;
@@ -31,13 +39,14 @@ use std::io;
 use std::time::{Duration, Instant};
 
 use ratatui::Terminal;
-use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::{Color, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph};
 use whcode_domain::i18n::I18n;
 use whcode_domain::{ErrorCode, WhError};
+
+use crate::rowbackend::RowBackend;
 
 pub use event::UiEvent;
 pub use render::{RenderEvent, Renderer};
@@ -83,7 +92,7 @@ pub trait ViewSource {
     fn snapshot(&self, view: ViewId, session: Option<&str>) -> ViewSnapshot;
 }
 
-/// 空数据源：应用服务数据源装配前的默认实现——六视图可切换、可绘制，帧内提示“暂无数据”。
+/// 空数据源：数据源不可用时的回退实现——六视图可切换、可绘制，帧内提示“暂无数据”。
 #[derive(Debug, Default, Clone, Copy)]
 pub struct EmptyViewSource;
 
@@ -129,7 +138,7 @@ pub fn run_with(source: &dyn ViewSource, options: RunOptions<'_>) -> Result<(), 
     let (cols, rows) = guard.session().size().unwrap_or(DEFAULT_SIZE);
     let mut core = LoopCore::new(source, cols, rows, Instant::now());
 
-    let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))
+    let mut terminal = Terminal::new(RowBackend::new(io::stdout()))
         .map_err(|err| io_error("初始化终端失败", err))?;
 
     while !core.state.quit() {
@@ -661,7 +670,7 @@ mod tests {
             print!("{text}");
             assert!(
                 text.contains(&format!(
-                    "旺皇 Code —— {}（{}/6）",
+                    "旺皇大模型执行框架 —— {}（{}/6）",
                     view.title(),
                     view.index()
                 )),

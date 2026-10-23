@@ -521,7 +521,7 @@ mod tests {
     #[test]
     fn zh_cn_resources_load_with_fallback_to_en() {
         let i18n = I18n::load("zh-CN", LocaleSource::Default);
-        assert_eq!(i18n.resolve("app.title"), "旺皇 Code");
+        assert_eq!(i18n.resolve("app.title"), "旺皇大模型执行框架");
         assert!(!i18n.is_empty());
         assert!(!i18n.is_empty());
 

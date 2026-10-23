@@ -59,7 +59,8 @@ cargo run -p whcode-bin --release -- bench baseline --out artifacts/baseline-$(u
 - Windows x86_64（msvc）：构建、依赖记录（`artifacts/deps-windows.txt`）、数据库冒烟四步、存储 14 例与 TUI/SSH 客户端逻辑层测试已通过。
 - FreeBSD/NetBSD：脚本与 CI 骨架就绪，本机无平台环境，V-001/V-002 证据阻塞。
 - OpenBSD/DragonFly BSD：已移出原生安装目标，改由内置 SSH 客户端控制（FR-611、ADR-011）；客户端连通性证据尚未取得。
-- V-003：仅逻辑层测试通过，交互式终端证据未取得，需人工冒烟。
+- V-003：已取得（2026-10-23）。交互式终端由真实控制台驱动（`script/tui_v003.py`，临时脚本，未入库）：启动/按键计数/视图切换/真实 resize/`q` 退出/Ctrl-C/强杀后恢复共 10 项自动检查全部通过，证据 `artifacts/tui-v003-2026-10-23/summary.json`。
+  同轮修复“歧义宽度字符缺字”：改用整行输出后端（`crates/whcode-tui/src/rowbackend.rs`），见 `docs/guides/tui.md` §7。
 - V-004：服务端验收未取得（属 M7）；SSH 客户端原型 9 例测试通过，四平台连通性证据未取得。
 - 性能预算：已按 ADR-025 在 Windows 11 amd64 冻结（NFR-208/210 达标；其余八项保持候选，72 h 序列未取得）。
 

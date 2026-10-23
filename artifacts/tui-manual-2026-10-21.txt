@@ -33,3 +33,19 @@ WHCode TUI 冒烟证据（V-003）
 - Ctrl-C：通过（自动化，退出码 0）
 - q：通过（自动化，退出码 0）
 - 人工复核：待确认
+
+勘误（2026-10-23，V-003 复测时核查）
+====================================
+
+上文“Windows Terminal、cmd.exe、powershell.exe 被安全策略禁止启动”**未指认任何策略**，
+且与本日复测事实冲突。按可复现命令的结果更正：
+
+- AppLocker：`Get-AppLockerPolicy -Effective -Xml` 无规则集合（空输出）；
+- Safer/SRP：注册表无 `SOFTWARE\Policies\Microsoft\Windows\Safer\CodeIdentifiers` 键；
+- WDAC：仅平台策略 `VerifiedAndReputableDesktop`（Smart App Control 的 WDAC 策略），
+  且 `VerifiedAndReputablePolicyState = 0`（关闭）；它不阻止微软签名的 cmd/powershell/wt；
+- 三个可执行文件均存在且可启动；本日 V-003 冒烟用 `CreateProcess(CREATE_NEW_CONSOLE)`
+  成功启动 `cmd.exe /c` 三次（退出码 0），TUI 在其中正常渲染。
+
+最可能的解释：当日桌面自动化子代理**无法启动/驱动**这些进程（工具自身能力限制，
+例如 press_key 对控制台窗口无效），被误写成“安全策略”。属表述错误，不是本机策略事实。

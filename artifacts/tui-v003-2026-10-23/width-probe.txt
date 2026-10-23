@@ -1,0 +1,32 @@
+字符占格实测（conhost 顺序输出，CP 65001，中文环境）
+控制台缓冲：120 列
+
+方法：同一行依次写 '>'、待测字符、'|'，用 GetConsoleScreenBufferInfo 读光标列位；
+前进量 = 写完字符后的光标列 - 写完 '>' 后的光标列。
+
+字符类别                    字形    前进列数
+ascii                   A     1
+cjk                     窗     2
+middle-dot              ·     2
+multiplication          ×     2
+em-dash                 —     2
+left-double-quote       “     2
+right-double-quote      ”     2
+right-single-quote      ’     2
+degree                  °     2
+plus-minus              ±     2
+section                 §     2
+box-light-h             ─     1
+box-light-v             │     1
+box-corner              ┌     1
+box-tee                 ┼     1
+box-heavy-h             ━     1
+block-full              █     1
+block-left              ▏     1
+circle-filled           ●     2
+arrow-right             →     2
+ellipsis                …     2
+check                   ✓     1
+braille                 ⣿     1
+
+非单格字符：cjk:窗、middle-dot:·、multiplication:×、em-dash:—、left-double-quote:“、right-double-quote:”、right-single-quote:’、degree:°、plus-minus:±、section:§、circle-filled:●、arrow-right:→、ellipsis:…

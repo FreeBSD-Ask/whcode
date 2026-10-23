@@ -28,6 +28,21 @@
     交互式 TUI、真实 SSH 节点、72 h 长跑仍无证据，Check 124 维持未通过。
   - 新登记缺陷：`whcode events export --session <不存在>` 返回 `count=0` 且退出码 0，
     与“存在但无事件”不可区分（错误的空），待修。
+
+- TUI 渲染修复与 V-003 取证（2026-10-23）：**歧义宽度字符缺字**。
+  - 缺陷：页脚“按键 0”显示成“键 0”、“视图”显示成“图”，标题“会话”显示成“话”。
+    根因是 `CrosstermBackend` 逐格绝对定位按 `unicode-width`（歧义字符 1 格）计算列号，
+    而本机控制台把 `·`、`×`、`—`、`“”` 等渲染为 2 格，后一格写入覆盖尾格、整字被擦除。
+  - 修复：新增 `crates/whcode-tui/src/rowbackend.rs`，改用**整行连续输出**（每行一次
+    绝对定位），并按**运行时实测**的字形前进格数排版（制表符实测 1 格，与 Unicode EAW
+    不一致，故不使用静态宽度表）；溢出行保留最右格锚定到最后一列，避免折行污染下一行。
+  - 证据：`artifacts/tui-v003-2026-10-23/`（修复前后帧、像素截图、逐字宽度实测、
+    resize API 实测、`summary.json` 10 项自动检查全部通过）。Check 24 补充复核，
+    `docs/guides/tui.md` 新增 §7 记录根因、实测数据、代价与残留。
+
+- 程序中文名由“旺皇 Code”改为**旺皇大模型执行框架**（2026-10-23，用户指定）：
+  同步 `app.title`、`tui.title`、CLI `about`、Web 首页标题、TUI 视图断言与 README 标题；
+  英文标识 `whcode`／`WHCode` 不变，历史变更记录不改写。
 - 决策（2026-10-23）：**ADR-026 记录 GUI 铁律——桌面界面必须原生，严禁浏览器套壳**。
   禁止 WebView／WebView2、CEF、Tauri／wry、Electron、NW.js 以及“自绘窗口 + 内嵌 Web UI”
   等价形态；`whcode-web` 仅作独立浏览器前端（FR-603）。`AGENTS.md` §1 硬边界／§6 UI 纪律／

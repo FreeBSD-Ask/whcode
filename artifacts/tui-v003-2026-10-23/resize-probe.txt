@@ -1,0 +1,30 @@
+控制台尺寸变更 API 实测（ConPTY / Windows Terminal 宿主）
+初始 buffer=120x9001 window=(0,0)-(119,26)
+
+A 只缩缓冲
+  SetConsoleScreenBufferSize: FAIL err=87
+  buffer=120x9001 window=(0,0)-(119,26)
+  SetConsoleScreenBufferSize 还原: OK
+  buffer=120x9001 window=(0,0)-(119,26)
+
+B 只缩窗口
+  SetConsoleWindowInfo: FAIL err=87
+  buffer=120x9001 window=(0,0)-(119,26)
+  SetConsoleWindowInfo 还原: FAIL err=87
+  buffer=120x9001 window=(0,0)-(119,26)
+
+C 先缩窗口再缩缓冲
+  SetConsoleWindowInfo: FAIL err=87
+  buffer=120x9001 window=(0,0)-(119,26)
+  SetConsoleScreenBufferSize: FAIL err=87
+  buffer=120x9001 window=(0,0)-(119,26)
+
+D 先扩缓冲再扩窗口（恢复到初始）
+  SetConsoleScreenBufferSize: OK
+  buffer=120x9001 window=(0,0)-(119,26)
+  SetConsoleWindowInfo: FAIL err=87
+  buffer=120x9001 window=(0,0)-(119,26)
+
+结论：本机控制台由 Windows Terminal 经 ConPTY 托管，窗口几何归终端应用；
+SetConsoleWindowInfo 恒返回 87，缩缓冲因小于窗口失败。V-003 改用 MoveWindow
+改窗口像素尺寸，由 ConPTY 转发为客户端新尺寸（与用户拖动边缘等价）。

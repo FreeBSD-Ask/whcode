@@ -11,7 +11,7 @@
 | 启动 | `whcode`（无位置参数、仅旗标或空参数） | 有位置参数时走 CUI 命令面（`crates/whcode-bin/src/main.rs:105-112`） |
 | 退出 | `q` 或 `Ctrl-C` | 两者语义一致，均请求退出（`crates/whcode-tui/src/state.rs:36`） |
 | 退出保证 | —— | 正常退出、`Ctrl-C` 与 panic 均恢复 raw mode 与主屏（`crates/whcode-tui/src/session.rs:66-80`、`143-159`、`174-179`） |
-| 输入流 EOF | —— | 自动退出并恢复终端（`crates/whcode-tui/src/lib.rs:151`） |
+| 输入流 EOF | —— | 自动退出并恢复终端（`crates/whcode-tui/src/lib.rs:160`） |
 
 ## 2. 视图与导航
 
@@ -29,13 +29,13 @@
 
 | 键 | 动作 | 证据 |
 |---|---|---|
-| `j` | 会话选择下移（到尾自动钳制） | `crates/whcode-tui/src/lib.rs:329-332` |
-| `k` | 会话选择上移（到头自动钳制） | `crates/whcode-tui/src/lib.rs:333-336` |
-| `r` | 刷新当前视图快照 | `crates/whcode-tui/src/lib.rs:337` |
+| `j` | 会话选择下移（到尾自动钳制） | `crates/whcode-tui/src/lib.rs:338-341` |
+| `k` | 会话选择上移（到头自动钳制） | `crates/whcode-tui/src/lib.rs:342-345` |
+| `r` | 刷新当前视图快照 | `crates/whcode-tui/src/lib.rs:346` |
 | 终端 resize | 更新行列数并重绘，不退出 | `crates/whcode-tui/src/state.rs:41-44` |
 
 - 选中行以 `> ` 前缀呈现，不依赖颜色（墨水屏友好；`crates/whcode-tui/src/views.rs:222-233`）。
-- 标题含 `{index}/{count}` 视图序号（`crates/whcode-tui/src/lib.rs:459-466`）。
+- 标题含 `{index}/{count}` 视图序号（`crates/whcode-tui/src/lib.rs:467-475`）。
 - 键位提示为页脚词条 `tui.footer`（“窗口 {cols}×{rows} · 按键 {keys} · 1—6 视图 · j/k 会话 · r 刷新 · q 退出”，`crates/whcode-domain/src/i18n/zh-CN.properties:21`）。
 
 ## 3. 未实现（显式声明，勿按存在使用）
@@ -43,7 +43,7 @@
 以下能力**当前不存在**，属于已登记的边界而非缺陷隐瞒：
 
 - 无命令面板、无 `:` 命令模式、无插入/普通模式之分（全量检索无命中）；
-- 无翻页键（无 PgUp/PgDn）：内容按终端行数限行投影（`crates/whcode-tui/src/lib.rs:414-419`）；
+- 无翻页键（无 PgUp/PgDn）：内容按终端行数限行投影（`crates/whcode-tui/src/lib.rs:421-428`）；
 - 无 `?`/F1 帮助屏；
 - 无运行时主题切换键：主题仅启动时由 `ui.theme` 配置或 `WHCODE_UI_THEME` 环境变量决定
   （`crates/whcode-bin/src/config.rs:20-24`、`122-126`）；
@@ -54,11 +54,12 @@
 
 ## 4. 数据源现状（重要）
 
-TUI 六视图当前由装配根注入**空数据源**（`crates/whcode-tui/src/lib.rs:16-18`、`86-94`）：
-界面可完整操作，但列表显示“暂无数据”。数据源不可用时打印提示并回退空源
-（`crates/whcode-bin/src/main.rs:286-291`）。diff 视图有独立的未接入提示词条
+TUI 六视图的数据由装配根经 `ViewSource` 注入：`whcode-bin` 打开工作区库后优先注入
+`StoreViewSource`（真实数据，`crates/whcode-bin/src/main.rs:284-291`）；**仅当库打开失败**
+时回退 `EmptyViewSource` 并打印提示（`crates/whcode-tui/src/lib.rs:16-19`、`95-99`），
+此时列表显示“暂无数据”。diff 视图另有独立的未接入提示词条
 （`crates/whcode-domain/src/i18n/zh-CN.properties:24`）。
-TUI 是只读快照前端：破坏性命令不经 TUI（`ViewSource` 只读，`crates/whcode-tui/src/lib.rs:81-84`）。
+TUI 是只读快照前端：破坏性命令不经 TUI（`ViewSource` 只读，`crates/whcode-tui/src/lib.rs:83-92`）。
 
 ## 5. 主题与终端
 
@@ -68,12 +69,44 @@ TUI 是只读快照前端：破坏性命令不经 TUI（`ViewSource` 只读，`c
 | 合法取值 | `amoled-night`／`eink-day`／`eink-night` | `crates/whcode-tui/src/theme.rs:60-66` |
 | 非法主题名 | 报 `parse_error` 并列出全部合法值 | `crates/whcode-tui/src/theme.rs:77-86` |
 | 色值 | 三套精确值（`#000000`/`#E6E6E6` 等） | `crates/whcode-tui/src/theme.rs:20-32` |
-| 尺寸探测失败兜底 | 80×24 | `crates/whcode-tui/src/lib.rs:50`、`129` |
+| 尺寸探测失败兜底 | 80×24 | `crates/whcode-tui/src/lib.rs:58-59`、`138` |
 | 最小尺寸校验 | **无**（不做“太小即拒绝”） | `crates/whcode-platform/src/term.rs:12-14` |
-| 空闲探测 | 输入静默 1 s 起探测，间隔 5 s，退避上限 60 s | `crates/whcode-tui/src/lib.rs:56-64` |
+| 空闲探测 | 输入静默 1 s 起探测，间隔 5 s，退避上限 60 s | `crates/whcode-tui/src/lib.rs:64-73` |
 
 ## 6. 已知约束
 
 - 同一工作区同一时刻只允许一个进程打开库：TUI 与 `serve --web` 不应并行
   （`crates/whcode-bin/src/workspace.rs:9-12`）。
 - 颜色为 24 位 RGB 精确值；终端不支持真彩时由终端自行近似（无降级映射表，属已知限制）。
+
+## 7. 渲染后端与歧义宽度字符（2026-10-23）
+
+TUI 不使用 ratatui 的 `CrosstermBackend`，改用 `crates/whcode-tui/src/rowbackend.rs` 的
+`RowBackend`：**每行只发一次绝对定位，行内连续输出**。它来自一次实测缺陷（V-003 复测）：
+
+- **现象**：页脚“按键 0”显示成“键 0”、“视图”显示成“图”，标题“会话”显示成“话”。
+  修复前帧见 `artifacts/tui-v003-2026-10-23/before-fix/s1-01-startup.txt`，像素见
+  `before-fix/window.png`。
+- **根因**：`CrosstermBackend` 逐格 `MoveTo` 定位、列号按 `unicode-width`（歧义字符记 1 格）；
+  本机控制台（CP 65001、中文区域）把 `·`、`×`、`—`、`“”`、`’`、`°`、`±`、`§`、`●`、
+  `→`、`…` 渲染成 **2 格**，于是写下一格时覆盖了该字的尾格，conhost 把整字擦除。
+- **实测**（`artifacts/tui-v003-2026-10-23/width-probe.txt`，逐字光标前进量）：制表符
+  （`─│┌┼━`）、块元素（`█▏`）、`✓`、盲文均为 **1 格**——与 Unicode East Asian Width
+  不一致（它们在 Unicode 里同属 Ambiguous），因此**任何静态宽度表都不可靠**。
+  `RowBackend` 改为运行时实测：在真实终端（`live`）下，首次出现的**非 ASCII** 字形写到
+  屏幕末行同一行连续列位、读光标列差得到前进格数，结果按字形缓存（上限 1024 个，超出即
+  停止实测、回落 ratatui 口径）；ASCII 恒按 1 格，测试与嵌入方（`with_size`）不做实测。
+  校准会擦掉末行，因此实现把该行强制并入本帧脏集合重画。
+
+代价与残留（正负和解）：
+
+- 脏行整行重写（一帧写入上界 = 行数 × 列数），不再享受行内局部更新的带宽优势；
+- 行在终端里的实际宽度大于影子屏时做**尾部压缩**：保留最右格并锚定到最后一列，被挤掉的
+  正文列不显示，但边框与整行宽度保持一致（不折行、不污染下一行）；
+- 首次出现的字形有一次性实测成本（写 1 个字形 + 读 1 次光标），之后走缓存；
+- 异常强杀（S3）不保证恢复终端内容，残留帧属预期，raw mode 由 `TerminalGuard` 以外的
+  路径无法回收——实测残留为 false 仅指本机 conhost 行为，不是跨终端承诺。
+
+V-003 证据（2026-10-23）：`artifacts/tui-v003-2026-10-23/summary.json`（10 项自动检查全过）、
+`s1-01-startup.txt` 至 `s3-after-kill.txt` 逐帧文本、`window.png` 像素截图、
+`resize-probe.txt`（ConPTY 下 `SetConsoleWindowInfo` 恒返回 87，改用窗口像素尺寸触发真实 resize）。

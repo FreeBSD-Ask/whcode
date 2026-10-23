@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-10-23T05:46:24.462862+00:00",
+  "binary": "D:\\WHCode\\target\\release\\whcode.exe",
+  "method": "CreateProcess(CREATE_NEW_CONSOLE) + AttachConsole + ctypes kernel32",
+  "checks": {
+    "s1_startup": {
+      "passed": false,
+      "title": "┌旺皇 Code —— 话（1/6）──────────────────────────────────────────────────────────────────────────────────────────────┐",
+      "footer": "",
+      "console_size": [
+        120,
+        30
+      ],
+      "note": "默认视图为会话（1/6），页脚尺寸取自真实控制台"
+    },
+    "s1_raw_mode_entered": {
+      "passed": true,
+      "console_input_mode": "0x1f0",
+      "note": "raw mode：ECHO_INPUT 与 LINE_INPUT 均为 0"
+    },
+    "s1_keyboard_count": {
+      "passed": false,
+      "footer": "",
+      "note": "注入真实 KEY_EVENT（a、b），页脚计数应为 2"
+    },
+    "s1_view_switch": {
+      "passed": true,
+      "note": "按 3 切到上下文（3/6），按 1 回到会话（1/6），导航键不计入按键数"
+    },
+    "s1_resize": {
+      "passed": false,
+      "target_grow": [
+        132,
+        36
+      ],
+      "target_restore": [
+        120,
+        30
+      ],
+      "error": "[Errno 87] 扩大窗口失败",
+      "note": "真实改变控制台窗口/缓冲尺寸（非注入伪事件），两次重绘均命中"
+    },
+    "s1_quit_by_q": {
+      "passed": false,
+      "process_exit_code": "",
+      "marker_seen": true,
+      "note": "TUI 退出后同一控制台仍能执行 cmd 后续命令（终端可用）"
+    },
+    "s1_mode_restored": {
+      "passed": true,
+      "console_input_mode_after": "0x1f7",
+      "note": "退出后 ECHO/LINE 恢复，raw mode 无残留"
+    },
+    "s2_quit_by_ctrl_c": {
+      "passed": false,
+      "process_exit_code": "",
+      "marker_seen": true,
+      "mode_restored": true,
+      "console_input_mode_after": "0x1f7",
+      "note": "Ctrl-C 经真实控制台事件注入；退出码、终端可用性与模式恢复一并记录"
+    },
+    "s3_abnormal_kill": {
+      "passed": true,
+      "taskkill": "SUCCESS: The process \"whcode.exe\" with PID 15440 has been terminated.",
+      "marker_seen": true,
+      "mode_after": "0x1f7",
+      "raw_mode_residue": false,
+      "note": "强杀后同一控制台仍能执行 cmd 后续命令（异常恢复可读）；raw mode 残留为**实测值**，不再依赖人工判断"
+    }
+  },
+  "all_automated_checks_passed": false
+}
