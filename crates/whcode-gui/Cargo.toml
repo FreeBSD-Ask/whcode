@@ -1,0 +1,22 @@
+[package]
+name = "whcode-gui"
+description = "WHCode 原生桌面 GUI（只读 v1；iced + tiny-skia，ADR-027）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+# ADR-027：关闭默认 wgpu 特性，改用 tiny-skia 软件光栅——默认不创建 GPU 上下文（NFR-212）。
+iced = { version = "0.14.0", default-features = false, features = [
+    "tiny-skia",
+    "thread-pool",
+    "crisp",
+    "web-colors",
+] }
+whcode-app = { path = "../whcode-app" }
+whcode-domain = { path = "../whcode-domain" }
+
+[lints]
+workspace = true

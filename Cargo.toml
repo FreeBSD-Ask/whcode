@@ -1,6 +1,6 @@
 # WHCode — Rust 原生 LLM 编码 Harness
 #
-# 结构决策见 specs/001-whcode-harness/plan.md：单仓库 Cargo workspace，13 个成员 crate，
+# 结构决策见 specs/001-whcode-harness/plan.md：单仓库 Cargo workspace，14 个成员 crate，
 # 职责边界依任务书 §6.2；依赖方向 domain → app → 各适配器，前端不得直接触库（ADR-003）。
 [workspace]
 resolver = "3"
@@ -16,6 +16,7 @@ members = [
     "crates/whcode-cui",
     "crates/whcode-web",
     "crates/whcode-ssh",
+    "crates/whcode-gui",
     "crates/whcode-platform",
     "crates/whcode-bin",
     "tests",

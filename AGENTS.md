@@ -76,7 +76,7 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 | 6 | `specs/001-whcode-harness/checklist.md` | 验收检查点：改了什么就要能对上哪个 Check |
 | 7 | `docs/guides/repository-layout.md` | 目录分类与根文件白名单（由测试强制） |
 | 8 | `docs/guides/software-engineering-process.md` | G0—G5 门禁、角色合并、产物映射 |
-| 9 | `docs/guides/design-principles.md`、`module-design.md` | 设计原则与 13 个 crate 的职责边界 |
+| 9 | `docs/guides/design-principles.md`、`module-design.md` | 设计原则与 14 个 crate 的职责边界 |
 | 10 | `docs/guides/ui-design.md`、`gui-suspend.md` | 主题色值、墨水屏/AMOLED、i18n/RTL、挂起规则 |
 | 11 | `docs/adr/`、`docs/matrices/` | 已批准决策与平台/能力矩阵（先看，勿重复决策） |
 | 12 | `docs/guides/test-model-sensenova.md` | 测试模型接入、图像输入、已知限制与实测记录 |
@@ -160,7 +160,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 以下为当前强制基线（可复审的和解），不是普适最佳实践：
 
 - 自有 crate 的普通 Rust 禁止 `unsafe`：`workspace.lints.rust.unsafe_code = "forbid"`；契约测试
-  `crates_forbid_unsafe_code_via_workspace_lints` 校验 13 个成员与 `tests` 全部继承。
+  `crates_forbid_unsafe_code_via_workspace_lints` 校验 14 个成员与 `tests` 全部继承。
   `forbid` 不可被 `#[allow]` 覆盖；`build.rs` 与测试代码同样受约束。汇编例外仅按 ADR-015
   执行：独立 crate/模块、安全包装、跨平台回退与差分测试，不得在现有 crate 内开洞。
 - clippy 默认组（`all`）零告警；CI 以 `-D warnings` 强制，禁止用 `#[allow]` 静默绕过

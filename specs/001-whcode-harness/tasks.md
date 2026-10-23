@@ -323,9 +323,9 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 **Purpose**: 按 ADR-026／ADR-027 落地原生 GUI 的只读版本；先立需求与预算，再写代码
 
 - [x] T149 [P] 完成 GUI 框架选型实测并按 ADR-027 定案：同一屏内容比较 egui／iced（wgpu 与 tiny-skia）／Win32，记录 RSS、线程、句柄、首帧、依赖与 unsafe 面（证据 `artifacts/gui-spike-2026-10-23.md`；结论 iced + tiny-skia，`spec.md` FR-711—715 随此立项）
-- [ ] T150 新建 `whcode-gui` crate：只依赖 `whcode-app`，实现六视图只读骨架（会话选择、刷新、1-6 切换）；同步 `Cargo.toml` 成员、`test_layering` 成员与依赖方向、`repository-layout.md` 与 `plan.md`（FR-711）
-- [ ] T151 交付 GUI 自动化证据入口：窗口截图、按键注入、空闲与交互资源采样三件套，结果落 `artifacts/gui-*/` 并可重跑（FR-715）
-- [ ] T152 GUI 资源与主题达标：字体子集化、空闲零重绘、三套主题精确色值与灰阶占比量化，按 FR-712／FR-713／FR-714 判定（预算 RSS ≤ 96 MB、线程 ≤ 24、句柄 ≤ 256、空闲 CPU ≤ 0.2% 单核）
+- [x] T150 新建 `whcode-gui` crate：只依赖 `whcode-app`，实现六视图只读骨架（会话选择、刷新、1-6 切换）；同步 `Cargo.toml` 成员、`test_layering` 成员与依赖方向、`repository-layout.md` 与 `plan.md`（FR-711）（**2026-10-23 完成**：只读视图模型下沉到 `whcode_app::view_source`（TUI 与 GUI 共用，前端互不依赖）；新增 crate 与 `whcode gui` 入门子命令；`test_layering` 6/6、`test_layout` 7/7；实跑证据 `artifacts/gui-run-2026-10-23/summary.json`）
+- [x] T151 交付 GUI 自动化证据入口：窗口截图、按键注入、空闲与交互资源采样三件套，结果落 `artifacts/gui-*/` 并可重跑（FR-715）（**2026-10-23 完成**：`ci/gui-probe.py` 三套主题各截图、`3` 切视图与 `q` 退出码实测、空闲 10 s 资源采样；产物 `artifacts/gui-run-2026-10-23/`）
+- [ ] T152 GUI 资源与主题达标：字体子集化、空闲零重绘、三套主题精确色值与灰阶占比量化，按 FR-712／FR-713／FR-714 判定（预算 RSS ≤ 96 MB、线程 ≤ 24、句柄 ≤ 256、空闲 CPU ≤ 0.2% 单核）**部分完成（2026-10-23）**：实测 RSS 95.7 MB、私有 72.4 MB、线程 24、句柄 234、空闲 CPU 0.00%；三套主题分别只出现 `#FFFFFF`/`#000000`、`#000000`/`#FFFFFF`、`#000000`/`#E6E6E6`，中间灰 1.34%—1.61%（≤5%）；无 wgpu 依赖（`cargo tree` 命中 0）。**未完成**：CJK 字体仍整份常驻（19.7 MB，未做子集化），距预算仅 0.3 MB 余量
 
 ---
 

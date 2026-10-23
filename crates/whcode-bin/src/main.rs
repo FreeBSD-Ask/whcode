@@ -98,6 +98,8 @@ fn main() -> ExitCode {
         }
         Some("bench") => bench_command(&args[1..]),
         Some("serve") => serve::serve_command(&args[1..]),
+        // 原生桌面 GUI（FR-711／ADR-027）：只读六视图，与 TUI 共用同一只读快照。
+        Some("gui") => gui_command(&args[1..]),
         // 批次 2/3：区分“CUI 命令”与“交互入口”——
         // - 含位置参数（子命令或拼写错误）→ CUI 调度（未知子命令由 clap 报用法错误，退出码 2）；
         // - 仅含旗标（如 `--workspace DIR`）或无参数 → 交互入口（TUI/骨架提示）；
@@ -262,6 +264,58 @@ fn launch_interactive(args: &[String]) -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
+    let (theme, texts, source) = match prepare_frontend(args) {
+        Ok(prepared) => prepared,
+        Err(code) => return code,
+    };
+    let probe: fn() -> Option<bool> = whcode_platform::term::is_window_minimized;
+    let options = whcode_tui::RunOptions {
+        theme,
+        texts,
+        minimize_probe: Some(&probe),
+    };
+    match whcode_tui::run_with(source.as_ref(), options) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("TUI 运行失败：{err}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// `whcode gui`：原生桌面 GUI（只读 v1，FR-711／ADR-027）。
+///
+/// 与 TUI 共用同一只读快照（`whcode_app::view_source`）：GUI 自身不触库，主题沿用配置。
+fn gui_command(args: &[String]) -> ExitCode {
+    let (theme, texts, source) = match prepare_frontend(args) {
+        Ok(prepared) => prepared,
+        Err(code) => return code,
+    };
+    let gui_theme = whcode_gui::GuiTheme::parse(theme.as_str()).unwrap_or_default();
+    let options = whcode_gui::RunOptions {
+        theme: gui_theme,
+        texts,
+    };
+    match whcode_gui::run(source, options) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("GUI 运行失败：{err}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// 前端共用装配：主题、文本层、工作区与只读快照数据源（TUI 与 GUI 同一来源）。
+fn prepare_frontend(
+    args: &[String],
+) -> Result<
+    (
+        whcode_tui::Theme,
+        whcode_domain::i18n::I18n,
+        Box<dyn whcode_app::view_source::ViewSource>,
+    ),
+    ExitCode,
+> {
     let config = match load_config(args) {
         Ok(config) => config,
         Err(err) => {
@@ -278,30 +332,18 @@ fn launch_interactive(args: &[String]) -> ExitCode {
         Ok(workspace) => workspace,
         Err(err) => {
             eprintln!("工作区解析失败：{err}");
-            return ExitCode::FAILURE;
+            return Err(ExitCode::FAILURE);
         }
     };
-    let source: Box<dyn whcode_tui::ViewSource> =
+    let source: Box<dyn whcode_app::view_source::ViewSource> =
         match workspace::open_workspace_db(&workspace, &config) {
             Ok(conn) => Box::new(store_source::StoreViewSource::new(conn, texts.clone())),
             Err(err) => {
-                eprintln!("数据源不可用（TUI 以空数据源运行，视图显示“暂无数据”）：{err}");
-                Box::new(whcode_tui::EmptyViewSource)
+                eprintln!("数据源不可用（界面以空数据源运行，视图显示“暂无数据”）：{err}");
+                Box::new(whcode_app::view_source::EmptyViewSource)
             }
         };
-    let probe: fn() -> Option<bool> = whcode_platform::term::is_window_minimized;
-    let options = whcode_tui::RunOptions {
-        theme,
-        texts,
-        minimize_probe: Some(&probe),
-    };
-    match whcode_tui::run_with(source.as_ref(), options) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(err) => {
-            eprintln!("TUI 运行失败：{err}");
-            ExitCode::FAILURE
-        }
-    }
+    Ok((theme, texts, source))
 }
 
 fn doctor(args: &[String]) {

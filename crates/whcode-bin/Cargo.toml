@@ -17,6 +17,8 @@ whcode-app = { path = "../whcode-app" }
 # CUI 命令树（批次 2 调度装配；契约 contracts/cui-cli.md §1）。
 whcode-cui = { path = "../whcode-cui" }
 whcode-domain = { path = "../whcode-domain" }
+# `gui` 入口装配（FR-711／ADR-027）：原生桌面 GUI，只读六视图。
+whcode-gui = { path = "../whcode-gui" }
 whcode-platform = { path = "../whcode-platform" }
 # 运行时声明与能力等级展示（ADR-024）：装配根只读取声明/探针，不加载动态库。
 whcode-runtime = { path = "../whcode-runtime" }

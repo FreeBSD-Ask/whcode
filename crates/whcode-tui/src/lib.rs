@@ -30,7 +30,9 @@ mod rowbackend;
 mod session;
 mod state;
 mod theme;
-mod views;
+
+/// 只读视图模型已下沉到应用层（T150）：TUI 与原生 GUI 共用同一份快照契约。
+pub use whcode_app::view_source as views;
 
 #[cfg(test)]
 mod tests_support;
@@ -80,27 +82,8 @@ pub(crate) fn io_error(action: &str, err: io::Error) -> WhError {
     WhError::new(ErrorCode::IoError, format!("{action}：{err}"))
 }
 
-/// 视图数据源（准备层）：为给定视图准备**只读快照**（T082 接线）。
-///
-/// 实现方必须立即返回纯数据：查询/整理应在调用方的准备阶段完成，不得在快照准备中
-/// 执行 LLM 网络 I/O 或长时间工具调用（§5.3 渲染线程纪律）。视图切换、会话选择
-/// （`j`/`k`）与显式刷新（`r`）时各准备一次；**帧路径不反序列化 JSON**（快照即纯数据）。
-///
-/// `session` 为当前选中的会话 ID（`None` = 尚未选择）；会话树视图忽略该参数。
-pub trait ViewSource {
-    /// 准备指定视图的只读快照（含会话范围）。
-    fn snapshot(&self, view: ViewId, session: Option<&str>) -> ViewSnapshot;
-}
-
-/// 空数据源：数据源不可用时的回退实现——六视图可切换、可绘制，帧内提示“暂无数据”。
-#[derive(Debug, Default, Clone, Copy)]
-pub struct EmptyViewSource;
-
-impl ViewSource for EmptyViewSource {
-    fn snapshot(&self, view: ViewId, _session: Option<&str>) -> ViewSnapshot {
-        ViewSnapshot::empty(view)
-    }
-}
+/// 视图数据源与空数据源由应用层定义（T150），此处转出以维持既有调用点。
+pub use whcode_app::view_source::{EmptyViewSource, ViewSource};
 
 /// TUI 运行选项。
 #[derive(Default)]

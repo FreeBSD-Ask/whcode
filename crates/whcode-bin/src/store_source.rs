@@ -11,10 +11,10 @@
 //! （C-03）；Diff 视图暂无数据源（converge 差异属后续接线），摘要行显式标注。
 
 use duckdb::Connection;
+use whcode_app::view_source::{EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource};
 use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
 use whcode_domain::i18n::I18n;
 use whcode_domain::{TraceLevel, WhError};
-use whcode_tui::{EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource};
 
 /// 会话清单上限。
 const SESSION_LIMIT: usize = 200;
@@ -250,8 +250,8 @@ fn summarize_payload(payload: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{StoreViewSource, summarize_payload};
+    use whcode_app::view_source::{ViewId, ViewSource};
     use whcode_domain::i18n::I18n;
-    use whcode_tui::{ViewId, ViewSource};
 
     fn migrated_conn() -> duckdb::Connection {
         let conn = duckdb::Connection::open_in_memory().expect("内存库");

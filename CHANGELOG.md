@@ -50,6 +50,12 @@
   iced+wgpu 206.5 MB、egui 350.8 MB（后两者必须 GPU）；证据
   `artifacts/gui-spike-2026-10-23.md` 与四张截图。新增 Task T149—T152、Check 250—252
   （250 通过，251／252 未通过：实现为零代码）；`whcode-gui` crate 尚未创建。
+- GUI 骨架落地（2026-10-23，T150／T151）：新增 `crates/whcode-gui`（iced + `tiny-skia`，
+  默认不建 GPU 上下文）与 `whcode gui` 入口；只读视图模型下沉为 `whcode_app::view_source`，
+  由 TUI 与 GUI 共用（前端之间互不依赖）。新增 `ci/gui-probe.py`：三套主题截图、`3` 切视图、
+  `q` 退出码与空闲 10 s 资源采样，证据 `artifacts/gui-run-2026-10-23/`。实测 RSS 95.7 MB、
+  私有 72.4 MB、线程 24、句柄 234、空闲 CPU 0.00%，中间灰 1.34%—1.61%。
+  Check 251 转入通过；Check 252 维持未通过（CJK 字体仍整份常驻、RSS 余量仅 0.3 MB）。
 - 决策（2026-10-23）：**ADR-026 记录 GUI 铁律——桌面界面必须原生，严禁浏览器套壳**。
   禁止 WebView／WebView2、CEF、Tauri／wry、Electron、NW.js 以及“自绘窗口 + 内嵌 Web UI”
   等价形态；`whcode-web` 仅作独立浏览器前端（FR-603）。`AGENTS.md` §1 硬边界／§6 UI 纪律／

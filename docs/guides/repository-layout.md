@@ -9,7 +9,7 @@
 
 | 目录 | 类别 | 职责 | 入库规则 |
 |---|---|---|---|
-| `crates/` | 产品代码 | 13 个成员 crate，按 §6.2 单向依赖（domain → app → 服务 → 前端适配器） | 入库 |
+| `crates/` | 产品代码 | 14 个成员 crate，按 §6.2 单向依赖（domain → app → 服务 → 前端适配器） | 入库 |
 | `tests/` | 验证 | 六类测试：unit / contract / integration / crash / stability / fixtures；每类有 README | 入库 |
 | `ci/` | 验证（自动化） | `platform-matrix/`（依赖记录与交叉检查脚本）、`benchmarks/`（基线脚本）；打包脚本与门禁脚本在根级 | 入库 |
 | `docs/` | 治理文档 | `adr/`（决策记录）、`matrices/`（平台/能力/决策矩阵）、`guides/`（操作指南） | 入库 |

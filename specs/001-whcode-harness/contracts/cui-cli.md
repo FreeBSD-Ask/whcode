@@ -18,10 +18,12 @@ whcode
   runtime list|status|enable|disable|install NAME
   serve --web [--bind 127.0.0.1:PORT]
   serve --ssh [--port PORT]
+  gui [--workspace DIR]
   doctor [--json]
 ```
 
 实现时必须统一参数命名、退出码、错误 JSON 与 `--json` 语义；破坏性命令需支持 dry-run 或确认机制（§8.1）。
+`gui` 为装配根入口（与 `serve` 同层）：只读六视图，非交互、无 stdout 协议，退出码 0/1（FR-711）。
 
 ## 2. 修订约束（不得回退）
 

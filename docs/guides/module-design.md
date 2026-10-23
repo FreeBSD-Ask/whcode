@@ -190,6 +190,17 @@ whcode-bin           （装配根：配置、日志、feature）
 - **关键类型**：`SshTarget`、`ExecReport`、`ExecRegistry`。
 - **失败模式**：无退出状态判 `unknown`；输出尾部有界并标记截断。
 
+### whcode-gui
+
+- **职责**：原生桌面 GUI（只读 v1，FR-711—FR-715、ADR-027）；iced + `tiny-skia` 软件光栅，
+  默认不创建 GPU 上下文。
+- **依赖**：仅 `whcode-app`（只读快照 `view_source`）与 `whcode-domain`（i18n）；不触库。
+- **关键类型**：`RunOptions`、`GuiTheme`（三套精确色值）、`State`（快照 + 选择位置）。
+- **失败模式**：窗口/渲染后端初始化失败返回 `iced::Error`；字体候选都不可读时回退框架默认字体
+  （中文字形可能缺失，界面降级但不 panic）。
+- **资源预算**：空闲 1200×800 下 RSS ≤ 96 MB、私有 ≤ 80 MB、线程 ≤ 24、句柄 ≤ 256、
+  CPU ≤ 0.2% 单核（实测见 `artifacts/gui-run-2026-10-23/summary.json`）。
+
 ### whcode-bin
 
 - **职责**：装配根（配置、日志、`doctor`、`bench`、TUI 启动、feature 组合）。

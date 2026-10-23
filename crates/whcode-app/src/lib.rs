@@ -36,6 +36,7 @@ pub mod session;
 pub mod snapshot;
 pub mod stage_role;
 pub mod task;
+pub mod view_source;
 pub mod views;
 
 pub use authz::{Actor, Capability, DefaultPolicy, Policy, actor_with_all_capabilities, require};

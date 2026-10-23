@@ -12,10 +12,16 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// 前端适配器 crate。
-const FRONTENDS: [&str; 4] = ["whcode-tui", "whcode-cui", "whcode-web", "whcode-ssh"];
+const FRONTENDS: [&str; 5] = [
+    "whcode-tui",
+    "whcode-cui",
+    "whcode-web",
+    "whcode-ssh",
+    "whcode-gui",
+];
 
-/// workspace 全部成员 crate（tasks.md T001）。
-const ALL_CRATES: [&str; 13] = [
+/// workspace 全部成员 crate（tasks.md T001；T150 新增 `whcode-gui`）。
+const ALL_CRATES: [&str; 14] = [
     "whcode-domain",
     "whcode-app",
     "whcode-llm",
@@ -27,6 +33,7 @@ const ALL_CRATES: [&str; 13] = [
     "whcode-cui",
     "whcode-web",
     "whcode-ssh",
+    "whcode-gui",
     "whcode-platform",
     "whcode-bin",
 ];

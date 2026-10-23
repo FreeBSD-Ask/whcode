@@ -257,18 +257,6 @@ mod tests {
             !code_only.contains("serde_json"),
             "渲染帧路径不得反序列化 JSON（§5.3）"
         );
-        let views_source = include_str!("views.rs");
-        let views_code: String = views_source
-            .split("#[cfg(test)]")
-            .next()
-            .unwrap_or(views_source)
-            .lines()
-            .filter(|line| !line.trim_start().starts_with("//"))
-            .collect::<Vec<_>>()
-            .join(
-                "
-",
-            );
-        assert!(!views_code.contains("serde_json::from_"));
+        // 只读视图模型已下沉到 `whcode-app::view_source`（T150），不再位于本 crate 的帧路径。
     }
 }

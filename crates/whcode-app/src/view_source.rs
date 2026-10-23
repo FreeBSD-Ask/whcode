@@ -1,13 +1,14 @@
-//! # TUI 六视图（T082、FR-601）
+//! # 前端共用的只读视图模型（T082／FR-601／FR-711）
 //!
-//! 会话树、任务、上下文、事件、Spec 状态、diff 预览——六个视图的数据**只读快照**
-//! （与 [`crate::render`] 的渲染纪律一致，§5.3）：数据由调用方预先准备为纯数据
-//! 结构（**不在帧路径反序列化 JSON**），渲染层只消费。
+//! 会话树、任务、上下文、事件、Spec 状态、diff 预览——六个视图的**只读快照**契约。
+//! 放在应用层是为了让 TUI 与原生 GUI 消费同一份数据形状：前端之间不得互相依赖
+//! （ADR-003/ADR-027），而快照的生成方（装配根）已依赖本 crate。
+//!
+//! 纪律（§5.3）：快照由调用方在**准备阶段**生成纯数据，帧路径不反序列化 JSON；
+//! 本模块只定义数据与选择逻辑，绘制与脏标记属各前端 crate。
 //!
 //! 视图内容（FR-601）：会话树（ID/标题/阶段/状态）、任务（状态/重试）、上下文
 //! （预算/游标）、事件（最近流）、Spec 状态（门禁/产物版本）、diff 预览（变更行）。
-//!
-//! 边界：本模块只定义视图数据与选择逻辑；绘制与脏标记属 [`crate::render`]。
 
 use serde::Serialize;
 
@@ -395,5 +396,27 @@ mod tests {
             vec!["预算 1/2".to_string()]
         );
         assert!(context.render_lines_limited(0).is_empty());
+    }
+}
+
+/// 视图数据源（准备层）：为给定视图准备**只读快照**。
+///
+/// 实现方必须立即返回纯数据：查询/整理应在调用方的准备阶段完成，不得在快照准备中
+/// 执行 LLM 网络 I/O 或长时间工具调用（§5.3 渲染线程纪律）。视图切换、会话选择
+/// （`j`/`k`）与显式刷新（`r`）时各准备一次；**帧路径不反序列化 JSON**（快照即纯数据）。
+///
+/// `session` 为当前选中的会话 ID（`None` = 尚未选择）；会话树视图忽略该参数。
+pub trait ViewSource {
+    /// 准备指定视图的只读快照（含会话范围）。
+    fn snapshot(&self, view: ViewId, session: Option<&str>) -> ViewSnapshot;
+}
+
+/// 空数据源：数据源不可用时的回退实现——六视图可切换、可绘制，界面提示“暂无数据”。
+#[derive(Debug, Default, Clone, Copy)]
+pub struct EmptyViewSource;
+
+impl ViewSource for EmptyViewSource {
+    fn snapshot(&self, view: ViewId, _session: Option<&str>) -> ViewSnapshot {
+        ViewSnapshot::empty(view)
     }
 }
