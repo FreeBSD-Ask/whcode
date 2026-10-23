@@ -43,7 +43,10 @@ pub use checkpoint::{
     Checkpoint, CheckpointPolicy, CheckpointState, CheckpointTrigger, retain_recent,
 };
 pub use errors::{UnavailableReason, requires_unavailable_runtime, runtime_unavailable};
-pub use payload::{PayloadMeta, fnv64, validate};
+pub use payload::{PayloadMeta, SourceAllowlist, fnv64, validate};
 pub use provider::{RuntimeProvider, Script, ensure_available};
 pub use providers::{BsdShellProvider, GitBashProvider, JsProvider, PythonProvider};
-pub use worker::{MAX_OUTPUT_BYTES, WorkerResult, execute};
+pub use worker::{
+    ConcurrencyGate, DEFAULT_MAX_CONCURRENT, GatePermit, MAX_OUTPUT_BYTES, WorkerResult, execute,
+    execute_with_cancel,
+};

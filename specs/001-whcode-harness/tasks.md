@@ -79,10 +79,10 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T024 [P] [US1] 在 `crates/whcode-tui/src/lib.rs` 实现最小 TUI 闭环：启动、键盘输入、resize、退出、异常恢复（V-003）（逻辑层测试通过；管道 stdin 挂起缺陷已修复并有自动冒烟脚本 `script/tui_smoke.py`；V-003 交互四项待人工）
 - [x] T025 [P] [US1] 在 `crates/whcode-ssh/src/proto.rs` 实现内置 SSH 客户端原型：公钥认证、连接与执行受限命令、取回输出、超时与输出上限、按 ADR-007 登记（FR-611；原为四 BSD 服务端原型，已按 ADR-011 修订为客户端原型）（服务端验收属 M7；V-004 未取得证据）
 - [x] T026 [US1] 在 `crates/whcode-store/src/writer.rs` 实现事件写者原型：幂等键、批次提交、关键事件确认、写入错误传播（V-005、FR-502）（14 例测试通过：含跨分块 seq 连续、跨 flush 去重、超 256 键去重、失败重试后 seq 无歧义；`flush_entries` 已改为批量插入：256 键/查询定位已存在键、64 行/语句多行 VALUES、插入前分配连续 seq，不再回读；实测吞吐 6 921 条/秒 @192MB，见 `artifacts/baseline-192mb.json`）
-- [x] T027 [US1] 在 `tests/stability/` 与 `ci/benchmarks/` 实现基线基准夹具：固定硬件/数据集/采样方法并记录测量纪律字段（V-006、R-12）（已产出 `crates/whcode-bin/src/bench.rs`、`ci/benchmarks/run-baseline.py`、`tests/stability/baseline_check.rs`；夹具内存参数已按 ADR-012 更正为 §5.4 基线 192MB。首批实测 158 条/秒；写者优化后复测中位数 **6 921 条/秒**（超 NFR-210 候选值），但**预算未冻结**——缺跨平台与 72 小时数据；24/72 小时稳定性测试未实现）
-- [x] T028 [US1] 在 `docs/matrices/platform-matrix.md` 与 `docs/adr/` 冻结平台矩阵与性能预算，或产出修订 ADR（V-006、D-01/D-06）（已产出平台矩阵与 ADR-011；**性能预算未冻结**——无可归档的跨平台基线，冻结条件已逐条列在矩阵中）
+- [x] T027 [US1] 在 `tests/stability/` 与 `ci/benchmarks/` 实现基线基准夹具：固定硬件/数据集/采样方法并记录测量纪律字段（V-006、R-12）（已产出 `crates/whcode-bin/src/bench.rs`、`ci/benchmarks/run-baseline.py`、`tests/stability/baseline_check.rs`；夹具内存参数已按 ADR-012 更正为 §5.4 基线 192MB。首批实测 158 条/秒；写者优化后复测中位数 **6 921 条/秒**（超 NFR-210 候选值）；**预算已按 ADR-025 冻结（2026-10-23，Windows 11 amd64）**，跨平台与 72 小时数据仍缺；24/72 小时稳定性测试未实现）
+- [x] T028 [US1] 在 `docs/matrices/platform-matrix.md` 与 `docs/adr/` 冻结平台矩阵与性能预算，或产出修订 ADR（V-006、D-01/D-06）（已产出平台矩阵与 ADR-011；**性能预算经 ADR-025 冻结（2026-10-23）**：范围 Windows 11 amd64、冻结值＝spec 候选值、NFR-208/210 实测达标、其余八项保持候选并登记责任人与退出条件；`platform-matrix.md` 冻结条件逐条标注）
 - [x] T029 [US1] 在 `docs/adr/ADR-001..010.md` 补齐批准记录（决策、理由、约束、状态、责任人、退出条件）（V-007、C-02）（ADR-001/002/003/004/006/007/008/009 已批准；**ADR-005 与 ADR-010 为部分批准**，未决条件已写明）
-- [x] T030 [US1] 在 `docs/matrices/decisions.md` 记录 D-01/D-02/D-03/D-04/D-06/D-12 的决策与证据（spec.md Assumptions）（D-01—D-13 全表，D-06 标为未冻结）
+- [x] T030 [US1] 在 `docs/matrices/decisions.md` 记录 D-01/D-02/D-03/D-04/D-06/D-12 的决策与证据（spec.md Assumptions）（D-01—D-13 全表；D-06 于 2026-10-23 改为“已冻结（Windows 11 amd64）”并链 ADR-025）
 - [x] T031 [US1] 产出 M0 退出报告 `artifacts/m0-report.md`：五平台证据包、Go/No-Go 陈述、阻塞项清单（§11.1 退出条件）（**结论：M0 整体未通过**——Windows Go，FreeBSD/NetBSD 环境阻塞，OpenBSD/DragonFly 按 ADR-011 不适用；V-003/V-004/V-006 未通过；阻塞项 B-01—B-08 已列明解除条件）
 
 **Checkpoint**: M0 通过后，平台与性能承诺方可冻结，后续里程碑可全面展开；任一硬目标失败须先解决或正式调整平台承诺
@@ -97,9 +97,9 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 
 - [x] T032 [US2] 在 `crates/whcode-store/src/schema.rs` 与 `crates/whcode-store/migrations/` 实现 14 张表的版本化 schema 与可重复迁移（FR-501、data-model.md §1）
 - [x] T033 [P] [US2] 在 `tests/integration/test_migration.rs` 实现“从上两个受支持版本迁移”测试，并验证迁移失败不误标新版本（NFR-103、§7.4）
-- [x] T034 [US2] 在 `crates/whcode-store/src/writer.rs` 完成写者服务：有界队列、`idempotency_key`、批量阈值（默认 500 行/50 ms，可配置）、关键事件显式 flush、失败可重试（FR-502/503、§7.3）
-- [x] T035 [P] [US2] 在 `crates/whcode-store/src/query.rs` 实现稳定排序键 + 游标分页（双向比较方向明确，禁止大 OFFSET 默认路径）（FR-504、§7.2）
-- [x] T036 [P] [US2] 在 `crates/whcode-store/src/indexes.rs` 建立 events/messages/tasks 索引，并以基准验证查询计划（不规定全表扫描一律失败）（§7.2、TBD-03）
+- [x] T034 [US2] 在 `crates/whcode-store/src/writer.rs` 完成写者服务：有界队列、`idempotency_key`、批量阈值（默认 500 行/50 ms，可配置）、关键事件显式 flush、失败可重试（FR-407、FR-502/503、§7.3）
+- [x] T035 [P] [US2] 在 `crates/whcode-store/src/query.rs` 实现稳定排序键 + 游标分页（双向比较方向明确，禁止大 OFFSET 默认路径）（FR-106、FR-504、§7.2）
+- [x] T036 [P] [US2] 在 `crates/whcode-store/src/indexes.rs` 建立 events/messages/tasks 索引，并以基准验证查询计划（不规定全表扫描一律失败）（FR-511、§7.2、TBD-03/TBD-10）
 - [x] T037 [P] [US2] 在 `crates/whcode-store/src/overview.rs` 实现 `session_overview` 预聚合与重建逻辑，标注强一致/最终一致字段（FR-506、§7.3-8）
 - [x] T038 [P] [US2] 在 `crates/whcode-store/src/monitor.rs` 实现数据库统计、查询计划分析、WAL 状态与写者队列监控（FR-507）
 - [x] T039 [US2] 在 `crates/whcode-store/src/purge.rs` 实现归档/按时间清理/TTL，含预览、确认、审计与活跃会话保护（FR-508/509）
@@ -129,7 +129,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T052 [US3] 在 `crates/whcode-app/src/task.rs` 实现任务 retry/abort：重试计数、可重试失败不丢失会话、不可恢复错误向上传播（FR-401/408）
 - [x] T053 [US3] 在 `tests/fixtures/gen_dataset.rs` 实现数据集生成器：10 万事件会话与 1 万任务（固定阶段分布）（V-101/V-102）
 - [x] T054 [US3] 在 `tests/integration/test_session_switch.rs` 验证 10 万事件会话切换的有界加载与游标无重复/无遗漏（V-101、SC-001）；**2026-10-22 修订**：新增 `test_extreme_scale.rs` 极限测试（1M 事件，60GB 会话库同构访问模式，资源铁律 X1—X5）——用户判定初版 100k 夹具过于保守
-- [x] T055 [US3] 在 `tests/integration/test_overview_perf.rs` 报告概览查询 p50/p95/p99 并对比冻结预算（V-102、SC-002）
+- [x] T055 [US3] 在 `tests/integration/test_overview_perf.rs` 报告概览查询 p50/p95/p99 并对比冻结预算（V-102、SC-002）（2026-10-23 更新：ADR-025 冻结 NFR-208 后测试更名为 `overview_p95_within_frozen_budget_and_report_is_archived`，报告字段 `budget.frozen=true`）
 
 **Checkpoint**: 应用服务闭环可经 CUI/测试夹具验证，三端可并行接入
 
@@ -223,7 +223,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T090 [US7] 在 `crates/whcode-web/src/api.rs` 实现 HTTP API 与 WebSocket，复用应用服务命令/快照/事件（FR-603、ADR-004）
 - [x] T091 [US7] 在 `crates/whcode-web/src/bind.rs` 实现默认 `127.0.0.1` 绑定；对外监听必须显式开启认证与 Origin 检查（FR-606）
 - [x] T092 [US7] 在 `crates/whcode-web/src/security.rs` 实现认证、授权、Origin 校验、消息大小限制，token 不经 URL query（§10.2）
-- [ ] T093 [P] [US7] 在 `crates/whcode-web/frontend/` 实现会话、任务、历史、追踪、SDD、清理与运行时业务界面（FR-609） **未完成（2026-10-23 复核）**：会话/任务/历史/SDD 四类已交付并在真实浏览器验证；追踪、清理、运行时三类未接入 Web（Check 93/183 未通过）
+- [x] T093 [P] [US7] 在 `crates/whcode-web/frontend/` 实现会话、任务、历史、追踪、SDD、清理与运行时业务界面（FR-609）（2026-10-23 更新：写命令落地后七类齐备——会话 `POST /api/sessions/new|rename|archive|delete`、任务 `POST /api/tasks/retry|abort`、历史 `GET /api/events`、追踪 `trace_level`、SDD `GET /api/status`、清理 `POST /api/purge`（预览→确认）、运行时 `GET /api/runtimes`；前端 `index.html`/`app.js` 接线并新增“维护”页签；自动化证据见 `api::tests::{session_write_commands_default_to_preview,task_write_commands_retry_and_abort,purge_preview_then_confirm,write_routes_reject_bad_bodies_and_missing_capability}` 与契约 `tui_cui_parity` 第 4 段；**真实浏览器逐项点按记录未取得**）
 - [x] T094 [P] [US7] 在 `crates/whcode-web/frontend/src/events.ts` 实现断线重连与按游标补齐（FR-605）（落点修订：ADR-014 不设打包器，前端为 `frontend/app.js` 单文件，无 `src/events.ts`；重连与游标续拉在 `app.js` 实现，浏览器实测见 `artifacts/web-browser-2026-10-22.txt`）
 - [x] T095 [US7] 在 `tests/contract/test_web_security_defaults.rs` 验证 V-110 安全默认值与三端（含 Web）一致性（V-109）
 
@@ -256,11 +256,11 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 **Independent Test**: 按 quickstart.md §8，验证 V-301—V-307
 
 - [x] T100 [US9] 在 `crates/whcode-runtime/src/provider.rs` 实现 Provider 接口（`name/capability/is_available/env_fingerprint/execute/terminate`）（FR-701）
-- [x] T101 [US9] 在 `crates/whcode-runtime/src/capability.rs` 实现能力等级 `Full/Restricted/ShellOnly` 并接入界面与门禁展示（FR-702）
-- [x] T102 [US9] 在 `crates/whcode-runtime/src/payload.rs` 实现 payload 独立分发与来源/版本/哈希/平台校验（FR-703、D-07）
+- [x] T101 [US9] 在 `crates/whcode-runtime/src/capability.rs` 实现能力等级 `Full/Restricted/ShellOnly` 并接入界面与门禁展示（FR-702）（2026-10-23 补记：新增 `whcode-bin::runtimes` 清单，经 `doctor --json`/`doctor` 人类输出/TUI 摘要 `tui.runtimes`/Web `GET /api/runtimes` 四处可见；界面路径不启动子进程）
+- [x] T102 [US9] 在 `crates/whcode-runtime/src/payload.rs` 实现 payload 独立分发与来源/版本/哈希/平台校验（FR-703、D-07）（2026-10-23 补记：新增 `SourceAllowlist`（默认拒绝）与固定顺序四重校验，来源不明返回不可重试的 `permission_denied`）
 - [x] T103 [US9] 在 `Cargo.toml` 与 `crates/whcode-runtime/src/lib.rs` 落实 feature 门控：未启用运行时不加载动态库、不占端口、不注册工具（FR-704）
-- [x] T104 [US9] 在 `crates/whcode-runtime/src/worker.rs` 实现受控子进程：超时、输出上限、取消、可用资源限制（FR-705）（2026-10-23 补记：新增启动前凭据环境剥离 `strip_credentials`，`worker::execute` 统一调用并有跨进程阳性/阴性对照用例；**取消与资源限制仍未实现**，Check 104 维持未通过）
-- [x] T105 [US9] 在 `crates/whcode-runtime/src/checkpoint.rs` 实现执行前检查点与脚本哈希/输入哈希/运行时指纹/工作目录策略记录（FR-706）（2026-10-23 补记：触发策略 `CheckpointPolicy`（定时/按步骤/危险操作前 + 保留数）落于 `whcode-domain::checkpoint`，运行时重导出；配置经 `Config.checkpoint` 加载期校验；调度器接线仍属 M8 装配，未接入 Provider 路径）
+- [x] T104 [US9] 在 `crates/whcode-runtime/src/worker.rs` 实现受控子进程：超时、输出上限、取消、可用资源限制（FR-705）（2026-10-23 补记：新增启动前凭据环境剥离 `strip_credentials`、协作式取消 `execute_with_cancel`（`AtomicBool` 轮询 ≤10 ms，`cancelled` 与超时区分）与 `ConcurrencyGate`（`Mutex`+`Condvar` 限并发、`GatePermit` RAII 归还，不新建线程）；**资源限制为“并发子进程上限”，OS 级 CPU/内存配额未实现**；Check 104 已通过）
+- [x] T105 [US9] 在 `crates/whcode-runtime/src/checkpoint.rs` 实现执行前检查点与脚本哈希/输入哈希/运行时指纹/工作目录策略记录（FR-405、FR-706）（2026-10-23 补记：触发策略 `CheckpointPolicy`（定时/按步骤/危险操作前 + 保留数）落于 `whcode-domain::checkpoint`，运行时重导出；配置经 `Config.checkpoint` 加载期校验；调度器接线仍属 M8 装配，未接入 Provider 路径）
 - [x] T106 [P] [US9] 在 `crates/whcode-runtime/src/cache.rs` 限制重复执行缓存仅用于纯函数或显式启用缓存的任务（FR-707）
 - [x] T107 [US9] 在 `crates/whcode-runtime/src/errors.rs` 实现能力不足/缺失/不兼容的结构化错误，并接入 Analyze 阻止执行（FR-708/710）
 - [x] T108 [P] [US9] 在 `crates/whcode-speckit/src/converge.rs` 支持绑定运行时测试（命令、环境指纹、退出状态、结果引用）（FR-709）
@@ -269,7 +269,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [ ] T111 [P] [US9] 在 `crates/whcode-runtime/src/python.rs` 实现 Python 子进程 worker 与受限实现档位（D-09、§4.7.1） **未完成（2026-10-23 复核）**：`runtime/src/python.rs` 不存在；`PythonProvider` 仅以系统解释器探测 `--version` 并构造受控子进程，未记录 ABI/解释器绝对路径，完整 worker 协议未实现（Check 111 未通过）
 - [ ] T112 [P] [US9] 在 `crates/whcode-runtime/src/gitbash.rs` 实现 Windows PortableGit payload 校验与 Bash/coreutils/管道/重定向验证（V-304） **未完成（2026-10-23 复核）**：`runtime/src/gitbash.rs` 不存在；仅探测 `git.exe --version`，未验证 PortableGit payload 哈希、Bash/coreutils、管道与重定向（`runtime-inventory.md` 亦标“未实现”，Check 112 未通过）
 - [x] T113 [P] [US9] 在 `crates/whcode-runtime/src/bsdshell.rs` 实现 BSD Shell provider，名称与能力不与 `gitbash` 混同（§4.7.1）
-- [ ] T114 [US9] 在 `tests/integration/test_runtime_acceptance.rs` 与 `tests/crash/test_side_effect_recovery.rs` 覆盖 V-301—V-307（含三时点中断 → `unknown`） **部分完成（2026-10-23）**：`tests/crash/test_side_effect_recovery.rs` 已交付（四个注入点覆盖三时点中断 → `unknown`，V-105/V-307）；V-304 仍无用例，任务保持未完成（Check 114 未通过）
+- [ ] T114 [US9] 在 `tests/integration/test_runtime_acceptance.rs` 与 `tests/crash/test_side_effect_recovery.rs` 覆盖 V-301—V-307（含三时点中断 → `unknown`）（FR-406、FR-410） **部分完成（2026-10-23）**：`tests/crash/test_side_effect_recovery.rs` 已交付（四个注入点覆盖三时点中断 → `unknown`，V-105/V-307）；V-304 仍无用例，任务保持未完成（Check 114 未通过）
 
 **Checkpoint**: 运行时能力矩阵与限制可公开声明
 
@@ -281,7 +281,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 
 **Independent Test**: 按 quickstart.md §9，产出时间序列报告与发布清单核对结果
 
-- [ ] T115 [US10] 在 `crates/*/src/` 按冻结预算优化热点（先测量后优化，禁止 `Box::leak` 通用化）（NFR-201—210、§5.3）**阻塞（2026-10-22）**：D-06 预算未冻结（缺跨平台基线与 72h 时间序列）；分配器决策已按 ADR-020 冻结（默认系统分配器），热点优化在其前置就绪前不得进行
+- [ ] T115 [US10] 在 `crates/*/src/` 按冻结预算优化热点（先测量后优化，禁止 `Box::leak` 通用化）（NFR-201—210、§5.3）**阻塞（2026-10-23 更新）**：预算已由 ADR-025 冻结，但“按冻结预算优化热点”的前置（热点定位 + 同夹具前后对比）未取得，任务保持未完成；分配器决策已按 ADR-020 冻结（默认系统分配器）
 - [ ] T116 [P] [US10] 在 `tests/stability/run_stability.sh` 执行 24 小时（候选发布 72 小时）稳定性测试并采集规定指标（§11.5）**阻塞（2026-10-22）**：需 24/72h 连续运行环境；NFR-204 长时泄漏斜率未测量。**部分进展（2026-10-23）**：四类故障情形已纳入 `tests/stability/test_failure_modes.rs`（Check 206 通过）；长跑与指标时间序列仍未取得，任务保持未完成
 - [x] T117 [P] [US10] 在 `docs/adr/ADR-ALLOCATOR.md` 记录分配器决策：默认系统分配器，除非基准证明有益（D-11）
 - [ ] T118 [US10] 在 `ci/` 与 `docs/matrices/` 产出 Windows 11 amd64 发布包、平台兼容矩阵与已知限制说明（BSD 延后并在限制中注明；§12.2、§9.1、ADR-013） **未完成（2026-10-23 复核）**：`ci/` 无打包脚本、无发布包与安装验证；“兼容矩阵与已知限制”部分已交付（Check 118 未通过）
@@ -302,7 +302,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [ ] T124 [P] 按 `quickstart.md` 全流程执行一次端到端验证并记录产物（§10 验证记录要求） **未完成（2026-10-23 复核）**：仅有 `doctor` 冒烟，未按 `quickstart.md` 全流程执行并归档产物（Check 124 未通过）
 - [x] T125 [P] 契约兼容审查：事件 schema、快照 schema、CUI JSON 的版本与变更记录（§8.3、§15）
 - [x] T126 清理与重构：clippy 清理、模块边界复核、删除未使用 feature 与死代码
-- [ ] T127 追溯审计：spec FR ↔ tasks ↔ checklist.md 三方引用完整性复核（FR-305/306） **未完成（2026-10-23 复核）**：`ci/check_counts.py` 只校验数量一致，无断链审计输出（Check 127 未通过）
+- [x] T127 追溯审计：spec FR ↔ tasks ↔ checklist.md 三方引用完整性复核（FR-305/306）（2026-10-23 交付 `ci/traceability.py`：六条判据含缺口登记合规；输出“FR→任务缺 0，FR→验收缺 0，幻影 0，已登记缺口 3，无断链”；检查点家族（增量差分／同事务提交／恢复加载引用）的三个缺口以登记节承载，不在正文冒充覆盖）
 - [x] T134 [P] 目录分类门禁：`tests/contract/test_layout.rs` 将 `docs/guides/repository-layout.md` 的五类分层编码为可执行检查（顶层条目白名单、crate 命名、tests 六类 + README、docs/ci 子目录、specs 命名、本地目录防源码混入），随 CI 与每 PR 运行（7 例检查全过，门禁首跑即抓到并清除误建目录；LF/编码策略与 SECURITY.md 白名单已并入）
 - [x] T138 [P] 建立软件工程过程文档 `docs/guides/software-engineering-process.md`：迭代增量模型、阶段门禁 G0—G5（输入/活动/产物/退出判据）、单人项目下的评审替代机制、产物映射表
 - [x] T139 [P] 建立需求工程规范 `docs/guides/requirements-engineering.md`：FR 模板、需求质量判据、三方追溯抽查方法、变更控制流程（以 ADR-012/ADR-013 为案例）

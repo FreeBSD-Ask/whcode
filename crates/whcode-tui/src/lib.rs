@@ -845,7 +845,8 @@ mod tests {
     /// Check 83（帧预算）：帧渲染分位数归档到 `artifacts/tui-frame-budget.json`。
     ///
     /// 测量纪律（§5.2 同族）：固定夹具（10k 行事件快照）、预热 5 次、采样 50 次，
-    /// 报告微秒分位数；对比的是**候选**预算（未冻结）。
+    /// 报告微秒分位数；对比的是 **UI 自定候选预算（16 ms）**——它不属于 NFR-201—210，
+    /// 因此**不随 ADR-025 冻结**，仅作回归参照（冻结须另立 ADR 并附同夹具前后对比）。
     ///
     /// 两段测量：
     /// 1. **帧路径**（`render_lines_limited(rows)` + 绘制到 80×24 缓冲）——帧成本由
@@ -896,7 +897,8 @@ mod tests {
         assert!(p50 <= p95 && p95 <= p99, "分位数必须单调");
         eprintln!(
             "TUI 帧渲染（事件视图 10k 行快照，80×24，有界投影）：p50 {p50} µs / \
-             p95 {p95} µs / p99 {p99} µs（候选预算 p95 ≤ {CANDIDATE_P95_BUDGET_US} µs；未冻结）"
+             p95 {p95} µs / p99 {p99} µs（UI 自定候选预算 p95 ≤ {CANDIDATE_P95_BUDGET_US} µs；\
+             不在 NFR-201—210 内，不随 ADR-025 冻结）"
         );
         assert!(
             p95 <= CANDIDATE_P95_BUDGET_US,
@@ -933,7 +935,7 @@ mod tests {
             "budget": {
                 "candidate_p95_us": CANDIDATE_P95_BUDGET_US,
                 "frozen": false,
-                "note": "候选预算未冻结（同 D-06 家族）：缺跨平台基线与 72h 时间序列；本报告不作验收承诺"
+                "note": "UI 自定候选预算：不属于 NFR-201—210，不随 ADR-025 冻结；本报告仅作回归参照"
             },
             "platform": "windows-amd64",
             "date": "2026-10-22"

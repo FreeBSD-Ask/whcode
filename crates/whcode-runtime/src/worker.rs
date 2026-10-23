@@ -12,12 +12,92 @@
 //! `whcode_platform`（FR-409，M8/T109）。
 
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Condvar, Mutex, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use whcode_domain::{ErrorCode, WhError};
 
 /// 默认输出上限（字节，FR-705）。
 pub const MAX_OUTPUT_BYTES: usize = 1024 * 1024;
+
+/// 默认并发子进程上限（资源纪律：进程级有界；取 `min(4, 可用并行度)`）。
+pub const DEFAULT_MAX_CONCURRENT: usize = 4;
+
+static DEFAULT_GATE: OnceLock<ConcurrencyGate> = OnceLock::new();
+
+/// 进程级默认并发闸门（首次使用时按 `min(4, 可用并行度)` 初始化为 [`DEFAULT_MAX_CONCURRENT`]
+/// 上限内的值；不创建线程）。
+fn default_gate() -> &'static ConcurrencyGate {
+    DEFAULT_GATE.get_or_init(|| {
+        let cores = whcode_platform::available_physical_cores();
+        let limit = whcode_platform::thread_budget(cores) as usize;
+        ConcurrencyGate::new(limit.min(DEFAULT_MAX_CONCURRENT))
+    })
+}
+
+/// 有界并发闸门（Mutex + Condvar；不创建线程、不预分配缓冲）。
+#[derive(Debug)]
+pub struct ConcurrencyGate {
+    limit: usize,
+    active: Mutex<usize>,
+    released: Condvar,
+}
+
+impl ConcurrencyGate {
+    /// 构造闸门；`limit` 为 0 时按 1 处理（不允许无限并发）。
+    #[must_use]
+    pub fn new(limit: usize) -> Self {
+        Self {
+            limit: limit.max(1),
+            active: Mutex::new(0),
+            released: Condvar::new(),
+        }
+    }
+
+    /// 并发上限。
+    #[must_use]
+    pub fn limit(&self) -> usize {
+        self.limit
+    }
+
+    /// 当前占用的并发数。
+    #[must_use]
+    pub fn active(&self) -> usize {
+        *self.active.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// 申请一个许可；达到上限时**阻塞等待**（调用方须保证在执行路径而非渲染路径）。
+    pub fn acquire(&self) -> GatePermit<'_> {
+        let mut active = self.active.lock().unwrap_or_else(PoisonError::into_inner);
+        while *active >= self.limit {
+            active = self
+                .released
+                .wait(active)
+                .unwrap_or_else(PoisonError::into_inner);
+        }
+        *active += 1;
+        GatePermit { gate: self }
+    }
+}
+
+/// 并发许可；`Drop` 时归还名额并唤醒一个等待者。
+#[derive(Debug)]
+pub struct GatePermit<'a> {
+    gate: &'a ConcurrencyGate,
+}
+
+impl Drop for GatePermit<'_> {
+    fn drop(&mut self) {
+        let mut active = self
+            .gate
+            .active
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        *active = active.saturating_sub(1);
+        self.gate.released.notify_one();
+    }
+}
 
 /// 凭据型环境变量名的子串标记（大写比较；命中即从子进程环境移除）。
 ///
@@ -91,6 +171,8 @@ pub struct WorkerResult {
     pub stderr_tail: String,
     /// 是否超时被终止。
     pub timed_out: bool,
+    /// 是否因取消请求被终止（FR-705：取消与超时可区分）。
+    pub cancelled: bool,
 }
 
 fn tail(bytes: Vec<u8>, max: usize) -> String {
@@ -101,6 +183,9 @@ fn tail(bytes: Vec<u8>, max: usize) -> String {
 
 /// 受控执行：子命令 + 超时 + 输出上限；超时经 `kill` 终止（进程树清理属平台层）。
 ///
+/// 并发由进程级 [`ConcurrencyGate`] 约束（默认 `min(4, 可用并行度)`），不会为每个
+/// 子进程创建线程；取消请求经 [`execute_with_cancel`] 的共享标志生效。
+///
 /// # Errors
 ///
 /// 启动失败或超时错误返回 [`WhError`]；`stdout_tail`/`stderr_tail` 保留尾部。
@@ -109,6 +194,24 @@ pub fn execute(
     timeout: Duration,
     max_output: usize,
 ) -> Result<WorkerResult, WhError> {
+    execute_with_cancel(command, timeout, max_output, None)
+}
+
+/// 同 [`execute`]，并支持**协作式取消**：`cancel` 置位后在下一次轮询（≤10 ms）终止子进程。
+///
+/// 取消与超时的区别写入结果（`cancelled` / `timed_out`），调用方不得把两者混为一谈。
+///
+/// # Errors
+///
+/// 启动或读取输出失败时返回 [`WhError`]。
+pub fn execute_with_cancel(
+    command: &mut Command,
+    timeout: Duration,
+    max_output: usize,
+    cancel: Option<&AtomicBool>,
+) -> Result<WorkerResult, WhError> {
+    // 资源上限：并发子进程闸门（有界；许可在函数返回时自动归还）。
+    let _permit = default_gate().acquire();
     // 凭据隔离（§10.2）：先剥离再接管管道；只记名不记值。
     let _ = strip_credentials(command);
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -117,6 +220,17 @@ pub fn execute(
         .map_err(|err| WhError::new(ErrorCode::IoError, format!("启动子进程失败：{err}")))?;
     let started = Instant::now();
     loop {
+        if cancel.is_some_and(|flag| flag.load(Ordering::SeqCst)) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Ok(WorkerResult {
+                exit_code: None,
+                stdout_tail: String::new(),
+                stderr_tail: String::new(),
+                timed_out: false,
+                cancelled: true,
+            });
+        }
         match child
             .try_wait()
             .map_err(|err| WhError::new(ErrorCode::IoError, format!("{err}")))?
@@ -130,6 +244,7 @@ pub fn execute(
                     stdout_tail: tail(output.stdout, max_output),
                     stderr_tail: tail(output.stderr, max_output),
                     timed_out: false,
+                    cancelled: false,
                 });
             }
             None if started.elapsed() >= timeout => {
@@ -141,6 +256,7 @@ pub fn execute(
                     stdout_tail: String::new(),
                     stderr_tail: String::new(),
                     timed_out: true,
+                    cancelled: false,
                 });
             }
             None => {
@@ -153,6 +269,82 @@ pub fn execute(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicUsize;
+
+    /// Check 104：输出上限触发——只保留尾部，不随输出增长。
+    #[test]
+    fn output_is_capped_to_tail() {
+        let mut command = whcode_platform::shell_command("echo 0123456789abcdef0123456789abcdef");
+        let result = execute(&mut command, Duration::from_secs(10), 8).expect("执行");
+        assert!(
+            result.stdout_tail.len() <= 8,
+            "尾部不得超过上限：{:?}",
+            result.stdout_tail
+        );
+        assert!(
+            !result.stdout_tail.contains("0123"),
+            "不得保留全部输出：{:?}",
+            result.stdout_tail
+        );
+    }
+
+    /// Check 104：取消在轮询间隔内生效，且与超时可区分（`cancelled` vs `timed_out`）。
+    #[test]
+    fn cancel_terminates_child_and_is_distinguishable_from_timeout() {
+        let mut command = whcode_platform::sleep_command(30);
+        let flag = Arc::new(AtomicBool::new(false));
+        let worker_flag = Arc::clone(&flag);
+        let started = Instant::now();
+        let handle = std::thread::spawn(move || {
+            execute_with_cancel(
+                &mut command,
+                Duration::from_secs(30),
+                MAX_OUTPUT_BYTES,
+                Some(worker_flag.as_ref()),
+            )
+        });
+        std::thread::sleep(Duration::from_millis(300));
+        flag.store(true, Ordering::SeqCst);
+        let result = handle.join().expect("等待线程").expect("执行");
+        assert!(result.cancelled, "必须报告已取消");
+        assert!(!result.timed_out, "取消不得混同为超时");
+        assert_eq!(result.exit_code, None);
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "取消必须在轮询间隔内生效（实际 {:?}）",
+            started.elapsed()
+        );
+    }
+
+    /// Check 104：并发闸门有界，许可在 Drop 时归还（资源上限的触发测试）。
+    #[test]
+    fn concurrency_gate_bounds_active_workers_and_releases_permits() {
+        let gate = Arc::new(ConcurrencyGate::new(2));
+        assert_eq!(gate.limit(), 2);
+        let peak = Arc::new(AtomicUsize::new(0));
+        let mut handles = Vec::new();
+        for _ in 0..6 {
+            let gate = Arc::clone(&gate);
+            let peak = Arc::clone(&peak);
+            handles.push(std::thread::spawn(move || {
+                let _permit = gate.acquire();
+                peak.fetch_max(gate.active(), Ordering::SeqCst);
+                std::thread::sleep(Duration::from_millis(30));
+            }));
+        }
+        for handle in handles {
+            handle.join().expect("等待线程");
+        }
+        assert!(
+            peak.load(Ordering::SeqCst) <= 2,
+            "并发不得超过上限（实测峰值 {}）",
+            peak.load(Ordering::SeqCst)
+        );
+        assert_eq!(gate.active(), 0, "许可必须全部归还");
+        // limit=0 按 1 处理：不允许无限并发。
+        assert_eq!(ConcurrencyGate::new(0).limit(), 1);
+    }
 
     #[test]
     fn worker_executes_and_returns_exit_code() {

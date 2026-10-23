@@ -174,6 +174,14 @@ impl StoreViewSource {
                 ("truncated", &truncated),
             ],
         );
+        // 三档能力等级在 UI 可见（FR-702、Check 101）：界面路径不探测子进程，只展示声明。
+        let runtimes = crate::runtimes::summary(false);
+        snapshot.summary = format!(
+            "{} · {}",
+            snapshot.summary,
+            self.texts
+                .resolve_fmt("tui.runtimes", &[("list", &runtimes)])
+        );
         Ok(snapshot)
     }
 

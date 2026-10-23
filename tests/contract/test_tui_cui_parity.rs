@@ -107,7 +107,7 @@ fn same_read_commands_yield_identical_state_across_cui_and_web() {
         conn
     }
 
-    let conn = migrated();
+    let mut conn = migrated();
     conn.execute(
         "INSERT INTO sessions (id, title, created_at, last_active_at, status, stage)
          VALUES ('S-P', '一致性', epoch_ms(1000), epoch_ms(1000), 'active', 'implement')",
@@ -145,7 +145,7 @@ fn same_read_commands_yield_identical_state_across_cui_and_web() {
     )
     .expect("CUI 事件");
     let web_events = whcode_web::api::handle_request(
-        &conn,
+        &mut conn,
         false,
         None,
         &whcode_web::security::ALLOWED_ORIGINS,
@@ -176,7 +176,7 @@ fn same_read_commands_yield_identical_state_across_cui_and_web() {
     let cui_sessions =
         whcode_app::list_sessions(&conn, &policy, &actor, false, 200).expect("CUI 会话");
     let web_sessions = whcode_web::api::handle_request(
-        &conn,
+        &mut conn,
         false,
         None,
         &whcode_web::security::ALLOWED_ORIGINS,
@@ -198,7 +198,7 @@ fn same_read_commands_yield_identical_state_across_cui_and_web() {
     let cui_tasks =
         whcode_app::task_overview(&conn, &policy, &actor, Some("S-P")).expect("CUI 任务总览");
     let web_tasks = whcode_web::api::handle_request(
-        &conn,
+        &mut conn,
         false,
         None,
         &whcode_web::security::ALLOWED_ORIGINS,
@@ -209,6 +209,53 @@ fn same_read_commands_yield_identical_state_across_cui_and_web() {
     assert_eq!(cui_tasks.total, web_tasks["total"], "任务总数一致");
     assert_eq!(cui_tasks.done, web_tasks["done"], "完成任务数一致");
     assert_eq!(cui_tasks.blocked, web_tasks["blocked"], "阻塞任务数一致");
+
+    // 4) 写命令（FR-609/604）：同一会话创建，CUI 路径（app::new_session）与
+    //    Web `POST /api/sessions/new` 返回同一形状的 `session` 对象。
+    let cui_created = whcode_app::new_session(
+        &conn,
+        &policy,
+        &actor,
+        whcode_app::NewSession {
+            title: "写命令一致性".to_string(),
+            model: None,
+        },
+        2_000,
+    )
+    .expect("CUI 创建");
+    let mut post = request(Method::Post, "/api/sessions/new");
+    post.body = serde_json::to_vec(&serde_json::json!({"title": "写命令一致性"})).expect("体");
+    let web_created = whcode_web::api::handle_request(
+        &mut conn,
+        false,
+        None,
+        &whcode_web::security::ALLOWED_ORIGINS,
+        &post,
+        &actor,
+    );
+    assert_eq!(web_created.status, 201, "写命令成功语义一致");
+    let web_created: serde_json::Value =
+        serde_json::from_slice(&web_created.body).expect("Web JSON");
+    let cui_shape = whcode_app::session_value(&cui_created);
+    let mut web_keys: Vec<&str> = web_created["session"]
+        .as_object()
+        .expect("对象")
+        .keys()
+        .map(String::as_str)
+        .collect();
+    let mut cui_keys: Vec<&str> = cui_shape
+        .as_object()
+        .expect("对象")
+        .keys()
+        .map(String::as_str)
+        .collect();
+    web_keys.sort_unstable();
+    cui_keys.sort_unstable();
+    assert_eq!(cui_keys, web_keys, "写命令返回的 session 字段集合必须一致");
+    assert_eq!(
+        web_created["session"]["title"], "写命令一致性",
+        "同一标题写入结果一致"
+    );
 }
 
 #[test]

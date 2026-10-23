@@ -51,7 +51,7 @@ fn v302_declarations_state_concrete_limits() {
     );
 }
 
-/// V-303：payload 平台/哈希校验（FR-703）。
+/// V-303：payload 来源/平台/哈希校验（FR-703）。
 #[test]
 fn v303_payload_validation_is_enforced() {
     let meta = PayloadMeta {
@@ -60,14 +60,26 @@ fn v303_payload_validation_is_enforced() {
         platform: "windows-amd64".to_string(),
         checksum: whcode_runtime::fnv64(b"payload"),
     };
-    assert!(validate(b"payload", &meta, "windows-amd64").is_ok());
+    let allowlist = whcode_runtime::SourceAllowlist::new(["https://example.com"]);
+    assert!(validate(b"payload", &meta, "windows-amd64", &allowlist).is_ok());
     assert!(
-        validate(b"payload", &meta, "linux-amd64").is_err(),
+        validate(b"payload", &meta, "linux-amd64", &allowlist).is_err(),
         "平台不匹配拒绝"
     );
     assert!(
-        validate(b"other", &meta, "windows-amd64").is_err(),
+        validate(b"other", &meta, "windows-amd64", &allowlist).is_err(),
         "哈希漂移拒绝"
+    );
+    // 来源不在白名单：默认拒绝（空白名单拒绝一切）。
+    assert!(
+        validate(
+            b"payload",
+            &meta,
+            "windows-amd64",
+            &whcode_runtime::SourceAllowlist::default()
+        )
+        .is_err(),
+        "未配置来源不得放行"
     );
 }
 

@@ -16,6 +16,7 @@ mod bench;
 mod config;
 mod cui_dispatch;
 mod logging;
+mod runtimes;
 mod serve;
 mod store_source;
 mod workspace;
@@ -327,6 +328,8 @@ fn doctor(args: &[String]) {
             "whcode_version": BUILD_STAMP,
             "duckdb_engine_version": engine_version,
             "duckdb_error": engine_error,
+            // 三档能力等级在门禁输出中可见（FR-702、Check 101）；探针仅在显式 doctor 执行。
+            "runtimes": runtimes::inventory(true),
             "doctor": &config,
         });
         match serde_json::to_string(&payload) {
@@ -344,6 +347,13 @@ fn doctor(args: &[String]) {
             config.db.memory_limit_mb
         );
         println!("trace_default: {}", config.trace.default_level);
+        // 三档能力等级（FR-702）：受限运行时列明不支持项，不表述为完整生态（D-08）。
+        println!("runtimes: {}", runtimes::summary(true));
+        for entry in runtimes::inventory(true) {
+            if !entry.unsupported.is_empty() {
+                println!("  {} 不支持：{}", entry.name, entry.unsupported.join("、"));
+            }
+        }
         match &engine {
             Ok(version) => println!("duckdb_engine_version: {version}"),
             Err(err) => println!("duckdb_engine_version: 不可用（{err}）"),

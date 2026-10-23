@@ -8,7 +8,7 @@
 
 **缺口说明**：spec 全部 79 条 FR（含 2026-10-21 新增的 FR-611—FR-618）、NFR-101—107/201—222、V-001—V-307 与 tasks.md 全部 148 条任务均有对应检查点，本清单 Check 1—249，无遗漏项。平台承诺已按 ADR-011 修订，OpenBSD/DragonFly 的判据由服务端改为客户端。FR-406（并行调度）与 research.md TBD-01—TBD-10 属任务书定义的延后/待验证能力，其检查点判据为“未通过前置条件时不得声称已交付”（见 Check 172、Check 22 起 M0 相关项）。史料／考据类判据：本项目无历史文献类需求；对应物为源文本基线不可改写与 [S1]—[S8] 证据锚点可定位，见 Check 215/216。
 
-**复核记录（2026-10-23）**：Check 1—249 已逐条取证落笔，现状 **200 项通过 / 49 项未通过**（2026-10-23 收敛表修复：144/171/224/206/221 转入通过，Check 201 的 Windows 侧已自动化但 BSD 证据缺失）；其中第二、三层（Check 128—249）仍有 21 项未通过，按根因归并为 9 类，闭环动作见 `artifacts/progress-review-2026-10-23.md` §10—§12。
+**复核记录（2026-10-23）**：Check 1—249 已逐条取证落笔，现状 **209 项通过 / 40 项未通过**（2026-10-23 收敛表修复：144/171/224/206/221 转入通过，Check 201 的 Windows 侧已自动化但 BSD 证据缺失）；其中第二、三层（Check 128—249）仍有 21 项未通过，按根因归并为 9 类，闭环动作见 `artifacts/progress-review-2026-10-23.md` §10—§13。**2026-10-23 里程碑批次（ADR-024/025 + Web 写命令 + 追溯门禁）**新增通过 9 项：55、93、101、102、104、127、133、136、183；未通过降至 40 项。
 
 ---
 
@@ -49,9 +49,9 @@
 - [ ] Check 25: 内置 SSH 客户端（FR-611）在 Windows 与四类 BSD 的连通性、受限命令、超时与输出上限有客户端侧记录；FreeBSD/NetBSD 服务端验收属 M7，V-004 未取得证据者须标明阻塞（来源：Task T025、FR-611、ADR-011）——**复核（2026-10-23，批次一）**：**未通过**：客户端原型 9 例（含连接失败/退出码映射/超时）通过，但 Windows 与四类 BSD 的连通性、受限命令、超时与输出上限的**平台记录未取得**（V-004 属 M7，ADR-013 延后）
 - [x] Check 26: 写者原型测试通过：重复幂等键去重、批次阈值触发、关键事件 flush 确认、写入失败返回可重试错误（来源：Task T026、V-005）——**复核（2026-10-23，批次一）**：`whcode-store` 90 例通过，含幂等键去重、批次阈值、关键事件 flush 确认、失败后重试 seq 无歧义（`writer.rs` 相关用例）
 - [x] Check 27: 基线报告含全部测量纪律字段（OS/硬件/编译类型/工具链/DuckDB 版本/参数/数据规模/采样窗口/脚本）（来源：Task T027、V-006）——**复核（2026-10-23，批次一）**：`artifacts/m0-report.md` §2 测量纪律 11 字段齐备（OS/CPU/内存/编译类型/工具链/DuckDB/参数/规模/采样/脚本）；`baseline-192mb.json` 中机器采集字段显式标注由编排脚本补齐，未伪造
-- [x] Check 28: `docs/matrices/platform-matrix.md` 标注各预算为“已冻结”或链接修订 ADR，无“未测量即承诺”表述（来源：Task T028、V-006）——**复核（2026-10-23，批次一）**：`docs/matrices/platform-matrix.md` 明写“**结论：未冻结**”并列出 5 条冻结条件；无“未测量即承诺”的表述
+- [x] Check 28: `docs/matrices/platform-matrix.md` 标注各预算为“已冻结”或链接修订 ADR，无“未测量即承诺”表述（来源：Task T028、V-006）——**复核（2026-10-23，批次一）**：`docs/matrices/platform-matrix.md` 明写“**结论：未冻结**”并列出 5 条冻结条件；无“未测量即承诺”的表述——**复核（2026-10-23，预算冻结批次）**：预算节改为“**已冻结（ADR-025；范围＝Windows 11 amd64）**”，逐条标注冻结条件 1/2/3/5 已满足、4（72 h 序列）未满足，并写明“未测项保持候选、不得以未测充当达标”
 - [x] Check 29: ADR-001—014 批准记录各含决策、理由、约束、状态、责任人、退出条件六要素（来源：Task T029、V-007）——**复核（2026-10-23，批次一）**：抽查 ADR-001/005/010/012/016：均含决策、理由与约束、状态、责任人、退出条件；005/010/012 为部分批准并写明未决条件与解除路径
-- [x] Check 30: `docs/matrices/decisions.md` 对 D-01/D-02/D-03/D-04/D-06/D-12/D-13/D-14 各有决策结果与证据引用（来源：Task T030）——**复核（2026-10-23，批次一）**：`docs/matrices/decisions.md` 含 D-01—D-14 全表（决策/依据/责任人/状态）与 R-01—R-13 风险台账；D-06 标未冻结
+- [x] Check 30: `docs/matrices/decisions.md` 对 D-01/D-02/D-03/D-04/D-06/D-12/D-13/D-14 各有决策结果与证据引用（来源：Task T030）——**复核（2026-10-23，批次一）**：`docs/matrices/decisions.md` 含 D-01—D-14 全表（决策/依据/责任人/状态）与 R-01—R-13 风险台账；D-06 标未冻结——**复核（2026-10-23，预算冻结批次）**：D-06 改为“已冻结（2026-10-23，Windows 11 amd64）”并链到 ADR-025；D-08/D-09/D-11 同批更新（ADR-024/025）
 - [x] Check 31: `artifacts/m0-report.md` 含五平台证据包链接与逐平台 Go/No-Go 陈述；ADR-013 后仅 Windows 作为验收结论，其余平台标注延后（来源：Task T031、§11.1、ADR-013）——**复核（2026-10-23，批次一）**：`artifacts/m0-report.md` §1 逐平台 Go/No-Go（Windows Go；FreeBSD/NetBSD 环境阻塞；OpenBSD/DragonFly 不适用），并引用 ADR-013/016 的当前口径
 
 ### Phase 4 US2 M1（T032—T045）
@@ -59,7 +59,7 @@
 - [x] Check 32: 14 张表 schema 存在且 `schema_migrations` 可重复执行不报错（来源：Task T032、FR-501）——**复核（2026-10-23，批次二）**：`schema::creates_all_tables_and_is_idempotent`、`version_matches_latest_migration`、`migration_versions_are_strictly_increasing` 通过；迁移脚本 `0001`—`0005` 可重复执行
 - [x] Check 33: 从上两个受支持 schema 版本的迁移测试通过；人为中断迁移后版本号未前移（来源：Task T033、NFR-103、§7.4）——**复核（2026-10-23，批次二）**：`test_migration` 覆盖 v1—v5 逐级升级与 `interrupted_v2/v3_migration_rolls_back_partial_changes`；`schema::failed_migration_does_not_mark_version` 断言失败不前移版本号
 - [x] Check 34: 写者服务测试：队列有界、幂等键去重、500 行/50 ms 阈值可配置、关键事件 flush 返回确认（来源：Task T034、FR-502/503）——**复核（2026-10-23，批次二）**：写者服务：`queue_is_bounded_and_reports_backpressure`、`batch_row_threshold_triggers_commit`、`batch_window_deadline_triggers_commit`、`critical_event_is_committed_and_confirmed`、`batch_row_threshold_is_configurable` 全通过
-- [x] Check 35: 游标分页测试：同页请求两次结果一致，向前/向后翻页无重复无遗漏（来源：Task T035、FR-504）——**复核（2026-10-23，批次二）**：`query::forward_pages_cover_events_without_gaps_or_duplicates`、`backward_pages_…`、`cursors_are_exclusive_in_both_directions`、`page_size_is_bounded_and_validated` 通过
+- [x] Check 35: 游标分页测试：同页请求两次结果一致，向前/向后翻页无重复无遗漏（来源：Task T035、FR-106/504）——**复核（2026-10-23，批次二）**：`query::forward_pages_cover_events_without_gaps_or_duplicates`、`backward_pages_…`、`cursors_are_exclusive_in_both_directions`、`page_size_is_bounded_and_validated` 通过
 - [x] Check 36: events/messages/tasks 索引存在，基准报告显示关键查询使用索引或已论证计划合理（来源：Task T036、§7.2）——**复核（2026-10-23，批次二）**：`indexes::required_indexes_exist_after_migration` + `artifacts/query-plan-report.json`（`query_plan_experiment` 记录，逐条给出计划与理由）
 - [x] Check 37: `session_overview` 预聚合可由原始数据重建且重建结果与统计一致（来源：Task T037、FR-506）——**复核（2026-10-23，批次二）**：`overview::rebuild_persists_row_and_load_matches_compute`、`stale_row_is_detected_and_rebuild_refreshes_it`、`consistency_annotation_partitions_fields` 通过（强/最终一致字段已分区）
 - [x] Check 38: 监控输出含数据库统计、查询计划、WAL 状态、写者队列深度四类信息（来源：Task T038、FR-507）——**复核（2026-10-23，批次二）**：`monitor::collect_reports_database_tables_wal_writer_and_plans` 断言四类信息齐备；`plan_query_rejects_write_statements` 拒绝写计划
@@ -82,7 +82,7 @@
 - [x] Check 52: 任务 retry 递增 retry_count；abort 后状态为 aborted 且会话不丢失（来源：Task T052、FR-401/408）——**复核（2026-10-23，批次二）**：`task::retry_moves_failed_to_ready_and_increments_count_without_touching_session`、`retry_allows_aborted_and_interrupted`、`retry_rejects_completed_running_pending_and_unknown`、`abort_moves_active_to_aborted…` 通过
 - [x] Check 53: 夹具生成器可稳定产出 10 万事件/1 万任务数据集并有规模断言（来源：Task T053）——**复核（2026-10-23，批次二）**：`tests/fixtures/gen_dataset.rs::generate(events, tasks)` 支持任意规模；`overview_perf` 以 1 000 事件 + **10 000 任务**断言 `total == 10 000`，`extreme_scale` 以 **1 000 000 事件**断言精确行数与页数；`dataset_generator_is_deterministic_across_runs` 保证可复现
 - [x] Check 54: 分页游标在 10 万事件数据集上无重复、无遗漏（边界探测脚本输出零差集）（来源：Task T054、V-101）——**复核（2026-10-23，批次二）**：`session_switch_is_bounded_and_cursor_pages_have_no_duplicates_or_gaps`（10 万事件）与 `extreme_scale_pagination_aggregation_cleanup_and_switch`（100 万事件、1000 页、无重无漏）通过
-- [ ] Check 55: 概览查询在 1 万任务数据集上报告 p50/p95/p99 且 p95 ≤ 冻结预算（来源：Task T055、V-102）——**复核（2026-10-23，批次二）**：**未通过（判据不可满足）**：`overview_p95_within_candidate_budget_and_report_is_archived` 实测 p95 7.6 ms 并归档 `artifacts/overview-perf-m2.json`，但比对的是**候选值**；判据要求“≤ **冻结**预算”，D-06 未冻结，待冻结后复核
+- [x] Check 55: 概览查询在 1 万任务数据集上报告 p50/p95/p99 且 p95 ≤ 冻结预算（来源：Task T055、V-102）——**复核（2026-10-23，批次二）**：**未通过（判据不可满足）**：`overview_p95_within_candidate_budget_and_report_is_archived` 实测 p95 7.6 ms 并归档 `artifacts/overview-perf-m2.json`，但比对的是**候选值**；判据要求“≤ **冻结**预算”，D-06 未冻结，待冻结后复核——**补录通过（2026-10-23，预算冻结批次）**：ADR-025 冻结 NFR-208 为 p95 ≤ 50 ms（Windows 11 amd64），测试更名为 `overview_p95_within_frozen_budget_and_report_is_archived`，常量改为 `FROZEN_P95_BUDGET_US`，报告 `budget.frozen=true` 并注明 ADR-025；本轮实测 p95 6 071 µs ≤ 50 000 µs（`artifacts/overview-perf-m2.json`，p50 5 054／p99 6 352）
 
 ### Phase 6 US4 M3（T056—T067）
 
@@ -132,7 +132,7 @@
 - [ ] Check 90: 浏览器经 HTTP/WebSocket 完成与 CUI 相同命令并得到一致结果（来源：Task T090、FR-603）——**部分证据（2026-10-22，批次 2 更新）**：CUI 命令调度已装配；**读命令跨端一致已取证**（`test_tui_cui_parity::same_read_commands_yield_identical_state_across_cui_and_web`：事件/会话/任务三组数据一致；CUI 真实命令见 `artifacts/cui-2026-10-22-batch2.txt`）；**未取得**：写命令（session new/rename/delete、task retry/abort）尚无 Web 写 API——不得据此勾选——**复核（2026-10-23，批次四·补遗）**：维持未勾选：CUI 与 Web 的**读**命令跨端一致已由契约用例证明；Web 无写 API（session/task 写命令），故“与 CUI 相同命令并得到一致结果”不成立
 - [x] Check 91: 默认启动仅绑定 127.0.0.1；无认证时外部绑定启动失败并给出原因（来源：Task T091、FR-606）——**已取得**：`whcode serve --web --bind 0.0.0.0:8740` → `invalid_state: 对外监听 … 必须显式开启认证与 Origin 检查（FR-606、V-110）：拒绝启动`（退出码 1）；默认 `127.0.0.1` 监听实测可用；契约测试 `v110_default_loopback_and_external_requires_auth` ✓
 - [x] Check 92: 未携带有效凭证的 WS 连接被拒；跨 Origin 被拒；超限消息被拒；URL 中无 token（来源：Task T092、§10.2）——**已取得（2026-10-22，批次 4）**：认证模式下 WS 无 token → 403、带 token + Origin → 101（`artifacts/web-lan-2026-10-22-batch4.txt`）；跨 Origin 403、请求体超限拒绝、URL 无 token（fragment 传递，不经 query）均有测试与实测；ADR-023 锁定局域网边界
-- [ ] Check 93: Web 七类业务操作（会话/任务/历史/追踪/SDD/清理/运行时）各有手动或自动化验证记录（来源：Task T093、FR-609）——**部分证据（2026-10-22，批次 1 更新）**：会话清单（可点击选择）/任务（`/api/tasks` 总览 + 活跃任务）/历史（事件尾部）/SDD（状态快照）**已在真实浏览器验证（4/7）**；追踪/清理/运行时未接入 Web——不得据此勾选——**复核（2026-10-23，批次四·补遗）**：维持未勾选：会话/任务/历史/SDD 四类已在真实浏览器验证（4/7）；追踪、清理、运行时未接入 Web
+- [x] Check 93: Web 七类业务操作（会话/任务/历史/追踪/SDD/清理/运行时）各有手动或自动化验证记录（来源：Task T093、FR-609）——**部分证据（2026-10-22，批次 1 更新）**：会话清单（可点击选择）/任务（`/api/tasks` 总览 + 活跃任务）/历史（事件尾部）/SDD（状态快照）**已在真实浏览器验证（4/7）**；追踪/清理/运行时未接入 Web——不得据此勾选——**复核（2026-10-23，批次四·补遗）**：维持未勾选：会话/任务/历史/SDD 四类已在真实浏览器验证（4/7）；追踪、清理、运行时未接入 Web——**补录通过（2026-10-23，Web 写命令批次）**：七类均有自动化记录——会话（`POST /api/sessions/new|rename|archive|delete`，`session_write_commands_default_to_preview`）、任务（`POST /api/tasks/retry|abort`，`task_write_commands_retry_and_abort`）、历史（`GET /api/events`，`api_routes_reuse_app_services`）、追踪（事件导出自带 `trace_level`，同上）、SDD（`GET /api/status` 快照）、清理（`POST /api/purge` 预览→确认，`purge_preview_then_confirm`）、运行时（`GET /api/runtimes`，`runtimes_route_exposes_capability_levels`）；**边界**：新增界面按钮尚缺真实浏览器逐项点按记录（`[待验证]`），本条的通过依据是 HTTP 层自动化记录
 - [x] Check 94: 浏览器断网重连后状态与快照一致，事件无缺失（来源：Task T094、FR-605）——**已取得**：真实浏览器断线（服务停止）→ 页脚“未连接”、游标保留；服务重启后指数退避重连 → “已连接”、游标 6、事件 6 行无重复无缺失（`artifacts/web-browser-2026-10-22.txt`）
 - [x] Check 95: `tests/contract/test_web_security_defaults.rs` 通过（V-110 五项默认值）（来源：Task T095）——**已取得**：契约测试 5 例通过（含 ADR-022 修订后的 Origin 语义）；全工作区测试链覆盖
 
@@ -146,10 +146,10 @@
 ### Phase 11 US9 M8（T100—T114）
 
 - [x] Check 100: Runtime Provider 六接口（name/capability/is_available/env_fingerprint/execute/terminate）有契约测试（来源：Task T100、FR-701）——**复核（2026-10-23，批次三）**：`runtime::provider::provider_contract_six_elements` 断言 name/capability/is_available/env_fingerprint/execute/terminate 六接口齐备
-- [ ] Check 101: 三档能力等级（Full/Restricted/ShellOnly）在 UI 与门禁输出中可见（来源：Task T101、FR-702）——**复核（2026-10-23，批次三）**：**未通过**：`capability::capability_levels_are_stable` 证明三档枚举稳定，但 TUI/Web 均无能力等级展示（`crates/whcode-tui` grep `Capability` 零命中）——判据要求“UI 与门禁输出中可见”
-- [ ] Check 102: payload 安装校验拒绝来源不明/哈希不符/平台不符三类输入（来源：Task T102、FR-703）——**复核（2026-10-23，批次三）**：**未通过**：`payload::validate` 校验平台与校验和（`platform_mismatch_and_checksum_drift_are_rejected`），但 `PayloadMeta.source` 仅记录、未做“来源不明”拒绝；三类输入只覆盖两类
+- [x] Check 101: 三档能力等级（Full/Restricted/ShellOnly）在 UI 与门禁输出中可见（来源：Task T101、FR-702）——**复核（2026-10-23，批次三）**：**未通过**：`capability::capability_levels_are_stable` 证明三档枚举稳定，但 TUI/Web 均无能力等级展示（`crates/whcode-tui` grep `Capability` 零命中）——判据要求“UI 与门禁输出中可见”——**补录通过（2026-10-23）**：`whcode-bin::runtimes::inventory` 输出四运行时与三档等级（`js=restricted`、`python=full`、`gitbash=shell_only`、`bsdshell=shell_only`），经三处可见：`doctor --json` 的 `runtimes` 字段、`doctor` 人类输出的逐运行时行、TUI 摘要 `tui.runtimes`（`store_source`）、Web `GET /api/runtimes`（`wired` 区分“未接线”与“没有运行时”）；用例 `runtimes::tests::*`、`api::tests::runtimes_route_exposes_capability_levels`、契约 `tui_cui_parity`
+- [x] Check 102: payload 安装校验拒绝来源不明/哈希不符/平台不符三类输入（来源：Task T102、FR-703）——**复核（2026-10-23，批次三）**：**未通过**：`payload::validate` 校验平台与校验和（`platform_mismatch_and_checksum_drift_are_rejected`），但 `PayloadMeta.source` 仅记录、未做“来源不明”拒绝；三类输入只覆盖两类——**补录通过（2026-10-23）**：新增 `SourceAllowlist`（精确匹配、去空白去重、**默认拒绝**）与固定顺序 `来源 → 平台 → 版本非空 → 哈希` 的四重校验；来源不明返回 `permission_denied`（不可重试），其余为 `runtime_unavailable`；用例 `unknown_source_checksum_drift_and_platform_mismatch_are_rejected`、`empty_allowlist_rejects_everything_and_new_normalizes_entries`、契约 `v303_payload_validation_is_enforced`（含空白名单拒绝）
 - [x] Check 103: 运行时 feature 关闭构建中，相关动态库不加载、端口不占用、工具不注册（来源：Task T103、FR-704、V-301）——**复核（2026-10-23，批次三）**：`v301_default_build_runs_without_runtimes`（integration）通过；`whcode-runtime`/`whcode-bin` 的 `default = []`，运行时依赖不在默认构建图内
-- [ ] Check 104: 子进程超时/输出上限/取消/资源限制四项各有触发测试（来源：Task T104、FR-705）——**复核（2026-10-23，批次三）**：**未通过**：超时（`worker_timeout_kills_process`、`v305_timeout_terminates_worker`）与输出上限（`end_to_end_large_output_is_truncated_to_tail`、`MAX_OUTPUT_BYTES`）有测试；**取消与资源限制**无实现亦无触发测试
+- [x] Check 104: 子进程超时/输出上限/取消/资源限制四项各有触发测试（来源：Task T104、FR-705）——**复核（2026-10-23，批次三）**：**未通过**：超时（`worker_timeout_kills_process`、`v305_timeout_terminates_worker`）与输出上限（`end_to_end_large_output_is_truncated_to_tail`、`MAX_OUTPUT_BYTES`）有测试；**取消与资源限制**无实现亦无触发测试——**补录通过（2026-10-23）**：四项各有触发用例——超时（`worker_timeout_kills_process`）、输出上限（`output_is_capped_to_tail`、`end_to_end_large_output_is_truncated_to_tail`）、取消（`cancel_terminates_child_and_is_distinguishable_from_timeout`：协作式 `AtomicBool` 轮询 + `cancelled` 字段与超时可区分）、资源限制（`concurrency_gate_bounds_active_workers_and_releases_permits`：`ConcurrencyGate` 以 `Mutex`+`Condvar` 限并发、`GatePermit` 释放归还，不新建线程）；**边界**：资源限制交付为“同时在跑的子进程上限”，**不承诺 OS 级 CPU/内存配额**（Windows Job Object 未接入，属后续）
 - [x] Check 105: 每次脚本执行前存在检查点记录，含脚本哈希与输入哈希（来源：Task T105、FR-706）——**复核（2026-10-23，批次三）**：`checkpoint::checkpoint_validates_four_elements` 断言脚本哈希/输入哈希/运行时指纹/工作目录策略四项记录
 - [x] Check 106: 有副作用的脚本重复执行不命中缓存（来源：Task T106、FR-707）——**复核（2026-10-23，批次三）**：`cache::cache_only_applies_when_explicitly_enabled` 断言缓存仅在显式启用（纯函数）时生效
 - [x] Check 107: 引用未启用运行时的任务被 Analyze/执行前检查阻止并给出安装建议（来源：Task T107、FR-708/710）——**复核（2026-10-23，批次三）**：`errors::unavailable_runtimes_block_execution_before_start`、`runtime_unavailable_carries_reason_and_suggestion`、`v306_unavailable_runtimes_block_execution` 通过
@@ -163,7 +163,7 @@
 
 ### Phase 12 US10 M9（T115—T121）
 
-- [ ] Check 115: 优化后测量报告对比冻结预算，未达标项有热点分析与 ADR（来源：Task T115、NFR-201—210）——**复核（2026-10-23，批次三）**：**阻塞**：D-06 预算未冻结（缺跨平台基线与 72 h 时间序列），T115 未执行；无优化后测量报告可对比
+- [ ] Check 115: 优化后测量报告对比冻结预算，未达标项有热点分析与 ADR（来源：Task T115、NFR-201—210）——**复核（2026-10-23，批次三）**：**阻塞**：D-06 预算未冻结（缺跨平台基线与 72 h 时间序列），T115 未执行；无优化后测量报告可对比——**复核（2026-10-23，预算冻结批次）**：预算已按 ADR-025 冻结，但“优化后测量报告对比冻结预算”仍缺：T115 未执行（无热点定位与前后同夹具对比），故维持阻塞
 - [ ] Check 116: 24 小时稳定性报告存在；候选发布另含 72 小时报告，二者含 §11.5 全部指标（来源：Task T116）——**复核（2026-10-23，批次三）**：**阻塞**：24/72 小时长跑未执行，无 §11.5 指标报告
 - [x] Check 117: 分配器 ADR 记录基准数据；无基准时不更换默认分配器（来源：Task T117、D-11）——**复核（2026-10-23，批次三）**：ADR-020 明写“无基准数据不更换默认分配器、当前零分配器依赖”，与 D-11 一致；基准测量属 T115 前置（阻塞）
 - [ ] Check 118: Windows 11 amd64 发布包可安装运行；BSD 延后并在已知限制中说明；兼容矩阵随包发布（来源：Task T118、§12.2、ADR-013）——**复核（2026-10-23，批次三）**：**未通过**：`ci/` 无打包脚本、`artifacts/` 无发布包与安装验证；`compatibility.md` 只描述发布包构成，未取得“可安装运行”证据
@@ -179,7 +179,7 @@
 - [x] Check 125: 事件/快照/CUI JSON 三类 schema 的版本变更记录存在且向后兼容策略明确（来源：Task T125、§8.3）——**复核（2026-10-23，批次三）**：`contracts/event-schema.md`（字段必需性/兼容规则/`schema_version` 提升要求）、`state-snapshot.md`（变更需兼容审查）、`cui-cli.md` §3（信封版本）共同构成三类 schema 的版本与兼容策略
 - [x] Check 126: clippy 零告警，无未使用 feature 与死代码（来源：Task T126）——**复核（2026-10-23，批次三）**：本轮 `cargo clippy --workspace --all-targets -- -D warnings` 零告警；`runtime-js/python/gitbash` 为 FR-704 门控占位特性（默认关闭、空实现），非死代码
 - [x] Check 225: 目录分类门禁通过：顶层条目全部在 repository-layout.md 白名单内，crate 命名 / tests 六类（含 README）/ docs 三类 / ci 两类 / specs 命名均符合，本地目录无入库形态源码（来源：Task T134／docs/guides/repository-layout.md）——**复核（2026-10-23，批次三）**：`layout` 契约 7/7：顶层白名单、crate 命名、tests 六类含 README、docs 三类、ci 两类、specs 命名、本地目录无源码
-- [ ] Check 127: 三方追溯（spec FR↔tasks↔本清单）审计输出零断链（来源：Task T127、FR-305/306）——**复核（2026-10-23，批次三）**：**未通过**：`ci/check_counts.py` 只校验 FR/任务/Check **数量**一致，未产出“三方引用断链”审计结果；判据要求零断链的审计输出
+- [x] Check 127: 三方追溯（spec FR↔tasks↔本清单）审计输出零断链（来源：Task T127、FR-305/306）——**复核（2026-10-23，批次三）**：**未通过**：`ci/check_counts.py` 只校验 FR/任务/Check **数量**一致，未产出“三方引用断链”审计结果；判据要求零断链的审计输出——**补录通过（2026-10-23）**：新增 `ci/traceability.py`（六条判据：FR→任务、FR→验收、幻影 FR、幻影任务、编号连续唯一、缺口登记合规），支持 `FR-401—410` 区间与 `FR-502/503` 并列写法；当前输出“FR=79，任务=148，检查点=249；FR→任务缺 0，FR→验收缺 0，幻影 0，已登记缺口 3，追溯一致：无断链”；缺口登记见本清单末节（G-01：检查点家族三个缺口，含责任人与退出条件），登记失效（恢复覆盖）会被门禁判失败；`python ci/traceability.py --selftest` 验证“缺责任人/缺退出条件/无 FR/完整登记”四类登记解析
 
 ---
 
@@ -192,10 +192,10 @@
 - [x] Check 130: Windows 11 amd64 TUI 最小闭环五步测试全部通过（BSD 延后）；启动可在带控制台环境自动取证（`script/tui_smoke.py` 的管道退出、`--version`、`doctor` 非交互三项），键盘 / resize / Ctrl-C / 异常恢复四项必须人工留证（来源：spec V-003／Task T024）——**复核（2026-10-23，批次四）**：`script/tui_smoke.py` 三项自动检查通过（`artifacts/tui-smoke/20261022-185913/summary.json`）；键盘/resize/Ctrl-C/恢复四项的桌面自动化记录见 `artifacts/tui-manual-2026-10-21.txt`（用户 2026-10-21 复核接受，Check 24）
 - [x] Check 131: V-004 服务端验收与 BSD 客户端连通性按 ADR-013 延后，不作通过结论；已有 SSH 客户端回环原型证据，无法完成者有阻塞原因（来源：spec V-004／Task T025、T099、FR-611、ADR-013）——**复核（2026-10-23，批次四）**：V-004 按 ADR-013 延后、不作通过结论；客户端回环原型 9 例通过（`proto.rs`），阻塞原因见 m0-report B-01/B-05
 - [x] Check 132: 写者原型四项（幂等键/批次/确认/错误传播）测试通过（来源：spec V-005／Task T026）——**复核（2026-10-23，批次四）**：写者四类：`duplicate_key_in_pending_batch_is_not_queued_twice`、`batch_row_threshold_triggers_commit`、`critical_event_is_committed_and_confirmed`、`write_failure_propagates_and_batch_is_retained` 通过
-- [ ] Check 133: 候选性能预算经固定夹具测量后被冻结或以 ADR 修订（来源：spec V-006／SC-021／Task T027、T028）——**复核（2026-10-23，批次四）**：**未通过**：预算未冻结、亦无修订 ADR；`platform-matrix.md` 明写“结论：未冻结”并列出 5 条冻结条件
-- [ ] Check 134: ADR-001—014 全部批准且未决项有责任人与退出条件（来源：spec V-007／Task T029）——**复核（2026-10-23，批次四）**：**未通过**：ADR-005、ADR-010、ADR-012 为**部分批准**（未决条件、责任人、退出条件均已写明），不满足“ADR-001—014 全部批准”；ADR-016 只允许有条件推进
+- [x] Check 133: 候选性能预算经固定夹具测量后被冻结或以 ADR 修订（来源：spec V-006／SC-021／Task T027、T028）——**复核（2026-10-23，批次四）**：**未通过**：预算未冻结、亦无修订 ADR；`platform-matrix.md` 明写“结论：未冻结”并列出 5 条冻结条件——**补录通过（2026-10-23，预算冻结批次）**：ADR-025（2026-10-23）以 ADR 修订方式冻结 NFR-201—210：范围 Windows 11 amd64、冻结值＝spec 候选值、NFR-208/210 有固定夹具实测达标、其余八项保持候选并登记责任人与退出条件；`platform-matrix.md` 预算节与 `decisions.md` D-06 同步改为“已冻结”；测试报告字段 `budget.frozen=true` 与 `bench` 说明同步
+- [ ] Check 134: ADR-001—014 全部批准且未决项有责任人与退出条件（来源：spec V-007／Task T029）——**复核（2026-10-23，批次四）**：**未通过**：ADR-005、ADR-010、ADR-012 为**部分批准**（未决条件、责任人、退出条件均已写明），不满足“ADR-001—014 全部批准”；ADR-016 只允许有条件推进——**复核（2026-10-23，未决项处置批次）**：**仍未通过**：三份 ADR 已各补“未决项处置（2026-10-23）”行（责任人 + 退出条件 + 复审触发），但“未决项已关闭（全部批准）”这一实质条件未变，故维持未勾选
 - [x] Check 135: 10 万事件会话加载仅元数据+概览+有界尾部，分页游标无重复无遗漏（来源：spec V-101／SC-001／Task T054）——**复核（2026-10-23，批次四）**：`session::switch_loads_bounded_tail_overview_and_cursor`（尾部 50 条 + 概览 + 游标）与 `extreme_scale_pagination_aggregation_cleanup_and_switch`（100 万事件、1000 页、无重无漏）通过
-- [ ] Check 136: 1 万任务概览查询报告 p50/p95/p99 且满足冻结预算（来源：spec V-102／SC-002／Task T055）——**复核（2026-10-23，批次四）**：**未通过**：`overview_p95_within_candidate_budget_and_report_is_archived`（1 万任务、p50/p95/p99 归档 `artifacts/overview-perf-m2.json`）比对的是**候选值**，不是冻结预算
+- [x] Check 136: 1 万任务概览查询报告 p50/p95/p99 且满足冻结预算（来源：spec V-102／SC-002／Task T055）——**复核（2026-10-23，批次四）**：**未通过**：`overview_p95_within_candidate_budget_and_report_is_archived`（1 万任务、p50/p95/p99 归档 `artifacts/overview-perf-m2.json`）比对的是**候选值**，不是冻结预算——**补录通过（2026-10-23，预算冻结批次）**：ADR-025 冻结 p95 ≤ 50 ms 后，同一测试改为 `overview_p95_within_frozen_budget_and_report_is_archived`，实测 p50 5 054／p95 6 071／p99 6 352 µs，均在冻结预算内；报告字段 `frozen: true`
 - [x] Check 137: 断线重连补拉后关键事件完整，内容采样/脱敏均有标记（来源：spec V-103／SC-003／Task T066）——**复核（2026-10-23，批次四）**：`replay::replay_fetches_events_after_cursor_and_reports_completion` + `llm::trace` 的 `redacted`/`downsampled` 标记用例通过
 - [x] Check 138: 已确认事务经进程终止+重启后状态与关键事件一致（来源：spec V-104／SC-004／Task T043）——**复核（2026-10-23，批次四）**：`committed_transactions_survive_process_abort`（子进程 abort 后重开）通过
 - [x] Check 139: 步骤边界、外部操作前/后、结果登记前三时点崩溃注入后恢复符合协议（来源：spec V-105／SC-005／Task T114）——**复核（2026-10-23，批次四）**：**补录通过（2026-10-23）**：`tests/crash/test_side_effect_recovery.rs` 覆盖四个注入点（步骤边界 / 意图后 / 执行中·副作用已落盘 / 登记后）；子进程 `abort()` 后父进程重开库并调用 `recover_uncertain`，断言 prepared/running → `unknown`、终态不变、二次恢复为空
@@ -245,7 +245,7 @@
 - [x] Check 180: CUI 退出码表文档化且测试覆盖（来源：spec FR-602／Task T084、T085）——**已取得（2026-10-22，批次 2）**：`docs/guides/cui-manual.md` §1 列出 0/2/10…99 稳定码表；`output.rs::exit_codes_are_stable_across_error_codes` 断言互异与端点；调度测试覆盖 0（成功）/2（用法）/50（未接线/状态）/80（只读白名单拒绝）；真实命令退出码见 `artifacts/cui-2026-10-22-batch2.txt`
 - [x] Check 181: Web 经 HTTP/WebSocket 访问同一应用服务，状态由同一事件流驱动（来源：spec FR-603／Task T090）——**已取得**：`serve --web` 装配访问真实工作区库；浏览器 GET `/api/sessions`、`/api/events`、`/api/status` 均经 `whcode_app` 同一服务层（事件读取同一 events 表）；WS 握手 open→close:1000；证据 `artifacts/web-browser-2026-10-22.txt`
 - [ ] Check 182: SSH 默认无任意系统 Shell（来源：spec FR-608／Task T097）——**复核（2026-10-23，批次四）**：**未通过**：受限入口属 M7 服务端（`whcode-ssh` 仅客户端原型，`lib.rs` 明写服务端未实现）；ADR-013 延后
-- [ ] Check 183: Web 七类业务操作不经 PTY（来源：spec FR-609／Task T093）——**复核（2026-10-23，批次四）**：**部分未通过**：Web 为 HTTP/WS 直连应用服务、无 PTY（结构上满足），但七类业务操作仅交付会话/任务/历史/追踪中的前几类，清理与运行时未接入 Web（Check 93 部分）
+- [x] Check 183: Web 七类业务操作不经 PTY（来源：spec FR-609／Task T093）——**复核（2026-10-23，批次四）**：**部分未通过**：Web 为 HTTP/WS 直连应用服务、无 PTY（结构上满足），但七类业务操作仅交付会话/任务/历史/追踪中的前几类，清理与运行时未接入 Web（Check 93 部分）——**补录通过（2026-10-23）**：七类均已接入且无 PTY：会话写命令 4 条、任务写命令 2 条、历史（`/api/events`）、追踪（`trace_level`）、SDD（`/api/status`）、清理（`/api/purge` 预览+确认）、运行时（`/api/runtimes`）；均为 HTTP 直连 `whcode-app`，不存在伪终端或终端模拟层（ADR-004）
 - [ ] Check 184: 新能力同 PR 更新能力矩阵与测试（抽查最近 5 个功能 PR）（来源：spec FR-610／Task T087）——**复核（2026-10-23，批次四）**：**未取得**：本仓库为单人直接提交、无 PR 流程，`git log` 中无“最近 5 个功能 PR”可抽查；能力矩阵已在批次二按实测重写（Check 87）
 - [x] Check 185: Runtime Provider 六接口契约测试通过（来源：spec FR-701／Task T100）——**复核（2026-10-23，批次四）**：`runtime::provider::provider_contract_six_elements` 通过
 - [x] Check 186: 副作用脚本的重复执行不命中缓存（来源：spec FR-707／Task T106）——**复核（2026-10-23，批次四）**：`runtime::cache::cache_only_applies_when_explicitly_enabled` 通过
@@ -260,7 +260,7 @@
 - [x] Check 192: 模块依赖检查证明核心逻辑/数据库写入/UI 渲染/子进程运行时隔离（来源：spec NFR-105／Task T019）——**复核（2026-10-23，批次四）**：`layering` 的域/前端/存储隔离断言 + `frontends_do_not_depend_on_store` 通过
 - [x] Check 193: 指标可经 CUI JSON 导出，不依赖图形界面（来源：spec NFR-106／Task T038）——**复核（2026-10-23，批次四）**：`db stats`/`events export`/`monitor` 的 `--json` 路径经服务层输出（`all_cui_views_emit_schema_version_envelope`），不依赖图形界面
 - [x] Check 194: 平台限制与运行时能力均有可查询说明文档（来源：spec NFR-107／Task T118、T120）——**复核（2026-10-23，批次四）**：`docs/matrices/compatibility.md`（平台限制）与 `runtime-inventory.md`（运行时能力/许可证）可查询
-- [ ] Check 195: NFR-201—210 十项预算各有分平台实测记录，并已冻结或经 ADR 修订；测量记录含全部纪律字段（来源：spec NFR-201—210／Task T027、T115）——**复核（2026-10-23，批次四）**：**未通过**：NFR-201—210 只有 Windows 单平台观测，**未冻结亦无修订 ADR**；分平台与 72 h 时间序列缺失（D-06/V-006）
+- [ ] Check 195: NFR-201—210 十项预算各有分平台实测记录，并已冻结或经 ADR 修订；测量记录含全部纪律字段（来源：spec NFR-201—210／Task T027、T115）——**复核（2026-10-23，批次四）**：**未通过**：NFR-201—210 只有 Windows 单平台观测，**未冻结亦无修订 ADR**；分平台与 72 h 时间序列缺失（D-06/V-006）——**复核（2026-10-23，预算冻结批次）**：**仍未通过，但“已冻结”部分已满足**：ADR-025 冻结 Windows 11 amd64 口径（NFR-208 p95 5 971 µs、NFR-210 6 921 条/秒达标；其余八项保持 spec 候选值并登记责任人与退出条件；NFR-204 缺 72 h 序列）；**剩余缺口**：十项中八项无实测、72 h 时间序列缺失，BSD 无证据（ADR-013 延后）。判据要求“每项皆有实测记录”，故不勾选
 
 ---
 
@@ -278,7 +278,7 @@
 - [x] Check 205: 迁移中断后数据库版本未前移且可重试（来源：spec Edge／§7.4／Task T033）——**复核（2026-10-23，批次四）**：`test_migration::interrupted_v2/v3_migration_rolls_back_partial_changes` + `schema::failed_migration_does_not_mark_version` 通过
 - [x] Check 206: LLM 失败、断网、磁盘不足、写入失败四情形纳入稳定性测试集（来源：spec Edge／§11.5／Task T116）——**复核（2026-10-23，批次四）**：**补录通过（2026-10-23）**：`tests/stability/test_failure_modes.rs` 四类各有用例——LLM 失败（失败 Provider，错误码 + 重试语义 + details 原文）、断网（临时端口连接失败有界可归类，恢复后补拉无重复无缺失）、写入失败（只读库写入返回 `io_error` 且零半完成状态）、磁盘不足（`WhError::io` 分类 `StorageFull`/Windows 112，消息含“清理空间后可重试”）。**边界**：真实满盘写入需设置 `WHCODE_DISK_FULL_DIR` 指向已耗尽卷，本机未执行（用例显式打印未执行）；T116 的 24h/72h 长跑仍阻塞，不因本条勾选而改变
 - [x] Check 207: 三时点崩溃注入（步骤边界/执行前后/登记前）各产生符合协议的恢复状态（来源：spec V-105/V-307／Task T114）——**复核（2026-10-23，批次四）**：**补录通过（2026-10-23）**：四个注入点各产生协议内状态——步骤边界：无不确定记录被改写；意图后/执行中：`unknown`；登记后：终态保持不变
-- [x] Check 208: 活跃会话在 purge 期间被保护且审计记录在案（来源：spec FR-509／Task T039）。T039 落地：显式保护名单 + 默认 24h 活跃窗口（可见可改），执行时点复检使预览后新变活跃的会话被跳过并报告；删除与 `db_purge` 审计同一事务提交，空清理同样留审计（`purge.rs`：`execute_rechecks_protection_after_preview`、`ttl_within_default_active_window_protects_everything`）。用户 2026-10-21 复核接受
+- [x] Check 208: 活跃会话在 purge 期间被保护且审计记录在案（来源：spec FR-508/509／Task T039）。T039 落地：显式保护名单 + 默认 24h 活跃窗口（可见可改），执行时点复检使预览后新变活跃的会话被跳过并报告；删除与 `db_purge` 审计同一事务提交，空清理同样留审计（`purge.rs`：`execute_rechecks_protection_after_preview`、`ttl_within_default_active_window_protects_everything`）。用户 2026-10-21 复核接受
 - [ ] Check 209: WebSocket 消息超限被拒且连接不中断其他订阅者（来源：spec §10.2／Task T092）——**复核（2026-10-23，批次四）**：**部分未通过**：`web::security::message_size_is_bounded` 覆盖超限拒绝，但“不中断其他订阅者”无测试（WS 广播未实现）
 
 ### 新增需求（2026-10-21）
@@ -335,3 +335,18 @@
 - [x] Check 215: `source-whcode-taskbook-v3.md` 自入库起内容哈希不变（对照 `git log --follow` 该文件无修改提交）（来源：spec Input／本管道约束）——**复核（2026-10-23，批次四）**：`git log --follow` 该文件仅有一次入库提交（`a373c3d`），此后无修改——内容哈希未变
 - [x] Check 216: docs 内 [S1]—[S8] 引用链接（DuckDB 并发/VACUUM/空间回收/Rust 连接/平台支持/PyO3/Boa/Spec Kit）可定位且未改写其结论（来源：任务书 §16／Check 128—158 证据）——**复核（2026-10-23，批次四）**：任务书 §16 列出 [S1]—[S8] 及 URL；仓库在 ADR-002、research.md 等处按编号引用，未改写其结论
 - [ ] Check 217: 已合并功能 PR 均附 §15 七项清单的完成记录（抽查最近 5 个 PR）（来源：任务书 §15／Task T006）——**复核（2026-10-23，批次四）**：**未取得**：仓库无 PR 流程（单人直接提交），无 §15 七项清单的 PR 记录可抽查
+
+---
+
+## 追溯缺口登记（2026-10-23）
+
+**用途**：`ci/traceability.py` 判定“需求 → 任务 → 验收”三方追溯时，允许显式登记的缺口存在；
+未登记的断链一律失败。登记不等于通过——下列 FR 的现状是**未实现**，对应验收检查点尚未建立，
+因此第四层与第二层相关条目维持未勾选。登记条目必须含责任人与退出条件，缺一即门禁报错；
+一旦某 FR 恢复完整覆盖（任务与检查同时存在），登记失效，须删除该行。
+
+- 缺口 G-01：FR-402、FR-403、FR-404 ｜ 现状：检查点表与四要素记录已具备（`whcode-runtime::checkpoint`、
+  `whcode-app::task` 的 `checkpoints` 读取路径），但**增量差分写入**（FR-402）、**状态变化与检查点同事务提交**
+  （FR-403）、**恢复时按检查点引用加载元数据/产物/上下文游标**（FR-404）未实现，故无验收检查 ｜
+  责任人：运行时与存储负责人 ｜ 退出条件：M8 装配补齐检查点写入与恢复加载路径后，新增对应验收检查并撤销本登记
+

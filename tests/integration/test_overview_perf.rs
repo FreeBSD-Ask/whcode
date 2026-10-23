@@ -4,9 +4,10 @@
 //! - 固定夹具（T053 生成器，固定阶段/状态分布）、同机同库连续采样；
 //! - 预热 5 次、采样 50 次，报告分位数（微秒）并写入
 //!   `artifacts/overview-perf-m2.json` 留证；
-//! - 对比对象是 plan.md 的**候选**预算 p95 ≤ 50 ms——性能预算仍未冻结
-//!   （D-06：缺跨平台基线与长时数据），断言通过**不等于**预算冻结；
-//! - 断言失败即预算违约的早期信号，须回到"测量→定位→设计"流程（NFR-216）。
+//! - 对比对象是**已冻结**预算 p95 ≤ 50 ms（ADR-025，2026-10-23；冻结值＝spec 候选值，
+//!   范围限 Windows 11 amd64）；断言通过即“达标”，断言失败即预算违约的早期信号，
+//!   须回到“测量→定位→设计”流程（NFR-216），不得改预算掩盖；
+//! - BSD 无运行证据，不参与该预算（ADR-013／ADR-025）。
 
 #[path = "../fixtures/gen_dataset.rs"]
 mod gen_dataset;
@@ -18,8 +19,8 @@ use whcode_app::{DefaultPolicy, actor_with_all_capabilities, task_overview};
 
 const WARMUP: usize = 5;
 const SAMPLES: usize = 50;
-/// plan.md 候选预算：概览查询 p95 ≤ 50 ms。
-const CANDIDATE_P95_BUDGET_US: u128 = 50_000;
+/// 冻结预算（ADR-025）：概览查询 p95 ≤ 50 ms（Windows 11 amd64）。
+const FROZEN_P95_BUDGET_US: u128 = 50_000;
 
 fn temp_db(tag: &str) -> Connection {
     let dir =
@@ -35,7 +36,7 @@ fn temp_db(tag: &str) -> Connection {
 use whcode_store::apply_migrations;
 
 #[test]
-fn overview_p95_within_candidate_budget_and_report_is_archived() {
+fn overview_p95_within_frozen_budget_and_report_is_archived() {
     let conn = temp_db("perf");
     let mut conn = conn;
     let report = gen_dataset::generate(&mut conn, "S-PERF", 1_000, 10_000);
@@ -69,11 +70,11 @@ fn overview_p95_within_candidate_budget_and_report_is_archived() {
     );
 
     eprintln!(
-        "概览查询（1 万任务）：p50 {p50} µs / p95 {p95} µs / p99 {p99} µs（候选预算 p95 ≤ {CANDIDATE_P95_BUDGET_US} µs；预算未冻结）"
+        "概览查询（1 万任务）：p50 {p50} µs / p95 {p95} µs / p99 {p99} µs（冻结预算 p95 ≤ {FROZEN_P95_BUDGET_US} µs，ADR-025；范围 Windows 11 amd64）"
     );
     assert!(
-        p95 <= CANDIDATE_P95_BUDGET_US,
-        "概览 p95 {p95} µs 超出候选预算 {CANDIDATE_P95_BUDGET_US} µs；须走性能归因流程"
+        p95 <= FROZEN_P95_BUDGET_US,
+        "概览 p95 {p95} µs 超出冻结预算 {FROZEN_P95_BUDGET_US} µs（ADR-025）；须走性能归因流程"
     );
 
     // 证据归档（§5.2、G4）：报告入库 artifacts/，含测量纪律字段。
@@ -91,9 +92,9 @@ fn overview_p95_within_candidate_budget_and_report_is_archived() {
         "p95_us": p95,
         "p99_us": p99,
         "budget": {
-            "candidate_p95_us": CANDIDATE_P95_BUDGET_US,
-            "frozen": false,
-            "note": "D-06：预算未冻结——缺跨平台基线与长时数据；本报告不作验收承诺"
+            "frozen_p95_us": FROZEN_P95_BUDGET_US,
+            "frozen": true,
+            "note": "ADR-025（2026-10-23）：Windows 11 amd64 冻结，取值＝spec 候选值；BSD 无证据不参与（ADR-013）"
         },
         "platform": "windows-amd64",
         "date": "2026-10-22"

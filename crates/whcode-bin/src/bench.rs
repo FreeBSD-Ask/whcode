@@ -455,8 +455,9 @@ pub fn measure(options: &BaselineOptions) -> Result<BaselineReport, WhError> {
                 .to_string(),
         generated_at_utc: utc_now_rfc3339(),
         notes: vec![
-            "本报告是单机单次样本（固定数据集与批次策略），不构成性能预算冻结；\
-             预算冻结须由 T028 依据固定夹具与分平台证据决定（V-006、R-12）"
+            "本报告是单机单次样本（固定数据集与批次策略），单次样本本身不构成预算冻结；\
+             预算已按 ADR-025（2026-10-23）在 Windows 11 amd64 上冻结，取 spec 候选值\
+             （V-006、R-12）"
                 .to_string(),
             "不同平台的结果不得合并为一组平均值；分位数由实测样本按 nearest-rank 计算，\
              不以平均值代替"
@@ -466,7 +467,7 @@ pub fn measure(options: &BaselineOptions) -> Result<BaselineReport, WhError> {
             format!(
                 "固定夹具的数据库参数为 memory_limit={MEMORY_LIMIT}、threads=min(4, 逻辑核数)：\
                  本机 192MB + 4 线程在写入约 1000 条时触发 DuckDB OOM，故采用 §5.4 候选最大值；\
-                 该取值须由 T028 校准，不是已冻结基线"
+                 该取值经 ADR-025 随预算一并冻结（NFR-210 以 192 MB 为当前口径）"
             ),
         ],
     };

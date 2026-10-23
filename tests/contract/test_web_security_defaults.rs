@@ -81,7 +81,7 @@ fn origin_checks_apply() {
 /// 与 CUI 信封同一结构（schema_version + 四字段）。
 #[test]
 fn web_error_envelope_matches_cui() {
-    let conn = Connection::open_in_memory().expect("内存库");
+    let mut conn = Connection::open_in_memory().expect("内存库");
     conn.execute_batch(concat!(
         include_str!("../../crates/whcode-store/migrations/0001_initial.sql"),
         include_str!("../../crates/whcode-store/migrations/0002_event_trace_indexes.sql"),
@@ -94,7 +94,7 @@ fn web_error_envelope_matches_cui() {
 
     // 认证启用 + 缺 Authorization → 403 + permission_denied（与 CUI 同源错误码）。
     let response = handle_request(
-        &conn,
+        &mut conn,
         true,
         Some("tok"),
         &whcode_web::security::ALLOWED_ORIGINS,

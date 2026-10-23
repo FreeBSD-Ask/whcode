@@ -27,6 +27,7 @@ pub mod authz;
 pub mod context;
 pub mod events;
 pub mod gates;
+pub mod maintenance;
 pub mod overview;
 pub mod queue;
 pub mod replay;
@@ -35,6 +36,7 @@ pub mod session;
 pub mod snapshot;
 pub mod stage_role;
 pub mod task;
+pub mod views;
 
 pub use authz::{Actor, Capability, DefaultPolicy, Policy, actor_with_all_capabilities, require};
 pub use context::{
@@ -44,6 +46,10 @@ pub use context::{
 };
 pub use events::{EventsExport, events_export};
 pub use gates::{ForceAdvance, TransitionContext, force_advance, request_transition};
+pub use maintenance::{
+    PurgeCounts, PurgeCriteria, PurgePreview, PurgeProtection, PurgeResult, purge_execute,
+    purge_preview,
+};
 pub use overview::{TaskOverview, task_overview};
 pub use queue::BoundedQueue;
 pub use replay::{REPLAY_PAGE_LIMIT, ReplayPage, replay_since};
@@ -56,3 +62,4 @@ pub use session::{
 pub use snapshot::{StateSnapshot, build_snapshot};
 pub use stage_role::{StageRole, role_for};
 pub use task::{TaskDetail, abort_task, retry_task, task_detail};
+pub use views::{purge_counts_value, session_value, task_value};

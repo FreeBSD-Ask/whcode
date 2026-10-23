@@ -186,7 +186,9 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
             spec_command(command, workspace, &config, &policy, &actor, texts)
         }
         Command::Events { command } => events_command(command, workspace, &config, &policy, &actor),
-        Command::Db { command } => db_command(command, workspace, &config, &actor, now, texts),
+        Command::Db { command } => {
+            db_command(command, workspace, &config, &policy, &actor, now, texts)
+        }
         Command::Run { .. } => Err(not_wired(
             "run 未接线：LLM 流式交互需 Provider 与会话流装配（M3 桩已交付，CLI 执行属后续）",
         )),
@@ -534,6 +536,7 @@ fn db_command(
     command: &DbCommand,
     workspace: &Path,
     config: &Config,
+    policy: &DefaultPolicy,
     actor: &Actor,
     now: u64,
     texts: &I18n,
@@ -591,7 +594,9 @@ fn db_command(
             let mut conn = open_db(workspace, config)?;
             let protection = PurgeProtection::default();
             let criteria = PurgeCriteria::before(*before);
-            let preview = whcode_store::preview_purge(&conn, &criteria, &protection, now)?;
+            // 经应用层入口：权限与 Web `/api/purge` 同一判定（FR-604）。
+            let preview =
+                whcode_app::purge_preview(&conn, policy, actor, &criteria, &protection, now)?;
             if is_dry_run {
                 let value = json!({
                     "dry_run": true,
@@ -610,11 +615,12 @@ fn db_command(
                 );
                 return Ok((value, human));
             }
-            let result = whcode_store::execute_purge(
+            let result = whcode_app::purge_execute(
                 &mut conn,
+                policy,
+                actor,
                 &preview,
                 true,
-                &actor.id,
                 &protection,
                 now,
             )?;
@@ -717,14 +723,8 @@ fn db_command(
 }
 
 fn counts_json(counts: &whcode_store::PurgeCounts) -> Value {
-    json!({
-        "sessions": counts.sessions,
-        "tasks": counts.tasks,
-        "checkpoints": counts.checkpoints,
-        "runtime_executions": counts.runtime_executions,
-        "stage_artifacts": counts.stage_artifacts,
-        "events": counts.events,
-    })
+    // 与 Web `/api/purge` 共用同一形状（FR-604/FR-610）：字段少报即隐瞒将被删除的数据。
+    whcode_app::purge_counts_value(counts)
 }
 
 fn session_json(row: &whcode_store::SessionRow) -> Value {
@@ -732,14 +732,7 @@ fn session_json(row: &whcode_store::SessionRow) -> Value {
 }
 
 fn row_value(row: &whcode_store::SessionRow) -> Value {
-    json!({
-        "id": row.id,
-        "title": row.title,
-        "stage": row.stage,
-        "status": row.status,
-        "archived": row.archived,
-        "created_at_ms": row.created_at_ms,
-    })
+    whcode_app::session_value(row)
 }
 
 fn row_line(row: &whcode_store::SessionRow) -> String {
@@ -754,15 +747,7 @@ fn row_line(row: &whcode_store::SessionRow) -> String {
 }
 
 fn task_json(row: &whcode_store::tasks::TaskRow) -> Value {
-    json!({
-        "task": {
-            "id": row.id,
-            "title": row.title,
-            "status": row.status.as_str(),
-            "stage": row.stage,
-            "retry_count": row.retry_count,
-        }
-    })
+    json!({ "task": whcode_app::task_value(row) })
 }
 
 #[cfg(test)]

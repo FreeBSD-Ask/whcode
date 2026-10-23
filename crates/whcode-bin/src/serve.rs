@@ -174,7 +174,9 @@ fn serve_web(
     token_file: Option<&Path>,
 ) -> Result<(), WhError> {
     let db_path = workspace::workspace_db_path(workspace);
-    let conn = workspace::open_workspace_db(workspace, config)?;
+    // 写命令（FR-609）需要 `&mut Connection`（store 的事务签名）；服务循环本就单线程
+    // 顺序处理请求，不存在并发共享（ADR-002）。
+    let mut conn = workspace::open_workspace_db(workspace, config)?;
     let actor = actor_with_all_capabilities("web-local");
 
     let addr_text = bind_addr
@@ -234,7 +236,7 @@ fn serve_web(
         token,
         origins,
     };
-    serve_loop(listener, &conn, &actor, &security)
+    serve_loop(listener, &mut conn, &actor, &security)
 }
 
 /// 一次响应：HTTP 响应 + WebSocket 握手后的关闭帧标记。
@@ -256,7 +258,7 @@ impl Reply {
 /// 服务循环：顺序接受连接（单线程，不共享连接给并发请求）。
 fn serve_loop(
     listener: TcpListener,
-    conn: &Connection,
+    conn: &mut Connection,
     actor: &whcode_app::Actor,
     security: &ServeSecurity,
 ) -> Result<(), WhError> {
@@ -339,7 +341,7 @@ fn header_content_length(headers: &[u8]) -> usize {
 /// 路由一个请求：静态资产（GET，路由前剥离查询串）→ `/api/*`（handle_request，
 /// ADR-022 Origin 语义）。
 fn respond(
-    conn: &Connection,
+    conn: &mut Connection,
     raw: &[u8],
     actor: &whcode_app::Actor,
     security: &ServeSecurity,
@@ -365,13 +367,17 @@ fn respond(
     }
     let is_ws = request.path == "/ws";
     let origins: Vec<&str> = security.origins.iter().map(String::as_str).collect();
-    let response = api::handle_request(
+    // 三档能力等级（FR-702、Check 101）：只注入声明，不在请求路径启动子进程。
+    let runtime_inventory = serde_json::to_value(crate::runtimes::inventory(false))
+        .unwrap_or_else(|_| serde_json::Value::Array(Vec::new()));
+    let response = api::handle_request_with_runtimes(
         conn,
         security.auth_enabled,
         security.token.as_deref(),
         &origins,
         &request,
         actor,
+        Some(&runtime_inventory),
     );
     Reply {
         ws_close_frame: is_ws && response.status == 101,
@@ -415,6 +421,7 @@ fn reason(status: u16) -> &'static str {
     match status {
         101 => "Switching Protocols",
         200 => "OK",
+        201 => "Created",
         400 => "Bad Request",
         403 => "Forbidden",
         404 => "Not Found",
@@ -475,31 +482,23 @@ mod tests {
         );
     }
 
-    /// 装配路由：静态资产、API（ADR-022 Origin 语义）、404 与 WS 握手。
+    /// 装配路由：静态资产、API（ADR-022 Origin 语义）、写命令、404 与 WS 握手。
     #[test]
     fn assembled_routes_serve_static_api_and_ws_handshake() {
-        let conn = migrated_memory_conn();
+        let mut conn = migrated_memory_conn();
         let actor = actor_with_all_capabilities("tester");
+        let security = ServeSecurity::loopback();
+        let mut send = |request: &str| respond(&mut conn, &raw_request(request), &actor, &security);
 
         // 静态资产（GET）。
-        let reply = respond(
-            &conn,
-            &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
-            &actor,
-            &ServeSecurity::loopback(),
-        );
+        let reply = send("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
         assert_eq!(reply.response.status, 200);
         assert_eq!(
             reply.response.header("content-type"),
             Some("text/html; charset=utf-8")
         );
         assert!(String::from_utf8_lossy(&reply.response.body).contains("WHCode"));
-        let reply = respond(
-            &conn,
-            &raw_request("GET /app.js HTTP/1.1\r\n\r\n"),
-            &actor,
-            &ServeSecurity::loopback(),
-        );
+        let reply = send("GET /app.js HTTP/1.1\r\n\r\n");
         assert!(
             reply
                 .response
@@ -507,69 +506,45 @@ mod tests {
                 .is_some_and(|value| value.starts_with("text/javascript"))
         );
         // 带查询串的首页（`/?session=`）必须命中静态路由（回归：曾落 404）。
-        let reply = respond(
-            &conn,
-            &raw_request("GET /?session=S-DEMO-1 HTTP/1.1\r\n\r\n"),
-            &actor,
-            &ServeSecurity::loopback(),
-        );
+        let reply = send("GET /?session=S-DEMO-1 HTTP/1.1\r\n\r\n");
         assert_eq!(reply.response.status, 200);
         assert!(String::from_utf8_lossy(&reply.response.body).contains("WHCode"));
 
         // POST 不属于静态路由 → 404。
-        let reply = respond(
-            &conn,
-            &raw_request("POST / HTTP/1.1\r\n\r\n"),
-            &actor,
-            &ServeSecurity::loopback(),
-        );
+        let reply = send("POST / HTTP/1.1\r\n\r\n");
         assert_eq!(reply.response.status, 404);
 
         // API：回环模式缺 Origin 放行（ADR-022）；数据为空数组（正确的空）。
-        let reply = respond(
-            &conn,
-            &raw_request("GET /api/sessions HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
-            &actor,
-            &ServeSecurity::loopback(),
-        );
+        let reply = send("GET /api/sessions HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
         assert_eq!(reply.response.status, 200);
         let body: serde_json::Value = serde_json::from_slice(&reply.response.body).expect("JSON");
         assert_eq!(body["schema_version"], SCHEMA_VERSION);
         assert_eq!(body["sessions"], serde_json::json!([]));
 
+        // 写命令（FR-609）：POST + JSON 体 → 201 创建；随后列表可见。
+        let payload = r#"{"title":"装配根写命令"}"#;
+        let reply = send(&format!(
+            "POST /api/sessions/new HTTP/1.1\r\ncontent-type: application/json\r\n\
+             content-length: {}\r\n\r\n{payload}",
+            payload.len()
+        ));
+        assert_eq!(reply.response.status, 201);
+        let body: serde_json::Value = serde_json::from_slice(&reply.response.body).expect("JSON");
+        assert_eq!(body["session"]["title"], "装配根写命令");
+
         // API：非回环 Origin 拒绝（威胁模型不变）。
-        let reply = respond(
-            &conn,
-            &raw_request("GET /api/sessions HTTP/1.1\r\norigin: http://evil.example\r\n\r\n"),
-            &actor,
-            &ServeSecurity::loopback(),
-        );
+        let reply = send("GET /api/sessions HTTP/1.1\r\norigin: http://evil.example\r\n\r\n");
         assert_eq!(reply.response.status, 403);
 
         // WS：缺 Sec-WebSocket-Key → 400；有 key → 101 + 关闭帧。
-        let reply = respond(
-            &conn,
-            &raw_request("GET /ws HTTP/1.1\r\n\r\n"),
-            &actor,
-            &ServeSecurity::loopback(),
-        );
+        let reply = send("GET /ws HTTP/1.1\r\n\r\n");
         assert_eq!(reply.response.status, 400);
-        let reply = respond(
-            &conn,
-            &raw_request("GET /ws HTTP/1.1\r\nsec-websocket-key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n"),
-            &actor,
-            &ServeSecurity::loopback(),
-        );
+        let reply = send("GET /ws HTTP/1.1\r\nsec-websocket-key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n");
         assert_eq!(reply.response.status, 101);
         assert!(reply.ws_close_frame, "握手后必须发送正常关闭帧");
 
         // 未知 API 路径 → 404。
-        let reply = respond(
-            &conn,
-            &raw_request("GET /api/nope HTTP/1.1\r\n\r\n"),
-            &actor,
-            &ServeSecurity::loopback(),
-        );
+        let reply = send("GET /api/nope HTTP/1.1\r\n\r\n");
         assert_eq!(reply.response.status, 404);
     }
 

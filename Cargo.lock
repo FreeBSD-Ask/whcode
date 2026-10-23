@@ -3733,6 +3733,7 @@ dependencies = [
  "whcode-cui",
  "whcode-domain",
  "whcode-platform",
+ "whcode-runtime",
  "whcode-store",
  "whcode-tui",
  "whcode-web",

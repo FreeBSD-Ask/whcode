@@ -100,6 +100,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
 cargo test -p whcode-tests --test layering       # 分层/平台分支/前端不触库
 cargo test -p whcode-tests --test layout         # 目录分类门禁
+python ci/traceability.py                        # FR↔任务↔Check 三方追溯（含缺口登记合规）
 python script/normalize_eol.py                   # LF + 无 BOM 审计
 python script/check_workflows.py                 # CI workflow 自检
 python script/measure_resources.py               # 资源铁律 M1/C4：测试进程 RSS/CPU 达标

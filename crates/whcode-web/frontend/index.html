@@ -14,17 +14,44 @@
       <button data-tab="tasks" role="tab" data-i18n="web.tab.tasks">任务</button>
       <button data-tab="history" role="tab" data-i18n="web.tab.history">历史</button>
       <button data-tab="spec" role="tab" data-i18n="web.tab.spec">SDD</button>
+      <button data-tab="maintenance" role="tab" data-i18n="web.tab.maintenance">维护</button>
     </nav>
   </header>
   <main id="main" aria-live="polite">
-    <section id="view-sessions" hidden><ul id="session-list"></ul></section>
+    <section id="view-sessions" hidden>
+      <form id="session-create">
+        <label for="session-title" data-i18n="web.session.title">会话标题</label>
+        <input id="session-title" name="title" required maxlength="200">
+        <button type="submit" data-i18n="web.session.create">新建</button>
+      </form>
+      <ul id="session-list"></ul>
+      <div id="session-actions">
+        <input id="session-rename-title" maxlength="200" data-i18n-placeholder="web.session.rename_placeholder" placeholder="新标题">
+        <button id="session-rename" type="button" data-i18n="web.session.rename">重命名</button>
+        <button id="session-archive" type="button" data-i18n="web.session.archive">归档</button>
+        <button id="session-delete-preview" type="button" data-i18n="web.session.delete_preview">删除预览</button>
+        <button id="session-delete-confirm" type="button" disabled data-i18n="web.session.delete_confirm">确认删除</button>
+      </div>
+    </section>
     <section id="view-tasks" hidden><ul id="task-list"></ul></section>
     <section id="view-history" hidden><pre id="event-log"></pre></section>
     <section id="view-spec" hidden><pre id="spec-status"></pre></section>
+    <section id="view-maintenance" hidden>
+      <form id="purge-form">
+        <label for="purge-days" data-i18n="web.cleanup.days">保留天数</label>
+        <input id="purge-days" type="number" min="1" value="30">
+        <button id="purge-preview" type="button" data-i18n="web.cleanup.preview">预览</button>
+        <button id="purge-confirm" type="button" disabled data-i18n="web.cleanup.confirm">确认清理</button>
+      </form>
+      <pre id="purge-result"></pre>
+      <h2 data-i18n="web.runtimes">运行时</h2>
+      <ul id="runtime-list"></ul>
+    </section>
   </main>
   <footer id="footer">
     <span id="connection-state">未连接</span>
     <span id="event-cursor"></span>
+    <span id="action-status" role="status"></span>
   </footer>
   <script type="module" src="app.js"></script>
 </body>

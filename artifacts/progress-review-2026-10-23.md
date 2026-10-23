@@ -373,3 +373,34 @@ CRLF/BOM 均 0）与 `ci/check_counts.py`（FR=79/tasks=148/checks=249）通过�
 通过。另：全量跑前需清理锁住 `target` 下测试二进制的残留进程（LNK1104），本轮已用
 `script/` 临时脚本清理并删除。
 
+## 13. 里程碑批次：ADR-024／ADR-025／追溯门禁／Web 写命令（2026-10-23）
+
+**范围**：用户批准“门禁链 + 追溯门禁双绿、M8 与预算两项定性完成、Web 写命令落地”。
+
+**定性（ADR）**：
+
+| ADR | 结论 | 影响 |
+|---|---|---|
+| ADR-024 运行时范围 | JS 不交付引擎（`Restricted` + 结构化 `runtime_unavailable`）；Python 子进程 worker（记录绝对路径/版本/实现名/ABI/依赖）；Git Bash 独立 payload（四重校验）；不引入 Boa／RustPython | Check 110/111/154 的口径确定但仍未实现（不勾选）；153 维持未通过 |
+| ADR-025 预算冻结 | Windows 11 amd64 冻结 NFR-201—210，冻结值＝spec 候选值；NFR-208/210 达标 | Check 55/133/136 转入通过；195 仍未通过（八项无实测、72 h 缺失） |
+
+**代码（Check 101/102/104）**：
+
+- `payload::SourceAllowlist` + 固定顺序四重校验（来源不明 → `permission_denied` 不可重试）；
+- `bin::runtimes` 清单四处可见（doctor JSON/人类输出、TUI 摘要、Web `/api/runtimes`）；
+- `worker::execute_with_cancel`（协作取消）+ `ConcurrencyGate`（并发上限，RAII 归还）。
+
+**Web 写命令（Check 93/183）**：会话 4 条、任务 2 条、清理预览/确认各 1 条；破坏性命令
+默认预览；数据形状集中到 `whcode-app::views`，CUI 与 Web 共用；清理计数补齐三个漏报表名。
+前端新增“维护”页签与按钮，JS gzip 6 769 B（预算 50 KB）。
+
+**追溯门禁（Check 127）**：`ci/traceability.py` 六条判据；FR-402/403/404（检查点增量差分、
+同事务提交、恢复加载引用）以“缺口登记 G-01”承载，登记须含责任人与退出条件，恢复覆盖后
+自动判为“登记失效”。
+
+**计数**：200 → **209 通过 / 40 未通过**（新增通过 55、93、101、102、104、127、133、136、183）；
+未进行任何“按实测反向冻结”或伪造覆盖的操作。
+
+**未取得**：真实浏览器逐项点按新按钮的记录（API 层自动化已齐）；V-304（Git Bash 五类命令）；
+Python ABI/C 扩展探测记录；72 h 时间序列。
+

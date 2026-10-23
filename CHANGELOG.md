@@ -13,6 +13,50 @@
 
 ### 变更
 
+- 里程碑批次（2026-10-23，Check 55／93／101／102／104／127／133／136／183 通过）：
+  - **ADR-024（M8 运行时范围定性）**：JS 不交付引擎（`JsProvider` 声明 `Restricted`，
+    执行返回结构化 `runtime_unavailable`，不得表述为 Node.js 支持）；Python 走子进程
+    worker（记录解释器绝对路径/版本/实现名/ABI/依赖与 C 扩展探测）；Git Bash 为独立
+    payload（来源白名单 + 版本 + 哈希 + 平台四重校验、五类命令验证）；不引入
+    Boa／RustPython。同时记录 `whcode-bin → whcode-runtime` 装配依赖的边界（只读声明与
+    探针，不加载动态库）。
+  - **ADR-025（性能预算冻结）**：在 Windows 11 amd64 冻结 NFR-201—210，冻结值沿用
+     spec 候选值；NFR-208（概览 p95 6 071 µs ≤ 50 ms）与 NFR-210（写入 6 921 条/秒
+     ≥ 2 000 条/秒）达标，其余八项保持候选并登记责任人与退出条件；BSD 无证据不参与；
+    `platform-matrix.md`／`decisions.md`（D-06/D-08/D-09/D-11）与 ADR-005/010/012
+    未决项台账同步。
+  - **payload 四重校验**（Check 102）：`PayloadMeta` 校验顺序固定为
+    来源 → 平台 → 版本非空 → 哈希；新增 `SourceAllowlist`（精确匹配、去空白去重、
+    空白名单拒绝一切），来源不明返回 `permission_denied`（不可重试）。
+  - **能力等级可见性**（Check 101）：新增 `whcode-bin::runtimes` 清单，经 `doctor --json`、
+    `doctor` 人类输出、TUI 摘要与 Web `GET /api/runtimes` 四处展示三档等级；界面路径
+    不启动子进程。
+  - **子进程取消与并发上限**（Check 104）：`worker::execute_with_cancel` 以 `AtomicBool`
+    协作取消（轮询 ≤10 ms，`cancelled` 与超时区分）；`ConcurrencyGate`
+    （`Mutex`+`Condvar`，`GatePermit` RAII 归还，不新建线程）限制同时在跑的子进程数，
+    默认 `min(4, 可用并行度)`。
+  - **Web 写命令落地**（Check 93／183）：新增 `POST /api/sessions/{new,rename,archive,delete}`、
+    `POST /api/tasks/{retry,abort}`、`POST /api/purge`；破坏性命令默认只预览
+    （`confirm=false`），显式 `confirm=true` 才执行——与 CUI `--dry-run`/`--yes` 同语义。
+    数据形状统一到 `whcode-app::views`（`session_value`/`task_value`/`purge_counts_value`），
+    三端共用同一字段集合；清理计数补齐 `messages`/`context_windows`/`session_overview`
+    三个此前漏报的表名。新增应用层入口 `whcode-app::maintenance`（`purge_preview`/
+    `purge_execute`，权限映射 `session.delete`），CUI 与 Web 共用。
+    前端新增“维护”页签、会话新建/重命名/归档/删除预览与确认、任务重试/中止按钮、
+    清理预览与确认、运行时清单（`data-i18n-placeholder` 支持新增）；体积仍在预算内
+    （JS gzip 6 769 B / CSS gzip 946 B）。
+  - **三方追溯门禁**（Check 127）：新增 `ci/traceability.py`（FR→任务、FR→验收、幻影 FR、
+    幻影任务、编号连续唯一、缺口登记合规六条判据；支持 `FR-201—210` 区间与
+    `FR-502/503` 并列写法），并新增“追溯缺口登记”节承载 FR-402/403/404（检查点增量差分、
+    同事务提交、恢复加载引用）——登记须含责任人与退出条件，恢复覆盖后自动判为“登记失效”。
+  - **资源测量信号修复**（`script/measure_resources.py`）：旧实现每次采样都启动
+    PowerShell 枚举进程，29 s 的测试只采到 1 个样本并在“零样本”时输出“峰值 0 MB / PASS”
+    ——把“没有信号”当成“达标”。改为持有进程句柄、用 Win32 `GetProcessMemoryInfo`／
+    `GetProcessTimes` 50 ms 轮询，报告 `measured` 字段；零样本判为未取得信号并计入违规。
+    本轮实测 `session_switch` 峰值 RSS 77.5 MB、491 样本。
+  - **测试口径同步**：概览性能测试更名为 `overview_p95_within_frozen_budget_and_report_is_archived`
+     并对比冻结预算（报告 `budget.frozen=true`）；`bench` 说明与 TUI 帧预算注记同步澄清
+     “帧预算不属于 NFR-201—210、不随 ADR-025 冻结”。
 - 稳定性与驻留修复（2026-10-23，Check 206／221 通过）：
   - **会话驻留缓冲**：`whcode-app::residency` 新增有界事件缓冲（200 条 / 256 KiB 双上限，
     超限返回 `backpressure` 而非静默丢弃）、`accounted_bytes` 占用统计与 `event_cursor`；

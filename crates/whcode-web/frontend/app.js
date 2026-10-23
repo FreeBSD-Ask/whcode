@@ -46,6 +46,12 @@ async function loadLocale() {
       node.textContent = texts[key];
     }
   }
+  for (const node of document.querySelectorAll("[data-i18n-placeholder]")) {
+    const key = node.dataset.i18nPlaceholder;
+    if (typeof texts[key] === "string") {
+      node.placeholder = texts[key];
+    }
+  }
   setConnected(state.connected);
   updateCursorLabel();
 }
@@ -83,6 +89,44 @@ async function fetchJson(url) {
     throw new Error(`HTTP ${response.status}`);
   }
   return response.json();
+}
+
+// 写命令（FR-609）：POST + JSON 体；错误信封与 CUI 同源（code/message/retryable/details）。
+// 破坏性命令**默认只预览**，确认按钮在预览成功后才启用（与 CUI --dry-run/--yes 同语义）。
+async function postJson(url, payload) {
+  const headers = { "Content-Type": "application/json" };
+  if (authToken !== null) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const reason = data.message ? `${data.code}: ${data.message}` : `HTTP ${response.status}`;
+    throw new Error(reason);
+  }
+  return data;
+}
+
+function setActionStatus(text, isError = false) {
+  const node = el("action-status");
+  node.textContent = text;
+  node.dataset.state = isError ? "error" : "ok";
+}
+
+/** 包装写命令：统一错误呈现（可操作、不责怪用户），成功后刷新视图。 */
+async function runAction(label, action) {
+  try {
+    const result = await action();
+    setActionStatus(`${label}：${result ?? "ok"}`);
+    return true;
+  } catch (error) {
+    setActionStatus(t("web.action.failed", "操作失败", { error: error.message, label }), true);
+    return false;
+  }
 }
 
 // 会话清单（FR-101）：条目可点击选择（批次 1）；渲染按签名去重（避免每秒重建 DOM）。
@@ -173,6 +217,20 @@ async function loadTasks() {
   for (const task of data.active ?? []) {
     const item = document.createElement("li");
     item.textContent = `${task.id} ${task.title} [${task.status}] retry=${task.retry_count}`;
+    // 写命令（FR-609）：重试/中止与 CUI `task retry|abort` 同一应用服务。
+    for (const [labelKey, fallback, handler] of [
+      ["web.task.retry", "重试", retryTask],
+      ["web.task.abort", "中止", abortTask],
+    ]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = t(labelKey, fallback);
+      button.dataset.task = task.id;
+      button.addEventListener("click", () => {
+        runAction(t(labelKey, fallback), () => handler(task.id));
+      });
+      item.append(" ", button);
+    }
     list.append(item);
   }
 }
@@ -220,6 +278,158 @@ async function loadStatus() {
     return; // 会话已切换：丢弃过期响应
   }
   el("spec-status").textContent = JSON.stringify(data, null, 2);
+}
+
+// ---- 写命令（FR-609）：会话、任务、清理与运行时 ----
+// 每条命令与服务端 `POST /api/*` 一一对应，语义与 CUI 相同（FR-604）：
+// 破坏性操作先预览，确认按钮在预览成功后才启用；删除当前会话后清空选择。
+
+let deleteArmed = null; // 已预览的删除目标（防止对未预览的会话直接删除）
+let purgeArmed = null; // 已预览的清理判据（毫秒时间点）
+
+async function createSession(title) {
+  const data = await postJson("/api/sessions/new", { title });
+  lastSessionsSignature = ""; // 强制重建列表
+  await loadSessions();
+  selectSession(data.session.id);
+  return data.session.id;
+}
+
+async function renameCurrentSession(title) {
+  if (!state.session) {
+    throw new Error(t("web.session.none", "未选择会话"));
+  }
+  const data = await postJson("/api/sessions/rename", {
+    session: state.session,
+    title,
+  });
+  lastSessionsSignature = "";
+  await loadSessions();
+  return data.session.title;
+}
+
+async function setCurrentArchived(archived) {
+  if (!state.session) {
+    throw new Error(t("web.session.none", "未选择会话"));
+  }
+  const data = await postJson("/api/sessions/archive", {
+    session: state.session,
+    archived,
+  });
+  lastSessionsSignature = "";
+  await loadSessions();
+  return data.session.archived ? "archived" : "active";
+}
+
+async function previewDeleteCurrentSession() {
+  if (!state.session) {
+    throw new Error(t("web.session.none", "未选择会话"));
+  }
+  const data = await postJson("/api/sessions/delete", { session: state.session });
+  deleteArmed = state.session;
+  el("session-delete-confirm").disabled = false;
+  return t("web.session.delete_preview_result", "将删除：事件 {events} · 任务 {tasks}", {
+    events: data.counts?.events ?? 0,
+    tasks: data.counts?.tasks ?? 0,
+  });
+}
+
+async function confirmDeleteCurrentSession() {
+  if (deleteArmed === null) {
+    throw new Error(t("web.session.preview_required", "须先预览再确认删除"));
+  }
+  const target = deleteArmed;
+  const data = await postJson("/api/sessions/delete", { session: target, confirm: true });
+  deleteArmed = null;
+  el("session-delete-confirm").disabled = true;
+  if (state.session === target) {
+    state.session = null;
+    state.cursor = 0;
+    el("event-log").textContent = "";
+    el("task-list").textContent = "";
+    el("spec-status").textContent = "";
+    const url = new URL(window.location.href);
+    url.searchParams.delete("session");
+    window.history.replaceState(null, "", url);
+  }
+  lastSessionsSignature = "";
+  await loadSessions();
+  return t("web.session.deleted", "已删除 {n} 个会话", {
+    n: data.deleted_sessions?.length ?? 0,
+  });
+}
+
+async function retryTask(taskId) {
+  const data = await postJson("/api/tasks/retry", { task: taskId });
+  await loadTasks();
+  return `${data.task.id} → ${data.task.status}`;
+}
+
+async function abortTask(taskId) {
+  const data = await postJson("/api/tasks/abort", { task: taskId });
+  await loadTasks();
+  return `${data.task.id} → ${data.task.status}`;
+}
+
+function purgeCutoffMs() {
+  const days = Number.parseInt(el("purge-days").value, 10);
+  if (!Number.isFinite(days) || days < 1) {
+    throw new Error(t("web.cleanup.bad_days", "保留天数必须 ≥ 1"));
+  }
+  return Date.now() - days * 86_400_000;
+}
+
+async function previewPurge() {
+  const cutoff = purgeCutoffMs();
+  const data = await postJson("/api/purge", { before_ms: cutoff });
+  purgeArmed = cutoff;
+  el("purge-confirm").disabled = false;
+  el("purge-result").textContent = JSON.stringify(data, null, 2);
+  return t("web.cleanup.preview_result", "将清理 {sessions} 个会话", {
+    sessions: data.selected_sessions?.length ?? 0,
+  });
+}
+
+async function confirmPurge() {
+  if (purgeArmed === null) {
+    throw new Error(t("web.cleanup.preview_required", "须先预览再确认清理"));
+  }
+  const data = await postJson("/api/purge", {
+    before_ms: purgeArmed,
+    confirm: true,
+  });
+  purgeArmed = null;
+  el("purge-confirm").disabled = true;
+  el("purge-result").textContent = JSON.stringify(data, null, 2);
+  lastSessionsSignature = "";
+  await loadSessions();
+  return t("web.cleanup.done", "已清理 {sessions} 个会话", {
+    sessions: data.deleted_sessions?.length ?? 0,
+  });
+}
+
+/** 运行时清单（FR-702/609）：只读声明，`available = null` 表示本路径未探测。 */
+async function loadRuntimes() {
+  const data = await fetchJson("/api/runtimes");
+  const list = el("runtime-list");
+  list.textContent = "";
+  if (!data.wired) {
+    const item = document.createElement("li");
+    item.textContent = t("web.runtimes.unwired", "运行时清单未接线");
+    list.append(item);
+    return;
+  }
+  for (const runtime of data.runtimes ?? []) {
+    const item = document.createElement("li");
+    const stateText =
+      runtime.available === null
+        ? t("web.runtimes.unknown", "未探测")
+        : runtime.available
+          ? t("web.runtimes.available", "可用")
+          : t("web.runtimes.unavailable", "不可用");
+    item.textContent = `${runtime.name} [${runtime.capability}] ${stateText}`;
+    list.append(item);
+  }
 }
 
 // 轮询循环：失败退避重连（T094/FR-605），恢复后重置退避。
@@ -324,5 +534,42 @@ document.addEventListener("DOMContentLoaded", () => {
   if (state.session) {
     loadTasks().catch(() => {});
   }
+
+  // 写命令接线（FR-609）：所有按钮走同一 POST 路径；破坏性命令须先预览。
+  el("session-create").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const title = el("session-title").value.trim();
+    if (!title) {
+      setActionStatus(t("web.session.title_required", "请输入会话标题"), true);
+      return;
+    }
+    runAction(t("web.session.create", "新建"), () => createSession(title)).then((ok) => {
+      if (ok) el("session-title").value = "";
+    });
+  });
+  el("session-rename").addEventListener("click", () => {
+    const title = el("session-rename-title").value.trim();
+    if (!title) {
+      setActionStatus(t("web.session.title_required", "请输入会话标题"), true);
+      return;
+    }
+    runAction(t("web.session.rename", "重命名"), () => renameCurrentSession(title));
+  });
+  el("session-archive").addEventListener("click", () => {
+    runAction(t("web.session.archive", "归档"), () => setCurrentArchived(true));
+  });
+  el("session-delete-preview").addEventListener("click", () => {
+    runAction(t("web.session.delete_preview", "删除预览"), previewDeleteCurrentSession);
+  });
+  el("session-delete-confirm").addEventListener("click", () => {
+    runAction(t("web.session.delete_confirm", "确认删除"), confirmDeleteCurrentSession);
+  });
+  el("purge-preview").addEventListener("click", () => {
+    runAction(t("web.cleanup.preview", "预览"), previewPurge);
+  });
+  el("purge-confirm").addEventListener("click", () => {
+    runAction(t("web.cleanup.confirm", "确认清理"), confirmPurge);
+  });
+  loadRuntimes().catch(() => {});
   pollLoop();
 });
