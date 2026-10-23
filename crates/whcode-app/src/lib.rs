@@ -26,6 +26,7 @@
 pub mod authz;
 pub mod context;
 pub mod events;
+pub mod fonts;
 pub mod gates;
 pub mod maintenance;
 pub mod overview;

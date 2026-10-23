@@ -5,8 +5,9 @@
 //! 隔离（NFR-102）。
 //!
 //! 当前覆盖：进程终止策略（Windows 子进程树 / BSD-类进程组）、路径与资源探测、
-//! 终端能力接口（骨架，M0/T024 接线实际探测）。
+//! 终端能力接口（骨架，M0/T024 接线实际探测）、用户级字体注册（FR-717）。
 
+pub mod fonts;
 pub mod paths;
 pub mod process;
 pub mod resources;

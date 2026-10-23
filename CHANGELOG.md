@@ -26,6 +26,22 @@
   - 未完成：TUI 字体安装/状态命令（T155／FR-717）；终端字体不可由程序强制，
     该命令只做用户级安装与终端配置提示。
 
+- TUI 字体声明批次（2026-10-24）：**`whcode font install|status|uninstall`**（T155，
+  ADR-028 修订 1、FR-717）。
+  - `install` 把四份完整字体复制到用户字体目录（`%LOCALAPPDATA%\Microsoft\Windows\Fonts`）
+    并写 HKCU 注册（`reg.exe` 子进程，零 unsafe、零新依赖）；来源支持 `--from` 显式目录、
+    可执行文件旁与当前目录三级探测；`--dry-run` 预览；发布包不带完整字体，缺失时报
+    可操作错误（指引 `--from` 与 `SOURCES.md`）。
+  - `status` 检测安装状态（文件 + 注册）并**只读**解析 Windows Terminal settings.json
+    的 `font.face`；`uninstall` 注销并删除，完全可逆，不触碰用户原有字体条目。
+  - 终端字体不可由程序强制：`install` 只输出配置片段供用户自行粘贴，不改写用户配置。
+  - 真机实测（`artifacts/font-run-2026-10-24/`）：装前全缺 → 装后四份 complete →
+    `reg query` 独立交叉验证 → 卸载恢复原状；实测抓出并修复 WT 包族名笔误
+    （`8wekybeld3zzbb` → `8wekyb3d8bbwe`，修复前 status 永远检测不到已安装的 WT）。
+  - 分层：编排与报告在 `whcode-app::fonts`（注册表经 `FontRegistry` trait 注入，零平台
+    分支），reg.exe 实现与路径探测在 `whcode-platform::fonts`，装配在 `whcode-bin`
+    （`PlatformFontRegistry`）；i18n 词条 `cui.font.*` 中英齐备。
+
 - GUI 达标批次（2026-10-23）：**字体、主题切换与最小化停绘**（T152）。
   - 字体：CJK 由“读入 19.7 MB `msyh.ttc`”改为**按族名使用系统字体**
     （`Font::with_name("Microsoft YaHei")`，候选 `SimHei`）。系统字体不可再分发，

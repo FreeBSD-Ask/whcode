@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "data": {
+    "fonts": [
+      {
+        "complete": true,
+        "family": "Inter",
+        "file_installed": true,
+        "file_name": "Inter-Regular.ttf",
+        "registered": true
+      },
+      {
+        "complete": true,
+        "family": "Noto Sans CJK SC",
+        "file_installed": true,
+        "file_name": "NotoSansCJKsc-Regular.otf",
+        "registered": true
+      },
+      {
+        "complete": true,
+        "family": "JetBrains Mono",
+        "file_installed": true,
+        "file_name": "JetBrainsMono-Regular.ttf",
+        "registered": true
+      },
+      {
+        "complete": true,
+        "family": "Sarasa Mono SC",
+        "file_installed": true,
+        "file_name": "SarasaMonoSC-Regular.ttf",
+        "registered": true
+      }
+    ],
+    "fonts_dir": "C:\\Users\\ykla\\AppData\\Local\\Microsoft\\Windows\\Fonts",
+    "terminal": {
+      "builtin_in_use": [],
+      "declared_faces": [],
+      "note": null,
+      "settings_file": "C:\\Users\\ykla\\AppData\\Local\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json"
+    }
+  }
+}

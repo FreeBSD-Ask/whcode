@@ -81,6 +81,11 @@ pub enum Command {
         #[command(subcommand)]
         command: RuntimeCommand,
     },
+    /// 内置字体安装与终端声明检测（FR-717；本机资源命令，不触库、无工作区）。
+    Font {
+        #[command(subcommand)]
+        command: FontCommand,
+    },
     /// 传输入口（M6/M7）。
     Serve {
         /// Web 入口（M6）。
@@ -337,6 +342,30 @@ pub enum RuntimeCommand {
         /// 运行时名。
         #[arg(long)]
         name: String,
+    },
+}
+
+/// `font` 子命令（FR-717、ADR-028）：用户级字体安装显式且可逆，`uninstall` 撤销；
+/// 程序不改写用户终端配置，`install` 只输出配置片段供确认。
+#[derive(Debug, Clone, PartialEq, Subcommand)]
+pub enum FontCommand {
+    /// 安装四份内置字体到用户字体目录并写 HKCU 注册（复制为覆盖语义，可重跑）。
+    Install {
+        /// 字体来源目录（平铺或仓库 source/<family>/ 布局）；缺省按序探测
+        /// 可执行文件旁与当前目录的 `assets/fonts/source`（ADR-028 修订 1）。
+        #[arg(long)]
+        from: Option<String>,
+        /// 只报告将执行的动作，不改系统。
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// 检测字体安装状态与终端声明（只读）。
+    Status,
+    /// 卸载内置字体：注销注册并删除用户字体目录中的文件（尽力而为，逐项报告）。
+    Uninstall {
+        /// 只报告将执行的动作，不改系统。
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 

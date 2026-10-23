@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "data": {
+    "dry_run": false,
+    "fonts_dir": "C:\\Users\\ykla\\AppData\\Local\\Microsoft\\Windows\\Fonts",
+    "installed": [
+      {
+        "family": "Inter",
+        "registered": true,
+        "source": "D:\\WHCode\\assets\\fonts\\source\\inter\\Inter-Regular.ttf",
+        "target": "C:\\Users\\ykla\\AppData\\Local\\Microsoft\\Windows\\Fonts\\Inter-Regular.ttf"
+      },
+      {
+        "family": "Noto Sans CJK SC",
+        "registered": true,
+        "source": "D:\\WHCode\\assets\\fonts\\source\\noto-sans-sc\\NotoSansCJKsc-Regular.otf",
+        "target": "C:\\Users\\ykla\\AppData\\Local\\Microsoft\\Windows\\Fonts\\NotoSansCJKsc-Regular.otf"
+      },
+      {
+        "family": "JetBrains Mono",
+        "registered": true,
+        "source": "D:\\WHCode\\assets\\fonts\\source\\jetbrains-mono\\JetBrainsMono-Regular.ttf",
+        "target": "C:\\Users\\ykla\\AppData\\Local\\Microsoft\\Windows\\Fonts\\JetBrainsMono-Regular.ttf"
+      },
+      {
+        "family": "Sarasa Mono SC",
+        "registered": true,
+        "source": "D:\\WHCode\\assets\\fonts\\source\\sarasa-mono-sc\\SarasaMonoSC-Regular.ttf",
+        "target": "C:\\Users\\ykla\\AppData\\Local\\Microsoft\\Windows\\Fonts\\SarasaMonoSC-Regular.ttf"
+      }
+    ],
+    "source_dir": "D:\\WHCode\\assets\\fonts\\source",
+    "terminal_hint": [
+      "终端配置片段（粘入 Windows Terminal settings.json 的 profiles.defaults，自行确认；程序不代改用户配置）：\"font\": { \"face\": \"Sarasa Mono SC\" }",
+      "终端字形由终端模拟器控制，程序不能强制更换（FR-717）；若未立即生效，请重启终端应用。"
+    ]
+  }
+}

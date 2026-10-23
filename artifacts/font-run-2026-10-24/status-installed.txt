@@ -1,0 +1,6 @@
+Built-in fonts status (user dir: C:\Users\ykla\AppData\Local\Microsoft\Windows\Fonts)
+Inter (Inter-Regular.ttf): file installed, registry registered
+Noto Sans CJK SC (NotoSansCJKsc-Regular.otf): file installed, registry registered
+JetBrains Mono (JetBrainsMono-Regular.ttf): file installed, registry registered
+Sarasa Mono SC (SarasaMonoSC-Regular.ttf): file installed, registry registered
+Terminal declaration: C:\Users\ykla\AppData\Local\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json (faces: ; built-in hits: )

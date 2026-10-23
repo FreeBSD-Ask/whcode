@@ -36,11 +36,16 @@ whcode-bin           （装配根：配置、日志、feature）
 ### whcode-platform
 
 - **职责**：进程终止策略（Windows 子进程树 / BSD 进程组）、路径约定、资源探测、终端尺寸与
-  stdin 交互性判定。
-- **不负责**：业务语义、重试策略。
-- **关键类型**：`TerminationPolicy`、`ResourceLimits`。
-- **失败模式**：探测不到终端返回 `None`（调用方不得当作固定尺寸）；核数探测为 0 时 panic（启动期错误）。
-- **测试**：内联 10 例（含终端探测稳定性、线程预算边界）。
+  stdin 交互性判定、用户级字体注册材料（reg.exe 子进程读写 HKCU Fonts 键、用户字体目录
+  与 Windows Terminal settings.json 候选路径探测，FR-717）。
+- **不负责**：业务语义、重试策略；字体安装的编排与报告（属 whcode-app::fonts，
+  注册表 trait 由装配根注入本模块实现）。
+- **关键类型**：`TerminationPolicy`、`ResourceLimits`；`fonts::reg_query_value`/
+  `reg_set_value`/`reg_delete_value`、`user_fonts_dir`、`windows_terminal_settings_paths`。
+- **失败模式**：探测不到终端返回 `None`（调用方不得当作固定尺寸）；核数探测为 0 时 panic（启动期错误）；
+  非 Windows 平台字体注册显式返回 `RuntimeUnavailable`（不伪装成功）；WT settings
+  全部未命中由调用方表述为“未检测到”（不视为错误）。
+- **测试**：内联 12 例（含终端探测稳定性、线程预算边界、字体键名与路径布局）。
 
 ### whcode-app
 
@@ -52,7 +57,9 @@ whcode-bin           （装配根：配置、日志、feature）
   `StateSnapshot`/`build_snapshot`、`ContextWindow`/`load_context`/`compress_context`、
   `EventsExport`/`events_export`、`ReplayPage`/`replay_since`、
   `TransitionContext`/`request_transition`/`force_advance`/`ForceAdvance`、`StageRole`、
-  `BoundedQueue`。
+  `BoundedQueue`、字体本机命令的 `fonts::BUILTIN_FONTS`/`FontRegistry`/`FontEnv`/
+  `install`/`status`/`uninstall`（FR-717：本机资源命令，不触库、不经会话授权；
+  注册表副作用经 trait 注入，应用层零平台分支）。
 - **失败模式**：权限拒绝统一 `permission_denied`（不可重试，FR-604）；切换只加载元数据 +
   预聚合概览 + 50 条尾部 + 游标（有界，V-101）；删除复用 purge 全链（预览/确认/审计/
   活跃保护，FR-509）；retry 仅 failed/aborted/interrupted 可用、abort 拒绝终态与
@@ -61,7 +68,8 @@ whcode-bin           （装配根：配置、日志、feature）
 - **测试**：内联 44+ 例（会话生命周期与权限、切换有界、删除确认与保护、总览双范围、
   任务详情五类信息、retry/abort 状态机、快照与库内一致、上下文契约四元组与截断原因、
   压缩指针不删原文、事件导出脱敏与增量、补拉游标与完成性、SDD 门禁（V-202/V-203）
-  与 force-advance 审计（V-206）、阶段角色确定性）。
+  与 force-advance 审计（V-206）、阶段角色确定性、字体来源三级布局解析、
+  安装/卸载循环（dry-run 无副作用、文件占用不中断、终端配置两种形状解析））。
 - **M2 决策记录**：命令事件发射延后至 M3（事件流交付时接线）；会话 `stage` 字段
   M4 前为 `None`；`context`/`llm`/`runtimes` 快照字段 M3/M8 前为占位。
 

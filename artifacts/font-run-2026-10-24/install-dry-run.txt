@@ -1,0 +1,7 @@
+[dry-run]Install built-in fonts: D:\WHCode\assets\fonts\source -> C:\Users\ykla\AppData\Local\Microsoft\Windows\Fonts
+Inter: copy D:\WHCode\assets\fonts\source\inter\Inter-Regular.ttf -> C:\Users\ykla\AppData\Local\Microsoft\Windows\Fonts\Inter-Regular.ttf, registry pending
+Noto Sans CJK SC: copy D:\WHCode\assets\fonts\source\noto-sans-sc\NotoSansCJKsc-Regular.otf -> C:\Users\ykla\AppData\Local\Microsoft\Windows\Fonts\NotoSansCJKsc-Regular.otf, registry pending
+JetBrains Mono: copy D:\WHCode\assets\fonts\source\jetbrains-mono\JetBrainsMono-Regular.ttf -> C:\Users\ykla\AppData\Local\Microsoft\Windows\Fonts\JetBrainsMono-Regular.ttf, registry pending
+Sarasa Mono SC: copy D:\WHCode\assets\fonts\source\sarasa-mono-sc\SarasaMonoSC-Regular.ttf -> C:\Users\ykla\AppData\Local\Microsoft\Windows\Fonts\SarasaMonoSC-Regular.ttf, registry pending
+终端配置片段（粘入 Windows Terminal settings.json 的 profiles.defaults，自行确认；程序不代改用户配置）："font": { "face": "Sarasa Mono SC" }
+终端字形由终端模拟器控制，程序不能强制更换（FR-717）；若未立即生效，请重启终端应用。

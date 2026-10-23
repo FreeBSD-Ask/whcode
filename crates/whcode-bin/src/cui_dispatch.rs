@@ -21,8 +21,8 @@ use duckdb::Connection;
 use serde_json::{Value, json};
 use whcode_app::{Actor, DefaultPolicy, NewSession, actor_with_all_capabilities};
 use whcode_cui::cli::{
-    Command, DbCommand, EventsCommand, ParseOutcome, SessionCommand, SpecCommand, TaskCommand,
-    parse_outcome,
+    Command, DbCommand, EventsCommand, FontCommand, ParseOutcome, SessionCommand, SpecCommand,
+    TaskCommand, parse_outcome,
 };
 use whcode_cui::output::{EXIT_USAGE, error_envelope, error_exit_code, success_envelope};
 use whcode_domain::i18n::{I18n, detect_locale};
@@ -192,6 +192,7 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
         Command::Run { .. } => Err(not_wired(
             "run 未接线：LLM 流式交互需 Provider 与会话流装配（M3 桩已交付，CLI 执行属后续）",
         )),
+        Command::Font { command } => font_command(command, texts),
         Command::Runtime { .. } => Err(not_wired(
             "runtime 未接线：运行时装配开关（M8）属后续任务，当前不伪造启用状态",
         )),
@@ -209,6 +210,151 @@ fn not_wired(message: &str) -> WhError {
         ErrorCode::InvalidState,
         format!("未实现：{message}（显式失败，不静默成功）"),
     )
+}
+
+/// HKCU Fonts 键的 reg.exe 实现（glue：`whcode-platform` 提供材料，此处只接线；
+/// 应用层 [`whcode_app::fonts::FontRegistry`] 的真实实现，同 `ViewSource` 注入模式）。
+struct PlatformFontRegistry;
+
+impl whcode_app::fonts::FontRegistry for PlatformFontRegistry {
+    fn query_value(&self, value_name: &str) -> Result<Option<String>, WhError> {
+        whcode_platform::fonts::reg_query_value(value_name)
+    }
+
+    fn set_value(&self, value_name: &str, data: &str) -> Result<(), WhError> {
+        whcode_platform::fonts::reg_set_value(value_name, data)
+    }
+
+    fn delete_value(&self, value_name: &str) -> Result<bool, WhError> {
+        whcode_platform::fonts::reg_delete_value(value_name)
+    }
+}
+
+/// `font` 命令（FR-717）：本机资源操作，不触库、不经会话授权、无工作区要求。
+fn font_command(command: &FontCommand, texts: &I18n) -> Result<(Value, String), WhError> {
+    let env = whcode_app::fonts::FontEnv {
+        registry: &PlatformFontRegistry,
+        user_fonts_dir: whcode_platform::fonts::user_fonts_dir(),
+        terminal_settings: whcode_platform::fonts::windows_terminal_settings_paths(),
+    };
+    match command {
+        FontCommand::Install { from, dry_run } => {
+            let report =
+                whcode_app::fonts::install(&env, from.as_deref().map(Path::new), *dry_run)?;
+            let dry_prefix = if *dry_run {
+                texts.resolve("cui.font.dry_run").to_string()
+            } else {
+                String::new()
+            };
+            let mut lines = vec![texts.resolve_fmt(
+                "cui.font.install.header",
+                &[
+                    ("dry_run", &dry_prefix),
+                    ("source", &report.source_dir),
+                    ("dir", &report.fonts_dir),
+                ],
+            )];
+            for item in &report.installed {
+                let reg_state = if item.registered {
+                    texts.resolve("cui.font.registered")
+                } else {
+                    texts.resolve("cui.font.reg_pending")
+                };
+                lines.push(texts.resolve_fmt(
+                    "cui.font.install.line",
+                    &[
+                        ("family", &item.family),
+                        ("source", &item.source),
+                        ("target", &item.target),
+                        ("reg_state", reg_state),
+                    ],
+                ));
+            }
+            lines.extend(report.terminal_hint.iter().cloned());
+            Ok((report_value(&report)?, lines.join("\n")))
+        }
+        FontCommand::Status => {
+            let report = whcode_app::fonts::status(&env);
+            let mut lines =
+                vec![texts.resolve_fmt("cui.font.status.header", &[("dir", &report.fonts_dir)])];
+            for font in &report.fonts {
+                let file_state = if font.file_installed {
+                    texts.resolve("cui.font.installed")
+                } else {
+                    texts.resolve("cui.font.missing")
+                };
+                let reg_state = if font.registered {
+                    texts.resolve("cui.font.registered")
+                } else {
+                    texts.resolve("cui.font.unregistered")
+                };
+                lines.push(texts.resolve_fmt(
+                    "cui.font.status.line",
+                    &[
+                        ("family", &font.family),
+                        ("file", &font.file_name),
+                        ("file_state", file_state),
+                        ("reg_state", reg_state),
+                    ],
+                ));
+            }
+            match &report.terminal.settings_file {
+                Some(file) => {
+                    let faces = report.terminal.declared_faces.join(", ");
+                    let hits = report.terminal.builtin_in_use.join(", ");
+                    lines.push(texts.resolve_fmt(
+                        "cui.font.terminal.found",
+                        &[("file", file), ("faces", &faces), ("hits", &hits)],
+                    ));
+                }
+                None => lines.push(texts.resolve("cui.font.terminal.none").to_string()),
+            }
+            if let Some(note) = &report.terminal.note {
+                lines.push(note.clone());
+            }
+            Ok((report_value(&report)?, lines.join("\n")))
+        }
+        FontCommand::Uninstall { dry_run } => {
+            let report = whcode_app::fonts::uninstall(&env, *dry_run)?;
+            let dry_prefix = if *dry_run {
+                texts.resolve("cui.font.dry_run").to_string()
+            } else {
+                String::new()
+            };
+            let mut lines =
+                vec![texts.resolve_fmt("cui.font.uninstall.header", &[("dry_run", &dry_prefix)])];
+            for item in &report.removed {
+                let unreg_state = if item.unregistered {
+                    texts.resolve("cui.font.removed")
+                } else {
+                    texts.resolve("cui.font.unregistered")
+                };
+                let file_state = if item.file_deleted {
+                    texts.resolve("cui.font.deleted")
+                } else {
+                    texts.resolve("cui.font.missing")
+                };
+                lines.push(texts.resolve_fmt(
+                    "cui.font.uninstall.line",
+                    &[
+                        ("family", &item.family),
+                        ("unreg_state", unreg_state),
+                        ("file_state", file_state),
+                    ],
+                ));
+                if let Some(error) = &item.file_error {
+                    lines.push(error.clone());
+                }
+            }
+            Ok((report_value(&report)?, lines.join("\n")))
+        }
+    }
+}
+
+/// 报告结构 → JSON 数据（serde 失败视为内部错误，不静默丢字段）。
+fn report_value<T: serde::Serialize>(report: &T) -> Result<Value, WhError> {
+    serde_json::to_value(report)
+        .map_err(|err| WhError::new(ErrorCode::Internal, format!("报告序列化失败：{err}")))
 }
 
 fn session_command(
@@ -754,7 +900,7 @@ fn task_json(row: &whcode_store::tasks::TaskRow) -> Value {
 mod tests {
     use super::{dispatch_code, execute};
     use std::path::PathBuf;
-    use whcode_cui::cli::{Command, SessionCommand, TaskCommand};
+    use whcode_cui::cli::{Command, FontCommand, SessionCommand, TaskCommand};
 
     fn temp_workspace(tag: &str) -> PathBuf {
         let dir =
@@ -933,6 +1079,63 @@ mod tests {
                 err.message
             );
         }
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// `font status`（只读）走真实注册表查询：四份清单固定，信封含目录与终端检测。
+    #[test]
+    fn font_status_reports_four_fonts() {
+        let workspace = temp_workspace("font-status");
+        let (value, human) = execute(
+            &Command::Font {
+                command: FontCommand::Status,
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("status 是只读命令");
+        assert_eq!(value["fonts"].as_array().expect("fonts 数组").len(), 4);
+        assert!(value["fonts_dir"].is_string());
+        assert!(value["terminal"].is_object());
+        assert!(human.contains("内置字体状态"), "中文摘要：{human}");
+        let en = whcode_domain::i18n::I18n::load("en", whcode_domain::i18n::LocaleSource::Explicit);
+        let (_, human) = execute(
+            &Command::Font {
+                command: FontCommand::Status,
+            },
+            &workspace,
+            &en,
+        )
+        .expect("status 可执行");
+        assert!(human.contains("Built-in fonts status"), "英文摘要：{human}");
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// `font install --dry-run` 无系统副作用，但会解析真实来源（仓库 assets）。
+    #[test]
+    fn font_install_dry_run_reports_plan() {
+        let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("assets")
+            .join("fonts")
+            .join("source");
+        let workspace = temp_workspace("font-install");
+        let (value, human) = execute(
+            &Command::Font {
+                command: FontCommand::Install {
+                    from: Some(source.display().to_string()),
+                    dry_run: true,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("dry-run 无副作用");
+        assert_eq!(value["dry_run"], serde_json::json!(true));
+        assert_eq!(value["installed"].as_array().expect("计划项").len(), 4);
+        assert!(human.contains("[dry-run"), "摘要：{human}");
+        assert!(human.contains("Sarasa Mono SC"), "含终端配置片段：{human}");
         let _ = std::fs::remove_dir_all(&workspace);
     }
 }

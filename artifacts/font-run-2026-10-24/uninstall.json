@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "data": {
+    "dry_run": false,
+    "removed": [
+      {
+        "family": "Inter",
+        "file_deleted": true,
+        "file_error": null,
+        "unregistered": true
+      },
+      {
+        "family": "Noto Sans CJK SC",
+        "file_deleted": true,
+        "file_error": null,
+        "unregistered": true
+      },
+      {
+        "family": "JetBrains Mono",
+        "file_deleted": true,
+        "file_error": null,
+        "unregistered": true
+      },
+      {
+        "family": "Sarasa Mono SC",
+        "file_deleted": true,
+        "file_error": null,
+        "unregistered": true
+      }
+    ]
+  }
+}

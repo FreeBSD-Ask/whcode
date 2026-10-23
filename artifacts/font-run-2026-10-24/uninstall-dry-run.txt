@@ -1,0 +1,5 @@
+[dry-run]Uninstall built-in fonts
+Inter: registry unregistered, file deleted
+Noto Sans CJK SC: registry unregistered, file deleted
+JetBrains Mono: registry unregistered, file deleted
+Sarasa Mono SC: registry unregistered, file deleted

@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-24",
+  "task": "T155（FR-717、ADR-028 修订 1）：whcode font install|status|uninstall 真机实测取证",
+  "environment": {
+    "os": "Windows 11 amd64（目标平台，ADR-013）",
+    "binary": "target/release/whcode.exe（release 构建）",
+    "user": "当前用户（安装为用户级，无需管理员）"
+  },
+  "sequence": [
+    "font status --json → status-before.json（安装前四字体均未安装/未注册）",
+    "font install --dry-run → install-dry-run.txt（预览不改系统）",
+    "font install --json → install.json（来源=仓库 assets/fonts/source，目标=%LOCALAPPDATA%\\Microsoft\\Windows\\Fonts，四份均 registered=true）",
+    "font status（--json 与 human）→ status-installed.*（四字体 complete=true）",
+    "reg query 交叉验证 → HKCU Fonts 键出现四条注册值（独立于程序自身 status）",
+    "font uninstall --dry-run → uninstall-dry-run.txt",
+    "font uninstall --json → uninstall.json（四份均 unregistered=true、file_deleted=true、无 file_error）",
+    "font status --json → status-after.json（恢复到安装前状态）",
+    "reg query 复查 → 四条注册值已消失，键内仅剩用户原有第三方字体（不误删他人条目）",
+    "dir 复查 → 用户字体目录无四份内置文件残留"
+  ],
+  "findings": [
+    "安装/检测/卸载全链在真机可用：显式（命令即意图）、可逆（uninstall 完全撤销）、未触碰用户原有字体条目",
+    "0 信任交叉验证抓出并修复一个真实缺陷：Windows Terminal 包族名误写为 8wekybeld3zzbb，实际为 8wekyb3d8bbwe——修复前 status 永远检测不到已安装的 WT；修复后命中本机 settings.json",
+    "本机 WT settings.json 无 font/face 字段（grep 计数 0），status 的 declared_faces=[] 为正确的空，非漏检",
+    "终端声明检测为只读；install 不改写用户终端配置，只输出配置片段（见 install.json 的 terminal_hint）"
+  ],
+  "coverage_notes": [
+    "未取证：Windows Terminal 实际使用内置字体渲染 TUI 的视觉证据——需要用户自行把配置片段粘入 settings.json 后重启终端（程序不得代改，FR-717）；本机默认字体未声明 face",
+    "uninstall 的 file_error 分支（文件被占用）以单元测试同名目录夹具覆盖（uninstall_reports_file_error_without_stopping），未在真机复现"
+  ]
+}
