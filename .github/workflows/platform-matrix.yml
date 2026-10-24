@@ -28,11 +28,7 @@ jobs:
   platform:
     name: platform-${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
-    # 保留原触发语义：BSD 不在 PR 上跑；OpenBSD/DragonFly 仅手工触发。
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && matrix.platform != 'openbsd' && matrix.platform != 'dragonfly') ||
-      (github.event_name == 'pull_request' && matrix.platform == 'windows')
+    # 触发语义放在步骤级：GitHub 的 jobs.<job_id>.if 不支持 matrix 上下文。
     strategy:
       fail-fast: false
       matrix:
@@ -132,7 +128,7 @@ jobs:
       # ---------------- FreeBSD ----------------
       - name: 在 FreeBSD VM 中构建、测试与记录
         id: freebsd_vm
-        if: matrix.platform == 'freebsd'
+        if: matrix.platform == 'freebsd' && github.event_name != 'pull_request'
         uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
           usesh: true
@@ -178,13 +174,13 @@ jobs:
             fi
 
       - name: 归档 FreeBSD 结论
-        if: always() && matrix.platform == 'freebsd'
+        if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
         run: |
           echo "FreeBSD 绿路径：${{ steps.freebsd_vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "DuckDB Go/No-Go 见 VM 日志末尾；两者均只作平台证据，不进入验收结论。" >> "$GITHUB_STEP_SUMMARY"
 
       - name: 上传 FreeBSD 依赖记录
-        if: always() && matrix.platform == 'freebsd'
+        if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: deps-freebsd
@@ -193,7 +189,7 @@ jobs:
       # ---------------- NetBSD ----------------
       - name: 在 NetBSD VM 中构建、测试与记录
         id: netbsd_vm
-        if: matrix.platform == 'netbsd'
+        if: matrix.platform == 'netbsd' && github.event_name != 'pull_request'
         uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         with:
           # 固定发行版：包仓库路径与 pkgin repositories.conf 均按 11.0 写入。
@@ -270,14 +266,14 @@ jobs:
             fi
 
       - name: 归档 NetBSD 结论
-        if: always() && matrix.platform == 'netbsd'
+        if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
         run: |
           echo "NetBSD 绿路径：${{ steps.netbsd_vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "若绿路径失败且原因是 pkgsrc rust 低于 MSRV，属环境限制。" >> "$GITHUB_STEP_SUMMARY"
           echo "DuckDB Go/No-Go 见 VM 日志末尾；两者均只作平台证据，不进入验收结论。" >> "$GITHUB_STEP_SUMMARY"
 
       - name: 上传 NetBSD 依赖记录
-        if: always() && matrix.platform == 'netbsd'
+        if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: deps-netbsd
@@ -285,7 +281,7 @@ jobs:
 
       # ---------------- OpenBSD / DragonFly（仅手工触发占位） ----------------
       - name: OpenBSD 客户端验收占位（M7 前）
-        if: matrix.platform == 'openbsd'
+        if: matrix.platform == 'openbsd' && github.event_name == 'workflow_dispatch'
         run: |
           echo "OpenBSD 已按 ADR-011 移出原生安装目标。"
           echo "本 job 为客户端连通性验收占位：需要受控 OpenBSD 节点与 WHCode 内置 SSH 客户端。"
@@ -293,7 +289,7 @@ jobs:
           exit 0
 
       - name: DragonFly 客户端验收占位（M7 前）
-        if: matrix.platform == 'dragonfly'
+        if: matrix.platform == 'dragonfly' && github.event_name == 'workflow_dispatch'
         run: |
           echo "DragonFly BSD 已按 ADR-011 移出原生安装目标。"
           echo "本 job 为客户端连通性验收占位：需要受控 DragonFly 节点与 WHCode 内置 SSH 客户端。"
