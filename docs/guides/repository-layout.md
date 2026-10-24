@@ -22,10 +22,12 @@
 | `target/` | 本地 | Rust 构建产物 | **忽略** |
 | `state/` | 本地 | 环境工具自动重建的状态目录（内容不可控，视为不存在） | **忽略** |
 | `.github/` | 治理（流程） | `workflows/`（五平台流水线：Windows 在范围内自动运行，四 BSD 仅手工触发）；PR/Issue 模板 | 入库 |
+| `.specify/` | 治理（工具链） | Spec-Kit 1.0.13 模板、PowerShell 脚本、集成清单与项目宪法（`memory/constitution.md`）；`feature.json` 为当前 feature 指针，切换时产生显式差异 | 入库（2026-10-24 全量纳入） |
 
 根文件只允许工程清单（`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、`rustfmt.toml`）、
 标准开源文件（`LICENSE`、`README.md`、`CONTRIBUTING.md`、`SECURITY.md`、`CHANGELOG.md`）、
-代理协作入口（`AGENTS.md`）与编码策略文件（`.gitattributes`、`.editorconfig`，点开头条目不受门禁枚举限制）；由 `test_layout` 门禁强制。
+代理协作入口（`AGENTS.md`）与编码策略文件（`.gitattributes`、`.editorconfig`）；点开头条目不受
+`test_layout` 枚举限制，其中 `.specify/` 已按治理工具链入库，其余点开头目录仍视为本机工具状态；由 `test_layout` 门禁强制。
 
 ## 2. crate 内部分类（§6.2 单向依赖）
 

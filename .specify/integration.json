@@ -1,0 +1,20 @@
+{
+  "version": "1.0.13",
+  "integration_state_schema": 1,
+  "installed_integrations": [
+    "generic"
+  ],
+  "integration_settings": {
+    "generic": {
+      "script": "ps",
+      "raw_options": "--commands-dir .workbuddy-ai/skills/ --skills",
+      "parsed_options": {
+        "commands_dir": ".workbuddy-ai/skills/",
+        "skills": true
+      },
+      "invoke_separator": "-"
+    }
+  },
+  "integration": "generic",
+  "default_integration": "generic"
+}

@@ -1,0 +1,8 @@
+# Machine-local Spec Kit state — not meant to be shared.
+# Managed by the Specify CLI; safe to edit (your changes are preserved on refresh).
+
+# feature.json 在本仓库有意随版本库共享（2026-10-24 用户决定：Spec-Kit 全量纳入），
+# 以便克隆后直接得到当前 feature 指针；切换 feature 会产生一次显式变更，属预期差异。
+
+# Per-machine extension config overrides.
+extensions/*/local-config.yml
