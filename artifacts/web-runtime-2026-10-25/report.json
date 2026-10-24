@@ -1,0 +1,236 @@
+{
+  "date": "2026-10-25",
+  "browser": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+  "browser_version": "155.0.1",
+  "server_command": "whcode serve --web --bind 127.0.0.1:8765 --workspace artifacts/web-demo",
+  "asset_source": "仓库源码 + 真实后端（release 二进制）",
+  "session_id": "S-DEMO-1",
+  "expected_events": 6,
+  "checks": {
+    "case_visibility": {
+      "hidden_state": "hidden",
+      "hidden_obtained": true,
+      "restored_state": "visible",
+      "visible_obtained": true,
+      "hidden_fetches": [],
+      "hidden_mutations": 0,
+      "hidden_raf": 0,
+      "recovery_api_calls": [
+        "/api/tasks?session=S-DEMO-1",
+        "/api/status?session=S-DEMO-1",
+        "/api/events?session=S-DEMO-1&after=6",
+        "/api/sessions",
+        "/api/events?session=S-DEMO-1&after=6",
+        "/api/status?session=S-DEMO-1"
+      ],
+      "recovery_responses": [
+        [
+          13100,
+          "/api/tasks?session=S-DEMO-1",
+          200
+        ],
+        [
+          13101,
+          "/api/events?session=S-DEMO-1&after=6",
+          200
+        ],
+        [
+          13101,
+          "/api/status?session=S-DEMO-1",
+          200
+        ],
+        [
+          13101,
+          "/api/sessions",
+          200
+        ],
+        [
+          13129,
+          "/api/events?session=S-DEMO-1&after=6",
+          200
+        ],
+        [
+          13161,
+          "/api/status?session=S-DEMO-1",
+          200
+        ],
+        [
+          14247,
+          "/api/sessions",
+          200
+        ],
+        [
+          14281,
+          "/api/events?session=S-DEMO-1&after=6",
+          200
+        ]
+      ],
+      "recovery_unhandled": [],
+      "cursor_before": "游标 6",
+      "event_lines_before": 6,
+      "cursor_after": "游标 6",
+      "event_lines_after": 6,
+      "second_hidden": true,
+      "second_visible": true,
+      "events_polls": [
+        [
+          10008,
+          "/api/events?session=S-DEMO-1&after=6"
+        ],
+        [
+          13102,
+          "/api/events?session=S-DEMO-1&after=6"
+        ],
+        [
+          14247,
+          "/api/events?session=S-DEMO-1&after=6"
+        ],
+        [
+          15355,
+          "/api/events?session=S-DEMO-1&after=6"
+        ],
+        [
+          16444,
+          "/api/events?session=S-DEMO-1&after=6"
+        ]
+      ],
+      "animation": {
+        "reduce": false,
+        "opacity_during": "0.6",
+        "opacity_after": "",
+        "timeouts_150": [
+          150
+        ]
+      },
+      "canvas_count": 0,
+      "get_context_calls": 0,
+      "errors": [],
+      "unhandled": [],
+      "ok": true
+    },
+    "case_reduced_motion": {
+      "reduce": true,
+      "opacity_during": "",
+      "opacity_after": "",
+      "timeouts_150": [],
+      "canvas_count": 0,
+      "get_context_calls": 0,
+      "raf": 0,
+      "errors": [],
+      "ok": true
+    },
+    "case_gpu_disabled": {
+      "cycles": [
+        {
+          "index": 1,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 2,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 3,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 4,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 5,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 6,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 7,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 8,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 9,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 10,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 11,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 12,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 13,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 14,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 15,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 16,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 17,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 18,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 19,
+          "hidden": true,
+          "restored": true
+        },
+        {
+          "index": 20,
+          "hidden": true,
+          "restored": true
+        }
+      ],
+      "all_hidden": true,
+      "all_restored": true,
+      "canvas_count": 0,
+      "get_context_calls": 0,
+      "raf": 0,
+      "errors": [],
+      "unhandled": [],
+      "ok": true
+    }
+  },
+  "ok": true
+}

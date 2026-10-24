@@ -1,0 +1,2 @@
+WHCode Web 服务：http://127.0.0.1:8765/（仅回环，Ctrl-C 退出；FR-606：外网地址被 bind 门禁拒绝）
+工作区数据库：D:\WHCode\artifacts\web-demo\whcode.duckdb

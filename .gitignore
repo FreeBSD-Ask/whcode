@@ -39,6 +39,8 @@
 !/artifacts/web-nojs-check-2026-10-24.json
 # Web 运行时取证（真实 Firefox：最小化可见性、动效开关、GPU 禁用）是 Check 220/227/228 的判定依据。
 !/artifacts/web-runtime-2026-10-24/
+# Web 运行时三取证的独立复跑（2026-10-25，新夹具与独立脚本；Check 220/227/228 复跑判据）。
+!/artifacts/web-runtime-2026-10-25/
 # Check 47 的 NFR-203 复跑输出（10 万事件 ×2 会话、20 次切换）。
 !/artifacts/check47-switch-100k-2026-10-24.txt
 # NFR-204 本机 12 h 长跑序列与斜率分析（T116 候选证据，不替代 CI 5.5 h 结论）；

@@ -1,0 +1,6 @@
+03:49:23 case_visibility 开始
+03:49:50 case_visibility ok=True
+03:49:50 case_reduced_motion 开始
+03:49:55 case_reduced_motion ok=True
+03:49:55 case_gpu_disabled 开始
+03:50:58 case_gpu_disabled ok=True
