@@ -31,10 +31,18 @@ jobs:
         with:
           usesh: true
           prepare: |
-            pkgin -y install rust cmake ninja
-            pkgin -y install duckdb || true
+            # vmactions 的 NetBSD 镜像不带 pkgin；用 base 的 pkg_add + 官方包仓库。
+            arch=$(uname -m)
+            osrel=$(uname -r | cut -d. -f1-2)
+            export PKG_PATH="https://cdn.NetBSD.org/pub/pkgsrc/packages/NetBSD/$arch/$osrel/All"
+            if ! /usr/sbin/pkg_add -U rust cmake ninja; then
+              export PKG_PATH="https://cdn.NetBSD.org/pub/pkgsrc/packages/NetBSD/$arch/$(uname -r | cut -d. -f1).0/All"
+              /usr/sbin/pkg_add -U rust cmake ninja
+            fi
+            /usr/sbin/pkg_add -U duckdb || true
           run: |
             set -e
+            export PATH="/usr/pkg/bin:$PATH"
             rustc -vV
             cargo -V
 
