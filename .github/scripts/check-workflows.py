@@ -26,6 +26,11 @@ def main() -> int:
     problems: list[str] = []
     for path in sorted(WORKFLOWS.glob("*.yml")):
         lines = path.read_text(encoding="utf-8").splitlines()
+        if not any(line.startswith("permissions:") for line in lines):
+            problems.append(
+                f"{path.relative_to(ROOT)}: 缺少顶层 permissions（CodeQL "
+                "actions/missing-workflow-permissions）；至少声明 contents: read"
+            )
         in_jobs = False
         job: str | None = None
         for number, line in enumerate(lines, 1):
@@ -47,7 +52,7 @@ def main() -> int:
         for problem in problems:
             print(f"FAIL: {problem}")
         return 1
-    print("工作流语义门禁通过（job 级 if 未使用 matrix）")
+    print("工作流语义门禁通过（job 级 if 未使用 matrix；均声明顶层 permissions）")
     return 0
 
 

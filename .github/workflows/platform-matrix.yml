@@ -24,6 +24,11 @@ on:
 env:
   PYTHONUTF8: "1"
 
+# 最小权限（CodeQL actions/missing-workflow-permissions）：本工作流只读仓库与上传构建产物，
+# 不需要 GITHUB_TOKEN 的写权限；上传 artifact 使用 Actions 运行时令牌，不依赖此权限。
+permissions:
+  contents: read
+
 jobs:
   platform:
     name: platform-${{ matrix.platform }}
