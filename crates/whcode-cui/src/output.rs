@@ -48,6 +48,8 @@ pub const fn exit_code(code: &ErrorCode) -> i32 {
         ErrorCode::RuntimeUnavailable => 30,
         ErrorCode::Backpressure => 40,
         ErrorCode::InvalidState => 50,
+        // 已登记但该端不提供（预留/已登记排除；FR-620、ADR-032）。
+        ErrorCode::NotSupported => 55,
         ErrorCode::NotFound => 60,
         ErrorCode::IoError => 70,
         ErrorCode::ParseError => 80,
@@ -127,6 +129,7 @@ mod tests {
             ErrorCode::RuntimeUnavailable,
             ErrorCode::Backpressure,
             ErrorCode::InvalidState,
+            ErrorCode::NotSupported,
             ErrorCode::NotFound,
             ErrorCode::IoError,
             ErrorCode::ParseError,
@@ -141,6 +144,12 @@ mod tests {
         unique.dedup();
         assert_eq!(unique.len(), seen.len(), "退出码必须互异且稳定");
         assert_eq!(seen[0], 10);
-        assert_eq!(seen[9], 99);
+        assert_eq!(seen[10], 99);
+        // 55（not_supported）介于 50（invalid_state）与 60（not_found）之间，
+        // contracts/cui-cli.md §2：语义介于“状态异常”与“不存在”之间。
+        assert_eq!(exit_code(&ErrorCode::NotSupported), 55);
+        assert_eq!(seen[4], 50);
+        assert_eq!(seen[6], 60);
+        assert_eq!(error_exit_code(&WhError::not_supported("未提供")), 55);
     }
 }

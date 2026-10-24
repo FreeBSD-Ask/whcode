@@ -21,6 +21,9 @@ pub struct UiConfig {
     /// 渲染主题；默认 `eink-day`（ui-design §主题：最保守、最省电）。
     #[serde(default)]
     pub theme: Theme,
+    /// 界面语言（FR-625/615）；`None` 时走 `WHCODE_UI_LOCALE` → LANG/LC_ALL → zh-CN。
+    #[serde(default)]
+    pub locale: Option<String>,
 }
 
 /// 数据库配置基线（§5.4）。
@@ -149,6 +152,33 @@ impl Config {
                 self.ui.theme
             }
         }
+    }
+
+    /// 生效语言（FR-625/615，T175）：`ui.locale` → `WHCODE_UI_LOCALE` → 既有
+    /// `detect_locale` 链（LANG/LC_ALL → zh-CN）。Web 端 `?locale=` 与
+    /// Accept-Language 在此默认值之上作为显式覆盖（api 层）。
+    #[must_use]
+    pub fn effective_locale(&self) -> String {
+        self.locale_from_override(std::env::var("WHCODE_UI_LOCALE").ok().as_deref())
+    }
+
+    /// [`Config::effective_locale`] 的纯函数形式（除 `detect_locale` 尾链外不触碰环境）。
+    #[must_use]
+    pub fn locale_from_override(&self, override_value: Option<&str>) -> String {
+        if let Some(raw) = override_value {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+        if let Some(configured) = self.ui.locale.as_deref() {
+            let trimmed = configured.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+        let (locale, _source) = whcode_domain::i18n::detect_locale(None);
+        locale
     }
 }
 

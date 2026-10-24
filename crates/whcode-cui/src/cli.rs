@@ -61,6 +61,11 @@ pub enum Command {
         #[command(subcommand)]
         command: TaskCommand,
     },
+    /// 上下文预算视图（FR-105/108；contracts/cui-cli.md §1）。
+    Context {
+        #[command(subcommand)]
+        command: ContextCommand,
+    },
     /// SDD 阶段与门禁（FR-307—312）。
     Spec {
         #[command(subcommand)]
@@ -188,6 +193,20 @@ pub enum TaskCommand {
         /// 任务 ID。
         #[arg(long)]
         task: String,
+    },
+}
+
+/// 上下文子命令（FR-105/108）。
+#[derive(Debug, Clone, PartialEq, Subcommand)]
+pub enum ContextCommand {
+    /// 预算视图：当前预算、装入来源、截断原因与游标（经 `whcode_app::load_context`）。
+    Budget {
+        /// 会话 ID。
+        #[arg(long)]
+        session: String,
+        /// 预算 token 数；缺省用展示默认口径（4096，与 TUI 上下文视图一致）。
+        #[arg(long)]
+        budget: Option<usize>,
     },
 }
 
@@ -481,6 +500,34 @@ mod tests {
 
         let cli = parse(["whcode", "doctor", "--json"]).expect("doctor");
         assert!(matches!(cli.command, Command::Doctor { json: true }));
+
+        // context budget（FR-105/108）：budget 可选，缺省用展示默认口径。
+        let cli = parse(["whcode", "context", "budget", "--session", "S-1"]).expect("budget");
+        assert!(matches!(
+            cli.command,
+            Command::Context {
+                command: ContextCommand::Budget { budget: None, .. }
+            }
+        ));
+        let cli = parse([
+            "whcode",
+            "context",
+            "budget",
+            "--session",
+            "S-1",
+            "--budget",
+            "2048",
+        ])
+        .expect("budget 显式值");
+        assert!(matches!(
+            cli.command,
+            Command::Context {
+                command: ContextCommand::Budget {
+                    budget: Some(2048),
+                    ..
+                }
+            }
+        ));
     }
 
     #[test]

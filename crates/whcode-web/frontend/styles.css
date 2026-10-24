@@ -1,12 +1,22 @@
 /* WHCode 极简样式（T137/ADR-014）：无第三方字体、无渐变、无自动播放；
    仅 GPU 合成友好的 transform/opacity（T133/FR-613）；
-   主题色值与 tui/theme.rs 一致（T128：纯黑 #000000 / 纯白 #FFFFFF）。 */
-:root {
+   四套主题精确色值（T175/FR-612/713）：服务端注入 data-theme，浏览器端可运行时覆盖。 */
+:root,
+[data-theme="eink-day"] {
   --bg: #ffffff;
   --fg: #000000;
 }
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #000000; --fg: #e6e6e6; }
+[data-theme="eink-night"] {
+  --bg: #000000;
+  --fg: #ffffff;
+}
+[data-theme="amoled-night"] {
+  --bg: #000000;
+  --fg: #e6e6e6;
+}
+[data-theme="terminal-green"] {
+  --bg: #000000;
+  --fg: #00ff00;
 }
 body {
   background: var(--bg);

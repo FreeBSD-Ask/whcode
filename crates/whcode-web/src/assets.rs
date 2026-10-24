@@ -40,6 +40,27 @@ pub fn static_asset(path: &str) -> Option<(&'static str, &'static [u8])> {
 /// 首屏注入点：服务端把只读快照渲染到该注释位置（见 [`render_index`]）。
 pub const INITIAL_VIEW_MARKER: &str = "<!-- WHCODE_INITIAL_VIEW -->";
 
+/// 合法主题四套（FR-612/713、T175）：服务端注入的默认主题必须取自本表。
+pub const THEMES: [&str; 4] = ["eink-day", "eink-night", "amoled-night", "terminal-green"];
+
+const HTML_OPEN: &str = "<html lang=\"zh-CN\">";
+
+/// 把服务端默认主题注入 `<html data-theme="…">`（T175）：非法值回落 `eink-day`
+/// （配置笔误不得让首页 500）；浏览器端 `?theme=` 与选择器可在其上运行时覆盖。
+#[must_use]
+pub fn with_default_theme(html: String, default_theme: &str) -> String {
+    let theme = if THEMES.contains(&default_theme) {
+        default_theme
+    } else {
+        "eink-day"
+    };
+    html.replacen(
+        HTML_OPEN,
+        &format!("<html lang=\"zh-CN\" data-theme=\"{theme}\">"),
+        1,
+    )
+}
+
 /// 首屏只读快照的一行。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InitialSession {
@@ -75,7 +96,12 @@ pub fn escape_html(value: &str) -> String {
 /// 不得以“空列表”冒充“没有会话”（信号链完备原则）；`truncated` 为真时必须写明“列表被
 /// 截断”，不得让读者把“只显示 N 条”误当成“总共只有 N 条”。
 #[must_use]
-pub fn render_index(sessions: &[InitialSession], truncated: bool, error: Option<&str>) -> String {
+pub fn render_index(
+    sessions: &[InitialSession],
+    truncated: bool,
+    error: Option<&str>,
+    default_theme: &str,
+) -> String {
     let mut block = String::from("<noscript>\n      <h2>只读快照 / Read-only snapshot</h2>\n");
     if let Some(message) = error {
         block.push_str(&format!(
@@ -111,7 +137,10 @@ pub fn render_index(sessions: &[InitialSession], truncated: bool, error: Option<
         }
     }
     block.push_str("    </noscript>");
-    INDEX_HTML.replace(INITIAL_VIEW_MARKER, &block)
+    with_default_theme(
+        INDEX_HTML.replace(INITIAL_VIEW_MARKER, &block),
+        default_theme,
+    )
 }
 
 /// 认证模式下的首页兜底：**不注入任何业务数据**（ADR-022：业务数据只经认证后的
@@ -120,12 +149,15 @@ pub fn render_index(sessions: &[InitialSession], truncated: bool, error: Option<
 /// 与服务端是否“查到了数据”无关——这是权限边界，不是查询失败，故不复用
 /// [`render_index`] 的错误分支（避免把“未授权”说成“数据不可用”）。
 #[must_use]
-pub fn render_index_auth_required() -> String {
+pub fn render_index_auth_required(default_theme: &str) -> String {
     let block = "<noscript>\n      \
                  <p>无 JS 只读快照仅在本机回环模式（未启用认证）提供；\
                  当前监听启用了认证，请启用 JavaScript 并经 `/api/*` 认证后查看（ADR-022）。</p>\n    \
                  </noscript>";
-    INDEX_HTML.replace(INITIAL_VIEW_MARKER, block)
+    with_default_theme(
+        INDEX_HTML.replace(INITIAL_VIEW_MARKER, block),
+        default_theme,
+    )
 }
 
 #[cfg(test)]
@@ -204,7 +236,7 @@ mod tests {
                 status: "archived".to_string(),
             },
         ];
-        let html = render_index(&sessions, false, None);
+        let html = render_index(&sessions, false, None, "eink-day");
         assert!(html.contains("<noscript>"), "必须有 noscript 兜底");
         assert!(html.contains("只读快照"), "兜底内容必须可读");
         assert!(html.contains("S-1") && html.contains("会话 A"));
@@ -222,7 +254,7 @@ mod tests {
     /// 查询失败必须渲染成可见错误，不得以空列表冒充“没有会话”。
     #[test]
     fn render_index_reports_query_error_instead_of_empty_success() {
-        let html = render_index(&[], false, Some("查询失败：<db down>"));
+        let html = render_index(&[], false, Some("查询失败：<db down>"), "eink-day");
         assert!(html.contains("noscript-error"));
         assert!(html.contains("&lt;db down&gt;"), "错误文本同样要转义");
         assert!(
@@ -234,7 +266,7 @@ mod tests {
     /// 正确的空：没有会话时明确写“当前没有会话”。
     #[test]
     fn render_index_marks_genuine_empty_state() {
-        let html = render_index(&[], false, None);
+        let html = render_index(&[], false, None, "eink-day");
         assert!(html.contains("当前没有会话 / No sessions."));
         assert!(!html.contains("noscript-error"));
         assert!(!html.contains("noscript-truncated"));
@@ -248,7 +280,7 @@ mod tests {
             title: "会话".to_string(),
             status: "active".to_string(),
         }];
-        let html = render_index(&sessions, true, None);
+        let html = render_index(&sessions, true, None, "eink-day");
         assert!(html.contains("noscript-truncated"), "截断必须可见");
         assert!(html.contains("可能还有更多"), "必须说明还有未显示的数据");
     }
@@ -256,7 +288,7 @@ mod tests {
     /// 认证模式：快照一律不注入（业务数据只经 `/api/*`，ADR-022）。
     #[test]
     fn auth_mode_renderer_withholds_snapshot() {
-        let html = render_index_auth_required();
+        let html = render_index_auth_required("eink-day");
         assert!(html.contains("<noscript>"), "仍需无 JS 提示");
         assert!(html.contains("仅在本机回环模式"), "必须写明提供条件");
         assert!(
@@ -264,5 +296,31 @@ mod tests {
             "认证模式不得渲染任何会话列表"
         );
         assert!(!html.contains(INITIAL_VIEW_MARKER), "标记必须被替换");
+    }
+
+    /// 服务端默认主题注入（T175）：合法值原样、非法值回落 eink-day；四套主题的
+    /// 精确色值由 styles.css 的 data-theme 块承载（静态审计，不依赖浏览器）。
+    #[test]
+    fn default_theme_is_injected_and_validated() {
+        for (input, expected) in [
+            ("eink-day", "eink-day"),
+            ("terminal-green", "terminal-green"),
+            ("neon-pink", "eink-day"),
+        ] {
+            let html = with_default_theme(INDEX_HTML.to_string(), input);
+            assert!(
+                html.contains(&format!("<html lang=\"zh-CN\" data-theme=\"{expected}\">")),
+                "{input} 应注入 data-theme={expected}"
+            );
+        }
+        for theme in THEMES {
+            assert!(
+                STYLES_CSS.contains(&format!("[data-theme=\"{theme}\"]")),
+                "styles.css 缺主题块 {theme}"
+            );
+        }
+        for hex in ["#ffffff", "#000000", "#e6e6e6", "#00ff00"] {
+            assert!(STYLES_CSS.contains(hex), "styles.css 缺色值 {hex}");
+        }
     }
 }

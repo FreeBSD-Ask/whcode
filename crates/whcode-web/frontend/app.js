@@ -31,14 +31,14 @@ function t(key, fallback, args = {}) {
 
 /** 加载文本层并应用到静态标签（data-i18n）与 <html lang/dir>。 */
 async function loadLocale() {
-  // 语言选择：显式 `?locale=` 优先（可见、可改、可撤销），否则浏览器语言。
-  const locale =
-    new URL(window.location.href).searchParams.get("locale") ||
-    navigator.language ||
-    "zh-CN";
-  const data = await fetchJson(`/api/i18n?locale=${encodeURIComponent(locale)}`);
+  // 语言选择（FR-625）：显式 `?locale=` 优先；否则交给服务端链解析
+  // （Accept-Language → ui.locale → WHCODE_UI_LOCALE → LANG/LC_ALL → zh-CN）——
+  // 不在客户端抢用 navigator.language，避免绕过服务端默认链。
+  const explicit = new URL(window.location.href).searchParams.get("locale");
+  const query = explicit ? `?locale=${encodeURIComponent(explicit)}` : "";
+  const data = await fetchJson(`/api/i18n${query}`);
   texts = data.entries || {};
-  document.documentElement.lang = data.locale || locale;
+  document.documentElement.lang = data.locale || explicit || "zh-CN";
   document.documentElement.dir = data.rtl ? "rtl" : "ltr";
   for (const node of document.querySelectorAll("[data-i18n]")) {
     const key = node.dataset.i18n;
@@ -625,6 +625,37 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   window.addEventListener("unload", () => machine.detach());
 
+  // 主题运行时切换（T175/FR-625）：服务端注入 data-theme 为默认；`?theme=` 与
+  // 选择器写 localStorage（可见、可改、可撤销——选“默认”即移除恢复服务端默认）。
+  const THEMES = ["eink-day", "eink-night", "amoled-night", "terminal-green"];
+  const urlTheme = params.get("theme");
+  if (urlTheme && THEMES.includes(urlTheme)) {
+    localStorage.setItem("whcode-theme", urlTheme);
+  }
+  const applyTheme = (theme) => {
+    if (THEMES.includes(theme)) {
+      document.documentElement.dataset.theme = theme;
+    }
+  };
+  const storedTheme = localStorage.getItem("whcode-theme");
+  if (storedTheme) {
+    applyTheme(storedTheme);
+  }
+  const themeSelect = el("theme-select");
+  if (storedTheme) {
+    themeSelect.value = storedTheme;
+  }
+  themeSelect.addEventListener("change", () => {
+    const value = themeSelect.value;
+    if (!value) {
+      localStorage.removeItem("whcode-theme");
+      document.documentElement.dataset.theme = "";
+      delete document.documentElement.dataset.theme;
+      return;
+    }
+    localStorage.setItem("whcode-theme", value);
+    applyTheme(value);
+  });
   // 文本层失败不阻塞界面（内置默认文本可见）。
   loadLocale().catch(() => {});
   // 带 ?session= 直接进入时首屏即拉取任务（否则要等第 15 个轮询周期）。
