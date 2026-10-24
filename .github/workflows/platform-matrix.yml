@@ -211,9 +211,11 @@ jobs:
             # 与 sqlite3>=3.51.1nb1；sqlite3-3.53.4 无运行时依赖。上一轮失败
             # （run 40076402536）是解压到 `/` 而非 pkgsrc 前缀，导致 pkgin 找不到
             # /usr/pkg/sbin/pkg_admin；本次统一解压到 /usr/pkg。
+            # 仓库用主站 ftp.netbsd.org 的 amd64 路径：CDN 的 x86_64 边缘与 pkg_summary
+            # 不同步（实测 curl/expat Not Found、cmake/rust size mismatch），主站摘要与
+            # 文件一致。pkgin 的 $arch 宏会展开为 x86_64，故 repositories.conf 直接写 amd64。
             set -eu
-            arch=$(uname -m)
-            base="https://cdn.NetBSD.org/pub/pkgsrc/packages/NetBSD/${arch}/11.0/All"
+            base="https://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/11.0/All"
             work=/tmp/pkgin-bootstrap
             mkdir -p "$work" /usr/pkg
             cd "$work"
@@ -224,7 +226,7 @@ jobs:
             tar -xf sqlite3.tgz -C /usr/pkg bin/sqlite3 lib
             tar -xf pkg_install.tgz -C /usr/pkg sbin
             mkdir -p /usr/pkg/etc/pkgin /var/db/pkgin
-            printf '%s\n' 'https://cdn.netbsd.org/pub/pkgsrc/packages/NetBSD/$arch/11.0/All' \
+            printf '%s\n' 'https://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/11.0/All' \
               > /usr/pkg/etc/pkgin/repositories.conf
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
             export LD_LIBRARY_PATH="/usr/pkg/lib"
