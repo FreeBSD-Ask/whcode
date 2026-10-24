@@ -7,8 +7,9 @@
 # 工具链差异：rustup 不提供 NetBSD host 构建，只能用 pkgsrc 的 rust；其版本由 pkgsrc
 # 树决定。低于 MSRV 1.88 时脚本显式 SKIP（环境限制，不作代码结论）；满足时正常跑测试。
 #
-# 绿路径（必过）：`cargo check` 全工作区 + 不依赖 libduckdb 的包级测试。
-# DuckDB 原生构建与全量测试属 Go/No-Go 门禁：失败是显式证据（NO-GO），不使 job 变红。
+# 绿路径（必过）：平台中立 crate 的 `cargo check` + 包级测试。`whcode-gui` 依赖 iced/softbuffer，
+# 后者没有 NetBSD 后端（GUI v1 仅 Windows，ADR-027），`whcode-bin` 因依赖 GUI 一并排除；
+# 含 DuckDB／OpenSSL 原生依赖的 crate 归入 Go/No-Go 门禁（失败只记 NO-GO）。
 #
 # 环境变量契约（ADR-DB-BUILD）：外部 shell 环境变量优先于 .cargo/config.toml 的 [env] 表。
 name: platform-netbsd
@@ -45,8 +46,9 @@ jobs:
               exit 0
             fi
 
-            echo "=== 代码级检查（cargo check，不链接 DuckDB）==="
-            cargo check --locked --workspace
+            echo "=== 代码级检查（平台中立 crate，不链接 DuckDB／GUI）==="
+            cargo check --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+              -p whcode-llm -p whcode-runtime
 
             echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
             cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
@@ -59,7 +61,8 @@ jobs:
             if pkg_info duckdb >/dev/null 2>&1; then
               export DUCKDB_LIB_DIR=/usr/pkg/lib
               export DUCKDB_INCLUDE_DIR=/usr/pkg/include
-              if cargo build --locked --workspace && cargo test --locked --workspace; then
+              if cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
+                && cargo test --locked --workspace --exclude whcode-gui --exclude whcode-bin; then
                 echo "GATE_RESULT=GO"
               else
                 echo "GATE_RESULT=NO-GO（版本或 ABI 不匹配，属 R-01 预期风险路径）"

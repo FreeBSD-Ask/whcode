@@ -9,8 +9,11 @@
 # 工具链（D-01 修订）：不使用 pkg 的 rust（版本由 ports 决定，可能低于 MSRV），改用
 # rustup 安装 rust-toolchain.toml 锁定的 1.99.1。
 #
-# 绿路径（必过）：`cargo check` 全工作区 + **不依赖 libduckdb 的包级测试**。链接 DuckDB
-# 的测试归入 Go/No-Go 门禁；门禁失败是显式证据（R-01），不把 job 变红。
+# 绿路径（必过）：平台中立 crate 的 `cargo check` + 包级测试，不依赖 libduckdb／GUI 后端。
+#   - `whcode-gui` 依赖 iced/softbuffer，后者没有 FreeBSD 后端（GUI v1 仅 Windows，ADR-027），
+#     故不进入 BSD 绿路径；`whcode-bin` 因依赖 GUI 一并排除。
+#   - 含 DuckDB／OpenSSL 等原生依赖的 crate（store/app/web/tui/ssh 等）归入 Go/No-Go 门禁；
+#     门禁失败是显式证据（R-01），不把 job 变红。
 #
 # 环境变量契约（ADR-DB-BUILD）：外部 shell 环境变量优先于 .cargo/config.toml 的 [env] 表；
 # 导出 DUCKDB_LIB_DIR=/usr/local/lib 与 DUCKDB_INCLUDE_DIR=/usr/local/include 即切换系统库。
@@ -47,8 +50,9 @@ jobs:
             rustc -vV
             cargo -V
 
-            echo "=== 代码级检查（cargo check，不链接 DuckDB）==="
-            cargo check --locked --workspace
+            echo "=== 代码级检查（平台中立 crate，不链接 DuckDB／GUI）==="
+            cargo check --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+              -p whcode-llm -p whcode-runtime
 
             echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
             cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
@@ -62,7 +66,8 @@ jobs:
               export DUCKDB_LIB_DIR=/usr/local/lib
               export DUCKDB_INCLUDE_DIR=/usr/local/include
               echo "pkg DuckDB 版本：$(pkg info duckdb | tr '\n' ' ')"
-              if cargo build --locked --workspace && cargo test --locked --workspace; then
+              if cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
+                && cargo test --locked --workspace --exclude whcode-gui --exclude whcode-bin; then
                 echo "GATE_RESULT=GO"
               else
                 echo "GATE_RESULT=NO-GO（版本或 ABI 不匹配，属 R-01 预期风险路径）"
