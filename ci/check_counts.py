@@ -45,6 +45,26 @@ def check_task_check_consistency(checklist: str, tasks_text: str) -> list[str]:
     return failures
 
 
+def check_check_number_continuity(checklist: str) -> list[str]:
+    """Check 编号连续性校验（2026-10-24 全局复核后加入）。
+
+    全部 Check 编号必须连续（1..=max 无缺号）且无重复——新增编号漏登记
+    （如 Check 261—269 逐条落盘时跳号）会直接挂门禁，不再依赖人工清点。
+    """
+    failures: list[str] = []
+    numbers = [int(n) for n in re.findall(r"^- \[[ x]\] Check (\d+):", checklist, re.M)]
+    if not numbers:
+        return ["未找到任何 Check 条目"]
+    duplicates = sorted({n for n in numbers if numbers.count(n) > 1})
+    if duplicates:
+        failures.append(f"Check 编号重复：{duplicates}")
+    maximum = max(numbers)
+    missing = sorted(set(range(1, maximum + 1)) - set(numbers))
+    if missing:
+        failures.append(f"Check 编号不连续：缺失 {missing}")
+    return failures
+
+
 def main() -> int:
     spec = SPEC.read_text(encoding="utf-8")
     tasks = TASKS.read_text(encoding="utf-8")
@@ -68,6 +88,7 @@ def main() -> int:
 
     failures: list[str] = []
     failures += check_task_check_consistency(checklist, tasks)
+    failures += check_check_number_continuity(checklist)
 
     def expect(pattern: str, source: str, key: str, label: str) -> None:
         matches = re.findall(pattern, source)
