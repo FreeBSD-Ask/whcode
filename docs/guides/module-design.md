@@ -59,12 +59,17 @@ whcode-bin           （装配根：配置、日志、feature）
   `TransitionContext`/`request_transition`/`force_advance`/`ForceAdvance`、`StageRole`、
   `BoundedQueue`、字体本机命令的 `fonts::BUILTIN_FONTS`/`FontRegistry`/`FontEnv`/
   `install`/`status`/`uninstall`（FR-717：本机资源命令，不触库、不经会话授权；
-  注册表副作用经 trait 注入，应用层零平台分支）。
+  注册表副作用经 trait 注入，应用层零平台分支）、四端能力登记表
+  `surface::SurfaceEntry`/`SURFACES`/`validate`/`find`（FR-619 SSOT：54 条命令/视图
+  × CUI/TUI/GUI/Web 四态，理由码见 ADR-032）与写命令门面
+  `commands::FrontendCommand`/`CommandOutcome`/`CommandExecutor`/`execute_command`
+  （FR-623：CUI/TUI/Web 七条写命令唯一执行入口，破坏性命令预览/确认语义单点化）。
 - **失败模式**：权限拒绝统一 `permission_denied`（不可重试，FR-604）；切换只加载元数据 +
   预聚合概览 + 50 条尾部 + 游标（有界，V-101）；删除复用 purge 全链（预览/确认/审计/
   活跃保护，FR-509）；retry 仅 failed/aborted/interrupted 可用、abort 拒绝终态与
   `unknown`（FR-410）；快照缺失字段显式 `None`/空（M3/M4/M8 未实现，不伪造）；
-  队列饱和返回 `backpressure`（可重试）。
+  队列饱和返回 `backpressure`（可重试）；登记为预留/排除的能力被调用返回
+  `not_supported`（退出码 55/Web 501，FR-620），未知路由仍为 404。
 - **测试**：内联 44+ 例（会话生命周期与权限、切换有界、删除确认与保护、总览双范围、
   任务详情五类信息、retry/abort 状态机、快照与库内一致、上下文契约四元组与截断原因、
   压缩指针不删原文、事件导出脱敏与增量、补拉游标与完成性、SDD 门禁（V-202/V-203）

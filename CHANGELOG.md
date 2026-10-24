@@ -13,6 +13,22 @@
 
 ### 变更
 
+- ⚠ BREAKING：CUI 保留命令（`run`、`events show`、`spec next/validate/analyze/converge/force-advance`、
+  `runtime status/enable/disable/install`）退出码由 50（invalid_state）改为 **55（not_supported）**；
+  依赖退出码的脚本按 55 判“端未提供”，按 404 判“路由不存在”（FR-620，ensure-frontend-parity）。
+- 四端对等与差异登记（2026-10-24，ensure-frontend-parity，ADR-032/D-17）：
+  `whcode-app::surface` 能力登记表（54 条 SSOT）+ 四端 surface_map 清单 + 对等契约门禁
+  `tests/contract/test_frontend_parity.rs`（三向一致 + 负向自测）；统一 not_supported 语义
+  （CUI 退出码 55、Web 501 JSON、未登记仍 404）；CUI 补 `context budget` 与 `runtime list`；
+  Web 补 `/api/context`、`/api/diff`、`/api/events/export` 与四套主题（data-theme +
+  ?theme=/选择器运行时切换）与语言链（ui.locale → WHCODE_UI_LOCALE → LANG/LC_ALL → zh-CN）；
+  TUI 补写操作（n/m/d/A、R/X、p 两段确认，经 `whcode-app::commands` 门面）、`t` 四主题循环
+  与游标在线可见（≥1000ms 低频 O(1) 检查，推进才重绘）；GUI 只读面契约断言。
+  证据：`artifacts/frontend-parity-2026-10-24/`。
+- 已知未完成（显式登记）：`docs/matrices/feature-parity.md` 的 GUI 列逐行重写未完成——
+  GUI 列表头与“由登记表校验”声明已就位，行值以 `surface.rs` 登记表为 SSOT；责任人对等门禁
+  维护者，退出条件：下一次矩阵触碰时按登记表逐行重写并通过 frontend_parity 门禁。
+
 - DuckDB 2.0.0 升级与功能适配（2026-10-24，ADR-034）：**引擎 2.0.0 LTS + crate 1.20000.0，事件载荷改 VARIANT**。
   - 官方 Windows 资产改为 `duckdb-shared-libs-windows-amd64.tar.gz`（SHA256 `2b831691…b95f`）；
     `fetch-duckdb.py` 改为先校验 SHA256、再拒绝绝对路径与 `..` 的 tar.gz 安全解包；
