@@ -97,6 +97,7 @@ Check。新增 FR 计数来自 FR-619—625 转正（86 → 93）。
 |---|---|---|---|
 | [40118942627](https://github.com/FreeBSD-Ask/whcode/actions/runs/40118942627) | `78bf0a6` | failure | `measurements` 的“NFR-207/NFR-209 性能预算（独占执行）” |
 | [40126145778](https://github.com/FreeBSD-Ask/whcode/actions/runs/40126145778) | `1903806` | success | 无 |
+| [40129632158](https://github.com/FreeBSD-Ask/whcode/actions/runs/40129632158) | `eaced3f` | success | 无（页面状态 Success；job 级明细因匿名 API 配额耗尽未逐项取回，页面无失败标注） |
 
 run 40118942627 中五个平台 job 均为 success，仅 `measurements` 失败；处置为把性能预算与测试进程
 RSS 移入受控 `perf-budget`（仅 `workflow_dispatch` 且 `perf=true`）、`measurements` 安装
@@ -118,4 +119,7 @@ RSS 移入受控 `perf-budget`（仅 `workflow_dispatch` 且 `perf=true`）、`m
 `checklist.md` 计数声明中登记的读数为准并标为二手。
 
 **边界**：run 40126145778 早于本 §6 的补遗复跑与本节改动，故它证明的是 T181 收口主体的门禁
-（fmt／clippy／全量测试／五平台／短测量），不覆盖本次补遗的文档与证据文件改动。
+（fmt／clippy／全量测试／五平台／短测量）。补遗提交 `eaced3f` 本身由 run 40129632158 覆盖
+（Success，产出 6 个 artifact：`ci-measurements`、`deps-windows`、`deps-freebsd`、
+`install-verify-windows-amd64`、`smoke-evidence`、`whcode-windows-amd64`）；其后的纯文档更正
+不再逐次登记，若失败以 GitHub 页面为准。

@@ -85,7 +85,8 @@
     GPU 20 轮最小化／还原下 `canvas`／`getContext`／rAF 均为 0。证据
     `artifacts/web-runtime-2026-10-25/`。
   - 远端 CI 逐 job 结论归档至 `artifacts/frontend-parity-2026-10-24/close-gates.md` §8：
-    run 40118942627（五平台 success，仅 `measurements` 失败）与 run 40126145778（全绿）。
+    run 40118942627（五平台 success，仅 `measurements` 失败）与 run 40126145778（全绿）；
+    补遗提交 `eaced3f` 自身由 run 40129632158 覆盖（页面状态 Success）。
     该 run 的 NFR 读数标为二手（匿名读取 job 日志受限），不作为本机复核结论。
 
 - ⚠ BREAKING：JSON 语义列全面 VARIANT 化（2026-10-24，ADR-036，schema v7）：
