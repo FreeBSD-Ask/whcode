@@ -524,10 +524,10 @@ jobs:
             Tee-Object -FilePath artifacts/stability-ci/nfr209.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: NFR-201/202/205/206 真实进程测量（原 local 脚本入库）
+      - name: NFR-201/202 真实进程测量（serve 口径；控制台类 NFR-205/206 归桌面 job）
         shell: pwsh
         run: |
-          python .github/scripts/benchmarks/measure-nfr-budgets.py --only nfr201,nfr202,nfr205,nfr206 2>&1 |
+          python .github/scripts/benchmarks/measure-nfr-budgets.py --only nfr201,nfr202 2>&1 |
             Tee-Object -FilePath artifacts/stability-ci/nfr_real_process.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -590,6 +590,9 @@ jobs:
 
       - name: GUI 探针（四主题／按键／空闲资源）
         run: python .github/scripts/gui-probe.py --exe target/release/whcode.exe --out artifacts/gui-run-ci
+
+      - name: NFR-205/206 控制台与流式 CPU 测量（headless 口径）
+        run: python .github/scripts/benchmarks/measure-nfr-budgets.py --only nfr205,nfr206 --skip-build
 
       - name: 上传 GUI 证据
         if: always()
