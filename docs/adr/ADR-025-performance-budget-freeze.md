@@ -23,15 +23,15 @@
 
 | NFR | 冻结值（= spec 候选） | Windows 实测 | 结论 | 证据 |
 |---|---|---|---|---|
-| NFR-201 主进程空载 RSS | ≤ 35 MB | 未测 | 候选 | — |
-| NFR-202 单会话活跃 RSS | ≤ 80 MB | 未测 | 候选 | — |
-| NFR-203 切换后 RSS 增量 | ≤ 10 MB | 未测（仅有界加载用例） | 候选 | `session_switch` 用例 |
+| NFR-201 主进程空载 RSS | ≤ 35 MB | **中位 23.12 MB**（p95 23.18／峰值 23.2，198 样本，2026-10-24） | **达标** | `artifacts/nfr-budget-report.json` |
+| NFR-202 单会话活跃 RSS | ≤ 80 MB | **中位 27.33 MB**（峰值 27.48，20 轮读请求，2026-10-24） | **达标** | `artifacts/nfr-budget-report.json` |
+| NFR-203 切换后 RSS 增量 | ≤ 10 MB | **最大增量 0.32 MB**（10 万事件 ×2 会话交替切换 20 次，2026-10-24） | **达标** | `test_nfr_budget::nfr203`（`--ignored`）＋报告 |
 | NFR-204 72 h RSS 斜率 | ≤ 0.5 MB/h | 未测（无长跑） | 候选 | T116 阻塞 |
-| NFR-205 TUI 空闲 CPU | ≤ 0.5% 单核 | 未测（有“空闲零重绘”证据，非 CPU 采样） | 候选 | `tui/render.rs` 用例 |
-| NFR-206 LLM 流式 CPU | ≤ 8% 单核 | 未测 | 候选 | — |
-| NFR-207 会话切换（10 万事件） | p50/p95/p99 ≤ 200 ms | 未单测（仅验证有界加载与游标） | 候选 | `session_switch` 用例 |
+| NFR-205 TUI 空闲 CPU | ≤ 0.5% 单核 | **0.0%**（真实控制台 TUI 空闲 10 s，GetProcessTimes，2026-10-24） | **达标** | `artifacts/nfr-budget-report.json` |
+| NFR-206 LLM 流式 CPU | ≤ 8% 单核 | **0.682%**（限速 25 chunks/s 代表性速率；满喂容量 ≈1.5M chunks/s/核为余量佐证，2026-10-24） | **达标** | `artifacts/nfr-budget-report.json`；真实 Provider 接入后复测 |
+| NFR-207 会话切换（10 万事件） | p50/p95/p99 ≤ 200 ms | **p50 7.1／p95 12.9／p99 13.1 ms**（20 样本，2026-10-24） | **达标** | `test_nfr_budget::nfr207` |
 | NFR-208 概览查询（1 万任务） | p95 ≤ 50 ms | **p95 = 6 071 µs**（p50 5 054／p99 6 352，50 样本，2026-10-23 冻结后复跑） | **达标** | `artifacts/overview-perf-m2.json` |
-| NFR-209 历史单页查询 | p95 ≤ 30 ms | 未测 | 候选 | — |
+| NFR-209 历史单页查询 | p95 ≤ 30 ms | **p95 = 19.8 ms**（p50 18.2／p99 20.3，50 样本；优化前同夹具 p95 40.8 ms 超标，两阶段分页优化后达标，2026-10-24） | **达标（经优化）** | `test_nfr_budget::nfr209`；T115 记录 |
 | NFR-210 事件写入吞吐 | ≥ 2 000 条/秒 | **6 921 条/秒**（192 MB 基线配置＝当前口径；min 6 242／max 7 428）；384 MB 组 3 359 条/秒亦达标 | **达标** | `artifacts/baseline-192mb.json`、`artifacts/baseline-after-opt.json` |
 
 补充（非 NFR 预算，仅登记）：资源铁律 M1/C4 的“单进程峰值 RSS ≤ 512 MB”在

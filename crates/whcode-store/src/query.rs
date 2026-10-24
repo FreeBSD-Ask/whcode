@@ -152,36 +152,71 @@ pub fn events_page(
         Direction::Backward => ("DESC", "<"),
     };
 
-    let mut values = vec![Value::Text(session_id.to_string())];
+    // 两阶段分页（T115 热点优化，2026-10-24）：DuckDB 对“多列 top-k”生成
+    // SEQ_SCAN + TOP_N（EXPLAIN 实证，ART 索引不参与），10 列 10 万行单页
+    // p95 ≈ 40 ms，超出 NFR-209 冻结预算（≤ 30 ms）；拆成“仅 seq 窄列 top-k
+    // （约 15 ms）+ 按 seq 范围回取整行（约 2 ms）”后同夹具 p95 ≈ 18 ms，
+    // 逐行语义与单查询一致（seq 为工作区主键，范围恰覆盖窄相行集）。
+    // 复审触发：DuckDB 版本级变化（ADR-025 退出条件同源）须复测本判据。
+    let mut narrow_values = vec![Value::Text(session_id.to_string())];
     let cursor_clause = match cursor {
         Some(cursor) => {
-            values.push(Value::BigInt(cursor.seq));
+            narrow_values.push(Value::BigInt(cursor.seq));
             format!(" AND seq {comparison} ?")
         }
         None => String::new(),
     };
-    values.push(Value::BigInt(fetch));
+    narrow_values.push(Value::BigInt(fetch));
 
-    let sql = format!(
-        "SELECT {EVENT_COLUMNS} FROM events WHERE session_id = ?{cursor_clause} \
-         ORDER BY seq {order} LIMIT ?"
+    let narrow_sql = format!(
+        "SELECT seq FROM events WHERE session_id = ?{cursor_clause} ORDER BY seq {order} LIMIT ?"
     );
-    let mut stmt = conn.prepare(&sql).map_err(query_err)?;
-    let mapped = stmt
-        .query_map(params_from_iter(values), |row| {
-            Ok(EventRow {
-                seq: row.get(0)?,
-                id: row.get(1)?,
-                session_id: row.get(2)?,
-                task_id: row.get(3)?,
-                request_id: row.get(4)?,
-                tool_call_id: row.get(5)?,
-                kind: row.get(6)?,
-                payload_json: row.get(7)?,
-                ts_us: row.get(8)?,
-                persistence_level: row.get(9)?,
-            })
-        })
+    let mut narrow_stmt = conn.prepare(&narrow_sql).map_err(query_err)?;
+    let seqs: Vec<i64> = narrow_stmt
+        .query_map(params_from_iter(&narrow_values), |row| row.get(0))
+        .map_err(query_err)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(query_err)?;
+    if seqs.is_empty() {
+        return Ok(EventPage {
+            items: Vec::new(),
+            next: None,
+        });
+    }
+
+    // 相二：按窄相行集的 seq 范围整行回取。seq 是工作区内唯一主键，故
+    // [min, max] 闭区间恰含窄相行集，不引入跨页重复；事务内并发写入只会
+    // 追加更大的 seq，不在本范围内。
+    let (lo, hi) = seqs.iter().fold((i64::MAX, i64::MIN), |(lo, hi), &seq| {
+        (lo.min(seq), hi.max(seq))
+    });
+    let full_sql = format!(
+        "SELECT {EVENT_COLUMNS} FROM events WHERE session_id = ? AND seq BETWEEN ? AND ? \
+         ORDER BY seq {order}"
+    );
+    let mut full_stmt = conn.prepare(&full_sql).map_err(query_err)?;
+    let mapped = full_stmt
+        .query_map(
+            params_from_iter([
+                Value::Text(session_id.to_string()),
+                Value::BigInt(lo),
+                Value::BigInt(hi),
+            ]),
+            |row| {
+                Ok(EventRow {
+                    seq: row.get(0)?,
+                    id: row.get(1)?,
+                    session_id: row.get(2)?,
+                    task_id: row.get(3)?,
+                    request_id: row.get(4)?,
+                    tool_call_id: row.get(5)?,
+                    kind: row.get(6)?,
+                    payload_json: row.get(7)?,
+                    ts_us: row.get(8)?,
+                    persistence_level: row.get(9)?,
+                })
+            },
+        )
         .map_err(query_err)?;
 
     let mut items = Vec::with_capacity(limit);

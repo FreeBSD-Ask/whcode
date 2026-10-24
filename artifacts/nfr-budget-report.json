@@ -1,0 +1,24 @@
+{
+  "discipline": {
+    "generated_at": "2026-10-24T08:14:33+08:00",
+    "os": "Microsoft Windows [Version 10.0.26300.9550]",
+    "toolchain": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "build_type": "release",
+    "exe": "D:\\WHCode\\target\\release\\whcode.exe",
+    "sampling": "GetProcessMemoryInfo（RSS）/ GetProcessTimes（CPU），50 ms 轮询；Rust 侧 tests/stability/test_nfr_budget.rs 进程内 Instant+current_rss_bytes"
+  },
+  "results": [
+    {
+      "nfr": "NFR-206",
+      "measured": true,
+      "budget_cpu_pct": 8.0,
+      "cpu_pct_overall": 0.682,
+      "wall_s": 9.16,
+      "peak_rss_mb": 8.18,
+      "samples": 181,
+      "full_feed_capacity_chunks_per_s_per_core": 693711.0,
+      "passed": true,
+      "method": "限速流式（25 chunks/s，代表性 token 速率）测试可执行文件整生命周期 GetProcessTimes 采样，整体 CPU% 为含夹具开销的保守上界（判据）；满喂容量为余量佐证（不作判据）"
+    }
+  ]
+}

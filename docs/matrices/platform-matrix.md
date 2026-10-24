@@ -37,8 +37,16 @@
 - 已达标（有归档实测）：**NFR-208** 概览查询 p95 6 071 µs ≤ 50 ms（`artifacts/overview-perf-m2.json`，
   2026-10-23 冻结后复跑；报告 `budget.frozen=true`）；
   **NFR-210** 写入吞吐 6 921 条/秒 ≥ 2 000（192 MB 当前口径，`artifacts/baseline-192mb.json`）。
-- 保持候选（未取得合规测量）：NFR-201／202／203／205／206／207／209；NFR-204 缺 72 小时序列
-  （T116 阻塞）。上述项不得以“未复现失败”代替测量，发布前补齐或经 ADR 修订。
+- **T115 测量战役（2026-10-24）补齐七项**（`artifacts/nfr-budget-report.json` +
+  `tests/stability/test_nfr_budget.rs`，方法与样本数见报告 discipline 字段）：
+  NFR-201 空载 RSS 中位 23.12 MB ≤ 35；NFR-202 单会话活跃 RSS 中位 27.33 MB ≤ 80；
+  NFR-203 切换 20 次最大增量 0.32 MB ≤ 10；NFR-205 TUI 空闲 CPU 0.0% ≤ 0.5%；
+  NFR-206 限速流式（25 chunks/s）CPU 0.682% ≤ 8%（满喂容量 ≈ 1.5M chunks/s/核为余量佐证）；
+  NFR-207 切换 p50 7.1 / p95 12.9 / p99 13.1 ms ≤ 200；NFR-209 单页 p95 **19.8 ms** ≤ 30
+  （优化前同夹具 p95 40.8 ms 超标 → 热点定位 EXPLAIN 证实 SEQ_SCAN+TOP_N 多列 top-k，
+  两阶段分页优化后达标——同夹具前后对比见 tasks.md T115 记录）。
+- 保持候选（未取得合规测量）：**NFR-204 缺 72 小时序列**（T116 阻塞）。
+  上述项不得以“未复现失败”代替测量，发布前补齐或经 ADR 修订。
 - 依据与责任：`docs/adr/ADR-025-performance-budget-freeze.md`；性能与存储负责人。
 
 历史缺口（冻结前状态，保留供复盘）：

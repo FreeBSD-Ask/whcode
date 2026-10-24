@@ -35,6 +35,11 @@ path = "stability/test_residency_memory.rs"
 name = "failure_modes"
 path = "stability/test_failure_modes.rs"
 
+# NFR 冻结预算测量夹具（T115、ADR-025；NFR-203/207/209/206）。
+[[test]]
+name = "nfr_budget"
+path = "stability/test_nfr_budget.rs"
+
 # 目录分类门禁（docs/guides/repository-layout.md 的可执行强制）。
 [[test]]
 name = "layout"
