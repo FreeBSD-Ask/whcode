@@ -19,7 +19,7 @@ jobs:
   build-test-deps-record:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 在 NetBSD VM 中构建与记录
         id: greenpath

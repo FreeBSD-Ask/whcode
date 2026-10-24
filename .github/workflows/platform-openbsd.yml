@@ -21,7 +21,7 @@ jobs:
   client-connectivity-acceptance:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 占位——客户端连通性验收（M7 前）
         run: |

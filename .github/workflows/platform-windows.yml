@@ -27,7 +27,7 @@ jobs:
   build-test-gates:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 显示锁定工具链（rust-toolchain.toml）
         run: rustup show
@@ -73,7 +73,7 @@ jobs:
     needs: build-test-gates
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
         run: python ci/fetch-duckdb.py

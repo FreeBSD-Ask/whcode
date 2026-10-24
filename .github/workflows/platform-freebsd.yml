@@ -24,7 +24,7 @@ jobs:
   build-test-deps-record:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 在 FreeBSD VM 中构建与记录
         uses: vmactions/freebsd-vm@v1
