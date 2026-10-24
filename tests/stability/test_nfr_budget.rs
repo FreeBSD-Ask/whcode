@@ -159,7 +159,25 @@ fn nfr203_switch_rss_increment_bounded() {
     let mut increments_mb: Vec<f64> = Vec::with_capacity(20);
     for index in 0..20 {
         let target = if index % 2 == 0 { "S-SMALL" } else { "S-BIG" };
-        switch_session(&conn, &policy, &actor, target).expect("切换");
+        let view = switch_session(&conn, &policy, &actor, target).expect("切换");
+        // Check 47：10 万事件会话只加载元数据 + 概览 + 有界尾部（不加载完整历史）。
+        assert_eq!(
+            view.tail.len(),
+            whcode_app::session::SWITCH_TAIL_LIMIT,
+            "10 万事件会话的活跃尾部必须恒定有界"
+        );
+        assert!(!view.tail_complete, "10 万事件必须标注尾部截断");
+        assert!(
+            view.event_cursor >= i64::try_from(DATASET_EVENTS).expect("数据集规模可转换"),
+            "工作区游标必须覆盖最新事件（游标是元数据，不要求加载全文）"
+        );
+        assert!(
+            view.tail
+                .iter()
+                .all(|event| event.session_id.as_deref() == Some(target)),
+            "尾部只能包含目标会话的事件"
+        );
+        assert!(view.overview.is_some(), "1 万任务会话必须带概览行");
         let rss = current_rss_bytes().expect("切换后 RSS");
         increments_mb.push((rss as f64 - baseline as f64) / (1024.0 * 1024.0));
         println!(

@@ -90,8 +90,9 @@ pub fn generate(
         .map(|max: i64| max as usize)
         .expect("读取事件游标");
     let mut start = seq_base + 1;
-    while start <= events {
-        let count = ROWS_PER_BATCH.min(events - start + 1);
+    let end = seq_base + events;
+    while start <= end {
+        let count = ROWS_PER_BATCH.min(end - start + 1);
         let mut values = Vec::with_capacity(count);
         let mut binds: Vec<duckdb::types::Value> = Vec::with_capacity(count * 4);
         for seq in start..start + count {

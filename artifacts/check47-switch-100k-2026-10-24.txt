@@ -1,0 +1,37 @@
+   Compiling whcode-llm v0.1.0 (D:\WHCode\crates\whcode-llm)
+   Compiling whcode-platform v0.1.0 (D:\WHCode\crates\whcode-platform)
+   Compiling whcode-runtime v0.1.0 (D:\WHCode\crates\whcode-runtime)
+   Compiling whcode-app v0.1.0 (D:\WHCode\crates\whcode-app)
+   Compiling whcode-web v0.1.0 (D:\WHCode\crates\whcode-web)
+   Compiling whcode-cui v0.1.0 (D:\WHCode\crates\whcode-cui)
+   Compiling whcode-tests v0.1.0 (D:\WHCode\tests)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.57s
+     Running stability\test_nfr_budget.rs (target\debug\deps\nfr_budget-70311163fbfd94ed.exe)
+
+running 1 test
+test nfr203_switch_rss_increment_bounded has been running for over 60 seconds
+NFR-203 切换 00 → S-SMALL: 增量 0.32 MB
+NFR-203 切换 01 → S-BIG: 增量 0.51 MB
+NFR-203 切换 02 → S-SMALL: 增量 0.56 MB
+NFR-203 切换 03 → S-BIG: 增量 0.72 MB
+NFR-203 切换 04 → S-SMALL: 增量 1.41 MB
+NFR-203 切换 05 → S-BIG: 增量 1.52 MB
+NFR-203 切换 06 → S-SMALL: 增量 1.66 MB
+NFR-203 切换 07 → S-BIG: 增量 1.78 MB
+NFR-203 切换 08 → S-SMALL: 增量 1.84 MB
+NFR-203 切换 09 → S-BIG: 增量 2.06 MB
+NFR-203 切换 10 → S-SMALL: 增量 2.19 MB
+NFR-203 切换 11 → S-BIG: 增量 2.27 MB
+NFR-203 切换 12 → S-SMALL: 增量 2.41 MB
+NFR-203 切换 13 → S-BIG: 增量 2.57 MB
+NFR-203 切换 14 → S-SMALL: 增量 2.68 MB
+NFR-203 切换 15 → S-BIG: 增量 2.77 MB
+NFR-203 切换 16 → S-SMALL: 增量 2.90 MB
+NFR-203 切换 17 → S-BIG: 增量 3.04 MB
+NFR-203 切换 18 → S-SMALL: 增量 3.11 MB
+NFR-203 切换 19 → S-BIG: 增量 3.18 MB
+NFR-203 切换 20 次最大 RSS 增量：3.18 MB（预算 ≤ 10 MB）
+test nfr203_switch_rss_increment_bounded ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 125.83s
+
