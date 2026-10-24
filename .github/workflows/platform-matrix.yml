@@ -11,7 +11,7 @@
 # 工具链与依赖纪律沿用各平台原注释：
 #   - Windows：不使用 GNU 工具链；构建前必须 `.github/scripts/fetch-duckdb.py`。
 #   - FreeBSD：rustup 安装锁定 1.99.1（不使用 ports 的 rust）；绿路径排除 GUI/DuckDB 依赖。
-#   - NetBSD：镜像不带 pkgin；用 base 的 pkg_add + 官方 PKG_PATH（2026-10-24 实测通过）。
+#   - NetBSD：镜像不带 pkgin；解压官方二进制包引导 pkgin（不用 pkg_add，2026-10-24 用户指令）。
 name: platform-matrix
 
 on:
@@ -240,11 +240,21 @@ jobs:
             rustc -vV
             cargo -V
 
+            # MSRV 从 Cargo.toml 读取：工作流手写版本会与清单漂移（2026-10-24 已升至 1.99），
+            # 手写值一旦落后，pkgsrc rust 低于 MSRV 时不会跳过而是直接编译失败。
+            msrv=$(sed -n 's/^rust-version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -n1)
+            if [ -z "$msrv" ]; then
+              echo "无法从 Cargo.toml 读取 rust-version" >&2
+              exit 1
+            fi
             version=$(rustc --version | awk '{print $2}')
             major=$(echo "$version" | cut -d. -f1)
             minor=$(echo "$version" | cut -d. -f2)
-            if [ "$major" -lt 1 ] || { [ "$major" -eq 1 ] && [ "$minor" -lt 88 ]; }; then
-              echo "SKIP：pkgsrc rust $version 低于 MSRV 1.88（环境限制，不作代码结论）"
+            msrv_major=$(echo "$msrv" | cut -d. -f1)
+            msrv_minor=$(echo "$msrv" | cut -d. -f2)
+            if [ "$major" -lt "$msrv_major" ] || \
+              { [ "$major" -eq "$msrv_major" ] && [ "$minor" -lt "$msrv_minor" ]; }; then
+              echo "SKIP：pkgsrc rust $version 低于 MSRV $msrv（环境限制，不作代码结论）"
               exit 0
             fi
 
