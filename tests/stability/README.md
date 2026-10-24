@@ -47,11 +47,12 @@
 
 1. `writer_stress`、`memory_limit`、`query_plan` 三个 `--ignored` 实验；
 2. `nfr_budget` 的 NFR-203／NFR-206（合并为一个步骤）；
-3. `nfr_budget` 的 NFR-207／NFR-209（**另起步骤独占执行**——全 workspace 并行时实测
-   NFR-209 p95 45.8 ms 超标，测量不具可归因性）；
-4. NFR-201／202／205 的真实进程测量（`.github/scripts/benchmarks/measure-nfr-budgets.py`）；
-5. `session_switch` 的测试进程 RSS/CPU（`.github/scripts/benchmarks/measure-resources.py`）；
-6. `stability_run` 的 30 秒／5 秒采样冒烟（验证采集链路，不作 24 h 结论）。
+3. NFR-201／202 的真实进程测量（`.github/scripts/benchmarks/measure-nfr-budgets.py`）；
+4. `stability_run` 的 30 秒／5 秒采样冒烟（验证采集链路，不作 24 h 结论）。
+
+NFR-207／209 与 `session_switch` 的测试进程 RSS/CPU 属**受控性能测量**，放在同一工作流的
+`perf-budget` job（仅 `workflow_dispatch` 且 `perf=true` 触发）：托管 runner 为共享环境，
+绝对延迟受邻居负载影响，结果只作测量信号；冻结预算的通过/否决仍以独占复跑与 ADR-025 口径为准。
 
 日志与 JSON 产物写入 `artifacts/stability-ci/` 并作为 artifact 归档。
 同一工作流的每周一 schedule **只做 action 版本审计**，不跑测试。

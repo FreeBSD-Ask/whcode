@@ -21,6 +21,10 @@ on:
         description: "运行桌面型测试（GUI 探针；托管 runner 无交互桌面时为 headless 口径）"
         type: boolean
         default: false
+      perf:
+        description: "运行性能预算（NFR-207/209 与测试进程 RSS；托管 runner 结果仅作受控测量信号）"
+        type: boolean
+        default: false
   push:
     branches: [main]
   pull_request:
@@ -514,28 +518,11 @@ jobs:
             Tee-Object -FilePath artifacts/stability-ci/nfr_budget.log -Append
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: NFR-207/NFR-209 性能预算（独占执行）
-        shell: pwsh
-        run: |
-          cargo test --locked -p whcode-tests --test nfr_budget nfr207 -- --ignored --nocapture 2>&1 |
-            Tee-Object -FilePath artifacts/stability-ci/nfr207.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked -p whcode-tests --test nfr_budget nfr209 -- --ignored --nocapture 2>&1 |
-            Tee-Object -FilePath artifacts/stability-ci/nfr209.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
       - name: NFR-201/202 真实进程测量（serve 口径；控制台类 NFR-205/206 归桌面 job）
         shell: pwsh
         run: |
           python .github/scripts/benchmarks/measure-nfr-budgets.py --only nfr201,nfr202 2>&1 |
             Tee-Object -FilePath artifacts/stability-ci/nfr_real_process.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: 测试进程资源铁律（session_switch RSS/CPU）
-        shell: pwsh
-        run: |
-          python .github/scripts/benchmarks/measure-resources.py --test session_switch 2>&1 |
-            Tee-Object -FilePath artifacts/stability-ci/resource_budget.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: 长跑采集器冒烟（30 秒 / 5 秒采样，不作 24 h 结论）
@@ -563,6 +550,53 @@ jobs:
             artifacts/memory-limit-experiment.json
             artifacts/query-plan-report.json
             artifacts/nfr-budget-report.json
+            artifacts/resource-report.json
+
+  # ---------------- 性能预算（仅 workflow_dispatch 且 perf=true） ----------------
+  # 托管 runner 为共享环境，绝对延迟受邻居负载影响；本 job 只产出受控测量信号，
+  # 冻结预算的通过/否决仍以独占复跑与 ADR-025 口径为准，不用本 job 放宽预算。
+  perf-budget:
+    if: github.event_name == 'workflow_dispatch' && inputs.perf
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 工作流语义门禁
+        run: python .github/scripts/check-workflows.py
+
+      - name: 拉取并校验预编译 DuckDB
+        run: python .github/scripts/fetch-duckdb.py
+
+      - name: 构建（锁定依赖图）
+        run: cargo build --locked --workspace
+
+      - name: NFR-207/NFR-209 性能预算（串行独占）
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/perf-ci | Out-Null
+          cargo test --locked -p whcode-tests --test nfr_budget nfr207 -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/perf-ci/nfr207.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p whcode-tests --test nfr_budget nfr209 -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/perf-ci/nfr209.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 测试进程资源铁律（session_switch RSS/CPU）
+        shell: pwsh
+        run: |
+          python .github/scripts/benchmarks/measure-resources.py --test session_switch 2>&1 |
+            Tee-Object -FilePath artifacts/perf-ci/resource_budget.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 上传性能测量产物
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-budget
+          if-no-files-found: warn
+          path: |
+            artifacts/perf-ci/*.log
             artifacts/resource-report.json
 
   # ---------------- 桌面型测试（仅 workflow_dispatch 且 desktop=true） ----------------

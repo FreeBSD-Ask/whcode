@@ -14,8 +14,9 @@
    稳定性长跑（超出单 job 6 小时窗口，ADR-033）。原 `platform-matrix.yml`、`stability.yml`、
    `action-version-audit.yml` 删除，内容并入 `ci.yml`。
 2. **触发与门控**：push `main`、`pull_request`、`workflow_dispatch` 运行测试；测量 job 只在
-   push `main` 与手动触发时运行（PR 不跑，避免配额与不可归因波动）；每周一 schedule 只运行
-   `action-audit` job（联网复核 action 最新版本与固定 SHA），其余 job 以 job 级 `if` 跳过。
+   push `main` 与手动触发时运行（PR 不跑，避免配额与不可归因波动）；`perf-budget`（NFR-207/209
+   与测试进程 RSS）与 `desktop` 仅由 `workflow_dispatch` 的 `perf`／`desktop` 输入触发，
+   避免共享 runner 的邻居负载把性能测量变成红绿噪声；每周一 schedule 只运行 `action-audit` job。
 3. **桌面型测试进入 CI 入口**：GUI 探针作为 `workflow_dispatch` 的 `desktop` 输入触发；
    托管 runner 为非交互会话，结果按 headless／虚拟显示口径记录，不替代真实桌面人工证据
    （V-003、FR-714）。TUI 只自动化三项（`--version`、`doctor --json`、非交互优雅退出），
