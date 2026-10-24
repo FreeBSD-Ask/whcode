@@ -17,6 +17,7 @@
 #[path = "../fixtures/gen_dataset.rs"]
 mod gen_dataset;
 
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use duckdb::Connection;
@@ -28,6 +29,12 @@ use whcode_store::{Direction, MAX_PAGE_SIZE, apply_migrations, events_page};
 /// 单会话数据集规模（与 `test_session_switch` 同夹具，V-006）。
 const DATASET_EVENTS: usize = 100_000;
 const DATASET_TASKS: usize = 10_000;
+
+/// 性能测量串行锁：NFR-207 与 NFR-209 同属一个测试二进制，`cargo test` 默认并行
+/// 执行线程；两个夹具同时生成数据集与查询会互相抢占 CPU/磁盘，使 p95 失去可归因性
+/// （2026-10-24 全量测试实测：并行时 NFR-209 p95 43 ms 超预算，独占时 21.8 ms）。
+/// 测量纪律要求一次只跑一个性能夹具，故在此串行化，不改变判据。
+static PERF_LOCK: Mutex<()> = Mutex::new(());
 
 fn temp_db(tag: &str) -> Connection {
     let dir = std::env::temp_dir().join(format!("whcode-nfr-{}-{tag}", std::process::id()));
@@ -73,6 +80,7 @@ fn print_percentiles(label: &str, samples_ms: &mut [f64]) {
 /// 计时只含 `switch_session` 本身（有界加载路径，FR-102）。
 #[test]
 fn nfr207_switch_latency_within_frozen_budget() {
+    let _guard = PERF_LOCK.lock().expect("性能测量串行锁中毒");
     let mut conn = temp_db("nfr207");
     let big = gen_dataset::generate(&mut conn, "S-BIG", DATASET_EVENTS, DATASET_TASKS);
     assert_eq!(big.events, DATASET_EVENTS);
@@ -108,6 +116,7 @@ fn nfr207_switch_latency_within_frozen_budget() {
 /// 尾页的真实形状），50 次采样。
 #[test]
 fn nfr209_history_single_page_query_p95_within_frozen_budget() {
+    let _guard = PERF_LOCK.lock().expect("性能测量串行锁中毒");
     let mut conn = temp_db("nfr209");
     let report = gen_dataset::generate(&mut conn, "S-BIG", DATASET_EVENTS, DATASET_TASKS);
     assert_eq!(report.events, DATASET_EVENTS);

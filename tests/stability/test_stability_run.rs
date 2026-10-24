@@ -40,9 +40,11 @@ const DATASET_TASKS: usize = 10_000;
 const BATCH_EVENTS: i64 = 20;
 /// 周期间隔（毫秒）：40 事件/秒，24 小时约 345 万事件。
 const CYCLE_PAUSE_MS: u64 = 500;
-/// 事件总量上限；超过后删除最旧一批，避免长跑把磁盘写满（X4）。
-const PURGE_THRESHOLD: i64 = 400_000;
-const PURGE_BATCH: i64 = 100_000;
+/// 事件总量上限默认值；超过后删除最旧一批，避免长跑把磁盘写满（X4）。
+/// 可用 `WHCODE_STABILITY_PURGE_THRESHOLD` / `WHCODE_STABILITY_PURGE_BATCH` 覆盖，
+/// 以便冒烟时用小阈值验证清理路径。
+const PURGE_THRESHOLD_DEFAULT: i64 = 400_000;
+const PURGE_BATCH_DEFAULT: i64 = 100_000;
 
 fn env_u64(name: &str, default: u64) -> u64 {
     std::env::var(name)
@@ -53,6 +55,13 @@ fn env_u64(name: &str, default: u64) -> u64 {
 
 fn env_path(name: &str) -> Option<PathBuf> {
     std::env::var(name).ok().map(PathBuf::from)
+}
+
+fn env_i64(name: &str, default: i64) -> i64 {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.trim().parse::<i64>().ok())
+        .unwrap_or(default)
 }
 
 fn epoch_seconds() -> u64 {
@@ -99,6 +108,8 @@ struct StabilityRun {
     switch_ms: Vec<f64>,
     rss_series: Vec<(f64, f64)>,
     last_cpu_seconds: f64,
+    purge_threshold: i64,
+    purge_batch: i64,
 }
 
 impl StabilityRun {
@@ -159,6 +170,8 @@ impl StabilityRun {
             switch_ms: Vec::new(),
             rss_series: Vec::new(),
             last_cpu_seconds: cpu.cpu_seconds,
+            purge_threshold: env_i64("WHCODE_STABILITY_PURGE_THRESHOLD", PURGE_THRESHOLD_DEFAULT),
+            purge_batch: env_i64("WHCODE_STABILITY_PURGE_BATCH", PURGE_BATCH_DEFAULT),
         }
     }
 
@@ -223,7 +236,7 @@ impl StabilityRun {
                 |row| row.get(0),
             )
             .expect("读取事件总量");
-        if count <= PURGE_THRESHOLD {
+        if count <= self.purge_threshold {
             return;
         }
         let cutoff: i64 = self
@@ -231,7 +244,7 @@ impl StabilityRun {
             .query_row(
                 "SELECT COALESCE(MIN(seq), 0) FROM (
                      SELECT seq FROM events WHERE session_id = 'S-BIG' ORDER BY seq DESC LIMIT ?)",
-                params![PURGE_BATCH],
+                params![self.purge_batch],
                 |row| row.get(0),
             )
             .expect("计算清理阈值");
