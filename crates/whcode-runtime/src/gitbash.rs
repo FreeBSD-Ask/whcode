@@ -133,12 +133,21 @@ fn verify_bash_candidate(path: &Path) -> bool {
 /// 定位本机 Git Bash（V-304）：依次实测候选（见 [`bash_candidates`]），返回首个
 /// `--version` 输出含 “bash” 者；全部失败返回 `None`。未配置 `git_path` 时仅查 PATH
 /// 回退——需要确定性时显式配置（见模块文档失效条件）。
+///
+/// PATH 回退命中时返回**绝对路径**：调用方不应拿到依赖当前工作目录的相对名
+/// （GitHub Windows runner 实测：过宽的根候选会走到 PATH 回退）。
 #[must_use]
 pub fn locate_bash(git_path: Option<&str>) -> Option<PathBuf> {
-    bash_candidates(git_path)
-        .iter()
-        .find(|candidate| verify_bash_candidate(candidate))
-        .cloned()
+    let found = bash_candidates(git_path)
+        .into_iter()
+        .find(|candidate| verify_bash_candidate(candidate))?;
+    if found.is_absolute() {
+        return Some(found);
+    }
+    std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
+        .map(|dir| dir.join(&found))
+        .find(|candidate| candidate.is_file())
+        .or(Some(found))
 }
 
 /// 探测 bash 版本摘要（`--version` 首行 “version ” 后的 token，如 `5.3.9(1)-release`）；
