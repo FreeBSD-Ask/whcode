@@ -26,6 +26,10 @@
   断网（临时端口 + 补拉无重复无缺失）、只读库写入失败（零半完成状态）、磁盘不足
   （`WhError::io` 分类 `StorageFull`/Windows 112）。真实满盘写入需设置
   `WHCODE_DISK_FULL_DIR` 指向已耗尽卷；未设置时用例打印“未执行”，不伪造通过。
+- `test_nfr_budget.rs`：ADR-025 冻结预算的测量夹具。NFR-207（会话切换 p50/p95/p99 ≤ 200 ms）
+  与 NFR-209（历史单页 p95 ≤ 30 ms）为常规回归可复现项，但因需独占 CPU/磁盘而标 `#[ignore]`，
+  由 stability workflow 独立步骤驱动；NFR-203（20 次切换 RSS 增量 ≤ 10 MB）与 NFR-206
+  （流式 CPU ≤ 8% 单核）需外部采样，由 `local/measure_nfr_budgets.py` 驱动。
 - `test_stability_run.rs`：T116 长跑采集器——**单进程**持续写入/查询/切换/清理，
   按间隔自采样 RSS、累计 CPU 与单核占比、线程数、句柄数、数据库与 WAL 大小、
   事件缺失计数、failed 任务数、提交/查询/切换延迟，逐行追加 JSONL（中断不丢已采
@@ -38,9 +42,16 @@
 
 ### GitHub Actions（2026-10-24 起）
 
-`.github/workflows/stability.yml`（`stability-measurements`）每周一与手动触发，运行
-`writer_stress`、`memory_limit`、`query_plan`、`nfr_budget --ignored`（NFR-203/206）与
-`stability_run` 的 30 秒冒烟，并把日志与 JSON 产物作为 artifact 归档。
+`.github/workflows/stability.yml`（`stability-measurements`）每周一 02:37 UTC 与手动触发，
+单 job 上限 350 分钟，按顺序执行：
+
+1. `writer_stress`、`memory_limit`、`query_plan` 三个 `--ignored` 实验；
+2. `nfr_budget` 的 NFR-203／NFR-206（合并为一个步骤）；
+3. `nfr_budget` 的 NFR-207／NFR-209（**另起步骤独占执行**——全 workspace 并行时实测
+   NFR-209 p95 45.8 ms 超标，测量不具可归因性）；
+4. `stability_run` 的 30 秒／5 秒采样冒烟（验证采集链路，不作 24 h 结论）。
+
+日志与 JSON 产物写入 `artifacts/stability-ci/` 并作为 artifact 归档。
 
 **5.5 小时长跑在 CI 内**（ADR-033）：`.github/workflows/stability-long.yml`
 （`stability-long-run`，仅手动触发，`timeout-minutes: 355`）运行 19 800 秒、300 秒采样，
@@ -62,6 +73,13 @@ cargo test -p whcode-tests --test residency_memory -- --nocapture
 # 四类故障情形（真实满盘需先设置 WHCODE_DISK_FULL_DIR）
 cargo test -p whcode-tests --test failure_modes -- --nocapture
 
+# NFR-207／NFR-209 冻结预算（独占运行；勿与其它测试并行）
+cargo test -p whcode-tests --test nfr_budget nfr207 -- --ignored --nocapture
+cargo test -p whcode-tests --test nfr_budget nfr209 -- --ignored --nocapture
+
+# NFR-203／NFR-206（需外部采样，由 local 脚本驱动）
+python local/measure_nfr_budgets.py
+
 # 长跑采集器（默认 5.5 小时，ADR-033；冒烟用 STABILITY_SMOKE=1）
 ./tests/stability/run_stability.sh
 STABILITY_SMOKE=1 ./tests/stability/run_stability.sh
@@ -78,6 +96,12 @@ python .github/scripts/benchmarks/run-baseline.py
   写者服务；该两项在 JSONL 中为 `null` 并附原因，待真实写者接线后补齐；
 - 慢客户端、重启与迁移中断场景仍需并入长跑编排；
 - 真实满盘写入需专用环境（`WHCODE_DISK_FULL_DIR`）。
+
+## 输出路径
+
+稳定性与测量脚本的运行期产物（数据库、JSONL、日志）只写 `artifacts/`（如
+`artifacts/stability-<N>h-<时间戳>/`、`artifacts/stability-ci/`）或系统临时目录；
+不得写回 `tests/`——`layout` 门禁只允许 `tests/` 下存在六类测试目录、`src/` 与 `Cargo.toml`。
 
 ## 纪律（§11.5、R-12）
 

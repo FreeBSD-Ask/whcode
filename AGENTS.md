@@ -105,9 +105,10 @@ cargo test --locked --workspace
 cargo test -p whcode-tests --test layering       # 分层/平台分支/前端不触库
 cargo test -p whcode-tests --test layout         # 目录分类门禁
 python .github/scripts/traceability.py                        # FR↔任务↔Check 三方追溯（含缺口登记合规）
+python .github/scripts/check_counts.py                        # 任务/Check/FR 计数声明与实际一致
 python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑）
 python local/normalize_eol.py                   # LF + 无 BOM 审计
-python local/check_workflows.py                 # CI workflow 自检
+python .github/scripts/check-workflows.py       # CI workflow 语义门禁（与 CI 同源）
 python local/measure_resources.py               # 资源铁律 M1/C4：测试进程 RSS/CPU 达标
 python .github/scripts/benchmarks/check-frontend-budget.py    # 前端预算审计（涉及前端时）
 ```

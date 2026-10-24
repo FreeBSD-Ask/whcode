@@ -1,6 +1,6 @@
 # 换行符策略（repository-layout.md）：仓库与工作区一律 LF。
 # Windows 开发同理：由本文件 + .editorconfig + rustfmt.toml(newline_style="Unix") 三重保证；
-# 审计/修复工具：python script/normalize_eol.py [--fix]
+# 审计/修复工具：python local/normalize_eol.py [--fix]
 * text=auto eol=lf
 
 # 已知二进制类型：禁止规范化，禁止 diff 文本化

@@ -94,14 +94,15 @@ SCRIPT_DELETE_PATTERNS = [
 
 #: local/ 永久保留清单（优先于删除模式）：
 #: - `sensenova.env` 是凭据（AGENTS：不入库、不进日志），任何清理不得触碰；
-#: - 前三项是被 AGENTS §3 标准验证链引用的长期工具；
-#: - `measure_nfr_budgets.py` 被并行工作单元（T115/ADR-025）引用；
+#: - `normalize_eol.py`、`measure_resources.py`、`measure_nfr_budgets.py` 被 AGENTS §3
+#:   标准验证链引用，且无入库对应物；
+#: - `check_workflows.py` 不在此列：入库版 `.github/scripts/check-workflows.py` 是唯一事实源，
+#:   `local/` 同名副本由本机制回收（避免“本地绿、CI 红”）；
 #: - `sacred_*` 是源文本考据工作数据，配套的导出/检查脚本一并保留
 #:   （删脚本则考据数据不可复现）。
 SCRIPT_KEEP_ALWAYS = [
     "sensenova.env",
     "normalize_eol.py",
-    "check_workflows.py",
     "measure_resources.py",
     "measure_nfr_budgets.py",
     "sacred_sources.duckdb",

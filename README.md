@@ -24,10 +24,10 @@
 | M9 优化与发布 | **部分完成**：兼容矩阵、运行时清单、热点优化（T115）、发布包（T118）与三份指南（T119）已交付；5.5 小时稳定性（T116，ADR-033）阻塞 |
 | Phase 13 跨里程碑收尾 | **已完成**：D 台账、目录门禁与准则文档、安全复查（T123）、quickstart 全流程（T124）、三方断链审计（T127）均取得证据 |
 
-158 条任务中 156 条完成，2 条未完成：T099（BSD 现场验收证据，ADR-013 延后）、
+159 条任务中 157 条完成，2 条未完成：T099（BSD 现场验收证据，ADR-013 延后）、
 T116（5.5 小时稳定性阻塞）。原因逐条写在任务行。
 
-**验收口径**：`checklist.md` 的 260 个检查点**全部有复核记录**——**248 通过 / 12 未通过**
+**验收口径**：`checklist.md` 的 261 个检查点**全部有复核记录**——**249 通过 / 12 未通过**
 （其中 14 项通过记录来自 2026-10-21/22 的用户复核，其余由逐条复核与里程碑批次补录给出）。
 未通过项集中在：BSD 平台证据与 M7 现场验收（ADR-013 延后）、5.5 h 长跑（T116）、无远端
 CI（Check 3）、进程组零残留（Check 109/201）、ADR 未决项（Check 134）、
@@ -118,7 +118,9 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test -p whcode-tests --test layering   # 分层 / 平台分支 / 前端不触库
 cargo test -p whcode-tests --test layout     # 目录分类
-python script/normalize_eol.py               # LF + 无 BOM
+python .github/scripts/check_counts.py       # 任务/Check/FR 计数一致性
+python .github/scripts/check-workflows.py    # CI workflow 语义门禁
+python local/normalize_eol.py                 # LF + 无 BOM
 
 # 3) 运行
 cargo run -p whcode-bin --release -- doctor          # 环境自检（含引擎版本实测）
@@ -133,7 +135,7 @@ cargo run -p whcode-bin --release --                 # 有控制台时进入 TUI
 |---|---|
 | [docs/guides/philosophy.md](./docs/guides/philosophy.md) | 核心哲学与工程方法论（形式审查/0 信任） |
 | [docs/guides/repository-layout.md](./docs/guides/repository-layout.md) | 目录分类原则（由契约测试强制） |
-| [docs/adr/](./docs/adr/) | 架构决策记录（ADR-001—026 + DB 构建决策） |
+| [docs/adr/](./docs/adr/) | 架构决策记录（ADR-001—035 + DB 构建决策） |
 | [docs/matrices/](./docs/matrices/) | 平台矩阵、决策台账（D-01—D-15） |
 | [docs/guides/bsd-interface.md](./docs/guides/bsd-interface.md) | BSD 平台接口预留契约 |
 | [docs/guides/software-engineering-process.md](./docs/guides/software-engineering-process.md) | 软件工程过程与 G0—G5 门禁 |

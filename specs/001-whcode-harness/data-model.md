@@ -30,6 +30,10 @@
 - 字段：`seq, id, session_id, task_id, request_id, tool_call_id, kind, payload_json, ts, persistence_level`
 - 约束：`seq` 在工作区内唯一且单调递增（§7.1）
 - 校验：`kind` ∈ 事件类型枚举（contracts/event-schema.md）；`persistence_level` ∈ `full/metadata/redacted/omitted_by_policy`；payload 尺寸有上限，大正文走引用（R-05 风险对策）
+- 存储（schema v6 起）：`payload_json` 为 `VARIANT`（ADR-034）。写入必须走“JSON 文本 → JSON → VARIANT”
+  的显式链路（`CAST(? AS JSON)::VARIANT`，直接 `CAST(TEXT AS VARIANT)` 会得到 VARCHAR 变体）；
+  读取、导出与 redacted 路径统一用 `CAST(CAST(payload_json AS JSON) AS VARCHAR)` 取回 JSON 文本；
+  事件线格式仍是 JSON，契约不变。
 
 ### messages
 - 字段：`id, session_id, role, content_ref, token_count, ts, parent_id`
@@ -44,9 +48,10 @@
 ### session_overview
 - 字段：`session_id, by_stage_json, total, done, blocked, refreshed_at`
 - 约束：可重建的预聚合数据，不作为唯一事实源（FR-506、§7.1）
-- 校验：明确"强一致字段"与"最终一致概览字段"；提供重建逻辑（§7.3-8）
+- 校验：明确“强一致字段”与“最终一致概览字段”；提供重建逻辑（§7.3-8）
 - 实现（T037）：`session_id` 为强一致键；`by_stage_json`、`total`、`done`、`blocked`、
-  `refreshed_at` 为最终一致字段，可由 `tasks` 重建（`overview.rs`）
+  `refreshed_at` 为最终一致字段，可由 `tasks` 重建（`overview.rs`）；schema v6 起刷新用
+  `MERGE INTO`（ADR-034），多源匹配同一目标行按 DuckDB 2.0 行为报错，不静默覆盖
 
 ### checkpoints
 - 字段：`id, task_id, step, delta_json, message_cursor, artifact_refs_json, ts`

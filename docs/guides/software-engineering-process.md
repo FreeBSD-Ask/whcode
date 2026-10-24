@@ -46,14 +46,14 @@
 | 项 | 当前值 | 出处 |
 |---|---|---|
 | 需求 | 86 条 FR 定义；NFR-101—107、NFR-201—222；31 项验收（V-001—V-007、V-101—V-110、V-201—V-207、V-301—V-307） | `specs/001-whcode-harness/spec.md` |
-| 任务 | 157 条（T001—T157，编号连续） | `specs/001-whcode-harness/tasks.md` |
-| 验收检查点 | Check 1—260 | `specs/001-whcode-harness/checklist.md` |
+| 任务 | 159 条（T001—T159，编号连续） | `specs/001-whcode-harness/tasks.md` |
+| 验收检查点 | Check 1—261 | `specs/001-whcode-harness/checklist.md` |
 | 可执行结构门禁 | `layering`、`layout` 两个契约测试 | `tests/contract/test_layering.rs`、`tests/contract/test_layout.rs` |
 | 测试规模 | 2026-10-21 全量运行 154 例通过、0 失败、3 例 `#[ignore]`（内存上限、写者压力、查询计划实验） | `cargo test --locked --workspace` 输出 |
 | 配置管理基线 | git 标签 `v0.1.0-m0`（M0 基线，**未发布**） | `CHANGELOG.md`、`README.md` |
 | 平台范围 | Windows 11 amd64 在范围内；FreeBSD/NetBSD/OpenBSD/DragonFly 延后 | ADR-013、`docs/matrices/platform-matrix.md` |
 
-**口径约束**：上表是过程快照，不是验收结论。Check 1—260 中仍有未通过项；`v0.1.0-m0`
+**口径约束**：上表是过程快照，不是验收结论。Check 1—261 中仍有未通过项；`v0.1.0-m0`
 标签也不等于“已发布”。计数会随任务推进变化，更新时必须同时修正本表与相关文档。
 
 ### 1.5 哲学基线
@@ -155,7 +155,7 @@ G5 已打标签 `v0.1.0-m0`，但 README 明确“未发布”。因此 M0 的�
 | 产物 | `spec.md` 的 FR/NFR；`specs/001-whcode-harness/checklists/requirements.md`；`tasks.md`；`checklist.md`；必要时 ADR |
 | 退出判据 | 1）每条 FR 有稳定编号、P0/P1、可测判据、证据位置、归属里程碑；2）每条 FR 至少有一个任务与一个 Check；3）未验证项标 `[待验证]` 且有退出条件；4）无实现细节绑定（架构约束除外，须 ADR）；5）需求质量清单通过；6）每条需求有可执行的证伪条件；7）需求与文档标注假设、适用范围与复审日期 |
 | 评审方式 | 需求工程抽查（见 `docs/guides/requirements-engineering.md`）；`checklists/requirements.md` 逐条核对；AI 代理反向找“孤儿需求/断链/不可测判据”；用户对范围与优先级批准 |
-| 当前证据 | 86 条 FR 定义、158 条任务、260 项 Check；FR-611—FR-618、FR-711—FR-717 已登记 |
+| 当前证据 | 86 条 FR 定义、159 条任务、261 项 Check；FR-611—FR-618、FR-711—FR-717 已登记 |
 | 缺口 | 无正式 CR 表单编号；无独立需求属性表（来源、稳定性、验证方法以行内标注替代） |
 
 ### 3.3 G2 设计基线
@@ -167,7 +167,7 @@ G5 已打标签 `v0.1.0-m0`，但 README 明确“未发布”。因此 M0 的�
 | 产物 | `plan.md`、`research.md`、`data-model.md`、`contracts/` 六份契约、`docs/guides/module-design.md`、`docs/guides/ui-design.md`、`docs/guides/design-principles.md`、`docs/adr/`、`docs/matrices/` |
 | 退出判据 | 1）依赖方向明确且可执行强制；2）每个跨 crate 接口有契约与失败语义；3）`schema_version`、错误四字段、状态枚举有唯一出处；4）数据所有权与事务边界明确；5）UI 主题、信息架构、i18n/RTL 与预算明确；6）关键决策有 ADR 且状态诚实；7）`plan.md` 的 C-01—C-08 无未解释违例；8）形式主义审查与三重时间依据已记录（philosophy §8.1）；9）并发设计档案、文献依据与汇编 ADR 已就绪（NFR-216/217）；10）自由与安全审查已记录（NFR-218/219）；11）文档自反：形式、矛盾、失效条件；不以主流采用作为正确性 |
 | 评审方式 | `test_layering` 检查结构；契约逐份核对必需字段；`test_layout` 检查文档放置；AI 代理按 IEEE 1016 视图清单找缺失；用户批准架构级决策 |
-| 当前证据 | `plan.md` 的 C-01—C-08 全部 PASS；`data-model.md`；六份契约；ADR-001—ADR-014 与 ADR-DB-BUILD |
+| 当前证据 | `plan.md` 的 C-01—C-08 全部 PASS；`data-model.md`；六份契约；ADR-001—ADR-035 与 ADR-DB-BUILD |
 | 缺口 | IEEE 1016 的算法视图与资源视图未逐项成文；部分模块以状态机与契约替代时序图 |
 
 ### 3.4 G3 实现与单元验证
