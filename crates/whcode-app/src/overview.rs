@@ -340,13 +340,14 @@ mod tests {
     }
 
     /// converge 夹具：completed（2 条件）/ failed（1 条件）/ running（2 条件）
-    /// / pending + 损坏 JSON 各一任务；updated_at 互不相同保证顺序确定。
+    /// / pending + 验收条件形状非法（JSON 对象而非字符串数组，VARIANT 只能容纳合法 JSON）
+    /// 各一任务；updated_at 互不相同保证顺序确定。
     fn seed_converge(conn: &Connection) {
         for (id, stage, acceptance, ts) in [
             ("T-C", "plan", "[\"条件甲\",\"条件乙\"]", 1_000_u64),
             ("T-F", "implement", "[\"条件丙\"]", 2_000),
             ("T-R", "implement", "[\"条件丁\",\"条件戊\"]", 3_000),
-            ("T-X", "verify", "{oops", 4_000),
+            ("T-X", "verify", r#"{"oops":true}"#, 4_000),
         ] {
             insert_task(
                 conn,

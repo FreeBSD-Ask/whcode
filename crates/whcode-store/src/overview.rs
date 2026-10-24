@@ -135,7 +135,8 @@ pub fn load_overview(
 ) -> Result<Option<SessionOverview>, WhError> {
     let mut stmt = conn
         .prepare(
-            "SELECT session_id, by_stage_json, total, done, blocked, epoch_us(refreshed_at)
+            "SELECT session_id, CAST(CAST(by_stage_json AS JSON) AS VARCHAR) AS by_stage_json,
+                    total, done, blocked, epoch_us(refreshed_at)
              FROM session_overview WHERE session_id = ?",
         )
         .map_err(|err| db_err("准备概览查询", err))?;
@@ -227,7 +228,7 @@ fn write_overview(conn: &Connection, overview: &SessionOverview) -> Result<(), W
         "MERGE INTO session_overview AS t
          USING (
              SELECT CAST(? AS VARCHAR) AS session_id,
-                    CAST(? AS VARCHAR) AS by_stage_json,
+                    CAST(CAST(? AS JSON) AS VARIANT) AS by_stage_json,
                     CAST(? AS BIGINT) AS total,
                     CAST(? AS BIGINT) AS done,
                     CAST(? AS BIGINT) AS blocked,
@@ -282,7 +283,7 @@ mod tests {
             "INSERT INTO tasks
              (id, session_id, title, stage, status, parent_id, acceptance_json, retry_count,
               updated_at)
-             VALUES (?, ?, ?, ?, ?, NULL, '[]', 0, current_timestamp)",
+             VALUES (?, ?, ?, ?, ?, NULL, CAST('[]' AS JSON)::VARIANT, 0, current_timestamp)",
             params![id, session, format!("任务 {id}"), stage, status],
         )
         .expect("插入任务");

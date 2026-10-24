@@ -267,7 +267,8 @@ mod tests {
         conn.execute(
             "INSERT INTO checkpoints (id, task_id, step, delta_json, message_cursor,
                                       artifact_refs_json, ts)
-             VALUES ('C-1', 'T-1', 1, '{}', NULL, '[]', current_timestamp)",
+             VALUES ('C-1', 'T-1', 1, CAST('{}' AS JSON)::VARIANT, NULL,
+                     CAST('[]' AS JSON)::VARIANT, current_timestamp)",
             [],
         )
         .expect("检查点");
@@ -276,7 +277,7 @@ mod tests {
                                           content, refs_json, parser_version, validated,
                                           version, created_at)
              VALUES ('A-1', 'S-1', 'T-1', 'implement', 'diff', '大正文',
-                     '[\"FR-101\"]', 'v1', TRUE, 1, current_timestamp)",
+                     CAST('[\"FR-101\"]' AS JSON)::VARIANT, 'v1', TRUE, 1, current_timestamp)",
             [],
         )
         .expect("产物");
@@ -293,7 +294,12 @@ mod tests {
         assert_eq!(detail.acceptance, serde_json::json!([]));
         assert_eq!(detail.checkpoints.len(), 1, "步骤");
         assert_eq!(detail.artifacts.len(), 1, "产物引用");
-        assert_eq!(detail.artifacts[0].refs_json, "[\"FR-101\"]");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&detail.artifacts[0].refs_json)
+                .expect("产物引用必须是 JSON 文本"),
+            serde_json::json!(["FR-101"]),
+            "VARIANT 读回按 JSON 文本归一化，比较语义值而非字节序"
+        );
         assert_eq!(detail.recent_events.len(), 1, "最近事件");
         assert_eq!(
             detail.failure_reason.as_deref(),
@@ -303,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    fn detail_of_healthy_task_has_no_failure_reason_and_rejects_corrupt_acceptance() {
+    fn detail_of_healthy_task_has_no_failure_reason_and_rejects_invalid_acceptance_at_write() {
         let conn = migrated();
         insert_task(
             &conn,
@@ -318,27 +324,38 @@ mod tests {
             1_000,
         )
         .expect("插入");
-        insert_task(
-            &conn,
-            &NewTask {
-                id: "T-bad",
-                session_id: "S-1",
-                title: "任务",
-                stage: "plan",
-                parent_id: None,
-                acceptance_json: "{broken",
-            },
-            1_000,
-        )
-        .expect("插入");
+        // schema v7 起 `acceptance_json` 是 VARIANT：写入时经 `CAST(? AS JSON)` 解析，
+        // 非法 JSON 与顶层 JSON null（变体为 NULL，被 NOT NULL 拒绝）都到不了读路径，
+        // 因此不再能构造“库内损坏行”；这里验证拒绝发生在入库前且零写入。
+        for (invalid, expected) in [
+            ("{broken", ErrorCode::ParseError),
+            ("null", ErrorCode::InvalidState),
+        ] {
+            let err = insert_task(
+                &conn,
+                &NewTask {
+                    id: "T-bad",
+                    session_id: "S-1",
+                    title: "任务",
+                    stage: "plan",
+                    parent_id: None,
+                    acceptance_json: invalid,
+                },
+                1_000,
+            )
+            .expect_err("非法验收条件必须拒绝入库");
+            assert_eq!(err.code, expected, "拒绝码必须指向字段语义：{invalid}");
+            assert!(
+                tasks::get_task(&conn, "T-bad").expect("可读").is_none(),
+                "拒绝不得留下任务行：{invalid}"
+            );
+        }
         let policy = DefaultPolicy;
         let actor = actor_with_all_capabilities("tester");
 
         let detail = task_detail(&conn, &policy, &actor, "T-ok").expect("健康任务详情");
         assert!(detail.failure_reason.is_none(), "非 failed 任务无失败原因");
 
-        let err = task_detail(&conn, &policy, &actor, "T-bad").expect_err("损坏验收条件");
-        assert_eq!(err.code, ErrorCode::ParseError);
         let err = task_detail(&conn, &policy, &actor, "T-none").expect_err("缺失任务");
         assert_eq!(err.code, ErrorCode::NotFound);
     }
@@ -486,8 +503,8 @@ mod tests {
             "INSERT INTO stage_artifacts (id, session_id, task_id, stage, artifact_type,
                                           content, refs_json, parser_version, validated,
                                           version, created_at)
-             VALUES (?, 'S-1', ?, 'implement', 'diff', '大对象正文不进恢复路径', '[]',
-                     'v1', TRUE, 1, current_timestamp)",
+             VALUES (?, 'S-1', ?, 'implement', 'diff', '大对象正文不进恢复路径',
+                     CAST('[]' AS JSON)::VARIANT, 'v1', TRUE, 1, current_timestamp)",
             params![id, task_id],
         )
         .expect("插入产物");

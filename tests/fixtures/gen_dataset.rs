@@ -137,8 +137,8 @@ pub fn generate(
             let task_index = task_start + offset;
             let stage = STAGE_WEIGHTS[bucket_index(task_index, &STAGE_WEIGHT_VALUES)].0;
             values.push(
-                "(?, ?, ?, ?, 'pending', NULL, '[{\"check\":\"可执行断言占位\"}]', 0, \
-                 current_timestamp)"
+                "(?, ?, ?, ?, 'pending', NULL, CAST('[{\"check\":\"可执行断言占位\"}]' AS \
+                 JSON)::VARIANT, 0, current_timestamp)"
                     .to_string(),
             );
             // ID 带会话前缀：同库多会话生成时键不冲突，且保持确定性。

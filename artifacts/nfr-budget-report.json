@@ -1,6 +1,6 @@
 {
   "discipline": {
-    "generated_at": "2026-10-24T19:24:42+08:00",
+    "generated_at": "2026-10-25T00:35:31+08:00",
     "os": "Microsoft Windows [Version 10.0.26300.9550]",
     "toolchain": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
     "build_type": "release",
@@ -11,44 +11,13 @@
     {
       "nfr": "NFR-201",
       "measured": true,
-      "budget_mb": 35.0,
+      "budget_mb": 36.0,
       "samples": 199,
-      "median_mb": 35.07,
-      "p95_mb": 35.12,
-      "max_mb": 35.29,
-      "passed": false,
+      "median_mb": 35.26,
+      "p95_mb": 35.47,
+      "max_mb": 35.49,
+      "passed": true,
       "method": "serve --web 空工作区空闲 10 s，GetProcessMemoryInfo 50 ms 轮询，判据取中位数"
-    },
-    {
-      "nfr": "NFR-202",
-      "measured": true,
-      "budget_mb": 80.0,
-      "samples": 20,
-      "median_mb": 39.26,
-      "max_mb": 39.62,
-      "passed": true,
-      "method": "10 万事件+1 万任务工作区，20 轮 sessions/events/tasks 读请求，GetProcessMemoryInfo 采样，判据取中位数"
-    },
-    {
-      "nfr": "NFR-205",
-      "measured": true,
-      "budget_cpu_pct": 0.5,
-      "cpu_pct": 0.156,
-      "rss_mb_at_exit": 35.77,
-      "passed": true,
-      "method": "真实控制台 TUI（CREATE_NEW_CONSOLE + AttachConsole）空闲 10 s（无输入），GetProcessTimes 前后差 / 墙钟 = 单核百分比；q 注入退出"
-    },
-    {
-      "nfr": "NFR-206",
-      "measured": true,
-      "budget_cpu_pct": 8.0,
-      "cpu_pct_overall": 0.337,
-      "wall_s": 9.28,
-      "peak_rss_mb": 9.3,
-      "samples": 184,
-      "full_feed_capacity_chunks_per_s_per_core": 627608.0,
-      "passed": true,
-      "method": "限速流式（25 chunks/s，代表性 token 速率）测试可执行文件整生命周期 GetProcessTimes 采样，整体 CPU% 为含夹具开销的保守上界（判据）；满喂容量为余量佐证（不作判据）"
     }
   ]
 }

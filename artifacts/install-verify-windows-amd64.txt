@@ -1,6 +1,6 @@
 WHCode Windows 11 amd64 发布包安装验证记录（tasks.md T118／Check 118）
-utc = 2026-10-24T13:49:03Z
-package = whcode-0.1.0-windows-amd64.zip（30907999 字节，sha256=51d98022c6988e594e9dbce532621eb7aeb90ec30aff66b3c00ba937281b5ad8）
+utc = 2026-10-24T16:36:09Z
+package = whcode-0.1.0-windows-amd64.zip（30910442 字节，sha256=6b99eacc87be82011972cbe2cad509bccf7964851b045bd7d0984b668f82b097）
 os = Windows-11-10.0.26300-SP0
 machine = AMD64
 
@@ -8,11 +8,11 @@ machine = AMD64
 临时目录在记录生成后删除（不留本地状态）。
 
 包内清单：
-  whcode.exe  21093376  3f1a3958c306b93b5f9e7acd1831b8f2f4acd31d3e2aef1e938a244c2e57622a
+  whcode.exe  21102080  f44b2bfee46abdd3007d6405216e7b63e5b8da40c0c9023f1d8bfb9732175e09
   duckdb.dll  61311784  8785bcbb0f4570c9662c4c890f9fa5c7cfb3239ce25e589c29693ce2139f9897
-  README.md  12343  252d5c4fc299c2ca33920caa694d693cf653478dc7dab1017a26030a09f0d662
+  README.md  12495  a399da392134ac2d3efdcc4802496b51cd2f7bdf43a09db50fcb16c1c059546d
   LICENSE  1336  df3f10de1babaf5f5a863b9f963c0f9691c970bbb0d3a36e81eef3608633b929
-  CHANGELOG.md  61956  a348a30fccf988b090d596932a53f04ce35b779b7245afad1a3e28edefe230b0
+  CHANGELOG.md  63702  fdb8cf480965672a8d0c501c7de027c4a215a3b1eb0f89db88f0830bdd73baff
   compatibility.md  3873  68b1720401258afb69b75235f1fe47ec31f8f83479bed4a8d1747e0e3d769980
   platform-matrix.md  12432  036df0cda7f31743755ffbec8bc3e4fbbc7a83281f1e6fe6b71d96b6306112d2
   assets/fonts/SOURCES.md  2087  87ce82a27b416e31460d6c0f5e5a03d377da93e7a5b73b5ad6179776a1c95f75
@@ -20,22 +20,22 @@ machine = AMD64
   assets/fonts/NotoSansCJKsc-LICENSE.txt  4301  6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2
   assets/fonts/JetBrainsMono-OFL.txt  4399  a76abf002c49097d146e86740a3105a5d00450b1592e820a1109a8c5680cd697
   assets/fonts/SarasaMonoSC-LICENSE.txt  4702  32c932e0dbae4f6e6386964bbc2d04178707665a05ca65cf636241af13d50a53
-  PACKAGE-INFO.txt  2636  66eb80600fae4765fe5533420cc3f18e3ffb75069c464cc03784bc0d3c462ec4
+  PACKAGE-INFO.txt  2636  974cd99c4cb84df8455458544e9a44976881ae7564397fa0f471411d184fe3e0
 
 命令与结果：
-  argv = C:\Users\ykla\AppData\Local\Temp\whcode-install-check-a3ze3d4a\whcode-0.1.0-windows-amd64\whcode.exe --version
-  exit_code = 0  elapsed_ms = 106  assertion = 通过
+  argv = C:\Users\ykla\AppData\Local\Temp\whcode-install-check-1bxflefw\whcode-0.1.0-windows-amd64\whcode.exe --version
+  exit_code = 0  elapsed_ms = 100  assertion = 通过
   stdout（前 600 字符）= whcode 2026-10-24T21:48+08:00
   stderr = 空
 
-  argv = C:\Users\ykla\AppData\Local\Temp\whcode-install-check-a3ze3d4a\whcode-0.1.0-windows-amd64\whcode.exe doctor --json
-  exit_code = 0  elapsed_ms = 392  assertion = 通过（DuckDB 引擎版本来自运行期实测）
-  stdout（前 600 字符）= {"doctor":{"checkpoint":{"before_dangerous":true,"every_steps":0,"interval_seconds":300,"retain":10},"db":{"max_memory_limit_mb":384,"memory_limit_mb":192,"temp_directory":"C:\\Users\\ykla\\AppData\\Local\\Temp\\whcode-install-check-a3ze3d4a\\whcode-0.1.0-windows-amd64\\tmp","threads":4},"trace":{"default_level":"redacted"},"ui":{"locale":null,"theme":"eink-day"},"workspace_path":"C:\\Users\\ykla\\AppData\\Local\\Temp\\whcode-install-check-a3ze3d4a\\whcode-0.1.0-windows-amd64"},"duckdb_engine_version":"v2.0.0","duckdb_error":null,"runtimes":[{"available":false,"capability":"restricted","name":
+  argv = C:\Users\ykla\AppData\Local\Temp\whcode-install-check-1bxflefw\whcode-0.1.0-windows-amd64\whcode.exe doctor --json
+  exit_code = 0  elapsed_ms = 479  assertion = 通过（DuckDB 引擎版本来自运行期实测）
+  stdout（前 600 字符）= {"doctor":{"checkpoint":{"before_dangerous":true,"every_steps":0,"interval_seconds":300,"retain":10},"db":{"max_memory_limit_mb":384,"memory_limit_mb":192,"temp_directory":"C:\\Users\\ykla\\AppData\\Local\\Temp\\whcode-install-check-1bxflefw\\whcode-0.1.0-windows-amd64\\tmp","threads":4},"trace":{"default_level":"redacted"},"ui":{"locale":null,"theme":"eink-day"},"workspace_path":"C:\\Users\\ykla\\AppData\\Local\\Temp\\whcode-install-check-1bxflefw\\whcode-0.1.0-windows-amd64"},"duckdb_engine_version":"v2.0.0","duckdb_error":null,"runtimes":[{"available":false,"capability":"restricted","name":
   stderr（前 400 字符）= [INFO] doctor 完成（api_key=[REDACTED] 已在日志路径脱敏）
 [WARN] max_temp_directory_size 未设置：临时目录空间无显式上限（§5.4 建议显式配置）
 
-  argv = C:\Users\ykla\AppData\Local\Temp\whcode-install-check-a3ze3d4a\whcode-0.1.0-windows-amd64\whcode.exe --workspace C:\Users\ykla\AppData\Local\Temp\whcode-install-check-a3ze3d4a\workspace db stats --json
-  exit_code = 0  elapsed_ms = 533  assertion = 通过（库文件 798720 字节）
+  argv = C:\Users\ykla\AppData\Local\Temp\whcode-install-check-1bxflefw\whcode-0.1.0-windows-amd64\whcode.exe --workspace C:\Users\ykla\AppData\Local\Temp\whcode-install-check-1bxflefw\workspace db stats --json
+  exit_code = 0  elapsed_ms = 513  assertion = 通过（库文件 798720 字节）
   stdout（前 600 字符）= {
   "schema_version": 1,
   "data": {
@@ -45,13 +45,13 @@ machine = AMD64
     "engine_version": "v2.0.0",
     "file_size_bytes": 12288,
     "free_blocks": 0,
-    "schema_version": 6,
+    "schema_version": 7,
     "total_blocks": 0,
     "used_blocks": 0,
-    "wal_size_bytes": 14742,
+    "wal_size_bytes": 21219,
     "wal_status": {
       "wal_autocheckpoint": "16.0 MiB",
-      "wal_size": "14.3 KiB"
+      "wal_size": "20.7 KiB"
     }
   }
 }

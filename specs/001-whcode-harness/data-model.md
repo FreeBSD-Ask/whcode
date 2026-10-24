@@ -20,11 +20,14 @@
 - 字段：`id, session_id, title, stage, status, parent_id, acceptance_json, retry_count, updated_at`
 - 约束：状态、依赖和验收条件可查询；`parent_id` 支持子任务层级（FR-406）
 - 校验：`status` ∈ 任务状态枚举（§2.1）；`acceptance_json` 每条含可执行断言或人工检查清单说明（§4.3.3）
+- 存储（schema v7 起）：`acceptance_json` 为 `VARIANT`（ADR-036）；写入走 `CAST(? AS JSON)::VARIANT`，
+  读取用 `CAST(CAST(acceptance_json AS JSON) AS VARCHAR)`；顶层 JSON `null` 与非法 JSON 入库前拒绝
 
 ### stage_artifacts
 - 字段：`id, session_id, task_id, stage, artifact_type, content, refs_json, parser_version, validated, version, created_at`
 - 约束：内容、规范化引用和版本可追溯（FR-303/305）
 - 校验：`refs_json` 引用的需求/任务 ID 必须存在（FR-306 检查无效引用）；`validated` 与门禁结果一致
+- 存储（schema v7 起）：`refs_json` 为 `VARIANT`（ADR-036）；`content` 仍是 `TEXT`（任意文本，不转 VARIANT）
 
 ### events
 - 字段：`seq, id, session_id, task_id, request_id, tool_call_id, kind, payload_json, ts, persistence_level`
@@ -52,11 +55,15 @@
 - 实现（T037）：`session_id` 为强一致键；`by_stage_json`、`total`、`done`、`blocked`、
   `refreshed_at` 为最终一致字段，可由 `tasks` 重建（`overview.rs`）；schema v6 起刷新用
   `MERGE INTO`（ADR-034），多源匹配同一目标行按 DuckDB 2.0 行为报错，不静默覆盖
+- 存储（schema v7 起）：`by_stage_json` 为 `VARIANT`（ADR-036），可用 `variant_keys`／
+  `variant_extract` 在引擎侧读取阶段键与计数
 
 ### checkpoints
 - 字段：`id, task_id, step, delta_json, message_cursor, artifact_refs_json, ts`
 - 约束：增量差分与引用，避免每步复制完整历史（FR-402）
 - 校验：与对应状态变化在同一事务提交（FR-403、ADR-007）
+- 存储（schema v7 起）：`delta_json` 与 `artifact_refs_json` 均为 `VARIANT`（ADR-036）；
+  `delta_json` 的 64 KiB 上限与 `artifact_refs_json` 条目上限仍在 JSON 文本层校验
 
 ### tool_executions
 - 字段：`id, tool_call_id, state, input_hash, started_at, finished_at, output_ref, side_effect_ref`
@@ -67,6 +74,8 @@
 - 字段：`id, actor, action, target, detail_json, ts`
 - 约束：强制放行、权限敏感操作和清理必须记录（§10.3）
 - 校验：不随普通会话 TTL 自动清除，除非管理员显式设置审计保留策略
+- 存储（schema v7 起）：`detail_json` 为 `VARIANT`（ADR-036）；读取与展示走
+  `CAST(CAST(detail_json AS JSON) AS VARCHAR)`，不改变审计保留策略
 
 ### runtime_state
 - 字段：`name, enabled, backend, version, installed_at, payload_path`

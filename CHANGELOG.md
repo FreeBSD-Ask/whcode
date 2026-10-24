@@ -49,6 +49,20 @@
   - 项目处于开发期，**不承诺读取 1.5.6 旧库，不提供降级或格式转换**；旧库删除或重建即可。
   - 审计证据见 `artifacts/duckdb-2.0-audit-2026-10-24.md`；BSD 平台结论不变（继续阻塞/延后）。
 
+- ⚠ BREAKING：JSON 语义列全面 VARIANT 化（2026-10-24，ADR-036，schema v7）：
+  - `tasks.acceptance_json`、`stage_artifacts.refs_json`、`session_overview.by_stage_json`、
+    `checkpoints.delta_json`、`checkpoints.artifact_refs_json`、`audit.detail_json` 由 `TEXT`
+    改为 `VARIANT`；`stage_artifacts.content` 与原型表 `m0_events` 仍为 `TEXT`。
+  - 写入统一 `CAST(? AS JSON)::VARIANT`，读取/导出统一 `CAST(CAST(col AS JSON) AS VARCHAR)`；
+    `delta_json` 64 KiB 与 `artifact_refs_json` 条目上限仍在文本层校验，非法 JSON 与顶层
+    JSON `null` 入库前拒绝。
+  - **文本归一化**：VARIANT 读回会去除多余空白并排序对象键，导出与断言按 JSON 值比较，
+    不再保证逐字节相同；开发期不保留 v6 双读。
+  - `MERGE` 复核：仅 `session_overview` 为 upsert，其余 `ON CONFLICT DO NOTHING` 不改为 MERGE；
+    数据修改 CTE 在 `purge` 场景 A/B 仍无收益（+0.83%），不采用。
+  - `variant_type`/`variant_keys`/`variant_extract` 进入健康断言与迁移验证；动态键路径
+    （事件摘要、redaction）经评估不采用 SQL 下推。证据：`artifacts/duckdb2-usage-2026-10-24.md`。
+
 - 稳定性窗口改为 5.5 小时（2026-10-24，ADR-033）：**24/72 小时长跑改为 5.5 小时以适配 GitHub CI**。
   - 新窗口 19 800 秒、300 秒采样（约 66 样本），NFR-204 仍按 ≤ 0.5 MB/h 判定；24/72 小时
     深检保留为可选 self-hosted／本机运行，不再作为 CI 门槛。

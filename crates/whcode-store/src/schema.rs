@@ -16,8 +16,11 @@ use whcode_domain::{ErrorCode, WhError};
 /// v3 补齐消息游标索引 `(session_id, ts, id)` 与任务阶段索引 `(session_id, stage)`；
 /// v4 增加会话 ID 序列（`whcode_session_id_seq`，M2/T046 会话命令的自动编号）；
 /// v5 会话增加 SDD 阶段列（`sessions.stage`，M4/T068—T081 状态机持久化）；
-/// v6 把 `events.payload_json` 由 TEXT 改为 VARIANT（ADR-034，JSON 文本显式转换后复制）。
-pub const STORE_SCHEMA_VERSION: u32 = 6;
+/// v6 把 `events.payload_json` 由 TEXT 改为 VARIANT（ADR-034，JSON 文本显式转换后复制）；
+/// v7 把其余 6 个 JSON 语义列改为 VARIANT（ADR-036：`tasks.acceptance_json`、
+/// `stage_artifacts.refs_json`、`session_overview.by_stage_json`、`checkpoints.delta_json`、
+/// `checkpoints.artifact_refs_json`、`audit.detail_json`）。
+pub const STORE_SCHEMA_VERSION: u32 = 7;
 
 /// 正式表数量（含 `schema_migrations`）。
 pub const TABLE_COUNT: usize = 14;
@@ -28,6 +31,7 @@ const MIGRATION_0003: &str = include_str!("../migrations/0003_query_indexes.sql"
 const MIGRATION_0004: &str = include_str!("../migrations/0004_session_id_sequence.sql");
 const MIGRATION_0005: &str = include_str!("../migrations/0005_session_stage.sql");
 const MIGRATION_0006: &str = include_str!("../migrations/0006_events_variant.sql");
+const MIGRATION_0007: &str = include_str!("../migrations/0007_json_variant.sql");
 
 /// 版本化迁移清单；新增版本时追加，不修改历史 SQL。
 const MIGRATIONS: &[(u32, &str)] = &[
@@ -37,6 +41,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (4, MIGRATION_0004),
     (5, MIGRATION_0005),
     (6, MIGRATION_0006),
+    (7, MIGRATION_0007),
 ];
 
 fn store_err(context: &str, err: duckdb::Error) -> WhError {
@@ -228,6 +233,76 @@ mod tests {
         assert_eq!(
             data_type, "VARIANT",
             "v6 起事件载荷必须是原生 VARIANT，而非 VARCHAR 变体"
+        );
+    }
+
+    #[test]
+    fn json_columns_are_variant_and_text_columns_stay_text() {
+        let conn = Connection::open_in_memory().expect("内存数据库");
+        apply_migrations(&conn).expect("迁移");
+        let expected = [
+            ("tasks", "acceptance_json"),
+            ("stage_artifacts", "refs_json"),
+            ("session_overview", "by_stage_json"),
+            ("checkpoints", "delta_json"),
+            ("checkpoints", "artifact_refs_json"),
+            ("audit", "detail_json"),
+        ];
+        for (table, column) in expected {
+            let data_type: String = conn
+                .query_row(
+                    "SELECT data_type FROM information_schema.columns
+                     WHERE table_schema = 'main' AND table_name = ? AND column_name = ?",
+                    params![table, column],
+                    |row| row.get(0),
+                )
+                .unwrap_or_else(|err| panic!("查询 {table}.{column} 列类型失败：{err}"));
+            assert_eq!(
+                data_type, "VARIANT",
+                "{table}.{column} 在 v7 起必须是原生 VARIANT"
+            );
+        }
+        let text_type: String = conn
+            .query_row(
+                "SELECT data_type FROM information_schema.columns
+                 WHERE table_schema = 'main' AND table_name = 'stage_artifacts'
+                   AND column_name = 'content'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("查询 content 列类型");
+        assert_eq!(
+            text_type, "VARCHAR",
+            "stage_artifacts.content 是任意文本，不得转为 VARIANT（ADR-036 边界）"
+        );
+    }
+
+    #[test]
+    fn event_payloads_are_object_variants() {
+        let conn = Connection::open_in_memory().expect("内存数据库");
+        apply_migrations(&conn).expect("迁移");
+        conn.execute(
+            "INSERT INTO events
+                 (seq, id, session_id, task_id, request_id, tool_call_id, kind,
+                  payload_json, ts, persistence_level)
+             VALUES (1, 'E-1', 'S-1', NULL, NULL, NULL, 'RequestStarted',
+                     CAST(? AS JSON)::VARIANT, current_timestamp, 'metadata')",
+            params![r#"{"request_id":"R-1"}"#],
+        )
+        .expect("写入事件");
+        let (non_object, kind): (i64, String) = conn
+            .query_row(
+                "SELECT count(*) FILTER (WHERE variant_type(payload_json) <> 'OBJECT'),
+                        max(variant_type(payload_json))
+                 FROM events",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("查询事件载荷变体类型");
+        assert_eq!(
+            (non_object, kind.as_str()),
+            (0, "OBJECT"),
+            "全部事件载荷必须是原生 JSON 对象变体；非对象即为写入链路缺陷"
         );
     }
 

@@ -155,8 +155,11 @@ fn validate_checkpoint(insert: &CheckpointInsert) -> Result<(), WhError> {
             insert.step
         )));
     }
-    serde_json::from_str::<serde_json::Value>(&insert.delta_json)
+    let delta: serde_json::Value = serde_json::from_str(&insert.delta_json)
         .map_err(|err| WhError::parse_error(format!("delta_json 不是合法 JSON：{err}")))?;
+    if delta.is_null() {
+        return Err(invalid("delta_json 不得为顶层 JSON null"));
+    }
     if insert.delta_json.len() > MAX_DELTA_JSON_BYTES {
         return Err(invalid(&format!(
             "delta_json 超过 {MAX_DELTA_JSON_BYTES} 字节上限（当前 {}）：\
@@ -203,7 +206,8 @@ fn write_checkpoint(conn: &Connection, insert: &CheckpointInsert) -> Result<Stri
     conn.execute(
         "INSERT INTO checkpoints (id, task_id, step, delta_json, message_cursor,
                                   artifact_refs_json, ts)
-         VALUES (?, ?, ?, ?, ?, ?, current_timestamp)",
+         VALUES (?, ?, ?, CAST(? AS JSON)::VARIANT, ?, CAST(? AS JSON)::VARIANT,
+                 current_timestamp)",
         params![
             id,
             insert.task_id,
@@ -375,7 +379,10 @@ fn load_checkpoint(
     match checkpoint_id {
         Some(id) => conn
             .query_row(
-                "SELECT id, step, delta_json, message_cursor, artifact_refs_json, epoch_us(ts)
+                "SELECT id, step, CAST(CAST(delta_json AS JSON) AS VARCHAR) AS delta_json,
+                        message_cursor,
+                        CAST(CAST(artifact_refs_json AS JSON) AS VARCHAR) AS artifact_refs_json,
+                        epoch_us(ts)
                  FROM checkpoints WHERE task_id = ? AND id = ?",
                 params![task_id, id],
                 map_checkpoint_row,
@@ -388,7 +395,10 @@ fn load_checkpoint(
             }),
         None => conn
             .query_row(
-                "SELECT id, step, delta_json, message_cursor, artifact_refs_json, epoch_us(ts)
+                "SELECT id, step, CAST(CAST(delta_json AS JSON) AS VARCHAR) AS delta_json,
+                        message_cursor,
+                        CAST(CAST(artifact_refs_json AS JSON) AS VARCHAR) AS artifact_refs_json,
+                        epoch_us(ts)
                  FROM checkpoints WHERE task_id = ?
                  ORDER BY step DESC, id DESC LIMIT 1",
                 params![task_id],
@@ -440,7 +450,8 @@ pub fn recover_from_checkpoint(
     if !ref_ids.is_empty() {
         let placeholders = vec!["?"; ref_ids.len()].join(", ");
         let sql = format!(
-            "SELECT id, stage, artifact_type, refs_json, validated, version
+            "SELECT id, stage, artifact_type,
+                    CAST(CAST(refs_json AS JSON) AS VARCHAR) AS refs_json, validated, version
              FROM stage_artifacts WHERE id IN ({placeholders}) ORDER BY id"
         );
         let mut stmt = conn
@@ -504,8 +515,8 @@ mod tests {
             "INSERT INTO stage_artifacts (id, session_id, task_id, stage, artifact_type,
                                           content, refs_json, parser_version, validated,
                                           version, created_at)
-             VALUES (?, 'S-1', ?, 'plan', 'spec', '大对象正文不进恢复路径', '[]', 'v1', TRUE, 1,
-                     current_timestamp)",
+             VALUES (?, 'S-1', ?, 'plan', 'spec', '大对象正文不进恢复路径',
+                     CAST('[]' AS JSON)::VARIANT, 'v1', TRUE, 1, current_timestamp)",
             params![id, task_id],
         )
         .expect("插入产物");
@@ -557,6 +568,10 @@ mod tests {
         )
         .expect_err("引用必须是数组");
         assert_eq!(err.code, ErrorCode::ParseError);
+
+        let err = insert_checkpoint(&conn, &base("T-1", "null".into(), "[]".into()))
+            .expect_err("顶层 JSON null 差分必须拒绝");
+        assert_eq!(err.code, ErrorCode::InvalidState);
 
         // 超限差分与超限引用。
         let big_delta = format!(r#"{{"pad":"{}"}}"#, "x".repeat(MAX_DELTA_JSON_BYTES));

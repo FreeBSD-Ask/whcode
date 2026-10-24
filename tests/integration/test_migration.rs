@@ -1,14 +1,16 @@
 //! 迁移集成测试（T033、T036）。
 //!
-//! 覆盖六条路径：
-//! 1. v0（空库）→ v6：一次应用全部迁移，表数、版本记录与索引齐备；
-//! 2. v1 → v6：用真实 v1 SQL 构造历史工作区，跨版升级后数据保留、全部新索引生效；
-//! 3. v2 → v6：上一受支持版本升级，消息与事件数据保留；
+//! 覆盖七条路径：
+//! 1. v0（空库）→ 当前版本：一次应用全部迁移，表数、版本记录与索引齐备；
+//! 2. v1 → 当前版本：用真实 v1 SQL 构造历史工作区，跨版升级后数据保留、全部新索引生效；
+//! 3. v2 → 当前版本：上一受支持版本升级，消息与事件数据保留；
 //! 4. v2 中断：v2 的第一条索引成功、第二条失败时整个事务回滚——版本停在 v1，
 //!    第一条索引不得残留；
 //! 5. v3 中断：v3 删除旧消息索引、建新索引成功后，任务索引失败——版本停在 v2，
 //!    旧消息索引必须随回滚恢复，新索引不得残留（NFR-103、§7.4）；
-//! 6. v5 → v6：事件载荷由 TEXT 副本转换为原生 VARIANT，既有行可读回。
+//! 6. v5 → 当前版本：事件载荷由 TEXT 副本转换为原生 VARIANT，既有行可读回；
+//! 7. v6 → v7：其余 6 个 JSON 语义列由 TEXT 副本转换为原生 VARIANT，既有行可读回，
+//!    重建的二级索引齐全。
 //!
 //! 新增 schema 版本时必须在同一文件追加对应升级路径与中断回滚用例，不得删除既有断言。
 
@@ -23,6 +25,7 @@ const V4_SQL: &str =
     include_str!("../../crates/whcode-store/migrations/0004_session_id_sequence.sql");
 const V5_SQL: &str = include_str!("../../crates/whcode-store/migrations/0005_session_stage.sql");
 const V6_SQL: &str = include_str!("../../crates/whcode-store/migrations/0006_events_variant.sql");
+const V7_SQL: &str = include_str!("../../crates/whcode-store/migrations/0007_json_variant.sql");
 
 /// 构造一个处于 v1 的工作区：执行真实 v1 SQL 并登记迁移记录（校验和与生产代码同算法）。
 fn create_v1_workspace(conn: &Connection) {
@@ -97,11 +100,11 @@ fn fresh_workspace_migrates_to_current_and_reruns_idempotently() {
     let first = whcode_store::apply_migrations(&conn).expect("首次迁移");
     assert_eq!(first, whcode_store::STORE_SCHEMA_VERSION);
     assert_eq!(table_count(&conn) as usize, whcode_store::TABLE_COUNT);
-    assert_eq!(migration_rows(&conn), 6, "每个 schema 版本恰一行记录");
+    assert_eq!(migration_rows(&conn), 7, "每个 schema 版本恰一行记录");
 
     let duplicate = whcode_store::apply_migrations(&conn).expect("重复迁移");
     assert_eq!(duplicate, first);
-    assert_eq!(migration_rows(&conn), 6, "重复应用不得重复写入迁移记录");
+    assert_eq!(migration_rows(&conn), 7, "重复应用不得重复写入迁移记录");
 
     for (version, sql) in [
         (1, V1_SQL),
@@ -110,6 +113,7 @@ fn fresh_workspace_migrates_to_current_and_reruns_idempotently() {
         (4, V4_SQL),
         (5, V5_SQL),
         (6, V6_SQL),
+        (7, V7_SQL),
     ] {
         let checksum: String = conn
             .query_row(
@@ -160,7 +164,7 @@ fn v1_workspace_upgrades_to_current_and_preserves_data() {
 
     let version = whcode_store::apply_migrations(&conn).expect("v1 → 当前版本升级");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 6, "跨版本升级应补齐全部迁移记录");
+    assert_eq!(migration_rows(&conn), 7, "跨版本升级应补齐全部迁移记录");
     assert_eq!(event_count(&conn), 1, "升级不得丢失既有数据");
     assert!(index_exists(&conn, "events", "idx_events_request"));
     assert!(index_exists(&conn, "events", "idx_events_tool_call"));
@@ -349,7 +353,7 @@ fn v3_workspace_upgrades_to_v4_and_sequence_is_ready() {
 
     let version = whcode_store::apply_migrations(&conn).expect("v3 → v4 升级");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 6);
+    assert_eq!(migration_rows(&conn), 7);
 
     // v4 的产出：会话 ID 序列可用且单调；旧数据不受影响。
     let first: String = conn
@@ -390,7 +394,7 @@ fn v4_migration_is_idempotent_against_existing_sequence() {
 
     let version = whcode_store::apply_migrations(&conn).expect("幂等通过");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 6);
+    assert_eq!(migration_rows(&conn), 7);
 
     let after: i64 = conn
         .query_row("SELECT nextval('whcode_session_id_seq')", [], |row| {
@@ -442,7 +446,7 @@ fn v4_workspace_upgrades_to_v5_and_stage_column_is_backfilled() {
 
     let version = whcode_store::apply_migrations(&conn).expect("v4 → v5 升级");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 6);
+    assert_eq!(migration_rows(&conn), 7);
 
     // v5 产出：stage 列存在且既有行回填默认值（DuckDB ALTER 限制：可空列 + UPDATE）。
     let stage: String = conn
@@ -499,7 +503,7 @@ fn v5_workspace_upgrades_to_v6_and_payload_becomes_native_variant() {
 
     let version = whcode_store::apply_migrations(&conn).expect("v5 → v6 升级");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 6, "v6 迁移记录必须写入");
+    assert_eq!(migration_rows(&conn), 7, "v7 迁移记录必须写入");
     assert_eq!(event_count(&conn), 1, "升级不得丢失既有事件");
     for index in [
         "idx_events_session_seq",
@@ -531,4 +535,228 @@ fn v5_workspace_upgrades_to_v6_and_payload_becomes_native_variant() {
     // VARIANT 会规范化对象键序，因此按 JSON 值比较，不对文本顺序做假设。
     let payload: serde_json::Value = serde_json::from_str(&payload).expect("载荷必须是 JSON 文本");
     assert_eq!(payload, serde_json::json!({"a": {"x": [1, 2]}, "b": 1}));
+}
+
+/// 构造一个处于 v6 的工作区：v1—v6 全部应用并登记，其余 6 个 JSON 语义列仍是文本。
+fn create_v6_workspace(conn: &Connection) {
+    create_v5_workspace(conn);
+    conn.execute_batch(V6_SQL).expect("应用 v6 SQL");
+    conn.execute(
+        "INSERT INTO schema_migrations (version, applied_at, checksum)
+         VALUES (6, current_timestamp, ?)",
+        params![whcode_store::checksum(V6_SQL)],
+    )
+    .expect("登记 v6 迁移");
+    assert_eq!(
+        whcode_store::schema_version(conn).expect("读取版本"),
+        6,
+        "夹具必须停在 v6"
+    );
+}
+
+/// 查询单列 catalog 类型。
+fn column_type(conn: &Connection, table: &str, column: &str) -> String {
+    conn.query_row(
+        "SELECT data_type FROM information_schema.columns
+         WHERE table_schema = 'main' AND table_name = ? AND column_name = ?",
+        params![table, column],
+        |row| row.get(0),
+    )
+    .unwrap_or_else(|err| panic!("查询 {table}.{column} 列类型失败：{err}"))
+}
+
+/// v6 → v7：6 个 JSON 语义列由 TEXT 转为原生 VARIANT；文本列保持 TEXT，数据可读回。
+#[test]
+fn v6_workspace_upgrades_to_v7_and_json_columns_become_native_variant() {
+    let conn = Connection::open_in_memory().expect("内存数据库");
+    create_v6_workspace(&conn);
+
+    conn.execute_batch(
+        "INSERT INTO tasks (id, session_id, title, stage, status, parent_id,
+                            acceptance_json, retry_count, updated_at)
+         VALUES ('T-1', 'S-1', '任务', 'plan', 'pending', NULL,
+                 '[{\"check\":\"可读回\"}]', 0, current_timestamp);
+
+         INSERT INTO stage_artifacts (id, session_id, task_id, stage, artifact_type, content,
+                                      refs_json, parser_version, validated, version, created_at)
+         VALUES ('A-1', 'S-1', 'T-1', 'plan', 'spec', '任意文本正文', '[\"A-1\"]', 'v1', TRUE, 1,
+                 current_timestamp);
+
+         INSERT INTO session_overview (session_id, by_stage_json, total, done, blocked,
+                                       refreshed_at)
+         VALUES ('S-1', '{\"plan\":1}', 1, 0, 0, current_timestamp);
+
+         INSERT INTO checkpoints (id, task_id, step, delta_json, message_cursor,
+                                  artifact_refs_json, ts)
+         VALUES ('C-1', 'T-1', 1, '{\"from\":\"pending\",\"to\":\"running\"}', NULL,
+                 '[\"A-1\"]', current_timestamp);
+
+         INSERT INTO audit (id, actor, action, target, detail_json, ts)
+         VALUES ('AUD-1', 'tester', 'gate_override', 'gate:clarify', '{\"note\":\"v7\"}',
+                 current_timestamp);",
+    )
+    .expect("写入 v6 文本样本");
+
+    let json_columns = [
+        ("tasks", "acceptance_json"),
+        ("stage_artifacts", "refs_json"),
+        ("session_overview", "by_stage_json"),
+        ("checkpoints", "delta_json"),
+        ("checkpoints", "artifact_refs_json"),
+        ("audit", "detail_json"),
+    ];
+    for (table, column) in json_columns {
+        assert_eq!(
+            column_type(&conn, table, column),
+            "VARCHAR",
+            "v6 的 {table}.{column} 必须是文本"
+        );
+    }
+
+    let version = whcode_store::apply_migrations(&conn).expect("v6 → v7 升级");
+    assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
+    assert_eq!(migration_rows(&conn), 7, "v7 迁移记录必须写入");
+
+    for (table, column) in json_columns {
+        assert_eq!(
+            column_type(&conn, table, column),
+            "VARIANT",
+            "v7 起 {table}.{column} 必须是原生 VARIANT，而非 VARCHAR 变体"
+        );
+    }
+    assert_eq!(
+        column_type(&conn, "stage_artifacts", "content"),
+        "VARCHAR",
+        "stage_artifacts.content 是任意文本，必须保持 TEXT（ADR-036 边界）"
+    );
+
+    // 数据读回：VARIANT 会规范化键序与空白，按 JSON 语义值比较而非字节序。
+    let acceptance: String = conn
+        .query_row(
+            "SELECT CAST(CAST(acceptance_json AS JSON) AS VARCHAR)
+             FROM tasks WHERE id = 'T-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("读回验收条件");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&acceptance).expect("验收条件必须是 JSON 文本"),
+        serde_json::json!([{"check": "可读回"}])
+    );
+    let refs: String = conn
+        .query_row(
+            "SELECT CAST(CAST(refs_json AS JSON) AS VARCHAR)
+             FROM stage_artifacts WHERE id = 'A-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("读回产物引用");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&refs).expect("引用必须是 JSON 文本"),
+        serde_json::json!(["A-1"])
+    );
+    let by_stage: String = conn
+        .query_row(
+            "SELECT CAST(CAST(by_stage_json AS JSON) AS VARCHAR)
+             FROM session_overview WHERE session_id = 'S-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("读回概览");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&by_stage).expect("概览必须是 JSON 文本"),
+        serde_json::json!({"plan": 1})
+    );
+    let (delta, artifact_refs): (String, String) = conn
+        .query_row(
+            "SELECT CAST(CAST(delta_json AS JSON) AS VARCHAR),
+                    CAST(CAST(artifact_refs_json AS JSON) AS VARCHAR)
+             FROM checkpoints WHERE id = 'C-1'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("读回检查点");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&delta).expect("差分必须是 JSON 文本"),
+        serde_json::json!({"from": "pending", "to": "running"})
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&artifact_refs).expect("引用必须是 JSON 文本"),
+        serde_json::json!(["A-1"])
+    );
+    let detail: String = conn
+        .query_row(
+            "SELECT CAST(CAST(detail_json AS JSON) AS VARCHAR)
+             FROM audit WHERE id = 'AUD-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("读回审计细节");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&detail).expect("审计细节必须是 JSON 文本"),
+        serde_json::json!({"note": "v7"})
+    );
+
+    // 重建的二级索引必须齐全（DROP TABLE 会带走索引）。
+    for (table, index) in [
+        ("tasks", "idx_tasks_session_status"),
+        ("tasks", "idx_tasks_session_stage"),
+        ("checkpoints", "idx_checkpoints_task"),
+        ("audit", "idx_audit_ts"),
+    ] {
+        assert!(index_exists(&conn, table, index), "v7 必须重建索引 {index}");
+    }
+
+    // 变体类型是原生 ARRAY，而不是包着 JSON 文本的 VARCHAR 变体。
+    let variant_kind: String = conn
+        .query_row(
+            "SELECT variant_type(acceptance_json) FROM tasks WHERE id = 'T-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("查询变体类型");
+    assert_eq!(variant_kind, "ARRAY", "验收条件必须是原生 ARRAY 变体");
+
+    // variant_* 可用性（ADR-036 Task 8）：对象列的键与字段值都能在引擎侧查询，
+    // 不需要把整段 JSON 拉回 Rust 再解析。
+    let kinds: (String, String, String, String, String) = conn
+        .query_row(
+            "SELECT
+                (SELECT variant_type(refs_json) FROM stage_artifacts WHERE id = 'A-1'),
+                (SELECT variant_type(by_stage_json) FROM session_overview WHERE session_id = 'S-1'),
+                (SELECT variant_type(delta_json) FROM checkpoints WHERE id = 'C-1'),
+                (SELECT variant_type(artifact_refs_json) FROM checkpoints WHERE id = 'C-1'),
+                (SELECT variant_type(detail_json) FROM audit WHERE id = 'AUD-1')",
+            [],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
+        )
+        .expect("查询 5 列的变体类型");
+    assert_eq!(
+        kinds,
+        (
+            "ARRAY".to_string(),
+            "OBJECT".to_string(),
+            "OBJECT".to_string(),
+            "ARRAY".to_string(),
+            "OBJECT".to_string()
+        )
+    );
+    let (keys, plan): (i64, i64) = conn
+        .query_row(
+            "SELECT len(variant_keys(by_stage_json)),
+                    variant_extract(by_stage_json, 'plan')::BIGINT
+             FROM session_overview WHERE session_id = 'S-1'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("variant_keys / variant_extract 必须可查");
+    assert_eq!((keys, plan), (1, 1), "概览的阶段分布键与值应可查询");
 }

@@ -1463,8 +1463,8 @@ mod tests {
         conn.execute(
             "INSERT INTO tasks (id, session_id, title, stage, status, parent_id,
                                 acceptance_json, retry_count, updated_at)
-             VALUES ('T-1', 'S-1', '失败任务', 'implement', 'failed', NULL, '[]', 0,
-                     current_timestamp)",
+             VALUES ('T-1', 'S-1', '失败任务', 'implement', 'failed', NULL,
+                     CAST('[]' AS JSON)::VARIANT, 0, current_timestamp)",
             [],
         )
         .expect("创建任务");

@@ -689,7 +689,7 @@ pub fn execute_purge(
     };
     tx.execute(
         "INSERT INTO audit (id, actor, action, target, detail_json, ts)
-         VALUES (?, ?, ?, ?, ?, current_timestamp)",
+         VALUES (?, ?, ?, ?, CAST(? AS JSON)::VARIANT, current_timestamp)",
         params![
             audit_id,
             actor,
@@ -741,7 +741,8 @@ mod tests {
         conn.execute(
             "INSERT INTO tasks (id, session_id, title, stage, status, parent_id,
                                 acceptance_json, retry_count, updated_at)
-             VALUES (?, ?, ?, 'implement', 'running', NULL, '[]', 0, current_timestamp)",
+             VALUES (?, ?, ?, 'implement', 'running', NULL, CAST('[]' AS JSON)::VARIANT, 0,
+                     current_timestamp)",
             params![id, session_id, format!("任务 {id}")],
         )
         .expect("插入任务");
@@ -771,7 +772,8 @@ mod tests {
         conn.execute(
             "INSERT INTO checkpoints (id, task_id, step, delta_json, message_cursor,
                                       artifact_refs_json, ts)
-             VALUES (?, ?, 1, '{}', NULL, '[]', current_timestamp)",
+             VALUES (?, ?, 1, CAST('{}' AS JSON)::VARIANT, NULL, CAST('[]' AS JSON)::VARIANT,
+                     current_timestamp)",
             params![id, task_id],
         )
         .expect("插入检查点");
@@ -794,7 +796,8 @@ mod tests {
             "INSERT INTO stage_artifacts (id, session_id, task_id, stage, artifact_type,
                                           content, refs_json, parser_version, validated,
                                           version, created_at)
-             VALUES (?, ?, NULL, 'plan', 'spec', 'c', '[]', 'v1', FALSE, 1, current_timestamp)",
+             VALUES (?, ?, NULL, 'plan', 'spec', 'c', CAST('[]' AS JSON)::VARIANT, 'v1', FALSE,
+                     1, current_timestamp)",
             params![id, session_id],
         )
         .expect("插入阶段产物");
@@ -814,7 +817,7 @@ mod tests {
         conn.execute(
             "INSERT INTO session_overview (session_id, by_stage_json, total, done, blocked,
                                            refreshed_at)
-             VALUES (?, '{}', 0, 0, 0, current_timestamp)",
+             VALUES (?, CAST('{}' AS JSON)::VARIANT, 0, 0, 0, current_timestamp)",
             params![session_id],
         )
         .expect("插入会话概览");
@@ -823,7 +826,8 @@ mod tests {
     fn insert_audit(conn: &Connection, id: &str) {
         conn.execute(
             "INSERT INTO audit (id, actor, action, target, detail_json, ts)
-             VALUES (?, 'tester', 'gate_override', 'gate:clarify', '{}', current_timestamp)",
+             VALUES (?, 'tester', 'gate_override', 'gate:clarify',
+                     CAST('{}' AS JSON)::VARIANT, current_timestamp)",
             params![id],
         )
         .expect("插入审计行");
@@ -1024,8 +1028,9 @@ mod tests {
 
         let (action, target, detail): (String, String, String) = conn
             .query_row(
-                "SELECT action, target, detail_json FROM audit
-                 WHERE id LIKE 'purge-%' ORDER BY id LIMIT 1",
+                "SELECT action, target,
+                        CAST(CAST(detail_json AS JSON) AS VARCHAR) AS detail_json
+                 FROM audit WHERE id LIKE 'purge-%' ORDER BY id LIMIT 1",
                 [],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )

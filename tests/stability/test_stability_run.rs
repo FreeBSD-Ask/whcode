@@ -128,7 +128,7 @@ impl StabilityRun {
             "INSERT INTO tasks
              (id, session_id, title, stage, status, parent_id, acceptance_json, retry_count, updated_at)
              VALUES ('T-STABILITY-FAILED', 'S-BIG', '长跑失败任务', 'implement', 'failed',
-                     NULL, '{}', 0, current_timestamp)",
+                     NULL, CAST('{}' AS JSON)::VARIANT, 0, current_timestamp)",
             [],
         )
         .expect("播种 failed 任务");

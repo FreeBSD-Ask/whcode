@@ -48,6 +48,14 @@
 - 测试：迁移、事件往返、导出/导入、redacted、查询计划、资源与崩溃路径。
 - 文档：本 ADR、`ADR-DB-BUILD` 修订记录、`ADR-012`（如调整 128 MB）、`ADR-025`（如重新冻结）、矩阵与指南。
 
+## 修订记录
+
+- **2026-10-24（ADR-036）**：VARIANT 边界由“仅 `events.payload_json`”扩展为“全部 JSON 语义列”，
+  schema v7 增加 5 张表的 6 列转换；决策 6 中“其他 JSON 列的 VARIANT 化：不采用”一条被
+  ADR-036 取代，`stage_artifacts.content` 与 `m0_events.payload_json` 仍保持 `TEXT`。
+  数据修改 CTE 仍为不采用：新增 `purge` 删除＋审计 A/B（两条语句中位 9.922 s，
+  单条 CTE 10.004 s，+0.83%），与本文“约慢 10%”的方向一致。
+
 ## 复审触发
 
 - 2.0.x 补丁改变 `VARIANT`/`MERGE` 行为或新增官方 JSON 转换函数。

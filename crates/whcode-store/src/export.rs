@@ -195,8 +195,11 @@ fn is_timestampish(data_type: &str) -> bool {
     data_type.contains("TIMESTAMP")
 }
 
-/// 目标列是否为 VARIANT（schema v6 的 `events.payload_json`，ADR-034）。
+/// 目标列是否为 VARIANT（schema v6 的 `events.payload_json`，以及 v7 的
+/// `tasks.acceptance_json`、`stage_artifacts.refs_json`、`session_overview.by_stage_json`、
+/// `checkpoints.delta_json`/`artifact_refs_json`、`audit.detail_json`，ADR-034/036）。
 ///
+/// 判定以 catalog 的 `data_type` 为准，因此新增 VARIANT 列无需改本函数。
 /// 导出必须显式转回 JSON 文本，导入必须显式从 JSON 解析；两侧都不能依赖
 /// 隐式转换——直接把文本 CAST 成 VARIANT 会得到包着 JSON 的 VARCHAR 变体。
 fn is_variant(data_type: &str) -> bool {
@@ -461,7 +464,7 @@ pub fn export_workspace(
     });
     conn.execute(
         "INSERT INTO audit (id, actor, action, target, detail_json, ts)
-         VALUES (?, ?, ?, ?, ?, current_timestamp)",
+         VALUES (?, ?, ?, ?, CAST(? AS JSON)::VARIANT, current_timestamp)",
         duckdb::params![
             format!("export-{now_ms}-{content_hash}"),
             actor,
@@ -784,7 +787,8 @@ mod tests {
         conn.execute(
             "INSERT INTO tasks (id, session_id, title, stage, status, parent_id,
                                 acceptance_json, retry_count, updated_at)
-             VALUES ('T-1', ?, '任务', 'plan', 'pending', NULL, '[]', 0, current_timestamp)",
+             VALUES ('T-1', ?, '任务', 'plan', 'pending', NULL, CAST('[]' AS JSON)::VARIANT,
+                     0, current_timestamp)",
             params![session_id],
         )
         .expect("插入任务");
@@ -812,7 +816,8 @@ mod tests {
         conn.execute(
             "INSERT INTO checkpoints (id, task_id, step, delta_json, message_cursor,
                                       artifact_refs_json, ts)
-             VALUES ('C-1', 'T-1', 1, '{}', NULL, '[]', current_timestamp)",
+             VALUES ('C-1', 'T-1', 1, CAST('{}' AS JSON)::VARIANT, NULL,
+                     CAST('[]' AS JSON)::VARIANT, current_timestamp)",
             [],
         )
         .expect("插入检查点");
@@ -828,7 +833,8 @@ mod tests {
             "INSERT INTO stage_artifacts (id, session_id, task_id, stage, artifact_type,
                                           content, refs_json, parser_version, validated,
                                           version, created_at)
-             VALUES ('A-1', ?, 'T-1', 'plan', 'spec', 'c', '[]', 'v1', TRUE, 1, current_timestamp)",
+             VALUES ('A-1', ?, 'T-1', 'plan', 'spec', 'c', CAST('[]' AS JSON)::VARIANT, 'v1',
+                     TRUE, 1, current_timestamp)",
             params![session_id],
         )
         .expect("插入阶段产物");
@@ -842,7 +848,7 @@ mod tests {
         conn.execute(
             "INSERT INTO session_overview (session_id, by_stage_json, total, done, blocked,
                                            refreshed_at)
-             VALUES (?, '{}', 1, 0, 0, current_timestamp)",
+             VALUES (?, CAST('{}' AS JSON)::VARIANT, 1, 0, 0, current_timestamp)",
             params![session_id],
         )
         .expect("插入会话概览");
@@ -1061,7 +1067,8 @@ mod tests {
         conn.execute(
             "INSERT INTO tasks (id, session_id, title, stage, status, parent_id,
                                 acceptance_json, retry_count, updated_at)
-             VALUES ('T-1', 'S-x', '任务', 'plan', 'pending', NULL, '[]', 0, current_timestamp)",
+             VALUES ('T-1', 'S-x', '任务', 'plan', 'pending', NULL,
+                     CAST('[]' AS JSON)::VARIANT, 0, current_timestamp)",
             [],
         )
         .expect("插入任务");

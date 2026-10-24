@@ -7,8 +7,9 @@
 
 常规回归（直接 `cargo test` 执行）：
 
-- `test_migration.rs`（`migration`）——v0→v6、v1→v6、v2→v6、v5→v6 迁移与 v2／v3 中断回滚；
-  现行 schema v6，`events.payload_json` 为 `VARIANT`（T033、T036；ADR-034）。
+- `test_migration.rs`（`migration`）——v0→v7、v1→v7、v2→v7、v5→v7、v6→v7 迁移与 v2／v3 中断回滚；
+  现行 schema v7：`events.payload_json` 与其余 6 个 JSON 语义列为 `VARIANT`，
+  `stage_artifacts.content` 仍为 `TEXT`（T033、T036；ADR-034/036）。
 - `test_durability.rs`（`durability`）——已确认事务的进程终止/重启一致性（T043）；子进程用例
   带 `#[ignore]`，只由父测试以环境变量调用。
 - `test_idempotency.rs`（`idempotency`）——重复幂等键跨重启不增行（T044）。

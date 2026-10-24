@@ -243,6 +243,17 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 新增根文件必须同步 `tests/contract/test_layout.rs` 白名单与 `repository-layout.md`；
   根目录不接受源码、脚本或散文档。
 
+### 7.1 存储类型规则（ADR-036，schema v7）
+
+- **JSON 语义列一律 `VARIANT`**：`events.payload_json`、`tasks.acceptance_json`、
+  `stage_artifacts.refs_json`、`session_overview.by_stage_json`、`checkpoints.delta_json`、
+  `checkpoints.artifact_refs_json`、`audit.detail_json`；新增 JSON 列同此口径。
+- **任意文本列保持 `TEXT`**：`stage_artifacts.content`、原型表 `m0_events.payload_json`
+  及不保证 JSON 的列，不得转 `VARIANT`。
+- **转换口径唯一**：写入 `CAST(? AS JSON)::VARIANT`（禁止 `CAST(? AS VARIANT)`）；
+  读取/导出/展示 `CAST(CAST(col AS JSON) AS VARCHAR)`；旧文本列的上限与合法性校验
+  必须在文本层保留，不得因类型变化失效。
+
 ## 8. 禁止事项
 
 - 禁止 `cargo fmt` 之外的自动重排大面积无关代码；禁止顺手重构与本次任务无关的文件。

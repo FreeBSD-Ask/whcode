@@ -270,7 +270,7 @@ fn query_plan_experiment() {
          SELECT 'T-'||i, 'S-1', 'task-'||i,
                 CASE WHEN i%2=0 THEN 'Implement' ELSE 'Plan' END,
                 CASE WHEN i%3=0 THEN 'blocked' ELSE 'pending' END,
-                NULL, '[]', 0, now()
+                NULL, CAST('[]' AS JSON)::VARIANT, 0, now()
          FROM range(1, {TASKS}+1) t(i);"
     ))
     .expect("生成夹具");

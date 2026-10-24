@@ -113,7 +113,10 @@ fn status_from_str(value: &str) -> Result<TaskStatus, WhError> {
         })
 }
 
-const TASK_COLUMNS: &str = "id, session_id, title, stage, status, parent_id, acceptance_json, \
+/// 任务投影列；`acceptance_json` 是 VARIANT（schema v7），读取时显式转回 JSON 文本
+/// （ADR-036）。列名保持原名，调用方拿到的仍是 JSON 原文。
+const TASK_COLUMNS: &str = "id, session_id, title, stage, status, parent_id, \
+                            CAST(CAST(acceptance_json AS JSON) AS VARCHAR) AS acceptance_json, \
                             retry_count, epoch_us(updated_at)";
 
 fn read_task_row(row: &duckdb::Row<'_>) -> Result<TaskRow, WhError> {
@@ -178,11 +181,19 @@ pub fn insert_task(conn: &Connection, task: &NewTask<'_>, now_ms: u64) -> Result
     if task.title.trim().is_empty() || task.stage.trim().is_empty() {
         return Err(invalid("任务标题与阶段不得为空"));
     }
+    // 文本层先校验再入库：VARIANT 的 `CAST` 同样会拒绝非法 JSON，但在这里给出
+    // 带字段名的结构化错误，并显式拒绝顶层 JSON null（否则会得到被 NOT NULL
+    // 拒绝的空变体，错误信息不指向字段）。
+    let acceptance: serde_json::Value = serde_json::from_str(task.acceptance_json)
+        .map_err(|err| WhError::parse_error(format!("acceptance_json 不是合法 JSON：{err}")))?;
+    if acceptance.is_null() {
+        return Err(invalid("acceptance_json 不得为顶层 JSON null"));
+    }
     let now = i64::try_from(now_ms).map_err(|_| invalid("now_ms 超出可表示范围"))?;
     conn.execute(
         "INSERT INTO tasks (id, session_id, title, stage, status, parent_id,
                             acceptance_json, retry_count, updated_at)
-         VALUES (?, ?, ?, ?, 'pending', ?, ?, 0, epoch_ms(?))",
+         VALUES (?, ?, ?, ?, 'pending', ?, CAST(? AS JSON)::VARIANT, 0, epoch_ms(?))",
         params![
             task.id,
             task.session_id,
@@ -366,7 +377,10 @@ pub fn tasks_of_session(
 /// 数据库查询失败时返回 [`WhError`]。
 pub fn task_checkpoints(conn: &Connection, task_id: &str) -> Result<Vec<CheckpointRow>, WhError> {
     let sql = format!(
-        "SELECT id, step, delta_json, message_cursor, artifact_refs_json, epoch_us(ts)
+        "SELECT id, step, CAST(CAST(delta_json AS JSON) AS VARCHAR) AS delta_json,
+                message_cursor,
+                CAST(CAST(artifact_refs_json AS JSON) AS VARCHAR) AS artifact_refs_json,
+                epoch_us(ts)
          FROM checkpoints WHERE task_id = ? ORDER BY step ASC, id ASC
          LIMIT {MAX_DETAIL_CHECKPOINTS}"
     );
@@ -401,7 +415,8 @@ pub fn task_checkpoints(conn: &Connection, task_id: &str) -> Result<Vec<Checkpoi
 pub fn task_artifacts(conn: &Connection, task_id: &str) -> Result<Vec<ArtifactRefRow>, WhError> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, stage, artifact_type, refs_json, validated, version
+            "SELECT id, stage, artifact_type,
+                    CAST(CAST(refs_json AS JSON) AS VARCHAR) AS refs_json, validated, version
              FROM stage_artifacts WHERE task_id = ? ORDER BY version DESC, id ASC LIMIT 100",
         )
         .map_err(|err| task_err("查询产物", err))?;
@@ -483,7 +498,8 @@ mod tests {
         conn.execute(
             "INSERT INTO checkpoints (id, task_id, step, delta_json, message_cursor,
                                       artifact_refs_json, ts)
-             VALUES (?, ?, ?, '{}', NULL, '[]', current_timestamp)",
+             VALUES (?, ?, ?, CAST('{}' AS JSON)::VARIANT, NULL, CAST('[]' AS JSON)::VARIANT,
+                     current_timestamp)",
             params![id, task_id, step],
         )
         .expect("插入检查点");
@@ -494,8 +510,8 @@ mod tests {
             "INSERT INTO stage_artifacts (id, session_id, task_id, stage, artifact_type,
                                           content, refs_json, parser_version, validated,
                                           version, created_at)
-             VALUES (?, 'S-1', ?, 'plan', 'spec', '大对象正文不进投影', '[]', 'v1', TRUE, 1,
-                     current_timestamp)",
+             VALUES (?, 'S-1', ?, 'plan', 'spec', '大对象正文不进投影',
+                     CAST('[]' AS JSON)::VARIANT, 'v1', TRUE, 1, current_timestamp)",
             params![id, task_id],
         )
         .expect("插入产物");
@@ -559,6 +575,30 @@ mod tests {
             let err = insert_task(&conn, &task, 1).expect_err("空字段必须拒绝");
             assert_eq!(err.code, ErrorCode::InvalidState);
         }
+    }
+
+    #[test]
+    fn insert_task_rejects_invalid_and_top_level_null_acceptance_without_rows() {
+        let conn = migrated();
+        for (payload, expected) in [
+            ("{broken", ErrorCode::ParseError),
+            ("null", ErrorCode::InvalidState),
+        ] {
+            let task = NewTask {
+                id: "T-bad",
+                session_id: "S-1",
+                title: "任务",
+                stage: "plan",
+                parent_id: None,
+                acceptance_json: payload,
+            };
+            let err = insert_task(&conn, &task, 1_000).expect_err("非法验收条件必须拒绝");
+            assert_eq!(err.code, expected, "拒绝码必须指向字段语义：{payload}");
+        }
+        let rows: i64 = conn
+            .query_row("SELECT count(*) FROM tasks", [], |row| row.get(0))
+            .expect("统计任务");
+        assert_eq!(rows, 0, "校验失败不得留下任何任务行");
     }
 
     #[test]
