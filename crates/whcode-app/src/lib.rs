@@ -43,12 +43,12 @@ pub mod view_source;
 pub mod views;
 
 pub use authz::{Actor, Capability, DefaultPolicy, Policy, actor_with_all_capabilities, require};
+pub use commands::{CommandExecutor, CommandOutcome, FrontendCommand, execute_command};
 pub use context::{
     CONTEXT_PAGE_SIZE, ContextCompression, ContextItem, ContextWindow,
     DEFAULT_CONTEXT_BUDGET_TOKENS, REASON_BUDGET_EXHAUSTED, SummaryPointer, compress_context,
     load_context, load_summary_pointer,
 };
-pub use commands::{CommandExecutor, CommandOutcome, FrontendCommand, execute_command};
 pub use events::{EventsExport, events_export};
 pub use gates::{ForceAdvance, TransitionContext, force_advance, request_transition};
 pub use maintenance::{

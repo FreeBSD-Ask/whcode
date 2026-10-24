@@ -486,7 +486,9 @@ fn session_command(
                 },
             )?;
             let whcode_app::CommandOutcome::Session(row) = outcome else {
-                return Err(whcode_domain::WhError::internal("门面返回形状不符：应为 Session"));
+                return Err(whcode_domain::WhError::internal(
+                    "门面返回形状不符：应为 Session",
+                ));
             };
             Ok((session_json(&row), row_line(&row)))
         }
@@ -517,7 +519,9 @@ fn session_command(
                 },
             )?;
             let whcode_app::CommandOutcome::Session(row) = outcome else {
-                return Err(whcode_domain::WhError::internal("门面返回形状不符：应为 Session"));
+                return Err(whcode_domain::WhError::internal(
+                    "门面返回形状不符：应为 Session",
+                ));
             };
             Ok((session_json(&row), row_line(&row)))
         }
@@ -534,7 +538,9 @@ fn session_command(
                 },
             )?;
             let whcode_app::CommandOutcome::Session(row) = outcome else {
-                return Err(whcode_domain::WhError::internal("门面返回形状不符：应为 Session"));
+                return Err(whcode_domain::WhError::internal(
+                    "门面返回形状不符：应为 Session",
+                ));
             };
             Ok((session_json(&row), row_line(&row)))
         }
@@ -693,7 +699,9 @@ fn task_command(
                 },
             )?;
             let whcode_app::CommandOutcome::Task(row) = outcome else {
-                return Err(whcode_domain::WhError::internal("门面返回形状不符：应为 Task"));
+                return Err(whcode_domain::WhError::internal(
+                    "门面返回形状不符：应为 Task",
+                ));
             };
             Ok((
                 task_json(&row),
@@ -717,7 +725,9 @@ fn task_command(
                 },
             )?;
             let whcode_app::CommandOutcome::Task(row) = outcome else {
-                return Err(whcode_domain::WhError::internal("门面返回形状不符：应为 Task"));
+                return Err(whcode_domain::WhError::internal(
+                    "门面返回形状不符：应为 Task",
+                ));
             };
             Ok((
                 task_json(&row),

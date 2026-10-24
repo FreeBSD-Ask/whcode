@@ -865,7 +865,9 @@ pub fn handle_request_with_runtimes(
                 },
             ) {
                 Ok(whcode_app::CommandOutcome::PurgePreview(preview)) => preview,
-                Ok(_) => return error_response(&WhError::internal("门面返回形状不符：应为清理预览")),
+                Ok(_) => {
+                    return error_response(&WhError::internal("门面返回形状不符：应为清理预览"));
+                }
                 Err(error) => return error_response(&error),
             };
             if !confirm {

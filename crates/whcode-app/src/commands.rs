@@ -22,11 +22,11 @@ use whcode_domain::WhError;
 use whcode_store::{PurgeCriteria, PurgePreview, PurgeProtection, PurgeResult, tasks::TaskRow};
 
 use crate::authz::Actor;
-use crate::{
-    delete_session, new_session, preview_delete_session, purge_execute, purge_preview,
-    rename_session, retry_task, abort_task, set_session_archived, show_session,
-};
 use crate::{NewSession, Policy};
+use crate::{
+    abort_task, delete_session, new_session, preview_delete_session, purge_execute, purge_preview,
+    rename_session, retry_task, set_session_archived, show_session,
+};
 
 /// 按 ID 删除会话的活跃窗口保护（毫秒）：0 = 不套用（用户点名 + 显式确认）。
 pub const SESSION_DELETE_ACTIVE_WINDOW_MS: i64 = 0;
@@ -65,7 +65,11 @@ pub enum FrontendCommand {
     /// 清理预览：按“早于 cutoff”冻结清单，不写库。
     PurgePreview { before_ms: i64, now_ms: u64 },
     /// 清理执行：`confirm = false` 一律拒绝（破坏性命令无预览不执行）。
-    PurgeExecute { before_ms: i64, confirm: bool, now_ms: u64 },
+    PurgeExecute {
+        before_ms: i64,
+        confirm: bool,
+        now_ms: u64,
+    },
 }
 
 /// 执行结果（呈现无关；JSON 形状由前端呈现层构造）。
@@ -154,7 +158,8 @@ pub fn execute_command(
                     preview_delete_session(conn, policy, actor, session_id, &protection, *now_ms)?;
                 return Ok(CommandOutcome::SessionDeletePreview(preview));
             }
-            let result = delete_session(conn, policy, actor, session_id, true, &protection, *now_ms)?;
+            let result =
+                delete_session(conn, policy, actor, session_id, true, &protection, *now_ms)?;
             Ok(CommandOutcome::SessionDeleted(result))
         }
         FrontendCommand::TaskRetry { task_id, now_ms } => {
@@ -166,8 +171,14 @@ pub fn execute_command(
             Ok(CommandOutcome::Task(row))
         }
         FrontendCommand::PurgePreview { before_ms, now_ms } => {
-            let preview =
-                purge_preview(conn, policy, actor, &PurgeCriteria::before(*before_ms), &PurgeProtection::default(), *now_ms)?;
+            let preview = purge_preview(
+                conn,
+                policy,
+                actor,
+                &PurgeCriteria::before(*before_ms),
+                &PurgeProtection::default(),
+                *now_ms,
+            )?;
             Ok(CommandOutcome::PurgePreview(preview))
         }
         FrontendCommand::PurgeExecute {
