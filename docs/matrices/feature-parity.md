@@ -1,53 +1,97 @@
-# 三端功能能力矩阵（T087、FR-610）
+# 四端对等基线（受校验产物，FR-619—621、ADR-032）
 
-> 新能力必须在**同一 PR 内**定义 API、CLI 行为、权限与测试（FR-610）。
-> 三端对等判据是业务能力、权限检查、状态迁移、错误语义与可审计性一致，不要求
-> 视觉/交互一致（ADR-009）。
+> 对等判据为业务能力、权限检查、状态迁移、错误语义与可审计性五维；视觉、交互形态、
+> 视图数量、按键与布局**不**作为对等判据（ADR-009、ADR-032）。新能力必须在同一 PR 内
+> 定义 API、CLI 行为、权限与测试（FR-610）。
 
-**状态**：M5 部分交付（T087 首版；CUI 列于 2026-10-23 按 `cui_dispatch` 实测复核并更新）。
-✅ = 已交付并有测试；🚧 = 路由存在、视图/入口未交付；⛔ = 里程碑未到。
+**单一事实源**：`whcode-app::surface::SURFACES` 是能力面的唯一定义；本表是它的**受校验
+产物**——行序与登记顺序一致，任一行手工改动（状态符号、理由码、里程碑）都会使
+`tests/contract/test_frontend_parity.rs` 失败（FR-619—621、D-17）。
 
-**Web 面（2026-10-24 更新）**：`whcode serve --web` 已装配（T090，真实浏览器实测）；
-读命令：会话列表 / 任务总览 + 活跃任务 / 事件列表（脱敏注明）/ 状态快照 / 文本层；
-**写命令已接入（T110—T114 批次，FR-609）**：`POST /api/sessions/new|rename|archive|delete`、
-`/api/tasks/retry|abort`、`/api/purge`（预览默认 + 确认执行，破坏性命令防误触）——
-与 CUI 同源 `whcode-app` 判权（FR-604），33 项 API 测试含写命令预览/确认/权限拒绝
-（`crates/whcode-web/src/api.rs` 内联测试）。部署边界：仅回环或局域网（RFC1918，认证必填，
-ADR-023）。**无 JS 只读兜底（2026-10-24）**：首页服务端直出 `<noscript>` 会话快照（HTML 转义、
-超限写明截断；仅未认证的本机回环模式，认证模式不注入数据），见 Check 229。
+**符号**：✅ 已实现（前端锚点在登记表中）；◐ 已排除（理由码见“依据／理由”列）；
+⏳ 预留（里程碑见“依据／理由”列）；— 不适用（判定依据见登记表条目注释）。
 
-**最后更新**：2026-10-24 | 依据：`specs/001-whcode-harness/contracts/app-service.md` §2 命令面；
-CUI 列以 `crates/whcode-bin/src/cui_dispatch.rs` 的分支与“未接线”清单为准（`run`、`events show`、
-`spec next/validate/analyze/converge/force-advance`、`runtime *`、`db checkpoint` 明确未接线）
+**最后更新**：2026-10-24（T181 收口：原 ➕ 格已随交付翻转，矩阵改为逐条受校验产物）。
+依据：`specs/001-whcode-harness/contracts/app-service.md` §2、`crates/whcode-bin/src/cui_dispatch.rs`、
+`crates/whcode-app/src/surface.rs`。
 
-**登记表校验（ensure-frontend-parity，2026-10-24）**：本矩阵自该变更起改为**受校验产物**——
-`whcode-app::surface` 能力登记表是唯一事实源，对等契约测试解析本表并与登记表逐行比对
-（含 GUI 列与 Surface 列），任何手工漂移即门禁失败（FR-619—621、ADR-032、D-17）。
-在本变更收口前，本表仍是手工状态快照；逐行重写由登记表任务（T171.4）按登记表统一执行。
-
-**GUI 列（占位）**：表头已预留 GUI 列，行内容由 T171.4 按登记表统一补齐；当前 GUI 为只读
-六视图（FR-711），全部写命令登记 `GUI_READ_ONLY_V1`（ADR-032）。
-
-| 域 | 命令 | app 层（API） | CUI | TUI | Web | 依据 | GUI |
+| SurfaceId | 类别 | 效果 | CUI | TUI | GUI | Web | 依据／理由 |
 |---|---|---|---|---|---|---|---|
-| session | new/list/show/rename/archive | ✅（M2/T046） | ✅（T084/T085 调度） | 🚧 列表只读 + 选择 | 🚧 列表只读（可点击选择） | FR-101 |
-| session | delete（预览+确认+审计） | ✅（M2/T046） | ✅（dry-run 默认 + `--yes`） | 🚧 | ✅（T110—T114 批次，Check 93/183 补录） | FR-101、FR-509 |
-| session | switch（有界加载） | ✅（M2/T047） | 🚧（无独立子命令，随 `--session` 生效） | 🚧 | ⛔ | FR-102、V-101 |
-| task | list/show（详情五类） | ✅（M2/T048/T049） | ✅ | ✅ 总览 + 活跃（只读） | ✅ 总览 + 活跃（只读） | FR-103/104 |
-| task | retry/abort | ✅（M2/T052） | ✅ | 🚧 | ⛔ | FR-401/408 |
-| spec | 状态机/门禁/force-advance | ✅（M4/T074/T078） | ✅ `status`；🚧 门禁检查与 force-advance 未接线 | ✅ 状态摘要只读 | 🚧 状态快照只读 | FR-307/312 |
-| context | budget/compact（指针） | ✅（M3/T060/T061） | ✅ 视图（context_cmd） | ✅ 预算摘要只读 | ⛔ | FR-105/107/108 |
-| llm | run/cancel（Provider） | ✅（M3/T056 桩） | ⛔（`run` 未接线） | ⛔ | ⛔ | FR-201 |
-| events | list/export（脱敏注明） | ✅（M3/T065/T066） | ✅ list/export；🚧 `show` 未接线 | ✅ 尾部只读 | 🚧 列表只读（无导出） | FR-202/205 |
-| db | stats/check/purge/checkpoint/compact/archive | ✅（M1/T038—T042） | ✅ stats/check/purge/compact/archive/explain；⛔ `checkpoint` 非公开命令 | 🚧 | ⛔ | FR-507—510 |
-| theme | 主题选择（配置面） | — | —（随端内建） | ✅ 四套（`ui.theme`／`WHCODE_UI_THEME`） | 🚧 仅基础主题（无切换） | FR-612/713 |
-| font | 本机字体声明（install/status/uninstall） | ✅（FR-717 编排） | ✅（T155） | —（终端字形由模拟器控制） | —（非浏览器能力） | FR-717、ADR-028 |
-| ssh | 服务端受限入口（`sessions`／`session`／`tasks`／`task`；默认无 Shell） | ✅（M7/T097 判权） | —（经内置 SSH 客户端） | — | — | FR-607/608、ADR-030 |
-| doctor | 环境自检 | ✅（M0） | ✅（whcode-bin） | — | — | §10 |
+| `session.new` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-101；◐ gui_read_only_v1 |
+| `session.list` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-101 |
+| `session.show` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-101 |
+| `session.rename` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-101；◐ gui_read_only_v1 |
+| `session.archive` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-101；◐ gui_read_only_v1 |
+| `session.delete` | Command | Destructive | ✅ | ✅ | ◐ | ✅ | FR-101／509；◐ gui_read_only_v1 |
+| `session.switch` | Command | Read | ⏳ | ⏳ | ⏳ | ⏳ | FR-102；⏳ 未排期 |
+| `task.list` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-103／104 |
+| `task.overview` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-103／104 |
+| `task.show` | Command | Read | ✅ | ◐ | ◐ | ◐ | FR-103／104；◐ view_summary_only |
+| `task.retry` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-401／408；◐ gui_read_only_v1 |
+| `task.abort` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-401／408；◐ gui_read_only_v1 |
+| `context.budget` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-105／108 |
+| `events.list` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-202 |
+| `events.export` | Command | Write | ✅ | ◐ | ◐ | ✅ | FR-205；◐ command_output_only |
+| `events.show` | Command | Read | ⏳ | ⏳ | ◐ | ⏳ | FR-202；⏳ 未排期；◐ gui_read_only_v1 |
+| `spec.status` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-301—314 |
+| `spec.next` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-301—314；⏳ 未排期；◐ gui_read_only_v1 |
+| `spec.validate` | Command | Read | ⏳ | ⏳ | ◐ | ⏳ | FR-301—314；⏳ 未排期；◐ gui_read_only_v1 |
+| `spec.analyze` | Command | Read | ⏳ | ⏳ | ◐ | ⏳ | FR-301—314；⏳ 未排期；◐ gui_read_only_v1 |
+| `spec.converge` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-301—314；⏳ 未排期；◐ gui_read_only_v1 |
+| `spec.force-advance` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-301—314；⏳ 未排期；◐ gui_read_only_v1 |
+| `db.purge` | Command | Destructive | ✅ | ✅ | ◐ | ✅ | FR-507—510；◐ gui_read_only_v1 |
+| `db.stats` | Command | Read | ✅ | ◐ | ◐ | ◐ | FR-507—510；◐ cli_local_admin |
+| `db.check` | Command | Read | ✅ | ◐ | ◐ | ◐ | FR-507—510；◐ cli_local_admin |
+| `db.compact` | Command | Destructive | ✅ | ◐ | ◐ | ◐ | FR-507—510；◐ cli_local_admin |
+| `db.archive` | Command | Write | ✅ | ◐ | ◐ | ◐ | FR-507—510；◐ cli_local_admin |
+| `db.restore` | Command | Destructive | ✅ | ◐ | ◐ | ◐ | FR-507—510；◐ cli_local_admin |
+| `db.checkpoint` | Command | Write | ✅ | ◐ | ◐ | ◐ | FR-507—510；◐ cli_local_admin |
+| `db.explain` | Command | Read | ✅ | ◐ | ◐ | ◐ | FR-507—510；◐ cli_local_admin |
+| `runtime.list` | Command | Read | ✅ | ◐ | ◐ | ✅ | FR-701—710；◐ six_view_scope |
+| `runtime.status` | Command | Read | ⏳ | ⏳ | ◐ | ⏳ | FR-701—710；⏳ M8；◐ six_view_scope |
+| `runtime.enable` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-701—710；⏳ M8；◐ six_view_scope |
+| `runtime.disable` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-701—710；⏳ M8；◐ six_view_scope |
+| `runtime.install` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-701—710；⏳ M8；◐ six_view_scope |
+| `llm.run` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-201—208；⏳ M3-llm；◐ gui_read_only_v1 |
+| `llm.cancel` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-201—208；⏳ M3-llm；◐ gui_read_only_v1 |
+| `theme.switch` | Command | Read | ◐ | ✅ | ✅ | ✅ | FR-612／713／625；◐ cui_no_theme |
+| `locale` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-615／625 |
+| `font.install` | Command | Write | ✅ | ◐ | ◐ | ◐ | FR-717；◐ cli_local_admin |
+| `font.status` | Command | Read | ✅ | ◐ | ◐ | ◐ | FR-717；◐ cli_local_admin |
+| `font.uninstall` | Command | Destructive | ✅ | ◐ | ◐ | ◐ | FR-717；◐ cli_local_admin |
+| `serve` | Command | Write | ✅ | ◐ | ◐ | ◐ | FR-603／607；◐ cli_local_admin |
+| `doctor` | Command | Read | ✅ | ◐ | ◐ | ◐ | §10；◐ cli_local_admin |
+| `bench` | Command | Read | ✅ | ◐ | ◐ | ◐ | NFR-210；◐ cli_local_admin |
+| `app.quit` | Command | Read | — | ✅ | ✅ | — | FR-601；— 非命令面形态 |
+| `ssh.transport` | Command | Read | — | — | — | — | FR-607／608；— transport_specific |
+| `view.sessions` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-601／622；◐ cui_command_surface |
+| `view.tasks` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-601／622；◐ cui_command_surface |
+| `view.context` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-601／622；◐ cui_command_surface |
+| `view.events` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-601／622；◐ cui_command_surface |
+| `view.spec` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-601／622；◐ cui_command_surface |
+| `view.diff` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-601／622；◐ cui_command_surface |
+| `view.changes` | View | Read | ◐ | ✅ | ◐ | ✅ | FR-605／624；◐ cui_request_only、gui_manual_refresh |
 
 **权限**：全部命令经 `whcode-app::authz` 统一判定（拒绝 `permission_denied` 不可重试，
 FR-604）；四端不得自行推断权限。
 
-**测试映射**：app 层内联测试（每命令正向 + 失败路径）；CUI 视图测试（信封 schema_version +
-脱敏注明）；契约测试 `test_json_envelope.rs`（T089）、`test_tui_cui_parity.rs`（T088）、
+**统一不可用语义**：登记为预留或排除的能力在该端被调用时返回结构化 `not_supported`
+（`retryable = false`，`details` 含 `surface_id`、`state` 与 `milestone` 或 `reason_code`）；
+CUI 退出码 **55**、Web **HTTP 501**；未登记路径仍为 404（ADR-032 决策 4）。
+
+**实现现状摘要（2026-10-24）**：Web 读命令为会话列表、任务总览与活跃任务、事件列表、
+状态快照、上下文、diff、运行时清单与 i18n；写命令经 `POST /api/sessions/*`、
+`/api/tasks/*`、`/api/purge`（预览默认 + 确认执行）；四套主题经 `data-theme` 运行时切换；
+无 JS 时首页服务端直出只读会话快照（HTML 转义、超限写明截断；仅本机回环未认证模式）。
+TUI 补写操作（`n`／`m`／`d`／`A`、`R`／`X`、`p`，破坏性命令先预览后确认）、`t` 四主题循环
+与 ≥1000 ms 低频游标检查（推进才重绘）。GUI 只读六视图，写命令登记 `GUI_READ_ONLY_V1`。
+部署边界：仅回环或局域网（RFC1918，认证必填，ADR-023）。
+
+**测试映射**：`tests/contract/test_frontend_parity.rs`（三向一致 + 矩阵逐行比对 + 负向篡改
+自测 + 行为等价夹具）；CUI 视图测试（信封 schema_version + 脱敏注明）；
+`test_json_envelope.rs`（T089）、`test_tui_cui_parity.rs`（T088）、
 `test_web_security_defaults.rs`（T095）。
+
+**历史说明**：本表此前为手工维护的“域／命令行”状态快照，曾出现同一文件头部称 Web 写命令
+已接入而表格行仍标 ⛔ 的自相矛盾（存续数周未被评审发现）。该事实是 ADR-032 把矩阵改为
+受校验产物的直接依据；手工矩阵不再保留，任何状态变更只改登记表并同 PR 重新生成本表。

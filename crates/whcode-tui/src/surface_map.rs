@@ -134,9 +134,9 @@ mod tests {
         }
     }
 
-    /// 写动作与主题／在线可见为预留动作：映射正确且 TUI 端登记为预留（T177／T178）。
+    /// 写动作与主题／在线可见已随 T177／T178 交付：映射正确且 TUI 端登记为已实现。
     #[test]
-    fn write_and_pending_actions_stay_reserved() {
+    fn write_and_theme_actions_are_implemented() {
         let cases = [
             (TuiAction::SessionNew, "session.new"),
             (TuiAction::SessionRename, "session.rename"),
@@ -152,8 +152,8 @@ mod tests {
             assert_eq!(surface_of(action), id);
             let entry = find(id).expect("已登记");
             match entry.support(FrontendId::Tui) {
-                Support::Reserved { .. } => {}
-                other => panic!("预留动作 {id} 的 TUI 状态必须为预留，实际 {other:?}"),
+                Support::Implemented { anchor } if !anchor.is_empty() => {}
+                other => panic!("已交付动作 {id} 的 TUI 状态必须为已实现，实际 {other:?}"),
             }
         }
     }
