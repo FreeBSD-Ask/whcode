@@ -293,13 +293,14 @@ mod tests {
         let mut child = sleep_command(30).spawn().expect("启动子进程");
         let pid = child.id();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
-        let mut pids = Vec::new();
-        loop {
+        let pids = loop {
             match child_pids(std::process::id()) {
                 Ok(list) => {
-                    pids = list;
-                    if pids.contains(&pid) {
-                        break;
+                    if list.contains(&pid) {
+                        break list;
+                    }
+                    if std::time::Instant::now() >= deadline {
+                        break list;
                     }
                 }
                 Err(err) => {
@@ -309,11 +310,8 @@ mod tests {
                     return;
                 }
             }
-            if std::time::Instant::now() >= deadline {
-                break;
-            }
             std::thread::sleep(std::time::Duration::from_millis(500));
-        }
+        };
         assert!(pids.contains(&pid), "应列出子进程 {pid}：{pids:?}");
         assert!(
             process_exists(pid).expect("查询子进程"),
