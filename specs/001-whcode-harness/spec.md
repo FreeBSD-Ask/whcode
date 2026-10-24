@@ -125,8 +125,9 @@ TUI（会话树、任务、上下文、事件、Spec 状态、diff 预览）与 
 1. **Given** 同一工作区，**When** TUI 与 CUI 执行同一命令，**Then** 最终状态、权限判定与错误码一致（FR-604、V-109）
 2. **Given** CUI 任意命令加 `--json`，**When** 执行，**Then** 输出含 schema_version，错误对象含 code/message/retryable/details（FR-602、§8.1）
 3. **Given** 任一端产生更改，**When** 另一端在线，**Then** 更改可见；断线端可从持久化游标补齐（FR-605）
+4. **Given** 登记表把某命令在某端登记为预留或排除，**When** 该端调用该命令，**Then** 返回结构化 `not_supported`（CUI 退出码 55）而非 404 或静默成功，且未登记的命令被对等门禁拦截（预留编号 620／621；V-112）
 
-**覆盖需求**：FR-601、FR-602、FR-604、FR-605、FR-610、FR-612、FR-613、FR-614、FR-615
+**覆盖需求**：FR-601、FR-602、FR-604、FR-605、FR-610、FR-612、FR-613、FR-614、FR-615；前端对等增补（预留编号 619—625，正式登记由收口任务统一更新）与 V-112
 
 ---
 
@@ -143,8 +144,9 @@ TUI（会话树、任务、上下文、事件、Spec 状态、diff 预览）与 
 1. **Given** 默认配置，**When** 启动 Web 服务，**Then** 仅监听 `127.0.0.1`；改为对外监听且未显式启用认证/Origin 检查时启动失败（FR-606、V-110）
 2. **Given** 浏览器会话，**When** 执行与 TUI/CUI 相同的业务命令，**Then** 权限、门禁与最终状态一致，且无需 PTY 模拟（FR-609、ADR-004、V-109）
 3. **Given** WebSocket 连接，**When** 校验连接，**Then** 通过来源校验、身份认证、授权检查与消息大小限制，token 不经 URL query 传递（§10.2）
+4. **Given** Web 请求一条登记为预留的路径（如未接线的 SDD 门禁命令），**When** 处理请求，**Then** 返回 HTTP 501 与同码 JSON 信封而非 404；上下文与 diff 读取与 TUI／GUI 同源且有界（预留编号 620／622；V-112）
 
-**覆盖需求**：FR-603、FR-605、FR-606、FR-609、FR-610
+**覆盖需求**：FR-603、FR-605、FR-606、FR-609、FR-610；前端对等增补（预留编号 619—625，正式登记由收口任务统一更新）与 V-112
 
 ---
 
@@ -316,6 +318,43 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
 - **FR-617**: GUI 在窗口最小化或不可见时不得执行任何 GUI 工作：暂停绘制、动画与前端轮询，恢复时先取状态快照再**单次全量重绘**（禁止逐帧追赶）；不可见判定以 Page Visibility API 为主、焦点事件为辅，恢复须去抖 ≥250 ms。图形稳定性要求：不假设 GPU 可用（先探测、失败降级）、动画只用 `transform`/`opacity`、`will-change` 按需且用后撤销、渲染上下文挂起时释放并在恢复时重建、`prefers-reduced-motion` 与动效总开关生效；TUI 侧需在窗口最小化时跳过绘制但继续记账关键事件（P1；交付归属 M5/M6；设计见 `docs/guides/gui-suspend.md`）
 - **FR-618**: Web 前端必须为**无框架、无打包器**的极简实现（ADR-014）：服务端直出 HTML + 原生 ES modules，文本优先、无自动播放与装饰性媒体、无 WebGL/Canvas 动画；主题仅经 CSS 变量切换（纯黑/纯白）；硬性预算：首屏 JS ≤ 50 KB（gzip）、CSS ≤ 20 KB（gzip）、单页 DOM 目标 ≤ 2 000 节点、无第三方字体；无 JavaScript 时只读视图必须可用；预算与依赖审计进 CI，超预算即失败（P1；交付归属 M6，设计见 `docs/adr/ADR-014-minimal-frontend.md`）
 
+**前端四端对等与差异登记（2026-10-24 新增需求，交付归属 M6/M10）**
+
+> 编号说明：本节七条需求的正式编号属 FR-6xx 序列（619—625，暂以“预留编号 619”等形式
+> 括注于各条目）。为保证中途每个提交点门禁全绿，正式登记（`FR-6xx` 编号行格式、
+> tasks／checklist 挂钩、FR 计数注释）由收口任务统一更新；在此之前本节条目不计入
+> FR 计数与追溯门禁，其内容与判据自本日起生效为需求基线候选。
+
+- **四端能力登记表（单一事实源）**（预留编号 619；P1；[架构]；交付归属 M6，GUI 侧映射登记随 M10）: 系统必须提供机器可读的能力登记表，覆盖应用服务命令面与六视图：每条登记包含稳定 `SurfaceId`、类别（命令／视图）、所需 `Capability`、效果类别（读／写／破坏性）、确认要求、审计要求，以及 CUI／TUI／GUI／Web 四端状态——已实现、已排除（带理由码与锚点）、预留（带里程碑）、不适用；任何前端不得自行定义“支持什么”；`docs/matrices/feature-parity.md` 必须与登记表一致
+  - 判据：Given 新增一个应用服务命令，When 未在登记表登记，Then 对等门禁失败并指出缺失的 `SurfaceId` 与所属前端；Given 登记表任一条目，When 生成矩阵，Then 每端状态与锚点可逐行核对
+  - 证据：`crates/whcode-app/src/surface.rs`；`tests/contract/test_frontend_parity.rs`；`docs/matrices/feature-parity.md`
+  - 依据：FR-610、ADR-009、ADR-032；ensure-frontend-parity 变更 spec（`.trae/specs/ensure-frontend-parity/spec.md`）；单一事实源与接口隔离原则
+- **差异登记与统一不可用语义**（预留编号 620；P1；[架构]；交付归属 M6）: 每一处前端排除必须使用登记表中的稳定理由码，并附 FR／ADR 锚点、范围、承担者与复审触发，禁止“说不清”的第五种状态；登记为预留或排除的能力在该端被调用时必须返回结构化 `not_supported`（`retryable = false`，`details` 含 `surface_id`、`state` 与 `milestone` 或 `reason_code`），未知路由仍为 404；不得以 404、空列表或静默成功掩盖已登记能力的不可用
+  - 判据：Given CUI 预留命令，When 执行，Then 输出 `not_supported` 信封且退出码为 **55**（稳定码，介于 50 invalid_state 与 60 not_found 之间——“已登记但该端不提供”在语义上介于状态异常与不存在之间；码表同步 `contracts/cui-cli.md` §2 与 `docs/guides/cui-manual.md`）；Given Web 请求登记为预留的路径，When 处理，Then HTTP 501 且 JSON 同码；Given 未登记路径，Then 仍为 404
+  - 证据：`whcode-domain` 错误码测试；CUI／Web 路由测试；ADR-032 差异表
+  - 依据：FR-604、`contracts/app-service.md` §4、ADR-032
+  - 兼容性（复核增补 2026-10-24）：CUI 保留命令退出码由 50（invalid_state）改为 55 属**行为变更**——CHANGELOG 必须标注 BREAKING 并给出脚本迁移说明（依赖退出码的脚本按 55 判“端未提供”，按 404 判“路由不存在”）；过渡期不提供兼容别名（退出权原则：变更显式可见，不静默兼容旧歧义语义）
+- **对等契约门禁与行为等价**（预留编号 621；P1；[架构]；交付归属 M6，GUI 契约测试随 M10）: 对登记表每个条目与每个适用前端，自动化测试必须证明该前端存在到同一应用服务功能的映射，或存在已登记排除／预留；同时反向检查前端清单不存在未登记的孤儿路由或动作；共享夹具必须验证同一写命令经 CUI、Web、TUI 执行后的最终状态、审计记录、权限拒绝码与错误语义一致；门禁必须包含可失败的负向用例（缺映射、矩阵篡改、过期排除）
+  - 判据：Given 删除任一前端映射，When 运行门禁，Then 测试失败并指出条目；Given 篡改矩阵一行，Then 矩阵校验失败；Given 同一 purge 命令经三端执行，Then 数据库计数、审计字段与错误码一致
+  - 证据：`tests/contract/test_frontend_parity.rs` 的正向与负向用例；共享夹具
+  - 依据：FR-604、FR-610、V-109；SWEBOK 契约测试与证伪原则
+- **读取面一致（六视图与命令读取）**（预留编号 622；P1；[架构]；交付归属 M6）: TUI、GUI、Web 必须从同一应用服务数据提供六视图（会话、任务、上下文、事件、Spec 状态、diff 预览）；Web 必须新增上下文与 diff 端点及界面标签；所有视图必须有界（沿用既有上限），并区分“正确的空”（有会话但无数据）与“不可用”（数据源失败或未选择会话），不得以空列表掩盖失败；CUI 必须具备 `context budget` 读取命令；CUI 的六视图不适用性按 `CUI_COMMAND_SURFACE` 登记
+  - 判据：Given 同一夹具库，When 分别读取 TUI／GUI／Web 上下文与 diff，Then 内容与顺序一致；Given 数据源失败，Then 快照摘要显式标注错误而非伪造空；Given CUI `context budget`，Then JSON 含 `schema_version`、预算、来源与截断原因
+  - 证据：视图快照测试；Web API 测试；CUI 信封测试
+  - 依据：FR-601、FR-603、FR-609、FR-711；`contracts/app-service.md` §2
+- **写入面一致（业务写命令）**（预留编号 623；P1；[架构]；交付归属 M6）: 会话 new／rename／archive／delete、任务 retry／abort、清理 purge 必须在 CUI、TUI、Web 共用同一 `whcode-app::commands` 门面：相同前置校验、相同 `Capability` 判定、相同 dry-run／确认语义、相同审计字段与错误码；TUI 必须提供对应键盘动作与确认界面；GUI 按 FR-711 只读并登记 `GUI_READ_ONLY_V1`；破坏性命令在任何交互端都不得无预览、无确认直接执行
+  - 判据：Given 无删除能力调用者，When 任一端执行 delete，Then 均为 `permission_denied`、`retryable = false`；Given 任一端 purge 预览，Then 不产生删除与审计执行记录；Given 确认执行，Then 三端最终计数与审计一致
+  - 证据：`whcode-app::commands` 测试；TUI 确认流程测试；CUI／Web 行为等价测试
+  - 依据：FR-101、FR-401／408、FR-509、FR-604；ADR-009
+- **在线可见与游标一致**（预留编号 624；P1；[架构]；交付归属 M6）: TUI 与 Web 必须能感知其他在线端产生的更改并按持久化游标补齐；TUI 仅在游标推进时置脏并重绘一次，不得引入周期性全量重绘或新增常驻线程；Web 保持 WebSocket 广播与断线补拉；GUI 按 FR-711 使用显式刷新（登记 `GUI_MANUAL_REFRESH`）；CUI 为一次性请求响应（登记 `CUI_REQUEST_ONLY`）；每个前端必须显示游标或连接状态，不得让过期画面伪装成最新状态
+  - 判据：Given 另一端写入新事件，When TUI 空闲，Then 游标推进触发一次重绘且内容更新；Given 游标未变，Then 空闲期零重绘；Given 断线重连，Then Web 从持久化游标补拉无缺口。“低频”量化（复核增补 2026-10-24）：TUI 游标检查间隔 ≥ 1000 ms（常量命名并测试断言），查询为 O(1)（`SELECT max(seq)` 类单值查询，无表扫描）；空闲 CPU 不得回归 NFR-205 实测基线（0.0% 量级，`script/measure_resources.py` 复测）
+  - 证据：TUI 循环测试；Web 广播／补拉测试；游标一致性测试
+  - 依据：FR-605、FR-613、FR-617、FR-714；ADR-009
+- **显示配置一致（主题与语言）**（预留编号 625；P1；[架构]；交付归属 M6，GUI 主题已随 M10 交付，本条补 TUI／Web 一致性）: TUI、GUI、Web 必须提供四套主题（`eink-day`、`eink-night`、`amoled-night`、`terminal-green`），精确色值遵循 FR-612／FR-713，运行时切换不得要求重启；默认主题取 `ui.theme`，可被 `WHCODE_UI_THEME` 覆盖；CUI 按 `CUI_NO_THEME` 登记为终端控制；四个前端必须共用语言解析链：`ui.locale` → `WHCODE_UI_LOCALE` → `LANG`／`LC_ALL` → `zh-CN`；Web 另允许 `?locale=` 与 `Accept-Language` 作为显式覆盖；简体中文与英语必须同时可用
+  - 判据：Given 任一图形前端切换四套主题，Then 色值与 FR-612／FR-713 精确一致且不重启；Given `ui.locale = en`，Then 四端界面文本均为英语；Given Web `?locale=zh-CN`，Then 覆盖配置并返回中文词条与 `lang` 属性
+  - 证据：主题色值测试；Web CSS 审计与预算；i18n 解析测试；四端文本抽样
+  - 依据：FR-612、FR-615、FR-618、FR-713、ADR-014、ADR-027
+
 **可选执行运行时（§4.7）**
 
 - **FR-701**: 统一 Runtime Provider 接口：探测、能力声明、版本指纹、执行、取消与结果归一化（P1）
@@ -425,6 +464,7 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
 - **SC-019**: 任务超时后子进程及子进程树按平台策略清理，stderr 尾部保留且状态可恢复（V-305）
 - **SC-020**: 候选发布版本通过 72 小时稳定性测试并产出规定指标时间序列报告（§11.5）
 - **SC-021**: M0 结束时平台矩阵与候选性能预算正式冻结，或经 ADR 记录修订（V-006、V-007）
+- **SC-022**: 前端新增能力未在登记表登记即对等门禁失败；登记为预留的能力在任一端调用均返回结构化 `not_supported`（CUI 退出码 55／Web HTTP 501），而非 404 或静默成功；对等门禁正负用例与行为等价夹具全绿（V-112）
 
 ## Assumptions
 

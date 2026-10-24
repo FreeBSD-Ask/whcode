@@ -51,6 +51,8 @@
 - `Ctrl+V` 等组合键不保留修饰语义：除 `Ctrl-C` 外，Ctrl 组合等价于裸字母（`event.rs:37-45`）；
 - 方向键、Esc、Enter、F1 等被丢弃（`crates/whcode-tui/src/event.rs:42-45`）；
 - CJK 等多字节字符按单 `char` 接收，仅计入按键数，不触发动作（`event.rs:43`、`state.rs:39`）。
+- 本变更（ensure-frontend-parity）交付后，`t` 键四主题循环、写操作与游标刷新将改变上述
+  部分现状，见 §8；交付前以本节为准。
 
 ## 4. 数据源现状（重要）
 
@@ -110,3 +112,23 @@ TUI 不使用 ratatui 的 `CrosstermBackend`，改用 `crates/whcode-tui/src/row
 V-003 证据（2026-10-23）：`artifacts/tui-v003-2026-10-23/summary.json`（10 项自动检查全过）、
 `s1-01-startup.txt` 至 `s3-after-kill.txt` 逐帧文本、`window.png` 像素截图、
 `resize-probe.txt`（ConPTY 下 `SetConsoleWindowInfo` 恒返回 87，改用窗口像素尺寸触发真实 resize）。
+
+## 8. ensure-frontend-parity 变更预告（本节能力交付后生效）
+
+以下为已立项变更（FR-619—625、ADR-032）的目标行为，**交付前不得按已实现使用**；
+交付时由实现任务回填本文并更新 §3／§4 的现状口径。
+
+- **写操作与确认**（FR-623）：会话 new／rename／archive／delete、任务 retry／abort、
+  清理 purge 经 `whcode-app::commands` 门面执行（前端不触库、不自行判权）；破坏性命令
+  先预览后确认，取消确认不改变数据库状态、不写执行审计；无执行器时动作显式提示
+  `not_supported`，不静默无响应。具体键位由实现任务定案并回填本文（不占用既有
+  `q`／`1`—`6`／`j`／`k`／`r`）。
+- **`t` 四主题循环**（FR-625）：`t` 键运行时循环 `amoled-night`→`eink-day`→
+  `eink-night`→`terminal-green` 四步回原位，色值与 FR-612／FR-713 精确一致，
+  不要求重启；默认仍取 `ui.theme`／`WHCODE_UI_THEME`。交付前 §3“无运行时主题切换键”
+  仍为现状。
+- **游标刷新**（FR-624）：`ViewSource` 增加游标查询；TUI 空闲时低频检查游标
+  （间隔 ≥1000 ms、常量命名并测试断言；查询 O(1)），仅游标推进时置脏并重绘一帧，
+  游标未变零重绘；不新增常驻线程、不做周期性全量重绘（FR-613／FR-617 纪律不变）；
+  其他端产生的更改自动可见；空闲 CPU 复测不回归 NFR-205 基线
+  （`script/measure_resources.py`）。

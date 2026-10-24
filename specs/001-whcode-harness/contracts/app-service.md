@@ -34,6 +34,25 @@
 3. 权限拒绝、阶段门禁失败、能力缺失均返回**结构化错误**，不得静默降级或跳过
 4. 涉及外部副作用的操作遵循"意图—执行—登记"（ADR-007）：意图与检查点先提交
 
+### 2.1 能力登记表与四端状态（FR-619—621、ADR-032）
+
+命令面由 `whcode-app::surface` 的机器可读登记表定义为单一事实源，本节命令清单与
+`docs/matrices/feature-parity.md` 均以它为校验基准。每条登记包含：
+
+| 字段 | 说明 |
+|---|---|
+| `SurfaceId` | 稳定唯一标识（命令／视图） |
+| `SurfaceKind` | Command／View |
+| `Capability` | 执行所需能力（经 `authz::require` 统一判定，四端不得自行判权） |
+| `EffectClass` | Read／Write／Destructive |
+| `Confirmation` | None／PreviewConfirm／ReasonRequired |
+| `Audit` | 是否强制审计 |
+| 四端状态 | CUI／TUI／GUI／Web 各自为：已实现（带前端锚点）／已排除（理由码 + 锚点）／预留（里程碑）／不适用 |
+
+四态判定表与理由码全表见 ADR-032；登记为排除或预留的能力在该端被调用时按 §4 返回
+`not_supported`。任何前端不得在登记表之外自行宣布支持或不支持某能力；矩阵文件由
+登记表校验，手工漂移即对等门禁失败。
+
 ## 3. 状态快照（四端同源）
 
 字段与语义见 [state-snapshot.md](./state-snapshot.md)；快照必须携带 `schema_version`、`event_cursor`，使前端可用游标增量补齐（FR-202/605）。
@@ -48,6 +67,7 @@
 | 运行时能力不足 | 错误 `code=runtime_unavailable` + 安装/替代建议 | FR-708/710 |
 | 写者队列饱和 | 关键命令 `code=backpressure`（`retryable=true`） | R-04、§7.3-2 |
 | 外部操作不确定 | 状态 `unknown` + 核对/幂等重试/人工决策提示 | FR-410 |
+| 登记为预留或排除的能力在该端被调用 | 错误 `code=not_supported`，`retryable=false`，`details` 含 `surface_id`、`state`（reserved／excluded）与 `milestone` 或 `reason_code`；CUI 退出码 55，Web 返回 HTTP 501 + 同码 JSON 信封；**未登记路径仍为 404**，不得以 404 或静默成功掩盖已登记能力的不可用 | FR-620、ADR-032 |
 
 ## 5. 内部接口语义（§8.4，trait 签名留实现设计）
 

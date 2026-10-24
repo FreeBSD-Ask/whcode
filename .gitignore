@@ -37,6 +37,8 @@
 !/artifacts/web-nojs-check-2026-10-24.json
 # Web 运行时取证（真实 Firefox：最小化可见性、动效开关、GPU 禁用）是 Check 220/227/228 的判定依据。
 !/artifacts/web-runtime-2026-10-24/
+# Check 47 的 NFR-203 复跑输出（10 万事件 ×2 会话、20 次切换）。
+!/artifacts/check47-switch-100k-2026-10-24.txt
 # M0 退出报告是治理交付物（tasks.md T031、§12.2），必须随仓库版本化。
 
 # 工作区数据库与 WAL（运行时产物，不进版本库）
@@ -57,3 +59,4 @@ __pycache__/
 /state/
 # IDE／代理工具的本机状态目录
 /.trae/
+/.zcode/

@@ -12,6 +12,7 @@ whcode
   run --session ID [--model MODEL] [--trace-level LEVEL]
   status [--json]
   task list|show|retry|abort
+  context budget --session ID [--budget N]
   spec status|next|validate|analyze|converge|force-advance
   events list|show|export --session ID [--after SEQ] [--format jsonl]
   db stats|check|purge --before TS|checkpoint [--threshold V] [--autocheckpoint V]|compact|archive --export PATH|restore --from PATH --yes|explain QUERY
@@ -26,6 +27,17 @@ whcode
 ```
 
 实现时必须统一参数命名、退出码、错误 JSON 与 `--json` 语义；破坏性命令需支持 dry-run 或确认机制（§8.1）。
+
+四端对等接线说明（FR-619—623、ADR-032）：
+
+- `context budget` 输出与 `whcode_app::load_context` 同源：JSON 含 `schema_version`、预算、
+  来源、截断原因与游标（FR-105／108）。
+- `runtime list` 输出与 Web `/api/runtimes` 同形（`schema_version`、`wired`、`runtimes`，
+  状态名不翻译）；`runtime status|enable|disable|install` 为预留命令。
+- 保留命令（`spec next|validate|analyze|converge|force-advance`、`events show`、`llm run`
+  等应用层或前端接线未交付项）统一返回 `not_supported` 信封：退出码 **55**，`details` 含
+  `surface_id`、`state`（reserved／excluded）与 `milestone` 或 `reason_code`（FR-620、
+  ADR-032）；不静默成功、不伪装成 404 语义（`not_found` 仍留给未登记路由）。
 `gui` 为装配根入口（与 `serve` 同层）：只读六视图，非交互、无 stdout 协议，退出码 0/1（FR-711）。
 `gui` 的按键：`1`—`6` 切视图、`j`/`k` 上下选择会话、`r` 刷新、`t` 循环四套主题（不重启，FR-713）、
 `q`／`Esc` 退出。
@@ -39,6 +51,29 @@ HKCU 注册（显式、可逆，`uninstall` 撤销）；`install` 输出 Windows
 1. `db vacuum` 不作为通用空间回收承诺：可提供与 DuckDB 原生命令一致的子命令，但必须提示其语义与局限；用户关心的磁盘压缩能力命名为 `db compact`（FR-510、R-09）
 2. 数据库命令不接受任意未受控 SQL 作为默认公开 API；`db explain` 只运行只读查询或内部预定义模板，并实施超时与输出限制
 3. `spec force-advance` 必须要求 `--reason`，且只用于明确列出的门禁；不得绕过完整性或安全约束而不留下审计（FR-312）
+
+### 退出码表（稳定契约，含 55）
+
+| 退出码 | 语义 |
+|---|---|
+| 0 | 成功 |
+| 2 | 用法／参数错误（clap 解析失败） |
+| 10 | `permission_denied` |
+| 20 | `gate_failed` |
+| 30 | `runtime_unavailable` |
+| 40 | `backpressure` |
+| 50 | `invalid_state` |
+| 55 | `not_supported`——已登记但该端不提供（预留或已登记排除），`retryable=false`（FR-620、ADR-032） |
+| 60 | `not_found`（未登记路由／实体不存在） |
+| 70 | `io_error` |
+| 80 | `parse_error` |
+| 90 | `timeout` |
+| 99 | `internal` |
+
+55 为 ensure-frontend-parity 变更新增：稳定码，介于 50（状态异常）与 60（不存在）之间——
+“已登记但该端不提供”在语义上介于两者之间。CUI 保留命令退出码由 50 改为 55 属 BREAKING
+行为变更，CHANGELOG 须标注并附脚本迁移说明（按 55 判“端未提供”，按 404 判“路由不存在”）；
+码表同步 `docs/guides/cui-manual.md`。
 
 ## 3. 输出契约
 

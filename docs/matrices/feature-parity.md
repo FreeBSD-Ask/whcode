@@ -20,10 +20,18 @@ ADR-023）。**无 JS 只读兜底（2026-10-24）**：首页服务端直出 `<n
 CUI 列以 `crates/whcode-bin/src/cui_dispatch.rs` 的分支与“未接线”清单为准（`run`、`events show`、
 `spec next/validate/analyze/converge/force-advance`、`runtime *`、`db checkpoint` 明确未接线）
 
-| 域 | 命令 | app 层（API） | CUI | TUI | Web | 依据 |
-|---|---|---|---|---|---|---|
+**登记表校验（ensure-frontend-parity，2026-10-24）**：本矩阵自该变更起改为**受校验产物**——
+`whcode-app::surface` 能力登记表是唯一事实源，对等契约测试解析本表并与登记表逐行比对
+（含 GUI 列与 Surface 列），任何手工漂移即门禁失败（FR-619—621、ADR-032、D-17）。
+在本变更收口前，本表仍是手工状态快照；逐行重写由登记表任务（T171.4）按登记表统一执行。
+
+**GUI 列（占位）**：表头已预留 GUI 列，行内容由 T171.4 按登记表统一补齐；当前 GUI 为只读
+六视图（FR-711），全部写命令登记 `GUI_READ_ONLY_V1`（ADR-032）。
+
+| 域 | 命令 | app 层（API） | CUI | TUI | Web | 依据 | GUI |
+|---|---|---|---|---|---|---|---|
 | session | new/list/show/rename/archive | ✅（M2/T046） | ✅（T084/T085 调度） | 🚧 列表只读 + 选择 | 🚧 列表只读（可点击选择） | FR-101 |
-| session | delete（预览+确认+审计） | ✅（M2/T046） | ✅（dry-run 默认 + `--yes`） | 🚧 | ⛔ | FR-101、FR-509 |
+| session | delete（预览+确认+审计） | ✅（M2/T046） | ✅（dry-run 默认 + `--yes`） | 🚧 | ✅（T110—T114 批次，Check 93/183 补录） | FR-101、FR-509 |
 | session | switch（有界加载） | ✅（M2/T047） | 🚧（无独立子命令，随 `--session` 生效） | 🚧 | ⛔ | FR-102、V-101 |
 | task | list/show（详情五类） | ✅（M2/T048/T049） | ✅ | ✅ 总览 + 活跃（只读） | ✅ 总览 + 活跃（只读） | FR-103/104 |
 | task | retry/abort | ✅（M2/T052） | ✅ | 🚧 | ⛔ | FR-401/408 |

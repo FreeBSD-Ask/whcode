@@ -1,4 +1,4 @@
-# 决策台账（D-01—D-15）
+# 决策台账（D-01—D-17；D-16 由并行变更 add-real-llm-provider 预留）
 
 本文件记录 tasks.md T030 要求的决策点、结论、证据引用与责任人。状态取值：**已决策**（方向已批准）、**待验证**（结论未取得证据）、**已修订**（原结论被正式修订）。责任人以角色标注，具名责任人待项目排期后回填。
 
@@ -21,6 +21,7 @@
 | D-13 | 平台承诺修订 | OpenBSD 与 DragonFly BSD **不再作为原生安装目标**，改为经 WHCode 内置 SSH 客户端控制；`whcode-ssh` 职责扩展为“客户端 + 服务端”，完整能力属 M7；V-004 判据改为“FreeBSD/NetBSD 服务端验收 + 四平台客户端连通性/命令执行证据”；M0 仅交付客户端风险原型，四平台无节点证据 | `docs/adr/ADR-011-platform-commitment-revision.md`；`docs/adr/ADR-DB-BUILD.md`；`docs/matrices/platform-matrix.md`；`spec.md` FR-607、FR-611 | 平台矩阵负责人 | 已决策 |
 | D-14 | 平台范围收敛 | **Windows 11 amd64 为唯一验收目标**；不考虑任何 32 位平台；FreeBSD/NetBSD/OpenBSD/DragonFly 全部**延后**（保留代码与文档，不验收；BSD CI 改为手工触发）。恢复任一平台须新 ADR 并补齐完整证据链 | `docs/adr/ADR-013-platform-scope-windows-only.md`；`docs/matrices/platform-matrix.md`；`spec.md` US1、Assumptions；`.github/workflows/platform-*.yml` | 平台矩阵负责人 | 已决策 |
 | D-15 | GUI 形态（铁律） | **已决策（2026-10-23，用户指令）**：桌面 GUI 必须**原生**（平台原生控件或自绘渲染）；**禁止浏览器套壳**——WebView／WebView2、CEF、Tauri／wry、Electron、NW.js，以及“自绘窗口 + 内嵌 Web UI”等价形态一律禁止；`whcode-web` 只作独立浏览器前端（FR-603）。GUI 当前无 FR，落地前须先立需求与 ADR，并给资源、三套主题、无障碍与能力矩阵扩列证据 | `docs/adr/ADR-026-native-gui-only.md`；`docs/adr/ADR-014-minimal-frontend.md`；`docs/adr/ADR-004.md`；`AGENTS.md` §1／§6／§8 | UI 与前端负责人 | 已决策（铁律） |
+| D-17 | 四端对等门禁与差异登记 | **已决策（2026-10-24，G2）**：CUI／TUI／GUI／Web 对等按业务能力、权限、状态迁移、错误语义、可审计性五维判定（视觉与交互不判等）；能力登记表（`whcode-app::surface`）为单一事实源，每能力每端只有已实现／已排除／预留／不适用四态；差异只用 ADR-032 理由码登记（如 `GUI_READ_ONLY_V1`、`CLI_LOCAL_ADMIN`、`RESERVED_MILESTONE`）；矩阵改为登记表受校验产物；预留／排除能力被调用返回结构化 `not_supported`（CUI 退出码 55／Web HTTP 501），未登记路径仍 404。实现归属 ensure-frontend-parity 变更（T168—T181） | `docs/adr/ADR-032-frontend-parity-and-intended-differences.md`；ADR-009 修订记录（2026-10-24）；`.trae/specs/ensure-frontend-parity/spec.md`；`specs/001-whcode-harness/spec.md` 前端四端对等节（预留编号 619—625） | 前端对等负责人 | 已决策 |
 
 ## 与 ADR 的对应关系
 
@@ -39,6 +40,7 @@
 | D-13 | ADR-011 | 平台承诺修订 |
 | D-14 | ADR-013 | 平台范围收敛（Windows 11 amd64 唯一验收目标） |
 | D-15 | ADR-026 | GUI 必须原生；禁止浏览器套壳（铁律） |
+| D-17 | ADR-032 | 四端对等门禁与差异登记；D-16／ADR-031 由并行变更 add-real-llm-provider 预留，两变更不得对 `llm.run` 状态各自表述 |
 
 ## 维护纪律
 
@@ -59,5 +61,12 @@
 | R-11（性能实现） | ADR-020：默认系统分配器，替换须基准证明 | D-11、T117 |
 | R-12（性能预算） | **部分解除**：ADR-025 已在 Windows 11 amd64 冻结（NFR-208/210 达标）；未测项仍候选，T115/T116 保持阻塞 | `compatibility.md` 已知限制、`docs/adr/ADR-025-performance-budget-freeze.md` |
 | 新增 R-13（自动提交工具扰动） | 仓库 git 历史被外部自动提交拆碎（英文消息、中间态提交）——建议关闭工具并 squash | 2026-10-22 会话记录 |
+
+## ensure-frontend-parity 更新（2026-10-24，T168）
+
+| 风险 | 等级 | 缓解 | 失效条件 |
+|---|---|---|---|
+| R-14 登记表维护税：每个新命令需同步登记表 ×4 端状态 + 矩阵 | 中 | 门禁自动化把“漏登记”转为测试失败（编译/测试期拦截，不靠评审记忆）；矩阵由登记表校验而非手工编辑 | 登记表与清单漂移却门禁通过（负向自测失效） |
+| R-15 commands 门面迁移回归面：CUI／Web 写命令改道门面触及已验收行为（Check 46/93） | 高 | 迁移前后共用同一批既有测试（CUI 信封、Web 写路由、行为等价夹具）；响应字段与 CLI 参数保持不变 | 任一既有验收测试因迁移失败且无法等价修复 |
 
 每 PR 清单检查（§15 七项）在 `docs/guides/pr-checklist.md` 维持。

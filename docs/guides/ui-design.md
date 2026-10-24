@@ -45,6 +45,20 @@
   `eink-day`（最保守、最省电）。TUI 侧由 `whcode-tui` 的 `draw_frame` 应用精确色值
   （测试断言渲染单元背景精确为 `#000000`/`#FFFFFF`）。
 
+### 3.1 Web 四主题 CSS 变量与选择器（ensure-frontend-parity 交付后生效）
+
+Web 前端当前只有基础主题、未实现切换（见上）；以下为 ensure-frontend-parity 变更的
+目标口径，**交付前不得按已实现理解**：
+
+- 主题经 `<html data-theme="...">` 承载，四套选择器各定义同名 CSS 变量，精确色值与 §3
+  表一致：`eink-day`（`--bg:#FFFFFF`／`--fg:#000000`）、`eink-night`（`#000000`／
+  `#FFFFFF`）、`amoled-night`（`#000000`／`#E6E6E6`）、`terminal-green`（`#000000`／
+  `#00FF00`）；
+- 切换只改 `data-theme` 属性与 CSS 变量，不刷新页面；支持 `?theme=<名>` 显式覆盖；
+- 默认主题取配置 `ui.theme`，`WHCODE_UI_THEME` 可覆盖（非法值警告并回落，不拒绝启动）；
+- 保持无框架、无第三方字体、无 WebGL／视频；四套主题下仍须通过首屏 JS／CSS／DOM
+  预算（`ci/benchmarks/check-frontend-budget.py`，FR-618）。
+
 ## 4. 排版与尺寸
 
 - 字体：Web 与 TUI 使用系统等宽字体栈（Web 不加载第三方字体）；原生 GUI 使用仓库内置的
