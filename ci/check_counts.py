@@ -14,6 +14,37 @@ CHECKLIST = ROOT / "specs" / "001-whcode-harness" / "checklist.md"
 PROCESS = ROOT / "docs" / "guides" / "software-engineering-process.md"
 
 
+def check_task_check_consistency(checklist: str, tasks_text: str) -> list[str]:
+    """任务↔Check 联动校验（2026-10-24 全局复核后加入）。
+
+    只校验强不一致方向：检查点已取证通过（`[x]`），而组织行映射的对应任务仍未
+    勾选——取证以任务交付为前提，该状态即登记漏勾（实测两例：T124、T158）。
+    反向（任务已勾、检查点待取证）是合法中间态，不校验。
+    映射来自 checklist 组织行（第一层实现完整性与第六层事务语义的区间声明）；
+    区间不等长或无 "Task" 前缀的条目按截断/跳过处理——只少校验、不误报。
+    """
+    failures: list[str] = []
+    org = re.search(r"\*\*组织\*\*：(.+?)→ 第二层", checklist, re.S)
+    if not org:
+        return ["未找到组织行，无法做任务↔Check 映射校验"]
+    mapping: dict[int, int] = {}
+    for m in re.finditer(r"Check (\d+)(?:—(\d+))? 对应 Task T(\d+)(?:—T(\d+))?", org.group(1)):
+        c1, c2, t1, t2 = int(m.group(1)), m.group(2), int(m.group(3)), m.group(4)
+        c_hi = int(c2) if c2 else c1
+        t_hi = int(t2) if t2 else t1
+        for c, tk in zip(range(c1, c_hi + 1), range(t1, t_hi + 1)):
+            mapping[c] = tk
+    checked_checks = {int(n) for n in re.findall(r"^- \[x\] Check (\d+):", checklist, re.M)}
+    checked_tasks = {int(n) for n in re.findall(r"^- \[x\] T(\d+)", tasks_text, re.M)}
+    for c in sorted(checked_checks):
+        task = mapping.get(c)
+        if task is not None and task not in checked_tasks:
+            failures.append(
+                f"Check {c} 已取证通过，但对应任务 T{task:03d} 未勾选（登记漏勾）"
+            )
+    return failures
+
+
 def main() -> int:
     spec = SPEC.read_text(encoding="utf-8")
     tasks = TASKS.read_text(encoding="utf-8")
@@ -36,6 +67,7 @@ def main() -> int:
         return 1
 
     failures: list[str] = []
+    failures += check_task_check_consistency(checklist, tasks)
 
     def expect(pattern: str, source: str, key: str, label: str) -> None:
         matches = re.findall(pattern, source)
