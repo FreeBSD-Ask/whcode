@@ -304,6 +304,7 @@ pub fn handle_request(
         request,
         actor,
         None,
+        "zh-CN",
     )
 }
 
@@ -311,6 +312,9 @@ pub fn handle_request(
 ///
 /// `runtimes` 为装配根预先序列化的声明数组（`whcode-bin::runtimes::inventory`）；
 /// `None` 表示未注入——响应仍为 200，但 `wired=false`，便于把“没接线”与“没有运行时”区分开。
+/// `default_locale` 为装配根解析的语言默认值（FR-625 链：`ui.locale` → `WHCODE_UI_LOCALE`
+/// → LANG/LC_ALL → zh-CN）；`?locale=` 与 Accept-Language 在其上显式覆盖。
+#[allow(clippy::too_many_arguments)] // 8 个参数是正交的请求上下文；拆分公共结构会波及所有前端调用点
 pub fn handle_request_with_runtimes(
     conn: &mut Connection,
     auth_enabled: bool,
@@ -319,6 +323,7 @@ pub fn handle_request_with_runtimes(
     request: &HttpRequest,
     actor: &Actor,
     runtimes: Option<&serde_json::Value>,
+    default_locale: &str,
 ) -> HttpResponse {
     // 认证 + Origin（§10.2、V-110）。
     if let Err(error) = security::check_auth(auth_enabled, token, request.header("authorization")) {
@@ -340,12 +345,12 @@ pub fn handle_request_with_runtimes(
         Method::Get => "GET",
         Method::Post => "POST",
     };
-    if let Some(surface_id) = crate::surface_map::surface_of(method_str, &request.path) {
-        if let Some(entry) = whcode_app::surface::find(surface_id) {
-            let support = entry.support(FrontendId::Web);
-            if matches!(support, Support::Reserved { .. } | Support::Excluded { .. }) {
-                return not_supported_response(surface_id, support);
-            }
+    if let Some(surface_id) = crate::surface_map::surface_of(method_str, &request.path)
+        && let Some(entry) = whcode_app::surface::find(surface_id)
+    {
+        let support = entry.support(FrontendId::Web);
+        if matches!(support, Support::Reserved { .. } | Support::Excluded { .. }) {
+            return not_supported_response(surface_id, support);
         }
     }
 
@@ -445,9 +450,7 @@ pub fn handle_request_with_runtimes(
                         return error_response(&WhError::invalid_state("budget 不得为 0"));
                     }
                     Err(_) => {
-                        return error_response(&WhError::parse_error(
-                            "budget 取值不是非负整数",
-                        ));
+                        return error_response(&WhError::parse_error("budget 取值不是非负整数"));
                     }
                 },
                 None => whcode_app::DEFAULT_CONTEXT_BUDGET_TOKENS,
@@ -515,9 +518,7 @@ pub fn handle_request_with_runtimes(
                 .unwrap_or(0);
             let format = query_value("format").unwrap_or("json");
             if format != "json" && format != "jsonl" {
-                return error_response(&WhError::parse_error(
-                    "format 仅支持 json 与 jsonl",
-                ));
+                return error_response(&WhError::parse_error("format 仅支持 json 与 jsonl"));
             }
             let limit = match query_value("limit") {
                 Some(raw) => match raw.parse::<usize>() {
@@ -528,14 +529,20 @@ pub fn handle_request_with_runtimes(
                         ));
                     }
                     Err(_) => {
-                        return error_response(&WhError::parse_error(
-                            "limit 取值不是非负整数",
-                        ));
+                        return error_response(&WhError::parse_error("limit 取值不是非负整数"));
                     }
                 },
                 None => 1000,
             };
-            match whcode_app::events_export(conn, &policy, actor, session, after, limit, TraceLevel::default()) {
+            match whcode_app::events_export(
+                conn,
+                &policy,
+                actor,
+                session,
+                after,
+                limit,
+                TraceLevel::default(),
+            ) {
                 Ok(export) => {
                     if format == "jsonl" {
                         let header = serde_json::json!({
@@ -566,10 +573,7 @@ pub fn handle_request_with_runtimes(
                             body: lines.join("\n").into_bytes(),
                         }
                     } else {
-                        HttpResponse::json(
-                            200,
-                            &serde_json::to_value(&export).unwrap_or_default(),
-                        )
+                        HttpResponse::json(200, &serde_json::to_value(&export).unwrap_or_default())
                     }
                 }
                 Err(error) => error_response(&error),
@@ -596,7 +600,7 @@ pub fn handle_request_with_runtimes(
                 .filter(|locale| !locale.is_empty())
                 .map(str::to_string)
                 .or_else(|| preferred_locale(request))
-                .unwrap_or_else(|| "zh-CN".to_string());
+                .unwrap_or_else(|| default_locale.to_string());
             let texts = whcode_domain::i18n::I18n::load(
                 &locale,
                 whcode_domain::i18n::LocaleSource::Explicit,
@@ -977,6 +981,7 @@ mod tests {
             &req,
             &actor,
             Some(&inventory),
+            "zh-CN",
         );
         assert_eq!(response.status, 200);
         let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
@@ -1131,7 +1136,11 @@ mod tests {
             false,
             None,
             &security::ALLOWED_ORIGINS,
-            &request(Method::Get, "/api/events/export?session=S-1&format=jsonl", false),
+            &request(
+                Method::Get,
+                "/api/events/export?session=S-1&format=jsonl",
+                false,
+            ),
             &actor,
         );
         assert_eq!(response.status, 200);
@@ -1158,7 +1167,11 @@ mod tests {
             false,
             None,
             &security::ALLOWED_ORIGINS,
-            &request(Method::Get, "/api/events/export?session=S-1&format=csv", false),
+            &request(
+                Method::Get,
+                "/api/events/export?session=S-1&format=csv",
+                false,
+            ),
             &actor,
         );
         assert_eq!(response.status, 400, "未知 format 拒绝");

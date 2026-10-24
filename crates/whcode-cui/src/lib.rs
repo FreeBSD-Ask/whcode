@@ -20,6 +20,7 @@ pub mod context_cmd;
 pub mod events_cmd;
 pub mod output;
 pub mod spec_cmd;
+pub mod surface_map;
 
 /// 测试夹具用迁移 SQL（include_str，不引入 store 依赖——分层门禁禁止前端触库）。
 #[cfg(test)]

@@ -22,6 +22,11 @@ pub enum ErrorCode {
     Backpressure,
     /// 当前状态不允许该操作。
     InvalidState,
+    /// 已登记能力在该端不提供（预留或已登记排除；FR-620、ADR-032）。
+    ///
+    /// 语义介于 `invalid_state`（状态异常）与 `not_found`（不存在）之间：能力已登记、
+    /// 路由/命令存在，但该前端按登记表不提供。未知路由仍用 `not_found`，不得混用。
+    NotSupported,
     /// 目标不存在。
     NotFound,
     /// I/O 失败。
@@ -43,6 +48,7 @@ impl ErrorCode {
             Self::RuntimeUnavailable => "runtime_unavailable",
             Self::Backpressure => "backpressure",
             Self::InvalidState => "invalid_state",
+            Self::NotSupported => "not_supported",
             Self::NotFound => "not_found",
             Self::IoError => "io_error",
             Self::ParseError => "parse_error",
@@ -124,6 +130,11 @@ impl WhError {
     /// 状态不允许（不可重试）。
     pub fn invalid_state(message: impl Into<String>) -> Self {
         Self::new(ErrorCode::InvalidState, message)
+    }
+
+    /// 该端不提供已登记能力（不可重试；FR-620、ADR-032）。
+    pub fn not_supported(message: impl Into<String>) -> Self {
+        Self::new(ErrorCode::NotSupported, message)
     }
 
     /// 解析失败。
@@ -222,6 +233,64 @@ mod tests {
             ErrorCode::RuntimeUnavailable.as_str(),
             "runtime_unavailable"
         );
+    }
+
+    /// `not_supported` 序列化稳定（FR-620、contracts/cui-cli.md §2 退出码表 55）：
+    /// 字符串与既有码互异，`retryable` 默认 `false`。
+    #[test]
+    fn not_supported_serializes_stably_and_differs_from_existing_codes() {
+        assert_eq!(ErrorCode::NotSupported.as_str(), "not_supported");
+        let serialized = serde_json::to_value(ErrorCode::NotSupported).expect("序列化");
+        assert_eq!(serialized, json!("not_supported"));
+        let others: Vec<&str> = [
+            ErrorCode::PermissionDenied,
+            ErrorCode::GateFailed,
+            ErrorCode::RuntimeUnavailable,
+            ErrorCode::Backpressure,
+            ErrorCode::InvalidState,
+            ErrorCode::NotFound,
+            ErrorCode::IoError,
+            ErrorCode::ParseError,
+            ErrorCode::Timeout,
+            ErrorCode::Internal,
+        ]
+        .iter()
+        .map(|code| code.as_str())
+        .collect();
+        assert!(
+            !others.contains(&"not_supported"),
+            "not_supported 必须与既有错误码互异：{others:?}"
+        );
+        let error = WhError::not_supported("该端未提供");
+        assert_eq!(error.code, ErrorCode::NotSupported);
+        assert!(!error.retryable, "端不提供语义默认不可重试（FR-620）");
+
+        // 反序列化往返稳定。
+        let round_trip: ErrorCode =
+            serde_json::from_value(json!("not_supported")).expect("反序列化");
+        assert_eq!(round_trip, ErrorCode::NotSupported);
+    }
+
+    /// `not_supported` 错误信封：schema_version + 四字段，details 恒有键。
+    #[test]
+    fn not_supported_envelope_carries_four_fields() {
+        let envelope = ErrEnvelope::new(WhError::not_supported("该能力未在此端提供").with_details(
+            json!({
+                "surface_id": "runtime.status",
+                "state": "reserved",
+                "milestone": "M8",
+            }),
+        ));
+        let value = serde_json::to_value(&envelope).expect("序列化");
+        assert_eq!(value["schema_version"], json!(SCHEMA_VERSION));
+        assert_eq!(value["code"], json!("not_supported"));
+        assert_eq!(value["retryable"], json!(false));
+        for field in ["code", "message", "retryable", "details"] {
+            assert!(value.get(field).is_some(), "错误对象必须含 {field}");
+        }
+        assert_eq!(value["details"]["surface_id"], json!("runtime.status"));
+        assert_eq!(value["details"]["state"], json!("reserved"));
+        assert_eq!(value["details"]["milestone"], json!("M8"));
     }
 
     #[test]

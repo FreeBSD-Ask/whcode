@@ -29,6 +29,7 @@ mod render;
 mod rowbackend;
 mod session;
 mod state;
+pub mod surface_map;
 mod theme;
 
 /// 只读视图模型已下沉到应用层（T150）：TUI 与原生 GUI 共用同一份快照契约。

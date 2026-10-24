@@ -10,8 +10,10 @@
 //! 会话定位：契约 §1 要求显式 `--session`/`--task`——**不设隐式"当前会话"**，
 //! 避免脚本路径依赖隐藏状态。
 //!
-//! 未接线命令（`run`、`events show`、`spec next/validate/analyze/converge/force-advance`、
-//! `runtime *`）：显式返回错误并说明原因（不静默成功）；`serve`/`doctor` 由主入口处理。
+//! 保留命令（`run`、`events show`、`spec next/validate/analyze/converge/force-advance`、
+//! `runtime status/enable/disable/install`）：统一返回 `not_supported`（退出码 55，
+//! FR-620、ADR-032），details 由登记表（`whcode_app::surface`）驱动——`surface_id`、
+//! 本端状态与里程碑/理由码；不静默成功、不伪装成 404 语义；`serve`/`doctor` 由主入口处理。
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -19,10 +21,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use duckdb::Connection;
 use serde_json::{Value, json};
+use whcode_app::surface::{FrontendId, Support};
 use whcode_app::{Actor, DefaultPolicy, NewSession, actor_with_all_capabilities};
 use whcode_cui::cli::{
-    Command, DbCommand, EventsCommand, FontCommand, ParseOutcome, SessionCommand, SpecCommand,
-    TaskCommand, parse_outcome,
+    Command, ContextCommand, DbCommand, EventsCommand, FontCommand, ParseOutcome, RuntimeCommand,
+    SessionCommand, SpecCommand, TaskCommand, parse_outcome,
 };
 use whcode_cui::output::{EXIT_USAGE, error_envelope, error_exit_code, success_envelope};
 use whcode_domain::i18n::{I18n, detect_locale};
@@ -34,6 +37,10 @@ use crate::workspace;
 
 /// 单次 CUI 命令的最大事件条数（与 store 分页上限一致）。
 const EVENTS_PAGE_LIMIT: usize = 1000;
+
+/// 上下文展示预算（token 数；与 TUI 上下文视图 `store_source::CONTEXT_DISPLAY_BUDGET`
+/// 同口径 4096——`context budget` 缺省 `--budget` 时使用）。
+const CONTEXT_DISPLAY_BUDGET: usize = 4096;
 
 /// `whcode <command>` 入口：解析 → 执行 → 输出（返回进程退出码）。
 pub fn dispatch(args: &[String]) -> ExitCode {
@@ -182,6 +189,9 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
         Command::Task { command } => {
             task_command(command, workspace, &config, &policy, &actor, now, texts)
         }
+        Command::Context { command } => {
+            context_command(command, workspace, &config, &policy, &actor)
+        }
         Command::Spec { command } => {
             spec_command(command, workspace, &config, &policy, &actor, texts)
         }
@@ -189,13 +199,12 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
         Command::Db { command } => {
             db_command(command, workspace, &config, &policy, &actor, now, texts)
         }
-        Command::Run { .. } => Err(not_wired(
+        Command::Run { .. } => Err(not_supported(
+            "llm.run",
             "run 未接线：LLM 流式交互需 Provider 与会话流装配（M3 桩已交付，CLI 执行属后续）",
         )),
         Command::Font { command } => font_command(command, texts),
-        Command::Runtime { .. } => Err(not_wired(
-            "runtime 未接线：运行时装配开关（M8）属后续任务，当前不伪造启用状态",
-        )),
+        Command::Runtime { command } => runtime_command(command),
         Command::Serve { .. } => Err(not_wired(
             "serve 由主入口装配：使用 `whcode serve --web [--bind …] [--workspace …]`",
         )),
@@ -205,11 +214,107 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
     }
 }
 
+/// 走错入口的兜底（`serve`/`doctor` 在登记表 CUI 端为已实现，主入口已处理）：
+/// 语义是“入口装配错误”而非“该端不提供”，故保持 `invalid_state`，
+/// 不与 `not_supported`（退出码 55）混用。
 fn not_wired(message: &str) -> WhError {
     WhError::new(
         ErrorCode::InvalidState,
         format!("未实现：{message}（显式失败，不静默成功）"),
     )
+}
+
+/// 统一“该端未提供”错误（FR-620、ADR-032；contracts/cui-cli.md §2 退出码 55）。
+///
+/// details 由登记表驱动（不在本处硬编码第二份状态清单）：`surface_id` 为登记
+/// SurfaceId，`state` 取登记表 CUI 端状态码，预留附 `milestone`、排除附 `reason_code`。
+fn not_supported(surface_id: &str, message: &str) -> WhError {
+    WhError::not_supported(format!("未实现：{message}（显式失败，不静默成功）"))
+        .with_details(registry_details(surface_id))
+}
+
+/// 由登记表构造 `not_supported` 详情：surface_id + CUI 端状态 + 里程碑/理由码。
+fn registry_details(surface_id: &str) -> Value {
+    let Some(entry) = whcode_app::surface::find(surface_id) else {
+        // 未登记面：不伪造状态码（缺 state 即装配错误信号，由测试拦截）。
+        return json!({ "surface_id": surface_id });
+    };
+    let support = entry.support(FrontendId::Cui);
+    let mut details = json!({
+        "surface_id": surface_id,
+        "state": support.state_code(),
+    });
+    match support {
+        Support::Reserved { milestone } => {
+            details["milestone"] = json!(milestone);
+        }
+        Support::Excluded { reason } => {
+            details["reason_code"] = json!(reason.as_str());
+        }
+        _ => {}
+    }
+    details
+}
+
+/// `context` 命令（FR-105/108；T173）：预算视图与 TUI 上下文视图同源
+/// （`whcode_app::load_context`），缺省预算用展示默认口径。
+fn context_command(
+    command: &ContextCommand,
+    workspace: &Path,
+    config: &Config,
+    policy: &DefaultPolicy,
+    actor: &Actor,
+) -> Result<(Value, String), WhError> {
+    let ContextCommand::Budget { session, budget } = command;
+    let budget = budget.unwrap_or(CONTEXT_DISPLAY_BUDGET);
+    let conn = open_db(workspace, config)?;
+    // 缺会话 → NotFound（既有语义，FR-622“正确的空”）：先经应用服务确认会话存在，
+    // 不把“会话不存在”伪装成空的预算窗口。
+    whcode_app::show_session(&conn, policy, actor, session)?;
+    let value = whcode_cui::context_cmd::budget_view(&conn, policy, actor, session, budget)?;
+    let human = format!(
+        "会话 {} · 预算 {} · 已用 {} · 条目 {} · 截断：{} · 游标：{}",
+        session,
+        value["budget_tokens"],
+        value["consumed_budget"],
+        value["items"],
+        value["truncated_reason"].as_str().unwrap_or("无"),
+        value["next_cursor"]["id"].as_str().unwrap_or("无"),
+    );
+    Ok((value, human))
+}
+
+/// `runtime` 命令（FR-701—710；T173）：`list` 与 Web `GET /api/runtimes` 同形
+/// （schema_version/wired/runtimes，能力等级名不翻译）；其余子命令属 M8，
+/// 统一 `not_supported`（退出码 55，FR-620）。清单来自声明读取，不触库。
+fn runtime_command(command: &RuntimeCommand) -> Result<(Value, String), WhError> {
+    match command {
+        RuntimeCommand::List => {
+            // 界面路径不探测子进程（probe=false，Check 101）：只展示声明与不支持项。
+            let value = json!({
+                "schema_version": whcode_domain::SCHEMA_VERSION,
+                "wired": true,
+                "runtimes": crate::runtimes::inventory(false),
+            });
+            Ok((value, crate::runtimes::summary(false)))
+        }
+        RuntimeCommand::Status { name } => Err(not_supported(
+            "runtime.status",
+            &format!("runtime status {name} 属运行时装配开关（M8），当前不伪造启用状态"),
+        )),
+        RuntimeCommand::Enable { name } => Err(not_supported(
+            "runtime.enable",
+            &format!("runtime enable {name} 属运行时装配开关（M8），当前不伪造启用状态"),
+        )),
+        RuntimeCommand::Disable { name } => Err(not_supported(
+            "runtime.disable",
+            &format!("runtime disable {name} 属运行时装配开关（M8），当前不伪造启用状态"),
+        )),
+        RuntimeCommand::Install { name } => Err(not_supported(
+            "runtime.install",
+            &format!("runtime install {name} 属运行时装配开关（M8），当前不伪造启用状态"),
+        )),
+    }
 }
 
 /// HKCU Fonts 键的 reg.exe 实现（glue：`whcode-platform` 提供材料，此处只接线；
@@ -604,12 +709,27 @@ fn spec_command(
             );
             Ok((value, human))
         }
-        SpecCommand::Next { .. }
-        | SpecCommand::Validate { .. }
-        | SpecCommand::Analyze { .. }
-        | SpecCommand::Converge { .. }
-        | SpecCommand::ForceAdvance { .. } => Err(not_wired(
-            "spec 门禁命令需 SDD 产物工作区上下文（specs/ 与 workflow 配置加载）——属后续接线",
+        // SDD 门禁命令（FR-307—312）：应用层已交付但前端接线未排期（登记表预留），
+        // 统一 not_supported（退出码 55），不伪装成 404 或静默成功。
+        SpecCommand::Next { .. } => Err(not_supported(
+            "spec.next",
+            "spec 门禁命令需 SDD 产物工作区上下文（specs/ 与 workflow 配置加载）——接线未排期",
+        )),
+        SpecCommand::Validate { .. } => Err(not_supported(
+            "spec.validate",
+            "spec 门禁命令需 SDD 产物工作区上下文（specs/ 与 workflow 配置加载）——接线未排期",
+        )),
+        SpecCommand::Analyze { .. } => Err(not_supported(
+            "spec.analyze",
+            "spec 门禁命令需 SDD 产物工作区上下文（specs/ 与 workflow 配置加载）——接线未排期",
+        )),
+        SpecCommand::Converge { .. } => Err(not_supported(
+            "spec.converge",
+            "spec 门禁命令需 SDD 产物工作区上下文（specs/ 与 workflow 配置加载）——接线未排期",
+        )),
+        SpecCommand::ForceAdvance { .. } => Err(not_supported(
+            "spec.force-advance",
+            "spec 门禁命令需 SDD 产物工作区上下文（specs/ 与 workflow 配置加载）——接线未排期",
         )),
     }
 }
@@ -672,9 +792,10 @@ fn events_command(
                 Ok((value, human))
             }
         },
-        EventsCommand::Show { event } => Err(not_wired(&format!(
-            "events show {event} 未接线：单事件按 ID 查询的应用服务接口未提供"
-        ))),
+        EventsCommand::Show { event } => Err(not_supported(
+            "events.show",
+            &format!("events show {event} 未接线：单事件按 ID 查询的应用服务接口未提供"),
+        )),
     }
 }
 
@@ -946,9 +1067,15 @@ fn task_json(row: &whcode_store::tasks::TaskRow) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{dispatch_code, execute};
+    use super::{CONTEXT_DISPLAY_BUDGET, dispatch_code, execute, local_actor, not_supported};
     use std::path::PathBuf;
-    use whcode_cui::cli::{Command, FontCommand, SessionCommand, TaskCommand};
+    use whcode_app::surface::{self, FrontendId, Support};
+    use whcode_cui::cli::{
+        Command, ContextCommand, EventsCommand, FontCommand, RuntimeCommand, SessionCommand,
+        SpecCommand, TaskCommand,
+    };
+    use whcode_cui::output::{error_envelope, error_exit_code};
+    use whcode_domain::ErrorCode;
 
     fn temp_workspace(tag: &str) -> PathBuf {
         let dir =
@@ -1100,7 +1227,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&workspace);
     }
 
-    /// 未接线命令显式失败（不静默成功）。
+    /// 保留命令显式失败（不静默成功）：not_supported 语义（FR-620，退出码 55）。
     #[test]
     fn unwired_commands_fail_explicitly() {
         let workspace = temp_workspace("unwired");
@@ -1111,10 +1238,10 @@ mod tests {
                 trace_level: "redacted".into(),
             },
             Command::Runtime {
-                command: whcode_cui::cli::RuntimeCommand::List,
+                command: RuntimeCommand::Status { name: "js".into() },
             },
             Command::Spec {
-                command: whcode_cui::cli::SpecCommand::Next {
+                command: SpecCommand::Next {
                     session: "S-1".into(),
                 },
             },
@@ -1126,8 +1253,394 @@ mod tests {
                 "错误必须标注未实现：{}",
                 err.message
             );
+            assert_eq!(err.code, ErrorCode::NotSupported, "保留命令统一 55 语义");
+            assert_eq!(error_exit_code(&err), 55);
         }
         let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// 全部保留命令的 details 由登记表驱动（FR-620）：surface_id、CUI 端状态、
+    /// 预留里程碑/排除理由码，与 `whcode_app::surface` 一致——不硬编码第二份清单。
+    #[test]
+    fn unavailable_commands_carry_registry_details() {
+        let workspace = temp_workspace("registry-details");
+        let cases = [
+            (
+                Command::Run {
+                    session: "S-1".into(),
+                    model: "stub".into(),
+                    trace_level: "redacted".into(),
+                },
+                "llm.run",
+            ),
+            (
+                Command::Events {
+                    command: EventsCommand::Show {
+                        event: "E-1".into(),
+                    },
+                },
+                "events.show",
+            ),
+            (
+                Command::Spec {
+                    command: SpecCommand::Next {
+                        session: "S-1".into(),
+                    },
+                },
+                "spec.next",
+            ),
+            (
+                Command::Spec {
+                    command: SpecCommand::Validate {
+                        session: "S-1".into(),
+                    },
+                },
+                "spec.validate",
+            ),
+            (
+                Command::Spec {
+                    command: SpecCommand::Analyze {
+                        session: "S-1".into(),
+                    },
+                },
+                "spec.analyze",
+            ),
+            (
+                Command::Spec {
+                    command: SpecCommand::Converge {
+                        session: "S-1".into(),
+                    },
+                },
+                "spec.converge",
+            ),
+            (
+                Command::Spec {
+                    command: SpecCommand::ForceAdvance {
+                        session: "S-1".into(),
+                        to: "plan".into(),
+                        reason: "r".into(),
+                    },
+                },
+                "spec.force-advance",
+            ),
+            (
+                Command::Runtime {
+                    command: RuntimeCommand::Status { name: "js".into() },
+                },
+                "runtime.status",
+            ),
+            (
+                Command::Runtime {
+                    command: RuntimeCommand::Enable { name: "js".into() },
+                },
+                "runtime.enable",
+            ),
+            (
+                Command::Runtime {
+                    command: RuntimeCommand::Disable { name: "js".into() },
+                },
+                "runtime.disable",
+            ),
+            (
+                Command::Runtime {
+                    command: RuntimeCommand::Install { name: "js".into() },
+                },
+                "runtime.install",
+            ),
+        ];
+        for (command, expected_id) in cases {
+            let err = execute(&command, &workspace, &whcode_domain::i18n::I18n::default())
+                .expect_err("保留命令必须显式失败");
+            assert_eq!(error_exit_code(&err), 55, "{expected_id} 退出码 55");
+            let envelope = error_envelope(&err);
+            assert_eq!(envelope.code, "not_supported", "{expected_id}");
+            assert_eq!(
+                envelope.schema_version,
+                whcode_domain::SCHEMA_VERSION,
+                "错误信封必须带 schema_version"
+            );
+            assert!(!envelope.retryable, "{expected_id} 不可重试");
+            assert_eq!(
+                envelope.details["surface_id"], expected_id,
+                "details.surface_id 必须来自命令映射的登记面"
+            );
+            // 状态与里程碑/理由码以登记表为准（CUI 端）。
+            let entry = surface::find(expected_id)
+                .unwrap_or_else(|| panic!("{expected_id} 未登记（not_supported 只认登记面）"));
+            let support = entry.support(FrontendId::Cui);
+            assert_eq!(
+                envelope.details["state"],
+                support.state_code(),
+                "{expected_id} 的 state 必须取登记表状态码"
+            );
+            match support {
+                Support::Reserved { milestone } => {
+                    assert_eq!(envelope.details["milestone"], *milestone);
+                }
+                Support::Excluded { reason } => {
+                    assert_eq!(envelope.details["reason_code"], reason.as_str());
+                }
+                other => panic!("{expected_id} 的 CUI 状态不应为 {other:?}"),
+            }
+        }
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// `--json` 错误路径：保留命令经完整调度输出 not_supported 信封并返回 55。
+    #[test]
+    fn unavailable_commands_exit_55_via_dispatch() {
+        let workspace = temp_workspace("exit-55");
+        let workspace_arg = workspace.display().to_string();
+        let base = ["--workspace", workspace_arg.as_str()];
+        for argv in [
+            vec!["runtime", "status", "--name", "js"],
+            vec!["spec", "next", "--session", "S-1"],
+            vec!["events", "show", "--event", "E-1"],
+            vec!["run", "--session", "S-1"],
+        ] {
+            let mut json_args = vec![base[0], base[1], "--json"];
+            json_args.extend_from_slice(&argv);
+            assert_eq!(
+                dispatch_code(&args(&json_args)),
+                55,
+                "--json 路径退出码 55：{argv:?}"
+            );
+            assert_eq!(
+                dispatch_code(&args(&argv)),
+                55,
+                "文本路径退出码 55：{argv:?}"
+            );
+        }
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// `runtime list`（T173）：与 Web `GET /api/runtimes` 同形——顶层与条目字段集合
+    /// 一致，能力等级名不翻译（full/restricted/shell_only），界面路径不探测子进程。
+    #[test]
+    fn runtime_list_matches_web_runtimes_shape() {
+        let workspace = temp_workspace("runtime-list");
+        let (value, human) = execute(
+            &Command::Runtime {
+                command: RuntimeCommand::List,
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("runtime list");
+        assert_eq!(value["schema_version"], whcode_domain::SCHEMA_VERSION);
+        assert_eq!(value["wired"], true);
+        let entries = value["runtimes"].as_array().expect("runtimes 数组");
+        assert_eq!(entries.len(), 4, "四个运行时（js/python/gitbash/bsdshell）");
+        for entry in entries {
+            let mut keys: Vec<&str> = entry
+                .as_object()
+                .expect("条目对象")
+                .keys()
+                .map(String::as_str)
+                .collect();
+            keys.sort_unstable();
+            assert_eq!(
+                keys,
+                vec!["available", "capability", "name", "unsupported"],
+                "条目字段与 Web 注入的 inventory 同形"
+            );
+            assert!(entry["available"].is_null(), "界面路径不探测子进程");
+            assert!(
+                ["full", "restricted", "shell_only"]
+                    .contains(&entry["capability"].as_str().expect("能力名")),
+                "能力等级名不翻译：{}",
+                entry["capability"]
+            );
+        }
+        assert!(human.contains("js="), "人类可读摘要：{human}");
+
+        // 同形比对：同一 inventory 注入 Web API，顶层与条目字段集合一致。
+        let mut conn = duckdb::Connection::open_in_memory().expect("内存库");
+        let inventory = serde_json::to_value(crate::runtimes::inventory(false)).expect("序列化");
+        let request = whcode_web::api::HttpRequest {
+            method: whcode_web::api::Method::Get,
+            path: "/api/runtimes".to_string(),
+            headers: vec![("origin".to_string(), "http://127.0.0.1".to_string())],
+            body: Vec::new(),
+        };
+        let response = whcode_web::api::handle_request_with_runtimes(
+            &mut conn,
+            false,
+            None,
+            &whcode_web::security::ALLOWED_ORIGINS,
+            &request,
+            &local_actor(),
+            Some(&inventory),
+            "zh-CN",
+        );
+        assert_eq!(response.status, 200);
+        let web: serde_json::Value = serde_json::from_slice(&response.body).expect("Web JSON");
+        let mut web_keys: Vec<&str> = web
+            .as_object()
+            .expect("对象")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        let mut cui_keys: Vec<&str> = value
+            .as_object()
+            .expect("对象")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        web_keys.sort_unstable();
+        cui_keys.sort_unstable();
+        assert_eq!(
+            cui_keys, web_keys,
+            "runtime list 与 Web /api/runtimes 顶层字段必须同形"
+        );
+        for (cui_entry, web_entry) in entries
+            .iter()
+            .zip(web["runtimes"].as_array().expect("Web 数组"))
+        {
+            assert_eq!(cui_entry["name"], web_entry["name"]);
+            assert_eq!(cui_entry["capability"], web_entry["capability"]);
+        }
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// `context budget`（T173，FR-105/108）：缺省预算用展示默认口径；显式 --budget 生效；
+    /// 缺会话 → NotFound（既有语义，不伪装成空窗口）。
+    #[test]
+    fn context_budget_reports_budget_and_missing_session_is_not_found() {
+        let workspace = temp_workspace("context-budget");
+        let created = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "预算命令".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("创建会话");
+        let id = created.0["session"]["id"]
+            .as_str()
+            .expect("会话 ID")
+            .to_string();
+
+        // 缺省 --budget：4096 展示口径；会话存在但无消息 = 正确的空（items 0）。
+        let (value, human) = execute(
+            &Command::Context {
+                command: ContextCommand::Budget {
+                    session: id.clone(),
+                    budget: None,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("预算视图");
+        assert_eq!(value["schema_version"], whcode_domain::SCHEMA_VERSION);
+        assert_eq!(value["budget_tokens"], CONTEXT_DISPLAY_BUDGET);
+        assert_eq!(value["items"], 0);
+        assert_eq!(value["consumed_budget"], 0);
+        assert!(value["sources"].is_array());
+        assert!(human.contains("预算 4096"), "人类可读摘要：{human}");
+
+        // 显式 --budget：透传应用服务（FR-108）。
+        let (value, _) = execute(
+            &Command::Context {
+                command: ContextCommand::Budget {
+                    session: id.clone(),
+                    budget: Some(2048),
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("显式预算");
+        assert_eq!(value["budget_tokens"], 2048);
+
+        // 缺会话：NotFound（退出码 60），不是空的预算窗口。
+        let err = execute(
+            &Command::Context {
+                command: ContextCommand::Budget {
+                    session: "S-404".into(),
+                    budget: None,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect_err("缺会话必须失败");
+        assert_eq!(err.code, ErrorCode::NotFound);
+        assert_eq!(error_exit_code(&err), 60);
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// 同一 SurfaceId 的不可用语义在 CUI 与 Web 同源（FR-620）：Web 守卫返回
+    /// 501 not_supported 信封，CUI 返回 55 not_supported 信封——details 的
+    /// surface_id/state 一致（同一登记表条目驱动，当前守卫面双端均预留）。
+    #[test]
+    fn cui_and_web_unavailable_details_share_registry() {
+        let mut conn = duckdb::Connection::open_in_memory().expect("内存库");
+        for (method, path, id) in [
+            ("GET", "/api/events/show", "events.show"),
+            ("POST", "/api/spec/next", "spec.next"),
+            ("POST", "/api/spec/force-advance", "spec.force-advance"),
+            ("GET", "/api/runtimes/status", "runtime.status"),
+            ("POST", "/api/llm/run", "llm.run"),
+        ] {
+            // Web 侧：守卫 → 501 + not_supported 信封。
+            let request = whcode_web::api::HttpRequest {
+                method: if method == "GET" {
+                    whcode_web::api::Method::Get
+                } else {
+                    whcode_web::api::Method::Post
+                },
+                path: path.to_string(),
+                headers: vec![("origin".to_string(), "http://127.0.0.1".to_string())],
+                body: Vec::new(),
+            };
+            let response = whcode_web::api::handle_request(
+                &mut conn,
+                false,
+                None,
+                &whcode_web::security::ALLOWED_ORIGINS,
+                &request,
+                &local_actor(),
+            );
+            assert_eq!(response.status, 501, "{path} 守卫必须 501");
+            let web: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+            assert_eq!(web["code"], "not_supported", "{path}");
+            assert_eq!(web["retryable"], false, "{path}");
+            assert_eq!(web["schema_version"], whcode_domain::SCHEMA_VERSION);
+            assert_eq!(web["details"]["surface_id"], id, "{path}");
+
+            // CUI 侧：同一 surface_id 的 not_supported 错误信封。
+            let err = not_supported(id, "对等测试");
+            let envelope = error_envelope(&err);
+            assert_eq!(envelope.code, "not_supported", "{id}");
+            assert_eq!(envelope.details["surface_id"], id, "{id}");
+            assert_eq!(
+                envelope.details["state"], web["details"]["state"],
+                "{id} 的 details.state 在 CUI 与 Web 必须一致（同一登记表面）"
+            );
+            assert_eq!(
+                envelope.details["state"], "reserved",
+                "{id} 当前在双端均登记为预留"
+            );
+        }
+    }
+
+    /// not_supported 的登记面必须已登记且 CUI 端为预留/排除（防装配漂移的负向 tripwire）。
+    #[test]
+    fn registry_details_reflect_registry_state() {
+        let details = super::registry_details("runtime.status");
+        assert_eq!(details["surface_id"], "runtime.status");
+        assert_eq!(details["state"], "reserved");
+        assert_eq!(details["milestone"], "M8");
+
+        // 未登记面：不伪造状态（缺 state 即装配错误信号）。
+        let details = super::registry_details("no.such.surface");
+        assert_eq!(details["surface_id"], "no.such.surface");
+        assert!(details.get("state").is_none());
     }
 
     /// `font status`（只读）走真实注册表查询：四份清单固定，信封含目录与终端检测。

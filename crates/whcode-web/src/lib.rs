@@ -15,4 +15,5 @@ pub mod assets;
 pub mod bind;
 pub mod broadcast;
 pub mod security;
+pub mod surface_map;
 pub mod ws;

@@ -11,6 +11,8 @@
 //!
 //! 渲染纪律（§5.3）：帧路径只消费准备阶段生成的纯数据快照，不反序列化 JSON、不查询数据库。
 
+pub mod surface_map;
+
 use std::rc::Rc;
 
 use iced::keyboard::{Key, key};

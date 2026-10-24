@@ -36,6 +36,7 @@ pub mod residency;
 pub mod session;
 pub mod snapshot;
 pub mod stage_role;
+pub mod surface;
 pub mod task;
 pub mod view_source;
 pub mod views;

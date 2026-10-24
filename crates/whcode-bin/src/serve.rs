@@ -219,6 +219,10 @@ struct ServeSecurity {
     token: Option<String>,
     /// Origin 允许集（认证模式生效；回环模式由 `security::ALLOWED_ORIGINS` 兜底）。
     origins: Vec<String>,
+    /// FR-625 默认语言（`ui.locale` → `WHCODE_UI_LOCALE` → LANG/LC_ALL → zh-CN）。
+    default_locale: String,
+    /// FR-612 默认主题（`ui.theme` → `WHCODE_UI_THEME`）。
+    default_theme: String,
 }
 
 impl ServeSecurity {
@@ -229,6 +233,8 @@ impl ServeSecurity {
             auth_enabled: false,
             token: None,
             origins: Vec::new(),
+            default_locale: "zh-CN".to_string(),
+            default_theme: "amoled-night".to_string(),
         }
     }
 }
@@ -305,6 +311,8 @@ fn serve_web(
         auth_enabled,
         token,
         origins,
+        default_locale: config.effective_locale(),
+        default_theme: config.effective_theme().as_str().to_string(),
     };
     serve_loop(listener, &mut conn, actor, security)
 }
@@ -1057,6 +1065,8 @@ fn respond(
     // 三档能力等级（FR-702、Check 101）：只注入声明，不在请求路径启动子进程。
     let runtime_inventory = serde_json::to_value(crate::runtimes::inventory(false))
         .unwrap_or_else(|_| serde_json::Value::Array(Vec::new()));
+    // FR-625 语言链由装配根在启动时解析（`ServeSecurity::default_locale`）；
+    // Web 的 `?locale=` 与 Accept-Language 在该默认值之上显式覆盖。
     let response = api::handle_request_with_runtimes(
         conn,
         security.auth_enabled,
@@ -1065,6 +1075,7 @@ fn respond(
         &request,
         actor,
         Some(&runtime_inventory),
+        &security.default_locale,
     );
     Reply {
         ws_upgrade: is_ws && response.status == 101,
@@ -1086,7 +1097,7 @@ fn index_response(
     security: &ServeSecurity,
 ) -> HttpResponse {
     let body = if security.auth_enabled {
-        assets::render_index_auth_required()
+        assets::render_index_auth_required(&security.default_theme)
     } else {
         let listing = whcode_app::session::list_sessions(
             conn,
@@ -1116,7 +1127,12 @@ fn index_response(
             }
             Err(err) => (Vec::new(), false, Some(err.message)),
         };
-        assets::render_index(&sessions, truncated, error.as_deref())
+        assets::render_index(
+            &sessions,
+            truncated,
+            error.as_deref(),
+            &security.default_theme,
+        )
     };
     HttpResponse {
         status: 200,
@@ -1388,6 +1404,8 @@ mod tests {
             auth_enabled: true,
             token: Some("secret-token".to_string()),
             origins: vec!["http://127.0.0.1".to_string()],
+            default_locale: "zh-CN".to_string(),
+            default_theme: "amoled-night".to_string(),
         };
         let reply = respond(
             &mut conn,
