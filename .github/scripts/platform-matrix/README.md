@@ -2,16 +2,17 @@
 
 平台依赖记录与交叉检查脚本（tasks.md T005/T020/T021；§9、§11.1）。Windows 11 amd64 为唯一验收目标；BSD 延后、仅手工触发（ADR-013）。
 
-**五份 workflow 已迁入 `.github/workflows/`（2026-10-23）**：GitHub Actions 只执行该目录下的文件，
-原先放在本目录的 `.yml` 从未被平台执行（Check 3／249 登记的缺陷）。本目录只保留脚本。
+**一份矩阵 workflow 位于 `.github/workflows/platform-matrix.yml`（2026-10-24 合并）**：
+GitHub Actions 只执行该目录下的文件；矩阵包含 windows/freebsd/netbsd/openbsd/dragonfly
+五个条目，`fail-fast: false` 并行执行，单平台失败不取消其他平台。本目录只保留脚本。
 
-| 文件（`.github/workflows/`） | 平台 | 范围（ADR-013） | 状态 |
-|---|---|---|---|
-| `platform-windows.yml` | Windows 11 x86_64 | **在范围内（唯一验收目标）** | **已接线**；平台执行记录尚未取得（本仓库无远程/runner），本机证据见 `artifacts/install-verify-windows-amd64.txt` 与 `artifacts/m0-report.md` |
-| `platform-freebsd.yml` | FreeBSD x86_64 | 延后 | 保留定义，仅 `workflow_dispatch` 手工触发；不作验收 |
-| `platform-netbsd.yml` | NetBSD x86_64 | 延后 | 同上 |
-| `platform-openbsd.yml` | OpenBSD x86_64 | 延后 | 同上（本就不作原生目标，见 ADR-011） |
-| `platform-dragonfly.yml` | DragonFly x86_64 | 延后 | 同上 |
+| 平台（矩阵条目） | 范围（ADR-013） | 状态 |
+|---|---|---|
+| Windows 11 x86_64 | **在范围内（唯一验收目标）** | 原生 runner；构建、测试、打包与安装验证，证据见 `artifacts/install-verify-windows-amd64.txt` 与 `artifacts/m0-report.md` |
+| FreeBSD x86_64 | 延后 | vmactions VM；push main/dispatch 运行，仅作平台证据 |
+| NetBSD x86_64 | 延后 | vmactions VM；push main/dispatch 运行，仅作平台证据 |
+| OpenBSD x86_64 | 延后 | 仅 `workflow_dispatch` 占位（ADR-011；不作原生目标） |
+| DragonFly x86_64 | 延后 | 同上 |
 
 **32 位平台不在范围内**（ADR-013）：不构建、不测量、不提供承诺。
 

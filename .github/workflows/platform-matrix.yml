@@ -1,0 +1,301 @@
+# 平台矩阵 CI（2026-10-24 用户指令）：原 platform-windows/freebsd/netbsd/openbsd/dragonfly
+# 合并为一个矩阵工作流。
+#
+# 矩阵纪律：
+#   - `fail-fast: false`：任一平台失败**不取消**其他平台；各矩阵条目并行执行。
+#   - Windows 在 windows-latest 原生运行（pull_request + push main + dispatch）。
+#   - FreeBSD/NetBSD 在 ubuntu-latest 的 vmactions VM 中真实运行（push main + dispatch）。
+#   - OpenBSD/DragonFly 仍按 ADR-011/013 仅 workflow_dispatch 占位，不产出原生产物。
+#   - 平台结果只作平台证据，不进入 Windows 11 amd64 验收结论（ADR-013）。
+#
+# 工具链与依赖纪律沿用各平台原注释：
+#   - Windows：不使用 GNU 工具链；构建前必须 `.github/scripts/fetch-duckdb.py`。
+#   - FreeBSD：rustup 安装锁定 1.99.1（不使用 ports 的 rust）；绿路径排除 GUI/DuckDB 依赖。
+#   - NetBSD：pkgin 通过解压官方包引导（不调用 pkg_add），再安装 pkgsrc rust/cmake/ninja。
+name: platform-matrix
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+# Windows runner 控制台默认代码页非 UTF-8；门禁脚本含中文输出，统一强制 Python UTF-8 模式。
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  platform:
+    name: platform-${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    # 保留原触发语义：BSD 不在 PR 上跑；OpenBSD/DragonFly 仅手工触发。
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && matrix.platform != 'openbsd' && matrix.platform != 'dragonfly') ||
+      (github.event_name == 'pull_request' && matrix.platform == 'windows')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            os: windows-latest
+          - platform: freebsd
+            os: ubuntu-latest
+          - platform: netbsd
+            os: ubuntu-latest
+          - platform: openbsd
+            os: ubuntu-latest
+          - platform: dragonfly
+            os: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # ---------------- Windows ----------------
+      - name: CI action 版本门禁（最新版本 + 固定 SHA）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/check-actions.py
+
+      - name: 显示锁定工具链（rust-toolchain.toml）
+        if: matrix.platform == 'windows'
+        run: rustup show
+
+      - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/fetch-duckdb.py
+
+      - name: 构建（锁定依赖图）
+        if: matrix.platform == 'windows'
+        run: cargo build --locked --workspace
+
+      - name: 格式与静态检查（T003）
+        if: matrix.platform == 'windows'
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+
+      - name: 测试（含分层与目录分类契约）
+        if: matrix.platform == 'windows'
+        run: cargo test --locked --workspace
+
+      - name: 运行时 feature 门控测试（T110／ADR-029：默认构建外再验引擎路径）
+        if: matrix.platform == 'windows'
+        run: |
+          cargo test --locked -p whcode-runtime --lib --features runtime-js
+          cargo clippy --locked -p whcode-runtime --lib --features runtime-js -- -D warnings
+
+      - name: 计数一致性（FR/任务/Check）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/check_counts.py
+
+      - name: 三方追溯（FR↔任务↔Check，含缺口登记合规）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/traceability.py
+
+      - name: 前端预算（FR-618／ADR-014）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/benchmarks/check-frontend-budget.py
+
+      - name: 产出依赖记录（V-001，含测量纪律字段）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/platform-matrix/record_deps.py artifacts
+
+      - name: 上传 Windows 依赖记录
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deps-windows
+          path: artifacts/deps-windows.txt
+
+      # 发布包（tasks.md T118／Check 118）：release 构建 → 打包 → 解包到仓库外目录安装验证。
+      - name: 发布构建
+        if: matrix.platform == 'windows'
+        run: cargo build --release --locked -p whcode-bin
+
+      - name: 打包并安装验证（T118）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt
+
+      - name: 上传 Windows 发布包
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: whcode-windows-amd64
+          path: target/dist/*.zip
+
+      - name: 上传安装验证记录
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: install-verify-windows-amd64
+          path: artifacts/install-verify-windows-amd64.txt
+
+      # ---------------- FreeBSD ----------------
+      - name: 在 FreeBSD VM 中构建、测试与记录
+        id: freebsd_vm
+        if: matrix.platform == 'freebsd'
+        uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y curl cmake ninja
+            pkg install -y duckdb || true
+          run: |
+            set -e
+            # 用 rustup 装锁定工具链（pkg 的 rust 版本不确定，无法满足可复现要求）。
+            export HOME=/root
+            export PATH="$HOME/.cargo/bin:$PATH"
+            if [ ! -x "$HOME/.cargo/bin/cargo" ]; then
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+                | sh -s -- -y --profile minimal --default-toolchain 1.99.1
+            fi
+            rustc -vV
+            cargo -V
+
+            echo "=== 代码级检查（平台中立 crate，不链接 DuckDB／GUI）==="
+            cargo check --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+              -p whcode-llm -p whcode-runtime
+
+            echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
+            cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+              -p whcode-llm -p whcode-runtime
+
+            echo "=== 依赖记录（V-001）==="
+            sh .github/scripts/platform-matrix/record-deps.sh artifacts
+
+            echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
+            if pkg info duckdb >/dev/null 2>&1; then
+              export DUCKDB_LIB_DIR=/usr/local/lib
+              export DUCKDB_INCLUDE_DIR=/usr/local/include
+              echo "pkg DuckDB 版本：$(pkg info duckdb | tr '\n' ' ')"
+              if cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
+                && cargo test --locked --workspace --exclude whcode-gui --exclude whcode-bin; then
+                echo "GATE_RESULT=GO"
+              else
+                echo "GATE_RESULT=NO-GO（版本或 ABI 不匹配，属 R-01 预期风险路径）"
+              fi
+            else
+              echo "GATE_RESULT=NO-GO（pkg 无 duckdb：需源码构建，待评估）"
+            fi
+
+      - name: 归档 FreeBSD 结论
+        if: always() && matrix.platform == 'freebsd'
+        run: |
+          echo "FreeBSD 绿路径：${{ steps.freebsd_vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "DuckDB Go/No-Go 见 VM 日志末尾；两者均只作平台证据，不进入验收结论。" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传 FreeBSD 依赖记录
+        if: always() && matrix.platform == 'freebsd'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deps-freebsd
+          path: artifacts/deps-freebsd.txt
+
+      # ---------------- NetBSD ----------------
+      - name: 在 NetBSD VM 中构建、测试与记录
+        id: netbsd_vm
+        if: matrix.platform == 'netbsd'
+        uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
+        with:
+          # 固定发行版：包仓库路径与 pkgin repositories.conf 均按 11.0 写入。
+          release: "11.0"
+          usesh: true
+          prepare: |
+            # 依据（2026-10-24 一手资料与失败日志复核）：
+            # - vmactions/netbsd-vm v1.5.2 README：prepare 以 sh 执行；官方示例用 pkg_add。
+            # - 基础镜像只有 /usr/sbin 的 pkg_install；pkgin 期望 /usr/pkg/sbin/pkg_admin，
+            #   故同时解压 pkg_install 包的 sbin 负载（不调用 pkg_add）。
+            # - pkgin-26.4.0 运行时依赖 pkg_install>=20200701 与 sqlite3>=3.51.1nb1；
+            #   sqlite3-3.53.4 无运行时依赖。
+            # 包文件名取自 NetBSD 11.0 amd64 官方仓库当日清单；仓库滚动更新后按目录清单改版本。
+            set -eu
+            arch=$(uname -m)
+            base="https://cdn.NetBSD.org/pub/pkgsrc/packages/NetBSD/${arch}/11.0/All"
+            work=/tmp/pkgin-bootstrap
+            mkdir -p "$work"
+            cd "$work"
+            ftp -V -o pkgin.tgz "${base}/pkgin-26.4.0.tgz"
+            ftp -V -o sqlite3.tgz "${base}/sqlite3-3.53.4.tgz"
+            ftp -V -o pkg_install.tgz "${base}/pkg_install-20260227.tgz"
+            # 只解压负载文件，避免把 +CONTENTS 等包元数据写到根目录。
+            tar -xf pkgin.tgz -C / bin/pkgin
+            tar -xf sqlite3.tgz -C / bin/sqlite3 lib
+            tar -xf pkg_install.tgz -C / sbin
+            mkdir -p /usr/pkg/etc/pkgin /var/db/pkgin
+            # 使用 pkgin 文档支持的 $arch 宏；发行版固定为 11.0。
+            printf '%s\n' 'https://cdn.netbsd.org/pub/pkgsrc/packages/NetBSD/$arch/11.0/All' \
+              > /usr/pkg/etc/pkgin/repositories.conf
+            export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
+            export LD_LIBRARY_PATH="/usr/pkg/lib"
+            pkgin -y update
+            pkgin -y install rust cmake ninja
+            pkgin -y install duckdb || true
+          run: |
+            set -e
+            export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
+            export LD_LIBRARY_PATH="/usr/pkg/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            rustc -vV
+            cargo -V
+
+            version=$(rustc --version | awk '{print $2}')
+            major=$(echo "$version" | cut -d. -f1)
+            minor=$(echo "$version" | cut -d. -f2)
+            if [ "$major" -lt 1 ] || { [ "$major" -eq 1 ] && [ "$minor" -lt 88 ]; }; then
+              echo "SKIP：pkgsrc rust $version 低于 MSRV 1.88（环境限制，不作代码结论）"
+              exit 0
+            fi
+
+            echo "=== 代码级检查（平台中立 crate，不链接 DuckDB／GUI）==="
+            cargo check --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+              -p whcode-llm -p whcode-runtime
+
+            echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
+            cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+              -p whcode-llm -p whcode-runtime
+
+            echo "=== 依赖记录（V-001）==="
+            sh .github/scripts/platform-matrix/record-deps.sh artifacts
+
+            echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
+            if pkg_info duckdb >/dev/null 2>&1; then
+              export DUCKDB_LIB_DIR=/usr/pkg/lib
+              export DUCKDB_INCLUDE_DIR=/usr/pkg/include
+              if cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
+                && cargo test --locked --workspace --exclude whcode-gui --exclude whcode-bin; then
+                echo "GATE_RESULT=GO"
+              else
+                echo "GATE_RESULT=NO-GO（版本或 ABI 不匹配，属 R-01 预期风险路径）"
+              fi
+            else
+              echo "GATE_RESULT=NO-GO（pkgsrc 无 DuckDB 包：需 bundled-cmake 源码构建，待评估）"
+            fi
+
+      - name: 归档 NetBSD 结论
+        if: always() && matrix.platform == 'netbsd'
+        run: |
+          echo "NetBSD 绿路径：${{ steps.netbsd_vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "若绿路径失败且原因是 pkgsrc rust 低于 MSRV，属环境限制。" >> "$GITHUB_STEP_SUMMARY"
+          echo "DuckDB Go/No-Go 见 VM 日志末尾；两者均只作平台证据，不进入验收结论。" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传 NetBSD 依赖记录
+        if: always() && matrix.platform == 'netbsd'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deps-netbsd
+          path: artifacts/deps-netbsd.txt
+
+      # ---------------- OpenBSD / DragonFly（仅手工触发占位） ----------------
+      - name: OpenBSD 客户端验收占位（M7 前）
+        if: matrix.platform == 'openbsd'
+        run: |
+          echo "OpenBSD 已按 ADR-011 移出原生安装目标。"
+          echo "本 job 为客户端连通性验收占位：需要受控 OpenBSD 节点与 WHCode 内置 SSH 客户端。"
+          echo "M0 无证据；在取得节点与 M7 能力前，本 job 不产生任何通过结论。"
+          exit 0
+
+      - name: DragonFly 客户端验收占位（M7 前）
+        if: matrix.platform == 'dragonfly'
+        run: |
+          echo "DragonFly BSD 已按 ADR-011 移出原生安装目标。"
+          echo "本 job 为客户端连通性验收占位：需要受控 DragonFly 节点与 WHCode 内置 SSH 客户端。"
+          echo "M0 无证据；在取得节点与 M7 能力前，本 job 不产生任何通过结论。"
+          exit 0
