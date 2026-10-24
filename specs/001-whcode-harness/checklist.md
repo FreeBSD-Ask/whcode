@@ -364,7 +364,7 @@
 
 ## 第六层：DuckDB 2.0.0 升级与功能适配（2026-10-24 新增，Task T159）
 
-- [ ] Check 261: DuckDB 2.0.0 升级与功能适配可判定：引擎 `v2.0.0`、crate `=1.20000.0`、Windows 资产 `duckdb-shared-libs-windows-amd64.tar.gz` 的 SHA256 与安全解包、schema v6 的 `events.payload_json VARIANT` 读写/导出/脱敏、`session_overview` MERGE、查询计划/资源/崩溃/安全/打包审计证据齐备；不宣称 1.5.6 旧库兼容，未取得项按缺口登记（来源：`docs/adr/ADR-034-duckdb-2-feature-adaptation.md`、`docs/adr/ADR-DB-BUILD.md`、`.trae/specs/migrate-duckdb-200/`、`artifacts/duckdb-2.0-audit-2026-10-24.md`）
+- [x] Check 261: DuckDB 2.0.0 升级与功能适配可判定：引擎 `v2.0.0`、crate `=1.20000.0`、Windows 资产 `duckdb-shared-libs-windows-amd64.tar.gz` 的 SHA256 与安全解包、schema v6 的 `events.payload_json VARIANT` 读写/导出/脱敏、`session_overview` MERGE、查询计划/资源/崩溃/安全/打包审计证据齐备；不宣称 1.5.6 旧库兼容，未取得项按缺口登记（来源：`docs/adr/ADR-034-duckdb-2-feature-adaptation.md`、`docs/adr/ADR-DB-BUILD.md`、`.trae/specs/migrate-duckdb-200/`、`artifacts/duckdb-2.0-audit-2026-10-24.md`）——**已取得（2026-10-24）**：安装验证 `doctor=v2.0.0`/schema 6；`events.payload_json` VARIANT + v0→v6/v5→v6 迁移与导出/脱敏往返通过；overview MERGE 通过；query_plan 2/8 索引扫描、VARIANT 查询无额外算子；NFR-201 经 ADR-035 修订为 36 MB、NFR-203/205/206/207/209/210 达标；durability/side_effect/failure_modes/writer_stress 通过；扩展安全默认显式收紧；全量 fmt/clippy/test/layering/layout/traceability/EOL/workflow 已复跑通过；NFR-204 5.5 h 长跑登记为缺口
 
 ---
 
