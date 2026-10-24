@@ -1,0 +1,105 @@
+# 稳定性与测量测试（2026-10-24 用户指令）：把本地 #[ignore] 实验套件迁移到 GitHub CI。
+#
+# 覆盖：
+#   - writer_stress：写者服务并发压力实验（artifacts/writer-service-stress.json）
+#   - memory_limit：DuckDB 内存上限基线实验（artifacts/memory-limit-experiment.json）
+#   - query_plan：查询计划基准实验（artifacts/query-plan-report.json）
+#   - nfr_budget --ignored：NFR-203（10 万事件 ×2 会话、20 次切换 RSS 增量）与
+#     NFR-206（流式 CPU 负载夹具）
+#   - stability_run 冒烟：30 秒 / 5 秒采样，验证 §11.5 采集链路（不作 24 h 结论）
+#
+# 明确不迁移：24 h / 72 h 长跑。GitHub 托管 runner 单 job 上限 6 h，无法承载；
+# T116 的 24/72 h 结论仍须本机或 self-hosted runner 执行，不得以本工作流冒烟冒充。
+#
+# 频率：每周一次 + 手动触发；单次运行控制在 6 h 内（timeout-minutes 350）。
+name: stability-measurements
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 每周一 02:37 UTC（北京时间 10:37），避开整点高峰。
+    - cron: "37 2 * * 1"
+
+permissions:
+  contents: read
+
+# 同一时间只允许一个运行，避免实验互相干扰（写者压力/内存基线对资源敏感）。
+concurrency:
+  group: stability-measurements
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  stability:
+    runs-on: windows-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 工作流语义门禁
+        run: python .github/scripts/check-workflows.py
+
+      - name: CI action 版本门禁（最新版本 + 固定 SHA）
+        run: python .github/scripts/check-actions.py
+
+      - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
+        run: python .github/scripts/fetch-duckdb.py
+
+      - name: 构建（锁定依赖图）
+        run: cargo build --locked --workspace
+
+      - name: 写者服务并发压力实验（T034/ADR-017）
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/stability-ci | Out-Null
+          cargo test --locked -p whcode-tests --test writer_stress -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/writer_stress.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: DuckDB 内存上限基线实验（ADR-012）
+        shell: pwsh
+        run: |
+          cargo test --locked -p whcode-tests --test memory_limit -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/memory_limit.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 查询计划基准实验（T036/§7.2）
+        shell: pwsh
+        run: |
+          cargo test --locked -p whcode-tests --test query_plan -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/query_plan.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: NFR-203/NFR-206 测量夹具（ADR-025 冻结预算）
+        shell: pwsh
+        run: |
+          cargo test --locked -p whcode-tests --test nfr_budget -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/nfr_budget.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 长跑采集器冒烟（30 秒 / 5 秒采样，不作 24 h 结论）
+        shell: pwsh
+        env:
+          WHCODE_STABILITY_SECONDS: "30"
+          WHCODE_STABILITY_INTERVAL_SECS: "5"
+          WHCODE_STABILITY_DIR: artifacts/stability-ci/smoke-workspace
+          WHCODE_STABILITY_OUT: artifacts/stability-ci/timeseries.jsonl
+        run: |
+          cargo test --locked -p whcode-tests --test stability_run -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/stability_run_smoke.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 上传实验产物
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stability-measurements
+          if-no-files-found: warn
+          path: |
+            artifacts/stability-ci/*.log
+            artifacts/stability-ci/timeseries.jsonl
+            artifacts/writer-service-stress.json
+            artifacts/memory-limit-experiment.json
+            artifacts/query-plan-report.json

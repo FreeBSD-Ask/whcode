@@ -76,6 +76,10 @@ OpenBSD/DragonFly 无原生测试，保留手工占位。
 - 五平台 CI 定义：Windows 绿路径必过；FreeBSD/NetBSD 随 `main` 自动运行（代码级检查 +
   非 DuckDB 包测试 + 依赖记录），DuckDB 原生构建作为显式 Go/No-Go 门禁；OpenBSD/DragonFly
   为手工客户端验收占位（延后，不作验收结论）；所有 action 固定到最新 release 的 commit SHA。
+- 稳定性/测量实验：`stability-measurements` 每周一与手动触发，运行 `writer_stress`、
+  `memory_limit`、`query_plan`、NFR-203/206 测量夹具与 30 秒长跑采集器冒烟并归档产物；
+  **24/72 小时长跑不迁移**——GitHub 托管 runner 单 job 上限 6 小时，T116 结论仍须本机或
+  self-hosted runner 执行，不得以冒烟冒充。
 
 已知限制（NFR-204 的 72 小时稳定性未测、真实 HTTP Provider 未接线、BSD 现场验收延后、
 Web 无 JS 只读视图缺失等）逐条列在

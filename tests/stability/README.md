@@ -36,6 +36,17 @@
 
 ## 如何运行
 
+### GitHub Actions（2026-10-24 起）
+
+`.github/workflows/stability.yml`（`stability-measurements`）每周一与手动触发，运行
+`writer_stress`、`memory_limit`、`query_plan`、`nfr_budget --ignored`（NFR-203/206）与
+`stability_run` 的 30 秒冒烟，并把日志与 JSON 产物作为 artifact 归档。
+
+**24/72 小时长跑不在 CI 内**：GitHub 托管 runner 单 job 上限 6 小时，无法承载；
+T116 的 24/72 小时结论仍须本机或 self-hosted runner 执行，冒烟不得冒充长跑结论。
+
+### 本机
+
 ```powershell
 # 仅运行基线夹具正确性检查（不判定性能达标）
 cargo test -p whcode-tests --test baseline_check
