@@ -19,7 +19,7 @@ pub use process::{
     termination_policy_for,
 };
 pub use resources::{
-    ResourceLimits, available_physical_cores, current_rss_bytes, memory_limit_defaults,
-    process_rss_bytes, thread_budget,
+    ProcessStats, ResourceLimits, available_physical_cores, current_rss_bytes,
+    memory_limit_defaults, process_rss_bytes, process_stats, thread_budget,
 };
 pub use term::{is_window_minimized, stdin_is_interactive, terminal_size};

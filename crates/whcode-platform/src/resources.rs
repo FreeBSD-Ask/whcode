@@ -106,6 +106,81 @@ pub fn current_rss_bytes() -> Result<u64, whcode_domain::WhError> {
     process_rss_bytes(std::process::id())
 }
 
+/// 进程资源快照（CPU 累计时间、线程数、句柄数；NFR-211、§11.5 长跑采样）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ProcessStats {
+    /// 进程启动以来的累计 CPU 时间（秒，用户态 + 内核态）。
+    pub cpu_seconds: f64,
+    /// 当前线程数。
+    pub threads: u32,
+    /// 当前句柄数。
+    pub handles: u32,
+}
+
+/// 读取指定进程的资源快照。
+///
+/// Windows 经 PowerShell `Get-Process` 读取；其他平台返回结构化错误（与
+/// [`process_rss_bytes`] 同口径，不得把 `Err` 当作 0）。
+///
+/// # Errors
+///
+/// 进程不存在、查询工具不可用或输出无法解析时返回 [`whcode_domain::WhError`]。
+pub fn process_stats(pid: u32) -> Result<ProcessStats, whcode_domain::WhError> {
+    #[cfg(target_os = "windows")]
+    {
+        let script = format!(
+            "$p = Get-Process -Id {pid} -ErrorAction Stop; \
+             \"$($p.CPU)|$($p.Threads.Count)|$($p.HandleCount)\""
+        );
+        let output = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .output()
+            .map_err(|err| whcode_domain::WhError::io("查询进程资源", &err))?;
+        if !output.status.success() {
+            return Err(whcode_domain::WhError::new(
+                whcode_domain::ErrorCode::NotFound,
+                format!(
+                    "进程不存在或资源不可读（PID {pid}）：{}",
+                    String::from_utf8_lossy(&output.stderr).trim()
+                ),
+            ));
+        }
+        let text = String::from_utf8_lossy(&output.stdout);
+        let line = text
+            .lines()
+            .find(|line| !line.trim().is_empty())
+            .unwrap_or("");
+        let mut fields = line.trim().split('|');
+        let cpu = fields
+            .next()
+            .and_then(|value| value.trim().parse::<f64>().ok());
+        let threads = fields
+            .next()
+            .and_then(|value| value.trim().parse::<u32>().ok());
+        let handles = fields
+            .next()
+            .and_then(|value| value.trim().parse::<u32>().ok());
+        match (cpu, threads, handles) {
+            (Some(cpu_seconds), Some(threads), Some(handles)) => Ok(ProcessStats {
+                cpu_seconds,
+                threads,
+                handles,
+            }),
+            _ => Err(whcode_domain::WhError::parse_error(format!(
+                "无法解析进程资源输出（PID {pid}）：{line}"
+            ))),
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = pid;
+        Err(whcode_domain::WhError::new(
+            whcode_domain::ErrorCode::IoError,
+            "进程资源读取在非 Windows 平台未实现（BSD/Linux 属 M7，ADR-013 延后）：不返回 0 伪装成功",
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,6 +228,21 @@ mod tests {
             Err(err) => assert!(err.message.contains("延后"), "非实现错误须写明延后：{err}"),
         }
         let missing = process_rss_bytes(u32::MAX);
+        assert!(missing.is_err(), "不存在的 PID 必须返回错误（不得返回 0）");
+    }
+
+    /// §11.5 长跑采样：当前进程的 CPU／线程／句柄可读；不存在的 PID 必须报错。
+    #[test]
+    fn process_stats_reads_current_process_and_rejects_missing_pid() {
+        match process_stats(std::process::id()) {
+            Ok(stats) => {
+                assert!(stats.cpu_seconds >= 0.0, "CPU 累计时间不得为负");
+                assert!(stats.threads >= 1, "进程至少有一个线程");
+                assert!(stats.handles >= 1, "进程至少有一个句柄");
+            }
+            Err(err) => assert!(err.message.contains("延后"), "非实现错误须写明延后：{err}"),
+        }
+        let missing = process_stats(u32::MAX);
         assert!(missing.is_err(), "不存在的 PID 必须返回错误（不得返回 0）");
     }
 }
