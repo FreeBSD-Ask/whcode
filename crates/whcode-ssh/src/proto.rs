@@ -1,8 +1,8 @@
-//! SSH 客户端风险原型：意图—执行—登记（tasks.md T025、ADR-007）。
+//! SSH 客户端：意图—执行—登记（tasks.md T025、ADR-007；主机密钥 TOFU 校验——ADR-005/030）。
 //!
 //! **范围（平台承诺已修订）**：OpenBSD 与 DragonFly 不再作为原生安装目标，改由 WHCode 内置
 //! SSH **客户端**控制；M0 只交付“经 SSH 通道执行命令”的风险原型，完整客户端能力与多平台
-//! 验收属 M7（tasks.md T096—T099）。本模块**不**实现 SSH 服务端。
+//! 验收属 M7（tasks.md T096—T099）。本模块**不**实现 SSH 服务端（服务端见 [`crate::server`]）。
 //!
 //! 三段协议（ADR-007）与语义规则：
 //! 1. **校验先于意图**：`host`/`user`/`command` 为空、私钥缺失或不可读、`timeout_ms` 为 0
@@ -18,13 +18,22 @@
 //!    `note` 中写明截断事实（不得静默丢弃原始输出这一事实）；
 //! 8. [`ExecRegistry::record_result`] 失败时整个调用返回该错误（登记失败不得视为成功）。
 //!
+//! ## 主机密钥校验（TOFU——ADR-005 阻断项已结清）
+//!
+//! [`SshTarget::known_hosts_path`] 指向 known_hosts 风格信任文件（[`crate::trust`]）：
+//! - **未记录**（首次使用）：记录服务端指纹到信任文件，并把指纹打印到 stderr 供**人工
+//!   核对**后放行（TOFU；指纹 `SHA256:…`，不含密钥材料）；
+//! - **已记录且匹配**：放行；
+//! - **已记录但不匹配**：结构化拒绝——连接中止，`report.status = failed`，`note` 写明
+//!   “主机密钥与信任记录不匹配”与期望指纹，命令未发出；信任文件不被改写（改绑必须人工）；
+//! - 信任文件不可读：同样拒绝（fail closed，不当成首次使用）。
+//!
 //! 已知限制（本原型不承诺、且未验证的能力）：
-//! - **不校验主机密钥**：客户端的 `check_server_key` 恒返回接受，存在中间人风险；M7 必须接入
-//!   known_hosts 校验；
 //! - **不产出 `timed_out`**：SSH 通道无法确认远端进程确实已终止，因此超时一律上报 `unknown`
 //!   （ADR-007 要求不确定不得谎报）；只有能确认终止时才允许 `timed_out`；
 //! - 口令保护的私钥不支持（以空口令加载）；
-//! - 不向远端传递任何本地环境变量；`note` 与登记内容**不**包含私钥内容或口令。
+//! - 不向远端传递任何本地环境变量；`note` 与登记内容**不**包含私钥内容、口令或指纹之外的
+//!   密钥材料。
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -34,6 +43,9 @@ use russh::client;
 use russh::keys::{PrivateKeyWithHashAlg, PublicKeyOrCertificate, load_secret_key};
 use russh::{ChannelMsg, Disconnect};
 use whcode_domain::{RuntimeExecutionStatus, WhError};
+
+use crate::hostkey::fingerprint;
+use crate::trust::{HostKeyVerdict, KnownHosts};
 
 /// 保留的输出上限（字节）。只保留**尾部**，超出部分丢弃但必须显式标记（规则 7）。
 pub const MAX_TAIL_BYTES: usize = 64 * 1024;
@@ -56,6 +68,9 @@ pub struct SshTarget {
     pub command: String,
     /// 整个调用的超时上限（毫秒）。必须大于 0：默认超时必须是有界的（安全默认）。
     pub timeout_ms: u64,
+    /// 主机密钥信任文件（known_hosts 风格，TOFU——见 [`crate::trust`]）。必填：没有信任
+    /// 文件的客户端不提供中间人防护（ADR-005 阻断项），调用方必须显式给出路径。
+    pub known_hosts_path: PathBuf,
 }
 
 /// 一次远程执行的结果报告。
@@ -238,20 +253,71 @@ fn validate_target(target: &SshTarget) -> Result<(), WhError> {
     Ok(())
 }
 
-/// 客户端的会话级处理器。
+/// 客户端的会话级处理器：主机密钥 TOFU 校验（ADR-005 阻断项结清）。
 ///
-/// 主机密钥校验在本原型中未实现（恒定接受），这是已记录的已知风险，M7 必须补齐。
-struct ProtoClient;
+/// - 证书形态不支持（仅公钥）；信任文件不可读按拒绝处理（fail closed）；
+/// - 首次使用记录指纹并打印到 stderr 供人工核对（TOFU）；
+/// - 指纹不匹配：拒绝连接，并把结构化原因写入 `mismatch` 槽位——`execute` 据此给出
+///   可操作的失败说明（`client::connect` 失败只给笼统错误，细节必须自己带出来）。
+struct ProtoClient {
+    trust: KnownHosts,
+    host: String,
+    port: u16,
+    /// 指纹不匹配时的结构化说明（`Arc<Mutex<_>>`：handler 被移入 connect，失败后无法取回）。
+    mismatch: Arc<Mutex<Option<String>>>,
+}
 
 impl client::Handler for ProtoClient {
     type Error = russh::Error;
 
     async fn check_server_key(
         &mut self,
-        _server_public_key: &PublicKeyOrCertificate,
+        server_public_key: &PublicKeyOrCertificate,
     ) -> Result<bool, Self::Error> {
-        // 原型范围：不做主机密钥校验；不得据此声称具备中间人防护能力。
-        Ok(true)
+        let PublicKeyOrCertificate::PublicKey { key, .. } = server_public_key else {
+            // 证书主机密钥不在本客户端策略内（仅 Ed25519 公钥，FR-611）。
+            return Ok(false);
+        };
+        match self.trust.verify(&self.host, self.port, key) {
+            Ok(HostKeyVerdict::Trusted) => Ok(true),
+            Ok(HostKeyVerdict::FirstSeen) => {
+                // TOFU：记录指纹 + 显式打印供人工核对（stderr，不进事件正文）。
+                if let Err(err) = self.trust.record(&self.host, self.port, key) {
+                    eprintln!("WHCode SSH：记录主机指纹失败（{err}）：按拒绝处理");
+                    return Ok(false);
+                }
+                eprintln!(
+                    "WHCode SSH：首次连接 {}:{}，主机密钥指纹 {}（已记录到 {}，请人工核对；\
+                     之后指纹变化将被拒绝）",
+                    self.host,
+                    self.port,
+                    fingerprint(key),
+                    self.trust.path().display()
+                );
+                Ok(true)
+            }
+            Ok(HostKeyVerdict::Mismatch {
+                line,
+                expected_fingerprint,
+            }) => {
+                let detail = format!(
+                    "主机密钥与信任记录不匹配（信任文件第 {line} 行期望 {expected_fingerprint}，\
+                     实际 {}）：拒绝连接（中间人风险；如确为服务端换钥，请人工更新 {}）",
+                    fingerprint(key),
+                    self.trust.path().display()
+                );
+                eprintln!("WHCode SSH：{detail}");
+                if let Ok(mut slot) = self.mismatch.lock() {
+                    *slot = Some(detail);
+                }
+                Ok(false)
+            }
+            Err(err) => {
+                // 信任文件不可读：fail closed（不当成首次使用重新记录）。
+                eprintln!("WHCode SSH：主机密钥校验失败（{err}）：拒绝连接");
+                Ok(false)
+            }
+        }
     }
 }
 
@@ -280,16 +346,29 @@ async fn execute(target: &SshTarget) -> ExecReport {
         ..Default::default()
     });
 
+    // 主机密钥 TOFU 校验：不匹配/不可读的结构化细节经槽位带回。
+    let mismatch: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    let handler = ProtoClient {
+        trust: KnownHosts::at(target.known_hosts_path.clone()),
+        host: target.host.clone(),
+        port: target.port,
+        mismatch: Arc::clone(&mismatch),
+    };
+
     // 阶段一：连接。此阶段失败意味着命令从未发出（规则 3）。
     let mut session = match tokio::time::timeout(
         budget,
-        client::connect(config, (target.host.as_str(), target.port), ProtoClient),
+        client::connect(config, (target.host.as_str(), target.port), handler),
     )
     .await
     {
         Ok(Ok(session)) => session,
         Ok(Err(err)) => {
-            return failure_report(started, format!("连接阶段失败：{err}（命令未发出）"));
+            let note = match mismatch.lock().ok().and_then(|mut slot| slot.take()) {
+                Some(detail) => format!("主机密钥校验拒绝：{detail}（命令未发出）"),
+                None => format!("连接阶段失败：{err}（命令未发出）"),
+            };
+            return failure_report(started, note);
         }
         Err(_) => {
             return failure_report(
@@ -556,6 +635,7 @@ impl TailBuffer {
 mod tests {
     use super::*;
 
+    use std::future::Future;
     use std::net::SocketAddr;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -598,6 +678,16 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_file(&self.path);
         }
+    }
+
+    /// 测试用临时信任文件路径（每测试唯一；文件本体按需创建）。
+    fn trust_file() -> PathBuf {
+        static TRUST_SEQ: AtomicU64 = AtomicU64::new(0);
+        let seq = TRUST_SEQ.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!(
+            "whcode-ssh-proto-trust-{}-{seq}.known_hosts",
+            std::process::id()
+        ))
     }
 
     /// 内存测试服务端行为。
@@ -679,20 +769,23 @@ mod tests {
         }
     }
 
-    /// 在进程内起一个最小 SSH 服务端，运行一次客户端调用；返回报告与登记缓冲。
-    ///
-    /// 登记缓冲以 `Arc` 返回：客户端调用尚未析构时不得移动缓冲本体（借用仍存活）。
-    async fn run_against_test_server(
+    /// 在进程内起一个最小 SSH 服务端，运行一段客户端操作；返回操作结果与服务端主机公钥
+    /// （known_hosts 测试用指纹比对）。客户端私钥路径随回调注入。
+    async fn run_against_test_server_with<F, T>(
         behavior: TestBehavior,
-        timeout_ms: u64,
-    ) -> (Result<ExecReport, WhError>, Arc<CollectingExecRegistry>) {
+        client_ops: impl FnOnce(SocketAddr, russh::keys::PublicKey, PathBuf) -> F,
+    ) -> (T, russh::keys::PublicKey)
+    where
+        F: Future<Output = T>,
+    {
         let key = TestKey::generate("e2e");
-        let host_key = PrivateKey::random(&mut rand::rng(), Algorithm::Ed25519)
-            .expect("生成测试主机密钥应成功");
+        let host_key =
+            PrivateKey::random(&mut rand::rng(), Algorithm::Ed25519).expect("生成测试主机密钥");
+        let host_public = host_key.public_key().clone();
         let listener = TcpListener::bind(("127.0.0.1", 0))
             .await
-            .expect("绑定测试端口应成功");
-        let addr = listener.local_addr().expect("读取测试端口应成功");
+            .expect("绑定测试端口");
+        let addr = listener.local_addr().expect("读取测试端口");
 
         let config = Arc::new(russh::server::Config {
             auth_rejection_time: Duration::from_millis(1),
@@ -702,30 +795,46 @@ mod tests {
             ..Default::default()
         });
         let mut server = TestSshServer { behavior };
-        let mut running = server.run_on_socket(config, &listener);
-        let shutdown = running.handle();
+        let running = server.run_on_socket(config, &listener);
+        tokio::pin!(running);
 
-        let registry = Arc::new(CollectingExecRegistry::new());
-        let target = SshTarget {
-            host: "127.0.0.1".to_string(),
-            port: addr.port(),
-            user: "tester".to_string(),
-            private_key_path: key.path().to_path_buf(),
-            command: "whcode-proto-echo".to_string(),
-            timeout_ms,
-        };
-
-        let call = run_command(&target, registry.as_ref());
-        tokio::pin!(call);
         let outcome = tokio::select! {
-            result = &mut call => result,
+            result = client_ops(addr, host_public.clone(), key.path().to_path_buf()) => result,
             _ = &mut running => panic!("测试服务端不应提前退出"),
         };
 
-        shutdown.shutdown("测试结束".to_string());
+        running.handle().shutdown("测试结束".to_string());
         let drained = tokio::time::timeout(Duration::from_secs(5), &mut running).await;
         assert!(drained.is_ok(), "测试服务端应在收到关闭请求后退出");
-        (outcome, Arc::clone(&registry))
+        (outcome, host_public)
+    }
+
+    /// 单次 [`run_command`] 的便捷封装（多数既有测试的形态）。
+    async fn run_against_test_server(
+        behavior: TestBehavior,
+        timeout_ms: u64,
+    ) -> (Result<ExecReport, WhError>, Arc<CollectingExecRegistry>) {
+        let trust_file = std::env::temp_dir().join(format!(
+            "whcode-ssh-proto-trust-{}.known_hosts",
+            std::process::id()
+        ));
+        let (outcome, _host) =
+            run_against_test_server_with(behavior, |addr, _host_public, key_path| async move {
+                let registry = Arc::new(CollectingExecRegistry::new());
+                let target = SshTarget {
+                    host: "127.0.0.1".to_string(),
+                    port: addr.port(),
+                    user: "tester".to_string(),
+                    private_key_path: key_path,
+                    command: "whcode-proto-echo".to_string(),
+                    timeout_ms,
+                    known_hosts_path: trust_file,
+                };
+                let result = run_command(&target, registry.as_ref()).await;
+                (result, registry)
+            })
+            .await;
+        outcome
     }
 
     #[test]
@@ -763,6 +872,7 @@ mod tests {
             private_key_path: key.path().to_path_buf(),
             command: "true".to_string(),
             timeout_ms: 1000,
+            known_hosts_path: trust_file(),
         };
         let cases = [
             SshTarget {
@@ -816,6 +926,7 @@ mod tests {
             private_key_path: key.path().to_path_buf(),
             command: "true".to_string(),
             timeout_ms: 2000,
+            known_hosts_path: trust_file(),
         };
 
         let report = run_command(&target, &registry)
@@ -872,6 +983,7 @@ mod tests {
             private_key_path: key.path().to_path_buf(),
             command: "true".to_string(),
             timeout_ms: 2000,
+            known_hosts_path: trust_file(),
         };
 
         let error = run_command(&target, &FailingIntentRegistry)
@@ -993,5 +1105,109 @@ mod tests {
             report.note
         );
         assert_eq!(registry.calls().len(), 2, "不确定状态同样必须登记结果");
+    }
+    /// known_hosts 三分支（经真实客户端—服务端链路）：首次连接记录指纹（TOFU）、
+    /// 二次连接命中、指纹不匹配结构化拒绝（ADR-005 阻断项结清的端到端证据）。
+    #[tokio::test]
+    async fn known_hosts_tofu_first_seen_then_trusted_then_mismatch() {
+        let trust_path = trust_file();
+
+        let ((first, second, third, after_first, after_second, after_third), host_public) =
+            run_against_test_server_with(
+                TestBehavior::Echo {
+                    stdout: b"ok".to_vec(),
+                    stderr: Vec::new(),
+                    exit_code: 0,
+                },
+                |addr, _host_public, key_path| {
+                    let trust_path = trust_path.clone();
+                    async move {
+                        let make_target = |known_hosts_path: PathBuf| SshTarget {
+                            host: "127.0.0.1".to_string(),
+                            port: addr.port(),
+                            user: "tester".to_string(),
+                            private_key_path: key_path.clone(),
+                            command: "whcode-proto-echo".to_string(),
+                            timeout_ms: 10_000,
+                            known_hosts_path,
+                        };
+
+                        // 第一次：FirstSeen → 记录指纹并放行。
+                        let first = run_command(
+                            &make_target(trust_path.clone()),
+                            &CollectingExecRegistry::new(),
+                        )
+                        .await
+                        .expect("首次连接必须成功（TOFU 记录）");
+                        let after_first =
+                            std::fs::read_to_string(&trust_path).expect("读取信任文件");
+
+                        // 第二次：Trusted → 放行。
+                        let second = run_command(
+                            &make_target(trust_path.clone()),
+                            &CollectingExecRegistry::new(),
+                        )
+                        .await
+                        .expect("第二次连接必须命中信任记录");
+                        let after_second =
+                            std::fs::read_to_string(&trust_path).expect("读取信任文件");
+
+                        // 第三次：信任文件被人工写成攻击者指纹 → 结构化拒绝。
+                        let attacker = PrivateKey::random(&mut rand::rng(), Algorithm::Ed25519)
+                            .expect("生成攻击者密钥");
+                        let attacker_entry = format!(
+                            "[127.0.0.1]:{} {}
+",
+                            addr.port(),
+                            crate::hostkey::fingerprint(attacker.public_key())
+                        );
+                        std::fs::write(&trust_path, attacker_entry.as_bytes())
+                            .expect("写入攻击者指纹");
+                        let third = run_command(
+                            &make_target(trust_path.clone()),
+                            &CollectingExecRegistry::new(),
+                        )
+                        .await
+                        .expect("不匹配是报告不是 Err（协议规则 3）");
+                        let after_third =
+                            std::fs::read_to_string(&trust_path).expect("读取信任文件");
+                        (first, second, third, after_first, after_second, after_third)
+                    }
+                },
+            )
+            .await;
+
+        let server_fingerprint = fingerprint(&host_public);
+        // 首次：成功且指纹已记录（TOFU）。
+        assert_eq!(
+            first.status,
+            RuntimeExecutionStatus::Completed,
+            "{}",
+            first.note
+        );
+        assert!(
+            after_first.contains(&server_fingerprint),
+            "首次连接必须把服务端指纹写入信任文件：{after_first}"
+        );
+        // 第二次：成功且不重复记录。
+        assert_eq!(second.status, RuntimeExecutionStatus::Completed);
+        assert_eq!(
+            after_first, after_second,
+            "命中信任记录的连接不得改写信任文件"
+        );
+        assert_eq!(after_second.lines().count(), 1);
+        // 第三次：拒绝 + 结构化 note + 信任文件保持人工记录（不被自动改写）。
+        assert_eq!(third.status, RuntimeExecutionStatus::Failed);
+        assert_eq!(third.exit_code, None);
+        assert!(
+            third.note.contains("不匹配") && third.note.contains("命令未发出"),
+            "note 必须写明拒绝与未发出：{}",
+            third.note
+        );
+        assert_eq!(after_third.lines().count(), 1, "不匹配不得追加记录");
+        assert!(
+            !after_third.contains(&server_fingerprint),
+            "不匹配时信任文件保持人工写入的攻击者指纹，服务端指纹未被恢复/改写：{after_third}"
+        );
     }
 }

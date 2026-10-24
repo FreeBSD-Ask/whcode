@@ -118,10 +118,22 @@ fn every_workspace_member_crate_exists() {
     }
 }
 
+/// 去掉 TOML 注释后的清单文本。
+///
+/// 原实现直接对清单原文做 `contains`，会把说明性注释里提到的 crate 名误判为真实依赖
+/// （2026-10-24 实测：`whcode-ssh` 的迁移夹具注释提到 store/web，导致两条分层门禁误报）。
+fn manifest_without_comments(name: &str) -> String {
+    manifest(name)
+        .lines()
+        .map(|line| line.split('#').next().unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 #[test]
 fn frontends_do_not_depend_on_store() {
     for front in FRONTENDS {
-        let text = manifest(front);
+        let text = manifest_without_comments(front);
         assert!(
             !text.contains("whcode-store"),
             "{front} 不得依赖 whcode-store：前端只经应用服务访问状态（ADR-003/005）"
@@ -131,7 +143,7 @@ fn frontends_do_not_depend_on_store() {
 
 #[test]
 fn domain_has_no_internal_dependencies() {
-    let text = manifest("whcode-domain");
+    let text = manifest_without_comments("whcode-domain");
     // 排除包自身的 `name = "whcode-domain"` 行后，不得出现任何内部 crate 引用。
     let without_own_name: String = text
         .lines()
@@ -147,7 +159,7 @@ fn domain_has_no_internal_dependencies() {
 #[test]
 fn frontends_do_not_depend_on_each_other() {
     for front in FRONTENDS {
-        let text = manifest(front);
+        let text = manifest_without_comments(front);
         for other in FRONTENDS {
             if front == other {
                 continue;

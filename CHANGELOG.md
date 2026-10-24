@@ -13,6 +13,27 @@
 
 ### 变更
 
+- SSH 服务端批次（2026-10-24）：**M7 服务端落地（russh）+ 主机密钥信任接入 + 四处测试缺陷修复**。
+  - 服务端：`whcode-ssh` 新增 `server.rs`／`policy.rs`／`adapter.rs`／`hostkey.rs`／`trust.rs`，
+    基于 `russh 0.64.1` 实现**仅 Ed25519 公钥认证**（`<workspace>/ssh/authorized_keys`）、
+    每连接独立会话上下文（通道上限 8）、pty-req／window-change 记录并随命令传给执行器、
+    断连经 `Drop` 归还计数并写审计；`serve --ssh` 默认仅回环、OS 分配端口，启动打印实际地址。
+  - 受限入口：`sessions`／`session show|new`／`tasks`／`task` 白名单，默认拒绝任意 Shell；
+    Shell 需 `allow_shell` 开关**且**调用者在 `shell_actors`，判定带能力校验与结构化错误码，
+    拒绝与授权均写审计（FR-608）。交互式 PTY 不实现（属 M8），`shell_request` 一律拒绝。
+  - 单写者：装配根只 `open_workspace_db` 一次并把连接移交单线程执行器（有界队列 64 +
+    一次性回执 + 30 s 超时）；3 个并发会话全部经同一连接落库（ADR-005／C-03）。
+  - 主机密钥：客户端接入 known_hosts 风格信任文件（TOFU，首次记录并打印指纹供人工核对，
+    不匹配结构化拒绝且不改写信任文件，不可读 fail closed），结清 ADR-005 未决条件③。
+  - 测试缺陷修复（复核发现，均为未提交实现内的缺陷）：① known_hosts 断言在第三次覆写后
+    才取样，改为在首次/二次连接后取快照；② 有界队列测试在单线程运行时无法确定性填满且
+    失败时闸门未开导致 `Drop` 永久 join——补 `yield_now` 与闸门守卫；③ 输出截断用例
+    `copy_from_slice` 长度不匹配；④ `session new` 标题被 `split_whitespace` 折叠内部空格，
+    改为“取剩余整行、只去首尾空白”。
+  - 账本：T096—T098 勾选、T099 维持未取得（BSD 延后）；Check 98（单写者）与 182
+    （默认无 Shell，服务端口径）转入通过，Check 97 登记客户端任意命令面缺口；
+    `cargo test -p whcode-ssh` 41/41 通过。
+
 - 流程收敛批次（2026-10-24）：**第四类（流程性）与第六类（文档治理）八项 Check 收敛**。
   - 转入通过 5 项：Check 90（Web 写命令交付取证，api 33 测试）、184（提交粒度等价抽查，
     发现并修复 2 处能力矩阵缺口——GUI 主题与 `font` 命令）、217（批次级完成记录等价 §15）、

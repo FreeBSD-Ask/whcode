@@ -127,7 +127,7 @@ cargo test -p whcode-tests --test query_plan -- --ignored --nocapture
 7. 安全评审：越界、未初始化、栈对齐、ABI 不匹配、侧信道与可执行内存风险逐项记录；
 8. 可复现构建：汇编器版本、编译参数与产物哈希记录在依赖记录中。
 
-当前项目仍为 13 个 crate；若批准汇编，新增独立 crate 须同步更新 `test_layering`
+当前项目为 14 个 crate；若批准汇编，新增独立 crate 须同步更新 `test_layering`
 的成员列表与 `docs/guides/repository-layout.md`，不得静默扩列。
 
 ## 5. 与门禁的对应

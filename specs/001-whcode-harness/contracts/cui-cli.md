@@ -9,7 +9,7 @@
 ```text
 whcode
   session new|list|show|rename|archive|delete
-  run [--session ID] [--model MODEL] [--trace-level LEVEL]
+  run --session ID [--model MODEL] [--trace-level LEVEL]
   status [--json]
   task list|show|retry|abort
   spec status|next|validate|analyze|converge|force-advance
@@ -20,14 +20,14 @@ whcode
   font status
   font uninstall [--dry-run]
   serve --web [--bind 127.0.0.1:PORT]
-  serve --ssh [--port PORT]
+  serve --ssh [--bind HOST:PORT]
   gui [--workspace DIR]
   doctor [--json]
 ```
 
 实现时必须统一参数命名、退出码、错误 JSON 与 `--json` 语义；破坏性命令需支持 dry-run 或确认机制（§8.1）。
 `gui` 为装配根入口（与 `serve` 同层）：只读六视图，非交互、无 stdout 协议，退出码 0/1（FR-711）。
-`gui` 的按键：`1`—`6` 切视图、`j`/`k` 上下选择会话、`r` 刷新、`t` 循环三套主题（不重启，FR-713）、
+`gui` 的按键：`1`—`6` 切视图、`j`/`k` 上下选择会话、`r` 刷新、`t` 循环四套主题（不重启，FR-713）、
 `q`／`Esc` 退出。
 `font` 为本机资源命令（不触库、不经过会话授权）：把内置 OFL 字体安装到用户级字体目录并写
 HKCU 注册（显式、可逆，`uninstall` 撤销）；`install` 输出 Windows Terminal 配置片段供用户自行

@@ -134,7 +134,7 @@ impl ServeCli {
         }
         if !cli.web && !cli.ssh {
             return Err(WhError::parse_error(
-                "serve 缺少模式参数：可用 --web（SSH 属 M7 延后）",
+                "serve 缺少模式参数：可用 --web / --ssh",
             ));
         }
         Ok(cli)
@@ -159,12 +159,6 @@ pub fn serve_command(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    if cli.ssh {
-        eprintln!(
-            "serve --ssh 未实现：SSH 服务端属 M7（ADR-013 延后）；当前可用 whcode serve --web"
-        );
-        return ExitCode::FAILURE;
-    }
     let config = match load_config(args) {
         Ok(config) => config,
         Err(err) => {
@@ -179,6 +173,15 @@ pub fn serve_command(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if cli.ssh {
+        return match serve_ssh(&workspace, &config, cli.bind.as_deref()) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(err) => {
+                eprintln!("SSH 服务失败：{err}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     match serve_web(
         &workspace,
         &config,
@@ -191,6 +194,23 @@ pub fn serve_command(args: &[String]) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// `serve --ssh` 装配（T096—T098、ADR-030）：工作区库 → SSH 状态目录（主机密钥/
+/// 授权清单）→ 单写者执行器 → russh 监听。默认仅回环（`127.0.0.1:0`，OS 分配端口，
+/// 启动时打印实际地址）；`--bind` 显式指定。`--token-file` 不适用于 SSH（认证是公钥）。
+fn serve_ssh(workspace: &Path, config: &Config, bind_addr: Option<&str>) -> Result<(), WhError> {
+    let connection = workspace::open_workspace_db(workspace, config)?;
+    let params = whcode_ssh::server::SshServeParams {
+        workspace_dir: workspace.to_path_buf(),
+        connection,
+        bind: bind_addr
+            .unwrap_or(whcode_ssh::server::DEFAULT_BIND_ADDR)
+            .to_string(),
+        // M7 默认装配：只读能力 + 无 Shell（FR-608 安全默认；显式授权属配置面，见 ADR-030）。
+        config: whcode_ssh::server::SshServerConfig::default(),
+    };
+    whcode_ssh::server::serve_ssh_blocking(params)
 }
 
 /// 服务安全配置（认证/Origin 允许集，ADR-023）。
@@ -1093,6 +1113,7 @@ mod tests {
 
     use super::{
         Reply, ServeCli, ServeSecurity, header_content_length, reason, respond, serve_loop,
+        serve_ssh,
     };
     use crate::workspace::WORKSPACE_DB_FILE;
     use whcode_app::{Actor, actor_with_all_capabilities};
@@ -1107,6 +1128,33 @@ mod tests {
 
     fn raw_request(request: &str) -> Vec<u8> {
         request.as_bytes().to_vec()
+    }
+
+    #[test]
+    fn parse_accepts_ssh_mode_with_bind() {
+        let ssh: [String; 3] = ["--ssh".into(), "--bind".into(), "127.0.0.1:2222".into()];
+        let cli = ServeCli::parse(&ssh).expect("解析");
+        assert!(cli.ssh);
+        assert!(!cli.web);
+        assert_eq!(cli.bind.as_deref(), Some("127.0.0.1:2222"));
+    }
+
+    /// `serve --ssh` 装配链（fail closed）：工作区没有授权公钥清单时必须报错且错误可操作，
+    /// 不得静默回退为“无授权”或“全授权”（T096、ADR-030）。
+    #[test]
+    fn ssh_assembly_fails_closed_without_authorized_keys() {
+        use crate::config::Config;
+        let dir = std::env::temp_dir().join(format!("whcode-serve-ssh-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("建临时工作区");
+        let config = Config::for_workspace(&dir);
+        let outcome = serve_ssh(&dir, &config, None);
+        let _ = std::fs::remove_dir_all(&dir);
+        let err = outcome.expect_err("缺授权清单必须失败");
+        assert!(
+            err.message.contains("authorized_keys"),
+            "错误必须指明缺什么、怎么补：{err}"
+        );
     }
 
     #[test]

@@ -8,17 +8,28 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
-# SSH 客户端实现（M0 风险原型 T025；完整客户端与服务端属 M7）。版本由外部锁定，不得降级。
+# SSH 客户端与服务端实现（T025 客户端原型 + T096—T098 服务端；ADR-030）。版本由外部锁定，不得降级。
 russh = "0.64.1"
-# 异步运行时：原型需要超时控制与 TCP 连接（`russh::client::connect` 使用 tokio 网络栈）。
-tokio = { version = "1", features = ["net", "time"] }
+# 异步运行时：`net`（TCP 监听/连接）、`time`（有界超时）、`sync`（有界命令队列与一次性
+# 回执：`mpsc::try_send` + `oneshot`，Handler 异步等待不阻塞运行时线程）、`rt`
+# （`serve_ssh_blocking` 以 current_thread 运行时承载 russh 事件循环——线程数有界，
+# 不引入 rt-multi-thread，见 ADR-030 并发设计档案）。
+tokio = { version = "1", features = ["net", "rt", "sync", "time"] }
+# 主机密钥首次生成需要 CSPRNG（Ed25519 密钥材料）。rand 0.10 已是 russh 的发布依赖
+# （同一版本 0.10，Cargo.lock 不新增 crate）；自造熵源或依赖传递特性统一均不可取（ADR-030）。
+rand = "0.10"
 whcode-app = { path = "../whcode-app" }
 whcode-domain = { path = "../whcode-domain" }
+# 仅使用 `duckdb::Connection` 类型（适配器签名透传装配根注入的唯一连接，分层不变；
+# 连接管理在装配根/执行线程）。同 whcode-web 的既有先例。
+duckdb = { version = "1.10506.1", default-features = false }
 
 [dev-dependencies]
 # 测试用临时密钥生成（仅测试目标引入，不进入发布路径）。
 rand = "0.10"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+# 迁移 SQL 以 include_str 复用（同 whcode-web 测试；前端 crate 的清单不得出现
+# whcode-store——分层门禁）。
 
 [lints]
 workspace = true

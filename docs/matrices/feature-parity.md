@@ -31,8 +31,9 @@ CUI 列以 `crates/whcode-bin/src/cui_dispatch.rs` 的分支与“未接线”�
 | llm | run/cancel（Provider） | ✅（M3/T056 桩） | ⛔（`run` 未接线） | ⛔ | ⛔ | FR-201 |
 | events | list/export（脱敏注明） | ✅（M3/T065/T066） | ✅ list/export；🚧 `show` 未接线 | ✅ 尾部只读 | 🚧 列表只读（无导出） | FR-202/205 |
 | db | stats/check/purge/checkpoint/compact/archive | ✅（M1/T038—T042） | ✅ stats/check/purge/compact/archive/explain；⛔ `checkpoint` 非公开命令 | 🚧 | ⛔ | FR-507—510 |
-| theme | 主题选择（配置面） | — | —（随端内建） | ✅ 四套（`t` 循环，FR-612） | ✅ 四套（`t` 循环，FR-612） | ⛔（CSS 变量预留，ADR-014） | FR-612/713 |
+| theme | 主题选择（配置面） | — | —（随端内建） | ✅ 四套（`ui.theme`／`WHCODE_UI_THEME`） | 🚧 仅基础主题（无切换） | FR-612/713 |
 | font | 本机字体声明（install/status/uninstall） | ✅（FR-717 编排） | ✅（T155） | —（终端字形由模拟器控制） | —（非浏览器能力） | FR-717、ADR-028 |
+| ssh | 服务端受限入口（`sessions`／`session`／`tasks`／`task`；默认无 Shell） | ✅（M7/T097 判权） | —（经内置 SSH 客户端） | — | — | FR-607/608、ADR-030 |
 | doctor | 环境自检 | ✅（M0） | ✅（whcode-bin） | — | — | §10 |
 
 **权限**：全部命令经 `whcode-app::authz` 统一判定（拒绝 `permission_denied` 不可重试，

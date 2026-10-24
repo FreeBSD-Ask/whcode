@@ -147,12 +147,14 @@ whcode-platform ← 唯一允许 cfg(target_os) / CARGO_CFG_* 的 crate
 whcode-app     ← 命令编排/权限/快照；禁止依赖前端；SQL 只在 store（ADR-018）
 whcode-store   ← 唯一 DuckDB 链接点与写者服务
 whcode-llm / whcode-speckit / whcode-tools / whcode-runtime ← 领域服务
-whcode-tui / whcode-cui / whcode-web / whcode-ssh ← 前端适配器：只依赖 whcode-app，禁止触库
+whcode-tui / whcode-cui / whcode-web / whcode-ssh ← 前端适配器：依赖 whcode-app 与 whcode-domain；
+                                    不自行打开数据库（web／ssh 只透传装配根注入的 `Connection` 类型，ADR-018/030）
 whcode-bin     ← 装配根：配置、日志、feature 组装
 ```
 
 - 平台差异只能出现在 `whcode-platform`；其他 crate 出现 `cfg(target_os)` 即门禁失败。
-- 前端不得直接打开数据库、不得绕过应用服务；新增能力先落在 `whcode-app`。
+- 前端不得直接打开数据库、不得绕过应用服务；`whcode-web`／`whcode-ssh` 只能把装配根注入的
+  连接透传给 `whcode-app` 命令（SQL 仍只在 store，ADR-018）；新增能力先落在 `whcode-app`。
 - 新增 crate、依赖或跨层调用必须先有 ADR，再改 `Cargo.toml` 与门禁白名单。
 
 ### 4.1 Rust 内存安全与资源纪律（NFR-215）
@@ -213,7 +215,8 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - **原生 GUI 铁律**（ADR-026）：桌面界面必须原生渲染或原生控件；禁止任何内嵌浏览器引擎的
   壳层（WebView／WebView2、CEF、Tauri／wry、Electron、NW.js）。GUI 需求已立（FR-711—FR-715，
   只读 v1），选型与预算见 ADR-027（iced + `tiny-skia` 软件光栅，默认不建 GPU 上下文）：
-  空闲 1200×800 下 RSS ≤ 96 MB、线程 ≤ 24、句柄 ≤ 256、CPU ≤ 0.2% 单核，三套主题精确色值。
+  空闲 1200×800 下 RSS ≤ 96 MB、线程 ≤ 24、句柄 ≤ 256、CPU ≤ 0.2% 单核，四套主题精确色值
+  （三套基础主题 + `terminal-green`，见 FR-713 与 ADR-027 修订记录）。
 
 ## 7. 编码与文档规范
 

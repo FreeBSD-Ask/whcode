@@ -7,7 +7,7 @@
 | 文件 | 内容 |
 |---|---|
 | `philosophy.md` | 核心哲学与工程方法论（形式审查、正负和解、三重时间、0 信任） |
-| `design-principles.md`、`module-design.md` | 设计原则与 13 个 crate 的职责/依赖/失败模式 |
+| `design-principles.md`、`module-design.md` | 设计原则与 14 个 crate 的职责/依赖/失败模式 |
 | `software-engineering-process.md` | G0—G5 阶段门禁、角色合并、产物映射 |
 | `requirements-engineering.md` | FR 模板、需求质量判据、三方追溯抽查方法、变更控制 |
 | `repository-layout.md` | 目录分类原则（由 `tests/contract/test_layout.rs` 强制） |

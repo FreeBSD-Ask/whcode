@@ -5911,6 +5911,7 @@ dependencies = [
  "whcode-gui",
  "whcode-platform",
  "whcode-runtime",
+ "whcode-ssh",
  "whcode-store",
  "whcode-tui",
  "whcode-web",
@@ -5988,6 +5989,7 @@ dependencies = [
 name = "whcode-ssh"
 version = "0.1.0"
 dependencies = [
+ "duckdb",
  "rand 0.10.3",
  "russh",
  "tokio",

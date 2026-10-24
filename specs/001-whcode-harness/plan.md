@@ -30,7 +30,7 @@
 
 **Constraints**: 单写者事务一致性与检查点同事务提交（FR-403/ADR-007）；有界队列与满载语义（§5.3、§7.3）；历史注入有界（FR-105/FR-505）；Web 默认仅监听 127.0.0.1（FR-606）；秘密默认脱敏（FR-203）；运行时子进程隔离（ADR-008）；不承诺跨组件 exactly-once（§0.3-8）；桌面 GUI 若实现必须原生、禁止浏览器套壳（ADR-026）
 
-**Scale/Scope**: 13 个 crate、14 张核心表、79 条 FR 定义、NFR-101—107 与 NFR-201—222、里程碑 M0—M9、31 项验收 V-001—V-307、14 项待决策 D-01—D-14（另有 2026-10-23 新增的 D-15 GUI 形态铁律，见 `docs/matrices/decisions.md`）、12 项登记风险 R-01—R-12（来源追溯见 spec.md）
+**Scale/Scope**: 14 个 crate、14 张核心表、86 条 FR 定义、NFR-101—107 与 NFR-201—222、里程碑 M0—M10、31 项验收 V-001—V-307、14 项待决策 D-01—D-14（另有 2026-10-23 新增的 D-15 GUI 形态铁律，见 `docs/matrices/decisions.md`）、12 项登记风险 R-01—R-12（来源追溯见 spec.md）
 
 ## Constitution Check
 

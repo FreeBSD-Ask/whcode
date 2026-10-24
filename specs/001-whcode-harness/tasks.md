@@ -240,10 +240,10 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 
 **Independent Test**: 按 quickstart.md §7，四平台分别验收；任一失败记录明确阻塞原因（不以单一平台代替）
 
-- [ ] T096 [US8] 在 `crates/whcode-ssh/src/server.rs` 实现公钥认证、会话隔离、终端尺寸变化与安全退出（FR-607）
-- [ ] T097 [US8] 在 `crates/whcode-ssh/src/policy.rs` 实现受限 WHCode 入口；任意系统 Shell 为显式独立权限（FR-608、§10.2）
-- [ ] T098 [P] [US8] 在 `crates/whcode-ssh/src/adapter.rs` 复用应用服务，去除每会话独立数据库写入路径（ADR-005、C-03）
-- [ ] T099 [US8] 在 `artifacts/ssh-acceptance/` 产出四 BSD 的认证/尺寸/断连/权限边界证据与阻塞清单（V-004、R-02）
+- [x] T096 [US8] 在 `crates/whcode-ssh/src/server.rs` 实现公钥认证、会话隔离、终端尺寸变化与安全退出（FR-607）（**2026-10-24 完成**：`server.rs`（1 456 行）以 russh 0.64.1 实现公钥认证（仅 Ed25519 + `authorized_keys` 清单）、每连接独立 `SessionContext`（通道上限 8）、pty-req/window-change 记录并随命令传给执行器、连接断开经 `Drop` 归还计数并写审计；`shell_request` 一律拒绝（FR-608，交互 PTY 属 M8）；进程内 10 项服务端测试（9 tokio + 1）覆盖认证成功/拒绝、越权命令、resize、并发会话、断连回收；`cargo test -p whcode-ssh` 41/41 通过。**未取得**：BSD 现场验收（属 T099／ADR-013 延后））
+- [x] T097 [US8] 在 `crates/whcode-ssh/src/policy.rs` 实现受限 WHCode 入口；任意系统 Shell 为显式独立权限（FR-608、§10.2）（**2026-10-24 完成**：`policy.rs` 白名单 `sessions`／`session show|new`／`tasks`／`task`，默认 `SshPolicy::denied()` 拒绝 Shell，显式授权需 `allow_shell` 开关 **且** 调用者在 `shell_actors`，判定带能力校验与结构化错误码；5 项单测覆盖默认拒绝、双条件授权、越权与用法错误。**注**：本节指服务端入口；内置 SSH 客户端的任意命令面见 Check 97 登记缺口）
+- [x] T098 [P] [US8] 在 `crates/whcode-ssh/src/adapter.rs` 复用应用服务，去除每会话独立数据库写入路径（ADR-005、C-03）（**2026-10-24 完成**：`adapter.rs` 单线程 `whcode-ssh-exec` 执行器持有装配根注入的唯一 `Connection`（`serve.rs` 只 `open_workspace_db` 一次），命令经有界队列（64）+ 一次性回执 + 30 s 超时；`three_concurrent_ssh_sessions_write_through_single_connection` 证明 3 个并发会话全部经同一连接落库；非测试代码无 `Connection::open`）
+- [ ] T099 [US8] 在 `artifacts/ssh-acceptance/` 产出四 BSD 的认证/尺寸/断连/权限边界证据与阻塞清单（V-004、R-02）**未取得（2026-10-24 复核）**：`artifacts/ssh-acceptance/` 不存在；ADR-013 将 BSD 全部延后，本机无平台环境（M0 阻塞项 B-01），恢复须新 ADR 并补分平台证据
 
 **Checkpoint**: 五平台接入形态齐备
 
