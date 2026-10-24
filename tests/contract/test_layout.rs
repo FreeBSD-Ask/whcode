@@ -68,6 +68,9 @@ fn top_level_entries_follow_layout() {
         // 可移植工程准则（供其他项目复制；不依赖本项目代码）。
         "engineering-doctrine",
         "local",
+        // 过渡期登记：script/ 已更名 local/（2026-10-24），双忽略 + 本地提示防并行复建；
+        // 并行会话迁移完成后可删除本条与目录。
+        "script",
         "specs",
         "target",
         "tests",
@@ -78,6 +81,8 @@ fn top_level_entries_follow_layout() {
     let allowed_files = [
         "Cargo.lock",
         "Cargo.toml",
+        // Python 开发依赖声明（本地验证工具；见文件头注释）。
+        "requirements-dev.txt",
         "rust-toolchain.toml",
         "rustfmt.toml",
         // 标准开源流程文件（BSD-2-Clause；见 CONTRIBUTING.md）。

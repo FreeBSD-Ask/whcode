@@ -1,0 +1,7 @@
+# Python 开发依赖（仅本地验证工具使用；运行时零第三方依赖）
+# 安装：python -m pip install -r requirements-dev.txt
+#
+# - pillow：GUI 探针截图与像素统计（.github/scripts/gui-probe.py）
+# - fonttools：GUI 运行时字体子集生成（.github/scripts/subset-fonts.py；生成物入库，日常构建不需要）
+pillow>=11.0
+fonttools>=4.50
