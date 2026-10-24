@@ -165,8 +165,14 @@ pub fn run_with(source: &dyn ViewSource, options: RunOptions<'_>) -> Result<(), 
     let mut guard = TerminalGuard::enter(&mut session)?;
 
     let (cols, rows) = guard.session().size().unwrap_or(DEFAULT_SIZE);
-    let mut core =
-        LoopCore::new(source, options.command_executor, options.theme, cols, rows, Instant::now());
+    let mut core = LoopCore::new(
+        source,
+        options.command_executor,
+        options.theme,
+        cols,
+        rows,
+        Instant::now(),
+    );
 
     let mut terminal = Terminal::new(RowBackend::new(io::stdout()))
         .map_err(|err| io_error("初始化终端失败", err))?;
@@ -220,8 +226,7 @@ pub fn run_scripted_steps(
     options: &RunOptions<'_>,
 ) -> ScriptReport {
     let mut now = Instant::now();
-    let mut core =
-        LoopCore::new(source, options.command_executor, options.theme, 0, 0, now);
+    let mut core = LoopCore::new(source, options.command_executor, options.theme, 0, 0, now);
     let mut events_consumed = 0;
     let mut steps_consumed = 0;
     for step in steps {
@@ -507,9 +512,7 @@ impl<'a> LoopCore<'a> {
     /// 经门面执行写命令（FR-623）：成功即重新准备快照（在线可见同步）；失败写状态行。
     fn execute(&mut self, command: FrontendCommand, label: &str) {
         let Some(executor) = self.executor else {
-            self.status = format!(
-                "{label}: not_supported（未注入写命令执行器——装配根未提供）"
-            );
+            self.status = format!("{label}: not_supported（未注入写命令执行器——装配根未提供）");
             return;
         };
         match executor.execute(command) {
@@ -642,20 +645,18 @@ impl<'a> LoopCore<'a> {
     fn request_confirm(&mut self, command: FrontendCommand, label: &str) {
         let preview = match &command {
             FrontendCommand::SessionDelete {
-                session_id,
-                now_ms,
-                ..
+                session_id, now_ms, ..
             } => FrontendCommand::SessionDelete {
                 session_id: session_id.clone(),
                 confirm: false,
                 now_ms: *now_ms,
             },
-            FrontendCommand::PurgeExecute { before_ms, now_ms, .. } => {
-                FrontendCommand::PurgePreview {
-                    before_ms: *before_ms,
-                    now_ms: *now_ms,
-                }
-            }
+            FrontendCommand::PurgeExecute {
+                before_ms, now_ms, ..
+            } => FrontendCommand::PurgePreview {
+                before_ms: *before_ms,
+                now_ms: *now_ms,
+            },
             other => {
                 // 非破坏性命令不进确认流（防御式；当前调用点不会到达）。
                 self.execute(other.clone(), label);
@@ -923,7 +924,11 @@ mod tests {
         use std::cell::Cell;
         struct AdvancingSource(Cell<i64>);
         impl whcode_app::view_source::ViewSource for AdvancingSource {
-            fn snapshot(&self, _view: ViewId, _session: Option<&str>) -> whcode_app::view_source::ViewSnapshot {
+            fn snapshot(
+                &self,
+                _view: ViewId,
+                _session: Option<&str>,
+            ) -> whcode_app::view_source::ViewSnapshot {
                 whcode_app::view_source::ViewSnapshot::empty(ViewId::Sessions)
             }
             fn cursor(&self, _session: Option<&str>) -> Option<i64> {
@@ -962,7 +967,11 @@ mod tests {
                 snapshot
             }
         }
-        let report = run_scripted_steps(&OneSessionSource, &[ScriptStep::Input(UiEvent::Key('d'))], &RunOptions::default());
+        let report = run_scripted_steps(
+            &OneSessionSource,
+            &[ScriptStep::Input(UiEvent::Key('d'))],
+            &RunOptions::default(),
+        );
         assert!(
             report.status.contains("not_supported"),
             "状态行必须显式不可用：{:?}",

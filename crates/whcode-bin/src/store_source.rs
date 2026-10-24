@@ -67,8 +67,13 @@ impl StoreViewSource {
     }
 
     fn build_sessions(&self) -> Result<ViewSnapshot, WhError> {
-        let rows =
-            whcode_app::list_sessions(&self.conn.borrow(), &self.policy, &self.actor, false, SESSION_LIMIT)?;
+        let rows = whcode_app::list_sessions(
+            &self.conn.borrow(),
+            &self.policy,
+            &self.actor,
+            false,
+            SESSION_LIMIT,
+        )?;
         let mut snapshot = ViewSnapshot::empty(ViewId::Sessions);
         snapshot.sessions = rows
             .into_iter()
@@ -86,8 +91,12 @@ impl StoreViewSource {
         let Some(session) = session else {
             return Ok(no_session(ViewId::Tasks, &self.texts));
         };
-        let overview =
-            whcode_app::task_overview(&self.conn.borrow(), &self.policy, &self.actor, Some(session))?;
+        let overview = whcode_app::task_overview(
+            &self.conn.borrow(),
+            &self.policy,
+            &self.actor,
+            Some(session),
+        )?;
         let mut snapshot = ViewSnapshot::empty(ViewId::Tasks);
         snapshot.summary = self.texts.resolve_fmt(
             "summary.tasks",
@@ -115,8 +124,9 @@ impl StoreViewSource {
         let Some(session) = session else {
             return Ok(no_session(ViewId::Events, &self.texts));
         };
-        let cursor = whcode_app::build_snapshot(&self.conn.borrow(), &self.policy, &self.actor, session)?
-            .event_cursor;
+        let cursor =
+            whcode_app::build_snapshot(&self.conn.borrow(), &self.policy, &self.actor, session)?
+                .event_cursor;
         let after = cursor
             .saturating_sub(i64::try_from(EVENT_TAIL).unwrap_or(i64::MAX))
             .max(0);
@@ -195,7 +205,8 @@ impl StoreViewSource {
         let Some(session) = session else {
             return Ok(no_session(ViewId::Spec, &self.texts));
         };
-        let snapshot = whcode_app::build_snapshot(&self.conn.borrow(), &self.policy, &self.actor, session)?;
+        let snapshot =
+            whcode_app::build_snapshot(&self.conn.borrow(), &self.policy, &self.actor, session)?;
         let stage = snapshot.session.stage.as_deref().unwrap_or("[unknown]");
         let active = snapshot
             .active_task
@@ -338,7 +349,10 @@ mod tests {
 
     #[test]
     fn empty_workspace_reports_correct_emptiness() {
-        let source = StoreViewSource::new(std::rc::Rc::new(std::cell::RefCell::new(migrated_conn())), I18n::default());
+        let source = StoreViewSource::new(
+            std::rc::Rc::new(std::cell::RefCell::new(migrated_conn())),
+            I18n::default(),
+        );
         let sessions = source.snapshot(ViewId::Sessions, None);
         assert!(sessions.sessions.is_empty(), "空工作区无会话");
         assert!(sessions.summary.is_empty(), "会话视图不带摘要");
@@ -372,7 +386,10 @@ mod tests {
             [],
         )
         .expect("插入事件");
-        let source = StoreViewSource::new(std::rc::Rc::new(std::cell::RefCell::new(conn)), I18n::default());
+        let source = StoreViewSource::new(
+            std::rc::Rc::new(std::cell::RefCell::new(conn)),
+            I18n::default(),
+        );
 
         let sessions = source.snapshot(ViewId::Sessions, None);
         assert_eq!(sessions.sessions.len(), 1);
@@ -426,7 +443,10 @@ mod tests {
     fn diff_view_wires_converge_differences() {
         let conn = migrated_conn();
         seed_diff_fixture(&conn);
-        let source = StoreViewSource::new(std::rc::Rc::new(std::cell::RefCell::new(conn)), I18n::default());
+        let source = StoreViewSource::new(
+            std::rc::Rc::new(std::cell::RefCell::new(conn)),
+            I18n::default(),
+        );
 
         let diff = source.snapshot(ViewId::Diff, Some("S-T"));
         assert_eq!(
@@ -450,7 +470,10 @@ mod tests {
         // 英文文本层：摘要切换语言，差异行数据字段不翻译。
         let english_conn = migrated_conn();
         seed_diff_fixture(&english_conn);
-        let english = StoreViewSource::new(std::rc::Rc::new(std::cell::RefCell::new(english_conn)), I18n::load("en", LocaleSource::Explicit));
+        let english = StoreViewSource::new(
+            std::rc::Rc::new(std::cell::RefCell::new(english_conn)),
+            I18n::load("en", LocaleSource::Explicit),
+        );
         let diff = english.snapshot(ViewId::Diff, Some("S-T"));
         assert_eq!(
             diff.summary,

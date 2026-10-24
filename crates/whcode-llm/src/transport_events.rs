@@ -38,6 +38,23 @@ impl TransportState {
     }
 }
 
+/// 传输层只读快照（FR-210/616：供 `Provider::transport_snapshot` 返回）。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct TransportSnapshot {
+    /// 连接 ID。
+    pub connection_id: String,
+    /// 状态。
+    pub state: String,
+    /// 累计发送字节。
+    pub bytes_sent: u64,
+    /// 累计接收字节。
+    pub bytes_received: u64,
+    /// RTT 采样（毫秒）。
+    pub rtt_samples: Vec<u64>,
+    /// 重连尝试次数。
+    pub reconnect_attempts: u32,
+}
+
 /// 按连接聚合的传输追踪器。
 #[derive(Debug)]
 pub struct TransportTracker {
@@ -100,6 +117,19 @@ impl TransportTracker {
     #[must_use]
     pub fn rtt_samples(&self) -> Vec<u64> {
         self.rtt_samples.iter().copied().collect()
+    }
+
+    /// 只读快照（FR-210：供 Provider 暴露传输摘要）。
+    #[must_use]
+    pub fn snapshot(&self) -> TransportSnapshot {
+        TransportSnapshot {
+            connection_id: self.connection_id.clone(),
+            state: self.state.as_str().to_string(),
+            bytes_sent: self.bytes_sent,
+            bytes_received: self.bytes_received,
+            rtt_samples: self.rtt_samples(),
+            reconnect_attempts: self.reconnect_attempts,
+        }
     }
 
     fn payload(&self) -> serde_json::Value {

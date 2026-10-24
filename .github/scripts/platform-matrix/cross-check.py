@@ -4,7 +4,7 @@
 目的：在本机对 BSD 目标做 `cargo check`，记录“代码级兼容”证据与完整工作区的**预期失败**
 原因。两个都必须如实落盘：
 
-  1. 排除含原生 C 依赖的 crate（whcode-store → libduckdb-sys → ureq → aws-lc-sys；
+  1. 排除含原生 C 依赖的 crate（whcode-store → 缺少 BSD 原生 libduckdb；
      whcode-ssh → russh → aws-lc-rs；whcode-bin 依赖 store）后，类型检查应通过；
   2. 完整工作区检查**预期失败**——把第一条错误摘要记录下来，证明阻塞是“缺目标 C 工具链”
      这一具体原因，而非猜测。
@@ -139,7 +139,7 @@ def main() -> int:
         ),
         "host": "见 deps-windows.txt 的 host_triple（本脚本不重复探测）",
         "excluded_crates": EXCLUDED,
-        "exclusion_reason": "依赖图含目标平台 C 代码：store→libduckdb-sys→ureq→aws-lc-sys；ssh→russh→aws-lc-rs",
+        "exclusion_reason": "依赖图含目标平台原生代码：store→缺少 BSD 原生 libduckdb；ssh→russh→aws-lc-rs",
         "discipline": "cargo check 只做类型检查（不链接、不运行），不构成平台运行验证（ADR-010、G-01）",
         "targets": {},
     }

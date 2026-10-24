@@ -21,6 +21,7 @@
 //! 下一个 chunk 之前生效（§8.4）。
 
 pub mod correlation;
+pub mod http;
 pub mod metering;
 pub mod provider;
 pub mod stream;
@@ -37,4 +38,4 @@ pub use stream::{
     StreamPriority, pump_stream,
 };
 pub use trace::{IntegrityFlags, SUSPICIOUS_FIELDS, SanitizedTrace, sanitize, with_integrity};
-pub use transport_events::{MAX_RTT_SAMPLES, TransportState, TransportTracker};
+pub use transport_events::{MAX_RTT_SAMPLES, TransportSnapshot, TransportState, TransportTracker};

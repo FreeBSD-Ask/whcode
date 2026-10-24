@@ -264,13 +264,19 @@ fn launch_interactive(args: &[String]) -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    let FrontendParts { theme, texts, source, executor } = match prepare_frontend(args) {
+    let FrontendParts {
+        theme,
+        texts,
+        source,
+        executor,
+    } = match prepare_frontend(args) {
         Ok(prepared) => prepared,
         Err(code) => return code,
     };
     let probe: fn() -> Option<bool> = whcode_platform::term::is_window_minimized;
-    let executor_ref: Option<&dyn whcode_app::commands::CommandExecutor> =
-        executor.as_ref().map(|executor| executor as &dyn whcode_app::commands::CommandExecutor);
+    let executor_ref: Option<&dyn whcode_app::commands::CommandExecutor> = executor
+        .as_ref()
+        .map(|executor| executor as &dyn whcode_app::commands::CommandExecutor);
     let options = whcode_tui::RunOptions {
         theme,
         texts,
@@ -290,7 +296,12 @@ fn launch_interactive(args: &[String]) -> ExitCode {
 ///
 /// 与 TUI 共用同一只读快照（`whcode_app::view_source`）：GUI 自身不触库，主题沿用配置。
 fn gui_command(args: &[String]) -> ExitCode {
-    let FrontendParts { theme, texts, source, .. } = match prepare_frontend(args) {
+    let FrontendParts {
+        theme,
+        texts,
+        source,
+        ..
+    } = match prepare_frontend(args) {
         Ok(prepared) => prepared,
         Err(code) => return code,
     };

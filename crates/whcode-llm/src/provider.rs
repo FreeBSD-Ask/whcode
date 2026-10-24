@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 use whcode_domain::{ErrorCode, WhError};
 
 use crate::metering::Usage;
+use crate::transport_events::TransportSnapshot;
 
 /// Provider 能力声明（探测结果，FR-201）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,6 +61,9 @@ pub struct LlmChunk {
     pub final_chunk: bool,
     /// 供应商计量（仅终结 chunk；`None` 表示供应商不报告，走本地估算，FR-207）。
     pub usage: Option<Usage>,
+    /// 归一化终止原因（仅终结 chunk；`stop`/`length`/`tool_call` 等，FR-210）。
+    /// 非终结 chunk 恒为 `None`。
+    pub finish_reason: Option<String>,
 }
 
 /// 取消令牌：共享标志，跨流共享（`Arc`）。
@@ -115,6 +119,13 @@ pub trait Provider: Send + Sync {
     ///
     /// Provider 不可用或请求非法时返回归一化错误。
     fn execute(&self, request: &LlmRequest, cancel: &CancelToken) -> Result<ChunkStream, WhError>;
+
+    /// 传输层只读快照（FR-210/616：字节计数与 RTT 可查询）。
+    ///
+    /// 默认 `None`（桩 Provider 无网络传输）；真实 Provider 返回累计快照。
+    fn transport_snapshot(&self) -> Option<TransportSnapshot> {
+        None
+    }
 }
 
 /// 桩 Provider（quickstart §5：固定速率与 chunk 大小）。
@@ -212,6 +223,7 @@ impl Provider for StubProvider {
                 text: chunks[index as usize].clone(),
                 final_chunk,
                 usage: final_chunk.then(|| Usage::estimate(&prompt, &prompt)),
+                finish_reason: final_chunk.then(|| "stop".to_string()),
             })
         });
         Ok(ChunkStream {
