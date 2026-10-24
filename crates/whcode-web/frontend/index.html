@@ -13,6 +13,8 @@
       <button data-tab="sessions" role="tab" data-i18n="web.tab.sessions">会话</button>
       <button data-tab="tasks" role="tab" data-i18n="web.tab.tasks">任务</button>
       <button data-tab="history" role="tab" data-i18n="web.tab.history">历史</button>
+      <button data-tab="context" role="tab" data-i18n="web.tab.context">上下文</button>
+      <button data-tab="diff" role="tab" data-i18n="web.tab.diff">diff</button>
       <button data-tab="spec" role="tab" data-i18n="web.tab.spec">SDD</button>
       <button data-tab="maintenance" role="tab" data-i18n="web.tab.maintenance">维护</button>
     </nav>
@@ -35,7 +37,21 @@
       </div>
     </section>
     <section id="view-tasks" hidden><ul id="task-list"></ul></section>
-    <section id="view-history" hidden><pre id="event-log"></pre></section>
+    <section id="view-history" hidden>
+      <pre id="event-log"></pre>
+      <div id="export-actions">
+        <button id="export-json" type="button" data-i18n="web.export.json">导出 JSON</button>
+        <button id="export-jsonl" type="button" data-i18n="web.export.jsonl">导出 JSONL</button>
+      </div>
+    </section>
+    <section id="view-context" hidden>
+      <div id="context-summary"></div>
+      <ul id="context-list"></ul>
+    </section>
+    <section id="view-diff" hidden>
+      <div id="diff-summary"></div>
+      <ul id="diff-list"></ul>
+    </section>
     <section id="view-spec" hidden><pre id="spec-status"></pre></section>
     <section id="view-maintenance" hidden>
       <form id="purge-form">

@@ -26,6 +26,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use duckdb::Connection;
+use whcode_app::surface::{FrontendId, Support};
 use whcode_app::{
     Actor, DefaultPolicy, NewSession, PurgeCriteria, PurgeProtection, build_snapshot,
 };
@@ -187,6 +188,8 @@ fn error_response(error: &WhError) -> HttpResponse {
     let status = match error.code {
         ErrorCode::PermissionDenied => 403,
         ErrorCode::InvalidState => 400,
+        // 已登记但该端不提供（FR-620）；当前统一守卫直接返回 501，此处兜底同码。
+        ErrorCode::NotSupported => 501,
         ErrorCode::NotFound => 404,
         ErrorCode::ParseError => 400,
         _ => 500,
@@ -209,6 +212,42 @@ fn now_ms() -> Result<u64, WhError> {
         .duration_since(UNIX_EPOCH)
         .map_err(|err| WhError::internal(format!("系统时钟异常：{err}")))?;
     Ok(u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX))
+}
+
+/// 501 `not_supported` 响应（FR-620、ADR-032）：已登记但 Web 端预留/排除的能力。
+///
+/// details 由登记表驱动（`surface_id` + Web 端状态码 + 里程碑/理由码）；message 只
+/// 说明“能力未在该端提供”与里程碑/理由码，**不回显内部路径细节**（路径可经登记表
+/// 公开查询，不作为错误正文）。
+fn not_supported_response(surface_id: &str, support: &Support) -> HttpResponse {
+    let mut details = serde_json::json!({
+        "surface_id": surface_id,
+        "state": support.state_code(),
+    });
+    let message = match support {
+        Support::Reserved { milestone } => {
+            details["milestone"] = serde_json::json!(milestone);
+            format!("该能力未在 Web 端提供（预留，里程碑 {milestone}）")
+        }
+        Support::Excluded { reason } => {
+            details["reason_code"] = serde_json::json!(reason.as_str());
+            format!(
+                "该能力未在 Web 端提供（已登记排除，理由码 {}）",
+                reason.as_str()
+            )
+        }
+        _ => format!("该能力未在 Web 端提供（{}）", support.state_code()),
+    };
+    HttpResponse::json(
+        501,
+        &serde_json::json!({
+            "schema_version": whcode_domain::SCHEMA_VERSION,
+            "code": "not_supported",
+            "message": message,
+            "retryable": false,
+            "details": details,
+        }),
+    )
 }
 
 /// 写命令的请求体：必须是 JSON 对象（§8.1：写操作只走 POST + JSON）。
@@ -292,6 +331,24 @@ pub fn handle_request_with_runtimes(
         return error_response(&error);
     }
 
+    // ── 统一不可用语义守卫（FR-620、ADR-032） ─────────────────────────────
+    // 已登记但 Web 端预留/排除的路径 → 501 `not_supported` 信封，不伪装成 404；
+    // 未登记路径不入守卫（保持末尾 404 兜底，`not_found` 留给真正不存在的路由）；
+    // 已实现路径继续走正常路由。守卫在认证/Origin **之后**：不放宽安全默认值
+    // （docs/guides/web-deployment-security.md §4.1 口径）。
+    let method_str = match request.method {
+        Method::Get => "GET",
+        Method::Post => "POST",
+    };
+    if let Some(surface_id) = crate::surface_map::surface_of(method_str, &request.path) {
+        if let Some(entry) = whcode_app::surface::find(surface_id) {
+            let support = entry.support(FrontendId::Web);
+            if matches!(support, Support::Reserved { .. } | Support::Excluded { .. }) {
+                return not_supported_response(surface_id, support);
+            }
+        }
+    }
+
     let policy = DefaultPolicy;
     let (route, query) = match request.path.split_once('?') {
         Some((route, query)) => (route.to_string(), query.to_string()),
@@ -373,6 +430,148 @@ pub fn handle_request_with_runtimes(
                         })).collect::<Vec<_>>(),
                     }),
                 ),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Get, "/api/context") => {
+            // 上下文读取面（FR-622／174.1）：与 TUI／GUI 同一 `load_context`，字段同源。
+            let Some(session) = query_value("session") else {
+                return error_response(&WhError::invalid_state("缺 session 参数"));
+            };
+            let budget = match query_value("budget") {
+                Some(raw) => match raw.parse::<usize>() {
+                    Ok(parsed) if parsed > 0 => parsed,
+                    Ok(_) => {
+                        return error_response(&WhError::invalid_state("budget 不得为 0"));
+                    }
+                    Err(_) => {
+                        return error_response(&WhError::parse_error(
+                            "budget 取值不是非负整数",
+                        ));
+                    }
+                },
+                None => whcode_app::DEFAULT_CONTEXT_BUDGET_TOKENS,
+            };
+            match whcode_app::load_context(conn, &policy, actor, session, budget) {
+                Ok(window) => HttpResponse::json(
+                    200,
+                    &serde_json::json!({
+                        "schema_version": whcode_domain::SCHEMA_VERSION,
+                        "session_id": session,
+                        "budget_tokens": budget,
+                        "consumed_budget": window.consumed_budget,
+                        "items": window.items.iter().map(|item| serde_json::json!({
+                            "id": item.id,
+                            "role": item.role,
+                            "content_ref": item.content_ref,
+                            "token_count": item.token_count,
+                            "ts_us": item.ts_us,
+                        })).collect::<Vec<_>>(),
+                        "sources": window.sources,
+                        "truncated_reason": window.truncated_reason,
+                        "next_cursor": window.next_cursor.map(|cursor| serde_json::json!({
+                            "ts_us": cursor.ts_us,
+                            "id": cursor.id,
+                        })),
+                    }),
+                ),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Get, "/api/diff") => {
+            // diff 预览（FR-622／174.2）：与 TUI／GUI 同一 converge_differences 路径，
+            // 有界 ≤200 行 + truncated 标记；未选会话与数据源失败按错误语义区分。
+            let Some(session) = query_value("session") else {
+                return error_response(&WhError::invalid_state("缺 session 参数"));
+            };
+            match whcode_app::overview::converge_differences(conn, &policy, actor, session) {
+                Ok(view) => HttpResponse::json(
+                    200,
+                    &serde_json::json!({
+                        "schema_version": whcode_domain::SCHEMA_VERSION,
+                        "session_id": view.session_id,
+                        "task_count": view.task_count,
+                        "pass_count": view.pass_count,
+                        "fail_count": view.fail_count,
+                        "not_tested_count": view.not_tested_count,
+                        "truncated": view.truncated,
+                        "differences": view.differences.iter().map(|line| serde_json::json!({
+                            "marker": line.marker,
+                            "text": line.text,
+                        })).collect::<Vec<_>>(),
+                    }),
+                ),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Get, "/api/events/export") => {
+            // 事件导出（FR-205／174.3）：复用 `events_export` 与 CUI 同一口径；
+            // JSONL 首行注明追踪级别与脱敏策略（不引 CUI crate，本地渲染同形输出）。
+            let Some(session) = query_value("session") else {
+                return error_response(&WhError::invalid_state("缺 session 参数"));
+            };
+            let after = query_value("after")
+                .and_then(|value| value.parse::<i64>().ok())
+                .unwrap_or(0);
+            let format = query_value("format").unwrap_or("json");
+            if format != "json" && format != "jsonl" {
+                return error_response(&WhError::parse_error(
+                    "format 仅支持 json 与 jsonl",
+                ));
+            }
+            let limit = match query_value("limit") {
+                Some(raw) => match raw.parse::<usize>() {
+                    Ok(parsed) if (1..=1000).contains(&parsed) => parsed,
+                    Ok(_) => {
+                        return error_response(&WhError::invalid_state(
+                            "limit 须在 1..=1000（有界导出）",
+                        ));
+                    }
+                    Err(_) => {
+                        return error_response(&WhError::parse_error(
+                            "limit 取值不是非负整数",
+                        ));
+                    }
+                },
+                None => 1000,
+            };
+            match whcode_app::events_export(conn, &policy, actor, session, after, limit, TraceLevel::default()) {
+                Ok(export) => {
+                    if format == "jsonl" {
+                        let header = serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "session_id": export.session_id,
+                            "trace_level": export.trace_level,
+                            "redacted": export.redacted,
+                            "integrity": export.integrity.to_json(),
+                            "count": export.events.len(),
+                        });
+                        let mut lines = vec![header.to_string()];
+                        for event in &export.events {
+                            match serde_json::to_string(event) {
+                                Ok(line) => lines.push(line),
+                                Err(err) => {
+                                    return error_response(&WhError::parse_error(format!(
+                                        "事件序列化失败：{err}"
+                                    )));
+                                }
+                            }
+                        }
+                        HttpResponse {
+                            status: 200,
+                            headers: vec![(
+                                "content-type".to_string(),
+                                "application/x-ndjson".to_string(),
+                            )],
+                            body: lines.join("\n").into_bytes(),
+                        }
+                    } else {
+                        HttpResponse::json(
+                            200,
+                            &serde_json::to_value(&export).unwrap_or_default(),
+                        )
+                    }
+                }
                 Err(error) => error_response(&error),
             }
         }
@@ -865,6 +1064,104 @@ mod tests {
         let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
         assert_eq!(body["schema_version"], whcode_domain::SCHEMA_VERSION);
         assert_eq!(body["session"]["id"], "S-1");
+
+        // /api/context（FR-622）：预算/来源/截断原因/游标四元组同源（T174）。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/context?session=S-1&budget=1024", false),
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["schema_version"], whcode_domain::SCHEMA_VERSION);
+        assert_eq!(body["budget_tokens"], 1024);
+        assert!(body["items"].is_array());
+        assert!(body["sources"].is_array());
+
+        // budget=0 与非整数均拒绝（参数校验不静默）。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/context?session=S-1&budget=0", false),
+            &actor,
+        );
+        assert_eq!(response.status, 400);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/context?session=S-1&budget=abc", false),
+            &actor,
+        );
+        assert_eq!(response.status, 400);
+
+        // /api/diff（FR-622）：converge 差异同源；缺 session → invalid_state。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/diff?session=S-1", false),
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["schema_version"], whcode_domain::SCHEMA_VERSION);
+        assert_eq!(body["session_id"], "S-1");
+        assert!(body["differences"].is_array());
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/diff", false),
+            &actor,
+        );
+        assert_eq!(response.status, 400);
+
+        // /api/events/export（FR-205）：JSON 对象与 JSONL 双格式；JSONL 首行为脱敏头。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/events/export?session=S-1&format=jsonl", false),
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let jsonl = String::from_utf8(response.body.clone()).expect("文本");
+        let header: serde_json::Value =
+            serde_json::from_str(jsonl.lines().next().expect("首行")).expect("JSONL 头");
+        assert_eq!(header["trace_level"], "redacted");
+        assert_eq!(header["redacted"], true);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(
+                Method::Get,
+                "/api/events/export?session=S-1&format=jsonl&limit=0",
+                false,
+            ),
+            &actor,
+        );
+        assert_eq!(response.status, 400, "limit 越界拒绝");
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/events/export?session=S-1&format=csv", false),
+            &actor,
+        );
+        assert_eq!(response.status, 400, "未知 format 拒绝");
 
         // /api/sessions：会话列表。
         let response = handle_request(

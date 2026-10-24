@@ -29,6 +29,10 @@ nav button {
 nav button[aria-selected="true"] { opacity: 0.6; }
 main { flex: 1; padding: 0.5rem; }
 pre, ul { white-space: pre-wrap; word-break: break-all; }
+/* 上下文与 diff 读取面（FR-622）：摘要行弱化、条目分隔线用前景色（不引入新色值）。 */
+#context-summary, #diff-summary { opacity: 0.7; margin-bottom: 0.5rem; }
+#context-list li, #diff-list li { border-bottom: 1px solid var(--fg); }
+#export-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; }
 /* 会话选择（批次 1）：条目可点击；选中态用加粗 + `> ` 前缀（不只靠颜色，ui-design）。 */
 #session-list li { cursor: pointer; }
 #session-list li:focus-visible { outline: 1px dashed var(--fg); }

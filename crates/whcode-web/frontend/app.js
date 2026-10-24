@@ -474,7 +474,98 @@ async function pollLoop() {
   schedulePoll(state.connected ? 1000 : state.backoffMs);
 }
 
-// 标签切换（会话/任务/历史/SDD）。
+// 上下文读取面（FR-622）：/api/context 与 TUI/GUI 同源（预算/来源/截断原因）。
+async function loadContext() {
+  const list = el("context-list");
+  const summary = el("context-summary");
+  if (!state.session) {
+    summary.textContent = t("web.context.no_session", "未选择会话");
+    list.textContent = "";
+    return;
+  }
+  const body = await fetchJson(`/api/context?session=${encodeURIComponent(state.session)}`);
+  summary.textContent = t("web.context.summary", "预算 {consumed}/{budget} · 来源 {sources} · 截断 {truncated}", {
+    consumed: body.consumed_budget ?? 0,
+    budget: body.budget_tokens ?? 0,
+    sources: (body.sources ?? []).join("、") || "-",
+    truncated: body.truncated_reason ?? "-",
+  });
+  const items = body.items ?? [];
+  if (items.length === 0) {
+    list.textContent = "";
+    const empty = document.createElement("li");
+    empty.textContent = t("web.context.empty", "（正确的空：预算内无可装入条目）");
+    list.append(empty);
+    return;
+  }
+  list.textContent = "";
+  for (const item of items) {
+    const row = document.createElement("li");
+    row.textContent = `${item.role} · ${item.content_ref} · ${item.token_count}t`;
+    list.append(row);
+  }
+}
+
+// diff 读取面（FR-622）：/api/diff 与 TUI/GUI 同一 converge 路径（有界 ≤200 行）。
+async function loadDiff() {
+  const list = el("diff-list");
+  const summary = el("diff-summary");
+  if (!state.session) {
+    summary.textContent = t("web.diff.no_session", "未选择会话");
+    list.textContent = "";
+    return;
+  }
+  const body = await fetchJson(`/api/diff?session=${encodeURIComponent(state.session)}`);
+  summary.textContent = t("web.diff.summary", "任务 {total} · 通过 {pass} / 失败 {fail} / 未测 {untested}{truncated}", {
+    total: body.task_count ?? 0,
+    pass: body.pass_count ?? 0,
+    fail: body.fail_count ?? 0,
+    untested: body.not_tested_count ?? 0,
+    truncated: body.truncated ? t("web.diff.truncated", "（超限截断）") : "",
+  });
+  const differences = body.differences ?? [];
+  list.textContent = "";
+  if (differences.length === 0) {
+    const empty = document.createElement("li");
+    empty.textContent = t("web.diff.empty", "（无差异：全部验收条件通过）");
+    list.append(empty);
+    return;
+  }
+  for (const line of differences) {
+    const row = document.createElement("li");
+    row.textContent = `${line.marker}${line.text}`;
+    list.append(row);
+  }
+}
+
+// 事件导出（FR-205）：/api/events/export 复用与 CUI 同一脱敏口径，下载为文件。
+async function exportEvents(format) {
+  if (!state.session) {
+    setActionStatus(t("web.context.no_session", "未选择会话"), true);
+    return;
+  }
+  const url = `/api/events/export?session=${encodeURIComponent(state.session)}&format=${format}`;
+  const headers = {};
+  if (authToken !== null) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  const text = await response.text();
+  const blob = new Blob([text], {
+    type: format === "jsonl" ? "application/x-ndjson" : "application/json",
+  });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `events-${state.session}.${format}`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  setActionStatus(t("web.export.done", "导出完成"), false);
+}
+
+// 标签切换（会话/任务/历史/上下文/diff/SDD/维护）。
 for (const button of document.querySelectorAll("#tabs button")) {
   button.addEventListener("click", () => {
     for (const other of document.querySelectorAll("#tabs button")) {
@@ -485,6 +576,12 @@ for (const button of document.querySelectorAll("#tabs button")) {
       section.hidden = true;
     }
     el(`view-${button.dataset.tab}`).hidden = false;
+    // 读取面按需加载（FR-622）：切到上下文/diff 时拉取当前会话数据。
+    if (button.dataset.tab === "context") {
+      loadContext().catch(() => {});
+    } else if (button.dataset.tab === "diff") {
+      loadDiff().catch(() => {});
+    }
     if (animationsEnabled) {
       // 仅 opacity（GPU 合成友好，T133）；reduced-motion 时无动效。
       el("main").style.opacity = "0.6";
@@ -569,6 +666,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   el("purge-confirm").addEventListener("click", () => {
     runAction(t("web.cleanup.confirm", "确认清理"), confirmPurge);
+  });
+  el("export-json").addEventListener("click", () => {
+    runAction(t("web.export.json", "导出 JSON"), () => exportEvents("json"));
+  });
+  el("export-jsonl").addEventListener("click", () => {
+    runAction(t("web.export.jsonl", "导出 JSONL"), () => exportEvents("jsonl"));
   });
   loadRuntimes().catch(() => {});
   pollLoop();
