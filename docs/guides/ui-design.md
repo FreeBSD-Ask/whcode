@@ -33,13 +33,14 @@
 | `amoled-night`（A 屏夜间） | `#000000` | `#E6E6E6` | 边框 `#3A3A3A`，选中反显 | 夜间、OLED |
 | `eink-day`（墨水屏日间） | `#FFFFFF` | `#000000` | 仅用线框与下划线，不用填充色 | 白天、墨水屏 |
 | `eink-night`（墨水屏夜间） | `#000000` | `#FFFFFF` | 线框 `#FFFFFF` | 夜间、墨水屏 |
+| `terminal-green`（终端绿夜间） | `#000000` | `#00FF00` | 滚动条/边框同前景绿 | 夜间、CRT 荧光风格（2026-10-24 用户新增；黑色为 OLED 兼容纯黑） |
 
 规则：
 
 - 禁止“近黑/深灰”作为夜间背景（深灰仍耗电；OLED 只有纯黑关断）；
 - 状态不得只用颜色区分：必须叠加符号或文字（例如 `[!] blocked`、`[✓] completed`）；
 - 不做渐变、阴影、模糊；边框单线；选中态用反显或 `>` 前缀。
-- 主题通过配置选择（`ui.theme`：`amoled-night` / `eink-day` / `eink-night`），并可用
+- 主题通过配置选择（`ui.theme`：`amoled-night` / `eink-day` / `eink-night` / `terminal-green`——TUI 当前实现前三套，GUI 四套齐备），并可用
   环境变量 `WHCODE_UI_THEME` 覆盖（非法值打印警告并回落配置值——不拒绝启动）；默认
   `eink-day`（最保守、最省电）。TUI 侧由 `whcode-tui` 的 `draw_frame` 应用精确色值
   （测试断言渲染单元背景精确为 `#000000`/`#FFFFFF`）。

@@ -203,7 +203,7 @@ whcode-bin           （装配根：配置、日志、feature）
 - **职责**：原生桌面 GUI（只读 v1，FR-711—FR-715、ADR-027）；iced + `tiny-skia` 软件光栅，
   默认不创建 GPU 上下文。
 - **依赖**：仅 `whcode-app`（只读快照 `view_source`）与 `whcode-domain`（i18n）；不触库。
-- **关键类型**：`RunOptions`、`GuiTheme`（三套精确色值，`t` 键循环切换、不重启）、
+- **关键类型**：`RunOptions`、`GuiTheme`（四套精确色值，`t` 键循环切换、不重启；`terminal-green` 为纯黑底 OLED 兼容 + 荧光绿 `#00FF00`）、
   `State`（快照 + 选择位置）。
 - **失败模式**：窗口/渲染后端初始化失败返回 `iced::Error`；字体来自仓库内置的
   OFL 子集（FR-716／ADR-028），四类文本按字符显式分段：比例文本拉丁 Inter／CJK

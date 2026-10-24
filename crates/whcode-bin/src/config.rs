@@ -143,7 +143,7 @@ impl Config {
             Err(_) => {
                 eprintln!(
                     "WHCODE_UI_THEME={trimmed:?} 不是合法主题\
-                     （amoled-night/eink-day/eink-night），使用配置值 {}",
+                     （amoled-night/eink-day/eink-night/terminal-green），使用配置值 {}",
                     self.ui.theme.as_str()
                 );
                 self.ui.theme

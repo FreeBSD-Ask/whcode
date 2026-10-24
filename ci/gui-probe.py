@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""GUI 自动化证据（FR-715／T151）：三套主题截图、按键验证、空闲资源采样。
+"""GUI 自动化证据（FR-715／T151）：四套主题截图、按键验证、空闲资源采样。
 
 判据（见 `specs/001-whcode-harness/spec.md` FR-712／FR-713／FR-714）：
-- 三套主题的客户端区域只出现该主题的精确色值（另计中间灰比例）；
-- 按键 `3` 切视图（窗口标题随之变化）、`t` 循环三套主题（不重启）、`q` 退出码 0；
+- 四套主题的客户端区域只出现该主题的精确色值（另计中间灰比例；真灰口径见 pixel_stats）；
+- 按键 `3` 切视图（窗口标题随之变化）、`t` 循环四套主题（不重启）、`q` 退出码 0；
 - 空闲 10 s 的 RSS／私有内存／线程／句柄／CPU 落盘，供 Check 252 判定；
 - 最小化 10 s 的 CPU 增量（停绘）与还原后的标题／画面（FR-714）。
 
@@ -34,11 +34,12 @@ from ctypes import wintypes
 from PIL import ImageGrab
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-THEMES = ("eink-day", "eink-night", "amoled-night")
+THEMES = ("eink-day", "eink-night", "amoled-night", "terminal-green")
 THEME_PALETTES = {
     "eink-day": ("#FFFFFF", "#000000"),
     "eink-night": ("#000000", "#FFFFFF"),
     "amoled-night": ("#000000", "#E6E6E6"),
+    "terminal-green": ("#000000", "#00FF00"),
 }
 
 # 坐标口径统一为物理像素：否则 GetClientRect 返回的是 DPI 虚拟化后的逻辑像素，
@@ -240,16 +241,25 @@ def sample(pid: int) -> dict[str, float]:
 
 
 def pixel_stats(image) -> dict[str, float]:  # noqa: ANN001
-    """统计最多三种出现最多的颜色与中间灰比例（墨水屏关键判据）。"""
+    """统计最多三种出现最多的颜色与中间灰比例（墨水屏关键判据）。
+
+    `mid_gray_ratio` 按亮度（32—223）计，是 FR-713 的历史口径——对彩色前景主题
+    （terminal-green 的 #00FF00 亮度 ≈150）会把正常文字全部计入，不设达标线；
+    `true_gray_ratio` 只统计无彩色灰（R=G=B 且亮度 32—223），是抗锯齿污染的
+    真实口径，四套主题统一以此判定 ≤ 5%。
+    """
     rgb = image.convert("RGB")
     total = rgb.width * rgb.height
     counts: dict[tuple[int, int, int], int] = {}
     gray = 0
+    true_gray = 0
     for red, green, blue in rgb.getdata():
         counts[(red, green, blue)] = counts.get((red, green, blue), 0) + 1
         luminance = (red * 299 + green * 587 + blue * 114) // 1000
         if 32 <= luminance <= 223:
             gray += 1
+            if red == green == blue:
+                true_gray += 1
     top = sorted(counts.items(), key=lambda item: item[1], reverse=True)[:3]
     return {
         "pixels": total,
@@ -257,6 +267,7 @@ def pixel_stats(image) -> dict[str, float]:  # noqa: ANN001
             {"rgb": f"#{r:02X}{g:02X}{b:02X}", "ratio": round(count / total, 4)} for (r, g, b), count in top
         ],
         "mid_gray_ratio": round(gray / total, 4),
+        "true_gray_ratio": round(true_gray / total, 4),
     }
 
 
@@ -265,7 +276,7 @@ def seed_sessions(exe: pathlib.Path, workspace: pathlib.Path) -> None:
     for title in (
         f"整理需求基线与验收场景 {stamp}",
         f"验证事件游标重放 {stamp}",
-        f"核对三套主题色值 {stamp}",
+        f"核对四套主题色值 {stamp}",
     ):
         subprocess.run(
             [str(exe), "--workspace", str(workspace), "session", "new", "--title", title],
@@ -304,6 +315,16 @@ def run_theme(
         if not hwnd:
             result["error"] = "未找到窗口"
             return result
+        # 窗口句柄出现 ≠ 应用就绪：iced 首帧与标题设置可能落后数秒（实测冷启动
+        # 时按键全部落空、q 超时）。标题非空且连续两次采样一致才认为就绪。
+        ready_deadline = time.time() + 30
+        last_title = ""
+        while time.time() < ready_deadline:
+            title = window_title(hwnd)
+            if title and title == last_title:
+                break
+            last_title = title
+            time.sleep(0.5)
 
         user32.ShowWindow(hwnd, SW_RESTORE)
         result["focus_initial"] = focus(hwnd)
@@ -353,19 +374,19 @@ def run_theme(
         press(VK_3, hwnd)
         time.sleep(0.5)
 
-        # FR-713：`t` 键循环三套主题，切换不重启（三次后回到起始主题）
+        # FR-713：`t` 键循环四套主题，切换不重启（四步后回到起始主题）
         start = THEMES.index(theme)
         expected = [
             sorted(THEME_PALETTES[THEMES[(start + step) % len(THEMES)]])
-            for step in (1, 2, 3)
+            for step in range(1, len(THEMES) + 1)
         ]
         actual: list[list[str] | None] = []
-        for step in range(3):
+        for step in range(1, len(THEMES) + 1):
             if not press(VK_T, hwnd):
                 actual.append(None)
                 continue
             time.sleep(0.4)
-            image, _ = grab_client(hwnd, out_dir / f"gui-{theme}-theme{step + 1}.png")
+            image, _ = grab_client(hwnd, out_dir / f"gui-{theme}-theme{step}.png")
             if image is None:
                 actual.append(None)
                 continue

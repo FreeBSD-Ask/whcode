@@ -32,7 +32,7 @@ const FONT_NOTO: &[u8] = include_bytes!("../assets/fonts/NotoSansCJKsc-Regular.s
 const FONT_JETBRAINS: &[u8] = include_bytes!("../assets/fonts/JetBrainsMono-Regular.subset.ttf");
 const FONT_SARASA: &[u8] = include_bytes!("../assets/fonts/SarasaMonoSC-Regular.subset.ttf");
 
-/// GUI 主题（三套精确色值，FR-612／FR-713）。
+/// GUI 主题（四套精确色值，FR-612／FR-713；`terminal-green` 为 2026-10-24 用户新增）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum GuiTheme {
     /// 墨水屏日间：纯白底、纯黑字（默认，残影最小）。
@@ -42,6 +42,8 @@ pub enum GuiTheme {
     EinkNight,
     /// AMOLED 夜间：纯黑底、浅灰字（仅纯黑可关断 OLED 像素）。
     AmoledNight,
+    /// 终端绿夜间：纯黑底（OLED 兼容纯黑）、荧光绿字（CRT P1 风格，#00FF00）。
+    TerminalGreen,
 }
 
 impl GuiTheme {
@@ -52,6 +54,7 @@ impl GuiTheme {
             Self::EinkDay => "eink-day",
             Self::EinkNight => "eink-night",
             Self::AmoledNight => "amoled-night",
+            Self::TerminalGreen => "terminal-green",
         }
     }
 
@@ -62,6 +65,7 @@ impl GuiTheme {
             "eink-day" => Some(Self::EinkDay),
             "eink-night" => Some(Self::EinkNight),
             "amoled-night" => Some(Self::AmoledNight),
+            "terminal-green" => Some(Self::TerminalGreen),
             _ => None,
         }
     }
@@ -72,7 +76,8 @@ impl GuiTheme {
         match self {
             Self::EinkDay => Self::EinkNight,
             Self::EinkNight => Self::AmoledNight,
-            Self::AmoledNight => Self::EinkDay,
+            Self::AmoledNight => Self::TerminalGreen,
+            Self::TerminalGreen => Self::EinkDay,
         }
     }
 
@@ -83,6 +88,7 @@ impl GuiTheme {
             Self::EinkDay => (Color::WHITE, Color::BLACK),
             Self::EinkNight => (Color::BLACK, Color::WHITE),
             Self::AmoledNight => (Color::BLACK, Color::from_rgb(0.902, 0.902, 0.902)),
+            Self::TerminalGreen => (Color::BLACK, Color::from_rgb(0.0, 1.0, 0.0)),
         }
     }
 
@@ -437,6 +443,7 @@ mod tests {
             GuiTheme::EinkDay,
             GuiTheme::EinkNight,
             GuiTheme::AmoledNight,
+            GuiTheme::TerminalGreen,
         ] {
             assert_eq!(GuiTheme::parse(theme.name()), Some(theme));
         }
@@ -452,17 +459,26 @@ mod tests {
         assert!((foreground.r - 0.902).abs() < f32::EPSILON);
         assert_eq!(foreground.r, foreground.g);
         assert_eq!(foreground.g, foreground.b);
+        // terminal-green：OLED 兼容纯黑底 + 荧光绿字（#00FF00，绿通道满幅）。
+        let (background, foreground) = GuiTheme::TerminalGreen.colors();
+        assert_eq!(background, Color::BLACK);
+        assert_eq!(foreground.r, 0.0);
+        assert!((foreground.g - 1.0).abs() < f32::EPSILON);
+        assert_eq!(foreground.b, 0.0);
     }
 
     #[test]
-    fn theme_cycle_returns_to_start_after_three_steps() {
+    fn theme_cycle_returns_to_start_after_four_steps() {
         let mut theme = GuiTheme::EinkDay;
         let mut seen = Vec::new();
-        for _ in 0..3 {
+        for _ in 0..4 {
             theme = theme.next();
             seen.push(theme.name());
         }
-        assert_eq!(seen, ["eink-night", "amoled-night", "eink-day"]);
+        assert_eq!(
+            seen,
+            ["eink-night", "amoled-night", "terminal-green", "eink-day"]
+        );
         assert_eq!(theme, GuiTheme::EinkDay);
     }
 

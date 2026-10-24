@@ -7,6 +7,7 @@
 //! | [`AMOLED_NIGHT`] | `#000000`（纯黑） | `#E6E6E6` |
 //! | [`EINK_DAY`] | `#FFFFFF`（纯白） | `#000000` |
 //! | [`EINK_NIGHT`] | `#000000`（纯黑） | `#FFFFFF` |
+//! | [`TERMINAL_GREEN`] | `#000000`（纯黑） | `#00FF00`（2026-10-24 用户新增，CRT 荧光风格） |
 //!
 //! 主题经配置选择（可见、可改、可撤销）；测试断言背景色精确为纯黑/纯白
 //! （墨水屏避免大面积中间灰与渐变，ui-design 纪律）。
@@ -31,6 +32,9 @@ pub const EINK_DAY: (&str, &str) = (WHITE, BLACK);
 /// 墨水屏夜间：纯黑背景 + 白字。
 pub const EINK_NIGHT: (&str, &str) = (BLACK, WHITE);
 
+/// 终端绿夜间：纯黑背景（OLED 兼容）+ 荧光绿字（CRT P1 风格）。
+pub const TERMINAL_GREEN: (&str, &str) = (BLACK, "#00FF00");
+
 /// 渲染主题（配置选择；序列化用稳定 kebab-case 名，与 [`Theme::as_str`] 一致）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -42,6 +46,8 @@ pub enum Theme {
     EinkDay,
     /// 墨水屏夜间。
     EinkNight,
+    /// 终端绿夜间（2026-10-24 用户新增；FR-612 三套为下限，GUI 侧 FR-713 同步四套）。
+    TerminalGreen,
 }
 
 impl Theme {
@@ -52,6 +58,7 @@ impl Theme {
             Self::AmoledNight => AMOLED_NIGHT,
             Self::EinkDay => EINK_DAY,
             Self::EinkNight => EINK_NIGHT,
+            Self::TerminalGreen => TERMINAL_GREEN,
         }
     }
 
@@ -62,6 +69,7 @@ impl Theme {
             Self::AmoledNight => "amoled-night",
             Self::EinkDay => "eink-day",
             Self::EinkNight => "eink-night",
+            Self::TerminalGreen => "terminal-green",
         }
     }
 }
@@ -79,8 +87,9 @@ impl std::str::FromStr for Theme {
             "amoled-night" => Ok(Self::AmoledNight),
             "eink-day" => Ok(Self::EinkDay),
             "eink-night" => Ok(Self::EinkNight),
+            "terminal-green" => Ok(Self::TerminalGreen),
             other => Err(whcode_domain::WhError::parse_error(format!(
-                "未知主题 {other:?}：合法取值为 amoled-night / eink-day / eink-night"
+                "未知主题 {other:?}：合法取值为 amoled-night / eink-day / eink-night / terminal-green"
             ))),
         }
     }
@@ -103,7 +112,12 @@ mod tests {
 
     #[test]
     fn background_colors_are_exactly_pure_black_or_pure_white() {
-        for theme in [Theme::AmoledNight, Theme::EinkDay, Theme::EinkNight] {
+        for theme in [
+            Theme::AmoledNight,
+            Theme::EinkDay,
+            Theme::EinkNight,
+            Theme::TerminalGreen,
+        ] {
             let (background, _foreground) = theme.colors();
             assert!(
                 background == BLACK || background == WHITE,
@@ -120,6 +134,8 @@ mod tests {
         assert_eq!(Theme::AmoledNight.as_str(), "amoled-night");
         assert_eq!(Theme::EinkDay.as_str(), "eink-day");
         assert_eq!(Theme::EinkNight.as_str(), "eink-night");
+        assert_eq!(Theme::TerminalGreen.as_str(), "terminal-green");
+        assert_eq!(Theme::TerminalGreen.colors(), ("#000000", "#00FF00"));
     }
 
     /// 默认主题为 `eink-day`（ui-design §主题：最保守、最省电）。
@@ -132,7 +148,12 @@ mod tests {
     /// 配置解析：稳定名双向一致；未知名返回可操作的 parse_error。
     #[test]
     fn theme_names_roundtrip_and_reject_unknown() {
-        for theme in [Theme::AmoledNight, Theme::EinkDay, Theme::EinkNight] {
+        for theme in [
+            Theme::AmoledNight,
+            Theme::EinkDay,
+            Theme::EinkNight,
+            Theme::TerminalGreen,
+        ] {
             assert_eq!(theme.as_str().parse::<Theme>(), Ok(theme));
         }
         let err = "midnight".parse::<Theme>().expect_err("未知主题必须失败");
@@ -149,7 +170,12 @@ mod tests {
         assert_eq!(parse_rgb("#000000"), Some((0, 0, 0)));
         assert_eq!(parse_rgb("#FFFFFF"), Some((255, 255, 255)));
         assert_eq!(parse_rgb("#E6E6E6"), Some((230, 230, 230)));
-        for theme in [Theme::AmoledNight, Theme::EinkDay, Theme::EinkNight] {
+        for theme in [
+            Theme::AmoledNight,
+            Theme::EinkDay,
+            Theme::EinkNight,
+            Theme::TerminalGreen,
+        ] {
             let (background, foreground) = theme.colors();
             assert!(parse_rgb(background).is_some(), "{background} 必须可解析");
             assert!(parse_rgb(foreground).is_some(), "{foreground} 必须可解析");
