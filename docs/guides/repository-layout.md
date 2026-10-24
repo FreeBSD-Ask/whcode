@@ -21,7 +21,7 @@
 | `script/` | 本地 | 临时脚本、探测脚本、运行日志（不出库；一次性脚本与日志由 `ci/clean.py` 回收） | **忽略** |
 | `target/` | 本地 | Rust 构建产物 | **忽略** |
 | `state/` | 本地 | 环境工具自动重建的状态目录（内容不可控，视为不存在） | **忽略** |
-| `.github/` | 治理（流程） | `workflows/`（五平台流水线：Windows 在范围内自动运行，四 BSD 仅手工触发）；PR/Issue 模板 | 入库 |
+| `.github/` | 治理（流程） | `workflows/`（五平台流水线：Windows 在范围内自动运行，四 BSD 仅手工触发）；PR/Issue 模板；`dependabot.yml`（每日依赖与 Actions 更新，仅开 PR、不自动合并） | 入库 |
 | `.specify/` | 治理（工具链） | Spec-Kit 1.0.13 模板、PowerShell 脚本、集成清单与项目宪法（`memory/constitution.md`）；`feature.json` 为当前 feature 指针，切换时产生显式差异 | 入库（2026-10-24 全量纳入） |
 
 根文件只允许工程清单（`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、`rustfmt.toml`）、
