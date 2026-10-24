@@ -7,12 +7,15 @@
 **状态**：M5 部分交付（T087 首版；CUI 列于 2026-10-23 按 `cui_dispatch` 实测复核并更新）。
 ✅ = 已交付并有测试；🚧 = 路由存在、视图/入口未交付；⛔ = 里程碑未到。
 
-**Web 面（2026-10-22 更新）**：`whcode serve --web` 已装配（T090，真实浏览器实测）；
-Web 当前为**只读**：会话列表 / 任务总览 + 活跃任务 / 事件列表（脱敏注明）/ 状态快照 /
-文本层（`/api/i18n`）——写命令未接入。部署边界：仅回环或局域网（RFC1918，认证必填，
+**Web 面（2026-10-24 更新）**：`whcode serve --web` 已装配（T090，真实浏览器实测）；
+读命令：会话列表 / 任务总览 + 活跃任务 / 事件列表（脱敏注明）/ 状态快照 / 文本层；
+**写命令已接入（T110—T114 批次，FR-609）**：`POST /api/sessions/new|rename|archive|delete`、
+`/api/tasks/retry|abort`、`/api/purge`（预览默认 + 确认执行，破坏性命令防误触）——
+与 CUI 同源 `whcode-app` 判权（FR-604），33 项 API 测试含写命令预览/确认/权限拒绝
+（`crates/whcode-web/src/api.rs` 内联测试）。部署边界：仅回环或局域网（RFC1918，认证必填，
 ADR-023）。
 
-**最后更新**：2026-10-23 | 依据：`specs/001-whcode-harness/contracts/app-service.md` §2 命令面；
+**最后更新**：2026-10-24 | 依据：`specs/001-whcode-harness/contracts/app-service.md` §2 命令面；
 CUI 列以 `crates/whcode-bin/src/cui_dispatch.rs` 的分支与“未接线”清单为准（`run`、`events show`、
 `spec next/validate/analyze/converge/force-advance`、`runtime *`、`db checkpoint` 明确未接线）
 
@@ -28,6 +31,8 @@ CUI 列以 `crates/whcode-bin/src/cui_dispatch.rs` 的分支与“未接线”�
 | llm | run/cancel（Provider） | ✅（M3/T056 桩） | ⛔（`run` 未接线） | ⛔ | ⛔ | FR-201 |
 | events | list/export（脱敏注明） | ✅（M3/T065/T066） | ✅ list/export；🚧 `show` 未接线 | ✅ 尾部只读 | 🚧 列表只读（无导出） | FR-202/205 |
 | db | stats/check/purge/checkpoint/compact/archive | ✅（M1/T038—T042） | ✅ stats/check/purge/compact/archive/explain；⛔ `checkpoint` 非公开命令 | 🚧 | ⛔ | FR-507—510 |
+| theme | 主题选择（配置面） | — | —（随端内建） | ✅ 四套（`t` 循环，FR-612） | ✅ 四套（`t` 循环，FR-612） | ⛔（CSS 变量预留，ADR-014） | FR-612/713 |
+| font | 本机字体声明（install/status/uninstall） | ✅（FR-717 编排） | ✅（T155） | —（终端字形由模拟器控制） | —（非浏览器能力） | FR-717、ADR-028 |
 | doctor | 环境自检 | ✅（M0） | ✅（whcode-bin） | — | — | §10 |
 
 **权限**：全部命令经 `whcode-app::authz` 统一判定（拒绝 `permission_denied` 不可重试，

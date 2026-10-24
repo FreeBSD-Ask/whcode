@@ -26,6 +26,8 @@
 
 !/artifacts/clean-run-20261024-summary.json
 
+!/artifacts/quickstart-run-2026-10-24/
+
 !/artifacts/gui-run-2026-10-24/
 
 # NFR 预算测量报告与安全复查记录是 ADR-025／Check 115/123 的判定依据，随仓库版本化。

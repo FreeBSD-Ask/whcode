@@ -42,9 +42,10 @@ def main() -> int:
         if not matches:
             failures.append(f"未找到声明：{label}")
             return
-        for value in matches:
-            if int(value) != actual[key]:
-                failures.append(f"{label} 声明 {value}，实际 {actual[key]}")
+        # 复核记录保留各批次的历史口径（如“Check 1—258”），只有时间序最后的
+        # 声明是当前口径——历史匹配不参与断言，避免文档史实触发门禁误报。
+        if int(matches[-1]) != actual[key]:
+            failures.append(f"{label} 声明 {matches[-1]}，实际 {actual[key]}")
 
     expect(r"全部 (\d+) 条任务", checklist, "tasks", "checklist 任务数")
     expect(r"本清单 Check 1—(\d+)", checklist, "checks", "checklist Check 总数")

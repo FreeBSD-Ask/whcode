@@ -1,0 +1,632 @@
+[10:35:46] === M0：构建前置与依赖记录（workspace=/tmp/whcode-quickstart-g8kG）===
+[10:35:46] RUN: python ci/fetch-duckdb.py
+复用已校验缓存 D:\WHCode\vendor\duckdb\.cache\libduckdb-windows-amd64.zip
+SHA256 校验通过：44cf59583f9951d2cb09b1bf115a63ecb2d8901e363903029d86c7d8683fe96a
+解包到 D:\WHCode\vendor\duckdb\1.5.6
+已解包目录可用：D:\WHCode\vendor\duckdb\1.5.6（预编译来源：{"x86_64-pc-windows-msvc": "libduckdb-windows-amd64.zip"}）
+[10:35:47] EXIT: 0
+[10:35:47] RUN: python ci/platform-matrix/record_deps.py
+已写出 D:\WHCode\artifacts\deps-windows.txt
+[10:36:20] EXIT: 0
+[10:36:20] RUN: python ci/platform-matrix/cross-check.py
+检查 x86_64-unknown-freebsd（排除 whcode-store, whcode-bin, whcode-ssh）…
+  子集：失败（31.4s）
+检查 x86_64-unknown-freebsd（完整工作区，预期失败）…
+  完整：按预期失败（4.8s）
+检查 x86_64-unknown-netbsd（排除 whcode-store, whcode-bin, whcode-ssh）…
+  子集：失败（15.2s）
+检查 x86_64-unknown-netbsd（完整工作区，预期失败）…
+  完整：按预期失败（2.7s）
+已写出 D:\WHCode\artifacts\cross-check-windows.json
+[10:37:15] EXIT: 0
+[10:37:15] RUN: target/release/whcode.exe doctor --json --workspace /tmp/whcode-quickstart-g8kG
+{"doctor":{"checkpoint":{"before_dangerous":true,"every_steps":0,"interval_seconds":300,"retain":10},"db":{"max_memory_limit_mb":384,"memory_limit_mb":192,"temp_directory":"D:\\WHCode\\tmp","threads":4},"trace":{"default_level":"redacted"},"ui":{"theme":"eink-day"},"workspace_path":"D:\\WHCode"},"duckdb_engine_version":"v1.5.6","duckdb_error":null,"runtimes":[{"available":false,"capability":"restricted","name":"js","unsupported":["Node.js 内置模块","文件系统","网络"]},{"available":true,"capability":"restricted","name":"python","unsupported":["任意标准库模块（不承诺完整覆盖）","任意第三方包","文件系统写访问","网络访问","图形界面"]},{"available":true,"capability":"shell_only","name":"gitbash","unsupported":["任意系统 Shell"]},{"available":false,"capability":"shell_only","name":"bsdshell","unsupported":["Windows Git Bash"]}],"schema_version":1,"whcode_version":"2026-10-24T10:25+08:00"}
+[INFO] doctor 完成（api_key=[REDACTED] 已在日志路径脱敏）
+[WARN] max_temp_directory_size 未设置：临时目录空间无显式上限（§5.4 建议显式配置）
+[10:37:15] EXIT: 0
+[10:37:15] RUN: target/release/whcode.exe session new --title smoke --json --workspace /tmp/whcode-quickstart-g8kG
+{
+  "schema_version": 1,
+  "data": {
+    "session": {
+      "archived": false,
+      "created_at_ms": 1792809435942,
+      "id": "S-1",
+      "stage": "specify",
+      "status": "active",
+      "title": "smoke"
+    }
+  }
+}
+[10:37:16] EXIT: 0
+[10:37:16] SESSION=S-1
+[10:37:16] RUN: target/release/whcode.exe status --session S-1 --json --workspace /tmp/whcode-quickstart-g8kG
+{
+  "schema_version": 1,
+  "data": {
+    "active_task": null,
+    "event_cursor": 0,
+    "overview": null,
+    "schema_version": 1,
+    "session": {
+      "id": "S-1",
+      "stage": "specify",
+      "status": "active",
+      "title": "smoke"
+    }
+  }
+}
+[10:37:17] EXIT: 0
+[10:37:17] === M0-4/5：SSH 客户端原型与写者原型（本机可执行部分）===
+[10:37:17] RUN: cargo test -p whcode-ssh
+   Compiling subtle v2.6.1
+   Compiling typenum v1.20.1
+   Compiling cmov v0.5.4
+   Compiling rand_core v0.10.1
+   Compiling getrandom v0.4.3
+   Compiling const-oid v0.10.2
+   Compiling cpufeatures v0.3.1
+   Compiling cpubits v0.1.1
+   Compiling base64ct v1.8.3
+   Compiling syn v2.0.119
+   Compiling rustls-pki-types v1.15.1
+   Compiling base16ct v1.0.0
+   Compiling once_cell v1.21.4
+   Compiling miniz_oxide v0.9.1
+   Compiling windows-sys v0.61.2
+   Compiling windows-strings v0.5.1
+   Compiling ff v0.14.0
+   Compiling ctutils v0.4.3
+   Compiling windows-result v0.4.1
+   Compiling semver v1.0.28
+   Compiling pem-rfc7468 v1.0.0
+   Compiling group v0.14.0
+   Compiling cmake v0.1.58
+   Compiling fs_extra v1.3.0
+   Compiling rustls-webpki v0.103.16
+   Compiling webpki-roots v1.0.10
+   Compiling der v0.8.2
+   Compiling flate2 v1.1.10
+   Compiling rustc_version v0.4.1
+   Compiling dunce v1.0.5
+   Compiling futures-macro v0.3.34
+   Compiling byteorder v1.5.0
+   Compiling tokio-macros v2.7.2
+   Compiling generic-array v0.14.7
+   Compiling hybrid-array v0.4.15
+   Compiling windows-threading v0.2.1
+   Compiling aws-lc-sys v0.46.0
+   Compiling zip v9.0.5
+   Compiling keccak v0.2.2
+   Compiling rustls v0.23.46
+   Compiling curve25519-dalek v5.0.0
+   Compiling sponge-cursor v0.1.0
+   Compiling crc32fast v1.5.3
+   Compiling aws-lc-rs v1.18.2
+   Compiling simd-adler32 v0.3.10
+   Compiling untrusted v0.7.1
+   Compiling hex v0.4.3
+   Compiling md5 v0.8.1
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling block-padding v0.4.2
+   Compiling crypto-bigint v0.7.5
+   Compiling inout v0.2.5
+   Compiling spki v0.8.1
+   Compiling sec1 v0.8.1
+   Compiling module-lattice v0.2.3
+   Compiling socket2 v0.6.5
+   Compiling mio v1.2.4
+   Compiling pkcs1 v0.8.0-rc.4
+   Compiling data-encoding v2.11.1
+   Compiling digest v0.11.3
+   Compiling cipher v0.5.2
+   Compiling universal-hash v0.6.1
+   Compiling aead v0.6.1
+   Compiling kem v0.3.0
+   Compiling polyval v0.7.3
+   Compiling tokio v1.54.0
+   Compiling hmac v0.13.0
+   Compiling sha2 v0.11.1
+   Compiling signature v3.0.0
+   Compiling ctr v0.10.1
+   Compiling aes v0.9.3
+   Compiling salsa20 v0.11.0
+   Compiling ghash v0.6.0
+   Compiling cbc v0.2.1
+   Compiling pbkdf2 v0.13.0
+   Compiling hkdf v0.13.0
+   Compiling chacha20 v0.10.2
+   Compiling futures-util v0.3.34
+   Compiling blowfish v0.10.0
+   Compiling blake2 v0.11.0
+   Compiling poly1305 v0.9.1
+   Compiling aes-gcm v0.11.1
+   Compiling sha1 v0.11.0
+   Compiling rand v0.10.3
+   Compiling zerocopy-derive v0.8.63
+   Compiling scrypt v0.12.0
+   Compiling windows-interface v0.59.3
+   Compiling windows-implement v0.60.2
+   Compiling ureq v3.4.2
+   Compiling pkcs5 v0.8.1
+   Compiling strum_macros v0.27.2
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling argon2 v0.6.0
+   Compiling bcrypt-pbkdf v0.11.0
+   Compiling delegate v0.13.5
+   Compiling sha3 v0.12.0
+   Compiling shake v0.1.0
+   Compiling pkcs8 v0.11.0
+   Compiling primefield v0.14.0
+   Compiling rfc6979 v0.6.0
+   Compiling ssh-encoding v0.3.0
+   Compiling elliptic-curve v0.14.1
+   Compiling wnaf v0.14.1
+   Compiling futures-executor v0.3.34
+   Compiling ed25519 v3.0.0
+   Compiling libduckdb-sys v1.10506.1
+   Compiling crypto-primes v0.7.2
+   Compiling primeorder v0.14.0
+   Compiling ecdsa v0.17.0
+   Compiling futures v0.3.34
+   Compiling ssh-cipher v0.3.0
+   Compiling russh-cryptovec v0.62.0
+   Compiling russh-util v0.52.0
+   Compiling ml-kem v0.3.3
+   Compiling p521 v0.14.0
+   Compiling p384 v0.14.0
+   Compiling p256 v0.14.0
+   Compiling rsa v0.10.0-rc.18
+   Compiling num-bigint v0.5.1
+   Compiling enum_dispatch v0.3.13
+   Compiling generic-array v1.4.5
+   Compiling hex-literal v1.1.0
+   Compiling strum v0.27.2
+   Compiling zerocopy v0.8.63
+   Compiling windows-core v0.62.2
+   Compiling windows-numerics v0.3.1
+   Compiling windows-future v0.3.2
+   Compiling windows-collections v0.3.2
+   Compiling ed25519-dalek v3.0.0
+   Compiling windows v0.62.2
+   Compiling ssh-key v0.7.0-rc.11
+   Compiling half v2.7.1
+   Compiling arrow-buffer v58.4.0
+   Compiling ahash v0.8.12
+   Compiling arrow-data v58.4.0
+   Compiling arrow-array v58.4.0
+   Compiling arrow-select v58.4.0
+   Compiling arrow-ord v58.4.0
+   Compiling arrow-cast v58.4.0
+   Compiling arrow-string v58.4.0
+   Compiling arrow-arith v58.4.0
+   Compiling arrow-row v58.4.0
+   Compiling arrow v58.4.0
+   Compiling pageant v0.2.4
+   Compiling duckdb v1.10506.1
+   Compiling whcode-store v0.1.0 (D:\WHCode\crates\whcode-store)
+   Compiling whcode-app v0.1.0 (D:\WHCode\crates\whcode-app)
+   Compiling russh v0.64.1
+   Compiling whcode-ssh v0.1.0 (D:\WHCode\crates\whcode-ssh)
+error[E0432]: unresolved import `duckdb`
+  --> crates\whcode-ssh\src\adapter.rs:34:5
+   |
+34 | use duckdb::Connection;
+   |     ^^^^^^ use of unresolved module or unlinked crate `duckdb`
+   |
+   = help: if you wanted to use a crate named `duckdb`, use `cargo add duckdb` to add it to your `Cargo.toml`
+
+error[E0432]: unresolved import `duckdb`
+  --> crates\whcode-ssh\src\server.rs:31:5
+   |
+31 | use duckdb::Connection;
+   |     ^^^^^^ use of unresolved module or unlinked crate `duckdb`
+   |
+   = help: if you wanted to use a crate named `duckdb`, use `cargo add duckdb` to add it to your `Cargo.toml`
+
+error[E0425]: cannot find value `EXIT_POLICY_DENIED` in module `crate::adapter`
+   --> crates\whcode-ssh\src\server.rs:419:72
+    |
+419 | ...                   ErrorCode::Backpressure => crate::adapter::EXIT_POLICY_DENIED,
+    |                                                                  ^^^^^^^^^^^^^^^^^^ not found in `crate::adapter`
+    |
+help: consider importing this constant
+    |
+ 25 + use crate::policy::EXIT_POLICY_DENIED;
+    |
+help: if you import `EXIT_POLICY_DENIED`, refer to it directly
+    |
+419 -                             ErrorCode::Backpressure => crate::adapter::EXIT_POLICY_DENIED,
+419 +                             ErrorCode::Backpressure => EXIT_POLICY_DENIED,
+    |
+
+error[E0603]: enum `Pty` is private
+  --> crates\whcode-ssh\src\server.rs:35:44
+   |
+35 |     Auth, ChannelOpenHandle, Handler, Msg, Pty, Server as RusshServer, Session,
+   |                                            ^^^ private enum
+   |
+note: the enum `Pty` is defined here
+  --> C:\Users\ykla\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\russh-0.64.1\src\server\mod.rs:57:5
+   |
+57 | use crate::*;
+   |     ^^^^^
+
+warning: unused import: `PrivateKey`
+  --> crates\whcode-ssh\src\server.rs:33:30
+   |
+33 | use russh::keys::{Algorithm, PrivateKey, PublicKey};
+   |                              ^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0596]: cannot borrow `slot` as mutable, as it is not declared as mutable
+   --> crates\whcode-ssh\src\proto.rs:367:67
+    |
+367 |             let note = match mismatch.lock().ok().and_then(|slot| slot.take()) {
+    |                                                                   ^^^^ cannot borrow as mutable
+    |
+help: consider changing this to be mutable
+    |
+367 |             let note = match mismatch.lock().ok().and_then(|mut slot| slot.take()) {
+    |                                                             +++
+
+Some errors have detailed explanations: E0425, E0432, E0596, E0603.
+For more information about an error, try `rustc --explain E0425`.
+warning: `whcode-ssh` (lib) generated 1 warning
+error: could not compile `whcode-ssh` (lib) due to 5 previous errors; 1 warning emitted
+warning: build failed, waiting for other jobs to finish...
+[10:38:56] EXIT: 101
+[10:38:56] RUN: cargo test -p whcode-store
+   Compiling whcode-store v0.1.0 (D:\WHCode\crates\whcode-store)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.11s
+     Running unittests src\lib.rs (target\debug\deps\whcode_store-0f43a4b4ada0da7e.exe)
+
+running 105 tests
+test directory::tests::create_rejects_empty_title_and_status ... ok
+test directory::tests::event_cursor_reflects_max_seq ... ok
+test directory::tests::create_assigns_monotonic_prefixed_ids ... ok
+test checkpoints::tests::transition_rejects_mismatched_state_and_missing_task_without_side_effects ... ok
+test checkpoints::tests::insert_checkpoint_rejects_invalid_inputs_with_structured_errors ... ok
+test checkpoints::tests::transition_with_oversized_delta_rolls_back_task_and_event ... ok
+test checkpoints::tests::transition_failure_rolls_back_task_event_and_checkpoint ... ok
+test directory::tests::list_orders_newest_first_and_filters_archived ... ok
+test checkpoints::tests::transition_commits_task_event_and_checkpoint_together ... ok
+test directory::tests::rename_and_touch_report_missing_sessions ... ok
+test checkpoints::tests::recover_defaults_to_max_step_resolves_refs_and_reports_missing ... ok
+test indexes::tests::registry_entries_are_unique_and_described ... ok
+test indexes::tests::fresh_database_reports_all_required_indexes_missing ... ok
+test checkpoints::tests::insert_checkpoint_prunes_to_default_retain_keeping_largest_steps ... ok
+test indexes::tests::legacy_messages_index_is_replaced_by_three_column_index ... ok
+test indexes::tests::required_indexes_exist_after_migration ... ok
+test monitor::tests::collect_reports_database_tables_wal_writer_and_plans ... ok
+test monitor::tests::plan_query_rejects_write_statements ... ok
+test monitor::tests::collect_without_writer_or_queries_has_optional_sections_empty ... ok
+test overview::tests::consistency_annotation_partitions_fields ... ok
+test monitor::tests::plan_query_returns_explain_rows_and_analyze_variant ... ok
+test overview::tests::missing_overview_returns_none_and_unknown_session_is_rejected ... ok
+test overview::tests::computes_counts_and_stage_distribution_from_tasks ... ok
+test monitor::tests::table_stats_are_exact_counts ... ok
+test overview::tests::rebuild_all_includes_sessions_without_tasks ... ok
+test checkpoints::tests::twenty_transitions_keep_bounded_incremental_history ... ok
+test overview::tests::rebuild_persists_row_and_load_matches_compute ... ok
+test export::tests::has_any_workspace_data_reflects_any_of_the_three_tables ... ok
+test compact::tests::compact_rejects_missing_db_and_concurrent_maintenance ... ok
+test overview::tests::stale_row_is_detected_and_rebuild_refreshes_it ... ok
+test purge::tests::abort_policy_rejects_at_preview_and_execute ... ok
+test purge::tests::empty_selection_executes_noop_and_audits ... ok
+test purge::tests::archived_only_limits_selection ... ok
+test purge::tests::execute_rechecks_protection_after_preview ... ok
+test purge::tests::execute_requires_explicit_confirmation ... ok
+test purge::tests::preview_selects_by_time_and_reports_protected ... ok
+test purge::tests::sessions_criterion_selects_by_id_with_protection ... ok
+test purge::tests::set_archived_flips_flag_and_missing_ids_rejected ... ok
+test purge::tests::ttl_within_default_active_window_protects_everything ... ok
+test purge::tests::ttl_criterion_boundary_and_negative_rejected ... ok
+test compact::tests::space_report_counts_wal_when_present ... ok
+test export::tests::import_rejects_unmigrated_target ... ok
+test schema::tests::checksum_is_stable_and_versioned ... ok
+test export::tests::import_rejects_format_and_schema_mismatch ... ok
+test purge::tests::audit_records_survive_purge_and_export_excludes_them ... ok
+test export::tests::export_requires_migrated_source_and_lists_excluded_tables ... ok
+test schema::tests::migration_versions_are_strictly_increasing ... ok
+test export::tests::import_rejects_duplicate_ids_against_populated_target ... ok
+test query::tests::page_size_is_bounded_and_validated ... ok
+test schema::tests::creates_all_tables_and_is_idempotent ... ok
+test purge::tests::preview_set_matches_executed_deletions ... ok
+test schema::tests::failed_migration_does_not_mark_version ... ok
+test schema::tests::events_table_has_expected_columns ... ok
+test service::tests::defaults_match_baseline_and_config_is_effective ... ok
+test export::tests::import_rejects_checksum_drift_and_wrong_hash ... ok
+test query::tests::cursors_are_exclusive_in_both_directions ... ok
+test query::tests::message_pages_use_timestamp_and_id_tiebreak ... ok
+test service::tests::buffered_event_is_flushed_by_time_window ... ok
+test service::tests::critical_event_is_confirmed ... ok
+test service::tests::batch_row_threshold_is_configurable ... ok
+test service::tests::writer_panic_is_reported_and_later_requests_are_rejected ... ok
+test query::tests::backward_pages_cover_events_without_gaps_or_duplicates ... ok
+test service::tests::queue_depth_tracks_waiting_requests_and_capacity ... ok
+test smoke::tests::missing_parent_directory_is_reported_as_io_error ... ok
+test service::tests::duplicate_key_is_deduplicated_through_service ... ok
+test smoke::tests::engine_version_probe_reports_structured_version ... ok
+test service::tests::drop_drains_accepted_requests ... ok
+test service::tests::queue_is_bounded_and_reports_backpressure ... ok
+test query::tests::forward_pages_cover_events_without_gaps_or_duplicates ... ok
+test smoke::tests::smoke_covers_all_steps_on_fresh_file ... ok
+test tool_exec::tests::missing_record_reports_not_found ... ok
+test wal::tests::idle_decision_is_pure_and_window_boundary_is_inclusive ... ok
+test tool_exec::tests::intent_then_result_reaches_completed ... ok
+test tasks::tests::unknown_status_value_is_rejected_not_silently_mapped ... ok
+test tasks::tests::insert_get_update_roundtrip_and_missing_reports ... ok
+test smoke::tests::smoke_reports_engine_version_from_runtime ... ok
+test tool_exec::tests::result_rejects_non_terminal_and_wrong_order ... ok
+test tasks::tests::distributions_and_active_tasks_cover_workspace_and_session_scopes ... ok
+test tool_exec::tests::recovery_marks_only_uncertain_states ... ok
+test wal::tests::default_policy_keeps_settings_and_readback_is_stable ... ok
+test wal::tests::policy_overrides_are_effective_and_rejected_when_invalid ... ok
+test wal::tests::run_checkpoint_reports_wal_sizes_and_reason ... ok
+test writer::tests::batch_window_deadline_triggers_commit ... ok
+test writer::tests::batch_row_threshold_triggers_commit ... ok
+test writer::tests::critical_event_is_committed_and_confirmed ... ok
+test writer::tests::duplicate_idempotency_key_returns_existing_seq ... ok
+test smoke::tests::smoke_is_repeatable_on_existing_file ... ok
+test writer::tests::empty_idempotency_key_is_rejected ... ok
+test writer::tests::duplicate_key_in_pending_batch_is_not_queued_twice ... ok
+test writer::tests::duplicate_key_in_same_batch_is_deduplicated ... ok
+test writer::tests::flush_if_due_commits_only_after_window ... ok
+test compact::tests::verify_copy_rejects_missing_index_and_row_drift ... ok
+test writer::tests::oversized_payload_is_rejected_not_truncated ... ok
+test writer::tests::dedup_across_flushes_returns_existing_seq ... ok
+test writer::tests::saturated_buffer_returns_backpressure_and_keeps_entries ... ok
+test writer::tests::write_failure_propagates_and_batch_is_retained ... ok
+test writer::tests::zero_batch_rows_is_rejected - should panic ... ok
+test writer::tests::retry_after_failed_flush_keeps_seq_unambiguous ... ok
+test service::tests::multiple_producers_keep_seq_unique ... ok
+test writer::tests::batch_larger_than_insert_chunk_keeps_seq_contiguous ... ok
+test tasks::tests::detail_projections_are_bounded_and_exclude_content ... ok
+test writer::tests::many_keys_exceed_query_chunk_still_dedups ... ok
+test tasks::tests::tasks_of_session_returns_all_statuses_ordered_and_bounded ... ok
+test compact::tests::compact_switches_file_and_preserves_data ... ok
+test export::tests::export_import_round_trip_preserves_all_tables ... ok
+
+test result: ok. 105 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.23s
+
+   Doc-tests whcode_store
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[10:39:08] EXIT: 0
+[10:39:08] === M0-6/M2：基线与切换基准 ===
+[10:39:08] RUN: target/release/whcode.exe bench baseline --out artifacts/quickstart-run-2026-10-24/baseline-windows.json --workspace /tmp/whcode-quickstart-g8kG
+{"schema_version":1,"code":"parse_error","message":"未知参数：--workspace（支持 --out / --events / --repeat）","retryable":false,"details":null}
+[10:39:09] EXIT: 1
+[10:39:09] RUN: target/release/whcode.exe bench session-switch --session S-1 --repeat 5 --workspace /tmp/whcode-quickstart-g8kG
+{"schema_version":1,"code":"parse_error","message":"未知 bench 子命令：仅支持 baseline（用法：whcode bench baseline --out <路径> [--events N] [--repeat R]）","retryable":false,"details":null}
+[10:39:09] EXIT: 1
+[10:39:09] === M1：存储与事件 ===
+[10:39:09] RUN: target/release/whcode.exe events export --session S-1 --after 0 --format jsonl --workspace /tmp/whcode-quickstart-g8kG
+{"count":0,"integrity":{"downsampled":false,"missing_chunks":false,"persistence_failed":false,"redacted":true},"redacted":true,"schema_version":1,"session_id":"S-1","trace_level":"redacted"}
+{"count":0,"integrity":{"downsampled":false,"missing_chunks":false,"persistence_failed":false,"redacted":true},"redacted":true,"schema_version":1,"session_id":"S-1","trace_level":"redacted"}
+[10:39:09] EXIT: 0
+[10:39:09] RUN: target/release/whcode.exe db stats --json --workspace /tmp/whcode-quickstart-g8kG
+{
+  "schema_version": 1,
+  "data": {
+    "blocks_consistent": true,
+    "database_name": "whcode",
+    "database_size": "1.5 MiB",
+    "engine_version": "v1.5.6",
+    "file_size_bytes": 1585152,
+    "free_blocks": 0,
+    "schema_version": 5,
+    "total_blocks": 6,
+    "used_blocks": 6,
+    "wal_size_bytes": 0,
+    "wal_status": {
+      "wal_autocheckpoint": "16.0 MiB",
+      "wal_size": "0 bytes"
+    }
+  }
+}
+[10:39:09] EXIT: 0
+[10:39:10] RUN: target/release/whcode.exe db check --json --workspace /tmp/whcode-quickstart-g8kG
+{
+  "schema_version": 1,
+  "data": {
+    "missing_indexes": [],
+    "ok": true
+  }
+}
+[10:39:10] EXIT: 0
+[10:39:10] RUN: target/release/whcode.exe db purge --before 1767225600000 --dry-run --workspace /tmp/whcode-quickstart-g8kG
+dry-run: 0 sessions / 0 events would be purged (0 protected skipped) — pass --yes to execute
+[10:39:10] EXIT: 0
+[10:39:10] RUN: target/release/whcode.exe db archive --export artifacts/quickstart-run-2026-10-24/whcode-export.json --workspace /tmp/whcode-quickstart-g8kG
+Exported to artifacts/quickstart-run-2026-10-24/whcode-export.json (hash fnv1a64:fad7ef13261436ca)
+[10:39:10] EXIT: 0
+[10:39:10] RUN: target/release/whcode.exe db compact --yes --workspace /tmp/whcode-quickstart-g8kG
+compact finished (switched=true)
+[10:39:11] EXIT: 0
+[10:39:11] === M2：应用服务 ===
+[10:39:11] RUN: target/release/whcode.exe session list --json --workspace /tmp/whcode-quickstart-g8kG
+{
+  "schema_version": 1,
+  "data": {
+    "sessions": [
+      {
+        "archived": false,
+        "created_at_ms": 1792809435942,
+        "id": "S-1",
+        "stage": "specify",
+        "status": "active",
+        "title": "smoke"
+      }
+    ]
+  }
+}
+[10:39:11] EXIT: 0
+[10:39:11] RUN: target/release/whcode.exe task list --session S-1 --json --workspace /tmp/whcode-quickstart-g8kG
+{
+  "schema_version": 1,
+  "data": {
+    "active": [],
+    "blocked": 0,
+    "by_stage": {},
+    "done": 0,
+    "session_id": "S-1",
+    "total": 0
+  }
+}
+[10:39:11] EXIT: 0
+[10:39:11] === M3/M4：结构性未接线（显式失败取证）===
+[10:39:11] RUN: target/release/whcode.exe run --session S-1 --model stub --trace-level redacted --workspace /tmp/whcode-quickstart-g8kG
+错误 [invalid_state] 未实现：run 未接线：LLM 流式交互需 Provider 与会话流装配（M3 桩已交付，CLI 执行属后续）（显式失败，不静默成功）
+[10:39:12] EXIT: 50
+[10:39:12] RUN: target/release/whcode.exe spec status --session S-1 --json --workspace /tmp/whcode-quickstart-g8kG
+{
+  "schema_version": 1,
+  "data": {
+    "event_cursor": 0,
+    "overview": null,
+    "session_id": "S-1",
+    "stage": "specify",
+    "status": "active"
+  }
+}
+[10:39:12] EXIT: 0
+[10:39:12] RUN: target/release/whcode.exe spec validate --session S-1 --json --workspace /tmp/whcode-quickstart-g8kG
+{
+  "schema_version": 1,
+  "code": "invalid_state",
+  "message": "未实现：spec 门禁命令需 SDD 产物工作区上下文（specs/ 与 workflow 配置加载）——属后续接线（显式失败，不静默成功）",
+  "retryable": false,
+  "details": null
+}
+[10:39:12] EXIT: 50
+[10:39:12] === M5/M6：Web 端（读+写命令路由）===
+[10:39:15] RUN: curl -s -o /dev/null -w web-index %{http_code}\n http://127.0.0.1:8791/
+web-index 200
+[10:39:16] EXIT: 0
+[10:39:16] RUN: curl -s http://127.0.0.1:8791/api/sessions
+{"schema_version":1,"sessions":[{"archived":false,"created_at_ms":1792809435942,"id":"S-1","last_active_at_ms":1792809435942,"model":null,"stage":"specify","status":"active","title":"smoke"}]}[10:39:16] EXIT: 0
+[10:39:16] === M7/M8：SSH 服务端与运行时（未实现/未接线取证）===
+[10:39:16] RUN: target/release/whcode.exe serve --ssh --port 2222 --workspace /tmp/whcode-quickstart-g8kG
+serve 参数错误：parse_error: 未知参数 "--port"：可用 --web / --ssh / --bind host:port / --token-file PATH / --workspace DIR / --config PATH
+[10:39:16] EXIT: 1
+[10:39:16] RUN: target/release/whcode.exe runtime list --json --workspace /tmp/whcode-quickstart-g8kG
+{
+  "schema_version": 1,
+  "code": "invalid_state",
+  "message": "未实现：runtime 未接线：运行时装配开关（M8）属后续任务，当前不伪造启用状态（显式失败，不静默成功）",
+  "retryable": false,
+  "details": null
+}
+[10:39:16] EXIT: 50
+[10:39:17] RUN: cargo test -p whcode-runtime
+   Compiling unicode-segmentation v1.13.3
+   Compiling memchr v2.8.3
+   Compiling syn v2.0.119
+   Compiling convert_case v0.10.0
+   Compiling serde_json v1.0.154
+   Compiling whcode-domain v0.1.0 (D:\WHCode\crates\whcode-domain)
+   Compiling derive_more-impl v2.1.1
+   Compiling derive_more v2.1.1
+   Compiling crossterm v0.29.0
+   Compiling whcode-platform v0.1.0 (D:\WHCode\crates\whcode-platform)
+   Compiling whcode-runtime v0.1.0 (D:\WHCode\crates\whcode-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.75s
+     Running unittests src\lib.rs (target\debug\deps\whcode_runtime-66b37defd2da24ef.exe)
+
+running 44 tests
+test cache::tests::cache_only_applies_when_explicitly_enabled ... ok
+test errors::tests::unavailable_runtimes_block_execution_before_start ... ok
+test checkpoint::tests::policy_is_reused_from_domain ... ok
+test checkpoint::tests::checkpoint_validates_four_elements ... ok
+test capability::tests::capability_levels_are_stable ... ok
+test gitbash::tests::unresolved_bash_maps_to_structured_missing_error ... ok
+test errors::tests::runtime_unavailable_carries_reason_and_suggestion ... ok
+test gitbash::tests::verify_payload_accepts_good_and_rejects_four_bad_states ... ok
+test capability::tests::declarations_never_claim_full_for_restricted_engines ... ok
+test js::tests::js_without_engine_is_honestly_unavailable ... ok
+test payload::tests::empty_allowlist_rejects_everything_and_new_normalizes_entries ... ok
+test payload::tests::unknown_source_checksum_drift_and_platform_mismatch_are_rejected ... ok
+test providers::tests::providers_never_claim_full_and_names_do_not_collide ... ok
+test js::tests::declaration_stays_restricted_with_unsupported_list ... ok
+test provider::tests::provider_contract_six_elements ... ok
+test providers::tests::unavailable_providers_return_structured_errors ... ok
+test gitbash::tests::oversized_request_is_rejected_before_spawning ... ok
+test python::tests::declaration_lists_restricted_boundary ... ok
+test python::tests::oversized_request_is_rejected_before_spawning ... ok
+test gitbash::tests::execute_without_configured_path_and_without_path_bash_is_structured_error ... ok
+test gitbash::tests::locate_bash_finds_local_git_bash_and_version_contains_bash ... ok
+test worker::tests::credential_variable_detection_covers_common_channels ... ok
+test worker::tests::env_probe_child ... ignored, 仅由 strip_credentials_removes_credentials_from_child（父测试）以子进程调用
+test worker::tests::minimal_env_converges_to_allowlist_plus_explicit ... ok
+test worker::tests::concurrency_gate_bounds_active_workers_and_releases_permits ... ok
+test worker::tests::cancel_terminates_child_and_is_distinguishable_from_timeout ... ok
+test worker::tests::output_is_capped_to_tail ... ok
+test gitbash::tests::availability_and_fingerprint_are_consistent ... ok
+test python::tests::python_probes_system_interpreter ... ok
+test python::tests::probe_env_records_interpreter_details ... ok
+test gitbash::tests::five_capability_probes_pass_when_bash_available ... ok
+test worker::tests::worker_preserves_stderr_tail_on_failure ... ok
+test worker::tests::strip_credentials_removes_credentials_from_child ... ok
+test worker::tests::child_sees_only_allowlist_and_explicit_vars ... ok
+test gitbash::tests::bash_timeout_terminates_long_running_script ... ok
+test gitbash::tests::execute_runs_script_with_stdin_input_and_records_checkpoint ... ok
+test worker::tests::worker_executes_and_returns_exit_code ... ok
+test worker::tests::worker_timeout_kills_process ... ok
+test python::tests::protocol_output_is_bounded ... ok
+test python::tests::cancel_is_distinguishable_from_timeout ... ok
+test python::tests::protocol_runs_script_and_returns_result ... ok
+test python::tests::protocol_timeout_kills_runaway_script ... ok
+test python::tests::protocol_failure_reports_nonzero_exit_and_stderr ... ok
+test gitbash::tests::locate_bash_resolves_from_configured_git_path ... ok
+
+test result: ok. 43 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 3.21s
+
+   Doc-tests whcode_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[10:39:55] EXIT: 0
+[10:39:55] RUN: cargo test -p whcode-tests --test side_effect_recovery
+   Compiling whcode-store v0.1.0 (D:\WHCode\crates\whcode-store)
+   Compiling whcode-app v0.1.0 (D:\WHCode\crates\whcode-app)
+   Compiling whcode-web v0.1.0 (D:\WHCode\crates\whcode-web)
+   Compiling whcode-cui v0.1.0 (D:\WHCode\crates\whcode-cui)
+   Compiling whcode-tests v0.1.0 (D:\WHCode\tests)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.43s
+     Running crash\test_side_effect_recovery.rs (target\debug\deps\side_effect_recovery-ad07bef4c0e2bf1d.exe)
+
+running 5 tests
+test child_crash_point ... ignored, 仅由父测试以子进程调用（三时点崩溃注入）
+test registered_result_is_not_marked_unknown ... ok
+test side_effect_before_register_marks_unknown_and_is_not_replayed ... ok
+test boundary_crash_keeps_committed_state_and_recovers_nothing ... ok
+test intent_crash_marks_unknown_before_any_side_effect ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.94s
+
+[10:40:01] EXIT: 0
+[10:40:01] RUN: cargo test -p whcode-tests --test failure_modes
+   Compiling whcode-tests v0.1.0 (D:\WHCode\tests)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.15s
+     Running stability\test_failure_modes.rs (target\debug\deps\failure_modes-92f4be25d77ca2da.exe)
+
+running 4 tests
+test llm_request_failure_is_structured_and_retry_semantics_are_explicit ... ok
+test disk_full_is_classified_and_reported_without_silence ... ok
+test read_only_database_write_failure_is_structured_and_leaves_no_partial_state ... ok
+test offline_network_failure_is_bounded_and_replay_has_no_gaps ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.04s
+
+[10:40:06] EXIT: 0
+[10:40:06] === M9：72h 长跑（T116 阻塞，不执行）===
+[10:40:06] DONE: 证据目录 artifacts/quickstart-run-2026-10-24

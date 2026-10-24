@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "command": "bench baseline",
+  "duckdb_engine_version": "v1.5.6",
+  "measurement_discipline": {
+    "os_name": "windows",
+    "os_version": "<未取得证据：whcode bench 不读取系统版本；由 ci/benchmarks/run-baseline.py 采集>",
+    "cpu": {
+      "model": "<未取得证据：whcode bench 不读取 CPU 型号；由 ci/benchmarks/run-baseline.py 采集>",
+      "cores_physical": null,
+      "cores_logical": 16,
+      "evidence": "std::thread::available_parallelism（逻辑核数）；物理核数与型号由编排脚本补齐"
+    },
+    "memory": {
+      "total_bytes": null,
+      "evidence": "<未取得证据：whcode bench 不读取总内存；由 ci/benchmarks/run-baseline.py 采集>"
+    },
+    "build_profile": "release",
+    "rust_toolchain": "<未取得证据：由 ci/benchmarks/run-baseline.py 通过 rustc -vV 采集>",
+    "rustc_release": "<未取得证据：由 ci/benchmarks/run-baseline.py 通过 rustc -vV 采集>",
+    "rustc_host": "<未取得证据：由 ci/benchmarks/run-baseline.py 通过 rustc -vV 采集>",
+    "duckdb_engine_version": "v1.5.6",
+    "database_parameters": {
+      "memory_limit": "183.1 MiB",
+      "threads": "4",
+      "evidence": "连接上执行 SET 后，用 current_setting(...) 回读运行期取值"
+    },
+    "data_scale": {
+      "events_per_run": 20000,
+      "latency_samples_per_run": 200,
+      "payload_bytes": 131,
+      "event_kind_throughput": "streaming_chunk",
+      "event_kind_latency": "tool_call_started",
+      "persistence_level": "redacted",
+      "idempotency_keys": "baseline-<run>-<phase>-<index>（每次运行唯一；去重语义由 tests/stability 单独验证）"
+    },
+    "sampling": {
+      "repeats": 3,
+      "batch_rows": 500,
+      "batch_window_ms": 3600000,
+      "throughput_method": "端到端墙钟：写入 N 条事件并执行末尾 flush（含批次事务提交与临时目录 I/O）",
+      "latency_method": "逐条关键事件 submit 的墙钟耗时（每次 submit 触发一次事务提交）",
+      "latency_unit": "microseconds",
+      "quantile_method": "nearest_rank"
+    },
+    "script_path": "<未取得证据：独立运行 whcode bench baseline 时无编排脚本；由 ci/benchmarks/run-baseline.py 覆盖>",
+    "generated_at_utc": "2026-10-24T02:44:07Z",
+    "notes": [
+      "本报告是单机单次样本（固定数据集与批次策略），单次样本本身不构成预算冻结；预算已按 ADR-025（2026-10-23）在 Windows 11 amd64 上冻结，取 spec 候选值（V-006、R-12）",
+      "不同平台的结果不得合并为一组平均值；分位数由实测样本按 nearest-rank 计算，不以平均值代替",
+      "memory_limit 仅约束 DuckDB 缓冲管理器，不代表 WHCode 进程 RSS 上限（§5.2）",
+      "固定夹具的数据库参数为 memory_limit=192MB、threads=min(4, 逻辑核数)：本机 192MB + 4 线程在写入约 1000 条时触发 DuckDB OOM，故采用 §5.4 候选最大值；该取值经 ADR-025 随预算一并冻结（NFR-210 以 192 MB 为当前口径）"
+    ]
+  },
+  "runs": [
+    {
+      "run": 0,
+      "events_written": 20000,
+      "latency_samples": 200,
+      "event_rows": 20200,
+      "write_wall_ms": 2425.7475,
+      "throughput_events_per_second": 8244.881217026918,
+      "latency_us": {
+        "p50": 3673.0,
+        "p95": 4159.7,
+        "p99": 4371.7,
+        "sample_count": 200,
+        "unit": "microseconds"
+      },
+      "db_bytes": 1847296
+    },
+    {
+      "run": 1,
+      "events_written": 20000,
+      "latency_samples": 200,
+      "event_rows": 20200,
+      "write_wall_ms": 2528.0766,
+      "throughput_events_per_second": 7911.152692129661,
+      "latency_us": {
+        "p50": 3527.5,
+        "p95": 4142.4,
+        "p99": 4554.400000000001,
+        "sample_count": 200,
+        "unit": "microseconds"
+      },
+      "db_bytes": 1847296
+    },
+    {
+      "run": 2,
+      "events_written": 20000,
+      "latency_samples": 200,
+      "event_rows": 20200,
+      "write_wall_ms": 2401.7442,
+      "throughput_events_per_second": 8327.28148151664,
+      "latency_us": {
+        "p50": 3564.7999999999997,
+        "p95": 4239.0,
+        "p99": 4831.2,
+        "sample_count": 200,
+        "unit": "microseconds"
+      },
+      "db_bytes": 1847296
+    }
+  ],
+  "aggregate": {
+    "runs": 3,
+    "latency_us": {
+      "p50": 3589.0,
+      "p95": 4185.2,
+      "p99": 4784.1,
+      "sample_count": 600,
+      "unit": "microseconds"
+    },
+    "throughput_events_per_second_median": 8244.881217026918,
+    "throughput_events_per_second_min": 7911.152692129661,
+    "throughput_events_per_second_max": 8327.28148151664,
+    "total_events_written": 60000,
+    "total_latency_samples": 600,
+    "note": "同一平台、同一机器、同一次调用内的重复样本汇总；不是跨平台平均值"
+  }
+}
