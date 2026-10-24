@@ -13,6 +13,14 @@
 
 ### 变更
 
+- 稳定性窗口改为 5.5 小时（2026-10-24，ADR-033）：**24/72 小时长跑改为 5.5 小时以适配 GitHub CI**。
+  - 新窗口 19 800 秒、300 秒采样（约 66 样本），NFR-204 仍按 ≤ 0.5 MB/h 判定；24/72 小时
+    深检保留为可选 self-hosted／本机运行，不再作为 CI 门槛。
+  - 新增 `stability-long-run`（仅手动触发，`timeout-minutes: 355`＝330 min 长跑 + 25 min 准备），
+    产物 `timeseries.jsonl` 与 `run.log` 归档；`run_stability.sh` 默认窗口与采样间隔同步为 5.5h／300s。
+  - 文档与账本同步：spec §11.5/NFR-204/SC-020、T116、Check 116、compatibility、README、
+    ADR-025 修订记录；**不得表述为 24/72 小时已验证**。
+
 - 目录结构整理批次（2026-10-24）：**`script/` 更名 `local/` 与隐藏目录登记**（用户批准，不计成本）。
   - `script/` → `local/`：与 `.github/scripts/`（入库门禁）消除“script vs scripts”一字母混淆；
     本地目录语义与 repository-layout 五类分层的“本地”一致。引用同步：AGENTS、repository-layout、

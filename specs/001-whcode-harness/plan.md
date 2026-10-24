@@ -101,7 +101,7 @@ tests/
 ├── contract/                 # CUI JSON、事件 schema、SDD 产物、三端一致性契约测试
 ├── integration/              # 存储—事件—检查点—恢复—门禁端到端场景
 ├── crash/                    # 崩溃注入：步骤边界、执行前/后、登记前（V-105、V-307）
-├── stability/                # 24/72 小时稳定性脚本与指标采集
+├── stability/                # 稳定性脚本与指标采集（默认 5.5 小时，ADR-033；24/72 小时可选深检）
 └── fixtures/                 # 数据集生成器（10 万事件、1 万任务）、损坏产物样例
 .github/scripts/
 ├── platform-matrix/          # 依赖记录与交叉检查脚本（五平台 workflow 在 .github/workflows/）

@@ -8,8 +8,9 @@
 #     NFR-206（流式 CPU 负载夹具）
 #   - stability_run 冒烟：30 秒 / 5 秒采样，验证 §11.5 采集链路（不作 24 h 结论）
 #
-# 明确不迁移：24 h / 72 h 长跑。GitHub 托管 runner 单 job 上限 6 h，无法承载；
-# T116 的 24/72 h 结论仍须本机或 self-hosted runner 执行，不得以本工作流冒烟冒充。
+# 明确：24/72 小时深检不再作为 CI 门槛（ADR-033）。5.5 小时长跑由
+# `.github/workflows/stability-long.yml` 手动触发；本工作流只跑短套件与 30 秒冒烟。
+# GitHub 托管 runner 单 job 上限 6 小时，任何超窗运行都不得在本工作流内执行。
 #
 # 频率：每周一次 + 手动触发；单次运行控制在 6 h 内（timeout-minutes 350）。
 name: stability-measurements

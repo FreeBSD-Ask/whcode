@@ -1,0 +1,82 @@
+# 5.5 小时稳定性长跑（ADR-033，2026-10-24 用户指令）。
+#
+# 背景：GitHub 托管 runner 单 job 上限 6 小时；原 24/72 小时长跑无法在 CI 承载。
+# 本工作流把窗口改为 5.5 小时（19 800 秒，采样间隔 300 秒，约 66 个样本），
+# 用于 NFR-204 RSS 斜率（≤ 0.5 MB/h）与 §11.5 指标；**不得表述为 24/72 小时已验证**。
+# 24/72 小时深检保留为可选的 self-hosted／本机运行，不再作为 CI 门槛。
+#
+# 仅手动触发：一次运行约消耗 5.5 小时 Windows runner 配额，禁止定时触发。
+name: stability-long-run
+
+on:
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: "运行秒数（默认 19800 = 5.5h；上限 19800，超过会被拒绝）"
+        required: false
+        default: "19800"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stability-long-run
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  long-run:
+    runs-on: windows-latest
+    # 330 分钟长跑 + 准备（检出、门禁、DuckDB、仅编译长跑夹具）≤ 25 分钟 + 产物上传。
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 工作流语义门禁
+        run: python .github/scripts/check-workflows.py
+
+      - name: CI action 版本门禁（最新版本 + 固定 SHA）
+        run: python .github/scripts/check-actions.py
+
+      - name: 校验运行窗口（≤ 19800 秒）
+        shell: pwsh
+        env:
+          REQUESTED_SECONDS: ${{ inputs.seconds }}
+        run: |
+          $seconds = if ($env:REQUESTED_SECONDS) { [int]$env:REQUESTED_SECONDS } else { 19800 }
+          if ($seconds -le 0 -or $seconds -gt 19800) {
+            Write-Error "运行窗口必须 > 0 且 ≤ 19800 秒（5.5 h，GitHub 6 h 上限留余量）"
+            exit 1
+          }
+          "STABILITY_SECONDS=$seconds" >> $env:GITHUB_ENV
+
+      - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
+        run: python .github/scripts/fetch-duckdb.py
+
+      - name: 编译长跑夹具（只编译夹具所需依赖，不构建 GUI／发布壳层）
+        run: cargo test --locked -p whcode-tests --test stability_run --no-run
+
+      - name: 5.5 小时稳定性长跑（单进程自采样）
+        shell: pwsh
+        env:
+          WHCODE_STABILITY_INTERVAL_SECS: "300"
+          WHCODE_STABILITY_DIR: artifacts/stability-long/workspace
+          WHCODE_STABILITY_OUT: artifacts/stability-long/timeseries.jsonl
+        run: |
+          New-Item -ItemType Directory -Force artifacts/stability-long | Out-Null
+          $env:WHCODE_STABILITY_SECONDS = $env:STABILITY_SECONDS
+          cargo test --locked -p whcode-tests --test stability_run -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-long/run.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 上传长跑时间序列与日志
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stability-long-run
+          if-no-files-found: warn
+          path: |
+            artifacts/stability-long/timeseries.jsonl
+            artifacts/stability-long/run.log

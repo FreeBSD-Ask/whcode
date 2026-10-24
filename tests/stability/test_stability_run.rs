@@ -2,7 +2,7 @@
 //!
 //! 与既有 `run_stability.sh` 的“外部按小时采样短命工作负载”不同，本夹具是
 //! **单个长驻进程**：自建工作区、持续写入／查询／切换／清理，并按间隔自采样。
-//! 这样 RSS 斜率归属于同一个 PID，NFR-204 的“72 小时 RSS 斜率”才有可解释对象。
+//! 这样 RSS 斜率归属于同一个 PID，NFR-204 的 RSS 斜率（5.5 小时，ADR-033）才有可解释对象。
 //!
 //! 采集字段（§11.5 可取得部分）：RSS、累计 CPU 与单核占比、线程数、句柄数、
 //! 数据库与 WAL 大小、事件行数与最大 seq、事件缺失计数、failed 任务数、提交
@@ -16,9 +16,9 @@
 //! cargo test --locked -p whcode-tests --test stability_run -- --ignored --nocapture
 //! ```
 //!
-//! 环境变量：`WHCODE_STABILITY_HOURS`（默认 24）、`WHCODE_STABILITY_SECONDS`
-//! （覆盖时长，冒烟用）、`WHCODE_STABILITY_INTERVAL_SECS`（默认 3600）、
-//! `WHCODE_STABILITY_DIR`（工作区）、`WHCODE_STABILITY_OUT`（JSONL 输出）。
+//! 环境变量：`WHCODE_STABILITY_HOURS`（默认未设；设值按小时换算）、`WHCODE_STABILITY_SECONDS`
+//! （默认 19 800 = 5.5 小时，ADR-033；冒烟可覆盖）、`WHCODE_STABILITY_INTERVAL_SECS`
+//! （默认 300）、`WHCODE_STABILITY_DIR`（工作区）、`WHCODE_STABILITY_OUT`（JSONL 输出）。
 
 #[path = "../fixtures/gen_dataset.rs"]
 mod gen_dataset;
@@ -38,7 +38,7 @@ const DATASET_EVENTS: usize = 100_000;
 const DATASET_TASKS: usize = 10_000;
 /// 每周期写入事件数（有界批）。
 const BATCH_EVENTS: i64 = 20;
-/// 周期间隔（毫秒）：40 事件/秒，24 小时约 345 万事件。
+/// 周期间隔（毫秒）：40 事件/秒，5.5 小时约 79 万事件（ADR-033）。
 const CYCLE_PAUSE_MS: u64 = 500;
 /// 事件总量上限默认值；超过后删除最旧一批，避免长跑把磁盘写满（X4）。
 /// 可用 `WHCODE_STABILITY_PURGE_THRESHOLD` / `WHCODE_STABILITY_PURGE_BATCH` 覆盖，
@@ -160,7 +160,7 @@ impl StabilityRun {
             started: Instant::now(),
             sample_index: 0,
             next_sample_at: Duration::ZERO,
-            interval: Duration::from_secs(env_u64("WHCODE_STABILITY_INTERVAL_SECS", 3_600).max(1)),
+            interval: Duration::from_secs(env_u64("WHCODE_STABILITY_INTERVAL_SECS", 300).max(1)),
             base_events,
             inserted: 0,
             deleted: 0,
@@ -412,14 +412,16 @@ fn round2(value: f64) -> f64 {
 
 /// T116 长跑入口：单进程持续负载 + 按间隔自采样，逐行 JSONL 落盘。
 #[test]
-#[ignore = "长跑夹具：由 tests/stability/run_stability.sh 驱动（默认 24 小时）"]
+#[ignore = "长跑夹具：由 run_stability.sh 或 stability-long.yml 驱动（默认 5.5 小时，ADR-033）"]
 fn stability_run_collects_section_11_5_series() {
     let dir = env_path("WHCODE_STABILITY_DIR").unwrap_or_else(|| {
         std::env::temp_dir().join(format!("whcode-stability-{}", std::process::id()))
     });
     let out_path = env_path("WHCODE_STABILITY_OUT").unwrap_or_else(|| dir.join("timeseries.jsonl"));
-    let hours = env_u64("WHCODE_STABILITY_HOURS", 24);
-    let total_seconds = env_u64("WHCODE_STABILITY_SECONDS", hours * 3_600);
+    // 默认窗口 5.5 小时（19 800 s，ADR-033）；显式给小时数时仍按小时换算。
+    let hours = env_u64("WHCODE_STABILITY_HOURS", 0);
+    let default_seconds = if hours > 0 { hours * 3_600 } else { 19_800 };
+    let total_seconds = env_u64("WHCODE_STABILITY_SECONDS", default_seconds);
     assert!(total_seconds > 0, "长跑时长必须大于 0");
 
     let mut run = StabilityRun::open(&dir, &out_path);

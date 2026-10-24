@@ -29,7 +29,7 @@ GitHub Actions 只执行该目录下的文件；矩阵包含 windows/freebsd/net
 纪律：
 
 - 构建前置：任何构建前必须先 `python .github/scripts/fetch-duckdb.py` 拉取并校验预编译 DuckDB（ADR-DB-BUILD）；
-- CI 至少分为：构建检查、可运行的原生测试、依赖验证、定期 24/72 小时稳定性测试（§9.1，后两者尚未建立）；
+- CI 至少分为：构建检查、可运行的原生测试、依赖验证、5.5 小时稳定性长跑（ADR-033，`.github/workflows/stability-long.yml`；§9.1）；
 - 平台可构建与 DuckDB 原生构建**分开**验收（ADR-010、V-001/V-002）；
 - 依赖记录必须含 Rust/DuckDB/编译器/OS 四类版本（V-001）；
 - **交叉检查不等于运行验证**：`cargo check --target <bsd>` 只做类型检查；`whcode-store`（aws-lc-sys）与

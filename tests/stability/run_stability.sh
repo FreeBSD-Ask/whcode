@@ -2,7 +2,7 @@
 # 稳定性长跑入口（T116、§11.5、NFR-204）。
 #
 # 用法：
-#   ./tests/stability/run_stability.sh [小时数]       # 默认 24（候选发布 72）
+#   ./tests/stability/run_stability.sh [小时数]       # 默认 5.5（ADR-033；24/72 深检可选）
 #   STABILITY_SMOKE=1 ./tests/stability/run_stability.sh   # 冒烟（30 秒 / 5 秒采样）
 #
 # 与 2026-10-24 之前版本的差异（缺陷修复）：
@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-HOURS="${1:-24}"
+HOURS="${1:-5.5}"
 SMOKE="${STABILITY_SMOKE:-0}"
 
 if [[ "$SMOKE" == "1" ]]; then
@@ -27,8 +27,9 @@ if [[ "$SMOKE" == "1" ]]; then
     INTERVAL_SECONDS=5
     LABEL="smoke"
 else
-    TOTAL_SECONDS=$((HOURS * 3600))
-    INTERVAL_SECONDS="${STABILITY_INTERVAL_SECS:-3600}"
+    # 支持小数小时（默认 5.5）：shell 算术不支持浮点，统一交给 awk。
+    TOTAL_SECONDS=$(awk -v hours="$HOURS" 'BEGIN { printf "%d", hours * 3600 }')
+    INTERVAL_SECONDS="${STABILITY_INTERVAL_SECS:-300}"
     LABEL="${HOURS}h"
 fi
 

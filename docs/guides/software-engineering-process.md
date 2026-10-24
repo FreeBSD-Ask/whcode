@@ -354,7 +354,7 @@ python local/check_workflows.py
 | 无独立测试计划文档 | 测试范围与风险覆盖不集中 | 以 `checklist.md` 与 `tests/**/README.md` 承担，M1 起补测试计划 |
 | IEEE 1016 视图不全 | 算法与资源视图缺失 | 在模块设计中按需补时序图与资源表 |
 | ISO 25010 未逐条映射 | 质量属性覆盖不完整 | 在 `docs/matrices/` 增补质量属性映射 |
-| 72 小时稳定性未测 | NFR-204 无数据 | 按 `tests/stability/README.md` 执行并归档 |
+| 5.5 小时稳定性未测（ADR-033） | NFR-204 无数据 | 按 `tests/stability/README.md` 执行并归档（CI 入口 `stability-long.yml`） |
 | V-003/V-004/V-006 未收口 | M0 G4 不能判定通过 | 人工终端取证、SSH 节点验收、预算冻结或 ADR 修订 |
 | 无正式发布检查表 | G5 依赖人工核对 | 发布前按 §3.6 逐项留证，必要时新增模板 |
 | 并发设计档案尚无范例 | NFR-216 缺少可复用样例 | 首个并发任务按 ADR-015 模板产出并归档 |

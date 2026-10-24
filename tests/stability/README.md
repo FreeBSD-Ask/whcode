@@ -42,8 +42,10 @@
 `writer_stress`、`memory_limit`、`query_plan`、`nfr_budget --ignored`（NFR-203/206）与
 `stability_run` 的 30 秒冒烟，并把日志与 JSON 产物作为 artifact 归档。
 
-**24/72 小时长跑不在 CI 内**：GitHub 托管 runner 单 job 上限 6 小时，无法承载；
-T116 的 24/72 小时结论仍须本机或 self-hosted runner 执行，冒烟不得冒充长跑结论。
+**5.5 小时长跑在 CI 内**（ADR-033）：`.github/workflows/stability-long.yml`
+（`stability-long-run`，仅手动触发，`timeout-minutes: 355`）运行 19 800 秒、300 秒采样，
+产物归档。24/72 小时深检保留为可选的 self-hosted／本机运行，不再作为 CI 门槛；
+**5.5 h 不得表述为 24/72 小时已验证**。
 
 ### 本机
 
@@ -60,8 +62,8 @@ cargo test -p whcode-tests --test residency_memory -- --nocapture
 # 四类故障情形（真实满盘需先设置 WHCODE_DISK_FULL_DIR）
 cargo test -p whcode-tests --test failure_modes -- --nocapture
 
-# 长跑采集器（默认 24 小时；冒烟用 STABILITY_SMOKE=1）
-./tests/stability/run_stability.sh 24
+# 长跑采集器（默认 5.5 小时，ADR-033；冒烟用 STABILITY_SMOKE=1）
+./tests/stability/run_stability.sh
 STABILITY_SMOKE=1 ./tests/stability/run_stability.sh
 
 # 本机基线测量（release 构建；结果写入 artifacts/baseline-windows-amd64.json）
@@ -70,8 +72,8 @@ python .github/scripts/benchmarks/run-baseline.py
 
 ## 尚未实现（明确标记）
 
-- **24/72 小时结论尚未取得**：采集器与长跑入口已交付（T116），但 24 小时数据
-  须跑满后由 `timeseries.jsonl` 的 summary 行判定；72 小时报告属候选发布；
+- **5.5 小时结论尚未取得**：采集器与 CI 长跑入口已交付（T116、ADR-033），数据须跑满后
+  由 `timeseries.jsonl` 的 summary 行判定；24/72 小时深检为可选 self-hosted／本机运行；
 - **写者队列深度/最老队列项年龄未取得**：长跑夹具直连 `Connection`，不经真实事件
   写者服务；该两项在 JSONL 中为 `null` 并附原因，待真实写者接线后补齐；
 - 慢客户端、重启与迁移中断场景仍需并入长跑编排；
@@ -79,7 +81,7 @@ python .github/scripts/benchmarks/run-baseline.py
 
 ## 纪律（§11.5、R-12）
 
-- 先完成常规功能测试，再运行至少 24 小时稳定性测试；候选发布版本运行 72 小时压力测试；
+- 先完成常规功能测试，再运行 5.5 小时稳定性测试（ADR-033）；24/72 小时深检可选；
 - 稳定性报告必须记录：RSS 时间序列、CPU、线程数、文件大小、WAL 大小、写者队列深度、
   最老队列项年龄、提交延迟、查询延迟、事件缺失计数、失败任务数；
 - 必须覆盖：慢客户端、LLM 请求失败、断网、磁盘空间不足、数据库写入失败、重启、终止子进程、
