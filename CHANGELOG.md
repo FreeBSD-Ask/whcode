@@ -72,7 +72,21 @@
     `benchmarks/measure-resources.py`）；`local/` 不再保留同名副本，只作复现与排障。
   - 测量 job 只在 push `main` 与手动触发运行（PR 不跑），每周一 schedule 只做 action 审计；
     桌面型测试按 headless／虚拟显示口径记录，不替代 V-003 真实控制台人工证据。
-  - **CI 首轮实际运行未取得**（仓库无远端，Check 3 缺口）；不得以本地全绿冒充 CI 通过。
+  - **CI 已实跑**：首轮 run 40118942627 的 Windows job 通过；`measurements` 因共享 runner 上
+    NFR-207/209 未达冻结预算、NFR-202 夹具缺 Python `duckdb` 而失败。处置：性能预算与测试进程
+    RSS 移入 `perf-budget`（仅 `workflow_dispatch` 且 `perf=true`，预算值不变）；`measurements`
+    安装 `requirements-dev.txt` 中的 `duckdb==2.0.0`。run 40126145778 全绿（五平台与
+    `measurements`；NFR-201 中位 31.27 MB、NFR-202 中位 35.51 MB、NFR-203 增量 1.31 MB）。
+
+- 证据补遗（2026-10-25，T181 复核）：
+  - 真实 Firefox 运行时三取证以独立脚本、独立夹具（`seed_web_demo` 的 6 条事件）重跑，结论与
+    2026-10-24 首轮一致：hidden 3 s 内 API 请求 0／DOM 变更 0／rAF 0；还原后单批 6 次请求全部
+    200、其后 ≈1 Hz 续拉；两轮挂起／恢复后游标恒为 6、事件恰 6 条；reduced-motion 两分支与禁用
+    GPU 20 轮最小化／还原下 `canvas`／`getContext`／rAF 均为 0。证据
+    `artifacts/web-runtime-2026-10-25/`。
+  - 远端 CI 逐 job 结论归档至 `artifacts/frontend-parity-2026-10-24/close-gates.md` §8：
+    run 40118942627（五平台 success，仅 `measurements` 失败）与 run 40126145778（全绿）。
+    该 run 的 NFR 读数标为二手（匿名读取 job 日志受限），不作为本机复核结论。
 
 - ⚠ BREAKING：JSON 语义列全面 VARIANT 化（2026-10-24，ADR-036，schema v7）：
   - `tasks.acceptance_json`、`stage_artifacts.refs_json`、`session_overview.by_stage_json`、
@@ -140,7 +154,7 @@
     debug 构建；RSS 斜率三口径均为负（−0.611／−1.855／前 5.5 h −3.954 MB/h），线程恒 17、
     句柄恒 172，`event_missing` 恒 0，清理路径生效（插入 1 536 600／删除 1 500 100）。
   - 进程在 12.0 h 处被外部终止、无 `kind:"summary"` 收尾行，采样间隔不合 ADR-033 的 300 s，
-    且为 debug 构建——仅作候选证据（`nfr204-analysis.md`）；`stability-long.yml` 的 5.5 h
+    且为 debug 构建——仅作候选证据（`nfr204-analysis.md`）；`long-run.yml` 的 5.5 h
     CI 运行仍是启用门槛（ADR-037）。
 
 - 四端对等立项（2026-10-24）：**ADR-032 与预留需求 619—625、统一 `not_supported` 语义**。

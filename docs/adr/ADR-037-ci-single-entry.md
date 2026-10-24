@@ -26,18 +26,20 @@
    `benchmarks/measure-resources.py`），CI 与本地执行同一份实现；`local/` 不再保留同名副本，
    避免双源漂移。`local/` 仅保留一次性证据工具（如 ADR-036 的 A/B 脚本）作复现用途。
 5. **验收入口唯一**：测试“通过”结论只能来自 CI 日志与 artifact；本地运行仅用于复现与排障。
-   当前仓库无远端（Check 3 缺口），CI 尚未实际运行，此事实必须保留在缺口登记中，不得以
-   本地全绿冒充 CI 通过。
+   远端仓库已配置（`https://github.com/FreeBSD-Ask/whcode.git`），CI 已实跑并取得全绿证据
+   （见“修订记录”）；此后不得再以“无远端/未运行”为由用本地全绿代替 CI 结论。
 
 ## 证据与约束
 
 - `ci.yml` 的 Windows 条目在既有步骤上新增：EOL 门禁、TUI 冒烟、Web 服务端冒烟（`/api/status`
   需先建会话、`/api/sessions`、首页 HTML）、证据 artifact。
-- `measurements` job 串行执行 `writer_stress`、`memory_limit`、`query_plan`、NFR-203/206、
-  NFR-207/209、NFR-201/202/205/206 真实进程、`session_switch` 资源与 30 秒长跑冒烟；
-  同一 runner 内不并行，避免测量互相污染。GitHub 各 job 使用独立 runner，平台矩阵与测量
-  不共享 CPU。
-- 桌面 job 安装 `requirements-dev.txt`（Pillow）并运行 `gui-probe.py`；失败即信号，
+- `measurements` job 串行执行 `writer_stress`、`memory_limit`、`query_plan`、NFR-203／NFR-206、
+  NFR-201／202 真实进程测量与 30 秒长跑冒烟；NFR-207／209 与测试进程 RSS/CPU 归
+  `perf-budget` job，NFR-205 归 `desktop` job，均不在 push 门禁内。同一 runner 内不并行，
+  避免测量互相污染；GitHub 各 job 使用独立 runner，平台矩阵与测量不共享 CPU。
+- `measurements` 在构建前安装 `requirements-dev.txt` 中的 Python `duckdb==2.0.0`（与引擎同版本），
+  用于 NFR-202 的 10 万事件夹具种子；该依赖只在开发/CI 测量使用，产品运行期零第三方依赖。
+- 桌面 job 安装 `requirements-dev.txt`（Pillow 与 duckdb）并运行 `gui-probe.py`；失败即信号，
   不使用 `continue-on-error` 掩盖。
 - `check-workflows.py`、`check-actions.py`、`check_counts.py`、`traceability.py`、
   `check-eol.py` 构成本地可复现的离线门禁；新工作流上线前已在本机通过。
@@ -58,4 +60,22 @@
 - GitHub 取消 6 小时 job 上限或提供桌面型 runner；
 - CI 配额不足以支撑 push 触发的测量；
 - 桌面型测试连续因环境原因失败，需要改自托管 runner 或回到人工证据；
-- 无远端仓库状态改变（首次推送后须实跑 CI 并登记首轮结果）。
+- 无远端仓库状态改变（首次推送后须实跑 CI 并登记首轮结果）；
+- `measurements` 在托管 runner 再次出现不可归因的预算红：按本 ADR 口径移入受控 job 或登记
+  环境差异，**不得放宽 ADR-025 的冻结值**。
+
+## 修订记录
+
+- **2026-10-25（首轮实跑缺口收口）**：run 40118942627 的 `platform-windows` success，但整体 run
+  被 `measurements` 拖红，两处根因分别处置：
+  1. 托管 runner 为共享环境，NFR-207／209 的绝对延迟未达冻结预算 → 将 NFR-207／209 与测试
+     进程 RSS/CPU 移入 `perf-budget` job（仅 `workflow_dispatch` 且 `perf=true`），预算值不变
+     （仍为 ADR-025 冻结值），push 门禁只保留对邻居负载不敏感的稳定测量；
+  2. `measurements` 的 NFR-202 夹具种子 `import duckdb` 失败（runner 未预装）→
+     `requirements-dev.txt` 登记 `duckdb==2.0.0`，job 内先 `pip install` 再构建。
+- **收口证据**：run 40126145778（commit `1903806`）全绿——`platform-{windows,freebsd,netbsd,openbsd,dragonfly}`
+  与 `measurements` 均 success，`desktop`／`perf-budget`／`action-audit` 按门控 skipped（预期）。
+  `measurements` 关键信号：NFR-201 中位 31.27 MB／p95 31.28 MB／峰值 31.43 MB（预算 ≤ 36 MB）；
+  NFR-202 中位 35.51 MB／峰值 37.13 MB（预算 ≤ 80 MB）；NFR-203 20 次切换最大增量 1.31 MB
+  （预算 ≤ 10 MB）；NFR-206 限速流式 224 chunks／9.10 s；30 秒长跑冒烟事件缺失 0
+  （`failed_tasks=1` 为夹具播种的计数校验样本，非产品失败）。

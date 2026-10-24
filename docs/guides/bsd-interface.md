@@ -55,7 +55,7 @@ export DUCKDB_INCLUDE_DIR=/usr/pkg/include
 
 ### 2.3 Go/No-Go 门禁（CI 已按此预留）
 
-`.github/workflows/ci.yml` 的 `freebsd`／`netbsd` job 的绿路径
+`.github/workflows/ci.yml` 的 `platform-freebsd`／`platform-netbsd` job 的绿路径
 （`cargo check` + 无 libduckdb 链接的包级测试）必须过；完整构建+测试作为显式门禁步骤，
 失败即 No-Go 证据（R-01）。
 

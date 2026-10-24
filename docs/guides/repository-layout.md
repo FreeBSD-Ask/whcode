@@ -25,7 +25,7 @@
 | `local/` | 本地 | 临时脚本、探测脚本、运行日志（不出库；一次性脚本与日志由 `.github/scripts/clean.py` 回收） | **忽略** |
 | `target/` | 本地 | Rust 构建产物 | **忽略** |
 | `state/` | 本地 | 环境工具自动重建的状态目录（内容不可控，视为不存在） | **忽略** |
-| `.github/` | 治理（流程与自动化） | `workflows/`（五平台流水线：Windows 在范围内自动运行，四 BSD 仅手工触发）；`scripts/`（原 `ci/`：平台矩阵、基准、打包与门禁脚本）；PR/Issue 模板；`dependabot.yml`（每日依赖与 Actions 更新，仅开 PR、不自动合并） | 入库 |
+| `.github/` | 治理（流程与自动化） | `workflows/`（`ci.yml` 为唯一测试入口：Windows 与四 BSD 随 push/PR 运行，桌面与性能 job 由 `workflow_dispatch` 输入触发；`long-run.yml` 为手动 5.5 小时长跑）；`scripts/`（原 `ci/`：平台矩阵、基准、打包与门禁脚本）；PR/Issue 模板；`dependabot.yml`（每日依赖与 Actions 更新，仅开 PR、不自动合并） | 入库 |
 | `.specify/` | 治理（工具链） | Spec-Kit 1.0.13 模板、PowerShell 脚本、集成清单与项目宪法（`memory/constitution.md`）；`feature.json` 为当前 feature 指针，切换时产生显式差异 | 入库（2026-10-24 全量纳入） |
 
 根文件只允许工程清单（`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、`rustfmt.toml`）、

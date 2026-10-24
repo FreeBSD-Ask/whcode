@@ -28,8 +28,9 @@
   `WHCODE_DISK_FULL_DIR` 指向已耗尽卷；未设置时用例打印“未执行”，不伪造通过。
 - `test_nfr_budget.rs`：ADR-025 冻结预算的测量夹具。NFR-207（会话切换 p50/p95/p99 ≤ 200 ms）
   与 NFR-209（历史单页 p95 ≤ 30 ms）为常规回归可复现项，但因需独占 CPU/磁盘而标 `#[ignore]`，
-  由 stability workflow 独立步骤驱动；NFR-203（20 次切换 RSS 增量 ≤ 10 MB）与 NFR-206
-  （流式 CPU ≤ 8% 单核）需外部采样，由 `.github/scripts/benchmarks/measure-nfr-budgets.py` 驱动。
+  由 `ci.yml` 的 `perf-budget` job（仅 `workflow_dispatch` 且 `perf=true`）独立步骤驱动；
+  NFR-203（20 次切换 RSS 增量 ≤ 10 MB）与 NFR-206（流式 CPU ≤ 8% 单核）需外部采样，
+  由 `.github/scripts/benchmarks/measure-nfr-budgets.py` 驱动。
 - `test_stability_run.rs`：T116 长跑采集器——**单进程**持续写入/查询/切换/清理，
   按间隔自采样 RSS、累计 CPU 与单核占比、线程数、句柄数、数据库与 WAL 大小、
   事件缺失计数、failed 任务数、提交/查询/切换延迟，逐行追加 JSONL（中断不丢已采
@@ -81,7 +82,7 @@ cargo test -p whcode-tests --test failure_modes -- --nocapture
 cargo test -p whcode-tests --test nfr_budget nfr207 -- --ignored --nocapture
 cargo test -p whcode-tests --test nfr_budget nfr209 -- --ignored --nocapture
 
-# NFR-203／NFR-206（需外部采样，由 local 脚本驱动）
+# NFR-203／NFR-206（需外部采样，由 .github/scripts 脚本驱动）
 python .github/scripts/benchmarks/measure-nfr-budgets.py
 
 # 长跑采集器（默认 5.5 小时，ADR-033；冒烟用 STABILITY_SMOKE=1）

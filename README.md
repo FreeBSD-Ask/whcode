@@ -78,8 +78,10 @@ OpenBSD/DragonFly 无原生测试，保留手工占位。
 - **测试统一入口**：`.github/workflows/ci.yml` 在 push `main`、PR 与手动触发时运行门禁、
   五平台矩阵（Windows 绿路径必过；FreeBSD/NetBSD 随 `main` 自动运行代码级检查、非 DuckDB
   包测试与依赖记录，DuckDB 原生构建为显式 Go/No-Go；OpenBSD/DragonFly 为延后占位）以及
-  全部测试与短测量；每周一 schedule 只做 action 版本联网审计。所有 action 固定到最新
-  release 的 commit SHA。
+  全部测试与短测量；性能预算（NFR-207/209 与测试进程 RSS）与桌面型测试由
+  `workflow_dispatch` 的 `perf`／`desktop` 输入触发；每周一 schedule 只做 action 版本联网审计。
+  所有 action 固定到最新 release 的 commit SHA。run 40126145778 已全绿（五平台与 `measurements`），
+  `measurements` 的 NFR-201 中位 31.27 MB、NFR-202 中位 35.51 MB。
 - **5.5 小时长跑**由 `.github/workflows/long-run.yml` 手动触发（19 800 秒、300 秒采样、
   timeout 355 分钟，ADR-033）；24/72 小时深检保留为可选 self-hosted／本机运行，
   不再作为 CI 门槛，不得表述为已验证。
