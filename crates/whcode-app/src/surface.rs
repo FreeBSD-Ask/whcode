@@ -12,8 +12,7 @@
 //! - ✅ 已实现 → [`Support::Implemented`]，锚点为真实函数名或路由（去源码核对）；
 //! - ◐ 已登记排除 → [`Support::Excluded`]，理由码见 [`ExclusionReason`]（ADR-032 全表）；
 //! - ⏳ 预留 → [`Support::Reserved`]，带里程碑（`M8`、`M3-llm`）；
-//! - ➕ 本变更新增（截至登记时尚未交付）→ [`Support::Reserved`]，里程碑为交付任务号
-//!   （`T173`／`T174`／`T175`／`T177`／`T178`）——交付同 PR 翻转为已实现并补锚点；
+//! - ➕ 本变更新增 → 交付时已同 PR 翻转为已实现（T181 收口，2026-10-24）；
 //! - — 不适用 → [`Support::NotApplicable`]（判定依据写入条目注释）。
 //!
 //! 字段约定（登记税的最小化与诚实性）：
@@ -289,7 +288,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "cui_dispatch::session_command",
             },
-            Support::Reserved { milestone: "T177" },
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（n → SessionNew）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
@@ -353,7 +354,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "cui_dispatch::session_command",
             },
-            Support::Reserved { milestone: "T177" },
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（m → SessionRename）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
@@ -362,7 +365,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
-    // 契约 §2-1 破坏族：archive 须支持确认并写审计（现状由 T176 门面统一补齐）。
+    // 契约 §2-1 破坏族：archive 须支持确认并写审计。**现状缺口（2026-10-24 收口复核）**：
+    // 四端均无确认步骤，store 明确“可逆元数据标记，不写 db_purge 审计”——登记要求与实现
+    // 的冲突在 CHANGELOG 已知未完成第 3 项显式登记，待 ADR 裁决，不在本收口内擅改已验收行为。
     SurfaceEntry {
         id: "session.archive",
         kind: SurfaceKind::Command,
@@ -374,7 +379,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "cui_dispatch::session_command",
             },
-            Support::Reserved { milestone: "T177" },
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（A → SessionArchive）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
@@ -394,7 +401,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "cui_dispatch::session_command",
             },
-            Support::Reserved { milestone: "T177" },
+            Support::Implemented {
+                anchor: "LoopCore::request_confirm（d → SessionDelete 预览→确认）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
@@ -505,7 +514,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "cui_dispatch::task_command",
             },
-            Support::Reserved { milestone: "T177" },
+            Support::Implemented {
+                anchor: "LoopCore::task_action（R → TaskRetry）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
@@ -525,7 +536,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "cui_dispatch::task_command",
             },
-            Support::Reserved { milestone: "T177" },
+            Support::Implemented {
+                anchor: "LoopCore::task_action（X → TaskAbort）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
@@ -543,7 +556,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved { milestone: "T173" },
+            Support::Implemented {
+                anchor: "context_command（context budget）",
+            },
             Support::Implemented {
                 anchor: "LoopCore::prepare（ViewId::Context）",
             },
@@ -769,7 +784,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "cui_dispatch::db_command",
             },
-            Support::Reserved { milestone: "T177" },
+            Support::Implemented {
+                anchor: "LoopCore::request_confirm（p → Purge 预览→确认）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
@@ -942,7 +959,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved { milestone: "T173" },
+            Support::Implemented {
+                anchor: "runtime_command（RuntimeCommand::List）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::SixViewScope,
             },
@@ -1075,11 +1094,15 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::CuiNoTheme,
             },
-            Support::Reserved { milestone: "T178" },
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（t → CycleTheme）",
+            },
             Support::Implemented {
                 anchor: "handle_event（t → CycleTheme）",
             },
-            Support::Reserved { milestone: "T175" },
+            Support::Implemented {
+                anchor: "data-theme + #theme-select（app.js）",
+            },
         ],
     },
     SurfaceEntry {
@@ -1336,7 +1359,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "State::prepare（ViewId::Context）",
             },
-            Support::Reserved { milestone: "T174" },
+            Support::Implemented {
+                anchor: "GET /api/context?session=&budget=",
+            },
         ],
     },
     SurfaceEntry {
@@ -1405,8 +1430,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
-    // 在线可见（其他端更改；FR-605／624）：Web 经 WebSocket 推送；TUI 游标刷新
-    // 由 T178 交付（手动 r 刷新为其过渡形态）；GUI 显式刷新（FR-711／714）。
+    // 在线可见（其他端更改；FR-605／624）：Web 经 WebSocket 推送；TUI 低频游标检查
+    // （T178 已交付）；GUI 显式刷新（FR-711／714）。
     SurfaceEntry {
         id: "view.changes",
         kind: SurfaceKind::View,
@@ -1418,7 +1443,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::CuiRequestOnly,
             },
-            Support::Reserved { milestone: "T178" },
+            Support::Implemented {
+                anchor: "LoopCore::on_idle（≥1000 ms 游标检查，推进才重绘）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::GuiManualRefresh,
             },
@@ -1666,40 +1693,46 @@ mod tests {
         assert!(force.audited, "force-advance 审计含完整要素（FR-312）");
     }
 
-    /// 对等基线抽查：基线表中带 ➕（本变更新增、尚未交付）的格登记为交付任务的预留；
-    /// 交付同 PR 翻转为已实现并补锚点（RESERVED_MILESTONE 复审触发，T174 已交付三项）。
+    /// 对等基线抽查（T181 收口）：本变更交付的格已翻转为已实现；未交付者仍在预留队列。
     #[test]
-    fn pending_deliveries_are_reserved_with_task_milestones() {
-        // 仍在交付队列的预留（T173／T175／T177／T178）。
-        let cases = [
-            ("context.budget", FrontendId::Cui, "T173"),
-            ("runtime.list", FrontendId::Cui, "T173"),
-            ("theme.switch", FrontendId::Web, "T175"),
-            ("session.delete", FrontendId::Tui, "T177"),
-            ("db.purge", FrontendId::Tui, "T177"),
-            ("theme.switch", FrontendId::Tui, "T178"),
-            ("view.changes", FrontendId::Tui, "T178"),
-        ];
-        for (id, frontend, milestone) in cases {
+    fn delivered_surfaces_are_implemented_and_pending_keep_milestones() {
+        // 原 ➕（本变更新增）格：交付后同 PR 翻转为已实现并带前端锚点（ADR-032 判定表）。
+        for (id, frontend) in [
+            ("context.budget", FrontendId::Cui),
+            ("runtime.list", FrontendId::Cui),
+            ("view.context", FrontendId::Web),
+            ("theme.switch", FrontendId::Web),
+            ("theme.switch", FrontendId::Tui),
+            ("view.changes", FrontendId::Tui),
+            ("session.new", FrontendId::Tui),
+            ("session.rename", FrontendId::Tui),
+            ("session.archive", FrontendId::Tui),
+            ("session.delete", FrontendId::Tui),
+            ("task.retry", FrontendId::Tui),
+            ("task.abort", FrontendId::Tui),
+            ("db.purge", FrontendId::Tui),
+        ] {
+            let entry = find(id).unwrap_or_else(|| panic!("{id} 未登记"));
+            assert!(
+                matches!(entry.support(frontend), Support::Implemented { anchor } if !anchor.is_empty()),
+                "{id} 在 {} 应随交付翻转为已实现（带锚点），实际 {:?}",
+                frontend.as_str(),
+                entry.support(frontend)
+            );
+        }
+        // 未来里程碑：LLM 供应商（M3-llm）与运行时装配（M8）保持预留（不得提前宣称可用）。
+        for (id, frontend, milestone) in [
+            ("llm.run", FrontendId::Cui, "M3-llm"),
+            ("llm.cancel", FrontendId::Web, "M3-llm"),
+            ("runtime.status", FrontendId::Cui, "M8"),
+            ("runtime.enable", FrontendId::Web, "M8"),
+        ] {
             let entry = find(id).unwrap_or_else(|| panic!("{id} 未登记"));
             assert_eq!(
                 entry.support(frontend),
                 &Support::Reserved { milestone },
-                "{id} 在 {} 应为预留（{milestone}）",
+                "{id} 在 {} 应保持预留（{milestone}）",
                 frontend.as_str()
-            );
-        }
-        // T174 已交付（本变更内翻转）：Web 读取面三格转已实现并带真实路由锚点。
-        for (id, anchor) in [
-            ("context.budget", "GET /api/context?session=&budget="),
-            ("view.diff", "GET /api/diff?session="),
-            ("events.export", "GET /api/events/export?format=json|jsonl"),
-        ] {
-            let entry = find(id).unwrap_or_else(|| panic!("{id} 未登记"));
-            assert_eq!(
-                entry.support(FrontendId::Web),
-                &Support::Implemented { anchor },
-                "{id} 的 Web 面应随 T174 交付翻转为已实现"
             );
         }
     }

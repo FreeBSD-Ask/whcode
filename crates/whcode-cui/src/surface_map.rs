@@ -312,9 +312,6 @@ mod tests {
                 },
             },
             Command::Runtime {
-                command: RuntimeCommand::List,
-            },
-            Command::Runtime {
                 command: RuntimeCommand::Install { name: "js".into() },
             },
         ];
@@ -355,6 +352,15 @@ mod tests {
             },
             Command::Font {
                 command: crate::cli::FontCommand::Status,
+            },
+            Command::Context {
+                command: crate::cli::ContextCommand::Budget {
+                    session: "S".into(),
+                    budget: None,
+                },
+            },
+            Command::Runtime {
+                command: RuntimeCommand::List,
             },
             Command::Doctor { json: false },
         ];

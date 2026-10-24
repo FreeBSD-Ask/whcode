@@ -122,3 +122,29 @@
 - `llm run／cancel` 的四端登记状态以 `add-real-llm-provider` 实际交付为准：该变更
   合入前登记为预留（`RESERVED_MILESTONE`）；合入时必须同 PR 更新登记表、矩阵与
   对等门禁。两个变更不得对 `llm.run` 状态各自表述。
+
+## 修订记录
+
+### 2026-10-24（T181 收口）
+
+- **账本转正**：FR-619—625 由预留编号转为正式编号并计入 FR 计数；任务 T168—T181 与
+  Check 264—271 在主账本挂钩（`tasks.md`／`checklist.md`），`check_counts.py` 与
+  `traceability.py` 全绿。T162—T167 为并行变更 `add-real-llm-provider` 的占位任务
+  （未勾选，其 spec 与 ADR-031 尚未入库），编号连续性由其承载。
+- **登记表翻转**：本变更交付的 13 个前端格（`T173`×2、`T174`×1、`T175`×1、`T177`×7、
+  `T178`×2）由 `Reserved` 改为 `Implemented` 并补真实锚点；对应测试由“断言预留”改为
+  “断言已实现”，防止绿灯下的事实漂移。
+- **矩阵受校验**：`docs/matrices/feature-parity.md` 由 14 行手工“域／命令行”快照重写为
+  54 行逐条表（列：`SurfaceId`／类别／效果／四端符号／依据与理由）；门禁逐行比对状态、
+  类别、效果、理由码与里程碑，并新增篡改符号／理由码的负向用例。矩阵不再保留手工状态列。
+- **文档回填**：`tui.md` §2／§3／§4／§5／§8、`ui-design.md` §3／§3.1、
+  `web-deployment-security.md` §4.1、`cui-manual.md` §1／§5／§9 由“交付后生效”改为现状；
+  CUI 手册补退出码 55 与 `context budget`／`runtime list`。
+- **新发现的既有缺口（不在本收口内擅改）**：`session.archive` 登记为
+  `PreviewConfirm` + `audited = true`（契约 §2-1 破坏族），但四端均无确认步骤，store
+  注明“可逆元数据标记，不写 `db_purge` 审计”。该冲突已在 `CHANGELOG.md` 已知未完成
+  第 3 项登记（责任人：对等门禁维护者；退出条件：独立 ADR 裁决确认语义与审计口径，
+  四端同 PR 对齐）。本 ADR 的 `audited` 字段仍是**契约要求**，不因现状请假而改写。
+- **“未排期”口径**：登记表中 22 个 `Reserved { milestone: "未排期" }` 是变更前既有口径
+  （应用层已交付、四端接线未排期），本收口不改变其业务语义；其里程碑命名是否收敛为
+  具体 FR／里程碑，留待相应能力立项时处理（复审触发①）。

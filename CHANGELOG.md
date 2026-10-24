@@ -25,15 +25,20 @@
   TUI 补写操作（n/m/d/A、R/X、p 两段确认，经 `whcode-app::commands` 门面）、`t` 四主题循环
   与游标在线可见（≥1000ms 低频 O(1) 检查，推进才重绘）；GUI 只读面契约断言。
   证据：`artifacts/frontend-parity-2026-10-24/`。
-- 已知未完成（显式登记）：
-  1. `docs/matrices/feature-parity.md` 的 GUI 列逐行重写——GUI 列表头与“由登记表校验”
-     声明已就位，行值以 `surface.rs` 登记表为 SSOT；责任人对等门禁维护者，退出条件：
-     下一次矩阵触碰时按登记表逐行重写并通过 frontend_parity 门禁。
-  2. FR-619—625 转正主账本（tasks/checklist 正式编号与 Check 挂钩）——主 spec 以
-     “预留编号 + 编号说明”承载（完整六要素齐备，门禁全绿）；转正与并行变更的账本写入
-     冲突（本日并行会话已占 T159/Check 261 于 DuckDB 2.0 迁移，`.trae` 编号假设
-     159—167 属 LLM 供应商），须一次协调后统一编号；责任人对等门禁维护者，
-     退出条件：并行账本静止后一次 PR 完成转正并同步计数声明。
+- 收口（2026-10-24，T181）：
+  1. `docs/matrices/feature-parity.md` 已由 14 行手工快照重写为 54 行逐条受校验表（GUI 列
+     齐备），门禁逐行比对状态、类别、效果、理由码与里程碑，并新增篡改符号／理由码的负向
+     用例——原“GUI 列逐行重写”的退出条件达成。
+  2. FR-619—625 已转正主账本：`tasks.md` 登记 T168—T181、`checklist.md` 新增 Check 264—271；
+     计数 FR 93／任务 181／Check 271，`check_counts.py` 与 `traceability.py` 全绿——原
+     “编号冲突待协调”的退出条件达成（T162—T167 为并行变更 `add-real-llm-provider` 的
+     占位任务，未勾选）。
+- 已知未完成（显式登记，2026-10-24 收口复核新增）：
+  3. `session.archive` 的确认与审计口径冲突：登记表登记 `PreviewConfirm` + `audited = true`
+     （`contracts/app-service.md` §2-1 将 archive 列入破坏族），但四端均无确认步骤，store
+     注明“可逆元数据标记，不写 `db_purge` 审计”。责任人对等门禁维护者，退出条件：独立
+     ADR 裁决（补确认与审计，或修订契约与登记口径），四端同 PR 对齐；本收口不擅改已验收
+     行为。
 
 - DuckDB 2.0.0 升级与功能适配（2026-10-24，ADR-034）：**引擎 2.0.0 LTS + crate 1.20000.0，事件载荷改 VARIANT**。
   - 官方 Windows 资产改为 `duckdb-shared-libs-windows-amd64.tar.gz`（SHA256 `2b831691…b95f`）；
