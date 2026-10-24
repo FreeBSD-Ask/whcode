@@ -177,6 +177,11 @@ def check(online: bool) -> int:
 
 
 def main() -> int:
+    # Windows runner 的控制台代码页不是 UTF-8（cp1252），中文输出会抛 UnicodeEncodeError。
+    # 门禁本身不依赖输出编码，故强制 UTF-8 且替换无法编码的字符，避免“检查通过但打印失败”。
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="CI action 版本门禁")
     parser.add_argument("--online", action="store_true", help="联网复核上游最新版本与 SHA")
     parser.add_argument("--update", action="store_true", help="联网刷新清单（维护者本地用）")

@@ -23,6 +23,10 @@ on:
     branches: [main]
   pull_request:
 
+# Windows runner 控制台默认代码页非 UTF-8；门禁脚本含中文输出，统一强制 Python UTF-8 模式。
+env:
+  PYTHONUTF8: "1"
+
 jobs:
   build-test-gates:
     runs-on: windows-latest
