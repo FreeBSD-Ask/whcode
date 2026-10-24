@@ -68,7 +68,7 @@ jobs:
           echo "NetBSD DuckDB 原生门禁：${{ steps.gate.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "说明：绿路径失败若因 pkgsrc rust 低于 MSRV 1.88，属环境限制（见本文件头注释）。" >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: deps-netbsd

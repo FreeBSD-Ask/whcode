@@ -63,7 +63,7 @@ jobs:
       - name: 产出依赖记录（V-001，含测量纪律字段）
         run: python ci/platform-matrix/record_deps.py artifacts
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: deps-windows
           path: artifacts/deps-windows.txt
@@ -84,12 +84,12 @@ jobs:
       - name: 打包并安装验证（T118）
         run: python ci/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: whcode-windows-amd64
           path: target/dist/*.zip
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: install-verify-windows-amd64
           path: artifacts/install-verify-windows-amd64.txt

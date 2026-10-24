@@ -82,7 +82,7 @@ jobs:
           echo "FreeBSD DuckDB 原生门禁结论：${{ steps.gate.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "（failure 表示 No-Go 证据，不表示代码不合格；见 docs/adr/ADR-DB-BUILD.md）" >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: deps-freebsd
