@@ -9,7 +9,7 @@
 //! 3. `tests/` 子目录限于六类（unit/contract/integration/crash/stability/fixtures）且各有 README；
 //! 4. `docs/` 子目录限于 adr/matrices/guides；
 //! 5. `specs/` 子目录遵循 `<三位编号>-<slug>` 命名；
-//! 6. 本地与产物目录（target/vendor/script/artifacts）不要求存在（机器本地、可再生成），
+//! 6. 本地与产物目录（target/vendor/local/artifacts）不要求存在（机器本地、可再生成），
 //!    但若存在则不得含入库形态的源码（防“顺手把代码写进临时目录”）。
 //!
 //! [repository-layout.md]: ../../docs/guides/repository-layout.md
@@ -67,7 +67,7 @@ fn top_level_entries_follow_layout() {
         "docs",
         // 可移植工程准则（供其他项目复制；不依赖本项目代码）。
         "engineering-doctrine",
-        "script",
+        "local",
         "specs",
         "target",
         "tests",
@@ -199,7 +199,7 @@ fn specs_follow_change_id_naming() {
 #[test]
 fn local_dirs_do_not_host_commitable_sources() {
     // 本地/产物目录允许不存在；存在时不得混入源码形态文件（分类纪律的防漂移检查）。
-    for local in ["target", "vendor", "script", "artifacts"] {
+    for local in ["target", "vendor", "local", "artifacts"] {
         let dir = repo_root().join(local);
         if !dir.is_dir() {
             continue;
@@ -207,7 +207,7 @@ fn local_dirs_do_not_host_commitable_sources() {
         for name in read_dir_names(&dir) {
             let offender = name.ends_with(".rs")
                 || name.ends_with(".toml") && name != "Cargo.toml"
-                || name.ends_with(".py") && local != "script";
+                || name.ends_with(".py") && local != "local";
             assert!(
                 !offender,
                 "{local}/{name} 不应存在：本地/产物目录不得承载源码与工程清单 \

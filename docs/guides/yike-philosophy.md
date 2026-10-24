@@ -10,7 +10,7 @@
 
 | 项 | 值 |
 |---|---|
-| 文件 | `sacred_sources.duckdb`（用户附件；本地副本 `script/sacred_sources.duckdb`，不入库） |
+| 文件 | `sacred_sources.duckdb`（用户附件；本地副本 `local/sacred_sources.duckdb`，不入库） |
 | 大小 | 4 730 880 字节 |
 | SHA256 | `7ea79b4a83d06998c073e3fe5a77a2a5b77fadf9e07737bb6b26b23fdd9ef954` |
 | 结构 | 54 个文件、3 261 个内容块、638 条交叉引用 |

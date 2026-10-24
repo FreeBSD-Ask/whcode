@@ -13,6 +13,16 @@
 
 ### 变更
 
+- 目录结构整理批次（2026-10-24）：**`script/` 更名 `local/` 与隐藏目录登记**（用户批准，不计成本）。
+  - `script/` → `local/`：与 `.github/scripts/`（入库门禁）消除“script vs scripts”一字母混淆；
+    本地目录语义与 repository-layout 五类分层的“本地”一致。引用同步：AGENTS、repository-layout、
+    五份指南、CONTRIBUTING、spec 活引用、`.gitignore`、`test_layout.rs` 白名单与 `.py` 豁免条件、
+    `clean.py`（`--scope local`，`script` 保留为别名）。历史取证文字中的 `script/` 引用按当时事实保留。
+  - `.specify/` 登记：spec-kit 工具配置入库（21 文件）此前无归属，repository-layout 增
+    “治理（工具配置）”行；隐藏目录不入布局门禁检查范围（既有设计）。
+  - `.screenshots/` 显式进 `.gitignore`（与既有本地工具目录规则对齐）。
+  - 合并并行会话在更名交叠期新建的脚本（`fetch_ci_logs.py`、`check_netbsd_run.py` → `local/`）。
+
 - CI 测试与 action 版本铁律（2026-10-24）：**BSD 测试随 main 自动运行；action 固定最新 SHA**。
   - FreeBSD/NetBSD 工作流增加 `push: branches: [main]`：在 vmactions VM 中真实运行
     `cargo check`、不依赖 libduckdb 的包级测试与依赖记录；DuckDB 原生构建保留为显式

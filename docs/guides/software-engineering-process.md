@@ -304,8 +304,8 @@ cargo test -p whcode-tests --test layering
 cargo test -p whcode-tests --test layout
 
 # 编码卫生（G5 前必过）
-python script/normalize_eol.py
-python script/check_workflows.py
+python local/normalize_eol.py
+python local/check_workflows.py
 ```
 
 命令必须在仓库根执行，并记录执行目录与工具链版本。G0/G2/G4 的判定没有单条命令可替代，

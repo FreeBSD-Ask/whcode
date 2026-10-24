@@ -25,7 +25,7 @@ SenseNova 6.8 Flash Lite（`sensenova-6.8-flash-lite`）是轻量级**原生多�
 | 思考强度 | `max`（官方 `reasoning_effort` 支持 `low`/`medium`/`high`/`max`/`none`，默认 `high`） |
 | 图像输入 | 支持，见 §3 |
 
-凭据**只**存放在本地 `script/sensenova.env`（`script/` 已被 `.gitignore` 忽略）；
+凭据**只**存放在本地 `local/sensenova.env`（`local/` 已被 `.gitignore` 忽略）；
 禁止写入仓库文件、日志、事件载荷、测试夹具或提交信息。
 
 ## 3. 图像输入
@@ -87,8 +87,8 @@ SenseNova 6.8 Flash Lite（`sensenova-6.8-flash-lite`）是轻量级**原生多�
 
 ## 6. 实测记录（2026-10-21）
 
-用 `script/probe_sensenova_schema.py`、`script/probe_thinking.py` 与
-`script/test_sensenova_vision.py` 在本机验证，凭据来自 `script/sensenova.env`：
+用 `local/probe_sensenova_schema.py`、`local/probe_thinking.py` 与
+`local/test_sensenova_vision.py` 在本机验证，凭据来自 `local/sensenova.env`：
 
 | 用例 | 结果 |
 |---|---|

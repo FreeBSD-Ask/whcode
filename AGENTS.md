@@ -106,9 +106,9 @@ cargo test -p whcode-tests --test layering       # 分层/平台分支/前端不
 cargo test -p whcode-tests --test layout         # 目录分类门禁
 python .github/scripts/traceability.py                        # FR↔任务↔Check 三方追溯（含缺口登记合规）
 python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑）
-python script/normalize_eol.py                   # LF + 无 BOM 审计
-python script/check_workflows.py                 # CI workflow 自检
-python script/measure_resources.py               # 资源铁律 M1/C4：测试进程 RSS/CPU 达标
+python local/normalize_eol.py                   # LF + 无 BOM 审计
+python local/check_workflows.py                 # CI workflow 自检
+python local/measure_resources.py               # 资源铁律 M1/C4：测试进程 RSS/CPU 达标
 python .github/scripts/benchmarks/check-frontend-budget.py    # 前端预算审计（涉及前端时）
 ```
 
@@ -124,7 +124,7 @@ cargo run -p whcode-bin --release --             # 有交互控制台时进入 T
 ### 3.1 测试模型与图像输入（SenseNova 6.8 Flash Lite）
 
 - 端点 `https://token.sensenova.cn/v1/chat/completions`，模型 ID
-  `sensenova-6.8-flash-lite`；凭据只存本地 `script/sensenova.env`，不入库、不进日志与事件。
+  `sensenova-6.8-flash-lite`；凭据只存本地 `local/sensenova.env`，不入库、不进日志与事件。
 - 图像输入：`messages[].content` 使用内容块数组，图片经 `image_url` 传入；`image_url`
   可用对象 `{"url": ...}` 或字符串。URL 可为公网地址或
   `data:image/{png|jpeg|webp};base64,...` Data URL；支持 JPG/JPEG/PNG/WebP。
@@ -237,7 +237,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 所有文本文件 **UTF-8 无 BOM**，换行 **LF**（`.gitattributes` + `.editorconfig` + rustfmt 三重保证）。
 - 不得篡改代码块与非注释代码；注释只在逻辑不自明处添加。
 - 未实现事项必须显式标记（`未实现`/`阻塞`），写清当前行为，不得依赖隐含默认值。
-- 临时脚本、探测脚本、运行日志一律放 `script/`；**不入库**；临时脚本与运行日志
+- 临时脚本、探测脚本、运行日志一律放 `local/`；**不入库**；临时脚本与运行日志
   由 `.github/scripts/clean.py --scope script` 回收（长期验证工具与凭据在脚本内 `KEEP_ALWAYS` 显式保留）。
 - 新增根文件必须同步 `tests/contract/test_layout.rs` 白名单与 `repository-layout.md`；
   根目录不接受源码、脚本或散文档。
@@ -286,7 +286,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 提交约定（用户已授权代理自行提交）：
 
 - 采用 trunk-based，小步提交；消息用 `type(scope): 摘要`，正文写“为什么”；
-- 每次只暂存本次相关文件，不用 `git add -A`；不提交 `script/`、`target/`、`vendor/`、本地状态；
+- 每次只暂存本次相关文件，不用 `git add -A`；不提交 `local/`、`target/`、`vendor/`、本地状态；
 - 提交后回报：改了什么、证据在哪、还有哪些未取得。
 
 ## 10. 不确定时

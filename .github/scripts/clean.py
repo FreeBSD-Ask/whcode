@@ -10,7 +10,7 @@
    （repository-layout 五类分层中"本地产物永不入库"的回收侧）。
 3. **白名单优于黑名单**：只删除"能证明是垃圾"的对象——固定路径（`target/`）、
    已知前缀（系统 TEMP 下的 `whcode-*` 测试残留）、垃圾扩展名（`*.tmp` 等）；
-   不做递归通配猜测。`script/`（用户规则：保留不清理）与 `artifacts/`（运行
+   不做递归通配猜测。`local/`（用户规则：保留不清理）与 `artifacts/`（运行
    证据，治理放行文件入库）**永久豁免**。
 4. **不可逆操作门禁**：默认 dry-run 只报告；`--apply` 显式执行。执行前复核
    活跃构建进程（cargo/rustc）与最近 30 分钟内活跃的临时目录，避免误删正在
@@ -24,7 +24,7 @@
 | `target` | 仓库 `target/`（cargo 产物与包输出 dist/） | `cargo build --locked -p whcode-bin --release` |
 | `temp` | 系统 TEMP 下 `whcode-*` 测试残留目录 | 测试重跑自然重建 |
 | `stray` | 仓库内 `*.tmp/*.bak/*.orig/*.rej/*~/*.log` 与根 `whcode.duckdb*` | 不应存在（存在即误操作产物） |
-| `script` | `script/` 下匹配 [`SCRIPT_DELETE_PATTERNS`] 的临时脚本与运行日志 | 均为一次性工作产物，不再生（长期工具与凭据在 [`SCRIPT_KEEP_ALWAYS`] 显式保留） |
+| `script` | `local/` 下匹配 [`SCRIPT_DELETE_PATTERNS`] 的临时脚本与运行日志 | 均为一次性工作产物，不再生（长期工具与凭据在 [`SCRIPT_KEEP_ALWAYS`] 显式保留） |
 
 ## 用法
 
@@ -59,8 +59,8 @@ STRAY_PATTERNS = ["*.tmp", "*.bak", "*.orig", "*.rej", "*~", "*.log"]
 #: 永久豁免目录（stray 扫描跳过）：.git 与可再生产物根、运行证据目录。
 EXEMPT_DIRS = {".git", "target", "vendor", "script", "artifacts", "node_modules"}
 
-#: script/ 的删除模式：一次性工作脚本与运行日志（2026-10-24 用户规则更新：
-#: script/ 不再“保留不清理”，改为按本机制回收）。
+#: local/ 的删除模式：一次性工作脚本与运行日志（2026-10-24 用户规则更新：
+#: local/ 不再“保留不清理”，改为按本机制回收）。
 SCRIPT_DELETE_PATTERNS = [
     "t[0-9]*.py",      # 任务一次性脚本（t033_close_docs、t111_worker_bootstrap_probe…）
     "add_*.py",        # 文档/规格批量补丁
@@ -92,7 +92,7 @@ SCRIPT_DELETE_PATTERNS = [
     "*.zip",           # 下载缓存（vendor/ 已解包校验）
 ]
 
-#: script/ 永久保留清单（优先于删除模式）：
+#: local/ 永久保留清单（优先于删除模式）：
 #: - `sensenova.env` 是凭据（AGENTS：不入库、不进日志），任何清理不得触碰；
 #: - 前三项是被 AGENTS §3 标准验证链引用的长期工具；
 #: - `measure_nfr_budgets.py` 被并行工作单元（T115/ADR-025）引用；
@@ -189,10 +189,10 @@ def scan_stray() -> list[dict[str, object]]:
 
 
 def scan_script(now: float) -> tuple[list[dict[str, object]], int]:
-    """script/ 的临时脚本与运行日志（删除模式 + 永久保留清单 + 活跃保护）。"""
+    """local/ 的临时脚本与运行日志（删除模式 + 永久保留清单 + 活跃保护）。"""
     items: list[dict[str, object]] = []
     skipped_active = 0
-    root = REPO / "script"
+    root = REPO / "local"
     if not root.is_dir():
         return items, 0
     for path in sorted(root.iterdir()):
@@ -242,7 +242,7 @@ def remove(item: dict[str, object]) -> str | None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="临时/中间/垃圾文件清理（T158）")
-    parser.add_argument("--scope", choices=["target", "temp", "stray", "script", "all"], default="all")
+    parser.add_argument("--scope", choices=["target", "temp", "stray", "script", "local", "all"], default="all")
     parser.add_argument("--apply", action="store_true", help="执行清理（默认 dry-run）")
     parser.add_argument("--record", action="store_true", help="证据落 artifacts/clean-run-*.json")
     args = parser.parse_args()
@@ -256,7 +256,7 @@ def main() -> int:
         items += scan_temp(now)
     if args.scope in ("stray", "all"):
         items += scan_stray()
-    if args.scope in ("script", "all"):
+    if args.scope in ("script", "local", "all"):
         script_items, script_skipped = scan_script(now)
         items += script_items
         skipped_active += script_skipped

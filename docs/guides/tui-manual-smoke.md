@@ -3,8 +3,8 @@
 **日期**：2026-10-21（2026-10-22 随六视图接线更新）| **适用**：Windows 11 amd64 真实控制台
 | **关联**：T024、T082、V-003、ADR-016
 
-自动冒烟已覆盖：启动首帧、键盘计数、`q` 退出、强杀后可读（`script/tui_manual_smoke.py`）；
-六视图切换与固定帧取证（`script/tui_views_smoke.py`，产物 `artifacts/tui-views-smoke/`）。
+自动冒烟已覆盖：启动首帧、键盘计数、`q` 退出、强杀后可读（`local/tui_manual_smoke.py`）；
+六视图切换与固定帧取证（`local/tui_views_smoke.py`，产物 `artifacts/tui-views-smoke/`）。
 本协议只补齐自动化无法可靠完成的两项：**终端 resize 重绘**与 **Ctrl-C 退出**。
 
 ## 1. 前置

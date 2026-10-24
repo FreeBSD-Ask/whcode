@@ -347,7 +347,7 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
   - 证据：`whcode-app::commands` 测试；TUI 确认流程测试；CUI／Web 行为等价测试
   - 依据：FR-101、FR-401／408、FR-509、FR-604；ADR-009
 - **在线可见与游标一致**（预留编号 624；P1；[架构]；交付归属 M6）: TUI 与 Web 必须能感知其他在线端产生的更改并按持久化游标补齐；TUI 仅在游标推进时置脏并重绘一次，不得引入周期性全量重绘或新增常驻线程；Web 保持 WebSocket 广播与断线补拉；GUI 按 FR-711 使用显式刷新（登记 `GUI_MANUAL_REFRESH`）；CUI 为一次性请求响应（登记 `CUI_REQUEST_ONLY`）；每个前端必须显示游标或连接状态，不得让过期画面伪装成最新状态
-  - 判据：Given 另一端写入新事件，When TUI 空闲，Then 游标推进触发一次重绘且内容更新；Given 游标未变，Then 空闲期零重绘；Given 断线重连，Then Web 从持久化游标补拉无缺口。“低频”量化（复核增补 2026-10-24）：TUI 游标检查间隔 ≥ 1000 ms（常量命名并测试断言），查询为 O(1)（`SELECT max(seq)` 类单值查询，无表扫描）；空闲 CPU 不得回归 NFR-205 实测基线（0.0% 量级，`script/measure_resources.py` 复测）
+  - 判据：Given 另一端写入新事件，When TUI 空闲，Then 游标推进触发一次重绘且内容更新；Given 游标未变，Then 空闲期零重绘；Given 断线重连，Then Web 从持久化游标补拉无缺口。“低频”量化（复核增补 2026-10-24）：TUI 游标检查间隔 ≥ 1000 ms（常量命名并测试断言），查询为 O(1)（`SELECT max(seq)` 类单值查询，无表扫描）；空闲 CPU 不得回归 NFR-205 实测基线（0.0% 量级，`local/measure_resources.py` 复测）
   - 证据：TUI 循环测试；Web 广播／补拉测试；游标一致性测试
   - 依据：FR-605、FR-613、FR-617、FR-714；ADR-009
 - **显示配置一致（主题与语言）**（预留编号 625；P1；[架构]；交付归属 M6，GUI 主题已随 M10 交付，本条补 TUI／Web 一致性）: TUI、GUI、Web 必须提供四套主题（`eink-day`、`eink-night`、`amoled-night`、`terminal-green`），精确色值遵循 FR-612／FR-713，运行时切换不得要求重启；默认主题取 `ui.theme`，可被 `WHCODE_UI_THEME` 覆盖；CUI 按 `CUI_NO_THEME` 登记为终端控制；四个前端必须共用语言解析链：`ui.locale` → `WHCODE_UI_LOCALE` → `LANG`／`LC_ALL` → `zh-CN`；Web 另允许 `?locale=` 与 `Accept-Language` 作为显式覆盖；简体中文与英语必须同时可用
@@ -469,7 +469,7 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
 ## Assumptions
 
 - **状态基线**：本 spec 为需求基线候选；M0 通过前平台与性能承诺不冻结（任务书 §0、§12.1）
-- **TUI 非交互退出（M0）**：TUI 不得在 stdin 非交互（管道／重定向）时进入事件循环，无参数启动必须立即退出且退出码为 0，避免自动化环境挂起；验收判据见 `checklist.md` Check 226，证据由 `script/tui_smoke.py` 的 `graceful_exit_on_closed_stdin` 采集
+- **TUI 非交互退出（M0）**：TUI 不得在 stdin 非交互（管道／重定向）时进入事件循环，无参数启动必须立即退出且退出码为 0，避免自动化环境挂起；验收判据见 `checklist.md` Check 226，证据由 `local/tui_smoke.py` 的 `graceful_exit_on_closed_stdin` 采集
 - **用户故事↔里程碑映射**为本轮工程决策：US-n ↔ M-(n-1)；任务书里程碑范围未被改动
 - **待决策事项 D-01—D-14** 以任务书建议默认值与后续决策进入对应决策点：首版优先 x86_64（D-01）；单库单工作区（D-02）；Web 为独立 UI（D-03）；SSH 公钥+受限入口（D-04）；追踪默认 redacted（D-05，M1）；性能硬指标 M0 冻结（D-06）；运行时独立 payload（D-07，M8 前）；首版不宣称完整 Node.js（D-08，M8 前）；Python 先验证子进程协议（D-09，M8 前）；独立 db compact（D-10，M1）；默认系统分配器（D-11，M9）；P1 运行时不阻塞首个可用版本（D-12，M0）；平台承诺修订（D-13）；平台范围收敛（D-14）
 - **验收环境**：本轮只需 Windows 11 amd64 的真实构建/测试环境（已取得）；FreeBSD/NetBSD/OpenBSD/DragonFly 按 ADR-013 延后，不再作为本轮阻塞项；恢复任一平台时必须具备该平台真实环境并补齐证据，不得以交叉编译代替运行验证（G-01）

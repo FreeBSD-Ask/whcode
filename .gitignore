@@ -47,8 +47,9 @@
 # 预编译 DuckDB（由 .github/scripts/fetch-duckdb.py 拉取并校验 SHA256；不入库，PROVENANCE 留证）
 /vendor
 
-# 本地临时脚本与运行日志（用户规则：置于 script/ 且保留在本地，不入库）
-/script/
+# 本地临时脚本与运行日志（用户规则：置于 local/ 且保留在本地，不入库；
+# 一次性脚本与日志由 .github/scripts/clean.py 按保留清单回收——2026-10-24 更名）
+/local/
 
 # Python 解释器缓存（.github/scripts/ 与 script/ 下的脚本执行时生成；不得进 .github/scripts/ 子目录白名单）
 __pycache__/

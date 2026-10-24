@@ -49,7 +49,7 @@ GitHub 模板已内置（`.github/PULL_REQUEST_TEMPLATE.md`）。清单缺项或
 
 - 所有文本文件：**UTF-8 无 BOM、换行符 LF**（Windows 开发同样适用）；
 - 由 `.gitattributes` + `.editorconfig` + `rustfmt.toml` 三重强制；
-  提交前可用 `python script/normalize_eol.py` 自查；
+  提交前可用 `python local/normalize_eol.py` 自查；
 - 新增二进制类型须在 `.gitattributes` 登记为 `binary`，避免误规范化。
 
 ## 6. 平台事项
