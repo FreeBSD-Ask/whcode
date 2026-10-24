@@ -98,17 +98,16 @@ API 层缺省预览（`api.rs:535-557`、`636-648`）→ 存储层再次要求 `
 （`crates/whcode-app/src/maintenance.rs:38-49`）。删除与审计同一事务，审计失败整体回滚
 （`crates/whcode-store/src/purge.rs:16-18`）。预览必须报满受影响的表名（`purge.rs:177-197`）。
 
-### 4.1 保留与预留命令的 501 语义（ensure-frontend-parity 交付后生效）
+### 4.1 保留与预留命令的 501 语义（2026-10-24 交付，FR-620／ADR-032）
 
-- **当前行为**：未知路径一律 404（静态白名单 + API 路由表），不存在“已登记但不提供”
-  的中间态。
-- **目标口径（交付后生效，FR-620／ADR-032）**：登记表（`whcode-app::surface`）中登记为
-  预留（Reserved）或排除（Excluded）的路径被调用时返回 **HTTP 501** + JSON 错误信封
-  `code=not_supported`、`retryable=false`，`details` 含 `surface_id`、`state`
-  （reserved／excluded）与 `milestone` 或 `reason_code`；**未登记路径仍为 404**。
-  不得把已登记能力伪装成 404 或静默成功。
-- **安全边界不放宽**：501 响应只含登记元数据（里程碑／理由码），不含内部路径细节或
-  凭据；认证与 Origin 检查仍在先——未认证请求维持 403，501 仅对通过认证的请求可达。
+- **当前行为**：登记表（`whcode-app::surface`）中登记为预留（Reserved）或排除（Excluded）
+  的路径被调用时返回 **HTTP 501** + JSON 错误信封 `code=not_supported`、`retryable=false`，
+  `details` 含 `surface_id`、`state`（reserved／excluded）与 `milestone` 或 `reason_code`；
+  **未登记路径仍为 404**（末尾兜底）。守卫位于认证与 Origin 检查**之后**，不放宽安全默认值
+  （`crates/whcode-web/src/api.rs:215-249`、`337-353`）。
+- **不回显内部细节**：501 响应只含登记元数据（里程碑／理由码），message 不携带内部路径
+  或凭据；认证与 Origin 检查仍在先——未认证请求维持 403，501 仅对通过认证的请求可达。
+- **不伪装**：不得把已登记能力伪装成 404 或静默成功；已实现路径继续走正常路由。
 
 ## 5. 资源与有界性
 

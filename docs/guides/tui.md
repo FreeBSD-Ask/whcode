@@ -1,7 +1,7 @@
 # TUI 使用与键位（FR-601）
 
 > 适用：`whcode`（无参数且存在交互控制台时进入）。事实基准：`crates/whcode-tui/src`
-> （2026-10-23 对照）；改动按键解析时必须同步本文（Check 119 口径）。
+> （2026-10-24 对照）；改动按键解析时必须同步本文（Check 119 口径）。
 > 交互冒烟协议另见 [tui-manual-smoke.md](./tui-manual-smoke.md)。
 
 ## 1. 启动与退出
@@ -34,9 +34,28 @@
 | `r` | 刷新当前视图快照 | `crates/whcode-tui/src/lib.rs:346` |
 | 终端 resize | 更新行列数并重绘，不退出 | `crates/whcode-tui/src/state.rs:41-44` |
 
+**写操作与主题（2026-10-24 交付，FR-623／625）**：全部写命令经 `whcode-app::commands`
+门面执行（TUI 不触库、不自行判权）；破坏性命令先执行预览段并显示“将删 N 个会话（事件 M）”，
+再按 `y` 确认，其他键取消（取消不改变数据库、不写执行审计）；未注入执行器时显式提示
+`not_supported`。
+
+| 键 | 视图 | 动作 |
+|---|---|---|
+| `n` | 会话 | 新建会话（单行输入标题，Enter 提交，Esc 取消，上限 200 字符） |
+| `m` | 会话 | 重命名选中会话（同上输入方式） |
+| `A` | 会话 | 归档选中会话 |
+| `d` | 会话 | 删除选中会话（预览 → `y` 确认） |
+| `R` | 任务 | 重试选中任务 |
+| `X` | 任务 | 中止选中任务 |
+| `p` | 任意 | 清理 30 天前会话（预览 → `y` 确认） |
+| `t` | 任意 | 四主题循环（`eink-day`→`eink-night`→`amoled-night`→`terminal-green`→回 `eink-day`，不重启） |
+
 - 选中行以 `> ` 前缀呈现，不依赖颜色（墨水屏友好；`crates/whcode-tui/src/views.rs:222-233`）。
 - 标题含 `{index}/{count}` 视图序号（`crates/whcode-tui/src/lib.rs:467-475`）。
-- 键位提示为页脚词条 `tui.footer`（“窗口 {cols}×{rows} · 按键 {keys} · 1—6 视图 · j/k 会话 · r 刷新 · q 退出”，`crates/whcode-domain/src/i18n/zh-CN.properties:21`）。
+- 键位提示为页脚词条 `tui.footer`（“窗口 {cols}×{rows} · 按键 {keys} · 1—6 视图 · j/k 会话 · r 刷新 · q 退出”，
+  `crates/whcode-domain/src/i18n/zh-CN.properties:21`）；写操作键位在状态行按上下文提示。
+- 其他端产生的更改由低频游标检查感知：间隔 ≥1000 ms（`CURSOR_CHECK_INTERVAL`），查询为
+  O(1) 单值，仅游标推进时置脏重绘一次，不新增常驻线程（FR-624）。
 
 ## 3. 未实现（显式声明，勿按存在使用）
 
@@ -45,14 +64,12 @@
 - 无命令面板、无 `:` 命令模式、无插入/普通模式之分（全量检索无命中）；
 - 无翻页键（无 PgUp/PgDn）：内容按终端行数限行投影（`crates/whcode-tui/src/lib.rs:421-428`）；
 - 无 `?`/F1 帮助屏；
-- 无运行时主题切换键：主题仅启动时由 `ui.theme` 配置或 `WHCODE_UI_THEME` 环境变量决定
-  （`crates/whcode-bin/src/config.rs:20-24`、`122-126`）；
 - 无鼠标、焦点、bracketed paste 处理（`crates/whcode-tui/src/event.rs:8`、`48`）；
 - `Ctrl+V` 等组合键不保留修饰语义：除 `Ctrl-C` 外，Ctrl 组合等价于裸字母（`event.rs:37-45`）；
-- 方向键、Esc、Enter、F1 等被丢弃（`crates/whcode-tui/src/event.rs:42-45`）；
-- CJK 等多字节字符按单 `char` 接收，仅计入按键数，不触发动作（`event.rs:43`、`state.rs:39`）。
-- 本变更（ensure-frontend-parity）交付后，`t` 键四主题循环、写操作与游标刷新将改变上述
-  部分现状，见 §8；交付前以本节为准。
+- 方向键与 F1 等仍未映射（`crates/whcode-tui/src/event.rs:48-54`）；Enter／Esc／Backspace
+  已用于单行输入与确认（同上）；
+- CJK 等多字节字符按单 `char` 接收：普通浏览态只计入按键、不触发动作；单行输入态进入
+  输入缓冲（受 200 字符上限约束）（`event.rs:43`、`crates/whcode-tui/src/lib.rs:508-510`）。
 
 ## 4. 数据源现状（重要）
 
@@ -61,16 +78,19 @@ TUI 六视图的数据由装配根经 `ViewSource` 注入：`whcode-bin` 打开�
 时回退 `EmptyViewSource` 并打印提示（`crates/whcode-tui/src/lib.rs:16-19`、`95-99`），
 此时列表显示“暂无数据”。diff 视图另有独立的未接入提示词条
 （`crates/whcode-domain/src/i18n/zh-CN.properties:24`）。
-TUI 是只读快照前端：破坏性命令不经 TUI（`ViewSource` 只读，`crates/whcode-tui/src/lib.rs:83-92`）。
+视图数据仍是只读快照：`ViewSource` 只读，TUI 不直接打开数据库；写操作经
+`whcode-app::commands` 门面（装配根注入执行器）执行，权限与审计由应用层统一判定
+（`crates/whcode-tui/src/lib.rs:83-92`、`513-527`）。
 
 ## 5. 主题与终端
 
 | 项 | 值 | 证据 |
 |---|---|---|
-| 主题默认 | `eink-day` | `crates/whcode-tui/src/theme.rs:40-42` |
-| 合法取值 | `amoled-night`／`eink-day`／`eink-night` | `crates/whcode-tui/src/theme.rs:60-66` |
+| 主题默认 | `eink-day` | `crates/whcode-tui/src/theme.rs:44-46` |
+| 合法取值 | `amoled-night`／`eink-day`／`eink-night`／`terminal-green` | `crates/whcode-tui/src/theme.rs:78-84` |
+| 运行时切换 | `t` 键按 `eink-day`→`eink-night`→`amoled-night`→`terminal-green` 循环，四步回原位 | `crates/whcode-tui/src/theme.rs:54-63` |
 | 非法主题名 | 报 `parse_error` 并列出全部合法值 | `crates/whcode-tui/src/theme.rs:77-86` |
-| 色值 | 三套精确值（`#000000`/`#E6E6E6` 等） | `crates/whcode-tui/src/theme.rs:20-32` |
+| 色值 | 四套精确值（`#000000`/`#E6E6E6`/`#FFFFFF`/`#00FF00`） | `crates/whcode-tui/src/theme.rs:20-36`、`65-74` |
 | 尺寸探测失败兜底 | 80×24 | `crates/whcode-tui/src/lib.rs:58-59`、`138` |
 | 最小尺寸校验 | **无**（不做“太小即拒绝”） | `crates/whcode-platform/src/term.rs:12-14` |
 | 空闲探测 | 输入静默 1 s 起探测，间隔 5 s，退避上限 60 s | `crates/whcode-tui/src/lib.rs:64-73` |
@@ -113,22 +133,19 @@ V-003 证据（2026-10-23）：`artifacts/tui-v003-2026-10-23/summary.json`（10
 `s1-01-startup.txt` 至 `s3-after-kill.txt` 逐帧文本、`window.png` 像素截图、
 `resize-probe.txt`（ConPTY 下 `SetConsoleWindowInfo` 恒返回 87，改用窗口像素尺寸触发真实 resize）。
 
-## 8. ensure-frontend-parity 变更预告（本节能力交付后生效）
+## 8. 四端对等交付（2026-10-24，T177／T178；FR-619—625、ADR-032）
 
-以下为已立项变更（FR-619—625、ADR-032）的目标行为，**交付前不得按已实现使用**；
-交付时由实现任务回填本文并更新 §3／§4 的现状口径。
+本节记录已**交付并可用**的能力；键位见 §2 的写操作与主题表，未实现项以 §3 为准。
 
 - **写操作与确认**（FR-623）：会话 new／rename／archive／delete、任务 retry／abort、
   清理 purge 经 `whcode-app::commands` 门面执行（前端不触库、不自行判权）；破坏性命令
-  先预览后确认，取消确认不改变数据库状态、不写执行审计；无执行器时动作显式提示
-  `not_supported`，不静默无响应。具体键位由实现任务定案并回填本文（不占用既有
-  `q`／`1`—`6`／`j`／`k`／`r`）。
-- **`t` 四主题循环**（FR-625）：`t` 键运行时循环 `amoled-night`→`eink-day`→
-  `eink-night`→`terminal-green` 四步回原位，色值与 FR-612／FR-713 精确一致，
-  不要求重启；默认仍取 `ui.theme`／`WHCODE_UI_THEME`。交付前 §3“无运行时主题切换键”
-  仍为现状。
-- **游标刷新**（FR-624）：`ViewSource` 增加游标查询；TUI 空闲时低频检查游标
-  （间隔 ≥1000 ms、常量命名并测试断言；查询 O(1)），仅游标推进时置脏并重绘一帧，
-  游标未变零重绘；不新增常驻线程、不做周期性全量重绘（FR-613／FR-617 纪律不变）；
-  其他端产生的更改自动可见；空闲 CPU 复测不回归 NFR-205 基线
-  （`.github/scripts/benchmarks/measure-resources.py`）。
+  （`d`／`p`）先执行预览段并显示将删会话数与事件数，再按 `y` 确认；取消确认不改变数据库
+  状态、不写执行审计；无执行器时动作显式提示 `not_supported`，不静默无响应。
+- **`t` 四主题循环**（FR-625）：`t` 键运行时按 `eink-day`→`eink-night`→`amoled-night`→
+  `terminal-green` 循环，四步回原位；色值与 FR-612／FR-713 精确一致，不要求重启；
+  默认仍取 `ui.theme`／`WHCODE_UI_THEME`。
+- **游标刷新**（FR-624）：`ViewSource` 提供游标查询；TUI 空闲时低频检查游标
+  （`CURSOR_CHECK_INTERVAL` = 1000 ms、测试断言；查询 O(1) 单值），仅游标推进时置脏并
+  重绘一帧，游标未变零重绘；不新增常驻线程、不做周期性全量重绘（FR-613／FR-617 纪律不变）；
+  其他端产生的更改自动可见。资源复测用 `.github/scripts/benchmarks/measure-resources.py`，
+  结果写入 `artifacts/frontend-parity-2026-10-24/close-gates.md`。

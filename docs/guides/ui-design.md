@@ -40,22 +40,21 @@
 - 禁止“近黑/深灰”作为夜间背景（深灰仍耗电；OLED 只有纯黑关断）；
 - 状态不得只用颜色区分：必须叠加符号或文字（例如 `[!] blocked`、`[✓] completed`）；
 - 不做渐变、阴影、模糊；边框单线；选中态用反显或 `>` 前缀。
-- 主题通过配置选择（`ui.theme`：`amoled-night` / `eink-day` / `eink-night` / `terminal-green`——TUI 与 GUI 均已实现四套；Web 前端目前只有基础主题、未实现切换），并可用
+- 主题通过配置选择（`ui.theme`：`amoled-night` / `eink-day` / `eink-night` / `terminal-green`——TUI、GUI 与 Web 均已实现四套；CUI 按 `CUI_NO_THEME` 登记为“终端配色由模拟器控制”），并可用
   环境变量 `WHCODE_UI_THEME` 覆盖（非法值打印警告并回落配置值——不拒绝启动）；默认
   `eink-day`（最保守、最省电）。TUI 侧由 `whcode-tui` 的 `draw_frame` 应用精确色值
   （测试断言渲染单元背景精确为 `#000000`/`#FFFFFF`）。
 
-### 3.1 Web 四主题 CSS 变量与选择器（ensure-frontend-parity 交付后生效）
-
-Web 前端当前只有基础主题、未实现切换（见上）；以下为 ensure-frontend-parity 变更的
-目标口径，**交付前不得按已实现理解**：
+### 3.1 Web 四主题 CSS 变量与选择器（2026-10-24 交付）
 
 - 主题经 `<html data-theme="...">` 承载，四套选择器各定义同名 CSS 变量，精确色值与 §3
   表一致：`eink-day`（`--bg:#FFFFFF`／`--fg:#000000`）、`eink-night`（`#000000`／
   `#FFFFFF`）、`amoled-night`（`#000000`／`#E6E6E6`）、`terminal-green`（`#000000`／
-  `#00FF00`）；
-- 切换只改 `data-theme` 属性与 CSS 变量，不刷新页面；支持 `?theme=<名>` 显式覆盖；
-- 默认主题取配置 `ui.theme`，`WHCODE_UI_THEME` 可覆盖（非法值警告并回落，不拒绝启动）；
+  `#00FF00`）（`crates/whcode-web/frontend/styles.css:5-20`）；
+- 切换只改 `data-theme` 属性与 CSS 变量，不刷新页面；支持 `?theme=<名>` 显式覆盖并记忆到
+  浏览器本地存储，页面内 `#theme-select` 提供运行时切换（`frontend/app.js:628-651`）；
+- 默认主题取配置 `ui.theme`，`WHCODE_UI_THEME` 可覆盖；服务端对非法值回落 `eink-day` 并
+  在页面标注，不拒绝启动（`crates/whcode-web/src/assets.rs:43-48`、`301`）；
 - 保持无框架、无第三方字体、无 WebGL／视频；四套主题下仍须通过首屏 JS／CSS／DOM
   预算（`.github/scripts/benchmarks/check-frontend-budget.py`，FR-618）。
 

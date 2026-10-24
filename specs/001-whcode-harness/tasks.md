@@ -338,6 +338,43 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 
 ---
 
+## Phase 15: LLM 真实供应商（预留，未交付，Priority: P1）
+
+**Purpose**: `add-real-llm-provider` 变更的任务位（ADR-031／D-16）。该变更的 spec 与 ADR-031
+尚未入库，以下 6 条按 FR-201—208 与 FR-616 及现存代码锚点占位登记；**标题与交付状态以该变更收口时的
+正式 spec 为准**。不得据此宣称 `llm run／cancel` 已可用（四端仍登记为 `M3-llm` 预留）。
+
+- [ ] T162 [US4] 真实 Provider 剖面与凭据边界：剖面模型、协议枚举、鉴权头构造与凭据不落日志／事件（FR-203；锚点 `crates/whcode-llm/src/http/profile.rs`）——**未完成（阻塞：变更 spec 与 ADR-031 未入库）**
+- [ ] T163 [US4] 阻塞式 HTTP 客户端与协议适配器：`ureq` 客户端、请求构造、响应读取与网络错误映射（FR-201；锚点 `crates/whcode-llm/src/http/mod.rs`）——**未完成（阻塞同上）**
+- [ ] T164 [US4] 响应归一化：流式／非流式响应统一为领域事件与用量统计（FR-206／207）——**未完成（阻塞同上）**
+- [ ] T165 [US4] 传输进度事件与脱敏：连接／重连／字节计数／往返时延／断连原因码入事件体系（FR-616、FR-203）——**未完成（阻塞同上）**
+- [ ] T166 [US4] 超时、重试与取消：单次调用超时、有界重试与取消语义（FR-201／202）——**未完成（阻塞同上）**
+- [ ] T167 [US4] 装配根接线与登记翻转：`http` feature 装配、凭据文件读取、`llm.run／cancel` 四端登记与矩阵同步（FR-208、FR-616；ADR-032 复审触发③）——**未完成（阻塞同上）**
+
+---
+
+## Phase 16: 四端对等与差异登记（M6／M10，Priority: P1）
+
+**Purpose**: 按 ADR-032 落地能力登记表、受校验矩阵与四端补齐（`ensure-frontend-parity`）。
+任务编号沿用变更内锚点（代码注释与 CHANGELOG 已引用），2026-10-24 收口时统一转正。
+
+- [x] T168 [US6] 立项与决策：变更 spec、ADR-032、D-17 风险台账与预留 FR 编号（619—625）落档，契约同步标注“交付前不生效”（**2026-10-24 完成**：`docs/adr/ADR-032-frontend-parity-and-intended-differences.md`、`docs/matrices/decisions.md` D-17；正式编号于 T181 转正）
+- [x] T169 [US6] 能力登记表：`whcode-app::surface` 定义 54 条 `SurfaceId` 的类别／能力／效果／确认／审计与四端状态，`validate` 自洽（**2026-10-24 完成**：`crates/whcode-app/src/surface.rs`；16 项内联测试）
+- [x] T170 [US6] 四端清单：CUI／TUI／GUI／Web 各自只声明到 `SurfaceId` 的映射，不得自定义支持面（**2026-10-24 完成**：四个 crate 的 `surface_map.rs`）
+- [x] T171 [US6] 对等门禁：登记表 × 四端清单 × 矩阵三向一致，含缺映射／孤儿动作／矩阵篡改／过期排除的负向用例（**2026-10-24 完成**：`tests/contract/test_frontend_parity.rs`；T181 收口把矩阵改为逐行比对）
+- [x] T172 [US6] 统一不可用语义：预留／排除能力返回结构化 `not_supported`（CUI 55、Web 501、未登记仍 404），认证与 Origin 检查在先（**2026-10-24 完成**：`whcode-domain` 错误码、`cui_dispatch` 守卫、`whcode-web/src/api.rs`）
+- [x] T173 [US6] CUI 读取面补齐：`context budget`（预算／来源／截断／游标）与 `runtime list`（与 Web `/api/runtimes` 同形）（**2026-10-24 完成**：`crates/whcode-bin/src/cui_dispatch.rs`）
+- [x] T174 [US6] Web 读取面补齐：`/api/context`、`/api/diff`、`/api/events/export` 与前端标签（**2026-10-24 完成**：`whcode-web/src/api.rs`、`frontend/app.js`）
+- [x] T175 [US6] Web 显示配置：四套主题（`data-theme` + `?theme=` + 页面选择器）与语言解析链（`ui.locale`→`WHCODE_UI_LOCALE`→`LANG`／`LC_ALL`→`zh-CN`）（**2026-10-24 完成**：`assets.rs`、`styles.css`、`app.js`）
+- [x] T176 [US6] 写命令门面：`whcode-app::commands` 统一七命令执行入口，CUI／Web 迁移，预览／确认／审计／权限同源（**2026-10-24 完成**：`crates/whcode-app/src/commands.rs`）
+- [x] T177 [US6] TUI 写操作：`n`／`m`／`A`／`d`／`R`／`X`／`p` 经门面执行，破坏性命令先预览后确认，无执行器显式 `not_supported`（**2026-10-24 完成**：`crates/whcode-tui/src/lib.rs`）
+- [x] T178 [US6] TUI 主题与在线可见：`t` 四主题循环；`ViewSource` 游标查询与 ≥1000 ms 空闲检查，推进才重绘（**2026-10-24 完成**：`lib.rs`、`theme.rs`、`whcode-bin/src/store_source.rs`）
+- [x] T179 [US6] GUI 只读对等：GUI 动作清单仅映射读面，写命令登记 `GUI_READ_ONLY_V1`，冻结 `GUI_MANUAL_REFRESH`（**2026-10-24 完成**：`crates/whcode-gui/src/surface_map.rs` + 契约断言）
+- [x] T180 [US6] 行为等价：同一 purge 经 CUI 形状与 Web 形状执行，最终计数、审计次数与权限拒绝码一致（**2026-10-24 完成**：`test_frontend_parity.rs::purge_through_facade_has_identical_outcome_and_audit`）
+- [x] T181 [US6] 收口：FR-619—625 转正主账本（本文件与 `checklist.md` 挂钩）、登记表 13 格随交付翻转为已实现、矩阵改为 54 行逐行受校验产物并补负向篡改用例、四份指南与 CUI 手册回填、证据归档（**2026-10-24 完成**：`docs/matrices/feature-parity.md`、`docs/guides/{tui,ui-design,web-deployment-security,cui-manual}.md`、`artifacts/frontend-parity-2026-10-24/`；遗留的 archive 确认／审计口径冲突在 CHANGELOG 已知未完成第 3 项登记）
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
