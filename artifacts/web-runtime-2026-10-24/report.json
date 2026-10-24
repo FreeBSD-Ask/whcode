@@ -1,0 +1,487 @@
+{
+  "date": "2026-10-24",
+  "browser": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+  "server_command": "whcode serve --web --bind 127.0.0.1:<端口> --workspace <临时目录>",
+  "asset_source": "前端三资产取自仓库源码（同源代理），API/页面由真实后端服务；原因：并行会话未提交改动使 cargo build 暂不可用",
+  "seed_events": 3,
+  "checks": {
+    "case_visibility": {
+      "firefox": "155.0",
+      "before": {
+        "visibility": "visible",
+        "hidden": false,
+        "ready": "complete",
+        "cursor": "游标 3",
+        "connection": "已连接",
+        "eventLog": "1 StreamingChunk\n2 StreamingChunk\n3 StreamingChunk\n",
+        "sessions": "S-1 运行时取证 [specify]",
+        "opacity": "",
+        "canvasCount": 0,
+        "reduce": true,
+        "probe": {
+          "fetch": [
+            [
+              446,
+              "/api/tasks?session=S-1"
+            ],
+            [
+              446,
+              "/api/status?session=S-1"
+            ],
+            [
+              446,
+              "/api/events?session=S-1&after=3"
+            ],
+            [
+              705,
+              "/api/sessions"
+            ],
+            [
+              749,
+              "/api/events?session=S-1&after=3"
+            ],
+            [
+              778,
+              "/api/status?session=S-1"
+            ],
+            [
+              1814,
+              "/api/sessions"
+            ],
+            [
+              1819,
+              "/api/events?session=S-1&after=3"
+            ],
+            [
+              1847,
+              "/api/status?session=S-1"
+            ]
+          ],
+          "responses": [
+            [
+              490,
+              "/api/status?session=S-1",
+              200
+            ],
+            [
+              490,
+              "/api/tasks?session=S-1",
+              200
+            ],
+            [
+              492,
+              "/api/events?session=S-1&after=3",
+              200
+            ],
+            [
+              749,
+              "/api/sessions",
+              200
+            ],
+            [
+              778,
+              "/api/events?session=S-1&after=3",
+              200
+            ],
+            [
+              807,
+              "/api/status?session=S-1",
+              200
+            ],
+            [
+              1818,
+              "/api/sessions",
+              200
+            ],
+            [
+              1847,
+              "/api/events?session=S-1&after=3",
+              200
+            ],
+            [
+              1877,
+              "/api/status?session=S-1",
+              200
+            ]
+          ],
+          "fetchErrors": [],
+          "unhandled": [],
+          "raf": 0,
+          "timeouts": [
+            250,
+            1000,
+            1000
+          ],
+          "mutations": 10,
+          "getContext": 0,
+          "errors": []
+        },
+        "events": []
+      },
+      "seeded_lines": [
+        "1 StreamingChunk",
+        "2 StreamingChunk",
+        "3 StreamingChunk"
+      ],
+      "hidden_state": "hidden",
+      "hidden_fetches": [],
+      "hidden_mutations": 0,
+      "hidden_raf": 0,
+      "restored_state": "visible",
+      "recovery_api_calls": [
+        "/api/tasks?session=S-1",
+        "/api/status?session=S-1",
+        "/api/events?session=S-1&after=3",
+        "/api/sessions",
+        "/api/events?session=S-1&after=3",
+        "/api/status?session=S-1",
+        "/api/sessions",
+        "/api/events?session=S-1&after=3",
+        "/api/status?session=S-1"
+      ],
+      "recovery_mutations": 10,
+      "recovery_raf": 0,
+      "after_event_log": [
+        "1 StreamingChunk",
+        "2 StreamingChunk",
+        "3 StreamingChunk"
+      ],
+      "after_cursor": "游标 3",
+      "post_recovery_responses": [
+        [
+          6294,
+          "/api/tasks?session=S-1",
+          200
+        ],
+        [
+          6294,
+          "/api/events?session=S-1&after=3",
+          200
+        ],
+        [
+          6294,
+          "/api/status?session=S-1",
+          200
+        ],
+        [
+          6559,
+          "/api/sessions",
+          200
+        ],
+        [
+          6586,
+          "/api/events?session=S-1&after=3",
+          200
+        ],
+        [
+          6621,
+          "/api/status?session=S-1",
+          200
+        ],
+        [
+          7653,
+          "/api/sessions",
+          200
+        ],
+        [
+          7706,
+          "/api/events?session=S-1&after=3",
+          200
+        ],
+        [
+          7735,
+          "/api/status?session=S-1",
+          200
+        ],
+        [
+          8797,
+          "/api/sessions",
+          200
+        ],
+        [
+          8829,
+          "/api/events?session=S-1&after=3",
+          200
+        ],
+        [
+          8857,
+          "/api/status?session=S-1",
+          200
+        ]
+      ],
+      "post_recovery_cursor": "游标 3",
+      "post_recovery_log": [
+        "1 StreamingChunk",
+        "2 StreamingChunk",
+        "3 StreamingChunk"
+      ],
+      "post_recovery_unhandled": [],
+      "second_hidden": "hidden",
+      "second_after_log": [
+        "1 StreamingChunk",
+        "2 StreamingChunk",
+        "3 StreamingChunk"
+      ],
+      "second_cursor": "游标 3",
+      "second_state": "visible",
+      "animation": {
+        "reduced": true,
+        "opacity_during": "",
+        "opacity_after": "",
+        "timeouts": [],
+        "raf": 0
+      },
+      "hidden_events": [
+        [
+          1953,
+          "visibility:hidden"
+        ]
+      ],
+      "recovery_events": [
+        [
+          1953,
+          "visibility:hidden"
+        ],
+        [
+          6008,
+          "visibility:visible"
+        ]
+      ],
+      "hidden_api_entries": [],
+      "recovery_api_entries": [
+        [
+          6263,
+          "/api/tasks?session=S-1"
+        ],
+        [
+          6263,
+          "/api/status?session=S-1"
+        ],
+        [
+          6263,
+          "/api/events?session=S-1&after=3"
+        ],
+        [
+          6524,
+          "/api/sessions"
+        ],
+        [
+          6559,
+          "/api/events?session=S-1&after=3"
+        ],
+        [
+          6586,
+          "/api/status?session=S-1"
+        ],
+        [
+          7631,
+          "/api/sessions"
+        ],
+        [
+          7653,
+          "/api/events?session=S-1&after=3"
+        ],
+        [
+          7706,
+          "/api/status?session=S-1"
+        ]
+      ],
+      "hidden_responses": [],
+      "recovery_responses": [
+        [
+          6294,
+          "/api/tasks?session=S-1",
+          200
+        ],
+        [
+          6294,
+          "/api/events?session=S-1&after=3",
+          200
+        ],
+        [
+          6294,
+          "/api/status?session=S-1",
+          200
+        ],
+        [
+          6559,
+          "/api/sessions",
+          200
+        ],
+        [
+          6586,
+          "/api/events?session=S-1&after=3",
+          200
+        ],
+        [
+          6621,
+          "/api/status?session=S-1",
+          200
+        ],
+        [
+          7653,
+          "/api/sessions",
+          200
+        ],
+        [
+          7706,
+          "/api/events?session=S-1&after=3",
+          200
+        ],
+        [
+          7735,
+          "/api/status?session=S-1",
+          200
+        ]
+      ],
+      "hidden_fetch_errors": [],
+      "recovery_fetch_errors": [],
+      "recovery_unhandled": [],
+      "ok": true
+    },
+    "case_reduced_motion": {
+      "match_media_reduce": true,
+      "opacity_during": "",
+      "opacity_after": "",
+      "timeouts": [],
+      "raf": 0,
+      "canvas_count": 0,
+      "get_context_calls": 0,
+      "ok": true
+    },
+    "case_no_preference": {
+      "match_media_reduce": false,
+      "opacity_during": "0.6",
+      "opacity_after": "",
+      "timeouts": [
+        150
+      ],
+      "raf": 0,
+      "canvas_count": 0,
+      "get_context_calls": 0,
+      "ok": true
+    },
+    "case_gpu_disabled": {
+      "cycles": [
+        {
+          "index": 1,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 2,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 3,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 4,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 5,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 6,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 7,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 8,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 9,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 10,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 11,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 12,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 13,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 14,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 15,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 16,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 17,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 18,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 19,
+          "hidden": "hidden",
+          "restored": "visible"
+        },
+        {
+          "index": 20,
+          "hidden": "hidden",
+          "restored": "visible"
+        }
+      ],
+      "all_hidden": true,
+      "all_restored": true,
+      "canvas_count": 0,
+      "get_context_calls": 0,
+      "raf": 0,
+      "connection": "已连接",
+      "ready": "complete",
+      "sessions": "S-1 运行时取证 [specify]",
+      "errors": [],
+      "ok": true
+    }
+  },
+  "session_id": "S-1",
+  "session_count": 1,
+  "event_count": 3,
+  "event_seqs": [
+    1,
+    2,
+    3
+  ]
+}

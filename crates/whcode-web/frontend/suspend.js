@@ -98,7 +98,14 @@ export class SuspendMachine {
       }
     });
     window.addEventListener("blur", () => this.suspend(getPendingSnapshot()));
-    window.addEventListener("focus", () => this.resume(getPendingSnapshot()));
+    window.addEventListener("focus", () => {
+      // 可见性优先：`document.hidden` 为真时不得因 focus 恢复。窗口最小化期间
+      // 可能残留焦点事件（浏览器/自动化驱动均观测到），此前会误把挂起机拉回
+      // Active，导致 hidden 期间继续轮询（FR-617 实测缺陷，2026-10-24）。
+      if (!document.hidden) {
+        this.resume(getPendingSnapshot());
+      }
+    });
   }
 
   /** 解绑（测试与卸载）。 */

@@ -13,6 +13,20 @@
 
 ### 变更
 
+- Web 运行时取证批次（2026-10-24）：**真实 Firefox 最小化/动效/GPU 三项取证，修复挂起机 focus 竞态**。
+  - `suspend.js`：`focus` 事件在 `document.hidden` 为真时不再恢复挂起状态（可见性优先）。
+    实测最小化时可能残留 `focus`，旧逻辑会把状态机误拉回 Active，hidden 期间继续轮询（FR-617）。
+  - 取证：本地 Firefox 155 + Marionette 驱动真实窗口（Playwright/Chromium 默认参数强制页面
+    保持 visible，无法取证）：hidden 3 s 内 `/api` 请求 0、DOM 变更 0、rAF 0；还原后单次恢复
+    批次（tasks/status/events 各 1 次，均 200）并按 ≈1 Hz 续拉；两轮挂起/恢复后游标恒为 3、
+    事件日志恰 3 条无重复无丢失；`prefers-reduced-motion` 两分支实测（reduce 无 150 ms 定时器；
+    no-preference opacity 0.6 → 清空且恰一次 150 ms）；禁用 GPU/软件渲染下 20 次最小化-还原全部
+    hidden→visible，canvas 0、getContext 0、异常 0。
+  - 证据：`artifacts/web-runtime-2026-10-24/`（report.json、visible.png）；临时脚本与浏览器
+    配置目录已清理。账本：Check 220/227/228 转入勾选，现状 **247 通过 / 13 未通过**。
+  - 说明：取证时并行会话的未提交 `whcode-llm` 改动使 `cargo build` 不可用，前端三资产经同源
+    代理取自仓库源码（API 与页面仍由真实后端服务）；构建恢复后须用真实二进制复跑。
+
 - Check 97／229 收口批次（2026-10-24）：**SSH 客户端默认无任意 Shell；Web 无 JS 只读快照服务端直出**。
   - SSH 客户端（Check 97）：`SshTarget` 新增 `allow_shell`（默认 `false`）；校验阶段默认只放行
     首 token 为 `whcode`／`whcode.exe` 的远端命令（含绝对路径与 Windows 路径），其余命令返回

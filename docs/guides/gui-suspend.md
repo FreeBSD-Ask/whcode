@@ -34,6 +34,11 @@ Active ──(不可见/最小化/blur)──▶ Suspended
 （`outerWidth/outerHeight` 退化或平台 API 报告最小化）。以 `visibilitychange` 为主，
 `blur/focus` 为辅；两者任一触发挂起，**全部恢复条件成立**才回到 Active。
 
+**实现注记（2026-10-24，实测）**：窗口最小化时浏览器可能残留 `focus` 事件；若 focus 处理器
+无条件恢复，挂起机会在 `document.hidden` 为真时被误拉回 Active，hidden 期间继续轮询。
+因此 `suspend.js` 的 focus 分支以 `document.hidden` 为准——为真时不恢复（可见性优先）。
+真实 Firefox 155 最小化取证见 `artifacts/web-runtime-2026-10-24/`（Check 227）。
+
 **去抖**：`visibilitychange` 在部分平台会连续触发（拖动窗口、切换虚拟桌面）。恢复必须去抖
 （≥250 ms，取最后一次），避免反复重建渲染上下文。
 
