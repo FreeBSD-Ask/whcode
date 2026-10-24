@@ -833,6 +833,71 @@ mod tests {
         conn.query_row(sql, [], |row| row.get(0)).expect("计数")
     }
 
+    /// Check 123（任务书 §10.3 审计保留）：审计数据**不得随普通会话 TTL 一并自动
+    /// 清除**——清理只删会话树，审计行原样保留；管理员显式保留策略属配置面
+    /// （当前未实现，显式标记见安全复查记录）。导出同样不携带审计（EXCLUDED_TABLES）。
+    #[test]
+    fn audit_records_survive_purge_and_export_excludes_them() {
+        let conn = migrated();
+        seed_session_tree(&conn, "S-old", NOW_MS - 48 * HOUR_MS);
+        insert_audit(&conn, "AUD-1");
+        insert_audit(&conn, "AUD-2");
+        let now_ms = u64::try_from(NOW_MS).expect("NOW_MS");
+
+        let preview = preview_purge(
+            &conn,
+            &PurgeCriteria::before(NOW_MS),
+            &PurgeProtection::default(),
+            now_ms,
+        )
+        .expect("预览清理");
+        assert_eq!(preview.selected_sessions.len(), 1, "旧会话入选");
+        let mut exec_conn = conn;
+        execute_purge(
+            &mut exec_conn,
+            &preview,
+            true,
+            "tester",
+            &PurgeProtection::default(),
+            now_ms,
+        )
+        .expect("执行清理");
+
+        assert_eq!(
+            count(&exec_conn, "SELECT count(*) FROM sessions"),
+            0,
+            "会话被清理"
+        );
+        assert_eq!(
+            count(&exec_conn, "SELECT count(*) FROM audit"),
+            3,
+            "两条既有审计行保留 + 清理自身的 db_purge 审计（同事务，§10.3）"
+        );
+        assert_eq!(
+            count(
+                &exec_conn,
+                "SELECT count(*) FROM audit WHERE id IN ('AUD-1', 'AUD-2')"
+            ),
+            2,
+            "既有审计行必须原样保留（不随会话 TTL 清除）"
+        );
+
+        // 导出/导入面同样不携带审计：EXCLUDED_TABLES 含 audit，导出文件无该键。
+        let dir = std::env::temp_dir().join(format!("whcode-audit-export-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("临时目录");
+        let out = dir.join("export.json");
+        let report =
+            crate::export::export_workspace(&exec_conn, &out, "tester", now_ms).expect("导出");
+        let text = std::fs::read_to_string(&out).expect("读导出文件");
+        assert!(
+            !text.contains("\"audit\""),
+            "导出不得携带审计表（EXCLUDED_TABLES）：{}",
+            report.manifest.counts.len()
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     fn seed_session_tree(conn: &Connection, session_id: &str, last_active_ms: i64) {
         insert_session(conn, session_id, last_active_ms, false);
         for seq in 1..=3 {

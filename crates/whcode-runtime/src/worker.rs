@@ -160,6 +160,58 @@ pub fn strip_credentials(command: &mut Command) -> Vec<String> {
     removed
 }
 
+/// 子进程默认继承的**最小环境白名单**（§10.2：默认继承最小化集合，而非完整继承
+/// 主进程环境；Check 123 安全复查）。
+///
+/// 取舍：仅保留子进程可运行所需的系统级变量——可执行解析（`PATH`/`PATHEXT`）、
+/// Windows 系统目录（`SystemRoot`/`SystemDrive`，python 与 Git Bash 启动必需）、
+/// cmd 解析（`COMSPEC`）、临时目录（`TEMP`/`TMP`，`workdir_policy "temp"` 依赖）与
+/// 并行度（`NUMBER_OF_PROCESSORS`）。其余一律不继承——配置、凭据、代理与本机
+/// 个性化变量都不进子进程。失效条件：新运行时确需额外系统变量时，必须修改本
+/// 白名单并在 ADR 记录原因，不得改回完整继承。
+const MINIMAL_ENV_ALLOWLIST: &[&str] = &[
+    "PATH",
+    "PATHEXT",
+    "SystemRoot",
+    "SystemDrive",
+    "COMSPEC",
+    "TEMP",
+    "TMP",
+    "NUMBER_OF_PROCESSORS",
+];
+
+/// 把命令环境收敛为最小集合（§10.2），返回被丢弃的父环境变量个数（只记数不记值）。
+///
+/// 顺序敏感：先记录调用方显式设置的变量，再 [`Command::env_clear`]（禁用完整
+/// 继承），然后按白名单从父环境回填、把调用方显式变量写回——后者随后由
+/// [`strip_credentials`] 二次过滤（`execute_with_cancel` 中的固定次序）。
+pub fn apply_minimal_env(command: &mut Command) -> usize {
+    let explicit: Vec<(std::ffi::OsString, std::ffi::OsString)> = command
+        .get_envs()
+        .filter_map(|(name, value)| value.map(|value| (name.to_os_string(), value.to_os_string())))
+        .collect();
+    command.env_clear();
+    let mut dropped = 0usize;
+    for (name, value) in std::env::vars_os() {
+        let Some(name_str) = name.to_str() else {
+            dropped += 1;
+            continue;
+        };
+        if MINIMAL_ENV_ALLOWLIST
+            .iter()
+            .any(|allowed| allowed.eq_ignore_ascii_case(name_str))
+        {
+            command.env(name, value);
+        } else {
+            dropped += 1;
+        }
+    }
+    for (name, value) in explicit {
+        command.env(name, value);
+    }
+    dropped
+}
+
 /// 子进程执行结果（输出尾部保留，FR-705）。
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct WorkerResult {
@@ -212,7 +264,9 @@ pub fn execute_with_cancel(
 ) -> Result<WorkerResult, WhError> {
     // 资源上限：并发子进程闸门（有界；许可在函数返回时自动归还）。
     let _permit = default_gate().acquire();
-    // 凭据隔离（§10.2）：先剥离再接管管道；只记名不记值。
+    // 最小环境（§10.2）：默认继承最小化集合而非完整父环境；随后凭据剥离对
+    // 调用方显式变量二次过滤。两者都只记数/记名，不记值。
+    let _ = apply_minimal_env(command);
     let _ = strip_credentials(command);
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child: Child = command
@@ -393,6 +447,57 @@ mod tests {
         for name in ["PATH", "TEMP", "HOME", "LANG", "PATHEXT", "SYSTEMROOT"] {
             assert!(!is_credential_var(name), "{name} 不得被剥离");
         }
+    }
+
+    /// Check 123（§10.2 最小环境）：收敛后命令环境＝白名单 ∩ 父环境 + 调用方显式变量。
+    #[test]
+    fn minimal_env_converges_to_allowlist_plus_explicit() {
+        let mut command = Command::new("cmd");
+        command.env("WHCODEX_EXPLICIT", "kept");
+        let dropped = apply_minimal_env(&mut command);
+        assert!(dropped > 0, "父环境必然存在非白名单变量（如 USERPROFILE）");
+        let names: Vec<String> = command
+            .get_envs()
+            .filter_map(|(name, _)| name.to_str().map(String::from))
+            .collect();
+        for name in &names {
+            assert!(
+                MINIMAL_ENV_ALLOWLIST
+                    .iter()
+                    .any(|allowed| allowed.eq_ignore_ascii_case(name))
+                    || name == "WHCODEX_EXPLICIT",
+                "收敛后仅允许白名单或显式变量：{name}"
+            );
+        }
+        assert!(
+            names.iter().any(|name| name.eq_ignore_ascii_case("PATH")),
+            "PATH 必须保留（可执行解析依赖）"
+        );
+        assert!(
+            names.iter().any(|name| name == "WHCODEX_EXPLICIT"),
+            "调用方显式变量在收敛后写回"
+        );
+    }
+
+    /// Check 123（§10.2 最小环境）：真实子进程只看到最小集合——非白名单父变量
+    /// （USERPROFILE 在测试环境必然存在）不继承，显式变量保留。
+    #[test]
+    fn child_sees_only_allowlist_and_explicit_vars() {
+        let mut command = Command::new("cmd");
+        command.args(["/C", "set"]).env("WHCODEX_EXPLICIT", "kept");
+        let result =
+            execute(&mut command, Duration::from_secs(10), MAX_OUTPUT_BYTES).expect("执行");
+        assert_eq!(result.exit_code, Some(0));
+        let env = &result.stdout_tail;
+        assert!(env.contains("WHCODEX_EXPLICIT=kept"), "显式变量保留：{env}");
+        assert!(
+            !env.contains("USERPROFILE="),
+            "非白名单父变量（USERPROFILE）不得继承：{env}"
+        );
+        assert!(
+            !env.contains("WHCODE_"),
+            "WHCODE_ 前缀变量永不进入子进程：{env}"
+        );
     }
 
     /// 子进程探针：父测试以 `--exact --ignored` 启动；看到凭据即退出码 7。
