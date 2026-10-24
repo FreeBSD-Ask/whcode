@@ -68,6 +68,16 @@ pub const fn termination_policy_for() -> TerminationPolicy {
     }
 }
 
+/// 当前宿主是否为 Windows（平台判定集中点，NFR-101）。
+///
+/// 供需要在**运行期**选择夹具、路径或外部命令、但不应自行写平台条件编译的调用方使用
+/// （例如测试：Windows 内建的 `cmd` 在 BSD 不存在，须运行期跳过而不是编译期剔除）。
+/// 产品逻辑应优先调用本 crate 的具体能力函数，不要用本函数分支出两套平台实现。
+#[must_use]
+pub const fn is_windows() -> bool {
+    cfg!(target_os = "windows")
+}
+
 /// 平台 Shell 命令构造（cfg 集中于本 crate，NFR-101）：
 /// Windows 用 `cmd /C`，类 Unix 用 `sh -c`——测试与其他 crate 经此构造，不自行分支。
 #[must_use]

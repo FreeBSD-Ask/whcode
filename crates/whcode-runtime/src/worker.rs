@@ -482,12 +482,15 @@ mod tests {
     /// Check 123（§10.2 最小环境）：真实子进程只看到最小集合——非白名单父变量
     /// （USERPROFILE 在测试环境必然存在）不继承，显式变量保留。
     ///
-    /// **Windows 专属**：夹具用 `cmd /C set` 列出子进程环境；BSD CI 实测 FreeBSD 无 `cmd`，
-    /// 测试会因“启动子进程失败”误报。跨平台的最小环境收敛逻辑由
+    /// **仅 Windows 执行**：夹具用 `cmd /C set` 列出子进程环境；BSD 无 `cmd`（实测），
+    /// 在运行期跳过而不是用平台条件编译剔除（平台判定集中在 `whcode-platform`，
+    /// NFR-101）。跨平台的最小环境收敛逻辑由
     /// [`minimal_env_converges_to_allowlist_plus_explicit`] 覆盖（不启动进程）。
-    #[cfg(windows)]
     #[test]
     fn child_sees_only_allowlist_and_explicit_vars() {
+        if !whcode_platform::is_windows() {
+            return;
+        }
         let mut command = Command::new("cmd");
         command.args(["/C", "set"]).env("WHCODEX_EXPLICIT", "kept");
         let result =
