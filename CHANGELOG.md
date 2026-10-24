@@ -13,6 +13,32 @@
 
 ### 变更
 
+- 安全加固复查（2026-10-24）：**T123 五域复查通过**（任务书 §10、Check 123）。
+  - 复查记录产物 `artifacts/security-review-2026-10-24.md`：脱敏默认、权限白名单、
+    最小环境、审计保留、Web/SSH 边界逐域以“文件:行号 + 测试名 + 失效条件”取证。
+  - 最小环境（新）：`worker::apply_minimal_env`——子进程默认只继承 8 项系统级白名单
+    （PATH/PATHEXT/SystemRoot/SystemDrive/COMSPEC/TEMP/TMP/NUMBER_OF_PROCESSORS），
+    `env_clear` 禁用完整继承，凭据剥离二次过滤；真实子进程测试验证非白名单父变量
+    （USERPROFILE）不继承、`WHCODE_` 前缀永不透传。
+  - 审计保留（新测试）：审计行不随会话 TTL 清除、导出不携带 audit 表
+    （§10.3 默认策略成文）；管理员显式保留策略配置面显式标记未实现。
+  - 显式登记缺口 2 项（OS 级配额、审计保留配置面），均写明退出条件。
+
+- 性能测量战役（2026-10-24）：**T115 按冻结预算完成热点测量与优化**（ADR-025、NFR-201—210）。
+  - 测量：`tests/stability/test_nfr_budget.rs`（NFR-207/209 常规回归；NFR-203/206 为
+    `#[ignore]` 测量夹具）+ `script/measure_nfr_budgets.py`（真实产品进程采样，
+    纪律字段齐备）→ `artifacts/nfr-budget-report.json`。七项候选预算全部实测达标：
+    NFR-201 空载 RSS 23.12 MB、NFR-202 活跃 27.33 MB、NFR-203 切换增量 0.32 MB、
+    NFR-205 TUI 空闲 CPU 0.0%、NFR-206 限速流式 0.682%、NFR-207 切换 p95 12.9 ms、
+    NFR-209 单页 p95 19.8 ms（数值与样本数见 ADR-025 冻结表）。
+  - 优化：NFR-209 同夹具实测 p95 40.8 ms 超标（预算 30 ms）——EXPLAIN 热点定位为
+    DuckDB 多列 top-k 的 SEQ_SCAN（ART 索引不参与）；`events_page` 改为两阶段
+    （仅 seq 窄列 top-k + seq 范围整行回取），同夹具 p95 40.8 → 19.8 ms，逐行语义
+    一致（104 项 store 测试与翻页契约回归通过）。未修订预算。
+  - 测量方法缺陷修正留档：NFR-205 需 FreeConsole/AttachConsole 到子控制台注入按键；
+    NFR-206 须采样测试可执行文件本身而非 `cargo test` 包装进程（否则采到 0.0%
+    歧义信号）。
+
 - GUI 终端绿主题批次（2026-10-24）：**新增第四套主题 `terminal-green`**（T157，FR-713 修订）。
   - 色值：纯黑 `#000000` 底（OLED 兼容，可完全关断像素）+ 荧光绿 `#00FF00` 字
     （CRT P1 风格，2026-10-24 用户新增并确认“黑色兼容 OLED”）。
@@ -26,6 +52,21 @@
     （修复冷启动时按键全部落空导致取证轮失败）；`ci/gui-probe.py` 四主题取证。
   - 证据：`artifacts/gui-run-2026-10-24/`（四主题截图、`t` 四步循环色值比对、
     资源采样、真灰占比）。
+
+- 性能测量战役（2026-10-24）：**T115 按冻结预算完成热点测量与优化**（ADR-025、NFR-201—210）。
+  - 测量：`tests/stability/test_nfr_budget.rs`（NFR-207/209 常规回归；NFR-203/206 为
+    `#[ignore]` 测量夹具）+ `script/measure_nfr_budgets.py`（真实产品进程采样，
+    纪律字段齐备）→ `artifacts/nfr-budget-report.json`。七项候选预算全部实测达标：
+    NFR-201 空载 RSS 23.12 MB、NFR-202 活跃 27.33 MB、NFR-203 切换增量 0.32 MB、
+    NFR-205 TUI 空闲 CPU 0.0%、NFR-206 限速流式 0.682%、NFR-207 切换 p95 12.9 ms、
+    NFR-209 单页 p95 19.8 ms（数值与样本数见 ADR-025 冻结表）。
+  - 优化：NFR-209 同夹具实测 p95 40.8 ms 超标（预算 30 ms）——EXPLAIN 热点定位为
+    DuckDB 多列 top-k 的 SEQ_SCAN（ART 索引不参与）；`events_page` 改为两阶段
+    （仅 seq 窄列 top-k + seq 范围整行回取），同夹具 p95 40.8 → 19.8 ms，逐行语义
+    一致（104 项 store 测试与翻页契约回归通过）。未修订预算。
+  - 测量方法缺陷修正留档：NFR-205 需 FreeConsole/AttachConsole 到子控制台注入按键；
+    NFR-206 须采样测试可执行文件本身而非 `cargo test` 包装进程（否则采到 0.0%
+    歧义信号）。
 
 - 功能缺口清偿批次（2026-10-24）：**八项功能缺口一次性落地**（T110—T112、T114、T156/G-01、
   Check 179/199/209、导出缺陷），全部有自动化测试与实测证据。
