@@ -1621,10 +1621,12 @@ mod tests {
         );
     }
 
-    /// Task 169.4：`llm.run` 的登记状态与 `add-real-llm-provider` 实际交付一致
-    /// （未合入则四端预留／排除，不得登记为已实现）。
+    /// Task 169.4：`llm.run`／`llm.cancel` 只有在某个前端真正接线后才可登记为已实现。
+    /// 现状（2026-10-25）：`add-real-llm-provider`（3f9564c）已在 crate 层交付 HTTP Provider，
+    /// 但 CUI／TUI／Web 均未接线（调用返回 `not_supported`），故四端仍为预留／排除；
+    /// 接线同 PR 时必须翻转本断言并补真实锚点（ADR-032 修订记录）。
     #[test]
-    fn llm_run_stays_reserved_until_add_real_llm_provider_lands() {
+    fn llm_run_stays_reserved_while_no_frontend_wires_it() {
         for id in ["llm.run", "llm.cancel"] {
             let entry = find(id).expect("llm 面已登记");
             assert_eq!(

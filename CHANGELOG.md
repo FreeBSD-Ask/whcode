@@ -39,6 +39,14 @@
      注明“可逆元数据标记，不写 `db_purge` 审计”。责任人对等门禁维护者，退出条件：独立
      ADR 裁决（补确认与审计，或修订契约与登记口径），四端同 PR 对齐；本收口不擅改已验收
      行为。
+- 已知未完成（显式登记，2026-10-25 复核新增）：
+  4. `add-real-llm-provider`（3f9564c）已把 ureq/rustls 经 `whcode-llm` 的 `http` feature
+     引入装配根（`crates/whcode-bin/Cargo.toml`），`Cargo.lock` 与 `artifacts/deps-windows.txt`
+     已含 `ureq v3.5.0`，但 **ADR-031 尚未入库**（同一提交的 `Cargo.toml` 注释与
+     `docs/matrices/decisions.md` D-16 均引用它），本 CHANGELOG 亦无对应条目。责任人：LLM
+     变更维护者。退出条件：ADR-031 入库（网络依赖、超时与重试、凭据来源、默认不联网的
+     边界）＋ CHANGELOG 补条目；在此之前不得把 D-16 标为已决策。四端 `llm.run` 仍为
+     `Reserved`（见 ADR-032 2026-10-25 修订记录）。
 
 - DuckDB 2.0.0 升级与功能适配（2026-10-24，ADR-034）：**引擎 2.0.0 LTS + crate 1.20000.0，事件载荷改 VARIANT**。
   - 官方 Windows 资产改为 `duckdb-shared-libs-windows-amd64.tar.gz`（SHA256 `2b831691…b95f`）；

@@ -148,3 +148,15 @@
 - **“未排期”口径**：登记表中 22 个 `Reserved { milestone: "未排期" }` 是变更前既有口径
   （应用层已交付、四端接线未排期），本收口不改变其业务语义；其里程碑命名是否收敛为
   具体 FR／里程碑，留待相应能力立项时处理（复审触发①）。
+
+### 2026-10-25（`add-real-llm-provider` 合入后的 `llm.run` 口径）
+
+- **事实**：`add-real-llm-provider`（3f9564c）已在 `whcode-llm` 交付可选 HTTP Provider
+  （ureq/rustls，仅在装配根启用），但 **CUI／TUI／Web 均未接线**——`cui_dispatch` 与
+  `/api/llm/run` 仍走 `not_supported`。因此 `llm.run`／`llm.cancel` 的四端登记保持
+  `Reserved { milestone: "M3-llm" }`（GUI 仍 `GuiReadOnlyV1`），矩阵与门禁断言不变。
+- **为何不按“合入即翻转”执行**：本 ADR 的触发条件是**前端可调用**，不是 crate 内有实现。
+  提前翻转会让登记表宣称一个调用仍返回 55／501 的能力，属绿灯下的事实漂移。
+- **退出条件**：任一前端接线 `llm run`／`llm cancel` 的同 PR，翻转对应格为 `Implemented`
+  并补真实锚点、更新矩阵行与 `llm_run_stays_reserved_while_no_frontend_wires_it` 断言；
+  在此之前不得把 `M3-llm` 改写为已完成里程碑。
