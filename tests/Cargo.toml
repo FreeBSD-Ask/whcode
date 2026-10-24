@@ -40,6 +40,11 @@ path = "stability/test_failure_modes.rs"
 name = "nfr_budget"
 path = "stability/test_nfr_budget.rs"
 
+# T116 长跑稳定性采集（§11.5、NFR-204）：单进程持续负载 + 按间隔自采样。
+[[test]]
+name = "stability_run"
+path = "stability/test_stability_run.rs"
+
 # 目录分类门禁（docs/guides/repository-layout.md 的可执行强制）。
 [[test]]
 name = "layout"

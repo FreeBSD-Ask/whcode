@@ -26,6 +26,13 @@
   断网（临时端口 + 补拉无重复无缺失）、只读库写入失败（零半完成状态）、磁盘不足
   （`WhError::io` 分类 `StorageFull`/Windows 112）。真实满盘写入需设置
   `WHCODE_DISK_FULL_DIR` 指向已耗尽卷；未设置时用例打印“未执行”，不伪造通过。
+- `test_stability_run.rs`：T116 长跑采集器——**单进程**持续写入/查询/切换/清理，
+  按间隔自采样 RSS、累计 CPU 与单核占比、线程数、句柄数、数据库与 WAL 大小、
+  事件缺失计数、failed 任务数、提交/查询/切换延迟，逐行追加 JSONL（中断不丢已采
+  样本）。写者队列深度与最老队列项年龄为 `null` 并附原因：夹具直连 `Connection`，
+  不经 `WriterService`；不得以 0 冒充“队列为空”。
+- `run_stability.sh`：长跑入口，创建 `artifacts/stability-<N>h-<时间戳>/`，启动上述
+  采集器并写 `run.log`；`STABILITY_SMOKE=1` 为 30 秒冒烟（验证采集链路，不作结论）。
 
 ## 如何运行
 
@@ -42,17 +49,22 @@ cargo test -p whcode-tests --test residency_memory -- --nocapture
 # 四类故障情形（真实满盘需先设置 WHCODE_DISK_FULL_DIR）
 cargo test -p whcode-tests --test failure_modes -- --nocapture
 
+# 长跑采集器（默认 24 小时；冒烟用 STABILITY_SMOKE=1）
+./tests/stability/run_stability.sh 24
+STABILITY_SMOKE=1 ./tests/stability/run_stability.sh
+
 # 本机基线测量（release 构建；结果写入 artifacts/baseline-windows-amd64.json）
 python ci/benchmarks/run-baseline.py
 ```
 
 ## 尚未实现（明确标记）
 
-- **24 小时稳定性测试未实现**；
-- **候选发布版本的 72 小时压力测试未实现**；
-- 本目录已有基线夹具正确性检查、零残留验证、卸载内存观测与四类故障情形用例；
-  仍缺长时间 RSS/CPU 时间序列、慢客户端、重启与迁移中断等场景（T116 交付）；
-  真实满盘写入需专用环境（`WHCODE_DISK_FULL_DIR`）。
+- **24/72 小时结论尚未取得**：采集器与长跑入口已交付（T116），但 24 小时数据
+  须跑满后由 `timeseries.jsonl` 的 summary 行判定；72 小时报告属候选发布；
+- **写者队列深度/最老队列项年龄未取得**：长跑夹具直连 `Connection`，不经真实事件
+  写者服务；该两项在 JSONL 中为 `null` 并附原因，待真实写者接线后补齐；
+- 慢客户端、重启与迁移中断场景仍需并入长跑编排；
+- 真实满盘写入需专用环境（`WHCODE_DISK_FULL_DIR`）。
 
 ## 纪律（§11.5、R-12）
 
