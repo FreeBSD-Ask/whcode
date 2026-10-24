@@ -26,12 +26,14 @@ members = [
 version = "0.1.0"
 edition = "2024"
 # 分工（重要，勿混用两个概念）：
-#   - 本字段 = **MSRV**（最低可用 rustc 下限）：edition 2024 需 1.85，duckdb crate 需 1.88，
-#     故下限取 1.88。它决定“能不能用”某个较旧工具链，不得写成当前最新版（那会把
-#     FreeBSD/NetBSD 的 pkg/pkgsrc rust 一次性判死）。
+#   - 本字段 = **MSRV**（最低可用 rustc 下限）：2026-10-24 经用户指令升至 1.99
+#     （跟随锁定工具链）。原值 1.88 的理由是保护 FreeBSD/NetBSD 的 pkg/pkgsrc rust——
+#     该理由已被 ADR-013（BSD 移出验收范围）实质削弱：BSD 延后期间 MSRV 跟随
+#     锁定工具链，解锁 MSRV 受限依赖的新版本（uuid ≥1.29 等）。复审触发：ADR-013
+#     范围恢复时，按当时 pkg/pkgsrc rust 版本重新评估下限。
 #   - 可复现构建 = `rust-toolchain.toml` 锁定的 1.99.1（rustup 自动配给）。
-# MSRV 声明尚未在 1.88 工具链上实测编译（本机未装该版本）；构建与验收一律以锁定工具链为准。
-rust-version = "1.88"
+# MSRV 与锁定工具链一致；构建与验收一律以锁定工具链为准。
+rust-version = "1.99"
 publish = false
 # 开源许可：BSD-2-Clause，版权主体 FreeBSD 中文社区（见根目录 LICENSE）。
 license = "BSD-2-Clause"
