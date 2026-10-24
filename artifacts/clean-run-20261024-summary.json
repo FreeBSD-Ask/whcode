@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-24T09:26:22",
+  "task": "T158：临时/中间/垃圾文件清理机制（ci/clean.py）建立与首次执行",
+  "dry_run_review": {
+    "items": 9,
+    "bytes_total": 35487744,
+    "note": "2597 个对象 54.69 GiB（target 50.7 GB／TEMP 测试残留 5.2 GB／script 一次性脚本与日志约 19 MB）；复核确认：sensenova.env（凭据）、AGENTS 验证链三工具、sacred 考据数据与配套脚本、并行工作活跃对象全部豁免"
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "outcome": "删除 target 完成（50.7 GB）；中途崩溃：Python 3.14 弃用 shutil.rmtree 的 onerror 旧签名（TypeError 逃出 except OSError）",
+      "fix": "remove() 改 ignore_errors=True + 逐项校验 exists()，except 放宽到 Exception 逐项记录"
+    },
+    {
+      "round": 2,
+      "outcome": "删除 TEMP 残留与 script 一次性脚本完成；崩溃于 --record 报告生成（failures 缺 bytes 键）",
+      "fix": "failures 条目补 bytes 字段"
+    },
+    {
+      "round": 3,
+      "outcome": "验证：target/ 归零；TEMP 残留 2516→30（全部为 30 分钟活跃保护窗口内的并行测试工作目录）；script/ 150→11（恰为 KEEP_ALWAYS 清单成员）；dry-run 复核记录 artifacts/clean-run-20261024-092532.json"
+    }
+  ],
+  "bytes_freed_estimate": 55900000000,
+  "bytes_freed_note": "≈55.9 GiB（target 50.7 GiB + TEMP ≈5.2 GiB + script ≈0.019 GiB；以清理前后 du 口径估算）",
+  "mechanism": "ci/clean.py：scope target/temp/stray/script；白名单制（删除模式 + KEEP_ALWAYS）；dry-run 默认、--apply 显式；活跃保护（30 分钟 mtime 窗口 + cargo/rustc 进程检测）；--record 证据留痕"
+}

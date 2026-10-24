@@ -222,7 +222,8 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 所有文本文件 **UTF-8 无 BOM**，换行 **LF**（`.gitattributes` + `.editorconfig` + rustfmt 三重保证）。
 - 不得篡改代码块与非注释代码；注释只在逻辑不自明处添加。
 - 未实现事项必须显式标记（`未实现`/`阻塞`），写清当前行为，不得依赖隐含默认值。
-- 临时脚本、探测脚本、运行日志一律放 `script/`；**保留不清理、不入库**。
+- 临时脚本、探测脚本、运行日志一律放 `script/`；**不入库**；临时脚本与运行日志
+  由 `ci/clean.py --scope script` 回收（长期验证工具与凭据在脚本内 `KEEP_ALWAYS` 显式保留）。
 - 新增根文件必须同步 `tests/contract/test_layout.rs` 白名单与 `repository-layout.md`；
   根目录不接受源码、脚本或散文档。
 

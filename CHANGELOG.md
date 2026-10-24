@@ -13,6 +13,18 @@
 
 ### 变更
 
+- 工作区清理机制批次（2026-10-24）：**`ci/clean.py` 四 scope 清理机制**（T158，Check 260）。
+  - 理论依据：构建可再现性（target/ 可由源码+锁文件再生，删除零信息损失）、源码—产物
+    分离、白名单优于黑名单、不可逆操作门禁（dry-run 默认 + `--apply` 显式）、证据留痕。
+  - 范围：`target`（cargo 产物）／`temp`（系统 TEMP 下 `whcode-*` 测试残留）／
+    `stray`（仓库内垃圾模式，git 跟踪文件恒排除）／`script`（一次性脚本与运行日志）。
+  - 保护：凭据（`sensenova.env`）、AGENTS 验证链工具、sacred 考据数据与配套脚本在
+    `KEEP_ALWAYS` 显式保留；30 分钟活跃窗口与 cargo/rustc 进程检测跳过使用中对象。
+  - 规则更新（用户 2026-10-24）：`script/` 由“保留不清理”改为“按机制回收”。
+  - 首次执行释放 ≈55.9 GiB（target 50.7 GB＋TEMP 残留 5.2 GB／2516→30、
+    script 150→11）；执行中修复两处实现缺陷（Python 3.14 rmtree onerror 弃用、
+    证据报告键缺失），过程记录 `artifacts/clean-run-20261024-summary.json`。
+
 - 安全加固复查（2026-10-24）：**T123 五域复查通过**（任务书 §10、Check 123）。
   - 复查记录产物 `artifacts/security-review-2026-10-24.md`：脱敏默认、权限白名单、
     最小环境、审计保留、Web/SSH 边界逐域以“文件:行号 + 测试名 + 失效条件”取证。
