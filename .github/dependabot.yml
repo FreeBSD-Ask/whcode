@@ -21,6 +21,12 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # DuckDB 引擎升级必须人工按 docs/adr/ADR-DB-BUILD.md 处理：crate 版本与
+      # fetch-duckdb.py 的归档/SHA256、DUCKDB_LIB_DIR、冒烟主版本断言必须同步修改，
+      # 自动提 PR 只会产生“crate 与 DLL 错配”的不可构建提交。
+      - dependency-name: "duckdb"
+      - dependency-name: "libduckdb-sys"
     groups:
       cargo-minor-patch:
         patterns:

@@ -17,7 +17,7 @@ serde_json.workspace = true
 # ADR-019：CUI 命令树参数解析（语义执行仍在 app 层）。
 clap.workspace = true
 # 仅使用 duckdb::Connection 类型（视图函数签名透传）；连接管理在 store/装配根。
-duckdb = { version = "1.10506.1", default-features = false }
+duckdb = { version = "=1.20000.0", default-features = false }
 
 [lints]
 workspace = true

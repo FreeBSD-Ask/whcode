@@ -8,10 +8,14 @@
   - 解包到 `vendor/duckdb/<version>/`；该目录不入库（见 .gitignore），但拉取后
     会在其中写入 PROVENANCE.txt 作为本机留证。
 
-平台覆盖（M0 实测，见 docs/adr/ADR-DB-BUILD.md）：
-  - Windows x86_64（x86_64-pc-windows-msvc）：官方提供 `libduckdb-windows-amd64.zip`；
+平台覆盖（实测，见 docs/adr/ADR-DB-BUILD.md）：
+  - Windows x86_64（x86_64-pc-windows-msvc）：官方提供
+    `duckdb-shared-libs-windows-amd64.tar.gz`（tar.gz，非 zip）；
   - FreeBSD / NetBSD / OpenBSD / DragonFly：官方**不提供**预编译包，须经 pkg/ports 或
     以 `bundled-cmake` 源码构建；属后续真实平台验证项，本脚本显式报错而**不**静默降级。
+
+安全解包（ADR-DB-BUILD）：先校验 SHA256 与字节数，再解包；拒绝绝对路径、`..` 路径穿越、
+含反斜杠或盘符的成员名；归档内符号链接等其他类型不落盘。
 
 用法：
     python .github/scripts/fetch-duckdb.py            # 拉取 + 校验 + 解包
@@ -27,22 +31,37 @@ import pathlib
 import platform
 import shutil
 import sys
+import tarfile
 import urllib.request
-import zipfile
 
 # ---- 固定值（改动必须同步 docs/adr/ADR-DB-BUILD.md 与依赖记录） ----
 
-#: DuckDB 版本，由 duckdb crate 版本映射而来（crate 1.10506.1 -> DuckDB 1.5.6）。
-DUCKDB_VERSION = "1.5.6"
+#: DuckDB 版本，由 duckdb crate 版本映射而来（crate 1.20000.0 -> DuckDB 2.0.0）。
+DUCKDB_VERSION = "2.0.0"
 
-#: 官方预编译包：目标三元组 -> (归档名, SHA256)。
-#: linux/macos 包存在但本项目平台矩阵不包含它们，故不登记（不引入无用的"未验证承诺"）。
-PACKAGES: dict[str, tuple[str, str]] = {
+#: 官方预编译包：目标三元组 -> (归档名, SHA256, 字节数)。
+#: linux/macos 包存在但本项目平台矩阵不包含它们，故不登记（不引入无用的“未验证承诺”）。
+PACKAGES: dict[str, tuple[str, str, int]] = {
     "x86_64-pc-windows-msvc": (
-        "libduckdb-windows-amd64.zip",
-        "44cf59583f9951d2cb09b1bf115a63ecb2d8901e363903029d86c7d8683fe96a",
+        "duckdb-shared-libs-windows-amd64.tar.gz",
+        "2b83169128239de5f45fe21de80f99bf436e53aa4bb24020dd951a1ba8d4b95f",
+        19_833_650,
     ),
 }
+
+#: 归档内必须存在的成员（缺任一项即视为资产不完整，链接或运行必失败）。
+REQUIRED_MEMBERS = ("duckdb.h", "duckdb.dll", "duckdb.lib")
+
+#: PROVENANCE.txt 登记的归档成员（按下列固定顺序输出）。
+PROVENANCE_MEMBERS = (
+    "duckdb.dll",
+    "duckdb.lib",
+    "duckdb.h",
+    "duckdb_v2.h",
+    "duckdb_extension.h",
+    "duckdb_extension_v2.h",
+    "duckdb_static_extension.h",
+)
 
 #: 平台矩阵中**无**官方预编译包的目标（须走 pkg/ports 或源码构建）。
 NO_PREBUILT = (
@@ -90,7 +109,7 @@ def download(url: str, dest: pathlib.Path) -> None:
     tmp.replace(dest)
 
 
-def fetch(target: str, archive: str, expected: str) -> pathlib.Path:
+def fetch(target: str, archive: str, expected: str, expected_size: int) -> pathlib.Path:
     url = RELEASE_URL.format(version=DUCKDB_VERSION, archive=archive)
     cached = cache_dir() / archive
     if cached.exists() and sha256_of(cached) == expected:
@@ -99,20 +118,25 @@ def fetch(target: str, archive: str, expected: str) -> pathlib.Path:
         download(url, cached)
 
     actual = sha256_of(cached)
-    if actual != expected:
+    actual_size = cached.stat().st_size
+    if actual != expected or actual_size != expected_size:
         sys.exit(
-            f"SHA256 不匹配，已中止：\n  期望 {expected}\n  实际 {actual}\n"
-            f"  文件 {cached}\n禁止以未校验的库继续构建。"
+            f"校验不匹配，已中止（未解包）：\n  期望 SHA256 {expected} / {expected_size} 字节\n"
+            f"  实际 SHA256 {actual} / {actual_size} 字节\n  文件 {cached}\n"
+            "禁止以未校验的库继续构建。"
         )
-    print(f"SHA256 校验通过：{actual}")
+    print(f"SHA256 校验通过：{actual}（{actual_size} 字节）")
 
     dest = vendor_dir()
     if dest.exists():
         shutil.rmtree(dest)
     dest.mkdir(parents=True)
-    with zipfile.ZipFile(cached) as zf:
-        zf.extractall(dest)
-    print(f"解包到 {dest}")
+    members = extract_tar_gz(cached, dest)
+    print(f"解包到 {dest}（{len(members)} 个成员）")
+
+    missing = [name for name in REQUIRED_MEMBERS if name not in members]
+    if missing:
+        sys.exit(f"归档缺少必需成员 {missing}：{cached}")
 
     (dest / "PROVENANCE.txt").write_text(
         "\n".join(
@@ -122,7 +146,14 @@ def fetch(target: str, archive: str, expected: str) -> pathlib.Path:
                 f"  归档: {archive}",
                 f"  URL : {url}",
                 f"  SHA256: {expected}",
+                f"  字节数: {actual_size}",
                 f"  目标三元组: {target}",
+                "",
+                "归档成员（名称: 解包后字节数）",
+                *[
+                    f"  {name}: {members[name] if name in members else '缺失'}"
+                    for name in PROVENANCE_MEMBERS
+                ],
                 "",
                 "由 .github/scripts/fetch-duckdb.py 生成；本目录不入库。",
                 "",
@@ -134,17 +165,61 @@ def fetch(target: str, archive: str, expected: str) -> pathlib.Path:
     return dest
 
 
+def reject_unsafe_member(name: str) -> None:
+    """拒绝绝对路径、`..` 路径穿越、含反斜杠或盘符的成员名（不落盘直接中止）。"""
+    pure = pathlib.PurePosixPath(name)
+    if (
+        pure.is_absolute()
+        or any(part == ".." for part in pure.parts)
+        or "\\" in name
+        or ":" in name
+    ):
+        sys.exit(f"拒绝不安全的归档成员（路径穿越）：{name!r}")
+
+
+def extract_tar_gz(archive_path: pathlib.Path, dest: pathlib.Path) -> dict[str, int]:
+    """安全解包 tar.gz，返回“归档成员名 -> 字节数”。
+
+    先校验全部成员名再落盘：任一成员含绝对路径、`..`、反斜杠或盘符即整体中止，
+    不会写出目标目录之外，也不会留下半解包状态。只解包普通文件，符号链接、硬链接、
+    设备文件等一律跳过（官方包不含这些类型，出现即视为可疑）。
+    """
+    with tarfile.open(archive_path, "r:gz") as archive:
+        files: list[tarfile.TarInfo] = []
+        for member in archive.getmembers():
+            if not member.isfile():
+                print(f"跳过非普通文件成员：{member.name}")
+                continue
+            reject_unsafe_member(member.name)
+            files.append(member)
+
+        extracted: dict[str, int] = {}
+        for member in files:
+            name = member.name
+            target = dest.joinpath(*pathlib.PurePosixPath(name).parts)
+            source = archive.extractfile(member)
+            if source is None:
+                sys.exit(f"无法读取归档成员：{name!r}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with source, target.open("wb") as handle:
+                shutil.copyfileobj(source, handle)
+            if target.stat().st_size != member.size:
+                sys.exit(f"解包字节数不符：{name!r}（期望 {member.size}）")
+            extracted[name] = member.size
+    return extracted
+
+
 def verify_extracted() -> int:
     dest = vendor_dir()
     if not dest.is_dir():
         print(f"未找到 {dest}：请先执行 python .github/scripts/fetch-duckdb.py")
         return 1
-    missing = [name for name in ("duckdb.h",) if not (dest / name).is_file()]
+    missing = [name for name in ("duckdb.h", "duckdb.dll") if not (dest / name).is_file()]
     if missing:
         print(f"{dest} 缺少必需文件：{missing}")
         return 1
     sources = json.dumps(
-        {target: archive for target, (archive, _) in PACKAGES.items()},
+        {target: archive for target, (archive, _, _) in PACKAGES.items()},
         ensure_ascii=False,
     )
     print(f"已解包目录可用：{dest}（预编译来源：{sources}）")
@@ -169,8 +244,8 @@ def main() -> int:
         supported = ", ".join(sorted(PACKAGES))
         sys.exit(f"未登记预编译来源的目标 {target}；已登记：{supported}")
 
-    archive, expected = PACKAGES[target]
-    fetch(target, archive, expected)
+    archive, expected, expected_size = PACKAGES[target]
+    fetch(target, archive, expected, expected_size)
     return verify_extracted()
 
 

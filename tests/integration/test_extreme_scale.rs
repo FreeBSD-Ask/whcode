@@ -58,7 +58,7 @@ fn seed_extreme(conn: &Connection, session_id: &str, events: usize) -> Duration 
         let mut binds: Vec<duckdb::types::Value> = Vec::with_capacity(count * 4);
         for seq in seq_base + inserted + 1..=seq_base + inserted + count {
             values.push(
-                "(?, ?, ?, NULL, NULL, NULL, 'StreamingChunk', ?, current_timestamp, 'redacted')"
+                "(?, ?, ?, NULL, NULL, NULL, 'StreamingChunk', CAST(? AS JSON)::VARIANT, current_timestamp, 'redacted')"
                     .to_string(),
             );
             binds.push(duckdb::types::Value::BigInt(seq as i64));

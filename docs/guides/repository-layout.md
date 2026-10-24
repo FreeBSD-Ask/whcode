@@ -63,5 +63,5 @@ whcode-bin      ← 装配根：配置、日志、feature 组装
 
 - 在 crate 里新建 `utils.rs` 杂物间——工具按域归属 crate，或提升到 `whcode-domain`；
 - 把“待办脚本”放仓库根或 `docs/`——进 `local/` 或删除；
-- 在产品代码里写死路径/版本（如 `vendor/duckdb/1.5.6` 之外的硬编码）——版本经配置与环境变量注入；
+- 在产品代码里写死路径/版本（如 `vendor/duckdb/<version>` 之外的硬编码）——版本经配置与环境变量注入；
 - 文档之间绕过链接互相复制内容——一律链接到唯一出处（spec → ADR → 矩阵 → 指南）。

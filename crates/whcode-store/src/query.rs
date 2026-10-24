@@ -126,8 +126,11 @@ fn fetch_limit(limit: usize) -> Result<i64, WhError> {
     i64::try_from(limit + 1).map_err(|_| WhError::invalid_state("分页 limit 超出 i64 范围"))
 }
 
+/// 事件投影列；`payload_json` 是 VARIANT（schema v6），读取时显式转回 JSON 文本，
+/// 调用方仍按 `String` 使用（ADR-034）。
 const EVENT_COLUMNS: &str = "seq, id, session_id, task_id, request_id, tool_call_id, kind, \
-     payload_json, epoch_us(ts), persistence_level";
+     CAST(CAST(payload_json AS JSON) AS VARCHAR) AS payload_json, epoch_us(ts), \
+     persistence_level";
 
 const MESSAGE_COLUMNS: &str =
     "id, session_id, role, content_ref, token_count, epoch_us(ts), parent_id";
@@ -341,7 +344,7 @@ mod tests {
             "INSERT INTO events
              (seq, id, session_id, task_id, request_id, tool_call_id, kind, payload_json, ts,
               persistence_level)
-             VALUES (?, ?, ?, NULL, NULL, NULL, 'StreamingChunk', '{}',
+             VALUES (?, ?, ?, NULL, NULL, NULL, 'StreamingChunk', CAST('{}' AS JSON)::VARIANT,
                      CAST('2026-01-01 00:00:00' AS TIMESTAMP), 'redacted')",
             params![seq, format!("E-{seq}"), session],
         )

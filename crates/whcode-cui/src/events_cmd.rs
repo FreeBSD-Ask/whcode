@@ -93,7 +93,7 @@ mod tests {
         conn.execute(
             "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                  kind, payload_json, ts, persistence_level)
-             VALUES (1, 'E-1', 'S-1', NULL, NULL, NULL, 'StreamingChunk', ?,
+             VALUES (1, 'E-1', 'S-1', NULL, NULL, NULL, 'StreamingChunk', CAST(? AS JSON)::VARIANT,
                      current_timestamp, 'redacted')",
             params![r#"{"api_key":"sk-secret","prompt":"正文"}"#],
         )

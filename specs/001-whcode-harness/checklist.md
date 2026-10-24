@@ -362,6 +362,12 @@
 
 ---
 
+## 第六层：DuckDB 2.0.0 升级与功能适配（2026-10-24 新增，Task T159）
+
+- [ ] Check 261: DuckDB 2.0.0 升级与功能适配可判定：引擎 `v2.0.0`、crate `=1.20000.0`、Windows 资产 `duckdb-shared-libs-windows-amd64.tar.gz` 的 SHA256 与安全解包、schema v6 的 `events.payload_json VARIANT` 读写/导出/脱敏、`session_overview` MERGE、查询计划/资源/崩溃/安全/打包审计证据齐备；不宣称 1.5.6 旧库兼容，未取得项按缺口登记（来源：`docs/adr/ADR-034-duckdb-2-feature-adaptation.md`、`docs/adr/ADR-DB-BUILD.md`、`.trae/specs/migrate-duckdb-200/`、`artifacts/duckdb-2.0-audit-2026-10-24.md`）
+
+---
+
 ## 追溯缺口登记（2026-10-23）
 
 **用途**：`ci/traceability.py` 判定“需求 → 任务 → 验收”三方追溯时，允许显式登记的缺口存在；

@@ -97,7 +97,7 @@ pub fn generate(
         let mut binds: Vec<duckdb::types::Value> = Vec::with_capacity(count * 4);
         for seq in start..start + count {
             values.push(
-                "(?, ?, ?, NULL, NULL, NULL, 'StreamingChunk', ?, current_timestamp, 'redacted')"
+                "(?, ?, ?, NULL, NULL, NULL, 'StreamingChunk', CAST(? AS JSON)::VARIANT, current_timestamp, 'redacted')"
                     .to_string(),
             );
             binds.push(duckdb::types::Value::BigInt(seq as i64));

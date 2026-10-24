@@ -17,7 +17,7 @@
 ```bash
 # 0) 构建前置：拉取并校验 DuckDB 官方预编译动态库（未拉取时构建显式失败）
 python .github/scripts/fetch-duckdb.py
-# 预期：vendor/duckdb/1.5.6/ 就位，载荷 SHA256 与登记值一致（见 docs/adr/ADR-DB-BUILD.md）
+# 预期：vendor/duckdb/2.0.0/ 就位，载荷 SHA256 与登记值一致（见 docs/adr/ADR-DB-BUILD.md）
 
 # 1) 各原生目标构建与依赖记录（每平台各执行一次）
 cargo build --locked --release

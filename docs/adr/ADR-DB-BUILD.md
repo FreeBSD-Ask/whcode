@@ -29,14 +29,14 @@ DuckDB 以**官方预编译动态库**（而非源码构建）引入，理由有
 
 | 项 | 值 |
 |---|---|
-| `duckdb` crate | `1.10506.1`（MIT，`rust-version = 1.88`） |
-| crate → 引擎版本映射 | `1.10506.1` → DuckDB `1.5.6`（映射规则见 `libduckdb-sys` 的 `duckdb_version_from_pkg_version`） |
-| 下载来源 | `https://github.com/duckdb/duckdb/releases/download/v1.5.6/libduckdb-windows-amd64.zip` |
-| 归档 SHA256 | `44cf59583f9951d2cb09b1bf115a63ecb2d8901e363903029d86c7d8683fe96a`（13 408 787 字节） |
-| 载荷 SHA256（`duckdb.dll`） | `7e90bdef028d57b45490d6f53530e3c012a5d9abdc4c6723449200663dc84ed0`（36 697 896 字节） |
-| 归档成员 | `duckdb.dll`、`duckdb.lib`、`duckdb.h`、`duckdb.hpp`、`duckdb_extension.h` |
-| 运行期引擎版本 | `v1.5.6`（`whcode doctor --json` 的 `duckdb_engine_version`，由 `SELECT version()` 实测） |
-| 构建与冒烟 | `cargo test -p whcode-store` 通过（创建 / 事务写读 / 关闭重启 / 迁移四步） |
+| `duckdb` crate | `1.20000.0`（MIT，`rust-version = 1.88`） |
+| crate → 引擎版本映射 | `1.20000.0` → DuckDB `2.0.0`（映射规则见 `libduckdb-sys` 的 `duckdb_version_from_pkg_version`） |
+| 下载来源 | `https://github.com/duckdb/duckdb/releases/download/v2.0.0/duckdb-shared-libs-windows-amd64.tar.gz` |
+| 归档 SHA256 | `2b83169128239de5f45fe21de80f99bf436e53aa4bb24020dd951a1ba8d4b95f`（19 833 650 字节） |
+| 载荷 SHA256（`duckdb.dll`） | `8785bcbb0f4570c9662c4c890f9fa5c7cfb3239ce25e589c29693ce2139f9897`（61 311 784 字节） |
+| 归档成员 | `duckdb.dll`、`duckdb.lib`、`duckdb.h`、`duckdb_v2.h`、`duckdb_extension.h`、`duckdb_extension_v2.h`、`duckdb_static_extension.h` |
+| 运行期引擎版本 | `v2.0.0`（`whcode doctor --json` 的 `duckdb_engine_version`，由 `SELECT version()` 实测） |
+| 构建与冒烟 | `cargo build --locked --workspace` 通过；`cargo test -p whcode-store` 通过（创建 / 事务写读 / 关闭重启 / 迁移）；旧 DLL 错配由 `smoke` 主版本断言捕获 |
 | 工具链 | rustc 1.99.1（`x86_64-pc-windows-msvc`）、MSVC 14.44.35207、Windows SDK 10.0.26100.0 |
 
 **上游补丁**：无。使用官方发布物原样，未做任何本地补丁。
@@ -59,7 +59,7 @@ DuckDB 以**官方预编译动态库**（而非源码构建）引入，理由有
 
 - **`bundled` / `bundled-cmake` 源码构建**：需要目标平台的 C/C++ 编译器与 CMake；BSD 侧仍需
   `cc`/`cmake` 且构建耗时长。保留为 BSD 平台的候选路径（当 `pkg` 提供的 DuckDB 版本与 crate
-  要求的 `1.5.6` 不一致时，源码构建是唯一可控选择）。
+  要求的 `2.0.0` 不一致时，源码构建是唯一可控选择）。
 - **系统包管理器（`pkg install duckdb`）**：省去下载与校验，但版本由 ports 树决定，可能与 crate
   绑定版本不匹配；采用前必须先核对 `duckdb.h` 的 ABI 版本。
 - **改用其他嵌入式数据库**：被任务书封面约束与 §9.1 否决（须先有批准 ADR 与 Go/No-Go 决策）。
@@ -67,9 +67,20 @@ DuckDB 以**官方预编译动态库**（而非源码构建）引入，理由有
 ## 影响
 
 - 约束 crate：`whcode-store`（唯一静态链接点）、`whcode-bin`（`doctor` 报告运行期引擎版本）。
-- 构建前置：任何构建/测试前必须先执行 `python ci/fetch-duckdb.py`，否则 cargo 会因
+- 构建前置：任何构建/测试前必须先执行 `python .github/scripts/fetch-duckdb.py`，否则 cargo 会因
   `DUCKDB_LIB_DIR` 指向不存在的目录而显式失败（这是刻意的失败模式，避免静默改用其他后端）。
 - CI：`.github/workflows/*.yml` 需在构建前加入拉取步骤（Windows 用 `record_deps.py` 同源逻辑；
   BSD runner 需改为 `pkg` 或源码构建，属后续真实平台验证项）。
 - 遗留项：BSD 侧 V-002 证据缺失；`docs/matrices/platform-matrix.md` 与 `artifacts/m0-report.md`
   必须如实登记为阻塞，不得标记为“已交付”。
+
+## 修订记录
+
+- **2026-10-24（DuckDB 2.0.0 升级，关联 ADR-034）**：引擎由 `1.5.6` 升至 `2.0.0` LTS，crate 由
+  `1.10506.1` 升至 `1.20000.0` 并改为精确锁定。Windows 官方资产由 `libduckdb-windows-amd64.zip`
+  改为 `duckdb-shared-libs-windows-amd64.tar.gz`（SHA256 `2b831691…b95f`，19 833 650 字节），
+  解包改为先校验 SHA256、再拒绝绝对路径与 `..` 的 tar.gz 安全解包；归档成员与 `duckdb.dll`
+  SHA256、字节数见上表。默认存储格式为 v69；项目处于开发期，不承诺读取 1.5.6 旧库，也不提供
+  降级或格式转换，旧库直接删除或重建。BSD 平台结论不变：无官方预编译包，继续走 `pkg`/`ports`
+  或 `bundled-cmake`，版本须与 crate 绑定的 2.0.0 对账。原 ADR 中的 `ci/fetch-duckdb.py`
+  路径按磁盘事实更正为 `.github/scripts/fetch-duckdb.py`。

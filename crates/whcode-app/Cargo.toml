@@ -18,7 +18,7 @@ whcode-speckit = { path = "../whcode-speckit" }
 serde.workspace = true
 serde_json.workspace = true
 # 仅使用 duckdb::Connection 类型（命令签名）；连接的打开与管理在 store/装配根（ADR-018）。
-duckdb = { version = "1.10506.1", default-features = false }
+duckdb = { version = "=1.20000.0", default-features = false }
 
 [lints]
 workspace = true

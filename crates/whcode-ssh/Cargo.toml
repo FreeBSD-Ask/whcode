@@ -22,7 +22,7 @@ whcode-app = { path = "../whcode-app" }
 whcode-domain = { path = "../whcode-domain" }
 # 仅使用 `duckdb::Connection` 类型（适配器签名透传装配根注入的唯一连接，分层不变；
 # 连接管理在装配根/执行线程）。同 whcode-web 的既有先例。
-duckdb = { version = "1.10506.1", default-features = false }
+duckdb = { version = "=1.20000.0", default-features = false }
 
 [dev-dependencies]
 # 测试用临时密钥生成（仅测试目标引入，不进入发布路径）。

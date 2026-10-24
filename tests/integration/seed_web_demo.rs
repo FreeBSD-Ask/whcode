@@ -66,6 +66,10 @@ fn demo_dir() -> PathBuf {
 #[test]
 fn seed_demo_workspace_is_idempotent() {
     let db = demo_dir().join("whcode.duckdb");
+    // 开发期不承诺读取 1.5.6 旧库；演示库是可重建夹具，直接删除旧文件与 WAL，
+    // 避免旧 storage version 无法容纳 VARIANT 列（v6 迁移会显式失败）。
+    let _ = std::fs::remove_file(&db);
+    let _ = std::fs::remove_file(PathBuf::from(format!("{}.wal", db.display())));
     let conn = Connection::open(&db).expect("打开演示库");
     apply_migrations(&conn).expect("迁移（幂等）");
 
@@ -125,7 +129,7 @@ fn seed_demo_workspace_is_idempotent() {
         conn.execute(
             "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                  kind, payload_json, ts, persistence_level)
-             VALUES (?, ?, 'S-DEMO-1', NULL, NULL, NULL, ?, ?, current_timestamp, 'redacted')",
+             VALUES (?, ?, 'S-DEMO-1', NULL, NULL, NULL, ?, CAST(? AS JSON)::VARIANT, current_timestamp, 'redacted')",
             params![seq, format!("E-DEMO-{seq}"), kind, payload],
         )
         .expect("插入演示事件");

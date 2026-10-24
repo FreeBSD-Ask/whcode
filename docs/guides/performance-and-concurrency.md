@@ -91,6 +91,8 @@
 
 ### 3.1 DuckDB 索引实测（T036，2026-10-21）
 
+> 本节为 DuckDB 1.5.6 的历史实测；2.0.0 复测见 §3.2，两版结论一致。
+
 固定夹具：单会话 5 万事件 / 2 万消息 / 5 千任务；Windows 11 amd64；DuckDB 1.5.6；
 `EXPLAIN` 与 `EXPLAIN ANALYZE` 原文、行数与中位耗时写入
 `artifacts/query-plan-report.json`。复现：
@@ -112,6 +114,22 @@ cargo test -p whcode-tests --test query_plan -- --ignored --nocapture
 
 复审触发：DuckDB 升级、数据规模达到 10 万事件/1 万任务、查询模式变化，或出现新的
 索引候选。任何“凭直觉加索引/删索引”的改动一律拒绝（FR-511、TBD-10）。
+
+### 3.2 DuckDB 2.0.0 复测（Task T159，2026-10-24）
+
+同一固定夹具在 DuckDB 2.0.0 + schema v6（`events.payload_json VARIANT`）下复跑，
+报告见 `artifacts/query-plan-report-2.0.json`。结论与 1.5.6 一致：2/8 用例
+（`request_id`、`tool_call_id`）走索引扫描，6/8 走顺序扫描；复合索引仍未触发扫描，
+不得据此删除。`variant_type(payload_json)` 与 VARIANT→JSON 文本投影用例按设计为
+顺序扫描（payload 无索引），中位约 1.1 ms / 2.4 ms；VARIANT 化没有把有界游标查询
+退化为额外算子。索引集合不变。
+
+### 3.3 写入吞吐观察（2.0.0，2026-10-24）
+
+`whcode bench baseline`（release，192MB、`threads=4`）在 2.0.0 下中位 **4 054.6 条/秒**
+（3 次重复；`artifacts/baseline-2.0.json`），仍高于 NFR-210 的 2 000 条/秒门槛，但相对
+1.5.6 的 6 921 条/秒下降约 41%。该差异属引擎写路径/提交成本变化，登记为优化观察项；
+不得据此放宽预算，也不得把单机样本当作因果结论。
 
 ## 4. 汇编例外（ADR-015）
 

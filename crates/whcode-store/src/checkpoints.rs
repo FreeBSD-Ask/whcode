@@ -325,7 +325,7 @@ pub fn task_transition(
     tx.execute(
         "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                              kind, payload_json, ts, persistence_level)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, current_timestamp, ?)",
+         VALUES (?, ?, ?, ?, ?, ?, ?, CAST(? AS JSON)::VARIANT, current_timestamp, ?)",
         params![
             next_seq,
             format!("EV-{next_seq}"),
@@ -670,7 +670,8 @@ mod tests {
             String,
         ) = conn
             .query_row(
-                "SELECT seq, id, task_id, kind, payload_json, persistence_level
+                "SELECT seq, id, task_id, kind, CAST(CAST(payload_json AS JSON) AS VARCHAR),
+                        persistence_level
                  FROM events LIMIT 1",
                 [],
                 |row| {
@@ -722,8 +723,8 @@ mod tests {
         conn.execute(
             "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                  kind, payload_json, ts, persistence_level)
-             VALUES (1, 'EV-2', 'S-1', NULL, NULL, NULL, 'SessionStarted', '{}',
-                     current_timestamp, 'redacted')",
+             VALUES (1, 'EV-2', 'S-1', NULL, NULL, NULL, 'SessionStarted',
+                     CAST('{}' AS JSON)::VARIANT, current_timestamp, 'redacted')",
             [],
         )
         .expect("种子事件");
@@ -799,6 +800,56 @@ mod tests {
             "事件必须回滚"
         );
         assert_eq!(count(&conn, "SELECT count(*) FROM checkpoints"), 0);
+    }
+
+    #[test]
+    fn transition_rejects_invalid_json_and_oversized_payload_before_write() {
+        // 载荷校验在事务开始之前：非法 JSON 与超限文本都必须整体拒绝、零写入。
+        let conn = migrated();
+        insert_task(&conn, "T-j");
+        let mut conn = conn;
+
+        let mut invalid = transition_event();
+        invalid.payload_json = "{broken".to_string();
+        let err = task_transition(
+            &mut conn,
+            &TaskTransition {
+                task_id: "T-j".into(),
+                from_status: TaskStatus::Pending,
+                to_status: TaskStatus::Running,
+                event: invalid,
+                checkpoint: None,
+            },
+        )
+        .expect_err("非法 JSON 载荷必须拒绝");
+        assert_eq!(err.code, ErrorCode::ParseError);
+
+        // 上限按原 JSON 文本字节数计算（VARIANT 转换之前的判据）。
+        let mut oversized = transition_event();
+        oversized.payload_json = format!(r#"{{"pad":"{}"}}"#, "x".repeat(MAX_PAYLOAD_BYTES));
+        let err = task_transition(
+            &mut conn,
+            &TaskTransition {
+                task_id: "T-j".into(),
+                from_status: TaskStatus::Pending,
+                to_status: TaskStatus::Running,
+                event: oversized,
+                checkpoint: None,
+            },
+        )
+        .expect_err("超限载荷必须拒绝");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        assert!(err.message.contains("上限"), "错误须说明上限：{err}");
+
+        assert_eq!(
+            count(&conn, "SELECT count(*) FROM events"),
+            0,
+            "拒绝必须发生在写入之前，不得半写入"
+        );
+        let task = crate::tasks::get_task(&conn, "T-j")
+            .expect("可读")
+            .expect("存在");
+        assert_eq!(task.status, TaskStatus::Pending, "任务状态不得变化");
     }
 
     #[test]

@@ -1,13 +1,14 @@
 //! 迁移集成测试（T033、T036）。
 //!
-//! 覆盖五条路径：
-//! 1. v0（空库）→ v3：一次应用全部迁移，表数、版本记录与索引齐备；
-//! 2. v1 → v3：用真实 v1 SQL 构造历史工作区，跨两版升级后数据保留、全部新索引生效；
-//! 3. v2 → v3：上一受支持版本升级，消息与事件数据保留；
+//! 覆盖六条路径：
+//! 1. v0（空库）→ v6：一次应用全部迁移，表数、版本记录与索引齐备；
+//! 2. v1 → v6：用真实 v1 SQL 构造历史工作区，跨版升级后数据保留、全部新索引生效；
+//! 3. v2 → v6：上一受支持版本升级，消息与事件数据保留；
 //! 4. v2 中断：v2 的第一条索引成功、第二条失败时整个事务回滚——版本停在 v1，
 //!    第一条索引不得残留；
 //! 5. v3 中断：v3 删除旧消息索引、建新索引成功后，任务索引失败——版本停在 v2，
-//!    旧消息索引必须随回滚恢复，新索引不得残留（NFR-103、§7.4）。
+//!    旧消息索引必须随回滚恢复，新索引不得残留（NFR-103、§7.4）；
+//! 6. v5 → v6：事件载荷由 TEXT 副本转换为原生 VARIANT，既有行可读回。
 //!
 //! v4 引入后必须在同一文件追加 v3→v4 与 v0→v4 路径，不得删除既有断言。
 
@@ -21,6 +22,7 @@ const V3_SQL: &str = include_str!("../../crates/whcode-store/migrations/0003_que
 const V4_SQL: &str =
     include_str!("../../crates/whcode-store/migrations/0004_session_id_sequence.sql");
 const V5_SQL: &str = include_str!("../../crates/whcode-store/migrations/0005_session_stage.sql");
+const V6_SQL: &str = include_str!("../../crates/whcode-store/migrations/0006_events_variant.sql");
 
 /// 构造一个处于 v1 的工作区：执行真实 v1 SQL 并登记迁移记录（校验和与生产代码同算法）。
 fn create_v1_workspace(conn: &Connection) {
@@ -95,11 +97,11 @@ fn fresh_workspace_migrates_to_current_and_reruns_idempotently() {
     let first = whcode_store::apply_migrations(&conn).expect("首次迁移");
     assert_eq!(first, whcode_store::STORE_SCHEMA_VERSION);
     assert_eq!(table_count(&conn) as usize, whcode_store::TABLE_COUNT);
-    assert_eq!(migration_rows(&conn), 5, "每个 schema 版本恰一行记录");
+    assert_eq!(migration_rows(&conn), 6, "每个 schema 版本恰一行记录");
 
     let duplicate = whcode_store::apply_migrations(&conn).expect("重复迁移");
     assert_eq!(duplicate, first);
-    assert_eq!(migration_rows(&conn), 5, "重复应用不得重复写入迁移记录");
+    assert_eq!(migration_rows(&conn), 6, "重复应用不得重复写入迁移记录");
 
     for (version, sql) in [
         (1, V1_SQL),
@@ -107,6 +109,7 @@ fn fresh_workspace_migrates_to_current_and_reruns_idempotently() {
         (3, V3_SQL),
         (4, V4_SQL),
         (5, V5_SQL),
+        (6, V6_SQL),
     ] {
         let checksum: String = conn
             .query_row(
@@ -157,7 +160,7 @@ fn v1_workspace_upgrades_to_current_and_preserves_data() {
 
     let version = whcode_store::apply_migrations(&conn).expect("v1 → 当前版本升级");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 5, "跨版本升级应补齐全部迁移记录");
+    assert_eq!(migration_rows(&conn), 6, "跨版本升级应补齐全部迁移记录");
     assert_eq!(event_count(&conn), 1, "升级不得丢失既有数据");
     assert!(index_exists(&conn, "events", "idx_events_request"));
     assert!(index_exists(&conn, "events", "idx_events_tool_call"));
@@ -346,7 +349,7 @@ fn v3_workspace_upgrades_to_v4_and_sequence_is_ready() {
 
     let version = whcode_store::apply_migrations(&conn).expect("v3 → v4 升级");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 5);
+    assert_eq!(migration_rows(&conn), 6);
 
     // v4 的产出：会话 ID 序列可用且单调；旧数据不受影响。
     let first: String = conn
@@ -387,7 +390,7 @@ fn v4_migration_is_idempotent_against_existing_sequence() {
 
     let version = whcode_store::apply_migrations(&conn).expect("幂等通过");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 5);
+    assert_eq!(migration_rows(&conn), 6);
 
     let after: i64 = conn
         .query_row("SELECT nextval('whcode_session_id_seq')", [], |row| {
@@ -439,7 +442,7 @@ fn v4_workspace_upgrades_to_v5_and_stage_column_is_backfilled() {
 
     let version = whcode_store::apply_migrations(&conn).expect("v4 → v5 升级");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 5);
+    assert_eq!(migration_rows(&conn), 6);
 
     // v5 产出：stage 列存在且既有行回填默认值（DuckDB ALTER 限制：可空列 + UPDATE）。
     let stage: String = conn
@@ -448,4 +451,84 @@ fn v4_workspace_upgrades_to_v5_and_stage_column_is_backfilled() {
         })
         .expect("读取回填阶段");
     assert_eq!(stage, "specify", "既有行必须回填默认阶段");
+}
+
+/// 构造一个处于 v5 的工作区：v1—v5 全部应用并登记，事件载荷仍是文本。
+fn create_v5_workspace(conn: &Connection) {
+    create_v2_workspace(conn);
+    for (version, sql) in [(3, V3_SQL), (4, V4_SQL), (5, V5_SQL)] {
+        conn.execute_batch(sql).expect("应用历史迁移");
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at, checksum)
+             VALUES (?, current_timestamp, ?)",
+            params![version, whcode_store::checksum(sql)],
+        )
+        .expect("登记历史迁移");
+    }
+    assert_eq!(
+        whcode_store::schema_version(conn).expect("读取版本"),
+        5,
+        "夹具必须停在 v5"
+    );
+}
+
+#[test]
+fn v5_workspace_upgrades_to_v6_and_payload_becomes_native_variant() {
+    let conn = Connection::open_in_memory().expect("内存数据库");
+    create_v5_workspace(&conn);
+
+    conn.execute(
+        "INSERT INTO events
+         (seq, id, session_id, task_id, request_id, tool_call_id, kind, payload_json, ts,
+          persistence_level)
+         VALUES (1, 'E-1', 'S-1', 'T-1', 'R-1', 'C-1', 'ToolCallStarted',
+                 '{\"b\":1,\"a\":{\"x\":[1,2]}}', current_timestamp, 'full')",
+        [],
+    )
+    .expect("写入 v5 文本载荷");
+
+    let text_type: String = conn
+        .query_row(
+            "SELECT data_type FROM information_schema.columns
+             WHERE table_name = 'events' AND column_name = 'payload_json'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("查询 v5 列类型");
+    assert_eq!(text_type, "VARCHAR", "v5 的载荷列必须是文本");
+
+    let version = whcode_store::apply_migrations(&conn).expect("v5 → v6 升级");
+    assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
+    assert_eq!(migration_rows(&conn), 6, "v6 迁移记录必须写入");
+    assert_eq!(event_count(&conn), 1, "升级不得丢失既有事件");
+    for index in [
+        "idx_events_session_seq",
+        "idx_events_task",
+        "idx_events_request",
+        "idx_events_tool_call",
+    ] {
+        assert!(
+            index_exists(&conn, "events", index),
+            "v6 必须重建事件索引 {index}"
+        );
+    }
+
+    let (payload, variant_kind, request_id): (String, String, String) = conn
+        .query_row(
+            "SELECT CAST(CAST(payload_json AS JSON) AS VARCHAR), variant_type(payload_json),
+                    request_id
+             FROM events WHERE seq = 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .expect("读回 v6 事件");
+    assert_eq!(
+        variant_kind, "OBJECT",
+        "载荷必须是原生 OBJECT 变体，而非包着 JSON 的 VARCHAR 变体"
+    );
+    assert_eq!(request_id, "R-1", "追溯列必须随复制保留");
+
+    // VARIANT 会规范化对象键序，因此按 JSON 值比较，不对文本顺序做假设。
+    let payload: serde_json::Value = serde_json::from_str(&payload).expect("载荷必须是 JSON 文本");
+    assert_eq!(payload, serde_json::json!({"a": {"x": [1, 2]}, "b": 1}));
 }

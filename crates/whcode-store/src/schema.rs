@@ -16,8 +16,8 @@ use whcode_domain::{ErrorCode, WhError};
 /// v3 补齐消息游标索引 `(session_id, ts, id)` 与任务阶段索引 `(session_id, stage)`；
 /// v4 增加会话 ID 序列（`whcode_session_id_seq`，M2/T046 会话命令的自动编号）；
 /// v5 会话增加 SDD 阶段列（`sessions.stage`，M4/T068—T081 状态机持久化）；
-/// 不改既有行数据。
-pub const STORE_SCHEMA_VERSION: u32 = 5;
+/// v6 把 `events.payload_json` 由 TEXT 改为 VARIANT（ADR-034，JSON 文本显式转换后复制）。
+pub const STORE_SCHEMA_VERSION: u32 = 6;
 
 /// 正式表数量（含 `schema_migrations`）。
 pub const TABLE_COUNT: usize = 14;
@@ -27,6 +27,7 @@ const MIGRATION_0002: &str = include_str!("../migrations/0002_event_trace_indexe
 const MIGRATION_0003: &str = include_str!("../migrations/0003_query_indexes.sql");
 const MIGRATION_0004: &str = include_str!("../migrations/0004_session_id_sequence.sql");
 const MIGRATION_0005: &str = include_str!("../migrations/0005_session_stage.sql");
+const MIGRATION_0006: &str = include_str!("../migrations/0006_events_variant.sql");
 
 /// 版本化迁移清单；新增版本时追加，不修改历史 SQL。
 const MIGRATIONS: &[(u32, &str)] = &[
@@ -35,6 +36,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (3, MIGRATION_0003),
     (4, MIGRATION_0004),
     (5, MIGRATION_0005),
+    (6, MIGRATION_0006),
 ];
 
 fn store_err(context: &str, err: duckdb::Error) -> WhError {
@@ -208,6 +210,25 @@ mod tests {
             )
             .expect("查询列");
         assert_eq!(columns, 10);
+    }
+
+    #[test]
+    fn events_payload_column_is_variant() {
+        let conn = Connection::open_in_memory().expect("内存数据库");
+        apply_migrations(&conn).expect("迁移");
+        let data_type: String = conn
+            .query_row(
+                "SELECT data_type FROM information_schema.columns
+                 WHERE table_schema = 'main' AND table_name = 'events'
+                   AND column_name = 'payload_json'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("查询 payload_json 列类型");
+        assert_eq!(
+            data_type, "VARIANT",
+            "v6 起事件载荷必须是原生 VARIANT，而非 VARCHAR 变体"
+        );
     }
 
     #[test]

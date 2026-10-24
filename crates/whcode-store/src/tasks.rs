@@ -447,8 +447,10 @@ pub fn recent_task_events(
     Ok(items)
 }
 
+/// 事件投影列；`payload_json` 是 VARIANT（schema v6），读取时显式转回 JSON 文本（ADR-034）。
 const EVENT_PROJECTION: &str = "seq, id, session_id, task_id, request_id, tool_call_id, kind, \
-                                payload_json, epoch_us(ts), persistence_level";
+                                CAST(CAST(payload_json AS JSON) AS VARCHAR) AS payload_json, \
+                                epoch_us(ts), persistence_level";
 
 fn map_event_row(row: &duckdb::Row<'_>) -> duckdb::Result<crate::query::EventRow> {
     Ok(crate::query::EventRow {
@@ -503,7 +505,7 @@ mod tests {
         conn.execute(
             "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                  kind, payload_json, ts, persistence_level)
-             VALUES (?, ?, 'S-1', ?, NULL, NULL, 'StreamingChunk', ?,
+             VALUES (?, ?, 'S-1', ?, NULL, NULL, 'StreamingChunk', CAST(? AS JSON)::VARIANT,
                      current_timestamp, 'redacted')",
             params![seq, format!("E-{seq}"), task_id, payload],
         )

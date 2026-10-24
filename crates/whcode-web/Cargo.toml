@@ -12,7 +12,7 @@ whcode-app = { path = "../whcode-app" }
 whcode-domain = { path = "../whcode-domain" }
 serde_json.workspace = true
 # 仅使用 duckdb::Connection 类型（API 函数签名透传，分层不变）；连接管理在 store/装配根。
-duckdb = { version = "1.10506.1", default-features = false }
+duckdb = { version = "=1.20000.0", default-features = false }
 
 [lints]
 workspace = true

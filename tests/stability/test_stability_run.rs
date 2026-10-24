@@ -187,8 +187,8 @@ impl StabilityRun {
                     "INSERT INTO events
                      (seq, id, session_id, task_id, request_id, tool_call_id, kind,
                       payload_json, ts, persistence_level)
-                     VALUES (?, ?, 'S-BIG', NULL, ?, NULL, 'StreamingChunk', ?, current_timestamp,
-                             'redacted')",
+                     VALUES (?, ?, 'S-BIG', NULL, ?, NULL, 'StreamingChunk', CAST(? AS JSON)::VARIANT,
+                             current_timestamp, 'redacted')",
                     params![
                         seq,
                         format!("E-STABILITY-{seq}"),

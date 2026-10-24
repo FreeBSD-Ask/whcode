@@ -5,13 +5,13 @@
 //! 存在于代码注释与报告文字中，没有留证。
 //!
 //! 本实验用与真实路径一致的 [`whcode_store::EventWriter`]（不自造 SQL 写入路径），在
-//! 192MB / 384MB / 1024MB 三组上限下各写入同一规模的固定数据集：2000 条
+//! 128MB / 192MB / 384MB / 1024MB 四组上限下各写入同一规模的固定数据集：2000 条
 //! `StreamingChunk` 事件，payload 为 `{"text":"x"×120}`（JSON 131 字节），持久化等级
 //! `redacted`，批次行数上限 500。逐批提交，记录首个失败的写入位置、DuckDB 错误原文、
 //! 收尾 `CHECKPOINT` 后的文件字节数。
 //!
 //! 另设一组**规模探针**：同样参数、192MB 上限、20000 条事件（`whcode bench baseline` 的
-//! 默认事件数），用于判断 192MB 在该数据规模下是否仍然可用；它与三组主对照的数据规模
+//! 默认事件数），用于判断 192MB 在该数据规模下是否仍然可用；它与四组主对照的数据规模
 //! 不同，单独列表，不参与主对照的横向比较。
 //!
 //! 纪律（V-001、§5.2）：
@@ -68,8 +68,15 @@ struct Group {
     events: usize,
 }
 
-/// 三组主对照（同一数据规模）：§5.4 默认值、§5.4 候选最大值、足够高但仍有界的对照值。
-const GROUPS: [Group; 3] = [
+/// 四组主对照（同一数据规模）：§5.4 默认值、候选最大值、足够高但仍有界的对照值，
+/// 以及 DuckDB 2.0.0 聚合溢写下待复核的下限候选 128MB（Task 9）。
+const GROUPS: [Group; 4] = [
+    Group {
+        label: "128MB",
+        memory_limit: "128MB",
+        requested_mb: 128,
+        events: EVENTS,
+    },
     Group {
         label: "192MB",
         memory_limit: "192MB",
@@ -467,8 +474,8 @@ fn conclude(groups: &[GroupResult], probe: &GroupResult) -> String {
                 baseline.label, EVENTS, PROBE_EVENTS
             ),
             None => format!(
-                "192MB 下 {} 条与 {} 条均完成写入：T027 的 OOM 断言未被独立复现",
-                EVENTS, PROBE_EVENTS
+                "{} 下 {} 条与 192MB 探针 {} 条均完成写入：T027 的 OOM 断言未被独立复现",
+                baseline.label, EVENTS, PROBE_EVENTS
             ),
         },
     }

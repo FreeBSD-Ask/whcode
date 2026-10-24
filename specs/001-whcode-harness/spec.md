@@ -474,7 +474,7 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
 - **待决策事项 D-01—D-14** 以任务书建议默认值与后续决策进入对应决策点：首版优先 x86_64（D-01）；单库单工作区（D-02）；Web 为独立 UI（D-03）；SSH 公钥+受限入口（D-04）；追踪默认 redacted（D-05，M1）；性能硬指标 M0 冻结（D-06）；运行时独立 payload（D-07，M8 前）；首版不宣称完整 Node.js（D-08，M8 前）；Python 先验证子进程协议（D-09，M8 前）；独立 db compact（D-10，M1）；默认系统分配器（D-11，M9）；P1 运行时不阻塞首个可用版本（D-12，M0）；平台承诺修订（D-13）；平台范围收敛（D-14）
 - **验收环境**：本轮只需 Windows 11 amd64 的真实构建/测试环境（已取得）；FreeBSD/NetBSD/OpenBSD/DragonFly 按 ADR-013 延后，不再作为本轮阻塞项；恢复任一平台时必须具备该平台真实环境并补齐证据，不得以交叉编译代替运行验证（G-01）
 - **D-01 修订**：Windows 验收使用 `x86_64-pc-windows-msvc`，**不使用任何 GNU 工具链**；实测 rustc 1.99.1、MSVC 14.44.35207、Windows SDK 10.0.26100.0。`rust-toolchain.toml` 仅锁版本号 `1.99.1`；host triple 由各平台 runner 默认值决定，本机用目录级 `rustup override` 选 msvc（不入库）
-- **DuckDB 分发策略**：采用官方预编译动态库，不源码构建；`.github/scripts/fetch-duckdb.py` 校验 SHA256 后解包到 `vendor/duckdb/1.5.6/`，`.cargo/config.toml` 注入 `DUCKDB_LIB_DIR`，Windows 由 `crates/whcode-store/build.rs` 复制 `duckdb.dll`；运行期引擎版本实测 `v1.5.6`（详见 `docs/adr/ADR-DB-BUILD.md`）
+- **DuckDB 分发策略**：采用官方预编译动态库，不源码构建；`.github/scripts/fetch-duckdb.py` 校验 SHA256 后解包到 `vendor/duckdb/2.0.0/`，`.cargo/config.toml` 注入 `DUCKDB_LIB_DIR`，Windows 由 `crates/whcode-store/build.rs` 复制 `duckdb.dll`；运行期引擎版本实测 `v2.0.0`，crate 精确锁定 `=1.20000.0`（详见 `docs/adr/ADR-DB-BUILD.md`、`ADR-034`）
 - **平台范围收敛（ADR-013）**：唯一验收目标为 Windows 11 `x86_64`（`x86_64-pc-windows-msvc`）；**不考虑任何 32 位平台**；FreeBSD/NetBSD/OpenBSD/DragonFly 全部延后——保留代码、文档与 CI 定义，但不作为验收目标，恢复须新 ADR 并补齐完整证据链（构建、数据库冒烟、依赖记录、性能分位数、客户端/服务端证据）。延后不等同于“已支持”或“已放弃”
 - **平台承诺修订（ADR-011）**：OpenBSD 与 DragonFly BSD 移出原生安装目标，改由内置 SSH 客户端（FR-611）控制；该方向仍有效，但按 ADR-013 延后，不进入本轮验收
 - **自由与安全基线**：不替用户定义善、道德或自由；退出权、完整导出、离线核心能力与默认值可撤销进入验收；安全措施按威胁模型与证据评估，不以“最佳实践/合规”结项（NFR-218/219、Task T146、Check 244—245；详见 `docs/guides/philosophy.md` §10）

@@ -40,7 +40,7 @@ fn seed_llm_events(conn: &Connection, session_id: &str) -> Vec<i64> {
         conn.execute(
             "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                  kind, payload_json, ts, persistence_level)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, current_timestamp, ?)",
+             VALUES (?, ?, ?, ?, ?, ?, ?, CAST(? AS JSON)::VARIANT, current_timestamp, ?)",
             params![
                 record.seq,
                 record.id,

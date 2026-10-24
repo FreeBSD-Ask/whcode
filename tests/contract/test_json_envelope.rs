@@ -51,6 +51,11 @@ fn migrated() -> Connection {
             "../../crates/whcode-store/migrations/0005_session_stage.sql"
         ))
     })
+    .and_then(|_| {
+        conn.execute_batch(include_str!(
+            "../../crates/whcode-store/migrations/0006_events_variant.sql"
+        ))
+    })
     .expect("迁移");
     conn
 }
@@ -68,7 +73,7 @@ fn all_cui_views_emit_schema_version_envelope() {
         conn.execute(
             "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                  kind, payload_json, ts, persistence_level)
-             VALUES (?, ?, 'S-1', NULL, NULL, NULL, 'StreamingChunk', '{}',
+             VALUES (?, ?, 'S-1', NULL, NULL, NULL, 'StreamingChunk', CAST('{}' AS JSON)::VARIANT,
                      current_timestamp, 'redacted')",
             duckdb::params![seq, format!("E-{seq}")],
         )

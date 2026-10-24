@@ -102,6 +102,7 @@ fn same_read_commands_yield_identical_state_across_cui_and_web() {
             include_str!("../../crates/whcode-store/migrations/0003_query_indexes.sql"),
             include_str!("../../crates/whcode-store/migrations/0004_session_id_sequence.sql"),
             include_str!("../../crates/whcode-store/migrations/0005_session_stage.sql"),
+            include_str!("../../crates/whcode-store/migrations/0006_events_variant.sql"),
         ))
         .expect("迁移");
         conn
@@ -118,7 +119,8 @@ fn same_read_commands_yield_identical_state_across_cui_and_web() {
         conn.execute(
             "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                  kind, payload_json, ts, persistence_level)
-             VALUES (?, ?, 'S-P', NULL, NULL, NULL, ?, '{}', current_timestamp, 'redacted')",
+             VALUES (?, ?, 'S-P', NULL, NULL, NULL, ?, CAST('{}' AS JSON)::VARIANT,
+                     current_timestamp, 'redacted')",
             duckdb::params![seq, format!("E-{seq}"), kind],
         )
         .expect("事件");

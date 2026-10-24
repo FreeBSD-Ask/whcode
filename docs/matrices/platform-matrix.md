@@ -18,7 +18,7 @@
 
 | 平台 | 精确版本 | 架构 | 目标三元组 | 范围 | 构建状态 | 运行验证状态 | 证据引用 | 备注 |
 |---|---|---|---|---|---|---|---|---|
-| Windows | Windows 11（10.0.26300） | x86_64 | `x86_64-pc-windows-msvc` | **在范围内（唯一验收目标）** | 通过（本机实测） | 通过（数据库冒烟 4 步、引擎版本探测与工作区测试） | `artifacts/deps-windows.txt`；`docs/adr/ADR-DB-BUILD.md` | rustc 1.99.1（LLVM 23.1.1）、MSVC 工具集 14.44.35207、Windows SDK 10.0.26100.0；不使用任何 GNU 工具链；DuckDB 引擎 `v1.5.6` |
+| Windows | Windows 11（10.0.26300） | x86_64 | `x86_64-pc-windows-msvc` | **在范围内（唯一验收目标）** | 通过（本机实测） | 通过（数据库冒烟 4 步、引擎版本探测与工作区测试） | `artifacts/deps-windows.txt`；`docs/adr/ADR-DB-BUILD.md` | rustc 1.99.1（LLVM 23.1.1）、MSVC 工具集 14.44.35207、Windows SDK 10.0.26100.0；不使用任何 GNU 工具链；DuckDB 引擎 `v2.0.0` |
 | FreeBSD | 未固定 | x86_64 | `x86_64-unknown-freebsd` | **延后（ADR-013，不验收）** | 历史：代码级交叉检查通过（排除 3 个 crate） | 未取得（延后，不再作为阻塞项） | `docs/adr/ADR-013-platform-scope-windows-only.md`；`docs/adr/ADR-DB-BUILD.md` | 恢复时须新 ADR 并补齐 D-14 要求的证据链 |
 | NetBSD | 未固定 | x86_64 | `x86_64-unknown-netbsd` | **延后（ADR-013，不验收）** | 历史：代码级交叉检查通过（排除 3 个 crate） | 未取得（延后） | 同上 | 同上 |
 | OpenBSD | 未固定 | x86_64 | `x86_64-unknown-openbsd` | **延后（ADR-013；本就不作原生目标，见 ADR-011）** | 不适用 | 未取得（延后） | `docs/adr/ADR-011-platform-commitment-revision.md`；`docs/adr/ADR-013-platform-scope-windows-only.md` | 客户端能力属 M7，本轮不验收 |
@@ -29,14 +29,14 @@
 
 ### 行内证据说明
 
-- Windows 的运行验证来自 2026-10-21 本机 `cargo test --workspace`（90 例通过、0 失败），其中 `whcode-store` 含 5 例（冒烟四步、引擎版本探测与缺失父目录错误路径）与 10 例写者原型；依赖记录由 `python .github/scripts/platform-matrix/record_deps.py` 产出为 `artifacts/deps-windows.txt`。
+- Windows 的运行验证来自 2026-10-24 DuckDB 2.0.0 复测：`cargo build --locked --workspace`、`cargo test -p whcode-store`（108 例）、`--test migration`（10 例）、安装验证与 `doctor --json`（`v2.0.0`）；依赖记录由 `python .github/scripts/platform-matrix/record_deps.py` 产出为 `artifacts/deps-windows.txt`。1.5.6 的 90 例记录保留为历史。
 - FreeBSD 与 NetBSD 的“构建状态”仅指**代码级交叉检查**：`cargo check` 不链接，也不运行目标平台二进制。它不覆盖 DuckDB 原生库、TLS 依赖、SSH、终端与运行时 payload，因此**不能**作为 V-002 的通过证据（ADR-010、G-01）。
 - 内置 SSH 客户端的四平台连通性冒烟**尚未执行**：`crates/whcode-ssh/src/proto.rs` 的测试为回环测试，只能证明客户端路径可运行，不构成 Windows、FreeBSD、NetBSD、OpenBSD 或 DragonFly 任一平台的节点证据（FR-611、V-004）。
-- `whcode-store` 与 `whcode-ssh` 无法参与交叉检查：前者经 `libduckdb-sys` 的构建依赖链引入 `aws-lc-sys`，后者经 `russh` 引入 `aws-lc-rs`，均需要目标平台的 C 工具链（CMake、编译器与汇编器）。这是**阻塞项**，不是代码缺陷，也不构成任何平台结论。
+- `whcode-store` 与 `whcode-ssh` 无法参与交叉检查：前者需要目标平台的 libduckdb 原生库（官方无 BSD 预编译包），后者经 `russh` 引入 `aws-lc-rs`，均需要目标平台的 C 工具链（CMake、编译器与汇编器）。这是**阻塞项**，不是代码缺陷，也不构成任何平台结论。
 
 ## 性能预算冻结状态
 
-**结论：已冻结（2026-10-23，ADR-025；范围＝Windows 11 amd64）。**
+**结论：已冻结（2026-10-23，ADR-025；2026-10-24 DuckDB 2.0.0 复审仅修订 NFR-201 为 ≤36 MB；范围＝Windows 11 amd64）。**
 
 - 冻结口径：预算数值沿用 spec 候选值（NFR-201—210）；**只在 Windows 11 amd64 上作为发布门槛**；
   BSD 无运行证据，按 ADR-013 不参与，标“未验证”，不与他平台合并或平均。
@@ -111,7 +111,7 @@ cargo check -p whcode-store --target x86_64-unknown-freebsd
 cargo check -p whcode-ssh --target x86_64-unknown-freebsd
 ```
 
-原因：`whcode-store` 的 `libduckdb-sys` 构建依赖链包含 `aws-lc-sys`，`whcode-ssh` 的 `russh` 依赖 `aws-lc-rs`；两者均需目标平台的 C 工具链（CMake、编译器、汇编器），本机不具备 BSD 交叉 C 工具链。命令失败属**环境阻塞**，不得据此判定代码不可移植，也不得据此判定原生依赖不可用。
+原因：`whcode-store` 需要目标平台的 libduckdb 原生库（官方无 BSD 预编译包），`whcode-ssh` 的 `russh` 依赖 `aws-lc-rs`；两者均需目标平台的 C 工具链（CMake、编译器、汇编器），本机不具备 BSD 交叉 C 工具链。命令失败属**环境阻塞**，不得据此判定代码不可移植，也不得据此判定原生依赖不可用。
 
 OpenBSD 与 DragonFly 已移出原生安装目标（ADR-011），不对其执行原生构建或交叉运行验收；其客户端证据须在真实节点上取得，归属 M7。
 

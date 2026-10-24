@@ -215,19 +215,35 @@ fn compute_with(conn: &Connection, session_id: &str) -> Result<SessionOverview, 
     })
 }
 
+/// 写入概览行（MERGE INTO upsert，DuckDB 2.0；ADR-034）。
+///
+/// `USING` 子查询只产出一行且按 `session_overview.session_id` 主键匹配，故至多匹配一条
+/// 目标行；2.0 的“多源匹配同一目标行即报错”语义在这里是结构性保证，不依赖调用方去重。
+/// 参数在 `USING` 内显式 `CAST`，避免 `MERGE` 上下文中的参数类型推断歧义。
 fn write_overview(conn: &Connection, overview: &SessionOverview) -> Result<(), WhError> {
     let by_stage_json = serde_json::to_string(&overview.by_stage)
         .map_err(|err| WhError::internal(format!("概览阶段分布序列化失败：{err}")))?;
     conn.execute(
-        "INSERT INTO session_overview
-         (session_id, by_stage_json, total, done, blocked, refreshed_at)
-         VALUES (?, ?, ?, ?, ?, make_timestamp(?))
-         ON CONFLICT (session_id) DO UPDATE SET
-             by_stage_json = excluded.by_stage_json,
-             total = excluded.total,
-             done = excluded.done,
-             blocked = excluded.blocked,
-             refreshed_at = excluded.refreshed_at",
+        "MERGE INTO session_overview AS t
+         USING (
+             SELECT CAST(? AS VARCHAR) AS session_id,
+                    CAST(? AS VARCHAR) AS by_stage_json,
+                    CAST(? AS BIGINT) AS total,
+                    CAST(? AS BIGINT) AS done,
+                    CAST(? AS BIGINT) AS blocked,
+                    make_timestamp(CAST(? AS BIGINT)) AS refreshed_at
+         ) AS src
+         ON t.session_id = src.session_id
+         WHEN MATCHED THEN UPDATE SET
+             by_stage_json = src.by_stage_json,
+             total = src.total,
+             done = src.done,
+             blocked = src.blocked,
+             refreshed_at = src.refreshed_at
+         WHEN NOT MATCHED THEN INSERT
+             (session_id, by_stage_json, total, done, blocked, refreshed_at)
+             VALUES (src.session_id, src.by_stage_json, src.total, src.done,
+                     src.blocked, src.refreshed_at)",
         params![
             overview.session_id.as_str(),
             by_stage_json,
@@ -347,6 +363,34 @@ mod tests {
             })
             .expect("统计概览行");
         assert_eq!(rows, 1, "重建必须是 upsert，不得重复插入");
+    }
+
+    /// 数据未变时重复刷新：MERGE 命中已存在行只更新，不得插入重复行，计数保持稳定。
+    #[test]
+    fn repeated_refresh_is_idempotent_and_keeps_single_row() {
+        let mut conn = migrated();
+        fixture(&conn);
+
+        let first = rebuild_overview(&mut conn, "S-1").expect("首次重建");
+        for _ in 0..3 {
+            let again = rebuild_overview(&mut conn, "S-1").expect("重复重建");
+            assert_eq!(again.session_id, first.session_id);
+            assert_eq!(again.by_stage, first.by_stage, "数据未变时阶段分布必须一致");
+            assert_eq!(again.total, first.total);
+            assert_eq!(again.done, first.done);
+            assert_eq!(again.blocked, first.blocked);
+            assert!(
+                again.refreshed_at_us >= first.refreshed_at_us,
+                "刷新时间不得回退"
+            );
+        }
+
+        let rows: i64 = conn
+            .query_row("SELECT count(*) FROM session_overview", [], |row| {
+                row.get(0)
+            })
+            .expect("统计概览行");
+        assert_eq!(rows, 1, "MERGE 必须 upsert 单行，不得重复插入");
     }
 
     #[test]

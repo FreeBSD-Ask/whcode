@@ -4,7 +4,7 @@
 # SHA256 后解包至此目录；该目录不入库（.gitignore），未拉取时构建显式失败——
 # 禁止静默改用其他后端或未经批准的源码构建（§9.1）。
 # 说明：本目录只有 Windows 预编译包；BSD 平台走 pkg/ports 或源码构建（见 ADR-DB-BUILD）。
-DUCKDB_LIB_DIR = { value = "vendor/duckdb/1.5.6", relative = true }
+DUCKDB_LIB_DIR = { value = "vendor/duckdb/2.0.0", relative = true }
 
 # 构建期环境（tasks.md T025）：SSH 客户端原型引入 russh → aws-lc-rs → aws-lc-sys。
 # aws-lc-sys 在 Windows x86_64 上默认调用 nasm.exe 汇编优化代码；本机未安装 NASM，

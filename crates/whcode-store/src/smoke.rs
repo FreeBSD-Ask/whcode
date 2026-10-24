@@ -245,7 +245,7 @@ mod tests {
     fn smoke_reports_engine_version_from_runtime() {
         let (dir, db) = temp_db("version");
         let report = run(&db).expect("冒烟应通过");
-        // 运行期版本形如 "v1.5.6"：断言结构而非单一子串，避免硬编码文本也能“通过”。
+        // 运行期版本形如 "v2.0.0"：断言结构而非单一子串，避免硬编码文本也能“通过”。
         let raw = report.duckdb_version.trim_start_matches('v');
         let parts: Vec<&str> = raw.split('.').collect();
         assert_eq!(
@@ -259,7 +259,9 @@ mod tests {
             "引擎版本各段必须为数字：{}",
             report.duckdb_version
         );
-        assert_eq!(parts[0], "1", "主版本应为 1：{}", report.duckdb_version);
+        // 主版本断言用于捕获“crate 2.0 + 旧版 DLL”错配：crate 与 DLL 不匹配时，
+        // 运行期实测主版本不会是 2，本断言必须失败而不是静默通过。
+        assert_eq!(parts[0], "2", "主版本应为 2：{}", report.duckdb_version);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

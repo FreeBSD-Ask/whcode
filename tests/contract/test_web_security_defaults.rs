@@ -88,6 +88,7 @@ fn web_error_envelope_matches_cui() {
         include_str!("../../crates/whcode-store/migrations/0003_query_indexes.sql"),
         include_str!("../../crates/whcode-store/migrations/0004_session_id_sequence.sql"),
         include_str!("../../crates/whcode-store/migrations/0005_session_stage.sql"),
+        include_str!("../../crates/whcode-store/migrations/0006_events_variant.sql"),
     ))
     .expect("迁移");
     let actor = whcode_app::actor_with_all_capabilities("tester");

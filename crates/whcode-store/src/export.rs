@@ -195,6 +195,14 @@ fn is_timestampish(data_type: &str) -> bool {
     data_type.contains("TIMESTAMP")
 }
 
+/// 目标列是否为 VARIANT（schema v6 的 `events.payload_json`，ADR-034）。
+///
+/// 导出必须显式转回 JSON 文本，导入必须显式从 JSON 解析；两侧都不能依赖
+/// 隐式转换——直接把文本 CAST 成 VARIANT 会得到包着 JSON 的 VARCHAR 变体。
+fn is_variant(data_type: &str) -> bool {
+    data_type == "VARIANT"
+}
+
 /// 预检库已迁移（`schema_migrations` 表存在），否则给出明确的未迁移错误。
 fn require_migrated(conn: &Connection, side: &str) -> Result<(), WhError> {
     let present: i64 = conn
@@ -278,6 +286,12 @@ fn export_table(
             if is_timestampish(data_type) {
                 format!(
                     "CAST({} AS VARCHAR) AS {}",
+                    quote_identifier(name),
+                    quote_identifier(name)
+                )
+            } else if is_variant(data_type) {
+                format!(
+                    "CAST(CAST({} AS JSON) AS VARCHAR) AS {}",
                     quote_identifier(name),
                     quote_identifier(name)
                 )
@@ -665,7 +679,14 @@ pub fn import_workspace(
             .join(", ");
         let cast_values = catalog
             .iter()
-            .map(|(_, data_type)| format!("CAST(? AS {data_type})"))
+            .map(|(_, data_type)| {
+                if is_variant(data_type) {
+                    // 导出文件里载荷是 JSON 文本，必须先解析为 JSON 再转 VARIANT。
+                    "CAST(CAST(? AS JSON) AS VARIANT)".to_string()
+                } else {
+                    format!("CAST(? AS {data_type})")
+                }
+            })
             .collect::<Vec<_>>()
             .join(", ");
 
@@ -771,7 +792,7 @@ mod tests {
             conn.execute(
                 "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                      kind, payload_json, ts, persistence_level)
-                 VALUES (?, ?, ?, 'T-1', NULL, NULL, 'StreamingChunk', ?,
+                 VALUES (?, ?, ?, 'T-1', NULL, NULL, 'StreamingChunk', CAST(? AS JSON)::VARIANT,
                          current_timestamp, 'redacted')",
                 params![
                     seq,
@@ -887,9 +908,11 @@ mod tests {
         };
         assert_eq!(src_ts, tgt_ts, "时间戳必须经 VARCHAR 往返无损");
         let payload: String = target
-            .query_row("SELECT payload_json FROM events WHERE seq = 7", [], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT CAST(CAST(payload_json AS JSON) AS VARCHAR) FROM events WHERE seq = 7",
+                [],
+                |r| r.get(0),
+            )
             .expect("目标 payload");
         assert_eq!(payload, "{\"n\":7}");
 
@@ -1026,8 +1049,8 @@ mod tests {
         conn.execute(
             "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                  kind, payload_json, ts, persistence_level)
-             VALUES (1, 'E-1', NULL, NULL, NULL, NULL, 'SessionStarted', '{}',
-                     current_timestamp, 'redacted')",
+             VALUES (1, 'E-1', NULL, NULL, NULL, NULL, 'SessionStarted',
+                     CAST('{}' AS JSON)::VARIANT, current_timestamp, 'redacted')",
             [],
         )
         .expect("插入事件");

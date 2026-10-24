@@ -11,7 +11,7 @@ license.workspace = true
 whcode-domain = { path = "../whcode-domain" }
 serde.workspace = true
 serde_json.workspace = true
-duckdb = { version = "1.10506.1", default-features = false }
+duckdb = { version = "=1.20000.0", default-features = false }
 
 [lints]
 workspace = true

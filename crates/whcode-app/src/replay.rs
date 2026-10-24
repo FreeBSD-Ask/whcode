@@ -81,7 +81,7 @@ mod tests {
             conn.execute(
                 "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                      kind, payload_json, ts, persistence_level)
-                 VALUES (?, ?, ?, NULL, NULL, NULL, 'StreamingChunk', '{}',
+                 VALUES (?, ?, ?, NULL, NULL, NULL, 'StreamingChunk', CAST('{}' AS JSON)::VARIANT,
                          current_timestamp, 'redacted')",
                 params![seq, format!("E-{seq}"), session_id],
             )

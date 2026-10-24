@@ -291,6 +291,7 @@ mod tests {
         include_str!("../../whcode-store/migrations/0003_query_indexes.sql"),
         include_str!("../../whcode-store/migrations/0004_session_id_sequence.sql"),
         include_str!("../../whcode-store/migrations/0005_session_stage.sql"),
+        include_str!("../../whcode-store/migrations/0006_events_variant.sql"),
     );
 
     fn migrated() -> Connection {
@@ -312,7 +313,7 @@ mod tests {
         conn.execute(
             "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                  kind, payload_json, ts, persistence_level)
-             VALUES (?, ?, ?, NULL, NULL, NULL, 'StreamingChunk', ?, current_timestamp, 'redacted')",
+             VALUES (?, ?, ?, NULL, NULL, NULL, 'StreamingChunk', CAST(? AS JSON)::VARIANT, current_timestamp, 'redacted')",
             duckdb::params![seq, format!("E-{seq}"), session_id, payload],
         )
         .expect("插入事件");

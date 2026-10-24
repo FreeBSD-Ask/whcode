@@ -76,8 +76,21 @@ jobs:
       - name: NFR-203/NFR-206 测量夹具（ADR-025 冻结预算）
         shell: pwsh
         run: |
-          cargo test --locked -p whcode-tests --test nfr_budget -- --ignored --nocapture 2>&1 |
+          cargo test --locked -p whcode-tests --test nfr_budget nfr203 -- --ignored --nocapture 2>&1 |
             Tee-Object -FilePath artifacts/stability-ci/nfr_budget.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p whcode-tests --test nfr_budget nfr206 -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/nfr_budget.log -Append
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: NFR-207/NFR-209 性能预算（独占执行）
+        shell: pwsh
+        run: |
+          cargo test --locked -p whcode-tests --test nfr_budget nfr207 -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/nfr207.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p whcode-tests --test nfr_budget nfr209 -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/nfr209.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: 长跑采集器冒烟（30 秒 / 5 秒采样，不作 24 h 结论）

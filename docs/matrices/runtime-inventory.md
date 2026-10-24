@@ -1,6 +1,6 @@
 # 运行时能力清单（T120、§12.2）
 
-**版本**：`0.1.0`（M9 首版） | **更新**：2026-10-22 | 依据：FR-701—710、D-07—D-09、R-10
+**版本**：`0.1.0`（M9 首版） | **更新**：2026-10-24 | 依据：FR-701—710、D-07—D-09、R-10
 
 ## 1. 运行时能力（M8/T100—T114 范围；当前状态）
 
@@ -25,9 +25,11 @@
 | 组件 | 许可证 |
 |---|---|
 | WHCode | BSD-2-Clause（FreeBSD 中文社区） |
-| DuckDB 1.5.6（动态库） | MIT（上游预编译包，`.github/scripts/fetch-duckdb.py` 校验 SHA256） |
+| DuckDB 2.0.0（动态库） | MIT（上游预编译包，`.github/scripts/fetch-duckdb.py` 校验 SHA256） |
 | Rust 1.99.1 工具链 | Apache-2.0/MIT |
-| clap / serde / thiserror / duckdb-rs / ratatui / crossterm | Apache-2.0/MIT（Cargo.lock 版本锁定） |
+| clap / serde / thiserror / ratatui / crossterm | Apache-2.0/MIT（Cargo.lock 版本锁定） |
+| duckdb 1.20000.0 / libduckdb-sys 1.20000.0 | MIT（`cargo metadata` 核实） |
+| arrow 60.0.0 | Apache-2.0（`duckdb` 传递依赖，静态链入 `whcode.exe`） |
 
 **未捆绑**：任何运行时 payload（js/python/gitbash）——安装时须核对其上游许可证
 并登记到本清单（T102/T120 收口）。

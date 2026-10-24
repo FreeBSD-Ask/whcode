@@ -133,7 +133,7 @@ sshd，权限判定将脱离 `whcode-app::authz` 的统一拒绝语义，形成�
   路径依赖，不引入外部 crate）。
 - 依赖变更：`whcode-ssh` 的 `tokio` 特性从 `["net","time"]` 扩为 `["net","rt","sync",
   "time"]`（不新增 crate）；新增 `rand = "0.10"`（与 russh 的发布依赖同版本，lockfile
-  不变）；`duckdb = "1.10506.1"`（仅 `Connection` 类型透传，同 `whcode-web` 先例；
+  不变）；`duckdb = "=1.20000.0"`（仅 `Connection` 类型透传，同 `whcode-web` 先例；
   dev-dependencies 移除一切 store 依赖以过分层门禁，迁移 SQL 以 `include_str` 复用）。
 - Check 对应：Check 98 可由进程内测试证明（单写者）；Check 96/97/99 的平台证据仍缺，
   维持“未取得/延后”登记，不在本 ADR 声称。

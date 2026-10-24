@@ -13,6 +13,20 @@
 
 ### 变更
 
+- DuckDB 2.0.0 升级与功能适配（2026-10-24，ADR-034）：**引擎 2.0.0 LTS + crate 1.20000.0，事件载荷改 VARIANT**。
+  - 官方 Windows 资产改为 `duckdb-shared-libs-windows-amd64.tar.gz`（SHA256 `2b831691…b95f`）；
+    `fetch-duckdb.py` 改为先校验 SHA256、再拒绝绝对路径与 `..` 的 tar.gz 安全解包；
+    `.cargo/config.toml` 指向 `vendor/duckdb/2.0.0`，7 个清单精确锁定 `=1.20000.0`。
+  - schema 升至 v6：`events.payload_json` 由 `TEXT` 改为 `VARIANT`，写入走
+    `CAST(? AS JSON)::VARIANT`，读取/导出走 `CAST(CAST(payload_json AS JSON) AS VARCHAR)`；
+    `stage_artifacts.content` 与原型表 `m0_events` 保持 `TEXT`。
+  - `session_overview` upsert 改为 `MERGE INTO`；数据修改 CTE 经 A/B 实测无收益，不采用。
+  - 工作区连接显式关闭 `autoinstall_known_extensions`、`autoload_known_extensions`、
+    `allow_community_extensions` 与自定义扩展仓库，避免查询触发联网安装；`enable_external_access`
+    保留以支持导出/导入。
+  - 项目处于开发期，**不承诺读取 1.5.6 旧库，不提供降级或格式转换**；旧库删除或重建即可。
+  - 审计证据见 `artifacts/duckdb-2.0-audit-2026-10-24.md`；BSD 平台结论不变（继续阻塞/延后）。
+
 - 稳定性窗口改为 5.5 小时（2026-10-24，ADR-033）：**24/72 小时长跑改为 5.5 小时以适配 GitHub CI**。
   - 新窗口 19 800 秒、300 秒采样（约 66 样本），NFR-204 仍按 ≤ 0.5 MB/h 判定；24/72 小时
     深检保留为可选 self-hosted／本机运行，不再作为 CI 门槛。

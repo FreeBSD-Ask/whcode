@@ -32,6 +32,9 @@
 # NFR 预算测量报告与安全复查记录是 ADR-025／Check 115/123 的判定依据，随仓库版本化。
 !/artifacts/nfr-budget-report.json
 !/artifacts/security-review-2026-10-24.md
+
+# 四端对等门禁证据（FR-621／Check 任务 T180）。
+!/artifacts/frontend-parity-2026-10-24/
 # 无 JS 只读快照的真实进程实跑记录是 Check 229 的判定依据，随仓库版本化。
 !/artifacts/web-nojs-check-2026-10-24.json
 # Web 运行时取证（真实 Firefox：最小化可见性、动效开关、GPU 禁用）是 Check 220/227/228 的判定依据。

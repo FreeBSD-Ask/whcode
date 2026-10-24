@@ -150,12 +150,19 @@ whcode-app = { path = "../crates/whcode-app" }
 whcode-llm = { path = "../crates/whcode-llm" }
 whcode-speckit = { path = "../crates/whcode-speckit" }
 whcode-cui = { path = "../crates/whcode-cui" }
+whcode-tui = { path = "../crates/whcode-tui" }
+whcode-gui = { path = "../crates/whcode-gui" }
 whcode-web = { path = "../crates/whcode-web" }
 whcode-runtime = { path = "../crates/whcode-runtime" }
 whcode-platform = { path = "../crates/whcode-platform" }
 serde.workspace = true
 serde_json.workspace = true
-duckdb = { version = "1.10506.1", default-features = false }
+duckdb = { version = "=1.20000.0", default-features = false }
 
 [lints]
 workspace = true
+
+# 四端对等契约门禁（FR-619—621、T171；登记表×清单×矩阵三向 + 行为等价，T180）。
+[[test]]
+name = "frontend_parity"
+path = "contract/test_frontend_parity.rs"

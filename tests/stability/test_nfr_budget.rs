@@ -1,8 +1,9 @@
 //! NFR 冻结预算测量夹具（T115、ADR-025、V-006 测量纪律）。
 //!
 //! 承载可进程内测量的四项预算（其余见模块尾注）：
-//! - **NFR-207** 会话切换响应（10 万事件）p50/p95/p99 ≤ 200 ms——常规回归门禁；
-//! - **NFR-209** 历史单页查询 p95 ≤ 30 ms——常规回归门禁；
+//! - **NFR-207** 会话切换响应（10 万事件）p50/p95/p99 ≤ 200 ms——`#[ignore]`
+//!   （性能测量需独占 CPU/磁盘；由 stability workflow 显式驱动）；
+//! - **NFR-209** 历史单页查询 p95 ≤ 30 ms——`#[ignore]`（同上）；
 //! - **NFR-203** 切换 20 次 RSS 增量 ≤ 10 MB——`#[ignore]`（20 次 tasklist 采样
 //!   约 +3 s），由 `script/measure_nfr_budgets.py` 以 `--ignored` 驱动；
 //! - **NFR-206** LLM 流式期间 CPU ≤ 8% 单核——`#[ignore]`（CPU% 需外部
@@ -79,6 +80,7 @@ fn print_percentiles(label: &str, samples_ms: &mut [f64]) {
 /// 夹具：S-BIG（10 万事件 + 1 万任务）与 S-SMALL（100 事件）交替切换 20 次，
 /// 计时只含 `switch_session` 本身（有界加载路径，FR-102）。
 #[test]
+#[ignore = "性能测量夹具：需独占 CPU/磁盘，由 stability workflow 显式驱动"]
 fn nfr207_switch_latency_within_frozen_budget() {
     let _guard = PERF_LOCK.lock().expect("性能测量串行锁中毒");
     let mut conn = temp_db("nfr207");
@@ -115,6 +117,7 @@ fn nfr207_switch_latency_within_frozen_budget() {
 /// 夹具：10 万事件会话；样本为“最新一页”（`Backward` + `MAX_PAGE_SIZE`，即 UI
 /// 尾页的真实形状），50 次采样。
 #[test]
+#[ignore = "性能测量夹具：需独占 CPU/磁盘，由 stability workflow 显式驱动"]
 fn nfr209_history_single_page_query_p95_within_frozen_budget() {
     let _guard = PERF_LOCK.lock().expect("性能测量串行锁中毒");
     let mut conn = temp_db("nfr209");

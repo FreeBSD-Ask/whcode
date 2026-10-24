@@ -50,13 +50,14 @@ export DUCKDB_INCLUDE_DIR=/usr/pkg/include
 - 头文件位置要求：`$DUCKDB_LIB_DIR/duckdb.h` 或 `$DUCKDB_INCLUDE_DIR/duckdb.h`（`libduckdb-sys` 契约）；
 - `crates/whcode-store/build.rs` 只在 `DUCKDB_LIB_DIR/duckdb.dll` **存在**时复制——BSD 无该文件，
   自然跳过，无需平台分支；
-- 版本核验：pkg/ports 的 DuckDB 版本须与 crate 绑定的 1.5.6 对账，不一致时改 `bundled-cmake`
+- 版本核验：pkg/ports 的 DuckDB 版本须与 crate 绑定的 2.0.0 对账，不一致时改 `bundled-cmake`
   源码构建，并把结论写进 ADR-DB-BUILD（禁止静默换后端）。
 
 ### 2.3 Go/No-Go 门禁（CI 已按此预留）
 
-`.github/scripts/platform-matrix/{freebsd,netbsd}.yml` 的绿路径（`cargo check` + 无 libduckdb 链接的包级测试）
-必须过；完整构建+测试作为显式门禁步骤，失败即 No-Go 证据（R-01）。
+`.github/workflows/platform-matrix.yml` 的 `freebsd`／`netbsd` job 的绿路径
+（`cargo check` + 无 libduckdb 链接的包级测试）必须过；完整构建+测试作为显式门禁步骤，
+失败即 No-Go 证据（R-01）。
 
 ## 3. 禁止绕过
 
@@ -69,7 +70,7 @@ export DUCKDB_INCLUDE_DIR=/usr/pkg/include
 
 | 阶段 | 平台 | 工作项 | 依赖 |
 |---|---|---|---|
-| M1 起 | FreeBSD/NetBSD | DuckDB 版本对账 + `record-deps.sh` 产出 `deps-*.txt` | 环境（B-01/B-02） |
+| M1 起 | FreeBSD/NetBSD | DuckDB 版本对账 + `record_deps.py` 产出 `deps-*.txt` | 环境（B-01/B-02） |
 | M2—M5 | 全部 | 应用服务/TUI 天然跨平台，无需平台工作 | 绿路径 CI |
 | M7 | FreeBSD/NetBSD | SSH **服务端**验收（V-004 修订判据） | TBD-05 选型 |
 | M7 | OpenBSD/DragonFly | SSH **客户端**连通性 + 受限命令执行证据 | `whcode-ssh::proto` 已原型 |

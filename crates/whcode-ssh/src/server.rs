@@ -726,6 +726,7 @@ mod tests {
         include_str!("../../whcode-store/migrations/0003_query_indexes.sql"),
         include_str!("../../whcode-store/migrations/0004_session_id_sequence.sql"),
         include_str!("../../whcode-store/migrations/0005_session_stage.sql"),
+        include_str!("../../whcode-store/migrations/0006_events_variant.sql"),
     );
 
     fn migrated_memory_conn() -> Connection {

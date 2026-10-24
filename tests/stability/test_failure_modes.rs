@@ -124,7 +124,7 @@ fn offline_network_failure_is_bounded_and_replay_has_no_gaps() {
         conn.execute(
             "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                  kind, payload_json, ts, persistence_level)
-             VALUES (?, ?, 'S-1', NULL, NULL, NULL, 'StreamingChunk', '{}',
+             VALUES (?, ?, 'S-1', NULL, NULL, NULL, 'StreamingChunk', CAST('{}' AS JSON)::VARIANT,
                      current_timestamp, 'redacted')",
             params![seq, format!("E-{seq}")],
         )

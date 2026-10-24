@@ -72,7 +72,8 @@ NFR-215 有界容器纪律。D-06 预算未冻结——本文件把候选值**�
 
 ## 3. 测量环境记录
 
-- OS：Windows 11 amd64；rustc 1.99.1 msvc；DuckDB 1.5.6（`memory_limit` 192MB）；
+- OS：Windows 11 amd64；rustc 1.99.1 msvc；DuckDB 2.0.0（`memory_limit` 192MB）；
+- NFR-201 空载 RSS 预算经 ADR-025 修订为 ≤36 MB（2026-10-24，2.0 引擎复审；原 35 MB）；
 - 采样：PowerShell `Get-Process` 100ms 轮询（测量脚本）；CPU 时间为进程累计
   ProcessorTime；
 - 测量均在本机（唯一验收平台），跨平台数据未取得——本标准为 Windows 验收门禁，

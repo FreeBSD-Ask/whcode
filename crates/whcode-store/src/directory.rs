@@ -374,7 +374,7 @@ mod tests {
         conn.execute(
             "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
                                  kind, payload_json, ts, persistence_level)
-             VALUES (7, 'E-7', NULL, NULL, NULL, NULL, 'SessionStarted', '{}',
+             VALUES (7, 'E-7', NULL, NULL, NULL, NULL, 'SessionStarted', CAST('{}' AS JSON)::VARIANT,
                      current_timestamp, 'redacted')",
             [],
         )
