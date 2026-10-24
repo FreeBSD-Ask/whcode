@@ -13,6 +13,18 @@
 
 ### 变更
 
+- CI 测试与 action 版本铁律（2026-10-24）：**BSD 测试随 main 自动运行；action 固定最新 SHA**。
+  - FreeBSD/NetBSD 工作流增加 `push: branches: [main]`：在 vmactions VM 中真实运行
+    `cargo check`、不依赖 libduckdb 的包级测试与依赖记录；DuckDB 原生构建保留为显式
+    Go/No-Go（失败属 R-01 证据，不使 job 变红）。OpenBSD/DragonFly 无原生测试，保持手工占位。
+  - ADR-013 修订记录：BSD CI 自动运行**不改变验收范围**——唯一验收目标仍是 Windows 11 amd64，
+    BSD 结果只作平台证据，不进入验收结论。
+  - 铁律（AGENTS.md §5.1）：所有 `uses:` 必须为**最新 release 版本 + 固定 commit SHA**
+    （`owner/repo@<40 位 SHA> # vX.Y.Z`）；`ci/action-versions.json` 为唯一事实源，
+    `ci/check-actions.py` 每次 CI 离线校验，新增每周 `action-version-audit` 联网复核；
+    Dependabot 的 Actions PR 必须同步清单。
+  - 当前版本：checkout v7.0.1、upload-artifact v7.0.2、freebsd-vm v1.5.9、netbsd-vm v1.5.2。
+
 - Check 47 收口批次（2026-10-24）：**修正数据集夹具缺陷并复跑 NFR-203**。
   - `tests/fixtures/gen_dataset.rs` 以绝对事件数作循环上界，同一库第二次生成时第二个会话
     实际 0 条事件；ADR-025 原“0.32 MB（10 万事件 ×2 会话）”的测量因此失真。改为

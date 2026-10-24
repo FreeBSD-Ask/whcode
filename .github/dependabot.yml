@@ -7,6 +7,9 @@
 #    unsafe 面与许可证影响；
 # 3. 发布口径仍以 Cargo.lock 与 `--locked` 构建为准；Dependabot 只提案，
 #    不改变冻结预算、平台范围与安全默认值。
+# 4. Actions 升级 PR 必须同步 `ci/action-versions.json`（运行
+#    `python ci/check-actions.py --update`）与工作流中的版本注释，否则
+#    离线门禁失败（AGENTS.md §5.1：最新版本 + 固定 SHA）。
 version: 2
 updates:
   - package-ecosystem: "cargo"

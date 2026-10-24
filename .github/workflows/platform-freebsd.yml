@@ -1,37 +1,40 @@
-# FreeBSD 平台构建与依赖记录（tasks.md T005/T020；V-001、V-002、V-004）
+# FreeBSD 平台构建、测试与依赖记录（tasks.md T005/T020；V-001、V-002、V-004）
 #
-# GitHub Actions 可运行性设计（本文件可在 ubuntu-latest 的 vmactions VM 中真实执行）：
-#   1. **工具链**：不用 pkg 的 rust（版本由 ports 决定，可能低于 MSRV），改用 rustup 安装
-#      `rust-toolchain.toml` 锁定的 1.99.1（rustup 官方提供 FreeBSD host 构建）。
-#   2. **绿路径**（必过）：`cargo check` 全工作区类型检查 + 不需要 libduckdb 链接的包级测试。
-#      `cargo check` 不链接，`libduckdb-sys`（非 bundled）构建脚本只发射链接指令，因此
-#      即使 DuckDB 库缺失也能通过——这是“代码级”证据，不构成运行验证（ADR-010、G-01）。
-#   3. **Go/No-Go 门禁**：安装 pkg 的 DuckDB 后尝试完整构建+测试。pkg 版本与 crate 要求的
-#      1.5.6 可能不一致，失败即 No-Go 证据（R-01）；结果写入 job 摘要，且该步骤失败**不**把
-#      整个 job 变红（Go/No-Go 是结论，不是构建失败）。
+# 运行策略（2026-10-24 用户指令，见 ADR-013 修订记录）：
+#   - 随 main 分支 push 自动运行；workflow_dispatch 保留。OpenBSD/DragonFly 无原生
+#     测试，保持手工占位。
+#   - 结果只作**平台证据**，不进入验收结论；唯一验收目标仍是 Windows 11 amd64（ADR-013）。
+#   - GitHub 不提供 FreeBSD runner，故在 ubuntu-latest 的 vmactions VM 中真实执行。
 #
-# 环境变量契约（ADR-DB-BUILD）：外部 shell 环境变量优先于 .cargo/config.toml 的 [env] 表，
-# BSD 上导出 DUCKDB_LIB_DIR=/usr/local/lib 与 DUCKDB_INCLUDE_DIR=/usr/local/include 即切换
-# 到系统库，无需改任何代码。
+# 工具链（D-01 修订）：不使用 pkg 的 rust（版本由 ports 决定，可能低于 MSRV），改用
+# rustup 安装 rust-toolchain.toml 锁定的 1.99.1。
+#
+# 绿路径（必过）：`cargo check` 全工作区 + **不依赖 libduckdb 的包级测试**。链接 DuckDB
+# 的测试归入 Go/No-Go 门禁；门禁失败是显式证据（R-01），不把 job 变红。
+#
+# 环境变量契约（ADR-DB-BUILD）：外部 shell 环境变量优先于 .cargo/config.toml 的 [env] 表；
+# 导出 DUCKDB_LIB_DIR=/usr/local/lib 与 DUCKDB_INCLUDE_DIR=/usr/local/include 即切换系统库。
 name: platform-freebsd
 
 on:
-  # 延后（ADR-013）：Windows 11 amd64 为唯一验收目标；本 workflow 仅供手工触发，
-  # 不随 push 自动运行，避免无环境平台产生红灯噪声。恢复须新 ADR 并补齐证据链。
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   build-test-deps-record:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: 在 FreeBSD VM 中构建与记录
-        uses: vmactions/freebsd-vm@v1
+      - name: 在 FreeBSD VM 中构建、测试与记录
+        id: vm
+        uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
           usesh: true
           prepare: |
-            pkg install -y curl cmake ninja duckdb
+            pkg install -y curl cmake ninja
+            pkg install -y duckdb || true
           run: |
             set -e
             # 用 rustup 装锁定工具链（pkg 的 rust 版本不确定，无法满足可复现要求）。
@@ -44,45 +47,37 @@ jobs:
             rustc -vV
             cargo -V
 
-            # DuckDB 系统库路径（pkg 安装位置）；覆盖 .cargo/config.toml 的 vendor 路径。
-            export DUCKDB_LIB_DIR=/usr/local/lib
-            export DUCKDB_INCLUDE_DIR=/usr/local/include
-
-            echo "=== 代码级检查（绿路径，不链接，不需要 DuckDB 库）==="
+            echo "=== 代码级检查（cargo check，不链接 DuckDB）==="
             cargo check --locked --workspace
 
-            echo "=== 包级测试（不需要 libduckdb 链接的包）==="
-            cargo test --locked -p whcode-domain -p whcode-app -p whcode-platform -p whcode-tui
+            echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
+            cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+              -p whcode-llm -p whcode-runtime
 
             echo "=== 依赖记录（V-001）==="
             sh ci/platform-matrix/record-deps.sh artifacts
 
-      - name: Go/No-Go 门禁：DuckDB 原生完整构建与测试（V-002）
-        id: gate
-        continue-on-error: true
-        uses: vmactions/freebsd-vm@v1
-        with:
-          usesh: true
-          run: |
-            export HOME=/root
-            export PATH="$HOME/.cargo/bin:$PATH"
-            export DUCKDB_LIB_DIR=/usr/local/lib
-            export DUCKDB_INCLUDE_DIR=/usr/local/include
-            echo "pkg DuckDB 版本：$(pkg info duckdb 2>/dev/null | tr '\n' ' ' || echo 未知)"
-            echo "crate 绑定版本：libduckdb-sys 1.5.6"
-            if cargo build --locked --workspace && cargo test --locked --workspace; then
-              echo "GATE_RESULT=GO"
+            echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
+            if pkg info duckdb >/dev/null 2>&1; then
+              export DUCKDB_LIB_DIR=/usr/local/lib
+              export DUCKDB_INCLUDE_DIR=/usr/local/include
+              echo "pkg DuckDB 版本：$(pkg info duckdb | tr '\n' ' ')"
+              if cargo build --locked --workspace && cargo test --locked --workspace; then
+                echo "GATE_RESULT=GO"
+              else
+                echo "GATE_RESULT=NO-GO（版本或 ABI 不匹配，属 R-01 预期风险路径）"
+              fi
             else
-              echo "GATE_RESULT=NO-GO（版本或 ABI 不匹配，属 R-01 预期风险路径）"
+              echo "GATE_RESULT=NO-GO（pkg 无 duckdb：需源码构建，待评估）"
             fi
 
-      - name: 归档 Go/No-Go 结论
+      - name: 归档结论
         if: always()
         run: |
-          echo "FreeBSD DuckDB 原生门禁结论：${{ steps.gate.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "（failure 表示 No-Go 证据，不表示代码不合格；见 docs/adr/ADR-DB-BUILD.md）" >> "$GITHUB_STEP_SUMMARY"
+          echo "FreeBSD 绿路径：${{ steps.vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "DuckDB Go/No-Go 见 VM 日志末尾；两者均只作平台证据，不进入验收结论。" >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: deps-freebsd

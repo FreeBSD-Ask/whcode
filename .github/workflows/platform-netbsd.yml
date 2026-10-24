@@ -1,74 +1,81 @@
-# NetBSD 平台构建与依赖记录（tasks.md T005/T020；V-001、V-002）
+# NetBSD 平台构建、测试与依赖记录（tasks.md T005/T020；V-001、V-002）
 #
-# GitHub Actions 可运行性设计（与 freebsd.yml 同构，但有一处关键差异）：
-#   - **工具链**：rustup 不提供 NetBSD host 构建，只能用 pkgsrc 的 rust；其版本由 pkgsrc
-#     树决定，可能低于 workspace MSRV（1.88）。因此绿路径标注 `continue-on-error`，
-#     并明确：步骤失败属**环境限制**（工具链过旧），不是代码缺陷；实际版本由
-#     record-deps.sh 如实记录（V-001 报告纪律）。
-#   - **绿路径**：`cargo check` 全工作区 + 不需要 libduckdb 链接的包级测试（不链接）。
-#   - **Go/No-Go 门禁**：pkgsrc 无 DuckDB 包或版本不匹配时即 NO-GO（显式证据，不静默降级）。
+# 运行策略（2026-10-24 用户指令，见 ADR-013 修订记录）：
+#   - 随 main 分支 push 自动运行；workflow_dispatch 保留。
+#   - 结果只作**平台证据**，不进入验收结论；唯一验收目标仍是 Windows 11 amd64。
+#
+# 工具链差异：rustup 不提供 NetBSD host 构建，只能用 pkgsrc 的 rust；其版本由 pkgsrc
+# 树决定。低于 MSRV 1.88 时脚本显式 SKIP（环境限制，不作代码结论）；满足时正常跑测试。
+#
+# 绿路径（必过）：`cargo check` 全工作区 + 不依赖 libduckdb 的包级测试。
+# DuckDB 原生构建与全量测试属 Go/No-Go 门禁：失败是显式证据（NO-GO），不使 job 变红。
 #
 # 环境变量契约（ADR-DB-BUILD）：外部 shell 环境变量优先于 .cargo/config.toml 的 [env] 表。
 name: platform-netbsd
 
 on:
-  # 延后（ADR-013）：Windows 11 amd64 为唯一验收目标；本 workflow 仅供手工触发。
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   build-test-deps-record:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: 在 NetBSD VM 中构建与记录
-        id: greenpath
-        continue-on-error: true
-        uses: vmactions/netbsd-vm@v1
+      - name: 在 NetBSD VM 中构建、测试与记录
+        id: vm
+        uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         with:
           usesh: true
           prepare: |
             pkgin -y install rust cmake ninja
+            pkgin -y install duckdb || true
           run: |
             set -e
             rustc -vV
             cargo -V
-            echo "=== 代码级检查（绿路径，不链接，不需要 DuckDB 库）==="
+
+            version=$(rustc --version | awk '{print $2}')
+            major=$(echo "$version" | cut -d. -f1)
+            minor=$(echo "$version" | cut -d. -f2)
+            if [ "$major" -lt 1 ] || { [ "$major" -eq 1 ] && [ "$minor" -lt 88 ]; }; then
+              echo "SKIP：pkgsrc rust $version 低于 MSRV 1.88（环境限制，不作代码结论）"
+              exit 0
+            fi
+
+            echo "=== 代码级检查（cargo check，不链接 DuckDB）==="
             cargo check --locked --workspace
 
-            echo "=== 包级测试（不需要 libduckdb 链接的包）==="
-            cargo test --locked -p whcode-domain -p whcode-app -p whcode-platform -p whcode-tui
+            echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
+            cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+              -p whcode-llm -p whcode-runtime
 
             echo "=== 依赖记录（V-001）==="
             sh ci/platform-matrix/record-deps.sh artifacts
 
-      - name: Go/No-Go 门禁：DuckDB 原生完整构建与测试（V-002）
-        id: gate
-        continue-on-error: true
-        uses: vmactions/netbsd-vm@v1
-        with:
-          usesh: true
-          run: |
+            echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
             if pkg_info duckdb >/dev/null 2>&1; then
               export DUCKDB_LIB_DIR=/usr/pkg/lib
               export DUCKDB_INCLUDE_DIR=/usr/pkg/include
               if cargo build --locked --workspace && cargo test --locked --workspace; then
                 echo "GATE_RESULT=GO"
               else
-                echo "GATE_RESULT=NO-GO（版本或 ABI 不匹配）"
+                echo "GATE_RESULT=NO-GO（版本或 ABI 不匹配，属 R-01 预期风险路径）"
               fi
             else
-              echo "GATE_RESULT=NO-GO（pkgsrc 无 DuckDB 包：需 bundled-cmake 源码构建，待 M1 评估）"
+              echo "GATE_RESULT=NO-GO（pkgsrc 无 DuckDB 包：需 bundled-cmake 源码构建，待评估）"
             fi
 
-      - name: 归档绿路径与门禁结论
+      - name: 归档结论
         if: always()
         run: |
-          echo "NetBSD 绿路径：${{ steps.greenpath.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "NetBSD DuckDB 原生门禁：${{ steps.gate.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "说明：绿路径失败若因 pkgsrc rust 低于 MSRV 1.88，属环境限制（见本文件头注释）。" >> "$GITHUB_STEP_SUMMARY"
+          echo "NetBSD 绿路径：${{ steps.vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "若绿路径失败且原因是 pkgsrc rust 低于 MSRV，属环境限制（见文件头注释）。" >> "$GITHUB_STEP_SUMMARY"
+          echo "DuckDB Go/No-Go 见 VM 日志末尾；两者均只作平台证据，不进入验收结论。" >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: deps-netbsd

@@ -15,7 +15,8 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 
 - 唯一验收目标：**Windows 11 amd64**，目标三元组 `x86_64-pc-windows-msvc`（ADR-013）；
 - **不支持任何 32 位平台**；
-- FreeBSD/NetBSD/OpenBSD/DragonFly **延后**：代码与文档保留，不作验收结论，CI 手工触发；
+- FreeBSD/NetBSD/OpenBSD/DragonFly **延后**：代码与文档保留，不作验收结论；FreeBSD/NetBSD
+  在 GitHub CI 随 `main` 自动运行（仅作平台证据），OpenBSD/DragonFly 无原生测试、保留手工占位；
 - 不使用任何 GNU 工具链；Rust 锁定 1.99.1（`rust-toolchain.toml`），MSRV 声明为 1.88；
 - 许可证 BSD-2-Clause，版权主体 FreeBSD 中文社区；
 - **GUI 必须原生**：禁止以内嵌浏览器引擎（WebView／WebView2、CEF、Tauri／wry、Electron、
@@ -201,6 +202,17 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 门禁判定必须由程序实施（测试/脚本），不得以提示词或人工口头结论代替。
 - 无法取得证据时写“未取得/阻塞”，不得勾选通过，不得伪造日志。
 
+### 5.1 CI action 版本铁律（2026-10-24）
+
+- 工作流 `uses:` 必须同时满足：**最新 release 版本** + **固定 commit SHA**，写法为
+  `owner/repo@<40 位十六进制 SHA> # vX.Y.Z`；禁止 `@main`、`@master`、`@vN` 等可移动引用。
+- `ci/action-versions.json` 是唯一事实源（版本 + SHA + 复核日期）；`ci/check-actions.py`
+  在每次 CI 离线校验，`action-version-audit` 每周联网复核上游最新版本。
+- 升级流程：`python ci/check-actions.py --update` 刷新清单 → 同步工作流引用与版本注释 →
+  离线门禁通过 → 提交。例外必须走 ADR，不得以“临时”为名跳过。
+- Dependabot 的 `github-actions` PR 只负责提议：合并前必须运行 `--update` 并提交清单，
+  否则离线门禁失败；不得以自动升级为由绕过最新版本 + 固定 SHA 的要求。
+
 ## 6. UI 与资源纪律
 
 - 前端**能多简陋就多简陋**：无框架、无打包器、服务端直出 + 原生 ESM（ADR-014）。
@@ -237,6 +249,8 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 禁止在日志、事件、测试夹具、提交内容中写入真实 API Key 或其他凭据。
 - 禁止修改全局 git 配置；本机无签名密钥时用 `git commit --no-gpg-sign`，不得改配置绕过。
 - 禁止把交叉编译通过、静态推断、单次样本当作平台或性能结论。
+- 禁止在 CI 工作流中使用可移动 action 引用（tag／分支）或非最新版本；升级必须同步
+  `ci/action-versions.json` 与工作流 SHA（§5.1）。
 - 禁止在未获用户批准时扩大平台范围、引入 GNU 工具链、增加 32 位目标或替换核心依赖。
 - 禁止浏览器套壳式桌面 GUI（WebView／WebView2、CEF、Tauri／wry、Electron、NW.js 等，
   含“自绘窗口 + 内嵌 Web UI”）；桌面界面必须原生（ADR-026）。

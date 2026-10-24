@@ -41,7 +41,9 @@ CI（Check 3）、进程组零残留（Check 109/201）、ADR 未决项（Check 
 实验记录器）、`layout`/`layering` 契约测试、EOL 与 workflow 审计、前端预算与资源铁律均通过。
 
 **平台范围（ADR-013）**：唯一验收目标是 **Windows 11 amd64**；不考虑任何 32 位平台；
-FreeBSD/NetBSD/OpenBSD/DragonFly 全部**延后**（代码与文档保留，不验收，CI 手工触发）。
+FreeBSD/NetBSD/OpenBSD/DragonFly 全部**延后**（代码与文档保留，不验收）。FreeBSD/NetBSD 的
+构建、非 DuckDB 包测试与依赖记录随 `main` 在 GitHub CI 自动运行（仅作平台证据）；
+OpenBSD/DragonFly 无原生测试，保留手工占位。
 
 | 平台 | 范围 | 结论 |
 |---|---|---|
@@ -71,7 +73,9 @@ FreeBSD/NetBSD/OpenBSD/DragonFly 全部**延后**（代码与文档保留，不�
 - **SSH**：内置客户端（公钥认证、受限命令、超时与输出上限、known_hosts TOFU 校验、按
   “意图—执行—登记”协议留痕）；M7 服务端已实现（`serve --ssh`，russh + 受限入口 + 单写者执行器，
   ADR-030），四平台现场验收按 ADR-013 延后
-- 五平台 CI 定义：Windows 绿路径必过；BSD 手工触发、原生构建作为显式 Go/No-Go 门禁（延后，不作验收结论）
+- 五平台 CI 定义：Windows 绿路径必过；FreeBSD/NetBSD 随 `main` 自动运行（代码级检查 +
+  非 DuckDB 包测试 + 依赖记录），DuckDB 原生构建作为显式 Go/No-Go 门禁；OpenBSD/DragonFly
+  为手工客户端验收占位（延后，不作验收结论）；所有 action 固定到最新 release 的 commit SHA。
 
 已知限制（NFR-204 的 72 小时稳定性未测、真实 HTTP Provider 未接线、BSD 现场验收延后、
 Web 无 JS 只读视图缺失等）逐条列在

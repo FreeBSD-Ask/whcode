@@ -27,7 +27,10 @@ jobs:
   build-test-gates:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: CI action 版本门禁（最新版本 + 固定 SHA）
+        run: python ci/check-actions.py
 
       - name: 显示锁定工具链（rust-toolchain.toml）
         run: rustup show
@@ -63,7 +66,7 @@ jobs:
       - name: 产出依赖记录（V-001，含测量纪律字段）
         run: python ci/platform-matrix/record_deps.py artifacts
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: deps-windows
           path: artifacts/deps-windows.txt
@@ -73,7 +76,7 @@ jobs:
     needs: build-test-gates
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
         run: python ci/fetch-duckdb.py
@@ -84,12 +87,12 @@ jobs:
       - name: 打包并安装验证（T118）
         run: python ci/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: whcode-windows-amd64
           path: target/dist/*.zip
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: install-verify-windows-amd64
           path: artifacts/install-verify-windows-amd64.txt
