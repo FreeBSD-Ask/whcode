@@ -1,6 +1,6 @@
 {
   "discipline": {
-    "generated_at": "2026-10-25T01:10:07+08:00",
+    "generated_at": "2026-10-25T02:48:15+08:00",
     "os": "Microsoft Windows [Version 10.0.26300.9550]",
     "toolchain": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
     "build_type": "release",
@@ -9,15 +9,13 @@
   },
   "results": [
     {
-      "nfr": "NFR-201",
+      "nfr": "NFR-205",
       "measured": true,
-      "budget_mb": 36.0,
-      "samples": 199,
-      "median_mb": 35.3,
-      "p95_mb": 35.68,
-      "max_mb": 35.74,
+      "budget_cpu_pct": 0.5,
+      "cpu_pct": 0.156,
+      "rss_mb_at_exit": 35.54,
       "passed": true,
-      "method": "serve --web 空工作区空闲 10 s，GetProcessMemoryInfo 50 ms 轮询，判据取中位数"
+      "method": "真实控制台 TUI（CREATE_NEW_CONSOLE + AttachConsole）空闲 10 s（无输入），GetProcessTimes 前后差 / 墙钟 = 单核百分比；q 注入退出"
     }
   ]
 }
