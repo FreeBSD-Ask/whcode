@@ -47,6 +47,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # ---------------- Windows ----------------
+      - name: 工作流语义门禁（job 级 if 禁用 matrix 等 GitHub 限制）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/check-workflows.py
+
       - name: CI action 版本门禁（最新版本 + 固定 SHA）
         if: matrix.platform == 'windows'
         run: python .github/scripts/check-actions.py
