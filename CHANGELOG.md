@@ -49,6 +49,18 @@
   - 项目处于开发期，**不承诺读取 1.5.6 旧库，不提供降级或格式转换**；旧库删除或重建即可。
   - 审计证据见 `artifacts/duckdb-2.0-audit-2026-10-24.md`；BSD 平台结论不变（继续阻塞/延后）。
 
+- ⚠ BREAKING：测试统一入口与 CI 合并（2026-10-25，ADR-037）：
+  - `platform-matrix.yml`、`stability.yml`、`action-version-audit.yml` 合并为
+    `.github/workflows/ci.yml`：门禁、五平台矩阵、全部功能测试、短测量、TUI/Web 冒烟、
+    `workflow_dispatch` 桌面入口与每周 action 审计集中在一份工作流；
+    5.5 小时长跑保留在 `.github/workflows/long-run.yml`。
+  - EOL 审计、NFR-201/202/205/206 真实进程测量与测试进程资源测量迁入
+    `.github/scripts/`（`check-eol.py`、`benchmarks/measure-nfr-budgets.py`、
+    `benchmarks/measure-resources.py`）；`local/` 不再保留同名副本，只作复现与排障。
+  - 测量 job 只在 push `main` 与手动触发运行（PR 不跑），每周一 schedule 只做 action 审计；
+    桌面型测试按 headless／虚拟显示口径记录，不替代 V-003 真实控制台人工证据。
+  - **CI 首轮实际运行未取得**（仓库无远端，Check 3 缺口）；不得以本地全绿冒充 CI 通过。
+
 - ⚠ BREAKING：JSON 语义列全面 VARIANT 化（2026-10-24，ADR-036，schema v7）：
   - `tasks.acceptance_json`、`stage_artifacts.refs_json`、`session_overview.by_stage_json`、
     `checkpoints.delta_json`、`checkpoints.artifact_refs_json`、`audit.detail_json` 由 `TEXT`

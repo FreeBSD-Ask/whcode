@@ -5,13 +5,13 @@
 //!   （性能测量需独占 CPU/磁盘；由 stability workflow 显式驱动）；
 //! - **NFR-209** 历史单页查询 p95 ≤ 30 ms——`#[ignore]`（同上）；
 //! - **NFR-203** 切换 20 次 RSS 增量 ≤ 10 MB——`#[ignore]`（20 次 tasklist 采样
-//!   约 +3 s），由 `local/measure_nfr_budgets.py` 以 `--ignored` 驱动；
+//!   约 +3 s），由 `.github/scripts/benchmarks/measure-nfr-budgets.py` 以 `--ignored` 驱动；
 //! - **NFR-206** LLM 流式期间 CPU ≤ 8% 单核——`#[ignore]`（CPU% 需外部
 //!   `GetProcessTimes` 采样，进程内无合法采样点：workspace 禁 unsafe，P/Invoke
 //!   只能走子进程，污染被测区间）；本用例只负责把流式路径跑满 ≥ 3 s 供外部采样。
 //!
 //! NFR-201/202/205 需要真实产品进程（`whcode serve`／真实控制台 TUI），
-//! 由 `local/measure_nfr_budgets.py` 采样承载；NFR-204（72 h 斜率）属 T116 长跑，
+//! 由 `.github/scripts/benchmarks/measure-nfr-budgets.py` 采样承载；NFR-204（72 h 斜率）属 T116 长跑，
 //! 保持候选。测量纪律：同夹具（10 万事件 + 1 万任务，与 `test_session_switch` 一致）、
 //! 采样方法写明、分位数输出、零样本不充当达标。
 
@@ -151,7 +151,7 @@ fn nfr209_history_single_page_query_p95_within_frozen_budget() {
 /// 判据为“相对基线的最大增量”（切换后的稳态值，不追瞬时峰值——峰值口径
 /// 归 NFR-201/202 的进程级采样）。
 #[test]
-#[ignore = "测量夹具：由 local/measure_nfr_budgets.py 以 --ignored 驱动并留档"]
+#[ignore = "测量夹具：由 .github/scripts/benchmarks/measure-nfr-budgets.py 以 --ignored 驱动并留档"]
 fn nfr203_switch_rss_increment_bounded() {
     let mut conn = temp_db("nfr203");
     let big = gen_dataset::generate(&mut conn, "S-BIG", DATASET_EVENTS, DATASET_TASKS);
@@ -208,14 +208,14 @@ fn nfr203_switch_rss_increment_bounded() {
 /// NFR-206 判据负载：**代表性速率**（25 chunks/s）的流式，供外部 CPU 采样
 /// （`#[ignore]`，运行方式：`cargo test -p whcode-tests --test nfr_budget
 /// nfr206_llm_stream_paced -- --ignored --nocapture`；
-/// `local/measure_nfr_budgets.py` 采样测试可执行文件的 `GetProcessTimes`）。
+/// `.github/scripts/benchmarks/measure-nfr-budgets.py` 采样测试可执行文件的 `GetProcessTimes`）。
 ///
 /// 速率取值依据：真实 LLM 流式输出为 I/O 限速，典型 token 速率 20—100 chunks/s，
 /// 取下限附近 25 chunks/s；桩 Provider 本身不限速（全速喂入属“满喂容量”场景，
 /// 见 [`nfr206_llm_stream_full_feed_capacity`]）。失效条件：接入真实 Provider
 /// （M3 装配）后须以真实流复测。
 #[test]
-#[ignore = "测量夹具：由 local/measure_nfr_budgets.py 以 --ignored 驱动并采样 CPU"]
+#[ignore = "测量夹具：由 .github/scripts/benchmarks/measure-nfr-budgets.py 以 --ignored 驱动并采样 CPU"]
 fn nfr206_llm_stream_paced_realistic_rate() {
     let provider = StubProvider::new();
     assert!(provider.is_available() && provider.capabilities().streaming);
@@ -254,7 +254,7 @@ fn nfr206_llm_stream_paced_realistic_rate() {
 /// campaign 驱动）。不做预算判定——全速喂入不是真实流式形状；本用例输出
 /// “chunks/秒/核”容量，证明在代表性速率下的 CPU 占用有数量级余量。
 #[test]
-#[ignore = "测量夹具：由 local/measure_nfr_budgets.py 以 --ignored 驱动"]
+#[ignore = "测量夹具：由 .github/scripts/benchmarks/measure-nfr-budgets.py 以 --ignored 驱动"]
 fn nfr206_llm_stream_full_feed_capacity() {
     let provider = StubProvider::new();
     let request = LlmRequest {

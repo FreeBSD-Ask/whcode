@@ -107,11 +107,14 @@ cargo test -p whcode-tests --test layout         # 目录分类门禁
 python .github/scripts/traceability.py                        # FR↔任务↔Check 三方追溯（含缺口登记合规）
 python .github/scripts/check_counts.py                        # 任务/Check/FR 计数声明与实际一致
 python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑）
-python local/normalize_eol.py                   # LF + 无 BOM 审计
+python .github/scripts/check-eol.py                   # LF + 无 BOM 审计
 python .github/scripts/check-workflows.py       # CI workflow 语义门禁（与 CI 同源）
-python local/measure_resources.py               # 资源铁律 M1/C4：测试进程 RSS/CPU 达标
+python .github/scripts/benchmarks/measure-resources.py               # 资源铁律 M1/C4：测试进程 RSS/CPU 达标
 python .github/scripts/benchmarks/check-frontend-budget.py    # 前端预算审计（涉及前端时）
 ```
+
+**测试验收入口唯一（ADR-037）**：测试“通过”结论以 GitHub Actions 日志与 artifact 为准；
+本地运行只作复现与排障。CI 未实际运行时（无远端仓库）必须登记缺口，不得以本地全绿冒充。
 
 运行入口：
 
@@ -208,7 +211,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 工作流 `uses:` 必须同时满足：**最新 release 版本** + **固定 commit SHA**，写法为
   `owner/repo@<40 位十六进制 SHA> # vX.Y.Z`；禁止 `@main`、`@master`、`@vN` 等可移动引用。
 - `.github/scripts/action-versions.json` 是唯一事实源（版本 + SHA + 复核日期）；`.github/scripts/check-actions.py`
-  在每次 CI 离线校验，`action-version-audit` 每周联网复核上游最新版本。
+  在每次 CI 离线校验，`ci.yml` 的 `action-audit` job 每周（schedule）联网复核上游最新版本。
 - 升级流程：`python .github/scripts/check-actions.py --update` 刷新清单 → 同步工作流引用与版本注释 →
   离线门禁通过 → 提交。例外必须走 ADR，不得以“临时”为名跳过。
 - Dependabot 的 `github-actions` PR 只负责提议：合并前必须运行 `--update` 并提交清单，

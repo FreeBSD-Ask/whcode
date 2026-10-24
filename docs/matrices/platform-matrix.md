@@ -9,7 +9,7 @@
 **范围（ADR-013，2026-10-21 用户决策；2026-10-24 两次修订 BSD CI）**：唯一验收目标是
 **Windows 11 amd64**；不考虑任何 32 位平台；FreeBSD/NetBSD/OpenBSD/DragonFly 全部**延后**
 （保留代码与文档，不进入验收结论）。四个 BSD 的构建与测试都在 GitHub CI 的单一矩阵
-工作流 `.github/workflows/platform-matrix.yml` 中随 `main` 自动运行；矩阵设置
+工作流 `.github/workflows/ci.yml` 中随 `main` 自动运行；矩阵设置
 `fail-fast: false` 并行执行，单平台失败不取消其他平台（仅作平台证据）。版本口径为各平台
 **最新 release**（FreeBSD `15`、NetBSD `11`、OpenBSD `8` 前缀自动取最新点版本；DragonFly
 精确 `6.4.2`）；**`-current` 未覆盖**——上游 vmactions action 只提供 release 表、无快照输入

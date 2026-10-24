@@ -94,19 +94,16 @@ SCRIPT_DELETE_PATTERNS = [
 
 #: local/ 永久保留清单（优先于删除模式）：
 #: - `sensenova.env` 是凭据（AGENTS：不入库、不进日志），任何清理不得触碰；
-#: - `normalize_eol.py`、`measure_resources.py`、`measure_nfr_budgets.py` 被 AGENTS §3
-#:   标准验证链引用，且无入库对应物；
 #: - `dml_cte_ab.py`、`baseline_v7.py` 是 ADR-036 的测量工具（数据修改 CTE A/B 与改造后基线），
 #:   证据引用它们以保证可复现，故保留；
+#: - EOL、NFR 与测试进程资源测量脚本已迁入 `.github/scripts/`（CI 唯一执行入口），
+#:   `local/` 不再保留同名副本，避免双源漂移；
 #: - `check_workflows.py` 不在此列：入库版 `.github/scripts/check-workflows.py` 是唯一事实源，
 #:   `local/` 同名副本由本机制回收（避免“本地绿、CI 红”）；
 #: - `sacred_*` 是源文本考据工作数据，配套的导出/检查脚本一并保留
 #:   （删脚本则考据数据不可复现）。
 SCRIPT_KEEP_ALWAYS = [
     "sensenova.env",
-    "normalize_eol.py",
-    "measure_resources.py",
-    "measure_nfr_budgets.py",
     "dml_cte_ab.py",
     "baseline_v7.py",
     "sacred_sources.duckdb",

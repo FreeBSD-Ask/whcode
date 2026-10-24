@@ -29,7 +29,7 @@
 - `test_nfr_budget.rs`：ADR-025 冻结预算的测量夹具。NFR-207（会话切换 p50/p95/p99 ≤ 200 ms）
   与 NFR-209（历史单页 p95 ≤ 30 ms）为常规回归可复现项，但因需独占 CPU/磁盘而标 `#[ignore]`，
   由 stability workflow 独立步骤驱动；NFR-203（20 次切换 RSS 增量 ≤ 10 MB）与 NFR-206
-  （流式 CPU ≤ 8% 单核）需外部采样，由 `local/measure_nfr_budgets.py` 驱动。
+  （流式 CPU ≤ 8% 单核）需外部采样，由 `.github/scripts/benchmarks/measure-nfr-budgets.py` 驱动。
 - `test_stability_run.rs`：T116 长跑采集器——**单进程**持续写入/查询/切换/清理，
   按间隔自采样 RSS、累计 CPU 与单核占比、线程数、句柄数、数据库与 WAL 大小、
   事件缺失计数、failed 任务数、提交/查询/切换延迟，逐行追加 JSONL（中断不丢已采
@@ -40,21 +40,24 @@
 
 ## 如何运行
 
-### GitHub Actions（2026-10-24 起）
+### GitHub Actions（2026-10-25 起：全部测试统一走 ci.yml）
 
-`.github/workflows/stability.yml`（`stability-measurements`）每周一 02:37 UTC 与手动触发，
+`.github/workflows/ci.yml` 的 `measurements` job 在 push `main`、PR 与手动触发时运行，
 单 job 上限 350 分钟，按顺序执行：
 
 1. `writer_stress`、`memory_limit`、`query_plan` 三个 `--ignored` 实验；
 2. `nfr_budget` 的 NFR-203／NFR-206（合并为一个步骤）；
 3. `nfr_budget` 的 NFR-207／NFR-209（**另起步骤独占执行**——全 workspace 并行时实测
    NFR-209 p95 45.8 ms 超标，测量不具可归因性）；
-4. `stability_run` 的 30 秒／5 秒采样冒烟（验证采集链路，不作 24 h 结论）。
+4. NFR-201／202／205 的真实进程测量（`.github/scripts/benchmarks/measure-nfr-budgets.py`）；
+5. `session_switch` 的测试进程 RSS/CPU（`.github/scripts/benchmarks/measure-resources.py`）；
+6. `stability_run` 的 30 秒／5 秒采样冒烟（验证采集链路，不作 24 h 结论）。
 
 日志与 JSON 产物写入 `artifacts/stability-ci/` 并作为 artifact 归档。
+同一工作流的每周一 schedule **只做 action 版本审计**，不跑测试。
 
-**5.5 小时长跑在 CI 内**（ADR-033）：`.github/workflows/stability-long.yml`
-（`stability-long-run`，仅手动触发，`timeout-minutes: 355`）运行 19 800 秒、300 秒采样，
+**5.5 小时长跑在 CI 内**（ADR-033）：`.github/workflows/long-run.yml`
+（`long-run`，仅手动触发，`timeout-minutes: 355`）运行 19 800 秒、300 秒采样，
 产物归档。24/72 小时深检保留为可选的 self-hosted／本机运行，不再作为 CI 门槛；
 **5.5 h 不得表述为 24/72 小时已验证**。
 
@@ -78,7 +81,7 @@ cargo test -p whcode-tests --test nfr_budget nfr207 -- --ignored --nocapture
 cargo test -p whcode-tests --test nfr_budget nfr209 -- --ignored --nocapture
 
 # NFR-203／NFR-206（需外部采样，由 local 脚本驱动）
-python local/measure_nfr_budgets.py
+python .github/scripts/benchmarks/measure-nfr-budgets.py
 
 # 长跑采集器（默认 5.5 小时，ADR-033；冒烟用 STABILITY_SMOKE=1）
 ./tests/stability/run_stability.sh

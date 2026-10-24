@@ -46,14 +46,14 @@
 | 项 | 当前值 | 出处 |
 |---|---|---|
 | 需求 | 86 条 FR 定义；NFR-101—107、NFR-201—222；31 项验收（V-001—V-007、V-101—V-110、V-201—V-207、V-301—V-307） | `specs/001-whcode-harness/spec.md` |
-| 任务 | 160 条（T001—T160，编号连续） | `specs/001-whcode-harness/tasks.md` |
-| 验收检查点 | Check 1—262 | `specs/001-whcode-harness/checklist.md` |
+| 任务 | 161 条（T001—T161，编号连续） | `specs/001-whcode-harness/tasks.md` |
+| 验收检查点 | Check 1—263 | `specs/001-whcode-harness/checklist.md` |
 | 可执行结构门禁 | `layering`、`layout` 两个契约测试 | `tests/contract/test_layering.rs`、`tests/contract/test_layout.rs` |
 | 测试规模 | 2026-10-21 全量运行 154 例通过、0 失败、3 例 `#[ignore]`（内存上限、写者压力、查询计划实验） | `cargo test --locked --workspace` 输出 |
 | 配置管理基线 | git 标签 `v0.1.0-m0`（M0 基线，**未发布**） | `CHANGELOG.md`、`README.md` |
 | 平台范围 | Windows 11 amd64 在范围内；FreeBSD/NetBSD/OpenBSD/DragonFly 延后 | ADR-013、`docs/matrices/platform-matrix.md` |
 
-**口径约束**：上表是过程快照，不是验收结论。Check 1—262 中仍有未通过项；`v0.1.0-m0`
+**口径约束**：上表是过程快照，不是验收结论。Check 1—263 中仍有未通过项；`v0.1.0-m0`
 标签也不等于“已发布”。计数会随任务推进变化，更新时必须同时修正本表与相关文档。
 
 ### 1.5 哲学基线
@@ -155,7 +155,7 @@ G5 已打标签 `v0.1.0-m0`，但 README 明确“未发布”。因此 M0 的�
 | 产物 | `spec.md` 的 FR/NFR；`specs/001-whcode-harness/checklists/requirements.md`；`tasks.md`；`checklist.md`；必要时 ADR |
 | 退出判据 | 1）每条 FR 有稳定编号、P0/P1、可测判据、证据位置、归属里程碑；2）每条 FR 至少有一个任务与一个 Check；3）未验证项标 `[待验证]` 且有退出条件；4）无实现细节绑定（架构约束除外，须 ADR）；5）需求质量清单通过；6）每条需求有可执行的证伪条件；7）需求与文档标注假设、适用范围与复审日期 |
 | 评审方式 | 需求工程抽查（见 `docs/guides/requirements-engineering.md`）；`checklists/requirements.md` 逐条核对；AI 代理反向找“孤儿需求/断链/不可测判据”；用户对范围与优先级批准 |
-| 当前证据 | 86 条 FR 定义、160 条任务、262 项 Check；FR-611—FR-618、FR-711—FR-717 已登记 |
+| 当前证据 | 86 条 FR 定义、161 条任务、263 项 Check；FR-611—FR-618、FR-711—FR-717 已登记 |
 | 缺口 | 无正式 CR 表单编号；无独立需求属性表（来源、稳定性、验证方法以行内标注替代） |
 
 ### 3.3 G2 设计基线
@@ -177,7 +177,7 @@ G5 已打标签 `v0.1.0-m0`，但 README 明确“未发布”。因此 M0 的�
 | 输入 | G2 产物、任务清单、测试位置约定 |
 | 活动 | 编码；单元测试与失败路径测试；静态检查；文档同步；任务状态更新 |
 | 产物 | `crates/**`、`tests/**`、测试输出、`CHANGELOG.md` 条目、必要的模块文档更新 |
-| 退出判据 | 1）`cargo fmt --all --check` 无差异；2）`cargo clippy --workspace --all-targets -- -D warnings` 零告警；3）`cargo test --locked --workspace` 全部通过；4）新增行为至少有一个正向与一个失败路径测试；5）`test_layering` 与 `test_layout` 通过；6）未完成任务不得勾选；7）`[待验证]` 不得以推断关闭；8）测试包含证伪路径，而非仅证明实现正确；9）并发实现有模型/差分/压力验证，汇编有回退与差分测试；10）CI 工作流的 action 引用为**最新 release 版本 + 固定 commit SHA**，并通过 `.github/scripts/check-actions.py`（离线）与每周 `action-version-audit`（联网） |
+| 退出判据 | 1）`cargo fmt --all --check` 无差异；2）`cargo clippy --workspace --all-targets -- -D warnings` 零告警；3）`cargo test --locked --workspace` 全部通过；4）新增行为至少有一个正向与一个失败路径测试；5）`test_layering` 与 `test_layout` 通过；6）未完成任务不得勾选；7）`[待验证]` 不得以推断关闭；8）测试包含证伪路径，而非仅证明实现正确；9）并发实现有模型/差分/压力验证，汇编有回退与差分测试；10）CI 工作流的 action 引用为**最新 release 版本 + 固定 commit SHA**，并通过 `.github/scripts/check-actions.py`（离线）与每周 `ci.yml` 的 `action-audit` job（联网） |
 | 评审方式 | 可执行门禁；`docs/guides/pr-checklist.md` 逐项；AI 代理按“反例优先”审查；涉及安全、权限、恢复的改动必须由用户复核 |
 | 当前证据 | 154 例测试通过、0 失败；fmt/clippy 全绿；写者服务、迁移、游标分页、索引基准、概览预聚合与监控已补齐 |
 | 缺口 | 无独立人类代码评审记录；TUI 人工交互项不能由单元测试替代 |
@@ -304,7 +304,7 @@ cargo test -p whcode-tests --test layering
 cargo test -p whcode-tests --test layout
 
 # 编码卫生（G5 前必过）
-python local/normalize_eol.py
+python .github/scripts/check-eol.py
 python local/check_workflows.py
 ```
 
@@ -354,7 +354,7 @@ python local/check_workflows.py
 | 无独立测试计划文档 | 测试范围与风险覆盖不集中 | 以 `checklist.md` 与 `tests/**/README.md` 承担，M1 起补测试计划 |
 | IEEE 1016 视图不全 | 算法与资源视图缺失 | 在模块设计中按需补时序图与资源表 |
 | ISO 25010 未逐条映射 | 质量属性覆盖不完整 | 在 `docs/matrices/` 增补质量属性映射 |
-| 5.5 小时稳定性未测（ADR-033） | NFR-204 无数据 | 按 `tests/stability/README.md` 执行并归档（CI 入口 `stability-long.yml`） |
+| 5.5 小时稳定性未测（ADR-033） | NFR-204 无数据 | 按 `tests/stability/README.md` 执行并归档（CI 入口 `long-run.yml`） |
 | V-003/V-004/V-006 未收口 | M0 G4 不能判定通过 | 人工终端取证、SSH 节点验收、预算冻结或 ADR 修订 |
 | 无正式发布检查表 | G5 依赖人工核对 | 发布前按 §3.6 逐项留证，必要时新增模板 |
 | 并发设计档案尚无范例 | NFR-216 缺少可复用样例 | 首个并发任务按 ADR-015 模板产出并归档 |

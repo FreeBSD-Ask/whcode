@@ -131,4 +131,4 @@ V-003 证据（2026-10-23）：`artifacts/tui-v003-2026-10-23/summary.json`（10
   （间隔 ≥1000 ms、常量命名并测试断言；查询 O(1)），仅游标推进时置脏并重绘一帧，
   游标未变零重绘；不新增常驻线程、不做周期性全量重绘（FR-613／FR-617 纪律不变）；
   其他端产生的更改自动可见；空闲 CPU 复测不回归 NFR-205 基线
-  （`local/measure_resources.py`）。
+  （`.github/scripts/benchmarks/measure-resources.py`）。

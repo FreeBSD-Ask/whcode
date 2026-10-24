@@ -19,7 +19,7 @@
 - `test_trace_and_context.rs`（`trace_and_context`）——脱敏、链路串联、预算截断与重连补拉
   （T067、V-103/V-104）。
 - `test_extreme_scale.rs`（`extreme_scale`）——1M 事件极限规模 X1—X5；进程峰值 RSS 由
-  `local/measure_resources.py` 外部测量。
+  `.github/scripts/benchmarks/measure-resources.py` 外部测量。
 - `test_sdd_gates.rs`（`sdd_gates`）——V-201—V-207。
 - `test_runtime_acceptance.rs`（`runtime_acceptance`）——V-301—V-307。
 

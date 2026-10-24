@@ -43,7 +43,7 @@
   T099／M7 与 BSD 任务延后。OpenBSD/DragonFly 无原生测试，保持手工占位。
   代价（私有仓库 Actions 分钟、VM 构建慢、可能长期红灯）由平台矩阵负责人承担；
   失效条件：Actions 配额不可接受或用户撤回指令时，回到手工触发。
-- **2026-10-24（用户指令：四个 BSD 全部真实运行、版本取最新）**：`platform-matrix.yml` 把
+- **2026-10-24（用户指令：四个 BSD 全部真实运行、版本取最新）**：`platform-matrix.yml`（2026-10-25 并入 `ci.yml`）把
   OpenBSD（`vmactions/openbsd-vm`）与 DragonFly（`cross-platform-actions`；vmactions 无
   `dragonfly-vm`，已核实 404）从 echo 占位改为真实 VM 运行。版本口径：FreeBSD `release: "15"`、
   NetBSD `release: "11"`、OpenBSD `release: "8"`（action 自动取该系列最新点版本），DragonFly

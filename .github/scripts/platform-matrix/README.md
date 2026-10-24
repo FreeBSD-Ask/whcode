@@ -2,7 +2,7 @@
 
 平台依赖记录与交叉检查脚本（tasks.md T005/T020/T021；§9、§11.1）。Windows 11 amd64 为唯一验收目标；BSD 延后、仅手工触发（ADR-013）。
 
-**一份矩阵 workflow 位于 `.github/workflows/platform-matrix.yml`（2026-10-24 合并）**：
+**平台矩阵已并入 `.github/workflows/ci.yml`（2026-10-25 测试统一入口）**：
 GitHub Actions 只执行该目录下的文件；矩阵包含 windows/freebsd/netbsd/openbsd/dragonfly
 五个条目，`fail-fast: false` 并行执行，单平台失败不取消其他平台。本目录只保留脚本。
 
@@ -29,10 +29,11 @@ GitHub Actions 只执行该目录下的文件；矩阵包含 windows/freebsd/net
 纪律：
 
 - 构建前置：任何构建前必须先 `python .github/scripts/fetch-duckdb.py` 拉取并校验预编译 DuckDB（ADR-DB-BUILD）；
-- CI 至少分为：构建检查、可运行的原生测试、依赖验证、5.5 小时稳定性长跑（ADR-033，`.github/workflows/stability-long.yml`；§9.1）；
+- CI 至少分为：构建检查、可运行的原生测试、依赖验证、5.5 小时稳定性长跑（ADR-033，`.github/workflows/long-run.yml`；§9.1）；
 - 平台可构建与 DuckDB 原生构建**分开**验收（ADR-010、V-001/V-002）；
 - 依赖记录必须含 Rust/DuckDB/编译器/OS 四类版本（V-001）；
-- **交叉检查不等于运行验证**：`cargo check --target <bsd>` 只做类型检查；`whcode-store`（aws-lc-sys）与
-  `whcode-ssh`（russh→aws-lc-rs）在缺目标 C 工具链时无法交叉检查，这是记录在案的阻塞（ADR-010、G-01）；
+- **交叉检查不等于运行验证**：`cargo check --target <bsd>` 只做类型检查；`whcode-store`
+  （缺 BSD 原生 libduckdb）与 `whcode-ssh`（russh→aws-lc-rs）在缺目标 C 工具链时无法交叉检查，
+  这是记录在案的阻塞（ADR-010、G-01）；
 - 不得以 CI 编译通过单独判定平台可交付；不得以单一 BSD 结果代替四 BSD 验收（R-02）；
 - OpenBSD/DragonFly 的判据已按 ADR-011 改为“客户端连通性 + 受限命令执行 + 登记”，不得宣称原生能力。

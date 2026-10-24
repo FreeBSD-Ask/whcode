@@ -412,7 +412,7 @@ fn round2(value: f64) -> f64 {
 
 /// T116 长跑入口：单进程持续负载 + 按间隔自采样，逐行 JSONL 落盘。
 #[test]
-#[ignore = "长跑夹具：由 run_stability.sh 或 stability-long.yml 驱动（默认 5.5 小时，ADR-033）"]
+#[ignore = "长跑夹具：由 run_stability.sh 或 long-run.yml 驱动（默认 5.5 小时，ADR-033）"]
 fn stability_run_collects_section_11_5_series() {
     let dir = env_path("WHCODE_STABILITY_DIR").unwrap_or_else(|| {
         std::env::temp_dir().join(format!("whcode-stability-{}", std::process::id()))

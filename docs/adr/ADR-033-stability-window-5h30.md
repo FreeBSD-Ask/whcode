@@ -10,7 +10,7 @@
 
 1. **稳定性窗口改为 5.5 小时（19 800 秒）**，采样间隔 300 秒（约 66 个样本）。原“24 小时
    （候选发布 72 小时）”不再作为 CI 验收门槛。
-2. **CI 入口**：`.github/workflows/stability-long.yml`（`stability-long-run`，仅手动
+2. **CI 入口**：`.github/workflows/long-run.yml`（`long-run`，仅手动
    `workflow_dispatch`），Windows 托管 runner，`timeout-minutes: 355`（5 h 55 min）：
    330 min 长跑 + 准备（检出、门禁、DuckDB、仅编译长跑夹具）≤ 25 min + 产物上传，
    均在 6 h（360 min）硬上限内；产物 `timeseries.jsonl` 与 `run.log` 作为 artifact 归档。

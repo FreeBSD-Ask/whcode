@@ -1,6 +1,6 @@
 {
   "discipline": {
-    "generated_at": "2026-10-25T00:35:31+08:00",
+    "generated_at": "2026-10-25T01:10:07+08:00",
     "os": "Microsoft Windows [Version 10.0.26300.9550]",
     "toolchain": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
     "build_type": "release",
@@ -13,9 +13,9 @@
       "measured": true,
       "budget_mb": 36.0,
       "samples": 199,
-      "median_mb": 35.26,
-      "p95_mb": 35.47,
-      "max_mb": 35.49,
+      "median_mb": 35.3,
+      "p95_mb": 35.68,
+      "max_mb": 35.74,
       "passed": true,
       "method": "serve --web 空工作区空闲 10 s，GetProcessMemoryInfo 50 ms 轮询，判据取中位数"
     }

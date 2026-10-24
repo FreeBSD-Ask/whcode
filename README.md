@@ -24,10 +24,10 @@
 | M9 优化与发布 | **部分完成**：兼容矩阵、运行时清单、热点优化（T115）、发布包（T118）与三份指南（T119）已交付；5.5 小时稳定性（T116，ADR-033）阻塞 |
 | Phase 13 跨里程碑收尾 | **已完成**：D 台账、目录门禁与准则文档、安全复查（T123）、quickstart 全流程（T124）、三方断链审计（T127）均取得证据 |
 
-160 条任务中 158 条完成，2 条未完成：T099（BSD 现场验收证据，ADR-013 延后）、
+161 条任务中 159 条完成，2 条未完成：T099（BSD 现场验收证据，ADR-013 延后）、
 T116（5.5 小时稳定性阻塞）。原因逐条写在任务行。
 
-**验收口径**：`checklist.md` 的 262 个检查点**全部有复核记录**——**250 通过 / 12 未通过**
+**验收口径**：`checklist.md` 的 263 个检查点**全部有复核记录**——**251 通过 / 12 未通过**
 （其中 14 项通过记录来自 2026-10-21/22 的用户复核，其余由逐条复核与里程碑批次补录给出）。
 未通过项集中在：BSD 平台证据与 M7 现场验收（ADR-013 延后）、5.5 h 长跑（T116）、无远端
 CI（Check 3）、进程组零残留（Check 109/201）、ADR 未决项（Check 134）、
@@ -73,12 +73,14 @@ OpenBSD/DragonFly 无原生测试，保留手工占位。
 - **SSH**：内置客户端（公钥认证、受限命令、超时与输出上限、known_hosts TOFU 校验、按
   “意图—执行—登记”协议留痕）；M7 服务端已实现（`serve --ssh`，russh + 受限入口 + 单写者执行器，
   ADR-030），四平台现场验收按 ADR-013 延后
-- 五平台 CI 定义：Windows 绿路径必过；FreeBSD/NetBSD 随 `main` 自动运行（代码级检查 +
-  非 DuckDB 包测试 + 依赖记录），DuckDB 原生构建作为显式 Go/No-Go 门禁；OpenBSD/DragonFly
-  为手工客户端验收占位（延后，不作验收结论）；所有 action 固定到最新 release 的 commit SHA。
-- 稳定性/测量实验：`stability-measurements` 每周一与手动触发，运行短套件与 30 秒冒烟；
-  **5.5 小时长跑**由 `stability-long-run` 手动触发（19 800 秒、300 秒采样、timeout 355 分钟，
-  ADR-033）；24/72 小时深检保留为可选 self-hosted／本机运行，不再作为 CI 门槛，不得表述为已验证。
+- **测试统一入口**：`.github/workflows/ci.yml` 在 push `main`、PR 与手动触发时运行门禁、
+  五平台矩阵（Windows 绿路径必过；FreeBSD/NetBSD 随 `main` 自动运行代码级检查、非 DuckDB
+  包测试与依赖记录，DuckDB 原生构建为显式 Go/No-Go；OpenBSD/DragonFly 为延后占位）以及
+  全部测试与短测量；每周一 schedule 只做 action 版本联网审计。所有 action 固定到最新
+  release 的 commit SHA。
+- **5.5 小时长跑**由 `.github/workflows/long-run.yml` 手动触发（19 800 秒、300 秒采样、
+  timeout 355 分钟，ADR-033）；24/72 小时深检保留为可选 self-hosted／本机运行，
+  不再作为 CI 门槛，不得表述为已验证。
 
 已知限制（NFR-204 的 5.5 小时稳定性未测、真实 HTTP Provider 未接线、BSD 现场验收延后、
 Web 无 JS 只读视图缺失等）逐条列在
@@ -120,7 +122,7 @@ cargo test -p whcode-tests --test layering   # 分层 / 平台分支 / 前端不
 cargo test -p whcode-tests --test layout     # 目录分类
 python .github/scripts/check_counts.py       # 任务/Check/FR 计数一致性
 python .github/scripts/check-workflows.py    # CI workflow 语义门禁
-python local/normalize_eol.py                 # LF + 无 BOM
+python .github/scripts/check-eol.py                 # LF + 无 BOM
 
 # 3) 运行
 cargo run -p whcode-bin --release -- doctor          # 环境自检（含引擎版本实测）

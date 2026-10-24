@@ -1,49 +1,43 @@
-# 平台矩阵 CI（2026-10-24 用户指令）：原 platform-windows/freebsd/netbsd/openbsd/dragonfly
-# 合并为一个矩阵工作流。
+# CI 统一入口（2026-10-25 用户指令）：原 platform-matrix / stability / action-version-audit
+# 三份工作流合并为本文件；5.5 小时长跑因 GitHub 单 job 6 小时上限单独保留在 long-run.yml。
 #
-# 矩阵纪律：
-#   - `fail-fast: false`：任一平台失败**不取消**其他平台；各矩阵条目并行执行。
-#   - Windows 在 windows-latest 原生运行（pull_request + push main + dispatch）。
-#   - 四个 BSD 在 ubuntu-latest 的 VM 中**真实运行**（push main + dispatch；PR 不跑，省额度）：
-#     FreeBSD / NetBSD / OpenBSD 用 vmactions 对应 action，DragonFly 用 cross-platform-actions。
-#   - 平台结果只作平台证据，不进入 Windows 11 amd64 验收结论（ADR-013）。
+# 触发与门控：
+#   - push main / pull_request / workflow_dispatch：跑门禁、构建与全部测试、测量；
+#     平台矩阵中 Windows 在范围内原生运行，四个 BSD 仅作平台证据（ADR-013）。
+#   - schedule（每周一 03:17 UTC）：只跑 action 版本联网审计，不跑测试（job 级 if 门控）。
+#   - workflow_dispatch 的 `desktop` 输入：额外跑 GUI 探针；托管 runner 无交互桌面，
+#     结果按 headless/虚拟显示口径记录，不替代真实桌面人工证据。
 #
-# 版本口径（2026-10-24 用户指令：都用最新）：
-#   - FreeBSD/NetBSD/OpenBSD 的 `release` 只写主版本（"15"/"11"/"8"）：action 自动取该系列
-#     最新的点版本，升级点版本无需改工作流（见各 action README §5）。
-#   - **-current 未覆盖（已登记缺口）**：vmactions/freebsd-vm@v1.5.9 与 netbsd-vm@v1.5.2
-#     只支持官方 release 表（FreeBSD 10—15、NetBSD 9—11），没有 -current／快照输入；
-#     FreeBSD 16.0-CURRENT 在上游 action 仓库里标为 shelved（未启用）。OpenBSD 同理只有
-#     release 表（6.9—8.0）。因此本工作流只跑 release；-current 待上游支持或单独立项。
-#   - DragonFly：cross-platform-actions 要求精确版本（无前缀匹配），取上游文档的最新 6.4.2；
-#     升级需人工改 version 并按 §5.1 同步 action 清单。
-#   - Windows：windows-latest（GitHub 托管的最新稳定镜像）。
-#
-# 工具链与依赖纪律沿用各平台原注释：
-#   - Windows：不使用 GNU 工具链；构建前必须 `.github/scripts/fetch-duckdb.py`。
-#   - FreeBSD：rustup 安装锁定 1.99.1（不使用 ports 的 rust）；绿路径排除 GUI/DuckDB 依赖。
-#   - NetBSD：镜像不带 pkgin；解压官方二进制包引导 pkgin（不用 pkg_add，2026-10-24 用户指令）；
-#     pkgsrc 的 rust 常低于 MSRV，按 Cargo.toml 的 rust-version 判定并显式 SKIP（环境限制）。
-#   - OpenBSD/DragonFly：ports/dports 的 rust 同样可能低于 MSRV，判定与 SKIP 规则一致。
-name: platform-matrix
+# 纪律：
+#   - 所有 job 只读仓库；上传 artifact 使用 Actions 运行时令牌。
+#   - 测试与测量的唯一验收入口是 CI；本地脚本仅作复现与排障（用户 2026-10-25 选择）。
+#   - 测量 job 串行执行（写者压力/内存/查询计划/NFR 对资源敏感），避免互相污染。
+name: ci
 
 on:
   workflow_dispatch:
+    inputs:
+      desktop:
+        description: "运行桌面型测试（GUI 探针；托管 runner 无交互桌面时为 headless 口径）"
+        type: boolean
+        default: false
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # 每周一 03:17 UTC（北京时间 11:17），只触发 action 版本审计 job。
+    - cron: "17 3 * * 1"
 
 # Windows runner 控制台默认代码页非 UTF-8；门禁脚本含中文输出，统一强制 Python UTF-8 模式。
 env:
   PYTHONUTF8: "1"
 
-# 最小权限（CodeQL actions/missing-workflow-permissions）：本工作流只读仓库与上传构建产物，
-# 不需要 GITHUB_TOKEN 的写权限；上传 artifact 使用 Actions 运行时令牌，不依赖此权限。
 permissions:
   contents: read
 
 jobs:
   platform:
+    if: github.event_name != 'schedule'
     name: platform-${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     # 触发语义放在步骤级：GitHub 的 jobs.<job_id>.if 不支持 matrix 上下文。
@@ -91,6 +85,10 @@ jobs:
           cargo fmt --all --check
           cargo clippy --locked --workspace --all-targets -- -D warnings
 
+      - name: EOL 与编码门禁（LF / 无 BOM）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/check-eol.py
+
       - name: 测试（含分层与目录分类契约）
         if: matrix.platform == 'windows'
         run: cargo test --locked --workspace
@@ -132,6 +130,24 @@ jobs:
       - name: 打包并安装验证（T118）
         if: matrix.platform == 'windows'
         run: python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt
+
+      - name: TUI 可自动化冒烟（V-003：--version／doctor／非交互退出）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/tui-smoke.py --json artifacts/tui-smoke-ci.json
+
+      - name: Web 服务端冒烟（/api/status、/api/sessions、首页）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/web-smoke.py --json artifacts/web-smoke-ci.json
+
+      - name: 上传冒烟证据（TUI／Web）
+        if: always() && matrix.platform == 'windows'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: smoke-evidence
+          if-no-files-found: warn
+          path: |
+            artifacts/tui-smoke-ci.json
+            artifacts/web-smoke-ci.json
 
       - name: 上传 Windows 发布包
         if: matrix.platform == 'windows'
@@ -444,3 +460,154 @@ jobs:
         with:
           name: deps-dragonfly
           path: artifacts/deps-dragonfly.txt
+
+  measurements:
+    # PR 只跑构建与功能测试；测量在 push main 与手动触发时执行，避免每个 PR 消耗 6 小时配额
+    # 与 runner 环境差异造成不可归因的预算波动。
+    if: github.event_name != 'schedule' && github.event_name != 'pull_request'
+    runs-on: windows-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 工作流语义门禁
+        run: python .github/scripts/check-workflows.py
+
+      - name: CI action 版本门禁（最新版本 + 固定 SHA）
+        run: python .github/scripts/check-actions.py
+
+      - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
+        run: python .github/scripts/fetch-duckdb.py
+
+      - name: 构建（锁定依赖图）
+        run: cargo build --locked --workspace
+
+      - name: 写者服务并发压力实验（T034/ADR-017）
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/stability-ci | Out-Null
+          cargo test --locked -p whcode-tests --test writer_stress -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/writer_stress.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: DuckDB 内存上限基线实验（ADR-012）
+        shell: pwsh
+        run: |
+          cargo test --locked -p whcode-tests --test memory_limit -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/memory_limit.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 查询计划基准实验（T036/§7.2）
+        shell: pwsh
+        run: |
+          cargo test --locked -p whcode-tests --test query_plan -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/query_plan.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: NFR-203/NFR-206 测量夹具（ADR-025 冻结预算）
+        shell: pwsh
+        run: |
+          cargo test --locked -p whcode-tests --test nfr_budget nfr203 -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/nfr_budget.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p whcode-tests --test nfr_budget nfr206 -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/nfr_budget.log -Append
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: NFR-207/NFR-209 性能预算（独占执行）
+        shell: pwsh
+        run: |
+          cargo test --locked -p whcode-tests --test nfr_budget nfr207 -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/nfr207.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p whcode-tests --test nfr_budget nfr209 -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/nfr209.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: NFR-201/202/205/206 真实进程测量（原 local 脚本入库）
+        shell: pwsh
+        run: |
+          python .github/scripts/benchmarks/measure-nfr-budgets.py --only nfr201,nfr202,nfr205,nfr206 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/nfr_real_process.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 测试进程资源铁律（session_switch RSS/CPU）
+        shell: pwsh
+        run: |
+          python .github/scripts/benchmarks/measure-resources.py --test session_switch 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/resource_budget.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 长跑采集器冒烟（30 秒 / 5 秒采样，不作 24 h 结论）
+        shell: pwsh
+        env:
+          WHCODE_STABILITY_SECONDS: "30"
+          WHCODE_STABILITY_INTERVAL_SECS: "5"
+          WHCODE_STABILITY_DIR: artifacts/stability-ci/smoke-workspace
+          WHCODE_STABILITY_OUT: artifacts/stability-ci/timeseries.jsonl
+        run: |
+          cargo test --locked -p whcode-tests --test stability_run -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/stability-ci/stability_run_smoke.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 上传实验产物
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-measurements
+          if-no-files-found: warn
+          path: |
+            artifacts/stability-ci/*.log
+            artifacts/stability-ci/timeseries.jsonl
+            artifacts/writer-service-stress.json
+            artifacts/memory-limit-experiment.json
+            artifacts/query-plan-report.json
+            artifacts/nfr-budget-report.json
+            artifacts/resource-report.json
+
+  # ---------------- 桌面型测试（仅 workflow_dispatch 且 desktop=true） ----------------
+  # 托管 runner 运行在非交互会话：窗口可创建，但屏幕捕获可能是黑屏或受 session 0 限制。
+  # 本 job 提供 CI 入口与报告；失败即信号，不用 continue-on-error 掩盖。真实桌面结论仍以
+  # 交互式控制台人工证据为准（V-003、FR-714）。
+  desktop:
+    if: github.event_name == 'workflow_dispatch' && inputs.desktop
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 工作流语义门禁
+        run: python .github/scripts/check-workflows.py
+
+      - name: 拉取并校验预编译 DuckDB
+        run: python .github/scripts/fetch-duckdb.py
+
+      - name: 安装截图依赖（Pillow；requirements-dev.txt）
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: 发布构建
+        run: cargo build --release --locked -p whcode-bin
+
+      - name: GUI 探针（四主题／按键／空闲资源）
+        run: python .github/scripts/gui-probe.py --exe target/release/whcode.exe --out artifacts/gui-run-ci
+
+      - name: 上传 GUI 证据
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gui-probe
+          if-no-files-found: warn
+          path: artifacts/gui-run-ci/
+
+  # ---------------- action 版本联网审计（仅 schedule） ----------------
+  action-audit:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 联网复核 action 是否为最新版本（清单 + 固定 SHA）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/check-actions.py --online
