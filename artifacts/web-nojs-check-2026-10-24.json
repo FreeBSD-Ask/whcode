@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-24",
+  "command": "whcode serve --web --bind 127.0.0.1:53115 --workspace <临时目录>",
+  "checks": {
+    "create_status": 201,
+    "status_ok": true,
+    "has_noscript": true,
+    "readonly_heading": true,
+    "session_id_present": true,
+    "title_escaped": true,
+    "raw_script_absent": true,
+    "marker_replaced": true
+  },
+  "all_true": true,
+  "noscript_excerpt": "<noscript>\n      <h2>只读快照 / Read-only snapshot</h2>\n      <p>共 1 个会话。启用 JavaScript 获得完整交互。/ 1 session(s) listed; enable JavaScript for full interaction.</p>\n      <ul class=\"noscript-sessions\">\n        <li><code>S-1</code> <span>&lt;script&gt;alert(1)&lt;/script&gt; 无 JS 标题</span> <em>active</em></li>\n      </ul>\n    </noscript>\n    <section id=\"view-sessions\" hidden>\n      <form id=\"session-creat"
+}

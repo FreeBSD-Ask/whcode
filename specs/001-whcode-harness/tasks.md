@@ -208,7 +208,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T133 [P] [US7] 在 `crates/whcode-web/frontend/` 实现动效总开关（FR-613 前端部分）：尊重 `prefers-reduced-motion`、默认关闭非必要动效、CSS 仅使用 GPU 合成友好的 transform/opacity（M6 交付）
 - [x] T135 [US6] 在 `crates/whcode-platform/src/term.rs` 与 `crates/whcode-tui/src/render.rs` 实现 TUI 窗口最小化检测（Windows `GetConsoleWindow`+`IsIconic`）与渲染门控：最小化期间跳过绘制、关键事件继续记账，还原后单次全量重绘（FR-617）（2026-10-22 完成接线）：检测源经 ADR-021（PowerShell 子进程 P/Invoke，零 unsafe、零新依赖，本机实测 `Some(false)`）；门控消费端在 `tui/render.rs`（minimized 跳过绘制、关键事件记账、还原单次全量重绘）；**事件循环接线**（`tui/lib.rs`）：仅在有待绘制帧且输入静默 ≥1s 时探测，间隔 5s→60s 指数退避、检测到最小化回落 5s——空闲（无待绘制帧）与连续输入期间零探测，空闲成本为零；输入事件证明窗口可见（直接按还原记账）；重放证据 `run_scripted_steps`（探测计数/跳过计数/还原单次重绘均断言）
 - [x] T136 [US7] 在 `crates/whcode-web/frontend/` 实现挂起状态机（Active/Suspended/Recovering）：`visibilitychange` + `blur/focus` 判定、恢复去抖 ≥250 ms、恢复时取快照并丢弃中间帧、WebGL/Canvas 上下文释放与重建、GPU 特性探测失败降级、`prefers-reduced-motion` 与动效总开关（FR-617）
-- [x] T137 [US7] 在 `crates/whcode-web/frontend/` 落实极简前端基线（ADR-014）：静态 HTML/CSS/原生 JS、服务端直出、无 node 构建链；新增 `ci/benchmarks/check-frontend-budget.py` 做体积与依赖审计（JS ≤ 50 KB gzip、CSS ≤ 20 KB gzip、无 WebGL/视频/自动播放、无第三方字体），并接入 CI 门禁（FR-618）
+- [x] T137 [US7] 在 `crates/whcode-web/frontend/` 落实极简前端基线（ADR-014）：静态 HTML/CSS/原生 JS、服务端直出、无 node 构建链；新增 `ci/benchmarks/check-frontend-budget.py` 做体积与依赖审计（JS ≤ 50 KB gzip、CSS ≤ 20 KB gzip、无 WebGL/视频/自动播放、无第三方字体），并接入 CI 门禁（FR-618）**2026-10-24 补充**：首页增加服务端直出 `<noscript>` 只读快照（会话数 + `ID／标题／状态`，HTML 转义、超限写明截断、查询失败可见；仅未认证回环模式注入，认证模式不注入数据），见 Check 229 与 ADR-014 修订记录
 
 **Checkpoint**: 本地双端交付，Web/SSH 可复用同一能力矩阵
 
@@ -241,7 +241,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 **Independent Test**: 按 quickstart.md §7，四平台分别验收；任一失败记录明确阻塞原因（不以单一平台代替）
 
 - [x] T096 [US8] 在 `crates/whcode-ssh/src/server.rs` 实现公钥认证、会话隔离、终端尺寸变化与安全退出（FR-607）（**2026-10-24 完成**：`server.rs`（1 456 行）以 russh 0.64.1 实现公钥认证（仅 Ed25519 + `authorized_keys` 清单）、每连接独立 `SessionContext`（通道上限 8）、pty-req/window-change 记录并随命令传给执行器、连接断开经 `Drop` 归还计数并写审计；`shell_request` 一律拒绝（FR-608，交互 PTY 属 M8）；进程内 10 项服务端测试（9 tokio + 1）覆盖认证成功/拒绝、越权命令、resize、并发会话、断连回收；`cargo test -p whcode-ssh` 41/41 通过。**未取得**：BSD 现场验收（属 T099／ADR-013 延后））
-- [x] T097 [US8] 在 `crates/whcode-ssh/src/policy.rs` 实现受限 WHCode 入口；任意系统 Shell 为显式独立权限（FR-608、§10.2）（**2026-10-24 完成**：`policy.rs` 白名单 `sessions`／`session show|new`／`tasks`／`task`，默认 `SshPolicy::denied()` 拒绝 Shell，显式授权需 `allow_shell` 开关 **且** 调用者在 `shell_actors`，判定带能力校验与结构化错误码；5 项单测覆盖默认拒绝、双条件授权、越权与用法错误。**注**：本节指服务端入口；内置 SSH 客户端的任意命令面见 Check 97 登记缺口）
+- [x] T097 [US8] 在 `crates/whcode-ssh/src/policy.rs` 实现受限 WHCode 入口；任意系统 Shell 为显式独立权限（FR-608、§10.2）（**2026-10-24 完成**：`policy.rs` 白名单 `sessions`／`session show|new`／`tasks`／`task`，默认 `SshPolicy::denied()` 拒绝 Shell，显式授权需 `allow_shell` 开关 **且** 调用者在 `shell_actors`，判定带能力校验与结构化错误码；5 项单测覆盖默认拒绝、双条件授权、越权与用法错误。**注**：本节指服务端入口；内置 SSH 客户端的默认命令策略同批次收口（首 token 白名单 + 显式 `allow_shell` 审计，见 Check 97））
 - [x] T098 [P] [US8] 在 `crates/whcode-ssh/src/adapter.rs` 复用应用服务，去除每会话独立数据库写入路径（ADR-005、C-03）（**2026-10-24 完成**：`adapter.rs` 单线程 `whcode-ssh-exec` 执行器持有装配根注入的唯一 `Connection`（`serve.rs` 只 `open_workspace_db` 一次），命令经有界队列（64）+ 一次性回执 + 30 s 超时；`three_concurrent_ssh_sessions_write_through_single_connection` 证明 3 个并发会话全部经同一连接落库；非测试代码无 `Connection::open`）
 - [ ] T099 [US8] 在 `artifacts/ssh-acceptance/` 产出四 BSD 的认证/尺寸/断连/权限边界证据与阻塞清单（V-004、R-02）**未取得（2026-10-24 复核）**：`artifacts/ssh-acceptance/` 不存在；ADR-013 将 BSD 全部延后，本机无平台环境（M0 阻塞项 B-01），恢复须新 ADR 并补分平台证据
 

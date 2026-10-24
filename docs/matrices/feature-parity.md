@@ -13,7 +13,8 @@
 `/api/tasks/retry|abort`、`/api/purge`（预览默认 + 确认执行，破坏性命令防误触）——
 与 CUI 同源 `whcode-app` 判权（FR-604），33 项 API 测试含写命令预览/确认/权限拒绝
 （`crates/whcode-web/src/api.rs` 内联测试）。部署边界：仅回环或局域网（RFC1918，认证必填，
-ADR-023）。
+ADR-023）。**无 JS 只读兜底（2026-10-24）**：首页服务端直出 `<noscript>` 会话快照（HTML 转义、
+超限写明截断；仅未认证的本机回环模式，认证模式不注入数据），见 Check 229。
 
 **最后更新**：2026-10-24 | 依据：`specs/001-whcode-harness/contracts/app-service.md` §2 命令面；
 CUI 列以 `crates/whcode-bin/src/cui_dispatch.rs` 的分支与“未接线”清单为准（`run`、`events show`、

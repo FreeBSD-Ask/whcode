@@ -156,6 +156,18 @@ struct ServerShared {
     session_seq: AtomicU64,
 }
 
+/// 授权判定：按 `SHA256` 指纹（只覆盖公钥数据）比较。
+///
+/// 不用 `PublicKey` 的 `PartialEq`：它把注释（comment）也算进相等性，而 OpenSSH 客户端
+/// 上送的公钥不带注释、`authorized_keys` 行通常带注释——按结构体相等会误拒真实客户端
+/// （系统 OpenSSH 冒烟实测命中）。指纹是公钥数据的抗碰撞摘要，与“是否同一把密钥”等价。
+fn authorized_contains(authorized_keys: &[PublicKey], offered: &PublicKey) -> bool {
+    let offered_fingerprint = hostkey::fingerprint(offered);
+    authorized_keys
+        .iter()
+        .any(|authorized| hostkey::fingerprint(authorized) == offered_fingerprint)
+}
+
 impl ServerShared {
     fn record(&self, session_id: &str, actor_id: &str, action: &str, ok: bool, detail: String) {
         self.audit.record(AuditRecord {
@@ -326,12 +338,7 @@ impl Handler for SshSessionHandler {
             );
             return Ok(Auth::reject());
         }
-        if !self
-            .shared
-            .authorized_keys
-            .iter()
-            .any(|authorized| authorized == public_key)
-        {
+        if !authorized_contains(&self.shared.authorized_keys, public_key) {
             self.record(
                 user,
                 "auth-denied",
@@ -1465,6 +1472,27 @@ mod tests {
 
         running.handle().shutdown("测试结束".to_string());
         let _ = tokio::time::timeout(Duration::from_secs(5), &mut running).await;
+    }
+
+    /// 回归（系统 OpenSSH 冒烟命中）：authorized_keys 行带注释、客户端上送不带注释，
+    /// 授权判定必须仍命中（PublicKey 的 PartialEq 含 comment，不能直接比结构体）。
+    #[test]
+    fn authorized_keys_with_comments_match_commentless_client_keys() {
+        let client = PrivateKey::random(&mut rand::rng(), Algorithm::Ed25519).expect("密钥");
+        let with_comment = format!(
+            "{} user@host",
+            client.public_key().to_openssh().expect("编码公钥")
+        );
+        let parsed = russh::keys::PublicKey::from_openssh(&with_comment).expect("解析带注释公钥");
+        assert!(
+            authorized_contains(std::slice::from_ref(&parsed), client.public_key()),
+            "注释不得参与密钥同一性判定"
+        );
+        let other = PrivateKey::random(&mut rand::rng(), Algorithm::Ed25519).expect("密钥");
+        assert!(
+            !authorized_contains(&[parsed], other.public_key()),
+            "不同密钥必须拒绝"
+        );
     }
 
     #[test]

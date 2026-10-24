@@ -194,15 +194,17 @@ whcode-bin           （装配根：配置、日志、feature）
 
 ### whcode-ssh
 
-- **职责**：内置 SSH 客户端（known_hosts 风格 TOFU 信任校验，ADR-005/030）；M7 服务端
-  （公钥认证、会话隔离、受限入口、单写者执行器，ADR-030）。四平台现场验收按 ADR-013 延后。
+- **职责**：内置 SSH 客户端（known_hosts 风格 TOFU 信任校验，ADR-005/030；默认命令策略只放行
+  首 token 为 `whcode`／`whcode.exe` 的远端命令，任意系统 Shell 需显式 `allow_shell` 并留审计）；
+  M7 服务端（公钥认证、会话隔离、受限入口、单写者执行器，ADR-030）。四平台现场验收按 ADR-013 延后。
 - **依赖**：`whcode-app`（应用服务与权限判定）、`whcode-domain`、`russh 0.64`、`tokio`；
   `duckdb` 仅用于**透传**装配根注入的 `Connection` 类型（同 `whcode-web` 先例），
   本 crate 不自行打开数据库（`Connection::open` 只出现在测试）。
 - **关键类型**：`SshTarget`、`ExecReport`、`ExecRegistry`（客户端）；
   `SshServer`、`SshPolicy`、`CommandExecutor`、`KnownHosts`、`HostKey`（服务端）。
 - **失败模式**：无退出状态判 `unknown`；输出尾部有界并标记截断；认证失败结构化拒绝并审计；
-  命令队列满背压（容量 64）、执行超时 30 s；主机密钥不匹配拒绝且不改写信任文件。
+  命令队列满背压（容量 64）、执行超时 30 s；主机密钥不匹配拒绝且不改写信任文件；
+  客户端默认拒绝非 `whcode` 命令（`PermissionDenied`，需显式 `allow_shell` 并留审计）。
 
 ### whcode-gui
 

@@ -42,7 +42,7 @@ use std::time::{Duration, Instant};
 use russh::client;
 use russh::keys::{PrivateKeyWithHashAlg, PublicKeyOrCertificate, load_secret_key};
 use russh::{ChannelMsg, Disconnect};
-use whcode_domain::{RuntimeExecutionStatus, WhError};
+use whcode_domain::{ErrorCode, RuntimeExecutionStatus, WhError};
 
 use crate::hostkey::fingerprint;
 use crate::trust::{HostKeyVerdict, KnownHosts};
@@ -65,7 +65,15 @@ pub struct SshTarget {
     /// 私钥路径（OpenSSH 格式；口令保护的私钥在本原型中不支持）。
     pub private_key_path: PathBuf,
     /// 在远端执行的命令（由远端 shell 解释，因此需由调用方保证参数转义）。
+    ///
+    /// 默认入口只允许远端 `whcode` 命令（见 [`validate_target`]）；任意系统 Shell 属
+    /// **显式独立权限**，必须把 [`SshTarget::allow_shell`] 置为 `true` 并留审计（FR-608/611）。
     pub command: String,
+    /// 是否允许执行任意远端命令（默认 `false`）。
+    ///
+    /// 这是客户端的“显式 Shell 授权”开关：置 `true` 时意图登记会带上 `allow_shell` 标记，
+    /// 结果说明也会注明 `shell-granted`，便于审计追溯（ADR-007）。
+    pub allow_shell: bool,
     /// 整个调用的超时上限（毫秒）。必须大于 0：默认超时必须是有界的（安全默认）。
     pub timeout_ms: u64,
     /// 主机密钥信任文件（known_hosts 风格，TOFU——见 [`crate::trust`]）。必填：没有信任
@@ -119,6 +127,8 @@ pub enum RegistryCall {
         user: String,
         /// 待执行命令。
         command: String,
+        /// 是否使用了显式 Shell 授权（审计可见；默认 `false`）。
+        allow_shell: bool,
     },
     /// 结果登记。
     Result {
@@ -175,6 +185,7 @@ impl ExecRegistry for CollectingExecRegistry {
             port: target.port,
             user: target.user.clone(),
             command: target.command.clone(),
+            allow_shell: target.allow_shell,
         });
         Ok(())
     }
@@ -201,7 +212,9 @@ impl ExecRegistry for CollectingExecRegistry {
 ///   `report.status` 表达（规则 3、4）。
 ///
 /// # Errors
-/// 目标校验失败返回 [`ErrorCode::InvalidState`](whcode_domain::ErrorCode::InvalidState)；
+/// 目标校验失败返回 [`ErrorCode::InvalidState`](whcode_domain::ErrorCode::InvalidState)，
+/// 命令策略拒绝（默认入口的任意系统 Shell）返回
+/// [`ErrorCode::PermissionDenied`](whcode_domain::ErrorCode::PermissionDenied)；两者均不可重试。
 /// 登记失败返回登记实现方给出的错误。
 pub async fn run_command(
     target: &SshTarget,
@@ -212,14 +225,19 @@ pub async fn run_command(
     // 规则 2：意图先于连接——登记失败则不得发起连接。
     registry.record_intent(target)?;
 
-    let report = execute(target).await;
+    let mut report = execute(target).await;
+    if target.allow_shell {
+        // 显式 Shell 授权必须出现在结果说明里（审计可追溯；默认路径永远不带）。
+        report.note = format!("shell-granted（显式授权）：{}", report.note);
+    }
 
     // 规则 8：结果登记失败时整体失败。
     registry.record_result(&report)?;
     Ok(report)
 }
 
-/// 校验目标；失败返回 `invalid_state`（不可重试）。
+/// 校验目标；字段非法返回 `invalid_state`（不可重试），命令策略拒绝返回
+/// `permission_denied`（不可重试）。
 fn validate_target(target: &SshTarget) -> Result<(), WhError> {
     if target.host.trim().is_empty() {
         return Err(WhError::invalid_state("SSH 目标非法：host 为空"));
@@ -230,6 +248,7 @@ fn validate_target(target: &SshTarget) -> Result<(), WhError> {
     if target.command.trim().is_empty() {
         return Err(WhError::invalid_state("SSH 目标非法：command 为空"));
     }
+    validate_command_policy(target)?;
     if target.timeout_ms == 0 {
         // 安全默认：超时必须是有界的，0 视为非法配置而非“无限等待”。
         return Err(WhError::invalid_state(
@@ -251,6 +270,40 @@ fn validate_target(target: &SshTarget) -> Result<(), WhError> {
         WhError::invalid_state(format!("私钥不可读：{}（{err}）", key_path.display()))
     })?;
     Ok(())
+}
+
+/// 客户端默认入口允许的远端程序：只允许 WHCode 自身的命令。
+///
+/// 这是“默认无任意系统 Shell”的客户端一侧（FR-608/611）：远端 `sh`／`bash`／`powershell`
+/// 等一律拒绝，除非 [`SshTarget::allow_shell`] 显式打开（并留审计）。
+const ALLOWED_REMOTE_PROGRAMS: [&str; 2] = ["whcode", "whcode.exe"];
+
+/// 客户端命令策略：默认只放行远端 `whcode`（含绝对路径与 `.exe` 变体）。
+fn validate_command_policy(target: &SshTarget) -> Result<(), WhError> {
+    if target.allow_shell {
+        return Ok(());
+    }
+    let program = target
+        .command
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or_default();
+    if ALLOWED_REMOTE_PROGRAMS
+        .iter()
+        .any(|allowed| allowed.eq_ignore_ascii_case(program))
+    {
+        return Ok(());
+    }
+    Err(WhError::new(
+        ErrorCode::PermissionDenied,
+        format!(
+            "SSH 客户端默认入口只允许远端 whcode 命令；{program:?} 属任意系统 Shell，\
+             需显式 allow_shell 授权并留审计（FR-608/611）"
+        ),
+    ))
 }
 
 /// 客户端的会话级处理器：主机密钥 TOFU 校验（ADR-005 阻断项结清）。
@@ -826,7 +879,8 @@ mod tests {
                     port: addr.port(),
                     user: "tester".to_string(),
                     private_key_path: key_path,
-                    command: "whcode-proto-echo".to_string(),
+                    command: "whcode proto-echo".to_string(),
+                    allow_shell: false,
                     timeout_ms,
                     known_hosts_path: trust_file,
                 };
@@ -871,6 +925,8 @@ mod tests {
             user: "tester".to_string(),
             private_key_path: key.path().to_path_buf(),
             command: "true".to_string(),
+            // 本用例测“目标校验”，不是命令策略：显式打开 Shell 授权以隔离策略判定。
+            allow_shell: true,
             timeout_ms: 1000,
             known_hosts_path: trust_file(),
         };
@@ -914,6 +970,112 @@ mod tests {
         }
     }
 
+    /// Check 97 客户端侧：默认入口只放行远端 `whcode`；任意系统 Shell 需显式授权。
+    #[test]
+    fn client_command_policy_allows_whcode_and_denies_shell_by_default() {
+        let key = TestKey::generate("policy");
+        let base = SshTarget {
+            host: "127.0.0.1".to_string(),
+            port: 22,
+            user: "tester".to_string(),
+            private_key_path: key.path().to_path_buf(),
+            command: "whcode sessions".to_string(),
+            allow_shell: false,
+            timeout_ms: 1000,
+            known_hosts_path: trust_file(),
+        };
+        for allowed in [
+            "whcode sessions",
+            "whcode.exe tasks",
+            "/usr/local/bin/whcode session show S-1",
+            "C:\\whcode\\whcode.exe tasks",
+        ] {
+            let target = SshTarget {
+                command: allowed.to_string(),
+                ..base.clone()
+            };
+            assert!(
+                validate_command_policy(&target).is_ok(),
+                "{allowed} 必须放行（默认入口允许远端 whcode）"
+            );
+        }
+        for denied in [
+            "sh",
+            "bash -lc whoami",
+            "powershell -Command Get-Process",
+            "cmd /c dir",
+            "./collect.sh",
+        ] {
+            let target = SshTarget {
+                command: denied.to_string(),
+                ..base.clone()
+            };
+            let error = validate_command_policy(&target).expect_err("默认必须拒绝任意 Shell");
+            assert_eq!(error.code, ErrorCode::PermissionDenied, "命令：{denied}");
+            assert!(!error.retryable, "权限拒绝不得标记为可重试");
+        }
+        let granted = SshTarget {
+            command: "bash -lc whoami".to_string(),
+            allow_shell: true,
+            ..base.clone()
+        };
+        assert!(
+            validate_command_policy(&granted).is_ok(),
+            "显式 allow_shell 授权必须放行"
+        );
+    }
+
+    /// 策略拒绝发生在意图登记之前：不得产生任何登记副作用。
+    #[tokio::test]
+    async fn shell_denied_by_default_leaves_registry_untouched() {
+        let key = TestKey::generate("shell-denied");
+        let target = SshTarget {
+            host: "127.0.0.1".to_string(),
+            port: 1,
+            user: "tester".to_string(),
+            private_key_path: key.path().to_path_buf(),
+            command: "bash -lc whoami".to_string(),
+            allow_shell: false,
+            timeout_ms: 2000,
+            known_hosts_path: trust_file(),
+        };
+        let registry = CollectingExecRegistry::new();
+        let error = run_command(&target, &registry)
+            .await
+            .expect_err("默认必须拒绝任意 Shell");
+        assert_eq!(error.code, ErrorCode::PermissionDenied);
+        assert!(registry.is_empty(), "策略拒绝不得登记意图或结果");
+    }
+
+    /// 显式 Shell 授权必须进入意图登记（审计可追溯）。
+    #[test]
+    fn intent_records_explicit_shell_grant() {
+        let key = TestKey::generate("grant");
+        let target = SshTarget {
+            host: "127.0.0.1".to_string(),
+            port: 22,
+            user: "tester".to_string(),
+            private_key_path: key.path().to_path_buf(),
+            command: "bash -lc whoami".to_string(),
+            allow_shell: true,
+            timeout_ms: 1000,
+            known_hosts_path: trust_file(),
+        };
+        let registry = CollectingExecRegistry::new();
+        registry.record_intent(&target).expect("意图登记");
+        assert!(
+            matches!(
+                registry.calls()[0],
+                RegistryCall::Intent {
+                    allow_shell: true,
+                    ..
+                }
+            ),
+            "显式授权必须被登记：{:?}",
+            registry.calls()
+        );
+    }
+
     #[tokio::test]
     async fn connection_failure_is_failed_and_records_intent_before_result() {
         let key = TestKey::generate("connfail");
@@ -925,6 +1087,7 @@ mod tests {
             user: "tester".to_string(),
             private_key_path: key.path().to_path_buf(),
             command: "true".to_string(),
+            allow_shell: true,
             timeout_ms: 2000,
             known_hosts_path: trust_file(),
         };
@@ -982,6 +1145,7 @@ mod tests {
             user: "tester".to_string(),
             private_key_path: key.path().to_path_buf(),
             command: "true".to_string(),
+            allow_shell: true,
             timeout_ms: 2000,
             known_hosts_path: trust_file(),
         };
@@ -1127,7 +1291,8 @@ mod tests {
                             port: addr.port(),
                             user: "tester".to_string(),
                             private_key_path: key_path.clone(),
-                            command: "whcode-proto-echo".to_string(),
+                            command: "whcode proto-echo".to_string(),
+                            allow_shell: false,
                             timeout_ms: 10_000,
                             known_hosts_path,
                         };

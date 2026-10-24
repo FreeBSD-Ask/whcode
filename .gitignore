@@ -33,6 +33,8 @@
 # NFR 预算测量报告与安全复查记录是 ADR-025／Check 115/123 的判定依据，随仓库版本化。
 !/artifacts/nfr-budget-report.json
 !/artifacts/security-review-2026-10-24.md
+# 无 JS 只读快照的真实进程实跑记录是 Check 229 的判定依据，随仓库版本化。
+!/artifacts/web-nojs-check-2026-10-24.json
 # M0 退出报告是治理交付物（tasks.md T031、§12.2），必须随仓库版本化。
 
 # 工作区数据库与 WAL（运行时产物，不进版本库）

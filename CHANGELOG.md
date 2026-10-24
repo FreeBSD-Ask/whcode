@@ -13,6 +13,25 @@
 
 ### 变更
 
+- Check 97／229 收口批次（2026-10-24）：**SSH 客户端默认无任意 Shell；Web 无 JS 只读快照服务端直出**。
+  - SSH 客户端（Check 97）：`SshTarget` 新增 `allow_shell`（默认 `false`）；校验阶段默认只放行
+    首 token 为 `whcode`／`whcode.exe` 的远端命令（含绝对路径与 Windows 路径），其余命令返回
+    `PermissionDenied` 且不产生任何登记副作用；显式 `allow_shell` 是独立权限，意图登记携带
+    `allow_shell`、结果 `note` 前缀 `shell-granted（显式授权）：` 供审计追溯（FR-608/611）。
+  - 服务端回归修复：`authorized_keys` 行带注释、客户端上送公钥不带注释时，`PublicKey` 结构体
+    相等（含 comment）会误拒真实客户端（系统 OpenSSH 冒烟实测命中）；改为按公钥指纹
+    （`SHA256`，只覆盖公钥数据）比较，并补回归测试。
+  - Web（Check 229）：`assets::render_index` 把只读会话快照（最多 50 个）服务端直出到模板内唯一的
+    `<!-- WHCODE_INITIAL_VIEW -->` 的 `<noscript>` 块；数据库文本统一 HTML 转义，查询失败渲染
+    可见错误而非“错误的空”，空列表显式写“当前没有会话”，超过上限（50）写明“列表已截断”
+    （多取一条区分“恰好 50 条”与“被截断”，不静默切掉）；`GET /` 与 `/index.html` 经
+    `index_response`（`list_sessions` 只读能力）返回 `no-store` 页面；**认证模式不注入数据**
+    （ADR-022：浏览器导航无法携带 Bearer 头，直出会绕过认证边界），只给无 JS 说明。
+  - 证据：`cargo test -p whcode-ssh` 45/45（新增 3 例命令策略与授权标记）、web 39/39（新增 6 例
+    直出、转义、截断与认证边界）、bin 43/43（新增 3 例装配）；真实 `serve --web` 实跑 7 项判据全部为 true
+    （`artifacts/web-nojs-check-2026-10-24.json`，含端口、判据与 `<noscript>` 片段；临时脚本按规则回收）。
+    账本：Check 97/229 转入勾选，现状 **244 通过 / 16 未通过**。
+
 - SSH 服务端批次（2026-10-24）：**M7 服务端落地（russh）+ 主机密钥信任接入 + 四处测试缺陷修复**。
   - 服务端：`whcode-ssh` 新增 `server.rs`／`policy.rs`／`adapter.rs`／`hostkey.rs`／`trust.rs`，
     基于 `russh 0.64.1` 实现**仅 Ed25519 公钥认证**（`<workspace>/ssh/authorized_keys`）、

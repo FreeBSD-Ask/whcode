@@ -1039,6 +1039,11 @@ fn respond(
             .split('?')
             .next()
             .unwrap_or(request.path.as_str());
+        // 首页服务端直出：注入只读会话快照（无 JS 时 `<noscript>` 可见，FR-618）。
+        // 启用认证时不注入数据：业务数据只经认证后的 `/api/*`（ADR-022）。
+        if path == "/" || path == "/index.html" {
+            return Reply::plain(index_response(conn, actor, security));
+        }
         if let Some((content_type, body)) = assets::static_asset(path) {
             return Reply::plain(HttpResponse {
                 status: 200,
@@ -1064,6 +1069,65 @@ fn respond(
     Reply {
         ws_upgrade: is_ws && response.status == 101,
         response,
+    }
+}
+
+/// 首页首屏只读快照的会话上限（HTML 直出需守住 DOM 预算，比 TUI/GUI 的 200 更小）。
+const INITIAL_SESSION_LIMIT: usize = 50;
+
+/// 服务端直出首页（FR-618）：把会话快照渲染进 `<noscript>`。
+///
+/// 查询失败必须渲染成可见错误——不得用“空列表”冒充“没有会话”（信号链完备原则）。
+/// 启用认证时**不注入任何业务数据**（ADR-022）：首页是浏览器导航，无法携带 Bearer 头，
+/// 直出快照会绕过认证边界。
+fn index_response(
+    conn: &Connection,
+    actor: &whcode_app::Actor,
+    security: &ServeSecurity,
+) -> HttpResponse {
+    let body = if security.auth_enabled {
+        assets::render_index_auth_required()
+    } else {
+        let listing = whcode_app::session::list_sessions(
+            conn,
+            &DefaultPolicy,
+            actor,
+            false,
+            // 多取一条：用来区分“恰好 50 条”与“被截断”，不得让读者误判总量。
+            INITIAL_SESSION_LIMIT + 1,
+        );
+        let (sessions, truncated, error) = match listing {
+            Ok(mut rows) => {
+                let truncated = rows.len() > INITIAL_SESSION_LIMIT;
+                if truncated {
+                    rows.truncate(INITIAL_SESSION_LIMIT);
+                }
+                (
+                    rows.into_iter()
+                        .map(|row| assets::InitialSession {
+                            id: row.id,
+                            title: row.title,
+                            status: row.status,
+                        })
+                        .collect::<Vec<_>>(),
+                    truncated,
+                    None,
+                )
+            }
+            Err(err) => (Vec::new(), false, Some(err.message)),
+        };
+        assets::render_index(&sessions, truncated, error.as_deref())
+    };
+    HttpResponse {
+        status: 200,
+        headers: vec![
+            (
+                "content-type".to_string(),
+                "text/html; charset=utf-8".to_string(),
+            ),
+            ("cache-control".to_string(), "no-store".to_string()),
+        ],
+        body: body.into_bytes(),
     }
 }
 
@@ -1112,8 +1176,8 @@ mod tests {
     use whcode_web::ws::accept_key;
 
     use super::{
-        Reply, ServeCli, ServeSecurity, header_content_length, reason, respond, serve_loop,
-        serve_ssh,
+        INITIAL_SESSION_LIMIT, Reply, ServeCli, ServeSecurity, header_content_length, reason,
+        respond, serve_loop, serve_ssh,
     };
     use crate::workspace::WORKSPACE_DB_FILE;
     use whcode_app::{Actor, actor_with_all_capabilities};
@@ -1256,6 +1320,137 @@ mod tests {
         // 未知 API 路径 → 404。
         let reply = send("GET /api/nope HTTP/1.1\r\n\r\n");
         assert_eq!(reply.response.status, 404);
+    }
+
+    /// 无 JS 兜底（Check 229）：首页由服务端直出会话快照，标题必须转义。
+    #[test]
+    fn index_page_renders_readonly_snapshot_server_side() {
+        let mut conn = migrated_memory_conn();
+        let actor = actor_with_all_capabilities("tester");
+        let security = ServeSecurity::loopback();
+        let payload = r#"{"title":"<script>alert(1)</script> 只读标题"}"#;
+        let create = respond(
+            &mut conn,
+            &raw_request(&format!(
+                "POST /api/sessions/new HTTP/1.1\r\ncontent-type: application/json\r\n\
+                 content-length: {}\r\n\r\n{payload}",
+                payload.len()
+            )),
+            &actor,
+            &security,
+        );
+        assert_eq!(
+            create.response.status,
+            201,
+            "{}",
+            String::from_utf8_lossy(&create.response.body)
+        );
+
+        let reply = respond(
+            &mut conn,
+            &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
+            &actor,
+            &security,
+        );
+        assert_eq!(reply.response.status, 200);
+        let body = String::from_utf8_lossy(&reply.response.body).into_owned();
+        assert!(body.contains("<noscript>"), "无 JS 时必须有只读快照");
+        assert!(body.contains("只读快照"), "快照必须有可读标题");
+        assert!(
+            body.contains("&lt;script&gt;alert(1)&lt;/script&gt; 只读标题"),
+            "数据库文本必须经 HTML 转义"
+        );
+        assert!(
+            !body.contains("<script>alert(1)</script>"),
+            "不得把会话标题原样注入 HTML"
+        );
+    }
+
+    /// 认证边界（ADR-022）：启用认证时首页不注入业务数据（浏览器导航无法带 Bearer 头）。
+    #[test]
+    fn index_page_withholds_snapshot_when_auth_enabled() {
+        let mut conn = migrated_memory_conn();
+        let actor = actor_with_all_capabilities("tester");
+        let payload = r#"{"title":"认证模式秘密标题"}"#;
+        let create = respond(
+            &mut conn,
+            &raw_request(&format!(
+                "POST /api/sessions/new HTTP/1.1\r\ncontent-type: application/json\r\n\
+                 content-length: {}\r\n\r\n{payload}",
+                payload.len()
+            )),
+            &actor,
+            &ServeSecurity::loopback(),
+        );
+        assert_eq!(create.response.status, 201);
+
+        let authenticated = ServeSecurity {
+            auth_enabled: true,
+            token: Some("secret-token".to_string()),
+            origins: vec!["http://127.0.0.1".to_string()],
+        };
+        let reply = respond(
+            &mut conn,
+            &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
+            &actor,
+            &authenticated,
+        );
+        assert_eq!(reply.response.status, 200);
+        let body = String::from_utf8_lossy(&reply.response.body).into_owned();
+        assert!(
+            !body.contains("认证模式秘密标题"),
+            "认证模式不得直出会话数据（ADR-022）"
+        );
+        assert!(body.contains("<noscript>"), "仍需无 JS 说明");
+        assert!(body.contains("仅在本机回环模式"), "必须写明快照的提供条件");
+        assert!(
+            !body.contains("<!-- WHCODE_INITIAL_VIEW -->"),
+            "标记必须被替换"
+        );
+    }
+
+    /// 截断必须显式（信号链完备）：超过上限时写明“可能还有更多”，而不是静默切掉。
+    #[test]
+    fn index_page_flags_truncated_snapshot_instead_of_silent_cut() {
+        let mut conn = migrated_memory_conn();
+        let actor = actor_with_all_capabilities("tester");
+        let security = ServeSecurity::loopback();
+        for index in 1..=(INITIAL_SESSION_LIMIT + 1) {
+            let payload = format!(r#"{{"title":"会话 {index}"}}"#);
+            let create = respond(
+                &mut conn,
+                &raw_request(&format!(
+                    "POST /api/sessions/new HTTP/1.1\r\ncontent-type: application/json\r\n\
+                     content-length: {}\r\n\r\n{payload}",
+                    payload.len()
+                )),
+                &actor,
+                &security,
+            );
+            assert_eq!(
+                create.response.status,
+                201,
+                "第 {index} 个会话创建失败：{}",
+                String::from_utf8_lossy(&create.response.body)
+            );
+        }
+
+        let reply = respond(
+            &mut conn,
+            &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
+            &actor,
+            &security,
+        );
+        let body = String::from_utf8_lossy(&reply.response.body).into_owned();
+        assert_eq!(
+            body.matches("<li><code>").count(),
+            INITIAL_SESSION_LIMIT,
+            "快照必须严格截到上限"
+        );
+        assert!(
+            body.contains("noscript-truncated"),
+            "超限时必须写明列表已截断"
+        );
     }
 
     #[test]
