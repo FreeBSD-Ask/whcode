@@ -473,17 +473,21 @@ fn session_command(
 ) -> Result<(Value, String), WhError> {
     match command {
         SessionCommand::New { title, model } => {
-            let conn = open_db(workspace, config)?;
-            let row = whcode_app::new_session(
-                &conn,
+            let mut conn = open_db(workspace, config)?;
+            // 写命令经门面（FR-623）：与 TUI/Web 同一执行入口与保护口径。
+            let outcome = whcode_app::execute_command(
+                &mut conn,
                 policy,
                 actor,
-                NewSession {
+                &whcode_app::FrontendCommand::SessionNew {
                     title: title.clone(),
                     model: model.clone(),
+                    now_ms: now,
                 },
-                now,
             )?;
+            let whcode_app::CommandOutcome::Session(row) = outcome else {
+                return Err(whcode_domain::WhError::internal("门面返回形状不符：应为 Session"));
+            };
             Ok((session_json(&row), row_line(&row)))
         }
         SessionCommand::List { all } => {
@@ -501,15 +505,37 @@ fn session_command(
             Ok((session_json(&row), row_line(&row)))
         }
         SessionCommand::Rename { session, title } => {
-            let conn = open_db(workspace, config)?;
-            let row = whcode_app::rename_session(&conn, policy, actor, session, title)?;
+            let mut conn = open_db(workspace, config)?;
+            let outcome = whcode_app::execute_command(
+                &mut conn,
+                policy,
+                actor,
+                &whcode_app::FrontendCommand::SessionRename {
+                    session_id: session.clone(),
+                    title: title.clone(),
+                    now_ms: now,
+                },
+            )?;
+            let whcode_app::CommandOutcome::Session(row) = outcome else {
+                return Err(whcode_domain::WhError::internal("门面返回形状不符：应为 Session"));
+            };
             Ok((session_json(&row), row_line(&row)))
         }
         SessionCommand::Archive { session, unarchive } => {
             let mut conn = open_db(workspace, config)?;
-            let ids = [session.as_str()];
-            whcode_app::set_session_archived(&mut conn, policy, actor, &ids, !unarchive)?;
-            let row = whcode_app::show_session(&conn, policy, actor, session)?;
+            let outcome = whcode_app::execute_command(
+                &mut conn,
+                policy,
+                actor,
+                &whcode_app::FrontendCommand::SessionArchive {
+                    session_id: session.clone(),
+                    archived: !*unarchive,
+                    now_ms: now,
+                },
+            )?;
+            let whcode_app::CommandOutcome::Session(row) = outcome else {
+                return Err(whcode_domain::WhError::internal("门面返回形状不符：应为 Session"));
+            };
             Ok((session_json(&row), row_line(&row)))
         }
         SessionCommand::Delete {
@@ -519,21 +545,22 @@ fn session_command(
         } => {
             let is_dry_run = confirm_flags(*dry_run, *yes)?;
             let mut conn = open_db(workspace, config)?;
-            // 显式按 ID 删除（用户点名 + --yes）：不套用 TTL 的活跃窗口保护，
-            // 否则“删除刚创建的会话”会被静默跳过（预览/执行同口径）。
-            let protection = PurgeProtection {
-                active_window_ms: 0,
-                ..PurgeProtection::default()
-            };
             if is_dry_run {
-                let preview = whcode_app::preview_delete_session(
-                    &conn,
+                let outcome = whcode_app::execute_command(
+                    &mut conn,
                     policy,
                     actor,
-                    session,
-                    &protection,
-                    now,
+                    &whcode_app::FrontendCommand::SessionDelete {
+                        session_id: session.clone(),
+                        confirm: false,
+                        now_ms: now,
+                    },
                 )?;
+                let whcode_app::CommandOutcome::SessionDeletePreview(preview) = outcome else {
+                    return Err(whcode_domain::WhError::internal(
+                        "门面返回形状不符：应为删除预览",
+                    ));
+                };
                 let value = json!({
                     "dry_run": true,
                     "session": session,
@@ -552,15 +579,21 @@ fn session_command(
                 );
                 return Ok((value, human));
             }
-            let result = whcode_app::delete_session(
+            let outcome = whcode_app::execute_command(
                 &mut conn,
                 policy,
                 actor,
-                session,
-                true,
-                &protection,
-                now,
+                &whcode_app::FrontendCommand::SessionDelete {
+                    session_id: session.clone(),
+                    confirm: true,
+                    now_ms: now,
+                },
             )?;
+            let whcode_app::CommandOutcome::SessionDeleted(result) = outcome else {
+                return Err(whcode_domain::WhError::internal(
+                    "门面返回形状不符：应为删除结果",
+                ));
+            };
             let value = json!({
                 "dry_run": false,
                 "deleted_sessions": result.deleted_sessions,
@@ -649,8 +682,19 @@ fn task_command(
             Ok((value, human))
         }
         TaskCommand::Retry { task } => {
-            let conn = open_db(workspace, config)?;
-            let row = whcode_app::retry_task(&conn, policy, actor, task, now)?;
+            let mut conn = open_db(workspace, config)?;
+            let outcome = whcode_app::execute_command(
+                &mut conn,
+                policy,
+                actor,
+                &whcode_app::FrontendCommand::TaskRetry {
+                    task_id: task.clone(),
+                    now_ms: now,
+                },
+            )?;
+            let whcode_app::CommandOutcome::Task(row) = outcome else {
+                return Err(whcode_domain::WhError::internal("门面返回形状不符：应为 Task"));
+            };
             Ok((
                 task_json(&row),
                 format!(
@@ -662,8 +706,19 @@ fn task_command(
             ))
         }
         TaskCommand::Abort { task } => {
-            let conn = open_db(workspace, config)?;
-            let row = whcode_app::abort_task(&conn, policy, actor, task, now)?;
+            let mut conn = open_db(workspace, config)?;
+            let outcome = whcode_app::execute_command(
+                &mut conn,
+                policy,
+                actor,
+                &whcode_app::FrontendCommand::TaskAbort {
+                    task_id: task.clone(),
+                    now_ms: now,
+                },
+            )?;
+            let whcode_app::CommandOutcome::Task(row) = outcome else {
+                return Err(whcode_domain::WhError::internal("门面返回形状不符：应为 Task"));
+            };
             Ok((
                 task_json(&row),
                 format!("{} 已中止 → {}", row.id, row.status.as_str()),

@@ -24,6 +24,7 @@
 //! 待交付：SDD 门禁编排（M4，T068+）。
 
 pub mod authz;
+pub mod commands;
 pub mod context;
 pub mod events;
 pub mod fonts;
@@ -47,6 +48,7 @@ pub use context::{
     DEFAULT_CONTEXT_BUDGET_TOKENS, REASON_BUDGET_EXHAUSTED, SummaryPointer, compress_context,
     load_context, load_summary_pointer,
 };
+pub use commands::{CommandExecutor, CommandOutcome, FrontendCommand, execute_command};
 pub use events::{EventsExport, events_export};
 pub use gates::{ForceAdvance, TransitionContext, force_advance, request_transition};
 pub use maintenance::{

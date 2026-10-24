@@ -27,9 +27,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use duckdb::Connection;
 use whcode_app::surface::{FrontendId, Support};
-use whcode_app::{
-    Actor, DefaultPolicy, NewSession, PurgeCriteria, PurgeProtection, build_snapshot,
-};
+use whcode_app::{Actor, DefaultPolicy, build_snapshot};
 use whcode_domain::{ErrorCode, WhError};
 
 use crate::security;
@@ -642,23 +640,24 @@ pub fn handle_request_with_runtimes(
                 Ok(now) => now,
                 Err(error) => return error_response(&error),
             };
-            match whcode_app::new_session(
+            match whcode_app::execute_command(
                 conn,
                 &policy,
                 actor,
-                NewSession {
+                &whcode_app::FrontendCommand::SessionNew {
                     title: title.to_string(),
                     model,
+                    now_ms: now,
                 },
-                now,
             ) {
-                Ok(row) => HttpResponse::json(
+                Ok(whcode_app::CommandOutcome::Session(row)) => HttpResponse::json(
                     201,
                     &serde_json::json!({
                         "schema_version": whcode_domain::SCHEMA_VERSION,
                         "session": whcode_app::session_value(&row),
                     }),
                 ),
+                Ok(_) => error_response(&WhError::internal("门面返回形状不符：应为 Session")),
                 Err(error) => error_response(&error),
             }
         }
@@ -671,14 +670,24 @@ pub fn handle_request_with_runtimes(
             else {
                 return error_response(&WhError::invalid_state("缺 session 或 title 参数"));
             };
-            match whcode_app::rename_session(conn, &policy, actor, session, title) {
-                Ok(row) => HttpResponse::json(
+            match whcode_app::execute_command(
+                conn,
+                &policy,
+                actor,
+                &whcode_app::FrontendCommand::SessionRename {
+                    session_id: session.to_string(),
+                    title: title.to_string(),
+                    now_ms: now_ms().unwrap_or(0),
+                },
+            ) {
+                Ok(whcode_app::CommandOutcome::Session(row)) => HttpResponse::json(
                     200,
                     &serde_json::json!({
                         "schema_version": whcode_domain::SCHEMA_VERSION,
                         "session": whcode_app::session_value(&row),
                     }),
                 ),
+                Ok(_) => error_response(&WhError::internal("门面返回形状不符：应为 Session")),
                 Err(error) => error_response(&error),
             }
         }
@@ -694,18 +703,24 @@ pub fn handle_request_with_runtimes(
                     "缺 session 参数或 archived 不是布尔值",
                 ));
             };
-            let ids = [session];
-            match whcode_app::set_session_archived(conn, &policy, actor, &ids, archived) {
-                Ok(_) => match whcode_app::show_session(conn, &policy, actor, session) {
-                    Ok(row) => HttpResponse::json(
-                        200,
-                        &serde_json::json!({
-                            "schema_version": whcode_domain::SCHEMA_VERSION,
-                            "session": whcode_app::session_value(&row),
-                        }),
-                    ),
-                    Err(error) => error_response(&error),
+            match whcode_app::execute_command(
+                conn,
+                &policy,
+                actor,
+                &whcode_app::FrontendCommand::SessionArchive {
+                    session_id: session.to_string(),
+                    archived,
+                    now_ms: now_ms().unwrap_or(0),
                 },
+            ) {
+                Ok(whcode_app::CommandOutcome::Session(row)) => HttpResponse::json(
+                    200,
+                    &serde_json::json!({
+                        "schema_version": whcode_domain::SCHEMA_VERSION,
+                        "session": whcode_app::session_value(&row),
+                    }),
+                ),
+                Ok(_) => error_response(&WhError::internal("门面返回形状不符：应为 Session")),
                 Err(error) => error_response(&error),
             }
         }
@@ -730,37 +745,46 @@ pub fn handle_request_with_runtimes(
                 Ok(now) => now,
                 Err(error) => return error_response(&error),
             };
-            // 用户点名删除 + confirm：不套用 TTL 活跃窗口（与 CUI 同口径）。
-            let protection = PurgeProtection {
-                active_window_ms: 0,
-                ..PurgeProtection::default()
-            };
+            // 用户点名删除 + confirm：不套用 TTL 活跃窗口（口径在门面统一，FR-623）。
             if !confirm {
-                return match whcode_app::preview_delete_session(
+                return match whcode_app::execute_command(
                     conn,
                     &policy,
                     actor,
-                    session,
-                    &protection,
-                    now,
+                    &whcode_app::FrontendCommand::SessionDelete {
+                        session_id: session.to_string(),
+                        confirm: false,
+                        now_ms: now,
+                    },
                 ) {
-                    Ok(preview) => HttpResponse::json(
-                        200,
-                        &serde_json::json!({
-                            "schema_version": whcode_domain::SCHEMA_VERSION,
-                            "dry_run": true,
-                            "session": session,
-                            "selected_sessions": preview.selected_sessions,
-                            "skipped_protected": preview.skipped_protected,
-                            "counts": whcode_app::purge_counts_value(&preview.counts),
-                        }),
-                    ),
+                    Ok(whcode_app::CommandOutcome::SessionDeletePreview(preview)) => {
+                        HttpResponse::json(
+                            200,
+                            &serde_json::json!({
+                                "schema_version": whcode_domain::SCHEMA_VERSION,
+                                "dry_run": true,
+                                "session": session,
+                                "selected_sessions": preview.selected_sessions,
+                                "skipped_protected": preview.skipped_protected,
+                                "counts": whcode_app::purge_counts_value(&preview.counts),
+                            }),
+                        )
+                    }
+                    Ok(_) => error_response(&WhError::internal("门面返回形状不符：应为删除预览")),
                     Err(error) => error_response(&error),
                 };
             }
-            match whcode_app::delete_session(conn, &policy, actor, session, true, &protection, now)
-            {
-                Ok(result) => HttpResponse::json(
+            match whcode_app::execute_command(
+                conn,
+                &policy,
+                actor,
+                &whcode_app::FrontendCommand::SessionDelete {
+                    session_id: session.to_string(),
+                    confirm: true,
+                    now_ms: now,
+                },
+            ) {
+                Ok(whcode_app::CommandOutcome::SessionDeleted(result)) => HttpResponse::json(
                     200,
                     &serde_json::json!({
                         "schema_version": whcode_domain::SCHEMA_VERSION,
@@ -770,6 +794,7 @@ pub fn handle_request_with_runtimes(
                         "deleted": whcode_app::purge_counts_value(&result.deleted),
                     }),
                 ),
+                Ok(_) => error_response(&WhError::internal("门面返回形状不符：应为删除结果")),
                 Err(error) => error_response(&error),
             }
         }
@@ -785,19 +810,26 @@ pub fn handle_request_with_runtimes(
                 Ok(now) => now,
                 Err(error) => return error_response(&error),
             };
-            let outcome = if route == "/api/tasks/retry" {
-                whcode_app::retry_task(conn, &policy, actor, task, now)
+            let command = if route == "/api/tasks/retry" {
+                whcode_app::FrontendCommand::TaskRetry {
+                    task_id: task.to_string(),
+                    now_ms: now,
+                }
             } else {
-                whcode_app::abort_task(conn, &policy, actor, task, now)
+                whcode_app::FrontendCommand::TaskAbort {
+                    task_id: task.to_string(),
+                    now_ms: now,
+                }
             };
-            match outcome {
-                Ok(row) => HttpResponse::json(
+            match whcode_app::execute_command(conn, &policy, actor, &command) {
+                Ok(whcode_app::CommandOutcome::Task(row)) => HttpResponse::json(
                     200,
                     &serde_json::json!({
                         "schema_version": whcode_domain::SCHEMA_VERSION,
                         "task": whcode_app::task_value(&row),
                     }),
                 ),
+                Ok(_) => error_response(&WhError::internal("门面返回形状不符：应为 Task")),
                 Err(error) => error_response(&error),
             }
         }
@@ -823,17 +855,17 @@ pub fn handle_request_with_runtimes(
                 Ok(now) => now,
                 Err(error) => return error_response(&error),
             };
-            let protection = PurgeProtection::default();
-            let criteria = PurgeCriteria::before(before_ms);
-            let preview = match whcode_app::purge_preview(
+            let preview = match whcode_app::execute_command(
                 conn,
                 &policy,
                 actor,
-                &criteria,
-                &protection,
-                now,
+                &whcode_app::FrontendCommand::PurgePreview {
+                    before_ms,
+                    now_ms: now,
+                },
             ) {
-                Ok(preview) => preview,
+                Ok(whcode_app::CommandOutcome::PurgePreview(preview)) => preview,
+                Ok(_) => return error_response(&WhError::internal("门面返回形状不符：应为清理预览")),
                 Err(error) => return error_response(&error),
             };
             if !confirm {
@@ -849,9 +881,17 @@ pub fn handle_request_with_runtimes(
                     }),
                 );
             }
-            match whcode_app::purge_execute(conn, &policy, actor, &preview, true, &protection, now)
-            {
-                Ok(result) => HttpResponse::json(
+            match whcode_app::execute_command(
+                conn,
+                &policy,
+                actor,
+                &whcode_app::FrontendCommand::PurgeExecute {
+                    before_ms,
+                    confirm: true,
+                    now_ms: now,
+                },
+            ) {
+                Ok(whcode_app::CommandOutcome::PurgeExecuted(result)) => HttpResponse::json(
                     200,
                     &serde_json::json!({
                         "schema_version": whcode_domain::SCHEMA_VERSION,
@@ -861,6 +901,7 @@ pub fn handle_request_with_runtimes(
                         "deleted": whcode_app::purge_counts_value(&result.deleted),
                     }),
                 ),
+                Ok(_) => error_response(&WhError::internal("门面返回形状不符：应为清理结果")),
                 Err(error) => error_response(&error),
             }
         }
