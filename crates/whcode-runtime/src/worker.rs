@@ -481,6 +481,11 @@ mod tests {
 
     /// Check 123（§10.2 最小环境）：真实子进程只看到最小集合——非白名单父变量
     /// （USERPROFILE 在测试环境必然存在）不继承，显式变量保留。
+    ///
+    /// **Windows 专属**：夹具用 `cmd /C set` 列出子进程环境；BSD CI 实测 FreeBSD 无 `cmd`，
+    /// 测试会因“启动子进程失败”误报。跨平台的最小环境收敛逻辑由
+    /// [`minimal_env_converges_to_allowlist_plus_explicit`] 覆盖（不启动进程）。
+    #[cfg(windows)]
     #[test]
     fn child_sees_only_allowlist_and_explicit_vars() {
         let mut command = Command::new("cmd");
