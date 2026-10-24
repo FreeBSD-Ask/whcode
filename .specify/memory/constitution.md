@@ -22,6 +22,18 @@ Follow-up TODOs / deferred items:
 - D-01—D-12（任务书 §14）不在本宪法内定值，仍按其在 M0/M1/M8 的决策点确认。
 
 依据来源：specs/001-whcode-harness/source-whcode-taskbook-v3.md（只读基线，未改写）
+
+------------------------------------------------------------------
+Version change: 1.1.0 → 1.1.1（2026-10-24 PATCH：MSRV 事实同步，非语义调整）
+
+Modified sections:
+- Technology & Platform Constraints：MSRV 声明 1.88 → 1.99，与 `Cargo.toml` 的
+  `rust-version` 及锁定工具链 1.99.1 对齐（5c2c8bd 已改清单，文本此前滞后）
+
+Added / Removed sections:
+- 无
+
+Follow-up TODOs: 同 1.1.0（批准主体仍待确认）。
 -->
 
 # WHCode Constitution
@@ -126,8 +138,8 @@ RAII（NFR-215）。
 - **核心语言**：Rust；工具链、依赖、编译器与 OS 版本在 M0 锁定并写入构建记录（V-001）。
 - **目标平台**：唯一验收目标 Windows 11 amd64（`x86_64-pc-windows-msvc`，ADR-013）；不支持任何
   32 位平台；FreeBSD/OpenBSD/NetBSD/DragonFly 全部延后（代码与文档保留，不作验收结论，CI 手工
-  触发）；不使用任何 GNU 工具链；Rust 锁定 1.99.1，MSRV 声明 1.88。支持平台的精确版本与架构必须
-  在发布矩阵公开，不得以“Windows”“BSD”作无限范围承诺（§9.1）。
+  触发）；不使用任何 GNU 工具链；Rust 锁定 1.99.1，MSRV 声明 1.99（跟随锁定工具链）。
+  支持平台的精确版本与架构必须在发布矩阵公开，不得以“Windows”“BSD”作无限范围承诺（§9.1）。
 - **平台差异封装**：见原则 VI。
 - **持久化配置基线**：`memory_limit` 默认 192 MB（候选上限 384 MB，仅约束 DuckDB 缓冲管理器）；
   `threads` 初始不高于 `min(4, 可用物理核数)`；`temp_directory` 使用工作区专用目录并检查可写性与
@@ -204,4 +216,4 @@ RAII（NFR-215）。
 - **文档指引**：运行时开发指引见 `docs/guides/pr-checklist.md`；架构决策见 `docs/adr/`；平台、四端能力与
   运行时矩阵见 `docs/matrices/`。
 
-**Version**: 1.1.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-24
+**Version**: 1.1.1 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-24

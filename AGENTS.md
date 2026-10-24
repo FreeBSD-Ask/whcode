@@ -17,7 +17,7 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 - **不支持任何 32 位平台**；
 - FreeBSD/NetBSD/OpenBSD/DragonFly **延后**：代码与文档保留，不作验收结论；FreeBSD/NetBSD
   在 GitHub CI 随 `main` 自动运行（仅作平台证据），OpenBSD/DragonFly 无原生测试、保留手工占位；
-- 不使用任何 GNU 工具链；Rust 锁定 1.99.1（`rust-toolchain.toml`），MSRV 声明为 1.88；
+- 不使用任何 GNU 工具链；Rust 锁定 1.99.1（`rust-toolchain.toml`），MSRV 声明为 1.99；
 - 许可证 BSD-2-Clause，版权主体 FreeBSD 中文社区；
 - **GUI 必须原生**：禁止以内嵌浏览器引擎（WebView／WebView2、CEF、Tauri／wry、Electron、
   NW.js 等）作为桌面界面外壳；Web UI 只作独立浏览器前端（FR-603），不得充当桌面 GUI
