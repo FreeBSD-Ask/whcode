@@ -284,28 +284,47 @@ mod tests {
     }
 
     /// Check 201：子进程枚举能看到刚启动的子进程，终止后消失。
+    ///
+    /// CI 环境（GitHub Windows runner）PowerShell 启动可达数秒；5 秒延时子进程可能在
+    /// 首次枚举完成前已退出。用 30 秒延时并在 30 秒窗口内轮询，避免把“枚举慢”误判为
+    /// “未列出子进程”。
     #[test]
     fn child_pids_lists_spawned_child_and_lifecycle_is_observable() {
-        let mut child = sleep_command(5).spawn().expect("启动子进程");
+        let mut child = sleep_command(30).spawn().expect("启动子进程");
         let pid = child.id();
-        match child_pids(std::process::id()) {
-            Ok(pids) => assert!(pids.contains(&pid), "应列出子进程 {pid}：{pids:?}"),
-            Err(err) => {
-                assert!(err.message.contains("延后"), "非实现错误须写明延后：{err}");
-                let _ = child.kill();
-                let _ = child.wait();
-                return;
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        let mut pids = Vec::new();
+        loop {
+            match child_pids(std::process::id()) {
+                Ok(list) => {
+                    pids = list;
+                    if pids.contains(&pid) {
+                        break;
+                    }
+                }
+                Err(err) => {
+                    assert!(err.message.contains("延后"), "非实现错误须写明延后：{err}");
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return;
+                }
             }
+            if std::time::Instant::now() >= deadline {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(500));
         }
+        assert!(pids.contains(&pid), "应列出子进程 {pid}：{pids:?}");
         assert!(
             process_exists(pid).expect("查询子进程"),
             "子进程 {pid} 应存在"
         );
         let _ = child.kill();
         let _ = child.wait();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
         let mut gone = false;
-        for _ in 0..50 {
-            std::thread::sleep(std::time::Duration::from_millis(100));
+        while std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(500));
             if !process_exists(pid).unwrap_or(true) {
                 gone = true;
                 break;
