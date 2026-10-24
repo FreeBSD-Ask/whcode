@@ -8,7 +8,7 @@
 //!   配置意图；
 //! - 分位数由实测样本按 nearest-rank 计算，**不以平均值代替**（R-12）；
 //! - 不得伪造数值：本模块取不到的字段写成明确的缺失标记，由
-//!   `ci/benchmarks/run-baseline.py` 补充采集后覆盖；
+//!   `.github/scripts/benchmarks/run-baseline.py` 补充采集后覆盖；
 //! - 本机单次样本**不构成预算冻结**：预算冻结须由 T028 在固定夹具与分平台证据上决定；
 //! - 不同平台的结果不得合并为一组平均值。
 //!
@@ -387,10 +387,10 @@ pub fn measure(options: &BaselineOptions) -> Result<BaselineReport, WhError> {
         .unwrap_or_else(|| "<未取得证据：未执行任何重复运行，无法读取运行期引擎版本>".to_string());
     let discipline = Discipline {
         os_name: std::env::consts::OS.to_string(),
-        os_version: "<未取得证据：whcode bench 不读取系统版本；由 ci/benchmarks/run-baseline.py 采集>"
+        os_version: "<未取得证据：whcode bench 不读取系统版本；由 .github/scripts/benchmarks/run-baseline.py 采集>"
             .to_string(),
         cpu: CpuInfo {
-            model: "<未取得证据：whcode bench 不读取 CPU 型号；由 ci/benchmarks/run-baseline.py 采集>"
+            model: "<未取得证据：whcode bench 不读取 CPU 型号；由 .github/scripts/benchmarks/run-baseline.py 采集>"
                 .to_string(),
             cores_physical: None,
             cores_logical: std::thread::available_parallelism()
@@ -402,7 +402,7 @@ pub fn measure(options: &BaselineOptions) -> Result<BaselineReport, WhError> {
         memory: MemoryInfo {
             total_bytes: None,
             evidence:
-                "<未取得证据：whcode bench 不读取总内存；由 ci/benchmarks/run-baseline.py 采集>"
+                "<未取得证据：whcode bench 不读取总内存；由 .github/scripts/benchmarks/run-baseline.py 采集>"
                     .to_string(),
         },
         build_profile: if cfg!(debug_assertions) {
@@ -412,10 +412,10 @@ pub fn measure(options: &BaselineOptions) -> Result<BaselineReport, WhError> {
         }
         .to_string(),
         rust_toolchain:
-            "<未取得证据：由 ci/benchmarks/run-baseline.py 通过 rustc -vV 采集>".to_string(),
-        rustc_release: "<未取得证据：由 ci/benchmarks/run-baseline.py 通过 rustc -vV 采集>"
+            "<未取得证据：由 .github/scripts/benchmarks/run-baseline.py 通过 rustc -vV 采集>".to_string(),
+        rustc_release: "<未取得证据：由 .github/scripts/benchmarks/run-baseline.py 通过 rustc -vV 采集>"
             .to_string(),
-        rustc_host: "<未取得证据：由 ci/benchmarks/run-baseline.py 通过 rustc -vV 采集>"
+        rustc_host: "<未取得证据：由 .github/scripts/benchmarks/run-baseline.py 通过 rustc -vV 采集>"
             .to_string(),
         duckdb_engine_version: engine_version.clone(),
         database_parameters: DatabaseParameters {
@@ -451,7 +451,7 @@ pub fn measure(options: &BaselineOptions) -> Result<BaselineReport, WhError> {
             quantile_method: QUANTILE_METHOD.to_string(),
         },
         script_path:
-            "<未取得证据：独立运行 whcode bench baseline 时无编排脚本；由 ci/benchmarks/run-baseline.py 覆盖>"
+            "<未取得证据：独立运行 whcode bench baseline 时无编排脚本；由 .github/scripts/benchmarks/run-baseline.py 覆盖>"
                 .to_string(),
         generated_at_utc: utc_now_rfc3339(),
         notes: vec![

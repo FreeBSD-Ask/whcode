@@ -25,7 +25,7 @@
 | 组件 | 许可证 |
 |---|---|
 | WHCode | BSD-2-Clause（FreeBSD 中文社区） |
-| DuckDB 1.5.6（动态库） | MIT（上游预编译包，`ci/fetch-duckdb.py` 校验 SHA256） |
+| DuckDB 1.5.6（动态库） | MIT（上游预编译包，`.github/scripts/fetch-duckdb.py` 校验 SHA256） |
 | Rust 1.99.1 工具链 | Apache-2.0/MIT |
 | clap / serde / thiserror / duckdb-rs / ratatui / crossterm | Apache-2.0/MIT（Cargo.lock 版本锁定） |
 

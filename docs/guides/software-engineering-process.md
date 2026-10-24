@@ -126,7 +126,7 @@ G5 已打标签 `v0.1.0-m0`，但 README 明确“未发布”。因此 M0 的�
 | 实现缺陷修复 | G3 全部门禁；涉及验收语义时补 G4 | 新的需求条目（若行为未变） | 失败路径测试、`CHANGELOG.md` 修复段 |
 | 需求/范围变更 | G0 重开、G1、G2、G3、G4 | 无 | 用户批准、ADR、追溯更新 |
 | 平台/依赖变更 | G0、G2、G3、G4 | 无 | ADR、平台矩阵、供应链校验 |
-| CI／工作流变更 | G3 的目录门禁、EOL 与 `ci/check-actions.py`（最新版本 + 固定 SHA） | 性能/资源测量 | action 清单与工作流引用一致、至少一次真实运行记录 |
+| CI／工作流变更 | G3 的目录门禁、EOL 与 `.github/scripts/check-actions.py`（最新版本 + 固定 SHA） | 性能/资源测量 | action 清单与工作流引用一致、至少一次真实运行记录 |
 | 紧急修复 | G3；事后补 G1/G4 | 先修复后补文档 | 审计记录、用户知情、不得静默跳过 |
 
 ## 3. 门禁细则 G0—G5
@@ -177,7 +177,7 @@ G5 已打标签 `v0.1.0-m0`，但 README 明确“未发布”。因此 M0 的�
 | 输入 | G2 产物、任务清单、测试位置约定 |
 | 活动 | 编码；单元测试与失败路径测试；静态检查；文档同步；任务状态更新 |
 | 产物 | `crates/**`、`tests/**`、测试输出、`CHANGELOG.md` 条目、必要的模块文档更新 |
-| 退出判据 | 1）`cargo fmt --all --check` 无差异；2）`cargo clippy --workspace --all-targets -- -D warnings` 零告警；3）`cargo test --locked --workspace` 全部通过；4）新增行为至少有一个正向与一个失败路径测试；5）`test_layering` 与 `test_layout` 通过；6）未完成任务不得勾选；7）`[待验证]` 不得以推断关闭；8）测试包含证伪路径，而非仅证明实现正确；9）并发实现有模型/差分/压力验证，汇编有回退与差分测试；10）CI 工作流的 action 引用为**最新 release 版本 + 固定 commit SHA**，并通过 `ci/check-actions.py`（离线）与每周 `action-version-audit`（联网） |
+| 退出判据 | 1）`cargo fmt --all --check` 无差异；2）`cargo clippy --workspace --all-targets -- -D warnings` 零告警；3）`cargo test --locked --workspace` 全部通过；4）新增行为至少有一个正向与一个失败路径测试；5）`test_layering` 与 `test_layout` 通过；6）未完成任务不得勾选；7）`[待验证]` 不得以推断关闭；8）测试包含证伪路径，而非仅证明实现正确；9）并发实现有模型/差分/压力验证，汇编有回退与差分测试；10）CI 工作流的 action 引用为**最新 release 版本 + 固定 commit SHA**，并通过 `.github/scripts/check-actions.py`（离线）与每周 `action-version-audit`（联网） |
 | 评审方式 | 可执行门禁；`docs/guides/pr-checklist.md` 逐项；AI 代理按“反例优先”审查；涉及安全、权限、恢复的改动必须由用户复核 |
 | 当前证据 | 154 例测试通过、0 失败；fmt/clippy 全绿；写者服务、迁移、游标分页、索引基准、概览预聚合与监控已补齐 |
 | 缺口 | 无独立人类代码评审记录；TUI 人工交互项不能由单元测试替代 |

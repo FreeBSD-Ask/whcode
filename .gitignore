@@ -44,13 +44,13 @@
 *.duckdb
 *.duckdb.wal
 
-# 预编译 DuckDB（由 ci/fetch-duckdb.py 拉取并校验 SHA256；不入库，PROVENANCE 留证）
+# 预编译 DuckDB（由 .github/scripts/fetch-duckdb.py 拉取并校验 SHA256；不入库，PROVENANCE 留证）
 /vendor
 
 # 本地临时脚本与运行日志（用户规则：置于 script/ 且保留在本地，不入库）
 /script/
 
-# Python 解释器缓存（ci/ 与 script/ 下的脚本执行时生成；不得进 ci/ 子目录白名单）
+# Python 解释器缓存（.github/scripts/ 与 script/ 下的脚本执行时生成；不得进 .github/scripts/ 子目录白名单）
 __pycache__/
 *.pyc
 

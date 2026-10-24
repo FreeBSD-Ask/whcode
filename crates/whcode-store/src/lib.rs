@@ -3,7 +3,7 @@
 //! DuckDB schema、迁移、单写者服务、读取连接、事务、清理与导出（§4.5、§7）。
 //!
 //! **当前状态：M1 存储基座起步。** DuckDB 原生依赖已按 T022 引入，采用**官方预编译动态库**
-//! （非源码构建）：由 `ci/fetch-duckdb.py` 拉取并校验 SHA256，构建期经 `DUCKDB_LIB_DIR`
+//! （非源码构建）：由 `.github/scripts/fetch-duckdb.py` 拉取并校验 SHA256，构建期经 `DUCKDB_LIB_DIR`
 //! 指向 `vendor/duckdb/<version>/`（不入库）。平台结论见 `docs/adr/ADR-DB-BUILD.md`。
 //!
 //! 已交付：

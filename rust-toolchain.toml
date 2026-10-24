@@ -11,7 +11,7 @@
 #   - profile = "minimal" 减小 runner 上的下载体积；
 #   - components 显式列出 rustfmt/clippy（CI 的 fmt/clippy 门禁依赖它们）；
 #   - 非 rustup 分发的 cargo（如 pkg/pkgsrc 安装）会忽略本文件——其 rustc 实际版本由
-#     ci/platform-matrix/record_deps.{sh,py} 如实记录，与锁定值的任何偏差都是可见证据。
+#     .github/scripts/platform-matrix/record_deps.{sh,py} 如实记录，与锁定值的任何偏差都是可见证据。
 #
 # 版本来源：M0 实测（T021）。实测值：rustc 1.99.1 (58cf8f9c3 2026-10-13)。
 [toolchain]

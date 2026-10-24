@@ -26,7 +26,7 @@ use whcode_domain::i18n::I18n;
 const WINDOW_SIZE: Size = Size::new(1200.0, 800.0);
 
 /// 内置字体子集（FR-716／ADR-028）：完整字体在 `assets/fonts/source`，
-/// 这里只嵌入 `ci/subset-fonts.py` 生成的子集，避免整份 CJK 字体常驻。
+/// 这里只嵌入 `.github/scripts/subset-fonts.py` 生成的子集，避免整份 CJK 字体常驻。
 const FONT_INTER: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.subset.ttf");
 const FONT_NOTO: &[u8] = include_bytes!("../assets/fonts/NotoSansCJKsc-Regular.subset.otf");
 const FONT_JETBRAINS: &[u8] = include_bytes!("../assets/fonts/JetBrainsMono-Regular.subset.ttf");

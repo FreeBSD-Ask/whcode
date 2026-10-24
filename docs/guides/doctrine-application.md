@@ -20,7 +20,7 @@
 
 ## 2. 本轮应用
 
-1. **计数门禁**：新增 `ci/check_counts.py`，从 `spec.md`/`tasks.md`/`checklist.md` 计算
+1. **计数门禁**：新增 `.github/scripts/check_counts.py`，从 `spec.md`/`tasks.md`/`checklist.md` 计算
    FR/任务/Check 实际数量，并核对文档声明；接入 `.github/workflows/platform-windows.yml`。
 2. **证据层级与三次复查**：写入 AGENTS §4.2、过程 G4、需求工程 §3.1、PR 清单。
 3. **可逆性分级**：可逆决策快速验证；不可逆决策（数据格式、协议、权限、并发内存序）
@@ -46,7 +46,7 @@
 | 威胁模型未逐项成文 | NFR-219 只能部分判定 | Web/SSH 边界补威胁模型 |
 | 并发设计档案无样例 | NFR-216 缺可复用样例 | 首个并发任务按模板产出并归档 |
 | 文档复审日期未逐项登记 | NFR-222 只能部分判定 | 从 M1 起为 ADR/指南补复审字段 |
-| `ci/check_counts.py` 未覆盖所有计数位置 | 仍可能局部漂移 | 按失败案例追加模式 |
+| `.github/scripts/check_counts.py` 未覆盖所有计数位置 | 仍可能局部漂移 | 按失败案例追加模式 |
 
 ## 5. 下一周期触发
 

@@ -12,7 +12,7 @@
   - 运行期 DuckDB 引擎版本非空，报告含全部测量纪律字段。
 - 夹具实现：`crates/whcode-bin/src/bench.rs`（`whcode bench baseline` 子命令）。
   本目录的测试通过 `#[path]` 引入**同一份源码**，不复制第二套逻辑。
-- 编排脚本：`ci/benchmarks/run-baseline.py`，产出
+- 编排脚本：`.github/scripts/benchmarks/run-baseline.py`，产出
   `artifacts/baseline-<系统>-<体系结构>.json`（本机为 `baseline-windows-amd64.json`）。
 - `test_process_cleanup.rs`：进程树终止后**零残留**验证（Check 201、FR-409、§10.2）。
   启动真实的 `cmd → ping` 进程树，经 `whcode_platform::terminate_tree` 终止后逐个断言
@@ -54,7 +54,7 @@ cargo test -p whcode-tests --test failure_modes -- --nocapture
 STABILITY_SMOKE=1 ./tests/stability/run_stability.sh
 
 # 本机基线测量（release 构建；结果写入 artifacts/baseline-windows-amd64.json）
-python ci/benchmarks/run-baseline.py
+python .github/scripts/benchmarks/run-baseline.py
 ```
 
 ## 尚未实现（明确标记）

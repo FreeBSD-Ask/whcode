@@ -11,7 +11,7 @@
 |---|---|---|---|
 | `src/` 或 `crates/` | 产品代码 | 源代码，单向依赖 | 是 |
 | `tests/` | 验证 | unit/contract/integration/crash/stability/fixtures，各有 README | 是 |
-| `ci/` | 验证（自动化） | 平台 workflow、基准脚本、依赖记录 | 是 |
+| `.github/scripts/` | 验证（自动化） | 平台 workflow、基准脚本、依赖记录 | 是 |
 | `docs/` | 治理文档 | ADR、矩阵、指南 | 是 |
 | `specs/` | 治理（需求基线） | 规格、计划、任务、验收清单、契约 | 是 |
 | `artifacts/` | 交付产物 | 运行期证据，默认忽略；治理报告可放行 | 默认否 |

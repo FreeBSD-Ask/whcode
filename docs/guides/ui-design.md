@@ -57,7 +57,7 @@ Web 前端当前只有基础主题、未实现切换（见上）；以下为 ens
 - 切换只改 `data-theme` 属性与 CSS 变量，不刷新页面；支持 `?theme=<名>` 显式覆盖；
 - 默认主题取配置 `ui.theme`，`WHCODE_UI_THEME` 可覆盖（非法值警告并回落，不拒绝启动）；
 - 保持无框架、无第三方字体、无 WebGL／视频；四套主题下仍须通过首屏 JS／CSS／DOM
-  预算（`ci/benchmarks/check-frontend-budget.py`，FR-618）。
+  预算（`.github/scripts/benchmarks/check-frontend-budget.py`，FR-618）。
 
 ## 4. 排版与尺寸
 
@@ -87,7 +87,7 @@ Web 前端当前只有基础主题、未实现切换（见上）；以下为 ens
 | WebGL / Canvas 动画 | 0 | 禁止 |
 | 自动播放媒体 | 0 | 禁止 |
 
-校验脚本：`ci/benchmarks/check-frontend-budget.py`（T137 交付，超预算即 CI 失败）。
+校验脚本：`.github/scripts/benchmarks/check-frontend-budget.py`（T137 交付，超预算即 CI 失败）。
 
 ## 7. 国际化与 RTL
 

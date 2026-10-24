@@ -25,7 +25,7 @@
 
 ### 行内证据说明
 
-- Windows 的运行验证来自 2026-10-21 本机 `cargo test --workspace`（90 例通过、0 失败），其中 `whcode-store` 含 5 例（冒烟四步、引擎版本探测与缺失父目录错误路径）与 10 例写者原型；依赖记录由 `python ci/platform-matrix/record_deps.py` 产出为 `artifacts/deps-windows.txt`。
+- Windows 的运行验证来自 2026-10-21 本机 `cargo test --workspace`（90 例通过、0 失败），其中 `whcode-store` 含 5 例（冒烟四步、引擎版本探测与缺失父目录错误路径）与 10 例写者原型；依赖记录由 `python .github/scripts/platform-matrix/record_deps.py` 产出为 `artifacts/deps-windows.txt`。
 - FreeBSD 与 NetBSD 的“构建状态”仅指**代码级交叉检查**：`cargo check` 不链接，也不运行目标平台二进制。它不覆盖 DuckDB 原生库、TLS 依赖、SSH、终端与运行时 payload，因此**不能**作为 V-002 的通过证据（ADR-010、G-01）。
 - 内置 SSH 客户端的四平台连通性冒烟**尚未执行**：`crates/whcode-ssh/src/proto.rs` 的测试为回环测试，只能证明客户端路径可运行，不构成 Windows、FreeBSD、NetBSD、OpenBSD 或 DragonFly 任一平台的节点证据（FR-611、V-004）。
 - `whcode-store` 与 `whcode-ssh` 无法参与交叉检查：前者经 `libduckdb-sys` 的构建依赖链引入 `aws-lc-sys`，后者经 `russh` 引入 `aws-lc-rs`，均需要目标平台的 C 工具链（CMake、编译器与汇编器）。这是**阻塞项**，不是代码缺陷，也不构成任何平台结论。
@@ -56,11 +56,11 @@
 - **跨平台数据缺失**：FreeBSD/NetBSD 无运行环境，OpenBSD/DragonFly 不作为原生目标；ADR-013 已将其移出验收范围。
 - **长时数据缺失**：没有 72 小时 RSS 时间序列与斜率（NFR-204、§11.5）。
 - **测量纪律字段**：基线报告已含 OS、硬件、编译类型、工具链、数据库版本、数据规模、采样窗口与脚本；
-  `ci/benchmarks/` 已建立并产出归档。
+  `.github/scripts/benchmarks/` 已建立并产出归档。
 
 **首批基线实测（2026-10-21，Windows x86_64，仅供冻结决策参考，不构成冻结）**：
 
-- 产物：`artifacts/baseline-windows-amd64.json`（由 `python ci/benchmarks/run-baseline.py` 生成）。
+- 产物：`artifacts/baseline-windows-amd64.json`（由 `python .github/scripts/benchmarks/run-baseline.py` 生成）。
 - 吞吐：三次重复分别为 158.1 / 142.4 / 159.6 条/秒，中位数 **158.1 条/秒**。
 - 关键事件提交延迟（微秒，nearest-rank，600 样本）：p50 **7 034.9**、p95 **12 305.2**、p99 **20 172.6**。
 - 与候选值的关系：**显著低于 NFR-210 的 ≥2 000 条/秒**。按任务书要求，此处只登记偏差，不判定达标；修订预算或做优化都必须先有热点分析并经 ADR 记录（D-06、V-006）。

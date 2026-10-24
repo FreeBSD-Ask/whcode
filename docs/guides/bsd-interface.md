@@ -14,7 +14,7 @@
 | 有界队列语义 | `whcode-app::BoundedQueue` | 关键条目背压、快照只淘汰快照——平台无关 |
 | 写者服务边界 | `whcode-store::EventWriter` | ADR-002 单写者；BSD 仅需提供可链接的 DuckDB |
 | SSH 客户端 | `whcode-ssh::proto` | `SshTarget` / `ExecReport` / `ExecRegistry`，按 ADR-007 登记；OpenBSD/DragonFly 的**全部**控制走此接口（FR-611） |
-| 依赖记录 | `ci/platform-matrix/record-deps.sh` | POSIX sh，FreeBSD/NetBSD 直接可执行 |
+| 依赖记录 | `.github/scripts/platform-matrix/record-deps.sh` | POSIX sh，FreeBSD/NetBSD 直接可执行 |
 
 ## 2. 必须实现（接口已预留，BSD 侧补实现）
 
@@ -55,7 +55,7 @@ export DUCKDB_INCLUDE_DIR=/usr/pkg/include
 
 ### 2.3 Go/No-Go 门禁（CI 已按此预留）
 
-`ci/platform-matrix/{freebsd,netbsd}.yml` 的绿路径（`cargo check` + 无 libduckdb 链接的包级测试）
+`.github/scripts/platform-matrix/{freebsd,netbsd}.yml` 的绿路径（`cargo check` + 无 libduckdb 链接的包级测试）
 必须过；完整构建+测试作为显式门禁步骤，失败即 No-Go 证据（R-01）。
 
 ## 3. 禁止绕过

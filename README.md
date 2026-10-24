@@ -104,7 +104,7 @@ Windows 使用 msvc，不依赖任何 GNU 工具链。
 
 ```bash
 # 1) 拉取并校验预编译 DuckDB（构建前置，SHA256 校验失败即中止）
-python ci/fetch-duckdb.py
+python .github/scripts/fetch-duckdb.py
 
 # 2) 构建与测试
 cargo build --locked --workspace

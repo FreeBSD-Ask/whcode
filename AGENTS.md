@@ -97,19 +97,19 @@ $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 标准验证链（提交前至少跑前五项；涉及布局/CI 时全跑）：
 
 ```powershell
-python ci/fetch-duckdb.py                        # 首次构建前置：拉取并校验 DuckDB
+python .github/scripts/fetch-duckdb.py                        # 首次构建前置：拉取并校验 DuckDB
 cargo build --locked --workspace
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
 cargo test -p whcode-tests --test layering       # 分层/平台分支/前端不触库
 cargo test -p whcode-tests --test layout         # 目录分类门禁
-python ci/traceability.py                        # FR↔任务↔Check 三方追溯（含缺口登记合规）
-python ci/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑）
+python .github/scripts/traceability.py                        # FR↔任务↔Check 三方追溯（含缺口登记合规）
+python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑）
 python script/normalize_eol.py                   # LF + 无 BOM 审计
 python script/check_workflows.py                 # CI workflow 自检
 python script/measure_resources.py               # 资源铁律 M1/C4：测试进程 RSS/CPU 达标
-python ci/benchmarks/check-frontend-budget.py    # 前端预算审计（涉及前端时）
+python .github/scripts/benchmarks/check-frontend-budget.py    # 前端预算审计（涉及前端时）
 ```
 
 运行入口：
@@ -206,9 +206,9 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 
 - 工作流 `uses:` 必须同时满足：**最新 release 版本** + **固定 commit SHA**，写法为
   `owner/repo@<40 位十六进制 SHA> # vX.Y.Z`；禁止 `@main`、`@master`、`@vN` 等可移动引用。
-- `ci/action-versions.json` 是唯一事实源（版本 + SHA + 复核日期）；`ci/check-actions.py`
+- `.github/scripts/action-versions.json` 是唯一事实源（版本 + SHA + 复核日期）；`.github/scripts/check-actions.py`
   在每次 CI 离线校验，`action-version-audit` 每周联网复核上游最新版本。
-- 升级流程：`python ci/check-actions.py --update` 刷新清单 → 同步工作流引用与版本注释 →
+- 升级流程：`python .github/scripts/check-actions.py --update` 刷新清单 → 同步工作流引用与版本注释 →
   离线门禁通过 → 提交。例外必须走 ADR，不得以“临时”为名跳过。
 - Dependabot 的 `github-actions` PR 只负责提议：合并前必须运行 `--update` 并提交清单，
   否则离线门禁失败；不得以自动升级为由绕过最新版本 + 固定 SHA 的要求。
@@ -238,7 +238,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 不得篡改代码块与非注释代码；注释只在逻辑不自明处添加。
 - 未实现事项必须显式标记（`未实现`/`阻塞`），写清当前行为，不得依赖隐含默认值。
 - 临时脚本、探测脚本、运行日志一律放 `script/`；**不入库**；临时脚本与运行日志
-  由 `ci/clean.py --scope script` 回收（长期验证工具与凭据在脚本内 `KEEP_ALWAYS` 显式保留）。
+  由 `.github/scripts/clean.py --scope script` 回收（长期验证工具与凭据在脚本内 `KEEP_ALWAYS` 显式保留）。
 - 新增根文件必须同步 `tests/contract/test_layout.rs` 白名单与 `repository-layout.md`；
   根目录不接受源码、脚本或散文档。
 
@@ -250,7 +250,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 禁止修改全局 git 配置；本机无签名密钥时用 `git commit --no-gpg-sign`，不得改配置绕过。
 - 禁止把交叉编译通过、静态推断、单次样本当作平台或性能结论。
 - 禁止在 CI 工作流中使用可移动 action 引用（tag／分支）或非最新版本；升级必须同步
-  `ci/action-versions.json` 与工作流 SHA（§5.1）。
+  `.github/scripts/action-versions.json` 与工作流 SHA（§5.1）。
 - 禁止在未获用户批准时扩大平台范围、引入 GNU 工具链、增加 32 位目标或替换核心依赖。
 - 禁止浏览器套壳式桌面 GUI（WebView／WebView2、CEF、Tauri／wry、Electron、NW.js 等，
   含“自绘窗口 + 内嵌 Web UI”）；桌面界面必须原生（ADR-026）。

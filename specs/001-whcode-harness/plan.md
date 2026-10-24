@@ -103,7 +103,7 @@ tests/
 ├── crash/                    # 崩溃注入：步骤边界、执行前/后、登记前（V-105、V-307）
 ├── stability/                # 24/72 小时稳定性脚本与指标采集
 └── fixtures/                 # 数据集生成器（10 万事件、1 万任务）、损坏产物样例
-ci/
+.github/scripts/
 ├── platform-matrix/          # 依赖记录与交叉检查脚本（五平台 workflow 在 .github/workflows/）
 └── benchmarks/               # 基线性能报告脚本（V-006）
 docs/

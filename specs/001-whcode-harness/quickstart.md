@@ -7,7 +7,7 @@
 ## 1. 前置条件
 
 - Rust 工具链：版本以 M0 锁定值为准（`rust-toolchain.toml` 固定），各原生目标分别可原生构建
-- DuckDB 原生依赖：官方预编译动态库（构建前执行 `python ci/fetch-duckdb.py`；BSD 平台按 M0 记录改用 pkg/ports 或源码构建）
+- DuckDB 原生依赖：官方预编译动态库（构建前执行 `python .github/scripts/fetch-duckdb.py`；BSD 平台按 M0 记录改用 pkg/ports 或源码构建）
 - 终端：支持 resize 的本地终端（TUI 验证）；BSD 平台另需 SSH 客户端
 - 数据集夹具：`tests/fixtures/` 生成 10 万事件与 1 万任务数据集
 - 运行时验证（M8）另需：受限 JS 引擎 payload / Python 解释器 / Windows PortableGit / BSD `/bin/sh`
@@ -16,17 +16,17 @@
 
 ```bash
 # 0) 构建前置：拉取并校验 DuckDB 官方预编译动态库（未拉取时构建显式失败）
-python ci/fetch-duckdb.py
+python .github/scripts/fetch-duckdb.py
 # 预期：vendor/duckdb/1.5.6/ 就位，载荷 SHA256 与登记值一致（见 docs/adr/ADR-DB-BUILD.md）
 
 # 1) 各原生目标构建与依赖记录（每平台各执行一次）
 cargo build --locked --release
-python ci/platform-matrix/record_deps.py     # Windows
-sh ci/platform-matrix/record-deps.sh         # FreeBSD / NetBSD
+python .github/scripts/platform-matrix/record_deps.py     # Windows
+sh .github/scripts/platform-matrix/record-deps.sh         # FreeBSD / NetBSD
 # 预期：构建成功；产出 artifacts/deps-<platform>.txt，含 Rust/DuckDB/编译器/OS 四类版本（V-001）
 
 # 1b) 交叉检查（类型检查，不链接）
-python ci/platform-matrix/cross-check.py
+python .github/scripts/platform-matrix/cross-check.py
 # 预期：代码级兼容检查完成；交叉检查不构成运行验证，不得替代各平台 V-001/V-002 证据（ADR-010、G-01）
 
 # 2) 数据库冒烟：创建 / 事务写读 / 关闭重启 / 迁移
