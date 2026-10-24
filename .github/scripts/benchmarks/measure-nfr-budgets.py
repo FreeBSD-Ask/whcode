@@ -502,7 +502,9 @@ def main() -> int:
 
     report = {"discipline": discipline(), "results": results}
     REPORT.parent.mkdir(parents=True, exist_ok=True)
-    REPORT.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    REPORT.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n"
+    )
 
     failures = 0
     for result in results:

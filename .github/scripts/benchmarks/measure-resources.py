@@ -201,7 +201,11 @@ def main() -> int:
         "violations": [item["target"] for item in violations],
     }
     out = ROOT / "artifacts" / "resource-report.json"
-    out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    out.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     for item in results:
         ok = item["measured"] and item["within_budget"] and item["passed"]
         status = "PASS" if ok else "FAIL"
