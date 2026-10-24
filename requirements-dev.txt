@@ -3,5 +3,8 @@
 #
 # - pillow：GUI 探针截图与像素统计（.github/scripts/gui-probe.py）
 # - fonttools：GUI 运行时字体子集生成（.github/scripts/subset-fonts.py；生成物入库，日常构建不需要）
+# - duckdb：NFR 夹具种子数据（.github/scripts/benchmarks/measure-nfr-budgets.py 的 10 万事件夹具）；
+#   版本与引擎对齐（DuckDB 2.0.0），只用于开发/CI 测量，产品运行期零第三方依赖
 pillow>=11.0
 fonttools>=4.50
+duckdb==2.0.0

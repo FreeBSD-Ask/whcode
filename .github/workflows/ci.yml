@@ -483,6 +483,9 @@ jobs:
       - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
         run: python .github/scripts/fetch-duckdb.py
 
+      - name: 安装测量夹具依赖（Python duckdb 2.0.0，与引擎对齐）
+        run: python -m pip install --disable-pip-version-check duckdb==2.0.0
+
       - name: 构建（锁定依赖图）
         run: cargo build --locked --workspace
 
