@@ -30,7 +30,8 @@ impl TuiState {
     }
 
     /// 处理一个事件：`q` 与 Ctrl-C 请求退出；`1`—`6` 切换视图（导航键，不计入普通
-    /// 按键）；`Resize` 更新尺寸；其余字符键仅计数。
+    /// 按键）；`Resize` 更新尺寸；其余字符键仅计数（Enter/Esc/Backspace 由写操作
+    /// 模式在 LoopCore 消费，Normal 态落到计数）。
     pub fn handle(&mut self, event: UiEvent) {
         match event {
             UiEvent::Key('q') | UiEvent::CtrlC => self.quit = true,
@@ -38,6 +39,7 @@ impl TuiState {
                 Some(view) => self.view = view,
                 None => self.keys_seen += 1,
             },
+            UiEvent::Enter | UiEvent::Esc | UiEvent::Backspace => self.keys_seen += 1,
             UiEvent::Resize { cols, rows } => {
                 self.cols = cols;
                 self.rows = rows;

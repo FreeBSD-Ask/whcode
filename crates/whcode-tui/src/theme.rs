@@ -51,6 +51,17 @@ pub enum Theme {
 }
 
 impl Theme {
+    /// `t` 键循环顺序（T178.1/FR-625）：四套依配置体系顺序循环，四步回原位。
+    #[must_use]
+    pub const fn next(self) -> Self {
+        match self {
+            Self::EinkDay => Self::EinkNight,
+            Self::EinkNight => Self::AmoledNight,
+            Self::AmoledNight => Self::TerminalGreen,
+            Self::TerminalGreen => Self::EinkDay,
+        }
+    }
+
     /// 主题的精确色值（背景，前景）。
     #[must_use]
     pub const fn colors(self) -> (&'static str, &'static str) {

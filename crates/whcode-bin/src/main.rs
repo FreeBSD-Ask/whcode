@@ -264,15 +264,18 @@ fn launch_interactive(args: &[String]) -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    let (theme, texts, source) = match prepare_frontend(args) {
+    let FrontendParts { theme, texts, source, executor } = match prepare_frontend(args) {
         Ok(prepared) => prepared,
         Err(code) => return code,
     };
     let probe: fn() -> Option<bool> = whcode_platform::term::is_window_minimized;
+    let executor_ref: Option<&dyn whcode_app::commands::CommandExecutor> =
+        executor.as_ref().map(|executor| executor as &dyn whcode_app::commands::CommandExecutor);
     let options = whcode_tui::RunOptions {
         theme,
         texts,
         minimize_probe: Some(&probe),
+        command_executor: executor_ref,
     };
     match whcode_tui::run_with(source.as_ref(), options) {
         Ok(()) => ExitCode::SUCCESS,
@@ -287,7 +290,7 @@ fn launch_interactive(args: &[String]) -> ExitCode {
 ///
 /// 与 TUI 共用同一只读快照（`whcode_app::view_source`）：GUI 自身不触库，主题沿用配置。
 fn gui_command(args: &[String]) -> ExitCode {
-    let (theme, texts, source) = match prepare_frontend(args) {
+    let FrontendParts { theme, texts, source, .. } = match prepare_frontend(args) {
         Ok(prepared) => prepared,
         Err(code) => return code,
     };
@@ -306,16 +309,15 @@ fn gui_command(args: &[String]) -> ExitCode {
 }
 
 /// 前端共用装配：主题、文本层、工作区与只读快照数据源（TUI 与 GUI 同一来源）。
-fn prepare_frontend(
-    args: &[String],
-) -> Result<
-    (
-        whcode_tui::Theme,
-        whcode_domain::i18n::I18n,
-        Box<dyn whcode_app::view_source::ViewSource>,
-    ),
-    ExitCode,
-> {
+/// 前端装配产物（TUI／GUI 共用）：主题、文本层、只读数据源与 TUI 写执行器。
+struct FrontendParts {
+    theme: whcode_tui::Theme,
+    texts: whcode_domain::i18n::I18n,
+    source: Box<dyn whcode_app::view_source::ViewSource>,
+    executor: Option<store_source::TuiCommandExecutor>,
+}
+
+fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
     let config = match load_config(args) {
         Ok(config) => config,
         Err(err) => {
@@ -335,15 +337,29 @@ fn prepare_frontend(
             return Err(ExitCode::FAILURE);
         }
     };
-    let source: Box<dyn whcode_app::view_source::ViewSource> =
-        match workspace::open_workspace_db(&workspace, &config) {
-            Ok(conn) => Box::new(store_source::StoreViewSource::new(conn, texts.clone())),
-            Err(err) => {
-                eprintln!("数据源不可用（界面以空数据源运行，视图显示“暂无数据”）：{err}");
-                Box::new(whcode_app::view_source::EmptyViewSource)
-            }
-        };
-    Ok((theme, texts, source))
+    // 连接经 Rc<RefCell> 共享：视图数据源（读）与 TUI 写命令执行器（FR-623）用同一条
+    // 工作区连接（Check 98 口径：单连接为唯一写路径）；库不可用时两者皆缺（只读空源）。
+    let shared = match workspace::open_workspace_db(&workspace, &config) {
+        Ok(conn) => Some(std::rc::Rc::new(std::cell::RefCell::new(conn))),
+        Err(err) => {
+            eprintln!("数据源不可用（界面以空数据源运行，视图显示“暂无数据”）：{err}");
+            None
+        }
+    };
+    let source: Box<dyn whcode_app::view_source::ViewSource> = match &shared {
+        Some(conn) => Box::new(store_source::StoreViewSource::new(
+            std::rc::Rc::clone(conn),
+            texts.clone(),
+        )),
+        None => Box::new(whcode_app::view_source::EmptyViewSource),
+    };
+    let executor = shared.map(store_source::TuiCommandExecutor::new);
+    Ok(FrontendParts {
+        theme,
+        texts,
+        source,
+        executor,
+    })
 }
 
 fn doctor(args: &[String]) {

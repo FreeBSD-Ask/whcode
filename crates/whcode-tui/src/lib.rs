@@ -46,6 +46,7 @@ use ratatui::layout::{Constraint, Layout};
 use ratatui::style::{Color, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph};
+use whcode_app::commands::{CommandExecutor, FrontendCommand};
 use whcode_domain::i18n::I18n;
 use whcode_domain::{ErrorCode, WhError};
 
@@ -97,6 +98,50 @@ pub struct RunOptions<'a> {
     /// （仅在有**待绘制帧**且输入静默 ≥1s 时；间隔 5s→60s 退避，ADR-021）。
     /// `None` = 不探测（门控保持“未最小化”，行为与接线前一致）。
     pub minimize_probe: Option<&'a dyn Fn() -> Option<bool>>,
+    /// 写命令执行器（FR-623/T177）：`Some` 时会话/任务写操作可用；`None` 时写动作
+    /// 显式提示 `not_supported`（不静默无响应）。
+    pub command_executor: Option<&'a dyn CommandExecutor>,
+}
+
+/// TUI 写操作输入模式（T177）：Normal 为只读浏览；Text 收集单行输入
+/// （new/rename）；Confirm 持有待确认命令（delete/purge 两段确认，取消不改状态）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum InputMode {
+    Normal,
+    /// 单行输入：提示键（新增/重命名）与缓冲。
+    Text {
+        kind: TextKind,
+        buffer: String,
+    },
+    /// 待确认的破坏性命令（预览已执行且显示在状态行；二次确认才执行）。
+    Confirm {
+        command: FrontendCommand,
+        label: String,
+    },
+}
+
+/// 单行输入的用途。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TextKind {
+    /// 新建会话标题。
+    SessionNew,
+    /// 重命名当前选中会话。
+    SessionRename,
+}
+
+/// TUI 游标检查间隔（FR-624 量化判据）：≥1000 ms，低频有界。
+pub const CURSOR_CHECK_INTERVAL: Duration = Duration::from_millis(1000);
+
+/// 清理预览的默认截止窗口（30 天，毫秒）——TUI purge 预览取“早于 30 天”。
+const PURGE_WINDOW_MS: i64 = 30 * 24 * 60 * 60 * 1000;
+
+/// 当前 Unix 毫秒（写命令时钟注入；失败回退 0——命令会因时间倒挂被保护逻辑拒，
+/// 不 panic）。
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 /// 启动 TUI 闭环：默认数据源（空）、默认主题、不探测最小化（tasks.md T024、FR-601）。
@@ -120,7 +165,8 @@ pub fn run_with(source: &dyn ViewSource, options: RunOptions<'_>) -> Result<(), 
     let mut guard = TerminalGuard::enter(&mut session)?;
 
     let (cols, rows) = guard.session().size().unwrap_or(DEFAULT_SIZE);
-    let mut core = LoopCore::new(source, cols, rows, Instant::now());
+    let mut core =
+        LoopCore::new(source, options.command_executor, options.theme, cols, rows, Instant::now());
 
     let mut terminal = Terminal::new(RowBackend::new(io::stdout()))
         .map_err(|err| io_error("初始化终端失败", err))?;
@@ -132,14 +178,18 @@ pub fn run_with(source: &dyn ViewSource, options: RunOptions<'_>) -> Result<(), 
             core.maybe_probe(probe, now);
         }
         // 脏标记门控：仅脏且未最小化时绘制（T083/T129/T135）。
-        if let Some(lines) = core.render_frame() {
+        if let Some(mut lines) = core.render_frame() {
+            if !core.status.is_empty() {
+                lines.push(core.status.clone());
+            }
+            let theme = core.theme;
             terminal
-                .draw(|frame| draw_frame(frame, &core.state, &lines, options.theme, &options.texts))
+                .draw(|frame| draw_frame(frame, &core.state, &lines, theme, &options.texts))
                 .map_err(|err| io_error("绘制界面失败", err))?;
         }
         match guard.session_mut().poll_event(POLL_TIMEOUT)? {
             PollOutcome::Event(event) => core.on_input(event, Instant::now()),
-            PollOutcome::Timeout => core.on_idle(),
+            PollOutcome::Timeout => core.on_idle(Instant::now()),
             // 输入流结束（例如管道关闭）：退出循环，终端交由 guard 恢复。
             PollOutcome::Eof => break,
         }
@@ -170,7 +220,8 @@ pub fn run_scripted_steps(
     options: &RunOptions<'_>,
 ) -> ScriptReport {
     let mut now = Instant::now();
-    let mut core = LoopCore::new(source, 0, 0, now);
+    let mut core =
+        LoopCore::new(source, options.command_executor, options.theme, 0, 0, now);
     let mut events_consumed = 0;
     let mut steps_consumed = 0;
     for step in steps {
@@ -184,7 +235,7 @@ pub fn run_scripted_steps(
                 events_consumed += 1;
             }
             ScriptStep::DataChanged => core.on_data_changed(),
-            ScriptStep::Idle => core.on_idle(),
+            ScriptStep::Idle => core.on_idle(now),
         }
         steps_consumed += 1;
         if let Some(probe) = options.minimize_probe {
@@ -230,6 +281,10 @@ pub struct ScriptReport {
     pub selected_session: Option<String>,
     /// 实际产生的重绘次数（渲染门控放行的帧数）。
     pub redraws: usize,
+    /// 结束时的当前主题（T178.1 `t` 循环）。
+    pub theme: Theme,
+    /// 最近一次动作反馈行（T177 写操作/取消提示；空为无）。
+    pub status: String,
     /// 最小化期间跳过绘制的累计次数（FR-617）。
     pub skipped_while_minimized: usize,
     /// 最小化探测的实际调用次数（T135/ADR-021 成本证据）。
@@ -247,12 +302,26 @@ struct LoopCore<'a> {
     renderer: Renderer,
     snapshot: ViewSnapshot,
     source: &'a dyn ViewSource,
+    /// 当前主题（T178.1）：`t` 键四套循环，绘制使用当前主题而非固定 RunOptions 值。
+    theme: Theme,
+    /// 写命令执行器（FR-623/T177）；`None` = 写动作显式不可用。
+    executor: Option<&'a dyn CommandExecutor>,
     /// 会话清单（每次准备时刷新；供 `j`/`k` 选择与边界钳制）。
     sessions: Vec<SessionRow>,
     /// 会话选择序号（`usize::MAX` 等越界值在准备时钳制为 0）。
     session_cursor: usize,
     /// 当前选中的会话 ID（由 `sessions[session_cursor]` 解析）。
     selected_session: Option<String>,
+    /// 任务视图选中序号（`R`/`A` 作用于选中任务，T177）。
+    task_cursor: usize,
+    /// 输入模式（只读浏览 / 单行输入 / 破坏性确认）。
+    input_mode: InputMode,
+    /// 动作反馈行（追加在帧尾；空则不占行）。
+    status: String,
+    /// 最近一次观测的持久化游标（FR-624）：推进才置脏。
+    last_cursor: Option<i64>,
+    /// 上次游标检查时刻（间隔 [`CURSOR_CHECK_INTERVAL`]）。
+    last_cursor_check: Instant,
     last_input_at: Instant,
     last_probe_at: Instant,
     probe_interval: Duration,
@@ -262,16 +331,31 @@ struct LoopCore<'a> {
 }
 
 impl<'a> LoopCore<'a> {
-    fn new(source: &'a dyn ViewSource, cols: u16, rows: u16, now: Instant) -> Self {
+    fn new(
+        source: &'a dyn ViewSource,
+        executor: Option<&'a dyn CommandExecutor>,
+        theme: Theme,
+        cols: u16,
+        rows: u16,
+        now: Instant,
+    ) -> Self {
         let state = TuiState::new(cols, rows);
+        let last_cursor = source.cursor(None);
         let mut core = Self {
             snapshot: ViewSnapshot::empty(state.view()),
             state,
             renderer: Renderer::new(),
             source,
+            theme,
+            executor,
             sessions: Vec::new(),
             session_cursor: 0,
             selected_session: None,
+            task_cursor: 0,
+            input_mode: InputMode::Normal,
+            status: String::new(),
+            last_cursor,
+            last_cursor_check: now,
             last_input_at: now,
             last_probe_at: now,
             probe_interval: MINIMIZE_PROBE_INTERVAL,
@@ -304,7 +388,20 @@ impl<'a> LoopCore<'a> {
             self.source
                 .snapshot(self.state.view(), self.selected_session.as_deref())
         };
-        self.snapshot.selected_index = Some(self.session_cursor);
+        // 选中序号按视图归属：会话视图选中会话行；任务视图选中任务行（T177 写操作目标）。
+        self.snapshot.selected_index = if self.state.view() == ViewId::Tasks {
+            let max = self.snapshot.tasks.len();
+            if max == 0 {
+                None
+            } else {
+                if self.task_cursor >= max {
+                    self.task_cursor = max - 1;
+                }
+                Some(self.task_cursor)
+            }
+        } else {
+            Some(self.session_cursor)
+        };
         self.renderer.handle_event(RenderEvent::DataChanged);
     }
 
@@ -312,30 +409,287 @@ impl<'a> LoopCore<'a> {
     /// 最小化门控则按“还原”记账（还原后单次全量重绘，FR-617）。视图切换时重新
     /// 准备快照（准备层允许做同步整理，但不得做 LLM/长工具调用，§5.3）。
     ///
-    /// 导航键（`j`/`k` 选择会话、`r` 刷新）由本层消费，不计入普通按键计数。
+    /// 导航键（`j`/`k` 选择、`r` 刷新）与写操作键（T177）由本层消费，不计入普通按键计数。
     fn on_input(&mut self, event: UiEvent, now: Instant) {
         self.last_input_at = now;
         if self.renderer.is_minimized() {
             self.renderer.handle_event(RenderEvent::Restored);
         }
         match event {
-            UiEvent::Key('j') => {
+            UiEvent::Key('j') if self.input_mode == InputMode::Normal => {
                 self.session_cursor = self.session_cursor.saturating_add(1);
                 self.prepare();
             }
-            UiEvent::Key('k') => {
+            UiEvent::Key('k') if self.input_mode == InputMode::Normal => {
                 self.session_cursor = self.session_cursor.saturating_sub(1);
                 self.prepare();
             }
-            UiEvent::Key('r') => self.prepare(),
-            _ => {
-                self.state.handle(event);
+            UiEvent::Key('r') if self.input_mode == InputMode::Normal => self.prepare(),
+            UiEvent::Resize { .. } => self.state.handle(event),
+            _ => self.on_key(event, now),
+        }
+        self.renderer.handle_event(RenderEvent::DataChanged);
+    }
+
+    /// 写操作与模式键（T177）：Text 收集输入、Confirm 二段确认、Normal 触发动作。
+    /// 无执行器时动作显式提示 `not_supported`（不静默无响应，FR-620）。
+    fn on_key(&mut self, event: UiEvent, now: Instant) {
+        // Ctrl-C 在任何模式都请求退出（安全出口不因模式屏蔽）。
+        if event == UiEvent::CtrlC {
+            self.state.handle(event);
+            return;
+        }
+        let mode = std::mem::replace(&mut self.input_mode, InputMode::Normal);
+        match (mode, event) {
+            (InputMode::Normal, event) => self.on_key_normal(event, now),
+            (InputMode::Text { kind, mut buffer }, event) => match event {
+                UiEvent::Enter => {
+                    if buffer.trim().is_empty() {
+                        self.status = "输入为空：已取消".to_string();
+                        return;
+                    }
+                    let command = match kind {
+                        TextKind::SessionNew => FrontendCommand::SessionNew {
+                            title: buffer.trim().to_string(),
+                            model: None,
+                            now_ms: now_ms(),
+                        },
+                        TextKind::SessionRename => {
+                            let Some(session_id) = self.selected_session.clone() else {
+                                self.status = "重命名：未选择会话".to_string();
+                                return;
+                            };
+                            FrontendCommand::SessionRename {
+                                session_id,
+                                title: buffer.trim().to_string(),
+                                now_ms: now_ms(),
+                            }
+                        }
+                    };
+                    self.execute(command, "会话写入");
+                }
+                UiEvent::Backspace => {
+                    buffer.pop();
+                    self.status = format!("输入：{buffer}_（Enter 提交，Esc 取消）");
+                    self.input_mode = InputMode::Text { kind, buffer };
+                }
+                UiEvent::Esc => {
+                    self.status = "已取消".to_string();
+                }
+                UiEvent::Key(ch) if !ch.is_control() && self.buffer_room(&buffer) => {
+                    buffer.push(ch);
+                    self.status = format!("输入：{buffer}_（Enter 提交，Esc 取消）");
+                    self.input_mode = InputMode::Text { kind, buffer };
+                }
+                other => {
+                    self.state.handle(other);
+                    self.input_mode = InputMode::Text { kind, buffer };
+                }
+            },
+
+            (InputMode::Confirm { command, label }, event) => match event {
+                UiEvent::Key('y') | UiEvent::Key('Y') => {
+                    self.execute(command, &label);
+                }
+                other => {
+                    self.status = format!("{label} 已取消（状态不变）");
+                    self.state.handle(other);
+                }
+            },
+        }
+    }
+
+    /// 单行输入缓冲上限（有界输入，NFR-215）。
+    fn buffer_room(&self, buffer: &str) -> bool {
+        buffer.chars().count() < 200
+    }
+
+    /// 经门面执行写命令（FR-623）：成功即重新准备快照（在线可见同步）；失败写状态行。
+    fn execute(&mut self, command: FrontendCommand, label: &str) {
+        let Some(executor) = self.executor else {
+            self.status = format!(
+                "{label}: not_supported（未注入写命令执行器——装配根未提供）"
+            );
+            return;
+        };
+        match executor.execute(command) {
+            Ok(_) => {
+                self.status = format!("{label} 完成");
+                self.prepare();
+            }
+            Err(err) => {
+                self.status = format!("{label} 失败：{err}");
+            }
+        }
+    }
+
+    /// Normal 模式动作键（T177）：会话视图 n/m/d/A，任务视图 R/X，任意视图 p/t。
+    /// 键位避开既有证据键（q/1—6/j/k/r 与 B-05 计数键 a/b，ui-design）。
+    fn on_key_normal(&mut self, key: UiEvent, now: Instant) {
+        let _ = now;
+        match key {
+            UiEvent::Key('n') if self.state.view() == ViewId::Sessions => {
+                self.input_mode = InputMode::Text {
+                    kind: TextKind::SessionNew,
+                    buffer: String::new(),
+                };
+                self.status = "新会话标题：_（Enter 提交，Esc 取消）".to_string();
+            }
+            UiEvent::Key('m') if self.state.view() == ViewId::Sessions => {
+                if self.selected_session.is_some() {
+                    self.input_mode = InputMode::Text {
+                        kind: TextKind::SessionRename,
+                        buffer: String::new(),
+                    };
+                    self.status = "新标题：_（Enter 提交，Esc 取消）".to_string();
+                } else {
+                    self.status = "重命名：未选择会话".to_string();
+                }
+            }
+            UiEvent::Key('d') if self.state.view() == ViewId::Sessions => {
+                let Some(session_id) = self.selected_session.clone() else {
+                    self.status = "删除：未选择会话".to_string();
+                    return;
+                };
+                self.request_confirm(
+                    FrontendCommand::SessionDelete {
+                        session_id,
+                        confirm: true,
+                        now_ms: now_ms(),
+                    },
+                    "删除会话",
+                );
+            }
+            UiEvent::Key('A') if self.state.view() == ViewId::Sessions => {
+                let Some(session_id) = self.selected_session.clone() else {
+                    self.status = "归档：未选择会话".to_string();
+                    return;
+                };
+                self.execute(
+                    FrontendCommand::SessionArchive {
+                        session_id,
+                        archived: true,
+                        now_ms: now_ms(),
+                    },
+                    "归档会话",
+                );
+            }
+            UiEvent::Key('R') if self.state.view() == ViewId::Tasks => {
+                self.task_action(false);
+            }
+            UiEvent::Key('X') if self.state.view() == ViewId::Tasks => {
+                self.task_action(true);
+            }
+            UiEvent::Key('t') => {
+                // 主题运行时循环（T178.1/FR-625）：四套依序循环，不重启。
+                self.theme = self.theme.next();
+                self.status = format!("主题：{}", self.theme.as_str());
+                self.renderer.handle_event(RenderEvent::DataChanged);
+            }
+            UiEvent::Key('p') => {
+                self.request_confirm(
+                    FrontendCommand::PurgeExecute {
+                        before_ms: now_ms()
+                            .saturating_sub(u64::try_from(PURGE_WINDOW_MS).unwrap_or(0))
+                            .min(i64::MAX as u64) as i64,
+                        confirm: true,
+                        now_ms: now_ms(),
+                    },
+                    "清理 30 天前会话",
+                );
+            }
+            other => {
+                self.state.handle(other);
                 if self.snapshot.view != self.state.view() {
                     self.prepare();
                 }
             }
         }
-        self.renderer.handle_event(RenderEvent::DataChanged);
+    }
+
+    /// 任务视图写动作（retry/abort 作用于选中任务）。
+    fn task_action(&mut self, abort: bool) {
+        let task_id = self
+            .snapshot
+            .tasks
+            .get(self.task_cursor)
+            .map(|row| row.id.clone());
+        let Some(task_id) = task_id else {
+            self.status = "任务动作：无选中任务".to_string();
+            return;
+        };
+        let (command, label) = if abort {
+            (
+                FrontendCommand::TaskAbort {
+                    task_id,
+                    now_ms: now_ms(),
+                },
+                "中止任务",
+            )
+        } else {
+            (
+                FrontendCommand::TaskRetry {
+                    task_id,
+                    now_ms: now_ms(),
+                },
+                "重试任务",
+            )
+        };
+        self.execute(command, label);
+    }
+
+    /// 两段确认第一步：执行预览段（confirm=false——不写库），通过后才进入待确认。
+    fn request_confirm(&mut self, command: FrontendCommand, label: &str) {
+        let preview = match &command {
+            FrontendCommand::SessionDelete {
+                session_id,
+                now_ms,
+                ..
+            } => FrontendCommand::SessionDelete {
+                session_id: session_id.clone(),
+                confirm: false,
+                now_ms: *now_ms,
+            },
+            FrontendCommand::PurgeExecute { before_ms, now_ms, .. } => {
+                FrontendCommand::PurgePreview {
+                    before_ms: *before_ms,
+                    now_ms: *now_ms,
+                }
+            }
+            other => {
+                // 非破坏性命令不进确认流（防御式；当前调用点不会到达）。
+                self.execute(other.clone(), label);
+                return;
+            }
+        };
+        let Some(executor) = self.executor else {
+            self.status = format!("{label}: not_supported（未注入写命令执行器）");
+            return;
+        };
+        match executor.execute(preview) {
+            Ok(outcome) => {
+                self.status = match outcome {
+                    whcode_app::CommandOutcome::SessionDeletePreview(preview) => format!(
+                        "{label} 预览：将删 {} 个会话（事件 {}）——再按 y 确认，其他键取消",
+                        preview.selected_sessions.len(),
+                        preview.counts.events
+                    ),
+                    whcode_app::CommandOutcome::PurgePreview(preview) => format!(
+                        "{label} 预览：将删 {} 个会话（事件 {}）——再按 y 确认，其他键取消",
+                        preview.selected_sessions.len(),
+                        preview.counts.events
+                    ),
+                    _ => format!("{label} 预览完成——再按 y 确认，其他键取消"),
+                };
+                self.input_mode = InputMode::Confirm {
+                    command,
+                    label: label.to_string(),
+                };
+            }
+            Err(err) => {
+                self.status = format!("{label} 预览失败：{err}");
+            }
+        }
     }
 
     /// 数据变更通知（模拟应用服务数据通道；本 crate 尚无数据通道，暂由重放步骤注入）。
@@ -343,8 +697,17 @@ impl<'a> LoopCore<'a> {
         self.renderer.handle_event(RenderEvent::DataChanged);
     }
 
-    /// 空闲心跳：不置脏（T129 空闲期零重绘）。
-    fn on_idle(&mut self) {
+    /// 空闲心跳（FR-624/T178）：低频检查持久化游标（间隔 [`CURSOR_CHECK_INTERVAL`]，
+    /// 查询 O(1)），仅游标推进时经 prepare 置脏重绘一次；游标未变不置脏（T129）。
+    fn on_idle(&mut self, now: Instant) {
+        if now.duration_since(self.last_cursor_check) >= CURSOR_CHECK_INTERVAL {
+            self.last_cursor_check = now;
+            let cursor = self.source.cursor(self.selected_session.as_deref());
+            if cursor.is_some() && cursor != self.last_cursor {
+                self.last_cursor = cursor;
+                self.prepare();
+            }
+        }
         self.renderer.handle_event(RenderEvent::IdleTick);
     }
 
@@ -424,6 +787,8 @@ impl<'a> LoopCore<'a> {
             session_cursor: self.session_cursor,
             selected_session: self.selected_session.clone(),
             redraws: self.redraws,
+            theme: self.theme,
+            status: self.status.clone(),
             skipped_while_minimized: self.skipped,
             probes: self.probes,
             minimized: self.renderer.is_minimized(),
@@ -525,6 +890,84 @@ mod tests {
         assert_eq!(report.keys_seen, 1);
         assert_eq!(report.events_consumed, 2, "退出后不得继续消费事件");
         assert_eq!((report.cols, report.rows), (0, 0), "退出后的 Resize 不生效");
+    }
+
+    /// T178.1：`t` 四步循环回原位（FR-625），每步产生一帧（主题变化置脏）。
+    #[test]
+    fn theme_key_cycles_four_themes_back_to_start() {
+        use crate::theme::Theme;
+        let events = [
+            UiEvent::Key('t'),
+            UiEvent::Key('t'),
+            UiEvent::Key('t'),
+            UiEvent::Key('t'),
+        ];
+        let report = run_scripted(&events);
+        assert_eq!(report.theme, Theme::EinkDay, "四步必须回原位");
+        let one = run_scripted(&[UiEvent::Key('t')]);
+        assert_eq!(one.theme, Theme::EinkNight, "一步到第二套");
+    }
+
+    /// T178.2：游标未变空闲零重绘（首帧除外）。
+    #[test]
+    fn idle_steps_without_cursor_change_do_not_redraw() {
+        use whcode_app::view_source::EmptyViewSource;
+        let steps = [ScriptStep::Idle; 5];
+        let report = run_scripted_steps(&EmptyViewSource, &steps, &RunOptions::default());
+        assert_eq!(report.redraws, 1, "游标未变：仅初始帧，空闲零重绘");
+    }
+
+    /// T178.2：游标推进触发一帧重绘（FR-624 在线可见）。
+    #[test]
+    fn cursor_advance_triggers_single_redraw() {
+        use std::cell::Cell;
+        struct AdvancingSource(Cell<i64>);
+        impl whcode_app::view_source::ViewSource for AdvancingSource {
+            fn snapshot(&self, _view: ViewId, _session: Option<&str>) -> whcode_app::view_source::ViewSnapshot {
+                whcode_app::view_source::ViewSnapshot::empty(ViewId::Sessions)
+            }
+            fn cursor(&self, _session: Option<&str>) -> Option<i64> {
+                self.0.set(self.0.get() + 1);
+                Some(self.0.get())
+            }
+        }
+        let source = AdvancingSource(Cell::new(0));
+        let steps = [ScriptStep::Idle; 5];
+        let report = run_scripted_steps(&source, &steps, &RunOptions::default());
+        assert!(
+            report.redraws > 1,
+            "游标每次检查都推进：空闲检查必须触发重绘（实际 {}）",
+            report.redraws
+        );
+    }
+
+    /// T177：无执行器时写动作显式 `not_supported`，不静默无响应（FR-620）。
+    /// 用带一条会话的夹具源触发删除路径（空源会先命中“未选择会话”）。
+    #[test]
+    fn write_action_without_executor_reports_not_supported() {
+        struct OneSessionSource;
+        impl whcode_app::view_source::ViewSource for OneSessionSource {
+            fn snapshot(
+                &self,
+                view: ViewId,
+                _session: Option<&str>,
+            ) -> whcode_app::view_source::ViewSnapshot {
+                let mut snapshot = whcode_app::view_source::ViewSnapshot::empty(view);
+                snapshot.sessions.push(crate::views::SessionRow {
+                    id: "S-1".to_string(),
+                    title: "夹具".to_string(),
+                    stage: "plan".to_string(),
+                    status: "active".to_string(),
+                });
+                snapshot
+            }
+        }
+        let report = run_scripted_steps(&OneSessionSource, &[ScriptStep::Input(UiEvent::Key('d'))], &RunOptions::default());
+        assert!(
+            report.status.contains("not_supported"),
+            "状态行必须显式不可用：{:?}",
+            report.status
+        );
     }
 
     #[test]

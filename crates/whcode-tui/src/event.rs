@@ -11,6 +11,12 @@
 pub enum UiEvent {
     /// 一个可打印字符键（不含 Ctrl 组合）。
     Key(char),
+    /// Enter（T177：单行输入提交）。
+    Enter,
+    /// Esc（T177：取消输入/确认）。
+    Esc,
+    /// Backspace（T177：单行输入回删）。
+    Backspace,
     /// Ctrl-C（中断请求）。
     CtrlC,
     /// 终端尺寸变化。
@@ -41,6 +47,9 @@ pub(crate) fn map_event(event: crossterm::event::Event) -> Option<UiEvent> {
             }
             match key.code {
                 KeyCode::Char(c) => Some(UiEvent::Key(c)),
+                KeyCode::Enter => Some(UiEvent::Enter),
+                KeyCode::Esc => Some(UiEvent::Esc),
+                KeyCode::Backspace => Some(UiEvent::Backspace),
                 _ => None,
             }
         }

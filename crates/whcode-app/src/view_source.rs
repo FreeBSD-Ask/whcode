@@ -237,10 +237,18 @@ impl ViewSnapshot {
             ViewId::Tasks => self
                 .tasks
                 .iter()
+                .enumerate()
                 .take(remaining)
-                .map(|row| {
+                .map(|(index, row)| {
+                    // 任务选中态（FR-623 写操作作用于选中任务）：`> ` 前缀（不只靠颜色）。
+                    let marker = if self.view == ViewId::Tasks && self.selected_index == Some(index)
+                    {
+                        "> "
+                    } else {
+                        ""
+                    };
                     format!(
-                        "{} {} [{}] retry={}",
+                        "{marker}{} {} [{}] retry={}",
                         row.id, row.title, row.status, row.retry_count
                     )
                 })
@@ -409,6 +417,12 @@ mod tests {
 pub trait ViewSource {
     /// 准备指定视图的只读快照（含会话范围）。
     fn snapshot(&self, view: ViewId, session: Option<&str>) -> ViewSnapshot;
+
+    /// 持久化事件游标（FR-624 在线可见）：`None` 表示数据源不可用或不可查——
+    /// TUI 仅在游标**推进**时置脏重绘一次；默认 `None`（空数据源与测试夹具兼容）。
+    fn cursor(&self, _session: Option<&str>) -> Option<i64> {
+        None
+    }
 }
 
 /// 空数据源：数据源不可用时的回退实现——六视图可切换、可绘制，界面提示“暂无数据”。

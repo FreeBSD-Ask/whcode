@@ -12,6 +12,9 @@
 //! （C-03）；Diff 视图经 `whcode_app::overview::converge_differences` 产出 converge
 //! 差异（Check 179），TUI 与原生 GUI 共用本 trait 实现，自动同源。
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use duckdb::Connection;
 use whcode_app::view_source::{EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource};
 use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
@@ -29,7 +32,7 @@ const SUMMARY_CHARS: usize = 96;
 
 /// 工作区只读视图数据源。
 pub struct StoreViewSource {
-    conn: Connection,
+    conn: Rc<RefCell<Connection>>,
     policy: DefaultPolicy,
     actor: Actor,
     texts: I18n,
@@ -38,7 +41,7 @@ pub struct StoreViewSource {
 impl StoreViewSource {
     /// 以已打开的工作区连接构造（连接与文本层由装配根持有）。
     #[must_use]
-    pub fn new(conn: Connection, texts: I18n) -> Self {
+    pub fn new(conn: Rc<RefCell<Connection>>, texts: I18n) -> Self {
         Self {
             conn,
             policy: DefaultPolicy,
@@ -58,9 +61,14 @@ impl StoreViewSource {
         }
     }
 
+    /// 持久化事件游标（FR-624/T178）：O(1) 单值查询，供 TUI 低频在线可见检查。
+    fn cursor_of(&self) -> Option<i64> {
+        whcode_store::latest_seq(&self.conn.borrow()).ok()
+    }
+
     fn build_sessions(&self) -> Result<ViewSnapshot, WhError> {
         let rows =
-            whcode_app::list_sessions(&self.conn, &self.policy, &self.actor, false, SESSION_LIMIT)?;
+            whcode_app::list_sessions(&self.conn.borrow(), &self.policy, &self.actor, false, SESSION_LIMIT)?;
         let mut snapshot = ViewSnapshot::empty(ViewId::Sessions);
         snapshot.sessions = rows
             .into_iter()
@@ -79,7 +87,7 @@ impl StoreViewSource {
             return Ok(no_session(ViewId::Tasks, &self.texts));
         };
         let overview =
-            whcode_app::task_overview(&self.conn, &self.policy, &self.actor, Some(session))?;
+            whcode_app::task_overview(&self.conn.borrow(), &self.policy, &self.actor, Some(session))?;
         let mut snapshot = ViewSnapshot::empty(ViewId::Tasks);
         snapshot.summary = self.texts.resolve_fmt(
             "summary.tasks",
@@ -107,13 +115,13 @@ impl StoreViewSource {
         let Some(session) = session else {
             return Ok(no_session(ViewId::Events, &self.texts));
         };
-        let cursor = whcode_app::build_snapshot(&self.conn, &self.policy, &self.actor, session)?
+        let cursor = whcode_app::build_snapshot(&self.conn.borrow(), &self.policy, &self.actor, session)?
             .event_cursor;
         let after = cursor
             .saturating_sub(i64::try_from(EVENT_TAIL).unwrap_or(i64::MAX))
             .max(0);
         let export = whcode_app::events_export(
-            &self.conn,
+            &self.conn.borrow(),
             &self.policy,
             &self.actor,
             session,
@@ -148,7 +156,7 @@ impl StoreViewSource {
             return Ok(no_session(ViewId::Context, &self.texts));
         };
         let window = whcode_app::load_context(
-            &self.conn,
+            &self.conn.borrow(),
             &self.policy,
             &self.actor,
             session,
@@ -187,7 +195,7 @@ impl StoreViewSource {
         let Some(session) = session else {
             return Ok(no_session(ViewId::Spec, &self.texts));
         };
-        let snapshot = whcode_app::build_snapshot(&self.conn, &self.policy, &self.actor, session)?;
+        let snapshot = whcode_app::build_snapshot(&self.conn.borrow(), &self.policy, &self.actor, session)?;
         let stage = snapshot.session.stage.as_deref().unwrap_or("[unknown]");
         let active = snapshot
             .active_task
@@ -216,7 +224,7 @@ impl StoreViewSource {
             return Ok(no_session(ViewId::Diff, &self.texts));
         };
         let view = whcode_app::overview::converge_differences(
-            &self.conn,
+            &self.conn.borrow(),
             &self.policy,
             &self.actor,
             session,
@@ -256,6 +264,39 @@ impl ViewSource for StoreViewSource {
                 snapshot
             }
         }
+    }
+
+    fn cursor(&self, _session: Option<&str>) -> Option<i64> {
+        self.cursor_of()
+    }
+}
+
+/// TUI 写命令执行器（T177/FR-623）：与视图数据源共享同一条工作区连接
+/// （`Rc<RefCell>`，单线程 TUI 无并发共享；Check 98 口径——写者服务/单连接
+/// 为唯一写路径），经 `whcode-app::commands` 门面执行。
+pub struct TuiCommandExecutor {
+    conn: Rc<RefCell<Connection>>,
+}
+
+impl TuiCommandExecutor {
+    #[must_use]
+    pub fn new(conn: Rc<RefCell<Connection>>) -> Self {
+        Self { conn }
+    }
+}
+
+impl whcode_app::commands::CommandExecutor for TuiCommandExecutor {
+    fn execute(
+        &self,
+        command: whcode_app::FrontendCommand,
+    ) -> Result<whcode_app::CommandOutcome, WhError> {
+        let mut conn = self.conn.borrow_mut();
+        whcode_app::execute_command(
+            &mut conn,
+            &DefaultPolicy,
+            &whcode_app::actor_with_all_capabilities("tui-local"),
+            &command,
+        )
     }
 }
 
@@ -297,7 +338,7 @@ mod tests {
 
     #[test]
     fn empty_workspace_reports_correct_emptiness() {
-        let source = StoreViewSource::new(migrated_conn(), I18n::default());
+        let source = StoreViewSource::new(std::rc::Rc::new(std::cell::RefCell::new(migrated_conn())), I18n::default());
         let sessions = source.snapshot(ViewId::Sessions, None);
         assert!(sessions.sessions.is_empty(), "空工作区无会话");
         assert!(sessions.summary.is_empty(), "会话视图不带摘要");
@@ -309,7 +350,7 @@ mod tests {
         );
         // 英文文本层：同一快照的摘要切换语言（数据字段不翻译）。
         let english = StoreViewSource::new(
-            migrated_conn(),
+            std::rc::Rc::new(std::cell::RefCell::new(migrated_conn())),
             I18n::load("en", whcode_domain::i18n::LocaleSource::Explicit),
         );
         let tasks = english.snapshot(ViewId::Tasks, None);
@@ -327,11 +368,11 @@ mod tests {
         .expect("插入会话");
         conn.execute(
             "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id, kind, payload_json, ts, persistence_level)
-             VALUES (1, 'E-1', 'S-T', NULL, NULL, NULL, 'RequestStarted', '{\"model\":\"demo\"}', current_timestamp, 'redacted')",
+             VALUES (1, 'E-1', 'S-T', NULL, NULL, NULL, 'RequestStarted', CAST('{\"model\":\"demo\"}' AS JSON)::VARIANT, current_timestamp, 'redacted')",
             [],
         )
         .expect("插入事件");
-        let source = StoreViewSource::new(conn, I18n::default());
+        let source = StoreViewSource::new(std::rc::Rc::new(std::cell::RefCell::new(conn)), I18n::default());
 
         let sessions = source.snapshot(ViewId::Sessions, None);
         assert_eq!(sessions.sessions.len(), 1);
@@ -385,7 +426,7 @@ mod tests {
     fn diff_view_wires_converge_differences() {
         let conn = migrated_conn();
         seed_diff_fixture(&conn);
-        let source = StoreViewSource::new(conn, I18n::default());
+        let source = StoreViewSource::new(std::rc::Rc::new(std::cell::RefCell::new(conn)), I18n::default());
 
         let diff = source.snapshot(ViewId::Diff, Some("S-T"));
         assert_eq!(
@@ -409,7 +450,7 @@ mod tests {
         // 英文文本层：摘要切换语言，差异行数据字段不翻译。
         let english_conn = migrated_conn();
         seed_diff_fixture(&english_conn);
-        let english = StoreViewSource::new(english_conn, I18n::load("en", LocaleSource::Explicit));
+        let english = StoreViewSource::new(std::rc::Rc::new(std::cell::RefCell::new(english_conn)), I18n::load("en", LocaleSource::Explicit));
         let diff = english.snapshot(ViewId::Diff, Some("S-T"));
         assert_eq!(
             diff.summary,
