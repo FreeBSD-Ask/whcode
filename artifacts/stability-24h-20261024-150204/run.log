@@ -1,0 +1,20 @@
+长跑参数：时长 86400s，采样间隔 3600s，输出 /d/WHCode/artifacts/stability-24h-20261024-150204/timeseries.jsonl
+判据：JSONL 逐样本落盘；event_missing 必须为 0；队列缺口以 null 标注，不以 0 冒充。
+[1m[92m    Finished[0m ]8;;https://doc.rust-lang.org/cargo/reference/profiles.html#default-profiles\`test` profile [unoptimized + debuginfo]]8;;\ target(s) in 0.63s
+[1m[92m     Running[0m stability\test_stability_run.rs (target\debug\deps\stability_run-04919ab61485bcdc.exe)
+
+running 1 test
+长跑启动：86400 秒，间隔 3600 秒，输出 D:/WHCode/artifacts/stability-24h-20261024-150204/timeseries.jsonl
+test stability_run_collects_section_11_5_series has been running for over 60 seconds
+样本 1：1.00 h RSS 73.38 MB CPU null（首样本无区间）% 线程 17 句柄 172 事件 230980 缺失 0
+样本 2：2.00 h RSS 87.06 MB CPU 10.87% 线程 17 句柄 172 事件 361640 缺失 0
+样本 3：3.00 h RSS 32.66 MB CPU 15.00% 线程 17 句柄 172 事件 183660 缺失 0
+样本 4：4.00 h RSS 55.18 MB CPU 11.56% 线程 17 句柄 172 事件 312440 缺失 0
+样本 5：5.00 h RSS 69.55 MB CPU 13.33% 线程 17 句柄 172 事件 141420 缺失 0
+样本 6：6.00 h RSS 37.02 MB CPU 13.54% 线程 17 句柄 172 事件 267080 缺失 0
+样本 7：7.00 h RSS 52.12 MB CPU 12.03% 线程 17 句柄 172 事件 398340 缺失 0
+样本 8：8.00 h RSS 70.94 MB CPU 13.14% 线程 17 句柄 172 事件 228300 缺失 0
+样本 9：9.00 h RSS 53.68 MB CPU 15.51% 线程 17 句柄 172 事件 356120 缺失 0
+样本 10：10.00 h RSS 59.82 MB CPU 13.96% 线程 17 句柄 172 事件 185440 缺失 0
+样本 11：11.00 h RSS 70.16 MB CPU 20.87% 线程 17 句柄 172 事件 308180 缺失 0
+样本 12：12.00 h RSS 52.97 MB CPU 15.81% 线程 17 句柄 172 事件 136600 缺失 0

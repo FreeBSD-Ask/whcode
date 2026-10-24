@@ -41,6 +41,10 @@
 !/artifacts/web-runtime-2026-10-24/
 # Check 47 的 NFR-203 复跑输出（10 万事件 ×2 会话、20 次切换）。
 !/artifacts/check47-switch-100k-2026-10-24.txt
+# NFR-204 本机 12 h 长跑序列与斜率分析（T116 候选证据，不替代 CI 5.5 h 结论）；
+# 工作区数据库与 WAL 仍由 *.duckdb 规则排除。
+!/artifacts/stability-24h-20261024-150204/
+/artifacts/stability-24h-20261024-150204/workspace/
 # M0 退出报告是治理交付物（tasks.md T031、§12.2），必须随仓库版本化。
 
 # 工作区数据库与 WAL（运行时产物，不进版本库）
