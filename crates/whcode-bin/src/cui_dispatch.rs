@@ -22,7 +22,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use duckdb::Connection;
 use serde_json::{Value, json};
 use whcode_app::surface::{FrontendId, Support};
-use whcode_app::{Actor, DefaultPolicy, NewSession, actor_with_all_capabilities};
+use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
 use whcode_cui::cli::{
     Command, ContextCommand, DbCommand, EventsCommand, FontCommand, ParseOutcome, RuntimeCommand,
     SessionCommand, SpecCommand, TaskCommand, parse_outcome,
