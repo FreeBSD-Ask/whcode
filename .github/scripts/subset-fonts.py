@@ -7,7 +7,7 @@
 依赖：fonttools（`python -m pip install fonttools`）；生成物入库，日常构建不需要本脚本。
 
 用法：
-    python ci/subset-fonts.py [--out crates/whcode-gui/assets/fonts]
+    python .github/scripts/subset-fonts.py [--out crates/whcode-gui/assets/fonts]
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import sys
 
 from fontTools import subset
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 # 完整字体 → 子集文件名（GUI 运行时只加载这些）
 FONTS = {

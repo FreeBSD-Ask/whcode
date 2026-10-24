@@ -11,7 +11,7 @@
   - 交叉编译产物不得作为本脚本结论的替代（G-01）。
 
 用法：
-    python ci/platform-matrix/record_deps.py [输出目录，默认 artifacts]
+    python .github/scripts/platform-matrix/record_deps.py [输出目录，默认 artifacts]
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ import shutil
 import subprocess
 import sys
 
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 NO_EVIDENCE = "<未取得证据"
 
 #: 常见但不在 PATH 上的工具位置（本项目要求：不依赖 PATH 已配置完整）。
@@ -262,7 +262,7 @@ def main() -> int:
         "# WHCode 依赖记录（V-001）",
         "format_version = 1",
         f"generated_at_utc = {now}",
-        "script = ci/platform-matrix/record_deps.py",
+        "script = .github/scripts/platform-matrix/record_deps.py",
         "",
         "[platform]",
         f"os_name = {platform.system()}",
@@ -306,7 +306,7 @@ def main() -> int:
         "db_threads = min(4, 可用并行度)（基线默认值）",
         f"data_scale = {os.environ.get('WHCODE_DATA_SCALE', '<未声明：由基准脚本写入>')}",
         f"sampling_window = {os.environ.get('WHCODE_SAMPLING_WINDOW', '<未声明：由基准脚本写入>')}",
-        "script = ci/platform-matrix/record_deps.py",
+        "script = .github/scripts/platform-matrix/record_deps.py",
         "",
         "[environment]",
         f"ambient_DUCKDB_LIB_DIR = {os.environ.get('DUCKDB_LIB_DIR', '<未设置>')}",

@@ -12,10 +12,10 @@
   - 产物为 UTF-8 无 BOM、LF。
 
 用法：
-    python ci/package-windows.py                      # 只打包
-    python ci/package-windows.py --verify             # 打包 + 仓库外解包运行验证
-    python ci/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt
-    python ci/package-windows.py --out target/dist --verify
+    python .github/scripts/package-windows.py                      # 只打包
+    python .github/scripts/package-windows.py --verify             # 打包 + 仓库外解包运行验证
+    python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt
+    python .github/scripts/package-windows.py --out target/dist --verify
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ import tempfile
 import time
 import zipfile
 
-REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 TARGET_TRIPLE = "x86_64-pc-windows-msvc"
 
 #: 随包发布的文档（仓库相对路径 -> 包内文件名）。兼容矩阵必须随包发布（Check 118）。
@@ -106,10 +106,10 @@ def read_version() -> str:
 
 
 def find_duckdb_dll() -> pathlib.Path:
-    """定位 `ci/fetch-duckdb.py` 校验过的预编译 DLL（多版本缓存时取最高版本目录）。"""
+    """定位 `.github/scripts/fetch-duckdb.py` 校验过的预编译 DLL（多版本缓存时取最高版本目录）。"""
     roots = sorted((REPO_ROOT / "vendor" / "duckdb").glob("*/duckdb.dll"))
     if not roots:
-        raise RuntimeError("未找到 vendor/duckdb/<版本>/duckdb.dll，请先运行 python ci/fetch-duckdb.py")
+        raise RuntimeError("未找到 vendor/duckdb/<版本>/duckdb.dll，请先运行 python .github/scripts/fetch-duckdb.py")
     return roots[-1]
 
 

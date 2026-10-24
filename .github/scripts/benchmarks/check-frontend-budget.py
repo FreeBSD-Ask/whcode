@@ -8,7 +8,7 @@
   - 运行时路径（app.js）不得创建/探测 GPU 上下文（NFR-212）；
   - 无第三方字体、无第三方 JS 依赖、无 node 构建链产物（package.json / node_modules）。
 
-用法：python ci/benchmarks/check-frontend-budget.py   # 审计，违规即非零退出
+用法：python .github/scripts/benchmarks/check-frontend-budget.py   # 审计，违规即非零退出
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import gzip
 import pathlib
 import sys
 
-FRONTEND = pathlib.Path(__file__).resolve().parents[2] / "crates" / "whcode-web" / "frontend"
+FRONTEND = pathlib.Path(__file__).resolve().parents[3] / "crates" / "whcode-web" / "frontend"
 JS_BUDGET_BYTES = 50 * 1024
 CSS_BUDGET_BYTES = 20 * 1024
 

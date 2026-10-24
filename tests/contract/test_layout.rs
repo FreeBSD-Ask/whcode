@@ -8,9 +8,8 @@
 //! 2. `crates/` 成员必须以 `whcode-` 为前缀（snake_case），与 workspace 声明一致；
 //! 3. `tests/` 子目录限于六类（unit/contract/integration/crash/stability/fixtures）且各有 README；
 //! 4. `docs/` 子目录限于 adr/matrices/guides；
-//! 5. `ci/` 子目录限于 platform-matrix/benchmarks；
-//! 6. `specs/` 子目录遵循 `<三位编号>-<slug>` 命名；
-//! 7. 本地与产物目录（target/vendor/script/artifacts）不要求存在（机器本地、可再生成），
+//! 5. `specs/` 子目录遵循 `<三位编号>-<slug>` 命名；
+//! 6. 本地与产物目录（target/vendor/script/artifacts）不要求存在（机器本地、可再生成），
 //!    但若存在则不得含入库形态的源码（防“顺手把代码写进临时目录”）。
 //!
 //! [repository-layout.md]: ../../docs/guides/repository-layout.md
@@ -32,7 +31,7 @@ fn read_dir_names(dir: &Path) -> Vec<String> {
     names
 }
 
-/// 只取**子目录**名：`ci/`、`docs/` 等目录允许承载根级散文件（如 `ci/fetch-duckdb.py`），
+/// 只取**子目录**名：`docs/`、`.github/scripts/` 等目录允许承载根级散文件（如 `fetch-duckdb.py`），
 /// 分类约束只针对“类别目录”。
 fn read_subdir_names(dir: &Path) -> Vec<String> {
     let entries = fs::read_dir(dir).unwrap_or_else(|e| panic!("读取 {} 失败：{e}", dir.display()));
@@ -64,7 +63,6 @@ fn top_level_entries_follow_layout() {
         "artifacts",
         // 可再分发的内置资源（字体与许可）；只放 OFL 等允许再分发的文件。
         "assets",
-        "ci",
         "crates",
         "docs",
         // 可移植工程准则（供其他项目复制；不依赖本项目代码）。
@@ -113,7 +111,7 @@ fn top_level_entries_follow_layout() {
     }
 
     // 必须存在的分类主干（入库形态，任何检出都应具备）。
-    for required in ["crates", "tests", "ci", "docs", "specs"] {
+    for required in ["crates", "tests", "docs", "specs"] {
         assert!(
             root.join(required).is_dir(),
             "缺少分类主干目录“{required}”（repository-layout.md §1）"
@@ -178,16 +176,6 @@ fn docs_dir_uses_three_kinds() {
         &read_subdir_names(&repo_root().join("docs")),
         &["adr", "matrices", "guides"],
         "docs/",
-    );
-}
-
-#[test]
-fn ci_dir_uses_two_kinds() {
-    // ci/ 根级散文件合法（如 fetch-duckdb.py，见 ADR-DB-BUILD）；只约束子目录类别。
-    assert_subset(
-        &read_subdir_names(&repo_root().join("ci")),
-        &["platform-matrix", "benchmarks"],
-        "ci/",
     );
 }
 

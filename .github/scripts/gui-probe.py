@@ -8,7 +8,7 @@
 - 最小化 10 s 的 CPU 增量（停绘）与还原后的标题／画面（FR-714）。
 
 用法：
-    python ci/gui-probe.py [--exe target/release/whcode.exe] [--out artifacts/gui-run-2026-10-23]
+    python .github/scripts/gui-probe.py [--exe target/release/whcode.exe] [--out artifacts/gui-run-2026-10-23]
 
 工作区建在仓库外的临时目录，避免污染仓库。
 
@@ -33,7 +33,7 @@ from ctypes import wintypes
 
 from PIL import ImageGrab
 
-REPO = pathlib.Path(__file__).resolve().parents[1]
+REPO = pathlib.Path(__file__).resolve().parents[2]
 THEMES = ("eink-day", "eink-night", "amoled-night", "terminal-green")
 THEME_PALETTES = {
     "eink-day": ("#FFFFFF", "#000000"),

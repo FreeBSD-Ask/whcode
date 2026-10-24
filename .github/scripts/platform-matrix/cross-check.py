@@ -12,7 +12,7 @@
 纪律：`cargo check` 只做类型检查、不链接、不运行，**不构成** V-001/V-002/V-004 的平台通过
 结论（ADR-010、G-01）。产物 JSON 每条结果都带 `is_runtime_evidence: false`。
 
-用法：python ci/platform-matrix/cross-check.py [输出目录，默认 artifacts]
+用法：python .github/scripts/platform-matrix/cross-check.py [输出目录，默认 artifacts]
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ import subprocess
 import sys
 import time
 
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 NO_EVIDENCE = "<未取得证据"
 
 #: 排除名单：依赖图里有目标平台 C 代码的 crate（含传递依赖它们的 bin）。

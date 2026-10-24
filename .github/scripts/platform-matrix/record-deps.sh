@@ -3,7 +3,7 @@
 #
 # 用途：在目标平台**本地**执行，产出含 Rust / DuckDB / 编译器 / OS 四类版本的依赖记录。
 # 覆盖平台：FreeBSD、OpenBSD、NetBSD、DragonFly（POSIX sh）。
-# Windows 请用 ci/platform-matrix/record_deps.py——本项目不使用任何 GNU 工具，
+# Windows 请用 .github/scripts/platform-matrix/record_deps.py——本项目不使用任何 GNU 工具，
 # 故 Windows 侧不依赖 bash（见 docs/matrices/decisions.md D-01 修订记录）。
 #
 # 纪律：
@@ -12,7 +12,7 @@
 #     调用方**不得**把它解释为通过；
 #   - 交叉编译产物不得作为本脚本结论的替代（G-01）。
 #
-# 用法：sh ci/platform-matrix/record-deps.sh [输出目录，默认 artifacts]
+# 用法：sh .github/scripts/platform-matrix/record-deps.sh [输出目录，默认 artifacts]
 
 set -u
 
@@ -83,7 +83,7 @@ fi
     echo "# WHCode 依赖记录（V-001）"
     echo "format_version = 1"
     echo "generated_at_utc = $(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo '<未取得证据>')"
-    echo "script = ci/platform-matrix/record-deps.sh"
+    echo "script = .github/scripts/platform-matrix/record-deps.sh"
     echo
     echo "[platform]"
     echo "os_name = $uname_s"

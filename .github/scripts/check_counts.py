@@ -7,7 +7,7 @@ import pathlib
 import re
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 SPEC = ROOT / "specs" / "001-whcode-harness" / "spec.md"
 TASKS = ROOT / "specs" / "001-whcode-harness" / "tasks.md"
 CHECKLIST = ROOT / "specs" / "001-whcode-harness" / "checklist.md"

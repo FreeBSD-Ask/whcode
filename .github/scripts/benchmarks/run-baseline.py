@@ -15,7 +15,7 @@
   - 产物为 UTF-8 无 BOM、LF 换行。
 
 用法：
-    python ci/benchmarks/run-baseline.py
+    python .github/scripts/benchmarks/run-baseline.py
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ import shutil
 import subprocess
 import sys
 
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 NO_EVIDENCE = "<未取得证据"
 
 #: 常见但不在 PATH 上的工具位置（本项目要求：不依赖 PATH 已配置完整）。
@@ -338,7 +338,7 @@ def main() -> int:
             f"二进制自报 build_profile={observed_profile}，与脚本调用的 --release 不一致；"
             "不得据此推断优化级别"
         )
-    discipline["script_path"] = "ci/benchmarks/run-baseline.py"
+    discipline["script_path"] = ".github/scripts/benchmarks/run-baseline.py"
     discipline["generated_at_utc"] = utc_now()
     discipline["command_line"] = (
         "cargo run --release -p whcode-bin -- bench baseline "

@@ -14,8 +14,8 @@
     以 `bundled-cmake` 源码构建；属后续真实平台验证项，本脚本显式报错而**不**静默降级。
 
 用法：
-    python ci/fetch-duckdb.py            # 拉取 + 校验 + 解包
-    python ci/fetch-duckdb.py --check    # 只校验已存在的缓存/已解包目录
+    python .github/scripts/fetch-duckdb.py            # 拉取 + 校验 + 解包
+    python .github/scripts/fetch-duckdb.py --check    # 只校验已存在的缓存/已解包目录
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ NO_PREBUILT = (
 )
 
 RELEASE_URL = "https://github.com/duckdb/duckdb/releases/download/v{version}/{archive}"
-REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 def host_target() -> str:
@@ -124,7 +124,7 @@ def fetch(target: str, archive: str, expected: str) -> pathlib.Path:
                 f"  SHA256: {expected}",
                 f"  目标三元组: {target}",
                 "",
-                "由 ci/fetch-duckdb.py 生成；本目录不入库。",
+                "由 .github/scripts/fetch-duckdb.py 生成；本目录不入库。",
                 "",
             ]
         ),
@@ -137,7 +137,7 @@ def fetch(target: str, archive: str, expected: str) -> pathlib.Path:
 def verify_extracted() -> int:
     dest = vendor_dir()
     if not dest.is_dir():
-        print(f"未找到 {dest}：请先执行 python ci/fetch-duckdb.py")
+        print(f"未找到 {dest}：请先执行 python .github/scripts/fetch-duckdb.py")
         return 1
     missing = [name for name in ("duckdb.h",) if not (dest / name).is_file()]
     if missing:

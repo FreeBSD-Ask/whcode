@@ -9,7 +9,7 @@
 6. “追溯缺口登记”节中的条目必须声明 FR、责任人与退出条件；登记失效（恢复完整覆盖）须删除。
 
 支持项目既有的写法：`FR-201—210`（区间）与 `FR-502/503`（共用前缀的并列）。
-用法：`python ci/traceability.py`；`python ci/traceability.py --selftest` 自检登记解析；
+用法：`python .github/scripts/traceability.py`；`python .github/scripts/traceability.py --selftest` 自检登记解析；
 失败时退出码 1 并列出断链。
 """
 
@@ -19,7 +19,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SPEC = ROOT / "specs/001-whcode-harness/spec.md"
 TASKS = ROOT / "specs/001-whcode-harness/tasks.md"
 CHECKLIST = ROOT / "specs/001-whcode-harness/checklist.md"

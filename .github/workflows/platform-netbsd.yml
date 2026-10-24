@@ -55,7 +55,7 @@ jobs:
               -p whcode-llm -p whcode-runtime
 
             echo "=== 依赖记录（V-001）==="
-            sh ci/platform-matrix/record-deps.sh artifacts
+            sh .github/scripts/platform-matrix/record-deps.sh artifacts
 
             echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
             if pkg_info duckdb >/dev/null 2>&1; then

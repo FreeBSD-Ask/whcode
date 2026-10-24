@@ -7,7 +7,7 @@
 
 规则与执行分离：
 
-- `ci/action-versions.json` 是唯一事实源：每个 action 记录最新版本 tag、对应 commit SHA
+- `.github/scripts/action-versions.json` 是唯一事实源：每个 action 记录最新版本 tag、对应 commit SHA
   与复核日期；
 - 离线模式（CI 每次运行）：解析 `.github/workflows/*.yml` 的 `uses:`，要求
   `owner/repo@<40 位十六进制 SHA> # <版本>`，且 SHA 与注释版本都与清单一致；
@@ -30,9 +30,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
-MANIFEST = ROOT / "ci" / "action-versions.json"
+MANIFEST = ROOT / ".github" / "scripts" / "action-versions.json"
 API = "https://api.github.com/repos/{repo}/{endpoint}"
 USE_PATTERN = re.compile(
     r"uses:\s*([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@(\S+)(?:\s*#\s*(\S+))?"
@@ -115,7 +115,7 @@ def update() -> int:
         tag = latest_tag(repo)
         entries[repo] = {"version": tag, "sha": tag_sha(repo, tag)}
     save_manifest(entries)
-    print("已刷新 ci/action-versions.json：")
+    print("已刷新 .github/scripts/action-versions.json：")
     for repo, item in sorted(entries.items()):
         print(f"  {repo} {item['version']} {item['sha']}")
     print("请同步修改工作流中的 uses 引用（SHA + 版本注释），然后运行离线门禁。")
@@ -134,7 +134,7 @@ def check(online: bool) -> int:
     for repo, usages in sorted(refs.items()):
         expected = pinned.get(repo)
         if expected is None:
-            problems.append(f"{repo} 未登记在 ci/action-versions.json")
+            problems.append(f"{repo} 未登记在 .github/scripts/action-versions.json")
             continue
         for ref, comment, workflow in usages:
             location = f"{workflow}: {repo}@{ref}"

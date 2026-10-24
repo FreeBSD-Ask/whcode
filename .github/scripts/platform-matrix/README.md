@@ -1,4 +1,4 @@
-# ci/platform-matrix
+# .github/scripts/platform-matrix
 
 平台依赖记录与交叉检查脚本（tasks.md T005/T020/T021；§9、§11.1）。Windows 11 amd64 为唯一验收目标；BSD 延后、仅手工触发（ADR-013）。
 
@@ -23,11 +23,11 @@
 | `record-deps.sh` | FreeBSD/NetBSD 依赖记录（POSIX sh） |
 | `cross-check.py` | 本机跨目标**代码级**检查（见下方纪律：不构成运行验证） |
 
-发布包脚本在 `ci/` 根级：`ci/package-windows.py`（打包 + 仓库外解包安装验证；T118／Check 118）。
+发布包脚本在 `.github/scripts/` 根级：`.github/scripts/package-windows.py`（打包 + 仓库外解包安装验证；T118／Check 118）。
 
 纪律：
 
-- 构建前置：任何构建前必须先 `python ci/fetch-duckdb.py` 拉取并校验预编译 DuckDB（ADR-DB-BUILD）；
+- 构建前置：任何构建前必须先 `python .github/scripts/fetch-duckdb.py` 拉取并校验预编译 DuckDB（ADR-DB-BUILD）；
 - CI 至少分为：构建检查、可运行的原生测试、依赖验证、定期 24/72 小时稳定性测试（§9.1，后两者尚未建立）；
 - 平台可构建与 DuckDB 原生构建**分开**验收（ADR-010、V-001/V-002）；
 - 依赖记录必须含 Rust/DuckDB/编译器/OS 四类版本（V-001）；

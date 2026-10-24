@@ -28,9 +28,9 @@
 
 ## 用法
 
-    python ci/clean.py --scope all          # dry-run：只报告清单与释放量
-    python ci/clean.py --scope all --apply  # 执行清理
-    python ci/clean.py --scope all --apply --record  # 执行并留证据到 artifacts/
+    python .github/scripts/clean.py --scope all          # dry-run：只报告清单与释放量
+    python .github/scripts/clean.py --scope all --apply  # 执行清理
+    python .github/scripts/clean.py --scope all --apply --record  # 执行并留证据到 artifacts/
 
 `--scope` 取 `target` / `temp` / `stray` / `script` / `all`（默认 `all`）。
 退出码：0 成功（含 dry-run）；1 有对象删除失败（占用等）；2 参数错误。
@@ -48,7 +48,7 @@ import subprocess
 import sys
 import time
 
-REPO = pathlib.Path(__file__).resolve().parents[1]
+REPO = pathlib.Path(__file__).resolve().parents[2]
 
 #: 系统 TEMP 下本项目的测试残留前缀（与 crates/tests 里的临时目录命名对应）。
 TEMP_PREFIXES = ("whcode-", "wt-probe-")
