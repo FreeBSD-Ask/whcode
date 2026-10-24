@@ -11,7 +11,7 @@
 # 工具链与依赖纪律沿用各平台原注释：
 #   - Windows：不使用 GNU 工具链；构建前必须 `.github/scripts/fetch-duckdb.py`。
 #   - FreeBSD：rustup 安装锁定 1.99.1（不使用 ports 的 rust）；绿路径排除 GUI/DuckDB 依赖。
-#   - NetBSD：pkgin 通过解压官方包引导（不调用 pkg_add），再安装 pkgsrc rust/cmake/ninja。
+#   - NetBSD：镜像不带 pkgin；用 base 的 pkg_add + 官方 PKG_PATH（2026-10-24 实测通过）。
 name: platform-matrix
 
 on:
@@ -201,39 +201,21 @@ jobs:
         if: matrix.platform == 'netbsd' && github.event_name != 'pull_request'
         uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         with:
-          # 固定发行版：包仓库路径与 pkgin repositories.conf 均按 11.0 写入。
+          # 固定发行版：包仓库路径按 11.0 推导（pkg_add + PKG_PATH）。
           release: "11.0"
           usesh: true
           prepare: |
-            # 依据（2026-10-24 一手资料与失败日志复核）：
-            # - vmactions/netbsd-vm v1.5.2 README：prepare 以 sh 执行；官方示例用 pkg_add。
-            # - 基础镜像只有 /usr/sbin 的 pkg_install；pkgin 期望 /usr/pkg/sbin/pkg_admin，
-            #   故同时解压 pkg_install 包的 sbin 负载（不调用 pkg_add）。
-            # - pkgin-26.4.0 运行时依赖 pkg_install>=20200701 与 sqlite3>=3.51.1nb1；
-            #   sqlite3-3.53.4 无运行时依赖。
-            # 包文件名取自 NetBSD 11.0 amd64 官方仓库当日清单；仓库滚动更新后按目录清单改版本。
-            set -eu
+            # vmactions 的 NetBSD 镜像不带 pkgin；用 base 的 pkg_add + 官方包仓库。
+            # 该引导已在独立工作流 run 40076402536 中实测通过（pkgin 自举版本实测失败：
+            # pkgin: Cannot execute /usr/pkg/sbin/pkg_admin）。
             arch=$(uname -m)
-            base="https://cdn.NetBSD.org/pub/pkgsrc/packages/NetBSD/${arch}/11.0/All"
-            work=/tmp/pkgin-bootstrap
-            mkdir -p "$work"
-            cd "$work"
-            ftp -V -o pkgin.tgz "${base}/pkgin-26.4.0.tgz"
-            ftp -V -o sqlite3.tgz "${base}/sqlite3-3.53.4.tgz"
-            ftp -V -o pkg_install.tgz "${base}/pkg_install-20260227.tgz"
-            # 只解压负载文件，避免把 +CONTENTS 等包元数据写到根目录。
-            tar -xf pkgin.tgz -C / bin/pkgin
-            tar -xf sqlite3.tgz -C / bin/sqlite3 lib
-            tar -xf pkg_install.tgz -C / sbin
-            mkdir -p /usr/pkg/etc/pkgin /var/db/pkgin
-            # 使用 pkgin 文档支持的 $arch 宏；发行版固定为 11.0。
-            printf '%s\n' 'https://cdn.netbsd.org/pub/pkgsrc/packages/NetBSD/$arch/11.0/All' \
-              > /usr/pkg/etc/pkgin/repositories.conf
-            export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
-            export LD_LIBRARY_PATH="/usr/pkg/lib"
-            pkgin -y update
-            pkgin -y install rust cmake ninja
-            pkgin -y install duckdb || true
+            osrel=$(uname -r | cut -d. -f1-2)
+            export PKG_PATH="https://cdn.NetBSD.org/pub/pkgsrc/packages/NetBSD/$arch/$osrel/All"
+            if ! /usr/sbin/pkg_add -U rust cmake ninja; then
+              export PKG_PATH="https://cdn.NetBSD.org/pub/pkgsrc/packages/NetBSD/$arch/$(uname -r | cut -d. -f1).0/All"
+              /usr/sbin/pkg_add -U rust cmake ninja
+            fi
+            /usr/sbin/pkg_add -U duckdb || true
           run: |
             set -e
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
