@@ -6001,7 +6001,6 @@ dependencies = [
  "whcode-cui",
  "whcode-domain",
  "whcode-gui",
- "whcode-llm",
  "whcode-platform",
  "whcode-runtime",
  "whcode-ssh",
@@ -6047,7 +6046,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "ureq",
  "whcode-domain",
 ]
 
