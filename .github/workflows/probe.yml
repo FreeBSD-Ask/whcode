@@ -1,0 +1,11 @@
+name: probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  win:
+    runs-on: windows-latest
+    steps:
+      - name: echo
+        run: echo "windows runner ok"
