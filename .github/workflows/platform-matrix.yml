@@ -4,14 +4,27 @@
 # 矩阵纪律：
 #   - `fail-fast: false`：任一平台失败**不取消**其他平台；各矩阵条目并行执行。
 #   - Windows 在 windows-latest 原生运行（pull_request + push main + dispatch）。
-#   - FreeBSD/NetBSD 在 ubuntu-latest 的 vmactions VM 中真实运行（push main + dispatch）。
-#   - OpenBSD/DragonFly 仍按 ADR-011/013 仅 workflow_dispatch 占位，不产出原生产物。
+#   - 四个 BSD 在 ubuntu-latest 的 VM 中**真实运行**（push main + dispatch；PR 不跑，省额度）：
+#     FreeBSD / NetBSD / OpenBSD 用 vmactions 对应 action，DragonFly 用 cross-platform-actions。
 #   - 平台结果只作平台证据，不进入 Windows 11 amd64 验收结论（ADR-013）。
+#
+# 版本口径（2026-10-24 用户指令：都用最新）：
+#   - FreeBSD/NetBSD/OpenBSD 的 `release` 只写主版本（"15"/"11"/"8"）：action 自动取该系列
+#     最新的点版本，升级点版本无需改工作流（见各 action README §5）。
+#   - **-current 未覆盖（已登记缺口）**：vmactions/freebsd-vm@v1.5.9 与 netbsd-vm@v1.5.2
+#     只支持官方 release 表（FreeBSD 10—15、NetBSD 9—11），没有 -current／快照输入；
+#     FreeBSD 16.0-CURRENT 在上游 action 仓库里标为 shelved（未启用）。OpenBSD 同理只有
+#     release 表（6.9—8.0）。因此本工作流只跑 release；-current 待上游支持或单独立项。
+#   - DragonFly：cross-platform-actions 要求精确版本（无前缀匹配），取上游文档的最新 6.4.2；
+#     升级需人工改 version 并按 §5.1 同步 action 清单。
+#   - Windows：windows-latest（GitHub 托管的最新稳定镜像）。
 #
 # 工具链与依赖纪律沿用各平台原注释：
 #   - Windows：不使用 GNU 工具链；构建前必须 `.github/scripts/fetch-duckdb.py`。
 #   - FreeBSD：rustup 安装锁定 1.99.1（不使用 ports 的 rust）；绿路径排除 GUI/DuckDB 依赖。
-#   - NetBSD：镜像不带 pkgin；解压官方二进制包引导 pkgin（不用 pkg_add，2026-10-24 用户指令）。
+#   - NetBSD：镜像不带 pkgin；解压官方二进制包引导 pkgin（不用 pkg_add，2026-10-24 用户指令）；
+#     pkgsrc 的 rust 常低于 MSRV，按 Cargo.toml 的 rust-version 判定并显式 SKIP（环境限制）。
+#   - OpenBSD/DragonFly：ports/dports 的 rust 同样可能低于 MSRV，判定与 SKIP 规则一致。
 name: platform-matrix
 
 on:
@@ -134,12 +147,14 @@ jobs:
           name: install-verify-windows-amd64
           path: artifacts/install-verify-windows-amd64.txt
 
-      # ---------------- FreeBSD ----------------
+      # ---------------- FreeBSD（最新 15.x release） ----------------
       - name: 在 FreeBSD VM 中构建、测试与记录
         id: freebsd_vm
         if: matrix.platform == 'freebsd' && github.event_name != 'pull_request'
         uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
+          # 只写主版本：action 自动取最新 15.x 点版本。
+          release: "15"
           usesh: true
           prepare: |
             pkg install -y curl cmake ninja
@@ -195,14 +210,14 @@ jobs:
           name: deps-freebsd
           path: artifacts/deps-freebsd.txt
 
-      # ---------------- NetBSD ----------------
+      # ---------------- NetBSD（最新 11.x release） ----------------
       - name: 在 NetBSD VM 中构建、测试与记录
         id: netbsd_vm
         if: matrix.platform == 'netbsd' && github.event_name != 'pull_request'
         uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         with:
-          # 固定发行版：包仓库路径与 pkgin repositories.conf 均按 11.0 写入。
-          release: "11.0"
+          # 只写主版本：action 自动取最新 11.x 点版本；pkgin 仓库路径由 VM 的 uname -r 推导。
+          release: "11"
           usesh: true
           prepare: |
             # 用户指令（2026-10-24）：NetBSD 不用 pkg_add，改为解压官方包引导 pkgin。
@@ -214,8 +229,10 @@ jobs:
             # 仓库用主站 ftp.netbsd.org 的 amd64 路径：CDN 的 x86_64 边缘与 pkg_summary
             # 不同步（实测 curl/expat Not Found、cmake/rust size mismatch），主站摘要与
             # 文件一致。pkgin 的 $arch 宏会展开为 x86_64，故 repositories.conf 直接写 amd64。
+            # 发行版号取自 VM 自身（uname -r），release 前缀升级到新点版本时无需改脚本。
             set -eu
-            base="https://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/11.0/All"
+            rel=$(uname -r)
+            base="https://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/${rel}/All"
             work=/tmp/pkgin-bootstrap
             mkdir -p "$work" /usr/pkg
             cd "$work"
@@ -226,8 +243,7 @@ jobs:
             tar -xf sqlite3.tgz -C /usr/pkg bin/sqlite3 lib
             tar -xf pkg_install.tgz -C /usr/pkg sbin
             mkdir -p /usr/pkg/etc/pkgin /var/db/pkgin
-            printf '%s\n' 'https://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/11.0/All' \
-              > /usr/pkg/etc/pkgin/repositories.conf
+            printf '%s\n' "$base" > /usr/pkg/etc/pkgin/repositories.conf
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
             export LD_LIBRARY_PATH="/usr/pkg/lib"
             pkgin -y update
@@ -297,19 +313,134 @@ jobs:
           name: deps-netbsd
           path: artifacts/deps-netbsd.txt
 
-      # ---------------- OpenBSD / DragonFly（仅手工触发占位） ----------------
-      - name: OpenBSD 客户端验收占位（M7 前）
-        if: matrix.platform == 'openbsd' && github.event_name == 'workflow_dispatch'
-        run: |
-          echo "OpenBSD 已按 ADR-011 移出原生安装目标。"
-          echo "本 job 为客户端连通性验收占位：需要受控 OpenBSD 节点与 WHCode 内置 SSH 客户端。"
-          echo "M0 无证据；在取得节点与 M7 能力前，本 job 不产生任何通过结论。"
-          exit 0
+      # ---------------- OpenBSD（最新 8.x release） ----------------
+      - name: 在 OpenBSD VM 中构建、测试与记录
+        id: openbsd_vm
+        if: matrix.platform == 'openbsd' && github.event_name != 'pull_request'
+        uses: vmactions/openbsd-vm@f1ca8bc8ecc5b6ef7218e5b914836e067e1546d3 # v1.4.9
+        with:
+          # 只写主版本：action 自动取最新 8.x 点版本。
+          release: "8"
+          prepare: |
+            # ports 的 rust 版本随 OpenBSD 发行版走；缺失时 run 段会显式 SKIP 而不是失败。
+            pkg_add rust || true
+          run: |
+            set -e
+            if ! command -v rustc >/dev/null 2>&1; then
+              echo "SKIP：ports 无 rust（环境限制，不作代码结论）"
+              exit 0
+            fi
+            rustc -vV
+            cargo -V
 
-      - name: DragonFly 客户端验收占位（M7 前）
-        if: matrix.platform == 'dragonfly' && github.event_name == 'workflow_dispatch'
+            msrv=$(sed -n 's/^rust-version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -n1)
+            if [ -z "$msrv" ]; then
+              echo "无法从 Cargo.toml 读取 rust-version" >&2
+              exit 1
+            fi
+            version=$(rustc --version | awk '{print $2}')
+            major=$(echo "$version" | cut -d. -f1)
+            minor=$(echo "$version" | cut -d. -f2)
+            msrv_major=$(echo "$msrv" | cut -d. -f1)
+            msrv_minor=$(echo "$msrv" | cut -d. -f2)
+            if [ "$major" -lt "$msrv_major" ] || \
+              { [ "$major" -eq "$msrv_major" ] && [ "$minor" -lt "$msrv_minor" ]; }; then
+              echo "SKIP：ports rust $version 低于 MSRV $msrv（环境限制，不作代码结论）"
+              exit 0
+            fi
+
+            echo "=== 代码级检查（平台中立 crate，不链接 DuckDB／GUI）==="
+            cargo check --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+              -p whcode-llm -p whcode-runtime
+
+            echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
+            cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+              -p whcode-llm -p whcode-runtime
+
+            echo "=== 依赖记录（V-001）==="
+            sh .github/scripts/platform-matrix/record-deps.sh artifacts
+
+      - name: 归档 OpenBSD 结论
+        if: always() && matrix.platform == 'openbsd' && github.event_name != 'pull_request'
         run: |
-          echo "DragonFly BSD 已按 ADR-011 移出原生安装目标。"
-          echo "本 job 为客户端连通性验收占位：需要受控 DragonFly 节点与 WHCode 内置 SSH 客户端。"
-          echo "M0 无证据；在取得节点与 M7 能力前，本 job 不产生任何通过结论。"
-          exit 0
+          echo "OpenBSD 绿路径：${{ steps.openbsd_vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "ports rust 低于 MSRV 时按环境限制 SKIP；本结果只作平台证据（ADR-013）。" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传 OpenBSD 依赖记录
+        if: always() && matrix.platform == 'openbsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deps-openbsd
+          path: artifacts/deps-openbsd.txt
+
+      # ---------------- DragonFly（最新 6.4.2 release） ----------------
+      # vmactions 无 dragonfly-vm（已核实 404），改用 cross-platform-actions；
+      # 该 action 用 `cpa.sh` 辅助脚本在后续步骤里进入 VM，故拆成“启动 VM”与“VM 内执行”两步。
+      - name: 启动 DragonFly VM
+        id: dragonfly_vm
+        if: matrix.platform == 'dragonfly' && github.event_name != 'pull_request'
+        uses: cross-platform-actions/action@e0b9770014ba65d5e0815f15b74031c3a635f641 # v1.6.0
+        with:
+          operating_system: dragonflybsd
+          architecture: x86-64
+          # 该 action 的 version 不支持前缀匹配，必须写精确版本。
+          version: "6.4.2"
+          sync_files: true
+
+      - name: 在 DragonFly 中构建、测试与记录
+        if: matrix.platform == 'dragonfly' && github.event_name != 'pull_request'
+        shell: cpa.sh {0}
+        run: |
+          set -e
+          if command -v pkg >/dev/null 2>&1; then
+            # 不同 BSD 上该 action 的默认用户不同（runner 或 root）：先直接试，再退 sudo；
+            # 两条都失败不中止——rust 缺失由下面的显式 SKIP 汇报。
+            pkg update -f >/dev/null 2>&1 || sudo pkg update -f >/dev/null 2>&1 || true
+            pkg install -y rust || sudo pkg install -y rust || true
+          fi
+          if ! command -v rustc >/dev/null 2>&1; then
+            echo "SKIP：dports 无 rust（环境限制，不作代码结论）"
+            exit 0
+          fi
+          rustc -vV
+          cargo -V
+
+          msrv=$(sed -n 's/^rust-version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -n1)
+          if [ -z "$msrv" ]; then
+            echo "无法从 Cargo.toml 读取 rust-version" >&2
+            exit 1
+          fi
+          version=$(rustc --version | awk '{print $2}')
+          major=$(echo "$version" | cut -d. -f1)
+          minor=$(echo "$version" | cut -d. -f2)
+          msrv_major=$(echo "$msrv" | cut -d. -f1)
+          msrv_minor=$(echo "$msrv" | cut -d. -f2)
+          if [ "$major" -lt "$msrv_major" ] || \
+            { [ "$major" -eq "$msrv_major" ] && [ "$minor" -lt "$msrv_minor" ]; }; then
+            echo "SKIP：dports rust $version 低于 MSRV $msrv（环境限制，不作代码结论）"
+            exit 0
+          fi
+
+          echo "=== 代码级检查（平台中立 crate，不链接 DuckDB／GUI）==="
+          cargo check --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+            -p whcode-llm -p whcode-runtime
+
+          echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
+          cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+            -p whcode-llm -p whcode-runtime
+
+          echo "=== 依赖记录（V-001）==="
+          sh .github/scripts/platform-matrix/record-deps.sh artifacts
+
+      - name: 归档 DragonFly 结论
+        if: always() && matrix.platform == 'dragonfly' && github.event_name != 'pull_request'
+        run: |
+          echo "DragonFly 绿路径：${{ steps.dragonfly_vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "dports rust 低于 MSRV 时按环境限制 SKIP；本结果只作平台证据（ADR-013）。" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传 DragonFly 依赖记录
+        if: always() && matrix.platform == 'dragonfly' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deps-dragonfly
+          path: artifacts/deps-dragonfly.txt

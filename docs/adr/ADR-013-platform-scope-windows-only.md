@@ -13,9 +13,10 @@
    已安装/可安装的 32 位目标列表不作为承诺依据。
 3. **BSD 全系列延后**（FreeBSD、NetBSD、OpenBSD、DragonFly BSD）：
    - 不删除既有代码、文档与 CI 定义，但**不作为当前验收目标**；
-   - BSD CI 原为**手工触发**（`workflow_dispatch`）；**2026-10-24 用户指令修订**：FreeBSD/NetBSD
-     随 `main` 自动运行（仅作平台证据，不进入验收结论），OpenBSD/DragonFly 无原生测试、
-     保留手工占位。详见文末修订记录；
+   - BSD CI 原为**手工触发**（`workflow_dispatch`）；**2026-10-24 用户指令两次修订**：
+     FreeBSD/NetBSD 先改为随 `main` 自动运行；随后四个 BSD 全部改为真实 VM 运行（版本取
+     各平台最新 release，`-current` 因上游 action 不支持而登记为缺口）。结论仍只作平台
+     证据，不进入验收。详见文末修订记录；
    - 相关任务（如 US8/M7 的 SSH 服务端与四平台客户端证据）标记为**延后**而非完成；
    - ADR-005/ADR-010/ADR-011 的决策不被撤销：它们仍是未来的方向，只是**不在本轮验收范围**。
 4. **不做交叉编译冒充验证**：延后平台不产出“代码级交叉检查通过”当作平台结论的证据；历史交叉检查记录保留为历史材料，不引用为验收。
@@ -42,6 +43,18 @@
   T099／M7 与 BSD 任务延后。OpenBSD/DragonFly 无原生测试，保持手工占位。
   代价（私有仓库 Actions 分钟、VM 构建慢、可能长期红灯）由平台矩阵负责人承担；
   失效条件：Actions 配额不可接受或用户撤回指令时，回到手工触发。
+- **2026-10-24（用户指令：四个 BSD 全部真实运行、版本取最新）**：`platform-matrix.yml` 把
+  OpenBSD（`vmactions/openbsd-vm`）与 DragonFly（`cross-platform-actions`；vmactions 无
+  `dragonfly-vm`，已核实 404）从 echo 占位改为真实 VM 运行。版本口径：FreeBSD `release: "15"`、
+  NetBSD `release: "11"`、OpenBSD `release: "8"`（action 自动取该系列最新点版本），DragonFly
+  精确 `6.4.2`（该 action 不支持前缀匹配）。
+  **`-current` 未覆盖（显式缺口）**：上游 vmactions 的 freebsd/netbsd/openbsd action 只提供
+  release 表（FreeBSD 10—15、NetBSD 9—11、OpenBSD 6.9—8.0），无 -current／快照输入；FreeBSD
+  16.0-CURRENT 在上游仓库标为 shelved（未启用）。因此不得以 release 结果冒充 current 证据；
+  恢复条件：上游 action 提供 current 镜像，或另行批准自管 QEMU 快照方案（需新 ADR）。
+  工具链低于 `Cargo.toml` 的 `rust-version` 时（如 NetBSD pkgsrc rust 1.96.1 < 1.99）按
+  环境限制显式 SKIP 并写明，不伪造通过。代价与失效条件同上一修订（VM 分钟、长期红灯风险；
+  配额不可接受或上游 action 不再维护时回到手工触发）。
 
 ## 影响
 

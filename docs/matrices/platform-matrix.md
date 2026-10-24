@@ -6,12 +6,15 @@
 
 ## 平台矩阵
 
-**范围（ADR-013，2026-10-21 用户决策；2026-10-24 修订 BSD CI 触发）**：唯一验收目标是
+**范围（ADR-013，2026-10-21 用户决策；2026-10-24 两次修订 BSD CI）**：唯一验收目标是
 **Windows 11 amd64**；不考虑任何 32 位平台；FreeBSD/NetBSD/OpenBSD/DragonFly 全部**延后**
-（保留代码与文档，不进入验收结论）。FreeBSD/NetBSD 的构建与测试在 GitHub CI 的单一矩阵
+（保留代码与文档，不进入验收结论）。四个 BSD 的构建与测试都在 GitHub CI 的单一矩阵
 工作流 `.github/workflows/platform-matrix.yml` 中随 `main` 自动运行；矩阵设置
-`fail-fast: false` 并行执行，单平台失败不取消其他平台（仅作平台证据）；OpenBSD/DragonFly
-无原生测试，保留手工占位。下表“延后”行的状态仅作历史记录，**不得**引用为通过。
+`fail-fast: false` 并行执行，单平台失败不取消其他平台（仅作平台证据）。版本口径为各平台
+**最新 release**（FreeBSD `15`、NetBSD `11`、OpenBSD `8` 前缀自动取最新点版本；DragonFly
+精确 `6.4.2`）；**`-current` 未覆盖**——上游 vmactions action 只提供 release 表、无快照输入
+（ADR-013 修订记录），不得以 release 结果冒充 current 证据。工具链低于 MSRV 的发行版按
+环境限制显式 SKIP，不伪造通过。下表“延后”行的状态仅作历史记录，**不得**引用为通过。
 
 | 平台 | 精确版本 | 架构 | 目标三元组 | 范围 | 构建状态 | 运行验证状态 | 证据引用 | 备注 |
 |---|---|---|---|---|---|---|---|---|
