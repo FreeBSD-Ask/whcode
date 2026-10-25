@@ -148,3 +148,16 @@ SKIP 发生在 `=== 依赖记录（V-001）===` 与 DuckDB Go/No-Go 之前，故
   不是 GUI 编译干扰。NetBSD 仍在 MSRV 闸门 SKIP。
 - **Windows job 状态**：本 run 的 `platform-windows` 失败于并行会话 TLS 批次
   （`crates/whcode-llm/src/http/tls.rs` 六个测试），与平台证据管线无关。
+
+## 第三轮（2026-10-25，run 40188267621）：Check 20 满足
+
+- **NetBSD**：`deps-netbsd`（artifact `12596867127`）补齐四类——OS `NetBSD 11.0`
+  （`x86_64-unknown-netbsd`）、Rust `1.96.1`（pkgsrc）、C `cc (nb3 20260326) 12.5.0`、
+  DuckDB `1.5.5`（`version_source = pkg:pkg_info`，payload `/usr/pkg/lib` + sha256）。
+  解析修复生效：在整段输出里正则抽取包名，兼容 `Information for duckdb-…:` 头行。
+- **FreeBSD**：`deps-freebsd`（artifact `12596592058`）四类齐备，DuckDB `1.5.6`（`pkg:pkg`），
+  payload `/usr/local/lib` + sha256。
+- **判定**：Check 20 三平台（Windows／FreeBSD／NetBSD）各一份依赖记录、四类版本齐备，
+  **勾选通过**。Check 21 仍不满足（NetBSD rustc 1.96.1 ≠ 锁定 1.99.1，pkgsrc 环境限制）；
+  Check 22 仍不满足（FreeBSD store 冒烟 109 通过／5 失败，包版引擎 1.5.6 与冻结 2.0.0 不一致）。
+- 同 run 的 `platform-windows` 失败仍来自并行 LLM／TLS 批次的测试，与平台证据无关。
