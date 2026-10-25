@@ -204,6 +204,7 @@ python -c "import secrets; print(secrets.token_urlsafe(32))" > .\token.txt
 | TLS 缓冲 | 每连接一份明文/密文缓冲，均有容量上限（有界，NFR-215） | `crates/whcode-bin/src/tls.rs` |
 | 并发模型 | 单线程非阻塞多路复用；`Connection` 不跨任务共享 | `serve.rs` 模块文档、ADR-002 |
 | 分块传输 | 不支持 | `api.rs` |
+| 资源预算口径 | NFR-201/202 以 `--tls off` 明文档位测量（与 ADR-025 冻结基线和历史序列同夹具）；TLS 档位的 RSS／CPU 增量**未测量** | `.github/scripts/benchmarks/measure-nfr-budgets.py` |
 
 ## 8. 日志与脱敏
 

@@ -11,6 +11,11 @@
 输出：artifacts/nfr-budget-report.json + 控制台逐项 PASS/FAIL。
 纪律：采样方法写明、零样本判“未取得信号”（不计达标）、分位数输出、
 预算取 ADR-025 冻结值，实测劣于预算不得以未采样搪塞。
+
+口径（2026-10-25，ADR-040 后修订）：NFR-201/202 的 serve 进程一律以 `--tls off` 启动。
+ADR-025 的冻结预算与历史序列都在明文档位测得，改走默认 `builtin` 会把 rustls 与证书
+材料的常驻占用混进同一预算，使前后不可比；TLS 档位的 RSS 增量**未测量**，缺口登记在
+`docs/guides/web-deployment-security.md` §7，不在本脚本内假装已覆盖。
 """
 
 from __future__ import annotations
@@ -206,7 +211,8 @@ def measure_nfr201() -> dict:
     prepare_workspace(ws)
     port = free_port()
     process = subprocess.Popen(
-        [str(EXE), "serve", "--web", "--bind", f"127.0.0.1:{port}", "--workspace", str(ws)],
+        [str(EXE), "serve", "--web", "--tls", "off", "--bind", f"127.0.0.1:{port}",
+         "--workspace", str(ws)],
         cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
@@ -239,7 +245,8 @@ def measure_nfr201() -> dict:
         "budget_mb": BUDGETS_MB["nfr201"], "samples": len(samples),
         "median_mb": round(median, 2), "p95_mb": round(p95, 2), "max_mb": round(peak, 2),
         "passed": median <= BUDGETS_MB["nfr201"],
-        "method": "serve --web 空工作区空闲 10 s，GetProcessMemoryInfo 50 ms 轮询，判据取中位数",
+        "method": "serve --web --tls off 空工作区空闲 10 s，GetProcessMemoryInfo 50 ms 轮询，"
+                  "判据取中位数",
     }
 
 
@@ -249,7 +256,8 @@ def measure_nfr202() -> dict:
     seed_workspace(ws, "S-BIG", 100_000, 10_000)
     port = free_port()
     process = subprocess.Popen(
-        [str(EXE), "serve", "--web", "--bind", f"127.0.0.1:{port}", "--workspace", str(ws)],
+        [str(EXE), "serve", "--web", "--tls", "off", "--bind", f"127.0.0.1:{port}",
+         "--workspace", str(ws)],
         cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
@@ -283,7 +291,8 @@ def measure_nfr202() -> dict:
         "budget_mb": BUDGETS_MB["nfr202"], "samples": len(samples),
         "median_mb": round(median, 2), "max_mb": round(peak, 2),
         "passed": median <= BUDGETS_MB["nfr202"],
-        "method": "10 万事件+1 万任务工作区，20 轮 sessions/events/tasks 读请求，"
+        "method": "10 万事件+1 万任务工作区，20 轮 sessions/events/tasks 读请求（--tls off "
+                  "明文档位，与 ADR-025 冻结基线同夹具），"
                   "GetProcessMemoryInfo 采样，判据取中位数",
     }
 
