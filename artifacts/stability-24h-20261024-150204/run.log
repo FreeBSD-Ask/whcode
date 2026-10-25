@@ -24,3 +24,14 @@ test stability_run_collects_section_11_5_series has been running for over 60 sec
 样本 16：16.00 h RSS 67.41 MB CPU 11.48% 线程 17 句柄 172 事件 367740 缺失 0
 样本 17：17.00 h RSS 83.78 MB CPU 12.30% 线程 17 句柄 172 事件 199540 缺失 0
 样本 18：18.00 h RSS 51.01 MB CPU 14.13% 线程 17 句柄 172 事件 328780 缺失 0
+样本 19：19.00 h RSS 66.01 MB CPU 15.88% 线程 17 句柄 172 事件 158300 缺失 0
+样本 20：20.00 h RSS 74.59 MB CPU 12.97% 线程 17 句柄 172 事件 290000 缺失 0
+样本 21：21.00 h RSS 65.15 MB CPU 14.26% 线程 17 句柄 172 事件 120760 缺失 0
+样本 22：22.00 h RSS 75.16 MB CPU 11.45% 线程 17 句柄 172 事件 254320 缺失 0
+样本 23：23.00 h RSS 84.09 MB CPU 11.42% 线程 17 句柄 172 事件 387820 缺失 0
+汇总：{"duration_hours":24.0001,"event_missing_last":0,"failed_tasks":1,"kind":"summary","note":"NFR-204 候选斜率；写者队列深度/最老队列项年龄未取得（见 sample.unavailable）","rss_first_mb":73.38,"rss_last_mb":84.09,"rss_max_mb":87.06,"rss_slope_mb_per_h":0.4867,"samples":23}
+test stability_run_collects_section_11_5_series ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 86434.42s
+
+完成：23 个样本；汇总行：

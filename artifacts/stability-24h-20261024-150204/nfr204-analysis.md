@@ -75,3 +75,24 @@ WHCODE_STABILITY_SECONDS=19800 WHCODE_STABILITY_INTERVAL_SECS=300 \
 
 - `.github/workflows/stability-long.yml` 首次成功运行后，用其 artifact 重算本表并替换本文件结论；
 - 若 release 构建的 5.5 h 序列出现正斜率或线程/句柄数随时长增长，立即按 ADR-033 退出条件复审。
+
+## 7. 补记（2026-10-25）：运行自然收尾
+
+本文件写于 12 个样本落盘时。此后采集器继续运行并**自然收尾**：`timeseries.jsonl` 现为
+23 条 `kind:"sample"` 加 1 条 `kind:"summary"`，`run.log` 记录
+`test result: ok. 1 passed … finished in 86434.42s`。
+
+| 项 | 值 |
+|---|---|
+| 跨度 | 24.0001 h（样本 1—23，末样本 `elapsed_hours=23.0001`） |
+| summary 自报斜率 | **0.4867 MB/h**（首末口径：73.38 → 84.09 MB，历次最大 87.06 MB） |
+| 线程／句柄 | 全程 17／172，无增长 |
+| `event_missing` | 全程 0；`failed_tasks` 恒 1（夹具刻意播种，零值不算无失败） |
+
+对 §4 的影响：只有第 2 条被取代——现在有收尾记录，可确认是“跑满 24 h 后正常退出”，
+不是外部终止。第 1、3、4 条的判定不变（3 600 s 间隔、debug 构建、非 CI artifact），
+因此**本序列仍不构成 Check 116 的证据**，NFR-204 也不因 0.4867 MB/h 而勾选。
+
+与 CI 数据的关系：`long-run.yml` run 40154046118 的 5.5 h 口径斜率 0.6987／0.943 MB/h
+超预算，属另一套采样间隔、构建类型与负载，二者不得互相替代或择优引用；达标判定以该
+CI artifact 为准，登记见 `artifacts/tech-debt-review-2026-10-25.md`。
