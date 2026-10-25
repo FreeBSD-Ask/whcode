@@ -143,19 +143,53 @@ jobs:
             cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
               -p whcode-llm -p whcode-runtime
 
-            echo "=== 依赖记录（V-001）==="
-            sh .github/scripts/platform-matrix/record-deps.sh artifacts
-
-            echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
+            # DuckDB 包校验必须早于依赖记录：record-deps.sh 用 DUCKDB_LIB_DIR 与 pkg 版本
+            # 填充四类版本中的 DuckDB 项；顺序错位时只剩占位符（run 40159516841 即此情形）。
+            duckdb_ready=0
+            echo "=== DuckDB 包校验（V-001 前置）==="
             if pkg info duckdb >/dev/null 2>&1; then
               export DUCKDB_LIB_DIR=/usr/local/lib
               export DUCKDB_INCLUDE_DIR=/usr/local/include
-              echo "pkg DuckDB 版本：$(pkg info duckdb | tr '\n' ' ')"
-              if cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
+              export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+              duckdb_ready=1
+              echo "pkg DuckDB：$(pkg info duckdb | tr '\n' ' ')"
+              # whcode-bin 依赖 whcode-gui（iced→softbuffer），BSD 上不可构建，doctor 探针
+              # 只会得到编译错误；显式跳过，引擎版本改用 pkg 版本并在记录文件标注来源。
+              export WHCODE_SKIP_RUNTIME_PROBE=1
+            else
+              echo "pkg 无 duckdb：依赖记录中 DuckDB 版本将标注未取得证据"
+            fi
+
+            echo "=== 依赖记录（V-001，须在 DUCKDB_* 导出之后）==="
+            mkdir -p artifacts
+            sh .github/scripts/platform-matrix/record-deps.sh artifacts
+
+            echo "=== DuckDB store 冒烟（Check 22；独立于 GUI 编译结果）==="
+            # 工作区级 `cargo test` 会编译 whcode-tests，其 dev 依赖含 whcode-gui，
+            # GUI 编译失败（run 40159516841：25 errors）会短路 build/test，导致 whcode-store
+            # 的建库／事务写读／关闭重启／迁移用例一个都没执行。store 冒烟因此单独先跑：
+            # 它只依赖域层与 libduckdb，是 DuckDB 原生可用性的最小可判定集合；
+            # 其结论不得被工作区级 NO-GO 掩盖或替代。
+            store_gate=NO-GO
+            if [ "$duckdb_ready" -eq 1 ] && cargo test --locked -p whcode-store; then
+              store_gate=GO
+              echo "STORE_GATE_RESULT=GO（whcode-store 建库/事务/重启/迁移用例已执行）"
+            elif [ "$duckdb_ready" -eq 1 ]; then
+              echo "STORE_GATE_RESULT=NO-GO（whcode-store 冒烟失败：版本或 ABI 不匹配，属 R-01 预期风险路径）"
+            else
+              echo "STORE_GATE_RESULT=NO-GO（pkg 无 duckdb：store 冒烟无法执行）"
+            fi
+
+            echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
+            if [ "$duckdb_ready" -eq 1 ]; then
+              # 工作区级 gate 只回答“整棵工作区是否可构建/可测试”，与 store 冒烟是两段结论：
+              # 它仍可能因 whcode-tests 的 GUI dev 依赖失败，故与 STORE_GATE_RESULT 分开记录。
+              if [ "$store_gate" = GO ] && \
+                cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
                 && cargo test --locked --workspace --exclude whcode-gui --exclude whcode-bin; then
                 echo "GATE_RESULT=GO"
               else
-                echo "GATE_RESULT=NO-GO（版本或 ABI 不匹配，属 R-01 预期风险路径）"
+                echo "GATE_RESULT=NO-GO（工作区级构建/测试未通过；若 STORE_GATE_RESULT=GO，则此处失败来自 whcode-tests 的 GUI dev 依赖，不是 DuckDB ABI 结论）"
               fi
             else
               echo "GATE_RESULT=NO-GO（pkg 无 duckdb：需源码构建，待评估）"
@@ -232,9 +266,25 @@ jobs:
             minor=$(echo "$version" | cut -d. -f2)
             msrv_major=$(echo "$msrv" | cut -d. -f1)
             msrv_minor=$(echo "$msrv" | cut -d. -f2)
+            # 这里只判定、不立即退出：依赖记录必须先于 SKIP 闸门执行，否则工具链低于
+            # MSRV 时 deps-netbsd.txt 永不生成，上传步骤只能报 “No files were found”
+            # （run 40159516841）。BSD 只作平台证据，依赖事实与代码结论分开记录。
+            msrv_ok=1
             if [ "$major" -lt "$msrv_major" ] || \
               { [ "$major" -eq "$msrv_major" ] && [ "$minor" -lt "$msrv_minor" ]; }; then
+              msrv_ok=0
+              # 低于 MSRV 时 whcode-bin（依赖 GUI）无法构建，doctor 探针只会写入编译错误；
+              # 显式跳过，运行期引擎版本退回 pkg_info duckdb 的版本（记录文件标注来源）。
+              export WHCODE_SKIP_RUNTIME_PROBE=1
+            fi
+
+            echo "=== 依赖记录（V-001，先于 MSRV 闸门执行）==="
+            mkdir -p artifacts
+            sh .github/scripts/platform-matrix/record-deps.sh artifacts
+
+            if [ "$msrv_ok" -eq 0 ]; then
               echo "SKIP：pkgsrc rust $version 低于 MSRV $msrv（环境限制，不作代码结论）"
+              echo "本次仅产出依赖记录，不进入验收结论（ADR-013：BSD 只作平台证据）。"
               exit 0
             fi
 
@@ -245,9 +295,6 @@ jobs:
             echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
             cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
               -p whcode-llm -p whcode-runtime
-
-            echo "=== 依赖记录（V-001）==="
-            sh .github/scripts/platform-matrix/record-deps.sh artifacts
 
             echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
             if pkg_info duckdb >/dev/null 2>&1; then

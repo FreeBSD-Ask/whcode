@@ -60,23 +60,85 @@ pinned_channel=$(
 )
 [ -n "${pinned_channel:-}" ] || pinned_channel="<未取得证据>"
 
-# DuckDB：从实际解包目录读取版本，避免与 pin 值脱节。
+# DuckDB 版本来源优先级（每平台只取一处，来源写进记录文件，避免把包版本误当运行期证据）：
+#   1. vendor/duckdb/<version>/：官方预编译库解包目录，目录名即版本；
+#   2. WHCODE_DUCKDB_VERSION：调用方已用包管理器校验过版本时显式传入，免重复探测；
+#   3. 系统包：FreeBSD `pkg info duckdb`、NetBSD `pkg_info duckdb`。CI 的 BSD 矩阵走
+#      包管理器安装的 libduckdb，没有 vendor 目录；缺这条兜底时四类版本中的 DuckDB
+#      一项就永远是占位符（run 40159516841 的 deps-freebsd.txt 即此情形）。
 duckdb_dir=$(ls -d vendor/duckdb/*/ 2>/dev/null | grep -v '\.cache' | head -n 1)
 duckdb_dir=${duckdb_dir%/}
-duckdb_version="<未取得证据：未拉取预编译库>"
+duckdb_version="<未取得证据：无 vendor 目录与 duckdb 系统包>"
+duckdb_source="<未取得证据>"
+duckdb_payload="<未取得证据>"
 duckdb_sha="<未取得证据>"
+duckdb_lib=""
+duckdb_known=0
+
 if [ -n "${duckdb_dir:-}" ]; then
     duckdb_version=$(basename "$duckdb_dir")
-    lib=$(ls "$duckdb_dir"/libduckdb.so "$duckdb_dir"/libduckdb.dylib "$duckdb_dir"/duckdb.dll 2>/dev/null | head -n 1)
-    [ -n "${lib:-}" ] && duckdb_sha=$(sha256_of "$lib")
+    duckdb_source="vendor:$duckdb_dir"
+    duckdb_payload=$duckdb_dir
+    duckdb_lib=$(ls "$duckdb_dir"/libduckdb.so "$duckdb_dir"/libduckdb.dylib \
+        "$duckdb_dir"/duckdb.dll 2>/dev/null | head -n 1)
+    duckdb_known=1
+elif [ -n "${WHCODE_DUCKDB_VERSION:-}" ]; then
+    duckdb_version=$WHCODE_DUCKDB_VERSION
+    duckdb_source="env:WHCODE_DUCKDB_VERSION"
+    duckdb_known=1
+else
+    # 包名固定为 duckdb，首字段形如 `duckdb-1.5.5`；只认以数字开头的后缀，
+    # 避免把 `pkg info` 的错误输出当成版本。
+    for pkg_tool in pkg pkg_info; do
+        command -v "$pkg_tool" >/dev/null 2>&1 || continue
+        pkg_line=$("$pkg_tool" info duckdb 2>/dev/null | head -n 1) || pkg_line=""
+        [ -n "${pkg_line:-}" ] || continue
+        pkg_name=$(printf '%s' "$pkg_line" | awk '{print $1}')
+        case $pkg_name in
+            duckdb-[0-9]*)
+                duckdb_version=${pkg_name#duckdb-}
+                duckdb_source="pkg:$pkg_tool"
+                duckdb_known=1
+                ;;
+            *)
+                continue
+                ;;
+        esac
+        break
+    done
 fi
 
-# 运行期引擎版本：优先复用已构建的二进制，其次现场构建（失败只记录，不中止）。
+# 载荷与校验和：vendor 取解包目录，系统包取实际链接的 libduckdb。
+if [ "$duckdb_known" -eq 1 ] && [ -z "${duckdb_lib:-}" ]; then
+    if [ -n "${DUCKDB_LIB_DIR:-}" ] && [ -f "$DUCKDB_LIB_DIR/libduckdb.so" ]; then
+        duckdb_lib=$DUCKDB_LIB_DIR/libduckdb.so
+    else
+        duckdb_lib=$(ls /usr/local/lib/libduckdb.so /usr/pkg/lib/libduckdb.so 2>/dev/null | head -n 1)
+    fi
+fi
+if [ -z "${duckdb_dir:-}" ] && [ -n "${duckdb_lib:-}" ]; then
+    duckdb_payload=$(dirname "$duckdb_lib")
+fi
+[ -n "${duckdb_lib:-}" ] && duckdb_sha=$(sha256_of "$duckdb_lib")
+
+# 运行期引擎版本：优先 doctor 自报。调用方可用 WHCODE_SKIP_RUNTIME_PROBE=1 显式跳过
+# （仅当本平台无法构建 whcode-bin 时，例如 BSD 上 whcode-bin 依赖 GUI）；跳过或失败时
+# 退回已核对的库版本，并在 engine_version_source 标注退回依据，不冒充运行期证据。
 runtime_engine="<未取得证据：未运行 doctor>"
-if command -v cargo >/dev/null 2>&1; then
+engine_source="<未取得证据>"
+doctor_ok=0
+if [ "${WHCODE_SKIP_RUNTIME_PROBE:-0}" != "1" ] && command -v cargo >/dev/null 2>&1; then
     doctor_out=$(cargo run -q -p whcode-bin -- doctor 2>&1 || true)
     line=$(printf '%s\n' "$doctor_out" | grep -m 1 '^duckdb_engine_version:')
-    [ -n "${line:-}" ] && runtime_engine=${line#duckdb_engine_version: }
+    if [ -n "${line:-}" ]; then
+        runtime_engine=${line#duckdb_engine_version: }
+        engine_source="whcode doctor"
+        doctor_ok=1
+    fi
+fi
+if [ "$doctor_ok" -eq 0 ] && [ "$duckdb_known" -eq 1 ]; then
+    runtime_engine=$duckdb_version
+    engine_source="$duckdb_source（doctor 未运行或不可用，退回已核对的库版本）"
 fi
 
 {
@@ -108,15 +170,24 @@ fi
     echo "clang = $(first_line clang --version)"
     echo
     echo "[duckdb]"
-    echo "package = duckdb crate（官方预编译动态库，MIT）"
+    echo "package = duckdb crate（default-features = false，链接外部 libduckdb）"
     echo "prebuilt_version = $duckdb_version"
+    echo "version_source = $duckdb_source"
     echo "engine_version_runtime = $runtime_engine"
-    echo "payload_dir = ${duckdb_dir:-<未取得证据>}"
+    echo "engine_version_source = $engine_source"
+    echo "payload_dir = $duckdb_payload"
     echo "payload_sha256 = $duckdb_sha"
-    echo "provenance = ${duckdb_dir:-vendor/duckdb/<version>}/PROVENANCE.txt"
+    if [ -n "${duckdb_dir:-}" ]; then
+        echo "provenance = $duckdb_dir/PROVENANCE.txt"
+    elif [ "$duckdb_known" -eq 1 ]; then
+        echo "provenance = <未取得证据：系统包无 PROVENANCE.txt（来源见 version_source）>"
+    else
+        echo "provenance = <未取得证据：无 vendor 目录与 duckdb 系统包>"
+    fi
     echo
     echo "[environment]"
     echo "duckdb_lib_dir = ${DUCKDB_LIB_DIR:-<未设置>}"
+    echo "duckdb_include_dir = ${DUCKDB_INCLUDE_DIR:-<未设置>}"
     echo "cc_env = ${CC:-<未设置>}"
     echo
     echo "[dependency_tree]"
