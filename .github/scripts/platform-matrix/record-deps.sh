@@ -87,19 +87,22 @@ elif [ -n "${WHCODE_DUCKDB_VERSION:-}" ]; then
     duckdb_source="env:WHCODE_DUCKDB_VERSION"
     duckdb_known=1
 else
-    # 包名固定为 duckdb，首字段形如 `duckdb-1.5.5`；只认以数字开头的后缀，
-    # 避免把包管理器错误输出当成版本。调用形式按工具区分：FreeBSD 的 `pkg`
-    # 需要 `info` 子命令，NetBSD 的 `pkg_info` 没有该子命令（直接把包名当模式）；
-    # 统一写成 `pkg info duckdb` 会让 NetBSD 恒判“无系统包”（run 40183376819）。
+    # 包名形如 `duckdb-1.5.5`。不能只取首行首字段：NetBSD 的 pkg_info 首行是
+    # `Information for duckdb-1.5.5:`，FreeBSD 的 pkg 首行才是 `duckdb-1.5.5 ...`。
+    # 因此在整段输出里按正则抽第一个 `duckdb-<数字...>`，并以 pkgin list 兜底
+    # （run 40183376819/40185854369 两次因首字段口径落空）。
+    extract_duckdb() {
+        sed -n 's/.*\(duckdb-[0-9][^[:space:]:]*\).*/\1/p' | head -n 1
+    }
     for pkg_tool in pkg pkg_info; do
         command -v "$pkg_tool" >/dev/null 2>&1 || continue
         if [ "$pkg_tool" = "pkg" ]; then
-            pkg_line=$("$pkg_tool" info duckdb 2>/dev/null | head -n 1) || pkg_line=""
+            pkg_out=$("$pkg_tool" info duckdb 2>/dev/null) || pkg_out=""
         else
-            pkg_line=$("$pkg_tool" duckdb 2>/dev/null | head -n 1) || pkg_line=""
+            pkg_out=$("$pkg_tool" duckdb 2>/dev/null) || pkg_out=""
         fi
-        [ -n "${pkg_line:-}" ] || continue
-        pkg_name=$(printf '%s' "$pkg_line" | awk '{print $1}')
+        pkg_name=$(printf '%s\n' "$pkg_out" | extract_duckdb)
+        [ -n "${pkg_name:-}" ] || continue
         case $pkg_name in
             duckdb-[0-9]*)
                 duckdb_version=${pkg_name#duckdb-}
@@ -112,6 +115,14 @@ else
         esac
         break
     done
+    if [ "$duckdb_known" -eq 0 ] && command -v pkgin >/dev/null 2>&1; then
+        pkg_name=$(pkgin list 2>/dev/null | extract_duckdb)
+        if [ -n "${pkg_name:-}" ]; then
+            duckdb_version=${pkg_name#duckdb-}
+            duckdb_source="pkg:pkgin"
+            duckdb_known=1
+        fi
+    fi
 fi
 
 # 载荷与校验和：vendor 取解包目录，系统包取实际链接的 libduckdb。
