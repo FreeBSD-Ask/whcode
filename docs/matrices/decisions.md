@@ -1,4 +1,4 @@
-# 决策台账（D-01—D-19）
+# 决策台账（D-01—D-20）
 
 本文件记录 tasks.md T030 要求的决策点、结论、证据引用与责任人。状态取值：**已决策**（方向已批准）、**待验证**（结论未取得证据）、**已修订**（原结论被正式修订）。责任人以角色标注，具名责任人待项目排期后回填。
 
@@ -25,6 +25,7 @@
 | D-16 | 真实 LLM Provider 网络接入与凭据边界 | **已补录（2026-10-25，ADR-031）**：网络依赖只进装配根（`ureq 3.5.0` + `rustls`，`http` feature 默认关闭、仅 `whcode-bin` 启用）；默认不联网（无剖面即无请求，当前无调用点）；端点 `https` 强制、明文 `http` 仅回环；凭据只允许环境变量或仓库外文件，`Secret` 恒 `[REDACTED]`；超时三元组 10 s／120 s／300 s、`max_tokens` 默认 1024、流帧有界；不自动重试流式请求（幂等探测最多 2 次，未实现）。**客户端与 `llm run` 未交付**（T162—T163），变更 spec 未入库；实现先于 ADR 入库属门禁倒置，已在 ADR 如实记录 | `docs/adr/ADR-031-llm-provider-network-and-credentials.md`；`crates/whcode-llm/src/http/{profile,frames,protocols,errors}.rs`；`artifacts/deps-windows.txt`；`spec.md` FR-201／203／206／207／208／616、NFR-213／215 | LLM 变更维护者 | 已决策（实现未完成） |
 | D-18 | 会话归档的确认与审计口径 | **已决策（2026-10-25，ADR-038）**：`session.archive` 维持契约 §2-1 破坏族地位，确认与审计均不省略；四端统一“预览→确认”（CUI 默认 dry-run、`--yes` 执行；TUI `A` 两段确认；Web 缺 `confirm` 只预览；GUI 只读排除）；新增 `session_archive` 审计动作，由 `set_archived` 在同一事务写入（`detail_json` 含方向、更新数与会话清单，100 条截断）；CUI 行为变更标 BREAKING；TUI 暂无反归档键，登记为已知不对称 | `docs/adr/ADR-038-session-archive-confirmation-and-audit.md`；`contracts/app-service.md` §2-1；`crates/whcode-store/src/purge.rs`；`crates/whcode-app/src/commands.rs`；`spec.md` FR-623 | 四端写命令维护者 | 已决策 |
 | D-19 | 界面视觉语言分层 | **已决策（2026-10-25，ADR-041）**：四端分为终端族（CUI／TUI：等宽网格、线框、反显、列对齐、键位提示）与应用族（Web／GUI：字号层级、间距刻度、面板、右对齐元信息、状态栏），两族语法互不套用；色值与动效纪律不变（不引入第三色值、渐变、阴影、模糊与新增动效）；CUI 仅在交互终端、未设 `NO_COLOR`、`TERM` 非 `dumb` 且非 `--json` 时允许非颜色强调（粗体／弱化），`CUI_NO_THEME` 仍排除配色；TUI 装饰仅限实测 1 格制表符与 ASCII；GUI 允许输入事件驱动的只读点击选择，不得新增定时器／线程／GPU；Web 采用 ARIA roving tabindex 与逻辑 CSS 属性并禁 `innerHTML` 系列；DOM ≤ 2000 与注入禁令进入 `check-frontend-budget.py`；资源以同夹具实测判定 | `docs/adr/ADR-041-ui-visual-language-tiers.md`；`.trae/specs/modernize-ui-visual-language/spec.md`；`crates/whcode-tui/src/rowbackend.rs`（宽度实测）；`artifacts/gui-run-2026-10-24/summary.json`（线程／句柄基线） | UI 与前端负责人 | 已决策 |
+| D-20 | TLS 证书库与 Web 内置证书 | **已决策（2026-10-25，ADR-040）**：工作区证书库 `<workspace>/.whcode/certs/`（六个明文 PEM／JSON，原子写入、容量有界、可编辑可删除可 `reset`）；出站两档 `builtin`（默认，可编辑内置 Mozilla 根副本）／`system`（操作系统证书库），两档均叠加 `ca-extra.pem`，**永不关闭**链与主机名校验，系统库为空不回落内置库；入站三档 `builtin`（默认，每工作区 ECDSA P-256 自签、397 天、SAN 含回环与本机名）／`external`（证书链 + 未加密私钥）／`off`（显式明文），`--tls <mode>` 按次覆盖设置且不回写，变更需重启、不热切换；Web 提供 `/settings/certs` 与 `/api/certs/*`（能力 `settings.cert.read`／`settings.cert.write`、`tls_config_change` 审计、私钥只进不出、连通性校验同步阻塞 ≤ 2 秒）。依赖新增 6 项（`rustls` 直接依赖、`rustls-native-certs`、`rustls-pki-types`、`rcgen`、`x509-parser`、`sha2`），单一 `ring` 提供者、零 `unsafe`。**风险登记**：自签证书浏览器默认不信任（需手工信任或改 `external`）；私钥明文落盘依赖 OS ACL；`system` 档位不复用 Windows 吊销与策略（CRL／OCSP 不参与）；`serve --web` 默认协议 `http`→`https` 属 BREAKING；三项新依赖的版本与许可证在引入时一手核验。真实浏览器握手与资源证据**未取得**（归属 T192） | `docs/adr/ADR-040-tls-certificate-store.md`；`.trae/specs/add-tls-certificate-store/spec.md`；`crates/whcode-app/src/cert.rs`；`crates/whcode-bin/src/{serve.rs,tls.rs}`；`Cargo.lock`；`spec.md` FR-606／626／627、NFR-213／215／219 | Web 适配层负责人（入站）、LLM 变更维护者（出站）、安全与可观察性负责人 | 已决策（实现已入库；证据未取得） |
 
 ## 与 ADR 的对应关系
 
@@ -47,6 +48,7 @@
 | D-17 | ADR-032 | 四端对等门禁与差异登记；`llm.run` 在四端仍为 `Reserved`，按 ADR-031 与 ADR-032 同一口径表述 |
 | D-18 | ADR-038 | 会话归档的确认与审计：预览→确认四端对齐，`session_archive` 审计同事务写入 |
 | D-19 | ADR-041 | 界面视觉语言分层：终端族（CUI／TUI）与应用族（Web／GUI）两套语法；色值与动效纪律不变；资源以同夹具实测判定 |
+| D-20 | ADR-040 | TLS 证书库与 Web 内置证书：出站两档（`builtin`／`system`）、入站三档（`builtin`／`external`／`off`）、Web 设置面、依赖 6 项；自签信任与新依赖风险已登记 |
 
 ## 维护纪律
 

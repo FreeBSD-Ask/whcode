@@ -64,6 +64,12 @@ Some("http://127.0.0.1:8737"))` 与 `check_origin(false, &[], None)` 均返回
   在 HTTPS 页面发起的同源与跨站请求，其 `Origin` 头一律携带 `https` scheme，
   若允许集仍写 `http` 则全部 403（与本 ADR 2026-10-22 记录的全串比较缺陷同类）。
 
-- **实施说明（2026-10-25 修订补充）**：`crates/whcode-bin/src/serve.rs` 当前以
-  `format!("http://{addr}")` 硬编码构造允许集，无 TLS 档位输入；scheme 选择属 ADR-040
-  的实现范围（T184—T192），本条为设计约束，实现与实测证据 `[待验证]`。
+- **实施说明（2026-10-25 修订补充，T190 已落地）**：`crates/whcode-bin/src/serve.rs` 的
+  `origin_allowlist(addr, tls_enabled)` 按协议构造允许集（TLS → `https`，`--tls off` → `http`），
+  `crates/whcode-web/src/security.rs` 的 `check_origin` 在调用方传入**非空**允许集时始终以其为准
+  （与认证是否开启无关），只有空集才回落到明文 `ALLOWED_ORIGINS`——修订前回环模式忽略注入的
+  `https` 允许集，HTTPS 页面的同源请求与 WebSocket 升级会被一律 403。
+  **证据**：`security.rs` 单测（https 放行／明文拒绝／跨站拒绝，两种认证模式）与
+  `test_web_security_defaults::origin_checks_apply`、`api.rs` 的证书 API 用例；
+  真实浏览器 HTTPS 端到端证据**尚未取得**（登记缺口；复现：`serve --web` 默认档位 +
+  浏览器访问 `/api/certs`，以 GitHub Actions 日志为验收口径，ADR-037）。

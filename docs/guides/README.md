@@ -34,5 +34,12 @@
 `disaster-recovery.md`（导出/还原/compact/清理保护）。
 
 一致性口径：三份新指南逐条引用实现位置（`文件:行号`），并把**未实现/未接线**项单列
-（如 TUI 无命令面板与翻页键、Web 无 TLS/安全响应头/限速、无 restore 子命令），
+（如 TUI 无命令面板与翻页键、Web 无安全响应头/限速、无 restore 子命令），
 不以设计意图替代当前行为。文档与实现出现分歧时，以实现为准并同步修订本文。
+
+## 2026-10-25 更新（ADR-040）
+
+`serve --web` 已默认启用入站 TLS（`--tls builtin|external|off`），工作区证书库
+`<workspace>/.whcode/certs/` 与设置页 `/settings/certs` 见 `web-deployment-security.md`。
+上文 T119 交付记录中的“Web 无 TLS”一项已随本次变更移除；安全响应头、限速、CSRF、
+Host 头校验与令牌轮换仍是真实缺口。

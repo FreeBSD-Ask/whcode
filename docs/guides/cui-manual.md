@@ -1,6 +1,6 @@
 # CUI 手册（T119、§12.2）
 
-**版本**：`0.1.0` | **更新**：2026-10-24 | 契约：`contracts/cui-cli.md`
+**版本**：`0.1.0` | **更新**：2026-10-25 | 契约：`contracts/cui-cli.md`
 
 ## 1. 全局约定
 
@@ -12,7 +12,7 @@
   的 BREAKING 变更（原保留命令用 `50`），见 `CHANGELOG.md`。
 - `--workspace DIR` 指定工作区（默认 cwd；数据库 `<workspace>/whcode.duckdb`）；
   `--json` 可放在子命令前后（全局旗标）。
-- 会话定位为显式 `--session`/`--task`：不设隐式"当前会话"（脚本路径不依赖隐藏状态）。
+- 会话定位为显式 `--session`/`--task`：不设隐式“当前会话”（脚本路径不依赖隐藏状态）。
 - 非交互脚本路径可用（ADR-009）：`--json` + 退出码即可编程消费。
 - 权限：全部命令经应用服务统一判定，拒绝不可重试（FR-604）。
 
@@ -119,16 +119,59 @@ whcode doctor [--json]              # 环境与配置自检
 夹具证明（FR-623）。批次 2 取证：`artifacts/cui-2026-10-22-batch2.txt`；
 四端对等收口证据：`artifacts/frontend-parity-2026-10-24/`。
 
-## 10. Web 服务（`serve --web`，ADR-023）
+## 10. Web 服务（`serve --web`，ADR-023／ADR-040）
 
 ```bash
-whcode serve --web                                   # 回环默认（127.0.0.1:8080），无认证
-whcode serve --web --bind 192.168.5.4:8737        --token-file /secure/token.txt                # 局域网（RFC1918）必须带 token 文件
+whcode serve --web                                   # 回环默认（127.0.0.1:8080），HTTPS，无认证
+whcode serve --web --bind 192.168.5.4:8737 --token-file /secure/token.txt   # 局域网（RFC1918）必须带 token 文件
+whcode serve --web --tls external --bind 127.0.0.1:8443                     # 企业签发证书（按次覆盖设置）
+whcode serve --web --tls off                                                # 显式回到明文 HTTP（迁移旧脚本）
 ```
 
-- 地址边界：只允许回环或 RFC1918 私网；公网 IP 与 `0.0.0.0` 拒绝启动（"仅限局域网"）。
+- 地址边界：只允许回环或 RFC1918 私网；公网 IP 与 `0.0.0.0` 拒绝启动（“仅限局域网”）。
 - 局域网监听强制认证与 Origin 检查；token 只从文件读取（不经命令行）。
-- 浏览器凭据：`http://<ip>:<port>/#token=<token>`——fragment 不发送给服务器；
+- **入站 TLS 三档**：`builtin`（默认，每工作区 ECDSA P-256 自签证书）、`external`
+  （上传的证书链 + 未加密私钥）、`off`（明文 HTTP，ADR-023 现状）。
+  - 优先级：`--tls <mode>` 参数 > 工作区设置（`settings.json` 的 `inbound`）> 默认
+    `builtin`；参数是按次覆盖，**不回写**工作区设置。未知取值报 `parse_error`，不回落默认档位。
+  - `builtin`/`external` 的证书材料不可用时**拒绝启动**（错误给出证书库路径与 `--tls off`），
+    不静默降级明文；`--tls off` 不触碰证书库。
+- **证书库路径**：`<workspace>/.whcode/certs/`——`settings.json`、`ca-builtin.pem`、
+  `ca-extra.pem`、`ca-builtin.json`、`server-cert.pem`、`server-key.pem`；全部为公开格式
+  （PEM／JSON），可直接编辑、删除或 `reset`。私钥只进不出（不入日志、事件、审计与响应）。
+- **设置页**：`https://<addr>/settings/certs`（无 JS 时显示只读状态与文件路径）；
+  对应 API `GET /api/certs`、`POST /api/certs/modes`、`GET/POST /api/certs/ca`、
+  `POST /api/certs/ca/reset`、`GET/POST /api/certs/server`、
+  `POST /api/certs/server/self-signed`、`POST /api/certs/verify`。
+  能力为 `settings.cert.read`／`settings.cert.write`；降档（入站 `off`、清空内置根、
+  上传外部私钥）须 `confirm = true`，成功写 `tls_config_change` 审计。
+- **变更需重启**：入站档位与证书替换在重启 `serve --web` 后生效（不热切换监听）；
+  响应携带 `restart_required`。出站 CA 变更立即生效（每次请求重新读取）。
+- 浏览器凭据：`https://<ip>:<port>/#token=<token>`——fragment 不发送给服务器；
   前端以 `Authorization: Bearer` 调用 `/api/*`。
 - 静态外壳（`/`、`app.js` 等）无认证即可加载；**业务数据全部经 `/api/*` 且需 token**。
-- 不承诺公网暴露、TLS 与暴力破解防护（ADR-023 退出条件）。
+- 自签证书默认不被浏览器信任：先核对启动输出／设置页给出的 SHA-256 指纹，再加入例外，
+  或改用 `external`。**不承诺**公网暴露、吊销（CRL／OCSP）、mTLS 与暴力破解防护
+  （ADR-023／ADR-040 退出条件与不承诺项）。
+
+## 11. 人类可读输出（无 `--json`，T196／ADR-041）
+
+默认输出（不加 `--json`）走终端族排版：**标签列 + 值列**的对齐记录与多记录表格，
+目的是让 `whcode session show`、`whcode task show` 一类结果能被人直接扫读，而不是
+一坨键值对。实现见 `crates/whcode-cui/src/format.rs`。
+
+- **对齐记录**：标签列固定 12 显示列（CJK 记 2 列），值左对齐；首行为标题（如
+  `会话 S-1`）；空值只输出标签、不补齐尾部空格。
+- **表格**：`session list` 等多行结果按列宽对齐，末列不补尾随空格；空列表输出
+  `cui.empty` 显式空态，不输出空白行。
+- **强调仅限非颜色**：`Styler::detect()` 只在 stdout 是交互终端、未设 `NO_COLOR`、
+  且 `TERM` 不为 `dumb` 时启用粗体等 ANSI 强调；三个条件任一不满足即降级为纯文本。
+  本端**不输出颜色、不做主题选择**（ADR-032 `CUI_NO_THEME`），主题色值属 TUI／Web／GUI。
+- **管道可重现**：重定向到文件或管道时只输出 UTF-8 纯文本与空格对齐（列间两个空格、
+  末列不补尾随空格），不含 ANSI 转义序列、不含 Unicode 线框字符，可用于逐字节比对。
+- **边界不变**：`--json` 信封（含 `schema_version`）、错误对象四字段与全部退出码
+  均不受本次排版影响；脚本路径继续按 §1 的退出码判定。
+
+证据：`crates/whcode-cui/src/format.rs` 的单测（对齐、仅字重无颜色、CJK 表格、空表）
+与 `crates/whcode-bin/src/cui_dispatch.rs` 的 `human_output_is_record_style_and_plain_without_tty`；
+归档见 `artifacts/ui-modern-2026-10-25/`。

@@ -21,6 +21,10 @@ whcode-tui / whcode-cui / whcode-web / whcode-ssh   （只经 app 访问状态�
 whcode-bin           （装配根：配置、日志、feature）
 ```
 
+TLS 的依赖落点是这条边界的特例（ADR-031／ADR-040）：**出站**信任装配在 `whcode-llm` 的
+`http` feature 内（`rustls` + `rustls-native-certs`），**入站**握手在装配根 `whcode-bin`
+（`rustls`）；`whcode-web` 只持配置类型、路由与状态投影，**不引入 `rustls`**。
+
 ## 2. 逐 crate 设计
 
 ### whcode-domain
@@ -125,6 +129,9 @@ whcode-bin           （装配根：配置、日志、feature）
 - **关键类型**：`Provider`/`StubProvider`/`CancelToken`/`ChunkStream`、`EventRouter`/
   `pump_stream`/`PumpOutcome`、`IntegrityFlags`/`sanitize`、`Correlation`/`link`/
   `chain_breaks`、`Usage`/`estimate_tokens`、`TransportTracker`。
+- **依赖**：`whcode-domain`；`http` feature 内 `ureq`（网络）、`rustls`（`ring` 提供者）与
+  `rustls-native-certs`／`rustls-pki-types`（出站信任两档 + 追加根，ADR-040 决策 2）。
+  默认构建不含网络依赖；不得引入第二加密提供者（`aws-lc-rs` 只作 `russh` 传递依赖存在）。
 - **失败模式**：供应商错误归一化为 `WhError`（原文进 details）；关键队列饱和返回
   `backpressure`（可重试，不静默丢弃）；展示饱和丢弃最旧并累计合并标记；取消在
   下个 chunk 前生效（桩的既定说明）；估算计量必须标记 `cost_is_estimate`（FR-207）；
@@ -194,6 +201,9 @@ whcode-bin           （装配根：配置、日志、feature）
 - **进程入口**：`whcode-bin` 的 `serve --web` 装配（contracts/cui-cli.md §1）：
   工作区库 → 回环监听 → 顺序服务循环（单线程；DuckDB `Connection` 为 `Send` 非
   `Sync`，ADR-002）；WS 为 RFC 6455 握手 + 正常关闭（会话级推送未实现，前端不依赖）。
+- **依赖**：`whcode-app`／`whcode-domain`／`serde_json`／`duckdb`（仅透传 `Connection` 类型）；
+  **不引入 `rustls`**——入站握手状态机在装配根 `whcode-bin`，本 crate 只持入站 TLS 配置类型、
+  状态投影与证书路由（ADR-040 决策 3）。
 - **失败模式**：无认证时对外监听拒绝启动（V-110）；非回环 Origin 拒绝（ADR-022）；
   请求体有界（`MAX_MESSAGE_BYTES`）。
 
@@ -227,8 +237,10 @@ whcode-bin           （装配根：配置、日志、feature）
 
 ### whcode-bin
 
-- **职责**：装配根（配置、日志、`doctor`、`bench`、TUI 启动、feature 组合）。
-- **失败模式**：配置解析失败返回 `parse_error`（不可重试）；退出码稳定（0/1）。
+- **职责**：装配根（配置、日志、`doctor`、`bench`、TUI 启动、feature 组合）；入站 TLS 握手与
+  非阻塞连接层（`tls.rs`）、工作区证书库初始化与 `doctor` 证书状态（ADR-040）。
+- **失败模式**：配置解析失败返回 `parse_error`（不可重试）；退出码稳定（0/1）；启用入站 TLS
+  而证书材料不可用时拒绝启动并给出证书库路径与 `--tls off`（不静默降级明文）。
 
 ## 3. 跨模块约束
 

@@ -11,7 +11,7 @@
 **符号**：✅ 已实现（前端锚点在登记表中）；◐ 已排除（理由码见“依据／理由”列）；
 ⏳ 预留（里程碑见“依据／理由”列）；— 不适用（判定依据见登记表条目注释）。
 
-**最后更新**：2026-10-24（T181 收口：原 ➕ 格已随交付翻转，矩阵改为逐条受校验产物）。
+**最后更新**：2026-10-25（T190：新增证书库设置两行 `settings.cert.read`／`settings.cert.write`）。
 依据：`specs/001-whcode-harness/contracts/app-service.md` §2、`crates/whcode-bin/src/cui_dispatch.rs`、
 `crates/whcode-app/src/surface.rs`。
 
@@ -56,6 +56,8 @@
 | `llm.cancel` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-201—208；⏳ M3-llm；◐ gui_read_only_v1 |
 | `theme.switch` | Command | Read | ◐ | ✅ | ✅ | ✅ | FR-612／713／625；◐ cui_no_theme |
 | `locale` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-615／625 |
+| `settings.cert.read` | View | Read | ◐ | ◐ | ◐ | ✅ | FR-626／627、ADR-040 决策 4；◐ web_settings_only、six_view_scope |
+| `settings.cert.write` | Command | Destructive | ◐ | ◐ | ◐ | ✅ | FR-626／627、ADR-040 决策 4；◐ web_settings_only、gui_read_only_v1 |
 | `font.install` | Command | Write | ✅ | ◐ | ◐ | ◐ | FR-717；◐ cli_local_admin |
 | `font.status` | Command | Read | ✅ | ◐ | ◐ | ◐ | FR-717；◐ cli_local_admin |
 | `font.uninstall` | Command | Destructive | ✅ | ◐ | ◐ | ◐ | FR-717；◐ cli_local_admin |
@@ -79,10 +81,15 @@ FR-604）；四端不得自行推断权限。
 （`retryable = false`，`details` 含 `surface_id`、`state` 与 `milestone` 或 `reason_code`）；
 CUI 退出码 **55**、Web **HTTP 501**；未登记路径仍为 404（ADR-032 决策 4）。
 
-**实现现状摘要（2026-10-24）**：Web 读命令为会话列表、任务总览与活跃任务、事件列表、
-状态快照、上下文、diff、运行时清单与 i18n；写命令经 `POST /api/sessions/*`、
-`/api/tasks/*`、`/api/purge`（预览默认 + 确认执行）；四套主题经 `data-theme` 运行时切换；
+**实现现状摘要（2026-10-25）**：Web 读命令为会话列表、任务总览与活跃任务、事件列表、
+状态快照、上下文、diff、运行时清单、i18n 与证书库状态／CA 下载／连通性校验；写命令经
+`POST /api/sessions/*`、`/api/tasks/*`、`/api/purge`（预览默认 + 确认执行）与
+`POST /api/certs/*`（档位、根证书、服务端证书；降档须确认、成功写 `tls_config_change` 审计）；
+四套主题经 `data-theme` 运行时切换；
 无 JS 时首页服务端直出只读会话快照（HTML 转义、超限写明截断；仅本机回环未认证模式）。
+`/settings/certs` 设置页已交付（服务端直出 + 原生 ESM `settings.js`，纳入前端预算）：
+档位、根证书与服务端证书编辑、下载、重新生成与连通性校验均走 `/api/certs/*`；
+无 JS 时页面显示只读状态摘要与证书库文件路径（HTML 转义）。
 TUI 补写操作（`n`／`m`／`d`／`A`、`R`／`X`、`p`，破坏性命令先预览后确认）、`t` 四主题循环
 与 ≥1000 ms 低频游标检查（推进才重绘）。GUI 只读六视图，写命令登记 `GUI_READ_ONLY_V1`。
 部署边界：仅回环或局域网（RFC1918，认证必填，ADR-023）。

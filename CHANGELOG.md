@@ -13,6 +13,24 @@
 
 ### 变更
 
+- ⚠ **BREAKING**：`serve --web` 默认启用入站 TLS 与工作区证书库（2026-10-25，
+  add-tls-certificate-store，ADR-040／D-20）。默认协议由明文 `http` 改为 `https`
+  （每工作区 ECDSA P-256 自签证书，SAN 含 `localhost`／`127.0.0.1`／`::1`／本机名／
+  绑定 IP，397 天，到期前 30 天告警），Origin 允许集 scheme 同步改为 `https`。
+  新增三档 `--tls <builtin|external|off>`（参数 > 工作区设置 > 默认 `builtin`，
+  参数按次覆盖、不回写设置；`off` 为显式明文回退，不被静默改回）。
+  新增工作区证书库 `<workspace>/.whcode/certs/`（设置、可编辑内置 Mozilla 根证书副本、
+  追加根、种子清单、入站证书链与未加密私钥）、`/settings/certs` 页面与 `/api/certs/*`
+  （含同步阻塞 ≤ 2 秒的连通性校验）、能力 `settings.cert.read`／`settings.cert.write`
+  与 `tls_config_change` 审计；出站信任两档 `builtin`（默认）／`system`（操作系统证书库），
+  两档都叠加 `ca-extra.pem`，任何档位都不关闭链与主机名校验。
+  **迁移**：依赖 `http://` 的脚本改用 `https://`（自签证书需 `-k` 或先信任指纹），或显式
+  `--tls off`；入站档位与证书变更需重启 `serve --web` 生效。
+  **依赖**：新增 `rustls`（直接依赖）、`rustls-native-certs`、`rustls-pki-types`、`rcgen`、
+  `x509-parser`、`sha2`（单一 `ring` 提供者，零 `unsafe`）。
+  **代价与不承诺**：自签证书默认不被浏览器信任；私钥明文落盘依赖 OS ACL；`system` 档位
+  不复用 Windows 吊销与策略；不承诺公网暴露、mTLS 与多用户隔离。真实浏览器握手与资源
+  证据**未取得**（归属 T192）。
 - 四端界面现代化（2026-10-25，modernize-ui-visual-language，ADR-041）：确立终端族（CUI／TUI）与
   应用族（Web／GUI）两套视觉语法，不引入第三色值、渐变、阴影与新增动效。
   TUI 改为三区布局（顶栏／左导航栏 + 列对齐主面板／键位提示栏，CJK 按 2 列截断）；CUI 的

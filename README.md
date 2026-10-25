@@ -72,7 +72,16 @@ OpenBSD/DragonFly 无原生测试，保留手工占位。
   脏标记零重绘与最小化挂起、终端尺寸变化恢复（FR-617）
 - **CUI**：命令树经应用服务执行，`--json` 统一信封与稳定退出码；未接线命令显式失败，不静默降级
 - **Web**：`serve --web` 编译期嵌入静态前端，**仅限回环或 RFC1918 私网**且局域网强制认证
-  （ADR-023）；i18n（zh-CN/en，含 RTL 标记）；无外部 CDN 与第三方字体
+  （ADR-023）；**入站 TLS 默认启用**（每工作区 ECDSA P-256 自签证书，三档
+  `--tls <builtin|external|off>`，ADR-040；**BREAKING**：默认协议由 `http` 改为 `https`，
+  Origin scheme 同步为 `https`，旧脚本须改用 `https://` 或显式 `--tls off`）；
+  i18n（zh-CN/en，含 RTL 标记）；无外部 CDN 与第三方字体
+- **证书库（ADR-040）**：工作区 `<workspace>/.whcode/certs/` 下六个明文文件——出站信任
+  （内置 Mozilla 根证书副本 `builtin`／操作系统证书库 `system`，均可叠加追加证书）、入站
+  证书链与未加密私钥、设置与种子清单；`/settings/certs` 页面与 `/api/certs/*` 提供状态、
+  编辑、重置、上传、连通性校验，变更写 `tls_config_change` 审计。**不承诺**公网暴露、吊销
+  （CRL／OCSP）、mTLS 与同用户隔离；真实浏览器握手证据尚未取得（见
+  [web-deployment-security.md](./docs/guides/web-deployment-security.md)）
 - **可选执行运行时**（feature 默认关闭，FR-704）：能力等级、payload 校验、检查点、
   受控子进程与执行缓存策略
 - **SSH**：内置客户端（公钥认证、受限命令、超时与输出上限、known_hosts TOFU 校验、按
@@ -140,11 +149,21 @@ python .github/scripts/check-workflows.py    # CI workflow 语义门禁
 python .github/scripts/check-eol.py                 # LF + 无 BOM
 
 # 3) 运行
-cargo run -p whcode-bin --release -- doctor          # 环境自检（含引擎版本实测）
+cargo run -p whcode-bin --release -- doctor          # 环境自检（含引擎版本实测与证书库状态）
 cargo run -p whcode-bin --release -- doctor --json
 cargo run -p whcode-bin --release -- bench baseline --out artifacts/baseline.json --events 2000
 cargo run -p whcode-bin --release --                 # 有控制台时进入 TUI；按 q 退出
+
+# 4) Web（默认 HTTPS，ADR-040；`<workspace>/.whcode/certs/` 自动创建）
+cargo run -p whcode-bin --release -- serve --web            # https://127.0.0.1:8080/
+cargo run -p whcode-bin --release -- serve --web --tls off  # 旧脚本迁移：显式回到明文 HTTP
 ```
+
+**自签证书与浏览器信任**：首次 `serve --web` 会为本工作区生成 ECDSA P-256 自签证书
+（SAN：`localhost`、`127.0.0.1`、`::1`、本机名与绑定 IP；397 天）。浏览器默认不信任
+自签证书，启动输出与 `https://<addr>/settings/certs` 会给出 SHA-256 指纹；核对指纹后
+在浏览器中加入例外，或改用企业签发证书（`--tls external` + 设置页上传证书链与未加密私钥）。
+关掉 TLS 必须显式 `--tls off`（不会被静默改回明文）。
 
 ## 仓库导航
 

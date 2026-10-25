@@ -121,12 +121,22 @@ M4 契约草案，不得按“已可用”引用。
 ## 7. M5/M6/M7 —— 三端与 SSH
 
 ```bash
-whcode serve --web --bind 127.0.0.1:8787      # 默认仅回环；对外须显式启用认证
+whcode serve --web --bind 127.0.0.1:8787      # 默认 HTTPS（内置自签证书，ADR-040）
+curl -k https://127.0.0.1:8787/               # 自签证书须 -k，或先核对 SHA-256 指纹再信任
+whcode serve --web --tls off                  # 迁移：旧脚本依赖 http:// 时显式关闭 TLS
 whcode serve --ssh --port 2222                # 受限 WHCode 入口，默认无系统 Shell
 cargo test --test contract_three_fronts       # 同命令三端一致（V-109）
 ```
 
-预期：三端最终状态/权限/错误码一致（V-109）；默认安全值生效（V-110）；FreeBSD/NetBSD 服务端验收 + 四平台客户端连通性证据（V-004、FR-611、ADR-011，不以单一平台代替）。
+预期：三端最终状态/权限/错误码一致（V-109）；默认安全值生效（V-110）；FreeBSD/NetBSD
+服务端验收 + 四平台客户端连通性证据（V-004、FR-611、ADR-011，不以单一平台代替）。
+
+**Web 协议迁移（2026-10-25，ADR-040，BREAKING）**：`serve --web` 默认入站档位为
+`builtin`，地址由 `http://127.0.0.1:8787` 变为 `https://127.0.0.1:8787`，Origin 允许集
+scheme 同步为 `https`。自签证书默认不被客户端信任：验证用 `curl -k`（或按启动输出与
+`/settings/certs` 给出的 SHA-256 指纹手工信任，步骤见 `docs/guides/web-deployment-security.md`），
+需要企业签发证书用 `--tls external`。仍依赖明文的旧脚本显式加 `--tls off`（该选择不被静默改回）。
+入站档位与证书替换需重启 `serve --web` 后生效；TLS 不是认证替代品，RFC1918 绑定仍必须 `--token-file`。
 
 ## 8. M8 —— 运行时
 
