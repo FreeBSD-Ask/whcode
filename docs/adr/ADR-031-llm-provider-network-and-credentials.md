@@ -167,3 +167,12 @@ ureq-proto 0.6.5；webpki-roots 1.0.10`（`artifacts/deps-windows.txt`）。临�
   也不改变“默认不联网”（无剖面即无请求）。
 - **证据状态**：ADR-040 的依赖表与工作区证书库为设计决策；真实 Provider 调用仍归
   T163／T167，四端 `llm.run` 仍为 `Reserved`，不得据本条宣称已交付。
+
+### 2026-10-25（技术债复核补记：spec 入库与依赖漂移）
+
+- **变更 spec 已补登记**：`specs/002-add-real-llm-provider/`（spec／plan／tasks 三件，
+  状态“代码早于 spec，门禁倒置已由本 ADR 记录”）。上文“变更 spec 未入库”与“缺口 5”
+  的**恢复条件已满足**；T162—T167 维持未完成（阻塞改为“客户端装配与四端接线未交付”）。
+- **依赖版本漂移**：上文引用 `webpki-roots 1.0.10` 为 2026-10-25 记录时刻的值；
+  当前 `Cargo.lock` 为 **1.0.11**（`artifacts/deps-windows.txt` 为旧记录）。
+  依赖清单以 `Cargo.lock` 为准，本条不改变任何决策语义。

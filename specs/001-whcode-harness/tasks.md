@@ -282,7 +282,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 **Independent Test**: 按 quickstart.md §9，产出时间序列报告与发布清单核对结果
 
 - [x] T115 [US10] 在 `crates/*/src/` 按冻结预算优化热点（先测量后优化，禁止 `Box::leak` 通用化）（NFR-201—210、§5.3）（**2026-10-24 完成**：测量战役补齐七项候选实测——NFR-201 空载 RSS 中位 23.12 MB、NFR-202 活跃 27.33 MB、NFR-203 切换 20 次增量 3.18 MB（夹具修正后复跑；原 0.32 MB 的测量含“第二会话 0 事件”缺陷，见 ADR-025 修订记录）、NFR-205 TUI 空闲 CPU 0.0%、NFR-206 限速流式 0.682%（满喂容量 ≈1.5M chunks/s/核佐证）、NFR-207 切换 p95 12.9 ms、NFR-209 单页 p95 19.8 ms；报告 `artifacts/nfr-budget-report.json` + `tests/stability/test_nfr_budget.rs`（NFR-203/206 为 `#[ignore]` 测量夹具，运行方式已注明）+ `script/measure_nfr_budgets.py`（真实进程采样，纪律字段齐备）。**唯一超标项 NFR-209（同夹具 p95 40.8 ms > 30 ms）经热点定位（EXPLAIN 证实 DuckDB 对多列 top-k 生成 SEQ_SCAN 而非索引扫描）并以两阶段分页优化至 p95 19.8 ms 达标——同夹具前后对比留档，无预算修订**；测量方法两处缺陷修正留档：NFR-205 须 AttachConsole 子控制台注入、NFR-206 须采样测试可执行文件而非 cargo 包装进程。NFR-204（72 h 斜率）属 T116 保持候选。分配器决策仍按 ADR-020 冻结）
-- [ ] T116 [P] [US10] 在 `tests/stability/run_stability.sh`／`.github/workflows/long-run.yml` 执行 5.5 小时稳定性测试并采集规定指标（§11.5、ADR-033）**阻塞（2026-10-22）**：需 5.5h 连续运行环境；NFR-204 长时泄漏斜率未测量。**部分进展（2026-10-23）**：四类故障情形已纳入 `tests/stability/test_failure_modes.rs`（Check 206 通过）；长跑与指标时间序列仍未取得，任务保持未完成——**长跑重启（2026-10-24 15:02:04，进行中）**：13:05 启动的旧长跑经复核作废——工作负载为逐轮重建的短命 `extreme_scale` 进程，且 13:26 起工作区未提交改动导致编译失败，采样对象与 RSS 斜率不可归因，`timeseries.json` 从未落盘。新采集器 `tests/stability/test_stability_run.rs` 为**单进程**持续负载并按间隔自采样，逐行追加 `artifacts/stability-24h-20261024-150204/timeseries.jsonl`（中断不丢已采样本）；采集 RSS/CPU/线程/句柄/库与 WAL 大小/事件缺失/failed 任务/提交-查询-切换延迟，写者队列深度与最老队列项年龄显式 `null` 并附原因（直连 `Connection`，不经 `WriterService`，不以 0 冒充）。14:30 启动的首轮在首个样本前（14:53）因需空载运行全量性能测试而主动停止，无数据丢失；清理路径已用 40 秒小阈值冒烟验证（`deleted_total=50020`、`event_missing=0`）。**口径变更（ADR-033）**：窗口改为 5.5 小时，CI 入口 `.github/workflows/long-run.yml`；此前 24 h 本机运行仅作历史材料，不再作为门槛。**5.5 h CI 长跑尚未运行**——数据未落地前不勾选。**2026-10-25 本机 12 h 序列分析**：`artifacts/stability-24h-20261024-150204/` 已落盘 12 个样本（单 PID 12392、间隔 3 600 s、debug 构建），RSS 斜率三口径均为负（最小二乘 −0.611 MB/h、首末 −1.855 MB/h、前 5.5 h 子集 −3.954 MB/h），线程恒 17／句柄恒 172，`event_missing` 恒 0，清理路径生效（插入 1 536 600／删除 1 500 100）；但进程在 12.0 h 处被外部终止、无 `kind:"summary"` 收尾行，间隔与 ADR-033 的 300 s 不符且为 debug 构建——**仅作候选证据**（`nfr204-analysis.md`），任务仍不勾选，等 `long-run.yml` 的 5.5 h CI 运行。**2026-10-25 补记**：该本机 24 h 运行随后自然收尾（23 个样本 + `kind:"summary"`，summary 自报首末斜率 0.4867 MB/h，线程 17／句柄 172 全程不变），仍为 debug／3 600 s 间隔，不构成 Check 116 证据；CI 5.5 h 口径（run 40154046118）斜率 0.6987／0.943 MB/h 超预算的登记见 `artifacts/tech-debt-review-2026-10-25.md`
+- [ ] T116 [P] [US10] 在 `tests/stability/run_stability.sh`／`.github/workflows/long-run.yml` 执行 5.5 小时稳定性测试并采集规定指标（§11.5、ADR-033）**阻塞（2026-10-22）**：需 5.5h 连续运行环境；NFR-204 长时泄漏斜率未测量。**部分进展（2026-10-23）**：四类故障情形已纳入 `tests/stability/test_failure_modes.rs`（Check 206 通过）；长跑与指标时间序列仍未取得，任务保持未完成——**长跑重启（2026-10-24 15:02:04，进行中）**：13:05 启动的旧长跑经复核作废——工作负载为逐轮重建的短命 `extreme_scale` 进程，且 13:26 起工作区未提交改动导致编译失败，采样对象与 RSS 斜率不可归因，`timeseries.json` 从未落盘。新采集器 `tests/stability/test_stability_run.rs` 为**单进程**持续负载并按间隔自采样，逐行追加 `artifacts/stability-24h-20261024-150204/timeseries.jsonl`（中断不丢已采样本）；采集 RSS/CPU/线程/句柄/库与 WAL 大小/事件缺失/failed 任务/提交-查询-切换延迟，写者队列深度与最老队列项年龄显式 `null` 并附原因（直连 `Connection`，不经 `WriterService`，不以 0 冒充）。14:30 启动的首轮在首个样本前（14:53）因需空载运行全量性能测试而主动停止，无数据丢失；清理路径已用 40 秒小阈值冒烟验证（`deleted_total=50020`、`event_missing=0`）。**口径变更（ADR-033）**：窗口改为 5.5 小时，CI 入口 `.github/workflows/long-run.yml`；此前 24 h 本机运行仅作历史材料，不再作为门槛。**5.5 h CI 长跑尚未运行**——数据未落地前不勾选。**2026-10-25 本机 12 h 序列分析**：`artifacts/stability-24h-20261024-150204/` 已落盘 12 个样本（单 PID 12392、间隔 3 600 s、debug 构建），RSS 斜率三口径均为负（最小二乘 −0.611 MB/h、首末 −1.855 MB/h、前 5.5 h 子集 −3.954 MB/h），线程恒 17／句柄恒 172，`event_missing` 恒 0，清理路径生效（插入 1 536 600／删除 1 500 100）；但进程在 12.0 h 处被外部终止、无 `kind:"summary"` 收尾行，间隔与 ADR-033 的 300 s 不符且为 debug 构建——**仅作候选证据**（`nfr204-analysis.md`），任务仍不勾选，等 `long-run.yml` 的 5.5 h CI 运行。**2026-10-25 补记**：该本机 24 h 运行随后自然收尾（23 个样本 + `kind:"summary"`，summary 自报首末斜率 0.4867 MB/h，线程 17／句柄 172 全程不变），仍为 debug／3 600 s 间隔，不构成 Check 116 证据；CI 5.5 h 口径（run 40154046118）斜率 0.6987／0.943 MB/h 超预算的登记见 `artifacts/tech-debt-review-2026-10-25.md`。**CI 5.5 h 长跑已取得（2026-10-25）**：run `40154046118` success（main@dc4e5b3，02:20—07:53 UTC，job 19 860 s），artifact `stability-long-run` 含 65 样本与 `kind:"summary"` 收尾行；RSS 斜率首末 0.6987 MB/h、最小二乘 0.943 MB/h（**超 0.5 MB/h 预算**），线程 21／句柄 176 恒定、`event_missing` 恒 0；样本 28／56 为 400k 阈值清理周期（非进程重启）；写者队列深度／最老队列项年龄仍缺（夹具直连 `Connection`），构建为 debug（`long-run.yml` 未加 `--release`）。处置分析见 `artifacts/nfr204-disposition-2026-10-25.md`：0.5 MB/h×5.5 h＝2.75 MB 小于噪声 σ 3.17 MB，**判据在当前窗口分辨力不足**（预算源自 72 h 前提，ADR-033 缩窗未重导），建议“夹具口径修正→同口径复测→ADR-025 组合判据”，修订提议已入 ADR-025 待批准。任务维持不勾选
 - [x] T117 [P] [US10] 在 `docs/adr/ADR-ALLOCATOR.md` 记录分配器决策：默认系统分配器，除非基准证明有益（D-11）
 - [x] T118 [US10] 在 `ci/` 与 `docs/matrices/` 产出 Windows 11 amd64 发布包、平台兼容矩阵与已知限制说明（BSD 延后并在限制中注明；§12.2、§9.1、ADR-013） **完成（2026-10-23，交付批次）**：新增 `ci/package-windows.py`（白名单打包 + 仓库外临时目录解包运行验证），产出 `target/dist/whcode-0.1.0-windows-amd64.zip`；证据 `artifacts/install-verify-windows-amd64.txt`（三条命令退出码 0，`duckdb_engine_version = v1.5.6` 为运行期实测，临时工作区实际生成 1 060 864 字节库文件）；兼容矩阵与已知限制随包发布（`compatibility.md`、`platform-matrix.md`），BSD 延后写入已知限制第 8 条（Check 118 通过）
 - [x] T119 [P] [US10] 在 `docs/guides/` 完成 CUI 手册、TUI 键位表、Web 部署与安全配置、灾难恢复说明（§12.2） **完成（2026-10-23，交付批次）**：`cui-manual.md`、`tui.md`、`web-deployment-security.md`、`disaster-recovery.md` 四份齐备；每份逐条给出实现位置（`文件:行号`），并把未实现/未接线能力单列（TUI 无命令面板与翻页键、Web 无 TLS/安全响应头/限速、无 restore 子命令、WAL 自动检查点未接入循环）；`docs/guides/README.md` 的“未交付”节改为交付记录（Check 119 通过）
@@ -341,16 +341,17 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 ## Phase 15: LLM 真实供应商（预留，未交付，Priority: P1）
 
 **Purpose**: `add-real-llm-provider` 变更的任务位（ADR-031／D-16）。ADR-031 已于 2026-10-25
-补录（`docs/adr/ADR-031-llm-provider-network-and-credentials.md`），该变更的**正式 spec 仍未入库**；
-以下 6 条按 FR-201—208 与 FR-616 及现存代码锚点占位登记，**标题与交付状态以该变更收口时的正式 spec
-为准**。不得据此宣称 `llm run／cancel` 已可用（四端仍登记为 `M3-llm` 预留）。
+补录（`docs/adr/ADR-031-llm-provider-network-and-credentials.md`）；变更的**正式 spec 已于
+2026-10-25 补登记**（`specs/002-add-real-llm-provider/`，状态：代码早于 spec，门禁倒置已由
+ADR-031 记录）。以下 6 条按 FR-201—208 与 FR-616 及现存代码锚点占位登记，**标题与交付状态以
+主账本为准**。不得据此宣称 `llm run／cancel` 已可用（四端仍登记为 `M3-llm` 预留）。
 
-- [ ] T162 [US4] 真实 Provider 剖面与凭据边界：剖面模型、协议枚举、鉴权头构造与凭据不落日志／事件（FR-203；锚点 `crates/whcode-llm/src/http/profile.rs`）——**未完成（阻塞：变更 spec 未入库；ADR-031 已补录）**
-- [ ] T163 [US4] 阻塞式 HTTP 客户端与协议适配器：`ureq` 客户端、请求构造、响应读取与网络错误映射（FR-201；锚点 `crates/whcode-llm/src/http/mod.rs`）——**未完成（阻塞：同上，变更 spec 未入库）**
-- [ ] T164 [US4] 响应归一化：流式／非流式响应统一为领域事件与用量统计（FR-206／207）——**未完成（阻塞：同上，变更 spec 未入库）**
-- [ ] T165 [US4] 传输进度事件与脱敏：连接／重连／字节计数／往返时延／断连原因码入事件体系（FR-616、FR-203）——**未完成（阻塞：同上，变更 spec 未入库）**
-- [ ] T166 [US4] 超时、重试与取消：单次调用超时、有界重试与取消语义（FR-201／202）——**未完成（阻塞：同上，变更 spec 未入库）**
-- [ ] T167 [US4] 装配根接线与登记翻转：`http` feature 装配、凭据文件读取、`llm.run／cancel` 四端登记与矩阵同步（FR-208、FR-616；ADR-032 复审触发③）——**未完成（阻塞：同上，变更 spec 未入库）**
+- [ ] T162 [US4] 真实 Provider 剖面与凭据边界：剖面模型、协议枚举、鉴权头构造与凭据不落日志／事件（FR-203；锚点 `crates/whcode-llm/src/http/profile.rs`）——**未完成（阻塞：客户端装配与四端接线未交付；spec 已入库，见 `specs/002-add-real-llm-provider/`）**
+- [ ] T163 [US4] 阻塞式 HTTP 客户端与协议适配器：`ureq` 客户端、请求构造、响应读取与网络错误映射（FR-201；锚点 `crates/whcode-llm/src/http/mod.rs`）——**未完成（阻塞：同上，客户端装配与四端接线未交付）**
+- [ ] T164 [US4] 响应归一化：流式／非流式响应统一为领域事件与用量统计（FR-206／207）——**未完成（阻塞：同上，客户端装配与四端接线未交付）**
+- [ ] T165 [US4] 传输进度事件与脱敏：连接／重连／字节计数／往返时延／断连原因码入事件体系（FR-616、FR-203）——**未完成（阻塞：同上，客户端装配与四端接线未交付）**
+- [ ] T166 [US4] 超时、重试与取消：单次调用超时、有界重试与取消语义（FR-201／202）——**未完成（阻塞：同上，客户端装配与四端接线未交付）**
+- [ ] T167 [US4] 装配根接线与登记翻转：`http` feature 装配、凭据文件读取、`llm.run／cancel` 四端登记与矩阵同步（FR-208、FR-616；ADR-032 复审触发③）——**未完成（阻塞：同上，客户端装配与四端接线未交付）**
 
 ---
 
@@ -874,7 +875,7 @@ p95 281 µs，候选预算 p95 ≤ 16 ms 未冻结）。
 3. `app.js` 未使用导入 `probeGpu`——改为注释说明不接线原因（运行时调用即创建
    GPU 上下文，违反 NFR-212）。
 
-**未完成／阻塞（显式标记，不得勾选）**：T096—T099（M7/ADR-013 延后）；
+**未完成／阻塞（显式标记，不得勾选）**：T099（四 BSD 验收证据，ADR-013 延后；T096—T098 已交付，ADR-030）；
 T115（预算未冻结）；T116（24/72h 长跑）；**视图业务数据源装配**（`ViewSource`
 注入真实会话/任务/事件——Check 179 仅部分证据）；**Web 浏览器实测**（Web 服务
 入口未装配，Check 220/227/228 的 Web 侧未取得）。
