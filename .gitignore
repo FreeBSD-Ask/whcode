@@ -47,6 +47,8 @@
 # 工作区数据库与 WAL 仍由 *.duckdb 规则排除。
 !/artifacts/stability-24h-20261024-150204/
 /artifacts/stability-24h-20261024-150204/workspace/
+# 四端界面现代化证据（ADR-041）：TUI 帧预算与 Web 前端预算基线；新产物同目录追加。
+!/artifacts/ui-modern-2026-10-25/
 # M0 退出报告是治理交付物（tasks.md T031、§12.2），必须随仓库版本化。
 
 # 工作区数据库与 WAL（运行时产物，不进版本库）

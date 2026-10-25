@@ -8,6 +8,10 @@
   3. `GET /` 返回 HTML（含 `<!DOCTYPE` 或 `<html`）；
   4. 关闭进程后退出码为 0（或平台约定的正常终止码）。
 
+入站默认 TLS（ADR-040，2026-10-25）：本脚本按默认档位用 **https** 访问回环地址，并跳过
+自签证书链校验（只验证“服务可用与路由正确”）；证书内容、指纹与浏览器信任**不**由本脚本
+证明（归 T192 的真实握手证据），不得把本脚本通过当作 TLS 配置正确的结论。
+
 工作区建在仓库外临时目录；只监听 127.0.0.1，不开放外部访问。
 用法：
     python .github/scripts/web-smoke.py [--exe target/release/whcode.exe] [--json artifacts/web-smoke.json]
@@ -19,6 +23,7 @@ import argparse
 import json
 import pathlib
 import socket
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -29,6 +34,11 @@ import urllib.request
 REPO = pathlib.Path(__file__).resolve().parents[2]
 DEFAULT_EXE = REPO / "target" / "release" / "whcode.exe"
 
+# 自签证书（默认 builtin 档位）只用于回环冒烟：跳过链校验，不声称信任正确。
+SSL_CONTEXT = ssl.create_default_context()
+SSL_CONTEXT.check_hostname = False
+SSL_CONTEXT.verify_mode = ssl.CERT_NONE
+
 
 def free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -38,7 +48,7 @@ def free_port() -> int:
 
 def get(url: str, timeout: float = 5.0) -> tuple[int, bytes, str]:
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
+        with urllib.request.urlopen(url, timeout=timeout, context=SSL_CONTEXT) as resp:
             return resp.status, resp.read(), resp.headers.get("content-type", "")
     except urllib.error.HTTPError as err:
         return err.code, err.read(), err.headers.get("content-type", "")
@@ -77,7 +87,8 @@ def main() -> int:
         sys.exit(f"会话信封缺少 session id：{envelope}")
 
     port = free_port()
-    base = f"http://127.0.0.1:{port}"
+    # 默认档位是入站 TLS（ADR-040）：用 https 访问，自签证书跳过链校验。
+    base = f"https://127.0.0.1:{port}"
     process = subprocess.Popen(
         [str(exe), "serve", "--web", "--bind", f"127.0.0.1:{port}", "--workspace", str(workspace)],
         stdout=subprocess.PIPE,

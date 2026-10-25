@@ -1,1 +1,1 @@
-前端基线通过：JS gzip 8781 B / CSS gzip 1910 B / DOM 起始标签 73（≤ 2000），无违例
+前端基线通过：JS gzip app 8782 B / settings 5918 B（各 ≤ 51200）/ CSS gzip 2153 B（≤ 20480）/ DOM 起始标签 index 75 · settings 100（各 ≤ 2000），无违例
