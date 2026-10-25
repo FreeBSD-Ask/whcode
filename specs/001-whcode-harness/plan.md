@@ -16,7 +16,7 @@
 
 **Language/Version**: Rust（工具链版本由 M0 锁定；具体稳定版号在 M0 基线报告中冻结，当前候选为最新 stable）
 
-**Primary Dependencies**: tokio（异步运行时）、duckdb（Rust crate，原生依赖）、ratatui + crossterm（TUI）、clap（CUI）、serde/serde_json（产物与协议）、axum 或等价（Web API/WebSocket）、russh 或等价（SSH 服务端）——后两者在 M0/M6/M7 按平台验证结论确认，属 `[待验证]`（见 research.md R-05、R-06）
+**Primary Dependencies**: tokio（异步运行时）、duckdb（Rust crate，原生依赖）、ratatui + crossterm（TUI）、clap（CUI）、serde/serde_json（产物与协议）、Web API/WebSocket 为自研“单线程非阻塞多路复用”服务器（`crates/whcode-bin/src/serve.rs`，未引入 axum）、russh 0.64.1（SSH 服务端，ADR-030）——复核 2026-10-25：原“axum/russh 或等价，属 `[待验证]`”（research.md R-05、R-06）已由交付事实定案——Web 选型随 M6 交付（T090—T095）结清；SSH 服务端随 ADR-030（2026-10-24 批准，T096—T098）结清，BSD 平台验收按 ADR-013 延后，恢复须新 ADR。证据：`crates/whcode-bin/src/serve.rs` 模块文档（自研 HTTP/WS 服务器、std `TcpListener` + 非阻塞 socket）、`grep -rn "axum" crates/*/Cargo.toml`（零匹配）、`crates/whcode-ssh/Cargo.toml`（`russh = "0.64.1"`）、`docs/adr/ADR-030-ssh-server-russh.md`
 
 **Storage**: DuckDB（默认且唯一，ADR-001；未经 ADR 批准不得增加第二默认后端）
 
@@ -51,7 +51,7 @@
 
 **ADR 映射（C-02 支撑）**：ADR-001→`whcode-store` 单文件工作区；ADR-002→写者服务；ADR-003/004/005/009→`whcode-app` 共享命令面 + 四端适配器；ADR-006→`Event Router` 双队列分离；ADR-007→`whcode-tools` 意图协议；ADR-008/010→`whcode-runtime` 子进程与平台分开验收。
 
-**Phase 1 后复评**：结构、数据模型与契约（data-model.md、contracts/）逐项核对 C-01—C-08，无新增违例。Web/SSH 依赖选型（C-06 相关）保持 `[待验证]`，未表述为已冻结；DuckDB 在 BSD 的构建风险（C-01/C-06 交叉项）列为 M0 Go/No-Go 条件，而非静默降级。
+**Phase 1 后复评**：结构、数据模型与契约（data-model.md、contracts/）逐项核对 C-01—C-08，无新增违例。Web/SSH 依赖选型（C-06 相关）保持 `[待验证]`，未表述为已冻结；DuckDB 在 BSD 的构建风险（C-01/C-06 交叉项）列为 M0 Go/No-Go 条件，而非静默降级。（复核 2026-10-25：上句“保持 `[待验证]`”为 Phase 1 复评时的历史结论，已被交付事实取代——Web 选型随 M6 交付（T090—T095）定案为自研“单线程非阻塞多路复用”HTTP/WebSocket 服务器（`crates/whcode-bin/src/serve.rs`，未引入 axum）；SSH 服务端选型随 ADR-030 定案（russh 0.64.1，T096—T098），仅 BSD 平台验收按 ADR-013 延后，恢复须新 ADR。）
 
 ## Project Structure
 
@@ -124,5 +124,5 @@ docs/
 
 | 观察 | 说明 | 处置 |
 |---|---|---|
-| O-01 依赖面较宽 | Web/SSH 服务端 crate 选型未定（`[待验证]`），触及 C-06 边界 | 不表述为已交付；M0/M6/M7 依平台验证证据定案（research.md R-05/R-06） |
+| O-01 依赖面较宽 | Web/SSH 服务端 crate 选型未定（`[待验证]`），触及 C-06 边界 | 不表述为已交付；M0/M6/M7 依平台验证证据定案（research.md R-05/R-06）。复核 2026-10-25：选型已定案并关闭——Web 为自研“单线程非阻塞多路复用”服务器（`crates/whcode-bin/src/serve.rs`，无 axum）；SSH 服务端为 russh 0.64.1（ADR-030，T096—T098），BSD 平台验收按 ADR-013 延后，恢复须新 ADR |
 | O-02 范围大（M0—M9 单 feature） | 与"一个 feature 一个 spec"的常规粒度相比偏大 | 属用户明确决定的范围（全量基线 + M0 起步）；tasks.md 以里程碑为阶段边界，M0 为建议 MVP |
