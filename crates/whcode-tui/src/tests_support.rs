@@ -150,13 +150,25 @@ pub fn draw_snapshot_with(
     theme: Theme,
     texts: &I18n,
 ) -> Buffer {
+    draw_snapshot_with_context(snapshot, cols, rows, theme, texts, None, "")
+}
+
+/// 带顶栏会话与动作反馈行的绘制（T195 三区布局取证：顶栏／反馈行／键位提示栏）。
+pub fn draw_snapshot_with_context(
+    snapshot: &ViewSnapshot,
+    cols: u16,
+    rows: u16,
+    theme: Theme,
+    texts: &I18n,
+    session: Option<&str>,
+    status: &str,
+) -> Buffer {
     let backend = TestBackend::new(cols, rows);
     let mut terminal = Terminal::new(backend).expect("测试终端");
     let mut state = TuiState::new(cols, rows);
     state.handle(UiEvent::Key(view_switch_key(snapshot.view)));
-    let lines = snapshot.render_lines_limited(usize::from(rows));
     terminal
-        .draw(|frame| draw_frame(frame, &state, &lines, theme, texts))
+        .draw(|frame| draw_frame(frame, &state, snapshot, session, status, theme, texts))
         .expect("绘制测试帧");
     terminal.backend().buffer().clone()
 }

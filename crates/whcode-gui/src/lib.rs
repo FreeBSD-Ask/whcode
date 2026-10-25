@@ -16,7 +16,7 @@ pub mod surface_map;
 use std::rc::Rc;
 
 use iced::keyboard::{Key, key};
-use iced::widget::{column, container, rich_text, row, scrollable, span, text};
+use iced::widget::{button, column, container, rich_text, row, scrollable, span, text};
 use iced::{
     Background, Border, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme,
     window,
@@ -170,9 +170,7 @@ struct State {
     session_ids: Vec<String>,
     /// 当前视图快照。
     snapshot: ViewSnapshot,
-    /// 已按键数（页脚显示；导航键不计入）。
-    keys: u32,
-    /// 当前窗口逻辑尺寸（页脚显示，FR-712 口径）。
+    /// 当前窗口逻辑尺寸（状态栏显示，FR-712 口径）。
     size: Size,
 }
 
@@ -192,7 +190,6 @@ impl State {
             selected: None,
             session_ids,
             snapshot,
-            keys: 0,
             size: WINDOW_SIZE,
         }
     }
@@ -215,6 +212,7 @@ impl State {
         self.texts.resolve_fmt(
             "tui.title",
             &[
+                ("app", self.texts.resolve("app.title")),
                 ("view", self.texts.resolve(self.view.title_key())),
                 ("index", &self.view.index().to_string()),
                 ("count", &VIEW_COUNT.to_string()),
@@ -222,16 +220,56 @@ impl State {
         )
     }
 
-    /// 页脚（与 TUI 同一词条：`tui.footer`）。
-    fn footer(&self) -> String {
+    /// 顶栏会话行：未选择时显示显式占位（不渲染空串）。
+    fn session_label(&self) -> String {
+        match self.selected_session() {
+            Some(id) => self
+                .texts
+                .resolve_fmt("cui.record.session", &[("session", &id)]),
+            None => self.texts.resolve("gui.session.none").to_string(),
+        }
+    }
+
+    /// KPI 条（T199）：优先使用准备层摘要（任务视图含总计/完成/阻塞），否则给出可得计数。
+    ///
+    /// 不新增查询：计数只来自已准备的快照与会话清单——帧路径不触库（§5.3）。
+    fn kpi(&self) -> String {
+        if !self.snapshot.summary.is_empty() {
+            return self.snapshot.summary.clone();
+        }
         self.texts.resolve_fmt(
+            "gui.kpi.count",
+            &[
+                ("sessions", &self.session_ids.len().to_string()),
+                ("rows", &self.snapshot_rows().to_string()),
+            ],
+        )
+    }
+
+    /// 当前视图的数据条数（文本视图无行数概念，记 0）。
+    fn snapshot_rows(&self) -> usize {
+        match self.view {
+            ViewId::Sessions => self.snapshot.sessions.len(),
+            ViewId::Tasks => self.snapshot.tasks.len(),
+            ViewId::Events => self.snapshot.events.len(),
+            ViewId::Diff => self.snapshot.diff.len(),
+            ViewId::Context | ViewId::Spec => 0,
+        }
+    }
+
+    /// 状态栏：键位提示 + 窗口尺寸 + 当前主题（与 TUI 同一批词条）。
+    fn footer(&self) -> String {
+        let hints = self.texts.resolve_fmt(
             "tui.footer",
             &[
                 ("cols", &format!("{:.0}", self.size.width)),
                 ("rows", &format!("{:.0}", self.size.height)),
-                ("keys", &self.keys.to_string()),
             ],
-        )
+        );
+        let theme = self
+            .texts
+            .resolve_fmt("gui.status.theme", &[("theme", self.theme.name())]);
+        format!("{hints}    {theme}")
     }
 }
 
@@ -342,7 +380,6 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             }
         }
         Message::Refresh => {
-            state.keys = state.keys.saturating_add(1);
             state.prepare();
         }
         Message::CycleTheme => state.theme = state.theme.next(),
@@ -384,22 +421,43 @@ fn handle_event(
     }
 }
 
+/// 侧栏条目样式：只用主题两色（选中反显），不引入灰色、边框或阴影（ADR-041）。
+fn sidebar_style(theme: GuiTheme, selected: bool) -> button::Style {
+    let (background, foreground) = theme.colors();
+    button::Style {
+        background: Some(Background::Color(if selected {
+            foreground
+        } else {
+            background
+        })),
+        text_color: if selected { background } else { foreground },
+        border: Border::default(),
+        shadow: Shadow::default(),
+        snap: true,
+    }
+}
+
+/// 侧栏条目：可点击切换视图（只读消息），保留 `1—6` 键位。
+fn sidebar_button(state: &State, item: ViewId) -> Element<'_, Message> {
+    let selected = state.view == item;
+    let label = format!("{} {}", item.index(), state.texts.resolve(item.title_key()));
+    let theme = state.theme;
+    button(rich_line(&label, false, 16.0))
+        .on_press(Message::SelectView(item))
+        .width(Length::Fill)
+        .padding([6, 8])
+        .style(move |_theme, _status| sidebar_style(theme, selected))
+        .into()
+}
+
 fn view(state: &State) -> Element<'_, Message> {
-    let sidebar = column(
-        ViewId::ALL
-            .iter()
-            .map(|view| {
-                let marker = if state.view == *view { "> " } else { "  " };
-                rich_line(
-                    format!("{}{}", marker, state.texts.resolve(view.title_key())).as_str(),
-                    false,
-                    18.0,
-                )
-            })
-            .collect::<Vec<Element<'_, Message>>>(),
-    )
-    .spacing(8)
-    .width(Length::Fixed(180.0));
+    let items: Vec<Element<'_, Message>> = ViewId::ALL
+        .iter()
+        .map(|item| sidebar_button(state, *item))
+        .collect();
+    let sidebar = container(column(items).spacing(4))
+        .width(Length::Fixed(200.0))
+        .height(Length::Fill);
 
     let lines = state.snapshot.render_lines_limited(500);
     // diff 预览用等宽字体（拉丁 JetBrains Mono／CJK Sarasa Mono SC），其余用比例字体。
@@ -421,11 +479,20 @@ fn view(state: &State) -> Element<'_, Message> {
         .into()
     };
 
-    let main = column![
-        body,
-        container(rich_line(state.footer().as_str(), false, 13.0)).padding(6)
+    // 顶栏：视图标题（20）+ 当前会话（13）；其下为 KPI 条与正文；底部状态栏。
+    let header = column![
+        rich_line(state.texts.resolve(state.view.title_key()), false, 20.0),
+        rich_line(state.session_label().as_str(), false, 13.0),
     ]
-    .spacing(8)
+    .spacing(4);
+
+    let main = column![
+        header,
+        rich_line(state.kpi().as_str(), false, 13.0),
+        body,
+        rich_line(state.footer().as_str(), false, 13.0),
+    ]
+    .spacing(12)
     .width(Length::Fill);
 
     container(row![sidebar, main].spacing(16))
@@ -526,5 +593,76 @@ mod tests {
         assert!(!is_cjk('S'));
         // 通用标点（U+2014）由 Inter/Noto 的拉丁子集覆盖，不按 CJK 切段。
         assert!(!is_cjk('—'));
+    }
+
+    /// 空数据源状态（T199 顶栏/KPI/状态栏取证；不触库）。
+    fn empty_state() -> State {
+        let source: Rc<dyn ViewSource> = Rc::new(whcode_app::view_source::EmptyViewSource);
+        State::new(source, I18n::default(), GuiTheme::EinkDay)
+    }
+
+    /// T199：窗口标题与网络层同源词条（应用名 + 视图序号），状态栏含主题名。
+    #[test]
+    fn title_and_status_bar_use_shared_text_layer() {
+        let state = empty_state();
+        assert!(
+            state.title().contains("旺皇大模型执行框架"),
+            "标题须含应用名：{}",
+            state.title()
+        );
+        assert!(
+            state.title().contains("会话 (1/6)"),
+            "标题须含视图序号：{}",
+            state.title()
+        );
+        assert_eq!(
+            state.session_label(),
+            "未选择会话",
+            "未选择时必须有显式占位"
+        );
+        assert!(
+            state.footer().contains("eink-day"),
+            "状态栏须显示主题名：{}",
+            state.footer()
+        );
+        assert!(
+            state.footer().contains("1200x800"),
+            "状态栏须显示窗口尺寸：{}",
+            state.footer()
+        );
+    }
+
+    /// T199：KPI 条优先准备层摘要（任务视图含总计/完成/阻塞），否则回落可得计数。
+    #[test]
+    fn kpi_prefers_prepared_summary_then_counts() {
+        let mut state = empty_state();
+        assert!(
+            state.kpi().contains("会话 0"),
+            "空态 KPI 须给出可得计数：{}",
+            state.kpi()
+        );
+        state.snapshot.summary = "会话 S-1 · 总计 3 · 完成 2 · 阻塞 1".to_string();
+        assert_eq!(state.kpi(), state.snapshot.summary);
+    }
+
+    /// T199：侧栏选中态只用主题两色（反显），不引入灰色、边框或阴影。
+    #[test]
+    fn sidebar_selection_inverts_theme_colors_only() {
+        for theme in [
+            GuiTheme::EinkDay,
+            GuiTheme::EinkNight,
+            GuiTheme::AmoledNight,
+            GuiTheme::TerminalGreen,
+        ] {
+            let (background, foreground) = theme.colors();
+            let selected = sidebar_style(theme, true);
+            assert_eq!(selected.background, Some(Background::Color(foreground)));
+            assert_eq!(selected.text_color, background);
+            let normal = sidebar_style(theme, false);
+            assert_eq!(normal.background, Some(Background::Color(background)));
+            assert_eq!(normal.text_color, foreground);
+            assert_eq!(normal.border, Border::default(), "侧栏不得加边框");
+            assert_eq!(normal.shadow, Shadow::default(), "侧栏不得加阴影");
+        }
     }
 }

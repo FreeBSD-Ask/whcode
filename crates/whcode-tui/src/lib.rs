@@ -42,8 +42,8 @@ use std::io;
 use std::time::{Duration, Instant};
 
 use ratatui::Terminal;
-use ratatui::layout::{Constraint, Layout};
-use ratatui::style::{Color, Style};
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph};
 use whcode_app::commands::{CommandExecutor, FrontendCommand};
@@ -184,13 +184,20 @@ pub fn run_with(source: &dyn ViewSource, options: RunOptions<'_>) -> Result<(), 
             core.maybe_probe(probe, now);
         }
         // 脏标记门控：仅脏且未最小化时绘制（T083/T129/T135）。
-        if let Some(mut lines) = core.render_frame() {
-            if !core.status.is_empty() {
-                lines.push(core.status.clone());
-            }
+        if core.render_frame().is_some() {
             let theme = core.theme;
             terminal
-                .draw(|frame| draw_frame(frame, &core.state, &lines, theme, &options.texts))
+                .draw(|frame| {
+                    draw_frame(
+                        frame,
+                        &core.state,
+                        &core.snapshot,
+                        core.selected_session.as_deref(),
+                        &core.status,
+                        theme,
+                        &options.texts,
+                    )
+                })
                 .map_err(|err| io_error("绘制界面失败", err))?;
         }
         match guard.session_mut().poll_event(POLL_TIMEOUT)? {
@@ -777,14 +784,16 @@ impl<'a> LoopCore<'a> {
         }
     }
 
-    /// 尝试渲染一帧：返回待绘制文本行；最小化期间跳过并计入累计（FR-617）。
-    fn render_frame(&mut self) -> Option<Vec<String>> {
+    /// 尝试渲染一帧（门控）：返回 `Some(())` 表示本帧应绘制，`None` 表示空闲或最小化
+    /// 跳过（FR-617）。帧内容由 [`draw_frame`] 从快照组装——门控与内容装配分离，
+    /// 投影只发生一次。
+    fn render_frame(&mut self) -> Option<()> {
         let was_minimized = self.renderer.is_minimized();
-        let frame = self.renderer.render(&self.snapshot, self.frame_limit());
+        let frame = self.renderer.render();
         match frame {
-            Some(lines) => {
+            Some(()) => {
                 self.redraws += 1;
-                Some(lines)
+                Some(())
             }
             None => {
                 if was_minimized && self.renderer.is_dirty() {
@@ -792,15 +801,6 @@ impl<'a> LoopCore<'a> {
                 }
                 None
             }
-        }
-    }
-
-    /// 帧路径行数上界（Check 83 帧预算）：终端行数——帧成本由终端尺寸界定；
-    /// 脚本模式初始尺寸未知（0）时按兜底尺寸。
-    fn frame_limit(&self) -> usize {
-        match self.state.rows() {
-            0 => usize::from(DEFAULT_SIZE.1),
-            rows => usize::from(rows),
         }
     }
 
@@ -826,64 +826,470 @@ impl<'a> LoopCore<'a> {
     }
 }
 
-/// 画一帧：标题（视图名/序号）、视图文本、页脚（尺寸/按键/快捷键提示），
-/// 应用主题精确色值（FR-612）与文本层（FR-615）。纯投影：不做查询、不反序列化 JSON（§5.3）。
+/// 导航栏宽度（列）：固定 14 列，80 列终端下主面板仍有 ≥ 60 列。
+const RAIL_WIDTH: u16 = 14;
+
+/// 主面板最小宽度（列）：不足时先压缩导航栏，再按可用列截断正文（不横向溢出）。
+const BODY_MIN_WIDTH: u16 = 20;
+
+/// 三区布局的最小终端尺寸（列, 行）；更小时退化为无 chrome 的正文，避免零面积区域。
+const CHROME_MIN: (u16, u16) = (24, 6);
+
+/// 主面板最窄可用列数（列宽为 0 时正文只剩边框）。
+const MIN_BODY_CONTENT: usize = 8;
+
+/// 字符显示列宽：CJK／全角／常见表情记 2 列，其余 1 列。
+///
+/// 这是**排版宽度**，只用于本文件内的截断与补位；终端实际前进量由 `RowBackend`
+/// 整行输出承担（歧义宽度字形不在此表内断言）。表外的歧义字形（`·`、`×`、`—`）
+/// 不在新增装饰中使用（ADR-041 决策 4）。
+fn char_width(ch: char) -> usize {
+    match u32::from(ch) {
+        0x1100..=0x115F
+        | 0x2E80..=0x303E
+        | 0x3041..=0x33FF
+        | 0x3400..=0x4DBF
+        | 0x4E00..=0x9FFF
+        | 0xA000..=0xA4CF
+        | 0xAC00..=0xD7A3
+        | 0xF900..=0xFAFF
+        | 0xFE30..=0xFE4F
+        | 0xFF00..=0xFF60
+        | 0xFFE0..=0xFFE6
+        | 0x1F300..=0x1F64F
+        | 0x1F900..=0x1F9FF
+        | 0x20000..=0x3FFFD => 2,
+        _ => 1,
+    }
+}
+
+/// 文本显示列宽（按 [`char_width`] 求和；测试与诊断用）。
+#[cfg(test)]
+fn display_width(text: &str) -> usize {
+    text.chars().map(char_width).sum()
+}
+
+/// 空格填充（避免 `" ".repeat(n)` 的临时 String 分配）。
+fn push_spaces(out: &mut String, count: usize) {
+    const SPACES: &str = "                                                                ";
+    let mut remaining = count;
+    while remaining > 0 {
+        let take = remaining.min(SPACES.len());
+        out.push_str(&SPACES[..take]);
+        remaining -= take;
+    }
+}
+
+/// 追加一个单元格：按显示列截断、以 `~` 收尾、补齐到精确宽度（右对齐可选）。
+///
+/// 直接写入行缓冲，**不产生中间 String**——帧内每个单元格一次分配会显著抬高
+/// 每帧成本（ADR-041 资源中性口径：帧预算相对基线不劣化 20%）。
+/// ASCII 走长度直通路径（不逐字查宽度表），CJK 走显示列路径。
+fn push_cell(out: &mut String, text: &str, width: usize, right_aligned: bool) {
+    if width == 0 {
+        return;
+    }
+    if text.is_ascii() {
+        if text.len() <= width {
+            let pad = width - text.len();
+            if right_aligned {
+                push_spaces(out, pad);
+            }
+            out.push_str(text);
+            if !right_aligned {
+                push_spaces(out, pad);
+            }
+        } else {
+            let take = width.saturating_sub(1);
+            if right_aligned {
+                push_spaces(out, width.saturating_sub(take + 1));
+            }
+            out.push_str(&text[..take]);
+            out.push('~');
+        }
+        return;
+    }
+    let mut used = 0usize;
+    let mut end = text.len();
+    let mut truncated = false;
+    for (index, ch) in text.char_indices() {
+        let cell = char_width(ch);
+        if used + cell > width {
+            end = index;
+            truncated = true;
+            break;
+        }
+        used += cell;
+    }
+    let mut visible = &text[..end];
+    if truncated {
+        // 留 1 列给截断标记：必要时回退字符，直到能容纳标记。
+        while used + 1 > width {
+            match visible.char_indices().next_back() {
+                Some((index, ch)) => {
+                    used -= char_width(ch);
+                    visible = &visible[..index];
+                }
+                None => break,
+            }
+        }
+    }
+    let pad = width.saturating_sub(used + usize::from(truncated));
+    if right_aligned {
+        push_spaces(out, pad);
+    }
+    out.push_str(visible);
+    if truncated {
+        out.push('~');
+    }
+    if !right_aligned {
+        push_spaces(out, pad);
+    }
+}
+
+/// 左对齐单元格（截断 + 右补空格到精确列宽）。
+fn fit_cell(text: &str, width: usize) -> String {
+    let mut out = String::with_capacity(width);
+    push_cell(&mut out, text, width, false);
+    out
+}
+
+/// 行宽夹取（原地）：超过可用列时按显示列截断并以 `~` 收尾。
+fn clamp_line(line: &mut String, width: usize) {
+    if line.is_ascii() {
+        if line.len() <= width {
+            return;
+        }
+        let take = width.saturating_sub(1);
+        line.truncate(take);
+        line.push('~');
+        return;
+    }
+    let mut used = 0usize;
+    let mut end = line.len();
+    let mut truncated = false;
+    for (index, ch) in line.char_indices() {
+        let cell = char_width(ch);
+        if used + cell > width {
+            end = index;
+            truncated = true;
+            break;
+        }
+        used += cell;
+    }
+    if !truncated {
+        return;
+    }
+    line.truncate(end);
+    while used + 1 > width {
+        match line.pop() {
+            Some(ch) => used -= char_width(ch),
+            None => break,
+        }
+    }
+    line.push('~');
+}
+
+/// 该视图是否有列定义（会话／任务／事件）。
+const fn has_columns(view: ViewId) -> bool {
+    matches!(view, ViewId::Sessions | ViewId::Tasks | ViewId::Events)
+}
+
+/// 视图数据总条数（滚动位置的分母；无列视图为 0）。
+fn view_total(view: ViewId, snapshot: &ViewSnapshot) -> usize {
+    match view {
+        ViewId::Sessions => snapshot.sessions.len(),
+        ViewId::Tasks => snapshot.tasks.len(),
+        ViewId::Events => snapshot.events.len(),
+        ViewId::Context | ViewId::Spec | ViewId::Diff => 0,
+    }
+}
+
+/// 按视图列定义排版一行（列宽固定，标题列吃剩余宽度；超宽再夹到可用列）。
+///
+/// 单元格由闭包按索引取用（借用快照字段，不复制长文本）；`cell` 越界返回空串，
+/// 不 panic——投影与列定义不一致时退化为空列，而不是让帧路径崩溃。
+/// 全行只分配一个输出缓冲（帧内每单元格一次分配会抬高一帧成本）。
+fn layout_columns<'a, F: Fn(usize) -> &'a str>(view: ViewId, width: usize, cell: F) -> String {
+    let mut out = String::with_capacity(width + 4);
+    match view {
+        // 标记(1) + ID(8) + 标题(剩余) + 阶段(10) + 状态(10)，列间各 1 空格。
+        ViewId::Sessions => {
+            let flex = width.saturating_sub(33);
+            push_cell(&mut out, cell(0), 1, false);
+            out.push(' ');
+            push_cell(&mut out, cell(1), 8, false);
+            out.push(' ');
+            push_cell(&mut out, cell(2), flex, false);
+            out.push(' ');
+            push_cell(&mut out, cell(3), 10, false);
+            out.push(' ');
+            push_cell(&mut out, cell(4), 10, false);
+        }
+        // 标记(1) + ID(8) + 标题(剩余) + 状态(10) + 重试(5，右对齐)。
+        ViewId::Tasks => {
+            let flex = width.saturating_sub(28);
+            push_cell(&mut out, cell(0), 1, false);
+            out.push(' ');
+            push_cell(&mut out, cell(1), 8, false);
+            out.push(' ');
+            push_cell(&mut out, cell(2), flex, false);
+            out.push(' ');
+            push_cell(&mut out, cell(3), 10, false);
+            out.push(' ');
+            push_cell(&mut out, cell(4), 5, true);
+        }
+        // 序号(8，右对齐) + 类型(18) + 摘要(剩余)。
+        ViewId::Events => {
+            let flex = width.saturating_sub(28);
+            push_cell(&mut out, cell(0), 8, true);
+            out.push(' ');
+            push_cell(&mut out, cell(1), 18, false);
+            out.push(' ');
+            push_cell(&mut out, cell(2), flex, false);
+        }
+        ViewId::Context | ViewId::Spec | ViewId::Diff => {}
+    }
+    clamp_line(&mut out, width);
+    out
+}
+
+/// 列标题行（与数据行列宽一致；标签来自文本层）。
+fn column_header(view: ViewId, texts: &I18n, width: usize) -> String {
+    let keys: &[&str] = match view {
+        ViewId::Sessions => &[
+            "",
+            "tui.col.id",
+            "tui.col.title",
+            "tui.col.stage",
+            "tui.col.status",
+        ],
+        ViewId::Tasks => &[
+            "",
+            "tui.col.id",
+            "tui.col.title",
+            "tui.col.status",
+            "tui.col.retry",
+        ],
+        ViewId::Events => &["tui.col.seq", "tui.col.kind", "tui.col.summary"],
+        ViewId::Context | ViewId::Spec | ViewId::Diff => &[],
+    };
+    layout_columns(view, width, |index| {
+        keys.get(index).map_or("", |key| {
+            if key.is_empty() {
+                ""
+            } else {
+                texts.resolve(key)
+            }
+        })
+    })
+}
+
+/// 画一帧（T195／ADR-041）：顶栏（应用名、视图序号、当前会话）／左导航栏 + 主面板／
+/// 键位提示栏三区；主面板按视图列定义排版，选中行反显，右侧标注滚动位置。
+///
+/// 纯投影：只读 [`ViewSnapshot`] 与 [`TuiState`]，不做查询、不反序列化 JSON（§5.3）；
+/// 帧内分配只与终端尺寸相关（列投影行数 = 主面板高度）。
 fn draw_frame(
     frame: &mut ratatui::Frame<'_>,
     state: &TuiState,
-    lines: &[String],
+    snapshot: &ViewSnapshot,
+    session: Option<&str>,
+    status: &str,
     theme: Theme,
     texts: &I18n,
 ) {
     let (background, foreground) = theme.colors();
-    let style = match (theme::parse_rgb(background), theme::parse_rgb(foreground)) {
+    let base = match (theme::parse_rgb(background), theme::parse_rgb(foreground)) {
         (Some(bg), Some(fg)) => Style::default()
             .fg(Color::Rgb(fg.0, fg.1, fg.2))
             .bg(Color::Rgb(bg.0, bg.1, bg.2)),
         _ => Style::default(), // 常量色值恒合法；防御式回退到终端默认配色。
     };
+    let area = frame.area();
 
+    // 极窄/极矮：退化为纯正文（仍显式提示空态），避免三区被压成零面积。
+    if area.width < CHROME_MIN.0 || area.height < CHROME_MIN.1 {
+        let lines = snapshot.render_lines_limited(usize::from(area.height.max(1)));
+        let body: Vec<Line<'_>> = if lines.is_empty() {
+            vec![Line::from(texts.resolve("tui.empty"))]
+        } else {
+            lines.iter().map(|line| Line::from(line.as_str())).collect()
+        };
+        frame.render_widget(Paragraph::new(body).style(base), area);
+        return;
+    }
+
+    let status_height = u16::from(!status.is_empty());
+    let rows = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Min(1),
+        Constraint::Length(status_height),
+        Constraint::Length(1),
+    ])
+    .split(area);
+
+    // 1) 顶栏：应用名 + 视图（序号/总数）+ 当前会话。
     let view = state.view();
-    let title = texts.resolve_fmt(
+    let header = texts.resolve_fmt(
         "tui.title",
         &[
+            ("app", texts.resolve("app.title")),
             ("view", texts.resolve(view.title_key())),
             ("index", &view.index().to_string()),
             ("count", &VIEW_COUNT.to_string()),
         ],
     );
-    let block = Block::default()
-        .style(style)
-        .borders(Borders::ALL)
-        .title(title);
-    let area = frame.area();
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
+    let session_label = session.unwrap_or_else(|| texts.resolve("tui.header.none"));
+    frame.render_widget(
+        Paragraph::new(Line::from(format!("{header}  |  {session_label}"))).style(base),
+        rows[0],
+    );
 
-    let chunks = Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(inner);
-    let body: Vec<Line<'_>> = if lines.is_empty() {
-        // 数据源未装配（或视图为空）：显式提示，不伪造内容（不伪装原则）。
-        vec![Line::from(texts.resolve("tui.empty"))]
-    } else {
-        lines.iter().map(|line| Line::from(line.as_str())).collect()
-    };
-    frame.render_widget(Paragraph::new(body).style(style), chunks[0]);
-    let footer = texts.resolve_fmt(
+    // 2) 中部：导航栏 + 主面板。
+    draw_content(frame, rows[1], snapshot, view, base, texts);
+
+    // 3) 动作反馈行（仅非空时占一行，不加高帧）。
+    if status_height == 1 {
+        frame.render_widget(Paragraph::new(Line::from(status)).style(base), rows[2]);
+    }
+
+    // 4) 键位提示栏：键位 + 窗口尺寸（不显示按键计数——计数不是用户需要的信号）。
+    let keybar = texts.resolve_fmt(
         "tui.footer",
         &[
             ("cols", &state.cols().to_string()),
             ("rows", &state.rows().to_string()),
-            ("keys", &state.keys_seen().to_string()),
         ],
     );
-    frame.render_widget(Paragraph::new(Line::from(footer)).style(style), chunks[1]);
+    frame.render_widget(Paragraph::new(Line::from(keybar)).style(base), rows[3]);
+}
+
+/// 中部区域：左导航栏（固定宽度，选中项 `>` + 反显）+ 主面板（单线边框、列标题、
+/// 列对齐正文、右侧滚动位置）。
+fn draw_content(
+    frame: &mut ratatui::Frame<'_>,
+    area: Rect,
+    snapshot: &ViewSnapshot,
+    view: ViewId,
+    base: Style,
+    texts: &I18n,
+) {
+    let rail = RAIL_WIDTH.min(area.width.saturating_sub(BODY_MIN_WIDTH));
+    let body_x = area.x.saturating_add(rail);
+    let body_width = area.width.saturating_sub(rail);
+
+    if rail > 0 {
+        let rail_area = Rect::new(area.x, area.y, rail, area.height);
+        // 导航栏右侧留 1 列空白，与主面板左边框形成分隔（不叠加第二条竖线）。
+        let inner_width = usize::from(rail.saturating_sub(1));
+        let lines: Vec<Line<'_>> = ViewId::ALL
+            .iter()
+            .map(|item| {
+                let selected = *item == view;
+                let marker = if selected { ">" } else { " " };
+                let text = fit_cell(
+                    &format!(
+                        "{marker}{} {}",
+                        item.index(),
+                        texts.resolve(item.title_key())
+                    ),
+                    inner_width,
+                );
+                let style = if selected {
+                    base.add_modifier(Modifier::REVERSED)
+                } else {
+                    base
+                };
+                Line::from(text).style(style)
+            })
+            .collect();
+        frame.render_widget(Paragraph::new(lines).style(base), rail_area);
+    }
+
+    if body_width == 0 {
+        return;
+    }
+    let body_area = Rect::new(body_x, area.y, body_width, area.height);
+    let inner = Rect::new(
+        body_area.x.saturating_add(1),
+        body_area.y.saturating_add(1),
+        body_area.width.saturating_sub(2),
+        body_area.height.saturating_sub(2),
+    );
+    if inner.width == 0 || inner.height == 0 {
+        return;
+    }
+    let content_width = usize::from(inner.width).max(MIN_BODY_CONTENT);
+    let column_view = has_columns(view);
+
+    // 列视图：摘要行单列一行（文本视图的摘要已含在文本行首，不重复）。
+    let summary =
+        (column_view && !snapshot.summary.is_empty()).then_some(snapshot.summary.as_str());
+    let total = view_total(view, snapshot);
+    // 正确空态：列视图无数据时不画空表头，只显示显式空提示（不把“无数据”伪造成
+    // “有列但空”）。文本视图的空态由文本行路径与下方兜底处理。
+    let empty = column_view && total == 0;
+    let chrome = u16::from(summary.is_some()) + u16::from(column_view && !empty);
+    let body_rows = usize::from(inner.height.saturating_sub(chrome));
+
+    let mut lines: Vec<Line<'_>> = Vec::with_capacity(body_rows + usize::from(chrome));
+    if let Some(summary) = summary {
+        lines.push(Line::from(summary));
+    }
+
+    let mut shown = 0usize;
+    if empty {
+        lines.push(Line::from(texts.resolve("tui.empty")));
+    } else if column_view {
+        lines.push(Line::from(column_header(view, texts, content_width)));
+        for (index, row) in snapshot
+            .render_columns_limited(body_rows)
+            .iter()
+            .enumerate()
+        {
+            let text = layout_columns(view, content_width, |cell| {
+                row.cells.get(cell).map_or("", |value| value.as_ref())
+            });
+            let style = if snapshot.selected_index == Some(index) {
+                base.add_modifier(Modifier::REVERSED)
+            } else {
+                base
+            };
+            lines.push(Line::from(text).style(style));
+            shown += 1;
+        }
+    } else {
+        lines.extend(
+            snapshot
+                .render_lines_limited(body_rows)
+                .into_iter()
+                .map(Line::from),
+        );
+    }
+
+    if lines.is_empty() {
+        // 数据源未装配（或视图为空）：显式提示，不伪造内容（不伪装原则）。
+        lines.push(Line::from(texts.resolve("tui.empty")));
+    }
+
+    let mut block = Block::default()
+        .style(base)
+        .borders(Borders::ALL)
+        .title(texts.resolve(view.title_key()));
+    if column_view {
+        block = block.title(Line::from(format!("{shown}/{total}")).right_aligned());
+    }
+    // 边框块已把主题样式铺满整个区域（含正文单元），正文不再重复上色。
+    frame.render_widget(Paragraph::new(lines).block(block), body_area);
 }
 
 #[cfg(test)]
 mod tests {
     use super::{RunOptions, ScriptStep, UiEvent, ViewId, run_scripted, run_scripted_steps};
     use crate::tests_support::{
-        FakeProbe, fixture_snapshot, render_empty_frame, render_fixture_frame, view_switch_key,
+        FakeProbe, buffer_text, draw_snapshot_with_context, fixture_snapshot, render_empty_frame,
+        render_fixture_frame, render_snapshot_text, view_switch_key,
     };
 
     #[test]
@@ -1237,32 +1643,146 @@ mod tests {
         assert_eq!(report.skipped_while_minimized, 1);
     }
 
-    /// Check 82：六视图在固定终端尺寸（80×24）下渲染出稳定文本帧（截图取证的可执行形式）。
+    /// Check 82 / T195：六视图在固定终端尺寸（80×24）下渲染出稳定三区帧——
+    /// 顶栏（应用名 + 视图序号）、导航栏（六视图 + 选中标记）、主面板、键位提示栏。
     #[test]
     fn six_views_render_at_fixed_terminal_size() {
         for view in ViewId::ALL {
             let text = render_fixture_frame(view, 80, 24);
             println!("===== TUI VIEW: {} =====", view.as_str());
             print!("{text}");
+            let lines: Vec<&str> = text.lines().collect();
+            assert_eq!(lines.len(), 24, "{view:?} 帧必须为 24 行");
+
+            // 顶栏：应用名 + 视图（序号/总数）。
             assert!(
-                text.contains(&format!(
-                    "旺皇大模型执行框架 —— {}（{}/6）",
-                    view.title(),
-                    view.index()
-                )),
-                "{view:?} 帧必须含视图标题"
+                lines[0].contains("旺皇大模型执行框架"),
+                "{view:?} 顶栏必须含应用名：{:?}",
+                lines[0]
             );
-            assert!(text.contains("1—6 视图"), "{view:?} 帧必须含快捷键提示");
-            assert!(text.contains("q 退出"), "{view:?} 帧必须含退出提示");
-            for line in fixture_snapshot(view).render_lines() {
+            assert!(
+                lines[0].contains(&format!("{} ({}/6)", view.title(), view.index())),
+                "{view:?} 顶栏必须含视图序号：{:?}",
+                lines[0]
+            );
+            // 导航栏：六视图全部列出，当前项同时具备 `>` 标记与标题。
+            for item in ViewId::ALL {
                 assert!(
-                    line.is_empty() || text.contains(line.as_str()),
-                    "{view:?} 帧必须包含准备层数据行 {line:?}"
+                    text.contains(item.title()),
+                    "{view:?} 导航栏必须列出 {item:?}"
                 );
             }
-            // 尺寸固定：恰好 24 行（多余列按终端裁剪语义承载，不越界的断言在数据行上）。
-            assert_eq!(text.lines().count(), 24, "{view:?} 帧必须为 24 行");
+            assert!(
+                text.contains(&format!(">{} {}", view.index(), view.title())),
+                "{view:?} 导航栏选中项必须以 > 标记"
+            );
+            // 键位提示栏（末行）：键位与窗口尺寸。
+            let last = lines.last().copied().unwrap_or_default();
+            for expected in ["1-6 视图", "j/k 移动", "q 退出", "80x24"] {
+                assert!(
+                    last.contains(expected),
+                    "{view:?} 键位提示栏缺少 {expected:?}：{last:?}"
+                );
+            }
+
+            // 数据字段可见：列视图逐字段断言，文本视图断言整行。
+            let snapshot = fixture_snapshot(view);
+            match view {
+                ViewId::Sessions => {
+                    for row in &snapshot.sessions {
+                        assert!(text.contains(&row.id), "{view:?} 缺 ID {}", row.id);
+                        assert!(text.contains(&row.title), "{view:?} 缺标题 {}", row.title);
+                        assert!(text.contains(&row.status), "{view:?} 缺状态 {}", row.status);
+                    }
+                }
+                ViewId::Tasks => {
+                    for row in &snapshot.tasks {
+                        assert!(text.contains(&row.id), "{view:?} 缺 ID {}", row.id);
+                        assert!(text.contains(&row.status), "{view:?} 缺状态 {}", row.status);
+                    }
+                }
+                ViewId::Events => {
+                    for row in &snapshot.events {
+                        assert!(text.contains(&row.kind), "{view:?} 缺类型 {}", row.kind);
+                    }
+                }
+                ViewId::Context | ViewId::Spec | ViewId::Diff => {
+                    for line in snapshot.render_lines() {
+                        assert!(
+                            text.contains(line.as_str()),
+                            "{view:?} 帧必须包含准备层数据行 {line:?}"
+                        );
+                    }
+                }
+            }
         }
+    }
+
+    /// T195：顶栏会话、动作反馈行与键位提示栏各占一行，反馈行位于键位栏之上。
+    #[test]
+    fn context_and_status_bars_occupy_their_own_rows() {
+        use whcode_domain::i18n::I18n;
+
+        let buffer = draw_snapshot_with_context(
+            &fixture_snapshot(ViewId::Sessions),
+            80,
+            24,
+            crate::Theme::EinkDay,
+            &I18n::default(),
+            Some("S-2"),
+            "删除会话 完成",
+        );
+        let text = buffer_text(&buffer);
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines.len(), 24, "三区 + 反馈行必须正好 24 行");
+        assert!(
+            lines[0].contains("S-2"),
+            "顶栏必须显示当前会话：{:?}",
+            lines[0]
+        );
+        assert!(
+            lines[22].contains("删除会话 完成"),
+            "反馈行在键位提示栏之上：{:?}",
+            lines[22]
+        );
+        assert!(
+            lines[23].contains("q 退出"),
+            "键位提示栏必须是末行：{:?}",
+            lines[23]
+        );
+    }
+
+    /// T195：CJK 标题按显示列截断——任何一行都不得越过终端列宽，超长以 `~` 收尾。
+    #[test]
+    fn cjk_columns_are_truncated_within_terminal_width() {
+        use super::{SessionRow, ViewSnapshot};
+
+        let mut snapshot = ViewSnapshot::empty(ViewId::Sessions);
+        snapshot.sessions.push(SessionRow {
+            id: "S-1".into(),
+            title: "超长标题".repeat(20),
+            stage: "implement".into(),
+            status: "active".into(),
+        });
+        snapshot.selected_index = Some(0);
+        let text = render_snapshot_text(&snapshot, 60, 10);
+        for line in text.lines() {
+            assert!(
+                super::display_width(line) <= 60,
+                "行宽越过 60 列：{line:?}（{} 列）",
+                super::display_width(line)
+            );
+        }
+        assert!(text.contains('~'), "超长标题必须截断并以 ~ 收尾");
+        assert!(text.contains("S-1"), "ID 列必须保留");
+    }
+
+    /// T195 降级路径：窄/矮终端退化为纯正文，不产生零面积区域，也不 panic。
+    #[test]
+    fn narrow_terminal_falls_back_to_plain_body() {
+        let text = render_empty_frame(ViewId::Context, 20, 5);
+        assert_eq!(text.lines().count(), 5);
+        assert!(text.contains("（暂无数据）"), "空态必须显式：{text}");
     }
 
     /// FR-612：主题色值实际进入渲染单元（背景精确为纯黑/纯白）。
@@ -1277,6 +1797,12 @@ mod tests {
         assert_eq!(eink.content()[0].fg, Color::Rgb(0, 0, 0));
         assert_eq!(amoled.content()[0].bg, Color::Rgb(0, 0, 0));
         assert_eq!(amoled.content()[0].fg, Color::Rgb(0xE6, 0xE6, 0xE6));
+        // T195：正文单元（边框内）同样带主题色——块样式铺满区域，正文不再重复上色。
+        let body_cell = 5 * 40 + 20;
+        assert_eq!(eink.content()[body_cell].bg, Color::Rgb(0xFF, 0xFF, 0xFF));
+        assert_eq!(eink.content()[body_cell].fg, Color::Rgb(0, 0, 0));
+        assert_eq!(amoled.content()[body_cell].bg, Color::Rgb(0, 0, 0));
+        assert_eq!(amoled.content()[body_cell].fg, Color::Rgb(0xE6, 0xE6, 0xE6));
     }
 
     /// 空数据源帧：显式“暂无数据”，不伪造内容。
@@ -1284,10 +1810,10 @@ mod tests {
     fn empty_source_renders_explicit_placeholder() {
         let text = render_empty_frame(ViewId::Tasks, 60, 12);
         assert!(text.contains("（暂无数据）"), "空视图必须显式提示：{text}");
-        assert!(text.contains("任务（2/6）"));
+        assert!(text.contains("任务 (2/6)"), "顶栏必须含视图序号：{text}");
     }
 
-    /// FR-615：英文文本层进入渲染帧（标题/页脚/空提示），数据字段不翻译。
+    /// FR-615：英文文本层进入渲染帧（顶栏/键位栏/空提示），数据字段不翻译。
     #[test]
     fn english_texts_render_in_frame() {
         use whcode_domain::i18n::{I18n, LocaleSource};
@@ -1302,8 +1828,12 @@ mod tests {
             &texts,
         );
         let text = buffer_text(&buffer);
-        assert!(text.contains("whcode — Tasks (2/6)"), "英文标题：{text}");
-        assert!(text.contains("Window 70×12"), "英文页脚：{text}");
+        assert!(
+            text.contains("WHCode Coding Harness  |  Tasks (2/6)"),
+            "英文顶栏：{text}"
+        );
+        assert!(text.contains("no session"), "英文顶栏会话占位：{text}");
+        assert!(text.contains("70x12"), "英文键位栏窗口尺寸：{text}");
         assert!(text.contains("(no data)"), "英文空提示：{text}");
         // 数据字段（会话 ID/事件类型）不翻译——由准备层原样提供。
     }
@@ -1503,14 +2033,14 @@ mod tests {
         );
 
         let payload = serde_json::json!({
-            "task": "T083/T129",
+            "task": "T083/T129/T195",
             "fixture": { "view": "events", "rows": 10_000, "terminal": "80x24" },
             "measurement": {
                 "warmup": WARMUP,
                 "samples": SAMPLES,
                 "unit": "microseconds",
                 "clock": "std::time::Instant",
-                "scope": "frame_path = render_lines_limited(rows) + draw_frame -> TestBackend buffer (含主题应用；不含文本提取)",
+                "scope": "frame_path = draw_frame（三区布局：顶栏 + 导航栏 + 列投影主面板 + 键位栏）-> TestBackend buffer（含主题应用；不含文本提取）",
                 "profile": if cfg!(debug_assertions) { "debug（未优化，数量级偏悲观；release 运行约低一个数量级）" } else { "release" }
             },
             "p50_us": p50,
@@ -1520,10 +2050,10 @@ mod tests {
             "budget": {
                 "candidate_p95_us": CANDIDATE_P95_BUDGET_US,
                 "frozen": false,
-                "note": "UI 自定候选预算：不属于 NFR-201—210，不随 ADR-025 冻结；本报告仅作回归参照"
+                "note": "UI 自定候选预算：不属于 NFR-201—210，不随 ADR-025 冻结；本报告仅作回归参照。T195 改为三区布局后同机 debug 实测 p95 约 2 000—2 400 µs（改造前单面板参照同机约 1 000—1 500 µs，debug 噪声 ±30%），绝对预算不变、余量仍 ≥ 84%"
             },
             "platform": "windows-amd64",
-            "date": "2026-10-22"
+            "date": "2026-10-25"
         });
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../artifacts/tui-frame-budget.json");

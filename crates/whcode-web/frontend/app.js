@@ -586,36 +586,72 @@ async function exportEvents(format) {
   setActionStatus(t("web.export.done", "导出完成"), false);
 }
 
-// 标签切换（会话/任务/历史/上下文/diff/SDD/维护）。
-for (const button of document.querySelectorAll("#tabs button")) {
-  button.addEventListener("click", () => {
-    for (const other of document.querySelectorAll("#tabs button")) {
-      other.setAttribute("aria-selected", "false");
-    }
-    button.setAttribute("aria-selected", "true");
-    for (const section of document.querySelectorAll("main section")) {
-      section.hidden = true;
-    }
-    el(`view-${button.dataset.tab}`).hidden = false;
-    // 读取面按需加载（FR-622）：切到上下文/diff 时拉取当前会话数据。
-    if (button.dataset.tab === "context") {
-      loadContext().catch(() => {});
-    } else if (button.dataset.tab === "diff") {
-      loadDiff().catch(() => {});
-    }
-    if (animationsEnabled) {
-      // 仅 opacity（GPU 合成友好，T133）；reduced-motion 时无动效。
-      el("main").style.opacity = "0.6";
-      window.setTimeout(() => {
-        el("main").style.opacity = "";
-      }, 150);
-    }
-  });
+// 标签切换（T197/T198）：ARIA tablist 标准模式——roving tabindex + 方向键/Home/End
+// 循环切换；面板用 role="tabpanel" 与 aria-labelledby 关联。不新增定时器。
+function selectTab(name, options = {}) {
+  const tabs = Array.from(document.querySelectorAll("#tabs button"));
+  const target = tabs.find((tab) => tab.dataset.tab === name);
+  if (!target) {
+    return;
+  }
+  for (const tab of tabs) {
+    const selected = tab === target;
+    tab.setAttribute("aria-selected", selected ? "true" : "false");
+    tab.tabIndex = selected ? 0 : -1;
+  }
+  for (const section of document.querySelectorAll("main section")) {
+    section.hidden = section.id !== `view-${name}`;
+  }
+  if (options.focus) {
+    target.focus();
+  }
+  // 读取面按需加载（FR-622）：切到上下文/diff 时拉取当前会话数据。
+  if (name === "context") {
+    loadContext().catch(() => {});
+  } else if (name === "diff") {
+    loadDiff().catch(() => {});
+  }
+  if (animationsEnabled) {
+    // 仅 opacity（GPU 合成友好，T133）；reduced-motion 时无动效。
+    el("main").style.opacity = "0.6";
+    window.setTimeout(() => {
+      el("main").style.opacity = "";
+    }, 150);
+  }
+}
+
+/** 接线 tablist：点击选中；方向键循环（RTL 下方向反转）；Home/End 首尾。 */
+function wireTabs() {
+  const tabs = Array.from(document.querySelectorAll("#tabs button"));
+  const rtl = document.documentElement.dir === "rtl";
+  for (const tab of tabs) {
+    tab.addEventListener("click", () => selectTab(tab.dataset.tab));
+    tab.addEventListener("keydown", (event) => {
+      const index = tabs.indexOf(tab);
+      const step = rtl ? -1 : 1;
+      let next = null;
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+        next = tabs[(index + step + tabs.length) % tabs.length];
+      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+        next = tabs[(index - step + tabs.length) % tabs.length];
+      } else if (event.key === "Home") {
+        next = tabs[0];
+      } else if (event.key === "End") {
+        next = tabs[tabs.length - 1];
+      }
+      if (next !== null) {
+        event.preventDefault();
+        selectTab(next.dataset.tab, { focus: true });
+      }
+    });
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   state.session = params.get("session");
+  // 标签导航（T198）：先接线，保证键盘可用性与首屏状态一致。
+  wireTabs();
 
   // 挂起状态机（T136/FR-617）：visibilitychange + blur/focus 判定；恢复去抖
   // ≥250 ms；恢复时取一次快照并丢弃中间帧（轮询游标即快照——不重复不遗漏）。

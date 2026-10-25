@@ -27,6 +27,7 @@ use whcode_cui::cli::{
     Command, ContextCommand, DbCommand, EventsCommand, FontCommand, ParseOutcome, RuntimeCommand,
     SessionCommand, SpecCommand, TaskCommand, parse_outcome,
 };
+use whcode_cui::format::Styler;
 use whcode_cui::output::{EXIT_USAGE, error_envelope, error_exit_code, success_envelope};
 use whcode_domain::i18n::{I18n, detect_locale};
 use whcode_domain::{ErrorCode, TraceLevel, WhError};
@@ -190,7 +191,7 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
             task_command(command, workspace, &config, &policy, &actor, now, texts)
         }
         Command::Context { command } => {
-            context_command(command, workspace, &config, &policy, &actor)
+            context_command(command, workspace, &config, &policy, &actor, texts)
         }
         Command::Spec { command } => {
             spec_command(command, workspace, &config, &policy, &actor, texts)
@@ -199,6 +200,8 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
         Command::Db { command } => {
             db_command(command, workspace, &config, &policy, &actor, now, texts)
         }
+        // 出站证书库初始化（ADR-040／T191）随 LLM 真正接线一并加入：当前 CUI 没有任何
+        // 发起出站请求的路径，故不在只读命令里创建证书库文件（避免只读命令产生副作用）。
         Command::Run { .. } => Err(not_supported(
             "llm.run",
             "run 未接线：LLM 流式交互需 Provider 与会话流装配（M3 桩已交付，CLI 执行属后续）",
@@ -264,6 +267,7 @@ fn context_command(
     config: &Config,
     policy: &DefaultPolicy,
     actor: &Actor,
+    texts: &I18n,
 ) -> Result<(Value, String), WhError> {
     let ContextCommand::Budget { session, budget } = command;
     let budget = budget.unwrap_or(CONTEXT_DISPLAY_BUDGET);
@@ -272,14 +276,23 @@ fn context_command(
     // 不把“会话不存在”伪装成空的预算窗口。
     whcode_app::show_session(&conn, policy, actor, session)?;
     let value = whcode_cui::context_cmd::budget_view(&conn, policy, actor, session, budget)?;
-    let human = format!(
-        "会话 {} · 预算 {} · 已用 {} · 条目 {} · 截断：{} · 游标：{}",
-        session,
-        value["budget_tokens"],
-        value["consumed_budget"],
-        value["items"],
-        value["truncated_reason"].as_str().unwrap_or("无"),
-        value["next_cursor"]["id"].as_str().unwrap_or("无"),
+    let styler = Styler::detect();
+    let title = texts.resolve_fmt("cui.record.session", &[("session", session)]);
+    let none = texts.resolve("summary.none");
+    let budget_tokens = value["budget_tokens"].to_string();
+    let consumed = value["consumed_budget"].to_string();
+    let items = value["items"].to_string();
+    let truncated = value["truncated_reason"].as_str().unwrap_or(none);
+    let cursor = value["next_cursor"]["id"].as_str().unwrap_or(none);
+    let human = styler.record(
+        Some(&title),
+        &[
+            (texts.resolve("cui.record.budget"), budget_tokens.as_str()),
+            (texts.resolve("cui.record.used"), consumed.as_str()),
+            (texts.resolve("cui.record.items"), items.as_str()),
+            (texts.resolve("cui.record.truncated"), truncated),
+            (texts.resolve("cui.record.cursor"), cursor),
+        ],
     );
     Ok((value, human))
 }
@@ -495,7 +508,7 @@ fn session_command(
         SessionCommand::List { all } => {
             let conn = open_db(workspace, config)?;
             let rows = whcode_app::list_sessions(&conn, policy, actor, *all, 200)?;
-            let human = rows.iter().map(row_line).collect::<Vec<_>>().join("\n");
+            let human = sessions_table(&rows, texts);
             Ok((
                 json!({ "sessions": rows.iter().map(row_value).collect::<Vec<_>>() }),
                 human,
@@ -504,7 +517,7 @@ fn session_command(
         SessionCommand::Show { session } => {
             let conn = open_db(workspace, config)?;
             let row = whcode_app::show_session(&conn, policy, actor, session)?;
-            Ok((session_json(&row), row_line(&row)))
+            Ok((session_json(&row), session_record(&row, texts)))
         }
         SessionCommand::Rename { session, title } => {
             let mut conn = open_db(workspace, config)?;
@@ -726,15 +739,7 @@ fn task_command(
                 "artifacts": detail.artifacts.len(),
                 "failure_reason": detail.failure_reason,
             });
-            let human = format!(
-                "{} {} [{}] retry={} 检查点={} 产物={}",
-                detail.task.id,
-                detail.task.title,
-                detail.task.status.as_str(),
-                detail.task.retry_count,
-                detail.checkpoints.len(),
-                detail.artifacts.len()
-            );
+            let human = task_record(&detail, texts);
             Ok((value, human))
         }
         TaskCommand::Retry { task } => {
@@ -811,15 +816,23 @@ fn spec_command(
                     "refreshed_at_ms": overview.refreshed_at_ms,
                 })),
             });
-            let human = texts.resolve_fmt(
-                "cui.spec_status",
+            let styler = Styler::detect();
+            let title = texts.resolve_fmt("cui.record.session", &[("session", session)]);
+            let human = styler.record(
+                Some(&title),
                 &[
-                    ("session", session),
                     (
-                        "stage",
+                        texts.resolve("tui.col.stage"),
                         snapshot.session.stage.as_deref().unwrap_or("[unknown]"),
                     ),
-                    ("cursor", &snapshot.event_cursor.to_string()),
+                    (
+                        texts.resolve("tui.col.status"),
+                        snapshot.session.status.as_str(),
+                    ),
+                    (
+                        texts.resolve("cui.record.cursor"),
+                        &snapshot.event_cursor.to_string(),
+                    ),
                 ],
             );
             Ok((value, human))
@@ -1150,6 +1163,77 @@ fn db_command(
             Ok((value, human))
         }
     }
+}
+
+/// 会话列表 → 对齐表格（T196／ADR-041）；空列表输出显式空态，不输出空白。
+fn sessions_table(rows: &[whcode_store::SessionRow], texts: &I18n) -> String {
+    if rows.is_empty() {
+        return texts.resolve("cui.empty").to_string();
+    }
+    let styler = Styler::detect();
+    let headers = [
+        texts.resolve("tui.col.id"),
+        texts.resolve("tui.col.title"),
+        texts.resolve("tui.col.stage"),
+        texts.resolve("tui.col.status"),
+    ];
+    let cells: Vec<Vec<String>> = rows
+        .iter()
+        .map(|row| {
+            let status = if row.archived {
+                format!("{} (archived)", row.status)
+            } else {
+                row.status.clone()
+            };
+            vec![row.id.clone(), row.title.clone(), row.stage.clone(), status]
+        })
+        .collect();
+    styler.table(&headers, &cells)
+}
+
+/// 单个会话 → 对齐记录（T196／ADR-041）：标题行 + 标签列/值列。
+fn session_record(row: &whcode_store::SessionRow, texts: &I18n) -> String {
+    let styler = Styler::detect();
+    let title = texts.resolve_fmt("cui.record.session", &[("session", &row.id)]);
+    let archived = if row.archived {
+        texts.resolve("cui.record.yes")
+    } else {
+        texts.resolve("cui.record.no")
+    };
+    let mut fields = vec![
+        (texts.resolve("tui.col.title"), row.title.as_str()),
+        (texts.resolve("tui.col.stage"), row.stage.as_str()),
+        (texts.resolve("tui.col.status"), row.status.as_str()),
+        (texts.resolve("cui.record.archived"), archived),
+    ];
+    if let Some(model) = row.model.as_deref() {
+        fields.push((texts.resolve("cui.record.model"), model));
+    }
+    styler.record(Some(&title), &fields)
+}
+
+/// 任务详情 → 对齐记录（T196／ADR-041）。
+fn task_record(detail: &whcode_app::TaskDetail, texts: &I18n) -> String {
+    let styler = Styler::detect();
+    let title = texts.resolve_fmt("cui.record.task", &[("task", &detail.task.id)]);
+    let retry = detail.task.retry_count.to_string();
+    let checkpoints = detail.checkpoints.len().to_string();
+    let artifacts = detail.artifacts.len().to_string();
+    let mut fields = vec![
+        (texts.resolve("tui.col.title"), detail.task.title.as_str()),
+        (texts.resolve("tui.col.status"), detail.task.status.as_str()),
+        (texts.resolve("tui.col.stage"), detail.task.stage.as_str()),
+        (texts.resolve("tui.col.retry"), retry.as_str()),
+        (
+            texts.resolve("cui.record.checkpoints"),
+            checkpoints.as_str(),
+        ),
+        (texts.resolve("cui.record.artifacts"), artifacts.as_str()),
+    ];
+    if let Some(reason) = detail.failure_reason.as_deref() {
+        fields.push((texts.resolve("cui.record.failure"), reason));
+    }
+    styler.record(Some(&title), &fields)
 }
 
 fn counts_json(counts: &whcode_store::PurgeCounts) -> Value {
@@ -1833,5 +1917,83 @@ mod tests {
         assert!(human.contains("[dry-run"), "摘要：{human}");
         assert!(human.contains("Sarasa Mono SC"), "含终端配置片段：{human}");
         let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// T196：人类可读输出为对齐记录/表格；测试环境（stdout 非 TTY）不得含 ANSI 转义，
+    /// 空列表给出显式空态而非空白（ADR-041 决策 3、3 的“正确的空”）。
+    #[test]
+    fn human_output_is_record_style_and_plain_without_tty() {
+        let workspace = temp_workspace("record-style");
+        let texts = whcode_domain::i18n::I18n::default();
+        let created = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "排版会话".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("创建会话");
+        let id = created.0["session"]["id"]
+            .as_str()
+            .expect("会话 ID")
+            .to_string();
+
+        let (_, show) = execute(
+            &Command::Session {
+                command: SessionCommand::Show {
+                    session: id.clone(),
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("会话详情");
+        assert!(
+            !show.contains('\u{1b}'),
+            "非 TTY 输出不得含 ANSI 转义：{show:?}"
+        );
+        assert!(
+            show.starts_with(&format!("会话 {id}")),
+            "记录必须有标题行：{show:?}"
+        );
+        for label in ["标题", "阶段", "状态", "归档"] {
+            assert!(show.contains(label), "记录缺少标签 {label}：{show:?}");
+        }
+
+        let (_, list) = execute(
+            &Command::Session {
+                command: SessionCommand::List { all: false },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("会话列表");
+        let header = list.lines().next().unwrap_or_default();
+        assert!(
+            header.contains("ID") && header.contains("标题"),
+            "列表必须为带表头的对齐表格：{list:?}"
+        );
+        assert!(
+            list.lines().count() >= 2,
+            "列表必须包含至少一条数据行：{list:?}"
+        );
+
+        // 空工作区：显式空态，不输出空白。
+        let empty_workspace = temp_workspace("record-style-empty");
+        let (_, empty) = execute(
+            &Command::Session {
+                command: SessionCommand::List { all: false },
+            },
+            &empty_workspace,
+            &texts,
+        )
+        .expect("空列表");
+        assert_eq!(empty, texts.resolve("cui.empty"), "空列表必须显式提示");
+
+        let _ = std::fs::remove_dir_all(&workspace);
+        let _ = std::fs::remove_dir_all(&empty_workspace);
     }
 }

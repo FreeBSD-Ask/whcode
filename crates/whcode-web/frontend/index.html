@@ -7,74 +7,93 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header>
+  <header class="app-bar">
     <h1 id="app-title" data-i18n="app.title">旺皇大模型执行框架</h1>
     <nav id="tabs" role="tablist">
-      <button data-tab="sessions" role="tab" data-i18n="web.tab.sessions">会话</button>
-      <button data-tab="tasks" role="tab" data-i18n="web.tab.tasks">任务</button>
-      <button data-tab="history" role="tab" data-i18n="web.tab.history">历史</button>
-      <button data-tab="context" role="tab" data-i18n="web.tab.context">上下文</button>
-      <button data-tab="diff" role="tab" data-i18n="web.tab.diff">diff</button>
-      <button data-tab="spec" role="tab" data-i18n="web.tab.spec">SDD</button>
-      <button data-tab="maintenance" role="tab" data-i18n="web.tab.maintenance">维护</button>
+      <button id="tab-sessions" data-tab="sessions" role="tab" aria-controls="view-sessions" aria-selected="true" tabindex="0" data-i18n="web.tab.sessions">会话</button>
+      <button id="tab-tasks" data-tab="tasks" role="tab" aria-controls="view-tasks" aria-selected="false" tabindex="-1" data-i18n="web.tab.tasks">任务</button>
+      <button id="tab-history" data-tab="history" role="tab" aria-controls="view-history" aria-selected="false" tabindex="-1" data-i18n="web.tab.history">历史</button>
+      <button id="tab-context" data-tab="context" role="tab" aria-controls="view-context" aria-selected="false" tabindex="-1" data-i18n="web.tab.context">上下文</button>
+      <button id="tab-diff" data-tab="diff" role="tab" aria-controls="view-diff" aria-selected="false" tabindex="-1" data-i18n="web.tab.diff">diff</button>
+      <button id="tab-spec" data-tab="spec" role="tab" aria-controls="view-spec" aria-selected="false" tabindex="-1" data-i18n="web.tab.spec">SDD</button>
+      <button id="tab-maintenance" data-tab="maintenance" role="tab" aria-controls="view-maintenance" aria-selected="false" tabindex="-1" data-i18n="web.tab.maintenance">维护</button>
     </nav>
-    <label for="theme-select" data-i18n="web.theme.label">主题</label>
-    <select id="theme-select">
-      <option value="" data-i18n="web.theme.default">默认</option>
-      <option value="eink-day">eink-day</option>
-      <option value="eink-night">eink-night</option>
-      <option value="amoled-night">amoled-night</option>
-      <option value="terminal-green">terminal-green</option>
-    </select>
+    <nav id="app-links" class="app-bar__nav">
+      <a href="/settings/certs" data-i18n="settings.link">证书设置</a>
+    </nav>
+    <div class="app-bar__theme">
+      <label for="theme-select" data-i18n="web.theme.label">主题</label>
+      <select id="theme-select">
+        <option value="" data-i18n="web.theme.default">默认</option>
+        <option value="eink-day">eink-day</option>
+        <option value="eink-night">eink-night</option>
+        <option value="amoled-night">amoled-night</option>
+        <option value="terminal-green">terminal-green</option>
+      </select>
+    </div>
   </header>
   <main id="main" aria-live="polite">
     <!-- WHCODE_INITIAL_VIEW -->
-    <section id="view-sessions" hidden>
-      <form id="session-create">
-        <label for="session-title" data-i18n="web.session.title">会话标题</label>
-        <input id="session-title" name="title" required maxlength="200">
-        <button type="submit" data-i18n="web.session.create">新建</button>
-      </form>
-      <ul id="session-list"></ul>
-      <div id="session-actions">
-        <input id="session-rename-title" maxlength="200" data-i18n-placeholder="web.session.rename_placeholder" placeholder="新标题">
-        <button id="session-rename" type="button" data-i18n="web.session.rename">重命名</button>
-        <button id="session-archive" type="button" data-i18n="web.session.archive_preview">归档预览</button>
-        <button id="session-archive-confirm" type="button" disabled data-i18n="web.session.archive_confirm">确认归档</button>
-        <button id="session-delete-preview" type="button" data-i18n="web.session.delete_preview">删除预览</button>
-        <button id="session-delete-confirm" type="button" disabled data-i18n="web.session.delete_confirm">确认删除</button>
+    <section id="view-sessions" role="tabpanel" aria-labelledby="tab-sessions" tabindex="0">
+      <div class="split">
+        <div class="split__main">
+          <form id="session-create" class="toolbar">
+            <label for="session-title" data-i18n="web.session.title">会话标题</label>
+            <input id="session-title" name="title" required maxlength="200">
+            <button type="submit" data-i18n="web.session.create">新建</button>
+          </form>
+          <ul id="session-list" class="rows"></ul>
+        </div>
+        <aside id="session-actions" class="split__side panel stack">
+          <input id="session-rename-title" maxlength="200" data-i18n-placeholder="web.session.rename_placeholder" placeholder="新标题">
+          <button id="session-rename" type="button" data-i18n="web.session.rename">重命名</button>
+          <button id="session-archive" type="button" data-i18n="web.session.archive_preview">归档预览</button>
+          <button id="session-archive-confirm" type="button" disabled data-i18n="web.session.archive_confirm">确认归档</button>
+          <button id="session-delete-preview" type="button" data-i18n="web.session.delete_preview">删除预览</button>
+          <button id="session-delete-confirm" type="button" disabled data-i18n="web.session.delete_confirm">确认删除</button>
+        </aside>
       </div>
     </section>
-    <section id="view-tasks" hidden><ul id="task-list"></ul></section>
-    <section id="view-history" hidden>
-      <pre id="event-log"></pre>
-      <div id="export-actions">
-        <button id="export-json" type="button" data-i18n="web.export.json">导出 JSON</button>
-        <button id="export-jsonl" type="button" data-i18n="web.export.jsonl">导出 JSONL</button>
+    <section id="view-tasks" role="tabpanel" aria-labelledby="tab-tasks" tabindex="0" hidden>
+      <ul id="task-list" class="rows"></ul>
+    </section>
+    <section id="view-history" role="tabpanel" aria-labelledby="tab-history" tabindex="0" hidden>
+      <div class="split">
+        <div class="split__main">
+          <pre id="event-log" class="log"></pre>
+        </div>
+        <aside class="split__side panel stack">
+          <div id="export-actions" class="stack">
+            <button id="export-json" type="button" data-i18n="web.export.json">导出 JSON</button>
+            <button id="export-jsonl" type="button" data-i18n="web.export.jsonl">导出 JSONL</button>
+          </div>
+        </aside>
       </div>
     </section>
-    <section id="view-context" hidden>
-      <div id="context-summary"></div>
-      <ul id="context-list"></ul>
+    <section id="view-context" role="tabpanel" aria-labelledby="tab-context" tabindex="0" hidden>
+      <div id="context-summary" class="meta-line"></div>
+      <ul id="context-list" class="rows"></ul>
     </section>
-    <section id="view-diff" hidden>
-      <div id="diff-summary"></div>
-      <ul id="diff-list"></ul>
+    <section id="view-diff" role="tabpanel" aria-labelledby="tab-diff" tabindex="0" hidden>
+      <div id="diff-summary" class="meta-line"></div>
+      <ul id="diff-list" class="rows"></ul>
     </section>
-    <section id="view-spec" hidden><pre id="spec-status"></pre></section>
-    <section id="view-maintenance" hidden>
-      <form id="purge-form">
+    <section id="view-spec" role="tabpanel" aria-labelledby="tab-spec" tabindex="0" hidden>
+      <pre id="spec-status" class="log"></pre>
+    </section>
+    <section id="view-maintenance" role="tabpanel" aria-labelledby="tab-maintenance" tabindex="0" hidden>
+      <form id="purge-form" class="toolbar">
         <label for="purge-days" data-i18n="web.cleanup.days">保留天数</label>
         <input id="purge-days" type="number" min="1" value="30">
         <button id="purge-preview" type="button" data-i18n="web.cleanup.preview">预览</button>
         <button id="purge-confirm" type="button" disabled data-i18n="web.cleanup.confirm">确认清理</button>
       </form>
-      <pre id="purge-result"></pre>
-      <h2 data-i18n="web.runtimes">运行时</h2>
-      <ul id="runtime-list"></ul>
+      <pre id="purge-result" class="log"></pre>
+      <h2 class="section-title" data-i18n="web.runtimes">运行时</h2>
+      <ul id="runtime-list" class="rows"></ul>
     </section>
   </main>
-  <footer id="footer">
+  <footer id="footer" class="status-bar">
     <span id="connection-state">未连接</span>
     <span id="event-cursor"></span>
     <span id="action-status" role="status"></span>

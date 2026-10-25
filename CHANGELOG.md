@@ -13,6 +13,18 @@
 
 ### 变更
 
+- 四端界面现代化（2026-10-25，modernize-ui-visual-language，ADR-041）：确立终端族（CUI／TUI）与
+  应用族（Web／GUI）两套视觉语法，不引入第三色值、渐变、阴影与新增动效。
+  TUI 改为三区布局（顶栏／左导航栏 + 列对齐主面板／键位提示栏，CJK 按 2 列截断）；CUI 的
+  `session list/show`、`task show`、`context budget`、`spec status` 改为对齐记录／表格（交互终端
+  下允许粗体/弱化，**不输出颜色**；管道与 `--json` 恒为纯 ASCII）；Web 改为吸顶应用栏 + 七项
+  ARIA tablist（roving tabindex）+ 内容/元信息两栏 + 常驻状态栏；GUI 改为可点击侧栏 + 顶栏
+  会话 + KPI 条 + 底部状态栏（仍只读、无定时器）。前端预算脚本新增 DOM 起始标签 ≤ 2 000 与
+  `innerHTML`/`outerHTML`/`insertAdjacentHTML` 禁令（FR-618）。
+  **展示层变更**：CUI 人类可读文本、TUI 布局与标题/页脚词条随之改变；`--json` 字段集合、错误
+  信封四字段与退出码**不变**。依赖人类可读文本抓取的脚本请改用 `--json`。
+  证据：`artifacts/ui-modern-2026-10-25/`；主账本新增 T193—T202 与 Check 289—298。GUI 资源采样、
+  主进程 RSS 与 Web 运行时冒烟因并行未提交的 cert/TLS 工作阻塞，登记为未取得。
 - 构建与发布迁入独立矩阵 CI（2026-10-25，ADR-039）：新增 `.github/workflows/build-release.yml`
   （`profile: [debug, release]`）；debug 做工作区锁定构建与依赖记录，release 做发布构建、打包
   安装验证、SHA256、TUI/Web 冒烟并上传既有 artifact 名称；tag `v*` 时创建/更新 GitHub Release

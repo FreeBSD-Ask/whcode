@@ -6,6 +6,10 @@
 //! - [`context_cmd`]：预算视图（当前预算 / 装入来源 / 截断原因，FR-108）；
 //! - [`events_cmd`]：事件 JSON/JSONL 查询与导出，脱敏策略随导出注明（FR-205）。
 //!
+//! 已交付（T196／ADR-041）：
+//! - [`format`]：终端族记录式排版（标签列 + 值列、多记录成表、显式空态）；
+//!   非颜色 ANSI 强调仅在交互终端、未设 `NO_COLOR`、`TERM` 非 `dumb` 时启用。
+//!
 //! 契约（contracts/cui-cli.md）：所有 JSON 输出必须含 `schema_version`；错误对象必须含
 //! `code`/`message`/`retryable`/`details`（类型见 `whcode_domain::error`）。不得暴露任意
 //! SQL；`db explain` 只跑只读查询或预定义模板。
@@ -18,6 +22,7 @@ pub mod cli;
 pub mod confirm;
 pub mod context_cmd;
 pub mod events_cmd;
+pub mod format;
 pub mod output;
 pub mod spec_cmd;
 pub mod surface_map;

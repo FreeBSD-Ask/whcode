@@ -568,12 +568,9 @@ mod tests {
     #[test]
     fn formatted_resolution_substitutes_placeholders() {
         let zh = I18n::load("zh-CN", LocaleSource::Default);
-        let text = zh.resolve_fmt(
-            "tui.footer",
-            &[("cols", "120"), ("rows", "30"), ("keys", "3")],
-        );
-        assert!(text.contains("窗口 120×30"), "{text}");
-        assert!(text.contains("按键 3"), "{text}");
+        let text = zh.resolve_fmt("tui.footer", &[("cols", "120"), ("rows", "30")]);
+        assert!(text.contains("120x30"), "{text}");
+        assert!(text.contains("q 退出"), "{text}");
         let en = I18n::load("en", LocaleSource::Explicit);
         let text = en.resolve_fmt("web.cursor", &[("n", "6")]);
         assert_eq!(text, "Cursor 6");

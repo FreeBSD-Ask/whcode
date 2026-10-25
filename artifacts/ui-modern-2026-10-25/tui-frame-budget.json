@@ -1,0 +1,27 @@
+{
+  "budget": {
+    "candidate_p95_us": 16000,
+    "frozen": false,
+    "note": "UI 自定候选预算：不属于 NFR-201—210，不随 ADR-025 冻结；本报告仅作回归参照。T186 改为三区布局后同机 debug 实测 p95 约 2 000—2 400 µs（改造前单面板参照同机约 1 000—1 500 µs，debug 噪声 ±30%），绝对预算不变、余量仍 ≥ 84%"
+  },
+  "date": "2026-10-25",
+  "fixture": {
+    "rows": 10000,
+    "terminal": "80x24",
+    "view": "events"
+  },
+  "measurement": {
+    "clock": "std::time::Instant",
+    "profile": "debug（未优化，数量级偏悲观；release 运行约低一个数量级）",
+    "samples": 50,
+    "scope": "frame_path = draw_frame（三区布局：顶栏 + 导航栏 + 列投影主面板 + 键位栏）-> TestBackend buffer（含主题应用；不含文本提取）",
+    "unit": "microseconds",
+    "warmup": 5
+  },
+  "p50_us": 1513,
+  "p95_us": 1913,
+  "p99_us": 2021,
+  "platform": "windows-amd64",
+  "reference_full_projection_us": 1924,
+  "task": "T083/T129/T186"
+}

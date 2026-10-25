@@ -180,3 +180,16 @@
   自此与实现一致（T182／Check 272）。
 - **影响**：CUI 归档属 BREAKING 行为变更；TUI 尚无反归档键，作为已知不对称留在 ADR-038，
   不影响本 ADR 的四端状态判定（三端均为 `Implemented`，GUI 仍 `GuiReadOnlyV1`）。
+
+### 2026-10-25（视觉语言分层与 `CUI_NO_THEME` 口径）
+
+- **事实**：ADR-041 把四端分为终端族（CUI／TUI）与应用族（Web／GUI）两套视觉语法；CUI 在
+  交互终端下允许**非颜色**的 ANSI 强调（粗体／弱化），并在管道／`NO_COLOR`／`TERM=dumb`／
+  `--json` 下退化为纯 ASCII。
+- **对本 ADR 的影响**：无。理由码 `CUI_NO_THEME` 的语义是“终端配色由终端模拟器控制、CUI 不
+  提供主题选择”，本 ADR 不因此放宽或收紧；粗体与弱化属排版属性，不是配色，也不是新能力。
+  `GUI_READ_ONLY_V1` 同样不变：GUI 新增的侧栏点击仅切换视图，仍为 `EffectClass::Read`。
+- **对等判据**：视觉、布局、交互形态（第 1 条）继续不参与对等判定；本轮改动不新增业务能力，
+  故登记表与 `docs/matrices/feature-parity.md` 无需改动。
+- **退出条件**：CUI 若引入受控配色、长驻会话，或 GUI 引入写命令／定时器刷新，即触发本 ADR
+  与 ADR-041 的联合复审。

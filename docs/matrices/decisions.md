@@ -1,4 +1,4 @@
-# 决策台账（D-01—D-18）
+# 决策台账（D-01—D-19）
 
 本文件记录 tasks.md T030 要求的决策点、结论、证据引用与责任人。状态取值：**已决策**（方向已批准）、**待验证**（结论未取得证据）、**已修订**（原结论被正式修订）。责任人以角色标注，具名责任人待项目排期后回填。
 
@@ -24,6 +24,7 @@
 | D-17 | 四端对等门禁与差异登记 | **已决策（2026-10-24，G2）**：CUI／TUI／GUI／Web 对等按业务能力、权限、状态迁移、错误语义、可审计性五维判定（视觉与交互不判等）；能力登记表（`whcode-app::surface`）为单一事实源，每能力每端只有已实现／已排除／预留／不适用四态；差异只用 ADR-032 理由码登记（如 `GUI_READ_ONLY_V1`、`CLI_LOCAL_ADMIN`、`RESERVED_MILESTONE`）；矩阵改为登记表受校验产物；预留／排除能力被调用返回结构化 `not_supported`（CUI 退出码 55／Web HTTP 501），未登记路径仍 404。实现归属 ensure-frontend-parity 变更（T168—T181） | `docs/adr/ADR-032-frontend-parity-and-intended-differences.md`；ADR-009 修订记录（2026-10-24）；`.trae/specs/ensure-frontend-parity/spec.md`；`specs/001-whcode-harness/spec.md` 前端四端对等节（FR-619—625） | 前端对等负责人 | 已决策 |
 | D-16 | 真实 LLM Provider 网络接入与凭据边界 | **已补录（2026-10-25，ADR-031）**：网络依赖只进装配根（`ureq 3.5.0` + `rustls`，`http` feature 默认关闭、仅 `whcode-bin` 启用）；默认不联网（无剖面即无请求，当前无调用点）；端点 `https` 强制、明文 `http` 仅回环；凭据只允许环境变量或仓库外文件，`Secret` 恒 `[REDACTED]`；超时三元组 10 s／120 s／300 s、`max_tokens` 默认 1024、流帧有界；不自动重试流式请求（幂等探测最多 2 次，未实现）。**客户端与 `llm run` 未交付**（T162—T163），变更 spec 未入库；实现先于 ADR 入库属门禁倒置，已在 ADR 如实记录 | `docs/adr/ADR-031-llm-provider-network-and-credentials.md`；`crates/whcode-llm/src/http/{profile,frames,protocols,errors}.rs`；`artifacts/deps-windows.txt`；`spec.md` FR-201／203／206／207／208／616、NFR-213／215 | LLM 变更维护者 | 已决策（实现未完成） |
 | D-18 | 会话归档的确认与审计口径 | **已决策（2026-10-25，ADR-038）**：`session.archive` 维持契约 §2-1 破坏族地位，确认与审计均不省略；四端统一“预览→确认”（CUI 默认 dry-run、`--yes` 执行；TUI `A` 两段确认；Web 缺 `confirm` 只预览；GUI 只读排除）；新增 `session_archive` 审计动作，由 `set_archived` 在同一事务写入（`detail_json` 含方向、更新数与会话清单，100 条截断）；CUI 行为变更标 BREAKING；TUI 暂无反归档键，登记为已知不对称 | `docs/adr/ADR-038-session-archive-confirmation-and-audit.md`；`contracts/app-service.md` §2-1；`crates/whcode-store/src/purge.rs`；`crates/whcode-app/src/commands.rs`；`spec.md` FR-623 | 四端写命令维护者 | 已决策 |
+| D-19 | 界面视觉语言分层 | **已决策（2026-10-25，ADR-041）**：四端分为终端族（CUI／TUI：等宽网格、线框、反显、列对齐、键位提示）与应用族（Web／GUI：字号层级、间距刻度、面板、右对齐元信息、状态栏），两族语法互不套用；色值与动效纪律不变（不引入第三色值、渐变、阴影、模糊与新增动效）；CUI 仅在交互终端、未设 `NO_COLOR`、`TERM` 非 `dumb` 且非 `--json` 时允许非颜色强调（粗体／弱化），`CUI_NO_THEME` 仍排除配色；TUI 装饰仅限实测 1 格制表符与 ASCII；GUI 允许输入事件驱动的只读点击选择，不得新增定时器／线程／GPU；Web 采用 ARIA roving tabindex 与逻辑 CSS 属性并禁 `innerHTML` 系列；DOM ≤ 2000 与注入禁令进入 `check-frontend-budget.py`；资源以同夹具实测判定 | `docs/adr/ADR-041-ui-visual-language-tiers.md`；`.trae/specs/modernize-ui-visual-language/spec.md`；`crates/whcode-tui/src/rowbackend.rs`（宽度实测）；`artifacts/gui-run-2026-10-24/summary.json`（线程／句柄基线） | UI 与前端负责人 | 已决策 |
 
 ## 与 ADR 的对应关系
 
@@ -45,6 +46,7 @@
 | D-16 | ADR-031 | 真实 LLM Provider：网络依赖只进装配根、默认不联网、凭据边界、超时与重试（客户端未交付） |
 | D-17 | ADR-032 | 四端对等门禁与差异登记；`llm.run` 在四端仍为 `Reserved`，按 ADR-031 与 ADR-032 同一口径表述 |
 | D-18 | ADR-038 | 会话归档的确认与审计：预览→确认四端对齐，`session_archive` 审计同事务写入 |
+| D-19 | ADR-041 | 界面视觉语言分层：终端族（CUI／TUI）与应用族（Web／GUI）两套语法；色值与动效纪律不变；资源以同夹具实测判定 |
 
 ## 维护纪律
 

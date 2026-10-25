@@ -1,0 +1,19 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.22s
+     Running unittests src\lib.rs (target\debug\deps\whcode_tui-64b0ea00b866bd4b.exe)
+
+running 1 test
+TUI 帧渲染（事件视图 10k 行快照，80×24，有界投影）：p50 1513 µs / p95 1913 µs / p99 2021 µs（UI 自定候选预算 p95 ≤ 16000 µs；不在 NFR-201—210 内，不随 ADR-025 冻结）
+完整投影参照（10k 行全量格式化，不进帧路径）：1924 µs/次——准备层按有界尾部（V-101）裁剪，帧路径只做限行投影
+帧预算报告已写入 D:\WHCode\crates\whcode-tui\../../artifacts/tui-frame-budget.json
+test tests::frame_budget_is_measured_and_archived ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 63 filtered out; finished in 0.10s
+
+--- 2026-10-25 复跑（刷新归档报告的 task 字段为 T083/T129/T195）---
+running 1 test
+TUI 帧渲染（事件视图 10k 行快照，80×24，有界投影）：p50 1735 µs / p95 2472 µs / p99 2525 µs（UI 自定候选预算 p95 ≤ 16000 µs；不在 NFR-201—210 内，不随 ADR-025 冻结）
+完整投影参照（10k 行全量格式化，不进帧路径）：2026 µs/次——准备层按有界尾部（V-101）裁剪，帧路径只做限行投影
+帧预算报告已写入 D:\WHCode\crates\whcode-tui\../../artifacts/tui-frame-budget.json
+test tests::frame_budget_is_measured_and_archived ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 63 filtered out; finished in 0.48s

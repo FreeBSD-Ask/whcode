@@ -11,6 +11,7 @@
 //! （预算/游标）、事件（最近流）、Spec 状态（门禁/产物版本）、diff 预览（变更行）。
 
 use serde::Serialize;
+use std::borrow::Cow;
 
 /// 视图总数（切换键 1—6 与之一一对应）。
 pub const VIEW_COUNT: usize = 6;
@@ -156,6 +157,21 @@ pub struct DiffLine {
     pub text: String,
 }
 
+/// 列投影行（T194／ADR-041：TUI 列对齐用）。
+///
+/// 字段借用快照（`Cow::Borrowed`），只有选中标记与数字列产生少量派生值；行数上界由调用方
+/// 的 `max` 界定（帧路径取终端行数），因此单帧分配只与终端尺寸相关，不随快照行数增长。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ColumnRow<'a> {
+    /// 单元格（顺序由视图列定义决定；会话与任务视图首格为选中标记）。
+    pub cells: Vec<Cow<'a, str>>,
+}
+
+/// 选中标记（ui-design：反显或 `>` 前缀，不依赖颜色）。
+const fn selection_marker(selected: bool) -> &'static str {
+    if selected { "> " } else { "" }
+}
+
 /// 视图快照（六视图之一的只读数据；渲染层只消费，不反序列化）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ViewSnapshot {
@@ -269,6 +285,64 @@ impl ViewSnapshot {
                 .collect(),
         });
         lines
+    }
+
+    /// 列投影至多 `max` 行（T194／ADR-041：TUI 三区布局的列对齐数据源）。
+    ///
+    /// 只有会话、任务、事件三视图有列定义；Spec／上下文／diff 返回空投影，由渲染层继续走
+    /// [`Self::render_lines_limited`] 的文本行路径。摘要行（`summary`）不参与列投影——TUI 把
+    /// 它放在状态栏，避免与主面板首行重复。快照行数不影响单帧分配：`take(max)` 在
+    /// 迭代器上裁剪，投影行数恒 ≤ `max`。
+    #[must_use]
+    pub fn render_columns_limited(&self, max: usize) -> Vec<ColumnRow<'_>> {
+        if max == 0 {
+            return Vec::new();
+        }
+        match self.view {
+            ViewId::Sessions => self
+                .sessions
+                .iter()
+                .enumerate()
+                .take(max)
+                .map(|(index, row)| ColumnRow {
+                    cells: vec![
+                        Cow::Borrowed(selection_marker(self.selected_index == Some(index))),
+                        Cow::Borrowed(row.id.as_str()),
+                        Cow::Borrowed(row.title.as_str()),
+                        Cow::Borrowed(row.stage.as_str()),
+                        Cow::Borrowed(row.status.as_str()),
+                    ],
+                })
+                .collect(),
+            ViewId::Tasks => self
+                .tasks
+                .iter()
+                .enumerate()
+                .take(max)
+                .map(|(index, row)| ColumnRow {
+                    cells: vec![
+                        Cow::Borrowed(selection_marker(self.selected_index == Some(index))),
+                        Cow::Borrowed(row.id.as_str()),
+                        Cow::Borrowed(row.title.as_str()),
+                        Cow::Borrowed(row.status.as_str()),
+                        Cow::Owned(row.retry_count.to_string()),
+                    ],
+                })
+                .collect(),
+            ViewId::Events => self
+                .events
+                .iter()
+                .take(max)
+                .map(|row| ColumnRow {
+                    cells: vec![
+                        Cow::Owned(row.seq.to_string()),
+                        Cow::Borrowed(row.kind.as_str()),
+                        Cow::Borrowed(row.summary.as_str()),
+                    ],
+                })
+                .collect(),
+            ViewId::Context | ViewId::Spec | ViewId::Diff => Vec::new(),
+        }
     }
 }
 
@@ -404,6 +478,104 @@ mod tests {
             vec!["预算 1/2".to_string()]
         );
         assert!(context.render_lines_limited(0).is_empty());
+    }
+
+    /// 列投影（T194）：三视图的列序、选中标记与派生列；文本行视图返回空投影。
+    #[test]
+    fn column_projection_covers_row_views() {
+        let mut snapshot = ViewSnapshot::empty(ViewId::Sessions);
+        for (index, title) in ["甲", "乙"].iter().enumerate() {
+            snapshot.sessions.push(SessionRow {
+                id: format!("S-{}", index + 1),
+                title: (*title).to_string(),
+                stage: "plan".to_string(),
+                status: "active".to_string(),
+            });
+        }
+        snapshot.selected_index = Some(1);
+        let rows = snapshot.render_columns_limited(10);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(
+            rows.iter()
+                .map(|row| row
+                    .cells
+                    .iter()
+                    .map(|cell| cell.as_ref())
+                    .collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            vec![
+                vec!["", "S-1", "甲", "plan", "active"],
+                vec!["> ", "S-2", "乙", "plan", "active"],
+            ],
+            "会话列序：标记／ID／标题／阶段／状态"
+        );
+
+        let mut tasks = ViewSnapshot::empty(ViewId::Tasks);
+        tasks.tasks.push(TaskRow {
+            id: "T-1".to_string(),
+            title: "构建".to_string(),
+            status: "failed".to_string(),
+            retry_count: 2,
+        });
+        tasks.selected_index = Some(0);
+        let task_rows = tasks.render_columns_limited(10);
+        assert_eq!(
+            task_rows[0]
+                .cells
+                .iter()
+                .map(|cell| cell.as_ref())
+                .collect::<Vec<_>>(),
+            vec!["> ", "T-1", "构建", "failed", "2"],
+            "重试列必须是数字文本（派生列允许 Owned）"
+        );
+
+        let mut events = ViewSnapshot::empty(ViewId::Events);
+        events.events.push(EventRow {
+            seq: 7,
+            kind: "SessionCreated".to_string(),
+            summary: "会话 S-1".to_string(),
+        });
+        let event_rows = events.render_columns_limited(10);
+        assert_eq!(
+            event_rows[0]
+                .cells
+                .iter()
+                .map(|cell| cell.as_ref())
+                .collect::<Vec<_>>(),
+            vec!["7", "SessionCreated", "会话 S-1"]
+        );
+
+        // 文本行视图（Spec／上下文／diff）无列定义：空投影，渲染层回落文本行路径。
+        for view in [ViewId::Spec, ViewId::Context, ViewId::Diff] {
+            assert!(
+                ViewSnapshot::empty(view)
+                    .render_columns_limited(10)
+                    .is_empty(),
+                "{view:?} 不应有列投影"
+            );
+        }
+
+        // max=0 投影 0 行（失败路径：上界为 0 时不得产出任何行）。
+        assert!(snapshot.render_columns_limited(0).is_empty());
+    }
+
+    /// 列投影的有界性（资源中性不变量，ADR-041 决策 8）：万行快照下单帧投影行数恒 ≤ `max`。
+    #[test]
+    fn column_projection_bounded_by_max() {
+        let mut snapshot = ViewSnapshot::empty(ViewId::Sessions);
+        for index in 0..10_000 {
+            snapshot.sessions.push(SessionRow {
+                id: format!("S-{index}"),
+                title: "标题".to_string(),
+                stage: "plan".to_string(),
+                status: "active".to_string(),
+            });
+        }
+        for max in [1_usize, 22, 24, 100] {
+            assert_eq!(snapshot.render_columns_limited(max).len(), max, "max={max}");
+        }
+        // 超过快照行数时按实际行数返回（不伪造空行）。
+        assert_eq!(snapshot.render_columns_limited(20_000).len(), 10_000);
     }
 }
 

@@ -1,10 +1,21 @@
-/* WHCode 极简样式（T137/ADR-014）：无第三方字体、无渐变、无自动播放；
-   仅 GPU 合成友好的 transform/opacity（T133/FR-613）；
-   四套主题精确色值（T175/FR-612/713）：服务端注入 data-theme，浏览器端可运行时覆盖。 */
+/* WHCode Web 应用外壳（T197／ADR-041）：无第三方字体、无渐变、无阴影、无 WebGL；
+   四套主题精确色值（FR-612/713）；间距与字号刻度见 docs/guides/ui-design.md §13。
+   层次只由位置、对齐、字重、字号与留白表达；状态不依赖颜色（ui-design §3）。 */
 :root,
 [data-theme="eink-day"] {
   --bg: #ffffff;
   --fg: #000000;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 28px;
 }
 [data-theme="eink-night"] {
   --bg: #000000;
@@ -18,41 +29,221 @@
   --bg: #000000;
   --fg: #00ff00;
 }
+* { box-sizing: border-box; }
 body {
   background: var(--bg);
   color: var(--fg);
   font-family: system-ui, sans-serif;
+  font-size: var(--text-md);
+  line-height: 1.5;
   margin: 0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
-header { border-bottom: 1px solid var(--fg); padding: 0.5rem; }
-h1 { font-size: 1rem; margin: 0 0 0.5rem; }
-nav button {
-  background: none;
-  border: 1px solid var(--fg);
-  color: var(--fg);
-  cursor: pointer;
-  padding: 0.25rem 0.75rem;
+/* 头部：吸顶应用栏（标题 + tablist + 主题选择），窄屏自动换行。 */
+.app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  border-block-end: 1px solid var(--fg);
+  padding: var(--space-2) var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
 }
-nav button[aria-selected="true"] { opacity: 0.6; }
-main { flex: 1; padding: 0.5rem; }
-pre, ul { white-space: pre-wrap; word-break: break-all; }
-/* 上下文与 diff 读取面（FR-622）：摘要行弱化、条目分隔线用前景色（不引入新色值）。 */
-#context-summary, #diff-summary { opacity: 0.7; margin-bottom: 0.5rem; }
-#context-list li, #diff-list li { border-bottom: 1px solid var(--fg); }
-#export-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; }
-/* 会话选择（批次 1）：条目可点击；选中态用加粗 + `> ` 前缀（不只靠颜色，ui-design）。 */
+.app-bar h1 {
+  font-size: var(--text-lg);
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+.app-bar__theme {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+}
+#tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+#tabs button {
+  background: none;
+  color: var(--fg);
+  border: 1px solid transparent;
+  border-block-end: 1px solid transparent;
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+}
+/* 选中态：字重 + 下框线 + aria-selected（不只靠颜色，ui-design §3）。 */
+#tabs button[aria-selected="true"] {
+  font-weight: 600;
+  border-color: var(--fg);
+}
+#tabs button:hover { border-block-end-color: var(--fg); }
+#tabs button:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+#session-list li:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+main {
+  flex: 1;
+  padding: var(--space-4);
+  display: block;
+}
+/* 内容 + 元信息两栏；窄屏降为单列（逻辑属性，RTL 自动翻转）。 */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 260px);
+  gap: var(--space-4);
+  align-items: start;
+}
+.split__side { min-width: 0; }
+.panel {
+  border: 1px solid var(--fg);
+  padding: var(--space-3);
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-end: var(--space-3);
+}
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rows li {
+  padding: var(--space-2) 0;
+  border-block-end: 1px solid var(--fg);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.rows li:last-child { border-block-end: none; }
+/* 会话条目：可点击、可聚焦；选中态加粗 + `> ` 前缀（不只靠颜色）。 */
 #session-list li { cursor: pointer; }
-#session-list li:focus-visible { outline: 1px dashed var(--fg); }
-#session-list li[aria-current="true"] { font-weight: bold; }
+#session-list li[aria-current="true"] { font-weight: 600; }
 #session-list li[aria-current="true"]::before { content: "> "; }
-footer { border-top: 1px solid var(--fg); padding: 0.25rem 0.5rem; display: flex; gap: 1rem; }
+.log {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  margin: 0;
+  max-height: 60vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.meta-line {
+  opacity: 0.7;
+  font-size: var(--text-sm);
+  margin-block-end: var(--space-2);
+}
+.section-title {
+  font-size: var(--text-md);
+  margin: var(--space-4) 0 var(--space-2);
+}
+button,
+input,
+select {
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--fg);
+  padding: var(--space-1) var(--space-2);
+}
+button { cursor: pointer; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+/* 底部状态栏：连接、游标、操作结果。 */
+.status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding: var(--space-1) var(--space-4);
+  border-block-start: 1px solid var(--fg);
+  font-size: var(--text-xs);
+  opacity: 0.85;
+}
+@media (max-width: 760px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+}
 /* 动效总开关（T133/FR-613）：仅 opacity 过渡（GPU 合成友好）；系统要求减动效时禁用。 */
 @media (prefers-reduced-motion: no-preference) {
-  nav button { transition: opacity 150ms linear; }
+  #tabs button { transition: opacity 150ms linear; }
 }
 @media (prefers-reduced-motion: reduce) {
-  nav button { transition: none; }
+  #tabs button { transition: none; }
+}
+/* 证书设置页（T190/FR-627）：沿用同一套纯色主题与间距刻度；
+   无渐变、无阴影、无第三方字体；状态不依赖颜色（ui-design §3）。 */
+a {
+  color: var(--fg);
+  font-size: var(--text-sm);
+}
+.app-bar__nav {
+  display: flex;
+  gap: var(--space-2);
+}
+.settings-page {
+  width: 100%;
+  max-width: 980px;
+  margin-inline: auto;
+}
+.settings-page .panel { margin-block-end: var(--space-4); }
+.picker {
+  border: 1px solid var(--fg);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.picker legend {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding-inline: var(--space-1);
+}
+.banner {
+  border: 1px solid var(--fg);
+  border-inline-start-width: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  margin-block-end: var(--space-3);
+  font-weight: 600;
+}
+.banner p { margin: 0; }
+textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--fg);
+  padding: var(--space-2);
+  width: 100%;
+  resize: vertical;
+}
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
 }

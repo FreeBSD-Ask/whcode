@@ -427,6 +427,61 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 
 ---
 
+## Phase 20: 四端界面现代化（视觉语言分层，Priority: P2）
+
+**Purpose**: 在不增加内存与 CPU 占用的前提下把四端界面做得更现代，并让终端族（CUI／TUI）
+与应用族（Web／GUI）使用两套可区分的视觉语法。决策见 ADR-041（ADR-039 已被发布流程占用，
+ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-language/`。
+
+- [x] T193 [P] 视觉语言分层落档：新增 `docs/adr/ADR-041-ui-visual-language-tiers.md`（两族语法、
+  色值与动效纪律、CUI 非颜色强调边界、TUI 装饰字符清单、资源中性判定口径与复审触发）；
+  `docs/matrices/decisions.md` 增补 D-19；ADR-032 修订记录注明 `CUI_NO_THEME` 仍排除配色；
+  `docs/guides/ui-design.md` 新增 §12 视觉语言分层与 §13 间距／字号刻度（FR-601／612／613／615；
+  ADR-041）。**2026-10-25 完成**：编号按并行占用顺延为 ADR-041。
+- [x] T194 [P] 结构化列投影（app）：`crates/whcode-app/src/view_source.rs` 新增 `ColumnRow` 与
+  `render_columns_limited`（会话／任务／事件三视图；字段借用快照，行数上界沿用 `max`；
+  `render_lines_limited` 行为不变）；单测覆盖列序、选中标记、派生数字列、`max = 0` 与万行快照
+  有界性（FR-601；ADR-041 决策 8）。
+- [x] T195 TUI 三区布局：`crates/whcode-tui/src/lib.rs` 的 `draw_frame` 改为顶栏（应用名、视图
+  序号、当前会话）／左导航栏 + 主面板（单线边框、列标题、列对齐、选中反显、右侧滚动位置）／
+  键位提示栏；CJK 按 2 列截断；极窄/极矮终端退化为纯正文；`render.rs` 的渲染门控与内容装配
+  分离（`render()` 只回答“本帧是否绘制”）；`tests_support.rs` 增加带会话/反馈行的绘制；测试
+  覆盖 24 行帧、导航栏 `>` 标记、CJK 截断、空态与英文文本层（FR-601／612／613／615；ADR-041
+  决策 1／4）。帧预算 p95 1 913 µs（预算 16 000 µs）。
+- [x] T196 [P] CUI 记录式输出：新增 `crates/whcode-cui/src/format.rs`（标签列 12 列的对齐记录、
+  多记录成表、显式空态；ASCII 直通与 CJK 显示列；仅在交互终端、未设 `NO_COLOR`、`TERM` 非
+  `dumb` 时启用粗体/弱化，绝不输出颜色）；`crates/whcode-bin/src/cui_dispatch.rs` 的
+  `session list/show`、`task show`、`context budget`、`spec status` 改用记录／表格；`--json`、
+  错误信封与退出码不变；`zh-CN`／`en` 新增记录词条（FR-602／615／625；ADR-032、ADR-041 决策 3）。
+  **验证缺口**：`whcode-bin` 因并行未提交的 cert/TLS 工作无法编译，调用侧接线未取得编译证据
+  （`format.rs` 4 项单测已通过）。
+- [x] T197 [P] Web 应用外壳：`crates/whcode-web/frontend/index.html` 改为吸顶应用栏（标题 +
+  七项 tablist + 主题选择）、内容与元信息两栏（窄屏单列）与常驻状态栏；`styles.css` 改为间距／
+  字号刻度变量与逻辑属性（RTL）；四套主题色值不变；`crates/whcode-web/src/assets.rs` 新增外壳
+  与 ARIA 双向关联断言（FR-603／612／618；ADR-014、ADR-041 决策 1／6）。
+- [x] T198 Web 键盘与 ARIA：`frontend/app.js` 改为 `selectTab` + `wireTabs`（roving tabindex、
+  方向键／Home/End 循环、RTL 方向反转、焦点可见），面板 `role="tabpanel"` 与 `aria-labelledby`
+  关联；不新增定时器与事件订阅（FR-609／617；ADR-041 决策 6）。
+- [x] T199 [P] GUI 原生外壳：`crates/whcode-gui/src/lib.rs` 侧栏改为可点击六视图按钮（选中反显、
+  只用主题两色、无边框与阴影）、顶栏（视图标题 + 当前会话）、KPI 条（优先准备层摘要，否则可得
+  计数）、正文与底部状态栏（键位提示 + 主题名）；保持 `listen_raw`、无定时器、无写命令；单测
+  覆盖标题/状态栏、KPI 回落与侧栏样式（FR-711／713／714；ADR-041 决策 1／5）。
+- [x] T200 [P] 前端预算门禁扩展：`.github/scripts/benchmarks/check-frontend-budget.py` 新增 DOM
+  起始标签 ≤ 2 000 与 `innerHTML`／`outerHTML`／`insertAdjacentHTML` 禁令，并把体积、DOM 与
+  注入检查拆为可自测的纯函数；`--selftest` 负向自检通过（FR-618；ADR-041 决策 7）。
+  实测：JS gzip 8 781 B、CSS gzip 1 910 B、DOM 起始标签 73。
+- [x] T201 资源中性实测与证据归档：TUI 帧预算（p50 1 513／p95 1 913／p99 2 021 µs，预算
+  16 000 µs）、同机 legacy 单面板参照（p95 1 071—1 471 µs，debug 噪声 ±30%）、Web 预算与
+  DOM 计数、四端结构测试结论落 `artifacts/ui-modern-2026-10-25/`；GUI 资源采样、主进程 RSS、
+  Web 运行时冒烟因并行 cert/TLS 工作无法编译而**未取得**，按 ADR-037 登记缺口（FR-613／617／
+  618；ADR-041 决策 8）。
+- [x] T202 追溯收口：本文件与 `checklist.md` 登记 T193—T202／Check 289—298 并同步计数声明；
+  `docs/guides/tui.md`、`docs/guides/cui-manual.md`、`CHANGELOG.md` 记录布局与人类可读输出
+  变更（JSON 与退出码不变）；`python .github/scripts/check_counts.py`、`traceability.py`、
+  `check-eol.py` 退出码 0。
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

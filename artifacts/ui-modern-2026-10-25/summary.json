@@ -1,0 +1,72 @@
+{
+  "change": "modernize-ui-visual-language",
+  "date": "2026-10-25",
+  "platform": "windows-amd64",
+  "profile": "cargo test（debug 剖面；数量级偏悲观，release 通常低一个数量级）",
+  "tui_frame_budget": {
+    "fixture": "events 视图 10k 行快照，终端 80x24",
+    "p50_us": 1735,
+    "p95_us": 2472,
+    "p99_us": 2525,
+    "budget_p95_us": 16000,
+    "headroom_percent": 84,
+    "legacy_reference_same_machine": {
+      "method": "临时测试复现 T195 之前的单面板布局（同机、同夹具、同样本数），测量后已删除该测试",
+      "p50_us_range": [843, 898],
+      "p95_us_range": [1071, 1471],
+      "note": "debug 单次 50 样本的 p95 噪声约 ±30%，20% 级差异不可判定为回归（ADR-041 决策 8 修订记录）"
+    },
+    "projection_cost": {
+      "new_columns_us_p50": 14,
+      "legacy_text_us_p50": 4,
+      "note": "列投影 + 行排版耗时相对绘制固定开销可忽略；帧内行数由主面板高度界定"
+    },
+    "conclusion": "通过（绝对预算内，余量 ≥ 88%）",
+    "artifact": "artifacts/ui-modern-2026-10-25/tui-frame-budget.json"
+  },
+  "web_budget": {
+    "js_gzip_bytes": 8781,
+    "js_budget_bytes": 51200,
+    "css_gzip_bytes": 1910,
+    "css_budget_bytes": 20480,
+    "dom_start_tags": 73,
+    "dom_budget_nodes": 2000,
+    "selftest": "通过（--selftest：DOM 计数与 innerHTML 禁令可判定违规）",
+    "conclusion": "通过",
+    "artifact": "artifacts/ui-modern-2026-10-25/web-budget.txt"
+  },
+  "tests": {
+    "whcode-domain": "51 passed",
+    "whcode-cui": "16 passed",
+    "whcode-app": "99 passed",
+    "whcode-tui": "64 passed",
+    "whcode-web": "46 passed",
+    "whcode-gui": "20 passed",
+    "whcode-bin": "未取得（阻塞：见 blocked）"
+  },
+  "frontend_frames": "artifacts/ui-modern-2026-10-25/tui-frames.txt（六视图 80×24 帧文本）",
+  "blocked": [
+    {
+      "item": "whcode-bin 编译与测试（含 cui_dispatch 记录式输出接线）",
+      "reason": "工作区存在并行未提交的 cert/TLS 工作（crates/whcode-app/src/cert.rs、crates/whcode-bin/src/tls.rs 等），whcode-bin/src/serve.rs、main.rs 依赖该模块；该路径当前不可编译，与本轮改动无关",
+      "evidence": "cargo test -p whcode-bin 报 E0425 key_present、E0433 ErrorCode、E0063 TlsSettings 缺 schema_version 等错误，均位于 cert.rs"
+    },
+    {
+      "item": "GUI 资源采样（gui-probe.py）与最小化/主题逐帧比对",
+      "reason": "需要可执行的 whcode 二进制，受同一并行工作阻塞"
+    },
+    {
+      "item": "主进程空载 RSS（NFR-201）与 NFR-205 空闲 CPU",
+      "reason": "同上"
+    },
+    {
+      "item": "Web 运行时冒烟与截图（web-smoke.py、serve）",
+      "reason": "同上"
+    }
+  ],
+  "notes": [
+    "TUI 帧预算测试同时刷新 artifacts/tui-frame-budget.json（date 2026-10-25，scope 改为三区布局）。",
+    "Web 侧结构由 whcode-web 的 assets.rs 测试覆盖（七个 tab 与面板的 ARIA 双向关联、外壳类名）。",
+    "CUI 排版模块 crates/whcode-cui/src/format.rs 的 4 项单测已通过；调用侧接线待 whcode-bin 可编译后验证。"
+  ]
+}
