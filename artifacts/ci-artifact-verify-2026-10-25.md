@@ -51,3 +51,22 @@ cargo test --locked -p whcode-tests --test memory_limit --test writer_stress --t
 每个提交的 `ci.yml` 与 `build-release.yml` 运行都可按上表口径复测：先比对 SHA256，
 再验证 exe 行为（无控制台退出 0、真实控制台默认 GUI、`--tui` 按键可用），最后核对
 测量类 artifact 的数值与预算。结论写入本文件的新条目，随提交推送。
+
+## 第二轮复测（2026-10-25，提交 `943adf5`）
+
+`ci.yml` run `40199310763` 与 `build-release.yml` run `40199310771` 均 success（该提交仅改
+checklist，代码与 `b33366e` 相同，但构建时间戳不同）。
+
+| 产物 | 核对内容 | 结论 |
+|---|---|---|
+| `whcode-windows-amd64`（31 073 767 B） | 内层包 `sha256=bdf22d04…5788dc` 与 `install-verify-windows-amd64` 记录一致；`whcode.exe` `sha256=5ecfe343…617e05` | 通过 |
+| `smoke-evidence` | TUI 3/3、Web 5/5（与第一轮同口径） | 通过 |
+| `ci-measurements` | NFR-201 中位 31.56 MB（≤36）、p95 31.59、峰值 31.77；NFR-202 中位 35.69 MB（≤80） | 通过 |
+| `deps-freebsd`、`deps-netbsd` | 仍产出且四类齐备 | 通过 |
+
+**新增行为观察（待改进，未修）**：把该成品的 `--tui` 放进新控制台后，启动 3 秒时注入 `q`
+未生效（进程仍在运行），6 秒时注入则退出码 0。原因是启动顺序——`prepare_frontend`（打开
+工作区库、构建只读快照）先于 `TerminalGuard::enter`（启用 raw mode），这段时间按键处于
+行输入模式，会被控制台行编辑器吞掉。影响：窗口刚出现的几秒内输入可能丢失；不影响
+raw mode 生效后的按键。若要消除，需要把进入 raw mode 提前到打开工作区之前，并保证准备
+阶段的失败路径仍能恢复终端——属结构改动，本轮只记录，不在本批次实施。
