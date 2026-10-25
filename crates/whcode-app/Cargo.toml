@@ -19,6 +19,19 @@ serde.workspace = true
 serde_json.workspace = true
 # 仅使用 duckdb::Connection 类型（命令签名）；连接的打开与管理在 store/装配根（ADR-018）。
 duckdb = { version = "=1.20000.0", default-features = false }
+# 证书库目录口径与私钥文件权限（ADR-040 决策 1／3；平台差异只在本 crate 依赖的 platform）。
+whcode-platform = { path = "../whcode-platform" }
+# ADR-040 决策 2：系统证书库只读计数（本地读库，不发起网络请求；T188）。
+rustls-native-certs = "0.8.5"
+# ADR-040 决策 2／3：本地证书解析与自签生成，不发起网络请求、不引入第二加密提供者。
+rustls-pki-types = { version = "1.15.1", features = ["std"] }
+# rcgen 必须用 ring 后端（不得拉入 aws-lc-rs）；pem 用于输出证书与私钥。
+rcgen = { version = "0.14.10", default-features = false, features = ["ring", "pem"] }
+x509-parser = "0.18.1"
+# 与锁定文件既有 0.10.9 同源，不新增第三个 sha2 版本。
+sha2 = "0.10.9"
+# rcgen 的证书参数直接暴露 time::OffsetDateTime，且状态需要 ISO 8601 输出（0.3.55 已在锁文件）。
+time = { version = "0.3.55", default-features = false, features = ["std", "formatting"] }
 
 [lints]
 workspace = true

@@ -75,6 +75,12 @@ pub fn check_auth(
 /// Origin 校验：请求的 `Origin` **存在时必须命中允许集**（按 scheme + host 判定，
 /// **端口不参与**——浏览器携带实际端口）；**缺失 `Origin` 一律放行**。
 ///
+/// 允许集的选取（ADR-022 2026-10-25 修订、ADR-040 决策 3）：调用方传入**非空**
+/// `allowed_origins` 时始终以它为准（与认证是否启用无关）；只有传入空集时才回落到
+/// [`ALLOWED_ORIGINS`]（明文回环默认）。这样 `serve --web` 在 TLS 档位下注入的
+/// `https://…` 允许集不会被回环模式忽略——否则 HTTPS 页面的同源与 WebSocket 请求
+/// 会因 scheme 不匹配一律 403（与 2026-10-22 记录的全串比较缺陷同类）。
+///
 /// 缺失放行的依据（ADR-022/ADR-023 修订）：浏览器对**同源 GET 不发送 Origin**，
 /// 本机/局域网 CLI 客户端同样没有；在认证模式（Bearer token）下，跨站攻击者无法
 /// 携带 `Authorization` 头（自定义头触发预检，本服务不返回 CORS 许可），token 才是
@@ -86,16 +92,12 @@ pub fn check_auth(
 ///
 /// # Errors
 ///
-/// Origin 带非回环 host、格式非法，或认证模式下缺失时返回 `permission_denied`（不可重试）。
-pub fn check_origin(
-    auth_enabled: bool,
-    allowed_origins: &[&str],
-    origin: Option<&str>,
-) -> Result<(), WhError> {
-    let allowed: &[&str] = if auth_enabled {
-        allowed_origins
-    } else {
+/// Origin 带非允许 host、格式非法时返回 `permission_denied`（不可重试）。
+pub fn check_origin(allowed_origins: &[&str], origin: Option<&str>) -> Result<(), WhError> {
+    let allowed: &[&str] = if allowed_origins.is_empty() {
         &ALLOWED_ORIGINS
+    } else {
+        allowed_origins
     };
     let Some(origin) = origin.filter(|origin| !origin.trim().is_empty()) else {
         // 缺失 Origin：同源 GET 与 CLI 客户端均不带；认证模式由 token 兜底（ADR-022/023）。
@@ -187,31 +189,50 @@ mod tests {
 
     #[test]
     fn origin_must_be_in_allowlist() {
-        let err = check_origin(false, &[], Some("http://evil.example")).expect_err("必须拒绝");
+        let err = check_origin(&[], Some("http://evil.example")).expect_err("必须拒绝");
         assert_eq!(err.code, ErrorCode::PermissionDenied);
-        check_origin(false, &[], Some("http://127.0.0.1")).expect("回环来源放行");
-        check_origin(
-            true,
-            &["http://10.0.0.5:8080"],
-            Some("http://10.0.0.5:8080"),
-        )
-        .expect("对外监听的显式允许集");
+        check_origin(&[], Some("http://127.0.0.1")).expect("回环来源放行");
+        check_origin(&["http://10.0.0.5:8080"], Some("http://10.0.0.5:8080"))
+            .expect("对外监听的显式允许集");
     }
 
-    /// ADR-022：按 scheme + host 判定（端口不参与）；缺失 Origin 在回环模式放行、
-    /// 认证模式拒绝；恶意 host 一律拒绝（威胁模型不变）。
+    /// ADR-022 2026-10-25 修订：非空允许集始终生效（与认证无关）——TLS 回环注入的
+    /// `https://` 允许集必须被接受，明文 `http://` 在 TLS 模式下拒绝；空集回落明文回环默认。
+    #[test]
+    fn non_empty_allowlist_wins_in_both_auth_modes() {
+        let https = ["https://127.0.0.1:8443"];
+        check_origin(&https, Some("https://127.0.0.1")).expect("TLS 回环 https 来源放行");
+        check_origin(&https, Some("https://127.0.0.1:8443")).expect("端口不参与命中");
+        let err = check_origin(&https, Some("http://127.0.0.1:8443"))
+            .expect_err("TLS 模式下明文 scheme 必须拒绝");
+        assert_eq!(err.code, ErrorCode::PermissionDenied);
+        let err = check_origin(&https, Some("http://127.0.0.1")).expect_err("明文来源必须拒绝");
+        assert_eq!(err.code, ErrorCode::PermissionDenied);
+
+        // 空集：回落到明文回环默认，https 来源不得混入。
+        check_origin(&[], Some("http://127.0.0.1:8737")).expect("空集回落明文回环");
+        assert!(
+            check_origin(&[], Some("https://127.0.0.1")).is_err(),
+            "空集不得接受 https 来源（明文档位的允许集）"
+        );
+        // 缺 Origin 的两种模式语义不变。
+        check_origin(&https, None).expect("缺 Origin 放行（ADR-023）");
+    }
+
+    /// ADR-022：按 scheme + host 判定（端口不参与）；缺失 Origin 一律放行（认证由 token
+    /// 兜底，ADR-023）；恶意 host 一律拒绝（威胁模型不变）。
     #[test]
     fn origin_matching_is_port_agnostic_and_mode_aware() {
         // 真实浏览器携带实际端口——必须放行（修订前全串比较会 403）。
-        check_origin(false, &[], Some("http://127.0.0.1:8737")).expect("端口不参与命中");
-        check_origin(false, &[], Some("http://localhost:3000")).expect("localhost 任意端口");
-        check_origin(true, &ALLOWED_ORIGINS, Some("http://127.0.0.1:8080"))
-            .expect("认证模式同样按 host 命中");
+        check_origin(&[], Some("http://127.0.0.1:8737")).expect("端口不参与命中");
+        check_origin(&[], Some("http://localhost:3000")).expect("localhost 任意端口");
+        check_origin(&ALLOWED_ORIGINS, Some("http://127.0.0.1:8080"))
+            .expect("显式允许集同样按 host 命中");
 
-        // 缺失/空白 Origin：两种模式均放行（同源 GET 与 CLI 不带 Origin；认证由 token 兜底）。
-        check_origin(false, &[], None).expect("回环模式缺 Origin 放行");
-        check_origin(false, &[], Some("   ")).expect("空白 Origin 视为缺失");
-        check_origin(true, &ALLOWED_ORIGINS, None).expect("认证模式缺 Origin 放行（ADR-023）");
+        // 缺失/空白 Origin：均放行（同源 GET 与 CLI 不带 Origin；认证由 token 兜底）。
+        check_origin(&[], None).expect("回环模式缺 Origin 放行");
+        check_origin(&[], Some("   ")).expect("空白 Origin 视为缺失");
+        check_origin(&ALLOWED_ORIGINS, None).expect("认证模式缺 Origin 放行（ADR-023）");
 
         // 威胁模型：非回环 host 拒绝——含相似前缀/任意端口/大小写伪装。
         for evil in [
@@ -222,15 +243,15 @@ mod tests {
             "https://127.0.0.1",
         ] {
             assert!(
-                check_origin(false, &[], Some(evil)).is_err(),
+                check_origin(&[], Some(evil)).is_err(),
                 "{evil} 必须拒绝（非回环 host）"
             );
         }
         // 大小写与 IPv6 字面量的键提取（大小写不敏感；IPv6 去括号与端口）。
-        check_origin(false, &[], Some("HTTP://LocalHost:8080")).expect("scheme/host 大小写不敏感");
-        check_origin(true, &["http://[::1]:9000"], Some("http://[::1]")).expect("IPv6 字面量");
+        check_origin(&[], Some("HTTP://LocalHost:8080")).expect("scheme/host 大小写不敏感");
+        check_origin(&["http://[::1]:9000"], Some("http://[::1]")).expect("IPv6 字面量");
         assert!(
-            check_origin(false, &[], Some("not-an-origin")).is_err(),
+            check_origin(&[], Some("not-an-origin")).is_err(),
             "无 scheme 拒绝"
         );
     }

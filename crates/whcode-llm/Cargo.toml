@@ -14,10 +14,21 @@ serde_json.workspace = true
 # 真实 HTTP Provider（FR-201／FR-203／FR-616、NFR-213、ADR-031）：默认关闭——域层与前端保持零网络依赖，
 # 仅装配根（whcode-bin）启用 `http` feature。阻塞式客户端，不引入异步运行时（NFR-215）。
 ureq = { version = "3.5.0", default-features = false, features = ["rustls"], optional = true }
+# 出站信任装配（T188、ADR-040 决策 2）：与 ureq 同版本、共用 ring 提供者；不得启用默认特性
+# （默认会拉入 aws-lc-rs，形成第二加密提供者），也不发起任何网络请求。
+rustls = { version = "0.23.46", default-features = false, features = ["std", "tls12", "ring", "logging"], optional = true }
+# 操作系统证书库（Windows ROOT 存储）只读；ADR-040 决策 5 已批准。
+rustls-native-certs = { version = "0.8.5", optional = true }
+# 与 rustls 同源的证书／主机名类型；不另造封装（ADR-040 决策 5）。
+rustls-pki-types = { version = "1.15.1", features = ["std"], optional = true }
+
+[dev-dependencies]
+# 测试用证书生成（ring 后端，与 whcode-app 一致；不得拉入 aws-lc-rs）。
+rcgen = { version = "0.14.10", default-features = false, features = ["ring", "pem"] }
 
 [features]
 default = []
-http = ["dep:ureq"]
+http = ["dep:ureq", "dep:rustls", "dep:rustls-native-certs", "dep:rustls-pki-types"]
 
 [lints]
 workspace = true

@@ -57,22 +57,28 @@ fn token_never_passes_through_url_query() {
 /// 2026-10-22 修订（ADR-022/ADR-023）：命中按 scheme + host（端口不参与——浏览器
 /// 携带实际端口）；**缺失 Origin 两种模式均放行**（同源 GET 与 CLI 客户端不带
 /// Origin；认证模式由 Bearer token 阻断跨站）。威胁模型不变：非回环 host 一律拒绝。
+///
+/// 2026-10-25 修订（ADR-022、ADR-040 决策 3）：调用方传入**非空**允许集时始终生效
+/// （与认证无关）——TLS 档位注入的 `https://…` 允许集必须被接受。
 #[test]
 fn origin_checks_apply() {
     // 回环来源：任意端口命中；真实浏览器 Origin 形如 http://127.0.0.1:<port>。
-    assert!(check_origin(false, &[], Some("http://127.0.0.1")).is_ok());
-    assert!(check_origin(false, &[], Some("http://127.0.0.1:8737")).is_ok());
-    assert!(check_origin(false, &[], Some("http://localhost:3000")).is_ok());
+    assert!(check_origin(&[], Some("http://127.0.0.1")).is_ok());
+    assert!(check_origin(&[], Some("http://127.0.0.1:8737")).is_ok());
+    assert!(check_origin(&[], Some("http://localhost:3000")).is_ok());
     // 非回环来源：一律拒绝（含相似前缀与任意端口）。
-    assert!(check_origin(false, &[], Some("http://evil.example")).is_err());
-    assert!(check_origin(false, &[], Some("http://127.0.0.1.evil.example")).is_err());
-    // 缺失 Origin：回环模式放行（ADR-022）；认证模式拒绝。
+    assert!(check_origin(&[], Some("http://evil.example")).is_err());
+    assert!(check_origin(&[], Some("http://127.0.0.1.evil.example")).is_err());
+    // TLS 档位的 https 允许集：同源 https 放行、明文 http 拒绝（scheme 参与判定）。
+    assert!(check_origin(&["https://127.0.0.1:8443"], Some("https://127.0.0.1:8443")).is_ok());
+    assert!(check_origin(&["https://127.0.0.1:8443"], Some("http://127.0.0.1:8443")).is_err());
+    // 缺失 Origin：均放行（ADR-022）；跨站由 Bearer 阻断。
     assert!(
-        check_origin(false, &[], None).is_ok(),
+        check_origin(&[], None).is_ok(),
         "回环模式缺 Origin 放行（ADR-022）"
     );
     assert!(
-        check_origin(true, &whcode_web::security::ALLOWED_ORIGINS, None).is_ok(),
+        check_origin(&whcode_web::security::ALLOWED_ORIGINS, None).is_ok(),
         "认证模式缺 Origin 放行（ADR-023）；跨站由 Bearer 阻断"
     );
 }

@@ -158,6 +158,8 @@ pub enum ExclusionReason {
     GuiManualRefresh,
     /// SSH／serve 等独立传输入口（FR-603／607／608）。
     TransportSpecific,
+    /// 证书库设置面仅由 Web 提供（FR-626／627、ADR-040 决策 4）。
+    WebSettingsOnly,
 }
 
 impl ExclusionReason {
@@ -175,6 +177,7 @@ impl ExclusionReason {
             Self::CuiRequestOnly => "cui_request_only",
             Self::GuiManualRefresh => "gui_manual_refresh",
             Self::TransportSpecific => "transport_specific",
+            Self::WebSettingsOnly => "web_settings_only",
         }
     }
 }
@@ -263,7 +266,7 @@ const KNOWN_CAPABILITIES: [&str; 11] = [
 ];
 
 /// ADR-032 理由码全表（排除登记只能引用这些码）。
-const ADR032_REASON_CODES: [&str; 10] = [
+const ADR032_REASON_CODES: [&str; 11] = [
     "gui_read_only_v1",
     "cli_local_admin",
     "cui_command_surface",
@@ -274,6 +277,7 @@ const ADR032_REASON_CODES: [&str; 10] = [
     "cui_request_only",
     "gui_manual_refresh",
     "transport_specific",
+    "web_settings_only",
 ];
 
 /// 能力登记表（对等基线逐行落实；对等基线表见 ensure-frontend-parity spec）。
@@ -1130,6 +1134,55 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    // ── 证书库设置（FR-626／627、ADR-040 决策 4；设置面仅 Web 提供） ─────────
+    // 读面：状态、CA 下载与连通性校验；视图类别（设置页），六视图之外。
+    // 写面：档位、根证书与服务端证书变更；降档（入站 off／空内置根／外部私钥）须确认，
+    // 成功变更写 `tls_config_change` 审计（`whcode-app::cert`）。
+    SurfaceEntry {
+        id: "settings.cert.read",
+        kind: SurfaceKind::View,
+        capability: Capability::SettingsCertRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::WebSettingsOnly,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::WebSettingsOnly,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::SixViewScope,
+            },
+            Support::Implemented {
+                anchor: "GET /api/certs（/api/certs/ca、/api/certs/server、POST /api/certs/verify）",
+            },
+        ],
+    },
+    SurfaceEntry {
+        id: "settings.cert.write",
+        kind: SurfaceKind::Command,
+        capability: Capability::SettingsCertWrite,
+        effect: EffectClass::Destructive,
+        confirmation: Confirmation::PreviewConfirm,
+        audited: true,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::WebSettingsOnly,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::WebSettingsOnly,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::GuiReadOnlyV1,
+            },
+            Support::Implemented {
+                anchor: "POST /api/certs/modes｜/api/certs/ca｜/api/certs/ca/reset｜\
+                         /api/certs/server｜/api/certs/server/self-signed",
+            },
+        ],
+    },
     // ── font（FR-717、ADR-028；本机资源，不触库） ───────────────────────
     SurfaceEntry {
         id: "font.install",
@@ -1645,6 +1698,8 @@ mod tests {
         assert_eq!(
             views,
             [
+                // 证书设置页（T190）：仅在 Web 提供的视图面，不在六视图内；按登记顺序居前。
+                "settings.cert.read",
                 "view.sessions",
                 "view.tasks",
                 "view.context",
@@ -1653,8 +1708,63 @@ mod tests {
                 "view.diff",
                 "view.changes"
             ],
-            "视图面条目固定为六视图 + 在线可见（FR-601／622／624）"
+            "视图面条目为证书设置页 + 六视图 + 在线可见（FR-601／622／624、ADR-040）"
         );
+    }
+
+    /// ADR-040 决策 4：证书设置两格仅在 Web 实现；CUI／TUI 按 `web_settings_only` 排除、
+    /// GUI 按 `six_view_scope`／`gui_read_only_v1` 排除；写面为破坏族且强制审计。
+    #[test]
+    fn cert_settings_are_web_only_with_declared_reasons() {
+        let read = find("settings.cert.read").expect("settings.cert.read 已登记");
+        assert_eq!(read.kind, SurfaceKind::View);
+        assert_eq!(read.capability, Capability::SettingsCertRead);
+        assert_eq!(read.effect, EffectClass::Read);
+        assert!(!read.audited, "读面不强制审计");
+        for frontend in [FrontendId::Cui, FrontendId::Tui] {
+            assert_eq!(
+                read.support(frontend),
+                &Support::Excluded {
+                    reason: ExclusionReason::WebSettingsOnly
+                },
+                "{frontend:?} 必须按 web_settings_only 排除"
+            );
+        }
+        assert_eq!(
+            read.support(FrontendId::Gui),
+            &Support::Excluded {
+                reason: ExclusionReason::SixViewScope
+            }
+        );
+        assert!(matches!(
+            read.support(FrontendId::Web),
+            Support::Implemented { anchor } if !anchor.is_empty()
+        ));
+
+        let write = find("settings.cert.write").expect("settings.cert.write 已登记");
+        assert_eq!(write.kind, SurfaceKind::Command);
+        assert_eq!(write.capability, Capability::SettingsCertWrite);
+        assert_eq!(write.effect, EffectClass::Destructive);
+        assert_eq!(write.confirmation, Confirmation::PreviewConfirm);
+        assert!(write.audited, "证书变更必须写 tls_config_change 审计");
+        for frontend in [FrontendId::Cui, FrontendId::Tui] {
+            assert_eq!(
+                write.support(frontend),
+                &Support::Excluded {
+                    reason: ExclusionReason::WebSettingsOnly
+                }
+            );
+        }
+        assert_eq!(
+            write.support(FrontendId::Gui),
+            &Support::Excluded {
+                reason: ExclusionReason::GuiReadOnlyV1
+            }
+        );
+        assert!(matches!(
+            write.support(FrontendId::Web),
+            Support::Implemented { anchor } if !anchor.is_empty()
+        ));
     }
 
     /// Task 169.4：`llm.run`／`llm.cancel` 只有在某个前端真正接线后才可登记为已实现。
@@ -1789,6 +1899,7 @@ mod tests {
             ExclusionReason::CuiRequestOnly,
             ExclusionReason::GuiManualRefresh,
             ExclusionReason::TransportSpecific,
+            ExclusionReason::WebSettingsOnly,
         ];
         for reason in codes {
             assert!(

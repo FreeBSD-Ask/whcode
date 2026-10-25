@@ -5,15 +5,18 @@
 //! 隔离（NFR-102）。
 //!
 //! 当前覆盖：进程终止策略（Windows 子进程树 / BSD-类进程组）、路径与资源探测、
-//! 终端能力接口（骨架，M0/T024 接线实际探测）、用户级字体注册（FR-717）。
+//! 本机名与私钥文件权限、终端能力接口（骨架，M0/T024 接线实际探测）、
+//! 用户级字体注册（FR-717）。
 
 pub mod fonts;
+pub mod host;
 pub mod paths;
 pub mod process;
 pub mod resources;
 pub mod term;
 
-pub use paths::{default_temp_dir, workspace_config_dir, workspace_temp_dir};
+pub use host::{hostname, restrict_private_file};
+pub use paths::{default_temp_dir, workspace_certs_dir, workspace_config_dir, workspace_temp_dir};
 pub use process::{
     TerminationPolicy, child_pids, is_windows, process_exists, shell_command, sleep_command,
     terminate_tree, termination_policy_for,

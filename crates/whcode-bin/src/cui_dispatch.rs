@@ -70,6 +70,9 @@ fn dispatch_code(args: &[String]) -> i32 {
     // 文本层（FR-615）：环境检测（LANG/LC_ALL）→ 默认 zh-CN；PO 覆盖内建；数据字段不翻译。
     let (locale, locale_source) = detect_locale(None);
     let texts = crate::load_texts(&locale, locale_source);
+    // 出站信任库（ADR-040 决策 2、T191）：与 TUI／GUI 同一装配口径——失败只告警、不阻断
+    // 命令执行；真正的失败会在 LLM 调用时以“无信任根”报出，不在装配阶段伪装成功。
+    crate::ensure_outbound_trust(&workspace, "CUI");
     match execute(&cli.command, &workspace, &texts) {
         Ok((data, human)) => {
             if json_mode {
@@ -1624,8 +1627,12 @@ mod tests {
                 55,
                 "--json 路径退出码 55：{argv:?}"
             );
+            // 文本路径同样显式给工作区：装配根会在工作区建出站证书库（T191），
+            // 不给 --workspace 时会落到进程当前目录并污染源码树。
+            let mut text_args = vec![base[0], base[1]];
+            text_args.extend_from_slice(&argv);
             assert_eq!(
-                dispatch_code(&args(&argv)),
+                dispatch_code(&args(&text_args)),
                 55,
                 "文本路径退出码 55：{argv:?}"
             );
@@ -1760,7 +1767,13 @@ mod tests {
         assert_eq!(value["items"], 0);
         assert_eq!(value["consumed_budget"], 0);
         assert!(value["sources"].is_array());
-        assert!(human.contains("预算 4096"), "人类可读摘要：{human}");
+        // T196／ADR-041：人类可读输出改为“标签列 + 值列”的记录式，标签按 12 显示列补齐。
+        assert!(
+            human
+                .lines()
+                .any(|line| line.starts_with("预算") && line.contains("4096")),
+            "人类可读摘要（记录式）：{human}"
+        );
 
         // 显式 --budget：透传应用服务（FR-108）。
         let (value, _) = execute(

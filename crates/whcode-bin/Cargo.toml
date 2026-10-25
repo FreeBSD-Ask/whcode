@@ -31,11 +31,21 @@ whcode-ssh = { path = "../whcode-ssh" }
 whcode-tui = { path = "../whcode-tui" }
 # `serve --web` 装配（contracts/cui-cli.md §1）：静态前端 + `/api/*` 路由与安全判定。
 whcode-web = { path = "../whcode-web" }
+# 入站 TLS 握手状态机（T189、ADR-040 决策 3）：与 `whcode-llm`／`ureq` 同版本、共用 ring
+# 提供者；不启用默认特性（默认会拉入 aws-lc-rs，形成第二加密提供者），不引入异步 TLS。
+rustls = { version = "0.23.46", default-features = false, features = ["std", "tls12", "ring", "logging"] }
+# 与 rustls 同源的证书／私钥 PEM 解析类型；不另造封装（ADR-040 决策 5）。
+rustls-pki-types = { version = "1.15.1", features = ["std"] }
 serde.workspace = true
 serde_json.workspace = true
 # 基线夹具需要打开临时数据库连接并交给 `whcode_store::EventWriter`（tasks.md T027）。
 # 版本与特性同 `whcode-store`：同一份预编译动态库，避免出现两份 libduckdb-sys 实例。
 duckdb = { version = "=1.20000.0", default-features = false }
+
+[dev-dependencies]
+# 测试用服务端证书生成（ring 后端，与 `whcode-app` 一致；不得拉入 aws-lc-rs）。
+# 仅测试需要，生产路径不生成证书（生成属 `whcode-app::cert`，ADR-040 决策 3）。
+rcgen = { version = "0.14.10", default-features = false, features = ["ring", "pem"] }
 
 [features]
 default = []

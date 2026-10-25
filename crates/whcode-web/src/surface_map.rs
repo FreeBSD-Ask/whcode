@@ -40,6 +40,17 @@ pub fn surface_of(method: &str, path: &str) -> Option<&'static str> {
         ("GET", "/api/context") => Some("context.budget"),
         ("GET", "/api/diff") => Some("view.diff"),
         ("GET", "/api/events/export") => Some("events.export"),
+        // ── 证书库设置（T190、ADR-040 决策 4）：读面与连通性校验 ───────
+        ("GET", "/api/certs") => Some("settings.cert.read"),
+        ("GET", "/api/certs/ca") => Some("settings.cert.read"),
+        ("GET", "/api/certs/server") => Some("settings.cert.read"),
+        ("POST", "/api/certs/verify") => Some("settings.cert.read"),
+        // ── 证书库设置：写面（档位、根证书、服务端证书） ───────────────
+        ("POST", "/api/certs/modes") => Some("settings.cert.write"),
+        ("POST", "/api/certs/ca") => Some("settings.cert.write"),
+        ("POST", "/api/certs/ca/reset") => Some("settings.cert.write"),
+        ("POST", "/api/certs/server") => Some("settings.cert.write"),
+        ("POST", "/api/certs/server/self-signed") => Some("settings.cert.write"),
         // ── 保留守卫路径（预留／排除；Task 172 统一 501 not_supported） ─
         (_, "/api/events/show") => Some("events.show"),
         (_, "/api/spec/next") => Some("spec.next"),
@@ -116,6 +127,20 @@ mod tests {
             ("GET", "/api/context", "context.budget"),
             ("GET", "/api/diff", "view.diff"),
             ("GET", "/api/events/export", "events.export"),
+            // 证书库设置（T190）：读面与写面均已在 Web 实现（ADR-040 决策 4）。
+            ("GET", "/api/certs", "settings.cert.read"),
+            ("GET", "/api/certs/ca", "settings.cert.read"),
+            ("GET", "/api/certs/server", "settings.cert.read"),
+            ("POST", "/api/certs/verify", "settings.cert.read"),
+            ("POST", "/api/certs/modes", "settings.cert.write"),
+            ("POST", "/api/certs/ca", "settings.cert.write"),
+            ("POST", "/api/certs/ca/reset", "settings.cert.write"),
+            ("POST", "/api/certs/server", "settings.cert.write"),
+            (
+                "POST",
+                "/api/certs/server/self-signed",
+                "settings.cert.write",
+            ),
         ];
         for (method, path, id) in routes {
             assert_eq!(surface_of(method, path), Some(id), "{method} {path}");

@@ -23,12 +23,16 @@
 //! （[`MAX_MESSAGE_BYTES`]）。`whcode` 是**原生 Web UI**，不是 TUI 的 PTY 镜像
 //! （ADR-004）。
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use duckdb::Connection;
+use whcode_app::cert::{self, CaKind, CertPaths, CertProbe};
 use whcode_app::surface::{FrontendId, Support};
-use whcode_app::{Actor, DefaultPolicy, build_snapshot};
-use whcode_domain::{ErrorCode, WhError};
+use whcode_app::{Actor, Capability, DefaultPolicy, build_snapshot, require};
+use whcode_domain::{
+    CERT_JSON_MAX_BYTES, ErrorCode, InboundMode, TlsSettings, TlsStatus, TrustMode, WhError,
+};
 
 use crate::security;
 use crate::ws;
@@ -212,6 +216,173 @@ fn now_ms() -> Result<u64, WhError> {
     Ok(u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX))
 }
 
+/// 证书 API 上下文（T190、ADR-040 决策 4）：由装配根注入，Web 层不自行打开证书库。
+///
+/// - `paths`：工作区证书库路径；
+/// - `probe`：出站连通性校验（实现属装配根——`whcode-web` 保持零网络依赖，ADR-031）；
+/// - `restart_required`：本次 `serve --web` 会话的“入站变更需重启”标记；写操作成功且
+///   入站档位／服务端证书变化时置位，读操作只读取。
+pub struct CertApiContext<'a> {
+    /// 工作区证书库路径。
+    pub paths: &'a CertPaths,
+    /// 出站连通性校验实现。
+    pub probe: &'a dyn CertProbe,
+    /// 入站变更需重启标记（`Relaxed` 足够：单线程服务循环内读写，无跨线程顺序依赖）。
+    pub restart_required: &'a AtomicBool,
+    /// 本进程实际监听地址（host 字面量 + 端口）；用于拒绝“自探本进程”的必然超时。
+    ///
+    /// `serve --web` 为单线程服务：处理校验请求期间无法为另一条连接推进 TLS 握手，
+    /// 指向自身的校验必然耗尽预算（2026-10-25 实跑实测）。拒绝并说明原因，比返回
+    /// 误导性的 timeout 更可操作（NFR-222）。
+    pub listen: Option<(String, u16)>,
+}
+
+/// 证书设置面未接线时的统一错误（不以 404 掩盖已登记能力，ADR-032）。
+fn cert_not_wired() -> WhError {
+    WhError::invalid_state(
+        "证书设置面未接线：本次请求未注入证书库上下文（ADR-040 决策 4）；\
+         请以 serve --web 启动并确认工作区可写",
+    )
+}
+
+/// 取证书上下文；未接线返回 [`cert_not_wired`]。
+fn require_cert<'ctx, 'a>(
+    cert: Option<&'ctx CertApiContext<'a>>,
+) -> Result<&'ctx CertApiContext<'a>, WhError> {
+    cert.ok_or_else(cert_not_wired)
+}
+
+/// 用会话原子标记覆盖状态里的 `restart_required`（读操作不置位，只反映已置位的变更）。
+fn apply_restart(mut status: TlsStatus, cert: &CertApiContext<'_>) -> TlsStatus {
+    status.restart_required = cert.restart_required.load(Ordering::Relaxed);
+    status
+}
+
+/// 入站变更（档位或服务端证书）成功后置位重启标记；根证书变更不置位。
+fn mark_restart(status: &TlsStatus, cert: &CertApiContext<'_>) {
+    if status.restart_required {
+        cert.restart_required.store(true, Ordering::Relaxed);
+    }
+}
+
+/// 状态响应的统一形状（`schema_version` + 完整 `TlsStatus` 字段）。
+fn tls_status_response(status: &TlsStatus) -> HttpResponse {
+    match serde_json::to_value(status) {
+        Ok(value) => HttpResponse::json(200, &value),
+        Err(err) => error_response(&WhError::internal(format!(
+            "证书状态序列化失败：{err}；请检查状态字段是否可序列化"
+        ))),
+    }
+}
+
+/// 证书写操作的请求体：解析前按 [`CERT_JSON_MAX_BYTES`] 拒绝（ADR-040 决策 1／4）。
+///
+/// 空体（全为空白）按空对象处理：`POST /api/certs/server/self-signed` 等只有可选
+/// `confirm` 的路由允许不带体，仍由各路由校验必需字段。
+fn cert_json_body(request: &HttpRequest) -> Result<serde_json::Value, WhError> {
+    if request.body.len() > CERT_JSON_MAX_BYTES {
+        return Err(WhError::parse_error(format!(
+            "证书 API 请求体 {} 字节超过上限 {CERT_JSON_MAX_BYTES} 字节（解析前拒绝）；\
+             请裁剪后重试（ADR-040 决策 1 的拒绝阈值）",
+            request.body.len()
+        )));
+    }
+    if request.body.iter().all(u8::is_ascii_whitespace) {
+        return Ok(serde_json::json!({}));
+    }
+    json_body(request)
+}
+
+/// 可选 `confirm`：缺失视为 `false`；出现但不是布尔时显式拒绝（不把字符串当布尔）。
+fn optional_confirm(body: &serde_json::Value) -> Result<bool, WhError> {
+    match body.get("confirm") {
+        None => Ok(false),
+        Some(_) => body_bool(body, "confirm"),
+    }
+}
+
+/// `kind` 稳定字符串 → [`CaKind`]；未知取值返回 `invalid_state`（不回落默认）。
+fn parse_ca_kind(value: &str) -> Result<CaKind, WhError> {
+    match value {
+        "builtin" => Ok(CaKind::Builtin),
+        "extra" => Ok(CaKind::Extra),
+        other => Err(WhError::invalid_state(format!(
+            "未知根证书种类“{other}”；合法取值为 builtin 或 extra"
+        ))),
+    }
+}
+
+/// 请求体字段 `kind`（缺参数可操作报错）。
+fn body_ca_kind(body: &serde_json::Value) -> Result<CaKind, WhError> {
+    let value = body
+        .get("kind")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| WhError::invalid_state("缺 kind 参数（builtin／extra）"))?;
+    parse_ca_kind(value)
+}
+
+/// 探测目标主机校验：非空、无 scheme／userinfo／路径、长度 ≤ 253（端口另用 `port`）。
+fn probe_host(raw: &str) -> Result<String, WhError> {
+    let host = raw.trim();
+    if host.is_empty() {
+        return Err(WhError::invalid_state("缺 host 参数（主机名或 IP 字面量）"));
+    }
+    if host.len() > 253 {
+        return Err(WhError::invalid_state(format!(
+            "host 长度 {} 超过 DNS 名称上限 253；请改用合法主机名",
+            host.len()
+        )));
+    }
+    if host.contains("://") || host.contains('@') || host.contains('/') {
+        return Err(WhError::invalid_state(format!(
+            "host“{host}”不得包含 ://、@ 或 /；请只给主机名或 IP 字面量，端口用 port 参数"
+        )));
+    }
+    Ok(host.to_string())
+}
+
+/// 可选 `port`：缺失默认 443；必须是 1..=65535 的整数。
+fn probe_port(body: &serde_json::Value) -> Result<u16, WhError> {
+    match body.get("port") {
+        None => Ok(443),
+        Some(_) => {
+            let value = body_i64(body, "port")?;
+            u16::try_from(value)
+                .ok()
+                .filter(|port| *port != 0)
+                .ok_or_else(|| {
+                    WhError::invalid_state(format!("port 必须在 1..=65535（当前 {value}）"))
+                })
+        }
+    }
+}
+
+/// 目标是否就是本进程监听地址（端口相等且主机为上送监听 host 或回环别名）。
+///
+/// 回环别名只认 `127.0.0.1`、`localhost`、`::1`（含方括号形式）——它们是同一台机器的
+/// 同一回环接口；其他主机名不做猜测（可能经 DNS 指向本机，但无法在 Web 层可靠判定）。
+fn is_self_probe(host: &str, port: u16, listen: Option<&(String, u16)>) -> bool {
+    let Some((listen_host, listen_port)) = listen else {
+        return false;
+    };
+    if port != *listen_port {
+        return false;
+    }
+    let normalize = |value: &str| {
+        value
+            .trim()
+            .trim_matches(|ch| ch == '[' || ch == ']')
+            .to_ascii_lowercase()
+    };
+    let host = normalize(host);
+    let listen_host = normalize(listen_host);
+    let loopback = |value: &str| matches!(value, "127.0.0.1" | "localhost" | "::1");
+    if host == listen_host {
+        return true;
+    }
+    loopback(&host) && loopback(&listen_host)
+}
+
 /// 501 `not_supported` 响应（FR-620、ADR-032）：已登记但 Web 端预留/排除的能力。
 ///
 /// details 由登记表驱动（`surface_id` + Web 端状态码 + 里程碑/理由码）；message 只
@@ -323,14 +494,41 @@ pub fn handle_request_with_runtimes(
     runtimes: Option<&serde_json::Value>,
     default_locale: &str,
 ) -> HttpResponse {
+    handle_request_with_certs(
+        conn,
+        auth_enabled,
+        token,
+        allowed_origins,
+        request,
+        actor,
+        runtimes,
+        default_locale,
+        None,
+    )
+}
+
+/// 同 [`handle_request_with_runtimes`]，并注入证书库上下文（`/api/certs/*`，T190）。
+///
+/// `cert` 为 `None` 表示装配根**未接线**证书设置面：`/api/certs/*` 一律返回
+/// `invalid_state`（说明未接线），绝不伪装成功，也不以 404 掩盖已登记能力。
+#[allow(clippy::too_many_arguments)] // 9 个参数同上一函数 + 证书上下文；拆分结构会波及全部调用点
+pub fn handle_request_with_certs(
+    conn: &mut Connection,
+    auth_enabled: bool,
+    token: Option<&str>,
+    allowed_origins: &[&str],
+    request: &HttpRequest,
+    actor: &Actor,
+    runtimes: Option<&serde_json::Value>,
+    default_locale: &str,
+    cert: Option<&CertApiContext<'_>>,
+) -> HttpResponse {
     // 认证 + Origin（§10.2、V-110）。
     if let Err(error) = security::check_auth(auth_enabled, token, request.header("authorization")) {
         return error_response(&error);
     }
     // Origin 允许集默认回环来源；对外部署须显式扩展（V-110 门禁在 bind 层）。
-    if let Err(error) =
-        security::check_origin(auth_enabled, allowed_origins, request.header("origin"))
-    {
+    if let Err(error) = security::check_origin(allowed_origins, request.header("origin")) {
         return error_response(&error);
     }
 
@@ -948,6 +1146,347 @@ pub fn handle_request_with_runtimes(
                     }),
                 ),
                 Ok(_) => error_response(&WhError::internal("门面返回形状不符：应为清理结果")),
+                Err(error) => error_response(&error),
+            }
+        }
+        // ── 证书库设置（FR-626／627、ADR-040 决策 4；T190） ────────────────
+        // 读面判 `settings.cert.read`、写面判 `settings.cert.write`；私钥只进不出
+        // （任何响应都不含私钥内容）。写操作的请求体在解析前按 `CERT_JSON_MAX_BYTES` 拒绝。
+        (Method::Get, "/api/certs") => {
+            let result = (|| -> Result<TlsStatus, WhError> {
+                let cert = require_cert(cert)?;
+                require(&policy, actor, Capability::SettingsCertRead)?;
+                let now = now_ms()?;
+                let status = cert::status(cert.paths, now)?;
+                Ok(apply_restart(status, cert))
+            })();
+            match result {
+                Ok(status) => tls_status_response(&status),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/certs/modes") => {
+            let result = (|| -> Result<TlsStatus, WhError> {
+                let cert = require_cert(cert)?;
+                require(&policy, actor, Capability::SettingsCertWrite)?;
+                let body = cert_json_body(request)?;
+                if body.get("outbound").is_none() && body.get("inbound").is_none() {
+                    return Err(WhError::invalid_state(
+                        "至少需要 outbound 或 inbound 之一（builtin／system；\
+                         builtin／external／off）",
+                    ));
+                }
+                let current = cert::load_settings(cert.paths)?;
+                let outbound = match body.get("outbound") {
+                    Some(value) => TrustMode::parse(value.as_str().ok_or_else(|| {
+                        WhError::parse_error("outbound 必须是字符串 builtin 或 system")
+                    })?)?,
+                    None => current.outbound,
+                };
+                let inbound = match body.get("inbound") {
+                    Some(value) => InboundMode::parse(value.as_str().ok_or_else(|| {
+                        WhError::parse_error("inbound 必须是字符串 builtin、external 或 off")
+                    })?)?,
+                    None => current.inbound,
+                };
+                let confirm = optional_confirm(&body)?;
+                let now = now_ms()?;
+                let next = cert::update_settings(
+                    conn,
+                    cert.paths,
+                    &policy,
+                    actor,
+                    &cert::StoreAudit,
+                    TlsSettings {
+                        outbound,
+                        inbound,
+                        ..current
+                    },
+                    confirm,
+                    now,
+                )?;
+                mark_restart(&next, cert);
+                Ok(apply_restart(next, cert))
+            })();
+            match result {
+                Ok(status) => tls_status_response(&status),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Get, "/api/certs/ca") => {
+            let result = (|| -> Result<serde_json::Value, WhError> {
+                let cert = require_cert(cert)?;
+                require(&policy, actor, Capability::SettingsCertRead)?;
+                let Some(kind) = request.query("kind") else {
+                    return Err(WhError::invalid_state("缺 kind 参数（builtin／extra）"));
+                };
+                let kind = parse_ca_kind(kind.trim())?;
+                let report = cert::describe_ca(cert.paths, kind)?;
+                Ok(serde_json::json!({
+                    "schema_version": whcode_domain::SCHEMA_VERSION,
+                    "kind": kind.as_str(),
+                    "pem": report.pem,
+                    "cert_count": report.cert_count,
+                    "sha256": report.sha256,
+                    "modified": report.modified,
+                }))
+            })();
+            match result {
+                Ok(value) => HttpResponse::json(200, &value),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/certs/ca") => {
+            let result = (|| -> Result<TlsStatus, WhError> {
+                let cert = require_cert(cert)?;
+                require(&policy, actor, Capability::SettingsCertWrite)?;
+                let body = cert_json_body(request)?;
+                let kind = body_ca_kind(&body)?;
+                let pem = body
+                    .get("pem")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or_else(|| {
+                        WhError::invalid_state("缺 pem 参数（字符串；extra 可为空串）")
+                    })?;
+                let confirm = optional_confirm(&body)?;
+                let now = now_ms()?;
+                let status = cert::write_ca(
+                    conn,
+                    cert.paths,
+                    &policy,
+                    actor,
+                    &cert::StoreAudit,
+                    kind,
+                    pem,
+                    confirm,
+                    now,
+                )?;
+                mark_restart(&status, cert);
+                Ok(apply_restart(status, cert))
+            })();
+            match result {
+                Ok(status) => tls_status_response(&status),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/certs/ca/reset") => {
+            let result = (|| -> Result<TlsStatus, WhError> {
+                let cert = require_cert(cert)?;
+                require(&policy, actor, Capability::SettingsCertWrite)?;
+                let body = cert_json_body(request)?;
+                let kind = match body.get("kind") {
+                    Some(_) => body_ca_kind(&body)?,
+                    None => CaKind::Builtin,
+                };
+                // `confirm` 接受但不强制：恢复内置资产／清空追加证书不是降档动作
+                // （ADR-040 决策 4 只要求入站 off、空内置根与外部私钥确认）。
+                let _confirm = optional_confirm(&body)?;
+                let now = now_ms()?;
+                let status = cert::reset_ca(
+                    conn,
+                    cert.paths,
+                    &policy,
+                    actor,
+                    &cert::StoreAudit,
+                    kind,
+                    now,
+                )?;
+                mark_restart(&status, cert);
+                Ok(apply_restart(status, cert))
+            })();
+            match result {
+                Ok(status) => tls_status_response(&status),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Get, "/api/certs/server") => {
+            let result = (|| -> Result<serde_json::Value, WhError> {
+                let cert = require_cert(cert)?;
+                require(&policy, actor, Capability::SettingsCertRead)?;
+                let now = now_ms()?;
+                let status = cert::status(cert.paths, now)?;
+                // 无证书材料不是错误：`cert_pem = null`，页面据此提示上传。
+                let cert_pem = match cert::read_server_material(cert.paths) {
+                    Ok(material) => Some(material.cert_pem),
+                    Err(error) => {
+                        let present =
+                            cert.paths.server_cert().is_file() || cert.paths.server_key().is_file();
+                        if present {
+                            return Err(error);
+                        }
+                        None
+                    }
+                };
+                Ok(serde_json::json!({
+                    "schema_version": whcode_domain::SCHEMA_VERSION,
+                    "inbound": status.inbound,
+                    "cert_pem": cert_pem,
+                }))
+            })();
+            match result {
+                Ok(value) => HttpResponse::json(200, &value),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/certs/server") => {
+            let result = (|| -> Result<TlsStatus, WhError> {
+                let cert = require_cert(cert)?;
+                require(&policy, actor, Capability::SettingsCertWrite)?;
+                let body = cert_json_body(request)?;
+                let cert_pem = body
+                    .get("cert_pem")
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|value| !value.trim().is_empty())
+                    .ok_or_else(|| WhError::invalid_state("缺 cert_pem 参数（PEM 证书链）"))?;
+                let key_pem = body
+                    .get("key_pem")
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|value| !value.trim().is_empty())
+                    .ok_or_else(|| WhError::invalid_state("缺 key_pem 参数（未加密 PEM 私钥）"))?;
+                let confirm = optional_confirm(&body)?;
+                // 先校验再做任何写入：不匹配的证书与私钥不留下半完成状态。
+                cert::validate_server_pair(cert_pem, key_pem)?;
+                let now = now_ms()?;
+                let next = cert::write_server_cert(
+                    conn,
+                    cert.paths,
+                    &policy,
+                    actor,
+                    &cert::StoreAudit,
+                    cert_pem,
+                    key_pem,
+                    confirm,
+                    now,
+                )?;
+                mark_restart(&next, cert);
+                let current = cert::load_settings(cert.paths)?;
+                let status = if current.inbound == InboundMode::External {
+                    next
+                } else {
+                    cert::update_settings(
+                        conn,
+                        cert.paths,
+                        &policy,
+                        actor,
+                        &cert::StoreAudit,
+                        TlsSettings {
+                            inbound: InboundMode::External,
+                            ..current
+                        },
+                        confirm,
+                        now,
+                    )
+                    .map_err(|err| {
+                        WhError::new(
+                            err.code,
+                            format!(
+                                "{}；服务端证书材料已保存，但入站档位未切换到 external：\
+                                 请重试把 inbound 设为 external（材料无需重新上传）",
+                                err.message
+                            ),
+                        )
+                    })?
+                };
+                mark_restart(&status, cert);
+                Ok(apply_restart(status, cert))
+            })();
+            match result {
+                Ok(status) => tls_status_response(&status),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/certs/server/self-signed") => {
+            let result = (|| -> Result<TlsStatus, WhError> {
+                let cert = require_cert(cert)?;
+                require(&policy, actor, Capability::SettingsCertWrite)?;
+                let body = cert_json_body(request)?;
+                let confirm = optional_confirm(&body)?;
+                let now = now_ms()?;
+                // 保留现有 SAN 并合并默认 SAN（`localhost`／`127.0.0.1`／`::1`／本机名）。
+                let mut required_sans = cert::status(cert.paths, now)?.inbound.sans;
+                for san in cert::default_sans() {
+                    if !required_sans.contains(&san) {
+                        required_sans.push(san);
+                    }
+                }
+                let next = cert::regenerate_server_cert(
+                    conn,
+                    cert.paths,
+                    &policy,
+                    actor,
+                    &cert::StoreAudit,
+                    &required_sans,
+                    confirm,
+                    now,
+                )?;
+                mark_restart(&next, cert);
+                let current = cert::load_settings(cert.paths)?;
+                let status = if current.inbound == InboundMode::Builtin {
+                    next
+                } else {
+                    cert::update_settings(
+                        conn,
+                        cert.paths,
+                        &policy,
+                        actor,
+                        &cert::StoreAudit,
+                        TlsSettings {
+                            inbound: InboundMode::Builtin,
+                            ..current
+                        },
+                        confirm,
+                        now,
+                    )
+                    .map_err(|err| {
+                        WhError::new(
+                            err.code,
+                            format!(
+                                "{}；自签证书已重新生成，但入站档位未切换到 builtin：\
+                                 请重试把 inbound 设为 builtin",
+                                err.message
+                            ),
+                        )
+                    })?
+                };
+                mark_restart(&status, cert);
+                Ok(apply_restart(status, cert))
+            })();
+            match result {
+                Ok(status) => tls_status_response(&status),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/certs/verify") => {
+            let result = (|| -> Result<serde_json::Value, WhError> {
+                let cert = require_cert(cert)?;
+                require(&policy, actor, Capability::SettingsCertRead)?;
+                let body = cert_json_body(request)?;
+                let host = probe_host(body_str(&body, "host")?)?;
+                let port = probe_port(&body)?;
+                if is_self_probe(&host, port, cert.listen.as_ref()) {
+                    return Err(WhError::invalid_state(format!(
+                        "不能校验本进程自身的监听地址 {host}:{port}：serve --web 为单线程服务，\
+                         校验请求处理期间无法为另一条连接推进 TLS 握手（必然超时）；\
+                         请改用另一台主机或另一个服务实例作为校验目标"
+                    )));
+                }
+                // 每次探测重新读取当前信任材料：出站 CA 变更立即生效（无需重启）。
+                let material = cert::trust_material(cert.paths)?;
+                let report = cert.probe.probe(&host, port, &material)?;
+                Ok(serde_json::json!({
+                    "schema_version": whcode_domain::SCHEMA_VERSION,
+                    "ok": true,
+                    "host": host,
+                    "port": port,
+                    "subject": report.subject,
+                    "sans": report.sans,
+                    "not_after": report.not_after,
+                    "sha256": report.sha256,
+                    "tls_version": report.tls_version,
+                }))
+            })();
+            match result {
+                Ok(value) => HttpResponse::json(200, &value),
                 Err(error) => error_response(&error),
             }
         }
@@ -1670,6 +2209,722 @@ mod tests {
             )
             .status,
             400
+        );
+    }
+
+    // ── 证书 API（T190、ADR-040 决策 4） ──────────────────────────────────
+
+    use std::path::PathBuf;
+    use std::sync::atomic::AtomicUsize;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    /// 证书库初始化时间（固定值：证书生成可复现；状态读取用真实时钟只影响剩余天数）。
+    const CERT_NOW_MS: u64 = 1_793_000_000_000;
+
+    /// 临时工作区（只用于证书库文件；Drop 时递归删除）。
+    struct CertWorkspace {
+        root: PathBuf,
+    }
+
+    impl CertWorkspace {
+        fn new(tag: &str) -> Self {
+            static SEQ: AtomicUsize = AtomicUsize::new(0);
+            let seq = SEQ.fetch_add(1, Ordering::Relaxed);
+            let stamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |elapsed| elapsed.as_nanos());
+            let root = std::env::temp_dir().join(format!(
+                "whcode-web-cert-{}-{tag}-{stamp}-{seq}",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&root);
+            std::fs::create_dir_all(&root).expect("创建测试工作区");
+            Self { root }
+        }
+
+        fn paths(&self) -> whcode_app::cert::CertPaths {
+            whcode_app::cert::CertPaths::for_workspace(&self.root)
+        }
+    }
+
+    impl Drop for CertWorkspace {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    /// 假探针：不触网；`fail` 时返回注入的超时错误（覆盖失败信封）。
+    struct FakeProbe {
+        fail: bool,
+    }
+
+    impl whcode_app::cert::CertProbe for FakeProbe {
+        fn probe(
+            &self,
+            host: &str,
+            port: u16,
+            material: &whcode_app::cert::TrustMaterial,
+        ) -> Result<whcode_app::cert::ProbeReport, WhError> {
+            assert!(
+                !material.builtin_pem.is_empty(),
+                "探针必须收到当前信任材料（builtin）"
+            );
+            if self.fail {
+                return Err(WhError::new(ErrorCode::Timeout, "注入的握手超时（测试）"));
+            }
+            Ok(whcode_app::cert::ProbeReport {
+                host: host.to_string(),
+                port,
+                subject: Some("CN=probe.local".to_string()),
+                sans: vec!["probe.local".to_string()],
+                not_after: Some("2035-01-01T00:00:00Z".to_string()),
+                sha256: Some("a".repeat(64)),
+                tls_version: Some("TLSv1_3".to_string()),
+            })
+        }
+    }
+
+    /// 已初始化的证书库 + 内存库 + 探针；`send` 统一走 `handle_request_with_certs`。
+    struct CertFixture {
+        workspace: CertWorkspace,
+        conn: Connection,
+        restart_required: AtomicBool,
+        probe: FakeProbe,
+    }
+
+    impl CertFixture {
+        fn new(tag: &str, fail_probe: bool) -> Self {
+            let workspace = CertWorkspace::new(tag);
+            let sans = vec![
+                "localhost".to_string(),
+                "127.0.0.1".to_string(),
+                "::1".to_string(),
+            ];
+            whcode_app::cert::ensure_initialized(&workspace.paths(), &sans, CERT_NOW_MS)
+                .expect("初始化证书库");
+            Self {
+                workspace,
+                conn: migrated(),
+                restart_required: AtomicBool::new(false),
+                probe: FakeProbe { fail: fail_probe },
+            }
+        }
+
+        fn paths(&self) -> whcode_app::cert::CertPaths {
+            self.workspace.paths()
+        }
+
+        fn send(&mut self, request: &HttpRequest, actor: &Actor) -> HttpResponse {
+            let paths = self.workspace.paths();
+            let context = CertApiContext {
+                paths: &paths,
+                probe: &self.probe,
+                restart_required: &self.restart_required,
+                // 测试夹具不模拟监听地址：连通性校验照常走 FakeProbe。
+                listen: None,
+            };
+            handle_request_with_certs(
+                &mut self.conn,
+                false,
+                None,
+                &security::ALLOWED_ORIGINS,
+                request,
+                actor,
+                None,
+                "zh-CN",
+                Some(&context),
+            )
+        }
+
+        /// 带自定义 Origin 与允许集的请求（Origin 语义用例）。
+        fn send_with_origins(
+            &mut self,
+            method: Method,
+            path: &str,
+            body: Option<&serde_json::Value>,
+            origin: &str,
+            allowed: &[&str],
+            actor: &Actor,
+        ) -> HttpResponse {
+            let request = HttpRequest {
+                method,
+                path: path.to_string(),
+                headers: vec![("origin".to_string(), origin.to_string())],
+                body: body
+                    .map(|value| serde_json::to_vec(value).expect("序列化"))
+                    .unwrap_or_default(),
+            };
+            let paths = self.workspace.paths();
+            let context = CertApiContext {
+                paths: &paths,
+                probe: &self.probe,
+                restart_required: &self.restart_required,
+                listen: None,
+            };
+            handle_request_with_certs(
+                &mut self.conn,
+                false,
+                None,
+                allowed,
+                &request,
+                actor,
+                None,
+                "zh-CN",
+                Some(&context),
+            )
+        }
+
+        fn get(&mut self, path: &str, actor: &Actor) -> HttpResponse {
+            self.send(&request(Method::Get, path, false), actor)
+        }
+
+        fn post(&mut self, path: &str, body: &serde_json::Value, actor: &Actor) -> HttpResponse {
+            self.send(&post(path, body), actor)
+        }
+    }
+
+    fn assert_no_private_key(response: &HttpResponse) {
+        let text = String::from_utf8_lossy(&response.body);
+        assert!(
+            !text.contains("PRIVATE KEY"),
+            "任何响应都不得含私钥（ADR-040 决策 1／4）：{text}"
+        );
+    }
+
+    /// `GET /api/certs`：状态字段齐全、`restart_required=false`、不含私钥。
+    #[test]
+    fn cert_status_reads_without_private_material() {
+        let mut fixture = CertFixture::new("status", false);
+        let actor = actor_with_all_capabilities("cert-admin");
+        let response = fixture.get("/api/certs", &actor);
+        assert_eq!(
+            response.status,
+            200,
+            "{}",
+            String::from_utf8_lossy(&response.body)
+        );
+        assert_no_private_key(&response);
+        let body = json_of(&response);
+        assert_eq!(body["schema_version"], whcode_domain::SCHEMA_VERSION);
+        assert_eq!(body["outbound"]["mode"], "builtin");
+        assert_eq!(body["outbound"]["source"], "builtin");
+        assert!(
+            body["outbound"]["builtin"]["cert_count"]
+                .as_u64()
+                .is_some_and(|count| count > 0),
+            "内置副本份数必须可见：{}",
+            body["outbound"]["builtin"]["cert_count"]
+        );
+        assert_eq!(body["outbound"]["builtin"]["modified"], false);
+        assert_eq!(body["inbound"]["mode"], "builtin");
+        assert_eq!(body["inbound"]["cert_present"], true);
+        assert_eq!(body["inbound"]["key_present"], true, "只报告存在性");
+        assert_eq!(body["restart_required"], false);
+        assert!(
+            body["inbound"]["sha256"]
+                .as_str()
+                .is_some_and(|sha| sha.len() == 64)
+        );
+    }
+
+    /// 未接线（`cert = None`）：明确 `invalid_state`，不伪装成功、不以 404 掩盖。
+    #[test]
+    fn cert_routes_without_context_report_not_wired() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("tester");
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/certs", false),
+            &actor,
+        );
+        assert_eq!(response.status, 400);
+        let body = json_of(&response);
+        assert_eq!(body["code"], "invalid_state");
+        assert!(
+            body["message"].as_str().unwrap_or("").contains("未接线"),
+            "{body}"
+        );
+    }
+
+    /// 能力判定：读能力不得写；写面要么拒绝、要么不落文件。
+    #[test]
+    fn cert_writes_require_write_capability() {
+        let mut fixture = CertFixture::new("perm", false);
+        let reader = Actor::new("cert-reader", [Capability::SettingsCertRead]);
+        let response = fixture.post(
+            "/api/certs/modes",
+            &serde_json::json!({"inbound": "off", "confirm": true}),
+            &reader,
+        );
+        assert_eq!(response.status, 403);
+        let body = json_of(&response);
+        assert_eq!(body["code"], "permission_denied");
+        assert_eq!(body["retryable"], false);
+        assert_eq!(
+            whcode_app::cert::load_settings(&fixture.paths())
+                .expect("读取设置")
+                .inbound,
+            InboundMode::Builtin,
+            "权限拒绝不得改文件"
+        );
+        assert_eq!(fixture.get("/api/certs", &reader).status, 200, "读面允许");
+    }
+
+    /// TLS 回环：非空 `https` 允许集生效（认证关闭），明文与跨站均拒绝。
+    #[test]
+    fn tls_origin_allowlist_is_enforced_without_auth() {
+        let mut fixture = CertFixture::new("origin", false);
+        let actor = actor_with_all_capabilities("cert-admin");
+        let https_origins = ["https://127.0.0.1:8443"];
+        let allowed = fixture.send_with_origins(
+            Method::Get,
+            "/api/certs",
+            None,
+            "https://127.0.0.1:8443",
+            &https_origins,
+            &actor,
+        );
+        assert_eq!(
+            allowed.status, 200,
+            "TLS 模式 https 回环来源必须放行（ADR-022 2026-10-25 修订）"
+        );
+        let plain = fixture.send_with_origins(
+            Method::Get,
+            "/api/certs",
+            None,
+            "http://127.0.0.1:8443",
+            &https_origins,
+            &actor,
+        );
+        assert_eq!(plain.status, 403, "TLS 模式下明文 scheme 必须拒绝");
+        let cross_site = fixture.send_with_origins(
+            Method::Post,
+            "/api/certs/modes",
+            Some(&serde_json::json!({"inbound": "off", "confirm": true})),
+            "https://evil.example",
+            &https_origins,
+            &actor,
+        );
+        assert_eq!(cross_site.status, 403, "跨站写请求必须拒绝");
+        assert_eq!(
+            json_of(&fixture.get("/api/certs", &actor))["inbound"]["mode"],
+            "builtin",
+            "跨站请求不得改文件"
+        );
+    }
+
+    /// 档位切换、CA 读取／写入／重置与未知 kind／档位的明确错误。
+    #[test]
+    fn cert_modes_and_ca_routes_are_bounded_and_explicit() {
+        let mut fixture = CertFixture::new("modes-ca", false);
+        let actor = actor_with_all_capabilities("cert-admin");
+
+        // 入站 off 未确认 → 400（说明 confirm 语义）；未知档位 → parse_error。
+        let denied = fixture.post(
+            "/api/certs/modes",
+            &serde_json::json!({"inbound": "off"}),
+            &actor,
+        );
+        assert_eq!(denied.status, 400);
+        assert!(
+            json_of(&denied)["message"]
+                .as_str()
+                .unwrap_or("")
+                .contains("confirm")
+        );
+        let unknown = fixture.post(
+            "/api/certs/modes",
+            &serde_json::json!({"inbound": "maybe"}),
+            &actor,
+        );
+        assert_eq!(unknown.status, 400);
+        assert_eq!(json_of(&unknown)["code"], "parse_error");
+        // 空档位请求 → invalid_state。
+        let empty = fixture.post("/api/certs/modes", &serde_json::json!({}), &actor);
+        assert_eq!(empty.status, 400);
+        assert_eq!(json_of(&empty)["code"], "invalid_state");
+
+        // 确认后执行：入站 off + restart_required = true。
+        let off = fixture.post(
+            "/api/certs/modes",
+            &serde_json::json!({"inbound": "off", "confirm": true}),
+            &actor,
+        );
+        assert_eq!(off.status, 200, "{}", String::from_utf8_lossy(&off.body));
+        assert_eq!(json_of(&off)["inbound"]["mode"], "off");
+        assert_eq!(json_of(&off)["restart_required"], true);
+        fixture.post(
+            "/api/certs/modes",
+            &serde_json::json!({"inbound": "builtin"}),
+            &actor,
+        );
+
+        // CA：追加为空 → 写入一份证书 → 重置回 0；未知 kind 明确 invalid_state。
+        let initial = fixture.get("/api/certs/ca?kind=extra", &actor);
+        assert_eq!(initial.status, 200);
+        assert_eq!(json_of(&initial)["cert_count"], 0);
+        assert_no_private_key(&initial);
+        let server_pem = whcode_app::cert::read_server_material(&fixture.paths())
+            .expect("读取受管材料")
+            .cert_pem;
+        let written = fixture.post(
+            "/api/certs/ca",
+            &serde_json::json!({"kind": "extra", "pem": server_pem}),
+            &actor,
+        );
+        assert_eq!(
+            written.status,
+            200,
+            "{}",
+            String::from_utf8_lossy(&written.body)
+        );
+        assert_no_private_key(&written);
+        let extra = json_of(&fixture.get("/api/certs/ca?kind=extra", &actor));
+        assert_eq!(extra["kind"], "extra");
+        assert_eq!(extra["cert_count"], 1);
+        assert_eq!(extra["modified"], false, "追加文件没有“已修改”判定");
+        assert!(extra["sha256"].as_str().is_some_and(|sha| sha.len() == 64));
+        assert!(
+            extra["pem"]
+                .as_str()
+                .is_some_and(|pem| pem.contains("BEGIN CERTIFICATE")),
+            "读面返回公开证书 PEM"
+        );
+        let reset = fixture.post(
+            "/api/certs/ca/reset",
+            &serde_json::json!({"kind": "extra"}),
+            &actor,
+        );
+        assert_eq!(reset.status, 200);
+        assert_eq!(
+            json_of(&fixture.get("/api/certs/ca?kind=extra", &actor))["cert_count"],
+            0
+        );
+        let bad_kind = fixture.get("/api/certs/ca?kind=bogus", &actor);
+        assert_eq!(bad_kind.status, 400);
+        assert_eq!(json_of(&bad_kind)["code"], "invalid_state");
+        let missing_kind = fixture.get("/api/certs/ca", &actor);
+        assert_eq!(missing_kind.status, 400);
+    }
+
+    /// 服务端材料：公开读面、匹配上传（切 external + 重启标记）、不匹配与未确认拒绝。
+    #[test]
+    fn cert_server_routes_publish_public_material_only() {
+        let mut fixture = CertFixture::new("server", false);
+        let actor = actor_with_all_capabilities("cert-admin");
+
+        let initial = fixture.get("/api/certs/server", &actor);
+        assert_eq!(initial.status, 200);
+        let body = json_of(&initial);
+        assert!(
+            body["cert_pem"]
+                .as_str()
+                .is_some_and(|pem| pem.contains("BEGIN CERTIFICATE")),
+            "读面返回公开证书 PEM"
+        );
+        assert_eq!(body["inbound"]["mode"], "builtin");
+        assert_no_private_key(&initial);
+
+        let material =
+            whcode_app::cert::read_server_material(&fixture.paths()).expect("读取受管材料");
+
+        // 未确认 → 400 invalid_state（上传外部私钥属降档）。
+        let unconfirmed = fixture.post(
+            "/api/certs/server",
+            &serde_json::json!({
+                "cert_pem": material.cert_pem,
+                "key_pem": material.key_pem,
+            }),
+            &actor,
+        );
+        assert_eq!(unconfirmed.status, 400);
+        assert!(
+            json_of(&unconfirmed)["message"]
+                .as_str()
+                .unwrap_or("")
+                .contains("confirm")
+        );
+
+        // 匹配材料（本工作区自身）+ 确认 → 200，档位切到 external 并标记重启。
+        let uploaded = fixture.post(
+            "/api/certs/server",
+            &serde_json::json!({
+                "cert_pem": material.cert_pem,
+                "key_pem": material.key_pem,
+                "confirm": true,
+            }),
+            &actor,
+        );
+        assert_eq!(
+            uploaded.status,
+            200,
+            "{}",
+            String::from_utf8_lossy(&uploaded.body)
+        );
+        assert_no_private_key(&uploaded);
+        let body = json_of(&uploaded);
+        assert_eq!(body["inbound"]["mode"], "external");
+        assert_eq!(body["restart_required"], true);
+        assert!(
+            whcode_app::cert::load_settings(&fixture.paths())
+                .expect("读取设置")
+                .inbound
+                == InboundMode::External,
+            "上传成功后档位必须切换（不静默留在旧档位）"
+        );
+
+        // 不匹配：用另一工作区的证书 + 本工作区私钥 → parse_error，材料不变。
+        let other = CertFixture::new("server-other", false);
+        let other_material =
+            whcode_app::cert::read_server_material(&other.paths()).expect("另一工作区材料");
+        let before_cert = std::fs::read(fixture.paths().server_cert()).expect("读取当前证书");
+        let mismatch = fixture.post(
+            "/api/certs/server",
+            &serde_json::json!({
+                "cert_pem": other_material.cert_pem,
+                "key_pem": material.key_pem,
+                "confirm": true,
+            }),
+            &actor,
+        );
+        assert_eq!(mismatch.status, 400);
+        assert!(
+            json_of(&mismatch)["message"]
+                .as_str()
+                .unwrap_or("")
+                .contains("不匹配")
+        );
+        assert_eq!(
+            std::fs::read(fixture.paths().server_cert()).expect("读取"),
+            before_cert,
+            "不匹配不得改变材料"
+        );
+
+        // 重新生成自签：指纹变化、档位回 builtin、SAN 覆盖默认集合。
+        let before_sha = json_of(&fixture.get("/api/certs", &actor))["inbound"]["sha256"].clone();
+        let regenerated = fixture.post(
+            "/api/certs/server/self-signed",
+            &serde_json::json!({}),
+            &actor,
+        );
+        assert_eq!(
+            regenerated.status,
+            200,
+            "{}",
+            String::from_utf8_lossy(&regenerated.body)
+        );
+        assert_no_private_key(&regenerated);
+        let body = json_of(&regenerated);
+        assert_ne!(
+            body["inbound"]["sha256"], before_sha,
+            "重新生成后指纹必须变化"
+        );
+        assert_eq!(body["inbound"]["mode"], "builtin");
+        assert_eq!(body["restart_required"], true);
+        let sans = body["inbound"]["sans"].as_array().expect("SAN 数组");
+        for expected in ["localhost", "127.0.0.1", "::1"] {
+            assert!(
+                sans.iter().any(|value| value == expected),
+                "SAN 必须覆盖 {expected}：{sans:?}"
+            );
+        }
+
+        // 无材料：`cert_pem = null`（不是错误）。
+        std::fs::remove_file(fixture.paths().server_cert()).expect("删除证书");
+        std::fs::remove_file(fixture.paths().server_key()).expect("删除私钥");
+        let missing = fixture.get("/api/certs/server", &actor);
+        assert_eq!(missing.status, 200, "无证书不是错误");
+        let body = json_of(&missing);
+        assert!(body["cert_pem"].is_null());
+        assert_eq!(body["inbound"]["cert_present"], false);
+        assert_no_private_key(&missing);
+    }
+
+    /// 连通性校验：成功载荷 + 主机／端口校验 + 超时结构化错误。
+    #[test]
+    fn cert_verify_reports_probe_result_and_structured_errors() {
+        let mut fixture = CertFixture::new("verify", false);
+        let actor = actor_with_all_capabilities("cert-admin");
+
+        let ok = fixture.post(
+            "/api/certs/verify",
+            &serde_json::json!({"host": "probe.local", "port": 8443}),
+            &actor,
+        );
+        assert_eq!(ok.status, 200, "{}", String::from_utf8_lossy(&ok.body));
+        let body = json_of(&ok);
+        assert_eq!(body["schema_version"], whcode_domain::SCHEMA_VERSION);
+        assert_eq!(body["ok"], true);
+        assert_eq!(body["host"], "probe.local");
+        assert_eq!(body["port"], 8443);
+        assert_eq!(body["subject"], "CN=probe.local");
+        assert_eq!(body["tls_version"], "TLSv1_3");
+        assert_no_private_key(&ok);
+
+        // 缺省端口 443。
+        let default_port = fixture.post(
+            "/api/certs/verify",
+            &serde_json::json!({"host": "probe.local"}),
+            &actor,
+        );
+        assert_eq!(json_of(&default_port)["port"], 443);
+
+        for (payload, expected) in [
+            (
+                serde_json::json!({"host": "https://probe.local"}),
+                "不得包含",
+            ),
+            (serde_json::json!({"host": "user@probe.local"}), "不得包含"),
+            (serde_json::json!({"host": "probe.local/path"}), "不得包含"),
+            (
+                serde_json::json!({"host": "probe.local", "port": 0}),
+                "1..=65535",
+            ),
+            (
+                serde_json::json!({"host": "probe.local", "port": 70000}),
+                "1..=65535",
+            ),
+        ] {
+            let response = fixture.post("/api/certs/verify", &payload, &actor);
+            assert_eq!(response.status, 400, "{payload}");
+            assert!(
+                json_of(&response)["message"]
+                    .as_str()
+                    .unwrap_or("")
+                    .contains(expected),
+                "{payload} → {response:?}"
+            );
+        }
+
+        // 探针失败：结构化错误信封（不返回 ok:true）。
+        let mut failing = CertFixture::new("verify-timeout", true);
+        let response = failing.post(
+            "/api/certs/verify",
+            &serde_json::json!({"host": "probe.local"}),
+            &actor,
+        );
+        assert_eq!(response.status, 500);
+        let body = json_of(&response);
+        assert_eq!(body["code"], "timeout");
+        assert_eq!(body["retryable"], true);
+        assert!(body["ok"].is_null(), "错误信封不得携带 ok:true");
+    }
+
+    /// 重启标记：入站变更置位、根证书与读操作不置位，且置位后读面保持可见。
+    #[test]
+    fn restart_flag_tracks_inbound_changes_only() {
+        let mut fixture = CertFixture::new("restart", false);
+        let actor = actor_with_all_capabilities("cert-admin");
+        assert_eq!(
+            json_of(&fixture.get("/api/certs", &actor))["restart_required"],
+            false
+        );
+
+        let server_pem = whcode_app::cert::read_server_material(&fixture.paths())
+            .expect("读取受管材料")
+            .cert_pem;
+        let written = fixture.post(
+            "/api/certs/ca",
+            &serde_json::json!({"kind": "extra", "pem": server_pem}),
+            &actor,
+        );
+        assert_eq!(written.status, 200);
+        assert_eq!(
+            json_of(&written)["restart_required"],
+            false,
+            "根证书变更不需要重启"
+        );
+        assert!(
+            !fixture.restart_required.load(Ordering::Relaxed),
+            "读操作与根证书写入不置位"
+        );
+
+        let off = fixture.post(
+            "/api/certs/modes",
+            &serde_json::json!({"inbound": "off", "confirm": true}),
+            &actor,
+        );
+        assert_eq!(json_of(&off)["restart_required"], true);
+        assert!(fixture.restart_required.load(Ordering::Relaxed));
+        assert_eq!(
+            json_of(&fixture.get("/api/certs", &actor))["restart_required"],
+            true,
+            "置位后读面必须持续可见"
+        );
+    }
+
+    /// 请求体上限：超出 `CERT_JSON_MAX_BYTES` 在解析前拒绝（不明文解析超限载荷）。
+    #[test]
+    fn cert_request_body_is_rejected_before_parsing() {
+        let mut fixture = CertFixture::new("limit", false);
+        let actor = actor_with_all_capabilities("cert-admin");
+        let oversized = HttpRequest {
+            method: Method::Post,
+            path: "/api/certs/modes".to_string(),
+            headers: vec![("origin".to_string(), "http://127.0.0.1".to_string())],
+            body: vec![b'x'; whcode_domain::CERT_JSON_MAX_BYTES + 1],
+        };
+        let response = fixture.send(&oversized, &actor);
+        assert_eq!(response.status, 400);
+        let body = json_of(&response);
+        assert_eq!(body["code"], "parse_error");
+        assert!(
+            body["message"].as_str().unwrap_or("").contains("上限"),
+            "{body}"
+        );
+        // 上限内的空体按空对象处理（self-signed 只需可选 confirm）。
+        let empty = HttpRequest {
+            method: Method::Post,
+            path: "/api/certs/server/self-signed".to_string(),
+            headers: vec![("origin".to_string(), "http://127.0.0.1".to_string())],
+            body: Vec::new(),
+        };
+        assert_eq!(fixture.send(&empty, &actor).status, 200);
+    }
+
+    /// 写审计：成功的证书变更写 `tls_config_change`，detail 不含 PEM 正文。
+    #[test]
+    fn cert_writes_are_audited_without_pem_bodies() {
+        let mut fixture = CertFixture::new("audit", false);
+        let actor = actor_with_all_capabilities("cert-admin");
+        let off = fixture.post(
+            "/api/certs/modes",
+            &serde_json::json!({"inbound": "off", "confirm": true}),
+            &actor,
+        );
+        assert_eq!(off.status, 200);
+        let settings_rows: i64 = fixture
+            .conn
+            .query_row(
+                "SELECT count(*) FROM audit WHERE action = 'tls_config_change' \
+                 AND target = 'tls:settings'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("统计审计");
+        assert_eq!(
+            settings_rows, 1,
+            "档位变更必须写一条 tls_config_change 审计"
+        );
+        let (detail,): (String,) = fixture
+            .conn
+            .query_row(
+                "SELECT CAST(detail_json AS VARCHAR) FROM audit WHERE target = 'tls:settings'",
+                [],
+                |row| Ok((row.get(0)?,)),
+            )
+            .expect("读取审计 detail");
+        assert!(
+            !detail.contains("PRIVATE KEY"),
+            "审计正文不得含私钥：{detail}"
+        );
+        assert!(!detail.contains("BEGIN CERTIFICATE"), "审计不得含 PEM 正文");
+        assert!(
+            detail.contains("inbound") && detail.contains("off"),
+            "审计须含档位变化：{detail}"
         );
     }
 }

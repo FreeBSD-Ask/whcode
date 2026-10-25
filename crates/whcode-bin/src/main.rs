@@ -13,12 +13,14 @@
 //! SDD 门禁 M4/T068+；Web/SSH M6—M7；运行时 M8/T100+。
 
 mod bench;
+mod cert_probe;
 mod config;
 mod cui_dispatch;
 mod logging;
 mod runtimes;
 mod serve;
 mod store_source;
+mod tls;
 mod workspace;
 
 use std::path::{Path, PathBuf};
@@ -348,6 +350,8 @@ fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
             return Err(ExitCode::FAILURE);
         }
     };
+    // 出站信任库（ADR-040 决策 2、T191）：只建出站文件，不生成入站证书；失败不阻断界面。
+    ensure_outbound_trust(&workspace, "TUI／GUI");
     // 连接经 Rc<RefCell> 共享：视图数据源（读）与 TUI 写命令执行器（FR-623）用同一条
     // 工作区连接（Check 98 口径：单连接为唯一写路径）；库不可用时两者皆缺（只读空源）。
     let shared = match workspace::open_workspace_db(&workspace, &config) {
@@ -373,6 +377,27 @@ fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
     })
 }
 
+/// 出站信任库装配（TUI／GUI／CUI 共用，ADR-040 决策 2、T191）。
+///
+/// 失败**不阻断**界面或命令：出站信任缺失只影响 LLM 调用，不应让只读界面不可用；
+/// 但必须显式告警（含证书库路径与修法），不得静默。成功时只输出证书库自身的提示
+/// （如“内置副本已修改且内置版本较新”），正常路径不打印噪声。
+pub(crate) fn ensure_outbound_trust(workspace: &Path, frontend: &str) {
+    let paths = whcode_app::cert::CertPaths::for_workspace(workspace);
+    match whcode_app::cert::ensure_outbound_initialized(&paths, now_unix_ms()) {
+        Ok(report) => {
+            for note in &report.notes {
+                eprintln!("证书库：{note}");
+            }
+        }
+        Err(err) => eprintln!(
+            "{frontend}：出站证书库初始化失败（本次继续运行；LLM 调用将因无信任根失败）：{err}；\
+             证书库目录 {}（修正权限或删除该目录可在下次启动重建，ADR-040 决策 1）",
+            paths.dir.display()
+        ),
+    }
+}
+
 fn doctor(args: &[String]) {
     let logger = logging::Logger::new(logging::Level::Info);
     let config = match load_config(args) {
@@ -385,22 +410,16 @@ fn doctor(args: &[String]) {
 
     // 依赖记录（V-001）：DuckDB 引擎版本必须来自运行期实测，缺证据时显式报不可用。
     let engine = whcode_store::engine_version();
+    // 证书库状态（T191／ADR-040）：**只读**——不创建文件、不发网络请求；系统库份数读取
+    // 失败或为 0 都在文本与 JSON 中显式标注，不以空对象冒充成功。
+    let tls = tls_report(&config.workspace_path, now_unix_ms());
 
     if args.iter().any(|a| a == "--json") {
         let (engine_version, engine_error) = match &engine {
             Ok(version) => (Some(version.as_str()), None),
             Err(err) => (None, Some(err.to_string())),
         };
-        let payload = serde_json::json!({
-            "schema_version": SCHEMA_VERSION,
-            // 版本标记：与 `--version` 同源（构建时间戳，精确到分钟），供脚本与 CI 校验。
-            "whcode_version": BUILD_STAMP,
-            "duckdb_engine_version": engine_version,
-            "duckdb_error": engine_error,
-            // 三档能力等级在门禁输出中可见（FR-702、Check 101）；探针仅在显式 doctor 执行。
-            "runtimes": runtimes::inventory(true),
-            "doctor": &config,
-        });
+        let payload = doctor_json_payload(&config, engine_version, engine_error, tls);
         match serde_json::to_string(&payload) {
             Ok(json) => println!("{json}"),
             Err(err) => eprintln!("doctor 输出序列化失败：{err}"),
@@ -434,6 +453,9 @@ fn doctor(args: &[String]) {
                 logger.log(logging::Level::Warn, &format!("临时目录不可用：{err}"));
             }
         }
+        for line in &tls.lines {
+            println!("{line}");
+        }
         println!(
             "未实现（明确标记）：命令面 M2/T046+；DuckDB 存取 M1/T032+；SDD 门禁 M4/T068+；Web/SSH M6—M7；运行时 M8/T100+"
         );
@@ -459,6 +481,283 @@ fn doctor(args: &[String]) {
     }
 }
 
+/// 当前 Unix 毫秒（证书库初始化时间戳与证书有效期判定）。
+fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX)
+        })
+}
+
+/// `doctor --json` 信封装配（与文本模式同源）：独立成函数，使 `tls` 键的存在与结构
+/// 可被单测断言，而不必启动子进程。
+fn doctor_json_payload(
+    config: &config::Config,
+    engine_version: Option<&str>,
+    engine_error: Option<String>,
+    tls: TlsDoctorReport,
+) -> serde_json::Value {
+    serde_json::json!({
+        "schema_version": SCHEMA_VERSION,
+        // 版本标记：与 `--version` 同源（构建时间戳，精确到分钟），供脚本与 CI 校验。
+        "whcode_version": BUILD_STAMP,
+        "duckdb_engine_version": engine_version,
+        "duckdb_error": engine_error,
+        // 三档能力等级在门禁输出中可见（FR-702、Check 101）；探针仅在显式 doctor 执行。
+        "runtimes": runtimes::inventory(true),
+        // 证书库（T191／ADR-040）：`tls` 为 `whcode_domain::tls::TlsStatus` 原样序列化；
+        // 不可用时为 `null` 且 `tls_error` 给出可操作原因（不返回空对象或伪造的 0 份）。
+        "tls": tls.value,
+        "tls_error": tls.error,
+        "tls_cert_dir": tls.cert_dir,
+        "tls_initialized": tls.initialized,
+        "doctor": config,
+    })
+}
+
+/// `doctor` 的证书库报告块：文本行与 JSON 值**同源**（同一份 `TlsStatus`，不两处各自表述）。
+///
+/// 只读（ADR-040 决策 1）：不创建目录或文件、不发起网络请求。未初始化工作区如实标
+/// “未初始化”；证书库不可用时文本打印 `tls: 不可用（原因）`、JSON 的 `tls` 为 `null`
+/// 且 `tls_error` 给出原因——不伪造 0 份。
+struct TlsDoctorReport {
+    /// 文本模式逐行输出。
+    lines: Vec<String>,
+    /// `TlsStatus` 原样序列化（不可用时为 `Value::Null`）。
+    value: serde_json::Value,
+    /// 不可用的可操作原因（可用时为 `None`）。
+    error: Option<String>,
+    /// 证书库目录（供 JSON 侧定位）。
+    cert_dir: String,
+    /// 出站四文件齐备。
+    initialized: bool,
+}
+
+/// 构造 `doctor` 的证书库报告块（见 [`TlsDoctorReport`]）。
+fn tls_report(workspace: &Path, now_ms: u64) -> TlsDoctorReport {
+    let paths = whcode_app::cert::CertPaths::for_workspace(workspace);
+    // “已初始化”按**出站四文件齐备**判定（设置、内置副本、追加文件、种子清单）——这正是
+    // `ensure_outbound_initialized` 的产物集合；只存在其中一个文件不算初始化完成。
+    let initialized = paths.settings().is_file()
+        && paths.builtin_ca().is_file()
+        && paths.extra_ca().is_file()
+        && paths.seed_manifest().is_file();
+    let cert_dir = paths.dir.display().to_string();
+    let mut lines = vec![
+        format!("tls_cert_dir: {cert_dir}"),
+        format!(
+            "tls_initialized: {}",
+            if initialized {
+                "是".to_string()
+            } else {
+                "否（证书库未初始化：仅报告缺失，doctor 不创建文件）".to_string()
+            }
+        ),
+    ];
+    // 可用性前置判定：设置文件损坏、schema 不受支持或路径被同名的非目录占用时，出站信任
+    // 不可用。此时只打印 `tls: 不可用（原因）`，不输出伪造的 0 份（ADR-040 决策 2）。
+    if let Some(reason) = cert_store_unavailable(&paths) {
+        lines.push(format!("tls: 不可用（{reason}）"));
+        return TlsDoctorReport {
+            lines,
+            value: serde_json::Value::Null,
+            error: Some(reason),
+            cert_dir,
+            initialized,
+        };
+    }
+    match whcode_app::cert::status(&paths, now_ms) {
+        Ok(status) => {
+            lines.extend(tls_status_lines(&status));
+            match serde_json::to_value(&status) {
+                Ok(value) => TlsDoctorReport {
+                    lines,
+                    value,
+                    error: None,
+                    cert_dir,
+                    initialized,
+                },
+                Err(err) => {
+                    let reason = format!("证书库状态序列化失败：{err}");
+                    lines.push(format!("tls: 不可用（{reason}）"));
+                    TlsDoctorReport {
+                        lines,
+                        value: serde_json::Value::Null,
+                        error: Some(reason),
+                        cert_dir,
+                        initialized,
+                    }
+                }
+            }
+        }
+        Err(err) => {
+            let reason = err.message;
+            lines.push(format!("tls: 不可用（{reason}）"));
+            TlsDoctorReport {
+                lines,
+                value: serde_json::Value::Null,
+                error: Some(reason),
+                cert_dir,
+                initialized,
+            }
+        }
+    }
+}
+
+/// 证书库可用性前置判定（**只读**，不创建、不修复文件）。
+///
+/// 只判定“确定不可用”：路径被同名文件占用，或设置文件存在但不可读／不可解析（含超限与
+/// 不支持的 schema）。权限不足同样经同一路径报出（读取失败即不可用）；doctor 不尝试修复。
+fn cert_store_unavailable(paths: &whcode_app::cert::CertPaths) -> Option<String> {
+    if paths.dir.exists() && !paths.dir.is_dir() {
+        return Some(format!(
+            "证书库路径存在但不是目录：{}（删除该文件后可在下次启动重建，ADR-040 决策 1）",
+            paths.dir.display()
+        ));
+    }
+    whcode_app::cert::load_settings(paths).err().map(|err| {
+        format!(
+            "证书库设置不可用：{}；文件 {}（修正或删除该文件可恢复内置默认，ADR-040 决策 1）",
+            err.message,
+            paths.settings().display()
+        )
+    })
+}
+
+/// 证书库状态 → `doctor` 文本行（出站档位与份数、入站档位与证书元数据）。
+fn tls_status_lines(status: &whcode_domain::TlsStatus) -> Vec<String> {
+    let outbound = &status.outbound;
+    let builtin = match &outbound.builtin {
+        Some(item) if item.cert_count > 0 => format!(
+            "{} 份（已修改={}，内置副本版本={}，内置有更新={}）",
+            item.cert_count,
+            yes_no(item.modified),
+            item.bundled_version.as_deref().unwrap_or("未知"),
+            yes_no(item.newer_bundled_available)
+        ),
+        Some(item) => format!(
+            "0 份（{} 不可用或为空，sha256={}；执行 reset 可重建内置副本）",
+            item.path,
+            if item.sha256.is_empty() {
+                "未取得"
+            } else {
+                item.sha256.as_str()
+            }
+        ),
+        None => "不适用（system 档位不读内置副本）".to_string(),
+    };
+    let extra = match &outbound.extra {
+        Some(item) => format!("{} 份（{}）", item.cert_count, item.path),
+        None => "0 份（ca-extra.pem 不存在）".to_string(),
+    };
+    let effective = outbound
+        .effective_root_count
+        .map_or_else(|| "未取得".to_string(), |count| count.to_string());
+    let mut lines = vec![
+        format!("tls_outbound: {}", outbound_summary(outbound)),
+        format!("tls_outbound_builtin: {builtin}"),
+        format!("tls_outbound_extra: {extra}"),
+        format!(
+            "tls_outbound_system_roots: {}",
+            system_roots_text(outbound.mode, outbound.system_root_count)
+        ),
+        format!("tls_outbound_effective_roots: {effective}"),
+        format!("tls_inbound: {}", inbound_summary(&status.inbound)),
+        format!("tls_inbound_mode: {}", status.inbound.mode.as_str()),
+        format!("tls_inbound_cert: {}", inbound_cert_text(status)),
+        format!(
+            "tls_inbound_key_present: {}",
+            yes_no(status.inbound.key_present)
+        ),
+        "tls_restart_required: 不适用（doctor 为只读进程，不改变监听）".to_string(),
+    ];
+    for note in &status.notes {
+        lines.push(format!("tls_note: {note}"));
+    }
+    lines
+}
+
+/// 出站速览行：档位、生效根证书数、内置副本修改标记与追加份数。
+///
+/// 生效份数未取得时写 `unknown`（`system` 档位读库失败），**不写成 0**；内置副本在
+/// `system` 档位不参与，写 `n/a` 而不是 `false`（ADR-040 决策 2）。
+fn outbound_summary(outbound: &whcode_domain::OutboundStatus) -> String {
+    let roots = outbound
+        .effective_root_count
+        .map_or_else(|| "unknown".to_string(), |count| count.to_string());
+    let modified = outbound
+        .builtin
+        .as_ref()
+        .map_or_else(|| "n/a".to_string(), |item| item.modified.to_string());
+    let extra = outbound.extra.as_ref().map_or(0, |item| item.cert_count);
+    format!(
+        "{} roots={roots} builtin_modified={modified} extra={extra}",
+        outbound.mode.as_str()
+    )
+}
+
+/// 入站速览行：档位、证书指纹、到期时间与剩余天数。
+///
+/// 关闭或证书缺失时各项写 `n/a`——缺失不是“0 天”，不做数值化伪装。
+fn inbound_summary(inbound: &whcode_domain::ServerCertStatus) -> String {
+    let sha = inbound.sha256.as_deref().unwrap_or("n/a");
+    let not_after = inbound.not_after.as_deref().unwrap_or("n/a");
+    let days = inbound
+        .days_remaining
+        .map_or_else(|| "n/a".to_string(), |days| days.to_string());
+    format!(
+        "{} sha256={sha} not_after={not_after} days={days}",
+        inbound.mode.as_str()
+    )
+}
+
+/// 入站证书摘要（主题／SAN／有效期／剩余天数／指纹）；缺失时区分档位说明补救方向。
+fn inbound_cert_text(status: &whcode_domain::TlsStatus) -> String {
+    let inbound = &status.inbound;
+    if inbound.mode == whcode_domain::InboundMode::Off {
+        return "不适用（入站 TLS 已关闭，serve --web 以明文 HTTP 运行）".to_string();
+    }
+    if !inbound.cert_present {
+        return "缺失或不可用（builtin 档位在 serve --web 启动时生成；external 档位需先上传证书链与私钥）"
+            .to_string();
+    }
+    format!(
+        "主题={}；SAN={}；生效={}；到期={}；剩余={} 天；指纹={}",
+        inbound.subject.as_deref().unwrap_or("未知"),
+        if inbound.sans.is_empty() {
+            "未知".to_string()
+        } else {
+            inbound.sans.join("、")
+        },
+        inbound.not_before.as_deref().unwrap_or("未知"),
+        inbound.not_after.as_deref().unwrap_or("未知"),
+        inbound
+            .days_remaining
+            .map_or_else(|| "未知".to_string(), |days| days.to_string()),
+        inbound.sha256.as_deref().unwrap_or("未取得"),
+    )
+}
+
+/// 系统证书库份数文本：`system` 档位 0 份与读取失败都必须显式区分，不得互相冒充
+/// （ADR-040 决策 2 的“不静默回落”）。
+fn system_roots_text(mode: whcode_domain::TrustMode, count: Option<usize>) -> String {
+    match (mode, count) {
+        (whcode_domain::TrustMode::Builtin, _) => "不适用（builtin 档位不读系统库）".to_string(),
+        (whcode_domain::TrustMode::System, Some(0)) => {
+            "0 份（读取成功但为空：出站连接将失败，不回落内置库，ADR-040 决策 2）".to_string()
+        }
+        (whcode_domain::TrustMode::System, Some(count)) => format!("{count} 份（操作系统证书库）"),
+        (whcode_domain::TrustMode::System, None) => {
+            "未取得（读取失败，原因见 tls_note；不伪装成 0）".to_string()
+        }
+    }
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value { "是" } else { "否" }
+}
+
 fn load_config(args: &[String]) -> Result<config::Config, whcode_domain::WhError> {
     match args.iter().position(|a| a == "--config") {
         Some(index) => {
@@ -482,7 +781,315 @@ fn load_config(args: &[String]) -> Result<config::Config, whcode_domain::WhError
 
 #[cfg(test)]
 mod tests {
-    use super::BUILD_STAMP;
+    use super::{BUILD_STAMP, doctor_json_payload, system_roots_text, tls_report};
+
+    /// 临时工作区（Drop 清理；不写入仓库）。
+    struct TempWorkspace {
+        path: std::path::PathBuf,
+    }
+
+    impl TempWorkspace {
+        fn new(tag: &str) -> Self {
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |elapsed| elapsed.as_nanos());
+            let path = std::env::temp_dir().join(format!(
+                "whcode-doctor-tls-{}-{tag}-{stamp}",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::create_dir_all(&path).expect("创建测试工作区");
+            Self { path }
+        }
+    }
+
+    impl Drop for TempWorkspace {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    /// doctor 只读：未初始化工作区如实报“未初始化”与 0 份，且不创建证书库目录。
+    #[test]
+    fn doctor_tls_report_is_readonly_and_flags_uninitialized_workspace() {
+        let workspace = TempWorkspace::new("uninit");
+        let report = tls_report(&workspace.path, 1_793_000_000_000);
+
+        assert!(report.error.is_none(), "读取成功时不得报不可用");
+        assert!(!report.initialized, "未初始化工作区不得报已初始化");
+        assert_eq!(
+            report.cert_dir,
+            workspace
+                .path
+                .join(".whcode")
+                .join("certs")
+                .display()
+                .to_string()
+        );
+        assert_eq!(report.value["schema_version"], serde_json::json!(1));
+        assert_eq!(
+            report.value["outbound"]["builtin"]["cert_count"],
+            serde_json::json!(0),
+            "未初始化工作区的份数必须如实为 0"
+        );
+        assert_eq!(
+            report.value["outbound"]["mode"],
+            serde_json::json!("builtin")
+        );
+        assert!(report.value["inbound"].is_object(), "入站状态必须可解析");
+        assert_eq!(
+            report.value["restart_required"],
+            serde_json::json!(false),
+            "doctor 只读：状态投影的 restart_required 恒为 false"
+        );
+        assert!(report.value["notes"].is_array(), "notes 必须为数组");
+        assert!(
+            report
+                .lines
+                .iter()
+                .any(|line| line.contains("tls_initialized: 否") && line.contains("未初始化")),
+            "文本必须显式标注未初始化：{:?}",
+            report.lines
+        );
+        assert!(
+            report
+                .lines
+                .iter()
+                .any(|line| line == "tls_outbound: builtin roots=0 builtin_modified=false extra=0"),
+            "出站速览行必须给出档位、份数与修改标记：{:?}",
+            report.lines
+        );
+        assert!(
+            report
+                .lines
+                .iter()
+                .any(|line| line == "tls_inbound: builtin sha256=n/a not_after=n/a days=n/a"),
+            "入站速览行不得把缺失证书伪装成数值：{:?}",
+            report.lines
+        );
+        assert!(
+            report
+                .lines
+                .iter()
+                .any(|line| line.starts_with("tls_note:")),
+            "缺失原因必须经 tls_note 说明：{:?}",
+            report.lines
+        );
+        assert!(
+            !report
+                .lines
+                .iter()
+                .any(|line| line.starts_with("tls: 不可用")),
+            "可用时不得报不可用：{:?}",
+            report.lines
+        );
+        assert!(
+            !workspace.path.join(".whcode").exists(),
+            "doctor 不得创建证书库目录（只读）"
+        );
+
+        // 只有设置文件不算初始化完成（出站四文件齐备才算），且合法设置不算不可用。
+        let certs = workspace.path.join(".whcode").join("certs");
+        std::fs::create_dir_all(&certs).expect("创建证书库目录");
+        std::fs::write(
+            certs.join("settings.json"),
+            br#"{"schema_version":1,"outbound":"builtin","inbound":"builtin"}"#,
+        )
+        .expect("写设置");
+        let partial = tls_report(&workspace.path, 1_793_000_000_000);
+        assert!(!partial.initialized, "只有 settings.json 不算初始化完成");
+        assert!(partial.error.is_none(), "合法设置不得报不可用");
+    }
+
+    /// doctor 文本与 JSON 同源：出站份数、入站缺失与“不含私钥”同时成立；
+    /// `--json` 信封含可解析的 `tls` 键。
+    #[test]
+    fn doctor_tls_report_reflects_initialized_store_without_private_key() {
+        let workspace = TempWorkspace::new("init");
+        let paths = whcode_app::cert::CertPaths::for_workspace(&workspace.path);
+        whcode_app::cert::ensure_outbound_initialized(&paths, 1_793_000_000_000)
+            .expect("仅出站初始化");
+        let report = tls_report(&workspace.path, 1_793_000_000_000);
+
+        assert!(report.error.is_none(), "初始化成功后不得报不可用");
+        assert!(report.initialized, "出站四文件齐备即已初始化");
+        assert_eq!(
+            report.value["outbound"]["builtin"]["cert_count"],
+            serde_json::json!(118),
+            "内置副本份数必须与资产一致"
+        );
+        assert_eq!(
+            report.value["outbound"]["effective_root_count"],
+            serde_json::json!(118)
+        );
+        assert_eq!(
+            report.value["inbound"]["cert_present"],
+            serde_json::json!(false),
+            "仅出站初始化不生成入站证书"
+        );
+        assert!(
+            report.lines.iter().any(
+                |line| line == "tls_outbound: builtin roots=118 builtin_modified=false extra=0"
+            ),
+            "速览行必须给出实际份数：{:?}",
+            report.lines
+        );
+        assert!(
+            report
+                .lines
+                .iter()
+                .any(|line| line.contains("tls_outbound_builtin: 118 份")),
+            "文本必须给出份数：{:?}",
+            report.lines
+        );
+        assert!(
+            report
+                .lines
+                .iter()
+                .any(|line| line.starts_with("tls_inbound: builtin sha256=n/a")),
+            "入站速览行必须存在且不伪造指纹：{:?}",
+            report.lines
+        );
+        assert!(
+            report
+                .lines
+                .iter()
+                .any(|line| line.contains("tls_inbound_cert: 缺失")),
+            "入站缺失必须显式：{:?}",
+            report.lines
+        );
+        let text = serde_json::to_string(&report.value).expect("序列化");
+        assert!(
+            !text.contains("PRIVATE KEY"),
+            "doctor JSON 不得含私钥：{text}"
+        );
+
+        // `--json` 信封：`tls` 键存在且结构可解析（与文本同一份状态）。
+        let config = crate::config::Config::for_workspace(workspace.path.clone());
+        let payload = doctor_json_payload(&config, Some("v1.2.0"), None, report);
+        assert!(payload["tls"].is_object(), "doctor JSON 必须含 tls 对象");
+        assert_eq!(
+            payload["tls"]["outbound"]["builtin"]["cert_count"],
+            serde_json::json!(118)
+        );
+        assert!(
+            payload["tls_error"].is_null(),
+            "可用时 tls_error 必须为 null"
+        );
+        assert_eq!(payload["tls_initialized"], serde_json::json!(true));
+        assert!(payload["tls_cert_dir"].is_string(), "必须给出证书库路径");
+        assert_eq!(
+            payload["duckdb_engine_version"],
+            serde_json::json!("v1.2.0")
+        );
+    }
+
+    /// 证书库不可用（设置损坏或路径被同名文件占用）：`tls` 为 null、`tls_error` 给原因，
+    /// 文本打印 `tls: 不可用（…）`，不伪造出站 0 份（ADR-040 决策 1／2）。
+    #[test]
+    fn doctor_tls_report_reports_unavailable_store_instead_of_fake_zero() {
+        let workspace = TempWorkspace::new("broken");
+        let certs = workspace.path.join(".whcode").join("certs");
+        std::fs::create_dir_all(&certs).expect("创建证书库目录");
+        std::fs::write(certs.join("settings.json"), b"{ this is not json").expect("写损坏设置");
+
+        let report = tls_report(&workspace.path, 1_793_000_000_000);
+        assert!(
+            report.value.is_null(),
+            "不可用时 tls 必须为 null：{}",
+            report.value
+        );
+        let error = report.error.as_ref().expect("必须给出不可用原因");
+        assert!(error.contains("证书库设置不可用"), "{error}");
+        assert!(
+            report
+                .lines
+                .iter()
+                .any(|line| line.starts_with("tls: 不可用（")),
+            "文本必须打印 tls: 不可用（原因）：{:?}",
+            report.lines
+        );
+        assert!(
+            !report
+                .lines
+                .iter()
+                .any(|line| line.starts_with("tls_outbound:") || line.starts_with("tls_inbound:")),
+            "不可用时不得伪造出站/入站 0 份：{:?}",
+            report.lines
+        );
+        let config = crate::config::Config::for_workspace(workspace.path.clone());
+        let payload = doctor_json_payload(&config, None, None, report);
+        assert!(payload["tls"].is_null(), "JSON 的 tls 必须为 null");
+        assert!(
+            payload["tls_error"].is_string(),
+            "JSON 必须给出 tls_error 原因"
+        );
+
+        // 路径被同名文件占用：同样判不可用，而不是把 0 份当成功。
+        let blocked = TempWorkspace::new("blocked");
+        std::fs::create_dir_all(blocked.path.join(".whcode")).expect("创建 .whcode");
+        std::fs::write(blocked.path.join(".whcode").join("certs"), b"not a dir")
+            .expect("写同名文件");
+        let blocked_report = tls_report(&blocked.path, 1_793_000_000_000);
+        assert!(blocked_report.value.is_null());
+        let blocked_error = blocked_report.error.expect("必须给出不可用原因");
+        assert!(blocked_error.contains("不是目录"), "{blocked_error}");
+    }
+
+    /// 速览行不把“未知”写成 0：`system` 档位读库失败写 `unknown`，内置副本不参与写 `n/a`。
+    #[test]
+    fn summaries_do_not_fabricate_zero() {
+        use super::{inbound_summary, outbound_summary};
+        use whcode_domain::{InboundMode, OutboundStatus, ServerCertStatus, TrustMode};
+
+        let outbound = OutboundStatus {
+            mode: TrustMode::System,
+            source: "system".to_string(),
+            builtin: None,
+            extra: None,
+            system_root_count: None,
+            effective_root_count: None,
+        };
+        assert_eq!(
+            outbound_summary(&outbound),
+            "system roots=unknown builtin_modified=n/a extra=0"
+        );
+
+        let inbound = ServerCertStatus {
+            mode: InboundMode::Off,
+            cert_present: false,
+            key_present: false,
+            subject: None,
+            sans: Vec::new(),
+            not_before: None,
+            not_after: None,
+            sha256: None,
+            days_remaining: None,
+        };
+        assert_eq!(
+            inbound_summary(&inbound),
+            "off sha256=n/a not_after=n/a days=n/a"
+        );
+    }
+
+    /// 系统档位：0 份、读取失败与 builtin 不适用三种口径互不冒充（ADR-040 决策 2）。
+    #[test]
+    fn system_roots_text_distinguishes_zero_unknown_and_not_applicable() {
+        use whcode_domain::TrustMode;
+        let zero = system_roots_text(TrustMode::System, Some(0));
+        assert!(zero.starts_with("0 份"), "{zero}");
+        assert!(zero.contains("不回落内置库"), "{zero}");
+        let count = system_roots_text(TrustMode::System, Some(141));
+        assert!(count.contains("141 份"), "{count}");
+        let unknown = system_roots_text(TrustMode::System, None);
+        assert!(unknown.contains("未取得"), "{unknown}");
+        assert!(
+            !unknown.contains("0 份"),
+            "读取失败不得伪装成 0 份：{unknown}"
+        );
+        let not_applicable = system_roots_text(TrustMode::Builtin, None);
+        assert!(not_applicable.contains("不适用"), "{not_applicable}");
+    }
 
     /// 版本号 = 构建时间：本地时间 `YYYY-MM-DDTHH:MM±HH:MM`（精确到分钟）；
     /// 外部时间命令均不可用时回退 UTC `YYYY-MM-DDTHH:MMZ`，并由构建脚本输出

@@ -21,9 +21,14 @@
 //! - [`snapshot`]：四端同源状态快照（FR-314；M2 未覆盖字段显式标注，见模块文档）；
 //! - [`queue`]：有界队列与满载语义（T015，基础设施）。
 //!
+//! 已交付（T187，ADR-040）：
+//! - [`cert`]：工作区证书库编排（初始化、保真刷新、CA 读取／写入／重置、自签证书生成、
+//!   外部证书对校验、状态投影与变更审计）。
+//!
 //! 待交付：SDD 门禁编排（M4，T068+）。
 
 pub mod authz;
+pub mod cert;
 pub mod commands;
 pub mod context;
 pub mod events;

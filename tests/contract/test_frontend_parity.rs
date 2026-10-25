@@ -54,6 +54,16 @@ fn web_routes_resolve_to_implemented_surfaces() {
         ("POST", "/api/tasks/retry"),
         ("POST", "/api/tasks/abort"),
         ("POST", "/api/purge"),
+        // 证书库设置（T190、ADR-040 决策 4）：读面与写面均在 Web 实现。
+        ("GET", "/api/certs"),
+        ("GET", "/api/certs/ca"),
+        ("GET", "/api/certs/server"),
+        ("POST", "/api/certs/verify"),
+        ("POST", "/api/certs/modes"),
+        ("POST", "/api/certs/ca"),
+        ("POST", "/api/certs/ca/reset"),
+        ("POST", "/api/certs/server"),
+        ("POST", "/api/certs/server/self-signed"),
     ];
     for (method, path) in routes {
         let id = whcode_web::surface_map::surface_of(method, path)

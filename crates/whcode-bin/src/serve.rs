@@ -38,15 +38,19 @@
 //! 由 bind 层直接拒绝（FR-606），token 配置属未来任务。
 
 use std::fs;
-use std::io::{ErrorKind, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::io::{ErrorKind, Write};
+use std::net::{IpAddr, SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use duckdb::Connection;
+use rustls::{ServerConfig, ServerConnection};
+use whcode_app::cert::{self, CertPaths, ensure_initialized, load_settings, read_server_material};
 use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
-use whcode_domain::{ErrorCode, WhError};
+use whcode_domain::{ErrorCode, InboundMode, WhError};
 use whcode_web::api::{self, HttpResponse, Method};
 use whcode_web::assets;
 use whcode_web::bind::{BindConfig, bind};
@@ -54,8 +58,10 @@ use whcode_web::broadcast::{self, BroadcastState, ClientId, PushResult};
 use whcode_web::security;
 use whcode_web::ws;
 
+use crate::cert_probe::LlmCertProbe;
 use crate::config::Config;
 use crate::load_config;
+use crate::tls::{self, ConnIo};
 use crate::workspace;
 
 /// 空闲停靠时长：整 tick 无任何 I/O 进展时休眠，避免忙转（空闲 CPU 近零）。
@@ -94,6 +100,9 @@ pub struct ServeCli {
     pub bind: Option<String>,
     /// `--token-file PATH`：认证 token 文件（局域网监听必填；token 只从文件读取）。
     pub token_file: Option<PathBuf>,
+    /// `--tls <builtin|external|off>`：入站 TLS 档位按次覆盖工作区设置
+    /// （ADR-040 决策 3；仅 `--web` 适用，不写回 `settings.json`）。
+    pub tls: Option<String>,
 }
 
 impl ServeCli {
@@ -113,6 +122,9 @@ impl ServeCli {
                 "--token-file" => {
                     cli.token_file = Some(PathBuf::from(next_value(&mut iter, "--token-file")?));
                 }
+                "--tls" => {
+                    cli.tls = Some(next_value(&mut iter, "--tls")?);
+                }
                 "--workspace" => {
                     // 值由 `workspace::resolve_workspace` 统一读取；此处仅校验缺值。
                     let _ = next_value(&mut iter, "--workspace")?;
@@ -124,7 +136,8 @@ impl ServeCli {
                 other => {
                     return Err(WhError::parse_error(format!(
                         "未知参数 {other:?}：可用 --web / --ssh / --bind host:port / \
-                         --token-file PATH / --workspace DIR / --config PATH"
+                         --token-file PATH / --tls <builtin|external|off> / --workspace DIR / \
+                         --config PATH"
                     )));
                 }
             }
@@ -135,6 +148,13 @@ impl ServeCli {
         if !cli.web && !cli.ssh {
             return Err(WhError::parse_error(
                 "serve 缺少模式参数：可用 --web / --ssh",
+            ));
+        }
+        // SSH 认证是公钥，不经过 HTTP/TLS 链路：`--tls` 在 SSH 下没有语义，明确拒绝
+        // 而不是静默忽略（ADR-030；ADR-040 决策 3 只针对入站 Web）。
+        if cli.ssh && cli.tls.is_some() {
+            return Err(WhError::parse_error(
+                "--tls 仅适用于 --web：SSH 认证由公钥完成，不经过入站 HTTP/TLS 链路",
             ));
         }
         Ok(cli)
@@ -187,6 +207,7 @@ pub fn serve_command(args: &[String]) -> ExitCode {
         &config,
         cli.bind.as_deref(),
         cli.token_file.as_deref(),
+        cli.tls.as_deref(),
     ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
@@ -217,12 +238,26 @@ fn serve_ssh(workspace: &Path, config: &Config, bind_addr: Option<&str>) -> Resu
 struct ServeSecurity {
     auth_enabled: bool,
     token: Option<String>,
-    /// Origin 允许集（认证模式生效；回环模式由 `security::ALLOWED_ORIGINS` 兜底）。
+    /// Origin 允许集：`serve_web` 一律按协议注入（TLS → `https`，明文 → `http`）；
+    /// 为空时 `security::check_origin` 回落到明文回环默认（ADR-022 2026-10-25 修订）。
     origins: Vec<String>,
     /// FR-625 默认语言（`ui.locale` → `WHCODE_UI_LOCALE` → LANG/LC_ALL → zh-CN）。
     default_locale: String,
     /// FR-612 默认主题（`ui.theme` → `WHCODE_UI_THEME`）。
     default_theme: String,
+    /// 证书设置面上下文（`/api/certs/*`，T190）；测试装配为 `None`（未接线语义）。
+    certs: Option<ServeCerts>,
+}
+
+/// 证书设置面装配（T190、ADR-040 决策 4）：证书库路径、出站探针与本次会话的重启标记。
+///
+/// `restart_required` 在入站档位或服务端证书变更后置位；API 读操作只读取，写操作按需置位。
+struct ServeCerts {
+    paths: CertPaths,
+    probe: LlmCertProbe,
+    restart_required: AtomicBool,
+    /// 本进程实际监听地址（供 `/api/certs/verify` 拒绝“自探本进程”的必然超时）。
+    listen: Option<SocketAddr>,
 }
 
 impl ServeSecurity {
@@ -235,19 +270,24 @@ impl ServeSecurity {
             origins: Vec::new(),
             default_locale: "zh-CN".to_string(),
             default_theme: "amoled-night".to_string(),
+            certs: None,
         }
     }
 }
 
-/// 启动 Web 服务：工作区库 → 监听（回环或 RFC1918）→ 单线程多路复用服务循环。
+/// 启动 Web 服务：工作区库 → 入站 TLS 材料 → 监听（回环或 RFC1918）→ 单线程多路复用
+/// 服务循环。
 ///
 /// 安全边界（ADR-023）：局域网监听必须提供 `--token-file`（认证 + Origin 检查）；
-/// 公网/通配地址由 `bind` 层拒绝。
+/// 公网/通配地址由 `bind` 层拒绝。入站 TLS 档位优先级为**参数 > 工作区设置 > 默认
+/// `builtin`**（ADR-040 决策 3）：启用 TLS 时 Origin 允许集使用 `https` scheme，
+/// 材料不可用时拒绝启动，不静默降级明文。
 fn serve_web(
     workspace: &Path,
     config: &Config,
     bind_addr: Option<&str>,
     token_file: Option<&Path>,
+    tls_param: Option<&str>,
 ) -> Result<(), WhError> {
     let db_path = workspace::workspace_db_path(workspace);
     // 写命令（FR-609）需要 `&mut Connection`（store 的事务签名）；服务循环本就单线程
@@ -285,6 +325,42 @@ fn serve_web(
         ));
     }
     let auth_enabled = token.is_some();
+
+    // 入站档位（ADR-040 决策 3）：参数 > 设置 > 默认。`--tls` 为按次覆盖，不回写设置；
+    // 未给参数时才读设置文件，因此 `--tls off` 不会被损坏的设置文件阻断。
+    let now_ms = now_unix_ms();
+    let cert_paths = CertPaths::for_workspace(workspace);
+    let inbound = match tls_param {
+        Some(value) => resolve_inbound_mode(Some(value), InboundMode::default())?,
+        None => {
+            let settings = load_settings(&cert_paths).map_err(|err| {
+                WhError::new(
+                    err.code,
+                    format!(
+                        "{}；证书库设置 {}（请修正该文件，或用 --tls off 显式回到明文 HTTP，\
+                         ADR-040 决策 3）",
+                        err.message,
+                        cert_paths.settings().display()
+                    ),
+                )
+            })?;
+            resolve_inbound_mode(None, settings.inbound)?
+        }
+    };
+    let sans = required_sans(bind_addr);
+    let tls_config = prepare_tls(workspace, inbound, &sans, now_ms)?;
+    let fingerprint = if tls_config.is_some() {
+        match cert::status(&cert_paths, now_ms) {
+            Ok(status) => status.inbound.sha256,
+            Err(err) => {
+                eprintln!("证书状态读取失败（不影响启动，指纹记为未取得）：{err}");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     let bind_config = BindConfig {
         addr: addr_text,
         auth_enabled,
@@ -294,18 +370,38 @@ fn serve_web(
     let addr = listener
         .local_addr()
         .map_err(|err| WhError::new(ErrorCode::IoError, format!("读取监听地址失败：{err}")))?;
-    let mut origins = vec![format!("http://{addr}")];
-    if !addr.ip().is_loopback() {
-        origins.push(format!("http://localhost:{}", addr.port()));
-        origins.push(format!("http://127.0.0.1:{}", addr.port()));
-    }
+    let origins = origin_allowlist(addr, tls_config.is_some());
+    let scheme = if tls_config.is_some() {
+        "https"
+    } else {
+        "http"
+    };
     if lan {
-        println!("WHCode Web 服务：http://{addr}/（局域网 · 认证启用；Ctrl-C 退出；ADR-023）");
+        println!(
+            "WHCode Web 服务：{scheme}://{addr}/（局域网 · 认证启用 · 入站 TLS {}；\
+             Ctrl-C 退出；ADR-023／ADR-040）",
+            inbound.as_str()
+        );
     } else {
         println!(
-            "WHCode Web 服务：http://{addr}/（仅回环，Ctrl-C 退出；FR-606：外网地址被 bind 门禁拒绝）"
+            "WHCode Web 服务：{scheme}://{addr}/（仅回环 · 入站 TLS {}，Ctrl-C 退出；\
+             FR-606：外网地址被 bind 门禁拒绝）",
+            inbound.as_str()
         );
     }
+    match (&tls_config, fingerprint.as_deref()) {
+        (Some(_), Some(sha256)) => println!("入站证书指纹（SHA-256）：{sha256}"),
+        (Some(_), None) => {
+            println!("入站证书指纹（SHA-256）：未取得（证书状态读取失败，见上方错误）");
+        }
+        (None, _) => println!(
+            "入站 TLS 已关闭（{}）：明文 HTTP，Origin 允许集为 http://（ADR-040 决策 3）",
+            inbound.as_str()
+        ),
+    }
+    println!(
+        "证书设置页：{scheme}://{addr}/settings/certs（入站档位与证书变更需重启 serve --web 后生效）"
+    );
     println!("工作区数据库：{}", db_path.display());
     let security = ServeSecurity {
         auth_enabled,
@@ -313,8 +409,124 @@ fn serve_web(
         origins,
         default_locale: config.effective_locale(),
         default_theme: config.effective_theme().as_str().to_string(),
+        certs: Some(ServeCerts {
+            paths: cert_paths,
+            probe: LlmCertProbe,
+            restart_required: AtomicBool::new(false),
+            listen: Some(addr),
+        }),
     };
-    serve_loop(listener, &mut conn, actor, security)
+    serve_loop(listener, &mut conn, actor, security, tls_config)
+}
+
+/// 有效入站档位：`--tls` 参数 > 工作区设置 > 默认 `builtin`（ADR-040 决策 3）。
+///
+/// # Errors
+///
+/// `--tls` 取值不是 `builtin`／`external`／`off` 时返回 `parse_error`，不回落默认档位。
+fn resolve_inbound_mode(
+    param: Option<&str>,
+    settings: InboundMode,
+) -> Result<InboundMode, WhError> {
+    match param {
+        Some(value) => InboundMode::parse(value),
+        None => Ok(settings),
+    }
+}
+
+/// 入站自签证书必须覆盖的 SAN：`localhost`、`127.0.0.1`、`::1`、本机名，以及 `--bind`
+/// 为 IP 字面量时的该 IP（ADR-040 决策 3）。默认项补齐与去重由 `whcode-app::cert` 负责。
+fn required_sans(bind_addr: Option<&str>) -> Vec<String> {
+    let mut sans = vec![
+        "localhost".to_string(),
+        "127.0.0.1".to_string(),
+        "::1".to_string(),
+    ];
+    if let Some(name) = whcode_platform::hostname() {
+        sans.push(name);
+    }
+    let host = bind_addr.unwrap_or(whcode_web::bind::DEFAULT_BIND);
+    if let Ok(socket) = host.parse::<SocketAddr>() {
+        sans.push(socket.ip().to_string());
+    } else if let Ok(ip) = host.parse::<IpAddr>() {
+        sans.push(ip.to_string());
+    }
+    sans
+}
+
+/// Origin 允许集：启用 TLS 时 scheme 为 `https`，`--tls off` 为 `http`（ADR-040 决策 3）。
+///
+/// host 与端口语义不变：端口不参与匹配（`whcode-web::security::origin_scheme_host`），
+/// 非回环监听额外允许 `localhost` 与 `127.0.0.1`（ADR-022）。
+fn origin_allowlist(addr: SocketAddr, tls_enabled: bool) -> Vec<String> {
+    let scheme = if tls_enabled { "https" } else { "http" };
+    let mut origins = vec![format!("{scheme}://{addr}")];
+    if !addr.ip().is_loopback() {
+        origins.push(format!("{scheme}://localhost:{}", addr.port()));
+        origins.push(format!("{scheme}://127.0.0.1:{}", addr.port()));
+    }
+    origins
+}
+
+/// 按入站档位准备 TLS 服务端配置。
+///
+/// `off` 返回 `None` 且**不触碰证书库**（只读工作区不因无关写入被阻断）；`builtin`／
+/// `external` 初始化证书库并读取受管材料，任一失败即拒绝启动——错误列出证书库路径与
+/// `--tls off`，不静默降级明文（ADR-040 决策 3）。
+///
+/// # Errors
+///
+/// 证书库不可写、设置损坏、证书材料缺失／超限、或证书与私钥不可用时返回 [`WhError`]。
+fn prepare_tls(
+    workspace: &Path,
+    inbound: InboundMode,
+    required_sans: &[String],
+    now_ms: u64,
+) -> Result<Option<Arc<ServerConfig>>, WhError> {
+    if inbound == InboundMode::Off {
+        return Ok(None);
+    }
+    let paths = CertPaths::for_workspace(workspace);
+    let report = ensure_initialized(&paths, required_sans, now_ms).map_err(|err| {
+        WhError::new(
+            err.code,
+            format!(
+                "{}；证书库目录 {}（可删除该目录重建，或用 --tls off 显式回到明文 HTTP，\
+                 ADR-040 决策 3）",
+                err.message,
+                paths.dir.display()
+            ),
+        )
+    })?;
+    for note in &report.notes {
+        println!("证书库：{note}");
+    }
+    let material = read_server_material(&paths).map_err(|err| {
+        WhError::new(
+            err.code,
+            format!(
+                "{}（入站档位 {} 必须有证书材料；--tls off 为显式退路）",
+                err.message,
+                inbound.as_str()
+            ),
+        )
+    })?;
+    let config = tls::server_config(&material.cert_pem, &material.key_pem).map_err(|err| {
+        WhError::new(
+            err.code,
+            format!("{}；证书库目录 {}", err.message, paths.dir.display()),
+        )
+    })?;
+    Ok(Some(config))
+}
+
+/// 当前 Unix 毫秒（证书有效期判定与审计时间戳）。
+fn now_unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX)
+        })
 }
 
 /// 一次响应：HTTP 响应 + WS 升级标记。
@@ -359,9 +571,11 @@ enum Phase {
     Closing { buf: Vec<u8>, pos: usize },
 }
 
-/// 一条客户端连接（socket RAII：从连接表移除即关闭并注销订阅者）。
+/// 一条客户端连接（连接层 RAII：从连接表移除即关闭并注销订阅者）。
+///
+/// `io` 统一明文与 TLS：服务循环的全部读写都经 [`ConnIo`]，不直接触碰 socket。
 struct Client {
-    stream: TcpStream,
+    io: ConnIo,
     phase: Phase,
     last_active: Instant,
     /// 标记待回收：tick 末统一移除并注销（[`reap`]）。
@@ -369,11 +583,15 @@ struct Client {
 }
 
 /// 服务循环：单线程非阻塞多路复用（结构、正负与失效条件见模块文档并发设计档案）。
+///
+/// `tls` 为 `Some` 时新连接先完成 TLS 握手（在既有循环线程内推进，无新增线程）；
+/// 为 `None` 时保持 `--tls off` 的明文语义（ADR-040 决策 3）。
 fn serve_loop(
     listener: TcpListener,
     conn: &mut Connection,
     actor: Actor,
     security: ServeSecurity,
+    tls: Option<Arc<ServerConfig>>,
 ) -> Result<(), WhError> {
     listener.set_nonblocking(true).map_err(|err| {
         WhError::new(ErrorCode::IoError, format!("监听套接字非阻塞化失败：{err}"))
@@ -388,7 +606,7 @@ fn serve_loop(
     let mut last_poll = Instant::now();
     loop {
         let mut progressed = false;
-        accept_ready(&listener, &mut clients, &mut progressed);
+        accept_ready(&listener, &mut clients, &mut progressed, tls.as_ref());
         for client in clients.iter_mut() {
             pump_client(client, &mut state, conn, &actor, &security, &mut progressed);
         }
@@ -423,22 +641,43 @@ fn serve_loop(
     }
 }
 
-/// 接受就绪连接（非阻塞：一次 accept 尽可能多；超并发上限时尽力回 503 后丢弃——
-/// 显式拒绝，不静默排队无限连接）。
-fn accept_ready(listener: &TcpListener, clients: &mut Vec<Client>, progressed: &mut bool) {
+/// 接受就绪连接（非阻塞：一次 accept 尽可能多；超并发上限时显式丢弃——不静默排队
+/// 无限连接）。
+///
+/// 超限的**明文**连接尽力回 503（既有语义）；**TLS** 连接无法在握手前回任何 HTTP
+/// 响应，直接关闭（ADR-040 决策 3）。
+fn accept_ready(
+    listener: &TcpListener,
+    clients: &mut Vec<Client>,
+    progressed: &mut bool,
+    tls: Option<&Arc<ServerConfig>>,
+) {
     loop {
         match listener.accept() {
             Ok((stream, _addr)) => {
                 *progressed = true;
                 // 非阻塞化失败的连接会卡死唯一循环线程，与超限连接同样丢弃。
                 if stream.set_nonblocking(true).is_err() || clients.len() >= MAX_CLIENTS {
-                    let mut rejected = stream;
-                    let _ = rejected.write_all(b"HTTP/1.1 503 Service Unavailable\r\ncontent-length: 0\r\nconnection: close\r\n\r\n");
-                    drop(rejected);
+                    if tls.is_none() {
+                        let mut rejected = stream;
+                        let _ = rejected.write_all(
+                            b"HTTP/1.1 503 Service Unavailable\r\ncontent-length: 0\r\nconnection: close\r\n\r\n",
+                        );
+                    }
                     continue;
                 }
+                let io = match tls {
+                    Some(config) => match ServerConnection::new(config.clone()) {
+                        Ok(session) => ConnIo::tls(stream, session),
+                        Err(err) => {
+                            eprintln!("入站 TLS 会话创建失败，连接已关闭：{err}");
+                            continue;
+                        }
+                    },
+                    None => ConnIo::plain(stream),
+                };
                 clients.push(Client {
-                    stream,
+                    io,
                     phase: Phase::Reading {
                         buf: Vec::with_capacity(4096),
                         header_end: None,
@@ -497,8 +736,13 @@ fn pump_reading(
     if client.dead {
         return;
     }
-    // 5 s 内未读出完整请求 → 400（沿用原实现 read_timeout 的语义）。
     if client.last_active.elapsed() >= REQUEST_IDLE_TIMEOUT {
+        // TLS 握手沿用同一空闲上限（ADR-040 决策 3）：握手未完成时还没有 HTTPS 明文
+        // 通道，回 400 无意义，直接关闭；握手完成后保持既有 400 语义。
+        if client.io.is_handshaking() {
+            client.dead = true;
+            return;
+        }
         let reply = Reply::plain(HttpResponse::text(400, "bad request"));
         enter_writing(client, &reply, None);
         return;
@@ -555,7 +799,7 @@ enum RequestOutcome {
 fn read_request_bytes(client: &mut Client, progressed: &mut bool) {
     let mut chunk = [0u8; 4096];
     loop {
-        match client.stream.read(&mut chunk) {
+        match client.io.read_plain(&mut chunk) {
             Ok(0) => {
                 // 对端关闭：半途请求无法也不必响应（原实现读到 EOF 同样失败）。
                 client.dead = true;
@@ -569,12 +813,25 @@ fn read_request_bytes(client: &mut Client, progressed: &mut bool) {
                 }
             }
             Err(err) if err.kind() == ErrorKind::WouldBlock => return,
-            Err(_) => {
+            Err(err) => {
+                report_tls_failure(client, &err);
                 client.dead = true;
                 return;
             }
         }
     }
+}
+
+/// 打印 TLS 协议层失败原因（不含密钥/证书正文），并保留明文 socket 错误的既有静默语义。
+fn report_tls_failure(client: &Client, err: &std::io::Error) {
+    if err.kind() != ErrorKind::InvalidData {
+        return;
+    }
+    let peer = client
+        .io
+        .peer_addr()
+        .map_or_else(|_| "未知地址".to_string(), |addr| addr.to_string());
+    eprintln!("TLS 连接 {peer} 握手或解密失败，已关闭：{err}");
 }
 
 /// 路由响应：普通 HTTP → 写完即断（`connection: close` 不变）；WS 101 → 注册为
@@ -632,7 +889,7 @@ fn pump_writing(client: &mut Client, state: &mut BroadcastState, progressed: &mu
         _ => return,
     };
     while pos < buf.len() {
-        match client.stream.write(&buf[pos..]) {
+        match client.io.write_plain(&buf[pos..]) {
             Ok(0) => break,
             Ok(n) => {
                 pos += n;
@@ -650,6 +907,15 @@ fn pump_writing(client: &mut Client, state: &mut BroadcastState, progressed: &mu
         }
     }
     if pos >= buf.len() {
+        // TLS 下“接受明文字节”不等于“已发送”：仍有暂存明文或待写密文时保持本阶段，
+        // 下一 tick 继续刷出（写停滞上限照旧生效）。
+        if pending_after_flush(client, progressed) {
+            if let Phase::Writing { buf: slot, pos, .. } = &mut client.phase {
+                slot.clear();
+                *pos = 0;
+            }
+            return;
+        }
         match become_subscriber {
             Some(id) => {
                 client.phase = Phase::Subscriber {
@@ -668,6 +934,26 @@ fn pump_writing(client: &mut Client, state: &mut BroadcastState, progressed: &mu
     }
 }
 
+/// 尽力刷出待写字节；返回 `true` 表示仍有未送达字节（调用方不得结束阶段）。
+///
+/// 明文连接恒为 `false`（无 TLS 缓冲），因此既有明文语义不变。刷出有进展时刷新
+/// `last_active`，避免“慢但对端仍在读”的连接被写停滞上限误杀。
+fn pending_after_flush(client: &mut Client, progressed: &mut bool) -> bool {
+    match client.io.flush_written() {
+        Ok(written) => {
+            if written > 0 {
+                *progressed = true;
+                client.last_active = Instant::now();
+            }
+        }
+        Err(_) => {
+            client.dead = true;
+            return true;
+        }
+    }
+    client.io.has_pending_output()
+}
+
 /// 收尾写出泵（错误响应/关闭帧）：写完即断；停滞超 [`WRITE_STALL_TIMEOUT`] 断开。
 fn pump_closing(client: &mut Client, progressed: &mut bool) {
     if client.last_active.elapsed() >= WRITE_STALL_TIMEOUT {
@@ -679,7 +965,7 @@ fn pump_closing(client: &mut Client, progressed: &mut bool) {
         _ => return,
     };
     while pos < buf.len() {
-        match client.stream.write(&buf[pos..]) {
+        match client.io.write_plain(&buf[pos..]) {
             Ok(0) => break,
             Ok(n) => {
                 pos += n;
@@ -694,6 +980,14 @@ fn pump_closing(client: &mut Client, progressed: &mut bool) {
         }
     }
     if pos >= buf.len() {
+        // TLS 待写密文未送达时不提前断开（否则关闭帧会被截断）。
+        if pending_after_flush(client, progressed) {
+            if let Phase::Closing { buf: slot, pos, .. } = &mut client.phase {
+                slot.clear();
+                *pos = 0;
+            }
+            return;
+        }
         client.dead = true;
     } else {
         buf.drain(..pos);
@@ -724,7 +1018,7 @@ fn read_subscriber_bytes(client: &mut Client, state: &mut BroadcastState, progre
     };
     let mut chunk = [0u8; 4096];
     loop {
-        match client.stream.read(&mut chunk) {
+        match client.io.read_plain(&mut chunk) {
             Ok(0) => {
                 client.dead = true; // 对端关闭
                 return;
@@ -741,7 +1035,8 @@ fn read_subscriber_bytes(client: &mut Client, state: &mut BroadcastState, progre
                 }
             }
             Err(err) if err.kind() == ErrorKind::WouldBlock => return,
-            Err(_) => {
+            Err(err) => {
+                report_tls_failure(client, &err);
                 client.dead = true;
                 return;
             }
@@ -958,7 +1253,7 @@ fn write_subscriber_queue(
         if pending.is_empty() {
             break;
         }
-        match client.stream.write(&pending) {
+        match client.io.write_plain(&pending) {
             Ok(0) => break,
             Ok(n) => {
                 pending.drain(..n);
@@ -994,14 +1289,15 @@ fn flush_queues(clients: &mut [Client], state: &mut BroadcastState, progressed: 
 
 /// 回收死连接（socket RAII：移除即关闭；订阅者移除即注销——重复注销幂等）。
 fn reap(clients: &mut Vec<Client>, state: &mut BroadcastState) {
-    clients.retain(|client| {
-        if client.dead
-            && let Phase::Subscriber { id, .. } = &client.phase
-        {
+    for client in clients.iter_mut().filter(|client| client.dead) {
+        if let Phase::Subscriber { id, .. } = &client.phase {
             state.unregister(*id);
         }
-        !client.dead
-    });
+        // 断开前尽力送出已交给 TLS 的字节（关闭帧不得被静默丢弃）；错误可忽略——
+        // 连接本就要关闭，失败不影响其他客户端。
+        let _ = client.io.flush();
+    }
+    clients.retain(|client| !client.dead);
 }
 
 /// 服务端→客户端关闭帧（不掩码；2 字节状态码）。
@@ -1052,6 +1348,11 @@ fn respond(
         if path == "/" || path == "/index.html" {
             return Reply::plain(index_response(conn, actor, security));
         }
+        // 设置页服务端直出（T190）：先于 `static_asset` 处理，把只读状态摘要注入
+        // `<noscript>`（无 JS 时可见，FR-618／Check 286）。
+        if path == "/settings/certs" {
+            return Reply::plain(settings_response(security));
+        }
         if let Some((content_type, body)) = assets::static_asset(path) {
             return Reply::plain(HttpResponse {
                 status: 200,
@@ -1065,9 +1366,18 @@ fn respond(
     // 三档能力等级（FR-702、Check 101）：只注入声明，不在请求路径启动子进程。
     let runtime_inventory = serde_json::to_value(crate::runtimes::inventory(false))
         .unwrap_or_else(|_| serde_json::Value::Array(Vec::new()));
+    // 证书设置面（T190）：装配根持有路径与探针，Web 层只经 trait 使用（ADR-031 边界）。
+    let cert_context = security.certs.as_ref().map(|certs| api::CertApiContext {
+        paths: &certs.paths,
+        probe: &certs.probe,
+        restart_required: &certs.restart_required,
+        listen: certs
+            .listen
+            .map(|addr| (addr.ip().to_string(), addr.port())),
+    });
     // FR-625 语言链由装配根在启动时解析（`ServeSecurity::default_locale`）；
     // Web 的 `?locale=` 与 Accept-Language 在该默认值之上显式覆盖。
-    let response = api::handle_request_with_runtimes(
+    let response = api::handle_request_with_certs(
         conn,
         security.auth_enabled,
         security.token.as_deref(),
@@ -1076,6 +1386,7 @@ fn respond(
         actor,
         Some(&runtime_inventory),
         &security.default_locale,
+        cert_context.as_ref(),
     );
     Reply {
         ws_upgrade: is_ws && response.status == 101,
@@ -1147,6 +1458,38 @@ fn index_response(
     }
 }
 
+/// 服务端直出证书设置页（T190/FR-627）：把只读状态摘要注入 `<noscript>`。
+///
+/// - 未接线（`security.certs = None`）与状态读取失败分别渲染**不同**的可见错误，
+///   都不返回 404/500 空页，也不把两者渲染成“没有证书”（信号链完备原则）；
+/// - 摘要只含公开信息与文件路径；私钥只进不出，任何响应都不含私钥内容
+///   （ADR-040 决策 4）；
+/// - 默认主题与首页同机制（`with_default_theme`），语言取装配根解析的 `default_locale`；
+/// - 页面与 `/api/*` 一样不缓存（状态随时可能因写操作变化）。
+fn settings_response(security: &ServeSecurity) -> HttpResponse {
+    let html = match security.certs.as_ref() {
+        Some(certs) => match cert::status(&certs.paths, now_unix_ms()) {
+            Ok(mut status) => {
+                status.restart_required = certs.restart_required.load(Ordering::Relaxed);
+                assets::render_settings_page(Some(&status), &security.default_locale)
+            }
+            Err(err) => assets::render_settings_page_error(&err.message, &security.default_locale),
+        },
+        None => assets::render_settings_page(None, &security.default_locale),
+    };
+    HttpResponse {
+        status: 200,
+        headers: vec![
+            (
+                "content-type".to_string(),
+                "text/html; charset=utf-8".to_string(),
+            ),
+            ("cache-control".to_string(), "no-store".to_string()),
+        ],
+        body: assets::with_default_theme(html, &security.default_theme).into_bytes(),
+    }
+}
+
 /// 渲染响应字节：状态行 + 头 + 体。101 不带 Content-Length 与 `connection: close`
 /// （RFC 7230：升级后连接保持——订阅复用，不再立即关闭）。
 fn render_response(response: &HttpResponse) -> Vec<u8> {
@@ -1184,20 +1527,26 @@ fn reason(status: u16) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{ErrorKind, Read as _, Write as _};
+    use std::io::{ErrorKind, Read, Write as _};
     use std::net::{SocketAddr, TcpStream};
+    use std::sync::Arc;
     use std::time::{Duration, Instant};
 
     use duckdb::{Connection, params};
+    use rustls::pki_types::pem::PemObject as _;
+    use rustls::pki_types::{CertificateDer, ServerName};
     use whcode_web::ws::accept_key;
 
     use super::{
-        INITIAL_SESSION_LIMIT, Reply, ServeCli, ServeSecurity, header_content_length, reason,
+        INITIAL_SESSION_LIMIT, Reply, ServeCerts, ServeCli, ServeSecurity, find_subsequence,
+        header_content_length, origin_allowlist, prepare_tls, reason, resolve_inbound_mode,
         respond, serve_loop, serve_ssh,
     };
+    use crate::tls;
     use crate::workspace::WORKSPACE_DB_FILE;
+    use whcode_app::cert::{CertPaths, load_settings};
     use whcode_app::{Actor, actor_with_all_capabilities};
-    use whcode_domain::{ErrorCode, SCHEMA_VERSION};
+    use whcode_domain::{ErrorCode, InboundMode, SCHEMA_VERSION};
     use whcode_store::apply_migrations;
 
     fn migrated_memory_conn() -> Connection {
@@ -1406,6 +1755,7 @@ mod tests {
             origins: vec!["http://127.0.0.1".to_string()],
             default_locale: "zh-CN".to_string(),
             default_theme: "amoled-night".to_string(),
+            certs: None,
         };
         let reply = respond(
             &mut conn,
@@ -1497,8 +1847,144 @@ mod tests {
         assert!(!actor.capabilities.is_empty(), "本机用户必须具备能力集合");
     }
 
-    // ── 真实 socket 测试（Check 199/209 证据）───────────────────────────────
+    /// 装配根接线（T190）：`respond` 注入证书上下文后 `/api/certs` 可用；
+    /// 未接线时返回 `invalid_state`（不伪装成功），且响应始终不含私钥。
+    #[test]
+    fn cert_api_is_wired_through_serve_security() {
+        let mut conn = migrated_memory_conn();
+        let actor = actor_with_all_capabilities("tester");
+        let request = raw_request("GET /api/certs HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
 
+        // 未接线（测试默认 loopback）：明确 invalid_state。
+        let unwired = respond(&mut conn, &request, &actor, &ServeSecurity::loopback());
+        assert_eq!(unwired.response.status, 400);
+        let body: serde_json::Value = serde_json::from_slice(&unwired.response.body).expect("JSON");
+        assert_eq!(body["code"], "invalid_state");
+        assert!(body["message"].as_str().unwrap_or("").contains("未接线"));
+
+        // 接线：临时工作区证书库初始化后 200，状态可见且不含私钥。
+        let dir = std::env::temp_dir().join(format!("whcode-serve-cert-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("建临时工作区");
+        let paths = CertPaths::for_workspace(&dir);
+        let sans = vec![
+            "localhost".to_string(),
+            "127.0.0.1".to_string(),
+            "::1".to_string(),
+        ];
+        whcode_app::cert::ensure_initialized(&paths, &sans, 1_793_000_000_000)
+            .expect("初始化证书库");
+        let security = ServeSecurity {
+            certs: Some(ServeCerts {
+                paths,
+                probe: crate::cert_probe::LlmCertProbe,
+                restart_required: std::sync::atomic::AtomicBool::new(false),
+                // 测试不绑定真实监听地址：连通性校验不进入“自探本进程”分支。
+                listen: None,
+            }),
+            ..ServeSecurity::loopback()
+        };
+        let reply = respond(&mut conn, &request, &actor, &security);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(
+            reply.response.status,
+            200,
+            "{}",
+            String::from_utf8_lossy(&reply.response.body)
+        );
+        let body = String::from_utf8_lossy(&reply.response.body);
+        assert!(!body.contains("PRIVATE KEY"), "状态响应不得含私钥：{body}");
+        let value: serde_json::Value = serde_json::from_str(&body).expect("JSON");
+        assert_eq!(value["inbound"]["mode"], "builtin");
+    }
+
+    /// 设置页（T190/FR-627）：`GET /settings/certs` 服务端直出只读摘要——未接线与接线
+    /// 都返回 200 HTML（不是 404/500 空页），摘要含文件路径与重启标记，且不含私钥；
+    /// `/settings.js` 作为静态资产可达。
+    #[test]
+    fn settings_page_is_served_with_readonly_summary() {
+        let mut conn = migrated_memory_conn();
+        let actor = actor_with_all_capabilities("tester");
+        let page = raw_request("GET /settings/certs HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
+
+        // 未接线：明确“未接线”，不渲染成“没有证书”。
+        let unwired = respond(&mut conn, &page, &actor, &ServeSecurity::loopback());
+        assert_eq!(unwired.response.status, 200, "设置页不得 404/500 空页");
+        assert!(
+            unwired
+                .response
+                .header("content-type")
+                .unwrap_or_default()
+                .starts_with("text/html")
+        );
+        assert_eq!(unwired.response.header("cache-control"), Some("no-store"));
+        let body = String::from_utf8_lossy(&unwired.response.body);
+        assert!(body.contains("<noscript>"), "必须有服务端直出摘要");
+        assert!(body.contains("未初始化或未接线"), "{body}");
+        assert!(
+            body.contains("data-theme=\"amoled-night\""),
+            "默认主题必须注入（与首页同机制）：{body}"
+        );
+
+        // 接线：摘要含证书库路径与重启标记；任何字段都不含私钥内容。
+        let dir =
+            std::env::temp_dir().join(format!("whcode-serve-settings-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("建临时工作区");
+        let paths = CertPaths::for_workspace(&dir);
+        let sans = vec![
+            "localhost".to_string(),
+            "127.0.0.1".to_string(),
+            "::1".to_string(),
+        ];
+        whcode_app::cert::ensure_initialized(&paths, &sans, 1_793_000_000_000)
+            .expect("初始化证书库");
+        let security = ServeSecurity {
+            certs: Some(ServeCerts {
+                paths,
+                probe: crate::cert_probe::LlmCertProbe,
+                restart_required: std::sync::atomic::AtomicBool::new(true),
+                listen: None,
+            }),
+            ..ServeSecurity::loopback()
+        };
+        let wired = respond(&mut conn, &page, &actor, &security);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(wired.response.status, 200);
+        let body = String::from_utf8_lossy(&wired.response.body);
+        assert!(
+            body.contains("ca-builtin.pem"),
+            "摘要必须给出证书库路径：{body}"
+        );
+        assert!(
+            body.contains("server-cert.pem") && body.contains("server-key.pem"),
+            "摘要必须给出入站证书与私钥路径：{body}"
+        );
+        assert!(
+            body.contains("重启后生效：是"),
+            "会话内的重启标记必须如实呈现：{body}"
+        );
+        assert!(!body.contains("PRIVATE KEY"), "页面不得含私钥：{body}");
+
+        // 脚本资产：`/settings.js` 走静态白名单，非空且声明原生 ESM 的 API 路径。
+        let script = raw_request("GET /settings.js HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
+        let reply = respond(&mut conn, &script, &actor, &ServeSecurity::loopback());
+        assert_eq!(reply.response.status, 200);
+        assert!(
+            reply
+                .response
+                .header("content-type")
+                .unwrap_or_default()
+                .starts_with("text/javascript")
+        );
+        let body = String::from_utf8_lossy(&reply.response.body);
+        assert!(
+            body.contains("/api/certs"),
+            "设置页脚本必须走受控 API：{body}"
+        );
+    }
+
+    // ── 真实 socket 测试（Check 199/209 证据）───────────────────────────────
     /// 测试服务器：内存库 + 随机端口。服务器线程与测试线程经 `Connection::try_clone`
     /// 共享同一内存库实例（DuckDB 同实例多连接）；起线程属测试基建，生产路径零新增
     /// 线程（NFR-211）。
@@ -1508,7 +1994,13 @@ mod tests {
         conn: Connection,
     }
 
+    /// 明文档位测试服务器（`--tls off` 的既有语义回归）。
     fn spawn_test_server() -> TestServer {
+        spawn_loop_server(None)
+    }
+
+    /// 起一个真实服务循环（测试基建线程；生产路径零新增线程，NFR-211）。
+    fn spawn_loop_server(tls: Option<Arc<rustls::ServerConfig>>) -> TestServer {
         let conn = migrated_memory_conn();
         let server_conn = conn.try_clone().expect("克隆内存库连接");
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("绑定随机端口");
@@ -1519,10 +2011,69 @@ mod tests {
             .name("serve-loop-test".into())
             .spawn(move || {
                 let mut server_conn = server_conn;
-                let _ = serve_loop(listener, &mut server_conn, actor, security);
+                let _ = serve_loop(listener, &mut server_conn, actor, security, tls);
             })
             .expect("启动服务器线程");
         TestServer { addr, conn }
+    }
+
+    /// 测试用自签证书与私钥（运行期生成，不写入仓库、不进日志）。
+    fn test_material() -> (String, String) {
+        let key = rcgen::KeyPair::generate().expect("生成测试私钥");
+        let params =
+            rcgen::CertificateParams::new(vec!["localhost".to_string()]).expect("证书参数");
+        let cert = params.self_signed(&key).expect("生成测试证书");
+        (cert.pem(), key.serialize_pem())
+    }
+
+    /// TLS 测试服务器（服务循环与明文测试共用同一实现，只多一份 `ServerConfig`）。
+    struct TlsTestServer {
+        addr: SocketAddr,
+        conn: Connection,
+        /// 叶子证书（客户端信任根）。
+        cert: CertificateDer<'static>,
+    }
+
+    fn spawn_tls_test_server() -> TlsTestServer {
+        let (cert_pem, key_pem) = test_material();
+        let cert = CertificateDer::from_pem_slice(cert_pem.as_bytes()).expect("证书 DER");
+        let config = tls::server_config(&cert_pem, &key_pem).expect("TLS 服务端配置");
+        let server = spawn_loop_server(Some(config));
+        TlsTestServer {
+            addr: server.addr,
+            conn: server.conn,
+            cert,
+        }
+    }
+
+    /// TLS 客户端（阻塞 socket + `StreamOwned`：握手在首次读写时完成）。
+    struct TlsClient {
+        stream: rustls::StreamOwned<rustls::ClientConnection, TcpStream>,
+    }
+
+    fn tls_connect(addr: SocketAddr, cert: &CertificateDer<'static>) -> TlsClient {
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add(cert.clone()).expect("加入信任根");
+        let config = rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_protocol_versions(rustls::DEFAULT_VERSIONS)
+        .expect("客户端协议版本")
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+        let session = rustls::ClientConnection::new(
+            Arc::new(config),
+            ServerName::try_from("localhost").expect("服务器名"),
+        )
+        .expect("客户端会话");
+        let tcp = TcpStream::connect(addr).expect("连接 TLS 测试服务器");
+        tcp.set_read_timeout(Some(Duration::from_secs(5)))
+            .expect("读超时");
+        tcp.set_write_timeout(Some(Duration::from_secs(5)))
+            .expect("写超时");
+        TlsClient {
+            stream: rustls::StreamOwned::new(session, tcp),
+        }
     }
 
     fn seed_event(conn: &Connection, session_id: &str, seq: i64, payload: &str) {
@@ -1554,8 +2105,8 @@ mod tests {
         stream
     }
 
-    /// 读取 HTTP 响应头（至 `\r\n\r\n`；上限 5 s）。
-    fn read_http_head(stream: &mut TcpStream) -> String {
+    /// 读取 HTTP 响应头（至 `\r\n\r\n`；上限 5 s）。明文与 TLS 流共用。
+    fn read_http_head(stream: &mut impl Read) -> String {
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut buf: Vec<u8> = Vec::new();
         let mut chunk = [0u8; 512];
@@ -1572,11 +2123,44 @@ mod tests {
         String::from_utf8_lossy(&buf).into_owned()
     }
 
+    /// 读取完整 HTTP 响应（头 + 按 `content-length` 取体）；明文与 TLS 流共用。
+    fn read_http_response(stream: &mut impl Read) -> (String, Vec<u8>) {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut buf: Vec<u8> = Vec::new();
+        let mut chunk = [0u8; 512];
+        let mut head_end: Option<usize> = None;
+        let mut body_len = 0usize;
+        loop {
+            if head_end.is_none()
+                && let Some(position) = find_subsequence(&buf, b"\r\n\r\n")
+            {
+                head_end = Some(position + 4);
+                body_len = header_content_length(&buf[..position]);
+            }
+            if let Some(end) = head_end
+                && buf.len() >= end + body_len
+            {
+                break;
+            }
+            if Instant::now() >= deadline {
+                break;
+            }
+            match stream.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                Err(_) => continue,
+            }
+        }
+        let end = head_end.unwrap_or(buf.len()).min(buf.len());
+        let head = String::from_utf8_lossy(&buf[..end]).into_owned();
+        (head, buf[end..].to_vec())
+    }
+
     /// 从持久缓冲读出一个服务端帧（不掩码）；缓冲跨调用保留残余字节——一次 read
     /// 可能带回多帧，逐帧消费不得丢弃。到 deadline 未齐或对端关闭返回 `None`。
     fn read_server_frame(
         buf: &mut Vec<u8>,
-        stream: &mut TcpStream,
+        stream: &mut impl Read,
         deadline: Instant,
     ) -> Option<(u8, Vec<u8>)> {
         let mut chunk = [0u8; 4096];
@@ -1689,6 +2273,26 @@ mod tests {
                 (stream, received)
             })
             .expect("启动读帧线程")
+    }
+
+    /// 探测连接已被服务器关闭（明文/TLS 流共用；读超时视为“仍开放”）。
+    fn wait_for_close(stream: &mut impl Read, wait: Duration) -> bool {
+        let deadline = Instant::now() + wait;
+        let mut probe = [0u8; 4096];
+        loop {
+            match stream.read(&mut probe) {
+                Ok(0) => return true,
+                Ok(_) => {}
+                Err(err)
+                    if err.kind() == ErrorKind::WouldBlock || err.kind() == ErrorKind::TimedOut =>
+                {
+                    if Instant::now() >= deadline {
+                        return false;
+                    }
+                }
+                Err(_) => return true,
+            }
+        }
     }
 
     /// 探测连接已被服务器关闭：EOF 或非超时错误；`wait` 内仅超时（连接仍开放）
@@ -1871,5 +2475,423 @@ mod tests {
             Some(1),
             "订阅者未被超限帧中断（Check 209）"
         );
+    }
+
+    // ── 入站 TLS（T189、ADR-040 决策 3）────────────────────────────────────
+
+    /// 参数 > 设置 > 默认（`builtin`）；未知取值报错且不回落默认档位。
+    #[test]
+    fn tls_mode_parameter_overrides_settings_and_rejects_unknown_values() {
+        assert_eq!(
+            resolve_inbound_mode(Some("off"), InboundMode::Builtin).expect("参数覆盖设置"),
+            InboundMode::Off
+        );
+        assert_eq!(
+            resolve_inbound_mode(Some("external"), InboundMode::Off).expect("参数覆盖设置"),
+            InboundMode::External
+        );
+        assert_eq!(
+            resolve_inbound_mode(Some("builtin"), InboundMode::External).expect("参数覆盖设置"),
+            InboundMode::Builtin
+        );
+        // 未给参数时以设置文件为准；设置缺失时 `load_settings` 返回默认 `builtin`。
+        let dir = TempDir::new("tls-precedence");
+        let paths = CertPaths::for_workspace(&dir.path);
+        assert_eq!(
+            resolve_inbound_mode(None, load_settings(&paths).expect("缺失取默认").inbound)
+                .expect("设置生效"),
+            InboundMode::Builtin,
+            "默认档位必须是 builtin（ADR-040 决策 3）"
+        );
+        std::fs::create_dir_all(&paths.dir).expect("创建证书库目录");
+        std::fs::write(
+            paths.settings(),
+            br#"{"schema_version":1,"outbound":"builtin","inbound":"off"}"#,
+        )
+        .expect("写设置");
+        assert_eq!(
+            resolve_inbound_mode(None, load_settings(&paths).expect("读取设置").inbound)
+                .expect("设置生效"),
+            InboundMode::Off,
+            "设置文件覆盖默认档位"
+        );
+
+        let err =
+            resolve_inbound_mode(Some("maybe"), InboundMode::Off).expect_err("未知取值必须报错");
+        assert_eq!(err.code, ErrorCode::ParseError);
+        assert!(err.message.contains("off"), "{}", err.message);
+    }
+
+    /// `--tls` 只适用于 `--web`：`serve --ssh --tls off` 明确报错而不是静默忽略。
+    #[test]
+    fn parse_accepts_tls_for_web_and_rejects_it_for_ssh() {
+        let web: [String; 3] = ["--web".into(), "--tls".into(), "off".into()];
+        let cli = ServeCli::parse(&web).expect("解析");
+        assert_eq!(cli.tls.as_deref(), Some("off"));
+        assert!(cli.web);
+
+        let missing: [String; 2] = ["--web".into(), "--tls".into()];
+        assert!(ServeCli::parse(&missing).is_err(), "--tls 缺值必须报错");
+
+        let ssh: [String; 3] = ["--ssh".into(), "--tls".into(), "off".into()];
+        let err = ServeCli::parse(&ssh).expect_err("SSH 不接受 --tls");
+        assert_eq!(err.code, ErrorCode::ParseError);
+        assert!(err.message.contains("--web"), "{}", err.message);
+    }
+
+    /// Origin 允许集：启用 TLS 为 `https://`，明文为 `http://`；端口语义不变。
+    #[test]
+    fn origin_allowlist_uses_tls_scheme() {
+        let loopback: SocketAddr = "127.0.0.1:8443".parse().expect("地址");
+        assert_eq!(
+            origin_allowlist(loopback, true),
+            vec!["https://127.0.0.1:8443"]
+        );
+        assert_eq!(
+            origin_allowlist(loopback, false),
+            vec!["http://127.0.0.1:8443"]
+        );
+
+        let lan: SocketAddr = "192.168.1.10:8443".parse().expect("地址");
+        let https = origin_allowlist(lan, true);
+        assert_eq!(
+            https,
+            vec![
+                "https://192.168.1.10:8443".to_string(),
+                "https://localhost:8443".to_string(),
+                "https://127.0.0.1:8443".to_string(),
+            ]
+        );
+        assert!(
+            https.iter().all(|origin| origin.starts_with("https://")),
+            "TLS 档位下不得保留 http:// 来源：{https:?}"
+        );
+        assert!(
+            origin_allowlist(lan, false)
+                .iter()
+                .all(|origin| origin.starts_with("http://")),
+            "明文档位下来源为 http://"
+        );
+    }
+
+    /// TLS 正向路径：`GET /api/sessions` 经受信握手返回 200 与 JSON。
+    #[test]
+    fn tls_serves_api_over_verified_handshake() {
+        let server = spawn_tls_test_server();
+        let mut client = tls_connect(server.addr, &server.cert);
+        client
+            .stream
+            .write_all(b"GET /api/sessions HTTP/1.1\r\nhost: localhost\r\n\r\n")
+            .expect("写请求");
+        let (head, body) = read_http_response(&mut client.stream);
+        assert!(head.starts_with("HTTP/1.1 200"), "响应头：{head}");
+        let json: serde_json::Value = serde_json::from_slice(&body).expect("JSON 响应体");
+        assert_eq!(json["schema_version"], SCHEMA_VERSION);
+        assert_eq!(json["sessions"], serde_json::json!([]));
+    }
+
+    /// TLS 下 WebSocket 升级（101）与双向帧通路（ping→pong、事件广播）均工作。
+    #[test]
+    fn tls_websocket_upgrade_and_frame_roundtrip() {
+        let server = spawn_tls_test_server();
+        whcode_store::create_session_with_id(&server.conn, "S-1", "TLS 订阅", "active", 1_000)
+            .expect("创建会话");
+        let mut client = tls_connect(server.addr, &server.cert);
+        let key = "dGhlIHNhbXBsZSBub25jZQ==";
+        client
+            .stream
+            .write_all(
+                format!("GET /ws HTTP/1.1\r\nhost: localhost\r\nsec-websocket-key: {key}\r\n\r\n")
+                    .as_bytes(),
+            )
+            .expect("写握手请求");
+        let head = read_http_head(&mut client.stream);
+        assert!(head.starts_with("HTTP/1.1 101"), "握手必须 101：{head}");
+        assert!(
+            head.contains(accept_key(key).as_str()),
+            "Sec-WebSocket-Accept 必须匹配（ws 协议字节不得改动）：{head}"
+        );
+
+        // 客户端发一帧掩码 ping，服务端回 pong（双向明文通路）。
+        let mask = [0x01u8, 0x02, 0x03, 0x04];
+        let mut ping = vec![0x89u8, 0x80 | 4];
+        ping.extend_from_slice(&mask);
+        for (index, byte) in b"ping".iter().enumerate() {
+            ping.push(byte ^ mask[index % 4]);
+        }
+        client.stream.write_all(&ping).expect("写 ping 帧");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut buf: Vec<u8> = Vec::new();
+        let mut saw_pong = false;
+        while let Some((opcode, payload)) =
+            read_server_frame(&mut buf, &mut client.stream, deadline)
+        {
+            if opcode == 0xA {
+                assert_eq!(payload, b"ping");
+                saw_pong = true;
+                break;
+            }
+        }
+        assert!(saw_pong, "TLS 下必须收到 pong（双向通路）");
+
+        // 广播：写一条事件 → 收一帧文本事件。
+        seed_event(&server.conn, "S-1", 1, r#"{"n":1}"#);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let (opcode, payload) = read_server_frame(&mut buf, &mut client.stream, deadline)
+            .expect("TLS 订阅者必须收到广播帧");
+        assert_eq!(opcode, 0x1, "广播帧应为文本帧");
+        let event: serde_json::Value = serde_json::from_slice(&payload).expect("帧载荷为 JSON");
+        assert_eq!(event["seq"].as_i64(), Some(1));
+    }
+
+    /// 10 个客户端并发握手/请求：服务循环单线程有界推进，无死锁、全部 200。
+    #[test]
+    fn ten_tls_clients_handshake_and_request_interleaved() {
+        let server = spawn_tls_test_server();
+        let cert = server.cert.clone();
+        let addr = server.addr;
+        let mut handles = Vec::new();
+        for index in 0..10 {
+            let cert = cert.clone();
+            handles.push(
+                std::thread::Builder::new()
+                    .name(format!("tls-client-{index}"))
+                    .spawn(move || {
+                        let mut client = tls_connect(addr, &cert);
+                        client
+                            .stream
+                            .write_all(
+                                format!(
+                                    "GET /api/sessions HTTP/1.1\r\nhost: localhost\r\n\
+                                     x-test-index: {index}\r\n\r\n"
+                                )
+                                .as_bytes(),
+                            )
+                            .expect("写请求");
+                        let (head, body) = read_http_response(&mut client.stream);
+                        assert!(head.starts_with("HTTP/1.1 200"), "第 {index} 个：{head}");
+                        let json: serde_json::Value =
+                            serde_json::from_slice(&body).expect("JSON 响应体");
+                        assert_eq!(json["schema_version"], SCHEMA_VERSION);
+                    })
+                    .expect("启动客户端线程"),
+            );
+        }
+        for handle in handles {
+            handle.join().expect("客户端线程必须正常结束（无死锁）");
+        }
+    }
+
+    /// 分片 ClientHello（逐字节写）在真实服务循环上仍能握手并完成请求。
+    #[test]
+    fn fragmented_client_hello_is_accepted_by_serve_loop() {
+        let server = spawn_tls_test_server();
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add(server.cert.clone()).expect("加入信任根");
+        let config = rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_protocol_versions(rustls::DEFAULT_VERSIONS)
+        .expect("客户端协议版本")
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+        let session = rustls::ClientConnection::new(
+            Arc::new(config),
+            ServerName::try_from("localhost").expect("服务器名"),
+        )
+        .expect("客户端会话");
+        let mut session = session;
+        // 首飞（ClientHello）先取到内存缓冲，随后逐字节写出（真实分片）。
+        let mut first: Vec<u8> = Vec::new();
+        loop {
+            match session.write_tls(&mut first) {
+                Ok(0) => break,
+                Ok(_) => {}
+                Err(err) => panic!("取 ClientHello 首飞失败：{err}"),
+            }
+        }
+        assert!(!first.is_empty(), "ClientHello 首飞不得为空");
+        let mut tcp = TcpStream::connect(server.addr).expect("连接");
+        tcp.set_read_timeout(Some(Duration::from_secs(10)))
+            .expect("读超时");
+        tcp.set_write_timeout(Some(Duration::from_secs(5)))
+            .expect("写超时");
+        for byte in &first {
+            tcp.write_all(std::slice::from_ref(byte))
+                .expect("逐字节写 ClientHello");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let mut stream = rustls::StreamOwned::new(session, tcp);
+        stream
+            .write_all(b"GET /api/sessions HTTP/1.1\r\nhost: localhost\r\n\r\n")
+            .expect("写请求");
+        let (head, body) = read_http_response(&mut stream);
+        assert!(head.starts_with("HTTP/1.1 200"), "响应头：{head}");
+        assert!(!body.is_empty(), "响应体不得为空");
+    }
+
+    /// 非法/超大 ClientHello：连接被关闭，服务循环仍存活（后续 TLS 请求成功）。
+    #[test]
+    fn invalid_client_hello_closes_connection_and_server_survives() {
+        let server = spawn_tls_test_server();
+        let mut raw = TcpStream::connect(server.addr).expect("连接");
+        raw.set_read_timeout(Some(Duration::from_millis(200)))
+            .expect("读超时");
+        let mut garbage = vec![0x16u8, 0x03, 0x01, 0xFF, 0xFF];
+        garbage.extend(std::iter::repeat_n(0xAAu8, 64 * 1024));
+        let _ = raw.write_all(&garbage);
+        assert!(
+            wait_for_close(&mut raw, Duration::from_secs(10)),
+            "非法握手必须关闭连接（不无限等待）"
+        );
+
+        // 服务循环仍存活：新 TLS 客户端可以完成请求。
+        let mut client = tls_connect(server.addr, &server.cert);
+        client
+            .stream
+            .write_all(b"GET /api/sessions HTTP/1.1\r\nhost: localhost\r\n\r\n")
+            .expect("写请求");
+        let (head, _) = read_http_response(&mut client.stream);
+        assert!(head.starts_with("HTTP/1.1 200"), "服务循环必须存活：{head}");
+    }
+
+    /// 长时间不完成握手：在既有 5 s 空闲上限内被关闭（无法回 400）。
+    #[test]
+    fn tls_handshake_timeout_closes_connection() {
+        let server = spawn_tls_test_server();
+        let mut raw = TcpStream::connect(server.addr).expect("连接");
+        raw.set_read_timeout(Some(Duration::from_millis(200)))
+            .expect("读超时");
+        // 只发半截 ClientHello 头，随后沉默。
+        raw.write_all(&[0x16, 0x03, 0x01, 0x00]).expect("写半截头");
+        assert!(
+            wait_for_close(&mut raw, Duration::from_secs(9)),
+            "握手必须在上限（5 s）附近被终止"
+        );
+    }
+
+    /// 启用档位在证书库不可用时拒绝启动（错误列出 `--tls off` 与路径）；`off` 不触碰证书库。
+    #[test]
+    fn enabled_modes_refuse_to_start_when_cert_store_unusable() {
+        let dir = TempDir::new("tls-unusable");
+        std::fs::create_dir_all(dir.path.join(".whcode")).expect("创建 .whcode");
+        std::fs::write(dir.path.join(".whcode").join("certs"), b"occupied")
+            .expect("占用证书库目录名");
+
+        let err = prepare_tls(
+            &dir.path,
+            InboundMode::Builtin,
+            &["localhost".to_string()],
+            1_793_000_000_000,
+        )
+        .expect_err("证书库不可用必须拒绝启动");
+        assert!(
+            err.message.contains("--tls off"),
+            "错误必须给出显式退路：{}",
+            err.message
+        );
+        assert!(err.message.contains("certs"), "{}", err.message);
+
+        // 明文档位不触碰证书库：同一不可写工作区也能通过。
+        assert!(
+            prepare_tls(
+                &dir.path,
+                InboundMode::Off,
+                &["localhost".to_string()],
+                1_793_000_000_000
+            )
+            .expect("off 不初始化证书库")
+            .is_none()
+        );
+    }
+
+    /// `external` 档位缺材料：拒绝启动且错误含文件路径与上传入口（不静默降级明文）。
+    #[test]
+    fn external_mode_without_uploaded_material_is_refused() {
+        let dir = TempDir::new("tls-external-missing");
+        let paths = CertPaths::for_workspace(&dir.path);
+        std::fs::create_dir_all(&paths.dir).expect("创建证书库目录");
+        std::fs::write(
+            paths.settings(),
+            br#"{"schema_version":1,"outbound":"builtin","inbound":"external"}"#,
+        )
+        .expect("写设置");
+
+        let err = prepare_tls(
+            &dir.path,
+            InboundMode::External,
+            &["localhost".to_string()],
+            1_793_000_000_000,
+        )
+        .expect_err("外部证书缺失必须拒绝启动");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        assert!(
+            err.message.contains("server-cert.pem"),
+            "错误必须指明缺失文件：{}",
+            err.message
+        );
+        assert!(
+            err.message.contains("--tls off"),
+            "错误必须给出显式退路：{}",
+            err.message
+        );
+        assert!(
+            err.message.contains("settings/certs"),
+            "错误必须给出上传入口：{}",
+            err.message
+        );
+    }
+
+    /// 默认 `builtin`：初始化即生成材料、可构造配置并给出 64 位十六进制指纹。
+    #[test]
+    fn builtin_mode_prepares_material_and_fingerprint() {
+        let dir = TempDir::new("tls-builtin");
+        let now_ms = 1_793_000_000_000u64;
+        let config = prepare_tls(
+            &dir.path,
+            InboundMode::Builtin,
+            &["localhost".to_string()],
+            now_ms,
+        )
+        .expect("默认档位必须可准备好材料")
+        .expect("builtin 必须返回服务端配置");
+        assert!(Arc::strong_count(&config) >= 1);
+
+        let paths = CertPaths::for_workspace(&dir.path);
+        for path in [paths.server_cert(), paths.server_key(), paths.settings()] {
+            assert!(path.is_file(), "{} 必须存在", path.display());
+        }
+        let status = whcode_app::cert::status(&paths, now_ms).expect("读取状态");
+        let sha256 = status.inbound.sha256.expect("必须给出证书指纹");
+        assert_eq!(sha256.len(), 64, "指纹必须是 64 位十六进制：{sha256}");
+        assert!(status.inbound.cert_present && status.inbound.key_present);
+    }
+
+    /// 测试用临时目录（Drop 清理；不写入仓库）。
+    struct TempDir {
+        path: std::path::PathBuf,
+    }
+
+    impl TempDir {
+        fn new(tag: &str) -> Self {
+            static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |elapsed| elapsed.as_nanos());
+            let path = std::env::temp_dir().join(format!(
+                "whcode-serve-tls-{}-{tag}-{stamp}-{seq}",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::create_dir_all(&path).expect("创建测试目录");
+            Self { path }
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
     }
 }
