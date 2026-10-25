@@ -13,6 +13,22 @@
 | 退出保证 | —— | 正常退出、`Ctrl-C` 与 panic 均恢复 raw mode 与主屏（`crates/whcode-tui/src/session.rs:66-80`、`143-159`、`174-179`） |
 | 输入流 EOF | —— | 自动退出并恢复终端（`crates/whcode-tui/src/lib.rs:160`） |
 
+### 1.1 运行环境（按键无反应时先查这里）
+
+TUI 直接读 Windows 控制台输入，键盘事件能否送达取决于运行环境：
+
+- **可以**：Windows Terminal、conhost（cmd／PowerShell 窗口）。`whcode` 双击启动的
+  控制台窗口同样可用，窗口需要处于输入焦点。
+- **不可以**：Git Bash／mintty 等伪终端。那里没有 Windows 控制台输入句柄，
+  raw mode 与按键读取都不成立；请改用 `cmd`／PowerShell 启动，或使用 CUI 子命令。
+- **控制台处于选择模式**：在窗口里拖选或点选会进入 QuickEdit（标记）模式，控制台暂停
+  输入，按键全部无效。按 `Esc` 或回车退出选择模式即可恢复。
+- 启动条件同时检查输出侧尺寸（`terminal_size()`）与输入侧是否终端
+  （`stdin_is_interactive()`）；两者任一不成立就不进入 TUI，改为打印骨架提示后正常退出。
+
+2026-10-25 用真实控制台复现：新控制台启动 release 构建，注入 `q` 后进程正常退出，
+事件循环收到 `Key('q')`——按键路径本身无缺陷；无效报告均来自上述环境差异。
+
 ## 2. 视图与导航
 
 六视图固定顺序（`crates/whcode-tui/src/views.rs:15`、`36-43`），按数字键切换

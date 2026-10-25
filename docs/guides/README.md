@@ -6,6 +6,7 @@
 
 | 文件 | 内容 |
 |---|---|
+| `project-status.md` | 带日期的项目状态快照（里程碑、未完成项、能力与门禁、CI 工作流）；权威账本仍是 tasks.md／checklist.md |
 | `philosophy.md` | 核心哲学与工程方法论（形式审查、正负和解、三重时间、0 信任） |
 | `design-principles.md`、`module-design.md` | 设计原则与 14 个 crate 的职责/依赖/失败模式 |
 | `software-engineering-process.md` | G0—G5 阶段门禁、角色合并、产物映射 |

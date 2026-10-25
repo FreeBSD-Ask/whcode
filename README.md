@@ -1,199 +1,73 @@
-# WHCode（旺皇大模型执行框架）— Rust 原生 LLM 编码 Harness
+# WHCode
 
-面向 Windows 11 amd64 的本地优先 LLM 编码智能体底座（保留 BSD 代码兼容，BSD 验收延后，ADR-013）：可追踪、可验证、可恢复，
-指标可复现。以《WHCode 技术任务书 v3.0》为需求基线，规格驱动开发（spec-driven），
-门禁由程序实施而非提示词。设计、并发与安全以 [philosophy.md](./docs/guides/philosophy.md)
-与 [yike-philosophy.md](./docs/guides/yike-philosophy.md) 为方法论基线。
+Rust 原生、本地优先的 LLM 编码 Harness。数据落在一个 DuckDB 文件里，事件可追踪，
+规格驱动开发的门禁由程序执行。当前只以 Windows 11 amd64（`x86_64-pc-windows-msvc`）
+为验收目标；BSD 的代码与文档保留，验收按 ADR-013 延后。
 
-**许可证**：BSD-2-Clause（见 [LICENSE](./LICENSE)）｜ **版权**：FreeBSD 中文社区（FreeBSD Chinese Community）
-
-**版本**：`whcode --version` 与 `doctor` 报告**二进制构建时间**（本地时间、精确到分钟并带
-时区偏移，如 `2026-10-23T01:17+08:00`；平台时间命令不可用时回退 UTC `...Z`）；Cargo 包
-版本仍为 `0.1.0`（M0 基线，**未发布**；变更见 [CHANGELOG.md](./CHANGELOG.md)）
+许可证 BSD-2-Clause（见 [LICENSE](./LICENSE)），版权归 FreeBSD 中文社区。
+Cargo 版本 `0.1.0`，尚未发布；变更见 [CHANGELOG.md](./CHANGELOG.md)。
 
 ## 当前状态
 
-**里程碑进度**（权威口径：[tasks.md](./specs/001-whcode-harness/tasks.md)）：
+M0—M6、M8 与四端对等收口已实现；M7 SSH 服务端已实现，四 BSD 现场验收延后；M9 的
+5.5 小时稳定性长跑尚无合格数据，真实 LLM 供应商的客户端装配未交付。逐项进度、未完成
+原因与证据位置见[项目状态快照](./docs/guides/project-status.md)，权威账本是
+[tasks.md](./specs/001-whcode-harness/tasks.md) 与
+[checklist.md](./specs/001-whcode-harness/checklist.md)。已知限制见
+[compatibility.md](./docs/matrices/compatibility.md)。
 
-| 里程碑 | 状态 |
-|---|---|
-| M0 平台可行性与基线冻结 | Windows 工程基线**有条件通过**（ADR-016）；V-004 延后至 M7、V-006 预算不冻结 |
-| M1 存储与事件基座、M2 会话与任务服务、M3 LLM 与上下文、M4 SDD 门禁、M5 TUI/CUI、M6 Web | **实现完成**（各里程碑实现记录与测试在库） |
-| M7 SSH | **服务端实现完成**（`russh 0.64`，ADR-030；公钥认证、受限入口、单写者执行器，进程内 41 项测试通过）；BSD 与四平台现场验收**延后**（ADR-013） |
-| M8 可选执行运行时 | **实现完成（feature 默认关闭）**：Provider 契约、能力等级、检查点、缓存、受控子进程与门控；JS（Boa 受限引擎，ADR-029）、Python worker、Git Bash payload 已接入 |
-| M9 优化与发布 | **部分完成**：兼容矩阵、运行时清单、热点优化（T115）、发布包（T118）与三份指南（T119）已交付；5.5 小时稳定性（T116，ADR-033）阻塞 |
-| Phase 13 跨里程碑收尾 | **已完成**：D 台账、目录门禁与准则文档、安全复查（T123）、quickstart 全流程（T124）、三方断链审计（T127）均取得证据 |
-| 四端对等（M6／M10，FR-619—625） | **已完成**（ADR-032）：54 条能力登记表为单一事实源、受校验矩阵、CUI 55／Web 501 统一语义、TUI 写操作与主题循环、Web 三端点与四主题；收口证据 `artifacts/frontend-parity-2026-10-24/` |
+## 构建与运行
 
-192 条任务中 175 条完成，17 条未完成：T099（BSD 现场验收证据，ADR-013 延后）、
-T116（5.5 小时稳定性阻塞，长跑进行中）、T162—T167（并行变更 `add-real-llm-provider`
-未交付，其 spec 未入库；ADR-031 已于 2026-10-25 补录）、T184—T192（并行变更
-“内置 TLS 证书库与 Web 证书设置”待交付，ADR-040）。原因逐条写在任务行。
+需要 Rust 1.99.1（`rust-toolchain.toml` 已锁定）、Python 3 与 MSVC 工具链；
+不使用任何 GNU 工具。
 
-**验收口径**：`checklist.md` 已登记 288 个检查点——**262 通过 / 26 未通过**
-（其中 14 项通过记录来自 2026-10-21/22 的用户复核，其余由逐条复核与里程碑批次补录给出；
-Check 273（构建与发布独立矩阵工作流）已由 build-release run 40153942736 与 ci run
-40153942697 取证通过，tag 发布路径未实跑；Check 274—288 属并行 TLS 变更的待取证检查点）。
-未通过项集中在：BSD 平台证据与 M7 现场验收（ADR-013 延后）、5.5 h 长跑（T116）、
-进程组零残留（Check 109/201）、ADR 未决项（Check 134）、测量预算类（Check 195）；
-托管 runner 上的 NFR-207/209 属受控性能测量，走 `perf-budget` 手动 job，不作 push 门禁。
-勾选权归复核人，**不得以任务完成率代替验收结论。**
-2026-10-23 的进度复核记录见 `artifacts/progress-review-2026-10-23.md`（本地证据，默认不入库）。
-
-**工程门禁（2026-10-23 实测）**：`cargo fmt --all --check` 无差异、
-`cargo clippy --workspace --all-targets -D warnings` 零告警、
-`cargo test --locked --workspace` 全绿（47 个测试目标、403 例通过、4 例默认忽略的
-实验记录器）、`layout`/`layering` 契约测试、EOL 与 workflow 审计、前端预算与资源铁律均通过。
-
-**平台范围（ADR-013）**：唯一验收目标是 **Windows 11 amd64**；不考虑任何 32 位平台；
-FreeBSD/NetBSD/OpenBSD/DragonFly 全部**延后**（代码与文档保留，不验收）。FreeBSD/NetBSD 的
-构建、非 DuckDB 包测试与依赖记录随 `main` 在 GitHub CI 自动运行（仅作平台证据）；
-OpenBSD/DragonFly 无原生测试，保留手工占位。
-
-| 平台 | 范围 | 结论 |
-|---|---|---|
-| Windows 11 x86_64（msvc） | **在范围内（唯一验收目标）** | **Go**——构建/冒烟/基准/测试全链路实测 |
-| FreeBSD / NetBSD / OpenBSD / DragonFly | 延后（ADR-013） | 不作验收结论；恢复须新 ADR 并补齐证据链 |
-
-**M0 判定：Windows 工程基线有条件通过（ADR-016）**：工程侧 Go；V-003 桌面自动化记录已取得并经用户复核接受，V-004 延后至 M7，V-006 预算不冻结。条件未满足时自动退回“未通过”；不得对外写“M0 通过”。详见 `artifacts/m0-report.md` 与 `docs/adr/ADR-016-m0-conditional-closure.md`。
-
-## 核心能力（已交付部分）
-
-- **存储与事件基座**：单文件 DuckDB 持久化（官方预编译动态库，SHA256 校验）、14 张表版本化
-  schema 与可重复迁移、单写者服务（有界队列/幂等键/批次提交/关键事件确认）、稳定排序游标分页、
-  预聚合概览、归档清理/压缩/导入导出/数据库监控
-- **应用服务**：会话/任务/事件/上下文/状态/SDD 命令统一经 `whcode-app`；结构化错误与
-  `schema_version` 信封四端共用；快照对四端同源；三级事件背压（关键/内容/展示）
-- **SDD 门禁状态机**：Constitution、spec/tasks 解析与纠偏重试、门禁强制执行与
-  force-advance 审计、双向追溯与断链检出、Analyze 五类缺陷、Converge 四态判定
-- **LLM 层**：Provider 语义（能力探测/取消/流式/计量/超时/错误归一化）、四级追踪与双层脱敏、
-  传输层进度事件；**真实 HTTP Provider 未接线**（当前为桩实现）
-- **TUI**：六视图（会话/任务/事件/上下文/Spec/运行时）接真实数据源、四套主题、
-  脏标记零重绘与最小化挂起、终端尺寸变化恢复（FR-617）
-- **CUI**：命令树经应用服务执行，`--json` 统一信封与稳定退出码；未接线命令显式失败，不静默降级
-- **Web**：`serve --web` 编译期嵌入静态前端，**仅限回环或 RFC1918 私网**且局域网强制认证
-  （ADR-023）；**入站 TLS 默认启用**（每工作区 ECDSA P-256 自签证书，三档
-  `--tls <builtin|external|off>`，ADR-040；**BREAKING**：默认协议由 `http` 改为 `https`，
-  Origin scheme 同步为 `https`，旧脚本须改用 `https://` 或显式 `--tls off`）；
-  i18n（zh-CN/en，含 RTL 标记）；无外部 CDN 与第三方字体
-- **证书库（ADR-040）**：工作区 `<workspace>/.whcode/certs/` 下六个明文文件——出站信任
-  （内置 Mozilla 根证书副本 `builtin`／操作系统证书库 `system`，均可叠加追加证书）、入站
-  证书链与未加密私钥、设置与种子清单；`/settings/certs` 页面与 `/api/certs/*` 提供状态、
-  编辑、重置、上传、连通性校验，变更写 `tls_config_change` 审计。**不承诺**公网暴露、吊销
-  （CRL／OCSP）、mTLS 与同用户隔离；真实浏览器握手证据尚未取得（见
-  [web-deployment-security.md](./docs/guides/web-deployment-security.md)）
-- **可选执行运行时**（feature 默认关闭，FR-704）：能力等级、payload 校验、检查点、
-  受控子进程与执行缓存策略
-- **SSH**：内置客户端（公钥认证、受限命令、超时与输出上限、known_hosts TOFU 校验、按
-  “意图—执行—登记”协议留痕）；M7 服务端已实现（`serve --ssh`，russh + 受限入口 + 单写者执行器，
-  ADR-030），四平台现场验收按 ADR-013 延后
-- **测试统一入口（`ci.yml`）**：`.github/workflows/ci.yml` 在 push `main`、PR 与手动触发时运行门禁、
-  五平台矩阵（Windows 绿路径必过；FreeBSD/NetBSD 随 `main` 自动运行代码级检查、非 DuckDB
-  包测试与依赖记录，DuckDB 原生构建为显式 Go/No-Go；OpenBSD/DragonFly 为延后占位）以及
-  全部测试与短测量；性能预算（NFR-207/209 与测试进程 RSS）与桌面型测试由
-  `workflow_dispatch` 的 `perf`／`desktop` 输入触发；每周一 schedule 只做 action 版本联网审计。
-  构建与发布步骤已于 2026-10-25 迁出（ADR-039），本文件只承担门禁与测试。
-  所有 action 固定到最新 release 的 commit SHA。run 40126145778 已全绿（五平台与 `measurements`），
-  `measurements` 的 NFR-201 中位 31.27 MB、NFR-202 中位 35.51 MB。
-- **构建与发布（`build-release.yml`）**：同目录的 `build-release.yml` 以
-  `profile: [debug, release]` 矩阵运行——debug 做工作区锁定构建（`cargo build --locked --workspace`）
-  与依赖记录（`deps-windows`）；release 做发布构建、打包安装验证（`package-windows.py --verify`）、
-  SHA256、TUI/Web 冒烟并上传 `whcode-windows-amd64`／`install-verify-windows-amd64`／
-  `smoke-evidence`（名称与旧 `ci.yml` 一致，下游取用方式不变）；tag `v*` 时创建/更新 GitHub Release
-  （校验 tag 与包版本一致、预发布自动标 prerelease、重跑幂等），写权限仅限发布作业。
-  该工作流尚未实跑，**发布结论未取得**；版本仍为**未发布**。
-- **5.5 小时长跑（`long-run.yml`）**：由 `.github/workflows/long-run.yml` 手动触发（19 800 秒、300 秒采样、
-  timeout 355 分钟，ADR-033）；24/72 小时深检保留为可选 self-hosted／本机运行，
-  不再作为 CI 门槛，不得表述为已验证。
-
-已知限制（NFR-204 的 5.5 小时稳定性未测、真实 HTTP Provider 未接线、BSD 现场验收延后、
-Web 无 JS 只读视图缺失等）逐条列在
-[compatibility.md](./docs/matrices/compatibility.md) 第 2 节，随包发布时须一并给出。
-
-## 工程原则（摘要）
-
-- **资源**：内存、CPU、GPU、线程、句柄可测量；新增固定占用需 ADR；禁止无界队列与缓存。
-- **内存安全**：普通 Rust 零 `unsafe`（workspace `unsafe_code = "forbid"`）；禁止 `mem::forget`；
-  汇编仅按 ADR-015 例外（独立隔离、安全包装、回退与差分测试）。
-- **并发**：设计先行，禁止原型先行；至少 3 篇一手文献 + 并发设计档案，验证计划可判定。
-- **安全**：默认回环监听、`redacted`、最小权限；不以“最佳安全实践/合规”替代威胁模型与证据。
-- **自由**：完整导出、离线核心能力与退出路径必须可用；禁止私有格式锁定、强制账户/联网、暗黑模式。
-- **不伪造**：工具与模型输出可追溯；未知标 `unknown`/`[待验证]`；LLM 输出不作唯一证据。
-- **反进步叙事**：采用率、星数、主流共识不是正确性证据；结论以测量与复现为准。
-- **文档时效**：文档与 ADR 写明假设、适用范围与复审日期；知识会过时。
-
-详见 [performance-and-concurrency.md](./docs/guides/performance-and-concurrency.md)、
-[design-principles.md](./docs/guides/design-principles.md) 与
-[software-engineering-process.md](./docs/guides/software-engineering-process.md)。
-
-## 快速开始
-
-前置：Rust 工具链锁定 1.99.1（`rust-toolchain.toml` 自动生效）；Python 3（拉取 DuckDB）；
-Windows 使用 msvc，不依赖任何 GNU 工具链。
-
-```bash
-# 1) 拉取并校验预编译 DuckDB（构建前置，SHA256 校验失败即中止）
+```powershell
+# 首次构建前拉取并校验 DuckDB 动态库
 python .github/scripts/fetch-duckdb.py
 
-# 2) 构建与测试
 cargo build --locked --workspace
 cargo test --locked --workspace
 
-# 2.1) 质量门禁（提交前必须全绿）
-cargo fmt --all --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test -p whcode-tests --test layering   # 分层 / 平台分支 / 前端不触库
-cargo test -p whcode-tests --test layout     # 目录分类
-python .github/scripts/check_counts.py       # 任务/Check/FR 计数一致性
-python .github/scripts/check-workflows.py    # CI workflow 语义门禁
-python .github/scripts/check-eol.py                 # LF + 无 BOM
+# 环境自检
+cargo run -p whcode-bin --release -- doctor
 
-# 3) 运行
-cargo run -p whcode-bin --release -- doctor          # 环境自检（含引擎版本实测与证书库状态）
+# 交互界面（无参数启动）
+cargo run -p whcode-bin --release --
+
+# 命令行
+cargo run -p whcode-bin --release -- task list --session <会话 ID>
 cargo run -p whcode-bin --release -- doctor --json
-cargo run -p whcode-bin --release -- bench baseline --out artifacts/baseline.json --events 2000
-cargo run -p whcode-bin --release --                 # 有控制台时进入 TUI；按 q 退出
 
-# 4) Web（默认 HTTPS，ADR-040；`<workspace>/.whcode/certs/` 自动创建）
-cargo run -p whcode-bin --release -- serve --web            # https://127.0.0.1:8080/
-cargo run -p whcode-bin --release -- serve --web --tls off  # 旧脚本迁移：显式回到明文 HTTP
+# Web（默认 HTTPS，自签证书；旧脚本用 --tls off 回到明文）
+cargo run -p whcode-bin --release -- serve --web
+cargo run -p whcode-bin --release -- serve --web --tls off
 ```
 
-**自签证书与浏览器信任**：首次 `serve --web` 会为本工作区生成 ECDSA P-256 自签证书
-（SAN：`localhost`、`127.0.0.1`、`::1`、本机名与绑定 IP；397 天）。浏览器默认不信任
-自签证书，启动输出与 `https://<addr>/settings/certs` 会给出 SHA-256 指纹；核对指纹后
-在浏览器中加入例外，或改用企业签发证书（`--tls external` + 设置页上传证书链与未加密私钥）。
-关掉 TLS 必须显式 `--tls off`（不会被静默改回明文）。
+无参数启动时，若标准输入是真实控制台，进入 TUI：`1`—`6` 切换六个视图，`q` 退出。
+在 Git Bash／mintty 这类伪终端里运行，或在控制台窗口中点选进入选择（QuickEdit）模式时，
+键盘输入不会送达程序——请用 Windows Terminal 或 conhost 运行，并保持窗口处于输入状态。
+完整键位与视图说明见 [tui.md](./docs/guides/tui.md)。
 
-## 仓库导航
+## 界面入口
 
-| 位置 | 内容 |
+| 入口 | 说明 |
 |---|---|
-| [docs/guides/philosophy.md](./docs/guides/philosophy.md) | 核心哲学与工程方法论（形式审查/0 信任） |
-| [docs/guides/repository-layout.md](./docs/guides/repository-layout.md) | 目录分类原则（由契约测试强制） |
-| [docs/adr/](./docs/adr/) | 架构决策记录（ADR-001—035 + DB 构建决策） |
-| [docs/matrices/](./docs/matrices/) | 平台矩阵、决策台账（D-01—D-15） |
-| [docs/guides/bsd-interface.md](./docs/guides/bsd-interface.md) | BSD 平台接口预留契约 |
-| [docs/guides/software-engineering-process.md](./docs/guides/software-engineering-process.md) | 软件工程过程与 G0—G5 门禁 |
-| [docs/guides/requirements-engineering.md](./docs/guides/requirements-engineering.md) | 需求工程规范（模板/追溯/变更控制） |
-| [docs/guides/design-principles.md](./docs/guides/design-principles.md) | 设计原则与工程哲学 |
-| [docs/guides/module-design.md](./docs/guides/module-design.md) | 模块功能设计（crate 级） |
-| [docs/guides/ui-design.md](./docs/guides/ui-design.md) | UI 设计规范（主题/墨水屏/i18n） |
-| [docs/guides/tui-manual-smoke.md](./docs/guides/tui-manual-smoke.md) | TUI 人工冒烟协议（resize/Ctrl-C） |
-| [docs/guides/test-model-sensenova.md](./docs/guides/test-model-sensenova.md) | 测试模型 SenseNova（含图像输入） |
-| [docs/guides/performance-and-concurrency.md](./docs/guides/performance-and-concurrency.md) | 性能与并发：设计先行、文献门槛、汇编例外 |
-| [docs/guides/yike-philosophy.md](./docs/guides/yike-philosophy.md) | 一刻哲学源流、二十九章命题与工程融入 |
-| [engineering-doctrine/](./engineering-doctrine/) | 可移植工程哲学与开发准则（供其他项目复制） |
-| [docs/guides/doctrine-application.md](./docs/guides/doctrine-application.md) | 工程准则应用记录（审计/改动/缺口） |
-| [docs/guides/pr-checklist.md](./docs/guides/pr-checklist.md) | 每 PR 必过的核对清单 |
-| [specs/001-whcode-harness/](./specs/001-whcode-harness/) | 需求基线、任务、验收清单、契约 |
+| TUI | `whcode`（无参数）；六视图只读，写操作用两段确认 |
+| CUI | `whcode <子命令>`；`--json` 统一信封与稳定退出码，见 [cui-manual.md](./docs/guides/cui-manual.md) |
+| Web | `whcode serve --web`；默认仅回环，入站 TLS 默认启用，见 [web-deployment-security.md](./docs/guides/web-deployment-security.md) |
+| SSH | `whcode serve --ssh`；受限入口，四平台现场验收延后 |
+| GUI | `whcode gui`；原生只读界面，不内嵌浏览器引擎 |
 
-## 贡献
+## 文档
 
-接受 Issue 与 PR，流程见 [CONTRIBUTING.md](./CONTRIBUTING.md)。提交即表示同意以
-BSD-2-Clause 授权本项目。
+- [docs/guides/README.md](./docs/guides/README.md)：全部指南的索引（构建、TUI、CUI、Web、
+  并发与性能、资源预算、工程过程）
+- [specs/001-whcode-harness/](./specs/001-whcode-harness/)：需求基线、任务、验收清单与契约
+- [docs/adr/](./docs/adr/)：架构决策记录
+- [docs/matrices/](./docs/matrices/)：平台矩阵、决策台账、兼容性与能力对等矩阵
+- [CONTRIBUTING.md](./CONTRIBUTING.md)：贡献流程与每 PR 必过的核对清单
 
-## 中文社区
+## 参与
 
-本项目由 FreeBSD 中文社区维护。欢迎在社区渠道讨论 FreeBSD/NetBSD 移植、中文本地化与
-终端体验适配。
+接受 Issue 与 PR。提交即表示同意以 BSD-2-Clause 授权本项目。项目由 FreeBSD 中文社区
+维护，欢迎讨论 BSD 移植、中文本地化与终端体验。
