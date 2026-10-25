@@ -19,19 +19,14 @@ use serde::{Deserialize, Serialize};
 use crate::error::WhError;
 
 /// 出站信任档位（ADR-040 决策 2）：两档都不关闭证书链与主机名校验。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TrustMode {
     /// 工作区内置根证书副本（`ca-builtin.pem`）为基线，`ca-extra.pem` 追加。
+    #[default]
     Builtin,
     /// 操作系统证书库为基线，`ca-extra.pem` 追加。
     System,
-}
-
-impl Default for TrustMode {
-    fn default() -> Self {
-        Self::Builtin
-    }
 }
 
 impl TrustMode {
@@ -61,21 +56,16 @@ impl TrustMode {
 }
 
 /// 入站 Web TLS 档位（ADR-040 决策 3）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum InboundMode {
     /// 每工作区自签证书（首次运行生成，ECDSA P-256，397 天）。
+    #[default]
     Builtin,
     /// 用户提供的 PEM 证书链与未加密私钥。
     External,
     /// 明文 HTTP（ADR-023 现状；显式回退，不被静默改回）。
     Off,
-}
-
-impl Default for InboundMode {
-    fn default() -> Self {
-        Self::Builtin
-    }
 }
 
 impl InboundMode {
@@ -311,8 +301,8 @@ mod tests {
         assert_eq!(settings, restored);
 
         // 缺字段按默认值补齐（旧文件不因新增字段而失效）。
-        let partial: TlsSettings = serde_json::from_str(r#"{"outbound": "system"}"#)
-            .expect("缺字段取默认值");
+        let partial: TlsSettings =
+            serde_json::from_str(r#"{"outbound": "system"}"#).expect("缺字段取默认值");
         assert_eq!(partial.outbound, TrustMode::System);
         assert_eq!(partial.inbound, InboundMode::Builtin);
         assert_eq!(partial.schema_version, SETTINGS_SCHEMA_VERSION);
@@ -331,7 +321,10 @@ mod tests {
             assert_eq!(err.code, ErrorCode::ParseError, "{value:?}");
             assert!(err.message.contains("external"), "{}", err.message);
         }
-        assert_eq!(TrustMode::parse("builtin").expect("合法"), TrustMode::Builtin);
+        assert_eq!(
+            TrustMode::parse("builtin").expect("合法"),
+            TrustMode::Builtin
+        );
         assert_eq!(InboundMode::parse("off").expect("合法"), InboundMode::Off);
     }
 
@@ -345,20 +338,37 @@ mod tests {
     }
 
     /// 上限常量关系：证书 ⊆ CA 单文件上限，私钥 < 证书，JSON 总长 > CA 单文件。
+    ///
+    /// 常量关系放在 `const` 块内判定：违反即编译失败（clippy `assertions_on_constants`
+    /// 不接受把常量比较写成运行时 `assert!`）。
     #[test]
     fn size_limits_are_consistent() {
-        assert!(SERVER_CERT_MAX_BYTES <= CA_BUNDLE_MAX_BYTES);
-        assert!(SERVER_KEY_MAX_BYTES < SERVER_CERT_MAX_BYTES);
-        assert!(CERT_JSON_MAX_BYTES > CA_BUNDLE_MAX_BYTES);
-        assert!(MAX_CERT_COUNT > 0);
-        assert!(CERT_VALIDITY_DAYS > 0);
-        assert!(CERT_RENEW_WARN_DAYS > 0 && CERT_RENEW_WARN_DAYS < CERT_VALIDITY_DAYS);
-        // 文件名稳定：`settings.json` 与种子清单共用同一目录、不同文件。
-        assert_ne!(SETTINGS_FILE, SEED_MANIFEST_FILE);
-        assert!(BUILTIN_CA_FILE.ends_with(".pem"));
-        assert!(EXTRA_CA_FILE.ends_with(".pem"));
-        assert!(SERVER_CERT_FILE.ends_with(".pem"));
-        assert!(SERVER_KEY_FILE.ends_with(".pem"));
+        const {
+            assert!(SERVER_CERT_MAX_BYTES <= CA_BUNDLE_MAX_BYTES);
+            assert!(SERVER_KEY_MAX_BYTES < SERVER_CERT_MAX_BYTES);
+            assert!(CERT_JSON_MAX_BYTES > CA_BUNDLE_MAX_BYTES);
+            assert!(MAX_CERT_COUNT > 0);
+            assert!(CERT_VALIDITY_DAYS > 0);
+            assert!(CERT_RENEW_WARN_DAYS > 0 && CERT_RENEW_WARN_DAYS < CERT_VALIDITY_DAYS);
+        }
+    }
+
+    /// 文件名常量：六个文件互异，且除设置与种子清单外均为 PEM。
+    #[test]
+    fn cert_file_names_are_distinct() {
+        let names = [
+            SETTINGS_FILE,
+            BUILTIN_CA_FILE,
+            EXTRA_CA_FILE,
+            SEED_MANIFEST_FILE,
+            SERVER_CERT_FILE,
+            SERVER_KEY_FILE,
+        ];
+        let unique: std::collections::BTreeSet<&str> = names.iter().copied().collect();
+        assert_eq!(unique.len(), names.len(), "证书库文件名必须互异");
+        assert_eq!(names.len(), 6, "证书库固定六个文件（ADR-040 决策 1）");
+        let pem_files = names.iter().filter(|name| name.ends_with(".pem")).count();
+        assert_eq!(pem_files, 4, "仅根证书与服务端证书／私钥为 PEM");
     }
 
     /// `validate` 拒绝错误 schema 版本，错误可操作。

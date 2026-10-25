@@ -201,10 +201,7 @@ mod tests {
         assert!(err.to_string().contains("settings.cert.write"), "{err}");
 
         let full = actor_with_all_capabilities("admin");
-        for capability in [
-            Capability::SettingsCertRead,
-            Capability::SettingsCertWrite,
-        ] {
+        for capability in [Capability::SettingsCertRead, Capability::SettingsCertWrite] {
             require(&policy, &full, capability).expect("全能力调用者必须包含证书能力");
         }
     }
