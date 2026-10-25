@@ -514,7 +514,12 @@
   `default_entry_follows_platform`）；选择器不吞 `--workspace`／`--config` 的取值（来源：
   Task T203、契约 §1）。**已取得（2026-10-25，T203）**：`cargo test -p whcode-bin` 含 5 项
   选择器单测；真实控制台实测见 T203 记录；`contracts/cui-cli.md` §1 与
-  `docs/guides/{tui,cui-manual}.md`、`README.md`、`AGENTS.md` 已同步
+  `docs/guides/{tui,cui-manual}.md`、`README.md`、`AGENTS.md` 已同步。**CI 成品复测
+  （2026-10-25，build-release run `40195460786`）**：artifact `whcode-windows-amd64` 经
+  `.sha256` 校验通过后解包实测——stdin 关闭打印提示并退出 0；真实控制台默认启动 GUI
+  （进程持续运行）；`--tui` 注入 `q` 后退出码 0。同 commit 的 `ci.yml` run `40195460785`
+  六个平台 job 与 `measurements` 全部 success（`perf-budget`／`action-audit`／`desktop`
+  按设计 skipped）
 
 ---
 
