@@ -732,6 +732,14 @@
 - M1 存储与事件基座：14 表 schema 与可重复迁移、单写者服务线程、游标分页、预聚合概览、
   清理/压缩、监控（tasks.md T032—T045）。
 
+### 修复
+
+- 测量证据的环境字段不再伪造（2026-10-25）：`test_memory_limit`／`test_writer_stress`／
+  `test_query_plan` 曾把 `machine_note` 写死为本机机型与内存，GitHub runner 上生成的证据
+  同样带着该字符串。现改为如实标注“未采集”，保留实测的 `os`／`arch`／`logical_cores`；
+  三个夹具已用 `--ignored --nocapture` 复跑并重新生成证据。CI 产物复测记录见
+  `artifacts/ci-artifact-verify-2026-10-25.md`。
+
 ## [0.1.0] — 2026-10-21（M0 基线）
 
 ### 新增

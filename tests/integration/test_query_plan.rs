@@ -322,7 +322,7 @@ fn query_plan_experiment() {
                 .map(std::num::NonZeroUsize::get)
                 .unwrap_or(1),
             "duckdb": whcode_store::engine_version().unwrap_or_else(|err| format!("<不可用：{err}>")),
-            "machine_note": "Windows 11 10.0.26300 / i7-1260P / 16.9 GB（本机环境事实）",
+            "machine_note": "<未采集：CPU 型号与内存总量不经外部命令；os／arch／logical_cores 为实测字段>",
         },
         "fixture": {
             "events": EVENTS,

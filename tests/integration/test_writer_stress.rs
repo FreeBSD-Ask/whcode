@@ -307,7 +307,7 @@ fn writer_service_stress_experiment() {
                 .unwrap_or(1),
             "rustc": rustc,
             "duckdb": duckdb_version,
-            "machine_note": "Windows 11 10.0.26300 / i7-1260P / 16.9 GB（本机环境事实）",
+            "machine_note": "<未采集：CPU 型号与内存总量不经外部命令；os／arch／logical_cores 为实测字段>",
             "process_threads": process_threads(),
             "configured_threads": PRODUCERS + 1,
             "rss_before_bytes": rss_before,
