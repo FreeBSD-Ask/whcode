@@ -483,6 +483,23 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 
 ---
 
+## Phase 21: 入口默认值（Priority: P1）
+
+**Purpose**: 用户指令（2026-10-25）：Windows 下无子命令时默认启动 GUI；`--cli`／`--tui`
+显式选择入口，非 Windows 维持 TUI。
+
+- [x] T203 [US6] 入口选择器与 Windows 默认 GUI：`crates/whcode-bin/src/main.rs` 新增
+  `--gui`／`--cli`／`--tui` 全局选择器（可出现在子命令前后；两个不同选择器同时出现按用法
+  错误退出 2；`--workspace`／`--config` 的取值不被误吃），无子命令时按
+  `default_entry(is_windows)` 启动 GUI（Windows）或 TUI（其他平台）；默认 GUI 仅在存在交互
+  控制台时建窗口，否则打印提示并以退出码 0 结束（保持 `tui-smoke.py` 第 3 项语义）；契约
+  `contracts/cui-cli.md` §1、`docs/guides/{tui,cui-manual}.md`、`README.md`、`AGENTS.md`
+  同步。**2026-10-25 完成**：`cargo test -p whcode-bin`（5 项选择器单测）；真实控制台实测
+  默认启动 GUI（进程运行 5 s）、`--tui` 注入 `q` 退出码 0、`--cli --help` 退出 0、
+  `--cli --tui` 退出 2、stdin 关闭时退出 0；Check 299。
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

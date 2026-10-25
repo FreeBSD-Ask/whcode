@@ -13,6 +13,10 @@
 
 ### 变更
 
+- ⚠ **BREAKING**：Windows 下无子命令启动默认进入 **GUI**（`whcode` 等价 `whcode gui`），
+  不再默认进入 TUI（2026-10-25，T203）。显式入口：`--tui` 终端界面、`--cli` 命令行、
+  `--gui` 与 `gui` 子命令等价；其他平台无参数仍进 TUI。选择器可放在子命令前后，两个不同
+  选择器同现按用法错误退出 2；没有可用控制台（CI／管道）时不启动界面，打印提示后退出 0。
 - ⚠ **BREAKING**：`serve --web` 默认启用入站 TLS 与工作区证书库（2026-10-25，
   add-tls-certificate-store，ADR-040／D-20）。默认协议由明文 `http` 改为 `https`
   （每工作区 ECDSA P-256 自签证书，SAN 含 `localhost`／`127.0.0.1`／`::1`／本机名／

@@ -1,6 +1,7 @@
 # TUI 使用与键位（FR-601）
 
-> 适用：`whcode`（无参数且存在交互控制台时进入）。事实基准：`crates/whcode-tui/src`
+> 适用：`whcode --tui`（Windows 上无参数默认启动 GUI；其他平台无参数仍进 TUI）。
+> 存在交互控制台时才会进入。事实基准：`crates/whcode-tui/src`
 > （2026-10-24 对照）；改动按键解析时必须同步本文（Check 119 口径）。
 > 交互冒烟协议另见 [tui-manual-smoke.md](./tui-manual-smoke.md)。
 
@@ -8,7 +9,7 @@
 
 | 动作 | 方式 | 说明 |
 |---|---|---|
-| 启动 | `whcode`（无位置参数、仅旗标或空参数） | 有位置参数时走 CUI 命令面（`crates/whcode-bin/src/main.rs:105-112`） |
+| 启动 | `whcode --tui`（无位置参数） | Windows 无参数默认 GUI；非 Windows 无参数进 TUI。有位置参数时走 CUI 命令面（`crates/whcode-bin/src/main.rs`） |
 | 退出 | `q` 或 `Ctrl-C` | 两者语义一致，均请求退出（`crates/whcode-tui/src/state.rs:36`） |
 | 退出保证 | —— | 正常退出、`Ctrl-C` 与 panic 均恢复 raw mode 与主屏（`crates/whcode-tui/src/session.rs:66-80`、`143-159`、`174-179`） |
 | 输入流 EOF | —— | 自动退出并恢复终端（`crates/whcode-tui/src/lib.rs:160`） |

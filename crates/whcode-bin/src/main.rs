@@ -5,8 +5,9 @@
 //! **当前状态：骨架。** 可用入口：`--version`、`doctor [--config PATH] [--json]`、
 //! `bench baseline --out PATH [--events N] [--repeat R]`（tasks.md T027、V-006）、
 //! `serve --web [--bind 127.0.0.1:PORT] [--workspace DIR]`（M6 装配：静态前端 +
-//! `/api/*`，默认仅回环）；无参数启动且存在可用控制台时进入 `whcode-tui` 的六视图
-//! 闭环（tasks.md T024/T082 / FR-601）。完整命令面自 M2 起（tasks.md T046+）迁移至
+//! `/api/*`，默认仅回环）；无子命令时按平台默认启动界面——**Windows 默认 GUI**
+//! （`whcode gui`，FR-711／ADR-027），其他平台为 TUI；`--tui`／`--cli`／`--gui`
+//! 可显式指定入口（2026-10-25 用户指令）。完整命令面自 M2 起（tasks.md T046+）迁移至
 //! `whcode-cui` 并由本程序装配。
 //!
 //! 未实现事项明确标记（宪法原则 VII / §15）：DuckDB 存取 M1/T032+；命令面 M2/T046+；
@@ -58,6 +59,89 @@ fn first_positional(args: &[String]) -> Option<&str> {
     None
 }
 
+/// 入口选择器（2026-10-25 用户指令）：Windows 下无子命令时默认 GUI，
+/// `--tui`／`--cli` 显式切到终端界面或命令行。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EntrySelector {
+    Gui,
+    Cli,
+    Tui,
+}
+
+impl EntrySelector {
+    fn from_flag(flag: &str) -> Option<Self> {
+        match flag {
+            "--gui" => Some(Self::Gui),
+            "--cli" => Some(Self::Cli),
+            "--tui" => Some(Self::Tui),
+            _ => None,
+        }
+    }
+
+    const fn flag(self) -> &'static str {
+        match self {
+            Self::Gui => "--gui",
+            Self::Cli => "--cli",
+            Self::Tui => "--tui",
+        }
+    }
+}
+
+/// 取出入口选择器，返回其余参数。
+///
+/// 选择器是全局开关，可以出现在任意位置，不要求写在子命令前。`--workspace`／
+/// `--config` 的取值按值处理：目录恰好叫 `--tui` 时不会被误吃。
+/// 同时给出两个不同的选择器返回用法错误——不猜优先级。
+fn take_entry_selector(args: &[String]) -> Result<(Option<EntrySelector>, Vec<String>), String> {
+    let mut selector: Option<EntrySelector> = None;
+    let mut rest = Vec::with_capacity(args.len());
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        if matches!(arg.as_str(), "--workspace" | "--config") {
+            rest.push(arg.clone());
+            if let Some(value) = iter.next() {
+                rest.push(value.clone());
+            }
+            continue;
+        }
+        match EntrySelector::from_flag(arg) {
+            Some(found) => match selector {
+                Some(previous) if previous != found => {
+                    return Err(format!(
+                        "入口选择器冲突：{} 与 {} 只能保留一个",
+                        previous.flag(),
+                        found.flag()
+                    ));
+                }
+                _ => selector = Some(found),
+            },
+            None => rest.push(arg.clone()),
+        }
+    }
+    Ok((selector, rest))
+}
+
+/// 未显式选择入口时的默认值：Windows 用 GUI，其他平台维持 TUI。
+///
+/// 平台分支只经 `whcode_platform::is_windows()` 取得（NFR-101 分层纪律）。
+const fn default_entry(is_windows: bool) -> EntrySelector {
+    if is_windows {
+        EntrySelector::Gui
+    } else {
+        EntrySelector::Tui
+    }
+}
+
+/// 无交互控制台时的提示：不启动界面，退出码 0。
+///
+/// CI 与管道调用依赖这条语义（`tui-smoke.py` 第 3 项：stdin 关闭时不得挂起）；
+/// 默认 GUI 在这类环境里打开窗口会失败或挂住，因此先判定再决定是否建窗口。
+fn print_cli_hint() -> ExitCode {
+    println!("whcode {BUILD_STAMP} —— 当前没有可用的交互控制台，未启动界面");
+    println!("可用：--tui（终端界面）、--cli <子命令>、--help");
+    ExitCode::SUCCESS
+}
+
 /// 文本层装配（FR-615）：PO 资源目录覆盖内建资源，加载失败时告警并回退内建。
 ///
 /// 资源根依次取 `WHCODE_I18N_DIR`（显式、可撤销）与可执行文件所在目录；
@@ -89,6 +173,14 @@ pub(crate) fn load_texts(
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // 入口选择器先于子命令解析：`--cli doctor` 与 `--tui --workspace DIR` 都成立。
+    let (selector, args) = match take_entry_selector(&args) {
+        Ok(parsed) => parsed,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
     match args.first().map(String::as_str) {
         Some("--version") | Some("-V") => {
             println!("whcode {BUILD_STAMP}");
@@ -104,16 +196,40 @@ fn main() -> ExitCode {
         Some("gui") => gui_command(&args[1..]),
         // 批次 2/3：区分“CUI 命令”与“交互入口”——
         // - 含位置参数（子命令或拼写错误）→ CUI 调度（未知子命令由 clap 报用法错误，退出码 2）；
-        // - 仅含旗标（如 `--workspace DIR`）或无参数 → 交互入口（TUI/骨架提示）；
+        // - 仅含旗标（如 `--workspace DIR`）或无参数 → 按入口选择器/平台默认启动界面；
         // - `--help`/`-h` → CUI 帮助（成功退出）。
         _ => {
             let wants_help = args.iter().any(|arg| arg == "--help" || arg == "-h");
             if wants_help || first_positional(&args).is_some() {
                 cui_dispatch::dispatch(&args)
             } else {
-                launch_interactive(&args)
+                launch_selected_entry(selector, &args)
             }
         }
+    }
+}
+
+/// 无子命令时的入口：显式选择器优先，否则按平台默认（Windows＝GUI，其他＝TUI）。
+///
+/// 默认 GUI 只在有交互控制台时启动：CI 与管道调用没有桌面会话，建窗口会失败或挂住，
+/// 此时打印提示并成功退出。显式 `--gui` 不套这层保护——用户明确要求窗口，失败要如实报错。
+fn launch_selected_entry(selector: Option<EntrySelector>, args: &[String]) -> ExitCode {
+    match selector {
+        Some(EntrySelector::Cli) => cui_dispatch::dispatch(args),
+        Some(EntrySelector::Tui) => launch_interactive(args),
+        Some(EntrySelector::Gui) => gui_command(args),
+        None => match default_entry(whcode_platform::is_windows()) {
+            EntrySelector::Gui => {
+                if whcode_platform::term::terminal_size().is_some()
+                    && whcode_platform::term::stdin_is_interactive()
+                {
+                    gui_command(args)
+                } else {
+                    print_cli_hint()
+                }
+            }
+            _ => launch_interactive(args),
+        },
     }
 }
 
@@ -260,10 +376,7 @@ fn launch_interactive(args: &[String]) -> ExitCode {
     if !(whcode_platform::term::terminal_size().is_some()
         && whcode_platform::term::stdin_is_interactive())
     {
-        println!("whcode {BUILD_STAMP} —— 骨架阶段");
-        println!("可用：--version、doctor [--config PATH] [--json]");
-        println!("其余命令自 M2 起交付（specs/001-whcode-harness/tasks.md）");
-        return ExitCode::SUCCESS;
+        return print_cli_hint();
     }
 
     let FrontendParts {
@@ -781,7 +894,10 @@ fn load_config(args: &[String]) -> Result<config::Config, whcode_domain::WhError
 
 #[cfg(test)]
 mod tests {
-    use super::{BUILD_STAMP, doctor_json_payload, system_roots_text, tls_report};
+    use super::{
+        BUILD_STAMP, EntrySelector, default_entry, doctor_json_payload, system_roots_text,
+        take_entry_selector, tls_report,
+    };
 
     /// 临时工作区（Drop 清理；不写入仓库）。
     struct TempWorkspace {
@@ -1135,5 +1251,59 @@ mod tests {
         // 年份 plausibility（防止把其它字符串误当时间戳）。
         let year: u32 = head[0..4].parse().expect("年份数字");
         assert!((2024..2100).contains(&year), "年份不合理：{BUILD_STAMP}");
+    }
+    /// 选择器可出现在任意位置，并被移出子命令参数。
+    #[test]
+    fn entry_selector_is_extracted_from_any_position() {
+        let args = vec![
+            "--tui".to_string(),
+            "--workspace".to_string(),
+            "ws".to_string(),
+        ];
+        let (selector, rest) = take_entry_selector(&args).expect("选择器解析");
+        assert_eq!(selector, Some(EntrySelector::Tui));
+        assert_eq!(rest, vec!["--workspace".to_string(), "ws".to_string()]);
+
+        let args = vec![
+            "doctor".to_string(),
+            "--cli".to_string(),
+            "--json".to_string(),
+        ];
+        let (selector, rest) = take_entry_selector(&args).expect("选择器解析");
+        assert_eq!(selector, Some(EntrySelector::Cli));
+        assert_eq!(rest, vec!["doctor".to_string(), "--json".to_string()]);
+    }
+
+    /// 同一选择器重复出现按一个处理（幂等），不报错。
+    #[test]
+    fn repeated_entry_selector_is_idempotent() {
+        let args = vec!["--gui".to_string(), "--gui".to_string()];
+        let (selector, rest) = take_entry_selector(&args).expect("选择器解析");
+        assert_eq!(selector, Some(EntrySelector::Gui));
+        assert!(rest.is_empty());
+    }
+
+    /// 两个不同选择器同时出现是用法错误：不猜优先级。
+    #[test]
+    fn conflicting_entry_selectors_are_usage_error() {
+        let args = vec!["--cli".to_string(), "--tui".to_string()];
+        let err = take_entry_selector(&args).expect_err("必须报冲突");
+        assert!(err.contains("--cli") && err.contains("--tui"), "{err}");
+    }
+
+    /// `--workspace`／`--config` 的取值按值处理：目录名写成旗标样式也不会被吃掉。
+    #[test]
+    fn entry_selector_does_not_eat_flag_values() {
+        let args = vec!["--workspace".to_string(), "--tui".to_string()];
+        let (selector, rest) = take_entry_selector(&args).expect("选择器解析");
+        assert_eq!(selector, None);
+        assert_eq!(rest, vec!["--workspace".to_string(), "--tui".to_string()]);
+    }
+
+    /// 平台默认入口：Windows 为 GUI，其他平台维持 TUI。
+    #[test]
+    fn default_entry_follows_platform() {
+        assert_eq!(default_entry(true), EntrySelector::Gui);
+        assert_eq!(default_entry(false), EntrySelector::Tui);
     }
 }

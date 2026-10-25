@@ -122,7 +122,7 @@ python .github/scripts/benchmarks/check-frontend-budget.py    # 前端预算审�
 cargo run -p whcode-bin --release -- doctor
 cargo run -p whcode-bin --release -- doctor --json
 cargo run -p whcode-bin --release -- bench baseline --out artifacts/baseline.json
-cargo run -p whcode-bin --release --             # 有交互控制台时进入 TUI，按 q 退出
+cargo run -p whcode-bin --release --             # Windows 默认 GUI；--tui 终端界面（按 q 退出），--cli 命令行
 ```
 
 ### 3.1 测试模型与图像输入（SenseNova 6.8 Flash Lite）

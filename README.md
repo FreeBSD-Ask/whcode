@@ -31,32 +31,32 @@ cargo test --locked --workspace
 # 环境自检
 cargo run -p whcode-bin --release -- doctor
 
-# 交互界面（无参数启动）
+# 界面：Windows 默认 GUI；--tui 终端界面；--cli 命令行
 cargo run -p whcode-bin --release --
-
-# 命令行
-cargo run -p whcode-bin --release -- task list --session <会话 ID>
-cargo run -p whcode-bin --release -- doctor --json
+cargo run -p whcode-bin --release -- --tui
+cargo run -p whcode-bin --release -- --cli task list --session <会话 ID>
 
 # Web（默认 HTTPS，自签证书；旧脚本用 --tls off 回到明文）
 cargo run -p whcode-bin --release -- serve --web
 cargo run -p whcode-bin --release -- serve --web --tls off
 ```
 
-无参数启动时，若标准输入是真实控制台，进入 TUI：`1`—`6` 切换六个视图，`q` 退出。
-在 Git Bash／mintty 这类伪终端里运行，或在控制台窗口中点选进入选择（QuickEdit）模式时，
-键盘输入不会送达程序——请用 Windows Terminal 或 conhost 运行，并保持窗口处于输入状态。
-完整键位与视图说明见 [tui.md](./docs/guides/tui.md)。
+无参数启动时，Windows 默认打开原生 GUI；加 `--tui` 进入终端界面，加 `--cli` 使用命令行。
+TUI 里 `1`—`6` 切换六个视图，`q` 退出。在 Git Bash／mintty 这类伪终端里运行，或在控制台
+窗口中点选进入选择（QuickEdit）模式时，键盘输入不会送达程序——请用 Windows Terminal 或
+conhost 运行，并保持窗口处于输入状态。完整键位与视图说明见 [tui.md](./docs/guides/tui.md)。
+
+没有可用控制台时（CI、管道、重定向），程序不启动界面，打印提示后以退出码 0 结束。
 
 ## 界面入口
 
 | 入口 | 说明 |
 |---|---|
-| TUI | `whcode`（无参数）；六视图只读，写操作用两段确认 |
-| CUI | `whcode <子命令>`；`--json` 统一信封与稳定退出码，见 [cui-manual.md](./docs/guides/cui-manual.md) |
+| GUI | `whcode`（Windows 默认）或 `whcode gui`；原生只读界面，不内嵌浏览器引擎 |
+| TUI | `whcode --tui`；六视图只读，写操作用两段确认 |
+| CUI | `whcode --cli <子命令>` 或直接 `whcode <子命令>`；`--json` 统一信封与稳定退出码，见 [cui-manual.md](./docs/guides/cui-manual.md) |
 | Web | `whcode serve --web`；默认仅回环，入站 TLS 默认启用，见 [web-deployment-security.md](./docs/guides/web-deployment-security.md) |
 | SSH | `whcode serve --ssh`；受限入口，四平台现场验收延后 |
-| GUI | `whcode gui`；原生只读界面，不内嵌浏览器引擎 |
 
 ## 文档
 
