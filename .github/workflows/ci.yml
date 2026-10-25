@@ -280,6 +280,10 @@ jobs:
 
             echo "=== 依赖记录（V-001，先于 MSRV 闸门执行）==="
             mkdir -p artifacts
+            # 包由 prepare 阶段安装（pkgin 装 duckdb，失败不阻断）；先导出库目录，
+            # 记录脚本才能取到 DuckDB 版本类与载荷校验和，而不是占位符。
+            export DUCKDB_LIB_DIR=/usr/pkg/lib
+            export DUCKDB_INCLUDE_DIR=/usr/pkg/include
             sh .github/scripts/platform-matrix/record-deps.sh artifacts
 
             if [ "$msrv_ok" -eq 0 ]; then

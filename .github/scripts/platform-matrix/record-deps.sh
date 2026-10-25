@@ -88,10 +88,16 @@ elif [ -n "${WHCODE_DUCKDB_VERSION:-}" ]; then
     duckdb_known=1
 else
     # 包名固定为 duckdb，首字段形如 `duckdb-1.5.5`；只认以数字开头的后缀，
-    # 避免把 `pkg info` 的错误输出当成版本。
+    # 避免把包管理器错误输出当成版本。调用形式按工具区分：FreeBSD 的 `pkg`
+    # 需要 `info` 子命令，NetBSD 的 `pkg_info` 没有该子命令（直接把包名当模式）；
+    # 统一写成 `pkg info duckdb` 会让 NetBSD 恒判“无系统包”（run 40183376819）。
     for pkg_tool in pkg pkg_info; do
         command -v "$pkg_tool" >/dev/null 2>&1 || continue
-        pkg_line=$("$pkg_tool" info duckdb 2>/dev/null | head -n 1) || pkg_line=""
+        if [ "$pkg_tool" = "pkg" ]; then
+            pkg_line=$("$pkg_tool" info duckdb 2>/dev/null | head -n 1) || pkg_line=""
+        else
+            pkg_line=$("$pkg_tool" duckdb 2>/dev/null | head -n 1) || pkg_line=""
+        fi
         [ -n "${pkg_line:-}" ] || continue
         pkg_name=$(printf '%s' "$pkg_line" | awk '{print $1}')
         case $pkg_name in

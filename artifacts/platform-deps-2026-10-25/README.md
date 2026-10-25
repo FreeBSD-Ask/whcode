@@ -131,3 +131,20 @@ SKIP 发生在 `=== 依赖记录（V-001）===` 与 DuckDB Go/No-Go 之前，故
 - 旁证：commit `8b1022b` 的 run `40177045322` 同样只有 `deps-freebsd`（id `12593017202`），
   无 `deps-netbsd`；该 run 截至取证时仍在进行（`platform-windows` 失败、`measurements` 未完成），
   故未用作判据。
+
+## 第二轮（2026-10-25，run 40183376819，管线修复后）
+
+- **FreeBSD**：`deps-freebsd`（artifact `12595117841`）四类版本齐备——`version_source = pkg:pkg`，
+  DuckDB `1.5.6`（`engine_version_source` 标注“doctor 未运行，退回已核对库版本”），
+  payload 取自 `/usr/local/lib`。**Check 20 的 FreeBSD 侧满足**；Check 21 一致（rustc 1.99.1）。
+- **NetBSD**：`deps-netbsd`（artifact `12595495649`）已生成（此前从未产出）；
+  `[toolchain]` 记录 `rustc 1.96.1`，**与锁定 1.99.1 不一致**（pkgsrc 环境限制）；
+  `[duckdb]` 仍为占位符——记录脚本误用 `pkg_info info duckdb`（NetBSD 无 `info` 子命令），
+  已在本次提交改为按工具区分调用，并在 NetBSD 段前置导出 `/usr/pkg/lib`；待下一轮 CI 复核。
+- **Check 22（数据库冒烟）**：FreeBSD `STORE_GATE_RESULT=NO-GO`——`cargo test -p whcode-store`
+  109 通过／5 失败，失败集中于 `compact`（2）、`schema`（1）、`smoke`（1）等，
+  `smoke_reports_engine_version_from_runtime` 明确报 `主版本应为 2：v1.5.6`；
+  根因是包版 DuckDB 1.5.6 与冻结引擎 2.0.0（ADR-034）不一致，属 R-01 风险的现实化，
+  不是 GUI 编译干扰。NetBSD 仍在 MSRV 闸门 SKIP。
+- **Windows job 状态**：本 run 的 `platform-windows` 失败于并行会话 TLS 批次
+  （`crates/whcode-llm/src/http/tls.rs` 六个测试），与平台证据管线无关。
