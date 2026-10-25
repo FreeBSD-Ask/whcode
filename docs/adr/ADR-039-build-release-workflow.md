@@ -58,7 +58,9 @@
   `package-windows.py` 只在安装验证记录内打印该值、不写独立 `.sha256` 文件，故独立附件
   由 `check-release.py` 生成。
 - **实现状态（显式登记）**：`build-release.yml` 与 `check-release.py` 随本 ADR 同批落盘；
-  GitHub Actions 实跑证据尚未取得，本 ADR 不宣称已实跑或已通过。
+  2026-10-25 已取得远端实跑证据：build-release run `40153942736` success（`package-debug`
+  4m48s、`package-release` 7m05s，push main 下 tag 发布 job 按门控 skipped），ci run
+  `40153942697` success（五平台与 `measurements` 全绿）。tag 发布路径仍未实跑，保持缺口。
 - **验收口径**：构建与发布结论仍以 GitHub Actions 日志与 artifact 为准（ADR-037）；未实跑
   不得宣称通过，本地运行只作复现与排障。
 
@@ -103,6 +105,9 @@
 ## 修订记录
 
 - **2026-10-25（首版）**：确立构建与发布独立矩阵工作流，工作流职责由两份变三份。
+- **2026-10-25（实跑取证）**：build-release run `40153942736` success，ci run `40153942697`
+  success；`package-debug`／`package-release` 均通过，发布 job 因非 tag 被门控跳过；
+  artifact 四件齐备。tag 发布路径（Release 创建／附件上传／幂等重跑）未实跑，保持缺口。
 - **2026-10-25（修订）**：修正 SHA256 段与代码事实不符的表述——`check-release.py` 用
   `hashlib` 独立复算，发布作业新增下载 `install-verify-windows-amd64` 并与记录首部行的包名、
   字节数、sha256 交叉校验，失败即中止；补记发布形态的真实成本（发布构建、打包安装验证、

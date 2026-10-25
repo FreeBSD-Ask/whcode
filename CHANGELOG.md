@@ -17,7 +17,9 @@
   （`profile: [debug, release]`）；debug 做工作区锁定构建与依赖记录，release 做发布构建、打包
   安装验证、SHA256、TUI/Web 冒烟并上传既有 artifact 名称；tag `v*` 时创建/更新 GitHub Release
   （版本不一致即失败、预发布标 prerelease、重跑 `--clobber` 幂等），写权限仅限发布作业。
-  `ci.yml` 删除构建与发布步骤，保留门禁与测试。主账本新增 T183/Check 273（待 CI 实跑取证）。
+  `ci.yml` 删除构建与发布步骤，保留门禁与测试。主账本新增 T183/Check 273，已由
+  build-release run 40153942736 与 ci run 40153942697（五平台 + measurements 全绿）取证通过；
+  tag 发布路径未实跑。
   迁移：`deps-windows`、`whcode-windows-amd64`、`install-verify-windows-amd64`、`smoke-evidence`
   改从 build-release 工作流获取，名称不变。
 - ⚠ BREAKING：CUI 保留命令（`run`、`events show`、`spec next/validate/analyze/converge/force-advance`、

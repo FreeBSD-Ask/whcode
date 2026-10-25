@@ -391,13 +391,21 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 **Purpose**: 按 ADR-039 把构建与发布从测试门禁中迁出；`build-release.yml` 以 profile 矩阵
 承担工作区构建证据与发布链路，tag ref 时创建 GitHub Release；`ci.yml` 只保留门禁与测试。
 
-- [ ] T183 [P] 构建与发布独立矩阵工作流：新增 `.github/workflows/build-release.yml`
+- [x] T183 [P] 构建与发布独立矩阵工作流：新增 `.github/workflows/build-release.yml`
   （`profile: [debug, release]`；debug 做 `cargo build --locked --workspace` 与依赖记录；
   release 做发布构建、打包安装验证、SHA256、TUI/Web 冒烟与 artifact 上传；tag ref 时以
   `gh` 创建/更新 GitHub Release，校验 tag 与包版本一致、预发布标 prerelease、重跑 `--clobber`
   幂等）；`ci.yml` 删除对应构建与发布步骤；新增 `.github/scripts/check-release.py`；
   `action-versions.json` 登记 `actions/download-artifact`。决策见
   `docs/adr/ADR-039-build-release-workflow.md`；验收以 GitHub Actions 实跑为准（ADR-037）。
+  **2026-10-25 完成**：build-release run
+  `https://github.com/FreeBSD-Ask/whcode/actions/runs/40153942736` success——`package-debug`
+  4m48s、`package-release` 7m05s，`release` 因非 tag 按门控 skipped；artifact 四件齐备
+  （`deps-windows`、`whcode-windows-amd64` 29 821 700 B、`install-verify-windows-amd64`、
+  `smoke-evidence`）。ci run `https://github.com/FreeBSD-Ask/whcode/actions/runs/40153942697`
+  success——`platform-{windows,freebsd,netbsd,openbsd,dragonfly}` 与 `measurements` 全部
+  success，`desktop`／`perf-budget`／`action-audit` 按门控 skipped。tag 发布路径未实跑
+  （未创建 tag），已在 Check 273 登记缺口。
 
 ---
 
