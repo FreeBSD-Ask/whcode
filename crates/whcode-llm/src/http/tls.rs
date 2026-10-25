@@ -387,6 +387,12 @@ fn probe_roots(host: &str, port: u16, roots: &[Vec<u8>]) -> Result<ProbeOutcome,
 }
 
 /// 在预算内连接目标（逐个尝试解析出的地址）。
+///
+/// 每个地址只拿**剩余预算的均分份额**，而不是全部剩余量：`localhost` 常同时解析出 `::1` 与
+/// `127.0.0.1`，若前者不可达且 SYN 被丢弃（防火墙丢包而非拒绝），用全部预算去等它会让本可
+/// 连通的 IPv4 没有机会，最终报成误导性的 `timeout`（2026-10-25 GitHub Windows runner 实测：
+/// 出站探针的六个握手用例全部 2 秒超时，而服务端就在 127.0.0.1 上）。ADR-040 决策 4 的 2 秒
+/// 是**总量**，不是单地址上限。
 fn connect_within(host: &str, port: u16, deadline: Instant) -> Result<TcpStream, WhError> {
     let addrs: Vec<SocketAddr> = (host, port)
         .to_socket_addrs()
@@ -403,18 +409,20 @@ fn connect_within(host: &str, port: u16, deadline: Instant) -> Result<TcpStream,
             "目标 {host}:{port} 未解析出任何地址；请检查主机名与 DNS 配置"
         )));
     }
+    let total = addrs.len();
     let mut last_error = None;
-    for addr in addrs {
+    for (index, addr) in addrs.iter().enumerate() {
         let Some(remaining) = remaining_budget(deadline) else {
             break;
         };
-        match TcpStream::connect_timeout(&addr, remaining) {
+        let slice = connect_slice(remaining, index, total);
+        match TcpStream::connect_timeout(addr, slice) {
             Ok(stream) => return Ok(stream),
-            Err(err) => last_error = Some((addr, err)),
+            Err(err) => last_error = Some((*addr, err)),
         }
     }
     if remaining_budget(deadline).is_none() {
-        return Err(probe_timeout(host, port));
+        return Err(connect_timeout(host, port, &addrs, last_error.as_ref()));
     }
     match last_error {
         Some((addr, err)) => Err(WhError::io(
@@ -425,6 +433,37 @@ fn connect_within(host: &str, port: u16, deadline: Instant) -> Result<TcpStream,
         )),
         None => Err(probe_timeout(host, port)),
     }
+}
+
+/// 连接阶段超时：列出候选地址与最后一次错误，用来区分“黑洞地址吃掉份额”与“目标不在监听”。
+fn connect_timeout(
+    host: &str,
+    port: u16,
+    addrs: &[SocketAddr],
+    last_error: Option<&(SocketAddr, std::io::Error)>,
+) -> WhError {
+    let candidates: Vec<String> = addrs.iter().map(ToString::to_string).collect();
+    let tail = match last_error {
+        Some((addr, err)) => format!("；最后一个错误来自 {addr}：{err}"),
+        None => String::new(),
+    };
+    WhError::new(
+        ErrorCode::Timeout,
+        format!(
+            "连接 {host}:{port} 未能在 {} 秒总预算内完成（候选地址 {}，每个地址只取剩余预算的均分\
+             份额）{tail}；请确认目标端口可达，或该地址被防火墙静默丢包（ADR-040 决策 4）",
+            PROBE_TIMEOUT.as_secs(),
+            candidates.join("、")
+        ),
+    )
+}
+
+/// 单地址连接超时切片：剩余预算按剩余候选地址数均分，至少 1 ms，且不超过剩余量。
+fn connect_slice(remaining: Duration, index: usize, total: usize) -> Duration {
+    let left = total.saturating_sub(index).max(1) as u32;
+    (remaining / left)
+        .max(Duration::from_millis(1))
+        .min(remaining)
 }
 
 /// 预算剩余量；已用尽返回 `None`。
@@ -578,9 +617,18 @@ mod tests {
                 .with_no_client_auth()
                 .with_single_cert(chain, PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key)))
                 .expect("测试服务端 TLS 配置");
-            let listener = TcpListener::bind(("127.0.0.1", 0)).expect("绑定回环测试端口");
-            listener.set_nonblocking(true).expect("非阻塞监听");
-            let port = listener.local_addr().expect("读取本地端口").port();
+            let ipv4 = TcpListener::bind(("127.0.0.1", 0)).expect("绑定回环测试端口");
+            let port = ipv4.local_addr().expect("读取本地端口").port();
+            let mut listeners = vec![ipv4];
+            // 同时监听 ::1：`localhost` 的解析顺序由系统决定（CI runner 常把 `::1` 排在前面），
+            // 只绑 IPv4 会让探针把 2 秒预算耗在连不上的 IPv6 上（2026-10-25 CI 实测六个握手
+            // 用例全超时）。无 IPv6 栈时绑定失败不致命，IPv4 监听仍可用。
+            if let Ok(ipv6) = TcpListener::bind(("::1", port)) {
+                listeners.push(ipv6);
+            }
+            for listener in &listeners {
+                listener.set_nonblocking(true).expect("非阻塞监听");
+            }
             let stop = Arc::new(AtomicBool::new(false));
             let flag = Arc::clone(&stop);
             let handle = std::thread::spawn(move || {
@@ -588,22 +636,32 @@ mod tests {
                 // 有界轮询：最多 5 秒或直到 `stop` 置位；不为每个连接新建线程。
                 let deadline = Instant::now() + Duration::from_secs(5);
                 while !flag.load(Ordering::Relaxed) && Instant::now() < deadline {
-                    match listener.accept() {
-                        Ok((mut stream, _peer)) => {
-                            let _ = stream.set_nonblocking(false);
-                            let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
-                            let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
-                            if let Ok(mut connection) =
-                                rustls::ServerConnection::new(Arc::clone(&config))
-                            {
-                                // 客户端校验失败会主动断开：此处错误属预期，不视为测试失败。
-                                let _ = connection.complete_io(&mut stream);
+                    let mut idle = true;
+                    let mut fatal = 0;
+                    for listener in &listeners {
+                        match listener.accept() {
+                            Ok((mut stream, _peer)) => {
+                                idle = false;
+                                let _ = stream.set_nonblocking(false);
+                                let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+                                let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
+                                if let Ok(mut connection) =
+                                    rustls::ServerConnection::new(Arc::clone(&config))
+                                {
+                                    // 客户端校验失败会主动断开：此处错误属预期，不视为测试失败。
+                                    let _ = connection.complete_io(&mut stream);
+                                }
                             }
+                            Err(err) if err.kind() == ErrorKind::WouldBlock => {}
+                            Err(_) => fatal += 1,
                         }
-                        Err(err) if err.kind() == ErrorKind::WouldBlock => {
-                            std::thread::sleep(Duration::from_millis(5));
-                        }
-                        Err(_) => break,
+                    }
+                    // 两个监听都不可用时退出，避免空转；单个监听出错不影响另一个。
+                    if fatal == listeners.len() {
+                        break;
+                    }
+                    if idle {
+                        std::thread::sleep(Duration::from_millis(5));
                     }
                 }
             });
@@ -721,6 +779,26 @@ mod tests {
         .expect_err("证书仅含 IP 时以主机名校验必须失败");
         assert_eq!(err.code, ErrorCode::InvalidState);
         assert!(err.message.contains("SAN"), "{}", err.message);
+    }
+
+    /// 预算切片（连线级，不建套接字）：多候选地址时每个只拿均分份额，黑洞地址不得吃掉全部
+    /// 预算；不足 1 ms 的份额保底 1 ms，但绝不越过剩余量。
+    #[test]
+    fn connect_budget_is_shared_across_candidate_addresses() {
+        let two_s = Duration::from_secs(2);
+        assert_eq!(connect_slice(two_s, 0, 2), Duration::from_secs(1));
+        assert_eq!(connect_slice(two_s, 1, 2), Duration::from_secs(2));
+        assert_eq!(connect_slice(two_s, 0, 4), Duration::from_millis(500));
+        assert_eq!(
+            connect_slice(Duration::from_micros(500), 0, 4),
+            Duration::from_micros(500),
+            "保底不得越过剩余量"
+        );
+        assert_eq!(
+            connect_slice(Duration::from_millis(2), 0, 4),
+            Duration::from_millis(1),
+            "均分低于 1 ms 时取 1 ms"
+        );
     }
 
     /// 4. 过期证书：失败并明确说明已过期。
