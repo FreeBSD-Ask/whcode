@@ -568,10 +568,11 @@ impl<'a> LoopCore<'a> {
                     self.status = "归档：未选择会话".to_string();
                     return;
                 };
-                self.execute(
+                self.request_confirm(
                     FrontendCommand::SessionArchive {
                         session_id,
                         archived: true,
+                        confirm: true,
                         now_ms: now_ms(),
                     },
                     "归档会话",
@@ -651,6 +652,17 @@ impl<'a> LoopCore<'a> {
                 confirm: false,
                 now_ms: *now_ms,
             },
+            FrontendCommand::SessionArchive {
+                session_id,
+                archived,
+                now_ms,
+                ..
+            } => FrontendCommand::SessionArchive {
+                session_id: session_id.clone(),
+                archived: *archived,
+                confirm: false,
+                now_ms: *now_ms,
+            },
             FrontendCommand::PurgeExecute {
                 before_ms, now_ms, ..
             } => FrontendCommand::PurgePreview {
@@ -679,6 +691,23 @@ impl<'a> LoopCore<'a> {
                         "{label} 预览：将删 {} 个会话（事件 {}）——再按 y 确认，其他键取消",
                         preview.selected_sessions.len(),
                         preview.counts.events
+                    ),
+                    whcode_app::CommandOutcome::SessionArchivePreview {
+                        session,
+                        target_archived,
+                    } => format!(
+                        "{label} 预览：{} 当前{} → {}——再按 y 确认，其他键取消",
+                        session.id,
+                        if session.archived {
+                            "已归档"
+                        } else {
+                            "活跃"
+                        },
+                        if target_archived {
+                            "已归档"
+                        } else {
+                            "活跃"
+                        }
                     ),
                     _ => format!("{label} 预览完成——再按 y 确认，其他键取消"),
                 };
@@ -943,6 +972,117 @@ mod tests {
             report.redraws > 1,
             "游标每次检查都推进：空闲检查必须触发重绘（实际 {}）",
             report.redraws
+        );
+    }
+
+    /// T177/FR-623：`A` 归档走两段确认——先预览（confirm=false），`y` 后才执行（confirm=true）。
+    #[test]
+    fn archive_requires_preview_then_confirm() {
+        use std::cell::RefCell;
+        use whcode_app::SessionRow;
+        use whcode_app::commands::{CommandExecutor, CommandOutcome, FrontendCommand};
+        use whcode_domain::WhError;
+
+        struct RecordingExecutor(RefCell<Vec<FrontendCommand>>);
+        impl CommandExecutor for RecordingExecutor {
+            fn execute(&self, command: FrontendCommand) -> Result<CommandOutcome, WhError> {
+                let row = SessionRow {
+                    id: "S-1".to_string(),
+                    title: "夹具".to_string(),
+                    created_at_ms: 0,
+                    last_active_at_ms: 0,
+                    model: None,
+                    archived: matches!(
+                        &command,
+                        FrontendCommand::SessionArchive {
+                            confirm: true,
+                            archived: true,
+                            ..
+                        }
+                    ),
+                    status: "active".to_string(),
+                    stage: "plan".to_string(),
+                };
+                let outcome = match &command {
+                    FrontendCommand::SessionArchive {
+                        archived,
+                        confirm: false,
+                        ..
+                    } => CommandOutcome::SessionArchivePreview {
+                        session: SessionRow {
+                            archived: false,
+                            ..row.clone()
+                        },
+                        target_archived: *archived,
+                    },
+                    FrontendCommand::SessionArchive { .. } => CommandOutcome::Session(row),
+                    other => panic!("归档流程不应执行其他命令：{other:?}"),
+                };
+                self.0.borrow_mut().push(command);
+                Ok(outcome)
+            }
+        }
+        struct OneSessionSource;
+        impl whcode_app::view_source::ViewSource for OneSessionSource {
+            fn snapshot(
+                &self,
+                view: ViewId,
+                _session: Option<&str>,
+            ) -> whcode_app::view_source::ViewSnapshot {
+                let mut snapshot = whcode_app::view_source::ViewSnapshot::empty(view);
+                snapshot.sessions.push(crate::views::SessionRow {
+                    id: "S-1".to_string(),
+                    title: "夹具".to_string(),
+                    stage: "plan".to_string(),
+                    status: "active".to_string(),
+                });
+                snapshot
+            }
+        }
+
+        let executor = RecordingExecutor(RefCell::new(Vec::new()));
+        let options = RunOptions {
+            command_executor: Some(&executor),
+            ..RunOptions::default()
+        };
+        let report = run_scripted_steps(
+            &OneSessionSource,
+            &[
+                ScriptStep::Input(UiEvent::Key('A')),
+                ScriptStep::Input(UiEvent::Key('y')),
+            ],
+            &options,
+        );
+        let sent = executor.0.borrow();
+        assert_eq!(sent.len(), 2, "先预览再执行：{sent:?}");
+        assert!(
+            matches!(
+                sent[0],
+                FrontendCommand::SessionArchive {
+                    confirm: false,
+                    archived: true,
+                    ..
+                }
+            ),
+            "第一步必须是归档预览：{:?}",
+            sent[0]
+        );
+        assert!(
+            matches!(
+                sent[1],
+                FrontendCommand::SessionArchive {
+                    confirm: true,
+                    archived: true,
+                    ..
+                }
+            ),
+            "确认后才执行：{:?}",
+            sent[1]
+        );
+        assert!(
+            !report.status.contains("not_supported"),
+            "有执行器时不得报不可用：{:?}",
+            report.status
         );
     }
 

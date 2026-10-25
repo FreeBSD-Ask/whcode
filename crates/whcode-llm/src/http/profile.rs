@@ -1,10 +1,10 @@
-//! # 剖面模型、协议枚举与鉴权（FR-209/211、ADR-031）
+//! # 剖面模型、协议枚举与鉴权（FR-203／NFR-213、ADR-031）
 //!
 //! [`ProviderProfile`] 是一个真实供应商接入点的全部声明：协议、端点、路径/查询、
 //! 模型、鉴权、额外头/体、时限与输出上限。托管变体（Azure OpenAI、Vertex AI 等）
 //! 经路径/查询/鉴权/额外字段剖面覆盖，**不为每家厂商写分支代码**。
 //!
-//! 凭据边界（FR-211）：密钥只能来自环境变量或仓库外显式文件，封装在
+//! 凭据边界（FR-203／NFR-213）：密钥只能来自环境变量或仓库外显式文件，封装在
 //! [`Secret`] 中——`Debug`/`Serialize` 恒显示 `[REDACTED]`，不得进入日志、
 //! 事件、错误 details 或测试夹具。
 
@@ -15,7 +15,7 @@ use std::time::Duration;
 use serde::Serialize;
 use whcode_domain::WhError;
 
-/// 线协议族（v1 五类，FR-209）。
+/// 线协议族（v1 五类，ADR-031）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Protocol {
@@ -32,7 +32,7 @@ pub enum Protocol {
 }
 
 impl Protocol {
-    /// 全部已注册协议（`llm list` 与未注册错误提示用，FR-209）。
+    /// 全部已注册协议（`llm list` 与未注册错误提示用，ADR-031）。
     #[must_use]
     pub const fn all() -> [Protocol; 5] {
         [
@@ -56,7 +56,7 @@ impl Protocol {
         }
     }
 
-    /// 按配置名解析（未注册协议返回 `None`，调用方转为结构化错误，FR-209）。
+    /// 按配置名解析（未注册协议返回 `None`，调用方转为结构化错误，ADR-031）。
     #[must_use]
     pub fn parse(name: &str) -> Option<Self> {
         match name {
@@ -70,7 +70,7 @@ impl Protocol {
     }
 }
 
-/// 密钥来源（FR-211：只允许环境变量或仓库外显式文件）。
+/// 密钥来源（FR-203／NFR-213：只允许环境变量或仓库外显式文件）。
 #[derive(Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CredentialRef {
@@ -90,7 +90,7 @@ impl fmt::Debug for CredentialRef {
 }
 
 impl CredentialRef {
-    /// 求值密钥；缺失或空值返回可操作错误（说明变量名/文件路径，FR-211）。
+    /// 求值密钥；缺失或空值返回可操作错误（说明变量名/文件路径，FR-203／NFR-213）。
     ///
     /// # Errors
     ///
@@ -129,7 +129,7 @@ impl CredentialRef {
     }
 }
 
-/// 密钥值：`Debug`/`Serialize`/`Display` 恒为 `[REDACTED]`（FR-211 泄漏防线）。
+/// 密钥值：`Debug`/`Serialize`/`Display` 恒为 `[REDACTED]`（FR-203／NFR-213 泄漏防线）。
 pub struct Secret(String);
 
 impl fmt::Debug for Secret {
@@ -152,7 +152,7 @@ impl Secret {
     }
 }
 
-/// 鉴权方案（FR-211：bearer／自定义头／查询参数／无）。
+/// 鉴权方案（FR-203／NFR-213：bearer／自定义头／查询参数／无）。
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum AuthScheme {
@@ -174,7 +174,7 @@ pub enum AuthScheme {
     None,
 }
 
-/// 流帧格式（FR-210：协议感知解码）。
+/// 流帧格式（FR-206／FR-208：协议感知解码）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FrameFormat {
@@ -186,14 +186,14 @@ pub enum FrameFormat {
     JsonArray,
 }
 
-/// 一个真实供应商接入点（FR-209）。
+/// 一个真实供应商接入点（ADR-031）。
 #[derive(Debug, Clone, PartialEq, serde::Deserialize)]
 pub struct ProviderProfile {
     /// 剖面名（`llm list` 与 `run --provider`）。
     pub name: String,
     /// 线协议族。
     pub protocol: Protocol,
-    /// 端点源（`https://host[:port]`；明文 `http` 仅允许回环，FR-211/161.3）。
+    /// 端点源（`https://host[:port]`；明文 `http` 仅允许回环，FR-203／NFR-213、ADR-031）。
     pub base_url: String,
     /// 请求路径（如 `/v1/chat/completions`）。
     #[serde(default)]
@@ -239,7 +239,7 @@ fn default_max_tokens() -> u64 {
 }
 
 impl ProviderProfile {
-    /// 校验端点：`https` 强制；明文 `http` 仅允许回环（FR-211/161.3）。
+    /// 校验端点：`https` 强制；明文 `http` 仅允许回环（FR-203／NFR-213、ADR-031）。
     ///
     /// # Errors
     ///
@@ -285,7 +285,7 @@ impl ProviderProfile {
         Ok(())
     }
 
-    /// 完整时限三元组（FR-212：连接/读取/总时限显式）。
+    /// 完整时限三元组（FR-201／FR-616：连接/读取/总时限显式）。
     #[must_use]
     pub fn timeouts(&self) -> (Duration, Duration, Duration) {
         (

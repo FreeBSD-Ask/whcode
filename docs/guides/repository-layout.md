@@ -20,12 +20,12 @@
 | `.specify/` | 治理（工具配置） | spec-kit 集成声明与特性配置（用户工作流依赖；隐藏目录不入布局门禁检查范围，2026-10-24 登记） | 入库 |
 | `specs/` | 治理（需求基线） | 规格、计划、任务、清单、契约；`source-*.md` 为只读源基线 | 入库（源基线禁改） |
 | `artifacts/` | 交付产物 | 依赖记录、基准报告、M0 报告等运行期证据 | **默认忽略**；治理报告（如 `m0-report.md`）经 `.gitignore` 放行后入库 |
-| `assets/` | 交付（资源） | 可再分发的内置资源：`fonts/`（完整 OFL 字体、许可原文、`SOURCES.md`） | 入库（仅允许 OFL 等可再分发许可；新增资源类型需 ADR） |
+| `assets/` | 交付（资源） | 可再分发的内置资源：`fonts/`（完整 OFL 字体、许可原文、`SOURCES.md`）；`certs/`（内置 Mozilla 根证书包 `ca-bundle.pem`、MPL-2.0 许可原文与 `SOURCES.md`，ADR-040） | 入库（仅允许 OFL 等可再分发许可；新增资源类型需 ADR） |
 | `vendor/` | 交付（二进制） | 预编译 DuckDB（SHA256 校验后解包，PROVENANCE 留证） | **忽略**（可再生成） |
 | `local/` | 本地 | 临时脚本、探测脚本、运行日志（不出库；一次性脚本与日志由 `.github/scripts/clean.py` 回收） | **忽略** |
 | `target/` | 本地 | Rust 构建产物 | **忽略** |
 | `state/` | 本地 | 环境工具自动重建的状态目录（内容不可控，视为不存在） | **忽略** |
-| `.github/` | 治理（流程与自动化） | `workflows/`（`ci.yml` 为唯一测试入口：Windows 与四 BSD 随 push/PR 运行，桌面与性能 job 由 `workflow_dispatch` 输入触发；`long-run.yml` 为手动 5.5 小时长跑）；`scripts/`（原 `ci/`：平台矩阵、基准、打包与门禁脚本）；PR/Issue 模板；`dependabot.yml`（每日依赖与 Actions 更新，仅开 PR、不自动合并） | 入库 |
+| `.github/` | 治理（流程与自动化） | `workflows/`（`ci.yml` 为唯一测试入口：Windows 与四 BSD 随 push/PR 运行，桌面与性能 job 由 `workflow_dispatch` 输入触发；`build-release.yml` 以 `profile: [debug, release]` 矩阵承担工作区构建（debug）与发布链路（release：打包安装验证、SHA256、TUI/Web 冒烟、artifact 上传），tag `v*` 时创建/更新 GitHub Release；`long-run.yml` 为手动 5.5 小时长跑）；`scripts/`（原 `ci/`：平台矩阵、基准、打包与门禁脚本，含 `check-release.py`）；PR/Issue 模板；`dependabot.yml`（每日依赖与 Actions 更新，仅开 PR、不自动合并） | 入库 |
 | `.specify/` | 治理（工具链） | Spec-Kit 1.0.13 模板、PowerShell 脚本、集成清单与项目宪法（`memory/constitution.md`）；`feature.json` 为当前 feature 指针，切换时产生显式差异 | 入库（2026-10-24 全量纳入） |
 
 根文件只允许工程清单（`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、`rustfmt.toml`）、

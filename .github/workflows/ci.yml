@@ -79,10 +79,6 @@ jobs:
         if: matrix.platform == 'windows'
         run: python .github/scripts/fetch-duckdb.py
 
-      - name: 构建（锁定依赖图）
-        if: matrix.platform == 'windows'
-        run: cargo build --locked --workspace
-
       - name: 格式与静态检查（T003）
         if: matrix.platform == 'windows'
         run: |
@@ -114,58 +110,6 @@ jobs:
       - name: 前端预算（FR-618／ADR-014）
         if: matrix.platform == 'windows'
         run: python .github/scripts/benchmarks/check-frontend-budget.py
-
-      - name: 产出依赖记录（V-001，含测量纪律字段）
-        if: matrix.platform == 'windows'
-        run: python .github/scripts/platform-matrix/record_deps.py artifacts
-
-      - name: 上传 Windows 依赖记录
-        if: matrix.platform == 'windows'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: deps-windows
-          path: artifacts/deps-windows.txt
-
-      # 发布包（tasks.md T118／Check 118）：release 构建 → 打包 → 解包到仓库外目录安装验证。
-      - name: 发布构建
-        if: matrix.platform == 'windows'
-        run: cargo build --release --locked -p whcode-bin
-
-      - name: 打包并安装验证（T118）
-        if: matrix.platform == 'windows'
-        run: python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt
-
-      - name: TUI 可自动化冒烟（V-003：--version／doctor／非交互退出）
-        if: matrix.platform == 'windows'
-        run: python .github/scripts/tui-smoke.py --json artifacts/tui-smoke-ci.json
-
-      - name: Web 服务端冒烟（/api/status、/api/sessions、首页）
-        if: matrix.platform == 'windows'
-        run: python .github/scripts/web-smoke.py --json artifacts/web-smoke-ci.json
-
-      - name: 上传冒烟证据（TUI／Web）
-        if: always() && matrix.platform == 'windows'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: smoke-evidence
-          if-no-files-found: warn
-          path: |
-            artifacts/tui-smoke-ci.json
-            artifacts/web-smoke-ci.json
-
-      - name: 上传 Windows 发布包
-        if: matrix.platform == 'windows'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: whcode-windows-amd64
-          path: target/dist/*.zip
-
-      - name: 上传安装验证记录
-        if: matrix.platform == 'windows'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: install-verify-windows-amd64
-          path: artifacts/install-verify-windows-amd64.txt
 
       # ---------------- FreeBSD（最新 15.x release） ----------------
       - name: 在 FreeBSD VM 中构建、测试与记录

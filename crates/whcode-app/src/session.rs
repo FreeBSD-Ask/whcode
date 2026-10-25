@@ -131,6 +131,8 @@ pub fn rename_session(
 
 /// 归档/取消归档会话（FR-101 archive）。
 ///
+/// 存储层在同一事务内写 `session_archive` 审计（ADR-038），应用层只做权限判定与透传。
+///
 /// # Errors
 ///
 /// 权限拒绝、会话不存在（全有或全无）或存储失败时返回 [`WhError`]。
@@ -142,7 +144,7 @@ pub fn set_session_archived(
     archived: bool,
 ) -> Result<usize, WhError> {
     require(policy, actor, Capability::SessionArchive)?;
-    set_archived(conn, session_ids, archived)
+    set_archived(conn, session_ids, archived, &actor.id)
 }
 
 /// 删除会话（FR-101 delete；破坏性命令）。

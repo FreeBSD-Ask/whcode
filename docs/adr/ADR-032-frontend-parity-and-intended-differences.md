@@ -53,7 +53,14 @@
 | `CUI_REQUEST_ONLY` | 其他端更改自动可见 | FR-602 | CUI 为一次性请求响应，不存在在线订阅 | CUI 引入长驻会话 |
 | `GUI_MANUAL_REFRESH` | 自动刷新 | FR-711／714 | GUI v1 以显式刷新为准，禁止定时器驱动重绘 | GUI 事件订阅立项 |
 | `RESERVED_MILESTONE` | 预留命令 | 对应 FR 与里程碑 | 功能未交付，显式失败，不得伪造 | 里程碑交付时同 PR 更新登记表与矩阵 |
+| `WEB_SETTINGS_ONLY` | 证书设置读写（`settings.cert.read`／`settings.cert.write`） | FR-627／ADR-040 | 证书编辑必须在 Web 服务设置页完成：页面要呈现重启提示、当前信任来源与证书指纹，而这些状态只存在于运行中的 Web 服务；CUI／TUI／GUI 无服务设置面，若各自实现会分裂重启语义与审计口径。承担者：需要轮换证书的运维用户、四端登记维护者 | 需要 headless 自动化证书轮换（CUI／脚本驱动）时，评估新增命令面并重审本码 |
 | `TRANSPORT_SPECIFIC` | SSH／serve 等传输入口 | FR-603／607／608 | 独立传输面，不属于四端视图或命令对等范围 | 不适用 |
+
+表内理由码沿用本 ADR 的大写下划线写法；登记表与代码中的稳定字符串是对应的小写蛇形码
+（`crates/whcode-app/src/surface.rs` 的 `ExclusionReason::as_str`，例如
+`GUI_READ_ONLY_V1` ↔ `gui_read_only_v1`）。2026-10-25 新增行同此口径：
+`WEB_SETTINGS_ONLY` ↔ `web_settings_only`，表格文字与实现字符串一一对应，
+门禁按小写串比对；同一理由不得出现两种拼写。
 
 ## 理由（正负和解）
 
@@ -117,7 +124,8 @@
 
 ## 与 ADR-031／D-16 的编号与协调
 
-- D-16／ADR-031 由并行变更 `add-real-llm-provider` 预留（LLM 真实供应商接入）；
+- D-16／ADR-031 属 `add-real-llm-provider`（LLM 真实供应商接入）；该 ADR 已于 2026-10-25
+  补录（`ADR-031-llm-provider-network-and-credentials.md`），客户端与 `llm run` 装配仍未交付；
   本 ADR 占用 **D-17／ADR-032**，编号相邻、语义不冲突。
 - `llm run／cancel` 的四端登记状态以 `add-real-llm-provider` 实际交付为准：该变更
   合入前登记为预留（`RESERVED_MILESTONE`）；合入时必须同 PR 更新登记表、矩阵与
@@ -145,6 +153,9 @@
   注明“可逆元数据标记，不写 `db_purge` 审计”。该冲突已在 `CHANGELOG.md` 已知未完成
   第 3 项登记（责任人：对等门禁维护者；退出条件：独立 ADR 裁决确认语义与审计口径，
   四端同 PR 对齐）。本 ADR 的 `audited` 字段仍是**契约要求**，不因现状请假而改写。
+  **关闭（2026-10-25，ADR-038／T182）**：裁决为不放宽本 ADR 与契约，以实现补齐——
+  四端统一预览→确认，`set_archived` 同事务写 `session_archive` 审计；登记表字段与实现
+  自此一致（见本节末的 2026-10-25 修订记录）。
 - **“未排期”口径**：登记表中 22 个 `Reserved { milestone: "未排期" }` 是变更前既有口径
   （应用层已交付、四端接线未排期），本收口不改变其业务语义；其里程碑命名是否收敛为
   具体 FR／里程碑，留待相应能力立项时处理（复审触发①）。
@@ -160,3 +171,12 @@
 - **退出条件**：任一前端接线 `llm run`／`llm cancel` 的同 PR，翻转对应格为 `Implemented`
   并补真实锚点、更新矩阵行与 `llm_run_stays_reserved_while_no_frontend_wires_it` 断言；
   在此之前不得把 `M3-llm` 改写为已完成里程碑。
+
+### 2026-10-25（`session.archive` 确认与审计关闭）
+
+- **关闭路径**：ADR-038 裁决不放宽本 ADR 的登记字段与契约 §2-1，改为实现补齐——
+  CUI 默认 dry-run／`--yes`、TUI `A` 预览→确认、Web 缺 `confirm` 只预览，store 在同一事务
+  写 `session_archive` 审计；`session.archive` 的 `PreviewConfirm` 与 `audited = true`
+  自此与实现一致（T182／Check 272）。
+- **影响**：CUI 归档属 BREAKING 行为变更；TUI 尚无反归档键，作为已知不对称留在 ADR-038，
+  不影响本 ADR 的四端状态判定（三端均为 `Implemented`，GUI 仍 `GuiReadOnlyV1`）。

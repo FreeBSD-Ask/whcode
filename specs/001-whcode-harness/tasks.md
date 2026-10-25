@@ -340,16 +340,17 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 
 ## Phase 15: LLM 真实供应商（预留，未交付，Priority: P1）
 
-**Purpose**: `add-real-llm-provider` 变更的任务位（ADR-031／D-16）。该变更的 spec 与 ADR-031
-尚未入库，以下 6 条按 FR-201—208 与 FR-616 及现存代码锚点占位登记；**标题与交付状态以该变更收口时的
-正式 spec 为准**。不得据此宣称 `llm run／cancel` 已可用（四端仍登记为 `M3-llm` 预留）。
+**Purpose**: `add-real-llm-provider` 变更的任务位（ADR-031／D-16）。ADR-031 已于 2026-10-25
+补录（`docs/adr/ADR-031-llm-provider-network-and-credentials.md`），该变更的**正式 spec 仍未入库**；
+以下 6 条按 FR-201—208 与 FR-616 及现存代码锚点占位登记，**标题与交付状态以该变更收口时的正式 spec
+为准**。不得据此宣称 `llm run／cancel` 已可用（四端仍登记为 `M3-llm` 预留）。
 
-- [ ] T162 [US4] 真实 Provider 剖面与凭据边界：剖面模型、协议枚举、鉴权头构造与凭据不落日志／事件（FR-203；锚点 `crates/whcode-llm/src/http/profile.rs`）——**未完成（阻塞：变更 spec 与 ADR-031 未入库）**
-- [ ] T163 [US4] 阻塞式 HTTP 客户端与协议适配器：`ureq` 客户端、请求构造、响应读取与网络错误映射（FR-201；锚点 `crates/whcode-llm/src/http/mod.rs`）——**未完成（阻塞同上）**
-- [ ] T164 [US4] 响应归一化：流式／非流式响应统一为领域事件与用量统计（FR-206／207）——**未完成（阻塞同上）**
-- [ ] T165 [US4] 传输进度事件与脱敏：连接／重连／字节计数／往返时延／断连原因码入事件体系（FR-616、FR-203）——**未完成（阻塞同上）**
-- [ ] T166 [US4] 超时、重试与取消：单次调用超时、有界重试与取消语义（FR-201／202）——**未完成（阻塞同上）**
-- [ ] T167 [US4] 装配根接线与登记翻转：`http` feature 装配、凭据文件读取、`llm.run／cancel` 四端登记与矩阵同步（FR-208、FR-616；ADR-032 复审触发③）——**未完成（阻塞同上）**
+- [ ] T162 [US4] 真实 Provider 剖面与凭据边界：剖面模型、协议枚举、鉴权头构造与凭据不落日志／事件（FR-203；锚点 `crates/whcode-llm/src/http/profile.rs`）——**未完成（阻塞：变更 spec 未入库；ADR-031 已补录）**
+- [ ] T163 [US4] 阻塞式 HTTP 客户端与协议适配器：`ureq` 客户端、请求构造、响应读取与网络错误映射（FR-201；锚点 `crates/whcode-llm/src/http/mod.rs`）——**未完成（阻塞：同上，变更 spec 未入库）**
+- [ ] T164 [US4] 响应归一化：流式／非流式响应统一为领域事件与用量统计（FR-206／207）——**未完成（阻塞：同上，变更 spec 未入库）**
+- [ ] T165 [US4] 传输进度事件与脱敏：连接／重连／字节计数／往返时延／断连原因码入事件体系（FR-616、FR-203）——**未完成（阻塞：同上，变更 spec 未入库）**
+- [ ] T166 [US4] 超时、重试与取消：单次调用超时、有界重试与取消语义（FR-201／202）——**未完成（阻塞：同上，变更 spec 未入库）**
+- [ ] T167 [US4] 装配根接线与登记翻转：`http` feature 装配、凭据文件读取、`llm.run／cancel` 四端登记与矩阵同步（FR-208、FR-616；ADR-032 复审触发③）——**未完成（阻塞：同上，变更 spec 未入库）**
 
 ---
 
@@ -371,7 +372,50 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T178 [US6] TUI 主题与在线可见：`t` 四主题循环；`ViewSource` 游标查询与 ≥1000 ms 空闲检查，推进才重绘（**2026-10-24 完成**：`lib.rs`、`theme.rs`、`whcode-bin/src/store_source.rs`）
 - [x] T179 [US6] GUI 只读对等：GUI 动作清单仅映射读面，写命令登记 `GUI_READ_ONLY_V1`，冻结 `GUI_MANUAL_REFRESH`（**2026-10-24 完成**：`crates/whcode-gui/src/surface_map.rs` + 契约断言）
 - [x] T180 [US6] 行为等价：同一 purge 经 CUI 形状与 Web 形状执行，最终计数、审计次数与权限拒绝码一致（**2026-10-24 完成**：`test_frontend_parity.rs::purge_through_facade_has_identical_outcome_and_audit`）
-- [x] T181 [US6] 收口：FR-619—625 转正主账本（本文件与 `checklist.md` 挂钩）、登记表 13 格随交付翻转为已实现、矩阵改为 54 行逐行受校验产物并补负向篡改用例、四份指南与 CUI 手册回填、证据归档（**2026-10-24 完成**：`docs/matrices/feature-parity.md`、`docs/guides/{tui,ui-design,web-deployment-security,cui-manual}.md`、`artifacts/frontend-parity-2026-10-24/`；遗留的 archive 确认／审计口径冲突在 CHANGELOG 已知未完成第 3 项登记）
+- [x] T181 [US6] 收口：FR-619—625 转正主账本（本文件与 `checklist.md` 挂钩）、登记表 13 格随交付翻转为已实现、矩阵改为 54 行逐行受校验产物并补负向篡改用例、四份指南与 CUI 手册回填、证据归档（**2026-10-24 完成**：`docs/matrices/feature-parity.md`、`docs/guides/{tui,ui-design,web-deployment-security,cui-manual}.md`、`artifacts/frontend-parity-2026-10-24/`；遗留的 archive 确认／审计口径冲突在 CHANGELOG 已知未完成第 3 项登记，2026-10-25 由 T182 关闭）
+
+---
+
+## Phase 17: 写命令确认与审计补遗（Priority: P1）
+
+**Purpose**: 关闭 `CHANGELOG.md` 已知未完成第 3 项——`session.archive` 的登记要求
+（`PreviewConfirm` + `audited = true`）与实现不一致。裁决见 ADR-038：不放宽契约与登记表，
+以实现补齐确认与审计。
+
+- [x] T182 [US3] 会话归档确认与审计：四端统一“预览→确认”（CUI 默认 dry-run、`--yes` 执行；TUI `A` 两段确认；Web 缺 `confirm` 只预览；GUI 只读排除），新增 `session_archive` 审计并在 `set_archived` 同一事务写入（FR-623；ADR-038；**2026-10-25 完成**：`crates/whcode-store/src/purge.rs`、`crates/whcode-app/src/{commands,session}.rs`、`crates/whcode-bin/src/cui_dispatch.rs`、`crates/whcode-tui/src/lib.rs`、`crates/whcode-web/src/{api.rs,frontend/app.js,frontend/index.html}`；`docs/adr/ADR-038-session-archive-confirmation-and-audit.md`）
+
+---
+
+## Phase 18: 构建与发布独立矩阵工作流（Priority: P1）
+
+**Purpose**: 按 ADR-039 把构建与发布从测试门禁中迁出；`build-release.yml` 以 profile 矩阵
+承担工作区构建证据与发布链路，tag ref 时创建 GitHub Release；`ci.yml` 只保留门禁与测试。
+
+- [ ] T183 [P] 构建与发布独立矩阵工作流：新增 `.github/workflows/build-release.yml`
+  （`profile: [debug, release]`；debug 做 `cargo build --locked --workspace` 与依赖记录；
+  release 做发布构建、打包安装验证、SHA256、TUI/Web 冒烟与 artifact 上传；tag ref 时以
+  `gh` 创建/更新 GitHub Release，校验 tag 与包版本一致、预发布标 prerelease、重跑 `--clobber`
+  幂等）；`ci.yml` 删除对应构建与发布步骤；新增 `.github/scripts/check-release.py`；
+  `action-versions.json` 登记 `actions/download-artifact`。决策见
+  `docs/adr/ADR-039-build-release-workflow.md`；验收以 GitHub Actions 实跑为准（ADR-037）。
+
+---
+
+## Phase 19: 内置 TLS 证书库与 Web 证书设置（Priority: P0）
+
+**Purpose**: 关闭“出站信任根在编译期写死、`serve --web` 只提供明文 HTTP”的现状：把信任什么
+证书、用什么服务端证书、是否启用变为可见、可编辑、可关闭的工作区配置。决策与取舍见 ADR-040
+（ADR-039 已被发布流程占用）。契约与需求见 FR-626／FR-627 与 `.trae/specs/add-tls-certificate-store/`。
+
+- [ ] T184 决策与追溯登记：新增 `docs/adr/ADR-040-tls-certificate-store.md`（威胁模型、备选方案、正负和解、三重时间、逐项依赖批准表）；ADR-031 追加“自定义 CA 与系统证书库由未支持转为受控支持”修订、ADR-023 追加“TLS 转默认”修订、ADR-022 补 HTTPS Origin scheme、ADR-032 新增理由码 `web_settings_only`；主 spec 修订 FR-606 并新增 FR-626／FR-627；`contracts/app-service.md` 增列 `cert` 命令面、`contracts/cui-cli.md` 的 `serve --web` 增 `--tls`；本文件登记 T184—T192、`checklist.md` 登记 Check 274—288 并同步计数声明（FR-626／FR-627）；验证：`python .github/scripts/traceability.py`、`python .github/scripts/check_counts.py`、`python .github/scripts/check-eol.py` 退出码 0
+- [ ] T185 内置 CA 资产与许可：`assets/certs/ca-bundle.pem` 原样入库（来源 `https://curl.se/ca/cacert.pem`）并记录下载日期、上游 SHA-256、证书份数；`assets/certs/SOURCES.md` 写明上游地址、版本日期、SHA-256、MPL-2.0 许可与原文片段、更新与复审触发；`docs/guides/repository-layout.md` 的 `assets/` 说明增列 `certs/`（FR-626）；验证：重算 SHA-256 与份数一致、资产无 BOM 且无私钥块、`python .github/scripts/check-eol.py`、`cargo test -p whcode-tests --test layout`
+- [ ] T186 领域类型、能力与审计动作：`crates/whcode-domain/src/tls.rs`（`TrustMode`、`InboundMode`、`TlsSettings`、`CertStatus`／`ServerCertStatus`、文件名与容量上限常量，serde 往返与两向默认值、未知档位解析失败）；`AuditAction::TlsConfigChange`（`tls_config_change`）；`whcode-platform` 的 `workspace_certs_dir()`；`whcode-app::authz` 新增 `Capability::SettingsCertRead`／`SettingsCertWrite`（`settings.cert.read`／`settings.cert.write`）并扩展 `KNOWN_CAPABILITIES` 与全能力 actor（FR-626／FR-627）；验证：`cargo test -p whcode-domain -p whcode-platform -p whcode-app`、`cargo clippy --workspace --all-targets -- -D warnings`
+- [ ] T187 工作区证书库编排（app）：新增 `crates/whcode-app/src/cert.rs`——初始化、状态读取、设置保存、CA 读取／写入／重置、种子清单与保真刷新、自签证书生成与重新生成、外部证书与私钥保存；校验 CA 仅接受 CERTIFICATE 块（出现 PRIVATE KEY 即拒绝）、份数与字节上限、PEM 可解析；同目录临时文件加原子替换，审计或替换失败回滚原字节（FR-626）；验证：`cargo test -p whcode-app`（种子／保真刷新／已修改保留／重置／空与超限／私钥块拒绝／非法 PEM／只读目录可操作错误／两工作区指纹不同）、`cargo fmt --all --check`
+- [ ] T188 出站信任装配（llm，`http` feature）：新增 `crates/whcode-llm/src/http/tls.rs`——由信任材料构造 `ureq::Agent`，`builtin` 用可编辑副本、`system` 经 `rustls-native-certs` 读取操作系统库，`ca-extra.pem` 在两档均追加；份数与字节有界；系统库为 0 时返回可操作错误且不回落内置库；不设置 `disable_verification`、不提供跳过校验入口（FR-626）；真实 Provider 调用仍由 T163／T167 接入，本任务不宣称 `llm run` 可用；验证：`cargo test -p whcode-llm --features http`（`rcgen` 本地自签夹具，测试不访问公网）
+- [ ] T189 入站 TLS 与非阻塞握手（web + bin）：`crates/whcode-web/src/tls.rs` 只持纯配置类型与状态投影（档位、上限、证书私钥校验结果与指纹；不引入 `rustls`）；`rustls::ServerConfig` 构造与非阻塞 `TlsSession`（明文与密文字节缓冲各有上限）落在装配根 `crates/whcode-bin/src/serve.rs`；`serve` 的 `--tls` 解析与优先级（参数 > 工作区设置 > 默认 `builtin`）、连接层抽象、握手沿用 5 秒空闲上限、`https` Origin 允许集与启动输出、默认档位失败拒绝启动（FR-626，分层依据见 ADR-040）；验证：`cargo test -p whcode-web -p whcode-bin`（分片 ClientHello、部分写、握手超时、外部证书档位、TLS 下 WebSocket 升级、`--tls off`、局域网无 token 拒绝），并记录前后线程与空闲内存数值
+- [ ] T190 Web 证书 API 与设置页：`crates/whcode-web/src/api.rs` 新增 `GET /api/certs`、`POST /api/certs/modes`、`GET|POST /api/certs/ca`、`POST /api/certs/ca/reset`、`GET|POST /api/certs/server`、`POST /api/certs/server/self-signed`、`POST /api/certs/verify`，请求体上限在解析前生效；认证与 Origin 复用 `security`、能力经 `whcode_app::authz::require`、降档要求 `confirm = true`、成功写 `tls_config_change` 审计且审计失败回滚；私钥只进不出；新增 `frontend/settings.html`／`settings.js`（原生 ESM）与首页入口、`zh-CN`／`en` 词条、无 JS 只读降级；`whcode-app::surface` 登记两项证书能力与 Web 路由映射并重新生成 `docs/matrices/feature-parity.md`（理由码 `web_settings_only`，FR-627）；验证：`cargo test -p whcode-web`、`cargo test -p whcode-tests --test frontend_parity`、`python .github/scripts/benchmarks/check-frontend-budget.py`
+- [ ] T191 装配根可见性与文档同步：`crates/whcode-bin` 在 `serve --web` 启动时初始化证书库并在默认档位失败时拒绝，TUI／GUI／CUI 装配时确保出站信任库可用并报告错误；`doctor` 文本与 `--json` 增加出站档位／份数／修改标记与入站档位／指纹／有效期；`README.md`、`docs/guides/cui-manual.md`、`docs/guides/web-deployment-security.md`、`quickstart.md`、`docs/guides/module-design.md`、`docs/matrices/decisions.md` 与 `CHANGELOG.md`（BREAKING：默认 HTTPS、Origin scheme 变化、脚本迁移）同步（FR-626／FR-627）；验证：`cargo test -p whcode-bin`、文档不再残留“Web 无 TLS”表述、`python .github/scripts/traceability.py`、`python .github/scripts/check_counts.py`
+- [ ] T192 验收证据、门禁与资源复核：真实运行取证（默认 HTTPS 与指纹一致、`--tls off` 明文、`external` 证书、局域网 token + HTTPS、设置页操作与 `restart_required` 提示）落 `artifacts/tls-2026-10-25/`；同夹具记录 `serve --web` 空闲与单连接 TLS 的 RSS／线程／句柄／CPU 前后对比且线程不增加；标准验证链全跑（`fetch-duckdb.py`、`cargo build --locked`、`fmt --check`、`clippy -D warnings`、`test --locked`、`layering`、`layout`、`traceability`、`check_counts`、`package-windows.py --verify`、`check-eol`、`check-workflows`、前端预算与资源测量）；CI 未实际运行时按 ADR-037 登记缺口（FR-626／FR-627）；验证：全部门禁退出码 0，证据可复现，未取得项显式标“未取得／阻塞”
 
 ---
 

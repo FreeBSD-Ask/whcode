@@ -11,7 +11,7 @@ license.workspace = true
 whcode-domain = { path = "../whcode-domain" }
 serde.workspace = true
 serde_json.workspace = true
-# 真实 HTTP Provider（FR-209—214、ADR-031）：默认关闭——域层与前端保持零网络依赖，
+# 真实 HTTP Provider（FR-201／FR-203／FR-616、NFR-213、ADR-031）：默认关闭——域层与前端保持零网络依赖，
 # 仅装配根（whcode-bin）启用 `http` feature。阻塞式客户端，不引入异步运行时（NFR-215）。
 ureq = { version = "3.5.0", default-features = false, features = ["rustls"], optional = true }
 

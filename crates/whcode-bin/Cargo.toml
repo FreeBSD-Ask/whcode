@@ -19,7 +19,7 @@ whcode-cui = { path = "../whcode-cui" }
 whcode-domain = { path = "../whcode-domain" }
 # `gui` 入口装配（FR-711／ADR-027）：原生桌面 GUI，只读六视图。
 whcode-gui = { path = "../whcode-gui" }
-# 真实 LLM Provider（FR-209—214、ADR-031）：装配根启用 `http` feature——
+# 真实 LLM Provider（FR-201／FR-203／FR-616、NFR-213、ADR-031）：装配根启用 `http` feature——
 # 域层与前端保持零网络依赖，网络依赖只进二进制装配（发布体积影响见 ADR-031）。
 whcode-llm = { path = "../whcode-llm", features = ["http"] }
 whcode-platform = { path = "../whcode-platform" }

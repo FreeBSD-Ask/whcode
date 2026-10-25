@@ -61,7 +61,7 @@ pub struct LlmChunk {
     pub final_chunk: bool,
     /// 供应商计量（仅终结 chunk；`None` 表示供应商不报告，走本地估算，FR-207）。
     pub usage: Option<Usage>,
-    /// 归一化终止原因（仅终结 chunk；`stop`/`length`/`tool_call` 等，FR-210）。
+    /// 归一化终止原因（仅终结 chunk；`stop`/`length`/`tool_call` 等，FR-206／FR-208）。
     /// 非终结 chunk 恒为 `None`。
     pub finish_reason: Option<String>,
 }
@@ -120,7 +120,7 @@ pub trait Provider: Send + Sync {
     /// Provider 不可用或请求非法时返回归一化错误。
     fn execute(&self, request: &LlmRequest, cancel: &CancelToken) -> Result<ChunkStream, WhError>;
 
-    /// 传输层只读快照（FR-210/616：字节计数与 RTT 可查询）。
+    /// 传输层只读快照（FR-616：字节计数与 RTT 可查询）。
     ///
     /// 默认 `None`（桩 Provider 无网络传输）；真实 Provider 返回累计快照。
     fn transport_snapshot(&self) -> Option<TransportSnapshot> {

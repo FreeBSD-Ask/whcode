@@ -284,6 +284,7 @@ async function loadStatus() {
 // 每条命令与服务端 `POST /api/*` 一一对应，语义与 CUI 相同（FR-604）：
 // 破坏性操作先预览，确认按钮在预览成功后才启用；删除当前会话后清空选择。
 
+let archiveArmed = null; // 已预览的归档目标（防止对未预览的会话直接归档）
 let deleteArmed = null; // 已预览的删除目标（防止对未预览的会话直接删除）
 let purgeArmed = null; // 已预览的清理判据（毫秒时间点）
 
@@ -308,17 +309,37 @@ async function renameCurrentSession(title) {
   return data.session.title;
 }
 
-async function setCurrentArchived(archived) {
+async function previewArchiveCurrentSession() {
   if (!state.session) {
     throw new Error(t("web.session.none", "未选择会话"));
   }
-  const data = await postJson("/api/sessions/archive", {
-    session: state.session,
-    archived,
+  const target = state.session;
+  await postJson("/api/sessions/archive", {
+    session: target,
+    archived: true,
   });
+  archiveArmed = target;
+  el("session-archive-confirm").disabled = false;
+  return t("web.session.archive_preview_result", "将归档会话 {session}——确认后执行", {
+    session: target,
+  });
+}
+
+async function confirmArchiveCurrentSession() {
+  if (archiveArmed === null) {
+    throw new Error(t("web.session.archive_preview_required", "须先预览再确认归档"));
+  }
+  const target = archiveArmed;
+  await postJson("/api/sessions/archive", {
+    session: target,
+    archived: true,
+    confirm: true,
+  });
+  archiveArmed = null;
+  el("session-archive-confirm").disabled = true;
   lastSessionsSignature = "";
   await loadSessions();
-  return data.session.archived ? "archived" : "active";
+  return t("web.session.archived", "已归档会话 {session}", { session: target });
 }
 
 async function previewDeleteCurrentSession() {
@@ -684,7 +705,10 @@ document.addEventListener("DOMContentLoaded", () => {
     runAction(t("web.session.rename", "重命名"), () => renameCurrentSession(title));
   });
   el("session-archive").addEventListener("click", () => {
-    runAction(t("web.session.archive", "归档"), () => setCurrentArchived(true));
+    runAction(t("web.session.archive_preview", "归档预览"), previewArchiveCurrentSession);
+  });
+  el("session-archive-confirm").addEventListener("click", () => {
+    runAction(t("web.session.archive_confirm", "确认归档"), confirmArchiveCurrentSession);
   });
   el("session-delete-preview").addEventListener("click", () => {
     runAction(t("web.session.delete_preview", "删除预览"), previewDeleteCurrentSession);

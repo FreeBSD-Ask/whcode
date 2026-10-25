@@ -45,3 +45,18 @@
 - `frontend/app.js`：从 `#token=` 读取凭据并附加 `Authorization` 头（内存保存）；
 - 验证：`bind` 策略单测；curl 无/有 token（401/200）；浏览器 LAN 页面加载；
   证据 `artifacts/web-lan-2026-10-22-batch4.txt`。
+
+## 修订记录（2026-10-25，ADR-040）
+
+- **传输默认值改写**：`serve --web` 默认启用内置 TLS（首次运行按工作区生成 ECDSA P-256
+  自签证书；`external` 可换企业证书；入站变更需重启），默认输出地址由 `http://` 变为
+  `https://`。这是 **BREAKING** 变更，依据 ADR-040 决策 3。
+- **明文回退**：明文 HTTP 须显式选择 `--tls off` 或把入站档位设为 `off`，且该选择不被
+  静默改回；`--tls` 参数按次覆盖工作区设置，不回写设置。
+- **不变的边界**：局域网地址边界（回环／RFC1918／拒绝公网与通配）、token 必需性
+  （RFC1918 绑定仍必须 `--token-file`）、发布令牌只从文件读取、Origin 检查与
+  `Authorization: Bearer` 语义**均不变**；TLS **不是**认证替代品。
+- **新增边界**：启用 TLS 时 Origin 允许集 scheme 由 `http` 改为 `https`，host／端口匹配
+  语义按 ADR-022 不变（见该 ADR 同日修订）。
+- **原文“不承诺 TLS”的处理**：本 ADR 决策与威胁模型段落中“不承诺 TLS”的表述由本节
+  取代，不作需求删除；ADR-023 的其余条文（尤其公网暴露退出条件）继续有效。

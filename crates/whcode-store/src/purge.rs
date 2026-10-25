@@ -373,16 +373,18 @@ fn merge_protected(a: &[String], b: Vec<String>) -> Vec<String> {
 
 /// 归档或取消归档指定会话（FR-508）。
 ///
-/// 全部 ID 必须存在，否则返回 `not_found` 且不做任何修改（全有或全无）；更新在单一
-/// 事务内完成。归档是可逆的元数据标记，不删除数据，不写 `db_purge` 审计。
+/// 全部 ID 必须存在，否则返回 `not_found` 且不做任何修改（全有或全无）；更新与审计在
+/// 同一事务内完成。归档是可逆的元数据标记，不删除数据；每次成功更新写一条
+/// `session_archive` 审计（ADR-038）——重复请求同样留痕，不静默吞掉用户动作。
 ///
 /// # Errors
 ///
-/// 会话不存在、数据库查询或更新失败时返回 [`WhError`]。
+/// 会话不存在、数据库查询或更新失败、审计写入失败时返回 [`WhError`]（审计失败整体回滚）。
 pub fn set_archived(
     conn: &mut Connection,
     session_ids: &[&str],
     archived: bool,
+    actor: &str,
 ) -> Result<usize, WhError> {
     if session_ids.is_empty() {
         return Ok(0);
@@ -435,6 +437,35 @@ pub fn set_archived(
             .execute(sql.as_str(), params_from_iter(chunk.iter()))
             .map_err(|err| db_err("更新归档标记", err))?;
         updated += rows;
+    }
+    if updated > 0 {
+        let audit_id = format!(
+            "archive-{}-{}",
+            if archived { "on" } else { "off" },
+            checksum(&unique.join(","))
+        );
+        let detail = serde_json::json!({
+            "archived": archived,
+            "updated": updated,
+            "sessions": session_list_json(&unique),
+        });
+        let target = format!(
+            "sessions by id ({}) [sessions] ({})",
+            unique.len(),
+            if archived { "archive" } else { "unarchive" }
+        );
+        tx.execute(
+            "INSERT INTO audit (id, actor, action, target, detail_json, ts)
+             VALUES (?, ?, ?, ?, CAST(? AS JSON)::VARIANT, current_timestamp)",
+            params![
+                audit_id,
+                actor,
+                AuditAction::SessionArchive.as_str(),
+                target,
+                detail.to_string(),
+            ],
+        )
+        .map_err(|err| db_err("写入归档审计", err))?;
     }
     tx.commit().map_err(|err| db_err("提交归档事务", err))?;
     Ok(updated)
@@ -1238,13 +1269,14 @@ mod tests {
     }
 
     #[test]
-    fn set_archived_flips_flag_and_missing_ids_rejected() {
+    fn set_archived_flips_flag_audits_and_missing_ids_rejected() {
         let conn = migrated();
         insert_session(&conn, "S-1", NOW_MS - 48 * HOUR_MS, false);
         insert_session(&conn, "S-2", NOW_MS - 48 * HOUR_MS, false);
         let mut exec_conn = conn;
+        let audit_before = audit_rows(&exec_conn);
 
-        let updated = set_archived(&mut exec_conn, &["S-1", "S-2"], true).expect("归档");
+        let updated = set_archived(&mut exec_conn, &["S-1", "S-2"], true, "tester").expect("归档");
         assert_eq!(updated, 2);
         let archived: i64 = exec_conn
             .query_row("SELECT count(*) FROM sessions WHERE archived", [], |row| {
@@ -1252,8 +1284,18 @@ mod tests {
             })
             .expect("统计已归档");
         assert_eq!(archived, 2);
+        assert_eq!(audit_rows(&exec_conn), audit_before + 1, "归档须写一条审计");
+        let (action, target): (String, String) = exec_conn
+            .query_row(
+                "SELECT action, target FROM audit ORDER BY ts DESC, id DESC LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("读取归档审计");
+        assert_eq!(action, "session_archive");
+        assert!(target.contains("(archive)"), "target 须标明方向：{target}");
 
-        let err = set_archived(&mut exec_conn, &["S-1", "S-missing"], false)
+        let err = set_archived(&mut exec_conn, &["S-1", "S-missing"], false, "tester")
             .expect_err("缺失会话必须拒绝");
         assert_eq!(err.code, ErrorCode::NotFound);
         assert!(err.to_string().contains("S-missing"));
@@ -1263,11 +1305,30 @@ mod tests {
             })
             .expect("统计已归档");
         assert_eq!(archived, 2, "失败路径不得部分更新");
+        assert_eq!(
+            audit_rows(&exec_conn),
+            audit_before + 1,
+            "失败路径不得写审计"
+        );
 
-        let updated = set_archived(&mut exec_conn, &["S-1", "S-2"], false).expect("取消归档");
+        let updated =
+            set_archived(&mut exec_conn, &["S-1", "S-2"], false, "tester").expect("取消归档");
         assert_eq!(updated, 2);
-        let updated = set_archived(&mut exec_conn, &[], true).expect("空清单为无操作");
+        assert_eq!(
+            audit_rows(&exec_conn),
+            audit_before + 2,
+            "取消归档另写一条审计"
+        );
+        let updated = set_archived(&mut exec_conn, &[], true, "tester").expect("空清单为无操作");
         assert_eq!(updated, 0);
+        let updated =
+            set_archived(&mut exec_conn, &["S-1"], false, "tester").expect("重复取消归档");
+        assert_eq!(updated, 1, "UPDATE 命中行即计数（状态未变由审计口径区分）");
+        assert_eq!(
+            audit_rows(&exec_conn),
+            audit_before + 3,
+            "每次成功更新写一条审计（幂等重放不静默）"
+        );
     }
 
     #[test]

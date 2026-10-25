@@ -23,9 +23,13 @@ whcode session new --title "修复登录"          # 创建（自动分配 S- �
 whcode session list [--all]                    # 列表（默认不含归档）
 whcode session show --session S-1              # 元数据
 whcode session rename --session S-1 --title "新标题"
-whcode session archive --session S-1 [--unarchive]
+whcode session archive --session S-1 [--unarchive] [--dry-run] [--yes]
 whcode session delete --session S-1 [--dry-run] [--yes]   # 破坏性：默认只预览
 ```
+
+归档属契约 §2-1 破坏族（ADR-038）：默认只输出 dry-run（`dry_run=true`、`current_archived`、
+`archived`、`changed`），`--yes` 才执行并写 `session_archive` 审计；`--dry-run` 与 `--yes`
+互斥。旧脚本若直接依赖“归档立即生效”，须显式加 `--yes`（属行为变更，见 CHANGELOG）。
 
 删除有预览/确认/审计/活跃会话保护（FR-509）四项机制；显式按 ID 删除（`--yes`）时
 不套用 TTL 的活跃窗口保护（否则"删除刚创建的会话"会被静默跳过）；`db purge` 仍保留

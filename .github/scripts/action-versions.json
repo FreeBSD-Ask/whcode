@@ -1,10 +1,14 @@
 {
-  "checked_at": "2026-10-24",
+  "checked_at": "2026-10-25",
   "source": "GitHub API releases/latest；无 release 时取最高语义化 tag；SHA 由 commits/{tag} 解析",
   "actions": {
     "actions/checkout": {
       "version": "v7.0.1",
       "sha": "3d3c42e5aac5ba805825da76410c181273ba90b1"
+    },
+    "actions/download-artifact": {
+      "version": "v8.0.2",
+      "sha": "9000827ccba6bdab643e8b6fd33ac0654aef8333"
     },
     "actions/upload-artifact": {
       "version": "v7.0.2",

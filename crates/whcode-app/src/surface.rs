@@ -248,7 +248,7 @@ impl SurfaceEntry {
 }
 
 /// 稳定能力白名单（`authz::Capability` 的稳定字符串；新增能力须同 PR 扩展本表）。
-const KNOWN_CAPABILITIES: [&str; 9] = [
+const KNOWN_CAPABILITIES: [&str; 11] = [
     "session.create",
     "session.read",
     "session.rename",
@@ -258,6 +258,8 @@ const KNOWN_CAPABILITIES: [&str; 9] = [
     "task.retry",
     "task.abort",
     "spec.advance",
+    "settings.cert.read",
+    "settings.cert.write",
 ];
 
 /// ADR-032 理由码全表（排除登记只能引用这些码）。
@@ -365,9 +367,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
-    // 契约 §2-1 破坏族：archive 须支持确认并写审计。**现状缺口（2026-10-24 收口复核）**：
-    // 四端均无确认步骤，store 明确“可逆元数据标记，不写 db_purge 审计”——登记要求与实现
-    // 的冲突在 CHANGELOG 已知未完成第 3 项显式登记，待 ADR 裁决，不在本收口内擅改已验收行为。
+    // 契约 §2-1 破坏族：archive 须预览→确认并写审计（ADR-038，2026-10-25 补齐）。
+    // 四端同口径：CUI 默认 dry-run／`--yes` 执行；TUI `A` 先预览再按 y；Web
+    // `/api/sessions/archive` 缺 `confirm` 只预览；GUI 只读排除。审计由 store
+    // `set_archived` 在同一事务写 `session_archive`（可逆标记，重复请求同样留痕）。
     SurfaceEntry {
         id: "session.archive",
         kind: SurfaceKind::Command,
@@ -380,7 +383,7 @@ pub const SURFACES: &[SurfaceEntry] = &[
                 anchor: "cui_dispatch::session_command",
             },
             Support::Implemented {
-                anchor: "LoopCore::on_key_normal（A → SessionArchive）",
+                anchor: "LoopCore::request_confirm（A → SessionArchive 预览→确认）",
             },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
@@ -1597,6 +1600,39 @@ mod tests {
         let ids: BTreeSet<&str> = SURFACES.iter().map(|entry| entry.id).collect();
         assert_eq!(ids.len(), SURFACES.len(), "SurfaceId 必须唯一");
         assert!(ids.iter().all(|id| !id.is_empty()));
+    }
+
+    /// 稳定能力白名单与 `authz::Capability` 一一对齐（ADR-040 决策 4：`settings.cert.read`
+    /// ／`settings.cert.write` 已入白名单，供 Task 7 的登记条目引用）。
+    #[test]
+    fn known_capability_whitelist_matches_capability_enum() {
+        let all = [
+            Capability::SessionCreate,
+            Capability::SessionRead,
+            Capability::SessionRename,
+            Capability::SessionArchive,
+            Capability::SessionDelete,
+            Capability::TaskRead,
+            Capability::TaskRetry,
+            Capability::TaskAbort,
+            Capability::SpecAdvance,
+            Capability::SettingsCertRead,
+            Capability::SettingsCertWrite,
+        ];
+        assert_eq!(
+            all.len(),
+            KNOWN_CAPABILITIES.len(),
+            "白名单必须与能力枚举一一对齐（新增能力须同 PR 扩展）"
+        );
+        for capability in all {
+            assert!(
+                KNOWN_CAPABILITIES.contains(&capability.as_str()),
+                "能力 {} 必须在稳定能力白名单",
+                capability.as_str()
+            );
+        }
+        let unique: BTreeSet<&str> = KNOWN_CAPABILITIES.iter().copied().collect();
+        assert_eq!(unique.len(), KNOWN_CAPABILITIES.len(), "白名单不得重复");
     }
 
     #[test]

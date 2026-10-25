@@ -13,6 +13,13 @@
 
 ### 变更
 
+- 构建与发布迁入独立矩阵 CI（2026-10-25，ADR-039）：新增 `.github/workflows/build-release.yml`
+  （`profile: [debug, release]`）；debug 做工作区锁定构建与依赖记录，release 做发布构建、打包
+  安装验证、SHA256、TUI/Web 冒烟并上传既有 artifact 名称；tag `v*` 时创建/更新 GitHub Release
+  （版本不一致即失败、预发布标 prerelease、重跑 `--clobber` 幂等），写权限仅限发布作业。
+  `ci.yml` 删除构建与发布步骤，保留门禁与测试。主账本新增 T183/Check 273（待 CI 实跑取证）。
+  迁移：`deps-windows`、`whcode-windows-amd64`、`install-verify-windows-amd64`、`smoke-evidence`
+  改从 build-release 工作流获取，名称不变。
 - ⚠ BREAKING：CUI 保留命令（`run`、`events show`、`spec next/validate/analyze/converge/force-advance`、
   `runtime status/enable/disable/install`）退出码由 50（invalid_state）改为 **55（not_supported）**；
   依赖退出码的脚本按 55 判“端未提供”，按 404 判“路由不存在”（FR-620，ensure-frontend-parity）。
@@ -33,20 +40,24 @@
      计数 FR 93／任务 181／Check 271，`check_counts.py` 与 `traceability.py` 全绿——原
      “编号冲突待协调”的退出条件达成（T162—T167 为并行变更 `add-real-llm-provider` 的
      占位任务，未勾选）。
-- 已知未完成（显式登记，2026-10-24 收口复核新增）：
-  3. `session.archive` 的确认与审计口径冲突：登记表登记 `PreviewConfirm` + `audited = true`
-     （`contracts/app-service.md` §2-1 将 archive 列入破坏族），但四端均无确认步骤，store
-     注明“可逆元数据标记，不写 `db_purge` 审计”。责任人对等门禁维护者，退出条件：独立
-     ADR 裁决（补确认与审计，或修订契约与登记口径），四端同 PR 对齐；本收口不擅改已验收
-     行为。
-- 已知未完成（显式登记，2026-10-25 复核新增）：
-  4. `add-real-llm-provider`（3f9564c）已把 ureq/rustls 经 `whcode-llm` 的 `http` feature
-     引入装配根（`crates/whcode-bin/Cargo.toml`），`Cargo.lock` 与 `artifacts/deps-windows.txt`
-     已含 `ureq v3.5.0`，但 **ADR-031 尚未入库**（同一提交的 `Cargo.toml` 注释与
-     `docs/matrices/decisions.md` D-16 均引用它），本 CHANGELOG 亦无对应条目。责任人：LLM
-     变更维护者。退出条件：ADR-031 入库（网络依赖、超时与重试、凭据来源、默认不联网的
-     边界）＋ CHANGELOG 补条目；在此之前不得把 D-16 标为已决策。四端 `llm.run` 仍为
-     `Reserved`（见 ADR-032 2026-10-25 修订记录）。
+- 收口（2026-10-25，T182／ADR-038）：`session.archive` 的确认与审计口径冲突关闭
+  （原“已知未完成第 3 项”）。裁决为**不放宽契约**：四端统一“预览→确认”（CUI 默认 dry-run、
+  `--yes` 执行；TUI `A` 两段确认；Web 缺 `confirm` 只预览；GUI 只读排除），
+  `whcode-store::set_archived` 在同一事务写 `session_archive` 审计（`detail_json` 含方向、
+  更新数与会话清单，100 条截断）。TUI 暂无反归档键，已在 ADR-038 登记为已知不对称。
+  ⚠ BREAKING：`whcode session archive` 由“直接执行”改为“默认预览、`--yes` 执行”
+  （与 `session delete` 同构）；依赖旧行为的脚本须显式加 `--yes`。证据：
+  `ADR-038-session-archive-confirmation-and-audit.md`、Check 272、`cargo test` 相关用例。
+- 收口（2026-10-25，ADR-031 补录）：`add-real-llm-provider` 的网络依赖与凭据边界入库
+  `docs/adr/ADR-031-llm-provider-network-and-credentials.md`（原“已知未完成第 4 项”）。
+  记录：网络依赖只进装配根、`http` feature 默认关闭、默认不联网、`https` 强制与回环明文、
+  凭据仅环境变量／仓库外文件、超时 10 s／120 s／300 s、流帧有界、重试策略（未实现）。
+  同时修正：`http/protocols.rs` 与 `http/errors.rs` 原未在 `mod.rs` 声明（14 个测试从未编译），
+  已接线并修复一处字符字面量类型错误；注释中引用的幻影 FR-209—214 与 `161.x／162.x`
+  小节号改为既有 FR-201／203／206／207／208／616、NFR-213／215 与 ADR-031。
+  实测：同一代码三次 release 构建（带／不带 feature／还原）均为 21 124 096 字节，
+  当前无调用点故体积增量为 0；接入调用点后必须重测。**仍未完成**：客户端与 `llm run`
+  装配（T162—T163）、变更 spec 入库；四端 `llm.run` 保持 `Reserved`。
 
 - DuckDB 2.0.0 升级与功能适配（2026-10-24，ADR-034）：**引擎 2.0.0 LTS + crate 1.20000.0，事件载荷改 VARIANT**。
   - 官方 Windows 资产改为 `duckdb-shared-libs-windows-amd64.tar.gz`（SHA256 `2b831691…b95f`）；

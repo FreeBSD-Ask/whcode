@@ -4,15 +4,15 @@
 
 **语义**：验收检查点（非需求质量清单）。每项可由“通过／不通过”二值判定；`[x]` 表示该判据**经复核通过**，勾选权归复核人，生成时一律 `[ ]`。
 
-**组织**：第一层 实现完整性（Check 1—127 对应 Task T001—T127，Check 225 对应 T134，Check 227—228 对应 T135—T136，Check 229 对应 T137，Check 230—233 对应 T138—T141，Check 234—237 对应 T142，Check 238—239 对应 T143，Check 240 对应 T144，Check 241—243 对应 T145，Check 244—245 对应 T146，Check 246—248 对应 T147，Check 249 对应 T148，Check 250—252 对应 T149—T152，Check 253—255 对应 T153—T155，Check 259 对应 T157，Check 260 对应 T158，Check 261 对应 T159，Check 262 对应 T160，Check 263 对应 T161，Check 264 对应 Task T169，Check 265 对应 Task T172，Check 266 对应 Task T171，Check 267 对应 Task T174，Check 268 对应 Task T177，Check 269 对应 Task T178，Check 270 对应 Task T175，Check 271 对应 Task T181）→ 第二层 需求覆盖（Check 128—195）→ 第三层 边界与异常（Check 196—209、218—249）→ 第四层 既有功能未回归（Check 210—217）→ 第五层 原生 GUI 与内置字体（Check 250—255、259）→ 第六层 检查点事务语义（Check 256—258 对应 T156／FR-402—404）→ 第七层 CI 测试统一入口（Check 263 对应 T161）→ 第八层 四端对等与差异登记（Check 264—271 对应 T168—T181／FR-619—625）。
+**组织**：第一层 实现完整性（Check 1—127 对应 Task T001—T127，Check 225 对应 T134，Check 227—228 对应 T135—T136，Check 229 对应 T137，Check 230—233 对应 T138—T141，Check 234—237 对应 T142，Check 238—239 对应 T143，Check 240 对应 T144，Check 241—243 对应 T145，Check 244—245 对应 T146，Check 246—248 对应 T147，Check 249 对应 T148，Check 250—252 对应 T149—T152，Check 253—255 对应 T153—T155，Check 259 对应 T157，Check 260 对应 T158，Check 261 对应 T159，Check 262 对应 T160，Check 263 对应 T161，Check 264 对应 Task T169，Check 265 对应 Task T172，Check 266 对应 Task T171，Check 267 对应 Task T174，Check 268 对应 Task T177，Check 269 对应 Task T178，Check 270 对应 Task T175，Check 271 对应 Task T181）→ 第二层 需求覆盖（Check 128—195）→ 第三层 边界与异常（Check 196—209、218—249）→ 第四层 既有功能未回归（Check 210—217）→ 第五层 原生 GUI 与内置字体（Check 250—255、259）→ 第六层 检查点事务语义（Check 256—258 对应 T156／FR-402—404）→ 第七层 CI 测试统一入口（Check 263 对应 T161）→ 第八层 四端对等与差异登记（Check 264—271 对应 T168—T181／FR-619—625）→ 写命令确认与审计补遗（Check 272 对应 T182／FR-623）→ 第十层：构建与发布独立矩阵工作流（Check 273 对应 Task T183）→ 第十一层：内置 TLS 证书库与 Web 证书设置（Check 274—288 对应 Task T184—T192）。
 
-**缺口说明**：spec 全部 93 条 FR（含 2026-10-21 新增的 FR-611—FR-618、2026-10-23 新增的 FR-711—FR-717、2026-10-24 转正的 FR-619—625）、NFR-101—107/201—222、V-001—V-307 与 tasks.md 全部 181 条任务均有对应检查点（其中 T162—T167 属并行变更 `add-real-llm-provider` 的未交付任务，其检查点由该变更收口时登记，本清单不代行），本清单 Check 1—271，无遗漏项。平台承诺已按 ADR-011 修订，OpenBSD/DragonFly 的判据由服务端改为客户端。FR-406（并行调度）与 research.md TBD-01—TBD-10 属任务书定义的延后/待验证能力，其检查点判据为“未通过前置条件时不得声称已交付”（见 Check 172、Check 22 起 M0 相关项）。史料／考据类判据：本项目无历史文献类需求；对应物为源文本基线不可改写与 [S1]—[S8] 证据锚点可定位，见 Check 215/216。
+**缺口说明**：spec 全部 95 条 FR（含 2026-10-21 新增的 FR-611—FR-618、2026-10-23 新增的 FR-711—FR-717、2026-10-24 转正的 FR-619—625、2026-10-25 新增的 FR-626／627）、NFR-101—107/201—222、V-001—V-307 与 tasks.md 全部 192 条任务均有对应检查点（其中 T162—T167 属并行变更 `add-real-llm-provider` 的未交付任务，其检查点由该变更收口时登记，本清单不代行），本清单 Check 1—288，无遗漏项。平台承诺已按 ADR-011 修订，OpenBSD/DragonFly 的判据由服务端改为客户端。FR-406（并行调度）与 research.md TBD-01—TBD-10 属任务书定义的延后/待验证能力，其检查点判据为“未通过前置条件时不得声称已交付”（见 Check 172、Check 22 起 M0 相关项）。史料／考据类判据：本项目无历史文献类需求；对应物为源文本基线不可改写与 [S1]—[S8] 证据锚点可定位，见 Check 215/216。
 
-**复核记录（2026-10-23）**：Check 1—249 已逐条取证落笔，现状 **209 项通过 / 40 项未通过**（2026-10-23 收敛表修复：144/171/224/206/221 转入通过，Check 201 的 Windows 侧已自动化但 BSD 证据缺失）；其中第二、三层（Check 128—249）仍有 21 项未通过，按根因归并为 9 类，闭环动作见 `artifacts/progress-review-2026-10-23.md` §10—§13。**2026-10-23 里程碑批次（ADR-024/025 + Web 写命令 + 追溯门禁）**新增通过 9 项：55、93、101、102、104、127、133、136、183；未通过降至 40 项。**2026-10-23 GUI 立项批次**新增 Check 250—252：250、251 通过（需求与 ADR 齐备；GUI 可运行且有自动化证据），252 未通过（字体未子集化、RSS 余量不足），故现状 **211 项通过 / 41 项未通过**。**2026-10-23 GUI 达标批次**：CJK 字体改按族名使用系统字体（RSS 95.7→41.1 MB），补 `t` 键主题切换与最小化 10 s 停机实测，Check 252 转入通过，故现状 **212 项通过 / 40 项未通过**。**2026-10-23 内置字体批次**：新增 Check 253—255（资产与子集、GUI 四类分派、TUI 声明）；253、254 已取证通过，255 待实现，故现状 **214 项通过 / 41 项未通过**。**2026-10-24 T155 批次**：`whcode font install|status|uninstall` 真机实测（`artifacts/font-run-2026-10-24/`：装前全缺 → 装后四份 complete → `reg query` 交叉验证 → 卸载恢复原状），Check 255 转入通过，故现状 **215 项通过 / 40 项未通过**。**2026-10-24 功能缺口清偿批次（8 路）**：T110—T112 与 T114 实现（Check 110/111/112/114、153/154/155 转入通过，ADR-029 修订 ADR-024 的 D-08 条款）；G-01 检查点三条件实现（新增 T156 与 Check 256—258，撤销缺口登记）；TUI Diff 视图接 converge 差异（Check 179）；WS 事件广播（Check 199/209）；Check 124 登记的导出缺陷修复（退出码 60 + 可操作错误，该判据整体维持未勾选）。故现状 **228 项通过 / 30 项未通过**（Check 1—258）。**2026-10-24 T115/T123 批次**：测量战役使 Check 115/243 转入通过（NFR-209 经热点定位与两阶段分页优化达标，无预算修订），安全复查使 Check 123 转入通过（最小环境白名单与审计保留测试补齐），故现状 **231 项通过 / 27 项未通过**。**2026-10-24 终端绿主题批次**：新增 T157 与 Check 259（GUI `terminal-green`，FR-713 修订四套 + 真灰口径），259 已取证通过——故现状 **232 项通过 / 27 项未通过**（Check 1—259；原句“229/30”为并行会话基于过期基线的计数，本行修正：228/30 之后同日 T115/T123 批次 +3、Check 259 +1）。**2026-10-24 清理机制批次**：`ci/clean.py` 四 scope 建立并首次执行（释放 ≈55.9 GiB；script/ 规则由“保留不清理”改为“按机制回收”），Check 260 取证通过，故现状 **233 项通过 / 27 项未通过**（Check 1—260）。**2026-10-24 全局复核（逐条清点）**：260 条编号完整、无缺失无重复；实际勾选状态为 **235 项通过 / 25 项未通过**——此前各批次递推计数与文件实际勾选状态累计漂移 2（部分批次勾选未同步计入复核记录），以本清点为准；未通过 25 项归六类：BSD 平台延后（8，ADR-011 口径）、SSH 服务端未实现（2，M7）、长跑与环境依赖阻塞（4）、流程性不可满足/未取得（4，无 PR 流程等）、测量预算类（3）、文档治理类（4）。**同日流程收敛批次**：第四类与第六类八项中，Check 90/184/217/249 转入通过（Web 写命令交付取证、提交粒度抽查与矩阵缺口修复、批次级完成记录等价 §15、check_counts 修复全绿）、Check 124 转入通过（quickstart 全流程实跑，`artifacts/quickstart-run-2026-10-24/`）；Check 3/109/134 更新注记后维持未通过（无远端仓库、BSD M7、部分批准待转正——均为外部条件阻塞）。故现状 **240 项通过 / 20 项未通过**（Check 1—260）。**2026-10-24 SSH 服务端批次**：M7 服务端落地（russh + 公钥认证 + 受限入口 + 单写者执行器），并修复 4 处测试缺陷（known_hosts 断言取样时点、有界队列测试的确定性填满与闸门守卫、输出截断切片长度、标题空白被折叠），`cargo test -p whcode-ssh` 41/41 通过；Check 98（单写者）与 Check 182（默认无 Shell，服务端口径）转入通过；Check 97 客户端侧缺口登记、Check 96/99 因 BSD 延后维持未勾。故现状 **242 项通过 / 18 项未通过**（Check 1—260）。**2026-10-24 Check 97/229 收口批次**：SSH 内置客户端默认只放行远端 `whcode` 命令（任意系统 Shell 需显式 `allow_shell`，意图与结果均带授权标记供审计）；Web 首页服务端直出 `<noscript>` 只读快照（HTML 转义、查询失败可见、空态显式；仅本机回环未认证模式，认证模式不注入数据）。Check 97、229 转入通过，故现状 **244 项通过 / 16 项未通过**（Check 1—260）。**2026-10-24 Web 运行时批次**：用本地 Firefox 155（Marionette 真实窗口）取证并修复挂起机 focus 竞态（hidden 时残留 focus 会把状态机误拉回 Active）；Check 220/227/228 转入通过，故现状 **247 项通过 / 13 项未通过**（Check 1—260）。**2026-10-24 Check 47 收口批次**：ADR-025 已冻结 NFR-203，“预算未冻结”注记属过期口径；强化有界尾部/截断标记/游标/概览断言后实跑最大增量 1.16 MB ≤ 10 MB，Check 47 转入通过，故现状 **248 项通过 / 12 项未通过**（Check 1—260）。**2026-10-24 DuckDB 2.0.0 迁移批次**：升级至 DuckDB 2.0.0 LTS（`duckdb` crate `=1.20000.0`），schema v6 将 `events.payload_json` 改为 `VARIANT`、`session_overview` upsert 改 `MERGE`（ADR-034／ADR-035）；Check 261 取证通过，故现状 **249 项通过 / 12 项未通过**（Check 1—261）。**2026-10-24 JSON 语义列 VARIANT 化批次**：schema v7 将 6 个 JSON 语义列改为 `VARIANT`（ADR-036），读写/导出统一显式转换，MERGE 复核与数据修改 CTE A/B 均有结论；Check 262 取证通过，故现状 **250 项通过 / 12 项未通过**（Check 1—262）。**2026-10-25 CI 统一入口批次**：三份测试工作流合并为 `ci.yml`（门禁／五平台／全部测试／短测量／TUI·Web 冒烟／桌面入口／每周 action 审计），长跑保留 `long-run.yml`；EOL 与测量脚本迁入 `.github/scripts/`（ADR-037）；Check 263 取证通过，故现状 **251 项通过 / 12 项未通过**（Check 1—263）。**2026-10-24 四端对等收口批次**：FR-619—625 转正并挂钩 T168—T181；登记表 13 格随交付翻转为已实现；`docs/matrices/feature-parity.md` 改为 54 行逐行受校验产物并补负向篡改用例；四份指南与 CUI 手册回填（含退出码 55）；新增 Check 264—271 全部取证通过，故现状 **259 项通过 / 12 项未通过**（Check 1—271）。**2026-10-25 远端 CI 首轮**：`origin` 推送后 run 40118942627 实跑，`platform-windows` success（fmt/clippy/全量测试/打包安装均通过），Check 3 由“无远端”转通过；整体 run 因托管 runner 上 NFR-207/209 未达冻结预算而红，登记为测量环境差异、不改预算；故现状 **260 项通过 / 11 项未通过**（Check 1—271）。**2026-10-25 CI 缺口收口**：将 NFR-207／209 与测试进程 RSS/CPU 移入 `perf-budget`（仅 `workflow_dispatch` 且 `perf=true`），`measurements` 登记并安装 Python `duckdb==2.0.0` 以修复 NFR-202 夹具种子；run 40126145778（commit `1903806`）全绿——五平台、`measurements` 均 success，`desktop`／`perf-budget`／`action-audit` 按门控 skipped；NFR-201 中位 31.27 MB、NFR-202 中位 35.51 MB、NFR-203 最大增量 1.31 MB（均达标），30 秒冒烟事件缺失 0。计数不变（260 通过 / 11 未通过）。
+**复核记录（2026-10-23）**：Check 1—249 已逐条取证落笔，现状 **209 项通过 / 40 项未通过**（2026-10-23 收敛表修复：144/171/224/206/221 转入通过，Check 201 的 Windows 侧已自动化但 BSD 证据缺失）；其中第二、三层（Check 128—249）仍有 21 项未通过，按根因归并为 9 类，闭环动作见 `artifacts/progress-review-2026-10-23.md` §10—§13。**2026-10-23 里程碑批次（ADR-024/025 + Web 写命令 + 追溯门禁）**新增通过 9 项：55、93、101、102、104、127、133、136、183；未通过降至 40 项。**2026-10-23 GUI 立项批次**新增 Check 250—252：250、251 通过（需求与 ADR 齐备；GUI 可运行且有自动化证据），252 未通过（字体未子集化、RSS 余量不足），故现状 **211 项通过 / 41 项未通过**。**2026-10-23 GUI 达标批次**：CJK 字体改按族名使用系统字体（RSS 95.7→41.1 MB），补 `t` 键主题切换与最小化 10 s 停机实测，Check 252 转入通过，故现状 **212 项通过 / 40 项未通过**。**2026-10-23 内置字体批次**：新增 Check 253—255（资产与子集、GUI 四类分派、TUI 声明）；253、254 已取证通过，255 待实现，故现状 **214 项通过 / 41 项未通过**。**2026-10-24 T155 批次**：`whcode font install|status|uninstall` 真机实测（`artifacts/font-run-2026-10-24/`：装前全缺 → 装后四份 complete → `reg query` 交叉验证 → 卸载恢复原状），Check 255 转入通过，故现状 **215 项通过 / 40 项未通过**。**2026-10-24 功能缺口清偿批次（8 路）**：T110—T112 与 T114 实现（Check 110/111/112/114、153/154/155 转入通过，ADR-029 修订 ADR-024 的 D-08 条款）；G-01 检查点三条件实现（新增 T156 与 Check 256—258，撤销缺口登记）；TUI Diff 视图接 converge 差异（Check 179）；WS 事件广播（Check 199/209）；Check 124 登记的导出缺陷修复（退出码 60 + 可操作错误，该判据整体维持未勾选）。故现状 **228 项通过 / 30 项未通过**（Check 1—258）。**2026-10-24 T115/T123 批次**：测量战役使 Check 115/243 转入通过（NFR-209 经热点定位与两阶段分页优化达标，无预算修订），安全复查使 Check 123 转入通过（最小环境白名单与审计保留测试补齐），故现状 **231 项通过 / 27 项未通过**。**2026-10-24 终端绿主题批次**：新增 T157 与 Check 259（GUI `terminal-green`，FR-713 修订四套 + 真灰口径），259 已取证通过——故现状 **232 项通过 / 27 项未通过**（Check 1—259；原句“229/30”为并行会话基于过期基线的计数，本行修正：228/30 之后同日 T115/T123 批次 +3、Check 259 +1）。**2026-10-24 清理机制批次**：`ci/clean.py` 四 scope 建立并首次执行（释放 ≈55.9 GiB；script/ 规则由“保留不清理”改为“按机制回收”），Check 260 取证通过，故现状 **233 项通过 / 27 项未通过**（Check 1—260）。**2026-10-24 全局复核（逐条清点）**：260 条编号完整、无缺失无重复；实际勾选状态为 **235 项通过 / 25 项未通过**——此前各批次递推计数与文件实际勾选状态累计漂移 2（部分批次勾选未同步计入复核记录），以本清点为准；未通过 25 项归六类：BSD 平台延后（8，ADR-011 口径）、SSH 服务端未实现（2，M7）、长跑与环境依赖阻塞（4）、流程性不可满足/未取得（4，无 PR 流程等）、测量预算类（3）、文档治理类（4）。**同日流程收敛批次**：第四类与第六类八项中，Check 90/184/217/249 转入通过（Web 写命令交付取证、提交粒度抽查与矩阵缺口修复、批次级完成记录等价 §15、check_counts 修复全绿）、Check 124 转入通过（quickstart 全流程实跑，`artifacts/quickstart-run-2026-10-24/`）；Check 3/109/134 更新注记后维持未通过（无远端仓库、BSD M7、部分批准待转正——均为外部条件阻塞）。故现状 **240 项通过 / 20 项未通过**（Check 1—260）。**2026-10-24 SSH 服务端批次**：M7 服务端落地（russh + 公钥认证 + 受限入口 + 单写者执行器），并修复 4 处测试缺陷（known_hosts 断言取样时点、有界队列测试的确定性填满与闸门守卫、输出截断切片长度、标题空白被折叠），`cargo test -p whcode-ssh` 41/41 通过；Check 98（单写者）与 Check 182（默认无 Shell，服务端口径）转入通过；Check 97 客户端侧缺口登记、Check 96/99 因 BSD 延后维持未勾。故现状 **242 项通过 / 18 项未通过**（Check 1—260）。**2026-10-24 Check 97/229 收口批次**：SSH 内置客户端默认只放行远端 `whcode` 命令（任意系统 Shell 需显式 `allow_shell`，意图与结果均带授权标记供审计）；Web 首页服务端直出 `<noscript>` 只读快照（HTML 转义、查询失败可见、空态显式；仅本机回环未认证模式，认证模式不注入数据）。Check 97、229 转入通过，故现状 **244 项通过 / 16 项未通过**（Check 1—260）。**2026-10-24 Web 运行时批次**：用本地 Firefox 155（Marionette 真实窗口）取证并修复挂起机 focus 竞态（hidden 时残留 focus 会把状态机误拉回 Active）；Check 220/227/228 转入通过，故现状 **247 项通过 / 13 项未通过**（Check 1—260）。**2026-10-24 Check 47 收口批次**：ADR-025 已冻结 NFR-203，“预算未冻结”注记属过期口径；强化有界尾部/截断标记/游标/概览断言后实跑最大增量 1.16 MB ≤ 10 MB，Check 47 转入通过，故现状 **248 项通过 / 12 项未通过**（Check 1—260）。**2026-10-24 DuckDB 2.0.0 迁移批次**：升级至 DuckDB 2.0.0 LTS（`duckdb` crate `=1.20000.0`），schema v6 将 `events.payload_json` 改为 `VARIANT`、`session_overview` upsert 改 `MERGE`（ADR-034／ADR-035）；Check 261 取证通过，故现状 **249 项通过 / 12 项未通过**（Check 1—261）。**2026-10-24 JSON 语义列 VARIANT 化批次**：schema v7 将 6 个 JSON 语义列改为 `VARIANT`（ADR-036），读写/导出统一显式转换，MERGE 复核与数据修改 CTE A/B 均有结论；Check 262 取证通过，故现状 **250 项通过 / 12 项未通过**（Check 1—262）。**2026-10-25 CI 统一入口批次**：三份测试工作流合并为 `ci.yml`（门禁／五平台／全部测试／短测量／TUI·Web 冒烟／桌面入口／每周 action 审计），长跑保留 `long-run.yml`；EOL 与测量脚本迁入 `.github/scripts/`（ADR-037）；Check 263 取证通过，故现状 **251 项通过 / 12 项未通过**（Check 1—263）。**2026-10-24 四端对等收口批次**：FR-619—625 转正并挂钩 T168—T181；登记表 13 格随交付翻转为已实现；`docs/matrices/feature-parity.md` 改为 54 行逐行受校验产物并补负向篡改用例；四份指南与 CUI 手册回填（含退出码 55）；新增 Check 264—271 全部取证通过，故现状 **259 项通过 / 12 项未通过**（Check 1—271）。**2026-10-25 远端 CI 首轮**：`origin` 推送后 run 40118942627 实跑，`platform-windows` success（fmt/clippy/全量测试/打包安装均通过），Check 3 由“无远端”转通过；整体 run 因托管 runner 上 NFR-207/209 未达冻结预算而红，登记为测量环境差异、不改预算；故现状 **260 项通过 / 11 项未通过**（Check 1—271）。**2026-10-25 CI 缺口收口**：将 NFR-207／209 与测试进程 RSS/CPU 移入 `perf-budget`（仅 `workflow_dispatch` 且 `perf=true`），`measurements` 登记并安装 Python `duckdb==2.0.0` 以修复 NFR-202 夹具种子；run 40126145778（commit `1903806`）全绿——五平台、`measurements` 均 success，`desktop`／`perf-budget`／`action-audit` 按门控 skipped；NFR-201 中位 31.27 MB、NFR-202 中位 35.51 MB、NFR-203 最大增量 1.31 MB（均达标），30 秒冒烟事件缺失 0。计数不变（260 通过 / 11 未通过）。**2026-10-25 归档确认与审计补遗（T182）**：`session.archive` 的登记要求（`PreviewConfirm` + `audited = true`）与实现不一致，按 ADR-038 以实现补齐——四端统一“预览→确认”，store 在同一事务写 `session_archive` 审计；新增 Check 272 取证通过，故现状 **261 项通过 / 11 项未通过**（Check 1—272）。**2026-10-25 构建与发布拆分批次**：按 ADR-039 新增 T183 与 Check 273（构建与发布迁入 build-release.yml）；T183 与 Check 273 待 CI 实跑后取证，故现状仍为 **261 项通过 / 12 项未通过**（Check 1—273）。
 
 ---
 
-## 第一层：实现完整性（对应 tasks.md 全部 181 条任务）
+## 第一层：实现完整性（对应 tasks.md 全部 192 条任务）
 
 ### Phase 1 Setup（T001—T009）
 
@@ -390,6 +390,74 @@
 - [x] Check 269: 在线可见可判定：TUI 游标检查间隔 ≥1000 ms 且常量命名、查询 O(1) 单值；游标未变零重绘、推进触发一帧；不新增常驻线程；Web 保持 WebSocket 广播与断线补拉；GUI 显式刷新（来源：Task T178、FR-624）——**已取得（2026-10-24 收口）**：`CURSOR_CHECK_INTERVAL` = 1000 ms 与 `on_idle` 用例（`idle_steps_without_cursor_change_do_not_redraw`、`cursor_advance_triggers_single_redraw`）；`StoreViewSource::cursor` 为 `max(seq)` 单值查询
 - [x] Check 270: 显示配置一致可判定：TUI／GUI／Web 四套主题精确色值且运行时切换不重启；默认取 `ui.theme`、`WHCODE_UI_THEME` 覆盖；语言链四端同源，Web 支持 `?locale=` 与 `Accept-Language`；CUI 按 `CUI_NO_THEME` 登记（来源：Task T175／T178、FR-625）——**已取得（2026-10-24 收口）**：TUI `t` 四步循环测试与四套色值常量；Web `styles.css` 四选择器、`assets.rs` 默认主题注入用例、`app.js` 选择器；`config.rs` locale 链用例
 - [x] Check 271: 收口可判定：FR-619—625 已按正式编号登记（spec／tasks／checklist 三方挂钩，计数一致）；登记表交付格已翻转为已实现（无残留 `T173`／`T174`／`T175`／`T177`／`T178` 预留）；矩阵、指南与 CUI 手册已按交付现状回填；证据可定位（来源：Task T181、FR-619—625）——**已取得（2026-10-24 收口）**：`check_counts.py`／`traceability.py` 全绿；`docs/matrices/feature-parity.md` 54 行逐行受校验；`docs/guides/{tui,ui-design,web-deployment-security,cui-manual}.md` 回填；证据 `artifacts/frontend-parity-2026-10-24/close-gates.md`
+## 写命令确认与审计补遗（2026-10-25 新增，Task T182，FR-623）
+
+- [x] Check 272: 会话归档具备确认与审计：任一端归档前可预览且不写库、确认后才更新，审计记录含执行者、方向与会话清单；缺失会话与权限拒绝不产生审计（来源：spec FR-623／Task T182／ADR-038）——**已取得（2026-10-25，T182）**：`whcode-app::commands` 的 `SessionArchive { confirm }` 在 `confirm = false` 时只返回 `SessionArchivePreview`（当前行 + 目标状态），不写库；`confirm = true` 才调用 `set_session_archived`。`whcode-store::set_archived` 在同一事务写 `session_archive` 审计（`target` 标 `archive`／`unarchive`，`detail_json` 含 `archived`／`updated`／`sessions`，清单按既有 100 条上限截断）；缺失会话返回 `not_found` 且不写审计。四端同口径：CUI 默认 dry-run、`--yes` 执行（`cui.archive_dry_run`／`cui.unarchive_dry_run`）；TUI `A` 预览后按 `y`；Web 缺 `confirm` 返回 `dry_run = true` 的预览 JSON；GUI 维持只读排除。证据：`cargo test -p whcode-domain -p whcode-store -p whcode-app`（`archive_preview_then_confirm_writes_audit`、`set_archived_flips_flag_audits_and_missing_ids_rejected`）、`cargo test -p whcode-bin`（`session_lifecycle_commands_execute`）、`cargo test -p whcode-web`（`session_write_commands_default_to_preview`）、`cargo test -p whcode-tui`（`archive_requires_preview_then_confirm`）；裁决记录 `docs/adr/ADR-038-session-archive-confirmation-and-audit.md`
+
+---
+
+## 第十层：构建与发布独立矩阵工作流（2026-10-25 新增，Task T183，ADR-039）
+
+- [ ] Check 273: 构建与发布职责分离可判定：`.github/workflows/build-release.yml` 以
+  `profile: [debug, release]` 矩阵运行；debug 只做工作区 `cargo build --locked --workspace`
+  与 `deps-windows`；release 做发布构建、`package-windows.py --verify`、SHA256、TUI/Web 冒烟，
+  并上传 `whcode-windows-amd64`／`install-verify-windows-amd64`／`smoke-evidence`；发布作业仅在
+  tag ref 运行且校验 tag 与包版本一致、预发布标 prerelease、重跑幂等；`ci.yml` 已删除构建与
+  发布步骤；`check-release.py` 与 `action-versions.json` 的 download-artifact 登记齐备；
+  `check-workflows`／`check-actions`（离线）／`check-eol`／`check-counts`／`traceability` 通过
+  （来源：Task T183、ADR-039、ADR-037 修订记录）——**部分取得（2026-10-25）**：本地离线门禁
+  已复核通过（`check-workflows.py`、`check-actions.py` 离线与联网、`check-eol.py`、
+  `check_counts.py`、`traceability.py`；`check-release.py` 的写入／正确 tag／预发布 tag／
+  版本不一致／哈希篡改／空包／非法 `.sha256`／安装验证记录不一致／记录缺失九条路径已冒烟，
+  失败均退出 1 并输出可归因值）。GitHub Actions 尚未实跑，按 ADR-037 不以本地全绿冒充；
+  T183 与 Check 273 保持未勾选，直到取得 run URL、debug/release 矩阵结论与 artifact 列表。
+
+---
+
+## 第十一层：内置 TLS 证书库与 Web 证书设置（2026-10-25 新增，Task T184—T192，FR-626／FR-627）
+
+- [ ] Check 274: 决策与追溯齐备：ADR-040 含威胁模型、备选方案、正负和解、三重时间与复审触发；
+  ADR-031／ADR-023／ADR-022／ADR-032 已追加修订；主 spec 的 FR-606 修订与 FR-626／FR-627 已登记；
+  `contracts/app-service.md` 与 `contracts/cui-cli.md` 已同步；`traceability.py` 与
+  `check_counts.py` 退出码 0（来源：Task T184）
+- [ ] Check 275: `assets/certs/ca-bundle.pem` 的下载日期、上游地址、SHA-256、证书份数与 MPL-2.0
+  许可记录在 `SOURCES.md` 且重算一致；资产无 BOM、无私钥块；`assets/` 说明已增列 `certs/`
+  （来源：Task T185、FR-626）
+- [ ] Check 276: 两向档位默认均为启用且未知档位名解析失败；`tls_config_change` 审计动作、
+  `settings.cert.read`／`settings.cert.write` 能力与 `workspace_certs_dir` 均有测试
+  （来源：Task T186、FR-626／FR-627）
+- [ ] Check 277: 首次初始化生成 `settings.json`、`ca-builtin.pem` 与种子清单；两个工作区指纹不同；
+  未修改副本随新资产刷新并记录新旧哈希；已修改副本保留并标记；`reset` 恢复内置字节
+  （来源：Task T187、FR-626）
+- [ ] Check 278: CA 写入仅接受 CERTIFICATE 块；空内容、含私钥块、超限、不可解析均返回明确错误
+  且原文件字节不变；服务端证书与私钥超限、加密私钥被拒绝（来源：Task T187、FR-626）
+- [ ] Check 279: 默认 `builtin`；`ca-extra.pem` 在 `builtin` 与 `system` 两档均生效；`system` 从
+  操作系统库加载并标注来源；系统库为 0 时返回可操作错误且不回落内置库；代码与 API 无跳过校验
+  开关；测试全程不访问公网（来源：Task T188、FR-626）
+- [ ] Check 280: 本地 TLS 测试服务上，受信根成功、未受信根失败、主机名不匹配失败、过期证书失败；
+  失败原因结构化且可操作（来源：Task T188、FR-626）
+- [ ] Check 281: 默认 `serve --web` 以 HTTPS 启动并输出指纹；自签证书 SAN 覆盖回环与本机名；
+  有效期 397 天；不足 30 天告警；过期自动重新生成并记录新旧指纹（来源：Task T189、FR-626）
+- [ ] Check 282: `external` 档位加载匹配的 PEM 证书链与未加密私钥后握手成功；不匹配、加密私钥、
+  不可解析证书被拒绝；`off` 与 `--tls off` 回到明文并可访问；优先级为参数 > 工作区设置 > 默认
+  `builtin`（来源：Task T189、FR-626）
+- [ ] Check 283: 局域网绑定缺 token 仍拒绝启动；启用 TLS 时 Origin 允许集为 `https`；401／403
+  语义不变；TLS 下 WebSocket 升级与消息收发可用（来源：Task T189、FR-626）
+- [ ] Check 284: 分片 ClientHello、部分写、两客户端交错、超大握手与 5 秒超时均有测试；每连接缓冲
+  有上限；`serve --web` 线程数不增加；超并发上限时 TLS 模式关闭连接且不静默排队
+  （来源：Task T189、FR-626）
+- [ ] Check 285: `/api/certs/*` 经认证、Origin 与能力判定；降档缺 `confirm` 被拒；成功写
+  `tls_config_change` 审计且审计失败回滚；任何响应、日志、事件与审计不含私钥；请求体上限在解析前
+  生效；入站变更返回 `restart_required = true`（来源：Task T190、FR-627）
+- [ ] Check 286: 设置页满足 FR-618 预算并纳入预算脚本；中文与英语词条齐备；无 JS 时只读状态与
+  文件路径可见；`settings.cert.read`／`settings.cert.write` 在四端登记表中状态正确，CUI／TUI／GUI
+  调用返回 `not_supported`，`feature-parity.md` 已重新生成（来源：Task T190、FR-627）
+- [ ] Check 287: `doctor` 文本与 `--json` 报告出站档位／份数／修改标记与入站档位／指纹／有效期；
+  README、CUI 手册、Web 安全指南、quickstart 与模块设计不再声称“Web 无 TLS”；`CHANGELOG.md` 以
+  **BREAKING** 记录默认 HTTPS 与迁移方式（来源：Task T191、FR-626／FR-627）
+- [ ] Check 288: 默认 HTTPS、`--tls off`、`external`、局域网 token + HTTPS、设置页与重启提示均有
+  真实运行证据（`artifacts/tls-2026-10-25/`）；资源前后对比已记录；标准验证链全部退出码 0；CI 未
+  运行时登记缺口与复现命令，不以本地结果冒充（来源：Task T192、FR-626／FR-627、ADR-037）
 
 ---
 

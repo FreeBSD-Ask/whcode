@@ -38,7 +38,7 @@ impl TransportState {
     }
 }
 
-/// 传输层只读快照（FR-210/616：供 `Provider::transport_snapshot` 返回）。
+/// 传输层只读快照（FR-616：供 `Provider::transport_snapshot` 返回）。
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct TransportSnapshot {
     /// 连接 ID。
@@ -119,7 +119,7 @@ impl TransportTracker {
         self.rtt_samples.iter().copied().collect()
     }
 
-    /// 只读快照（FR-210：供 Provider 暴露传输摘要）。
+    /// 只读快照（FR-206／FR-208：供 Provider 暴露传输摘要）。
     #[must_use]
     pub fn snapshot(&self) -> TransportSnapshot {
         TransportSnapshot {

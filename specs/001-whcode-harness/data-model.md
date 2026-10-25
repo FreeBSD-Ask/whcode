@@ -73,7 +73,9 @@
 ### audit
 - 字段：`id, actor, action, target, detail_json, ts`
 - 约束：强制放行、权限敏感操作和清理必须记录（§10.3）
-- 校验：不随普通会话 TTL 自动清除，除非管理员显式设置审计保留策略
+- 校验：不随普通会话 TTL 自动清除，除非管理员显式设置审计保留策略；`action` 取
+  `AuditAction` 稳定名，会话归档／取消归档为 `session_archive`（ADR-038），不得复用
+  `db_purge`（归档不删行，混用会让清理审计失真）
 - 存储（schema v7 起）：`detail_json` 为 `VARIANT`（ADR-036）；读取与展示走
   `CAST(CAST(detail_json AS JSON) AS VARCHAR)`，不改变审计保留策略
 

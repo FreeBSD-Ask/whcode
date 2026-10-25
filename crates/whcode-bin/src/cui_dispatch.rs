@@ -525,15 +525,59 @@ fn session_command(
             };
             Ok((session_json(&row), row_line(&row)))
         }
-        SessionCommand::Archive { session, unarchive } => {
+        SessionCommand::Archive {
+            session,
+            unarchive,
+            dry_run,
+            yes,
+        } => {
+            let is_dry_run = confirm_flags(*dry_run, *yes)?;
             let mut conn = open_db(workspace, config)?;
+            let archived = !*unarchive;
+            if is_dry_run {
+                let outcome = whcode_app::execute_command(
+                    &mut conn,
+                    policy,
+                    actor,
+                    &whcode_app::FrontendCommand::SessionArchive {
+                        session_id: session.clone(),
+                        archived,
+                        confirm: false,
+                        now_ms: now,
+                    },
+                )?;
+                let whcode_app::CommandOutcome::SessionArchivePreview {
+                    session: row,
+                    target_archived,
+                } = outcome
+                else {
+                    return Err(whcode_domain::WhError::internal(
+                        "门面返回形状不符：应为归档预览",
+                    ));
+                };
+                let value = json!({
+                    "dry_run": true,
+                    "session": session,
+                    "current_archived": row.archived,
+                    "archived": target_archived,
+                    "changed": row.archived != target_archived,
+                });
+                let key = if archived {
+                    "cui.archive_dry_run"
+                } else {
+                    "cui.unarchive_dry_run"
+                };
+                let human = texts.resolve_fmt(key, &[("session", session)]);
+                return Ok((value, human));
+            }
             let outcome = whcode_app::execute_command(
                 &mut conn,
                 policy,
                 actor,
                 &whcode_app::FrontendCommand::SessionArchive {
                     session_id: session.clone(),
-                    archived: !*unarchive,
+                    archived,
+                    confirm: true,
                     now_ms: now,
                 },
             )?;
@@ -542,7 +586,13 @@ fn session_command(
                     "门面返回形状不符：应为 Session",
                 ));
             };
-            Ok((session_json(&row), row_line(&row)))
+            let key = if archived {
+                "cui.archived"
+            } else {
+                "cui.unarchived"
+            };
+            let human = texts.resolve_fmt(key, &[("session", session)]);
+            Ok((session_json(&row), human))
         }
         SessionCommand::Delete {
             session,
@@ -1201,11 +1251,31 @@ mod tests {
         .expect("重命名");
         assert_eq!(rename.0["session"]["title"], "改名");
 
+        let archive_preview = execute(
+            &Command::Session {
+                command: SessionCommand::Archive {
+                    session: id.clone(),
+                    unarchive: false,
+                    dry_run: false,
+                    yes: false,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("归档 dry-run");
+        assert_eq!(archive_preview.0["dry_run"], true, "默认 dry-run");
+        assert_eq!(archive_preview.0["current_archived"], false);
+        assert_eq!(archive_preview.0["archived"], true);
+        assert_eq!(archive_preview.0["changed"], true);
+
         let archive = execute(
             &Command::Session {
                 command: SessionCommand::Archive {
                     session: id.clone(),
                     unarchive: false,
+                    dry_run: false,
+                    yes: true,
                 },
             },
             &workspace,

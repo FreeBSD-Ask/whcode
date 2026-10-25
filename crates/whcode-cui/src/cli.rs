@@ -144,7 +144,7 @@ pub enum SessionCommand {
         #[arg(long)]
         title: String,
     },
-    /// 归档/取消归档。
+    /// 归档/取消归档（契约 §2-1 破坏族：默认 dry-run，`--yes` 执行）。
     Archive {
         /// 会话 ID。
         #[arg(long)]
@@ -152,6 +152,12 @@ pub enum SessionCommand {
         /// 取消归档。
         #[arg(long)]
         unarchive: bool,
+        /// 只预览不执行（默认）。
+        #[arg(long)]
+        dry_run: bool,
+        /// 显式确认执行（与 --dry-run 互斥语义，§8.1）。
+        #[arg(long)]
+        yes: bool,
     },
     /// 删除会话（破坏性；默认 dry-run，FR-509）。
     Delete {

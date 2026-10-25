@@ -13,6 +13,7 @@ pub mod event;
 pub mod gate;
 pub mod i18n;
 pub mod state;
+pub mod tls;
 pub mod trace;
 
 pub use audit::{AuditAction, AuditRecord, AuditSink, CollectingAuditSink};
@@ -27,4 +28,11 @@ pub use event::{
 };
 pub use gate::{GateId, GateResult, StageTransition};
 pub use state::{LlmRequestStatus, RuntimeExecutionStatus, SddStage, TaskStatus};
+pub use tls::{
+    BUILTIN_CA_FILE, CA_BUNDLE_MAX_BYTES, CERT_JSON_MAX_BYTES, CERT_RENEW_WARN_DAYS,
+    CERT_VALIDITY_DAYS, CertFileStatus, EXTRA_CA_FILE, InboundMode, MAX_CERT_COUNT, OutboundStatus,
+    SEED_MANIFEST_FILE, SERVER_CERT_FILE, SERVER_CERT_MAX_BYTES, SERVER_KEY_FILE,
+    SERVER_KEY_MAX_BYTES, SETTINGS_FILE, SETTINGS_SCHEMA_VERSION, ServerCertStatus, TlsSettings,
+    TlsStatus, TrustMode,
+};
 pub use trace::TraceLevel;

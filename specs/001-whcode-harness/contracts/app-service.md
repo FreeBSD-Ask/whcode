@@ -25,6 +25,7 @@
 | db | stats / check / purge / checkpoint / compact / archive / explain | 维护与清理（FR-507—510） |
 | runtime | list / status / enable / disable / install | 运行时管理（FR-701—710） |
 | serve | web / ssh | 传输入口（FR-603/607） |
+| cert | status / modes / ca / server / verify | TLS 证书状态与编辑（FR-626／FR-627，Web 设置面；CUI／TUI／GUI 按 ADR-032 排除） |
 | doctor | — | 环境与配置自检 |
 
 **统一语义**（四端必须一致，FR-604）：

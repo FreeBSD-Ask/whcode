@@ -55,3 +55,15 @@ Some("http://127.0.0.1:8737"))` 与 `check_origin(false, &[], None)` 均返回
   Origin 两种模式均放行**——跨站由 Bearer token 阻断（自定义头触发预检，本服务不返回
   CORS 许可）；带 Origin 时仍必须命中允许集。原规则的初衷（对外监听来源显式）由
   ADR-023 的地址边界 + 认证承担。证据：`artifacts/web-lan-2026-10-22-batch4.txt`。
+
+- **2026-10-25（TLS，ADR-040）**：`serve --web` 默认启用 TLS 后，Origin 允许集的 scheme
+  由 `http` 改为 `https`（回环模式下的“非回环 host 一律拒绝”判定与认证模式的允许集
+  同此口径）；**host／端口匹配语义不变**——仍按 scheme + host 比较、端口不参与匹配、
+  大小写不敏感、IPv6 字面量去括号去端口；缺失 Origin 的两种模式语义同样不变。
+  明文档位（`--tls off` 或入站档位 `off`）下允许集仍为 `http`。**判定依据**：同一浏览器
+  在 HTTPS 页面发起的同源与跨站请求，其 `Origin` 头一律携带 `https` scheme，
+  若允许集仍写 `http` 则全部 403（与本 ADR 2026-10-22 记录的全串比较缺陷同类）。
+
+- **实施说明（2026-10-25 修订补充）**：`crates/whcode-bin/src/serve.rs` 当前以
+  `format!("http://{addr}")` 硬编码构造允许集，无 TLS 档位输入；scheme 选择属 ADR-040
+  的实现范围（T184—T192），本条为设计约束，实现与实测证据 `[待验证]`。

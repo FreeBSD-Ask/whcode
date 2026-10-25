@@ -703,6 +703,49 @@ pub fn handle_request_with_runtimes(
                     "缺 session 参数或 archived 不是布尔值",
                 ));
             };
+            // 契约 §2-1 破坏族：默认只预览（confirm 缺失/false），显式 true 才执行（ADR-038）。
+            let confirm = body
+                .get("confirm")
+                .map(|_| body_bool(&body, "confirm"))
+                .transpose();
+            let confirm = match confirm {
+                Ok(confirm) => confirm.unwrap_or(false),
+                Err(error) => return error_response(&error),
+            };
+            let now = match now_ms() {
+                Ok(now) => now,
+                Err(error) => return error_response(&error),
+            };
+            if !confirm {
+                return match whcode_app::execute_command(
+                    conn,
+                    &policy,
+                    actor,
+                    &whcode_app::FrontendCommand::SessionArchive {
+                        session_id: session.to_string(),
+                        archived,
+                        confirm: false,
+                        now_ms: now,
+                    },
+                ) {
+                    Ok(whcode_app::CommandOutcome::SessionArchivePreview {
+                        session: row,
+                        target_archived,
+                    }) => HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "dry_run": true,
+                            "session": session,
+                            "current_archived": row.archived,
+                            "archived": target_archived,
+                            "changed": row.archived != target_archived,
+                        }),
+                    ),
+                    Ok(_) => error_response(&WhError::internal("门面返回形状不符：应为归档预览")),
+                    Err(error) => error_response(&error),
+                };
+            }
             match whcode_app::execute_command(
                 conn,
                 &policy,
@@ -710,7 +753,8 @@ pub fn handle_request_with_runtimes(
                 &whcode_app::FrontendCommand::SessionArchive {
                     session_id: session.to_string(),
                     archived,
-                    now_ms: now_ms().unwrap_or(0),
+                    confirm: true,
+                    now_ms: now,
                 },
             ) {
                 Ok(whcode_app::CommandOutcome::Session(row)) => HttpResponse::json(
@@ -1405,11 +1449,26 @@ mod tests {
         assert_eq!(renamed.status, 200);
         assert_eq!(json_of(&renamed)["session"]["title"], "改名");
 
-        let archived = call(
+        // 归档预览：dry_run=true、目标状态可见、数据不动。
+        let archive_preview = call(
             &mut conn,
             &post(
                 "/api/sessions/archive",
                 &serde_json::json!({"session": id, "archived": true}),
+            ),
+        );
+        assert_eq!(archive_preview.status, 200);
+        let body = json_of(&archive_preview);
+        assert_eq!(body["dry_run"], true, "缺 confirm 必须只预览");
+        assert_eq!(body["current_archived"], false);
+        assert_eq!(body["archived"], true);
+        assert_eq!(body["changed"], true);
+
+        let archived = call(
+            &mut conn,
+            &post(
+                "/api/sessions/archive",
+                &serde_json::json!({"session": id, "archived": true, "confirm": true}),
             ),
         );
         assert_eq!(archived.status, 200);

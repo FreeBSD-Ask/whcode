@@ -35,6 +35,10 @@ pub enum Capability {
     TaskAbort,
     /// 推进 SDD 阶段（含 force-advance，FR-307/312）。
     SpecAdvance,
+    /// 读取证书库设置与状态（ADR-040 决策 4；`/api/certs` 读面）。
+    SettingsCertRead,
+    /// 写入证书库设置与证书（ADR-040 决策 4；档位、根证书与服务端证书变更）。
+    SettingsCertWrite,
 }
 
 impl Capability {
@@ -51,6 +55,8 @@ impl Capability {
             Self::TaskRetry => "task.retry",
             Self::TaskAbort => "task.abort",
             Self::SpecAdvance => "spec.advance",
+            Self::SettingsCertRead => "settings.cert.read",
+            Self::SettingsCertWrite => "settings.cert.write",
         }
     }
 }
@@ -134,6 +140,8 @@ pub fn actor_with_all_capabilities(id: &str) -> Actor {
             Capability::TaskRetry,
             Capability::TaskAbort,
             Capability::SpecAdvance,
+            Capability::SettingsCertRead,
+            Capability::SettingsCertWrite,
         ],
     )
 }
@@ -174,5 +182,30 @@ mod tests {
     fn capability_names_are_stable() {
         assert_eq!(Capability::SessionCreate.as_str(), "session.create");
         assert_eq!(Capability::TaskAbort.as_str(), "task.abort");
+        assert_eq!(Capability::SettingsCertRead.as_str(), "settings.cert.read");
+        assert_eq!(
+            Capability::SettingsCertWrite.as_str(),
+            "settings.cert.write"
+        );
+    }
+
+    /// ADR-040 决策 4：证书读写能力互相独立（读能力不得写），全能力调用者包含二者。
+    #[test]
+    fn cert_capabilities_are_granted_independently() {
+        let policy = DefaultPolicy;
+        let reader = Actor::new("cert-reader", [Capability::SettingsCertRead]);
+        require(&policy, &reader, Capability::SettingsCertRead).expect("读能力已授予必须放行");
+        let err = require(&policy, &reader, Capability::SettingsCertWrite)
+            .expect_err("仅读能力不得执行写操作");
+        assert_eq!(err.code, ErrorCode::PermissionDenied);
+        assert!(err.to_string().contains("settings.cert.write"), "{err}");
+
+        let full = actor_with_all_capabilities("admin");
+        for capability in [
+            Capability::SettingsCertRead,
+            Capability::SettingsCertWrite,
+        ] {
+            require(&policy, &full, capability).expect("全能力调用者必须包含证书能力");
+        }
     }
 }

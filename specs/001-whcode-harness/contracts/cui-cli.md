@@ -20,7 +20,7 @@ whcode
   font install [--from DIR] [--dry-run]
   font status
   font uninstall [--dry-run]
-  serve --web [--bind 127.0.0.1:PORT]
+  serve --web [--bind 127.0.0.1:PORT] [--tls builtin|external|off] [--token-file PATH]
   serve --ssh [--bind HOST:PORT]
   gui [--workspace DIR]
   doctor [--json]
@@ -45,6 +45,12 @@ whcode
 HKCU 注册（显式、可逆，`uninstall` 撤销）；`install` 输出 Windows Terminal 配置片段供用户自行
 粘贴，**不自动改写用户终端配置**（FR-717、ADR-028）；终端字形由终端模拟器控制，程序不声称
 可强制更换。
+`serve --web` 的 `--tls` 取 `builtin`（默认，工作区自签证书）、`external`（用户 PEM 证书链与
+未加密私钥）或 `off`（明文 HTTP，ADR-023 现状）；优先级为命令行 `--tls` > 工作区证书设置 >
+默认 `builtin`，入站变更在重启后生效，`off` 不被静默改回；默认档位证书无法生成或加载时拒绝
+启动并列出 `--tls off` 与文件路径，不静默降级明文。`--token-file PATH` 仍是局域网监听的强制
+认证来源，TLS 不替代认证（FR-606 修订、FR-626、ADR-040）。证书的编辑与状态查询只在 Web
+设置面提供，CUI 不提供写命令（理由码 `web_settings_only`，FR-627）。
 
 ## 2. 修订约束（不得回退）
 

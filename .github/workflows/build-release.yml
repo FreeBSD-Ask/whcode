@@ -1,0 +1,174 @@
+# 构建与发布（2026-10-25 用户指令）：把原 ci.yml `platform-windows` 里的构建、打包、
+# 冒烟与发布链拆为独立矩阵文件，让门禁／测试（ci.yml）与交付（本文件）各自拥有
+# 触发语义与权限边界。
+#
+# 触发：push main、push tag v*、pull_request、workflow_dispatch。
+#
+# 矩阵两档（fail-fast: false，两档互不掩盖失败）：
+#   - debug：构建 workspace 并产出依赖记录（V-001），只验证依赖图可解；
+#   - release：发布构建 → 打包并安装验证（T118）→ SHA256 → TUI／Web 冒烟 → 上传 artifact。
+#
+# 权限：顶层只读；仅 tag 发布 job 提升为 contents: write，且只用 GITHUB_TOKEN，
+# 不引入其他凭据（最小权限，AGENTS.md §1.1）。
+#
+# 纪律：测试“通过”结论仍归 ci.yml（ADR-037）；本文件只承载交付链。
+# tag 与包版本的一致性、SHA256 独立复算与安装验证记录交叉校验均由 check-release.py 判定，
+# 失败即中止，不以 0 或空值冒充。
+name: build-release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+# Windows runner 控制台默认代码页非 UTF-8；脚本含中文输出，统一强制 Python UTF-8 模式。
+env:
+  PYTHONUTF8: "1"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: package-${{ matrix.profile }}
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [debug, release]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
+        run: python .github/scripts/fetch-duckdb.py
+
+      # ---------------- debug：依赖图可解 + 依赖记录 ----------------
+      - name: 构建（锁定依赖图）
+        if: matrix.profile == 'debug'
+        run: cargo build --locked --workspace
+
+      - name: 产出依赖记录（V-001，含测量纪律字段）
+        if: matrix.profile == 'debug'
+        run: python .github/scripts/platform-matrix/record_deps.py artifacts
+
+      - name: 上传 Windows 依赖记录
+        if: matrix.profile == 'debug'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deps-windows
+          path: artifacts/deps-windows.txt
+
+      # ---------------- release：发布构建 → 打包 → 校验 → 冒烟 ----------------
+      - name: 发布构建
+        if: matrix.profile == 'release'
+        run: cargo build --release --locked -p whcode-bin
+
+      # 解包到仓库外临时目录运行，避免仓库内 vendor/duckdb 与 target/ 污染 DLL 搜索路径。
+      - name: 打包并安装验证（T118）
+        if: matrix.profile == 'release'
+        run: python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt
+
+      - name: 生成发布包 SHA256（sha256sum 兼容格式）
+        if: matrix.profile == 'release'
+        run: python .github/scripts/check-release.py --dir target/dist --write
+
+      - name: TUI 可自动化冒烟（V-003：--version／doctor／非交互退出）
+        if: matrix.profile == 'release'
+        run: python .github/scripts/tui-smoke.py --json artifacts/tui-smoke-ci.json
+
+      - name: Web 服务端冒烟（/api/status、/api/sessions、首页）
+        if: matrix.profile == 'release'
+        run: python .github/scripts/web-smoke.py --json artifacts/web-smoke-ci.json
+
+      - name: 上传 Windows 发布包（zip + sha256）
+        if: matrix.profile == 'release'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: whcode-windows-amd64
+          if-no-files-found: error
+          path: |
+            target/dist/*.zip
+            target/dist/*.sha256
+
+      - name: 上传安装验证记录
+        if: matrix.profile == 'release'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: install-verify-windows-amd64
+          path: artifacts/install-verify-windows-amd64.txt
+
+      # 冒烟失败时 JSON 可能缺失或为半成品；always() 上传，缺文件按警告而非静默通过。
+      - name: 上传冒烟证据（TUI／Web）
+        if: always() && matrix.profile == 'release'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: smoke-evidence
+          if-no-files-found: warn
+          path: |
+            artifacts/tui-smoke-ci.json
+            artifacts/web-smoke-ci.json
+
+  # ---------------- GitHub Release（仅 tag v*） ----------------
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: windows-latest
+    timeout-minutes: 20
+    # 仅本 job 需要写权限；顶层仍为 contents: read。
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: 下载发布包 artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: whcode-windows-amd64
+          path: dist
+
+      # 安装验证记录是 SHA256 的第二来源：check-release.py 复算后与之交叉校验。
+      - name: 下载安装验证记录 artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: install-verify-windows-amd64
+          path: verify
+
+      # tag 取 runner 注入的环境变量，不把表达式拼进 shell 命令串。
+      - name: 校验 tag 与包版本、重算 SHA256，并与安装验证记录交叉校验
+        run: python .github/scripts/check-release.py --dir dist --tag "$env:GITHUB_REF_NAME" --record verify/install-verify-windows-amd64.txt
+
+      # windows-latest 自带 Git Bash 与 gh；只做上传与发布，不再构建。
+      # tag 含 `-`（如 v0.1.0-rc.1）按预发布发布；标签已存在则 --clobber 覆盖同名资产。
+      - name: 创建或更新 GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # 用 bash 内建通配定位唯一资产，不引入外部工具。
+          shopt -s nullglob
+          zips=(dist/*.zip)
+          shas=(dist/*.zip.sha256)
+          if [ "${#zips[@]}" -ne 1 ] || [ "${#shas[@]}" -ne 1 ]; then
+            echo "发布失败：dist 下应有且仅有一个 .zip 与一个 .zip.sha256，实际 zip=${#zips[@]} sha256=${#shas[@]}" >&2
+            exit 1
+          fi
+          ZIP="${zips[0]}"
+          SHA="${shas[0]}"
+
+          prerelease=()
+          case "$TAG" in
+            *-*) prerelease=(--prerelease) ;;
+          esac
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP" "$SHA" --clobber
+          else
+            gh release create "$TAG" "$ZIP" "$SHA" --title "$TAG" --generate-notes "${prerelease[@]}"
+          fi

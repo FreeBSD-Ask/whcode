@@ -124,6 +124,8 @@ mod tests {
                 command: SessionCommand::Archive {
                     session: "S".into(),
                     unarchive: false,
+                    dry_run: false,
+                    yes: false,
                 },
             },
             Command::Session {

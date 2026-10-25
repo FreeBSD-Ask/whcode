@@ -1,8 +1,9 @@
 //! 审计记录与写入钩子（任务书 §10.3、FR-312）。
 //!
 //! 下列操作**必须**有审计记录：手动越过门禁、修改 Constitution、清理或压缩数据库、修改
-//! 运行时配置、执行破坏性工具、权限配置变化、数据导出、认证失败的策略性汇总。审计数据
-//! **不得**随普通会话 TTL 自动清除，除非管理员显式设置审计保留策略。
+//! 运行时配置、执行破坏性工具、权限配置变化、数据导出、认证失败的策略性汇总，以及会话
+//! 归档/取消归档（ADR-038：契约 §2-1 破坏族成员的审计不可省略）。审计数据**不得**随普通
+//! 会话 TTL 自动清除，除非管理员显式设置审计保留策略。
 
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +31,10 @@ pub enum AuditAction {
     DataExport,
     /// 认证失败的策略性汇总（非逐条失败记录）。
     AuthFailureSummary,
+    /// 会话归档／取消归档（ADR-038；可逆元数据标记，但属契约 §2-1 破坏族，须留痕）。
+    SessionArchive,
+    /// 证书库配置变更（ADR-040 决策 4；含档位、根证书与服务端证书变更）。
+    TlsConfigChange,
 }
 
 impl AuditAction {
@@ -45,6 +50,8 @@ impl AuditAction {
             Self::PermissionChange => "permission_change",
             Self::DataExport => "data_export",
             Self::AuthFailureSummary => "auth_failure_summary",
+            Self::SessionArchive => "session_archive",
+            Self::TlsConfigChange => "tls_config_change",
         }
     }
 }
@@ -169,8 +176,43 @@ mod tests {
             AuditAction::PermissionChange,
             AuditAction::DataExport,
             AuditAction::AuthFailureSummary,
+            AuditAction::SessionArchive,
         ];
-        assert_eq!(all.len(), 9);
+        assert_eq!(all.len(), 10);
         assert_eq!(all[2].as_str(), "db_purge");
+        assert_eq!(all[9].as_str(), "session_archive");
+    }
+
+    /// 证书库变更动作（ADR-040 决策 4）：稳定名 `tls_config_change`，
+    /// serde 与 Display 同源，且与既有动作名互异。
+    #[test]
+    fn tls_config_change_serializes_and_displays_stably() {
+        let action = AuditAction::TlsConfigChange;
+        assert_eq!(action.as_str(), "tls_config_change");
+        assert_eq!(action.to_string(), "tls_config_change");
+        assert_eq!(
+            serde_json::to_value(action).expect("序列化"),
+            json!("tls_config_change")
+        );
+        let restored: AuditAction =
+            serde_json::from_value(json!("tls_config_change")).expect("反序列化");
+        assert_eq!(restored, AuditAction::TlsConfigChange);
+
+        let existing = [
+            AuditAction::GateOverride,
+            AuditAction::ConstitutionChange,
+            AuditAction::DbPurge,
+            AuditAction::DbCompact,
+            AuditAction::RuntimeConfigChange,
+            AuditAction::DestructiveTool,
+            AuditAction::PermissionChange,
+            AuditAction::DataExport,
+            AuditAction::AuthFailureSummary,
+            AuditAction::SessionArchive,
+        ];
+        assert!(
+            !existing.contains(&action),
+            "tls_config_change 必须与既有动作互异"
+        );
     }
 }

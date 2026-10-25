@@ -1,4 +1,4 @@
-# 决策台账（D-01—D-17；D-16 由并行变更 add-real-llm-provider 预留）
+# 决策台账（D-01—D-18）
 
 本文件记录 tasks.md T030 要求的决策点、结论、证据引用与责任人。状态取值：**已决策**（方向已批准）、**待验证**（结论未取得证据）、**已修订**（原结论被正式修订）。责任人以角色标注，具名责任人待项目排期后回填。
 
@@ -21,7 +21,9 @@
 | D-13 | 平台承诺修订 | OpenBSD 与 DragonFly BSD **不再作为原生安装目标**，改为经 WHCode 内置 SSH 客户端控制；`whcode-ssh` 职责扩展为“客户端 + 服务端”，完整能力属 M7；V-004 判据改为“FreeBSD/NetBSD 服务端验收 + 四平台客户端连通性/命令执行证据”；M0 仅交付客户端风险原型，四平台无节点证据 | `docs/adr/ADR-011-platform-commitment-revision.md`；`docs/adr/ADR-DB-BUILD.md`；`docs/matrices/platform-matrix.md`；`spec.md` FR-607、FR-611 | 平台矩阵负责人 | 已决策 |
 | D-14 | 平台范围收敛 | **Windows 11 amd64 为唯一验收目标**；不考虑任何 32 位平台；FreeBSD/NetBSD/OpenBSD/DragonFly 全部**延后**（保留代码与文档，不验收；BSD CI 改为手工触发）。恢复任一平台须新 ADR 并补齐完整证据链 | `docs/adr/ADR-013-platform-scope-windows-only.md`；`docs/matrices/platform-matrix.md`；`spec.md` US1、Assumptions；`.github/workflows/platform-*.yml` | 平台矩阵负责人 | 已决策 |
 | D-15 | GUI 形态（铁律） | **已决策（2026-10-23，用户指令）**：桌面 GUI 必须**原生**（平台原生控件或自绘渲染）；**禁止浏览器套壳**——WebView／WebView2、CEF、Tauri／wry、Electron、NW.js，以及“自绘窗口 + 内嵌 Web UI”等价形态一律禁止；`whcode-web` 只作独立浏览器前端（FR-603）。GUI 当前无 FR，落地前须先立需求与 ADR，并给资源、三套主题、无障碍与能力矩阵扩列证据 | `docs/adr/ADR-026-native-gui-only.md`；`docs/adr/ADR-014-minimal-frontend.md`；`docs/adr/ADR-004.md`；`AGENTS.md` §1／§6／§8 | UI 与前端负责人 | 已决策（铁律） |
-| D-17 | 四端对等门禁与差异登记 | **已决策（2026-10-24，G2）**：CUI／TUI／GUI／Web 对等按业务能力、权限、状态迁移、错误语义、可审计性五维判定（视觉与交互不判等）；能力登记表（`whcode-app::surface`）为单一事实源，每能力每端只有已实现／已排除／预留／不适用四态；差异只用 ADR-032 理由码登记（如 `GUI_READ_ONLY_V1`、`CLI_LOCAL_ADMIN`、`RESERVED_MILESTONE`）；矩阵改为登记表受校验产物；预留／排除能力被调用返回结构化 `not_supported`（CUI 退出码 55／Web HTTP 501），未登记路径仍 404。实现归属 ensure-frontend-parity 变更（T168—T181） | `docs/adr/ADR-032-frontend-parity-and-intended-differences.md`；ADR-009 修订记录（2026-10-24）；`.trae/specs/ensure-frontend-parity/spec.md`；`specs/001-whcode-harness/spec.md` 前端四端对等节（预留编号 619—625） | 前端对等负责人 | 已决策 |
+| D-17 | 四端对等门禁与差异登记 | **已决策（2026-10-24，G2）**：CUI／TUI／GUI／Web 对等按业务能力、权限、状态迁移、错误语义、可审计性五维判定（视觉与交互不判等）；能力登记表（`whcode-app::surface`）为单一事实源，每能力每端只有已实现／已排除／预留／不适用四态；差异只用 ADR-032 理由码登记（如 `GUI_READ_ONLY_V1`、`CLI_LOCAL_ADMIN`、`RESERVED_MILESTONE`）；矩阵改为登记表受校验产物；预留／排除能力被调用返回结构化 `not_supported`（CUI 退出码 55／Web HTTP 501），未登记路径仍 404。实现归属 ensure-frontend-parity 变更（T168—T181） | `docs/adr/ADR-032-frontend-parity-and-intended-differences.md`；ADR-009 修订记录（2026-10-24）；`.trae/specs/ensure-frontend-parity/spec.md`；`specs/001-whcode-harness/spec.md` 前端四端对等节（FR-619—625） | 前端对等负责人 | 已决策 |
+| D-16 | 真实 LLM Provider 网络接入与凭据边界 | **已补录（2026-10-25，ADR-031）**：网络依赖只进装配根（`ureq 3.5.0` + `rustls`，`http` feature 默认关闭、仅 `whcode-bin` 启用）；默认不联网（无剖面即无请求，当前无调用点）；端点 `https` 强制、明文 `http` 仅回环；凭据只允许环境变量或仓库外文件，`Secret` 恒 `[REDACTED]`；超时三元组 10 s／120 s／300 s、`max_tokens` 默认 1024、流帧有界；不自动重试流式请求（幂等探测最多 2 次，未实现）。**客户端与 `llm run` 未交付**（T162—T163），变更 spec 未入库；实现先于 ADR 入库属门禁倒置，已在 ADR 如实记录 | `docs/adr/ADR-031-llm-provider-network-and-credentials.md`；`crates/whcode-llm/src/http/{profile,frames,protocols,errors}.rs`；`artifacts/deps-windows.txt`；`spec.md` FR-201／203／206／207／208／616、NFR-213／215 | LLM 变更维护者 | 已决策（实现未完成） |
+| D-18 | 会话归档的确认与审计口径 | **已决策（2026-10-25，ADR-038）**：`session.archive` 维持契约 §2-1 破坏族地位，确认与审计均不省略；四端统一“预览→确认”（CUI 默认 dry-run、`--yes` 执行；TUI `A` 两段确认；Web 缺 `confirm` 只预览；GUI 只读排除）；新增 `session_archive` 审计动作，由 `set_archived` 在同一事务写入（`detail_json` 含方向、更新数与会话清单，100 条截断）；CUI 行为变更标 BREAKING；TUI 暂无反归档键，登记为已知不对称 | `docs/adr/ADR-038-session-archive-confirmation-and-audit.md`；`contracts/app-service.md` §2-1；`crates/whcode-store/src/purge.rs`；`crates/whcode-app/src/commands.rs`；`spec.md` FR-623 | 四端写命令维护者 | 已决策 |
 
 ## 与 ADR 的对应关系
 
@@ -40,7 +42,9 @@
 | D-13 | ADR-011 | 平台承诺修订 |
 | D-14 | ADR-013 | 平台范围收敛（Windows 11 amd64 唯一验收目标） |
 | D-15 | ADR-026 | GUI 必须原生；禁止浏览器套壳（铁律） |
-| D-17 | ADR-032 | 四端对等门禁与差异登记；D-16／ADR-031 由并行变更 add-real-llm-provider 预留，两变更不得对 `llm.run` 状态各自表述 |
+| D-16 | ADR-031 | 真实 LLM Provider：网络依赖只进装配根、默认不联网、凭据边界、超时与重试（客户端未交付） |
+| D-17 | ADR-032 | 四端对等门禁与差异登记；`llm.run` 在四端仍为 `Reserved`，按 ADR-031 与 ADR-032 同一口径表述 |
+| D-18 | ADR-038 | 会话归档的确认与审计：预览→确认四端对齐，`session_archive` 审计同事务写入 |
 
 ## 维护纪律
 

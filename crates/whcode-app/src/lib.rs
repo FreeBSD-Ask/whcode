@@ -68,3 +68,5 @@ pub use snapshot::{StateSnapshot, build_snapshot};
 pub use stage_role::{StageRole, role_for};
 pub use task::{TaskDetail, abort_task, retry_task, task_detail};
 pub use views::{purge_counts_value, session_value, task_value};
+// 会话行类型（门面 `CommandOutcome::Session` 的载荷；前端据此渲染，无需依赖 store）。
+pub use whcode_store::SessionRow;

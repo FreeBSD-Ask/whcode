@@ -88,15 +88,18 @@ python -c "import secrets; print(secrets.token_urlsafe(32))" > .\token.txt
 |---|---|---|
 | `/api/sessions/new` | `title`（非空）、`model`（可选） | —— |
 | `/api/sessions/rename` | `session`、`title` | —— |
-| `/api/sessions/archive` | `session`、`archived`（布尔） | —— |
+| `/api/sessions/archive` | `session`、`archived`（布尔）、`confirm`（缺省 false） | **默认只预览**；确认后才归档并写 `session_archive` 审计 |
 | `/api/sessions/delete` | `session`、`confirm`（缺省 false） | **默认只预览**；确认后才删 |
 | `/api/tasks/retry`／`/api/tasks/abort` | `task` | —— |
 | `/api/purge` | `before_ms`、`confirm`（缺省 false） | **默认只预览**；确认后才删 |
 
-破坏性操作有三层保护：前端两步式按钮（预览成功才启用确认，`app.js:328-345`、`384-402`）→
-API 层缺省预览（`api.rs:535-557`、`636-648`）→ 存储层再次要求 `confirm=true`
+破坏性操作有三层保护：前端两步式按钮（预览成功才启用确认，`app.js` 的
+`previewDeleteCurrentSession`／`confirmDeleteCurrentSession`、`previewArchiveCurrentSession`／
+`confirmArchiveCurrentSession`、`previewPurge`／`confirmPurge`）→ API 层缺省预览
+（`api.rs` 的 archive／delete／purge 分支）→ 存储层再次要求 `confirm=true`
 （`crates/whcode-app/src/maintenance.rs:38-49`）。删除与审计同一事务，审计失败整体回滚
-（`crates/whcode-store/src/purge.rs:16-18`）。预览必须报满受影响的表名（`purge.rs:177-197`）。
+（`crates/whcode-store/src/purge.rs:16-18`）；归档与 `session_archive` 审计同样同事务
+（`purge.rs` 的 `set_archived`，ADR-038）。预览必须报满受影响的表名（`purge.rs:177-197`）。
 
 ### 4.1 保留与预留命令的 501 语义（2026-10-24 交付，FR-620／ADR-032）
 

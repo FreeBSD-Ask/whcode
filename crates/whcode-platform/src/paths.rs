@@ -19,6 +19,15 @@ pub fn workspace_config_dir(workspace_root: &Path) -> PathBuf {
     workspace_root.join(".whcode")
 }
 
+/// 工作区证书库目录：`<workspace>/.whcode/certs`（ADR-040 决策 1）。
+///
+/// 与工作区数据库同一信任边界（同用户、同 ACL）；本函数不做存在性检查与创建，
+/// 目录初始化与文件编排属 `whcode-app` 的证书库模块。
+#[must_use]
+pub fn workspace_certs_dir(workspace_root: &Path) -> PathBuf {
+    workspace_config_dir(workspace_root).join("certs")
+}
+
 /// 工作区专用临时目录：`<workspace>/tmp`（§5.4 `temp_directory`）。
 ///
 /// DuckDB `temp_directory` 必须指向工作区内受控目录，而非系统临时目录——这样磁盘余量与
@@ -42,6 +51,21 @@ mod tests {
     fn temp_dir_is_inside_workspace() {
         let root = Path::new("/tmp/ws");
         assert_eq!(workspace_temp_dir(root), PathBuf::from("/tmp/ws/tmp"));
+    }
+
+    /// ADR-040 决策 1：证书库落在工作区配置目录下的 `certs`，与数据库同一信任边界。
+    #[test]
+    fn certs_dir_is_under_workspace_config_dir() {
+        let root = Path::new("/tmp/ws");
+        assert_eq!(
+            workspace_certs_dir(root),
+            PathBuf::from("/tmp/ws/.whcode/certs")
+        );
+        assert_eq!(
+            workspace_certs_dir(root),
+            workspace_config_dir(root).join("certs"),
+            "证书库目录必须与配置目录拼接一致（不另立第二套路径口径）"
+        );
     }
 
     #[test]

@@ -328,7 +328,8 @@ mod tests {
         let mut conn = migrated();
         let a = create_session(&conn, "a", None, "active", 1_000).expect("a");
         let b = create_session(&conn, "b", None, "active", 2_000).expect("b");
-        crate::purge::set_archived(&mut conn, &[a.id.as_str()], true).expect("归档");
+        crate::purge::set_archived(&mut conn, &[a.id.as_str()], true, "directory-test")
+            .expect("归档");
 
         let visible = list_sessions(&conn, false, 10).expect("列表");
         assert_eq!(

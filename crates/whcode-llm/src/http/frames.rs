@@ -1,4 +1,4 @@
-//! # 流帧解码（FR-210、161.5）：SSE／NDJSON／JSON 数组流的有界解码
+//! # 流帧解码（FR-206／FR-208、NFR-215）：SSE／NDJSON／JSON 数组流的有界解码
 //!
 //! 三种线格式统一产出 [`Frame`]，供协议层映射为 chunk 语义。所有解码器**有界**：
 //! 单行/单帧超过 [`MAX_FRAME_BYTES`]、累计超过 [`MAX_RESPONSE_BYTES`] 即返回
@@ -26,7 +26,7 @@ pub struct Frame {
 }
 
 impl Frame {
-    /// 把 data 解析为 JSON；畸形 JSON 返回 `parse_error`（FR-210：异常流不静默）。
+    /// 把 data 解析为 JSON；畸形 JSON 返回 `parse_error`（FR-206／FR-208：异常流不静默）。
     ///
     /// # Errors
     ///
@@ -48,7 +48,7 @@ pub struct Budget {
 }
 
 impl Budget {
-    /// 记录一段字节；超限返回 `parse_error`（FR-210：不得截断后报告成功）。
+    /// 记录一段字节；超限返回 `parse_error`（FR-206／FR-208：不得截断后报告成功）。
     ///
     /// # Errors
     ///
@@ -73,7 +73,7 @@ impl Budget {
 /// 从有界 reader 逐帧解码（按 [`FrameFormat`]；返回 `None` 表示流结束）。
 ///
 /// 阻塞式逐行读取（与 [`crate::provider::Provider`] 的同步迭代器契约一致）；
-/// 取消由调用方在帧间检查（下一个读取边界语义，FR-212）。
+/// 取消由调用方在帧间检查（下一个读取边界语义，FR-201／FR-616）。
 ///
 /// # Errors
 ///
@@ -163,7 +163,7 @@ fn next_ndjson_frame(
     }
 }
 
-/// JSON 数组流：顶层 `[` 后逐元素解码（括号深度 + 字符串状态机，161.5）。
+/// JSON 数组流：顶层 `[` 后逐元素解码（括号深度 + 字符串状态机）。
 fn next_json_array_frame(
     reader: &mut dyn BufRead,
     budget: &mut Budget,

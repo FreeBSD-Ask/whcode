@@ -1,8 +1,8 @@
-//! # 五协议适配器（FR-209/210、162）
+//! # 五协议适配器（FR-206／FR-207、ADR-031）
 //!
 //! [`WireProtocol`] 是线协议契约：请求路径/体构造、附加头、流帧格式、单帧解码
 //! （正文增量/终止/用量/错误）与协议错误包提取。新增协议只新增实现与夹具，
-//! **不修改领域 `Provider` 接口**（FR-209）。终止原因与用量字段跨协议归一：
+//! **不修改领域 `Provider` 接口**（ADR-031）。终止原因与用量字段跨协议归一：
 //! `finish_reason`/`stop_reason`/`finishReason`/`done_reason` → 归一 `reason`；
 //! 各协议 usage 字段 → [`Usage`]（`cost_is_estimate = false`）。
 
@@ -15,7 +15,7 @@ use crate::http::profile::{FrameFormat, Protocol, ProviderProfile};
 use crate::metering::Usage;
 use crate::provider::LlmRequest;
 
-/// 单帧解码结果（协议层 → chunk 语义；FR-210）。
+/// 单帧解码结果（协议层 → chunk 语义；FR-206／FR-208）。
 #[derive(Debug, Clone, PartialEq)]
 pub enum DecodeOutcome {
     /// 空帧（如 SSE `message_start`），无正文。
@@ -23,21 +23,28 @@ pub enum DecodeOutcome {
     /// 正文增量。
     Delta { text: String },
     /// 终止（含归一原因与供应商用量）。
-    Finish { reason: String, usage: Option<Usage> },
+    Finish {
+        reason: String,
+        usage: Option<Usage>,
+    },
     /// 增量 + 终止（Ollama 最后一帧同帧携带正文与 done）。
-    DeltaAndFinish { text: String, reason: String, usage: Option<Usage> },
-    /// 未知事件：跳过但**必须计数**并留完整性标记（FR-210；经传输快照暴露）。
+    DeltaAndFinish {
+        text: String,
+        reason: String,
+        usage: Option<Usage>,
+    },
+    /// 未知事件：跳过但**必须计数**并留完整性标记（FR-206／FR-208；经传输快照暴露）。
     Unknown,
     /// 协议错误事件（SSE `error` 事件等）：转为结构化错误，不得静默。
     Error { message: String },
 }
 
-/// 线协议契约（FR-209；实现为无状态对象，注册表按协议枚举分派）。
+/// 线协议契约（ADR-031；实现为无状态对象，注册表按协议枚举分派）。
 pub trait WireProtocol: Send + Sync {
     /// 协议名（与 [`Protocol::as_str`] 一致）。
     fn name(&self) -> &'static str;
 
-    /// 流帧格式（FR-210）。
+    /// 流帧格式（FR-206／FR-208）。
     fn frame_format(&self) -> FrameFormat;
 
     /// 完整请求路径（含查询；不含 base_url）。
@@ -48,21 +55,25 @@ pub trait WireProtocol: Send + Sync {
     /// # Errors
     ///
     /// extra_body 非对象时返回 [`whcode_domain::ErrorCode::InvalidState`]。
-    fn request_body(&self, request: &LlmRequest, profile: &ProviderProfile) -> Result<String, WhError>;
+    fn request_body(
+        &self,
+        request: &LlmRequest,
+        profile: &ProviderProfile,
+    ) -> Result<String, WhError>;
 
     /// 协议必需头（如 Anthropic 的 `anthropic-version`）。
     fn extra_headers(&self) -> Vec<(String, String)> {
         Vec::new()
     }
 
-    /// 单帧解码（FR-210：正文增量、终止、用量、未知事件、协议错误）。
+    /// 单帧解码（FR-206／FR-208：正文增量、终止、用量、未知事件、协议错误）。
     fn decode(&self, frame: &Frame) -> DecodeOutcome;
 
-    /// 非 2xx 响应正文的错误消息提取（FR-212：协议错误包字段归一）。
+    /// 非 2xx 响应正文的错误消息提取（FR-201／FR-616：协议错误包字段归一）。
     fn error_message(&self, body: &str) -> String;
 }
 
-/// 按协议枚举取实现（注册表；FR-209）。
+/// 按协议枚举取实现（注册表；ADR-031）。
 #[must_use]
 pub fn registry(protocol: Protocol) -> &'static dyn WireProtocol {
     match protocol {
@@ -87,7 +98,7 @@ fn usage(prompt_tokens: Value, completion_tokens: Value) -> Option<Usage> {
     })
 }
 
-/// 把剖面 extra_body（对象）合并进默认体（同键以剖面为准，FR-209）。
+/// 把剖面 extra_body（对象）合并进默认体（同键以剖面为准，ADR-031）。
 fn merge_extra(mut base: Value, extra: &Value) -> Result<Value, WhError> {
     if extra.is_null() {
         return Ok(base);
@@ -116,9 +127,16 @@ fn messages_role_user(request: &LlmRequest) -> Value {
     json!([{ "role": "user", "content": request.prompt }])
 }
 
-fn extract_usage(value: &Value, prompt_keys: [&str; 1], completion_keys: [&str; 1]) -> Option<Usage> {
+fn extract_usage(
+    value: &Value,
+    prompt_keys: [&str; 1],
+    completion_keys: [&str; 1],
+) -> Option<Usage> {
     let prompt = prompt_keys.iter().find_map(|k| value.get(*k)).cloned()?;
-    let completion = completion_keys.iter().find_map(|k| value.get(*k)).cloned()?;
+    let completion = completion_keys
+        .iter()
+        .find_map(|k| value.get(*k))
+        .cloned()?;
     usage(prompt, completion)
 }
 
@@ -143,7 +161,11 @@ impl WireProtocol for OpenAi {
         }
     }
 
-    fn request_body(&self, request: &LlmRequest, profile: &ProviderProfile) -> Result<String, WhError> {
+    fn request_body(
+        &self,
+        request: &LlmRequest,
+        profile: &ProviderProfile,
+    ) -> Result<String, WhError> {
         let mut body = json!({
             "model": profile.model,
             "messages": messages_role_user(request),
@@ -157,7 +179,10 @@ impl WireProtocol for OpenAi {
 
     fn decode(&self, frame: &Frame) -> DecodeOutcome {
         if frame.data == "[DONE]" {
-            return DecodeOutcome::Finish { reason: "stop".to_string(), usage: None };
+            return DecodeOutcome::Finish {
+                reason: "stop".to_string(),
+                usage: None,
+            };
         }
         let Ok(value) = frame.json() else {
             return DecodeOutcome::Unknown;
@@ -167,13 +192,22 @@ impl WireProtocol for OpenAi {
                 .get("message")
                 .and_then(Value::as_str)
                 .unwrap_or("openai 协议错误（未提供 message）");
-            return DecodeOutcome::Error { message: message.to_string() };
+            return DecodeOutcome::Error {
+                message: message.to_string(),
+            };
         }
-        let Some(choice) = value.get("choices").and_then(Value::as_array).and_then(|c| c.first()) else {
+        let Some(choice) = value
+            .get("choices")
+            .and_then(Value::as_array)
+            .and_then(|c| c.first())
+        else {
             // usage-only 终帧（include_usage 的最后一块没有 choices）。
             if let Some(u) = value.get("usage") {
                 return match extract_usage(u, ["prompt_tokens"], ["completion_tokens"]) {
-                    Some(usage) => DecodeOutcome::Finish { reason: "stop".to_string(), usage: Some(usage) },
+                    Some(usage) => DecodeOutcome::Finish {
+                        reason: "stop".to_string(),
+                        usage: Some(usage),
+                    },
                     None => DecodeOutcome::Empty,
                 };
             }
@@ -186,8 +220,14 @@ impl WireProtocol for OpenAi {
             .unwrap_or_default()
             .to_string();
         if let Some(reason) = choice.get("finish_reason").and_then(Value::as_str) {
-            let usage = value.get("usage").and_then(|u| extract_usage(u, ["prompt_tokens"], ["completion_tokens"]));
-            return DecodeOutcome::DeltaAndFinish { text, reason: reason.to_string(), usage };
+            let usage = value
+                .get("usage")
+                .and_then(|u| extract_usage(u, ["prompt_tokens"], ["completion_tokens"]));
+            return DecodeOutcome::DeltaAndFinish {
+                text,
+                reason: reason.to_string(),
+                usage,
+            };
         }
         if text.is_empty() {
             return DecodeOutcome::Empty;
@@ -204,7 +244,7 @@ impl WireProtocol for OpenAi {
     }
 }
 
-/// Anthropic Messages API（SSE 类型化事件；162.3）。
+/// Anthropic Messages API（SSE 类型化事件；）。
 pub struct Anthropic;
 
 impl WireProtocol for Anthropic {
@@ -225,7 +265,11 @@ impl WireProtocol for Anthropic {
         }
     }
 
-    fn request_body(&self, request: &LlmRequest, profile: &ProviderProfile) -> Result<String, WhError> {
+    fn request_body(
+        &self,
+        request: &LlmRequest,
+        profile: &ProviderProfile,
+    ) -> Result<String, WhError> {
         let body = json!({
             "model": profile.model,
             "max_tokens": profile.max_tokens,
@@ -244,7 +288,10 @@ impl WireProtocol for Anthropic {
             return DecodeOutcome::Unknown;
         };
         let event = frame.event_name.as_deref().unwrap_or_else(|| {
-            value.get("type").and_then(Value::as_str).unwrap_or_default()
+            value
+                .get("type")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
         });
         match event {
             "content_block_delta" => {
@@ -270,7 +317,10 @@ impl WireProtocol for Anthropic {
                     .and_then(|u| extract_usage(u, ["input_tokens"], ["output_tokens"]));
                 DecodeOutcome::Finish { reason, usage }
             }
-            "message_stop" => DecodeOutcome::Finish { reason: "stop".to_string(), usage: None },
+            "message_stop" => DecodeOutcome::Finish {
+                reason: "stop".to_string(),
+                usage: None,
+            },
             "error" => DecodeOutcome::Error {
                 message: value
                     .pointer("/error/message")
@@ -291,7 +341,7 @@ impl WireProtocol for Anthropic {
     }
 }
 
-/// Google Gemini（`alt=sse`；162.4）。
+/// Google Gemini（`alt=sse`；）。
 pub struct Gemini;
 
 impl WireProtocol for Gemini {
@@ -308,17 +358,24 @@ impl WireProtocol for Gemini {
         let mut path = if base.contains(":streamGenerateContent") {
             base.to_string()
         } else {
-            format!("{base}/v1beta/models/{}:streamGenerateContent", profile.model)
+            format!(
+                "{base}/v1beta/models/{}:streamGenerateContent",
+                profile.model
+            )
         };
         if !path.contains("alt=sse") {
-            path.push(if path.contains('?') { "&" } else { "?" });
+            path.push(if path.contains('?') { '&' } else { '?' });
             path.push_str("alt=sse");
         }
         let _ = &mut path;
         path
     }
 
-    fn request_body(&self, request: &LlmRequest, profile: &ProviderProfile) -> Result<String, WhError> {
+    fn request_body(
+        &self,
+        request: &LlmRequest,
+        profile: &ProviderProfile,
+    ) -> Result<String, WhError> {
         let body = json!({
             "contents": [{ "parts": [{ "text": request.prompt }] }],
             "generationConfig": { "maxOutputTokens": profile.max_tokens },
@@ -362,12 +419,19 @@ impl WireProtocol for Gemini {
             .get("usageMetadata")
             .and_then(|u| extract_usage(u, ["promptTokenCount"], ["candidatesTokenCount"]));
         match (text.is_empty(), reason) {
-            (false, Some(reason)) => DecodeOutcome::DeltaAndFinish { text, reason, usage },
+            (false, Some(reason)) => DecodeOutcome::DeltaAndFinish {
+                text,
+                reason,
+                usage,
+            },
             (false, None) => DecodeOutcome::Delta { text },
             (true, Some(reason)) => DecodeOutcome::Finish { reason, usage },
             (true, None) => {
                 if usage.is_some() {
-                    DecodeOutcome::Finish { reason: "stop".to_string(), usage }
+                    DecodeOutcome::Finish {
+                        reason: "stop".to_string(),
+                        usage,
+                    }
                 } else {
                     DecodeOutcome::Empty
                 }
@@ -384,7 +448,7 @@ impl WireProtocol for Gemini {
     }
 }
 
-/// Ollama 原生 `/api/chat`（NDJSON；162.5）。
+/// Ollama 原生 `/api/chat`（NDJSON；）。
 pub struct Ollama;
 
 impl WireProtocol for Ollama {
@@ -405,7 +469,11 @@ impl WireProtocol for Ollama {
         }
     }
 
-    fn request_body(&self, request: &LlmRequest, profile: &ProviderProfile) -> Result<String, WhError> {
+    fn request_body(
+        &self,
+        request: &LlmRequest,
+        profile: &ProviderProfile,
+    ) -> Result<String, WhError> {
         let body = json!({
             "model": profile.model,
             "messages": messages_role_user(request),
@@ -420,10 +488,7 @@ impl WireProtocol for Ollama {
         };
         if let Some(error) = value.get("error") {
             return DecodeOutcome::Error {
-                message: error
-                    .as_str()
-                    .unwrap_or("ollama 协议错误")
-                    .to_string(),
+                message: error.as_str().unwrap_or("ollama 协议错误").to_string(),
             };
         }
         let text = value
@@ -447,7 +512,11 @@ impl WireProtocol for Ollama {
             .get("prompt_eval_count")
             .zip(value.get("eval_count"))
             .and_then(|(p, c)| usage(p.clone(), c.clone()));
-        DecodeOutcome::DeltaAndFinish { text, reason, usage }
+        DecodeOutcome::DeltaAndFinish {
+            text,
+            reason,
+            usage,
+        }
     }
 
     fn error_message(&self, body: &str) -> String {
@@ -458,7 +527,7 @@ impl WireProtocol for Ollama {
     }
 }
 
-/// Cohere Chat v2（SSE 类型化事件；162.6）。
+/// Cohere Chat v2（SSE 类型化事件；）。
 pub struct Cohere;
 
 impl WireProtocol for Cohere {
@@ -479,7 +548,11 @@ impl WireProtocol for Cohere {
         }
     }
 
-    fn request_body(&self, request: &LlmRequest, profile: &ProviderProfile) -> Result<String, WhError> {
+    fn request_body(
+        &self,
+        request: &LlmRequest,
+        profile: &ProviderProfile,
+    ) -> Result<String, WhError> {
         let body = json!({
             "model": profile.model,
             "messages": messages_role_user(request),
@@ -493,7 +566,10 @@ impl WireProtocol for Cohere {
             return DecodeOutcome::Unknown;
         };
         let event = frame.event_name.as_deref().unwrap_or_else(|| {
-            value.get("type").and_then(Value::as_str).unwrap_or_default()
+            value
+                .get("type")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
         });
         match event {
             "content-delta" => {
@@ -567,32 +643,47 @@ mod tests {
     }
 
     fn frame(data: &str) -> Frame {
-        Frame { event_name: None, data: data.to_string() }
+        Frame {
+            event_name: None,
+            data: data.to_string(),
+        }
     }
 
     #[test]
     fn openai_request_body_streams_and_includes_usage() {
-        let body = OpenAi.request_body(&request(), &profile(Protocol::OpenAi)).expect("body");
+        let body = OpenAi
+            .request_body(&request(), &profile(Protocol::OpenAi))
+            .expect("body");
         let value: Value = serde_json::from_str(&body).expect("JSON");
         assert_eq!(value["stream"], true);
         assert_eq!(value["stream_options"]["include_usage"], true);
         assert_eq!(value["max_tokens"], 64);
         assert_eq!(value["messages"][0]["role"], "user");
-        assert_eq!(OpenAi.request_path(&profile(Protocol::OpenAi)), "/v1/chat/completions");
+        assert_eq!(
+            OpenAi.request_path(&profile(Protocol::OpenAi)),
+            "/v1/chat/completions"
+        );
     }
 
     #[test]
     fn openai_decode_maps_delta_finish_and_done() {
-        let delta = OpenAi.decode(&frame(
-            r#"{"choices":[{"delta":{"content":"你好"}}]}"#,
-        ));
-        assert_eq!(delta, DecodeOutcome::Delta { text: "你好".to_string() });
+        let delta = OpenAi.decode(&frame(r#"{"choices":[{"delta":{"content":"你好"}}]}"#));
+        assert_eq!(
+            delta,
+            DecodeOutcome::Delta {
+                text: "你好".to_string()
+            }
+        );
 
         let finish = OpenAi.decode(&frame(
             r#"{"choices":[{"delta":{},"finish_reason":"length"}],"usage":{"prompt_tokens":10,"completion_tokens":5}}"#,
         ));
         match finish {
-            DecodeOutcome::DeltaAndFinish { text, reason, usage } => {
+            DecodeOutcome::DeltaAndFinish {
+                text,
+                reason,
+                usage,
+            } => {
                 assert_eq!(reason, "length");
                 let usage = usage.expect("供应商用量");
                 assert!(!usage.cost_is_estimate);
@@ -611,10 +702,15 @@ mod tests {
         let outcome = OpenAi.decode(&frame(r#"{"error":{"message":"配额超限"}}"#));
         assert_eq!(
             outcome,
-            DecodeOutcome::Error { message: "配额超限".to_string() },
+            DecodeOutcome::Error {
+                message: "配额超限".to_string()
+            },
             "协议错误不得静默（FR-210）"
         );
-        assert_eq!(OpenAi.error_message(r#"{"error":{"message":"bad key"}}"#), "bad key");
+        assert_eq!(
+            OpenAi.error_message(r#"{"error":{"message":"bad key"}}"#),
+            "bad key"
+        );
     }
 
     #[test]
@@ -623,7 +719,12 @@ mod tests {
             event_name: Some("content_block_delta".to_string()),
             data: r#"{"delta":{"text":"段落"}}"#.to_string(),
         });
-        assert_eq!(delta, DecodeOutcome::Delta { text: "段落".to_string() });
+        assert_eq!(
+            delta,
+            DecodeOutcome::Delta {
+                text: "段落".to_string()
+            }
+        );
 
         let finish = Anthropic.decode(&Frame {
             event_name: Some("message_delta".to_string()),
@@ -632,7 +733,11 @@ mod tests {
         assert!(matches!(finish, DecodeOutcome::Finish { .. }));
         let mut base = profile(Protocol::Anthropic);
         base.path = String::new();
-        assert_eq!(Anthropic.request_path(&base), "/v1/messages", "默认 path 补全");
+        assert_eq!(
+            Anthropic.request_path(&base),
+            "/v1/messages",
+            "默认 path 补全"
+        );
         base.path = "/gateway/anthropic".to_string();
         assert_eq!(
             Anthropic.request_path(&base),
@@ -647,26 +752,43 @@ mod tests {
         let delta = Gemini.decode(&frame(
             r#"{"candidates":[{"content":{"parts":[{"text":"G"}]}}]}"#,
         ));
-        assert_eq!(delta, DecodeOutcome::Delta { text: "G".to_string() });
+        assert_eq!(
+            delta,
+            DecodeOutcome::Delta {
+                text: "G".to_string()
+            }
+        );
 
         let finish = Gemini.decode(&frame(
             r#"{"candidates":[{"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":4}}"#,
         ));
         assert!(matches!(finish, DecodeOutcome::Finish { .. }));
         let path = Gemini.request_path(&profile(Protocol::Gemini));
-        assert!(path.contains(":streamGenerateContent") && path.contains("alt=sse"), "路径：{path}");
+        assert!(
+            path.contains(":streamGenerateContent") && path.contains("alt=sse"),
+            "路径：{path}"
+        );
     }
 
     #[test]
     fn ollama_ndjson_final_frame_carries_delta_and_usage() {
         let delta = Ollama.decode(&frame(r#"{"message":{"content":"O"},"done":false}"#));
-        assert_eq!(delta, DecodeOutcome::Delta { text: "O".to_string() });
+        assert_eq!(
+            delta,
+            DecodeOutcome::Delta {
+                text: "O".to_string()
+            }
+        );
 
         let finish = Ollama.decode(&frame(
             r#"{"message":{"content":""},"done":true,"done_reason":"stop","prompt_eval_count":9,"eval_count":11}"#,
         ));
         match finish {
-            DecodeOutcome::DeltaAndFinish { text, reason, usage } => {
+            DecodeOutcome::DeltaAndFinish {
+                text,
+                reason,
+                usage,
+            } => {
                 assert_eq!(reason, "stop");
                 let usage = usage.expect("用量");
                 assert_eq!((usage.prompt_tokens, usage.completion_tokens), (9, 11));
@@ -674,7 +796,11 @@ mod tests {
             }
             other => panic!("应为 DeltaAndFinish：{other:?}"),
         }
-        assert!(Ollama.error_message(r#"{"error":"model not found"}"#).contains("model not found"));
+        assert!(
+            Ollama
+                .error_message(r#"{"error":"model not found"}"#)
+                .contains("model not found")
+        );
     }
 
     #[test]
@@ -683,7 +809,12 @@ mod tests {
             event_name: Some("content-delta".to_string()),
             data: r#"{"delta":{"message":{"content":{"text":"C"}}}}"#.to_string(),
         });
-        assert_eq!(delta, DecodeOutcome::Delta { text: "C".to_string() });
+        assert_eq!(
+            delta,
+            DecodeOutcome::Delta {
+                text: "C".to_string()
+            }
+        );
 
         let finish = Cohere.decode(&Frame {
             event_name: Some("message-end".to_string()),
@@ -706,7 +837,9 @@ mod tests {
     fn extra_body_must_be_object() {
         let mut profile = profile(Protocol::OpenAi);
         profile.extra_body = serde_json::json!("not-object");
-        let err = OpenAi.request_body(&request(), &profile).expect_err("必须拒绝");
+        let err = OpenAi
+            .request_body(&request(), &profile)
+            .expect_err("必须拒绝");
         assert_eq!(err.code, whcode_domain::ErrorCode::InvalidState);
     }
 

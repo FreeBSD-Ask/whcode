@@ -25,12 +25,16 @@
 | Phase 13 跨里程碑收尾 | **已完成**：D 台账、目录门禁与准则文档、安全复查（T123）、quickstart 全流程（T124）、三方断链审计（T127）均取得证据 |
 | 四端对等（M6／M10，FR-619—625） | **已完成**（ADR-032）：54 条能力登记表为单一事实源、受校验矩阵、CUI 55／Web 501 统一语义、TUI 写操作与主题循环、Web 三端点与四主题；收口证据 `artifacts/frontend-parity-2026-10-24/` |
 
-181 条任务中 173 条完成，8 条未完成：T099（BSD 现场验收证据，ADR-013 延后）、
+192 条任务中 174 条完成，18 条未完成：T099（BSD 现场验收证据，ADR-013 延后）、
 T116（5.5 小时稳定性阻塞）、T162—T167（并行变更 `add-real-llm-provider` 未交付，
-其 spec 与 ADR-031 尚未入库）。原因逐条写在任务行。
+其 spec 未入库；ADR-031 已于 2026-10-25 补录）、T183（构建与发布拆分待 CI 实跑，
+ADR-039）、T184—T192（并行变更“内置 TLS 证书库与 Web 证书设置”待交付，ADR-040）。
+原因逐条写在任务行。
 
-**验收口径**：`checklist.md` 的 271 个检查点**全部有复核记录**——**260 通过 / 11 未通过**
-（其中 14 项通过记录来自 2026-10-21/22 的用户复核，其余由逐条复核与里程碑批次补录给出）。
+**验收口径**：`checklist.md` 已登记 288 个检查点——**261 通过 / 27 未通过**
+（其中 14 项通过记录来自 2026-10-21/22 的用户复核，其余由逐条复核与里程碑批次补录给出；
+Check 273（构建与发布独立矩阵工作流）为**待取得**——CI 尚未实跑，不以本地全绿冒充；
+Check 274—288 属并行 TLS 变更的待取证检查点）。
 未通过项集中在：BSD 平台证据与 M7 现场验收（ADR-013 延后）、5.5 h 长跑（T116）、
 进程组零残留（Check 109/201）、ADR 未决项（Check 134）、测量预算类（Check 195）；
 托管 runner 上的 NFR-207/209 属受控性能测量，走 `perf-budget` 手动 job，不作 push 门禁。
@@ -75,14 +79,22 @@ OpenBSD/DragonFly 无原生测试，保留手工占位。
 - **SSH**：内置客户端（公钥认证、受限命令、超时与输出上限、known_hosts TOFU 校验、按
   “意图—执行—登记”协议留痕）；M7 服务端已实现（`serve --ssh`，russh + 受限入口 + 单写者执行器，
   ADR-030），四平台现场验收按 ADR-013 延后
-- **测试统一入口**：`.github/workflows/ci.yml` 在 push `main`、PR 与手动触发时运行门禁、
+- **测试统一入口（`ci.yml`）**：`.github/workflows/ci.yml` 在 push `main`、PR 与手动触发时运行门禁、
   五平台矩阵（Windows 绿路径必过；FreeBSD/NetBSD 随 `main` 自动运行代码级检查、非 DuckDB
   包测试与依赖记录，DuckDB 原生构建为显式 Go/No-Go；OpenBSD/DragonFly 为延后占位）以及
   全部测试与短测量；性能预算（NFR-207/209 与测试进程 RSS）与桌面型测试由
   `workflow_dispatch` 的 `perf`／`desktop` 输入触发；每周一 schedule 只做 action 版本联网审计。
+  构建与发布步骤已于 2026-10-25 迁出（ADR-039），本文件只承担门禁与测试。
   所有 action 固定到最新 release 的 commit SHA。run 40126145778 已全绿（五平台与 `measurements`），
   `measurements` 的 NFR-201 中位 31.27 MB、NFR-202 中位 35.51 MB。
-- **5.5 小时长跑**由 `.github/workflows/long-run.yml` 手动触发（19 800 秒、300 秒采样、
+- **构建与发布（`build-release.yml`）**：同目录的 `build-release.yml` 以
+  `profile: [debug, release]` 矩阵运行——debug 做工作区锁定构建（`cargo build --locked --workspace`）
+  与依赖记录（`deps-windows`）；release 做发布构建、打包安装验证（`package-windows.py --verify`）、
+  SHA256、TUI/Web 冒烟并上传 `whcode-windows-amd64`／`install-verify-windows-amd64`／
+  `smoke-evidence`（名称与旧 `ci.yml` 一致，下游取用方式不变）；tag `v*` 时创建/更新 GitHub Release
+  （校验 tag 与包版本一致、预发布自动标 prerelease、重跑幂等），写权限仅限发布作业。
+  该工作流尚未实跑，**发布结论未取得**；版本仍为**未发布**。
+- **5.5 小时长跑（`long-run.yml`）**：由 `.github/workflows/long-run.yml` 手动触发（19 800 秒、300 秒采样、
   timeout 355 分钟，ADR-033）；24/72 小时深检保留为可选 self-hosted／本机运行，
   不再作为 CI 门槛，不得表述为已验证。
 

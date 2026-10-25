@@ -46,10 +46,11 @@ pub enum FrontendCommand {
         title: String,
         now_ms: u64,
     },
-    /// 归档／取消归档。
+    /// 归档／取消归档：`confirm = false` 为预览（不写库、不写审计），`true` 才更新并留痕。
     SessionArchive {
         session_id: String,
         archived: bool,
+        confirm: bool,
         now_ms: u64,
     },
     /// 删除会话：`confirm = false` 为预览（不写库、无执行审计），`true` 才删除。
@@ -77,6 +78,13 @@ pub enum FrontendCommand {
 pub enum CommandOutcome {
     /// 会话行（new／rename／archive 统一返回最新行）。
     Session(whcode_store::SessionRow),
+    /// 归档预览：当前行 + 目标状态，不写库。
+    SessionArchivePreview {
+        /// 预览时点的会话行（含当前 `archived`）。
+        session: whcode_store::SessionRow,
+        /// 目标归档状态。
+        target_archived: bool,
+    },
     /// 删除预览。
     SessionDeletePreview(PurgePreview),
     /// 删除执行结果。
@@ -137,8 +145,16 @@ pub fn execute_command(
         FrontendCommand::SessionArchive {
             session_id,
             archived,
+            confirm,
             now_ms: _,
         } => {
+            if !*confirm {
+                let row = show_session(conn, policy, actor, session_id)?;
+                return Ok(CommandOutcome::SessionArchivePreview {
+                    session: row,
+                    target_archived: *archived,
+                });
+            }
             let ids = [session_id.as_str()];
             set_session_archived(conn, policy, actor, &ids, *archived)?;
             let row = show_session(conn, policy, actor, session_id)?;
@@ -260,6 +276,7 @@ mod tests {
             FrontendCommand::SessionArchive {
                 session_id: id.clone(),
                 archived: true,
+                confirm: true,
                 now_ms: now,
             },
         ] {
@@ -354,6 +371,93 @@ mod tests {
         .expect_err("无能力必须拒绝");
         assert_eq!(err.code, whcode_domain::ErrorCode::PermissionDenied);
         assert!(!err.retryable);
+    }
+
+    /// 归档与删除同口径：预览不写库不审计，确认才更新并写 `session_archive` 审计（ADR-038）。
+    #[test]
+    fn archive_preview_then_confirm_writes_audit() {
+        let mut conn = migrated();
+        let policy = DefaultPolicy;
+        let me = actor();
+        let now = 1_700_000_000_000_u64;
+        let outcome = execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::SessionNew {
+                title: "待归档".to_string(),
+                model: None,
+                now_ms: now,
+            },
+        )
+        .expect("新建");
+        let CommandOutcome::Session(row) = outcome else {
+            panic!("应为 Session");
+        };
+        let audit_before = whcode_count(&conn, "SELECT count(*) FROM audit");
+
+        let preview = execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::SessionArchive {
+                session_id: row.id.clone(),
+                archived: true,
+                confirm: false,
+                now_ms: now,
+            },
+        )
+        .expect("预览");
+        let CommandOutcome::SessionArchivePreview {
+            session,
+            target_archived,
+        } = preview
+        else {
+            panic!("应为归档预览");
+        };
+        assert!(!session.archived, "预览行须反映当前状态");
+        assert!(target_archived, "预览须给出目标状态");
+        assert_eq!(
+            whcode_count(&conn, "SELECT count(*) FROM audit"),
+            audit_before,
+            "预览不得写审计"
+        );
+        let still_active: i64 = conn
+            .query_row("SELECT count(*) FROM sessions WHERE archived", [], |r| {
+                r.get(0)
+            })
+            .expect("统计");
+        assert_eq!(still_active, 0, "预览不得改状态");
+
+        let executed = execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::SessionArchive {
+                session_id: row.id.clone(),
+                archived: true,
+                confirm: true,
+                now_ms: now,
+            },
+        )
+        .expect("确认归档");
+        let CommandOutcome::Session(archived_row) = executed else {
+            panic!("应为 Session");
+        };
+        assert!(archived_row.archived);
+        assert_eq!(
+            whcode_count(&conn, "SELECT count(*) FROM audit"),
+            audit_before + 1,
+            "确认归档须写一条审计"
+        );
+        let action: String = conn
+            .query_row(
+                "SELECT action FROM audit ORDER BY ts DESC, id DESC LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
+            .expect("读取审计动作");
+        assert_eq!(action, "session_archive");
     }
 
     /// purge 预览与确认经门面语义不变：confirm=false 由 store 拒绝（既有防线）。

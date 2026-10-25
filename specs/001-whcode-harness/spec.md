@@ -297,7 +297,7 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
 - **FR-603**: Web 通过 HTTP API / WebSocket 访问同一应用服务，前端状态由同一事件流驱动（P0）
 - **FR-604**: 三端命令校验、权限、阶段门禁和业务结果必须一致（P0）
 - **FR-605**: 任一端产生的更改须在其他在线端可见；断线端可从持久化游标补齐事件（P0）
-- **FR-606**: Web 默认监听 127.0.0.1；对外监听必须显式启用身份验证、Origin 检查和安全配置（P0）
+- **FR-606**: Web 默认监听 127.0.0.1；对外监听必须显式启用身份验证、Origin 检查和安全配置（P0）。自本变更起 `serve --web` 默认使用内置 TLS 证书；关闭 TLS 必须显式 `--tls off` 或入站档位 `off`；TLS 不替代认证（2026-10-25 修订：见 FR-626／FR-627 与 ADR-040）
 - **FR-607**: SSH 服务端在 FreeBSD/NetBSD 上提供公钥认证、会话隔离、终端尺寸变化和安全退出；OpenBSD/DragonFly BSD 由内置 SSH 客户端控制（见 FR-611）（P0）
 - **FR-608**: SSH 默认提供受限的 WHCode 交互入口，不默认授予任意系统 Shell（P0）
 - **FR-609**: Web UI 提供会话、任务、历史、追踪、SDD、清理与运行时的业务操作；不经 PTY 模拟 TUI（P0）
@@ -353,6 +353,17 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
   - 判据：Given 任一图形前端切换四套主题，Then 色值与 FR-612／FR-713 精确一致且不重启；Given `ui.locale = en`，Then 四端界面文本均为英语；Given Web `?locale=zh-CN`，Then 覆盖配置并返回中文词条与 `lang` 属性
   - 证据：主题色值测试；Web CSS 审计与预算；i18n 解析测试；四端文本抽样
   - 依据：FR-612、FR-615、FR-618、FR-713、ADR-014、ADR-027
+
+**内置 TLS 证书库与 Web 证书设置（2026-10-25 新增需求，交付归属 M3/M6 与装配根 M10）**
+
+- **FR-626**: 内置 TLS 证书库与出站、入站信任装配（P0；[安全]；交付归属 M3 出站信任、M6 入站与装配根）: 系统必须提供工作区级证书库 `<workspace>/.whcode/certs/`（`settings.json`、`ca-builtin.pem`、`ca-extra.pem`、`ca-builtin.json` 种子清单、`server-cert.pem`、`server-key.pem`），全部为公开格式的明文 PEM／JSON，同目录临时文件加原子替换写入，份数与字节有上限。出站信任档位为 `builtin`（默认，可编辑的内置 Mozilla 根证书副本；首次使用由 `assets/certs/ca-bundle.pem` 种入；未修改时随程序版本保真刷新并记录新旧 SHA-256，被修改时保留并标记“已修改、内置版本较新”）或 `system`（操作系统证书库）；`ca-extra.pem` 在两种档位下都追加生效；系统库读取成功但证书数为 0 时必须返回可操作错误，不得静默回落内置库；任何档位都不得关闭证书链与主机名校验，不存在 `disable_verification` 或等价“跳过校验”开关，Dangerous 配置无法经设置页写入。入站 `serve --web` 档位为 `builtin`（默认，首次运行按工作区生成 ECDSA P-256 自签证书，SAN 含 `localhost`、`127.0.0.1`、`::1`、本机名与绑定 IP 字面量，有效期 397 天）／`external`（用户提供的 PEM 证书链与未加密私钥）／`off`（明文 HTTP，ADR-023 现状）；优先级为命令行 `--tls` > 工作区设置 > 默认 `builtin`；默认档位证书无法生成或加载时必须拒绝启动并给出可操作错误（列出 `--tls off` 与文件路径），不得静默降级明文；入站变更在重启 `serve --web` 后生效。TLS 不得放宽 ADR-023 的地址边界、token 认证与 Origin 检查；启用 TLS 时 Origin 允许集使用 `https` scheme
+  - 判据：Given 新建工作区首次构造出站信任，Then 自动创建 `settings.json` 与 `ca-builtin.pem`，档位为 `builtin`，状态报告给出内置证书份数、SHA-256 与来源版本；Given 向 `ca-extra.pem` 写入企业代理 CA 并分别以 `builtin`、`system` 档位连接本地 TLS 测试服务，Then 两次握手均成功且生效根证书总数为对应基线与追加份数之和；Given 系统库可读但证书数为 0，Then 出站信任构造返回可操作错误且不使用内置库；Given 提交超限、含私钥块、空内容或不可解析的 PEM，Then 返回具体原因且原文件字节不变；Given 修改 `ca-builtin.pem` 后执行重置，Then 恢复为内置资产内容、SHA-256 与种子清单一致并清除“已修改”标记；Given 空工作区执行 `serve --web`，Then 首次生成自签证书并输出 `https://` 地址与证书 SHA-256；Given 两个独立工作区各自首次启动，Then 证书与私钥不同且不存在随包分发的固定私钥；Given 传入 `--tls off` 或把入站档位设为 `off`，Then 以明文 HTTP 启动、输出 `http://` 且该选择不被静默改回；Given 上传证书与私钥不匹配、私钥带口令、证书链不可解析或超限，Then 保存被拒绝且原配置与运行中的 TLS 状态不变；Given 绑定 RFC1918 地址且未提供 `--token-file`，Then 与引入 TLS 前一样拒绝启动；Given 内置证书距到期不足 30 天或已过期，Then 状态与启动输出给出警告，已过期时自动重新生成并记录新旧指纹，外部证书不自动替换；Given 客户端分片发送 ClientHello 或长时间不完成握手，Then 握手在既有 5 秒空闲上限内被终止，每连接缓冲有上限且不新增常驻线程
+  - 证据：`crates/whcode-domain/src/tls.rs`；`crates/whcode-app/src/cert.rs`；`crates/whcode-llm/src/http/tls.rs`（`http` feature）；`crates/whcode-web/src/tls.rs`；`crates/whcode-bin/src/serve.rs`；`assets/certs/ca-bundle.pem` 与 `assets/certs/SOURCES.md`
+  - 依据：ADR-040（新增）、ADR-023 修订记录、ADR-031 修订记录、ADR-022（Origin scheme）、FR-606 修订；NFR-218／NFR-219（安全措施须有威胁模型、证据、代价与失效条件）
+- **FR-627**: Web 证书设置页与受控证书 API（P1；[架构]／[安全]；交付归属 M6）: Web 端必须提供 `/settings/certs` 设置页（服务端直出 + 原生 ESM，纳入 FR-618 预算与简体中文／英语词条）与 `/api/certs/*` JSON API（状态、档位、CA 读取／写入／重置、服务端证书上传／重新生成／下载、连通性校验）。所有读写经既有认证、Origin 与能力判定（能力为 `settings.cert.read`／`settings.cert.write`）；成功变更写一条 `tls_config_change` 审计（含目标、动作、档位、证书份数与 SHA-256，不含 PEM 正文与私钥），审计写入失败时文件回滚并返回错误；降档操作（入站档位设为 `off`、写入空的 `ca-builtin.pem`、上传外部服务端私钥）必须显式确认；私钥只进不出——任何响应、日志、事件与审计正文都不得包含私钥，下载接口只返回公开证书 PEM 与元数据；请求体在解析前按上限拒绝（CA 512 KiB、证书链 64 KiB、私钥 16 KiB、JSON 总长 640 KiB），连接不被无界占用；入站变更返回 `restart_required = true`；两项能力在四端登记表各有状态：Web 为实现，CUI／TUI 按理由码 `web_settings_only` 排除，GUI 按 `gui_read_only_v1`／`six_view_scope` 排除，被排除端调用返回 `not_supported`；连通性校验以当前出站信任在 2 秒上限内完成握手，不发送任何凭据
+  - 判据：Given 已授权调用 `GET /api/certs`，Then 返回出站档位与证书份数、内置副本是否被修改、入站档位与服务端证书主题／SAN／有效期／指纹、`restart_required`，任何字段都不含私钥；Given 局域网模式缺少或错误 token、或浏览器从非允许 Origin 发起写请求，Then 分别返回 401 与 403 信封且文件不发生变化；Given 调用者未被授予 `settings.cert.write`，Then 返回 `permission_denied`（`retryable = false`）且不写文件、不写成功审计；Given 降档请求未带 `confirm = true`，Then 拒绝并说明确认语义，带确认后执行；Given 提交超限请求，Then 在解析前拒绝且连接不被无界占用；Given 运行前端预算审计与关闭 JavaScript 的浏览器，Then 新增 JS／CSS 仍满足 FR-618 预算且无 JS 时可见只读状态与文件路径提示；Given 运行对等门禁，Then `settings.cert.read`／`settings.cert.write` 的 Web／CUI／TUI／GUI 四端状态与 `docs/matrices/feature-parity.md` 逐行一致；Given 调用 `POST /api/certs/verify` 指向合法主机与端口，Then 返回叶子证书主题、有效期与指纹或结构化错误，单线程服务循环被阻塞时长不超过 2 秒
+  - 证据：`crates/whcode-web/src/api.rs`；`crates/whcode-web/src/frontend/settings.html` 与 `settings.js`；`crates/whcode-app/src/authz.rs` 与 `surface.rs`；`.github/scripts/benchmarks/check-frontend-budget.py`；`tests/contract/test_frontend_parity.rs`
+  - 依据：FR-603、FR-618、FR-619—621、FR-626；ADR-040、ADR-032（理由码 `web_settings_only`）、ADR-014（前端极简实现）
 
 **可选执行运行时（§4.7）**
 
