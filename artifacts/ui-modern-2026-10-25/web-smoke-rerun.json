@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "exe": "D:\\WHCode\\target\\release\\whcode.exe",
+  "bind": "127.0.0.1:4681",
+  "workspace": "C:\\Users\\ykla\\AppData\\Local\\Temp\\whcode-web-smoke-ww042qw6",
+  "checks": [
+    {
+      "check": "api_status_http",
+      "ok": true,
+      "detail": "200 application/json"
+    },
+    {
+      "check": "api_status_envelope",
+      "ok": true,
+      "detail": "keys=['active_task', 'context', 'event_cursor', 'llm', 'overview', 'runtimes', 'schema_version', 'session']"
+    },
+    {
+      "check": "api_sessions_json",
+      "ok": true,
+      "detail": "200 application/json"
+    },
+    {
+      "check": "index_html",
+      "ok": true,
+      "detail": "200 text/html; charset=utf-8 bytes=6221"
+    },
+    {
+      "check": "graceful_shutdown",
+      "ok": true,
+      "detail": "exit=1"
+    }
+  ],
+  "failed": 0
+}

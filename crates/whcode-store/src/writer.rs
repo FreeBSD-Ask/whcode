@@ -247,6 +247,15 @@ impl EventWriter {
         self.known.len()
     }
 
+    /// 当前待写缓冲中**最老条目**的年龄（毫秒）；缓冲为空时返回 `None`。
+    ///
+    /// 只读诊断指标：供长跑采集（T116、§11.5）观察写者积压，不改变提交、刷新与去重语义。
+    /// `None` 只表示“队列为空”，与“指标不可得”不同——两者不得互换，也不得以 0 冒充空队列。
+    pub fn oldest_pending_age_ms(&self, now_ms: u64) -> Option<u64> {
+        self.first_pending_ms
+            .map(|first| now_ms.saturating_sub(first))
+    }
+
     /// 提交一条事件；时间取自系统时钟。
     ///
     /// # Errors
@@ -1013,6 +1022,62 @@ mod tests {
             key_seq_pairs(&restarted),
             first_pairs,
             "重启后的去重不得改动键到 seq 的映射"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn oldest_pending_age_reports_queue_age_without_changing_semantics() {
+        let (dir, db) = temp_db("pending-age");
+        let mut writer = writer_at(
+            &db,
+            WriterConfig {
+                batch_rows: 1_000,
+                batch_window_ms: 60_000,
+                ..WriterConfig::default()
+            },
+        );
+        assert_eq!(
+            writer.oldest_pending_age_ms(1_000),
+            None,
+            "空缓冲必须返回 None（空队列）；不得返回 0 冒充队列年龄"
+        );
+        assert_eq!(
+            writer
+                .submit_at(event(1, EventKind::StreamingChunk), "k-1", 1_000)
+                .expect("入缓冲"),
+            WriteOutcome::Buffered
+        );
+        assert_eq!(
+            count_events(&writer),
+            0,
+            "读取年龄不得触发提交：未到窗口前库内不得有行"
+        );
+        assert_eq!(
+            writer.oldest_pending_age_ms(1_000),
+            Some(0),
+            "刚入队的最老条目年龄为 0 ms"
+        );
+        assert_eq!(writer.oldest_pending_age_ms(1_030), Some(30));
+        assert_eq!(
+            writer.oldest_pending_age_ms(900),
+            Some(0),
+            "时钟回退不得下溢成巨大年龄（saturating_sub）"
+        );
+        // 同键重复入队不重置最老年龄：最老条目仍是第一条。
+        writer
+            .submit_at(event(2, EventKind::StreamingChunk), "k-1", 1_100)
+            .expect("同键重试");
+        assert_eq!(
+            writer.oldest_pending_age_ms(1_100),
+            Some(100),
+            "最老条目年龄必须从首条待写事件起算"
+        );
+        assert_eq!(writer.flush().expect("刷新"), 1);
+        assert_eq!(
+            writer.oldest_pending_age_ms(1_100),
+            None,
+            "刷新后缓冲为空，年龄必须回到 None"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }

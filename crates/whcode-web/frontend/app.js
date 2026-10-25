@@ -623,12 +623,12 @@ function selectTab(name, options = {}) {
 /** 接线 tablist：点击选中；方向键循环（RTL 下方向反转）；Home/End 首尾。 */
 function wireTabs() {
   const tabs = Array.from(document.querySelectorAll("#tabs button"));
-  const rtl = document.documentElement.dir === "rtl";
   for (const tab of tabs) {
     tab.addEventListener("click", () => selectTab(tab.dataset.tab));
     tab.addEventListener("keydown", (event) => {
       const index = tabs.indexOf(tab);
-      const step = rtl ? -1 : 1;
+      // `dir` 由异步语言解析写入，必须在按键时读取；在接线时快照会漏掉 RTL。
+      const step = document.documentElement.dir === "rtl" ? -1 : 1;
       let next = null;
       if (event.key === "ArrowRight" || event.key === "ArrowDown") {
         next = tabs[(index + step + tabs.length) % tabs.length];

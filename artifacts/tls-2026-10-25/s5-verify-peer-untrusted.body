@@ -1,0 +1,1 @@
+{"code":"invalid_state","details":null,"message":"与 127.0.0.1:18450 的 TLS 握手被拒绝：证书链的签发者不在当前信任集合内；请把对应根证书加入 ca-extra.pem，或把出站档位改为 system（不得关闭校验，ADR-040 决策 2）","retryable":false,"schema_version":1}

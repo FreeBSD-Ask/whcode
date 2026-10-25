@@ -3,7 +3,7 @@
 //! clap 只做**参数解析**（ADR-019）：命令语义（权限、dry-run、审计）全部在
 //! `whcode-app`（分层不变，ADR-003/005），本模块把解析结果映射为 app 命令参数。
 //!
-//! 命令树以 `contracts/cui-cli.md` §1 为接口草案：`session`/`run`/`status`/`task`/
+//! 命令树以 `contracts/cui-cli.md` §1 为接口草案：`session`/`llm`/`status`/`task`/
 //! `spec`/`events`/`db`/`runtime`/`serve`/`doctor`。M5 范围：**解析层**——语义执行
 //! 的接线（M2—M4 的 app 命令）属二进制装配（`whcode-bin`），本模块保证命令树
 //! 结构、参数命名与破坏性命令的 dry-run 旗标（§8.1）。
@@ -38,17 +38,10 @@ pub enum Command {
         #[command(subcommand)]
         command: SessionCommand,
     },
-    /// 发起模型调用（FR-201；桩 Provider）。
-    Run {
-        /// 会话 ID。
-        #[arg(long)]
-        session: String,
-        /// 模型标识。
-        #[arg(long, default_value = "stub")]
-        model: String,
-        /// 追踪级别（off/metadata/redacted/full）。
-        #[arg(long, default_value = "redacted")]
-        trace_level: String,
+    /// 模型调用（FR-201；`llm run`／`llm cancel`，contracts/cui-cli.md §1）。
+    Llm {
+        #[command(subcommand)]
+        command: LlmCommand,
     },
     /// 状态快照（FR-314）。
     Status {
@@ -108,6 +101,45 @@ pub enum Command {
         /// 输出 JSON。
         #[arg(long)]
         json: bool,
+    },
+}
+
+/// LLM 子命令（`llm run`／`llm cancel`；FR-201—208、ADR-031）。
+///
+/// 剖面与凭据：剖面名由 `--provider` 显式选择（无剖面即无请求）；剖面文件路径来自
+/// 环境变量 `WHCODE_LLM_PROFILES`（仓库外 JSON），凭据由剖面 `auth` 声明为环境变量
+/// 或仓库外文件——两者都不进入事件、日志与输出（NFR-213）。
+#[derive(Debug, Clone, PartialEq, Subcommand)]
+pub enum LlmCommand {
+    /// 发起一次真实调用（同步；流式增量在结束时以有界序列输出）。
+    Run {
+        /// 会话 ID。
+        #[arg(long)]
+        session: String,
+        /// 剖面名（显式选择，ADR-031 决策 4）。
+        #[arg(long)]
+        provider: String,
+        /// 提示词正文（不写入事件与日志）。
+        #[arg(long)]
+        prompt: String,
+        /// 覆盖剖面模型标识。
+        #[arg(long)]
+        model: Option<String>,
+        /// 覆盖剖面 `max_tokens`。
+        #[arg(long)]
+        max_tokens: Option<u64>,
+        /// 预置请求 ID（`llm cancel` 的键；缺省按参数生成）。
+        #[arg(long)]
+        request_id: Option<String>,
+        /// 追踪级别（off/metadata/redacted/full）。
+        #[arg(long, default_value = "redacted")]
+        trace_level: String,
+    },
+    /// 取消同机正在运行的调用（在下一个 chunk 之前生效）。
+    Cancel {
+        /// 请求 ID（`llm run` 输出或 `--request-id` 预置）。
+        #[arg(long)]
+        request: String,
     },
 }
 
@@ -468,6 +500,33 @@ mod tests {
             cli.command,
             Command::Session {
                 command: SessionCommand::New { .. }
+            }
+        ));
+
+        // llm run／cancel（T167）：剖面与提示词必填，取消按请求 ID。
+        let cli = parse([
+            "whcode",
+            "llm",
+            "run",
+            "--session",
+            "S-1",
+            "--provider",
+            "sensenova",
+            "--prompt",
+            "你好",
+        ])
+        .expect("llm run");
+        assert!(matches!(
+            cli.command,
+            Command::Llm {
+                command: LlmCommand::Run { .. }
+            }
+        ));
+        let cli = parse(["whcode", "llm", "cancel", "--request", "req-1"]).expect("llm cancel");
+        assert!(matches!(
+            cli.command,
+            Command::Llm {
+                command: LlmCommand::Cancel { .. }
             }
         ));
 

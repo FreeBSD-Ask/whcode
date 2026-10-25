@@ -1,0 +1,1 @@
+{"code":"permission_denied","details":null,"message":"缺少 Authorization 头（Bearer token，§10.2）","retryable":false,"schema_version":1}

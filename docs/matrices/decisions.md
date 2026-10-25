@@ -69,6 +69,7 @@
 | R-11（性能实现） | ADR-020：默认系统分配器，替换须基准证明 | D-11、T117 |
 | R-12（性能预算） | **部分解除**：ADR-025 已在 Windows 11 amd64 冻结（NFR-208/210 达标）；未测项仍候选，T115/T116 保持阻塞 | `compatibility.md` 已知限制、`docs/adr/ADR-025-performance-budget-freeze.md` |
 | 新增 R-13（自动提交工具扰动） | 仓库 git 历史被外部自动提交拆碎（英文消息、中间态提交）——建议关闭工具并 squash | 2026-10-22 会话记录 |
+| 新增 R-14（GUI 线程预算） | **未解除**：DuckDB 2.0.0 单连接打开约 80 线程，GUI 空闲实测 88 线程／297—330 句柄，超过 ADR-027 的 24／256；处置见 ADR-042（提议，待用户批准） | `artifacts/ui-modern-2026-10-25/check-295-298.md`、`docs/adr/ADR-042-duckdb-connection-thread-budget.md` |
 
 ## ensure-frontend-parity 更新（2026-10-24，T168）
 

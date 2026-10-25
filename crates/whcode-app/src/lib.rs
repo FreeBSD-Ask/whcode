@@ -34,6 +34,7 @@ pub mod context;
 pub mod events;
 pub mod fonts;
 pub mod gates;
+pub mod llm;
 pub mod maintenance;
 pub mod overview;
 pub mod queue;
@@ -56,6 +57,10 @@ pub use context::{
 };
 pub use events::{EventsExport, events_export};
 pub use gates::{ForceAdvance, TransitionContext, force_advance, request_transition};
+pub use llm::{
+    LlmCancelOutcome, LlmChunkView, LlmContext, LlmRunOutcome, LlmRunRequest, ProviderFactory,
+    ProviderRegistry, cancel_dir_from_env, profiles_path_from_env,
+};
 pub use maintenance::{
     PurgeCounts, PurgeCriteria, PurgePreview, PurgeProtection, PurgeResult, purge_execute,
     purge_preview,

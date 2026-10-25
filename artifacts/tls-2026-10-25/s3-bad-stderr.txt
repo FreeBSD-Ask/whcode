@@ -1,0 +1,1 @@
+Web 服务失败：parse_error: 构造入站 TLS 服务端配置失败：keys may not be consistent: KeyMismatch；请确认证书链与私钥匹配（同一密钥对），且私钥为未加密的 PKCS#8／PKCS#1／SEC1 PEM（ADR-040 决策 3）；证书库目录 d:\WHCode\script\tls-verify\ws\s3-bad\.whcode\certs

@@ -181,6 +181,21 @@
 - **影响**：CUI 归档属 BREAKING 行为变更；TUI 尚无反归档键，作为已知不对称留在 ADR-038，
   不影响本 ADR 的四端状态判定（三端均为 `Implemented`，GUI 仍 `GuiReadOnlyV1`）。
 
+### 2026-10-25（T167：`llm.run`／`llm.cancel` 的 CUI／Web 接线与登记翻转）
+
+- **事实**：`whcode-app::llm` 已成为 `llm run`／`llm cancel` 的唯一编排入口（权限用既有
+  `Capability::SessionCreate`、会话存在性、剖面注册表、凭据求值、有界流式事件与取消标记）；
+  CUI（`cui_dispatch::llm_command`）与 Web（`POST /api/llm/run`、`POST /api/llm/cancel`，
+  `handle_request_with_llm`）已真实接线，登记表对应两格由 `Reserved { M3-llm }` 翻转为
+  `Implemented` 并补前端锚点，矩阵与对等门禁同 PR 同步。
+- **未翻转**：TUI 仍为 `Reserved { M3-llm }`（本轮未接线）；GUI 仍按 `GUI_READ_ONLY_V1`
+  排除。两者被调用时仍返回结构化 `not_supported`（CUI 55／Web 501 的语义不变，GUI 无入口）。
+- **传输状态**：`whcode-llm` 的阻塞式 HTTP 客户端（T163）尚未交付，装配根工厂返回结构化
+  `invalid_state` 并注明待接线点；因此本轮的 `Implemented` 指**前端映射与应用层编排可用**，
+  不等于端到端模型调用可用。shell 必须在报告与 spec 中保留该缺口，不得改写为“已交付”。
+- **复审触发**：T163 客户端交付后，需复核 `llm.run` 的事件载荷、超时与取消语义并补端到端
+  证据（ADR-031 决策 8 的重试仍不适用于流式生成）；TUI 接线时翻转其预留格。
+
 ### 2026-10-25（视觉语言分层与 `CUI_NO_THEME` 口径）
 
 - **事实**：ADR-041 把四端分为终端族（CUI／TUI）与应用族（Web／GUI）两套视觉语法；CUI 在

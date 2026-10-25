@@ -99,6 +99,10 @@ jobs:
           cargo test --locked -p whcode-runtime --lib --features runtime-js
           cargo clippy --locked -p whcode-runtime --lib --features runtime-js -- -D warnings
 
+      - name: WebSocket 慢客户端对比（Check 199／209，独占执行）
+        if: matrix.platform == 'windows'
+        run: cargo test --locked -p whcode-bin slow_client_does_not_delay_other_subscribers -- --ignored --test-threads=1
+
       - name: 计数一致性（FR/任务/Check）
         if: matrix.platform == 'windows'
         run: python .github/scripts/check_counts.py
@@ -142,6 +146,11 @@ jobs:
             echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
             cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
               -p whcode-llm -p whcode-runtime
+
+            echo "=== SSH 客户端＋服务端 BSD 回环验收（Check 25／96／99；V-004 仍延后）==="
+            # 脚本始终退出 0，结论写在 artifacts/ssh-acceptance/<platform>-client.txt；
+            # 不得以退出码代替阅读证据文件（NO-GO 不得改写为 GO）。
+            sh .github/scripts/platform-matrix/bsd-ssh-client.sh
 
             # DuckDB 包校验必须早于依赖记录：record-deps.sh 用 DUCKDB_LIB_DIR 与 pkg 版本
             # 填充四类版本中的 DuckDB 项；顺序错位时只剩占位符（run 40159516841 即此情形）。
@@ -207,6 +216,14 @@ jobs:
         with:
           name: deps-freebsd
           path: artifacts/deps-freebsd.txt
+
+      - name: 上传 FreeBSD SSH 客户端验收记录
+        if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ssh-acceptance-freebsd
+          if-no-files-found: warn
+          path: artifacts/ssh-acceptance/
 
       # ---------------- NetBSD（最新 11.x release） ----------------
       - name: 在 NetBSD VM 中构建、测试与记录
@@ -578,6 +595,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p whcode-tests --test nfr_budget nfr209 -- --ignored --nocapture 2>&1 |
             Tee-Object -FilePath artifacts/perf-ci/nfr209.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 概览查询 p95 预算（Check 136／ADR-025，串行独占）
+        shell: pwsh
+        run: |
+          cargo test --locked -p whcode-tests --test overview_perf -- --ignored --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/perf-ci/overview-p95.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: 测试进程资源铁律（session_switch RSS/CPU）

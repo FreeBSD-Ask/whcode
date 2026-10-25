@@ -1,0 +1,1 @@
+{"code":"timeout","details":null,"message":"TLS 握手未能在 2 秒总预算内完成（目标 127.0.0.1:18448）；请确认目标可达后重试（ADR-040 决策 4 的单次 2 秒上限）","retryable":true,"schema_version":1}

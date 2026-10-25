@@ -1044,7 +1044,7 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Reserved { milestone: "M8" },
         ],
     },
-    // ── llm（FR-201—208；add-real-llm-provider 未合入，ADR-031） ─────────
+    // ── llm（FR-201—208；T167 接线：CUI／Web 已实现，TUI 预留，GUI 只读排除） ──
     SurfaceEntry {
         id: "llm.run",
         kind: SurfaceKind::Command,
@@ -1053,8 +1053,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved {
-                milestone: "M3-llm",
+            Support::Implemented {
+                anchor: "cui_dispatch::llm_command（LlmCommand::Run → whcode_app::llm::run）",
             },
             Support::Reserved {
                 milestone: "M3-llm",
@@ -1062,8 +1062,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
-            Support::Reserved {
-                milestone: "M3-llm",
+            Support::Implemented {
+                anchor: "POST /api/llm/run（handle_request_with_llm）",
             },
         ],
     },
@@ -1075,8 +1075,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved {
-                milestone: "M3-llm",
+            Support::Implemented {
+                anchor: "cui_dispatch::llm_command（LlmCommand::Cancel → whcode_app::llm::cancel）",
             },
             Support::Reserved {
                 milestone: "M3-llm",
@@ -1084,8 +1084,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
-            Support::Reserved {
-                milestone: "M3-llm",
+            Support::Implemented {
+                anchor: "POST /api/llm/cancel（handle_request_with_llm）",
             },
         ],
     },
@@ -1767,31 +1767,30 @@ mod tests {
         ));
     }
 
-    /// Task 169.4：`llm.run`／`llm.cancel` 只有在某个前端真正接线后才可登记为已实现。
-    /// 现状（2026-10-25）：`add-real-llm-provider`（3f9564c）已在 crate 层交付 HTTP Provider，
-    /// 但 CUI／TUI／Web 均未接线（调用返回 `not_supported`），故四端仍为预留／排除；
-    /// 接线同 PR 时必须翻转本断言并补真实锚点（ADR-032 修订记录）。
+    /// T167：`llm.run`／`llm.cancel` 随 CUI／Web 接线翻转为已实现（真实锚点）；
+    /// TUI 未接线保持预留（`M3-llm`），GUI 仍按 `gui_read_only_v1` 排除——
+    /// 不得在无前端映射时宣称可用（ADR-032 决策 3／4）。
     #[test]
-    fn llm_run_stays_reserved_while_no_frontend_wires_it() {
+    fn llm_surfaces_track_wired_frontends() {
         for id in ["llm.run", "llm.cancel"] {
             let entry = find(id).expect("llm 面已登记");
-            assert_eq!(
-                entry.support(FrontendId::Cui),
-                &Support::Reserved {
-                    milestone: "M3-llm"
-                }
-            );
+            for frontend in [FrontendId::Cui, FrontendId::Web] {
+                assert!(
+                    matches!(
+                        entry.support(frontend),
+                        Support::Implemented { anchor } if !anchor.is_empty()
+                    ),
+                    "{id} 在 {} 必须已实现并带前端锚点，实际 {:?}",
+                    frontend.as_str(),
+                    entry.support(frontend)
+                );
+            }
             assert_eq!(
                 entry.support(FrontendId::Tui),
                 &Support::Reserved {
                     milestone: "M3-llm"
-                }
-            );
-            assert_eq!(
-                entry.support(FrontendId::Web),
-                &Support::Reserved {
-                    milestone: "M3-llm"
-                }
+                },
+                "{id} 在 TUI 仍未接线，必须保持预留"
             );
             assert_eq!(
                 entry.support(FrontendId::Gui),
@@ -1859,6 +1858,10 @@ mod tests {
             ("task.retry", FrontendId::Tui),
             ("task.abort", FrontendId::Tui),
             ("db.purge", FrontendId::Tui),
+            ("llm.run", FrontendId::Cui),
+            ("llm.run", FrontendId::Web),
+            ("llm.cancel", FrontendId::Cui),
+            ("llm.cancel", FrontendId::Web),
         ] {
             let entry = find(id).unwrap_or_else(|| panic!("{id} 未登记"));
             assert!(
@@ -1868,10 +1871,10 @@ mod tests {
                 entry.support(frontend)
             );
         }
-        // 未来里程碑：LLM 供应商（M3-llm）与运行时装配（M8）保持预留（不得提前宣称可用）。
+        // 未来里程碑：TUI 的 LLM 接线（M3-llm）与运行时装配（M8）保持预留（不得提前宣称可用）。
         for (id, frontend, milestone) in [
-            ("llm.run", FrontendId::Cui, "M3-llm"),
-            ("llm.cancel", FrontendId::Web, "M3-llm"),
+            ("llm.run", FrontendId::Tui, "M3-llm"),
+            ("llm.cancel", FrontendId::Tui, "M3-llm"),
             ("runtime.status", FrontendId::Cui, "M8"),
             ("runtime.enable", FrontendId::Web, "M8"),
         ] {

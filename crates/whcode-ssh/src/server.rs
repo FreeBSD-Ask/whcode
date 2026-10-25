@@ -968,6 +968,13 @@ mod tests {
         Ok(output)
     }
 
+    /// 从 `session new` 的输出取会话 ID（`created S-<n>`）；格式不符返回 `None`。
+    fn created_session_id(stdout: &str) -> Option<String> {
+        stdout
+            .lines()
+            .find_map(|line| line.trim().strip_prefix("created ").map(str::to_string))
+    }
+
     /// 轮询直到条件成立（资源回收是异步的，给 5 s 预算）。
     async fn wait_until(mut condition: impl FnMut() -> bool, what: &str) {
         let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
@@ -1309,6 +1316,194 @@ mod tests {
 
         running.handle().shutdown("测试结束".to_string());
         let _ = tokio::time::timeout(Duration::from_secs(5), &mut running).await;
+    }
+
+    /// Check 96 的**服务端侧**回环验收（FR-607、ADR-011；ADR-013 延后口径不变）：
+    /// 一次测试覆盖公钥认证、会话隔离、resize 与安全退出四项，并含未授权公钥的拒绝路径。
+    ///
+    /// 边界（不得扩大解释）：客户端与服务端都在同一进程、同一回环地址上；本测试通过只证明
+    /// 服务端路径在该平台**可运行**，不构成 FreeBSD/NetBSD 节点验收证据。V-004 仍属 M7，
+    /// BSD 结论按 ADR-013 延后、不进入验收结论。
+    #[tokio::test]
+    async fn bsd_server_acceptance_loopback() {
+        let fixture = TestFixture::new(
+            None,
+            Some(&[Capability::SessionCreate, Capability::SessionRead]),
+        );
+        assert_eq!(fixture.server.active_connections(), 0, "起始无活跃连接");
+        let outsider =
+            PrivateKey::random(&mut rand::rng(), Algorithm::Ed25519).expect("未授权密钥");
+        let outsider_path = fixture.workspace.path.join("bsd-outsider.key");
+        write_key_file(&outsider_path, &outsider);
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("绑定");
+        let port = listener.local_addr().expect("端口").port();
+        let mut acceptor = fixture.server.acceptor();
+        let running = acceptor.run_on_socket(
+            fixture.server.russh_config(Duration::from_millis(1)),
+            &listener,
+        );
+        tokio::pin!(running);
+
+        // —— 一、公钥认证 + 会话隔离 + resize：两个并发客户端，各带不同 pty 尺寸 ——
+        // 甲的 pty-req 之后还有 window-change（200x50）；乙只发 pty-req（31x17）且不发 resize。
+        // 若会话状态被共享，两条 exec 会拿到同一尺寸（或乙出现 resize 记录）——断言因此可失败。
+        let ops = async {
+            let first = {
+                let key_path = fixture.client_key_path.clone();
+                let user = fixture.client_user.clone();
+                tokio::spawn(async move {
+                    ssh_exec_with_pty(
+                        port,
+                        &key_path,
+                        &user,
+                        "session new bsd-srv-a",
+                        (120, 40),
+                        Some((200, 50)),
+                    )
+                    .await
+                })
+            };
+            let second = {
+                let key_path = fixture.client_key_path.clone();
+                let user = fixture.client_user.clone();
+                tokio::spawn(async move {
+                    ssh_exec_with_pty(
+                        port,
+                        &key_path,
+                        &user,
+                        "session new bsd-srv-b",
+                        (31, 17),
+                        None,
+                    )
+                    .await
+                })
+            };
+            let first = first.await.expect("任务完成").expect("甲应通过认证并执行");
+            let second = second.await.expect("任务完成").expect("乙应通过认证并执行");
+            (first, second)
+        };
+        let (first, second) = tokio::select! {
+            outputs = ops => outputs,
+            _ = &mut running => panic!("测试服务端不应提前退出"),
+        };
+        assert_eq!(first.exit_code, Some(0), "甲的 stderr：{}", first.stderr);
+        assert_eq!(second.exit_code, Some(0), "乙的 stderr：{}", second.stderr);
+        let id_a = created_session_id(&first.stdout).expect("甲必须返回创建的会话 ID");
+        let id_b = created_session_id(&second.stdout).expect("乙必须返回创建的会话 ID");
+        assert_ne!(id_a, id_b, "两次创建必须各自独立（不共享会话状态）");
+        assert!(
+            !second.stdout.contains(&id_a) && !first.stdout.contains(&id_b),
+            "两条响应不得互串：甲={} 乙={}",
+            first.stdout,
+            second.stdout
+        );
+
+        // —— 二、拒绝路径：未授权公钥必须在认证阶段被拒，且不产生任何执行 ——
+        let ops = ssh_exec(
+            port,
+            &outsider_path,
+            &fixture.client_user,
+            "session new bsd-srv-outsider",
+            None,
+        );
+        let outcome = tokio::select! {
+            result = ops => result,
+            _ = &mut running => panic!("测试服务端不应提前退出"),
+        };
+        assert!(
+            matches!(outcome, Err(ClientError::AuthRejected)),
+            "未授权公钥必须被拒：{outcome:?}"
+        );
+
+        // —— 三、安全退出：三条连接全部断开后计数归零，且每条都写关闭审计 ——
+        wait_until(
+            || {
+                fixture
+                    .audit()
+                    .snapshot()
+                    .iter()
+                    .filter(|e| e.action == "session-closed")
+                    .count()
+                    == 3
+            },
+            "三条断开都必须写会话关闭审计（安全退出）",
+        )
+        .await;
+        assert_eq!(
+            fixture.server.active_connections(),
+            0,
+            "断开后活跃连接计数必须归零（RAII 无泄漏）"
+        );
+
+        let audit = fixture.audit().snapshot();
+        let accepted: Vec<_> = audit
+            .iter()
+            .filter(|e| e.action == "auth-accepted")
+            .collect();
+        assert_eq!(accepted.len(), 2, "两条合法连接都必须经公钥认证：{audit:?}");
+        assert!(
+            accepted.iter().all(|e| e.detail.contains("fingerprint=")),
+            "认证留痕只记指纹：{accepted:?}"
+        );
+        assert!(
+            audit.iter().all(|e| !e.detail.contains("BEGIN OPENSSH")),
+            "审计不得携带密钥材料"
+        );
+        let denied: Vec<_> = audit.iter().filter(|e| e.action == "auth-denied").collect();
+        assert_eq!(denied.len(), 1, "未授权公钥必须留一条拒绝审计：{audit:?}");
+        assert!(
+            denied[0].detail.contains("fingerprint="),
+            "拒绝审计同样只记指纹：{denied:?}"
+        );
+
+        let execs: Vec<_> = audit
+            .iter()
+            .filter(|e| e.action == "exec: session new <title>")
+            .collect();
+        assert_eq!(execs.len(), 2, "只允许两次合法执行：{audit:?}");
+        assert_ne!(
+            execs[0].session_id, execs[1].session_id,
+            "两条连接必须是不同会话（会话隔离）：{execs:?}"
+        );
+        assert!(
+            execs.iter().all(|e| e.wrote && e.ok),
+            "两次创建都是成功写：{execs:?}"
+        );
+        let mut details: Vec<&str> = execs.iter().map(|e| e.detail.as_str()).collect();
+        details.sort_unstable();
+        assert_eq!(
+            details,
+            ["terminal=200x50", "terminal=31x17"],
+            "终端尺寸必须按会话各自传递，不得串流：{execs:?}"
+        );
+        let pty: Vec<_> = audit.iter().filter(|e| e.action == "pty").collect();
+        assert_eq!(pty.len(), 2, "两条 pty-req 都只记到自己的会话：{audit:?}");
+        let resizes: Vec<_> = audit.iter().filter(|e| e.action == "resize").collect();
+        assert_eq!(resizes.len(), 1, "只有甲发了 window-change：{audit:?}");
+        assert_eq!(resizes[0].detail, "terminal=200x50");
+        assert!(
+            execs
+                .iter()
+                .any(|e| e.session_id == resizes[0].session_id && e.detail == "terminal=200x50"),
+            "resize 必须落在同一会话的 exec 上：{audit:?}"
+        );
+        let opened = audit
+            .iter()
+            .filter(|e| e.action == "session-opened")
+            .count();
+        let closed = audit
+            .iter()
+            .filter(|e| e.action == "session-closed")
+            .count();
+        assert_eq!(opened, 3, "三次连接（两成功一被拒）都登记开启：{audit:?}");
+        assert_eq!(closed, opened, "每次断开都必须归还并登记关闭：{audit:?}");
+
+        running.handle().shutdown("测试结束".to_string());
+        let drained = tokio::time::timeout(Duration::from_secs(5), &mut running).await;
+        assert!(drained.is_ok(), "服务端应响应关闭并退出");
     }
 
     #[tokio::test]

@@ -190,7 +190,8 @@ python -c "import secrets; print(secrets.token_urlsafe(32))" > .\token.txt
   `surface_id`、`state` 与 `milestone`／`reason_code`；**未登记路径仍为 404**。
   守卫位于认证与 Origin 检查**之后**（`crates/whcode-web/src/api.rs`）。
 - 证书设置在 CUI／TUI／GUI 端登记为 `Excluded`（理由码 `WEB_SETTINGS_ONLY`／
-  `GUI_READ_ONLY_V1`）：被调用返回 `not_supported`（CUI 退出码 55、Web 501 同码信封）。
+  `GUI_READ_ONLY_V1`）。三端当前没有对应命令或界面动作，调用入口不存在；CUI 的
+  `not_supported` 守卫（退出码 55）要求命令先映射到登记面，`settings.cert.*` 尚无映射。
 
 ## 7. 资源与有界性
 
@@ -204,7 +205,7 @@ python -c "import secrets; print(secrets.token_urlsafe(32))" > .\token.txt
 | TLS 缓冲 | 每连接一份明文/密文缓冲，均有容量上限（有界，NFR-215） | `crates/whcode-bin/src/tls.rs` |
 | 并发模型 | 单线程非阻塞多路复用；`Connection` 不跨任务共享 | `serve.rs` 模块文档、ADR-002 |
 | 分块传输 | 不支持 | `api.rs` |
-| 资源预算口径 | NFR-201/202 以 `--tls off` 明文档位测量（与 ADR-025 冻结基线和历史序列同夹具）；TLS 档位的 RSS／CPU 增量**未测量** | `.github/scripts/benchmarks/measure-nfr-budgets.py` |
+| 资源预算口径 | NFR-201/202 以 `--tls off` 明文档位测量（与 ADR-025 冻结基线和历史序列同夹具）；默认 TLS 相对 `--tls off` 的 RSS／线程／句柄／CPU 已在同一 debug 夹具上记录（3 次采样取中位数），只对“线程数不增加”设断言，其余仅记录、不设阈值 | `.github/scripts/benchmarks/measure-nfr-budgets.py`、`artifacts/tls-2026-10-25/resources.json` |
 
 ## 8. 日志与脱敏
 

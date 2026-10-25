@@ -1,0 +1,1 @@
+Web 服务失败：invalid_state: 局域网监听必须提供 --token-file（ADR-023：认证仅在显式 token 下启用；token 只从文件读取，不经命令行传递）

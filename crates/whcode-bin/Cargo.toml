@@ -48,7 +48,12 @@ duckdb = { version = "=1.20000.0", default-features = false }
 rcgen = { version = "0.14.10", default-features = false, features = ["ring", "pem"] }
 
 [features]
-default = []
+default = ["http"]
+# 真实 LLM Provider 的装配开关（T167、ADR-031 决策 1）：`--no-default-features` 时
+# `llm run` 返回结构化 `not_supported`（不联网、不伪装成功）。注意 `whcode-llm` 的
+# `http` feature 仍由依赖声明开启——出站证书探针（ADR-040）复用同一信任装配，
+# 本开关只门控 Provider 装配路径，不改变链接层的网络依赖。
+http = ["whcode-llm/http"]
 # 可选运行时装配开关（FR-704、D-07）。
 # 默认全部关闭：未启用运行时不加载动态库、不占端口、不注册可执行工具。
 # 目前为空实现——真正的运行时装配在 M8（tasks.md T103）接入 `whcode-runtime`。

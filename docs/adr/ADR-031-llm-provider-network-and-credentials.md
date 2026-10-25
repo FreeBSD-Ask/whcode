@@ -176,3 +176,12 @@ ureq-proto 0.6.5；webpki-roots 1.0.10`（`artifacts/deps-windows.txt`）。临�
 - **依赖版本漂移**：上文引用 `webpki-roots 1.0.10` 为 2026-10-25 记录时刻的值；
   当前 `Cargo.lock` 为 **1.0.11**（`artifacts/deps-windows.txt` 为旧记录）。
   依赖清单以 `Cargo.lock` 为准，本条不改变任何决策语义。
+
+### 2026-10-25（T162—T166 交付补记）
+
+- **核心库已交付**：`whcode-llm::http::client` 落地阻塞式 `ureq` 客户端、有界流式读取、
+  chunk 归一、传输快照与时限／重试／取消；`cargo test -p whcode-llm --features http`
+  77 项通过，本地回环端到端证据 `artifacts/llm-e2e-2026-10-25.md`。
+- **T167 仍为部分交付**：CUI／Web 的 `llm.run`／`llm.cancel` 已接线，TUI／GUI 仍为
+  `Reserved`；上文“真实 Provider 调用仍归 T163／T167、不得据本条宣称已交付”改为：
+  T163—T166 已交付，四端完整可用仍以 T167 收口为准。

@@ -523,6 +523,37 @@ pub fn handle_request_with_certs(
     default_locale: &str,
     cert: Option<&CertApiContext<'_>>,
 ) -> HttpResponse {
+    handle_request_with_llm(
+        conn,
+        auth_enabled,
+        token,
+        allowed_origins,
+        request,
+        actor,
+        runtimes,
+        default_locale,
+        cert,
+        None,
+    )
+}
+
+/// 同 [`handle_request_with_certs`]，并注入 LLM 调用上下文（`/api/llm/*`，T167）。
+///
+/// `llm` 为 `None` 表示装配根**未接线** LLM 面：`/api/llm/*` 一律返回 `invalid_state`
+/// （说明未接线与配置入口），绝不伪装成功；剖面注册表为空时由应用层给出可操作错误。
+#[allow(clippy::too_many_arguments)] // 10 个参数同上一函数 + LLM 上下文；拆分结构会波及全部调用点
+pub fn handle_request_with_llm(
+    conn: &mut Connection,
+    auth_enabled: bool,
+    token: Option<&str>,
+    allowed_origins: &[&str],
+    request: &HttpRequest,
+    actor: &Actor,
+    runtimes: Option<&serde_json::Value>,
+    default_locale: &str,
+    cert: Option<&CertApiContext<'_>>,
+    llm: Option<&whcode_app::llm::LlmContext<'_>>,
+) -> HttpResponse {
     // 认证 + Origin（§10.2、V-110）。
     if let Err(error) = security::check_auth(auth_enabled, token, request.header("authorization")) {
         return error_response(&error);
@@ -1490,8 +1521,78 @@ pub fn handle_request_with_certs(
                 Err(error) => error_response(&error),
             }
         }
+        (Method::Post, "/api/llm/run") => {
+            // 真实调用（T167）：权限、会话、剖面、凭据与流式收集都在应用层；
+            // Web 只做请求体解析与信封输出。剖面注册表来自装配根（ADR-031 决策 1）。
+            let result = (|| -> Result<serde_json::Value, WhError> {
+                let Some(llm) = llm else {
+                    return Err(llm_not_wired());
+                };
+                let body = json_body(request)?;
+                let session = body_str(&body, "session")?;
+                let provider = body_str(&body, "provider")?;
+                let prompt = body_str(&body, "prompt")?;
+                let model = optional_body_str(&body, "model");
+                let request_id = optional_body_str(&body, "request_id");
+                let max_tokens = body.get("max_tokens").and_then(serde_json::Value::as_u64);
+                let outcome = whcode_app::llm::run(
+                    conn,
+                    &policy,
+                    actor,
+                    llm,
+                    &whcode_app::llm::LlmRunRequest {
+                        session_id: session.to_string(),
+                        provider: provider.to_string(),
+                        prompt: prompt.to_string(),
+                        model: model.map(str::to_string),
+                        max_tokens,
+                        request_id: request_id.map(str::to_string),
+                    },
+                    now_ms()?,
+                )?;
+                serde_json::to_value(&outcome)
+                    .map_err(|err| WhError::internal(format!("LLM 结果序列化失败：{err}")))
+            })();
+            match result {
+                Ok(value) => HttpResponse::json(200, &value),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/llm/cancel") => {
+            // 取消（T167）：标记文件对同机跨进程生效；Web 单线程服务无法在同请求内互相取消。
+            let result = (|| -> Result<serde_json::Value, WhError> {
+                let Some(llm) = llm else {
+                    return Err(llm_not_wired());
+                };
+                let body = json_body(request)?;
+                let request_id = body_str(&body, "request_id")?;
+                let outcome = whcode_app::llm::cancel(&policy, actor, llm, request_id)?;
+                serde_json::to_value(&outcome)
+                    .map_err(|err| WhError::internal(format!("取消失败结果序列化失败：{err}")))
+            })();
+            match result {
+                Ok(value) => HttpResponse::json(200, &value),
+                Err(error) => error_response(&error),
+            }
+        }
         _ => HttpResponse::text(404, "not found"),
     }
+}
+
+/// 取可选的非空字符串字段（缺失／空白返回 `None`，不把空串当有效覆盖）。
+fn optional_body_str<'a>(body: &'a serde_json::Value, field: &str) -> Option<&'a str> {
+    body.get(field)
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+/// 装配根未注入 LLM 上下文时的结构化错误（不伪装成功，也不以 404 掩盖已登记能力）。
+fn llm_not_wired() -> WhError {
+    WhError::invalid_state(
+        "LLM 面未接线：装配根未注入 LLM 上下文；请设置 WHCODE_LLM_PROFILES（仓库外剖面 JSON）\
+         后重启 serve --web（ADR-031：无剖面即无请求，默认离线）",
+    )
 }
 
 use whcode_domain::TraceLevel;

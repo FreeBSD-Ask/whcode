@@ -8,8 +8,8 @@
 //! 凭据型环境变量（见 [`strip_credentials`]），子进程拿不到 API Key、令牌与
 //! 代理套接字；剥离只记变量名、不记值。
 //!
-//! 边界：worker 执行由具体 Provider 调用（`provider.rs`）；进程树清理属
-//! `whcode_platform`（FR-409，M8/T109）。
+//! 边界：worker 执行由具体 Provider 调用（`provider.rs`）；`spawn` 前的进程组配置与
+//! 进程树清理属 `whcode_platform`（FR-409，T109）。
 
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -268,6 +268,9 @@ pub fn execute_with_cancel(
     // 调用方显式变量二次过滤。两者都只记数/记名，不记值。
     let _ = apply_minimal_env(command);
     let _ = strip_credentials(command);
+    // 进程组（FR-409）：平台差异集中在 whcode-platform——Unix 让子进程自成进程组，
+    // 终止时可按组回收子孙进程；Windows 为空操作（子进程树由 taskkill /T 处理）。
+    whcode_platform::process::configure_child_process_group(command);
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child: Child = command
         .spawn()
@@ -323,6 +326,7 @@ pub fn execute_with_cancel(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::BufRead;
     use std::sync::Arc;
     use std::sync::atomic::AtomicUsize;
 
@@ -364,11 +368,109 @@ mod tests {
         assert!(result.cancelled, "必须报告已取消");
         assert!(!result.timed_out, "取消不得混同为超时");
         assert_eq!(result.exit_code, None);
+        // 本用例验证“取消可区分且有界生效”，不是延迟预算（延迟由 NFR 测量承担）。
+        // 46 个 runtime 用例并行时，子进程回收线程可能被调度饥饿；10 s 上界曾在
+        // 满载下实测 12.03 s。放宽到 20 s 只吸收调度抖动，不改变取消语义。
         assert!(
-            started.elapsed() < Duration::from_secs(10),
-            "取消必须在轮询间隔内生效（实际 {:?}）",
+            started.elapsed() < Duration::from_secs(20),
+            "取消必须在有界时间内生效（实际 {:?}）",
             started.elapsed()
         );
+    }
+
+    /// Check 109／201（BSD 侧）：进程组终止后**父与孙进程均无残留**。
+    ///
+    /// 夹具 `sh -c 'sleep 30 & echo CHILD=$!; sleep 30'` 先打印孙进程 PID 再等待，因此
+    /// 可以（a）做阳性对照——证明孙进程确实存在过；（b）整组终止后逐个 PID 用
+    /// `kill -s 0` 探测，残留判据不依赖父进程“自称已清理”。
+    ///
+    /// 仅 Unix 运行：Windows 无进程组语义（`taskkill /T` 的残余验证由
+    /// `tests/stability/test_process_cleanup.rs` 覆盖）；平台判定经 `whcode-platform`，
+    /// 本 crate 不做平台条件编译（NFR-101）。
+    #[test]
+    fn terminate_tree_leaves_no_residual_in_process_group() {
+        if whcode_platform::is_windows() {
+            return;
+        }
+        let mut command = whcode_platform::shell_command("sleep 30 & echo CHILD=$!; sleep 30");
+        whcode_platform::process::configure_child_process_group(&mut command);
+        command.stdout(Stdio::piped());
+        let mut child = command.spawn().expect("启动进程组");
+        let parent = child.id();
+        let stdout = child.stdout.take().expect("stdout 已管道化");
+        let mut line = String::new();
+        std::io::BufReader::new(stdout)
+            .read_line(&mut line)
+            .expect("读取 CHILD 行");
+        let grandchild: u32 = line
+            .trim()
+            .strip_prefix("CHILD=")
+            .unwrap_or_else(|| panic!("首个输出行应为 CHILD=<pid>，实际：{line:?}"))
+            .parse()
+            .expect("CHILD 后的 PID");
+        assert!(
+            whcode_platform::process_exists(grandchild).expect("探测孙进程"),
+            "阳性对照：孙进程 {grandchild} 必须存在（否则残留判据无意义）"
+        );
+
+        whcode_platform::terminate_tree(parent).expect("终止进程组");
+        let status = child.wait().expect("回收父进程");
+        assert!(!status.success(), "父进程应被信号终止：{status:?}");
+
+        assert!(
+            wait_until_gone(parent, Duration::from_secs(10)),
+            "父进程 {parent} 终止后仍存在（残留）"
+        );
+        assert!(
+            wait_until_gone(grandchild, Duration::from_secs(10)),
+            "孙进程 {grandchild} 未随进程组终止（残留）"
+        );
+    }
+
+    /// 执行路径的进程组约定：`execute` 启动的子进程是**新进程组的组长**
+    /// （`pgid == pid`），这是 `terminate_tree` 能用负 PID 覆盖其子孙的前提。
+    ///
+    /// 仅 Unix：Windows 无进程组语义，运行期跳过；平台判定经 `whcode-platform`。
+    #[test]
+    fn execute_puts_child_in_its_own_process_group() {
+        if whcode_platform::is_windows() {
+            return;
+        }
+        let mut command = whcode_platform::shell_command("echo PID=$$; ps -o pgid= -p $$");
+        let result =
+            execute(&mut command, Duration::from_secs(10), MAX_OUTPUT_BYTES).expect("执行");
+        assert_eq!(result.exit_code, Some(0), "stderr：{}", result.stderr_tail);
+        let mut pid = None;
+        let mut pgid = None;
+        for line in result.stdout_tail.lines() {
+            let text = line.trim();
+            if let Some(rest) = text.strip_prefix("PID=") {
+                pid = rest.parse::<u32>().ok();
+            } else if let Ok(value) = text.parse::<u32>() {
+                pgid = Some(value);
+            }
+        }
+        assert_eq!(
+            pid, pgid,
+            "子进程须自成进程组（pgid == pid），实际输出：{}",
+            result.stdout_tail
+        );
+    }
+
+    /// 有界轮询直到进程消失；探测失败直接失败——不得把错误当作“不存在”。
+    fn wait_until_gone(pid: u32, timeout: Duration) -> bool {
+        let deadline = Instant::now() + timeout;
+        loop {
+            match whcode_platform::process_exists(pid) {
+                Ok(false) => return true,
+                Ok(true) => {}
+                Err(err) => panic!("探测进程 {pid} 失败：{err}"),
+            }
+            if Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
 
     /// Check 104：并发闸门有界，许可在 Drop 时归还（资源上限的触发测试）。

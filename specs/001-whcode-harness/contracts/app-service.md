@@ -54,6 +54,68 @@
 `not_supported`。任何前端不得在登记表之外自行宣布支持或不支持某能力；矩阵文件由
 登记表校验，手工漂移即对等门禁失败。
 
+### 2.2 LLM 调用：`llm run` / `llm cancel`（T167、FR-201—208、ADR-031）
+
+**接线状态（2026-10-25）**：CUI（`cui_dispatch::llm_command`）与 Web（`POST /api/llm/run`、
+`POST /api/llm/cancel`）已登记为已实现；TUI 仍为 `Reserved`（`M3-llm`），GUI 仍按
+`gui_read_only_v1` 排除——两端被调用时按 §2.1 返回 `not_supported`。真实 HTTP 传输
+（`whcode-llm` 的阻塞式客户端，T163）尚未交付：装配路径返回结构化 `invalid_state`，
+**不伪造调用成功**；本节的传输语义在客户端交付前不生效。
+
+**命令形状**（应用层 `whcode-app::llm`，四端共用；呈现层只做参数与信封）：
+
+| 字段 | `llm run` | `llm cancel` |
+|---|---|---|
+| `session` | 必填；会话必须存在（否则 `not_found`） | — |
+| `provider` | 必填；剖面名（未注册 → `invalid_state` 并列出已注册名） | — |
+| `prompt` | 必填且非空（不隐式读取已存内容） | — |
+| `model` / `max_tokens` | 可选覆盖（缺省取剖面的 `model` / `max_tokens`） | — |
+| `request_id` | 可选预置（缺省按会话／剖面／提示词／时间生成）；`llm cancel` 的键 | 必填 |
+| `trace_level` | CUI 可选 `off`/`metadata`/`redacted`/`full`（缺省 `redacted`；未知值 `parse_error`） | — |
+
+CUI 形态：`whcode llm run --session ID --provider NAME --prompt TEXT [--model M]
+[--max-tokens N] [--request-id R] [--trace-level LEVEL]`；`whcode llm cancel --request R`。
+Web 形态：JSON 体同表字段（`session`／`provider`／`prompt` 必填）。
+
+**凭据来源**（ADR-031 决策 6、NFR-213）：
+
+- 剖面文件路径只来自环境变量 `WHCODE_LLM_PROFILES`（仓库外 JSON；≤ 64 KiB、≤ 32 个剖面）；
+  未设置或无效时 `llm run` 返回 `invalid_state`（默认离线：无剖面即无请求）。
+- 剖面 `auth` 只允许 `CredentialRef::Env`（环境变量名）或 `CredentialRef::File`
+  （仓库外文件路径）；值封装在 `Secret`，`Debug`／`Serialize` 恒为 `[REDACTED]`，
+  不进入事件、日志、错误 `details` 与输出。
+- 取消标记目录：`WHCODE_LLM_CANCEL_DIR`，缺省系统临时目录下 `whcode-llm-cancel`；
+  `llm run` 写 `<request_id>.live`（RAII 清理），`llm cancel` 只在 `.live` 存在时写
+  `<request_id>.cancel`，未知请求返回 `not_found`（不制造无主标记）。
+
+**超时默认值**（剖面可覆盖，ADR-031 决策 7）：连接 10 s、读取 120 s（两次读取之间）、
+总时限 300 s；`max_tokens` 默认 1024。流式有界：chunk ≤ 1024、正文累计 ≤ 1 MiB，
+超限显式标记 `truncated`（FR-208）。
+
+**取消语义**：`llm cancel` 在**下一个 chunk 之前**生效（`details.effective =
+before_next_chunk`）；真实 HTTP 读循环中的取消归 T166，当前不宣称立即中止。
+Web 为单线程服务循环，同进程请求不能互相取消；跨进程（CUI `llm cancel`）经标记文件生效。
+
+**错误码映射**（四端同源；CUI 退出码见 [cui-cli.md](./cui-cli.md) §2，Web 为同码 JSON 信封）：
+
+| 情形 | `code` | CUI 退出码 | Web |
+|---|---|---|---|
+| 权限不足（`Capability::SessionCreate`） | `permission_denied` | 10 | 403 |
+| 会话不存在 / 取消未知请求 | `not_found` | 60 | 404 |
+| 未配置剖面、未知剖面、空提示词、凭据缺失、端点非法、传输层未就绪 | `invalid_state` | 50 | 400 |
+| 未知 `trace_level`、请求体非 JSON、`max_tokens` 类型错误 | `parse_error` | 80 | 400 |
+| 该端登记为预留／排除（TUI、GUI） | `not_supported` | 55 | 501 |
+| 供应商 429 | `backpressure`（`retryable=true`，含 `retry_after_ms`） | 40 | 500（现状映射） |
+| 供应商 401/403 | `permission_denied` | 10 | 403 |
+| 供应商 5xx | `internal`（`retryable=true`） | 99 | 500 |
+| 连接 / TLS / 读取超时 | `io_error` / `timeout` | 70 / 90 | 500（现状映射） |
+
+**有界事件**（`llm.run` 结果中的 `events`，只含标识与计数，不含提示词或密钥）：
+`llm.request_started`（`request_id`／`provider`／`protocol`／`model`／`max_tokens`）、
+每 chunk 一条 `llm.delta`（`index`／`chars`）、`llm.finished`（`chunks`／`completed`／
+`truncated`／`integrity_gaps`／`finish_reason`／`usage`）。`completed = false` 或
+`integrity_gaps > 0` 表示完整性缺口（FR-208），不得据“有正文”推断成功。
+
 ## 3. 状态快照（四端同源）
 
 字段与语义见 [state-snapshot.md](./state-snapshot.md)；快照必须携带 `schema_version`、`event_cursor`，使前端可用游标增量补齐（FR-202/605）。

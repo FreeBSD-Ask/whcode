@@ -17,6 +17,7 @@ mod bench;
 mod cert_probe;
 mod config;
 mod cui_dispatch;
+mod llm_provider;
 mod logging;
 mod runtimes;
 mod serve;

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="eink-day">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="settings.title">证书设置</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="app-bar">
+    <h1 data-i18n="settings.title">证书设置</h1>
+    <nav class="app-bar__nav">
+      <a href="/" data-i18n="settings.back">返回首页</a>
+    </nav>
+    <div class="app-bar__theme">
+      <label for="theme-select" data-i18n="web.theme.label">主题</label>
+      <select id="theme-select">
+        <option value="" data-i18n="web.theme.default">默认</option>
+        <option value="eink-day">eink-day</option>
+        <option value="eink-night">eink-night</option>
+        <option value="amoled-night">amoled-night</option>
+        <option value="terminal-green">terminal-green</option>
+      </select>
+    </div>
+  </header>
+  <main id="main" class="settings-page" aria-live="polite">
+    <noscript>
+      <h2>只读状态摘要（未启用 JavaScript）</h2>
+      <p>启用 JavaScript 可在本页编辑证书库；以下为服务端直出摘要。</p>
+      <pre>
+        出站档位：builtin
+        路径：d:\WHCode\script\tls-verify\ws\s5-api\.whcode\certs\ca-builtin.pem；份数：118；SHA-256：796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe；已修改：否
+        路径：d:\WHCode\script\tls-verify\ws\s5-api\.whcode\certs\ca-extra.pem；份数：0；SHA-256：e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855；已修改：是
+        系统库根证书数：未涉及（当前档位不读取系统库）
+        生效根证书总数：118
+        入站档位：builtin
+        服务端证书主题：CN=WHCode local；SAN：localhost、127.0.0.1、::1、desktop-m5p610n
+        有效期至：2027-11-25T07:11:49Z（剩余 395 天）
+        服务端证书指纹：ecd192003383d16c8a9dd9973fef3a928a480474229849ec2a224ac56a75edcb
+        证书存在：是；私钥存在：是
+        文件路径：证书 d:\WHCode\script\tls-verify\ws\s5-api\.whcode\certs\server-cert.pem；私钥 d:\WHCode\script\tls-verify\ws\s5-api\.whcode\certs\server-key.pem（私钥只进不出，页面不显示内容）
+        重启后生效：否（当前运行状态与保存的档位一致）
+        提示：无附加提示
+      </pre>
+    </noscript>
+    <section id="restart-banner" class="banner" hidden>
+      <p data-i18n="settings.restart_banner">入站证书或档位已变更，需重启 serve --web 后生效。</p>
+    </section>
+    <p id="status-line" class="meta-line" role="status"></p>
+
+    <section id="s-outbound" class="panel stack">
+      <h2 class="section-title" data-i18n="settings.outbound.title">出站 HTTPS 信任</h2>
+      <fieldset class="picker">
+        <legend data-i18n="settings.outbound.legend">信任库档位</legend>
+        <label>
+          <input type="radio" name="outbound" value="builtin">
+          <span data-i18n="settings.outbound.builtin">内置副本（builtin）</span>
+        </label>
+        <p class="meta-line" data-i18n="settings.outbound.builtin_hint">以工作区内置根证书副本为基线，追加证书叠加生效。</p>
+        <label>
+          <input type="radio" name="outbound" value="system">
+          <span data-i18n="settings.outbound.system">操作系统证书库（system）</span>
+        </label>
+        <p class="meta-line" data-i18n="settings.outbound.system_hint">以操作系统根证书库为基线，追加证书同样叠加生效；系统库为空时报错，不回落内置库。</p>
+      </fieldset>
+      <p id="outbound-builtin-status" class="meta-line"></p>
+      <p id="outbound-extra-status" class="meta-line"></p>
+      <p id="outbound-system-status" class="meta-line"></p>
+      <p id="outbound-effective-status" class="meta-line"></p>
+      <label for="ca-builtin-pem" data-i18n="settings.outbound.builtin_pem_label">内置根证书副本（PEM，可编辑）</label>
+      <textarea id="ca-builtin-pem" rows="6" spellcheck="false" autocomplete="off"></textarea>
+      <div class="toolbar">
+        <button id="ca-builtin-save" type="button" data-i18n="settings.outbound.save_builtin">保存内置副本</button>
+        <button id="ca-builtin-reset" type="button" data-i18n="settings.outbound.reset_builtin">恢复内置副本</button>
+      </div>
+      <label for="ca-extra-pem" data-i18n="settings.outbound.extra_pem_label">追加根证书（PEM，两档位都生效）</label>
+      <textarea id="ca-extra-pem" rows="6" spellcheck="false" autocomplete="off"></textarea>
+      <div class="toolbar">
+        <button id="ca-extra-save" type="button" data-i18n="settings.outbound.save_extra">保存追加证书</button>
+        <button id="ca-extra-reset" type="button" data-i18n="settings.outbound.reset_extra">清空追加证书</button>
+      </div>
+      <p class="meta-line" data-i18n="settings.outbound.hint">任何档位都不关闭证书链与主机名校验；不存在跳过校验的开关。</p>
+      <div class="toolbar">
+        <button id="modes-save" type="button" data-i18n="settings.modes.save">保存档位</button>
+      </div>
+    </section>
+
+    <section id="s-inbound" class="panel stack">
+      <h2 class="section-title" data-i18n="settings.inbound.title">入站 TLS（serve --web）</h2>
+      <fieldset class="picker">
+        <legend data-i18n="settings.inbound.legend">档位</legend>
+        <label>
+          <input type="radio" name="inbound" value="builtin">
+          <span data-i18n="settings.inbound.builtin">内置自签证书（builtin）</span>
+        </label>
+        <p class="meta-line" data-i18n="settings.inbound.builtin_hint">每工作区生成 ECDSA P-256 自签证书（397 天），SAN 覆盖 localhost、127.0.0.1、::1 与本机名。</p>
+        <label>
+          <input type="radio" name="inbound" value="external">
+          <span data-i18n="settings.inbound.external">外部证书（external）</span>
+        </label>
+        <p class="meta-line" data-i18n="settings.inbound.external_hint">使用你上传的 PEM 证书链与未加密私钥；私钥只进不出。</p>
+        <label>
+          <input type="radio" name="inbound" value="off">
+          <span data-i18n="settings.inbound.off">关闭 TLS（off）</span>
+        </label>
+        <p class="meta-line" data-i18n="settings.inbound.off_hint">回到明文 HTTP（ADR-023），需要显式确认；不会被静默改回。</p>
+      </fieldset>
+      <p id="inbound-subject" class="meta-line"></p>
+      <p id="inbound-sans" class="meta-line"></p>
+      <p id="inbound-not-after" class="meta-line"></p>
+      <p id="inbound-days" class="meta-line"></p>
+      <p id="inbound-sha" class="meta-line"></p>
+      <p id="inbound-material" class="meta-line"></p>
+      <p id="inbound-no-material" class="meta-line" hidden></p>
+      <h3 class="section-title" data-i18n="settings.notes.title">提示</h3>
+      <ul id="inbound-notes" class="rows"></ul>
+      <div class="toolbar">
+        <a id="server-cert-download" href="#" download="server-cert.pem" data-i18n="settings.inbound.download">下载公开证书（PEM）</a>
+        <button id="server-self-signed" type="button" data-i18n="settings.inbound.regenerate">重新生成自签证书</button>
+      </div>
+      <label for="server-cert-pem" data-i18n="settings.inbound.cert_pem_label">上传证书链（PEM）</label>
+      <textarea id="server-cert-pem" rows="6" spellcheck="false" autocomplete="off"></textarea>
+      <label for="server-key-pem" data-i18n="settings.inbound.key_pem_label">上传私钥（未加密 PEM，提交后清空）</label>
+      <textarea id="server-key-pem" rows="6" spellcheck="false" autocomplete="off"></textarea>
+      <p id="key-saved-note" class="meta-line" hidden data-i18n="settings.inbound.key_saved">私钥已保存，页面不再显示（输入框已清空）。</p>
+      <div class="toolbar">
+        <button id="server-upload" type="button" data-i18n="settings.inbound.upload">上传并切换为 external</button>
+      </div>
+    </section>
+
+    <section id="s-verify" class="panel stack">
+      <h2 class="section-title" data-i18n="settings.verify.title">出站连通性校验</h2>
+      <form id="verify-form" class="toolbar">
+        <label for="verify-host" data-i18n="settings.verify.host">主机</label>
+        <input id="verify-host" required maxlength="253" autocomplete="off">
+        <label for="verify-port" data-i18n="settings.verify.port">端口</label>
+        <input id="verify-port" type="number" min="1" max="65535" value="443">
+        <button type="submit" data-i18n="settings.verify.button">校验</button>
+      </form>
+      <pre id="verify-result" class="log"></pre>
+    </section>
+  </main>
+  <footer class="status-bar">
+    <span id="connection-state" data-i18n="settings.local_mode">本机设置页</span>
+    <span id="action-status" role="status"></span>
+  </footer>
+  <script type="module" src="/settings.js"></script>
+</body>
+</html>

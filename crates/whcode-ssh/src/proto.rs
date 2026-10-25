@@ -754,6 +754,8 @@ mod tests {
         },
         /// 接受 exec 但**不**给出任何结果：用于验证“命令已发出、结果不确定”。
         Silent,
+        /// 接受 exec 后立即关闭通道但**不**发送退出状态：用于验证“异常断连”。
+        CloseWithoutStatus,
     }
 
     struct TestSshServer {
@@ -815,6 +817,12 @@ mod tests {
                     session.extended_data(channel, 1, stderr.clone())?;
                 }
                 session.exit_status_request(channel, *exit_code)?;
+                session.eof(channel)?;
+                session.close(channel)?;
+            }
+            if matches!(&self.behavior, TestBehavior::CloseWithoutStatus) {
+                // 通道正常开启并确认 exec，然后直接结束：客户端会看到“关闭但无退出状态”。
+                session.channel_success(channel)?;
                 session.eof(channel)?;
                 session.close(channel)?;
             }
@@ -1374,5 +1382,218 @@ mod tests {
             !after_third.contains(&server_fingerprint),
             "不匹配时信任文件保持人工写入的攻击者指纹，服务端指纹未被恢复/改写：{after_third}"
         );
+    }
+
+    /// Check 25／96／99 的**客户端侧**回环验收（FR-611、ADR-011、V-004）：一次测试覆盖
+    /// 公钥认证、受限命令执行、输出上限截断、超时与断连四类行为。
+    ///
+    /// 边界（不得扩大解释）：服务端是进程内测试桩，本测试通过只证明客户端路径在该平台上
+    /// **可运行**，不构成 Windows／FreeBSD／NetBSD／OpenBSD／DragonFly 任一平台的节点
+    /// 连通性证据；V-004 仍属 M7，BSD 结论按 ADR-013 延后、不进入验收。
+    #[tokio::test]
+    async fn bsd_client_acceptance_loopback() {
+        // —— 一、受限命令执行：默认入口只放行远端 whcode，任意系统 Shell 必须拒绝 ——
+        let policy_key = TestKey::generate("bsd-policy");
+        let base = SshTarget {
+            host: "127.0.0.1".to_string(),
+            port: 22,
+            user: "tester".to_string(),
+            private_key_path: policy_key.path().to_path_buf(),
+            command: "whcode session list".to_string(),
+            allow_shell: false,
+            timeout_ms: 10_000,
+            known_hosts_path: trust_file(),
+        };
+        assert!(
+            validate_command_policy(&base).is_ok(),
+            "受限入口必须放行远端 whcode 命令"
+        );
+        let denied = SshTarget {
+            command: "sh -lc id".to_string(),
+            ..base.clone()
+        };
+        let error = validate_command_policy(&denied).expect_err("任意系统 Shell 默认必须拒绝");
+        assert_eq!(
+            error.code,
+            ErrorCode::PermissionDenied,
+            "受限入口拒绝必须是权限拒绝而非其他错误"
+        );
+
+        // —— 二、公钥认证 + 受限命令执行 + 输出上限截断（同一条真实客户端链路）——
+        // 测试服务端只实现公钥认证：执行成功即证明公钥认证在该平台通过。
+        let marker = b"WHCODE-BSD-TAIL-END";
+        let mut payload = vec![b'a'; MAX_TAIL_BYTES + 2048];
+        let marker_start = payload.len() - marker.len();
+        payload[marker_start..].copy_from_slice(marker);
+        let expected_tail = payload[payload.len() - MAX_TAIL_BYTES..].to_vec();
+        let exec_trust = trust_file();
+
+        let ((report, calls, recorded_trust), host_public) = run_against_test_server_with(
+            TestBehavior::Echo {
+                stdout: payload,
+                stderr: Vec::new(),
+                exit_code: 0,
+            },
+            |addr, _host_public, key_path| {
+                let exec_trust = exec_trust.clone();
+                async move {
+                    let registry = CollectingExecRegistry::new();
+                    let target = SshTarget {
+                        host: "127.0.0.1".to_string(),
+                        port: addr.port(),
+                        user: "tester".to_string(),
+                        private_key_path: key_path,
+                        command: "whcode session list".to_string(),
+                        allow_shell: false,
+                        timeout_ms: 30_000,
+                        known_hosts_path: exec_trust.clone(),
+                    };
+                    let report = run_command(&target, &registry)
+                        .await
+                        .expect("回环执行必须返回报告而不是错误");
+                    let recorded = std::fs::read_to_string(&exec_trust).unwrap_or_default();
+                    (report, registry.calls(), recorded)
+                }
+            },
+        )
+        .await;
+
+        assert_eq!(
+            report.status,
+            RuntimeExecutionStatus::Completed,
+            "公钥认证 + 受限命令执行必须完成：{}",
+            report.note
+        );
+        assert_eq!(report.exit_code, Some(0));
+        assert!(
+            report.truncated,
+            "输出超过上限必须标记截断：{}",
+            report.note
+        );
+        assert_eq!(
+            report.stdout_tail.len(),
+            MAX_TAIL_BYTES,
+            "只保留尾部上限字节"
+        );
+        assert_eq!(
+            report.stdout_tail.as_bytes(),
+            expected_tail.as_slice(),
+            "保留的必须是尾部而非头部"
+        );
+        assert!(report.stdout_tail.ends_with("WHCODE-BSD-TAIL-END"));
+        assert!(
+            report.note.contains("截断") || report.note.contains("仅保留尾部"),
+            "note 必须写明截断事实：{}",
+            report.note
+        );
+        assert!(
+            recorded_trust.contains(&fingerprint(&host_public)),
+            "主机密钥必须先经 TOFU 校验并记录，公钥认证才成立：{recorded_trust}"
+        );
+        assert_eq!(calls.len(), 2, "必须既有意图也有结果：{calls:?}");
+        assert!(matches!(calls[0], RegistryCall::Intent { .. }));
+        assert!(matches!(
+            calls[1],
+            RegistryCall::Result {
+                status: RuntimeExecutionStatus::Completed,
+                exit_code: Some(0),
+                ..
+            }
+        ));
+
+        // —— 三、超时：命令已发出，服务端不给任何结果（`unknown`，不得谎报）——
+        // 预算取 3 s：需先完成连接与公钥认证，过小的预算会在平台上把“慢”误判为超时。
+        let timeout_trust = trust_file();
+        let ((timeout_report, timeout_calls), _) =
+            run_against_test_server_with(TestBehavior::Silent, |addr, _host_public, key_path| {
+                let timeout_trust = timeout_trust.clone();
+                async move {
+                    let registry = CollectingExecRegistry::new();
+                    let target = SshTarget {
+                        host: "127.0.0.1".to_string(),
+                        port: addr.port(),
+                        user: "tester".to_string(),
+                        private_key_path: key_path,
+                        command: "whcode session list".to_string(),
+                        allow_shell: false,
+                        timeout_ms: 3_000,
+                        known_hosts_path: timeout_trust,
+                    };
+                    let report = run_command(&target, &registry)
+                        .await
+                        .expect("超时同样必须返回报告");
+                    (report, registry.calls())
+                }
+            })
+            .await;
+
+        assert_eq!(
+            timeout_report.status,
+            RuntimeExecutionStatus::Unknown,
+            "超时不得判为完成或失败：{}",
+            timeout_report.note
+        );
+        assert_eq!(timeout_report.exit_code, None);
+        assert!(
+            timeout_report.note.contains("必须核对")
+                && timeout_report.note.contains("不得盲目重放"),
+            "超时说明必须要求核对、禁止盲目重放：{}",
+            timeout_report.note
+        );
+        assert!(
+            timeout_report.duration_ms >= 2_500,
+            "超时必须实际消费预算而不是提前放弃：{} ms",
+            timeout_report.duration_ms
+        );
+        assert_eq!(timeout_calls.len(), 2, "不确定状态同样必须登记结果");
+
+        // —— 四、断连：服务端关闭通道但不发送退出状态（同样不得谎报）——
+        let disconnect_trust = trust_file();
+        let (disconnect_report, _) = run_against_test_server_with(
+            TestBehavior::CloseWithoutStatus,
+            |addr, _host_public, key_path| {
+                let disconnect_trust = disconnect_trust.clone();
+                async move {
+                    let target = SshTarget {
+                        host: "127.0.0.1".to_string(),
+                        port: addr.port(),
+                        user: "tester".to_string(),
+                        private_key_path: key_path,
+                        command: "whcode session list".to_string(),
+                        allow_shell: false,
+                        timeout_ms: 30_000,
+                        known_hosts_path: disconnect_trust,
+                    };
+                    run_command(&target, &CollectingExecRegistry::new())
+                        .await
+                        .expect("断连同样必须返回报告")
+                }
+            },
+        )
+        .await;
+
+        assert_eq!(
+            disconnect_report.status,
+            RuntimeExecutionStatus::Unknown,
+            "无退出状态的断连不得判为完成或失败：{}",
+            disconnect_report.note
+        );
+        assert_eq!(disconnect_report.exit_code, None);
+        assert!(
+            disconnect_report.note.contains("通道关闭"),
+            "必须写明断连而非超时：{}",
+            disconnect_report.note
+        );
+        assert!(
+            disconnect_report.note.contains("必须核对")
+                && disconnect_report.note.contains("不得盲目重放"),
+            "断连说明必须要求核对、禁止盲目重放：{}",
+            disconnect_report.note
+        );
+
+        // 临时信任文件清理（尽力而为，失败不影响断言结论）。
+        for path in [&exec_trust, &timeout_trust, &disconnect_trust] {
+            let _ = std::fs::remove_file(path);
+        }
     }
 }

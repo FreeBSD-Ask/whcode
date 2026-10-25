@@ -10,7 +10,7 @@
 //! 会话定位：契约 §1 要求显式 `--session`/`--task`——**不设隐式"当前会话"**，
 //! 避免脚本路径依赖隐藏状态。
 //!
-//! 保留命令（`run`、`events show`、`spec next/validate/analyze/converge/force-advance`、
+//! 保留命令（`events show`、`spec next/validate/analyze/converge/force-advance`、
 //! `runtime status/enable/disable/install`）：统一返回 `not_supported`（退出码 55，
 //! FR-620、ADR-032），details 由登记表（`whcode_app::surface`）驱动——`surface_id`、
 //! 本端状态与里程碑/理由码；不静默成功、不伪装成 404 语义；`serve`/`doctor` 由主入口处理。
@@ -24,8 +24,8 @@ use serde_json::{Value, json};
 use whcode_app::surface::{FrontendId, Support};
 use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
 use whcode_cui::cli::{
-    Command, ContextCommand, DbCommand, EventsCommand, FontCommand, ParseOutcome, RuntimeCommand,
-    SessionCommand, SpecCommand, TaskCommand, parse_outcome,
+    Command, ContextCommand, DbCommand, EventsCommand, FontCommand, LlmCommand, ParseOutcome,
+    RuntimeCommand, SessionCommand, SpecCommand, TaskCommand, parse_outcome,
 };
 use whcode_cui::format::Styler;
 use whcode_cui::output::{EXIT_USAGE, error_envelope, error_exit_code, success_envelope};
@@ -203,12 +203,9 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
         Command::Db { command } => {
             db_command(command, workspace, &config, &policy, &actor, now, texts)
         }
-        // 出站证书库初始化（ADR-040／T191）随 LLM 真正接线一并加入：当前 CUI 没有任何
-        // 发起出站请求的路径，故不在只读命令里创建证书库文件（避免只读命令产生副作用）。
-        Command::Run { .. } => Err(not_supported(
-            "llm.run",
-            "run 未接线：LLM 流式交互需 Provider 与会话流装配（M3 桩已交付，CLI 执行属后续）",
-        )),
+        // llm run／cancel（T167）：经 `whcode_app::llm` 真实编排（权限、会话、剖面、
+        // 凭据与取消），装配根只注入 Provider 工厂与取消目录（ADR-031 决策 1）。
+        Command::Llm { command } => llm_command(command, workspace, &config, &policy, &actor),
         Command::Font { command } => font_command(command, texts),
         Command::Runtime { command } => runtime_command(command),
         Command::Serve { .. } => Err(not_wired(
@@ -260,6 +257,104 @@ fn registry_details(surface_id: &str) -> Value {
         _ => {}
     }
     details
+}
+
+/// `llm run`／`llm cancel`（T167、FR-201—208、ADR-031）。
+///
+/// 剖面来自 `WHCODE_LLM_PROFILES`（仓库外 JSON），凭据由剖面 `auth` 声明（环境变量或
+/// 仓库外文件）；两者都不进入输出、事件与日志。真实 Provider 由装配根工厂注入——
+/// 客户端未就绪时返回结构化错误，不伪造成功（T163）。
+fn llm_command(
+    command: &LlmCommand,
+    workspace: &Path,
+    config: &Config,
+    policy: &DefaultPolicy,
+    actor: &Actor,
+) -> Result<(Value, String), WhError> {
+    let factory = crate::llm_provider::LocalProviderFactory::for_workspace(workspace)?;
+    let cancel_dir = whcode_app::llm::cancel_dir_from_env();
+    let (registry, registry_error) = match whcode_app::llm::ProviderRegistry::from_env() {
+        Ok(registry) => (Some(registry), None),
+        Err(err) => (None, Some(err.message)),
+    };
+    let context = whcode_app::llm::LlmContext {
+        registry: registry.as_ref(),
+        registry_error: registry_error.as_deref(),
+        factory: &factory,
+        cancel_dir: &cancel_dir,
+    };
+    match command {
+        LlmCommand::Run {
+            session,
+            provider,
+            prompt,
+            model,
+            max_tokens,
+            request_id,
+            trace_level,
+        } => {
+            // 追踪级别是显式输入：未知取值直接拒绝，不静默回落到默认档。
+            let trace_level = parse_trace_level(trace_level)?;
+            let conn = open_db(workspace, config)?;
+            let outcome = whcode_app::llm::run(
+                &conn,
+                policy,
+                actor,
+                &context,
+                &whcode_app::llm::LlmRunRequest {
+                    session_id: session.clone(),
+                    provider: provider.clone(),
+                    prompt: prompt.clone(),
+                    model: model.clone(),
+                    max_tokens: *max_tokens,
+                    request_id: request_id.clone(),
+                },
+                now_ms()?,
+            )?;
+            let mut value = serde_json::to_value(&outcome)
+                .map_err(|err| WhError::internal(format!("LLM 结果序列化失败：{err}")))?;
+            value["trace_level"] = json!(trace_level.as_str());
+            // 人读输出：正文 + 稳定键值摘要（数据字段不翻译，FR-615 口径）。
+            let human = format!(
+                "{}\nprovider={} model={} protocol={} chunks={} completed={} truncated={} \
+                 integrity_gaps={} finish_reason={}\nrequest_id={}",
+                outcome.text,
+                outcome.provider,
+                outcome.model,
+                outcome.protocol,
+                outcome.chunks.len(),
+                outcome.completed,
+                outcome.truncated,
+                outcome.integrity_gaps,
+                outcome.finish_reason.as_deref().unwrap_or("none"),
+                outcome.request_id,
+            );
+            Ok((value, human))
+        }
+        LlmCommand::Cancel { request } => {
+            let outcome = whcode_app::llm::cancel(policy, actor, &context, request)?;
+            let value = serde_json::to_value(&outcome)
+                .map_err(|err| WhError::internal(format!("取消失败结果序列化失败：{err}")))?;
+            let human = format!(
+                "request={} state={} effective={}",
+                outcome.request_id, outcome.state, outcome.effective
+            );
+            Ok((value, human))
+        }
+    }
+}
+
+/// 追踪级别解析（`off`／`metadata`／`redacted`／`full`；未知值显式失败）。
+fn parse_trace_level(value: &str) -> Result<TraceLevel, WhError> {
+    match value {
+        "off" => Ok(TraceLevel::Off),
+        "metadata" => Ok(TraceLevel::Metadata),
+        "redacted" => Ok(TraceLevel::Redacted),
+        "full" => Ok(TraceLevel::Full),
+        other => Err(WhError::parse_error(format!(
+            "未知追踪级别“{other}”；合法取值：off/metadata/redacted/full（不得静默回落）"
+        ))),
+    }
 }
 
 /// `context` 命令（FR-105/108；T173）：预算视图与 TUI 上下文视图同源
@@ -1273,8 +1368,8 @@ mod tests {
     use std::path::PathBuf;
     use whcode_app::surface::{self, FrontendId, Support};
     use whcode_cui::cli::{
-        Command, ContextCommand, EventsCommand, FontCommand, RuntimeCommand, SessionCommand,
-        SpecCommand, TaskCommand,
+        Command, ContextCommand, EventsCommand, FontCommand, LlmCommand, RuntimeCommand,
+        SessionCommand, SpecCommand, TaskCommand,
     };
     use whcode_cui::output::{error_envelope, error_exit_code};
     use whcode_domain::ErrorCode;
@@ -1454,11 +1549,6 @@ mod tests {
     fn unwired_commands_fail_explicitly() {
         let workspace = temp_workspace("unwired");
         for command in [
-            Command::Run {
-                session: "S-1".into(),
-                model: "stub".into(),
-                trace_level: "redacted".into(),
-            },
             Command::Runtime {
                 command: RuntimeCommand::Status { name: "js".into() },
             },
@@ -1487,14 +1577,6 @@ mod tests {
     fn unavailable_commands_carry_registry_details() {
         let workspace = temp_workspace("registry-details");
         let cases = [
-            (
-                Command::Run {
-                    session: "S-1".into(),
-                    model: "stub".into(),
-                    trace_level: "redacted".into(),
-                },
-                "llm.run",
-            ),
             (
                 Command::Events {
                     command: EventsCommand::Show {
@@ -1608,6 +1690,75 @@ mod tests {
         let _ = std::fs::remove_dir_all(&workspace);
     }
 
+    /// `llm run`／`llm cancel`（T167）：CUI 已接线，前置校验与取消语义可观测；
+    /// 不依赖 `WHCODE_LLM_PROFILES` 的路径（未知会话／空提示词／未知追踪级别／未知请求）。
+    #[test]
+    fn llm_commands_are_wired_and_validated_before_transport() {
+        let workspace = temp_workspace("llm");
+        let texts = whcode_domain::i18n::I18n::default();
+        let create = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "LLM 会话".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("创建会话");
+        let session = create.0["session"]["id"]
+            .as_str()
+            .expect("会话 ID")
+            .to_string();
+
+        let run = |session: &str, prompt: &str, trace: &str| {
+            execute(
+                &Command::Llm {
+                    command: LlmCommand::Run {
+                        session: session.to_string(),
+                        provider: "p".into(),
+                        prompt: prompt.to_string(),
+                        model: None,
+                        max_tokens: None,
+                        request_id: None,
+                        trace_level: trace.to_string(),
+                    },
+                },
+                &workspace,
+                &texts,
+            )
+        };
+
+        // 未知会话：not_found（先于剖面与凭据，不伪装成空成功）。
+        let err = run("S-不存在", "hi", "redacted").expect_err("未知会话必须拒绝");
+        assert_eq!(err.code, ErrorCode::NotFound);
+
+        // 空提示词：invalid_state（不隐式读取已存内容）。
+        let err = run(&session, "   ", "redacted").expect_err("空提示词必须拒绝");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        assert!(err.message.contains("提示词"), "{err}");
+
+        // 未知追踪级别：parse_error（不静默回落到 redacted）。
+        let err = run(&session, "hi", "loud").expect_err("未知追踪级别必须拒绝");
+        assert_eq!(err.code, ErrorCode::ParseError);
+
+        // 取消未知请求：not_found（取消只对同机活跃调用生效，不制造无主标记）。
+        let err = execute(
+            &Command::Llm {
+                command: LlmCommand::Cancel {
+                    request: format!("no-such-{}", std::process::id()),
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect_err("未知请求必须拒绝");
+        assert_eq!(err.code, ErrorCode::NotFound);
+        assert!(!err.retryable);
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
     /// `--json` 错误路径：保留命令经完整调度输出 not_supported 信封并返回 55。
     #[test]
     fn unavailable_commands_exit_55_via_dispatch() {
@@ -1618,7 +1769,6 @@ mod tests {
             vec!["runtime", "status", "--name", "js"],
             vec!["spec", "next", "--session", "S-1"],
             vec!["events", "show", "--event", "E-1"],
-            vec!["run", "--session", "S-1"],
         ] {
             let mut json_args = vec![base[0], base[1], "--json"];
             json_args.extend_from_slice(&argv);
@@ -1817,7 +1967,8 @@ mod tests {
             ("POST", "/api/spec/next", "spec.next"),
             ("POST", "/api/spec/force-advance", "spec.force-advance"),
             ("GET", "/api/runtimes/status", "runtime.status"),
-            ("POST", "/api/llm/run", "llm.run"),
+            // llm.run 已随 T167 在双端翻转为已实现，故取仍预留的 runtime 写面作样本。
+            ("POST", "/api/runtimes/enable", "runtime.enable"),
         ] {
             // Web 侧：守卫 → 501 + not_supported 信封。
             let request = whcode_web::api::HttpRequest {

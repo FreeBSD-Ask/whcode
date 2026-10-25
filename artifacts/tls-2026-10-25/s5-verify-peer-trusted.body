@@ -1,0 +1,1 @@
+{"host":"127.0.0.1","not_after":"2027-11-25T07:11:52Z","ok":true,"port":18450,"sans":["localhost","127.0.0.1","::1","desktop-m5p610n"],"schema_version":1,"sha256":"873325ab37bac1a422e0adf94b5336f7099b2f9c42858d4289588ecf0f686339","subject":"CN=WHCode local","tls_version":"TLSv1_3"}

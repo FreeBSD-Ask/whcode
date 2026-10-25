@@ -9,7 +9,8 @@
 ```text
 whcode
   session new|list|show|rename|archive|delete
-  run --session ID [--model MODEL] [--trace-level LEVEL]
+  llm run --session ID --provider NAME --prompt TEXT [--model MODEL] [--max-tokens N] [--request-id ID] [--trace-level LEVEL]
+  llm cancel --request ID
   status [--json]
   task list|show|retry|abort
   context budget --session ID [--budget N]
@@ -39,8 +40,16 @@ whcode
   来源、截断原因与游标（FR-105／108）。
 - `runtime list` 输出与 Web `/api/runtimes` 同形（`schema_version`、`wired`、`runtimes`，
   状态名不翻译）；`runtime status|enable|disable|install` 为预留命令。
-- 保留命令（`spec next|validate|analyze|converge|force-advance`、`events show`、`llm run`
-  等应用层或前端接线未交付项）统一返回 `not_supported` 信封：退出码 **55**，`details` 含
+- `llm run`／`llm cancel`（T167）经 `whcode_app::llm` 执行：剖面文件来自环境变量
+  `WHCODE_LLM_PROFILES`（仓库外 JSON），凭据由剖面 `auth` 声明为环境变量或仓库外文件，
+  值不进入输出与事件；`--provider` 必须显式给出（无剖面即无请求）。`llm run` 输出含
+  `schema_version`、`request_id`、`chunks`、`text`、`finish_reason`、`completed`、
+  `truncated`、`integrity_gaps`、`usage`、`events`、`transport`；`llm cancel` 输出
+  `request_id`、`state`、`effective`（`before_next_chunk`）。退出码：权限 10、
+  会话／请求不存在 60、配置或凭据缺失 50、未知追踪级别 80。真实 HTTP 传输未交付前
+  （T163），装配路径返回 50 并说明待接线点，不伪造成功。
+- 保留命令（`spec next|validate|analyze|converge|force-advance`、`events show` 等应用层或
+  前端接线未交付项）统一返回 `not_supported` 信封：退出码 **55**，`details` 含
   `surface_id`、`state`（reserved／excluded）与 `milestone` 或 `reason_code`（FR-620、
   ADR-032）；不静默成功、不伪装成 404 语义（`not_found` 仍留给未登记路由）。
 `gui` 为装配根入口（与 `serve` 同层）：只读六视图，非交互、无 stdout 协议，退出码 0/1（FR-711）。

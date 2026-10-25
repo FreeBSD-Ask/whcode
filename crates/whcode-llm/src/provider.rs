@@ -85,7 +85,9 @@ impl CancelToken {
 
 /// 流式结果：chunk 迭代器 + 计量（Metering source，FR-207）。
 pub struct ChunkStream {
-    inner: Box<dyn Iterator<Item = Result<LlmChunk, WhError>> + Send>,
+    /// crate 内可见：真实 Provider（如 `http::client::HttpClient`）在 provider 模块之外
+    /// 构造流时需要写入自己的迭代器；不新增公开构造函数，公共接口保持不变。
+    pub(crate) inner: Box<dyn Iterator<Item = Result<LlmChunk, WhError>> + Send>,
 }
 
 impl std::fmt::Debug for ChunkStream {

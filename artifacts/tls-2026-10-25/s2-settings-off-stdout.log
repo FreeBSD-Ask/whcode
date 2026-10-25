@@ -1,0 +1,4 @@
+WHCode Web 服务：http://127.0.0.1:18081/（仅回环 · 入站 TLS off，Ctrl-C 退出；FR-606：外网地址被 bind 门禁拒绝）
+入站 TLS 已关闭（off）：明文 HTTP，Origin 允许集为 http://（ADR-040 决策 3）
+证书设置页：http://127.0.0.1:18081/settings/certs（入站档位与证书变更需重启 serve --web 后生效）
+工作区数据库：d:\WHCode\script\tls-verify\ws\s2-settings-off\whcode.duckdb

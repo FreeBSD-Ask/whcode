@@ -1,0 +1,367 @@
+
+==============================================================================
+[2026-10-25T07:11:36Z] 环境与构建信息
+==============================================================================
+
+$ d:\WHCode\target\debug\whcode.exe --version
+[exit 0]
+--- stdout ---
+whcode 2026-10-25T14:46+08:00
+
+$ rustc --version
+[exit 0]
+--- stdout ---
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+
+$ cargo --version
+[exit 0]
+--- stdout ---
+cargo 1.99.1 (5f94df478 2026-08-27)
+
+$ curl.exe --version
+[exit 0]
+--- stdout ---
+curl 8.21.0 (Windows) libcurl/8.21.0 Schannel zlib/1.3.2 WinIDN WinLDAP
+Release-Date: 2026-06-24
+Protocols: dict file ftp ftps gopher gophers http https imap imaps ipfs ipns ldap ldaps mqtt mqtts pop3 pop3s smtp smtps telnet tftp ws wss
+Features: alt-svc AsynchDNS HSTS HTTPS-proxy IDN IPv6 Kerberos Largefile libz SPNEGO SSL SSPI threadsafe Unicode UnixSockets
+[env] 平台：win32；Python 3.14.2；工作目录 d:\WHCode；二进制 d:\WHCode\target\debug\whcode.exe
+[env] 开始时间（UTC）：2026-10-25T07:11:36.431944+00:00
+
+==============================================================================
+[2026-10-25T07:11:36Z] 场景 1：默认 HTTPS（serve --web，builtin 入站）
+==============================================================================
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 127.0.0.1:18443 --workspace d:\WHCode\script\tls-verify\ws\s1-default
+[pid 11620] 标准输出 → s1-stdout.log；标准错误 → s1-stderr.log
+[s1] 就绪（HTTP 200）
+[check] 1.1 PASS：默认 HTTPS 启动成功（进程就绪）（就绪（HTTP 200））
+[s1] 启动输出：
+证书库：入站自签证书不存在；已重新生成自签证书（旧指纹 无，新指纹 30b9442d30a388da09a28899a4016323aaf7e3d282686219c7cdf984da0c87e9）
+WHCode Web 服务：https://127.0.0.1:18443/（仅回环 · 入站 TLS builtin，Ctrl-C 退出；FR-606：外网地址被 bind 门禁拒绝）
+入站证书指纹（SHA-256）：30b9442d30a388da09a28899a4016323aaf7e3d282686219c7cdf984da0c87e9
+证书设置页：https://127.0.0.1:18443/settings/certs（入站档位与证书变更需重启 serve --web 后生效）
+工作区数据库：d:\WHCode\script\tls-verify\ws\s1-default\whcode.duckdb
+[check] 1.2 PASS：启动输出含 https:// 地址与协议（https://127.0.0.1:18443/）
+[check] 1.3 PASS：启动输出含证书 SHA-256 指纹（指纹 30b9442d30a388da09a28899a4016323aaf7e3d282686219c7cdf984da0c87e9）
+[check] 1.4 PASS：启动输出含证书设置页地址（https://127.0.0.1:18443/settings/certs）
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s1-api-sessions.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s1-api-sessions.body -w %{http_code} -k https://127.0.0.1:18443/api/sessions
+[exit 0]
+--- stdout ---
+200
+[s1] /api/sessions schema_version=1；sessions 条数=0
+[check] 1.5 PASS：curl -k 访问 /api/sessions 返回 200 且为合法 JSON（HTTP 200）
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s1-settings-certs.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s1-settings-certs.body -w %{http_code} -k https://127.0.0.1:18443/settings/certs
+[exit 0]
+--- stdout ---
+200
+[check] 1.6 PASS：curl -k 访问 /settings/certs 返回 HTML 且含文件路径（HTTP 200，7872 字节）
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s1-api-sessions-no-k.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s1-api-sessions-no-k.body -w %{http_code} https://127.0.0.1:18443/api/sessions
+[exit 60]
+--- stdout ---
+000
+--- stderr ---
+curl: (60) schannel: SEC_E_UNTRUSTED_ROOT (0x80090325) - 证书链是由不受信任的颁发机构颁发的。
+More details here: https://curl.se/docs/sslcerts.html
+
+curl failed to verify the legitimacy of the server and therefore could not
+establish a secure connection to it. To learn more about this situation and
+how to fix it, please visit the webpage mentioned above.
+[check] 1.7 PASS：不带 -k 的 curl 因自签不受信而失败（curl exit 60；stderr：curl: (60) schannel: SEC_E_UNTRUSTED_ROOT (0x80090325) - 证书链是由不受信任的颁发机构颁发的。
+More details here: https://curl.se/docs/sslcerts.html
+
+curl failed to verify the ）
+[s1] server-cert.pem 路径：d:\WHCode\script\tls-verify\ws\s1-default\.whcode\certs\server-cert.pem
+[s1] server-key.pem 路径：d:\WHCode\script\tls-verify\ws\s1-default\.whcode\certs\server-key.pem（只引用路径，不输出内容）
+[s1] 证书 DER SHA-256：30b9442d30a388da09a28899a4016323aaf7e3d282686219c7cdf984da0c87e9
+[s1] 证书文件字节 SHA-256：5229259fa29e756525eb1ca5f8ad88ab634965659954a4843e8bacb94dcdf2d4
+[check] 1.8 PASS：启动打印的指纹等于证书 DER 的 SHA-256（30b9442d30a388da09a28899a4016323aaf7e3d282686219c7cdf984da0c87e9 vs 30b9442d30a388da09a28899a4016323aaf7e3d282686219c7cdf984da0c87e9）
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s1-api-certs.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s1-api-certs.body -w %{http_code} -k https://127.0.0.1:18443/api/certs
+[exit 0]
+--- stdout ---
+200
+[s1] /api/certs inbound.mode=builtin；inbound.sha256=30b9442d30a388da09a28899a4016323aaf7e3d282686219c7cdf984da0c87e9
+[check] 1.9 PASS：GET /api/certs 的 inbound.sha256 与启动指纹一致（30b9442d30a388da09a28899a4016323aaf7e3d282686219c7cdf984da0c87e9 vs 30b9442d30a388da09a28899a4016323aaf7e3d282686219c7cdf984da0c87e9）
+[scan] s1 含私钥字样：False
+[check] 1.10 PASS：启动与查询响应均不含私钥（扫描 stdout/stderr 与响应体）
+[stop] s1 进程结束，exit 1（主动终止返回非 0 属预期）
+[stop] 端口 127.0.0.1:18443 已释放：True
+
+==============================================================================
+[2026-10-25T07:11:38Z] 场景 2：--tls off（明文 HTTP，且选择不被改回）
+==============================================================================
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 127.0.0.1:18080 --workspace d:\WHCode\script\tls-verify\ws\s2-off --tls off
+[pid 19628] 标准输出 → s2-off-stdout.log；标准错误 → s2-off-stderr.log
+[s2] 就绪（HTTP 200）
+[check] 2.1 PASS：--tls off 启动成功（就绪（HTTP 200））
+[s2] 启动输出：
+WHCode Web 服务：http://127.0.0.1:18080/（仅回环 · 入站 TLS off，Ctrl-C 退出；FR-606：外网地址被 bind 门禁拒绝）
+入站 TLS 已关闭（off）：明文 HTTP，Origin 允许集为 http://（ADR-040 决策 3）
+证书设置页：http://127.0.0.1:18080/settings/certs（入站档位与证书变更需重启 serve --web 后生效）
+工作区数据库：d:\WHCode\script\tls-verify\ws\s2-off\whcode.duckdb
+[check] 2.2 PASS：启动输出为 http:// 且声明入站 TLS 已关闭（http://127.0.0.1:18080/）
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s2-api-sessions.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s2-api-sessions.body -w %{http_code} http://127.0.0.1:18080/api/sessions
+[exit 0]
+--- stdout ---
+200
+[check] 2.3 PASS：curl http://…/api/sessions 返回 200（HTTP 200）
+[s2] 证书库目录存在：False；settings.json 存在：False
+[check] 2.4 PASS：--tls off 不写回 settings.json、不生成证书库（off 档位在 prepare_tls 中提前返回，未触碰证书库）
+[stop] s2-off 进程结束，exit 1（主动终止返回非 0 属预期）
+[stop] 端口 127.0.0.1:18080 已释放：True
+
+==============================================================================
+[2026-10-25T07:11:40Z] 场景 2b：settings.inbound=off 重启后仍为明文（选择持久）
+==============================================================================
+[setup] 写入 d:\WHCode\script\tls-verify\ws\s2-settings-off\.whcode\certs\settings.json：{"schema_version": 1, "outbound": "builtin", "inbound": "off"}
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 127.0.0.1:18081 --workspace d:\WHCode\script\tls-verify\ws\s2-settings-off
+[pid 1836] 标准输出 → s2-settings-off-stdout.log；标准错误 → s2-settings-off-stderr.log
+[s2b] 就绪（HTTP 200）
+[s2b] 启动输出：
+WHCode Web 服务：http://127.0.0.1:18081/（仅回环 · 入站 TLS off，Ctrl-C 退出；FR-606：外网地址被 bind 门禁拒绝）
+入站 TLS 已关闭（off）：明文 HTTP，Origin 允许集为 http://（ADR-040 决策 3）
+证书设置页：http://127.0.0.1:18081/settings/certs（入站档位与证书变更需重启 serve --web 后生效）
+工作区数据库：d:\WHCode\script\tls-verify\ws\s2-settings-off\whcode.duckdb
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s2b-api-sessions.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s2b-api-sessions.body -w %{http_code} http://127.0.0.1:18081/api/sessions
+[exit 0]
+--- stdout ---
+200
+[s2b] 运行后 settings.json：{"schema_version": 1, "outbound": "builtin", "inbound": "off"}
+
+[check] 2.5 PASS：settings.inbound=off 重启后仍以 http 提供服务且设置未被改回（HTTP 200；settings 保持 off）
+[stop] s2-settings-off 进程结束，exit 1（主动终止返回非 0 属预期）
+[stop] 端口 127.0.0.1:18081 已释放：True
+
+==============================================================================
+[2026-10-25T07:11:41Z] 场景 3：external 档位（同一对自签材料作为外部材料）
+==============================================================================
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 127.0.0.1:18444 --workspace d:\WHCode\script\tls-verify\ws\s3-builtin
+[pid 18724] 标准输出 → s3-builtin-stdout.log；标准错误 → s3-builtin-stderr.log
+[s3] 生成材料（builtin）：就绪（HTTP 200）
+[stop] s3-builtin 进程结束，exit 1（主动终止返回非 0 属预期）
+[stop] 端口 127.0.0.1:18444 已释放：True
+[check] 3.1 PASS：builtin 工作区生成了可用的服务端证书与私钥（d:\WHCode\script\tls-verify\ws\s3-builtin\.whcode\certs\server-cert.pem；d:\WHCode\script\tls-verify\ws\s3-builtin\.whcode\certs\server-key.pem）
+[setup] 写入 d:\WHCode\script\tls-verify\ws\s3-external\.whcode\certs\settings.json：{"schema_version": 1, "outbound": "builtin", "inbound": "external"}
+[s3] 外部材料：证书 d:\WHCode\script\tls-verify\ws\s3-external\.whcode\certs\server-cert.pem（DER SHA-256 6ca496caa396e5607a2693d0386a250f982449c7e6260c7633ba4c64c09a7028）；私钥 d:\WHCode\script\tls-verify\ws\s3-external\.whcode\certs\server-key.pem（只引用路径）
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 127.0.0.1:18444 --workspace d:\WHCode\script\tls-verify\ws\s3-external
+[pid 25040] 标准输出 → s3-external-stdout.log；标准错误 → s3-external-stderr.log
+[s3] external 启动：就绪（HTTP 200）
+[s3] 启动输出：
+WHCode Web 服务：https://127.0.0.1:18444/（仅回环 · 入站 TLS external，Ctrl-C 退出；FR-606：外网地址被 bind 门禁拒绝）
+入站证书指纹（SHA-256）：6ca496caa396e5607a2693d0386a250f982449c7e6260c7633ba4c64c09a7028
+证书设置页：https://127.0.0.1:18444/settings/certs（入站档位与证书变更需重启 serve --web 后生效）
+工作区数据库：d:\WHCode\script\tls-verify\ws\s3-external\whcode.duckdb
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s3-api-sessions.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s3-api-sessions.body -w %{http_code} -k https://127.0.0.1:18444/api/sessions
+[exit 0]
+--- stdout ---
+200
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s3-api-certs.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s3-api-certs.body -w %{http_code} -k https://127.0.0.1:18444/api/certs
+[exit 0]
+--- stdout ---
+200
+[check] 3.2 PASS：external 档位以 HTTPS 提供服务且声明入站档位为 external（就绪（HTTP 200））
+[check] 3.3 PASS：external 加载的材料指纹与外部证书 DER SHA-256 一致（6ca496caa396e5607a2693d0386a250f982449c7e6260c7633ba4c64c09a7028 vs 6ca496caa396e5607a2693d0386a250f982449c7e6260c7633ba4c64c09a7028）
+[check] 3.4 PASS：external 档位下 API 可用且 /api/certs 报告 external（/api/sessions HTTP 200；inbound.mode=external）
+[scan] s3 含私钥字样：False
+[check] 3.5 PASS：external 启动与响应不含私钥（扫描 stdout/stderr 与响应体）
+[stop] s3-external 进程结束，exit 1（主动终止返回非 0 属预期）
+[stop] 端口 127.0.0.1:18444 已释放：True
+
+==============================================================================
+[2026-10-25T07:11:45Z] 场景 3b：证书与私钥不配对 → 拒绝启动（配对校验）
+==============================================================================
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 127.0.0.1:18447 --workspace d:\WHCode\script\tls-verify\ws\s3-other
+[pid 17288] 标准输出 → s3-other-stdout.log；标准错误 → s3-other-stderr.log
+[s3b] 生成第二对材料：就绪（HTTP 200）
+[stop] s3-other 进程结束，exit 1（主动终止返回非 0 属预期）
+[stop] 端口 127.0.0.1:18447 已释放：True
+[setup] 写入 d:\WHCode\script\tls-verify\ws\s3-bad\.whcode\certs\settings.json：{"schema_version": 1, "outbound": "builtin", "inbound": "external"}
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 127.0.0.1:18444 --workspace d:\WHCode\script\tls-verify\ws\s3-bad
+[exit 1]
+--- stderr ---
+Web 服务失败：parse_error: 构造入站 TLS 服务端配置失败：keys may not be consistent: KeyMismatch；请确认证书链与私钥匹配（同一密钥对），且私钥为未加密的 PKCS#8／PKCS#1／SEC1 PEM（ADR-040 决策 3）；证书库目录 d:\WHCode\script\tls-verify\ws\s3-bad\.whcode\certs
+[check] 3.6 PASS：不配对的证书与私钥被拒绝启动且错误可操作（exit 1；Web 服务失败：parse_error: 构造入站 TLS 服务端配置失败：keys may not be consistent: KeyMismatch；请确认证书链与私钥匹配（同一密钥对），且私钥为未加密的 PKCS#8／PKCS#1／SEC1 PEM（ADR-040 决策 3）；证书库目录 d:\WHCode\script\tls-verify\ws\s3-bad\.whcode\cert）
+
+==============================================================================
+[2026-10-25T07:11:47Z] 场景 4：RFC1918 地址 + --token-file + HTTPS
+==============================================================================
+
+$ powershell -NoProfile -Command Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -match '^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)' } | Select-Object -ExpandProperty IPAddress
+[exit 0]
+--- stdout ---
+192.168.56.1
+192.168.179.1
+192.168.5.4
+192.168.137.1
+[lan] 枚举到的 RFC1918 IPv4：['192.168.56.1', '192.168.179.1', '192.168.5.4', '192.168.137.1']
+[s4] 选定地址 192.168.5.4；token 长度 48 字符（值不写入证据）
+[check] 4.1 PASS：找到本机 RFC1918 IPv4（192.168.5.4）
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 192.168.5.4:18445 --workspace d:\WHCode\script\tls-verify\ws\s4-lan --token-file d:\WHCode\script\tls-verify\token.txt
+[pid 12412] 标准输出 → s4-lan-stdout.log；标准错误 → s4-lan-stderr.log
+[s4] 就绪（HTTP 403）
+[s4] 启动输出：
+证书库：入站自签证书不存在；已重新生成自签证书（旧指纹 无，新指纹 0aeb6fa205df0be456028779c133744bb5a26826c83942e0963607ae3fdfd825）
+WHCode Web 服务：https://192.168.5.4:18445/（局域网 · 认证启用 · 入站 TLS builtin；Ctrl-C 退出；ADR-023／ADR-040）
+入站证书指纹（SHA-256）：0aeb6fa205df0be456028779c133744bb5a26826c83942e0963607ae3fdfd825
+证书设置页：https://192.168.5.4:18445/settings/certs（入站档位与证书变更需重启 serve --web 后生效）
+工作区数据库：d:\WHCode\script\tls-verify\ws\s4-lan\whcode.duckdb
+[check] 4.2 PASS：局域网 + HTTPS 启动成功（认证启用）（就绪（HTTP 403））
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s4-api-sessions-no-token.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s4-api-sessions-no-token.body -w %{http_code} -k https://192.168.5.4:18445/api/sessions
+[exit 0]
+--- stdout ---
+403
+[check] 4.3 PASS：无 token 的 HTTPS 请求被拒绝（4xx 且不返回数据）（HTTP 403）
+[check] 4.3b 未取得：无 token 返回 401（ADR-023 措辞）（实测 HTTP 403；实现返回 403 permission_denied，docs/guides/web-deployment-security.md §10.1 已登记该差异（以实现为准、ADR 待修订），Check 283 接受 401／403）
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s4-api-sessions-with-token.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s4-api-sessions-with-token.body -w %{http_code} -k -H Authorization: Bearer <redacted> https://192.168.5.4:18445/api/sessions
+[exit 0]
+--- stdout ---
+200
+[check] 4.4 PASS：带 Authorization: Bearer 的请求返回 200（HTTP 200）
+[scan] s4 含私钥字样：False
+[check] 4.5 PASS：局域网请求与响应不含私钥（扫描 stdout 与响应体）
+[stop] s4-lan 进程结束，exit 1（主动终止返回非 0 属预期）
+[stop] 端口 192.168.5.4:18445 已释放：True
+
+==============================================================================
+[2026-10-25T07:11:49Z] 场景 4b：绑定 RFC1918 但缺 --token-file → 拒绝启动
+==============================================================================
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 192.168.5.4:18445 --workspace d:\WHCode\script\tls-verify\ws\s4-notoken
+[exit 1]
+--- stderr ---
+Web 服务失败：invalid_state: 局域网监听必须提供 --token-file（ADR-023：认证仅在显式 token 下启用；token 只从文件读取，不经命令行传递）
+[check] 4.6 PASS：缺 --token-file 绑定局域网地址被拒绝（退出码非 0 且错误含认证要求）（exit 1；Web 服务失败：invalid_state: 局域网监听必须提供 --token-file（ADR-023：认证仅在显式 token 下启用；token 只从文件读取，不经命令行传递））
+
+==============================================================================
+[2026-10-25T07:11:49Z] 场景 5：证书设置页与 /api/certs 路由
+==============================================================================
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 127.0.0.1:18448 --workspace d:\WHCode\script\tls-verify\ws\s5-api
+[pid 17736] 标准输出 → s5-api-stdout.log；标准错误 → s5-api-stderr.log
+[s5] 就绪（HTTP 200）
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s5-settings-certs.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s5-settings-certs.body -w %{http_code} -k https://127.0.0.1:18448/settings/certs
+[exit 0]
+--- stdout ---
+200
+[check] 5.1 PASS：/settings/certs 返回 HTML，含只读状态摘要与文件路径（HTTP 200；7856 字节）
+[scan] s5-page 含私钥字样：False
+[check] 5.2 PASS：设置页不含私钥正文（扫描 HTML 响应体）
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s5-api-certs.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s5-api-certs.body -w %{http_code} -k https://127.0.0.1:18448/api/certs
+[exit 0]
+--- stdout ---
+200
+[s5] /api/certs：schema_version=1；outbound.mode=builtin；inbound.mode=builtin；restart_required=False；inbound.sha256=ecd192003383d16c8a9dd9973fef3a928a480474229849ec2a224ac56a75edcb
+[check] 5.3 PASS：GET /api/certs 返回契约字段且指纹与启动输出一致（HTTP 200）
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s5-modes-off.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s5-modes-off.body -w %{http_code} -k -X POST --data-binary {"inbound": "off", "confirm": true} -H content-type: application/json https://127.0.0.1:18448/api/certs/modes
+[exit 0]
+--- stdout ---
+200
+[check] 5.4 PASS：POST /api/certs/modes 把 inbound 改为 off 并置 restart_required=true（HTTP 200；restart_required=True）
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s5-modes-back.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s5-modes-back.body -w %{http_code} -k -X POST --data-binary {"inbound": "builtin"} -H content-type: application/json https://127.0.0.1:18448/api/certs/modes
+[exit 0]
+--- stdout ---
+200
+[check] 5.5 PASS：改回 builtin 成功且仍标记需重启（不热切换监听）（HTTP 200；restart_required=True）
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s5-verify.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s5-verify.body -w %{http_code} -k -X POST --data-binary {"host": "127.0.0.1", "port": 18448} -H content-type: application/json https://127.0.0.1:18448/api/certs/verify
+[exit 0]
+--- stdout ---
+500
+[s5] /api/certs/verify（自探针指向自身单线程服务）响应：
+{"code":"timeout","details":null,"message":"TLS 握手未能在 2 秒总预算内完成（目标 127.0.0.1:18448）；请确认目标可达后重试（ADR-040 决策 4 的单次 2 秒上限）","retryable":true,"schema_version":1}
+[check] 5.6 PASS：POST /api/certs/verify 给出明确结果（成功或明确失败，不静默）（HTTP 500；自探针指向同一单线程服务会占住该线程，结果为明确超时而非证书判定）
+
+==============================================================================
+[2026-10-25T07:11:52Z] 场景 5b：跨进程 verify（第二个 serve 作对端；先不受信、后加入信任）
+==============================================================================
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 127.0.0.1:18450 --workspace d:\WHCode\script\tls-verify\ws\s5-peer
+[pid 12676] 标准输出 → s5-peer-stdout.log；标准错误 → s5-peer-stderr.log
+[s5b] 对端 serve：就绪（HTTP 200）
+[s5b] 对端证书路径 d:\WHCode\script\tls-verify\ws\s5-peer\.whcode\certs\server-cert.pem；DER SHA-256 873325ab37bac1a422e0adf94b5336f7099b2f9c42858d4289588ecf0f686339
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s5-verify-peer-untrusted.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s5-verify-peer-untrusted.body -w %{http_code} -k -X POST --data-binary {"host": "127.0.0.1", "port": 18450} -H content-type: application/json https://127.0.0.1:18448/api/certs/verify
+[exit 0]
+--- stdout ---
+400
+[s5b] 未加入信任时的 verify 响应：
+{"code":"invalid_state","details":null,"message":"与 127.0.0.1:18450 的 TLS 握手被拒绝：证书链的签发者不在当前信任集合内；请把对应根证书加入 ca-extra.pem，或把出站档位改为 system（不得关闭校验，ADR-040 决策 2）","retryable":false,"schema_version":1}
+[check] 5.7 PASS：跨进程 verify：自签对端不在信任库时明确失败（HTTP 400；code=invalid_state）
+[s5b] 追加根证书请求体已写入 d:\WHCode\script\tls-verify\ca-extra.json（650 字节；只含公开证书 PEM，无私钥）
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s5-ca-extra.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s5-ca-extra.body -w %{http_code} -k -X POST --data-binary @d:\WHCode\script\tls-verify\ca-extra.json -H content-type: application/json https://127.0.0.1:18448/api/certs/ca
+[exit 0]
+--- stdout ---
+200
+[s5b] 追加根证书：HTTP 200；outbound.effective_root_count=119；restart_required=True
+
+$ curl.exe -sS --max-time 20 -D d:\WHCode\artifacts\tls-2026-10-25\s5-verify-peer-trusted.headers.txt -o d:\WHCode\artifacts\tls-2026-10-25\s5-verify-peer-trusted.body -w %{http_code} -k -X POST --data-binary {"host": "127.0.0.1", "port": 18450} -H content-type: application/json https://127.0.0.1:18448/api/certs/verify
+[exit 0]
+--- stdout ---
+200
+[s5b] 加入信任后的 verify 响应：
+{"host":"127.0.0.1","not_after":"2027-11-25T07:11:52Z","ok":true,"port":18450,"sans":["localhost","127.0.0.1","::1","desktop-m5p610n"],"schema_version":1,"sha256":"873325ab37bac1a422e0adf94b5336f7099b2f9c42858d4289588ecf0f686339","subject":"CN=WHCode local","tls_version":"TLSv1_3"}
+[check] 5.8 PASS：追加对端证书为信任根后 verify 返回 ok 且指纹与对端一致（HTTP 200；ok=True；sha256=873325ab37bac1a422e0adf94b5336f7099b2f9c42858d4289588ecf0f686339）
+[stop] s5-peer 进程结束，exit 1（主动终止返回非 0 属预期）
+[stop] 端口 127.0.0.1:18450 已释放：True
+[scan] s5 含私钥字样：False
+[check] 5.9 PASS：证书 API 全部响应不含私钥（扫描 stdout/stderr 与全部响应体）
+[stop] s5-api 进程结束，exit 1（主动终止返回非 0 属预期）
+[stop] 端口 127.0.0.1:18448 已释放：True
+
+==============================================================================
+[2026-10-25T07:11:55Z] 场景 6：资源复核（--tls off 与默认 TLS，15 s 后每 2 s 采样 3 次）
+==============================================================================
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 127.0.0.1:18082 --workspace d:\WHCode\script\tls-verify\ws\r-off --tls off
+[pid 24312] 标准输出 → r-off-stdout.log；标准错误 → r-off-stderr.log
+[resource] r-off 就绪（HTTP 200）
+[resource] r-off 稳定运行 15 s 后开始采样（PID 24312）
+[resource] r-off 第 1 次采样：RSS 42942464 B；线程 68；句柄 215；CPU 0.4844 s
+[resource] r-off 第 2 次采样：RSS 42942464 B；线程 68；句柄 215；CPU 0.5156 s
+[resource] r-off 第 3 次采样：RSS 42979328 B；线程 68；句柄 215；CPU 0.5625 s
+[stop] r-off 进程结束，exit 1（主动终止返回非 0 属预期）
+[stop] 端口 127.0.0.1:18082 已释放：True
+
+$ d:\WHCode\target\debug\whcode.exe serve --web --bind 127.0.0.1:18449 --workspace d:\WHCode\script\tls-verify\ws\r-tls
+[pid 18272] 标准输出 → r-tls-stdout.log；标准错误 → r-tls-stderr.log
+[resource] r-tls 就绪（HTTP 200）
+[resource] r-tls 稳定运行 15 s 后开始采样（PID 18272）
+[resource] r-tls 第 1 次采样：RSS 47259648 B；线程 68；句柄 216；CPU 0.5625 s
+[resource] r-tls 第 2 次采样：RSS 47312896 B；线程 68；句柄 216；CPU 0.6250 s
+[resource] r-tls 第 3 次采样：RSS 47300608 B；线程 68；句柄 216；CPU 0.6875 s
+[stop] r-tls 进程结束，exit 1（主动终止返回非 0 属预期）
+[stop] 端口 127.0.0.1:18449 已释放：True
+[resource] --tls off 汇总：{"median_rss_bytes": 42942464, "median_threads": 68, "median_handles": 215, "cpu_percent_intervals": [1.5416, 2.3156], "cpu_percent_median": 1.9286, "cpu_percent_overall": 1.9283}
+[resource] 默认 TLS 汇总：{"median_rss_bytes": 47300608, "median_threads": 68, "median_handles": 216, "cpu_percent_intervals": [3.0825, 3.0735], "cpu_percent_median": 3.078, "cpu_percent_overall": 3.078}
+[check] 6.1 PASS：TLS 档位线程数不高于 --tls off（允许相等）（off 68 → TLS 68）
+
+==============================================================================
+[2026-10-25T07:12:37Z] 收尾
+==============================================================================
+[done] run.log、summary.md、resources.json 与响应片段已写入 d:\WHCode\artifacts\tls-2026-10-25
+[done] 未取得项统计：1 / 38
+[cleanup] 删除临时目录 d:\WHCode\script\tls-verify
+[cleanup] 临时目录仍存在：False
+[exit] 脚本退出码 0

@@ -27,6 +27,14 @@
 | S-09 | —（随 T167） | 契约文档：剖面 schema 与 `llm run` 命令面 | **未交付** | 无 `contracts/` 文件；剖面字段现由 `profile.rs` 的 serde 结构与单测承担 | 与 T167 同批补 `contracts/`（剖面字段、凭据来源、超时默认值、错误码映射），并标注“交付前不生效” |
 | S-10 | —（随全量门禁） | 全量 `fmt`／`clippy`／`test` 与 CI 取证 | **未执行（本次范围外）** | 本次只执行目录分类门禁与 EOL 门禁，结果见 §2 | 由主代理在合入批次执行；不得以本地结果冒充 CI（ADR-037） |
 
+**2026-10-25 进展**：S-01—S-05（T162—T166）已完成——`http/client.rs` 落地阻塞式
+`ureq` 客户端与有界流式读取，`http/chunks.rs` 完成 chunk 归一，传输快照／时限／重试／
+取消与剖面容权注入均有测试；`cargo test -p whcode-llm --features http` 77 项通过，
+本地回环端到端证据 `artifacts/llm-e2e-2026-10-25.md`。S-06（T167）为**部分交付**：
+CUI／Web 已接线，TUI／GUI 仍 `Reserved`；S-09 契约已补入
+`contracts/app-service.md`／`cui-cli.md`；S-10 全量 CI 证据待本次推送后取得，
+未取得前不改变“变更未完成”的结论。
+
 ## 2. 本次执行的门禁与结果
 
 | 门禁 | 命令 | 结果 | 说明 |

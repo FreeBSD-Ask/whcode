@@ -103,12 +103,14 @@ whcode db explain --query "SELECT ..."   # 只读查询的查询计划
 whcode doctor [--json]              # 环境与配置自检
 ```
 
-## 9. 实现状态（2026-10-24 四端对等收口）
+## 9. 实现状态（2026-10-25 LLM 接线）
 
 已接线（真实执行，退出码见 §1）：
 `session new/list/show/rename/archive/delete`、`status`、`task list/show/retry/abort`、
 `events list/export`（json/jsonl）、`context budget`、`runtime list`、`spec status`、
-`db stats/check/purge/compact/archive/explain`。
+`db stats/check/purge/compact/archive/explain`、`llm run`／`llm cancel`
+（T162—T167；真实 HTTP 仅在启用 `http` feature 的构建中装配，关闭时返回 `not_supported`；
+TUI／GUI 仍为 `Reserved`，不得据本节宣称四端可用）。
 
 未接线（显式失败，退出码 `55` + `not_supported` 信封，不静默成功）：
 `run`（Provider 流式装配）、`events show`（按 ID 查询接口未提供）、

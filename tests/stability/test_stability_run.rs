@@ -4,11 +4,26 @@
 //! **单个长驻进程**：自建工作区、持续写入／查询／切换／清理，并按间隔自采样。
 //! 这样 RSS 斜率归属于同一个 PID，NFR-204 的 RSS 斜率（5.5 小时，ADR-033）才有可解释对象。
 //!
-//! 采集字段（§11.5 可取得部分）：RSS、累计 CPU 与单核占比、线程数、句柄数、
-//! 数据库与 WAL 大小、事件行数与最大 seq、事件缺失计数、failed 任务数、提交
-//! 延迟、查询延迟、会话切换延迟。**写者队列深度与最老队列项年龄标记为 null**：
-//! 本夹具直连 `Connection`，不经 `WriterService`（其 `m0_events` 原型表不是正式
-//! 事件路径），不得以 0 冒充“队列为空”。该缺口按 T116 记录，待真实事件写者接线。
+//! 采集字段（§11.5）：RSS、累计 CPU 与单核占比、线程数、句柄数、数据库与 WAL 大小、
+//! 事件行数与最大 seq、事件缺失计数、failed 任务数、提交延迟、查询延迟、会话切换延迟，
+//! 以及**写者队列深度与最老队列项年龄**。
+//!
+//! 写者队列取自事件写者原型 [`whcode_store::EventWriter`] 的待写缓冲：每个周期把同一批
+//! 事件经 `submit_at` 提交给写者（写者目标表为 `m0_events`，T026/ADR-002 的原型表），
+//! 采样时读取 `pending_len()` 与 `oldest_pending_age_ms(now)`。**`events` 表（10 万初始
+//! 数据集与持续写入/清理）仍为直连 `Connection`**：写者只认 `m0_events`，把它改写成
+//! `events` 会改变 ADR-002 的写入语义，超出本次范围。因此口径必须分开读：
+//!
+//! - **经写者**：每周期同一批事件（`BATCH_EVENTS` 条）提交到 `m0_events`，其待写缓冲即
+//!   本夹具报告的“写者队列”；
+//! - **不经写者**：`events` 表的初始生成与持续批量写入/清理，**不进入该队列**，
+//!   不得用本队列推断 `events` 直连写入的排队情况。
+//!
+//! `writer_queue_depth = 0` 且 `writer_queue_empty = true` 表示该样本时写者缓冲确实为空
+//! （实测空），不是“指标不可得”——后者以 `null` 表达；两者不得互换，也不得以 0 冒充。
+//! 口径限制：`EventWriter` 是同步原型、**无后台定时器**（窗口到期只在下次提交或显式
+//! `flush_if_due` 时判定），因此最老条目年龄包含“本周期到下次提交”的等待；
+//! 它度量的是本夹具提交节奏下的队列驻留时间，不等于写者服务线程（`WriterService`）的刷新延迟。
 //!
 //! 运行方式（由 `tests/stability/run_stability.sh` 驱动）：
 //!
@@ -30,8 +45,12 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use duckdb::{Connection, params};
 use whcode_app::{DefaultPolicy, actor_with_all_capabilities, switch_session};
+use whcode_domain::{EventKind, EventRecord, PersistenceLevel, SCHEMA_VERSION};
 use whcode_platform::{current_rss_bytes, process_stats};
-use whcode_store::{Direction, MAX_PAGE_SIZE, apply_migrations, events_page};
+use whcode_store::{
+    Direction, EventWriter, MAX_PAGE_SIZE, WriteOutcome, WriterConfig, apply_migrations,
+    events_page,
+};
 
 /// 初始数据集规模（与 NFR 夹具同构，V-101）。
 const DATASET_EVENTS: usize = 100_000;
@@ -71,6 +90,14 @@ fn epoch_seconds() -> u64 {
         .unwrap_or(0)
 }
 
+/// 当前时间（毫秒），与 `EventRecord.ts_ms` 和写者批次窗口同一口径。
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
+}
+
 fn percentile(values: &mut [f64], p: f64) -> f64 {
     if values.is_empty() {
         return 0.0;
@@ -93,6 +120,12 @@ fn file_len(path: &Path) -> u64 {
 /// 长跑采集器状态。
 struct StabilityRun {
     conn: Connection,
+    /// 正式事件写者：其待写缓冲即本夹具报告的“写者队列”（目标表 `m0_events`）。
+    ///
+    /// 与 `conn` 是同一数据库实例的两个连接（`Connection::try_clone` 不二次打开文件，
+    /// 避免 ADR-012 记录的“同进程二次打开同一文件被拒”）。写入按单线程顺序进行：
+    /// 先 `conn` 提交 `events` 批次，再由写者提交/刷新，二者不并发。
+    writer: EventWriter,
     db_path: PathBuf,
     out: BufWriter<File>,
     started: Instant,
@@ -110,6 +143,12 @@ struct StabilityRun {
     last_cpu_seconds: f64,
     purge_threshold: i64,
     purge_batch: i64,
+    /// 经写者提交的事件总数（与 `inserted` 的 `events` 直连计数分开统计）。
+    writer_submitted: i64,
+    /// 写者目标表已清理行数（保持 `m0_events` 有界）。
+    writer_deleted: i64,
+    /// 写者待写缓冲的观测峰值（每次提交后采样，用于证明队列信号非零）。
+    writer_queue_peak: usize,
 }
 
 impl StabilityRun {
@@ -152,9 +191,15 @@ impl StabilityRun {
             .append(true)
             .open(out_path)
             .expect("打开 JSONL 输出");
+        // 事件写者原型接在同一数据库实例的第二条连接上；默认批次参数（500 行 / 50 ms，
+        // FR-503）。40 事件/秒时窗口先到，缓冲内始终有本周期未提交的非关键事件，
+        // 队列深度与最老条目年龄因此是实测非空信号（而非恒 0 的假信号）。
+        let writer_conn = conn.try_clone().expect("克隆连接供事件写者使用");
+        let writer = EventWriter::new(writer_conn, WriterConfig::default()).expect("建立事件写者");
         let cpu = process_stats(std::process::id()).expect("初始进程资源");
         Self {
             conn,
+            writer,
             db_path,
             out: BufWriter::new(out),
             started: Instant::now(),
@@ -172,11 +217,15 @@ impl StabilityRun {
             last_cpu_seconds: cpu.cpu_seconds,
             purge_threshold: env_i64("WHCODE_STABILITY_PURGE_THRESHOLD", PURGE_THRESHOLD_DEFAULT),
             purge_batch: env_i64("WHCODE_STABILITY_PURGE_BATCH", PURGE_BATCH_DEFAULT),
+            writer_submitted: 0,
+            writer_deleted: 0,
+            writer_queue_peak: 0,
         }
     }
 
     fn write_batch(&mut self) -> f64 {
         let started = Instant::now();
+        let batch_start = self.next_seq;
         self.conn
             .execute_batch("BEGIN TRANSACTION")
             .expect("开始写入事务");
@@ -201,7 +250,44 @@ impl StabilityRun {
         self.conn.execute_batch("COMMIT").expect("提交事件批次");
         self.next_seq += BATCH_EVENTS;
         self.inserted += BATCH_EVENTS;
-        started.elapsed().as_secs_f64() * 1000.0
+        // 提交延迟只度量 `events` 直连批次的 COMMIT；写者提交单独计数，不混入口径。
+        let commit_ms = started.elapsed().as_secs_f64() * 1000.0;
+        self.submit_through_writer(batch_start);
+        commit_ms
+    }
+
+    /// 把同一批持续写入事件提交给正式写者，并记录其待写缓冲的观测峰值。
+    ///
+    /// 目标表是写者原型的 `m0_events`（T026/ADR-002）；`events` 表的直连写入不经过这里，
+    /// 因此本队列只覆盖“经写者”的事件，不得用来推断 `events` 直连写入的排队情况。
+    fn submit_through_writer(&mut self, batch_start: i64) {
+        let now = now_ms();
+        for offset in 0..BATCH_EVENTS {
+            let seq = batch_start + offset;
+            let record = EventRecord {
+                schema_version: SCHEMA_VERSION,
+                seq: seq.max(0) as u64,
+                id: format!("E-STABILITY-{seq}"),
+                kind: EventKind::StreamingChunk,
+                session_id: Some("S-BIG".to_string()),
+                task_id: None,
+                request_id: Some(format!("R-STABILITY-{seq}")),
+                tool_call_id: None,
+                payload: serde_json::json!({"pad": "x".repeat(32), "seq": seq}),
+                ts_ms: now,
+                persistence_level: PersistenceLevel::Redacted,
+            };
+            let outcome = self
+                .writer
+                .submit_at(record, format!("W-STABILITY-{seq}"), now)
+                .expect("事件写者提交");
+            assert!(
+                !matches!(outcome, WriteOutcome::Deduplicated { .. }),
+                "每批幂等键唯一，不得命中既有事件（seq={seq}）"
+            );
+            self.writer_submitted += 1;
+            self.writer_queue_peak = self.writer_queue_peak.max(self.writer.pending_len());
+        }
     }
 
     fn query_page(&mut self) -> f64 {
@@ -228,6 +314,12 @@ impl StabilityRun {
     }
 
     fn purge_if_needed(&mut self) {
+        self.purge_events_if_needed();
+        // 写者目标表必须独立清理：若跟随 `events` 阈值触发，两次清理间隔内它会持续增长。
+        self.purge_writer_if_needed();
+    }
+
+    fn purge_events_if_needed(&mut self) {
         let count: i64 = self
             .conn
             .query_row(
@@ -258,6 +350,35 @@ impl StabilityRun {
         self.deleted += i64::try_from(deleted).expect("删除行数可转换");
     }
 
+    /// 写者目标表的有界清理：行数超过一个清理批（`WHCODE_STABILITY_PURGE_BATCH`）时
+    /// 删除最旧一批，使 `m0_events` 与 `events` 同量级封顶（X4）。
+    ///
+    /// 只删除已提交行，不触碰写者待写缓冲，也不改变写者语义；`seq` 由写者按表内最大值
+    /// 续起，删除最旧行不会造成序号重用。
+    fn purge_writer_if_needed(&mut self) {
+        let count: i64 = self
+            .conn
+            .query_row("SELECT count(*) FROM m0_events", [], |row| row.get(0))
+            .expect("读取写者事件总量");
+        if count <= self.purge_batch {
+            return;
+        }
+        let cutoff: i64 = self
+            .conn
+            .query_row(
+                "SELECT COALESCE(MIN(seq), 0) FROM (
+                     SELECT seq FROM m0_events ORDER BY seq DESC LIMIT ?)",
+                params![self.purge_batch],
+                |row| row.get(0),
+            )
+            .expect("计算写者清理阈值");
+        let deleted = self
+            .conn
+            .execute("DELETE FROM m0_events WHERE seq < ?", params![cutoff])
+            .expect("清理最旧写者事件");
+        self.writer_deleted += i64::try_from(deleted).expect("删除行数可转换");
+    }
+
     fn sample(&mut self) {
         self.sample_index += 1;
         let elapsed = self.started.elapsed();
@@ -283,6 +404,14 @@ impl StabilityRun {
                 |row| row.get(0),
             )
             .expect("读取 failed 任务数");
+        // 写者队列：实测待写缓冲，空队列显式为 0 并由 `writer_queue_empty` 区分语义。
+        let writer_queue_depth = self.writer.pending_len();
+        let writer_queue_empty = writer_queue_depth == 0;
+        let oldest_queue_item_age_ms = self.writer.oldest_pending_age_ms(now_ms()).unwrap_or(0);
+        let writer_events: i64 = self
+            .conn
+            .query_row("SELECT count(*) FROM m0_events", [], |row| row.get(0))
+            .expect("读取写者事件行数");
         let expected = self.base_events + self.inserted - self.deleted;
         let missing = expected - count;
         let cpu_delta = (stats.cpu_seconds - self.last_cpu_seconds).max(0.0);
@@ -323,10 +452,14 @@ impl StabilityRun {
             "query_p50_ms": round2(percentile(&mut self.query_ms, 50.0)),
             "query_p95_ms": round2(percentile(&mut self.query_ms, 95.0)),
             "switch_p50_ms": round2(percentile(&mut self.switch_ms, 50.0)),
-            "writer_queue_depth": serde_json::Value::Null,
-            "oldest_queue_item_age_ms": serde_json::Value::Null,
-            "unavailable": "writer_queue_metrics：夹具直连 Connection，不经 WriterService；\
-                            null 不是 0（T116 已登记缺口）",
+            "writer_queue_depth": writer_queue_depth,
+            "writer_queue_capacity": self.writer.config().max_pending,
+            "writer_queue_empty": writer_queue_empty,
+            "oldest_queue_item_age_ms": oldest_queue_item_age_ms,
+            "writer_submitted_total": self.writer_submitted,
+            "writer_deleted_total": self.writer_deleted,
+            "writer_events": writer_events,
+            "writer_queue_semantics": "写者队列取自 whcode_store::EventWriter 的待写缓冲（目标表 m0_events）；depth=0 且 writer_queue_empty=true 表示该样本时缓冲为空（实测空，不是缺失）；oldest_queue_item_age_ms 在空缓冲时为 0，同属空语义。EventWriter 为同步原型、无后台定时器（writer.rs 文档：窗口到期只在下次提交或显式 flush_if_due 时判定），故该年龄包含本周期内待下次提交触发的等待；events 表持续写入为直连，不计入该队列",
         });
         self.commit_ms.clear();
         self.query_ms.clear();
@@ -339,7 +472,7 @@ impl StabilityRun {
             format!("{cpu_percent:.2}")
         };
         println!(
-            "样本 {}：{:.2} h RSS {:.2} MB CPU {}% 线程 {} 句柄 {} 事件 {} 缺失 {}",
+            "样本 {}：{:.2} h RSS {:.2} MB CPU {}% 线程 {} 句柄 {} 事件 {} 缺失 {} 写者队列 {}/{} 条 最老 {} ms",
             self.sample_index,
             elapsed_hours,
             rss_mb,
@@ -347,11 +480,16 @@ impl StabilityRun {
             stats.threads,
             stats.handles,
             count,
-            missing
+            missing,
+            writer_queue_depth,
+            self.writer.config().max_pending,
+            oldest_queue_item_age_ms
         );
     }
 
     fn write_summary(&mut self) {
+        // 收尾刷写：已接收的待写事件不得静默丢弃（ADR-017 不变量 3 的同一纪律）。
+        self.writer.flush().expect("长跑结束刷写写者待写缓冲");
         let elapsed = self.started.elapsed();
         let duration_hours = elapsed.as_secs_f64() / 3_600.0;
         let first = self.rss_series.first().copied();
@@ -367,6 +505,7 @@ impl StabilityRun {
             }
             _ => f64::NAN,
         };
+        let writer_events = self.current_writer_event_count();
         let record = serde_json::json!({
             "kind": "summary",
             "samples": self.sample_index,
@@ -382,7 +521,11 @@ impl StabilityRun {
             "event_missing_last": self.base_events + self.inserted - self.deleted
                 - self.current_event_count(),
             "failed_tasks": self.current_failed_tasks(),
-            "note": "NFR-204 候选斜率；写者队列深度/最老队列项年龄未取得（见 sample.unavailable）",
+            "writer_queue_depth_peak": self.writer_queue_peak,
+            "writer_submitted_total": self.writer_submitted,
+            "writer_deleted_total": self.writer_deleted,
+            "writer_events": writer_events,
+            "note": "NFR-204 候选斜率；写者队列取自 EventWriter 待写缓冲（目标表 m0_events），events 表持续写入为直连、不计入该队列",
         });
         writeln!(self.out, "{record}").expect("追加汇总行");
         self.out.flush().expect("汇总行必须立即落盘");
@@ -393,6 +536,12 @@ impl StabilityRun {
         self.conn
             .query_row("SELECT count(*) FROM events", [], |row| row.get(0))
             .expect("读取事件行数")
+    }
+
+    fn current_writer_event_count(&self) -> i64 {
+        self.conn
+            .query_row("SELECT count(*) FROM m0_events", [], |row| row.get(0))
+            .expect("读取写者事件行数")
     }
 
     fn current_failed_tasks(&self) -> i64 {
@@ -466,6 +615,14 @@ fn stability_run_collects_section_11_5_series() {
         run.current_failed_tasks(),
         1,
         "播种的 failed 任务必须可计数（零值不得冒充无失败）"
+    );
+    assert!(
+        run.writer_submitted > 0,
+        "写者必须实际接收长跑事件：零接收时队列指标没有被测对象"
+    );
+    assert!(
+        run.writer_queue_peak > 0,
+        "写者队列深度必须出现非零实测值：全零说明未接线（不得把无信号说成空队列）"
     );
     assert!(out_path.exists(), "JSONL 必须落盘：{}", out_path.display());
 }

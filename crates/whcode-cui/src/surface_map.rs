@@ -10,8 +10,8 @@
 //! `build_snapshot`），故都映射 `spec.status`。
 
 use crate::cli::{
-    Command, ContextCommand, DbCommand, EventsCommand, FontCommand, RuntimeCommand, SessionCommand,
-    SpecCommand, TaskCommand,
+    Command, ContextCommand, DbCommand, EventsCommand, FontCommand, LlmCommand, RuntimeCommand,
+    SessionCommand, SpecCommand, TaskCommand,
 };
 
 /// 把 CUI 命令映射到登记表 `SurfaceId`（穷尽匹配，无通配臂）。
@@ -26,8 +26,11 @@ pub fn surface_of(command: &Command) -> &'static str {
             SessionCommand::Archive { .. } => "session.archive",
             SessionCommand::Delete { .. } => "session.delete",
         },
-        // llm.run 预留（M3-llm）；当前 `run` 显式未接线（cui_dispatch）。
-        Command::Run { .. } => "llm.run",
+        // llm run／cancel（T167）：CUI 经 `whcode_app::llm` 真实执行（cui_dispatch）。
+        Command::Llm { command } => match command {
+            LlmCommand::Run { .. } => "llm.run",
+            LlmCommand::Cancel { .. } => "llm.cancel",
+        },
         Command::Status { .. } => "spec.status",
         Command::Task { command } => match command {
             TaskCommand::List { .. } => "task.list",
@@ -135,11 +138,8 @@ mod tests {
                     yes: false,
                 },
             },
-            Command::Run {
-                session: "S".into(),
-                model: "stub".into(),
-                trace_level: "redacted".into(),
-            },
+            llm_run(),
+            llm_cancel(),
             Command::Status {
                 session: "S".into(),
             },
@@ -289,15 +289,45 @@ mod tests {
         }
     }
 
+    /// `llm run`／`llm cancel` 的 CUI 形态（T167）：映射正确且 CUI 端已实现。
+    #[test]
+    fn llm_commands_map_to_implemented_surfaces() {
+        for (command, id) in [(llm_run(), "llm.run"), (llm_cancel(), "llm.cancel")] {
+            assert_eq!(surface_of(&command), id);
+            let entry = find(id).expect("已登记");
+            match entry.support(FrontendId::Cui) {
+                Support::Implemented { anchor } if !anchor.is_empty() => {}
+                other => panic!("{id} 的 CUI 状态必须为已实现（带锚点），实际 {other:?}"),
+            }
+        }
+    }
+
+    fn llm_run() -> Command {
+        Command::Llm {
+            command: LlmCommand::Run {
+                session: "S".into(),
+                provider: "p".into(),
+                prompt: "hello".into(),
+                model: None,
+                max_tokens: None,
+                request_id: None,
+                trace_level: "redacted".into(),
+            },
+        }
+    }
+
+    fn llm_cancel() -> Command {
+        Command::Llm {
+            command: LlmCommand::Cancel {
+                request: "req-1".into(),
+            },
+        }
+    }
+
     /// 保留命令映射到其预留面（状态为预留，而非伪装已实现）。
     #[test]
     fn retained_commands_map_to_reserved_surfaces() {
         let reserved = [
-            Command::Run {
-                session: "S".into(),
-                model: "stub".into(),
-                trace_level: "redacted".into(),
-            },
             Command::Events {
                 command: EventsCommand::Show { event: "E".into() },
             },

@@ -12,7 +12,8 @@
 //! [`pump_stream`] 把 Provider 的 chunk 流编排为事件：`RequestStarted`（关键）→
 //! 每 [`PumpConfig::progress_every`] 个 chunk 一个 `ProgressChanged`（展示，载荷只含
 //! 计数与字节数，**不含正文**——不得把大段响应塞进进度事件，R-05）→ 终结块
-//! `RequestCompleted`（关键，携带计量）。取消/失败以 `RequestFailed`（关键）收尾。
+//! `RequestCompleted`（关键，携带计量、`usage_source` 与 `finish_reason`）。取消/失败以
+//! `RequestFailed`（关键）收尾。
 //!
 //! 事件何时被确认持久化：本模块只产出记录，持久化由调用方经存储写者完成；
 //! "广播已发出、写入失败"的半态由持久化层处理（contracts/event-schema.md §3）。
@@ -303,19 +304,35 @@ pub fn pump_stream(
             )?;
         }
         if chunk.final_chunk {
-            let usage = chunk
-                .usage
-                .map(|usage| usage.with_latency(started.elapsed().as_millis() as u64))
-                .unwrap_or_else(|| {
-                    crate::metering::Usage::estimate(&request.prompt, "")
-                        .with_latency(started.elapsed().as_millis() as u64)
-                });
+            let latency_ms = started.elapsed().as_millis() as u64;
+            // 供应商用量与本地估算必须可区分（FR-207）：`usage_source` 标注来源，
+            // `cost_is_estimate` 继续标注估算口径；终止原因随终结 chunk 一起入事件
+            // （FR-206／FR-208：`eof` 与 `stop` 可区分）。
+            let (usage, usage_source) = match chunk.usage {
+                Some(usage) => {
+                    let source = if usage.cost_is_estimate {
+                        "local_estimate"
+                    } else {
+                        "provider"
+                    };
+                    (usage.with_latency(latency_ms), source)
+                }
+                None => (
+                    crate::metering::Usage::estimate(&request.prompt, "").with_latency(latency_ms),
+                    "local_estimate",
+                ),
+            };
+            let mut payload = usage.completion_payload();
+            payload["usage_source"] = serde_json::json!(usage_source);
+            if let Some(reason) = &chunk.finish_reason {
+                payload["finish_reason"] = serde_json::json!(reason);
+            }
             router.route(
                 record(
                     EventKind::RequestCompleted,
                     &request.request_id,
                     &request.session_id,
-                    usage.completion_payload(),
+                    payload,
                     now_ms,
                     PersistenceLevel::Redacted,
                 ),
@@ -487,5 +504,91 @@ mod tests {
             .find(|event| event.kind == EventKind::RequestFailed)
             .expect("取消必须以 RequestFailed 收尾");
         assert_eq!(failed.payload["reason"], "cancelled");
+    }
+
+    /// 供应商报告用量的 Provider（终结 chunk 携带供应商计量与终止原因）。
+    struct ProviderUsageStub;
+
+    impl Provider for ProviderUsageStub {
+        fn name(&self) -> &str {
+            "provider-usage-stub"
+        }
+
+        fn capabilities(&self) -> crate::provider::ProviderCapabilities {
+            crate::provider::ProviderCapabilities {
+                streaming: true,
+                cancel: false,
+                usage_reporting: true,
+            }
+        }
+
+        fn is_available(&self) -> bool {
+            true
+        }
+
+        fn execute(
+            &self,
+            _request: &LlmRequest,
+            _cancel: &CancelToken,
+        ) -> Result<ChunkStream, WhError> {
+            let final_chunk = crate::provider::LlmChunk {
+                index: 0,
+                text: "终".to_string(),
+                final_chunk: true,
+                usage: Some(crate::metering::Usage::provider_reported(
+                    3, 4, 0, None, false,
+                )),
+                finish_reason: Some("length".to_string()),
+            };
+            Ok(ChunkStream {
+                inner: Box::new(std::iter::once(Ok(final_chunk))),
+            })
+        }
+    }
+
+    #[test]
+    fn completed_event_distinguishes_provider_usage_from_local_estimate() {
+        let config = PumpConfig {
+            progress_every: 1,
+            display_capacity: 8,
+        };
+        let provider = ProviderUsageStub;
+        let outcome = pump_stream(
+            &provider,
+            &request("hi"),
+            &CancelToken::default(),
+            &config,
+            1_000,
+        )
+        .expect("编排");
+        let completed = outcome
+            .critical
+            .iter()
+            .find(|event| event.kind == EventKind::RequestCompleted)
+            .expect("必须有完成事件");
+        assert_eq!(completed.payload["usage_source"], "provider");
+        assert_eq!(completed.payload["finish_reason"], "length");
+        assert!(
+            completed.payload["cost_is_estimate"] == false,
+            "供应商计量不标估算"
+        );
+
+        let stub = StubProvider::new();
+        let outcome = pump_stream(
+            &stub,
+            &request("hi"),
+            &CancelToken::default(),
+            &config,
+            1_000,
+        )
+        .expect("编排");
+        let completed = outcome
+            .critical
+            .iter()
+            .find(|event| event.kind == EventKind::RequestCompleted)
+            .expect("必须有完成事件");
+        assert_eq!(completed.payload["usage_source"], "local_estimate");
+        assert!(completed.payload["cost_is_estimate"] == true);
+        assert_eq!(completed.payload["finish_reason"], "stop");
     }
 }

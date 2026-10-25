@@ -1,0 +1,5 @@
+证书库：入站自签证书不存在；已重新生成自签证书（旧指纹 无，新指纹 c3cf1566dafb0d6fd3308dd2a7c0e739a6d4b2c447d497529946343dcccb4cac）
+WHCode Web 服务：https://127.0.0.1:18447/（仅回环 · 入站 TLS builtin，Ctrl-C 退出；FR-606：外网地址被 bind 门禁拒绝）
+入站证书指纹（SHA-256）：c3cf1566dafb0d6fd3308dd2a7c0e739a6d4b2c447d497529946343dcccb4cac
+证书设置页：https://127.0.0.1:18447/settings/certs（入站档位与证书变更需重启 serve --web 后生效）
+工作区数据库：d:\WHCode\script\tls-verify\ws\s3-other\whcode.duckdb

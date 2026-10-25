@@ -10,7 +10,8 @@
 #      全部结束后一次性写盘，中途中断不再丢失全部数据；
 #   2. 负载进程只启动**一次**并持续运行，RSS 斜率归属于同一 PID（NFR-204）；
 #   3. 采样字段补齐 CPU、数据库/WAL 大小、事件缺失、failed 任务与三类延迟；
-#      写者队列深度/最老队列项年龄为 null（夹具直连 Connection，缺口已登记）。
+#      写者队列深度/最老队列项年龄取自事件写者原型（目标表 m0_events），
+#      events 表直连写入不计入该队列（口径见 test_stability_run.rs 模块注释）。
 #
 # 输出（不入库）：artifacts/stability-<N>h-<时间戳>/
 #   timeseries.jsonl  逐样本 JSON（含 summary 行）
@@ -47,7 +48,7 @@ export WHCODE_STABILITY_OUT="$OUT_FILE"
 export PATH="$HOME/.cargo/bin:$PATH"
 
 echo "长跑参数：时长 ${TOTAL_SECONDS}s，采样间隔 ${INTERVAL_SECONDS}s，输出 $OUT_FILE" | tee "$LOG_FILE"
-echo "判据：JSONL 逐样本落盘；event_missing 必须为 0；队列缺口以 null 标注，不以 0 冒充。" | tee -a "$LOG_FILE"
+echo "判据：JSONL 逐样本落盘；event_missing 必须为 0；写者队列为空时深度为 0 且 writer_queue_empty=true，不以 null 冒充空队列。" | tee -a "$LOG_FILE"
 
 cd "$ROOT"
 cargo test --locked -p whcode-tests --test stability_run -- --ignored --nocapture 2>&1 | tee -a "$LOG_FILE" &

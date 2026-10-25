@@ -1,0 +1,90 @@
+{
+  "environment": {
+    "captured_at_utc": "2026-10-25T07:12:37.134967+00:00",
+    "platform": "win32",
+    "binary": "d:\\WHCode\\target\\debug\\whcode.exe",
+    "method": "运行 15 s 后每 2 s 采样 1 次、共 3 次；中位数取 3 次样本；CPU 为相邻样本增量 ÷ 区间秒数 × 100（单核百分比）",
+    "tls_off_command": "d:\\WHCode\\target\\debug\\whcode.exe serve --web --bind 127.0.0.1:18082 --workspace d:\\WHCode\\script\\tls-verify\\ws\\r-off --tls off",
+    "tls_default_command": "d:\\WHCode\\target\\debug\\whcode.exe serve --web --bind 127.0.0.1:18449 --workspace d:\\WHCode\\script\\tls-verify\\ws\\r-tls"
+  },
+  "tls_off": {
+    "samples": [
+      {
+        "t": 1792912331.3496494,
+        "rss_bytes": 42942464,
+        "threads": 68,
+        "handles": 215,
+        "cpu_seconds": 0.484375
+      },
+      {
+        "t": 1792912333.37676,
+        "rss_bytes": 42942464,
+        "threads": 68,
+        "handles": 215,
+        "cpu_seconds": 0.515625
+      },
+      {
+        "t": 1792912335.4010513,
+        "rss_bytes": 42979328,
+        "threads": 68,
+        "handles": 215,
+        "cpu_seconds": 0.5625
+      }
+    ],
+    "summary": {
+      "median_rss_bytes": 42942464,
+      "median_threads": 68,
+      "median_handles": 215,
+      "cpu_percent_intervals": [
+        1.5416,
+        2.3156
+      ],
+      "cpu_percent_median": 1.9286,
+      "cpu_percent_overall": 1.9283
+    },
+    "errors": []
+  },
+  "tls_default": {
+    "samples": [
+      {
+        "t": 1792912352.0310154,
+        "rss_bytes": 47259648,
+        "threads": 68,
+        "handles": 216,
+        "cpu_seconds": 0.5625
+      },
+      {
+        "t": 1792912354.0585961,
+        "rss_bytes": 47312896,
+        "threads": 68,
+        "handles": 216,
+        "cpu_seconds": 0.625
+      },
+      {
+        "t": 1792912356.092136,
+        "rss_bytes": 47300608,
+        "threads": 68,
+        "handles": 216,
+        "cpu_seconds": 0.6875
+      }
+    ],
+    "summary": {
+      "median_rss_bytes": 47300608,
+      "median_threads": 68,
+      "median_handles": 216,
+      "cpu_percent_intervals": [
+        3.0825,
+        3.0735
+      ],
+      "cpu_percent_median": 3.078,
+      "cpu_percent_overall": 3.078
+    },
+    "errors": []
+  },
+  "threads_not_increased": true,
+  "notes": [
+    "RSS 取 GetProcessMemoryInfo 的 WorkingSetSize（等价于 WorkingSet64）。",
+    "句柄数取 GetProcessHandleCount；线程数取 Toolhelp32 快照按 PID 计数。",
+    "CPU 时间取 GetProcessTimes 的内核 + 用户时间之和。"
+  ]
+}

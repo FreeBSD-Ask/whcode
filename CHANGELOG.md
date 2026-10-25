@@ -36,8 +36,21 @@
   **依赖**：新增 `rustls`（直接依赖）、`rustls-native-certs`、`rustls-pki-types`、`rcgen`、
   `x509-parser`、`sha2`（单一 `ring` 提供者，零 `unsafe`）。
   **代价与不承诺**：自签证书默认不被浏览器信任；私钥明文落盘依赖 OS ACL；`system` 档位
-  不复用 Windows 吊销与策略；不承诺公网暴露、mTLS 与多用户隔离。真实浏览器握手与资源
-  证据**未取得**（归属 T192）。
+  不复用 Windows 吊销与策略；不承诺公网暴露、mTLS 与多用户隔离。真实浏览器握手证据
+  **未取得**（归属 T192）；资源证据见 ADR-042（DuckDB 2.0 线程超预算，待批准处置）。
+- 真实 LLM Provider 核心落地（2026-10-25，T162—T166，ADR-031）：新增阻塞式 `ureq`
+  HTTP 客户端（有界流式读取、chunk 序号归一、传输快照、时限／重试／取消）、剖面鉴权
+  注入与端点加固、出站信任注入；`http` feature 默认关闭，网络依赖只进装配根。CUI 与 Web
+  的 `llm run／cancel` 已接线，TUI／GUI 仍为 `Reserved`（T167 未收口，不宣称四端可用）。
+  端到端回环证据 `artifacts/llm-e2e-2026-10-25.md`（不访问公网）；`cargo test -p whcode-llm
+  --features http` 77 项通过。
+- BSD 回环验收与进程组（2026-10-25）：`whcode-platform` 实现 Unix 进程组终止
+  （`configure_child_process_group` + `term_process_group`，零新增依赖），`whcode-runtime`
+  补零残留测试；`whcode-ssh` 新增客户端与服务端 `bsd_*_acceptance_loopback`，FreeBSD job
+  运行并上传 `ssh-acceptance-freebsd`。BSD 运行证据待 CI；V-004 仍按 ADR-013 延后。
+- GUI 线程预算偏差登记（2026-10-25，ADR-042 提议）：DuckDB 2.0.0 单连接打开约 80 线程，
+  GUI 空闲实测 88 线程／297—330 句柄，超过 ADR-027 的 24／256；归因为引擎而非界面改动，
+  现行预算不放宽，处置待用户批准 ADR-042。NFR-201 主进程空载 RSS 35.69 MB 达标。
 - 四端界面现代化（2026-10-25，modernize-ui-visual-language，ADR-041）：确立终端族（CUI／TUI）与
   应用族（Web／GUI）两套视觉语法，不引入第三色值、渐变、阴影与新增动效。
   TUI 改为三区布局（顶栏／左导航栏 + 列对齐主面板／键位提示栏，CJK 按 2 列截断）；CUI 的
@@ -95,8 +108,9 @@
   已接线并修复一处字符字面量类型错误；注释中引用的幻影 FR-209—214 与 `161.x／162.x`
   小节号改为既有 FR-201／203／206／207／208／616、NFR-213／215 与 ADR-031。
   实测：同一代码三次 release 构建（带／不带 feature／还原）均为 21 124 096 字节，
-  当前无调用点故体积增量为 0；接入调用点后必须重测。**仍未完成**：客户端与 `llm run`
-  装配（T162—T163）、变更 spec 入库；四端 `llm.run` 保持 `Reserved`。
+  当前无调用点故体积增量为 0；接入调用点后必须重测。**进展（2026-10-25）**：T162—T166
+  已交付（真实 HTTP 客户端与回环端到端）；T167 的 CUI／Web `llm.run`／`llm.cancel` 已接线，
+  TUI／GUI 仍为 `Reserved`，四端完整可用未完成。
 
 - DuckDB 2.0.0 升级与功能适配（2026-10-24，ADR-034）：**引擎 2.0.0 LTS + crate 1.20000.0，事件载荷改 VARIANT**。
   - 官方 Windows 资产改为 `duckdb-shared-libs-windows-amd64.tar.gz`（SHA256 `2b831691…b95f`）；

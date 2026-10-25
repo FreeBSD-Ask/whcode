@@ -34,8 +34,13 @@
 - `test_stability_run.rs`：T116 长跑采集器——**单进程**持续写入/查询/切换/清理，
   按间隔自采样 RSS、累计 CPU 与单核占比、线程数、句柄数、数据库与 WAL 大小、
   事件缺失计数、failed 任务数、提交/查询/切换延迟，逐行追加 JSONL（中断不丢已采
-  样本）。写者队列深度与最老队列项年龄为 `null` 并附原因：夹具直连 `Connection`，
-  不经 `WriterService`；不得以 0 冒充“队列为空”。
+  样本）。写者队列深度与最老队列项年龄取自**事件写者原型**（`whcode_store::EventWriter`）
+  的待写缓冲：每周期同一批事件经其提交到 `m0_events`，采样时读 `pending_len()` 与
+  `oldest_pending_age_ms(now)`；`events` 表的初始生成与持续写入/清理仍直连 `Connection`，
+  **不进入该队列**（口径分开报告，不以本队列冒充 `events` 直连写入的排队）。队列为空时
+  `writer_queue_depth = 0` 且 `writer_queue_empty = true`，与“指标不可得”的 `null` 区分。
+  `EventWriter` 为同步原型、无后台定时器，故最老条目年龄包含本周期到下次提交的等待，
+  不等于 `WriterService` 写者线程的刷新延迟。
 - `run_stability.sh`：长跑入口，创建 `artifacts/stability-<N>h-<时间戳>/`，启动上述
   采集器并写 `run.log`；`STABILITY_SMOKE=1` 为 30 秒冒烟（验证采集链路，不作结论）。
 
@@ -97,8 +102,8 @@ python .github/scripts/benchmarks/run-baseline.py
 
 - **5.5 小时结论尚未取得**：采集器与 CI 长跑入口已交付（T116、ADR-033），数据须跑满后
   由 `timeseries.jsonl` 的 summary 行判定；24/72 小时深检为可选 self-hosted／本机运行；
-- **写者队列深度/最老队列项年龄未取得**：长跑夹具直连 `Connection`，不经真实事件
-  写者服务；该两项在 JSONL 中为 `null` 并附原因，待真实写者接线后补齐；
+- **写者队列指标口径有限**：已改由事件写者原型（目标表 `m0_events`）提供，但 `events`
+  表初始生成与持续写入/清理仍直连，不经写者；该队列不覆盖直连写入的排队情况；
 - 慢客户端、重启与迁移中断场景仍需并入长跑编排；
 - 真实满盘写入需专用环境（`WHCODE_DISK_FULL_DIR`）。
 

@@ -2351,6 +2351,35 @@ mod tests {
             "SAN 必须去重：{:?}",
             first_status.inbound.sans
         );
+        if let Some(name) = whcode_platform::hostname() {
+            let normalized = name.trim().to_ascii_lowercase();
+            assert!(
+                first_status
+                    .inbound
+                    .sans
+                    .iter()
+                    .any(|san| san.eq_ignore_ascii_case(&normalized)),
+                "SAN 必须覆盖本机名 {normalized}：{:?}",
+                first_status.inbound.sans
+            );
+        }
+        let not_before = first_status
+            .inbound
+            .not_before
+            .as_deref()
+            .expect("必须给出生效时间");
+        let not_after = first_status
+            .inbound
+            .not_after
+            .as_deref()
+            .expect("必须给出到期时间");
+        let span = OffsetDateTime::parse(not_after, &Rfc3339).expect("解析到期时间")
+            - OffsetDateTime::parse(not_before, &Rfc3339).expect("解析生效时间");
+        assert_eq!(
+            span.whole_days(),
+            CERT_VALIDITY_DAYS,
+            "自签证书有效期必须为 {CERT_VALIDITY_DAYS} 天"
+        );
         let sha = first_status.inbound.sha256.as_deref().expect("证书指纹");
         assert_eq!(sha.len(), 64);
         assert!(
@@ -2874,6 +2903,30 @@ mod tests {
         .expect_err("私钥块必须拒绝");
         assert_eq!(err.code, ErrorCode::ParseError);
         assert!(err.message.contains("私钥"), "{}", err.message);
+        assert_eq!(std::fs::read(paths.builtin_ca()).expect("读取"), original);
+
+        let wrong_label = format!(
+            "{}-----BEGIN PUBLIC KEY-----\nAAAA\n-----END PUBLIC KEY-----\n",
+            original_text(&paths)
+        );
+        let err = write_ca(
+            &conn,
+            &paths,
+            &policy,
+            &actor,
+            &StoreAudit,
+            CaKind::Builtin,
+            &wrong_label,
+            true,
+            NOW_MS,
+        )
+        .expect_err("非 CERTIFICATE 块必须拒绝");
+        assert_eq!(err.code, ErrorCode::ParseError);
+        assert!(
+            err.message.contains("仅允许 CERTIFICATE"),
+            "{}",
+            err.message
+        );
         assert_eq!(std::fs::read(paths.builtin_ca()).expect("读取"), original);
 
         let broken = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n";
@@ -3429,14 +3482,29 @@ mod tests {
             cert_with_validity(&sans, NOW_MS - 10 * DAY_MS, NOW_MS - DAY_MS);
         write_file(&paths.server_cert(), expired_cert.as_bytes());
         write_file(&paths.server_key(), expired_key.as_bytes());
+        let expired_sha = parse_certificate_blocks(expired_cert.as_bytes(), "过期测试证书")
+            .expect("解析过期证书")
+            .first()
+            .expect("至少一份证书")
+            .sha256
+            .clone();
         let report = ensure_initialized(&paths, &required_sans(), NOW_MS).expect("过期重新生成");
         assert!(report.regenerated_server_cert, "过期证书必须重新生成");
+        let regenerated_note = report
+            .notes
+            .iter()
+            .find(|note| note.contains("已过期"))
+            .expect("须记录过期重新生成的原因");
         assert!(
-            report.notes.iter().any(|note| note.contains("已过期")),
-            "{:?}",
-            report.notes
+            regenerated_note.contains("旧指纹") && regenerated_note.contains(&expired_sha),
+            "须记录旧指纹 {expired_sha}：{regenerated_note}"
         );
         let status_after = status(&paths, NOW_MS).expect("状态");
+        let new_sha = status_after.inbound.sha256.as_deref().expect("新指纹");
+        assert!(
+            regenerated_note.contains("新指纹") && regenerated_note.contains(new_sha),
+            "须记录新指纹 {new_sha}：{regenerated_note}"
+        );
         assert!(
             status_after
                 .inbound
@@ -3451,8 +3519,10 @@ mod tests {
         let report = ensure_initialized(&paths, &required_sans(), NOW_MS).expect("临近到期");
         assert!(!report.regenerated_server_cert, "临近到期不得自动替换");
         assert!(
-            report.notes.iter().any(|note| note.contains("到期")),
-            "须告警到期：{:?}",
+            report.notes.iter().any(|note| {
+                note.contains("到期") && note.contains(&format!("不足 {CERT_RENEW_WARN_DAYS} 天"))
+            }),
+            "须按 {CERT_RENEW_WARN_DAYS} 天阈值告警到期：{:?}",
             report.notes
         );
         let status_after = status(&paths, NOW_MS).expect("状态");

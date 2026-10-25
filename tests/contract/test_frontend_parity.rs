@@ -64,6 +64,9 @@ fn web_routes_resolve_to_implemented_surfaces() {
         ("POST", "/api/certs/ca/reset"),
         ("POST", "/api/certs/server"),
         ("POST", "/api/certs/server/self-signed"),
+        // LLM 调用（T167）：CUI／Web 已接线（应用层编排 + 装配根工厂）。
+        ("POST", "/api/llm/run"),
+        ("POST", "/api/llm/cancel"),
     ];
     for (method, path) in routes {
         let id = whcode_web::surface_map::surface_of(method, path)
@@ -452,9 +455,10 @@ fn permission_denial_through_facade_is_uniform() {
 }
 
 /// FR-620：预留面在两端状态码同源（not_supported details 的共享键）。
+/// `llm.run` 已随 T167 在 CUI／Web 翻转为已实现，故取仍预留的面作样本。
 #[test]
 fn reserved_surfaces_drive_both_frontend_unavailable_semantics() {
-    for id in ["spec.force-advance", "runtime.status", "llm.run"] {
+    for id in ["spec.force-advance", "runtime.status", "spec.next"] {
         let entry = find(id).unwrap_or_else(|| panic!("{id} 未登记"));
         let cui = entry.support(FrontendId::Cui);
         let web = entry.support(FrontendId::Web);

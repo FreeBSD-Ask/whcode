@@ -333,3 +333,27 @@ HTTPS”。本 ADR 因此不接受二选一，而是把证书做成**可见、�
 
 **复审责任**：Web 适配层负责人（入站与服务循环）、LLM 变更维护者（出站装配）、
 安全与可观察性负责人（威胁模型与依赖）、前端对等负责人（四端登记）。
+
+## 实现落地补记（2026-10-25，复核 Check 274—277 时补记）
+
+上文“现在证据”与“已知未完成与缺口”第 5、7 项为**设计定稿时**的文件快照；下列事实已由
+实现取代，以可复现文件为准（本 ADR 的决策语义不变，故不改写原文段落）：
+
+- **依赖已进锁文件**：决策 5 表中 `rustls-native-certs`／`rcgen`／`x509-parser` 的
+  “锁文件中不存在”不再成立——`Cargo.lock` 实测 `rustls-native-certs 0.8.5`、
+  `rcgen 0.14.10`（`default-features = false`，`ring`＋`pem`）、`x509-parser 0.18.1`；
+  `sha2` 选用 `0.10.9`，未新增第三版本。**许可证仍为 `[待验证]`**（缺口 6 未闭合），
+  版本落锁不等于许可已核验。
+- **原先缺失的实现点已落地**：`ServeCli` 已有 `--tls`（`crates/whcode-bin/src/serve.rs`）；
+  `Capability` 现为 11 项且含 `settings.cert.read`／`settings.cert.write`
+  （`crates/whcode-app/src/authz.rs`）；`AuditAction::TlsConfigChange` 已存在
+  （`crates/whcode-domain/src/audit.rs`）。
+- **资产与布局**：`assets/certs/ca-bundle.pem`（118 份、200116 字节、
+  SHA-256 `796f1389…3cbe`）与 `SOURCES.md` 已入库；`repository-layout.md` 的 `assets/`
+  行已登记 `certs/`；`tests/contract/test_layout.rs` 以 `assets` 整目录放行、不作
+  逐资源类型断言，故无需单独增列。缺口 7 中“文档未同步”的部分已闭合。
+- **缺口 5 已消失**：主 `spec.md` 不再出现 `webpki-roots 1.0.10` 字样（`Cargo.lock`
+  仍为 `1.0.11`），笔误随 FR-606 修订与 FR-626／FR-627 登记一并消除。
+- **证据位置**：`artifacts/tls-2026-10-25/check-274-277.md`（Check 274—277 逐条复核，
+  含命令与实测值）。行为性结论（握手、浏览器信任、资源预算）仍以 Check 278—288 的
+  实测为准，本条不据此宣称已取证。

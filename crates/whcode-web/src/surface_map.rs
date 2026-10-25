@@ -5,7 +5,8 @@
 //! - **现有路由**（`crate::api::handle_request` 的 match 臂）逐一入清单——反向无孤儿
 //!   （FR-621：先加路由后补契约即门禁失败）；
 //! - **保留守卫路径**：登记为预留／排除但尚未接线的路径（`spec/*`、runtime 写、
-//!   `llm/*`、`events show`）也入清单——Task 172 对其统一返回 501 `not_supported`；
+//!   `events show`）也入清单——Task 172 对其统一返回 501 `not_supported`；
+//!   `llm/*` 已随 T167 接线（Web 登记为已实现），不再走守卫；
 //!   未登记路径返回 `None`（调用方仍为 404，不得把已登记能力伪装成 404）；
 //! - **本变更新增路由**（`/api/context`、`/api/diff`、`/api/events/export`）先入清单，
 //!   由 Task 174 接线（登记表对应端当前为预留）。
@@ -51,6 +52,9 @@ pub fn surface_of(method: &str, path: &str) -> Option<&'static str> {
         ("POST", "/api/certs/ca/reset") => Some("settings.cert.write"),
         ("POST", "/api/certs/server") => Some("settings.cert.write"),
         ("POST", "/api/certs/server/self-signed") => Some("settings.cert.write"),
+        // ── LLM 调用（T167 接线；Web 端为已实现） ─────────────────────
+        ("POST", "/api/llm/run") => Some("llm.run"),
+        ("POST", "/api/llm/cancel") => Some("llm.cancel"),
         // ── 保留守卫路径（预留／排除；Task 172 统一 501 not_supported） ─
         (_, "/api/events/show") => Some("events.show"),
         (_, "/api/spec/next") => Some("spec.next"),
@@ -62,8 +66,6 @@ pub fn surface_of(method: &str, path: &str) -> Option<&'static str> {
         (_, "/api/runtimes/enable") => Some("runtime.enable"),
         (_, "/api/runtimes/disable") => Some("runtime.disable"),
         (_, "/api/runtimes/install") => Some("runtime.install"),
-        (_, "/api/llm/run") => Some("llm.run"),
-        (_, "/api/llm/cancel") => Some("llm.cancel"),
         _ => None,
     }
 }
@@ -141,6 +143,9 @@ mod tests {
                 "/api/certs/server/self-signed",
                 "settings.cert.write",
             ),
+            // LLM 调用（T167）：CUI／Web 已接线；TUI 仍预留、GUI 只读排除。
+            ("POST", "/api/llm/run", "llm.run"),
+            ("POST", "/api/llm/cancel", "llm.cancel"),
         ];
         for (method, path, id) in routes {
             assert_eq!(surface_of(method, path), Some(id), "{method} {path}");
@@ -166,8 +171,6 @@ mod tests {
             ("POST", "/api/runtimes/enable", "runtime.enable"),
             ("POST", "/api/runtimes/disable", "runtime.disable"),
             ("POST", "/api/runtimes/install", "runtime.install"),
-            ("POST", "/api/llm/run", "llm.run"),
-            ("POST", "/api/llm/cancel", "llm.cancel"),
         ];
         for (method, path, id) in guards {
             assert_eq!(surface_of(method, path), Some(id), "{method} {path}");
