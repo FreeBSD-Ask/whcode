@@ -148,3 +148,50 @@
   仍为进行中工作单元，不作为债务；
 - tasks.md／checklist.md 本轮复核时点无未提交改动（并行会话中途状态波动，
   后续登记须先与 `git status` 对账）。
+
+## 复核更新（2026-10-25 第三轮）：全部可偿还项已执行
+
+**本轮指令**：用户“全部偿还”。以下为执行结果；仍未偿还者只余“需外部平台/人工证据/范围决定”
+与“架构缺口”两类，逐条写明前置条件。
+
+### 已偿还（提交 5a8ae0c、f2d2713、658933b）
+
+1. **变更 spec 长期缺位**（T162—T167 的 G1 阻塞）：补登记 `specs/002-add-real-llm-provider/`
+   （spec／plan／tasks）。FR-201—208 与 FR-616 逐条标注交付状态：仅 FR-203 已交付，
+   其余部分交付或基线已交付；四端 `llm.run` 维持 Reserved（ADR-032）。主账本 Phase 15
+   阻塞原因改为“客户端装配与四端接线未交付”，不再写“spec 未入库”。
+2. **BSD 平台证据管线缺陷**：`record-deps.sh` 的 DuckDB 类在 BSD 上恒为占位符（版本来源
+   只认 vendor 目录）；NetBSD 在 MSRV 闸门 exit 0 导致 `deps-netbsd.txt` 从未生成；
+   FreeBSD 的 workspace 测试被 GUI dev 依赖编译失败短路，store 冒烟零执行。已修复：
+   版本来源三级（vendor／env／pkg）、依赖记录前置、`STORE_GATE_RESULT` 独立门禁、
+   `WHCODE_SKIP_RUNTIME_PROBE` 区分“无运行期证据”与“运行期证据”。语义不变：
+   BSD 只作平台证据、不作验收结论（ADR-013）。
+3. **NFR-204 长跑证据登记与判据复核**：CI 5.5 h run `40154046118` 已取证并登记（65 样本、
+   summary、线程/句柄恒定、`event_missing` 恒 0）；斜率超预算 + 判据分辨力不足
+   （容许增长 2.75 MB < σ 3.17 MB）已写入 T116／Check 116／Check 195，并提出
+   ADR-025 修订提议（夹具口径修正→release 同口径复测→组合判据）。
+4. **待验证项结清**：plan.md 与 research.md 的 R-05／R-06／TBD-04／TBD-05 按交付事实
+   结清（Web 自研多路复用服务器、SSH russh 0.64.1／ADR-030；BSD 验收仍按 ADR-013 延后）。
+5. **陈旧账本措辞**：T096—T099“全部未完成”纠正为仅 T099；ADR-031 补记 spec 入库与
+   `webpki-roots` 1.0.11 漂移。
+
+### 仍未偿还（前置条件明确，不得勾选）
+
+| 项 | 剩余前置 | 恢复路径 |
+|---|---|---|
+| Check 20／21（NetBSD 记录、DuckDB 版本类） | 新 ci.yml 的 CI run 需产出 `deps-netbsd.txt` 与无占位符的 `deps-freebsd.txt` | 本轮推送后的 CI run；若仍缺，按证据继续登记 |
+| Check 22（BSD 数据库冒烟） | FreeBSD 需 `STORE_GATE_RESULT=GO`（包版 DuckDB 1.5.x 与 crate 1.20000.0 的 C API 可能不匹配，属 R-01 证据） | 同上；NO-GO 时须记录失败断言原文 |
+| Check 116（§11.5 全部指标） | 写者队列深度／最老队列项年龄——**架构缺口**：正式 `events` 写入经 store 函数直连，不经 `WriterService`（原型表 `m0_events` 才是写者服务目标） | 需“正式事件写者接线”设计（ADR-002 口径复核），再补采集与 5.5 h 复测 |
+| Check 195（预算冻结/修订） | ADR-025 修订提议批准（NFR-204 组合判据） | 用户/维护者批准后转正；BSD 分平台证据仍按 ADR-013 豁免 |
+| T099／Check 25／96／99／109／201／134、V-004 | 四 BSD 真实平台环境与验收决定（ADR-013 恢复须新 ADR＋用户批准） | 不在本轮范围；CI 仅作平台证据 |
+| T162—T167（LLM 客户端装配与四端接线） | 功能交付（spec 已入库，代码调用点与凭据装配未写） | 按 specs/002 的 S 任务序列交付；与 TLS 批次（ADR-040）同属 LLM 线程 |
+| X4 删除吞吐（125 s @1M 行） | 已在 NFR-216 修订标准（≤300 s）内，属优化候选而非违例 | 先冻结预算与判据再优化 |
+
+### 本轮新发现的小额债务（已登记，未修）
+
+1. `http/errors.rs` 测试名与注释仍引用幻影 `FR-212`；
+2. `AuthScheme` 只有数据模型，鉴权头注入函数未实现（T162 判据的一部分）；
+3. `CredentialRef::File` 分支无专门单测；端点校验未拒 userinfo／IDN／异常端口；
+4. “默认不联网”只有 `cargo tree` 人工核验，无可执行契约测试；
+5. `long-run.yml` 为 debug 构建（ADR-033 未规定编译类型，但同表其它 NFR 均为 release）；
+6. FreeBSD 包版 DuckDB 与 crate 版本可能 ABI 不匹配（R-01 风险的现实化路径）。
