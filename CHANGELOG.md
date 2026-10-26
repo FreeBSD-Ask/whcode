@@ -55,6 +55,12 @@
 - GUI 线程预算偏差登记（2026-10-25，ADR-042 提议）：DuckDB 2.0.0 单连接打开约 80 线程，
   GUI 空闲实测 88 线程／297—330 句柄，超过 ADR-027 的 24／256；归因为引擎而非界面改动，
   现行预算不放宽，处置待用户批准 ADR-042。NFR-201 主进程空载 RSS 35.69 MB 达标。
+- `llm.run`／`llm.cancel` 四端接线收口（2026-10-26，T167，ADR-032 修订记录）：TUI
+  新增 `L`／`C` 键位（剖面名→提示词两步输入、请求 ID 输入），经 `llm_provider::TuiLlmExecutor`
+  真实编排（与 CUI/Web 同一 `whcode_app::llm` 入口，连接与 TUI 写执行器共享同一条
+  工作区连接）；登记表 TUI 格翻转为 `Implemented`，矩阵 feature-parity.md 同步——
+  三端 CUI／TUI／Web 均已接线（同步等待完成，同语义），GUI 保持 `GUI_READ_ONLY_V1`
+  排除。`cargo test -p whcode-tui` 69 项（含键位测试 2 项）。
 - GUI 线程配置收敛（2026-10-26，ADR-042 修订记录，方案 A 批准实施）：判别实验确认
   DuckDB 2.0.0 受支持的 `async_threads`（默认 64）是线程膨胀主因（原“与 db.threads 无关”
   结论不完整）；产品装配、长跑夹具与基准夹具同步 `SET async_threads = threads`。

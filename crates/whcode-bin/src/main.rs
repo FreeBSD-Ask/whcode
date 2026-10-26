@@ -385,6 +385,7 @@ fn launch_interactive(args: &[String]) -> ExitCode {
         texts,
         source,
         executor,
+        llm_executor,
     } = match prepare_frontend(args) {
         Ok(prepared) => prepared,
         Err(code) => return code,
@@ -393,11 +394,15 @@ fn launch_interactive(args: &[String]) -> ExitCode {
     let executor_ref: Option<&dyn whcode_app::commands::CommandExecutor> = executor
         .as_ref()
         .map(|executor| executor as &dyn whcode_app::commands::CommandExecutor);
+    let llm_ref: Option<&dyn whcode_tui::LlmExecutor> = llm_executor
+        .as_ref()
+        .map(|executor| executor as &dyn whcode_tui::LlmExecutor);
     let options = whcode_tui::RunOptions {
         theme,
         texts,
         minimize_probe: Some(&probe),
         command_executor: executor_ref,
+        llm_executor: llm_ref,
     };
     match whcode_tui::run_with(source.as_ref(), options) {
         Ok(()) => ExitCode::SUCCESS,
@@ -442,6 +447,7 @@ struct FrontendParts {
     texts: whcode_domain::i18n::I18n,
     source: Box<dyn whcode_app::view_source::ViewSource>,
     executor: Option<store_source::TuiCommandExecutor>,
+    llm_executor: Option<crate::llm_provider::TuiLlmExecutor>,
 }
 
 fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
@@ -482,12 +488,27 @@ fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
         )),
         None => Box::new(whcode_app::view_source::EmptyViewSource),
     };
-    let executor = shared.map(store_source::TuiCommandExecutor::new);
+    let executor = shared.clone().map(store_source::TuiCommandExecutor::new);
+    // LLM 执行器（T167）：与写执行器共享同一条连接；装配失败显式告警但不阻断界面
+    // （LLM 缺失只影响 llm 动作，界面以 not_supported 提示降级）。
+    let llm_executor = match (&shared, workspace::resolve_workspace(args, &config)) {
+        (Some(conn), Ok(ws)) => {
+            match crate::llm_provider::TuiLlmExecutor::from_env(&ws, std::rc::Rc::clone(conn)) {
+                Ok(executor) => Some(executor),
+                Err(err) => {
+                    eprintln!("LLM 装配不可用（llm 动作以 not_supported 提示）：{err}");
+                    None
+                }
+            }
+        }
+        _ => None,
+    };
     Ok(FrontendParts {
         theme,
         texts,
         source,
         executor,
+        llm_executor,
     })
 }
 

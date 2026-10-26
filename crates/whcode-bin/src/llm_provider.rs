@@ -149,6 +149,75 @@ impl ServeLlm {
     }
 }
 
+/// TUI 的 LLM 执行器（T167）：复用 [`ServeLlm`] 装配（剖面 + 工厂 + 取消目录），
+/// 经 `whcode_app::llm` 真实编排——与 CUI/Web 同一入口、同一权限与会话校验。
+/// 连接与 TUI 写命令执行器共享同一条工作区连接（Check 98 口径：单连接为唯一写路径）。
+pub struct TuiLlmExecutor {
+    llm: ServeLlm,
+    conn: std::rc::Rc<std::cell::RefCell<duckdb::Connection>>,
+}
+
+impl TuiLlmExecutor {
+    /// 由环境变量、工作区与共享连接装配（启动时解析一次；不做网络请求）。
+    ///
+    /// # Errors
+    ///
+    /// 出站证书库无法初始化或信任材料不可读时返回可操作错误（TUI 以
+    /// `llm_executor: None` 降级，不阻断界面）。
+    pub fn from_env(
+        workspace: &Path,
+        conn: std::rc::Rc<std::cell::RefCell<duckdb::Connection>>,
+    ) -> Result<Self, WhError> {
+        Ok(Self {
+            llm: ServeLlm::from_env(workspace)?,
+            conn,
+        })
+    }
+}
+
+impl whcode_tui::LlmExecutor for TuiLlmExecutor {
+    fn run(&self, session_id: &str, provider: &str, prompt: &str) -> Result<String, WhError> {
+        let outcome = whcode_app::llm::run(
+            &self.conn.borrow(),
+            &whcode_app::DefaultPolicy,
+            &whcode_app::actor_with_all_capabilities("tui-local"),
+            &self.llm.context(),
+            &whcode_app::llm::LlmRunRequest {
+                session_id: session_id.to_string(),
+                provider: provider.to_string(),
+                prompt: prompt.to_string(),
+                model: None,
+                max_tokens: None,
+                request_id: None,
+            },
+            now_ms(),
+        )?;
+        // 摘要不带正文（事件与日志不复制模型输出；正文只在本状态行显示）。
+        Ok(format!(
+            "provider={} model={} chunks={} completed={} truncated={} request_id={}",
+            outcome.provider,
+            outcome.model,
+            outcome.chunks.len(),
+            outcome.completed,
+            outcome.truncated,
+            outcome.request_id,
+        ))
+    }
+
+    fn cancel(&self, request_id: &str) -> Result<String, WhError> {
+        let outcome = whcode_app::llm::cancel(
+            &whcode_app::DefaultPolicy,
+            &whcode_app::actor_with_all_capabilities("tui-local"),
+            &self.llm.context(),
+            request_id,
+        )?;
+        Ok(format!(
+            "request={} state={} effective={}",
+            outcome.request_id, outcome.state, outcome.effective
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

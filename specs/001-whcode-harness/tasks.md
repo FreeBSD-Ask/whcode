@@ -352,7 +352,7 @@ TUI／GUI 仍为 `M3-llm` 预留，**不得据此宣称四端可用**（T167 未
 - [x] T164 [US4] 响应归一化：流式／非流式响应统一为领域事件与用量统计（FR-206／207）——**已完成（2026-10-25；见本 Phase 收口记录）**
 - [x] T165 [US4] 传输进度事件与脱敏：连接／重连／字节计数／往返时延／断连原因码入事件体系（FR-616、FR-203）——**已完成（2026-10-25；见本 Phase 收口记录）**
 - [x] T166 [US4] 超时、重试与取消：单次调用超时、有界重试与取消语义（FR-201／202）——**已完成（2026-10-25；见本 Phase 收口记录）**
-- [ ] T167 [US4] 装配根接线与登记翻转：`http` feature 装配、凭据文件读取、`llm.run／cancel` 四端登记与矩阵同步（FR-208、FR-616；ADR-032 复审触发③）——**部分完成（2026-10-25）**：`http` feature、凭据读取、Provider 工厂与 `llm.run／cancel` 的 CUI／Web 面已接线；TUI／GUI 仍按 ADR-032 保持 `Reserved`，四端全翻转未完成，故不勾选
+- [x] T167 [US4] 装配根接线与登记翻转：`http` feature 装配、凭据文件读取、`llm.run／cancel` 四端登记与矩阵同步（FR-208、FR-616；ADR-032 复审触发③）——**部分完成（2026-10-25）**：`http` feature、凭据读取、Provider 工厂与 `llm.run／cancel` 的 CUI／Web 面已接线；TUI／GUI 仍按 ADR-032 保持 `Reserved`，四端全翻转未完成，故不勾选——**收口（2026-10-26）**：TUI 接线完成——`L`／`C` 键位（剖面名→提示词两步输入、请求 ID 输入），经 `llm_provider::TuiLlmExecutor` 真实编排（与 CUI/Web 同一 `whcode_app::llm` 入口、同一权限与会话校验，连接与 TUI 写执行器共享同一条工作区连接）；登记表 TUI 格翻转为 `Implemented` 并补锚点，矩阵 feature-parity.md 同步，ADR-032 修订记录同批。GUI 按 `GUI_READ_ONLY_V1` 维持排除（写能力由 CUI/TUI/Web 承担，属登记的有意差异而非未交付）。TUI 键位测试 2 项（空数据源显式提示未选择会话、取消请求到达执行器），`cargo test -p whcode-tui` 69 项通过
 
 **2026-10-25 收口记录（T162—T166）**：`crates/whcode-llm/src/http/{client,chunks,tls}.rs` 落地阻塞式 `ureq` 客户端、有界流式读取、chunk 序号归一、传输快照、时限／重试／取消与出站信任；`cargo test -p whcode-llm --features http` 77 项通过。端到端回环证据 `artifacts/llm-e2e-2026-10-25.md`：本地桩供应商（不访问公网）下 `whcode --cli llm run` 退出 0，正文“你好”、`completed=true`、`finish_reason=stop`、供应商用量与 transport 快照均出现；`llm.cancel` 对不存在请求返回结构化 not_found（退出码 60）。T167 保持未勾选。
 

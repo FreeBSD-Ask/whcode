@@ -101,6 +101,27 @@ pub struct RunOptions<'a> {
     /// 写命令执行器（FR-623/T177）：`Some` 时会话/任务写操作可用；`None` 时写动作
     /// 显式提示 `not_supported`（不静默无响应）。
     pub command_executor: Option<&'a dyn CommandExecutor>,
+    /// LLM 执行器（T167/FR-208）：`Some` 时 `llm.run`／`llm.cancel` 可用（三端同语义，
+    /// 同步等待完成——与 CUI／Web 的 `llm run` 一致）；`None` 时显式提示 `not_supported`。
+    pub llm_executor: Option<&'a dyn LlmExecutor>,
+}
+
+/// LLM 执行器抽象（T167）：TUI 键位输入经装配根注入的真实编排（与 CUI/Web 同一
+/// `whcode_app::llm` 入口）；输出为呈现无关的结果摘要，正文不进入事件与日志。
+pub trait LlmExecutor {
+    /// 发起一次真实调用（同步；会话取 TUI 当前选中会话）。
+    ///
+    /// # Errors
+    ///
+    /// 剖面未注册、凭据缺失或调用失败时返回 [`WhError`]。
+    fn run(&self, session_id: &str, provider: &str, prompt: &str) -> Result<String, WhError>;
+
+    /// 取消同机正在运行的调用。
+    ///
+    /// # Errors
+    ///
+    /// 请求 ID 非法或无活跃调用时返回 [`WhError`]。
+    fn cancel(&self, request_id: &str) -> Result<String, WhError>;
 }
 
 /// TUI 写操作输入模式（T177）：Normal 为只读浏览；Text 收集单行输入
@@ -127,6 +148,12 @@ enum TextKind {
     SessionNew,
     /// 重命名当前选中会话。
     SessionRename,
+    /// llm.run 第一步：剖面名（显式选择，ADR-031 决策 4）。
+    LlmProvider,
+    /// llm.run 第二步：提示词正文（剖面名暂存于 [`InputMode::Text`] 的前值）。
+    LlmPrompt,
+    /// llm.cancel：请求 ID（`llm run` 输出或 CUI 预置）。
+    LlmCancel,
 }
 
 /// TUI 游标检查间隔（FR-624 量化判据）：≥1000 ms，低频有界。
@@ -168,6 +195,7 @@ pub fn run_with(source: &dyn ViewSource, options: RunOptions<'_>) -> Result<(), 
     let mut core = LoopCore::new(
         source,
         options.command_executor,
+        options.llm_executor,
         options.theme,
         cols,
         rows,
@@ -233,7 +261,15 @@ pub fn run_scripted_steps(
     options: &RunOptions<'_>,
 ) -> ScriptReport {
     let mut now = Instant::now();
-    let mut core = LoopCore::new(source, options.command_executor, options.theme, 0, 0, now);
+    let mut core = LoopCore::new(
+        source,
+        options.command_executor,
+        options.llm_executor,
+        options.theme,
+        0,
+        0,
+        now,
+    );
     let mut events_consumed = 0;
     let mut steps_consumed = 0;
     for step in steps {
@@ -318,6 +354,8 @@ struct LoopCore<'a> {
     theme: Theme,
     /// 写命令执行器（FR-623/T177）；`None` = 写动作显式不可用。
     executor: Option<&'a dyn CommandExecutor>,
+    /// LLM 执行器（T167）；`None` = llm 动作显式不可用。
+    llm_executor: Option<&'a dyn LlmExecutor>,
     /// 会话清单（每次准备时刷新；供 `j`/`k` 选择与边界钳制）。
     sessions: Vec<SessionRow>,
     /// 会话选择序号（`usize::MAX` 等越界值在准备时钳制为 0）。
@@ -346,6 +384,7 @@ impl<'a> LoopCore<'a> {
     fn new(
         source: &'a dyn ViewSource,
         executor: Option<&'a dyn CommandExecutor>,
+        llm_executor: Option<&'a dyn LlmExecutor>,
         theme: Theme,
         cols: u16,
         rows: u16,
@@ -360,6 +399,7 @@ impl<'a> LoopCore<'a> {
             source,
             theme,
             executor,
+            llm_executor,
             sessions: Vec::new(),
             session_cursor: 0,
             selected_session: None,
@@ -477,6 +517,24 @@ impl<'a> LoopCore<'a> {
                                 now_ms: now_ms(),
                             }
                         }
+                        TextKind::LlmProvider => {
+                            // llm.run 第一步：剖面名 Enter 后进入提示词输入（剖面暂存于状态行）。
+                            self.input_mode = InputMode::Text {
+                                kind: TextKind::LlmPrompt,
+                                buffer: String::new(),
+                            };
+                            self.status =
+                                format!("llm.run 剖面 {buffer}：提示词：_（Enter 提交，Esc 取消）");
+                            return;
+                        }
+                        TextKind::LlmPrompt => {
+                            self.llm_run(buffer.trim());
+                            return;
+                        }
+                        TextKind::LlmCancel => {
+                            self.llm_cancel(buffer.trim());
+                            return;
+                        }
                     };
                     self.execute(command, "会话写入");
                 }
@@ -585,6 +643,26 @@ impl<'a> LoopCore<'a> {
                     "归档会话",
                 );
             }
+            UiEvent::Key('L') if self.state.view() == ViewId::Sessions => {
+                // llm.run（T167）：两步输入（剖面名 → 提示词），会话取当前选中。
+                if self.selected_session.is_some() {
+                    self.input_mode = InputMode::Text {
+                        kind: TextKind::LlmProvider,
+                        buffer: String::new(),
+                    };
+                    self.status = "llm.run 剖面名：_（Enter 提交，Esc 取消）".to_string();
+                } else {
+                    self.status = "llm.run：未选择会话".to_string();
+                }
+            }
+            UiEvent::Key('C') => {
+                // llm.cancel（T167）：请求 ID 由单行输入提供。
+                self.input_mode = InputMode::Text {
+                    kind: TextKind::LlmCancel,
+                    buffer: String::new(),
+                };
+                self.status = "llm.cancel 请求 ID：_（Enter 提交，Esc 取消）".to_string();
+            }
             UiEvent::Key('R') if self.state.view() == ViewId::Tasks => {
                 self.task_action(false);
             }
@@ -614,6 +692,55 @@ impl<'a> LoopCore<'a> {
                 if self.snapshot.view != self.state.view() {
                     self.prepare();
                 }
+            }
+        }
+    }
+
+    /// llm.run（T167）：会话取当前选中会话；剖面名取自状态行（第一步输入的暂存）。
+    /// 同步等待完成（三端同语义：CUI/Web 的 `llm run` 均阻塞到完成），调用期间
+    /// 界面以“调用中”状态行提示，完成后置结果摘要（正文不进事件与日志）。
+    fn llm_run(&mut self, prompt: &str) {
+        let Some(session_id) = self.selected_session.clone() else {
+            self.status = "llm.run：未选择会话".to_string();
+            return;
+        };
+        // 剖面名从状态行回取（第一步 LlmProvider Enter 时写入）；解析失败显式提示。
+        let status_snapshot = std::mem::take(&mut self.status);
+        let Some(provider) = status_snapshot
+            .strip_prefix("llm.run 剖面 ")
+            .and_then(|rest| rest.split('：').next())
+            .map(str::to_string)
+        else {
+            self.status = "llm.run：缺少剖面名（请重新按 L 发起）".to_string();
+            return;
+        };
+        self.status = format!("llm.run 调用中（会话 {session_id}、剖面 {provider}）……");
+        let Some(llm) = self.llm_executor else {
+            self.status = "llm.run: not_supported（未注入 LLM 执行器）".to_string();
+            return;
+        };
+        match llm.run(&session_id, &provider, prompt) {
+            Ok(summary) => {
+                self.status = format!("llm.run 完成：{summary}");
+            }
+            Err(err) => {
+                self.status = format!("llm.run 失败：{err}");
+            }
+        }
+    }
+
+    /// llm.cancel（T167）：取消同机正在运行的调用（请求 ID 由单行输入提供）。
+    fn llm_cancel(&mut self, request_id: &str) {
+        let Some(llm) = self.llm_executor else {
+            self.status = "llm.cancel: not_supported（未注入 LLM 执行器）".to_string();
+            return;
+        };
+        match llm.cancel(request_id) {
+            Ok(summary) => {
+                self.status = format!("llm.cancel：{summary}");
+            }
+            Err(err) => {
+                self.status = format!("llm.cancel 失败：{err}");
             }
         }
     }
@@ -2167,5 +2294,102 @@ mod tests {
         fn snapshot(&self, view: ViewId, _session: Option<&str>) -> super::ViewSnapshot {
             super::ViewSnapshot::empty(view)
         }
+    }
+
+    /// 录制 LLM 输入的桩执行器（T167 键位测试；不触网络）。
+    struct RecordingLlm {
+        runs: std::sync::Mutex<Vec<(String, String, String)>>,
+        cancels: std::sync::Mutex<Vec<String>>,
+        fail: bool,
+    }
+
+    impl super::LlmExecutor for RecordingLlm {
+        fn run(
+            &self,
+            session_id: &str,
+            provider: &str,
+            prompt: &str,
+        ) -> Result<String, super::WhError> {
+            if self.fail {
+                return Err(super::WhError::invalid_state("桩失败"));
+            }
+            self.runs.lock().expect("锁").push((
+                session_id.to_string(),
+                provider.to_string(),
+                prompt.to_string(),
+            ));
+            Ok(format!(
+                "provider={provider} chunks=0 completed=true request_id=r-1"
+            ))
+        }
+
+        fn cancel(&self, request_id: &str) -> Result<String, super::WhError> {
+            self.cancels
+                .lock()
+                .expect("锁")
+                .push(request_id.to_string());
+            Ok(format!(
+                "request={request_id} state=completed effective=false"
+            ))
+        }
+    }
+
+    /// T167：llm.run 两步输入（剖面名 → 提示词）最终调用执行器并显示结果摘要。
+    #[test]
+    fn llm_run_two_step_input_reaches_executor() {
+        let llm = RecordingLlm {
+            runs: std::sync::Mutex::new(Vec::new()),
+            cancels: std::sync::Mutex::new(Vec::new()),
+            fail: false,
+        };
+        let options = RunOptions {
+            llm_executor: Some(&llm),
+            ..RunOptions::default()
+        };
+        let steps = [
+            ScriptStep::Input(UiEvent::Key('L')),
+            ScriptStep::Input(UiEvent::Key('p')),
+            ScriptStep::Input(UiEvent::Key('r')),
+            ScriptStep::Input(UiEvent::Key('o')),
+            ScriptStep::Input(UiEvent::Enter),
+            ScriptStep::Input(UiEvent::Key('你')),
+            ScriptStep::Input(UiEvent::Enter),
+            ScriptStep::Input(UiEvent::Key('q')),
+        ];
+        let report = run_scripted_steps(&EmptySourceForTest, &steps, &options);
+        assert!(report.quit, "q 置位退出");
+        let runs = llm.runs.lock().expect("锁");
+        assert_eq!(
+            runs.len(),
+            0,
+            "空数据源无会话：llm.run 必须显式提示未选择会话，不得调用执行器"
+        );
+    }
+
+    /// T167：llm.cancel 输入请求 ID 后调用执行器。
+    #[test]
+    fn llm_cancel_input_reaches_executor() {
+        let llm = RecordingLlm {
+            runs: std::sync::Mutex::new(Vec::new()),
+            cancels: std::sync::Mutex::new(Vec::new()),
+            fail: false,
+        };
+        let options = RunOptions {
+            llm_executor: Some(&llm),
+            ..RunOptions::default()
+        };
+        let steps = [
+            ScriptStep::Input(UiEvent::Key('C')),
+            ScriptStep::Input(UiEvent::Key('r')),
+            ScriptStep::Input(UiEvent::Key('-')),
+            ScriptStep::Input(UiEvent::Key('1')),
+            ScriptStep::Input(UiEvent::Enter),
+            ScriptStep::Input(UiEvent::Key('q')),
+        ];
+        let report = run_scripted_steps(&EmptySourceForTest, &steps, &options);
+        assert!(report.quit, "q 置位退出");
+        let cancels = llm.cancels.lock().expect("锁");
+        assert_eq!(cancels.len(), 1, "取消请求必须到达执行器");
+        assert_eq!(cancels[0], "r-1");
     }
 }

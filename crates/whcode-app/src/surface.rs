@@ -1056,8 +1056,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "cui_dispatch::llm_command（LlmCommand::Run → whcode_app::llm::run）",
             },
-            Support::Reserved {
-                milestone: "M3-llm",
+            Support::Implemented {
+                anchor: "TuiAction::LlmRun（剖面名→提示词两步输入 → llm_provider::TuiLlmExecutor::run）",
             },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
@@ -1078,8 +1078,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "cui_dispatch::llm_command（LlmCommand::Cancel → whcode_app::llm::cancel）",
             },
-            Support::Reserved {
-                milestone: "M3-llm",
+            Support::Implemented {
+                anchor: "TuiAction::LlmCancel（请求 ID 输入 → llm_provider::TuiLlmExecutor::cancel）",
             },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
@@ -1767,14 +1767,13 @@ mod tests {
         ));
     }
 
-    /// T167：`llm.run`／`llm.cancel` 随 CUI／Web 接线翻转为已实现（真实锚点）；
-    /// TUI 未接线保持预留（`M3-llm`），GUI 仍按 `gui_read_only_v1` 排除——
-    /// 不得在无前端映射时宣称可用（ADR-032 决策 3／4）。
+    /// T167 收口：`llm.run`／`llm.cancel` 随 CUI／Web／TUI 接线翻转为已实现（真实锚点）；
+    /// GUI 仍按 `gui_read_only_v1` 排除——不得在无前端映射时宣称可用（ADR-032 决策 3／4）。
     #[test]
     fn llm_surfaces_track_wired_frontends() {
         for id in ["llm.run", "llm.cancel"] {
             let entry = find(id).expect("llm 面已登记");
-            for frontend in [FrontendId::Cui, FrontendId::Web] {
+            for frontend in [FrontendId::Cui, FrontendId::Web, FrontendId::Tui] {
                 assert!(
                     matches!(
                         entry.support(frontend),
@@ -1785,13 +1784,6 @@ mod tests {
                     entry.support(frontend)
                 );
             }
-            assert_eq!(
-                entry.support(FrontendId::Tui),
-                &Support::Reserved {
-                    milestone: "M3-llm"
-                },
-                "{id} 在 TUI 仍未接线，必须保持预留"
-            );
             assert_eq!(
                 entry.support(FrontendId::Gui),
                 &Support::Excluded {
@@ -1862,6 +1854,8 @@ mod tests {
             ("llm.run", FrontendId::Web),
             ("llm.cancel", FrontendId::Cui),
             ("llm.cancel", FrontendId::Web),
+            ("llm.run", FrontendId::Tui),
+            ("llm.cancel", FrontendId::Tui),
         ] {
             let entry = find(id).unwrap_or_else(|| panic!("{id} 未登记"));
             assert!(
@@ -1871,10 +1865,9 @@ mod tests {
                 entry.support(frontend)
             );
         }
-        // 未来里程碑：TUI 的 LLM 接线（M3-llm）与运行时装配（M8）保持预留（不得提前宣称可用）。
+        // 未来里程碑：运行时装配（M8）保持预留（不得提前宣称可用）；TUI 的 LLM 接线
+        // 已随 T167 收口翻转为已实现，退出预留队列（ADR-032 修订记录 2026-10-26）。
         for (id, frontend, milestone) in [
-            ("llm.run", FrontendId::Tui, "M3-llm"),
-            ("llm.cancel", FrontendId::Tui, "M3-llm"),
             ("runtime.status", FrontendId::Cui, "M8"),
             ("runtime.enable", FrontendId::Web, "M8"),
         ] {

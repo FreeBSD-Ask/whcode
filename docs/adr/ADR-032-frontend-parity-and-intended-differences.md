@@ -181,6 +181,25 @@
 - **影响**：CUI 归档属 BREAKING 行为变更；TUI 尚无反归档键，作为已知不对称留在 ADR-038，
   不影响本 ADR 的四端状态判定（三端均为 `Implemented`，GUI 仍 `GuiReadOnlyV1`）。
 
+### 2026-10-26（T167 收口：`llm.run`／`llm.cancel` 的 TUI 接线与三端齐备）
+
+- **事实**：TUI 新增 `L`（llm.run：剖面名→提示词两步输入，会话取当前选中会话）与
+  `C`（llm.cancel：请求 ID 输入）键位，经新增 `llm_provider::TuiLlmExecutor`（装配根
+  `llm_provider.rs`，复用 `ServeLlm` 装配）真实编排——与 CUI/Web 同一 `whcode_app::llm`
+  入口、同一权限（`Capability::SessionCreate`）与会话校验；连接与 TUI 写命令执行器
+  共享同一条工作区连接（Check 98 口径）。登记表 TUI 格由 `Reserved { M3-llm }` 翻转为
+  `Implemented` 并补前端锚点；矩阵 feature-parity.md 两行同步（本批同 PR）。
+- **同步语义**：三端均为同步等待完成（CUI `llm run`、Web `POST /api/llm/run`、TUI
+  键位均阻塞到调用结束）——与既有三端形态一致，不引入异步包装。
+- **未翻转**：GUI 仍按 `GUI_READ_ONLY_V1` 排除（写能力由 CUI/TUI/Web 承担，属登记的
+  有意差异而非未交付）。
+- **退出条件已满足**：上一节“任一前端接线即翻转对应格”在本批完成——TUI 键位测试
+  2 项（空数据源显式提示“未选择会话”不得调用执行器、取消请求到达执行器），
+  `cargo test -p whcode-tui` 69 项通过；`llm_run_stays_reserved_while_no_frontend_wires_it`
+  口径自此关闭。
+- **复审触发**：真实 Provider 端到端证据（T192 之外的浏览器/终端实测）取得时复核
+  事件载荷与取消语义；GUI 写需求立项时重审本码。
+
 ### 2026-10-25（T167：`llm.run`／`llm.cancel` 的 CUI／Web 接线与登记翻转）
 
 - **事实**：`whcode-app::llm` 已成为 `llm run`／`llm cancel` 的唯一编排入口（权限用既有

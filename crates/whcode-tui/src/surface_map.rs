@@ -41,6 +41,10 @@ pub enum TuiAction {
     TaskAbort,
     /// 清理（预留动作，T177；先预览后确认）。
     Purge,
+    /// 发起 LLM 调用（T167：剖面名 → 提示词两步输入，会话取当前选中）。
+    LlmRun,
+    /// 取消同机正在运行的 LLM 调用（T167：请求 ID 单行输入）。
+    LlmCancel,
 }
 
 /// 把 TUI 动作映射到登记表 `SurfaceId`（穷尽匹配，无通配臂）。
@@ -59,6 +63,8 @@ pub fn surface_of(action: TuiAction) -> &'static str {
         TuiAction::TaskRetry => "task.retry",
         TuiAction::TaskAbort => "task.abort",
         TuiAction::Purge => "db.purge",
+        TuiAction::LlmRun => "llm.run",
+        TuiAction::LlmCancel => "llm.cancel",
     }
 }
 
@@ -102,6 +108,8 @@ mod tests {
             TuiAction::TaskRetry,
             TuiAction::TaskAbort,
             TuiAction::Purge,
+            TuiAction::LlmRun,
+            TuiAction::LlmCancel,
         ];
         for action in actions {
             let id = surface_of(action);

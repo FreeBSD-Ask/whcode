@@ -11,10 +11,11 @@
 **符号**：✅ 已实现（前端锚点在登记表中）；◐ 已排除（理由码见“依据／理由”列）；
 ⏳ 预留（里程碑见“依据／理由”列）；— 不适用（判定依据见登记表条目注释）。
 
-**最后更新**：2026-10-25（T167：`llm.run`／`llm.cancel` 的 CUI 与 Web 翻转为已实现，
-TUI 保持预留、GUI 保持只读排除；T190：新增证书库设置两行）。
+**最后更新**：2026-10-26（T167 收口：`llm.run`／`llm.cancel` 的 TUI 翻转为已实现
+——`L`／`C` 键位，剖面名→提示词两步输入，经 `llm_provider::TuiLlmExecutor` 真实编排；
+三端 CUI／TUI／Web 均 `Implemented`，GUI 保持只读排除；T190：新增证书库设置两行）。
 依据：`specs/001-whcode-harness/contracts/app-service.md` §2、`crates/whcode-bin/src/cui_dispatch.rs`、
-`crates/whcode-app/src/surface.rs`。
+`crates/whcode-app/src/surface.rs`、`crates/whcode-bin/src/llm_provider.rs`。
 
 | SurfaceId | 类别 | 效果 | CUI | TUI | GUI | Web | 依据／理由 |
 |---|---|---|---|---|---|---|---|
@@ -53,8 +54,8 @@ TUI 保持预留、GUI 保持只读排除；T190：新增证书库设置两行�
 | `runtime.enable` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-701—710；⏳ M8；◐ six_view_scope |
 | `runtime.disable` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-701—710；⏳ M8；◐ six_view_scope |
 | `runtime.install` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-701—710；⏳ M8；◐ six_view_scope |
-| `llm.run` | Command | Write | ✅ | ⏳ | ◐ | ✅ | FR-201—208；T167 接线（CUI／Web）；⏳ TUI 的 M3-llm；◐ gui_read_only_v1 |
-| `llm.cancel` | Command | Write | ✅ | ⏳ | ◐ | ✅ | FR-201—208；T167 接线（CUI／Web）；⏳ TUI 的 M3-llm；◐ gui_read_only_v1 |
+| `llm.run` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-201—208；T167 接线（CUI／Web／TUI 三端，TUI 剖面→提示词两步输入）；◐ gui_read_only_v1 |
+| `llm.cancel` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-201—208；T167 接线（CUI／Web／TUI 三端）；◐ gui_read_only_v1 |
 | `theme.switch` | Command | Read | ◐ | ✅ | ✅ | ✅ | FR-612／713／625；◐ cui_no_theme |
 | `locale` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-615／625 |
 | `settings.cert.read` | View | Read | ◐ | ◐ | ◐ | ✅ | FR-626／627、ADR-040 决策 4；◐ web_settings_only、six_view_scope |
@@ -93,8 +94,10 @@ CUI 退出码 **55**、Web **HTTP 501**；未登记路径仍为 404（ADR-032 �
 无 JS 时页面显示只读状态摘要与证书库文件路径（HTML 转义）。
 TUI 补写操作（`n`／`m`／`d`／`A`、`R`／`X`、`p`，破坏性命令先预览后确认）、`t` 四主题循环
 与 ≥1000 ms 低频游标检查（推进才重绘）。GUI 只读六视图，写命令登记 `GUI_READ_ONLY_V1`。
-`llm.run`／`llm.cancel` 的 CUI（`cui_dispatch::llm_command`）与 Web（`POST /api/llm/*`）
-已接线：权限、会话、剖面、凭据与取消在 `whcode_app::llm` 统一编排；真实 HTTP 传输由
+`llm.run`／`llm.cancel` 的 CUI（`cui_dispatch::llm_command`）、Web（`POST /api/llm/*`）
+与 TUI（`L`／`C` 键位 → `llm_provider::TuiLlmExecutor`，剖面名→提示词两步输入，
+会话取当前选中）已接线：权限、会话、剖面、凭据与取消在 `whcode_app::llm` 统一编排；
+三端均为同步等待完成（同语义）；真实 HTTP 传输由
 `whcode-llm::http::client` 承担（T163—T166），装配根按工作区出站信任装配，未启用
 `http` feature 时返回结构化 `not_supported`，不伪造调用成功。
 部署边界：仅回环或局域网（RFC1918，认证必填，ADR-023）。
