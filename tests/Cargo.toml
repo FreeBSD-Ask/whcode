@@ -166,3 +166,8 @@ workspace = true
 [[test]]
 name = "frontend_parity"
 path = "contract/test_frontend_parity.rs"
+
+# 默认不联网契约门禁（NFR-213、ADR-031 决策 4；网络栈只进 http feature 与装配根）。
+[[test]]
+name = "no_network_by_default"
+path = "contract/test_no_network_by_default.rs"

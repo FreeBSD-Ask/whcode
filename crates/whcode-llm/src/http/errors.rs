@@ -161,7 +161,7 @@ mod tests {
         let refused = std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "refused");
         let err = normalize_transport(&refused, "p", "openai", "R");
         assert_eq!(err.code, ErrorCode::IoError);
-        assert!(err.retryable, "连接失败可重试（调用方决定，FR-212）");
+        assert!(err.retryable, "连接失败可重试（调用方决定，FR-206）");
     }
 
     #[test]
