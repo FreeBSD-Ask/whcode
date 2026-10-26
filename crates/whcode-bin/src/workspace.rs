@@ -68,11 +68,12 @@ pub fn open_workspace_db(workspace: &Path, config: &Config) -> Result<Connection
         .to_string()
         .replace('\\', "/")
         .replace('\'', "''");
+    // async_threads 默认 64（DuckDB 2.0.0），是空闲线程膨胀主因（ADR-042）；与 threads 同预算收敛。
     conn.execute_batch(&format!(
-        "SET memory_limit = '{}MB'; SET threads = {}; SET temp_directory = '{}'; \
+        "SET memory_limit = '{}MB'; SET threads = {}; SET async_threads = {}; SET temp_directory = '{}'; \
          SET autoinstall_known_extensions = false; SET autoload_known_extensions = false; \
          SET allow_community_extensions = false; SET allow_extension_repositories = 'forbidden';",
-        config.db.memory_limit_mb, config.db.threads, temp_literal
+        config.db.memory_limit_mb, config.db.threads, config.db.threads, temp_literal
     ))
     .map_err(|err| {
         WhError::new(
@@ -157,6 +158,11 @@ mod tests {
         assert_eq!(setting("autoload_known_extensions"), "false");
         assert_eq!(setting("allow_community_extensions"), "false");
         assert_eq!(setting("allow_extension_repositories"), "forbidden");
+        assert_eq!(
+            setting("async_threads"),
+            config.db.threads.to_string(),
+            "async_threads 必须与 threads 同预算收敛（ADR-042）"
+        );
         drop(conn);
         let _ = fs::remove_dir_all(&dir);
     }

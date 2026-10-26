@@ -1,6 +1,6 @@
 # ADR-042：DuckDB 2.0.0 连接线程开销与 GUI 线程预算
 
-- **状态**：提议（待用户批准；不改变现行 FR-712／ADR-027 预算）
+- **状态**：已批准（2026-10-26，方案 A；FR-712／ADR-027 预算值不变）
 - **日期**：2026-10-25
 - **责任**：资源与 GUI 负责人
 - **相关**：FR-712、NFR-201、NFR-211、ADR-025、ADR-027、ADR-034、ADR-035
@@ -46,3 +46,58 @@
 - 取得 `db.threads` 之外的 DuckDB 线程配置证据时；
 - GUI 启动／关闭数据库连接的策略变更时；
 - 下一次 GUI 资源预算复核（不晚于 2026-11-25）或 DuckDB 小版本升级时。
+
+## 修订记录（2026-10-26：批准方案 A 并实施）
+
+**效力**：用户批准选**方案 A**（配置收敛）。FR-712 的 24 线程／256 句柄与 ADR-027 预算值
+**均不变**；GUI 资源判据的线程项仍未通过（见下），不产生达标声明。
+
+### 可配置性验证（决策第 3 条的先行证据）
+
+用官方 CLI 2.0.0（`local/duckdb-cli-2.0.0`）枚举 `duckdb_settings()` 并逐步设置后数线程
+（脚本与输出：`local/duckdb_thread_config_probe.py`、
+`local/duckdb-thread-config-probe-2026-10-26.txt`）：
+
+- DuckDB 2.0.0 受支持的线程配置项共 7 项：`threads`（= `worker_threads`）、
+  **`async_threads`（默认 64，"tasks like I/O"）**、`external_threads`（默认 1）、
+  `pin_threads`、`scheduler_process_partial`、`allocator_background_threads`（默认 false）。
+- **原第 1 节“与 `db.threads = 1／2／4` 无关”的结论不完整**：遗漏的旋钮是 `async_threads`。
+  16（worker 默认）+ 64（async 默认）≈ 80，正是“单连接 open 后约 80 线程”与 +67 增量的来源。
+- CLI 判别：默认池建立后 80 线程；设 `threads=1; SET async_threads=4;
+  SET external_threads=0` 后进程线程降为 **5**；三项均为运行期 `SET` 生效。
+
+### 实施（同夹具三处同步）
+
+| 位置 | 改动 |
+|---|---|
+| `crates/whcode-bin/src/workspace.rs` `open_workspace_db` | 同批 `SET` 增加 `async_threads = db.threads`（与 `threads` 同预算 min(4, 逻辑核数)） |
+| `tests/stability/test_stability_run.rs` 长跑夹具 | 同步 `SET async_threads`（与产品装配同口径，ADR-025 包络） |
+| `crates/whcode-bin/src/bench.rs` 基准夹具 | 同步 `SET async_threads` 并更新 measurement_discipline 文字 |
+
+`workspace_connection_denies_extension_installs_and_repositories` 增补
+`async_threads` 回读断言。`external_threads` 保持默认 1（设 0 被引擎钳位）。
+
+### 同夹具复测（2026-10-26，release，单机单样本不构成冻结）
+
+| 指标 | 改前（2026-10-25 探针） | 改后（本日） | FR-712 预算 | 判定 |
+|---|---|---|---|---|
+| GUI 空闲线程 | 88 | **28** | ≤ 24 | **未通过（差 4）** |
+| GUI 句柄 | 297—330 | **233** | ≤ 256 | 通过 |
+| GUI RSS | 84.5—99.7 MB | 77.6—94.9 MB | ≤ 96 MB | 通过（贴近上缘） |
+| GUI 私有内存 | 60.8—62.1 MB | 43.6—45.0 MB | ≤ 80 MB | 通过 |
+| NFR-210 写吞吐 | 冻结 4 054.6 条/秒 | **4 625.5 条/秒**（3 跑中位，`artifacts/adr042-bench-after-async-threads.json`） | ≥ 2 000 条/秒 | 通过，预算不修订 |
+
+GUI 探针输出：`local/gui-thread-after-adr042-2026-10-26.txt`（两次独立启动）。
+
+### 结论与剩余缺口
+
+1. 方案 A 成立且已实施：线程 −60（88→28），句柄与内存同时改善，吞吐不降反升；
+   增量确属 DuckDB 2.0.0 默认 `async_threads`，属配置问题而非引擎不可控。
+2. **FR-712 线程判据仍未通过（28 > 24）**。剩余 4 线程 ≈ 引擎 `threads=4` 的 worker 池
+   （DB 打不开的 GUI 对照为 21 线程）。收敛到预算内的两条路径：
+   - A′：全局 `threads=1`（引擎约 3 线程）——改变 NFR-210 冻结夹具口径，须按 ADR-025
+     决策 2 以同夹具前后对比另立修订并复测吞吐，**尚未实施**；
+   - P1 进程拆分（`artifacts/gui-memory-analysis-2026-10-26.md` 推荐主路径）：
+     DuckDB 移出 GUI 进程，须新 ADR。
+3. 本 ADR 第 2 节决策第 2 条继续有效：预算不静默放宽；在 A′ 或 P1 落地前，
+   GUI 资源判据的线程项保持未通过。

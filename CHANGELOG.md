@@ -37,7 +37,7 @@
   `x509-parser`、`sha2`（单一 `ring` 提供者，零 `unsafe`）。
   **代价与不承诺**：自签证书默认不被浏览器信任；私钥明文落盘依赖 OS ACL；`system` 档位
   不复用 Windows 吊销与策略；不承诺公网暴露、mTLS 与多用户隔离。真实浏览器握手证据
-  **未取得**（归属 T192）；资源证据见 ADR-042（DuckDB 2.0 线程超预算，待批准处置）。
+  **未取得**（归属 T192）；资源证据见 ADR-042（DuckDB 2.0 线程超预算，方案 A 已实施收敛，线程项仍未通过）。
 - CI 补齐可机器读取的证据（2026-10-26）：BSD 判据以公开 check-run 注解公布
   `store_gate`／`ssh_loopback_gate`／`process_group_gate`，并写 `*-progress.txt` 阶段证据；
   Windows 侧新增 SSH 回环、TLS 专项与 Playwright tablist 键盘／RTL 验收；长跑改为 release
@@ -55,6 +55,13 @@
 - GUI 线程预算偏差登记（2026-10-25，ADR-042 提议）：DuckDB 2.0.0 单连接打开约 80 线程，
   GUI 空闲实测 88 线程／297—330 句柄，超过 ADR-027 的 24／256；归因为引擎而非界面改动，
   现行预算不放宽，处置待用户批准 ADR-042。NFR-201 主进程空载 RSS 35.69 MB 达标。
+- GUI 线程配置收敛（2026-10-26，ADR-042 修订记录，方案 A 批准实施）：判别实验确认
+  DuckDB 2.0.0 受支持的 `async_threads`（默认 64）是线程膨胀主因（原“与 db.threads 无关”
+  结论不完整）；产品装配、长跑夹具与基准夹具同步 `SET async_threads = threads`。
+  GUI 空闲线程 88→28、句柄 297—330→233、私有内存 61→约 44 MB，NFR-210 同夹具复测
+  4 625.5 条/秒达标（`artifacts/adr042-bench-after-async-threads.json`）。FR-712 线程判据
+  仍未通过（28 > 24，剩余为 worker 池），后续路径：全局 threads=1（须 NFR-210 同夹具
+  复冻结）或进程拆分（新 ADR）。
 - 四端界面现代化（2026-10-25，modernize-ui-visual-language，ADR-041）：确立终端族（CUI／TUI）与
   应用族（Web／GUI）两套视觉语法，不引入第三色值、渐变、阴影与新增动效。
   TUI 改为三区布局（顶栏／左导航栏 + 列对齐主面板／键位提示栏，CJK 按 2 列截断）；CUI 的

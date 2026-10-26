@@ -157,12 +157,12 @@ impl StabilityRun {
         let db_path = dir.join("stability.duckdb");
         let mut conn = Connection::open(&db_path).expect("打开长跑数据库");
         // ADR-025 组合判据前提：与冻结基准同包络（memory_limit=192MB、threads=min(4, 逻辑核数)）。
-        // DuckDB 的这两项是实例级设置，对同库其余连接（写者）同样生效。
+        // async_threads 与产品装配同口径（ADR-042）；三项均为实例级设置，对同库其余连接（写者）同样生效。
         let threads_budget = std::thread::available_parallelism()
             .map(|n| n.get().min(4))
             .unwrap_or(4);
         conn.execute_batch(&format!(
-            "SET memory_limit = '192MB'; SET threads = {threads_budget};"
+            "SET memory_limit = '192MB'; SET threads = {threads_budget}; SET async_threads = {threads_budget};"
         ))
         .expect("施加 ADR-025 长跑包络");
         apply_migrations(&conn).expect("应用迁移");

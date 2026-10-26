@@ -495,7 +495,7 @@
 - [x] Check 296: 前端预算脚本新增 DOM 起始标签 ≤ 2 000 与 `innerHTML`／`outerHTML`／
   `insertAdjacentHTML` 禁令，`--selftest` 负向自检通过；CI 仍以同一入口执行（ADR-037）
   （来源：Task T200、FR-618、ADR-041 决策 7）
-- [x] Check 297: `artifacts/ui-modern-2026-10-25/` 含 TUI 帧预算、legacy 同机参照、Web 预算与——**复核（2026-10-26，CI run `40273055639`）**：`summary.json` 已补 TUI 帧预算（p95 1 913 µs／16 000 µs）、Web 预算与 DOM、GUI 资源（线程 88／句柄 297—330／RSS 84.5—99.7 MB，超 ADR-027，归因 DuckDB 2.0，ADR-042 待批准）、NFR-201 35.69 MB、Web 冒烟 5/5、浏览器 tablist GO；证据齐备性满足，资源超预算不作达标声明。**转入勾选**
+- [x] Check 297: `artifacts/ui-modern-2026-10-25/` 含 TUI 帧预算、legacy 同机参照、Web 预算与——**复核（2026-10-26，CI run `40273055639`）**：`summary.json` 已补 TUI 帧预算（p95 1 913 µs／16 000 µs）、Web 预算与 DOM、GUI 资源（线程 88／句柄 297—330／RSS 84.5—99.7 MB，超 ADR-027，归因 DuckDB 2.0，ADR-042 已批准并实施方案 A（2026-10-26：async_threads 收敛后线程 88→28，仍超 24））、NFR-201 35.69 MB、Web 冒烟 5/5、浏览器 tablist GO；证据齐备性满足，资源超预算不作达标声明。**转入勾选**
   DOM 计数、六视图帧文本与 summary；summary 逐项写明实测值／上限／结论；GUI 资源采样、主进程
   RSS 与 Web 运行时冒烟按 ADR-037 登记为未取得（并行 cert/TLS 工作阻塞），不得冒充通过
   （来源：Task T201、FR-613／617／618、ADR-041 决策 8）

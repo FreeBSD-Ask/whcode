@@ -295,7 +295,7 @@ pub fn measure(options: &BaselineOptions) -> Result<BaselineReport, WhError> {
         let conn =
             Connection::open(&db_path).map_err(|err| db_err("打开数据库", &db_path, &err))?;
         conn.execute_batch(&format!(
-            "SET memory_limit = '{MEMORY_LIMIT}'; SET threads = {threads_budget};"
+            "SET memory_limit = '{MEMORY_LIMIT}'; SET threads = {threads_budget}; SET async_threads = {threads_budget};"
         ))
         .map_err(|err| db_err("配置数据库参数", &db_path, &err))?;
 
@@ -465,7 +465,8 @@ pub fn measure(options: &BaselineOptions) -> Result<BaselineReport, WhError> {
             "memory_limit 仅约束 DuckDB 缓冲管理器，不代表 WHCode 进程 RSS 上限（§5.2）"
                 .to_string(),
             format!(
-                "固定夹具的数据库参数为 memory_limit={MEMORY_LIMIT}、threads=min(4, 逻辑核数)：\
+                "固定夹具的数据库参数为 memory_limit={MEMORY_LIMIT}、threads=min(4, 逻辑核数)、\
+                 async_threads=threads（ADR-042 配置收敛，2026-10-26 起）：\
                  本机 192MB + 4 线程在写入约 1000 条时触发 DuckDB OOM，故采用 §5.4 候选最大值；\
                  该取值经 ADR-025 随预算一并冻结（NFR-210 以 192 MB 为当前口径）"
             ),
