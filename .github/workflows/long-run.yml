@@ -79,6 +79,20 @@ jobs:
             Tee-Object -FilePath artifacts/stability-long/run.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # 门禁判定由程序实施（AGENTS.md §5）；verdict 随 artifact 归档并进公开注解。
+      # 退出码：0=通过/无权判定（统计区间跨越 0.5）；1=违反或前置不满足（夹具纪律缺口）。
+      - name: NFR-204 组合判据分析（ADR-025 修订记录）
+        if: always()
+        shell: pwsh
+        run: |
+          $path = "artifacts/stability-long/timeseries.jsonl"
+          if (-not (Test-Path $path)) {
+            Write-Output "::warning title=NFR-204::timeseries.jsonl 未落盘，判据分析跳过"
+            exit 0
+          }
+          python .github/scripts/analyze-nfr204.py $path
+          exit $LASTEXITCODE
+
       - name: 上传长跑时间序列与日志
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -87,6 +101,7 @@ jobs:
           if-no-files-found: warn
           path: |
             artifacts/stability-long/timeseries.jsonl
+            artifacts/stability-long/nfr204-verdict.json
             artifacts/stability-long/run.log
 
       # 日志与 artifact 下载需登录；check-run 注解是公开可读的摘要证据。

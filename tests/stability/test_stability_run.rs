@@ -156,6 +156,15 @@ impl StabilityRun {
         fs::create_dir_all(dir).expect("创建长跑工作区");
         let db_path = dir.join("stability.duckdb");
         let mut conn = Connection::open(&db_path).expect("打开长跑数据库");
+        // ADR-025 组合判据前提：与冻结基准同包络（memory_limit=192MB、threads=min(4, 逻辑核数)）。
+        // DuckDB 的这两项是实例级设置，对同库其余连接（写者）同样生效。
+        let threads_budget = std::thread::available_parallelism()
+            .map(|n| n.get().min(4))
+            .unwrap_or(4);
+        conn.execute_batch(&format!(
+            "SET memory_limit = '192MB'; SET threads = {threads_budget};"
+        ))
+        .expect("施加 ADR-025 长跑包络");
         apply_migrations(&conn).expect("应用迁移");
 
         let big = gen_dataset::generate(&mut conn, "S-BIG", DATASET_EVENTS, DATASET_TASKS);
@@ -506,9 +515,27 @@ impl StabilityRun {
             _ => f64::NAN,
         };
         let writer_events = self.current_writer_event_count();
+        let setting = |name: &str| -> serde_json::Value {
+            self.conn
+                .query_row(
+                    &format!("SELECT CAST(current_setting('{name}') AS VARCHAR)"),
+                    [],
+                    |row| row.get::<_, String>(0),
+                )
+                .map(serde_json::Value::String)
+                .unwrap_or(serde_json::Value::Null)
+        };
+        let duckdb_version: String = self
+            .conn
+            .query_row("SELECT version()", [], |row| row.get(0))
+            .expect("读取引擎版本");
         let record = serde_json::json!({
             "kind": "summary",
             "samples": self.sample_index,
+            "build_profile": if cfg!(debug_assertions) { "debug" } else { "release" },
+            "duckdb_version": duckdb_version,
+            "memory_limit_setting": setting("memory_limit"),
+            "threads_setting": setting("threads"),
             "duration_hours": (duration_hours * 10_000.0).round() / 10_000.0,
             "rss_first_mb": first.map(|(_, rss)| round2(rss)),
             "rss_last_mb": last.map(|(_, rss)| round2(rss)),
@@ -525,7 +552,7 @@ impl StabilityRun {
             "writer_submitted_total": self.writer_submitted,
             "writer_deleted_total": self.writer_deleted,
             "writer_events": writer_events,
-            "note": "NFR-204 候选斜率；写者队列取自 EventWriter 待写缓冲（目标表 m0_events），events 表持续写入为直连、不计入该队列",
+            "note": "rss_slope_mb_per_h 为首末差值口径，按 ADR-025 组合判据仅作交叉核对（主判据为预热后、按事件行数相位对齐的最小二乘斜率及 95% CI，由长跑后分析计算）；写者队列取自 EventWriter 待写缓冲（目标表 m0_events），events 表持续写入为直连、不计入该队列",
         });
         writeln!(self.out, "{record}").expect("追加汇总行");
         self.out.flush().expect("汇总行必须立即落盘");

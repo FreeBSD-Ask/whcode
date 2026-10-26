@@ -1,15 +1,17 @@
-# 5.5 小时长跑请求标记（2026-10-26）
+# 5.5 小时长跑请求标记（2026-10-26，第二次）
 
 本文件只用于触发 `long-run.yml` 的一次性运行（`push.paths` 过滤）；内容变更即执行，
 删除后不再触发自动长跑。
 
-- 目的：取得 release 剖面、单 PID、300 s 采样的 5.5 小时（19 800 s）稳定性序列，
-  用于 NFR-204 RSS 斜率与 §11.5 全部指标（Check 116／195）。
-- 触发提交：长跑工作流改为 release 构建并公布公开摘要注解。
-- 判据：`timeseries.jsonl` 含 65 个 `sample` 行与 1 个 `summary` 行；
-  `writer_queue_depth_peak`／`oldest_queue_item_age_ms` 非 `null`；
-  `event_missing` 恒 0；summary 给出 RSS 首末／最小二乘斜率。
-- 预算：ADR-025 冻结 NFR-204 ≤ 0.5 MB/h，但 5.5 小时窗口的分辨力争议见
-  `artifacts/nfr204-disposition-2026-10-25.md`；本次只取证，判定按 ADR-025
-  修订提议（待批准）执行。
+- 目的：取得 release 剖面、单 PID、300 s 采样、ADR-025 包络
+  （`memory_limit='192MB'`／`threads=min(4, 逻辑核数)`）下的 5.5 小时（19 800 s）
+  稳定性序列，用于 NFR-204 组合判据与 §11.5 全部指标（Check 116／195）。
+- 触发提交：ADR-025 组合判据经用户批准（2026-10-26）转为正式修订记录；夹具补齐
+  包络与 summary 纪律字段（`build_profile`、引擎版本、包络回读值、样本 `pid`）；
+  新增 `.github/scripts/analyze-nfr204.py` 程序化判定并接入 `long-run.yml`。
+- 判据：按 ADR-025 修订记录（2026-10-26 批准）执行——前置（release、样本 ≥ 60、
+  单 PID、`event_missing` 全程 0、线程/句柄恒定）+ 五要素 + 三态结论；
+  verdict 由脚本产出 `nfr204-verdict.json` 并入公开注解。
+- 判定：通过／违反／无权判定按脚本退出码与注解为准；无权判定须按判据登记缺口，
+  不得写成通过或失败。
 - 成本：一次运行约 5.5 小时 Windows runner 配额；仅在需要新序列时修改本文件。

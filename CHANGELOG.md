@@ -733,6 +733,15 @@
 - 契约测试新增 workspace lints 继承校验，确保全部成员保持 `unsafe_code = "forbid"`；
   clippy 增 `mem_forget = "deny"`。
 - 新增 `docs/guides/test-model-sensenova.md`，记录图像输入实测与 `thinking` 对象形态。
+- NFR-204 判定改为组合判据（2026-10-26，用户批准，ADR-025 修订记录）：冻结值 ≤ 0.5 MB/h
+  不变；判定改为“前置条件（release、样本 ≥ 60、单 PID、`event_missing` 全程 0、线程/句柄
+  恒定）+ 五要素 + 三态结论（通过／违反／无权判定）”，估计量结论冲突一律无权判定。
+  长跑夹具补齐 ADR-025 包络（`memory_limit='192MB'`／`threads=min(4, 逻辑核数)`）与
+  summary 纪律字段（`build_profile`、引擎版本、包络回读值、样本 `pid`）；新增
+  `.github/scripts/analyze-nfr204.py` 在 `long-run.yml` 程序化判定，verdict 随 artifact
+  归档并进公开注解。run 40154046118 维持“现行口径超预算、按组合判据无权判定”登记。
+- CI action `cross-platform-actions/action` 升级至 v1.7.0 并固定 SHA（清单复核日期
+  2026-10-26；周度联网复核发现的唯一漂移，其余六个 action 经认证途径复核无漂移）。
 
 ### 修复
 
