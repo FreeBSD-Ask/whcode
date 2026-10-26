@@ -1553,9 +1553,9 @@ mod tests {
     use whcode_web::ws::accept_key;
 
     use super::{
-        INITIAL_SESSION_LIMIT, Reply, ServeCerts, ServeCli, ServeSecurity, find_subsequence,
-        header_content_length, origin_allowlist, prepare_tls, reason, resolve_inbound_mode,
-        respond, serve_loop, serve_ssh,
+        Client, INITIAL_SESSION_LIMIT, MAX_CLIENTS, Phase, Reply, ServeCerts, ServeCli,
+        ServeSecurity, accept_ready, find_subsequence, header_content_length, origin_allowlist,
+        prepare_tls, reason, resolve_inbound_mode, respond, serve_loop, serve_ssh,
     };
     use crate::tls;
     use crate::workspace::WORKSPACE_DB_FILE;
@@ -2057,6 +2057,97 @@ mod tests {
             conn: server.conn,
             cert,
         }
+    }
+
+    /// 构造一个已占位的连接（等价于已接受但尚未泵动的明文连接）。
+    fn dummy_client() -> Client {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("绑定占位连接");
+        let addr = listener.local_addr().expect("读取占位端口");
+        let peer = TcpStream::connect(addr).expect("连接占位服务端");
+        let (stream, _) = listener.accept().expect("接受占位连接");
+        stream.set_nonblocking(true).expect("占位连接非阻塞");
+        drop(peer);
+        Client {
+            io: tls::ConnIo::plain(stream),
+            phase: Phase::Reading {
+                buf: Vec::with_capacity(4096),
+                header_end: None,
+                content_length: 0,
+            },
+            last_active: Instant::now(),
+            dead: false,
+        }
+    }
+
+    /// Check 284：并发上限处 TLS 连接直接关闭，不进入等待队列。
+    ///
+    /// 预填 [`MAX_CLIENTS`] 个占位连接后让 `accept_ready` 接收第 97 条 TLS 连接；
+    /// 该连接必须被关闭（EOF／RST），客户端列表保持上限，且不产生 503——TLS 握手
+    /// 尚未完成，无法发送任何 HTTP 响应。
+    #[test]
+    fn tls_client_cap_closes_excess_without_queueing() {
+        let (cert_pem, key_pem) = test_material();
+        let config = tls::server_config(&cert_pem, &key_pem).expect("TLS 服务端配置");
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("绑定监听");
+        listener.set_nonblocking(true).expect("监听非阻塞");
+        let addr = listener.local_addr().expect("读取端口");
+
+        let mut clients: Vec<Client> = (0..MAX_CLIENTS).map(|_| dummy_client()).collect();
+        let mut peer = TcpStream::connect(addr).expect("连接第 97 条");
+        peer.set_read_timeout(Some(Duration::from_secs(2)))
+            .expect("读超时");
+        let mut progressed = false;
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !progressed && Instant::now() < deadline {
+            accept_ready(&listener, &mut clients, &mut progressed, Some(&config));
+            if !progressed {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+        assert!(progressed, "第 97 条连接必须被 accept 观察到");
+        assert_eq!(
+            clients.len(),
+            MAX_CLIENTS,
+            "超限连接不得进入客户端列表（不静默排队）"
+        );
+
+        let mut buf = [0u8; 64];
+        match peer.read(&mut buf) {
+            Ok(0) => {}
+            Err(err) if err.kind() == ErrorKind::ConnectionReset => {}
+            other => panic!("TLS 超限连接必须直接关闭（EOF／RST），实际 {other:?}"),
+        }
+    }
+
+    /// Check 284：HTTP 请求累积超过上限时返回 400，不无界增长缓冲。
+    #[test]
+    fn oversized_http_request_is_rejected_without_unbounded_buffer() {
+        let server = spawn_test_server();
+        let mut stream = TcpStream::connect(server.addr).expect("连接测试服务器");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .expect("读超时");
+        stream
+            .set_write_timeout(Some(Duration::from_secs(5)))
+            .expect("写超时");
+
+        let body_len = whcode_web::security::MAX_MESSAGE_BYTES + 32 * 1024;
+        let head = format!(
+            "POST /api/sessions HTTP/1.1\r\nhost: localhost\r\ncontent-length: {body_len}\r\n\r\n"
+        );
+        stream.write_all(head.as_bytes()).expect("写请求头");
+        // 服务端在累积超过上限后会立即回 400 并关闭；写体可能因提前关闭而失败，
+        // 这不是失败判据，响应才是。
+        let body = vec![b'x'; body_len];
+        let _ = stream.write_all(&body);
+
+        let mut response = Vec::new();
+        let _ = stream.read_to_end(&mut response);
+        let text = String::from_utf8_lossy(&response);
+        assert!(
+            text.contains("400"),
+            "超过请求上限必须返回 400（实际：{text}）"
+        );
     }
 
     /// TLS 客户端（阻塞 socket + `StreamOwned`：握手在首次读写时完成）。

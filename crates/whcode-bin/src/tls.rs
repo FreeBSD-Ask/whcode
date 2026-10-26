@@ -46,6 +46,8 @@ pub const MAX_TLS_PENDING_OUT: usize = 256 * 1024;
 const TLS_READ_CHUNK: usize = 4096;
 /// 单次 `read_plain` 最多推进的“读密文→处理”轮数：保证每 tick 工作量有界。
 const MAX_TLS_READ_ROUNDS: usize = 8;
+/// 单次 socket 读块必须小于密文暂存上限：编译期保证，避免上限被误改成更小的值。
+const _: () = assert!(TLS_READ_CHUNK <= MAX_TLS_CIPHERTEXT);
 
 /// 由受管 PEM 材料构造入站 TLS 服务端配置（只读共享，每连接克隆 `Arc`）。
 ///
@@ -336,21 +338,28 @@ impl TlsConn {
                     return Ok(0);
                 }
                 Ok(read) => {
-                    self.ciphertext.clear();
-                    self.ciphertext.extend_from_slice(&chunk[..read]);
-                    if self.ciphertext.len() > MAX_TLS_CIPHERTEXT {
+                    // 密文暂存跨 tick 保留：`read_tls` 可能只消费到记录边界，
+                    // 余下字节必须留到下一次，不能清空（否则下一记录从中途解析，
+                    // 表现为“cannot decrypt peer's message”）。
+                    if self.ciphertext.len() + read > MAX_TLS_CIPHERTEXT {
                         return Err(invalid_data(format!(
-                            "TLS 密文读入超过上限 {MAX_TLS_CIPHERTEXT} 字节；连接已关闭（NFR-215）"
+                            "TLS 密文暂存超过上限 {MAX_TLS_CIPHERTEXT} 字节；连接已关闭（NFR-215）"
                         )));
                     }
+                    self.ciphertext.extend_from_slice(&chunk[..read]);
                     let mut slice: &[u8] = &self.ciphertext;
                     let consumed = self.conn.read_tls(&mut slice).map_err(|err| {
                         invalid_data(format!("TLS 密文读取失败（{err}）；连接已关闭"))
                     })?;
                     if consumed == 0 {
+                        // 暂存非空却未被消费：交回控制权，下个 tick 重试，
+                        // 不能当作 EOF（那会静默吞掉未解析的密文）。
                         self.flush_lenient()?;
-                        return Ok(0);
+                        return Err(would_block(
+                            "TLS 密文暂存尚未被 rustls 消费，下一 tick 继续",
+                        ));
                     }
+                    self.ciphertext.drain(..consumed);
                     self.conn.process_new_packets().map_err(|err| {
                         invalid_data(format!(
                             "TLS 握手或解密失败（{err}）；连接已关闭（ADR-040 决策 3）"
@@ -466,7 +475,7 @@ mod tests {
     use rustls::pki_types::pem::PemObject as _;
     use rustls::pki_types::{CertificateDer, ServerName};
 
-    use super::{ConnIo, MAX_TLS_PENDING_OUT, server_config};
+    use super::{ConnIo, MAX_TLS_PENDING_OUT, MAX_TLS_PLAINTEXT, server_config};
 
     /// 测试用自签证书与私钥（运行期生成，不写入仓库）。
     fn test_material() -> (String, String) {
@@ -743,5 +752,184 @@ mod tests {
             ),
             ConnIo::Plain(_) => unreachable!("TLS 分支"),
         }
+    }
+
+    /// Check 284：部分写必须只接受可用容量，并在后续 tick 续写直到全部送达。
+    ///
+    /// 载荷取 `rustls 发送缓冲上限（64 KiB）+ 暂存上限（256 KiB）+ 余量`，保证首次
+    /// `write_plain` 必然只能接受前缀；其余字节由调用方保留并在暂存腾空后再次提交。
+    #[test]
+    fn partial_write_accepts_capacity_and_resumes_until_all_bytes_delivered() {
+        let (mut io, mut peer, cert_pem) = tls_pair();
+        let mut client = client_for(&cert_pem);
+        drive_handshake(&mut io, &mut client, &mut peer);
+
+        let total = 400 * 1024;
+        let payload: Vec<u8> = (0..total).map(|index| (index % 251) as u8).collect();
+        let accepted = io
+            .write_plain(&payload)
+            .expect("部分写必须返回本次接受的字节数");
+        assert!(accepted > 0, "首次写入必须至少接受一段前缀");
+        assert!(
+            accepted < payload.len(),
+            "载荷必须超过可用容量才能验证部分写：accepted={accepted} total={total}"
+        );
+
+        let mut sent = accepted;
+        let mut delivered = Vec::with_capacity(total);
+        let mut sink = vec![0u8; 64 * 1024];
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while delivered.len() < total && Instant::now() < deadline {
+            io.flush().expect("刷出待写密文");
+            // 每次读入后立即 process：rustls 的接收缓冲有界，攒够一批再处理会以
+            // “message buffer full”失败（那是有界性的表现，不是被测路径的失败）。
+            loop {
+                match client.read_tls(&mut peer) {
+                    Ok(0) => break,
+                    Ok(_) => {
+                        client.process_new_packets().expect("客户端处理应用数据");
+                        loop {
+                            match client.reader().read(&mut sink) {
+                                Ok(0) => break,
+                                Ok(read) => delivered.extend_from_slice(&sink[..read]),
+                                Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => break,
+                                Err(err) => panic!("客户端读明文失败：{err}"),
+                            }
+                        }
+                    }
+                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => break,
+                    Err(err) => panic!("客户端读密文失败：{err}"),
+                }
+            }
+            while sent < payload.len() {
+                match io.write_plain(&payload[sent..]) {
+                    Ok(read) => sent += read,
+                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => break,
+                    Err(err) => panic!("续写失败：{err}"),
+                }
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(
+            delivered, payload,
+            "部分写续传后客户端必须收到与提交完全一致的字节"
+        );
+    }
+
+    /// Check 284：单次明文读取不超过 `MAX_TLS_PLAINTEXT`，且密文块不会超过其上限。
+    #[test]
+    fn read_plain_never_exceeds_plaintext_limit() {
+        let (mut io, mut peer, cert_pem) = tls_pair();
+        let mut client = client_for(&cert_pem);
+        drive_handshake(&mut io, &mut client, &mut peer);
+        // 把客户端可能尚未写出的握手收尾（Finished）先送达并让服务端处理，
+        // 再写应用数据；否则 rustls 会在密钥切换边界报“cannot decrypt”。
+        loop {
+            match client.write_tls(&mut peer) {
+                Ok(0) => break,
+                Ok(_) => {}
+                Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(err) => panic!("客户端握手收尾失败：{err}"),
+            }
+        }
+        let mut handshake_sink = [0u8; 4096];
+        match io.read_plain(&mut handshake_sink) {
+            Ok(_) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(err) => panic!("服务端握手收尾失败：{err}"),
+        }
+
+        // 阳性对照：先传一条小消息，证明握手后的应用数据方向确实可用；
+        // 失败时能把“握手状态问题”与“大载荷/缓冲问题”分开。
+        client
+            .writer()
+            .write_all(b"probe")
+            .expect("客户端写探针消息");
+        loop {
+            match client.write_tls(&mut peer) {
+                Ok(0) => break,
+                Ok(_) => {}
+                Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(err) => panic!("客户端写探针密文失败：{err}"),
+            }
+        }
+        let mut probe = [0u8; 16];
+        let probe_len = loop {
+            match io.read_plain(&mut probe) {
+                Ok(0) => panic!("探针消息未送达"),
+                Ok(read) => break read,
+                Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                Err(err) => panic!("服务端读探针失败：{err}"),
+            }
+        };
+        assert_eq!(&probe[..probe_len], b"probe", "应用数据方向必须可用");
+
+        let payload: Vec<u8> = (0..(MAX_TLS_PLAINTEXT + 4096))
+            .map(|i| (i % 239) as u8)
+            .collect();
+        // rustls 的明文发送缓冲有界（64 KiB），一次 write_all 会以 WriteZero 失败；
+        // 按块写入并在块间泵动服务端读取，才是非阻塞连接的真实用法。
+        let mut out = vec![0u8; MAX_TLS_PLAINTEXT * 2];
+        let mut delivered = Vec::new();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut offset = 0usize;
+        while offset < payload.len() {
+            let end = (offset + 32 * 1024).min(payload.len());
+            client
+                .writer()
+                .write_all(&payload[offset..end])
+                .expect("客户端写应用数据");
+            loop {
+                match client.write_tls(&mut peer) {
+                    Ok(0) => break,
+                    Ok(_) => {}
+                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => break,
+                    Err(err) => panic!("客户端写密文失败：{err}"),
+                }
+            }
+            offset = end;
+            loop {
+                match io.read_plain(&mut out) {
+                    Ok(0) => break,
+                    Ok(read) => {
+                        assert!(
+                            read <= MAX_TLS_PLAINTEXT,
+                            "单次明文读取 {read} 超过上限 {MAX_TLS_PLAINTEXT}"
+                        );
+                        delivered.extend_from_slice(&out[..read]);
+                    }
+                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => break,
+                    Err(err) => panic!("服务端读失败：{err}"),
+                }
+            }
+        }
+
+        while delivered.len() < payload.len() && Instant::now() < deadline {
+            loop {
+                match client.write_tls(&mut peer) {
+                    Ok(0) => break,
+                    Ok(_) => {}
+                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => break,
+                    Err(err) => panic!("客户端写密文失败：{err}"),
+                }
+            }
+            match io.read_plain(&mut out) {
+                Ok(0) => break,
+                Ok(read) => {
+                    assert!(
+                        read <= MAX_TLS_PLAINTEXT,
+                        "单次明文读取 {read} 超过上限 {MAX_TLS_PLAINTEXT}"
+                    );
+                    delivered.extend_from_slice(&out[..read]);
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                Err(err) => panic!("服务端读失败：{err}"),
+            }
+        }
+        assert_eq!(delivered, payload, "有界读取不得截断或丢失字节");
     }
 }

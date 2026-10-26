@@ -93,6 +93,96 @@ jobs:
         if: matrix.platform == 'windows'
         run: cargo test --locked --workspace
 
+      - name: 内置 SSH 回环验收（Check 25，Windows 客户端侧）
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/ssh-acceptance | Out-Null
+          cargo test --locked -p whcode-ssh -- --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/ssh-acceptance/windows-client.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $client = Select-String -Path artifacts/ssh-acceptance/windows-client.txt `
+            -Pattern 'bsd_client_acceptance_loopback \.\.\. ok'
+          $server = Select-String -Path artifacts/ssh-acceptance/windows-client.txt `
+            -Pattern 'bsd_server_acceptance_loopback \.\.\. ok'
+          if (-not $client -or -not $server) {
+            Write-Output "::error title=SSH loopback (Windows)::验收用例未同时执行（零不等于通过）"
+            exit 1
+          }
+          Write-Output "::notice title=SSH loopback (Windows)::GO（客户端与服务端回环用例均已执行）"
+
+      - name: 上传 Windows SSH 回环验收记录
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ssh-acceptance-windows
+          if-no-files-found: warn
+          path: artifacts/ssh-acceptance/
+
+      - name: 入站 TLS 握手与证书专项（Check 282—285）
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/tls-ci | Out-Null
+          cargo test --locked -p whcode-bin serve::tests 2>&1 |
+            Tee-Object -FilePath artifacts/tls-ci/serve.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p whcode-bin tls::tests 2>&1 |
+            Tee-Object -FilePath artifacts/tls-ci/tls.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $serveOk = Select-String -Path artifacts/tls-ci/serve.txt -Pattern '^test result: ok\.'
+          $tlsOk = Select-String -Path artifacts/tls-ci/tls.txt -Pattern '^test result: ok\.'
+          if (-not $serveOk -or -not $tlsOk) {
+            Write-Output "::error title=TLS inbound (Windows)::缺少 test result: ok 行（零不等于通过）"
+            exit 1
+          }
+          Write-Output "::notice title=TLS inbound (Windows)::GO（serve::tests 与 tls::tests 均通过）"
+
+      - name: 上传 Windows TLS 专项记录
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tls-ci-windows
+          if-no-files-found: warn
+          path: artifacts/tls-ci/
+
+      - name: Web tablist 键盘／RTL／焦点／ARIA（Check 294，真实浏览器）
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          # 测试步骤只产出测试 harness；浏览器验收需要真实二进制。
+          cargo build --locked -p whcode-bin
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force artifacts/web-ui-ci | Out-Null
+          $ws = Join-Path $env:RUNNER_TEMP "whcode-web-ui"
+          New-Item -ItemType Directory -Force $ws | Out-Null
+          # 让内核分配空闲端口，避免托管 runner 上固定端口冲突。
+          $probe = [System.Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+          $probe.Start()
+          $port = $probe.LocalEndpoint.Port
+          $probe.Stop()
+          $server = Start-Process -FilePath "target/debug/whcode.exe" `
+            -ArgumentList @("serve", "--web", "--bind", "127.0.0.1:$port", "--tls", "off", "--workspace", $ws) `
+            -PassThru
+          try {
+            python .github/scripts/web-ui-check.py `
+              --base-url "http://127.0.0.1:$port" `
+              --evidence artifacts/web-ui-ci/summary.json
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Write-Output "::notice title=Web tablist (Windows)::GO（键盘循环／RTL／焦点／ARIA 同步）"
+          } finally {
+            Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: 上传 Web tablist 浏览器证据
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-ui-ci-windows
+          if-no-files-found: warn
+          path: artifacts/web-ui-ci/
+
       - name: 运行时 feature 门控测试（T110／ADR-029：默认构建外再验引擎路径）
         if: matrix.platform == 'windows'
         run: |
@@ -119,6 +209,9 @@ jobs:
       - name: 在 FreeBSD VM 中构建、测试与记录
         id: freebsd_vm
         if: matrix.platform == 'freebsd' && github.event_name != 'pull_request'
+        # ADR-013：BSD 只作平台证据；VM／引导失败不应把整次 CI 变红，
+        # 结论仍由上传的证据文件与 check-run 注解承载（NO-GO 不改写）。
+        continue-on-error: true
         uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
           # 只写主版本：action 自动取最新 15.x 点版本。
@@ -129,6 +222,9 @@ jobs:
             pkg install -y duckdb || true
           run: |
             set -e
+            mkdir -p artifacts/store-acceptance artifacts/ssh-acceptance
+            progress=artifacts/store-acceptance/freebsd-progress.txt
+            echo "phase=bootstrap-start" > "$progress"
             # 用 rustup 装锁定工具链（pkg 的 rust 版本不确定，无法满足可复现要求）。
             export HOME=/root
             export PATH="$HOME/.cargo/bin:$PATH"
@@ -138,20 +234,48 @@ jobs:
             fi
             rustc -vV
             cargo -V
+            echo "phase=toolchain-ok" >> "$progress"
+            echo "rustc_version=$(rustc --version)" >> "$progress"
 
             echo "=== 代码级检查（平台中立 crate，不链接 DuckDB／GUI）==="
             cargo check --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
               -p whcode-llm -p whcode-runtime
+            echo "phase=code-check-ok" >> "$progress"
 
             echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
             cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
               -p whcode-llm -p whcode-runtime
+            echo "phase=package-tests-ok" >> "$progress"
+
+            # Check 109／201 的 BSD 侧：进程组终止后孙进程零残留。退码 0 不足以判定，
+            # 必须看到验收用例名；缺用例按 NO-GO 记录（零不等于通过）。
+            echo "=== BSD 进程组零残留（Check 109／201）==="
+            pg_log=/tmp/whcode-process-group.$$.log
+            pg=NO-GO
+            if cargo test --locked -p whcode-platform process_group_termination_kills_grandchild \
+              -- --nocapture > "$pg_log" 2>&1 \
+              && grep -q 'process_group_termination_kills_grandchild_and_leaves_no_residue ... ok' "$pg_log"; then
+              pg=GO
+            fi
+            mkdir -p artifacts/process-group
+            {
+              echo "# WHCode BSD 进程组零残留（Check 109／201）"
+              echo "format_version = 1"
+              echo "platform = $(uname -s)"
+              echo "test = process_group_termination_kills_grandchild_and_leaves_no_residue"
+              echo "process_group_gate = $pg"
+              echo "[cargo_output_tail]"
+              tail -n 40 "$pg_log" 2>/dev/null || echo "<未取得证据：未执行>"
+            } > artifacts/process-group/freebsd-process-group.txt
+            rm -f "$pg_log"
+            echo "process_group_gate=$pg" >> "$progress"
 
             # DuckDB 2.0.0 源码构建必须先于 SSH 与 store 冒烟：pkg 的 1.5.6 与冻结引擎
             # 2.0.0（ADR-034）主版本不一致，store 的引擎版本断言必然失败，SSH 测试也会
             # 链接到错误版本。脚本只记录不判定，NO-GO 不得改写为 GO。
             echo "=== DuckDB 2.0.0 源码构建与 store 冒烟（Check 22／ADR-034）==="
             sh .github/scripts/platform-matrix/bsd-duckdb.sh
+            echo "phase=duckdb-script-done" >> "$progress"
             if [ -f artifacts/store-acceptance/freebsd-duckdb.env ]; then
               # shellcheck disable=SC1091
               . artifacts/store-acceptance/freebsd-duckdb.env
@@ -161,6 +285,7 @@ jobs:
             # 脚本始终退出 0，结论写在 artifacts/ssh-acceptance/<platform>-client.txt；
             # 不得以退出码代替阅读证据文件（NO-GO 不得改写为 GO）。
             sh .github/scripts/platform-matrix/bsd-ssh-client.sh
+            echo "phase=ssh-script-done" >> "$progress"
 
             # DuckDB 环境选择：源码构建就绪时用它；否则退回 pkg（1.5.6），并保留
             # “版本不匹配属 R-01 现实化路径”的独立结论。依赖记录必须在选择之后执行，
@@ -225,6 +350,7 @@ jobs:
             else
               echo "GATE_RESULT=NO-GO（pkg 无 duckdb：需源码构建，待评估）"
             fi
+            echo "phase=done" >> "$progress"
 
       - name: 归档 FreeBSD 结论
         if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
@@ -253,12 +379,16 @@ jobs:
         with:
           name: store-acceptance-freebsd
           if-no-files-found: warn
-          path: artifacts/store-acceptance/
+          path: |
+            artifacts/store-acceptance/
+            artifacts/process-group/
 
       # ---------------- NetBSD（最新 11.x release） ----------------
       - name: 在 NetBSD VM 中构建、测试与记录
         id: netbsd_vm
         if: matrix.platform == 'netbsd' && github.event_name != 'pull_request'
+        # 同 FreeBSD：BSD 平台证据不阻断 CI 绿路径（ADR-013）。
+        continue-on-error: true
         uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         with:
           # 只写主版本：action 自动取最新 11.x 点版本；pkgin 仓库路径由 VM 的 uname -r 推导。
@@ -292,12 +422,19 @@ jobs:
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
             export LD_LIBRARY_PATH="/usr/pkg/lib"
             pkgin -y update
-            pkgin -y install rust cmake ninja python3 curl
+            pkgin -y install rust cmake ninja
+            # python3／curl 缺失不阻断 bootstrap：DuckDB 源码构建会记录 NO-GO，
+            # 但依赖记录与工具链检查仍应执行（区分“正确的空”与“前置缺失”）。
+            pkgin -y install python3 || echo "WARN: python3 安装失败（DuckDB 源码构建将记录 NO-GO）"
+            pkgin -y install curl || echo "WARN: curl 安装失败（rustup 下载将回退 pkgsrc）"
             pkgin -y install duckdb || true
           run: |
             set -e
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
             export LD_LIBRARY_PATH="/usr/pkg/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            mkdir -p artifacts/store-acceptance artifacts/ssh-acceptance
+            progress=artifacts/store-acceptance/netbsd-progress.txt
+            echo "phase=bootstrap-start" > "$progress"
 
             # pkgsrc 的 rust 可能与锁定版本不一致（Check 21）。优先用 rustup 安装
             # rust-toolchain.toml 的版本；下载或安装失败时回退 pkgsrc rust，
@@ -305,8 +442,14 @@ jobs:
             export HOME=${HOME:-/root}
             if [ ! -x "$HOME/.cargo/bin/cargo" ]; then
               echo "=== 尝试 rustup 安装锁定工具链 1.99.1（x86_64-unknown-netbsd）==="
-              if curl -fsSL --retry 2 --connect-timeout 30 -o /tmp/rustup-init \
-                https://static.rust-lang.org/rustup/dist/x86_64-unknown-netbsd/rustup-init; then
+              rustup_url=https://static.rust-lang.org/rustup/dist/x86_64-unknown-netbsd/rustup-init
+              if command -v curl >/dev/null 2>&1; then
+                curl -fsSL --retry 2 --connect-timeout 30 -o /tmp/rustup-init "$rustup_url" \
+                  || rm -f /tmp/rustup-init
+              elif command -v ftp >/dev/null 2>&1; then
+                ftp -V -o /tmp/rustup-init "$rustup_url" 2>/dev/null || rm -f /tmp/rustup-init
+              fi
+              if [ -s /tmp/rustup-init ]; then
                 chmod +x /tmp/rustup-init
                 if /tmp/rustup-init -y --profile minimal --default-toolchain 1.99.1 \
                   >/tmp/rustup-init.log 2>&1; then
@@ -319,11 +462,18 @@ jobs:
                 echo "rustup-init 下载失败；回退 pkgsrc rust"
               fi
             fi
-            if [ -x "$HOME/.cargo/bin/cargo" ]; then
+            # 只有 rustc 真能执行才前置 rustup 的 PATH；rustup-init 失败时可能留下
+            # 不可用的 shim，前置它会让后续每一步都以 127／非零退出。
+            if [ -x "$HOME/.cargo/bin/rustc" ] && \
+              "$HOME/.cargo/bin/rustc" --version >/dev/null 2>&1; then
               export PATH="$HOME/.cargo/bin:$PATH"
+              echo "phase=rustup-ok" >> "$progress"
+            else
+              echo "phase=rustup-fallback-pkgsrc" >> "$progress"
             fi
             rustc -vV
             cargo -V
+            echo "rustc_version=$(rustc --version)" >> "$progress"
 
             # MSRV 从 Cargo.toml 读取：工作流手写版本会与清单漂移（2026-10-24 已升至 1.99），
             # 手写值一旦落后，pkgsrc rust 低于 MSRV 时不会跳过而是直接编译失败。
@@ -360,21 +510,45 @@ jobs:
             if [ "$msrv_ok" -eq 0 ]; then
               echo "SKIP：pkgsrc rust $version 低于 MSRV $msrv（环境限制，不作代码结论）"
               echo "本次仅产出依赖记录，不进入验收结论（ADR-013：BSD 只作平台证据）。"
+              echo "phase=msrv-skip" >> "$progress"
               exit 0
             fi
 
             echo "=== 代码级检查（平台中立 crate，不链接 DuckDB／GUI）==="
             cargo check --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
               -p whcode-llm -p whcode-runtime
+            echo "phase=code-check-ok" >> "$progress"
 
             echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
             cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
               -p whcode-llm -p whcode-runtime
+            echo "phase=package-tests-ok" >> "$progress"
 
-            # pkgsrc 的 DuckDB 为 1.5.5，与冻结引擎 2.0.0（ADR-034）主版本不一致；
+            echo "=== BSD 进程组零残留（Check 109／201）==="
+            pg_log=/tmp/whcode-process-group.$$.log
+            pg=NO-GO
+            if cargo test --locked -p whcode-platform process_group_termination_kills_grandchild \
+              -- --nocapture > "$pg_log" 2>&1 \
+              && grep -q 'process_group_termination_kills_grandchild_and_leaves_no_residue ... ok' "$pg_log"; then
+              pg=GO
+            fi
+            mkdir -p artifacts/process-group
+            {
+              echo "# WHCode BSD 进程组零残留（Check 109／201）"
+              echo "format_version = 1"
+              echo "platform = $(uname -s)"
+              echo "test = process_group_termination_kills_grandchild_and_leaves_no_residue"
+              echo "process_group_gate = $pg"
+              echo "[cargo_output_tail]"
+              tail -n 40 "$pg_log" 2>/dev/null || echo "<未取得证据：未执行>"
+            } > artifacts/process-group/netbsd-process-group.txt
+            rm -f "$pg_log"
+            echo "process_group_gate=$pg" >> "$progress"
+
             # 源码构建后才能让 store 的引擎版本断言与 SSH 链接路径成立。
             echo "=== DuckDB 2.0.0 源码构建与 store 冒烟（Check 22／ADR-034）==="
             WHCODE_DUCKDB_JOBS=2 sh .github/scripts/platform-matrix/bsd-duckdb.sh
+            echo "phase=duckdb-script-done" >> "$progress"
             if [ -f artifacts/store-acceptance/netbsd-duckdb.env ]; then
               # shellcheck disable=SC1091
               . artifacts/store-acceptance/netbsd-duckdb.env
@@ -382,6 +556,7 @@ jobs:
 
             echo "=== SSH 客户端＋服务端 BSD 回环验收（Check 25／96／99）==="
             sh .github/scripts/platform-matrix/bsd-ssh-client.sh
+            echo "phase=ssh-script-done" >> "$progress"
 
             echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
             duckdb_ready=0
@@ -415,6 +590,7 @@ jobs:
             else
               echo "GATE_RESULT=NO-GO（无可用 DuckDB 原生库）"
             fi
+            echo "phase=done" >> "$progress"
 
       - name: 归档 NetBSD 结论
         if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
@@ -436,7 +612,9 @@ jobs:
         with:
           name: store-acceptance-netbsd
           if-no-files-found: warn
-          path: artifacts/store-acceptance/
+          path: |
+            artifacts/store-acceptance/
+            artifacts/process-group/
 
       - name: 上传 NetBSD SSH 客户端验收记录
         if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
@@ -449,26 +627,36 @@ jobs:
       # check-run 注解是公开可读的机器证据（日志下载需登录）：把 store／SSH 判据行
       # 以 notice 形式附在 job 上，供无凭据复核；NO-GO 不改写、缺文件显式告警。
       - name: 公布 BSD 验收结论（公开注解）
-        if: always() && (matrix.platform == 'freebsd' || matrix.platform == 'netbsd') && github.event_name != 'pull_request'
+        if: always() && matrix.platform != 'windows' && github.event_name != 'pull_request'
         run: |
           set -eu
           found=0
-          for f in artifacts/store-acceptance/*-store.txt artifacts/ssh-acceptance/*-client.txt; do
+          for f in artifacts/store-acceptance/*-store.txt artifacts/ssh-acceptance/*-client.txt \
+            artifacts/process-group/*-process-group.txt; do
             [ -f "$f" ] || continue
             found=1
-            verdict=$(grep -m1 -E '^(store_gate|ssh_loopback_gate) = ' "$f" || true)
+            verdict=$(grep -m1 -E '^(store_gate|ssh_loopback_gate|process_group_gate) = ' "$f" || true)
             [ -n "$verdict" ] || verdict="<未取得判据行>"
             echo "::notice title=BSD evidence $(basename "$f")::$verdict"
             echo "$f：$verdict" >> "$GITHUB_STEP_SUMMARY"
           done
+          # VM 步骤失败时日志不可匿名读取；进度文件是唯一可定位的阶段证据。
+          for f in artifacts/store-acceptance/*-progress.txt; do
+            [ -f "$f" ] || continue
+            found=1
+            stage=$(tr '\n' ';' < "$f" | cut -c1-600)
+            echo "::notice title=VM progress $(basename "$f")::$stage"
+          done
           if [ "$found" -eq 0 ]; then
-            echo "::warning title=BSD evidence::未找到 store／ssh 证据文件（相关步骤可能未执行）"
+            echo "::warning title=BSD evidence::未找到 store／ssh 证据或进度文件（相关步骤可能未执行）"
           fi
 
       # ---------------- OpenBSD（最新 8.x release） ----------------
       - name: 在 OpenBSD VM 中构建、测试与记录
         id: openbsd_vm
         if: matrix.platform == 'openbsd' && github.event_name != 'pull_request'
+        # 同 FreeBSD：BSD 平台证据不阻断 CI 绿路径（ADR-013）。
+        continue-on-error: true
         uses: vmactions/openbsd-vm@f1ca8bc8ecc5b6ef7218e5b914836e067e1546d3 # v1.4.9
         with:
           # 只写主版本：action 自动取最新 8.x 点版本。
@@ -498,6 +686,18 @@ jobs:
             if [ "$major" -lt "$msrv_major" ] || \
               { [ "$major" -eq "$msrv_major" ] && [ "$minor" -lt "$msrv_minor" ]; }; then
               echo "SKIP：ports rust $version 低于 MSRV $msrv（环境限制，不作代码结论）"
+              # 环境阻塞也要落成可定位证据（Check 99 要求未完成平台写明原因），
+              # 但结论必须保持 NO-GO，不得用 job success 冒充验收。
+              mkdir -p artifacts/ssh-acceptance
+              {
+                echo "# WHCode 内置 SSH 验收：OpenBSD 环境阻塞记录（Check 25／99）"
+                echo "format_version = 1"
+                echo "generated_at_utc = $(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo '<未取得证据>')"
+                echo "[blocked]"
+                echo "reason = ports rust $version 低于 MSRV $msrv"
+                echo "[verdict]"
+                echo "ssh_loopback_gate = NO-GO（ports rust $version 低于 MSRV $msrv，未执行）"
+              } > artifacts/ssh-acceptance/openbsd-client.txt
               exit 0
             fi
 
@@ -512,6 +712,9 @@ jobs:
             echo "=== 依赖记录（V-001）==="
             sh .github/scripts/platform-matrix/record-deps.sh artifacts
 
+            echo "=== SSH 客户端回环（Check 25／99；缺 libduckdb 时记录 NO-GO）==="
+            sh .github/scripts/platform-matrix/bsd-ssh-client.sh
+
       - name: 归档 OpenBSD 结论
         if: always() && matrix.platform == 'openbsd' && github.event_name != 'pull_request'
         run: |
@@ -524,6 +727,14 @@ jobs:
         with:
           name: deps-openbsd
           path: artifacts/deps-openbsd.txt
+
+      - name: 上传 OpenBSD SSH 验收记录
+        if: always() && matrix.platform == 'openbsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ssh-acceptance-openbsd
+          if-no-files-found: warn
+          path: artifacts/ssh-acceptance/
 
       # ---------------- DragonFly（最新 6.4.2 release） ----------------
       # vmactions 无 dragonfly-vm（已核实 404），改用 cross-platform-actions；
@@ -541,6 +752,8 @@ jobs:
 
       - name: 在 DragonFly 中构建、测试与记录
         if: matrix.platform == 'dragonfly' && github.event_name != 'pull_request'
+        # 同 FreeBSD：BSD 平台证据不阻断 CI 绿路径（ADR-013）。
+        continue-on-error: true
         shell: cpa.sh {0}
         run: |
           set -e
@@ -570,6 +783,17 @@ jobs:
           if [ "$major" -lt "$msrv_major" ] || \
             { [ "$major" -eq "$msrv_major" ] && [ "$minor" -lt "$msrv_minor" ]; }; then
             echo "SKIP：dports rust $version 低于 MSRV $msrv（环境限制，不作代码结论）"
+            # 环境阻塞落成证据（Check 99），结论保持 NO-GO。
+            mkdir -p artifacts/ssh-acceptance
+            {
+              echo "# WHCode 内置 SSH 验收：DragonFly 环境阻塞记录（Check 25／99）"
+              echo "format_version = 1"
+              echo "generated_at_utc = $(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo '<未取得证据>')"
+              echo "[blocked]"
+              echo "reason = dports rust $version 低于 MSRV $msrv"
+              echo "[verdict]"
+              echo "ssh_loopback_gate = NO-GO（dports rust $version 低于 MSRV $msrv，未执行）"
+            } > artifacts/ssh-acceptance/dragonfly-client.txt
             exit 0
           fi
 
@@ -584,6 +808,9 @@ jobs:
           echo "=== 依赖记录（V-001）==="
           sh .github/scripts/platform-matrix/record-deps.sh artifacts
 
+          echo "=== SSH 客户端回环（Check 25／99；缺 libduckdb 时记录 NO-GO）==="
+          sh .github/scripts/platform-matrix/bsd-ssh-client.sh
+
       - name: 归档 DragonFly 结论
         if: always() && matrix.platform == 'dragonfly' && github.event_name != 'pull_request'
         run: |
@@ -596,6 +823,14 @@ jobs:
         with:
           name: deps-dragonfly
           path: artifacts/deps-dragonfly.txt
+
+      - name: 上传 DragonFly SSH 验收记录
+        if: always() && matrix.platform == 'dragonfly' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ssh-acceptance-dragonfly
+          if-no-files-found: warn
+          path: artifacts/ssh-acceptance/
 
   measurements:
     # PR 只跑构建与功能测试；测量在 push main 与手动触发时执行，避免每个 PR 消耗 6 小时配额

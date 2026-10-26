@@ -30,8 +30,11 @@
 ## 未完成项与原因
 
 - **BSD 现场验收**：T099，以及 Check 20/21/22/25/96/99/109/201 的 BSD 侧。ADR-013 将四 BSD
-  全部延后；CI 的 FreeBSD/NetBSD 任务只产出平台证据（依赖记录、非 DuckDB 包测试），
-  不进入验收结论。恢复须新 ADR、真实平台环境与用户批准。
+  全部延后；CI 的 FreeBSD/NetBSD 任务只产出平台证据，不进入验收结论。2026-10-26 的
+  FreeBSD run `40267545791` 已给出 `ssh_loopback_gate = GO`（客户端＋服务端回环）；
+  DuckDB 2.0 源码构建在 `cmake --install` 阶段失败（静态库体积/安装规则），已改为只构建
+  `libduckdb.so` 并手工复制共享库与头文件，NetBSD 的 rustup PATH 回退也已修复，待下一轮
+  CI 判定。所有 BSD 判据以公开 check-run 注解与 `*-progress.txt` 公布，无需登录即可复核。
 - **5.5 小时稳定性（NFR-204）**：T116 与 Check 116/195。2026-10-25 的 CI 长跑（run
   40154046118）已取得 65 个样本，但 RSS 斜率 0.6987／0.943 MB/h 高于 0.5 MB/h 预算；
   2026-10-25 已把长跑夹具改用正式 `EventWriter` 并输出队列深度／最老项年龄（目标表
@@ -41,8 +44,9 @@
   （`artifacts/llm-e2e-2026-10-25.md`）；T167 仅 CUI／Web 接线，TUI／GUI 仍为 `Reserved`
   （ADR-032），四端全翻转未完成。
 - **内置 TLS 证书库与 Web 证书设置面**：T184—T192 与 Check 274—288。T184—T191 已复核通过，
-  Check 274—283／285—288 有证据（CI run 40225169689 success）；284（部分写/并发/审计回滚
-  专项测试）未收口；T192 的浏览器实机信任/设置页交互仍未取得。
+  Check 274—283／285—288 有证据（CI run 40225169689 success）；284 已补部分写续传、
+  明文读取上限、TLS 第 97 条连接直接关闭与 HTTP 超限测试，并修复密文暂存跨 tick 清空的
+  真实缺陷，待本次推送的 CI 回填；T192 的浏览器实机信任/设置页交互仍未取得。
 - **GUI 线程预算**：DuckDB 2.0.0 单连接打开约 80 线程，GUI 空闲实测 88 线程／297—330 句柄，
   超过 ADR-027 的 24／256；处置见 `docs/adr/ADR-042-duckdb-connection-thread-budget.md`
   （提议，待用户批准）。
@@ -74,9 +78,9 @@
 
 | 工作流 | 触发 | 职责 |
 |---|---|---|
-| `ci.yml` | push main、PR、手动 | 门禁与测试、五平台矩阵（Windows 必过；BSD 只作平台证据）、短测量；性能与桌面型测试由 `workflow_dispatch` 输入触发 |
+| `ci.yml` | push main、PR、手动 | 门禁与测试、五平台矩阵（Windows 必过；BSD 只作平台证据）、短测量、Windows SSH 回环／TLS 专项／Playwright tablist 验收；性能与桌面型测试由 `workflow_dispatch` 输入触发 |
 | `build-release.yml` | push、tag `v*`、手动 | debug 与 release 矩阵构建、打包安装验证、冒烟、SHA256；tag 时更新 GitHub Release |
-| `long-run.yml` | 仅手动 | 5.5 小时稳定性长跑（ADR-033），一次约消耗 5.5 小时 Windows runner 配额 |
+| `long-run.yml` | 手动，或 push 改动 `artifacts/long-run-request-*.md` | 5.5 小时稳定性长跑（ADR-033，release 剖面、300 s 采样），一次约消耗 5.5 小时 Windows runner 配额；摘要以公开注解公布 |
 
 平台范围与性能预算见 [`docs/matrices/platform-matrix.md`](../matrices/platform-matrix.md)；
 已知限制见 [`docs/matrices/compatibility.md`](../matrices/compatibility.md)。

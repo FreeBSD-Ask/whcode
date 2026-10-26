@@ -5,11 +5,11 @@
   "profile": "cargo test（debug 剖面；数量级偏悲观，release 通常低一个数量级）",
   "tui_frame_budget": {
     "fixture": "events 视图 10k 行快照，终端 80x24",
-    "p50_us": 1735,
-    "p95_us": 2472,
-    "p99_us": 2525,
+    "p50_us": 1513,
+    "p95_us": 1913,
+    "p99_us": 2021,
     "budget_p95_us": 16000,
-    "headroom_percent": 84,
+    "headroom_percent": 88,
     "legacy_reference_same_machine": {
       "method": "临时测试复现 T195 之前的单面板布局（同机、同夹具、同样本数），测量后已删除该测试",
       "p50_us_range": [843, 898],
@@ -25,48 +25,100 @@
     "artifact": "artifacts/ui-modern-2026-10-25/tui-frame-budget.json"
   },
   "web_budget": {
-    "js_gzip_bytes": 8781,
-    "js_budget_bytes": 51200,
-    "css_gzip_bytes": 1910,
+    "js_gzip_bytes_app": 8782,
+    "js_gzip_bytes_settings": 5918,
+    "js_budget_bytes_each": 51200,
+    "css_gzip_bytes": 2153,
     "css_budget_bytes": 20480,
-    "dom_start_tags": 73,
-    "dom_budget_nodes": 2000,
+    "dom_start_tags_index": 75,
+    "dom_start_tags_settings": 100,
+    "dom_budget_nodes_each": 2000,
     "selftest": "通过（--selftest：DOM 计数与 innerHTML 禁令可判定违规）",
     "conclusion": "通过",
     "artifact": "artifacts/ui-modern-2026-10-25/web-budget.txt"
   },
+  "gui_resources": {
+    "sampling": "whcode gui --workspace <临时工作区>，1 100×900 客户端（ADR-027 为 1 200×800，面积差 3%），Get-Process 同 PID 三次采样",
+    "runs": 3,
+    "threads": [88, 88, 88],
+    "threads_budget": 24,
+    "handles": [297, 330, 330],
+    "handles_budget": 256,
+    "rss_working_set_mb": [84.5, 99.4, 99.7],
+    "rss_budget_mb": 96,
+    "private_mb": [50.6, 62.1, 61.9],
+    "private_budget_mb": 80,
+    "idle_cpu_percent": 0.0,
+    "idle_cpu_budget_percent": 0.2,
+    "true_gray_ratio_percent_range": [0.0, 2.04],
+    "true_gray_budget_percent": 5,
+    "theme_cycle_ok": true,
+    "conclusion": "超预算（线程／句柄／两次 RSS）；归因为 DuckDB 2.0.0 引擎线程池，非界面改动；处置见 ADR-042（提议待批准）",
+    "artifact": "artifacts/ui-modern-2026-10-25/check-295-298.md"
+  },
+  "main_process_rss": {
+    "nfr": "NFR-201",
+    "budget_mb": 36,
+    "samples": 174,
+    "median_mb": 35.69,
+    "p95_mb": 35.76,
+    "max_mb": 35.93,
+    "conclusion": "通过",
+    "artifact": "artifacts/ui-modern-2026-10-25/nfr201-run.json"
+  },
+  "web_runtime_smoke": {
+    "checks": 5,
+    "failed": 0,
+    "details": "api_status 200／8 键信封／api_sessions 200／index 200（6 221 B）／优雅关闭 exit=1",
+    "conclusion": "通过",
+    "artifact": "artifacts/ui-modern-2026-10-25/web-smoke-rerun.json"
+  },
+  "browser_tablist": {
+    "check": 294,
+    "engine": "Playwright + Chromium/Chrome（headless，1280×800）",
+    "keyboard": "ArrowRight/Left/Up/Down 循环、Home/End 首尾",
+    "rtl": "dir=rtl 下 ArrowRight/Left 方向反转",
+    "aria": "恰一个 aria-selected=true，选中 tabindex=0、其余 -1",
+    "focus_visible": "键盘导航后 outline solid 非 0",
+    "timers": "setInterval 计数 0；MutationObserver 仅作信息记录（浏览器内部亦可能创建）",
+    "conclusion": "本地 GO；CI 步骤与 artifact web-ui-ci-windows 已接线，run id 待本次推送后回填",
+    "artifact": "artifacts/web-ui-ci/summary.json"
+  },
   "tests": {
+    "workspace_command": "cargo test --locked --workspace（2026-10-26 本地实跑，exit 0）",
     "whcode-domain": "51 passed",
-    "whcode-cui": "16 passed",
-    "whcode-app": "99 passed",
-    "whcode-tui": "64 passed",
-    "whcode-web": "46 passed",
-    "whcode-gui": "20 passed",
-    "whcode-bin": "未取得（阻塞：见 blocked）"
+    "whcode-app": "129 passed",
+    "whcode-llm": "77 passed",
+    "whcode-store": "115 passed",
+    "whcode-speckit": "22 passed",
+    "whcode-runtime": "45 passed / 1 ignored",
+    "whcode-tui": "67 passed",
+    "whcode-cui": "22 passed",
+    "whcode-web": "62 passed",
+    "whcode-ssh": "47 passed",
+    "whcode-gui": "16 passed",
+    "whcode-platform": "23 passed",
+    "whcode-bin": "88 passed / 1 ignored",
+    "whcode-tools": "0 passed（无单元测试；契约/集成在 whcode-tests）",
+    "whcode-tests": "extreme_scale 1 项 505.81 s；其余契约/集成/稳定性按测试目标各自全绿"
   },
   "frontend_frames": "artifacts/ui-modern-2026-10-25/tui-frames.txt（六视图 80×24 帧文本）",
   "blocked": [
     {
-      "item": "whcode-bin 编译与测试（含 cui_dispatch 记录式输出接线）",
-      "reason": "工作区存在并行未提交的 cert/TLS 工作（crates/whcode-app/src/cert.rs、crates/whcode-bin/src/tls.rs 等），whcode-bin/src/serve.rs、main.rs 依赖该模块；该路径当前不可编译，与本轮改动无关",
-      "evidence": "cargo test -p whcode-bin 报 E0425 key_present、E0433 ErrorCode、E0063 TlsSettings 缺 schema_version 等错误，均位于 cert.rs"
+      "item": "GUI 线程／句柄／RSS 达标（ADR-027）",
+      "reason": "DuckDB 2.0.0 单连接常驻约 67—80 线程，结构性超过线程 ≤24 与句柄 ≤256；ADR-042 提议待用户批准，未以代码掩盖",
+      "evidence": "artifacts/ui-modern-2026-10-25/check-295-298.md §GUI 资源实测"
     },
     {
-      "item": "GUI 资源采样（gui-probe.py）与最小化/主题逐帧比对",
-      "reason": "需要可执行的 whcode 二进制，受同一并行工作阻塞"
-    },
-    {
-      "item": "主进程空载 RSS（NFR-201）与 NFR-205 空闲 CPU",
-      "reason": "同上"
-    },
-    {
-      "item": "Web 运行时冒烟与截图（web-smoke.py、serve）",
-      "reason": "同上"
+      "item": "浏览器验收的 CI run 编号",
+      "reason": "本地 GO 已取得；CI run id 与 artifact 需本次推送后回填",
+      "evidence": "artifacts/web-ui-ci/summary.json；.github/workflows/ci.yml 的 web-ui-ci-windows"
     }
   ],
   "notes": [
     "TUI 帧预算测试同时刷新 artifacts/tui-frame-budget.json（date 2026-10-25，scope 改为三区布局）。",
     "Web 侧结构由 whcode-web 的 assets.rs 测试覆盖（七个 tab 与面板的 ARIA 双向关联、外壳类名）。",
-    "CUI 排版模块 crates/whcode-cui/src/format.rs 的 4 项单测已通过；调用侧接线待 whcode-bin 可编译后验证。"
+    "CUI 排版模块新增管道／NO_COLOR／TERM=dumb 纯函数断言；task show 与 spec status 的记录式输出已由 CUI 侧测试覆盖。",
+    "Check 294 的浏览器验收脚本为 .github/scripts/web-ui-check.py；本地以 Playwright + Chrome 取得 GO。"
   ]
 }

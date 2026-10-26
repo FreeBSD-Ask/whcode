@@ -292,10 +292,11 @@ build_and_install() {
     fi
 
     start=$(date +%s)
-    echo "=== 编译（targets=duckdb,duckdb_static jobs=$jobs）===" >>"$BUILD_LOG"
-    # 只构建安装所需的两个库目标：即使某个 DuckDB 版本的测试／CLI 目标未能被选项关掉，
-    # 也不会被默认 all 目标拖进构建，避免无谓的时间与内存消耗。
-    if ! cmake --build "$BUILD_DIR" --target duckdb duckdb_static --parallel "$jobs" \
+    echo "=== 编译（target=duckdb jobs=$jobs）===" >>"$BUILD_LOG"
+    # 只构建共享库目标：Rust `duckdb` crate 与 C 探针都只需要 libduckdb.so + duckdb.h。
+    # 静态库（数倍体积）与 CMake 安装规则不参与冒烟，VM 磁盘有限时构建静态库会把
+    # 安装阶段推到 ENOSPC（run 40267545791 的 FreeBSD 安装失败即此路径）。
+    if ! cmake --build "$BUILD_DIR" --target duckdb --parallel "$jobs" \
         >>"$BUILD_LOG" 2>&1; then
         end=$(date +%s)
         build_seconds=$((end - start))
@@ -308,12 +309,28 @@ build_and_install() {
     build_seconds=$((end - start))
 
     start=$(date +%s)
-    echo "=== 安装到 $PREFIX ===" >>"$BUILD_LOG"
-    if ! cmake --install "$BUILD_DIR" >>"$BUILD_LOG" 2>&1; then
+    echo "=== 安装共享库与头文件到 $PREFIX ===" >>"$BUILD_LOG"
+    rm -rf "$PREFIX"
+    mkdir -p "$PREFIX/lib" "$PREFIX/include"
+    # 保留 libduckdb.so* 全部文件（含 SONAME 目标与符号链接），否则运行时按
+    # SONAME 找不到库；只复制冒烟所需的最小集合，不跑 `cmake --install`。
+    if ! cp -f "$BUILD_DIR"/src/libduckdb.so* "$PREFIX/lib/" >>"$BUILD_LOG" 2>&1 \
+        || ! cp -f "$SRC_DIR/src/include/duckdb.h" "$PREFIX/include/" >>"$BUILD_LOG" 2>&1; then
         end=$(date +%s)
         install_seconds=$((end - start))
         verdict="NO-GO"
-        reason="DuckDB 安装失败（见 build_output_tail）"
+        reason="DuckDB 共享库/头文件复制失败（见 build_output_tail）"
+        build_status="安装失败"
+        return 1
+    fi
+    if [ -d "$SRC_DIR/src/include" ]; then
+        cp -f "$SRC_DIR/src/include/duckdb.hpp" "$PREFIX/include/" >>"$BUILD_LOG" 2>&1 || true
+    fi
+    if [ ! -f "$PREFIX/include/duckdb.h" ] || ! ls "$PREFIX"/lib/libduckdb.so* >/dev/null 2>&1; then
+        end=$(date +%s)
+        install_seconds=$((end - start))
+        verdict="NO-GO"
+        reason="复制后缺少 libduckdb.so 或 duckdb.h（见 build_output_tail）"
         build_status="安装失败"
         return 1
     fi

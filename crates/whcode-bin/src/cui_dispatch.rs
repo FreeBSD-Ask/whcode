@@ -2160,4 +2160,107 @@ mod tests {
         let _ = std::fs::remove_dir_all(&workspace);
         let _ = std::fs::remove_dir_all(&empty_workspace);
     }
+
+    /// Check 292：`task show` 与 `spec status` 为对齐记录、空任务列表显式空态、
+    /// 非 TTY 输出不含 ANSI 转义。
+    #[test]
+    fn task_show_and_spec_status_are_aligned_records_without_ansi() {
+        use whcode_store::tasks::{NewTask, insert_task};
+
+        let workspace = temp_workspace("task-spec-records");
+        let texts = whcode_domain::i18n::I18n::default();
+        let created = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "记录排版会话".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("创建会话");
+        let id = created.0["session"]["id"]
+            .as_str()
+            .expect("会话 ID")
+            .to_string();
+
+        // 空任务列表：显式空态，不输出空白。
+        let (_, empty_tasks) = execute(
+            &Command::Task {
+                command: TaskCommand::List {
+                    session: id.clone(),
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("空任务列表");
+        assert!(
+            empty_tasks.contains("总计 0"),
+            "空任务列表必须给出显式零计数：{empty_tasks:?}"
+        );
+        assert!(
+            !empty_tasks.contains('\u{1b}'),
+            "空任务列表不得含 ANSI：{empty_tasks:?}"
+        );
+
+        // 直接经 store 播种一条任务（CUI 没有 task create 命令）。
+        let db = workspace.join(crate::workspace::WORKSPACE_DB_FILE);
+        let conn = duckdb::Connection::open(&db).expect("打开工作区库");
+        whcode_store::apply_migrations(&conn).expect("迁移");
+        insert_task(
+            &conn,
+            &NewTask {
+                id: "T-1",
+                session_id: &id,
+                title: "补齐记录排版",
+                stage: "implement",
+                parent_id: None,
+                acceptance_json: r#"{"items":[]}"#,
+            },
+            1,
+        )
+        .expect("插入任务");
+        drop(conn);
+
+        let (value, human) = execute(
+            &Command::Task {
+                command: TaskCommand::Show { task: "T-1".into() },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("任务详情");
+        assert_eq!(value["task"]["id"], "T-1");
+        assert!(
+            human.contains("补齐记录排版"),
+            "记录必须含任务标题：{human:?}"
+        );
+        assert!(!human.contains('\u{1b}'), "非 TTY 不得含 ANSI：{human:?}");
+        assert!(
+            human.lines().any(|line| line.starts_with("状态")),
+            "记录必须有状态标签：{human:?}"
+        );
+
+        let (value, human) = execute(
+            &Command::Spec {
+                command: SpecCommand::Status {
+                    session: id.clone(),
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("spec status");
+        assert_eq!(value["session_id"], id);
+        assert!(human.contains(&id), "记录标题必须含会话：{human:?}");
+        assert!(!human.contains('\u{1b}'), "非 TTY 不得含 ANSI：{human:?}");
+        assert!(
+            human.lines().any(|line| line.starts_with("阶段")),
+            "记录必须有阶段标签：{human:?}"
+        );
+
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
 }

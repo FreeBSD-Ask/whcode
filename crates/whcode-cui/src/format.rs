@@ -42,7 +42,7 @@ impl Styler {
         let no_color = std::env::var_os("NO_COLOR").is_some();
         let dumb_terminal = std::env::var("TERM").is_ok_and(|term| term == "dumb");
         let interactive = std::io::stdout().is_terminal();
-        Self::with_emphasis(interactive && !no_color && !dumb_terminal)
+        Self::with_emphasis(emphasis_allowed(interactive, no_color, dumb_terminal))
     }
 
     /// 是否启用强调。
@@ -114,6 +114,14 @@ impl Styler {
     }
 }
 
+/// 强调启用判据（纯函数，便于在不改全局环境的情况下覆盖四种禁用条件）。
+///
+/// 管道／重定向（非交互）、`NO_COLOR`、`TERM=dumb` 任一成立即关闭；`--json`
+/// 走信封序列化路径，不经过本模块，因此天然无 ANSI。
+fn emphasis_allowed(interactive: bool, no_color: bool, dumb_terminal: bool) -> bool {
+    interactive && !no_color && !dumb_terminal
+}
+
 /// 拼接一行单元格：除最后一列外按列宽右补空格，列间两个空格。
 fn join_row(cells: &[&str], widths: &[usize]) -> String {
     let mut out = String::new();
@@ -167,7 +175,7 @@ fn pad_right(text: &str, width: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{LABEL_WIDTH, Styler, display_width};
+    use super::{LABEL_WIDTH, Styler, display_width, emphasis_allowed};
 
     /// 记录对齐：CJK 标签按显示列补齐到标签列宽（不是按字节或字符数）。
     #[test]
@@ -250,5 +258,24 @@ mod tests {
     fn empty_table_keeps_header_only() {
         let text = Styler::plain().table(&["ID", "标题"], &[]);
         assert_eq!(text, "ID  标题");
+    }
+
+    /// Check 292：管道、`NO_COLOR`、`TERM=dumb` 任一成立都关闭强调；
+    /// 只有真正的交互终端且无禁用条件才启用。
+    #[test]
+    fn emphasis_is_disabled_by_pipe_no_color_or_dumb_terminal() {
+        assert!(!emphasis_allowed(false, false, false), "管道必须关闭强调");
+        assert!(
+            !emphasis_allowed(true, true, false),
+            "NO_COLOR 必须关闭强调"
+        );
+        assert!(
+            !emphasis_allowed(true, false, true),
+            "TERM=dumb 必须关闭强调"
+        );
+        assert!(
+            emphasis_allowed(true, false, false),
+            "只有交互终端且无禁用条件才启用"
+        );
     }
 }

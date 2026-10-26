@@ -6,7 +6,9 @@
 # 24/72 小时深检保留为可选的 self-hosted／本机运行，不再作为 CI 门槛。
 # 其余门禁、测试与短测量全部在 ci.yml；本文件只承载超出 6 小时窗口的长跑。
 #
-# 仅手动触发：一次运行约消耗 5.5 小时 Windows runner 配额，禁止定时触发。
+# 触发：workflow_dispatch（受控重跑）或 push 改动 artifacts/long-run-request-*.md
+# 的请求标记（一次性触发）。一次运行约消耗 5.5 小时 Windows runner 配额，禁止定时触发。
+# 构建用 release 剖面：debug 剖面会放大 CPU/内存开销，不能回答 NFR-204／§11.5。
 name: long-run
 
 on:
@@ -16,6 +18,11 @@ on:
         description: "运行秒数（默认 19800 = 5.5h；上限 19800，超过会被拒绝）"
         required: false
         default: "19800"
+  # 一次性触发：只有改动请求标记文件才启动，避免每次 push 消耗 5.5 小时配额。
+  push:
+    branches: [main]
+    paths:
+      - "artifacts/long-run-request-*.md"
 
 permissions:
   contents: read
@@ -56,10 +63,10 @@ jobs:
       - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
         run: python .github/scripts/fetch-duckdb.py
 
-      - name: 编译长跑夹具（只编译夹具所需依赖，不构建 GUI／发布壳层）
-        run: cargo test --locked -p whcode-tests --test stability_run --no-run
+      - name: 编译长跑夹具（release；只编译夹具所需依赖，不构建 GUI／发布壳层）
+        run: cargo test --release --locked -p whcode-tests --test stability_run --no-run
 
-      - name: 5.5 小时稳定性长跑（单进程自采样）
+      - name: 5.5 小时稳定性长跑（单进程自采样，release）
         shell: pwsh
         env:
           WHCODE_STABILITY_INTERVAL_SECS: "300"
@@ -68,7 +75,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force artifacts/stability-long | Out-Null
           $env:WHCODE_STABILITY_SECONDS = $env:STABILITY_SECONDS
-          cargo test --locked -p whcode-tests --test stability_run -- --ignored --nocapture 2>&1 |
+          cargo test --release --locked -p whcode-tests --test stability_run -- --ignored --nocapture 2>&1 |
             Tee-Object -FilePath artifacts/stability-long/run.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -81,3 +88,23 @@ jobs:
           path: |
             artifacts/stability-long/timeseries.jsonl
             artifacts/stability-long/run.log
+
+      # 日志与 artifact 下载需登录；check-run 注解是公开可读的摘要证据。
+      - name: 公布长跑摘要（公开注解）
+        if: always()
+        shell: pwsh
+        run: |
+          $path = "artifacts/stability-long/timeseries.jsonl"
+          if (-not (Test-Path $path)) {
+            Write-Output "::warning title=long-run 5.5h::未找到 timeseries.jsonl（采样未落盘）"
+            exit 0
+          }
+          $summary = Get-Content $path |
+            Where-Object { $_ -match '"kind"\s*:\s*"summary"' } |
+            Select-Object -Last 1
+          if (-not $summary) {
+            Write-Output "::warning title=long-run 5.5h::缺少 summary 行（零不等于通过）"
+            exit 0
+          }
+          $excerpt = $summary.Substring(0, [Math]::Min(900, $summary.Length))
+          Write-Output "::notice title=long-run 5.5h summary::$excerpt"

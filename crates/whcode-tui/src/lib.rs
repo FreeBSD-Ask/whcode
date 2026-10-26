@@ -1803,6 +1803,101 @@ mod tests {
         assert_eq!(eink.content()[body_cell].fg, Color::Rgb(0, 0, 0));
         assert_eq!(amoled.content()[body_cell].bg, Color::Rgb(0, 0, 0));
         assert_eq!(amoled.content()[body_cell].fg, Color::Rgb(0xE6, 0xE6, 0xE6));
+        // Check 291：四套主题都必须精确进入渲染单元，不能只测其中两套。
+        let night = frame_buffer(ViewId::Sessions, 40, 10, crate::Theme::EinkNight);
+        assert_eq!(night.content()[0].bg, Color::Rgb(0, 0, 0));
+        assert_eq!(night.content()[0].fg, Color::Rgb(0xFF, 0xFF, 0xFF));
+        let green = frame_buffer(ViewId::Sessions, 40, 10, crate::Theme::TerminalGreen);
+        assert_eq!(green.content()[0].bg, Color::Rgb(0, 0, 0));
+        assert_eq!(green.content()[0].fg, Color::Rgb(0, 0xFF, 0));
+    }
+
+    /// Check 291：导航栏选中项同时具备 `>` 标记与反显；未选中项不得反显。
+    #[test]
+    fn selected_nav_item_has_marker_and_reverse_video() {
+        use ratatui::style::Modifier;
+        use whcode_domain::i18n::I18n;
+
+        let buffer = draw_snapshot_with_context(
+            &fixture_snapshot(ViewId::Sessions),
+            80,
+            24,
+            crate::Theme::EinkDay,
+            &I18n::default(),
+            None,
+            "",
+        );
+        let width = usize::from(buffer.area.width);
+        // 顶栏占第 0 行；中部第 1 行是导航栏第一项（Sessions，当前选中）。
+        let selected = &buffer.content()[width];
+        assert_eq!(selected.symbol(), ">", "选中项必须以 > 标记");
+        assert!(
+            selected.modifier.contains(Modifier::REVERSED),
+            "选中项必须反显：{:?}",
+            selected.modifier
+        );
+        let other = &buffer.content()[2 * width];
+        assert_ne!(other.symbol(), ">", "未选中项不得带选中标记");
+        assert!(
+            !other.modifier.contains(Modifier::REVERSED),
+            "未选中项不得反显：{:?}",
+            other.modifier
+        );
+    }
+
+    /// Check 291：列视图的 ID／状态列在多行之间与表头对齐（显示列宽口径）。
+    #[test]
+    fn columns_align_with_header_across_rows() {
+        use super::display_width;
+
+        let text = render_fixture_frame(ViewId::Sessions, 80, 24);
+        let lines: Vec<&str> = text.lines().collect();
+        let header = lines
+            .iter()
+            .find(|line| line.contains("ID") && line.contains("标题"))
+            .unwrap_or_else(|| panic!("缺少表头：{text}"));
+        let id_start = display_width(&header[..header.find("ID").expect("表头 ID")]);
+        let status_start = display_width(&header[..header.find("状态").expect("表头状态")]);
+
+        let mut rows = 0usize;
+        for id in ["S-1", "S-2", "S-3"] {
+            let row = lines
+                .iter()
+                .find(|line| line.contains(id))
+                .unwrap_or_else(|| panic!("缺少数据行 {id}：{text}"));
+            assert_eq!(
+                display_width(&row[..row.find(id).expect("数据 ID")]),
+                id_start,
+                "{id} 的 ID 列未与表头对齐"
+            );
+            assert_eq!(
+                display_width(
+                    &row[..row
+                        .find("active")
+                        .or_else(|| row.find("idle"))
+                        .or_else(|| row.find("archived"))
+                        .expect("状态值")]
+                ),
+                status_start,
+                "{id} 的状态列未与表头对齐"
+            );
+            rows += 1;
+        }
+        assert_eq!(rows, 3, "夹具三行都必须参与对齐断言");
+    }
+
+    /// Check 291：极矮终端（高度低于三区下限）退化为纯正文且空态显式。
+    #[test]
+    fn very_short_terminal_falls_back_to_plain_body() {
+        for rows in [1u16, 2, 5] {
+            let text = render_empty_frame(ViewId::Context, 80, rows);
+            assert_eq!(
+                text.lines().count(),
+                usize::from(rows),
+                "极矮帧必须等于请求行数"
+            );
+            assert!(text.contains("（暂无数据）"), "极矮帧仍须显式空态：{text}");
+        }
     }
 
     /// 空数据源帧：显式“暂无数据”，不伪造内容。

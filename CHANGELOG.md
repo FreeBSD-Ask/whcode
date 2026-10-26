@@ -38,6 +38,10 @@
   **代价与不承诺**：自签证书默认不被浏览器信任；私钥明文落盘依赖 OS ACL；`system` 档位
   不复用 Windows 吊销与策略；不承诺公网暴露、mTLS 与多用户隔离。真实浏览器握手证据
   **未取得**（归属 T192）；资源证据见 ADR-042（DuckDB 2.0 线程超预算，待批准处置）。
+- CI 补齐可机器读取的证据（2026-10-26）：BSD 判据以公开 check-run 注解公布
+  `store_gate`／`ssh_loopback_gate`／`process_group_gate`，并写 `*-progress.txt` 阶段证据；
+  Windows 侧新增 SSH 回环、TLS 专项与 Playwright tablist 键盘／RTL 验收；长跑改为 release
+  剖面并只在 `artifacts/long-run-request-*.md` 变更时触发，摘要以公开注解公布。
 - 真实 LLM Provider 核心落地（2026-10-25，T162—T166，ADR-031）：新增阻塞式 `ureq`
   HTTP 客户端（有界流式读取、chunk 序号归一、传输快照、时限／重试／取消）、剖面鉴权
   注入与端点加固、出站信任注入；`http` feature 默认关闭，网络依赖只进装配根。CUI 与 Web
@@ -743,6 +747,14 @@
 - `tests/stability/run_stability.sh` 工作负载（`extreme_scale` 循环）在异常退出路径
   **不清理**：曾遗留负载循环 4 小时（干扰后续构建与测试）。修复：`EXIT`/`INT`/`TERM`
   trap + `taskkill /T` 进程树清理（Windows 无进程组语义，单杀子 shell 不终止 cargo 下游）。
+- 入站 TLS 密文暂存跨 tick 被清空（2026-10-26，Check 284）：`read_tls` 只消费到记录边界时，
+  余下密文被下一次读取覆盖，表现为 `cannot decrypt peer's message`。现保留未消费字节并
+  按 `MAX_TLS_CIPHERTEXT` 显式限界，补 400 KiB 部分写续传、明文单次读取上限与 TLS 第 97 条
+  连接直接关闭测试。
+- BSD DuckDB 2.0 源码构建在 `cmake --install` 阶段因静态库体积/安装规则失败（run
+  `40267545791`，`store_gate = NO-GO`）：改为只构建 `libduckdb.so` 并手工复制共享库与
+  `duckdb.h`，不经 CMake 安装规则；NetBSD 的 rustup 安装改为仅在 `rustc` 可执行时前置 PATH，
+  下载失败回退 pkgsrc 并显式 SKIP。
 
 ### 计划
 
