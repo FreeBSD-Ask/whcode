@@ -132,6 +132,12 @@ bytes_of() {
     wc -c < "$1" 2>/dev/null | tr -d ' \n'
 }
 
+# 构建日志尾部（单行化）：失败原因要能进入公开注解，否则日志下载需登录，
+# 只能看到“CMake 配置失败”这类无行动信息的结论。
+log_tail() {
+    tail -n 3 "$BUILD_LOG" 2>/dev/null | tr '\n' ' ' | cut -c1-400
+}
+
 # 源码身份复核：标签的 peeled commit 必须等于固定提交；网络或 git 不可用时只记录
 # “未取得”，不冒充已校验。返回 0 表示可继续，返回 1 表示身份冲突（必须 NO-GO）。
 verify_tag_commit() {
@@ -286,7 +292,7 @@ build_and_install() {
         -DDUCKDB_MAJOR_VERSION=2 -DDUCKDB_MINOR_VERSION=0 -DDUCKDB_PATCH_VERSION=0 \
         >>"$BUILD_LOG" 2>&1; then
         verdict="NO-GO"
-        reason="CMake 配置失败（见 build_output_tail）"
+        reason="CMake 配置失败：$(log_tail)（见 build_output_tail）"
         build_status="配置失败"
         return 1
     fi
@@ -301,7 +307,7 @@ build_and_install() {
         end=$(date +%s)
         build_seconds=$((end - start))
         verdict="NO-GO"
-        reason="DuckDB 编译失败（见 build_output_tail）"
+        reason="DuckDB 编译失败：$(log_tail)（见 build_output_tail）"
         build_status="编译失败"
         return 1
     fi
@@ -319,7 +325,7 @@ build_and_install() {
         end=$(date +%s)
         install_seconds=$((end - start))
         verdict="NO-GO"
-        reason="DuckDB 共享库/头文件复制失败（见 build_output_tail）"
+        reason="DuckDB 共享库/头文件复制失败：$(log_tail)（见 build_output_tail）"
         build_status="安装失败"
         return 1
     fi

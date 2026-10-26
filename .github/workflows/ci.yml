@@ -427,6 +427,9 @@ jobs:
             # 但依赖记录与工具链检查仍应执行（区分“正确的空”与“前置缺失”）。
             pkgin -y install python3 || echo "WARN: python3 安装失败（DuckDB 源码构建将记录 NO-GO）"
             pkgin -y install curl || echo "WARN: curl 安装失败（rustup 下载将回退 pkgsrc）"
+            # DuckDB 需要 C++ 编译器；NetBSD 的 VM 镜像可能只带 C 编译器。
+            pkgin -y install gcc || pkgin -y install gcc12 || echo "WARN: 无可用 g++（DuckDB 配置将记录 NO-GO）"
+            pkgin -y install python313 || true
             pkgin -y install duckdb || true
           run: |
             set -e
@@ -546,6 +549,8 @@ jobs:
             echo "process_group_gate=$pg" >> "$progress"
 
             # 源码构建后才能让 store 的引擎版本断言与 SSH 链接路径成立。
+            if command -v gcc >/dev/null 2>&1; then export CC=gcc; fi
+            if command -v g++ >/dev/null 2>&1; then export CXX=g++; fi
             echo "=== DuckDB 2.0.0 源码构建与 store 冒烟（Check 22／ADR-034）==="
             WHCODE_DUCKDB_JOBS=2 sh .github/scripts/platform-matrix/bsd-duckdb.sh
             echo "phase=duckdb-script-done" >> "$progress"
@@ -647,8 +652,10 @@ jobs:
             stage=$(tr '\n' ';' < "$f" | cut -c1-600)
             echo "::notice title=VM progress $(basename "$f")::$stage"
           done
-          if [ "$found" -eq 0 ]; then
-            echo "::warning title=BSD evidence::未找到 store／ssh 证据或进度文件（相关步骤可能未执行）"
+          # OpenBSD／DragonFly 的 VM 不把工作区文件同步回 runner（既有事实），
+          # 它们缺证据属预期；只有 FreeBSD／NetBSD 缺证据才是需要告警的异常。
+          if [ "$found" -eq 0 ] && { [ "${{ matrix.platform }}" = freebsd ] || [ "${{ matrix.platform }}" = netbsd ]; }; then
+            echo "::warning title=BSD evidence （${{ matrix.platform }}）::未找到 store／ssh 证据或进度文件（相关步骤可能未执行）"
           fi
 
       # ---------------- OpenBSD（最新 8.x release） ----------------
