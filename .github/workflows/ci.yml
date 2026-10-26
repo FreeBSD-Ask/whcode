@@ -427,8 +427,10 @@ jobs:
             # 但依赖记录与工具链检查仍应执行（区分“正确的空”与“前置缺失”）。
             pkgin -y install python3 || echo "WARN: python3 安装失败（DuckDB 源码构建将记录 NO-GO）"
             pkgin -y install curl || echo "WARN: curl 安装失败（rustup 下载将回退 pkgsrc）"
-            # DuckDB 需要 C++ 编译器；NetBSD 的 VM 镜像可能只带 C 编译器。
-            pkgin -y install gcc || pkgin -y install gcc12 || echo "WARN: 无可用 g++（DuckDB 配置将记录 NO-GO）"
+            # DuckDB 需要 C/C++ 编译器；NetBSD 的 VM 镜像默认没有 comp 集。
+            # pkgsrc 的 gcc 包通常提供带版本号的可执行名（gcc12／g++12），
+            # 不保证存在无后缀的 gcc／g++，因此两个名字都尝试安装。
+            pkgin -y install gcc12 || pkgin -y install gcc || echo "WARN: 无可用 gcc（DuckDB 配置将记录 NO-GO）"
             pkgin -y install python313 || true
             pkgin -y install duckdb || true
           run: |
@@ -549,8 +551,21 @@ jobs:
             echo "process_group_gate=$pg" >> "$progress"
 
             # 源码构建后才能让 store 的引擎版本断言与 SSH 链接路径成立。
-            if command -v gcc >/dev/null 2>&1; then export CC=gcc; fi
-            if command -v g++ >/dev/null 2>&1; then export CXX=g++; fi
+            # CMake 不认“路径里有编译器但环境没声明”的情况；按可用名字显式导出。
+            cc_name=""
+            for candidate in gcc gcc12 gcc13 gcc14 clang; do
+              if command -v "$candidate" >/dev/null 2>&1; then cc_name="$candidate"; break; fi
+            done
+            cxx_name=""
+            for candidate in g++ g++12 g++13 g++14 clang++; do
+              if command -v "$candidate" >/dev/null 2>&1; then cxx_name="$candidate"; break; fi
+            done
+            if [ -n "$cc_name" ] && [ -n "$cxx_name" ]; then
+              export CC="$cc_name" CXX="$cxx_name"
+              echo "phase=compiler-$cc_name-$cxx_name" >> "$progress"
+            else
+              echo "phase=compiler-missing-${cc_name:-none}-${cxx_name:-none}" >> "$progress"
+            fi
             echo "=== DuckDB 2.0.0 源码构建与 store 冒烟（Check 22／ADR-034）==="
             WHCODE_DUCKDB_JOBS=2 sh .github/scripts/platform-matrix/bsd-duckdb.sh
             echo "phase=duckdb-script-done" >> "$progress"
@@ -644,6 +659,15 @@ jobs:
             [ -n "$verdict" ] || verdict="<未取得判据行>"
             echo "::notice title=BSD evidence $(basename "$f")::$verdict"
             echo "$f：$verdict" >> "$GITHUB_STEP_SUMMARY"
+            # NO-GO 时把失败测试名／错误行一并公开：日志下载需登录，只有结论没有
+            # 失败点无法行动。
+            if printf '%s' "$verdict" | grep -q 'NO-GO'; then
+              detail=$(grep -E '^test .* FAILED|^error(\[|:)|panicked at|not found|undefined' "$f" \
+                | head -n 6 | tr '\n' ';' | cut -c1-600)
+              if [ -n "${detail:-}" ]; then
+                echo "::notice title=BSD failure $(basename "$f")::$detail"
+              fi
+            fi
           done
           # VM 步骤失败时日志不可匿名读取；进度文件是唯一可定位的阶段证据。
           for f in artifacts/store-acceptance/*-progress.txt; do
