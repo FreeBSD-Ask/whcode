@@ -530,6 +530,45 @@ mod tests {
         );
     }
 
+    /// Check 109／201（BSD 侧）：进程组终止覆盖**孙进程**，整组回收后零残留。
+    ///
+    /// Windows 由 `tests/stability/test_process_cleanup.rs` 用 `cmd → ping` 真树验证；
+    /// 本用例只在 Unix 编译（BSD CI 的 `cargo test -p whcode-platform` 会执行）：
+    /// shell 自己打印后台 `sleep` 的 PID，终止进程组后逐 PID 断言父与孙都不存在。
+    /// 阳性对照先断言孙进程确实存在，避免“零残留”来自根本没启动。
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn process_group_termination_kills_grandchild_and_leaves_no_residue() {
+        use std::io::{BufRead, BufReader};
+        use std::process::Stdio;
+
+        let mut command = shell_command("sleep 60 & echo $!; wait");
+        command.stdout(Stdio::piped());
+        configure_child_process_group(&mut command);
+        let mut child = command.spawn().expect("启动带孙进程的测试进程");
+        let group = child.id();
+        let stdout = child.stdout.take().expect("stdout 管道");
+        let mut line = String::new();
+        BufReader::new(stdout)
+            .read_line(&mut line)
+            .expect("读取孙进程 PID");
+        let grandchild: u32 = line.trim().parse().expect("孙进程 PID 必须是整数");
+        assert!(
+            process_exists(grandchild).expect("查询孙进程"),
+            "阳性对照失败：孙进程 {grandchild} 必须存在"
+        );
+        terminate_tree(group).expect("终止进程组");
+        let _ = child.wait();
+        assert!(
+            wait_until_gone(group, std::time::Duration::from_secs(10)),
+            "进程组组长 {group} 终止后不应存在（残留）"
+        );
+        assert!(
+            wait_until_gone(grandchild, std::time::Duration::from_secs(10)),
+            "孙进程 {grandchild} 在整组终止后不应存在（残留）"
+        );
+    }
+
     /// 有界轮询直到进程消失；探测失败直接 panic——不得把 `Err` 当作“不存在”。
     fn wait_until_gone(pid: u32, timeout: std::time::Duration) -> bool {
         let deadline = std::time::Instant::now() + timeout;

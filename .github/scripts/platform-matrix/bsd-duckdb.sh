@@ -1,12 +1,13 @@
 #!/bin/sh
-# 在 FreeBSD 上从源码构建 DuckDB 2.0.0，并跑 whcode-store 冒烟（Check 22 的 FreeBSD 侧）。
+# 在 BSD（FreeBSD／NetBSD）上从源码构建 DuckDB 2.0.0，并跑 whcode-store 冒烟
+# （Check 22 的 BSD 侧）。
 #
-# 背景：`pkg` 提供的 DuckDB 为 1.5.6，而项目冻结引擎是 2.0.0（ADR-034）。包版与
+# 背景：pkg／pkgsrc 提供的 DuckDB 为 1.5.x，而项目冻结引擎是 2.0.0（ADR-034）。包版与
 # `duckdb` crate 1.20000.0 的主版本不匹配，`smoke_reports_engine_version_from_runtime`
 # 会以“主版本应为 2”失败。本脚本按官方源码构建 2.0.0，安装到隔离前缀，导出
 # DUCKDB_LIB_DIR／DUCKDB_INCLUDE_DIR／LD_LIBRARY_PATH／WHCODE_DUCKDB_VERSION，再跑
 # `cargo test --locked -p whcode-store`，把版本、摘要、构建耗时、测试退出码与 GO／NO-GO
-# 写进 artifacts/store-acceptance/freebsd-store.txt。
+# 写进 artifacts/store-acceptance/<platform>-store.txt。
 #
 # 上游事实（2026-10-25 核对，见 artifacts/platform-deps-2026-10-25/freebsd-duckdb-notes.md）：
 #   - 标签 v2.0.0，发布提交 d54cbbe3df17e8e5ce68312f483b4155836112aa；
@@ -23,7 +24,7 @@
 #   - BUILD_UNITTESTS=OFF：FreeBSD ports 的 databases/duckdb 使用 CMAKE_OFF=BUILD_UNITTESTS；
 #     2.0 另以 ENABLE_UNITTEST_CPP_TESTS 门控 C++ 测试子目录，脚本同时传 OFF；
 #   - SKIP_EXTENSIONS=jemalloc：FreeBSD ports 同款规避（上游 issue 14363 相关），
-#     避免 jemalloc 扩展在 FreeBSD 上的构建风险；
+#     避免 jemalloc 扩展在 BSD 上的构建风险；
 #   - OVERRIDE_GIT_DESCRIBE=v2.0.0-0-gd54cbbe3df：源码归档没有 .git，不覆盖版本时
 #     DuckDB 会退回占位版本，导致主版本断言失败（官方构建文档与 FreeBSD ports 均如此用）。
 #
@@ -37,12 +38,13 @@
 # 证据文件里，因此**不得**以退出码代替阅读证据文件。BSD 结论按 ADR-013 延后，不进入
 # 验收结论。
 #
-# 用法：sh .github/scripts/platform-matrix/freebsd-duckdb.sh [输出目录，默认 artifacts/store-acceptance]
-# 调用方若要在后续步骤复用导出的环境，执行：
+# 用法：sh .github/scripts/platform-matrix/bsd-duckdb.sh [输出目录，默认 artifacts/store-acceptance]
+# 调用方若要在后续步骤复用导出的环境，执行（文件名按 uname -s 小写取平台名）：
 #   . artifacts/store-acceptance/freebsd-duckdb.env
+#   . artifacts/store-acceptance/netbsd-duckdb.env
 #
 # 可覆盖环境变量：
-#   WHCODE_DUCKDB_PREFIX    安装前缀（默认 /usr/local/whcode-duckdb-2.0.0；隔离于 pkg 的 /usr/local）
+#   WHCODE_DUCKDB_PREFIX    安装前缀（默认 /usr/local/whcode-duckdb-2.0.0；隔离于系统包前缀）
 #   WHCODE_DUCKDB_ARCHIVE   源码归档路径（默认 /tmp/duckdb-2.0.0.tar.gz）
 #   WHCODE_DUCKDB_SRC_DIR   解包目录（默认 /tmp/duckdb-2.0.0-src）
 #   WHCODE_DUCKDB_BUILD_DIR 构建目录（默认 /tmp/duckdb-2.0.0-build）
@@ -53,8 +55,10 @@ set -u
 
 OUT_DIR=${1:-artifacts/store-acceptance}
 mkdir -p "$OUT_DIR"
-OUT_FILE="$OUT_DIR/freebsd-store.txt"
-ENV_FILE="$OUT_DIR/freebsd-duckdb.env"
+platform=$(uname -s 2>/dev/null | tr 'A-Z' 'a-z')
+[ -n "${platform:-}" ] || platform=unknown
+OUT_FILE="$OUT_DIR/$platform-store.txt"
+ENV_FILE="$OUT_DIR/$platform-duckdb.env"
 BUILD_LOG="/tmp/whcode-duckdb-build.$$.log"
 TEST_LOG="/tmp/whcode-store-test.$$.log"
 PROBE_SRC="/tmp/whcode-duckdb-probe.$$.c"
@@ -111,10 +115,14 @@ sha256_of() {
         echo "<未取得证据：文件不存在>"
         return
     fi
-    if command -v sha256 >/dev/null 2>&1; then
-        sha256 -q "$target" 2>/dev/null || echo "<未取得证据：sha256 失败>"
-    elif command -v sha256sum >/dev/null 2>&1; then
+    # 工具名在各 BSD 上不一致：FreeBSD 有 sha256／sha256sum，NetBSD 主要是 sha256
+    # 与 cksum -a；按可用性递减探测，全部缺失才标未取得。
+    if command -v sha256sum >/dev/null 2>&1; then
         sha256sum "$target" 2>/dev/null | awk '{print $1}'
+    elif command -v sha256 >/dev/null 2>&1; then
+        sha256 "$target" 2>/dev/null | awk '{print $1}'
+    elif command -v cksum >/dev/null 2>&1; then
+        cksum -a sha256 "$target" 2>/dev/null | awk '{print $1}'
     else
         echo "<未取得证据：无 sha256 工具>"
     fi
@@ -225,11 +233,19 @@ fetch_and_verify() {
 }
 
 collect_host_info() {
-    ncpu=$(sysctl -n hw.ncpu 2>/dev/null || echo '<未取得>')
+    # 键名跨 BSD 不一致：FreeBSD 用 hw.ncpu／hw.physmem，NetBSD 常见 hw.ncpuonline／
+    # hw.physmem64；逐个尝试，全部失败才标未取得（不得把缺失当成 2 核的静默默认）。
+    ncpu=$(sysctl -n hw.ncpu 2>/dev/null || true)
+    if [ -z "${ncpu:-}" ]; then
+        ncpu=$(sysctl -n hw.ncpuonline 2>/dev/null || echo '<未取得>')
+    fi
     case "$ncpu" in
         ''|*[!0-9]*) ncpu="<未取得>" ;;
     esac
-    physmem=$(sysctl -n hw.physmem 2>/dev/null || echo '<未取得证据>')
+    physmem=$(sysctl -n hw.physmem 2>/dev/null || true)
+    if [ -z "${physmem:-}" ]; then
+        physmem=$(sysctl -n hw.physmem64 2>/dev/null || echo '<未取得证据>')
+    fi
 }
 
 pick_jobs() {
@@ -256,7 +272,7 @@ build_and_install() {
     pick_jobs
     rm -rf "$BUILD_DIR"
 
-    echo "=== cmake 配置（DuckDB $DUCKDB_VERSION，FreeBSD best-effort）===" >>"$BUILD_LOG"
+    echo "=== cmake 配置（DuckDB $DUCKDB_VERSION，$u_s best-effort）===" >>"$BUILD_LOG"
     # OVERRIDE_GIT_DESCRIBE 同时以环境变量与 -D 变量传入：官方文档写环境变量，
     # FreeBSD ports 用 -D 形式，两者都覆盖可避免不同版本入口差异。
     if ! OVERRIDE_GIT_DESCRIBE="$DUCKDB_DESCRIBE" cmake -G Ninja -S "$SRC_DIR" -B "$BUILD_DIR" \
@@ -341,7 +357,7 @@ export_duckdb_env() {
     export DUCKDB_LIB_DIR DUCKDB_INCLUDE_DIR LD_LIBRARY_PATH WHCODE_DUCKDB_VERSION
 
     {
-        echo "# 由 .github/scripts/platform-matrix/freebsd-duckdb.sh 生成；供后续步骤 source。"
+        echo "# 由 .github/scripts/platform-matrix/bsd-duckdb.sh 生成；供后续步骤 source。"
         echo "DUCKDB_LIB_DIR='$DUCKDB_LIB_DIR'"
         echo "DUCKDB_INCLUDE_DIR='$DUCKDB_INCLUDE_DIR'"
         echo "LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
@@ -432,7 +448,7 @@ if [ "$prefix_ready" -eq 1 ]; then
 else
     # 没有可用库时仍写一份“未执行”的环境文件，避免后续 source 一个不存在的路径。
     {
-        echo "# 由 .github/scripts/platform-matrix/freebsd-duckdb.sh 生成（构建未成功）。"
+        echo "# 由 .github/scripts/platform-matrix/bsd-duckdb.sh 生成（构建未成功）。"
         echo "WHCODE_DUCKDB_READY=0"
         echo "export WHCODE_DUCKDB_READY"
     } > "$ENV_FILE"
@@ -472,9 +488,9 @@ fi
     echo "# WHCode DuckDB 2.0.0 源码构建与 store 冒烟：$u_s 平台证据（Check 22）"
     echo "format_version = 1"
     echo "generated_at_utc = $(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo '<未取得证据>')"
-    echo "script = .github/scripts/platform-matrix/freebsd-duckdb.sh"
+    echo "script = .github/scripts/platform-matrix/bsd-duckdb.sh"
     echo "source = Check 22、ADR-034（冻结引擎 2.0.0）、ADR-DB-BUILD、R-01"
-    echo "scope = FreeBSD 为 best-effort 平台证据；按 ADR-013 延后，不进入验收结论"
+    echo "scope = $u_s 为 best-effort 平台证据；按 ADR-013 延后，不进入验收结论"
     echo
     echo "[platform]"
     echo "os_name = $u_s"

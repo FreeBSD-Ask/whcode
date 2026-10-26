@@ -125,7 +125,7 @@ jobs:
           release: "15"
           usesh: true
           prepare: |
-            pkg install -y curl cmake ninja
+            pkg install -y curl cmake ninja python3
             pkg install -y duckdb || true
           run: |
             set -e
@@ -147,47 +147,69 @@ jobs:
             cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
               -p whcode-llm -p whcode-runtime
 
+            # DuckDB 2.0.0 源码构建必须先于 SSH 与 store 冒烟：pkg 的 1.5.6 与冻结引擎
+            # 2.0.0（ADR-034）主版本不一致，store 的引擎版本断言必然失败，SSH 测试也会
+            # 链接到错误版本。脚本只记录不判定，NO-GO 不得改写为 GO。
+            echo "=== DuckDB 2.0.0 源码构建与 store 冒烟（Check 22／ADR-034）==="
+            sh .github/scripts/platform-matrix/bsd-duckdb.sh
+            if [ -f artifacts/store-acceptance/freebsd-duckdb.env ]; then
+              # shellcheck disable=SC1091
+              . artifacts/store-acceptance/freebsd-duckdb.env
+            fi
+
             echo "=== SSH 客户端＋服务端 BSD 回环验收（Check 25／96／99；V-004 仍延后）==="
             # 脚本始终退出 0，结论写在 artifacts/ssh-acceptance/<platform>-client.txt；
             # 不得以退出码代替阅读证据文件（NO-GO 不得改写为 GO）。
             sh .github/scripts/platform-matrix/bsd-ssh-client.sh
 
-            # DuckDB 包校验必须早于依赖记录：record-deps.sh 用 DUCKDB_LIB_DIR 与 pkg 版本
-            # 填充四类版本中的 DuckDB 项；顺序错位时只剩占位符（run 40159516841 即此情形）。
+            # DuckDB 环境选择：源码构建就绪时用它；否则退回 pkg（1.5.6），并保留
+            # “版本不匹配属 R-01 现实化路径”的独立结论。依赖记录必须在选择之后执行，
+            # 否则 record-deps.sh 取不到 DUCKDB_LIB_DIR（run 40159516841 即此情形）。
             duckdb_ready=0
-            echo "=== DuckDB 包校验（V-001 前置）==="
-            if pkg info duckdb >/dev/null 2>&1; then
-              export DUCKDB_LIB_DIR=/usr/local/lib
-              export DUCKDB_INCLUDE_DIR=/usr/local/include
-              export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            store_gate=NO-GO
+            if [ "${WHCODE_DUCKDB_READY:-0}" = 1 ]; then
               duckdb_ready=1
-              echo "pkg DuckDB：$(pkg info duckdb | tr '\n' ' ')"
+              if grep -q '^store_gate = GO' artifacts/store-acceptance/freebsd-store.txt; then
+                store_gate=GO
+                echo "STORE_GATE_RESULT=GO（源码构建 DuckDB 2.0.0；store 冒烟已由 bsd-duckdb.sh 执行）"
+              else
+                echo "STORE_GATE_RESULT=NO-GO（源码构建就绪但 store 冒烟未通过，详见 freebsd-store.txt）"
+              fi
               # whcode-bin 依赖 whcode-gui（iced→softbuffer），BSD 上不可构建，doctor 探针
-              # 只会得到编译错误；显式跳过，引擎版本改用 pkg 版本并在记录文件标注来源。
+              # 只会得到编译错误；显式跳过，引擎版本改用源码构建版本并在记录文件标注来源。
               export WHCODE_SKIP_RUNTIME_PROBE=1
             else
-              echo "pkg 无 duckdb：依赖记录中 DuckDB 版本将标注未取得证据"
+              echo "=== DuckDB 包校验（源码构建未就绪，退回 pkg）==="
+              if pkg info duckdb >/dev/null 2>&1; then
+                export DUCKDB_LIB_DIR=/usr/local/lib
+                export DUCKDB_INCLUDE_DIR=/usr/local/include
+                export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+                duckdb_ready=1
+                echo "pkg DuckDB：$(pkg info duckdb | tr '\n' ' ')"
+                export WHCODE_SKIP_RUNTIME_PROBE=1
+              else
+                echo "pkg 无 duckdb：依赖记录中 DuckDB 版本将标注未取得证据"
+              fi
+
+              echo "=== DuckDB store 冒烟（Check 22；独立于 GUI 编译结果）==="
+              # 工作区级 `cargo test` 会编译 whcode-tests，其 dev 依赖含 whcode-gui，
+              # GUI 编译失败（run 40159516841：25 errors）会短路 build/test，导致 whcode-store
+              # 的建库／事务写读／关闭重启／迁移用例一个都没执行。store 冒烟因此单独先跑：
+              # 它只依赖域层与 libduckdb，是 DuckDB 原生可用性的最小可判定集合；
+              # 其结论不得被工作区级 NO-GO 掩盖或替代。
+              if [ "$duckdb_ready" -eq 1 ] && cargo test --locked -p whcode-store; then
+                store_gate=GO
+                echo "STORE_GATE_RESULT=GO（whcode-store 建库/事务/重启/迁移用例已执行）"
+              elif [ "$duckdb_ready" -eq 1 ]; then
+                echo "STORE_GATE_RESULT=NO-GO（whcode-store 冒烟失败：版本或 ABI 不匹配，属 R-01 预期风险路径）"
+              else
+                echo "STORE_GATE_RESULT=NO-GO（pkg 无 duckdb：store 冒烟无法执行）"
+              fi
             fi
 
             echo "=== 依赖记录（V-001，须在 DUCKDB_* 导出之后）==="
             mkdir -p artifacts
             sh .github/scripts/platform-matrix/record-deps.sh artifacts
-
-            echo "=== DuckDB store 冒烟（Check 22；独立于 GUI 编译结果）==="
-            # 工作区级 `cargo test` 会编译 whcode-tests，其 dev 依赖含 whcode-gui，
-            # GUI 编译失败（run 40159516841：25 errors）会短路 build/test，导致 whcode-store
-            # 的建库／事务写读／关闭重启／迁移用例一个都没执行。store 冒烟因此单独先跑：
-            # 它只依赖域层与 libduckdb，是 DuckDB 原生可用性的最小可判定集合；
-            # 其结论不得被工作区级 NO-GO 掩盖或替代。
-            store_gate=NO-GO
-            if [ "$duckdb_ready" -eq 1 ] && cargo test --locked -p whcode-store; then
-              store_gate=GO
-              echo "STORE_GATE_RESULT=GO（whcode-store 建库/事务/重启/迁移用例已执行）"
-            elif [ "$duckdb_ready" -eq 1 ]; then
-              echo "STORE_GATE_RESULT=NO-GO（whcode-store 冒烟失败：版本或 ABI 不匹配，属 R-01 预期风险路径）"
-            else
-              echo "STORE_GATE_RESULT=NO-GO（pkg 无 duckdb：store 冒烟无法执行）"
-            fi
 
             echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
             if [ "$duckdb_ready" -eq 1 ]; then
@@ -224,6 +246,14 @@ jobs:
           name: ssh-acceptance-freebsd
           if-no-files-found: warn
           path: artifacts/ssh-acceptance/
+
+      - name: 上传 FreeBSD DuckDB 源码构建与 store 验收记录
+        if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: store-acceptance-freebsd
+          if-no-files-found: warn
+          path: artifacts/store-acceptance/
 
       # ---------------- NetBSD（最新 11.x release） ----------------
       - name: 在 NetBSD VM 中构建、测试与记录
@@ -262,12 +292,36 @@ jobs:
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
             export LD_LIBRARY_PATH="/usr/pkg/lib"
             pkgin -y update
-            pkgin -y install rust cmake ninja
+            pkgin -y install rust cmake ninja python3 curl
             pkgin -y install duckdb || true
           run: |
             set -e
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
             export LD_LIBRARY_PATH="/usr/pkg/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+            # pkgsrc 的 rust 可能与锁定版本不一致（Check 21）。优先用 rustup 安装
+            # rust-toolchain.toml 的版本；下载或安装失败时回退 pkgsrc rust，
+            # 由下面的 MSRV 闸门显式 SKIP，不得用旧工具链冒充通过。
+            export HOME=${HOME:-/root}
+            if [ ! -x "$HOME/.cargo/bin/cargo" ]; then
+              echo "=== 尝试 rustup 安装锁定工具链 1.99.1（x86_64-unknown-netbsd）==="
+              if curl -fsSL --retry 2 --connect-timeout 30 -o /tmp/rustup-init \
+                https://static.rust-lang.org/rustup/dist/x86_64-unknown-netbsd/rustup-init; then
+                chmod +x /tmp/rustup-init
+                if /tmp/rustup-init -y --profile minimal --default-toolchain 1.99.1 \
+                  >/tmp/rustup-init.log 2>&1; then
+                  echo "rustup 安装完成"
+                else
+                  echo "rustup 安装失败；回退 pkgsrc rust"
+                  tail -n 20 /tmp/rustup-init.log || true
+                fi
+              else
+                echo "rustup-init 下载失败；回退 pkgsrc rust"
+              fi
+            fi
+            if [ -x "$HOME/.cargo/bin/cargo" ]; then
+              export PATH="$HOME/.cargo/bin:$PATH"
+            fi
             rustc -vV
             cargo -V
 
@@ -317,18 +371,49 @@ jobs:
             cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
               -p whcode-llm -p whcode-runtime
 
+            # pkgsrc 的 DuckDB 为 1.5.5，与冻结引擎 2.0.0（ADR-034）主版本不一致；
+            # 源码构建后才能让 store 的引擎版本断言与 SSH 链接路径成立。
+            echo "=== DuckDB 2.0.0 源码构建与 store 冒烟（Check 22／ADR-034）==="
+            WHCODE_DUCKDB_JOBS=2 sh .github/scripts/platform-matrix/bsd-duckdb.sh
+            if [ -f artifacts/store-acceptance/netbsd-duckdb.env ]; then
+              # shellcheck disable=SC1091
+              . artifacts/store-acceptance/netbsd-duckdb.env
+            fi
+
+            echo "=== SSH 客户端＋服务端 BSD 回环验收（Check 25／96／99）==="
+            sh .github/scripts/platform-matrix/bsd-ssh-client.sh
+
             echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
-            if pkg_info duckdb >/dev/null 2>&1; then
+            duckdb_ready=0
+            if [ "${WHCODE_DUCKDB_READY:-0}" = 1 ]; then
+              duckdb_ready=1
+              if grep -q '^store_gate = GO' artifacts/store-acceptance/netbsd-store.txt; then
+                echo "STORE_GATE_RESULT=GO（源码构建 DuckDB 2.0.0；store 冒烟已由 bsd-duckdb.sh 执行）"
+              else
+                echo "STORE_GATE_RESULT=NO-GO（源码构建就绪但 store 冒烟未通过，详见 netbsd-store.txt）"
+              fi
+            elif pkg_info duckdb >/dev/null 2>&1; then
               export DUCKDB_LIB_DIR=/usr/pkg/lib
               export DUCKDB_INCLUDE_DIR=/usr/pkg/include
+              duckdb_ready=1
+              if cargo test --locked -p whcode-store; then
+                echo "STORE_GATE_RESULT=GO（pkgsrc DuckDB；store 冒烟用例已执行）"
+              else
+                echo "STORE_GATE_RESULT=NO-GO（pkgsrc DuckDB 与引擎主版本不一致，属 R-01 现实化路径）"
+              fi
+            else
+              echo "STORE_GATE_RESULT=NO-GO（pkgsrc 无 DuckDB 包）"
+            fi
+
+            if [ "$duckdb_ready" -eq 1 ]; then
               if cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
                 && cargo test --locked --workspace --exclude whcode-gui --exclude whcode-bin; then
                 echo "GATE_RESULT=GO"
               else
-                echo "GATE_RESULT=NO-GO（版本或 ABI 不匹配，属 R-01 预期风险路径）"
+                echo "GATE_RESULT=NO-GO（版本或 ABI 不一致时的预期风险路径）"
               fi
             else
-              echo "GATE_RESULT=NO-GO（pkgsrc 无 DuckDB 包：需 bundled-cmake 源码构建，待评估）"
+              echo "GATE_RESULT=NO-GO（无可用 DuckDB 原生库）"
             fi
 
       - name: 归档 NetBSD 结论
@@ -344,6 +429,41 @@ jobs:
         with:
           name: deps-netbsd
           path: artifacts/deps-netbsd.txt
+
+      - name: 上传 NetBSD DuckDB 源码构建与 store 验收记录
+        if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: store-acceptance-netbsd
+          if-no-files-found: warn
+          path: artifacts/store-acceptance/
+
+      - name: 上传 NetBSD SSH 客户端验收记录
+        if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ssh-acceptance-netbsd
+          if-no-files-found: warn
+          path: artifacts/ssh-acceptance/
+
+      # check-run 注解是公开可读的机器证据（日志下载需登录）：把 store／SSH 判据行
+      # 以 notice 形式附在 job 上，供无凭据复核；NO-GO 不改写、缺文件显式告警。
+      - name: 公布 BSD 验收结论（公开注解）
+        if: always() && (matrix.platform == 'freebsd' || matrix.platform == 'netbsd') && github.event_name != 'pull_request'
+        run: |
+          set -eu
+          found=0
+          for f in artifacts/store-acceptance/*-store.txt artifacts/ssh-acceptance/*-client.txt; do
+            [ -f "$f" ] || continue
+            found=1
+            verdict=$(grep -m1 -E '^(store_gate|ssh_loopback_gate) = ' "$f" || true)
+            [ -n "$verdict" ] || verdict="<未取得判据行>"
+            echo "::notice title=BSD evidence $(basename "$f")::$verdict"
+            echo "$f：$verdict" >> "$GITHUB_STEP_SUMMARY"
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::warning title=BSD evidence::未找到 store／ssh 证据文件（相关步骤可能未执行）"
+          fi
 
       # ---------------- OpenBSD（最新 8.x release） ----------------
       - name: 在 OpenBSD VM 中构建、测试与记录

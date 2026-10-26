@@ -22,6 +22,8 @@ GitHub Actions 只执行该目录下的文件；矩阵包含 windows/freebsd/net
 |---|---|
 | `record_deps.py` | Windows 依赖记录（V-001，含测量纪律字段；本项目不使用 GNU 工具，Windows 侧不依赖 bash） |
 | `record-deps.sh` | FreeBSD/NetBSD 依赖记录（POSIX sh） |
+| `bsd-duckdb.sh` | FreeBSD/NetBSD 从源码构建 DuckDB 2.0.0 并跑 `whcode-store` 冒烟（Check 22；构建／冒烟分开记录，NO-GO 不改写） |
+| `bsd-ssh-client.sh` | BSD SSH 客户端＋服务端回环验收记录（Check 25／96／99） |
 | `cross-check.py` | 本机跨目标**代码级**检查（见下方纪律：不构成运行验证） |
 
 发布包脚本在 `.github/scripts/` 根级：`.github/scripts/package-windows.py`（打包 + 仓库外解包安装验证；T118／Check 118）。
