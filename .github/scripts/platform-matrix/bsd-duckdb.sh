@@ -25,8 +25,9 @@
 #     2.0 另以 ENABLE_UNITTEST_CPP_TESTS 门控 C++ 测试子目录，脚本同时传 OFF；
 #   - SKIP_EXTENSIONS=jemalloc：FreeBSD ports 同款规避（上游 issue 14363 相关），
 #     避免 jemalloc 扩展在 BSD 上的构建风险；
-#   - OVERRIDE_GIT_DESCRIBE=v2.0.0-0-gd54cbbe3df：源码归档没有 .git，不覆盖版本时
-#     DuckDB 会退回占位版本，导致主版本断言失败（官方构建文档与 FreeBSD ports 均如此用）。
+#   - OVERRIDE_GIT_DESCRIBE=v2.0.0：源码归档没有 .git，不覆盖版本时 DuckDB 会退回
+#     占位版本；但覆盖值必须是三段式 `v2.0.0`，不能拼 git describe 后缀，否则
+#     `duckdb_library_version()` 的第三段不是纯数字，store 冒烟会失败。
 #
 # 判据（信号链完备：交付＝可归因信号存在，而非进程不崩溃）：
 #   - 退出码 0 **且** 输出出现 `smoke_reports_engine_version_from_runtime ... ok`
@@ -70,7 +71,10 @@ trap 'rm -f "$BUILD_LOG" "$TEST_LOG" "$PROBE_SRC" "$PROBE_BIN"' EXIT HUP INT TER
 DUCKDB_VERSION=2.0.0
 DUCKDB_TAG=v2.0.0
 DUCKDB_COMMIT=d54cbbe3df17e8e5ce68312f483b4155836112aa
-DUCKDB_DESCRIBE=v2.0.0-0-gd54cbbe3df
+# 运行期 `duckdb_library_version()` 必须恰好是三段式 `v2.0.0`：store 冒烟断言
+# 每段为数字。传入 `v2.0.0-0-g<commit>` 会把 git describe 拼进版本串，第三段
+# 变成 `0-0-g…` 而失败（FreeBSD run 40277915404 的两条失败测试即此原因）。
+DUCKDB_DESCRIBE=v2.0.0
 DUCKDB_REPO=https://github.com/duckdb/duckdb
 DUCKDB_URL=https://github.com/duckdb/duckdb/archive/v2.0.0.tar.gz
 DUCKDB_ARCHIVE_SIZE=106477075
@@ -135,7 +139,7 @@ bytes_of() {
 # 构建日志尾部（单行化）：失败原因要能进入公开注解，否则日志下载需登录，
 # 只能看到“CMake 配置失败”这类无行动信息的结论。
 log_tail() {
-    tail -n 3 "$BUILD_LOG" 2>/dev/null | tr '\n' ' ' | cut -c1-400
+    tail -n 12 "$BUILD_LOG" 2>/dev/null | tr '\n' ' ' | cut -c1-1200
 }
 
 # 源码身份复核：标签的 peeled commit 必须等于固定提交；网络或 git 不可用时只记录

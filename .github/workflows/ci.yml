@@ -431,6 +431,9 @@ jobs:
             # pkgsrc 的 gcc 包通常提供带版本号的可执行名（gcc12／g++12），
             # 不保证存在无后缀的 gcc／g++，因此两个名字都尝试安装。
             pkgin -y install gcc12 || pkgin -y install gcc || echo "WARN: 无可用 gcc（DuckDB 配置将记录 NO-GO）"
+            # pkgsrc 的 gcc 包装器在部分 NetBSD 镜像上无法通过 CMake 的编译试验；
+            # clang 是自包含工具链，作为优先候选可绕开该环境问题。
+            pkgin -y install clang || echo "WARN: clang 安装失败（回退 gcc）"
             pkgin -y install python313 || true
             pkgin -y install duckdb || true
           run: |
@@ -553,11 +556,11 @@ jobs:
             # 源码构建后才能让 store 的引擎版本断言与 SSH 链接路径成立。
             # CMake 不认“路径里有编译器但环境没声明”的情况；按可用名字显式导出。
             cc_name=""
-            for candidate in gcc gcc12 gcc13 gcc14 clang; do
+            for candidate in clang gcc gcc12 gcc13 gcc14; do
               if command -v "$candidate" >/dev/null 2>&1; then cc_name="$candidate"; break; fi
             done
             cxx_name=""
-            for candidate in g++ g++12 g++13 g++14 clang++; do
+            for candidate in clang++ g++ g++12 g++13 g++14; do
               if command -v "$candidate" >/dev/null 2>&1; then cxx_name="$candidate"; break; fi
             done
             if [ -n "$cc_name" ] && [ -n "$cxx_name" ]; then
@@ -662,11 +665,27 @@ jobs:
             # NO-GO 时把失败测试名／错误行一并公开：日志下载需登录，只有结论没有
             # 失败点无法行动。
             if printf '%s' "$verdict" | grep -q 'NO-GO'; then
-              detail=$(grep -E '^test .* FAILED|^error(\[|:)|panicked at|not found|undefined' "$f" \
+              detail=$(grep -aE '^test .* FAILED|^error(\[|:)|panicked at|not found|undefined' "$f" \
                 | head -n 6 | tr '\n' ';' | cut -c1-600)
               if [ -n "${detail:-}" ]; then
                 echo "::notice title=BSD failure $(basename "$f")::$detail"
               fi
+              # 失败测试名之外，再公布 cargo 与构建日志的最后几行；日志下载需登录，
+              # 只有结论无法定位是库版本、SONAME 还是某个断言。
+              cargo_tail=$(awk '/^\[cargo_output\]/{flag=1;next} flag' "$f" | tail -n 4 \
+                | tr '\n' ';' | cut -c1-600)
+              if [ -n "${cargo_tail:-}" ]; then
+                echo "::notice title=BSD cargo tail $(basename "$f")::$cargo_tail"
+              fi
+              build_tail=$(awk '/^\[build_output_tail\]/{flag=1;next} flag' "$f" | tail -n 10 \
+                | tr '\n' ';' | cut -c1-1200)
+              if [ -n "${build_tail:-}" ]; then
+                echo "::notice title=BSD build tail $(basename "$f")::$build_tail"
+              fi
+            fi
+            engine=$(grep -m1 '^engine_version = ' "$f" || true)
+            if [ -n "${engine:-}" ]; then
+              echo "::notice title=BSD engine $(basename "$f")::$engine"
             fi
           done
           # VM 步骤失败时日志不可匿名读取；进度文件是唯一可定位的阶段证据。
