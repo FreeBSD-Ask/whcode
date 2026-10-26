@@ -462,7 +462,7 @@
 - [x] Check 287: `doctor` 文本与 `--json` 报告出站档位／份数／修改标记与入站档位／指纹／有效期；
   README、CUI 手册、Web 安全指南、quickstart 与模块设计不再声称“Web 无 TLS”；`CHANGELOG.md` 以
   **BREAKING** 记录默认 HTTPS 与迁移方式（来源：Task T191、FR-626／FR-627）
-- [x] Check 288: 默认 HTTPS、`--tls off`、`external`、局域网 token + HTTPS、设置页与重启提示均有
+- [x] Check 288: 默认 HTTPS、`--tls off`、`external`、局域网 token + HTTPS、设置页与重启提示均有——**复核（2026-10-26，浏览器实机）**：真实 Chrome 信任自签证书、页面指纹＝启动输出＝API 三方一致、设置页预览确认与重新生成成功、"需重启 serve --web 后生效"实机验证；无凭据读取 permission_denied 反向证据同批（`artifacts/tls-browser-2026-10-26/tls-browser-evidence.md`）
   真实运行证据（`artifacts/tls-2026-10-25/`）；资源前后对比已记录；标准验证链全部退出码 0；CI 未
   运行时登记缺口与复现命令，不以本地结果冒充（来源：Task T192、FR-626／FR-627、ADR-037）
 
