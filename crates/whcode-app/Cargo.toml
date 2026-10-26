@@ -29,7 +29,7 @@ rustls-pki-types = { version = "1.15.1", features = ["std"] }
 rcgen = { version = "0.14.10", default-features = false, features = ["ring", "pem"] }
 x509-parser = "0.18.1"
 # 与锁定文件既有 0.10.9 同源，不新增第三个 sha2 版本。
-sha2 = "0.10.9"
+sha2 = "0.11.1"
 # rcgen 的证书参数直接暴露 time::OffsetDateTime，且状态需要 ISO 8601 输出（0.3.55 已在锁文件）。
 time = { version = "0.3.55", default-features = false, features = ["std", "formatting"] }
 
