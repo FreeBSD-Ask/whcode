@@ -70,8 +70,10 @@ jobs:
         shell: pwsh
         env:
           WHCODE_STABILITY_INTERVAL_SECS: "300"
-          WHCODE_STABILITY_DIR: artifacts/stability-long/workspace
-          WHCODE_STABILITY_OUT: artifacts/stability-long/timeseries.jsonl
+          # cargo test 将测试二进制 cwd 设为 whcode-tests 包根（tests/），
+          # 相对路径会落在 tests/artifacts/ 下；这里必须传绝对路径。
+          WHCODE_STABILITY_DIR: ${{ github.workspace }}/artifacts/stability-long/workspace
+          WHCODE_STABILITY_OUT: ${{ github.workspace }}/artifacts/stability-long/timeseries.jsonl
         run: |
           New-Item -ItemType Directory -Force artifacts/stability-long | Out-Null
           $env:WHCODE_STABILITY_SECONDS = $env:STABILITY_SECONDS
