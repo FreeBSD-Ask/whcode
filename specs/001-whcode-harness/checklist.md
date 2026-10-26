@@ -154,7 +154,7 @@
 - [x] Check 106: 有副作用的脚本重复执行不命中缓存（来源：Task T106、FR-707）——**复核（2026-10-23，批次三）**：`cache::cache_only_applies_when_explicitly_enabled` 断言缓存仅在显式启用（纯函数）时生效
 - [x] Check 107: 引用未启用运行时的任务被 Analyze/执行前检查阻止并给出安装建议（来源：Task T107、FR-708/710）——**复核（2026-10-23，批次三）**：`errors::unavailable_runtimes_block_execution_before_start`、`runtime_unavailable_carries_reason_and_suggestion`、`v306_unavailable_runtimes_block_execution` 通过
 - [x] Check 108: Converge 绑定的运行时测试记录含命令、指纹、退出状态、结果引用（来源：Task T108、FR-709）——**复核（2026-10-23，批次三）**：`converge::runtime_binding_maps_exit_status_to_acceptance_states` 断言命令/环境指纹/退出状态/结果引用四要素
-- [ ] Check 109: Windows 子进程树与 BSD 进程组终止后无残留进程，stderr 尾部入库（来源：Task T109、FR-409）——**复核（2026-10-23，批次三）**：**未通过**：`worker_preserves_stderr_tail_on_failure` 与 `terminate_tree` 已交付，但 BSD 进程组属 M7（延后）；且无“终止后无残留进程”的断言（本轮实测中 `durability` 子进程曾残留，见复核报告 §9）——**复核（2026-10-24，流程收敛批次）**：Windows 侧“终止后无残留进程”断言已补并实测通过（`tests/stability/test_process_cleanup.rs::terminated_process_tree_leaves_no_residual_processes`，真实 cmd→ping 进程树 + `child_pids`/`process_exists` 逐进程验证）；stderr 尾部入库测试已有（`worker_preserves_stderr_tail_on_failure`）；BSD 进程组属 M7（延后），本项维持未通过至平台范围恢复
+- [x] Check 109: Windows 子进程树与 BSD 进程组终止后无残留进程，stderr 尾部入库（来源：Task T109、FR-409）——**复核（2026-10-23，批次三）**：**未通过**：`worker_preserves_stderr_tail_on_failure` 与 `terminate_tree` 已交付，但 BSD 进程组属 M7（延后）；且无“终止后无残留进程”的断言（本轮实测中 `durability` 子进程曾残留，见复核报告 §9）——**复核（2026-10-24，流程收敛批次）**：Windows 侧“终止后无残留进程”断言已补并实测通过（`tests/stability/test_process_cleanup.rs::terminated_process_tree_leaves_no_residual_processes`，真实 cmd→ping 进程树 + `child_pids`/`process_exists` 逐进程验证）；stderr 尾部入库测试已有（`worker_preserves_stderr_tail_on_failure`）；BSD 进程组属 M7（延后），本项维持未通过至平台范围恢复——**复核（2026-10-26，CI run `40273055639`）**：FreeBSD 与 NetBSD 的 `process_group_gate = GO`（孙进程零残留用例已执行）；Windows 侧 `terminated_process_tree_leaves_no_residual_processes` 与 stderr 尾部用例随全量测试通过。**转入勾选**
 - [x] Check 110: JS 引擎对 Node API 调用返回能力不足错误，而非崩溃或静默失败（来源：Task T110、D-08）——**复核（2026-10-23，批次三）**：**未通过**：`crates/whcode-runtime/src/js.rs` 不存在；`JsProvider` 仅声明 `Restricted` 并在无引擎时返回 `runtime_unavailable`（`unavailable_providers_return_structured_errors`），**未接入任何受限 ECMAScript 引擎**——**补录通过（2026-10-24，功能缺口清偿批次，ADR-029）**：`js.rs` 接入 Boa 0.21.1（feature `runtime-js` 门控，默认构建零依赖零开销）；`require`/`process`/`fs`/`net`/`http`/`child_process` 六名字注册为抛出“能力不足”（含运行时名）的桩——`node_api_rejections_fail_with_capability_error` 逐名断言 exit_code=1、stderr 含“能力不足”、进程不崩、stdout 无静默输出；死循环经 `RuntimeLimits`（循环 1 000 000/递归 256）有界失败，非挂起；默认构建保持诚实不可用
 - [x] Check 111: Python worker 记录解释器版本/ABI/路径；受限档位列出不支持项（来源：Task T111、D-09）——**复核（2026-10-23，批次三）**：**未通过**：`python.rs` 不存在；`PythonProvider` 以系统解释器构造子进程并探测 `--version`（`python_probes_system_interpreter`），不支持项已列；但**ABI 与解释器绝对路径未记录**——**补录通过（2026-10-24，功能缺口清偿批次）**：`python.rs` 落地 worker 协议（stdin 单行 JSON 请求经一次性临时文件注入，上限 4 MiB；输出 8 KiB 有界缓冲 + 显式截断标记；失败非零退出 + stderr）与 `PythonEnv` 记录（解释器绝对路径/版本/实现名/ABI/`sys_prefix`/C 扩展探测 bool；本机实测 `.cp314-win_amd64.pyd`）；受限档位列五项不支持项并写明“承诺边界不是沙箱”；取消与超时可区分（`cancel_is_distinguishable_from_timeout`）
 - [x] Check 112: Git Bash payload 验证管道/重定向/路径/终止四类命令，payload 哈希可核验（来源：Task T112、V-304）——**复核（2026-10-23，批次三）**：**未通过**：`gitbash.rs` 不存在；仅探测 `git.exe --version`，未验证 PortableGit payload 哈希、Bash/coreutils、管道与重定向（`docs/matrices/runtime-inventory.md` 亦标“未实现”）——**补录通过（2026-10-24，功能缺口清偿批次）**：`gitbash.rs` 的 `verify_payload` 复用 `payload::validate` 四重校验（来源白名单/平台/版本/哈希，正反四态用例）；`capability_probes` 五类脚本全部**真实取证**（本机 bash 5.3.9：管道→`A`、mktemp 重定向读回、含空格路径、`sleep 30` 超时 `timed_out=true`、目标命令 `git version 2.54.0.windows.1`）；执行经 `worker::execute_with_cancel`（超时/输出上限/取消/凭据剥离）
@@ -271,7 +271,7 @@
 - [x] Check 198: 超限 payload 被截断并留下标记，原始无静默删除（来源：spec Edge／R-05／Task T011）——**复核（2026-10-23，批次四）**：实现为**显式拒绝**而非截断（`writer::oversized_payload_is_rejected_not_truncated`、`event::oversized_payload_is_detected`）：原始数据不被静默删除；与判据字面“截断”不同，差异已记录
 - [x] Check 199: 慢客户端存在时其他会话广播延迟无劣化（对比测试）（来源：spec Edge／§6.3／Task T094）——**复核（2026-10-23，批次四）**：**未取得**：WebSocket 会话广播未实现（仅握手），不存在慢客户端对比测试——**补录通过（2026-10-24，功能缺口清偿批次）**：WS 事件广播落地（`whcode-web::broadcast` 有界队列 64 帧/客户端 + serve 单线程非阻塞多路复用，生产路径零新增线程，200 ms 轮询节流）；`slow_client_does_not_delay_other_subscribers`（真实 socket）：慢客户端停读被断开（“断开慢者不停别人”），正常客户端实测最大帧间隔 199—209 ms（≈一个轮询周期，3 次运行稳定），无慢客户端基线 48.2—72.4 µs，尾事件到帧 562—601 ms ≤ 理论 800 ms；两项测量均 println 留证
 - [x] Check 200: 重复幂等键仅返回既有结果或确定冲突（来源：spec Edge／§7.3／Task T044）——**复核（2026-10-23，批次四）**：`duplicate_idempotency_key_does_not_add_rows`、`same_key_with_different_payload_is_deterministically_deduplicated` 通过
-- [ ] Check 201: Windows 子进程树与 BSD 进程组清理后有零残留验证（来源：spec Edge／§10.2／Task T109）——**复核（2026-10-23，批次四）**：**部分通过（2026-10-23）**：Windows 侧已自动化——`tests/stability/test_process_cleanup.rs`（`terminated_process_tree_leaves_no_residual_processes`）启动真实 `cmd → ping` 进程树，`terminate_tree` 后断言父与子 PID 均消失，并先断言“确实观测到子进程”（否则判据无从成立）；**BSD 进程组零残留仍无实现与平台证据（ADR-013 延后）**，故整条判据未全部满足，维持未勾选
+- [x] Check 201: Windows 子进程树与 BSD 进程组清理后有零残留验证（来源：spec Edge／§10.2／Task T109）——**复核（2026-10-23，批次四）**：**部分通过（2026-10-23）**：Windows 侧已自动化——`tests/stability/test_process_cleanup.rs`（`terminated_process_tree_leaves_no_residual_processes`）启动真实 `cmd → ping` 进程树，`terminate_tree` 后断言父与子 PID 均消失，并先断言“确实观测到子进程”（否则判据无从成立）；**BSD 进程组零残留仍无实现与平台证据（ADR-013 延后）**，故整条判据未全部满足，维持未勾选——**复核（2026-10-26，CI run `40273055639`）**：FreeBSD 与 NetBSD 的 `process_group_gate = GO`（进程组终止后父与孙均不存在，含阳性对照）；Windows 子进程树零残留测试通过。**转入勾选**
 - [x] Check 202: 运行时缺失/不兼容返回结构化错误，任务状态非静默跳过（来源：spec Edge／FR-708／Task T107）——**复核（2026-10-23，批次四）**：`errors::unavailable_runtimes_block_execution_before_start` 等通过（`runtime_unavailable` + 建议）
 - [x] Check 203: 损坏产物样例触发解析报告且原文保留（来源：spec Edge／R-06／Task T069）——**复核（2026-10-23，批次四）**：`parser::reports_unparsable_sections_duplicates_and_unknown_fields`（原文保留）与 `correction_exhaustion_blocks_with_original_preserved` 通过
 - [x] Check 204: 清理后报告解释空间未缩小的原因与统计（来源：spec Edge／R-10／Task T045）——**复核（2026-10-23，批次四）**：`compact::space_report_counts_wal_when_present`、`purge_then_compact_reports_four_statistics_and_keeps_data` 断言四项统计；不承诺 `VACUUM` 释放空间（data-model §5、FR-510）
@@ -450,7 +450,7 @@
   `builtin`（来源：Task T189、FR-626）
 - [x] Check 283: 局域网绑定缺 token 仍拒绝启动；启用 TLS 时 Origin 允许集为 `https`；401／403
   语义不变；TLS 下 WebSocket 升级与消息收发可用（来源：Task T189、FR-626）
-- [ ] Check 284: 分片 ClientHello、部分写、两客户端交错、超大握手与 5 秒超时均有测试；每连接缓冲
+- [x] Check 284: 分片 ClientHello、部分写、两客户端交错、超大握手与 5 秒超时均有测试；每连接缓冲——**复核（2026-10-26，CI run `40273055639`）**：Windows TLS 专项公开注解 `GO（serve::tests 与 tls::tests 均通过）`；新增部分写续传（400 KiB）、明文读取上限、TLS 第 97 条连接直接关闭、HTTP 超限 400 四项测试，并修复密文暂存跨 tick 清空缺陷。**转入勾选**
   有上限；`serve --web` 线程数不增加；超并发上限时 TLS 模式关闭连接且不静默排队
   （来源：Task T189、FR-626）
 - [x] Check 285: `/api/certs/*` 经认证、Origin 与能力判定；降档缺 `confirm` 被拒；成功写
@@ -477,17 +477,17 @@
 - [x] Check 290: `render_columns_limited` 的列序、选中标记、派生数字列与 `max = 0` 行为有单测；
   万行快照下单帧投影行数恒 ≤ `max`；`render_lines_limited` 既有行为与测试不变
   （来源：Task T194、FR-601、ADR-041 决策 8）
-- [ ] Check 291: TUI 在 80×24 下渲染出顶栏／左导航栏 + 主面板／键位提示栏三区，六视图可切换且
+- [x] Check 291: TUI 在 80×24 下渲染出顶栏／左导航栏 + 主面板／键位提示栏三区，六视图可切换且——**复核（2026-10-26，CI run `40273055639`）**：新增 `selected_nav_item_has_marker_and_reverse_video`、`columns_align_with_header_across_rows`、`very_short_terminal_falls_back_to_plain_body` 与四主题帧色值断言；`whcode-tui` 67 passed，Windows job success。**转入勾选**
   24 行帧稳定；导航栏选中项同时具备 `>` 与反显；列对齐与 CJK 2 列截断不溢出；极窄/极矮终端
   退化为纯正文且空态显式；四套主题色值仍精确（来源：Task T195、FR-601／612／613／615）
-- [ ] Check 292: CUI 的 `session list/show`、`task show`、`context budget`、`spec status` 输出为
+- [x] Check 292: CUI 的 `session list/show`、`task show`、`context budget`、`spec status` 输出为——**复核（2026-10-26，CI run `40273055639`）**：新增 `task_show_and_spec_status_are_aligned_records_without_ansi` 与 `emphasis_is_disabled_by_pipe_no_color_or_dumb_terminal`；`whcode-cui` 22 passed、`whcode-bin` 88 passed（1 ignored），Windows job success。**转入勾选**
   对齐记录／表格且空结果是显式空态；管道／`NO_COLOR`／`TERM=dumb`／`--json` 下不含 ANSI 转义；
   `--json` 字段集合、错误信封四字段与退出码与改造前一致；`whcode-bin` 编译与测试证据已取得
   （来源：Task T196、FR-602／615／625、ADR-032）
 - [x] Check 293: Web 首页具备吸顶应用栏（标题 + 七项 tablist + 主题选择）、内容与元信息两栏、
   常驻状态栏；七个 tab 与七个面板的 ARIA 关联双向可解析且初始只选中一个；四套主题色值不变
   （来源：Task T197、FR-603／612／618、ADR-014）
-- [ ] Check 294: 方向键／Home/End 在 tablist 内循环切换并同步 `aria-selected` 与 `tabindex`；
+- [x] Check 294: 方向键／Home/End 在 tablist 内循环切换并同步 `aria-selected` 与 `tabindex`；——**复核（2026-10-26，CI run `40273055639`）**：Playwright + Chromium/Chrome 真实浏览器公开注解 `GO（键盘循环／RTL／焦点／ARIA 同步）`，artifact `web-ui-ci-windows`；`setInterval` 计数 0，RTL 方向反转已验证。**转入勾选**
   RTL 下方向反转；焦点可见；未新增定时器与事件订阅（来源：Task T198、FR-609／617）
 - [x] Check 295: GUI 侧栏六项可点击且选中反显只用主题两色（无边框、无阴影）；顶栏显示视图标题与
   当前会话；KPI 条优先准备层摘要、否则给出可得计数；底部状态栏含键位提示与主题名；仍无定时器
@@ -495,7 +495,7 @@
 - [x] Check 296: 前端预算脚本新增 DOM 起始标签 ≤ 2 000 与 `innerHTML`／`outerHTML`／
   `insertAdjacentHTML` 禁令，`--selftest` 负向自检通过；CI 仍以同一入口执行（ADR-037）
   （来源：Task T200、FR-618、ADR-041 决策 7）
-- [ ] Check 297: `artifacts/ui-modern-2026-10-25/` 含 TUI 帧预算、legacy 同机参照、Web 预算与
+- [x] Check 297: `artifacts/ui-modern-2026-10-25/` 含 TUI 帧预算、legacy 同机参照、Web 预算与——**复核（2026-10-26，CI run `40273055639`）**：`summary.json` 已补 TUI 帧预算（p95 1 913 µs／16 000 µs）、Web 预算与 DOM、GUI 资源（线程 88／句柄 297—330／RSS 84.5—99.7 MB，超 ADR-027，归因 DuckDB 2.0，ADR-042 待批准）、NFR-201 35.69 MB、Web 冒烟 5/5、浏览器 tablist GO；证据齐备性满足，资源超预算不作达标声明。**转入勾选**
   DOM 计数、六视图帧文本与 summary；summary 逐项写明实测值／上限／结论；GUI 资源采样、主进程
   RSS 与 Web 运行时冒烟按 ADR-037 登记为未取得（并行 cert/TLS 工作阻塞），不得冒充通过
   （来源：Task T201、FR-613／617／618、ADR-041 决策 8）
@@ -525,17 +525,17 @@
 
 ## 2026-10-25 复核补记（TLS／UI／LLM／BSD）
 
-**清点**：Check 1—299 实际勾选 **284 项通过 / 15 项未通过**。未通过项：21、22、25、96、99、109、116、134、195、201、284、291、292、294、297。
+**清点**：Check 1—299 实际勾选 **291 项通过 / 8 项未通过**。未通过项：21、22、25、96、99、116、134、195。
 
-**TLS（Check 274—288）**：274—283、285—288 转入通过，逐条证据见 `artifacts/tls-2026-10-25/check-274-277.md`、`check-278-281.md`、`check-282-285.md`、`check-286-288.md`；实测 `cargo test -p whcode-app cert` 21、`-p whcode-llm --features http tls` 12、`-p whcode-bin tls` 15，`traceability.py`／`check_counts.py`／`check-eol.py` 均退出 0。**288 已收口**：证据目录已随提交入库，CI run `40225169689`（commit `be1559a`）全部作业 success，标准验证链与安装验证均退出码 0。**284 补测（待 CI 回填）**：新增部分写续传（400 KiB 跨 rustls 64 KiB 发送缓冲 + 256 KiB 暂存）、明文单次读取 ≤ 64 KiB、TLS 第 97 条连接直接关闭（不排队）、HTTP 请求超限 400 四项测试；同时修复密文暂存跨 tick 被清空导致的 `cannot decrypt peer's message` 真实缺陷（`read_tls` 未消费字节改为保留）。浏览器实机信任/设置页交互归 T192，仍未取得。
+**TLS（Check 274—288）**：274—283、285—288 转入通过，逐条证据见 `artifacts/tls-2026-10-25/check-274-277.md`、`check-278-281.md`、`check-282-285.md`、`check-286-288.md`；实测 `cargo test -p whcode-app cert` 21、`-p whcode-llm --features http tls` 12、`-p whcode-bin tls` 15，`traceability.py`／`check_counts.py`／`check-eol.py` 均退出 0。**288 已收口**：证据目录已随提交入库，CI run `40225169689`（commit `be1559a`）全部作业 success，标准验证链与安装验证均退出码 0。**284 补测（待 CI 回填）**：新增部分写续传（400 KiB 跨 rustls 64 KiB 发送缓冲 + 256 KiB 暂存）、明文单次读取 ≤ 64 KiB、TLS 第 97 条连接直接关闭（不排队）、HTTP 请求超限 400 四项测试；同时修复密文暂存跨 tick 被清空导致的 `cannot decrypt peer's message` 真实缺陷（`read_tls` 未消费字节改为保留）。**284 已随 CI run `40273055639` 收口**：Windows 公开注解 `GO（serve::tests 与 tls::tests 均通过）`。浏览器实机信任/设置页交互归 T192，仍未取得。
 
-**UI（Check 289—298）**：289、290、293、295、296、298 转入通过；291 补导航反显、列对齐、极矮退化和四主题帧色值断言，292 补 `task show`／`spec status` 记录式输出、空任务零计数与 `NO_COLOR`／`TERM=dumb`／管道纯函数断言；294 的 RTL 缺陷已在 `crates/whcode-web/frontend/app.js` 修复（`dir` 改为 keydown 时读取），新增 `.github/scripts/web-ui-check.py`（Playwright，真实浏览器键盘循环／RTL／焦点／ARIA）并本地取得 GO，CI 步骤与 artifact 已接线；297 的 GUI 资源采样显示 **线程 88／句柄 297—330**，超过 ADR-027 预算 24／256，归因为 DuckDB 2.0.0 单连接打开约 80 线程（库不可打开时 21 线程），需 ADR 处置，不得以 UI 改动掩盖；NFR-201 主进程空载 RSS 中位 35.69 MB ≤ 36 MB 已取得。以上 291／292／294／297 待本次推送的 CI run 回填后勾选。
+**UI（Check 289—298）**：289、290、293、295、296、298 转入通过；291 补导航反显、列对齐、极矮退化和四主题帧色值断言，292 补 `task show`／`spec status` 记录式输出、空任务零计数与 `NO_COLOR`／`TERM=dumb`／管道纯函数断言；294 的 RTL 缺陷已在 `crates/whcode-web/frontend/app.js` 修复（`dir` 改为 keydown 时读取），新增 `.github/scripts/web-ui-check.py`（Playwright，真实浏览器键盘循环／RTL／焦点／ARIA）并本地取得 GO，CI 步骤与 artifact 已接线；297 的 GUI 资源采样显示 **线程 88／句柄 297—330**，超过 ADR-027 预算 24／256，归因为 DuckDB 2.0.0 单连接打开约 80 线程（库不可打开时 21 线程），需 ADR 处置，不得以 UI 改动掩盖；NFR-201 主进程空载 RSS 中位 35.69 MB ≤ 36 MB 已取得。**291／292／294／297 已随 CI run `40273055639` 转入通过**：Windows job 全绿，TLS／SSH／Web tablist 均以公开注解给出 GO；GUI 资源结论保持“超预算、ADR-042 待批准”。
 
 **LLM（T162—T166）**：`cargo test -p whcode-llm --features http` 77 项通过；端到端回环证据 `artifacts/llm-e2e-2026-10-25.md`（`llm run` 退出 0、正文“你好”、`finish_reason=stop`、供应商用量、transport 快照）。T167 仅 CUI／Web 接线，TUI／GUI 仍 `Reserved`，保持未勾选。
 
-**BSD**：`whcode-platform` 已实现 Unix 进程组终止，并新增**孙进程零残留**用例（`process_group_termination_kills_grandchild_and_leaves_no_residue`，仅 Unix 编译）。`whcode-ssh` 的两个回环验收用例在 FreeBSD CI 已判 GO（run `40267545791` 的公开 check-run 注解：`ssh_loopback_gate = GO（cargo test 通过，客户端与服务端回环验收用例均已执行）`），Check 25／96／99 的 FreeBSD 侧证据已取得；NetBSD 侧因 rustup 安装路径修复待下一轮。DuckDB 源码构建脚本已改名为 `.github/scripts/platform-matrix/bsd-duckdb.sh` 并接入 FreeBSD／NetBSD，但 run `40267545791` 的 FreeBSD `store_gate = NO-GO（DuckDB 安装失败）`：构建目标是共享库 + 静态库，VM 磁盘在安装阶段不足；已改为只构建 `libduckdb.so` 并手工复制共享库与 `duckdb.h`（不经 `cmake --install`），待下一轮 CI 判定。所有 BSD 判据新增公开 check-run 注解（无需登录即可机器读取）与 `*-progress.txt` 阶段证据，Check 21／22／109／201 维持未勾选直至下一轮 CI。
+**BSD**：run `40273055639` 的公开注解给出两段结果。**FreeBSD**：`ssh_loopback_gate = GO`、`process_group_gate = GO`；`store_gate = NO-GO（cargo test 失败 101）`——源码构建未就绪时回退 pkg 1.5.6 的预期路径。**NetBSD**：rustup 成功安装 `rustc 1.99.1`（Check 21 的 NetBSD 工具链障碍解除）、代码检查与包级测试通过、`process_group_gate = GO`；`store_gate = NO-GO（CMake 配置失败）`、`ssh_loopback_gate = NO-GO（DuckDB 2.0 原生库不可用）`。据此 **Check 109／201 转入通过**（Windows + 两个 BSD 的进程组零残留均已执行）。DuckDB 源码构建已改为只构建 `libduckdb.so` 并手工复制（规避静态库体积/CMake 安装失败），NetBSD 补装 C++ 编译器并把构建日志尾部写入公开注解（提交 `dde3651`），Check 22 与 Check 25／96／99 的完整平台证据仍待下一轮 CI；Check 21 的 OpenBSD／DragonFly 工具链仍不满足 1.99。
 
-**T116／Check 116／195**：长跑夹具已改用正式 `EventWriter` 并输出 `writer_queue_depth`、`oldest_queue_item_age_ms`（目标表为 `m0_events`，`events` 表仍直连，已在注释与 summary 中显式标注）；ADR-025 组合判据修订仍为“提议，待用户批准”，Check 116／195 维持未勾选。
+**T116／Check 116／195**：长跑夹具已改用正式 `EventWriter` 并输出 `writer_queue_depth`、`oldest_queue_item_age_ms`（目标表为 `m0_events`，`events` 表仍直连，已在注释与 summary 中显式标注）。`long-run.yml` 已改为 release 剖面、300 s 采样，并只在 `artifacts/long-run-request-*.md` 变更时触发；本次推送已启动 run `40273055606`（5.5 小时，摘要将以公开注解公布）。ADR-025 组合判据修订仍为“提议，待用户批准”，Check 116／195 维持未勾选直至长跑 summary 取得且判据批准。
 
 ## 追溯缺口登记（2026-10-23）
 

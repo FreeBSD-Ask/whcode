@@ -81,7 +81,7 @@
     "aria": "恰一个 aria-selected=true，选中 tabindex=0、其余 -1",
     "focus_visible": "键盘导航后 outline solid 非 0",
     "timers": "setInterval 计数 0；MutationObserver 仅作信息记录（浏览器内部亦可能创建）",
-    "conclusion": "本地 GO；CI 步骤与 artifact web-ui-ci-windows 已接线，run id 待本次推送后回填",
+    "conclusion": "CI 公开注解 GO（run 40273055639，键盘循环／RTL／焦点／ARIA 同步）；artifact web-ui-ci-windows",
     "artifact": "artifacts/web-ui-ci/summary.json"
   },
   "tests": {
@@ -110,9 +110,9 @@
       "evidence": "artifacts/ui-modern-2026-10-25/check-295-298.md §GUI 资源实测"
     },
     {
-      "item": "浏览器验收的 CI run 编号",
-      "reason": "本地 GO 已取得；CI run id 与 artifact 需本次推送后回填",
-      "evidence": "artifacts/web-ui-ci/summary.json；.github/workflows/ci.yml 的 web-ui-ci-windows"
+      "item": "浏览器验收的 CI artifact 原文",
+      "reason": "CI 注解已 GO；artifact 下载需登录，本条仅缺原文归档",
+      "evidence": "run 40273055639 的 web-ui-ci-windows；artifacts/web-ui-ci/summary.json"
     }
   ],
   "notes": [
