@@ -73,6 +73,7 @@ __pycache__/
 # IDE／代理工具的本机状态目录
 /.trae/
 /.zcode/
+/.qoder/
 # Trae 分享包导出产物（本机临时目录）
 /.trae-html-share-packages/
 # 工作区配置与证书库（ADR-040：在仓库根运行命令时生成，含 PEM 私钥，绝不入库）
