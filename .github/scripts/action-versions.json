@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-25",
+  "checked_at": "2026-10-26",
   "source": "GitHub API releases/latest；无 release 时取最高语义化 tag；SHA 由 commits/{tag} 解析",
   "actions": {
     "actions/checkout": {
@@ -15,8 +15,8 @@
       "sha": "cf430e030ddbb5b0abf93d22962f4752f3646cd9"
     },
     "cross-platform-actions/action": {
-      "version": "v1.6.0",
-      "sha": "e0b9770014ba65d5e0815f15b74031c3a635f641"
+      "version": "v1.7.0",
+      "sha": "82668f1fbd89d9c99487604f822cbf6716f124d3"
     },
     "vmactions/freebsd-vm": {
       "version": "v1.5.9",
