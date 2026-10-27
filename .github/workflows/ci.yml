@@ -423,6 +423,9 @@ jobs:
             export LD_LIBRARY_PATH="/usr/pkg/lib"
             pkgin -y update
             pkgin -y install rust cmake ninja
+            # 实测（run 40515646118）：该仓库的 ninja 包是 IRC 客户端分支（--version
+            # 输出非版本号），bsd-duckdb.sh 会探测并回退 Unix Makefiles，此时需要 gmake。
+            pkgin -y install gmake || echo "WARN: gmake 安装失败（Makefiles 回退受限）"
             # python3／curl 缺失不阻断 bootstrap：DuckDB 源码构建会记录 NO-GO，
             # 但依赖记录与工具链检查仍应执行（区分“正确的空”与“前置缺失”）。
             pkgin -y install python3 || echo "WARN: python3 安装失败（DuckDB 源码构建将记录 NO-GO）"

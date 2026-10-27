@@ -283,9 +283,31 @@ build_and_install() {
     rm -rf "$BUILD_DIR"
 
     echo "=== cmake 配置（DuckDB $DUCKDB_VERSION，$u_s best-effort）===" >>"$BUILD_LOG"
+    # 生成器健全性探测：ninja 必须能报告版本号才可用。实测（run 40515646118）
+    # NetBSD pkgsrc 仓库的 “ninja” 是 IRC 客户端分支（--version 输出非版本串），
+    # CMake 的 ninja 探测失败会连带报出误导性的 “CMAKE_C_COMPILER not set”；
+    # 此时回退 Unix Makefiles（gmake 优先，规避 bmake 兼容性风险）。FreeBSD 的
+    # ninja 正常，探测通过后行为与既往一致。
+    gen="Ninja"
+    make_prog=""
+    if ninja --version 2>/dev/null | grep -Eq '^[0-9]+(\.[0-9]+)+'; then
+        :
+    else
+        gen="Unix Makefiles"
+        echo "ninja 不可用（--version 未输出版本号），回退 Unix Makefiles" >>"$BUILD_LOG"
+        if command -v gmake >/dev/null 2>&1; then
+            make_prog=$(command -v gmake)
+        else
+            echo "警告：gmake 不可用，将使用系统默认 make（bmake 存在兼容性风险）" >>"$BUILD_LOG"
+        fi
+    fi
     # OVERRIDE_GIT_DESCRIBE 同时以环境变量与 -D 变量传入：官方文档写环境变量，
     # FreeBSD ports 用 -D 形式，两者都覆盖可避免不同版本入口差异。
-    if ! OVERRIDE_GIT_DESCRIBE="$DUCKDB_DESCRIBE" cmake -G Ninja -S "$SRC_DIR" -B "$BUILD_DIR" \
+    set -- -G "$gen"
+    if [ -n "$make_prog" ]; then
+        set -- "$@" -DCMAKE_MAKE_PROGRAM="$make_prog"
+    fi
+    if ! OVERRIDE_GIT_DESCRIBE="$DUCKDB_DESCRIBE" cmake "$@" -S "$SRC_DIR" -B "$BUILD_DIR" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$PREFIX" \
         -DBUILD_UNITTESTS=OFF \
@@ -495,6 +517,11 @@ cmake_version=$(cmake --version 2>/dev/null | head -n 1)
 [ -n "${cmake_version:-}" ] || cmake_version="<未取得证据：cmake 不可用>"
 ninja_version=$(ninja --version 2>/dev/null | head -n 1)
 [ -n "${ninja_version:-}" ] || ninja_version="<未取得证据：ninja 不可用>"
+if ninja --version 2>/dev/null | grep -Eq '^[0-9]+(\.[0-9]+)+'; then
+    ninja_sane="yes"
+else
+    ninja_sane="no（--version 未输出版本号）"
+fi
 python_version=$(python3 --version 2>/dev/null | head -n 1)
 [ -n "${python_version:-}" ] || python_version="<未取得证据：python3 不可用>"
 
@@ -538,6 +565,7 @@ fi
     echo "cxx = $cxx_version"
     echo "cmake = $cmake_version"
     echo "ninja = $ninja_version"
+    echo "ninja_sane = $ninja_sane"
     echo "python3 = $python_version"
     echo
     echo "[duckdb_source]"
@@ -558,7 +586,9 @@ fi
     echo "status = $build_status"
     echo "prefix = $PREFIX"
     echo "jobs = $jobs"
-    echo "cmake_options = -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_UNITTESTS=OFF -DBUILD_SHELL=OFF -DENABLE_UNITTEST_CPP_TESTS=OFF -DSKIP_EXTENSIONS=jemalloc -DOVERRIDE_GIT_DESCRIBE=$DUCKDB_DESCRIBE -DDUCKDB_MAJOR_VERSION=2 -DDUCKDB_MINOR_VERSION=0 -DDUCKDB_PATCH_VERSION=0"
+    echo "generator = $gen"
+    echo "make_program = ${make_prog:-<未指定：使用 CMake 默认>}"
+    echo "cmake_options = -G $gen -DCMAKE_BUILD_TYPE=Release -DBUILD_UNITTESTS=OFF -DBUILD_SHELL=OFF -DENABLE_UNITTEST_CPP_TESTS=OFF -DSKIP_EXTENSIONS=jemalloc -DOVERRIDE_GIT_DESCRIBE=$DUCKDB_DESCRIBE -DDUCKDB_MAJOR_VERSION=2 -DDUCKDB_MINOR_VERSION=0 -DDUCKDB_PATCH_VERSION=0"
     echo "build_seconds = $build_seconds"
     echo "install_seconds = $install_seconds"
     if [ -d "$PREFIX" ]; then
