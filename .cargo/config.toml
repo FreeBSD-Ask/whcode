@@ -15,3 +15,16 @@ DUCKDB_LIB_DIR = { value = "vendor/duckdb/2.0.0/x86_64-pc-windows-msvc", relativ
 # 生效（`use_prebuilt_nasm` 要求 target_os = windows 且 x86_64 且检测不到 NASM），
 # 其他平台与 BSD 交叉检查不受影响；机器上装有 NASM 时仍优先本地汇编。
 AWS_LC_SYS_PREBUILT_NASM = "1"
+
+# 链接确定性（ADR-047）：/Brepro 让 MSVC 链接器把 PE TimeDateStamp、调试目录时间戳与
+# GUID 换成确定性值（内容哈希），消除"链接墙钟"这第四个产物时间源——没有它，同一提交
+# 的两次全新构建 zip SHA256 必然不同（2026-10-29 实测：CI 同提交两次发布运行 exe 差 24
+# 字节，PE 时间戳解码即两次链接时刻；/Brepro 后同机两次全量 clean 构建 zip 哈希一致）。
+# 只作用于 windows 两个目标的构建；BSD/Linux 目标不传 MSVC 链接器参数，不受影响。
+# 注意 cargo 规则：环境变量 RUSTFLAGS 存在时会整体覆盖本表——CI 与本地均未设置，
+# 若未来引入需把本旗标并入同一来源。
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/Brepro"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/Brepro"]
