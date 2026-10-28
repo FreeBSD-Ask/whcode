@@ -52,7 +52,7 @@ fn request() -> LlmRequest {
         session_id: "S-1".to_string(),
         task_id: None,
         model: "test-model".to_string(),
-        prompt: "hello".to_string(),
+        messages: vec![whcode_llm::provider::LlmMessage::user("hello")],
         max_tokens: 16,
         timeout: None,
     }

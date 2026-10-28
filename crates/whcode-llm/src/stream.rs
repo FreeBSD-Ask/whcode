@@ -318,7 +318,8 @@ pub fn pump_stream(
                     (usage.with_latency(latency_ms), source)
                 }
                 None => (
-                    crate::metering::Usage::estimate(&request.prompt, "").with_latency(latency_ms),
+                    crate::metering::Usage::estimate(&request.joined_content(), "")
+                        .with_latency(latency_ms),
                     "local_estimate",
                 ),
             };
@@ -360,7 +361,7 @@ mod tests {
             session_id: "S-1".to_string(),
             task_id: None,
             model: "stub-model".to_string(),
-            prompt: prompt.to_string(),
+            messages: vec![crate::provider::LlmMessage::user(prompt)],
             max_tokens: 64,
             timeout: None,
         }
@@ -539,6 +540,7 @@ mod tests {
                     3, 4, 0, None, false,
                 )),
                 finish_reason: Some("length".to_string()),
+                tool_calls: Vec::new(),
             };
             Ok(ChunkStream {
                 inner: Box::new(std::iter::once(Ok(final_chunk))),

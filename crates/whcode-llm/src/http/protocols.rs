@@ -13,7 +13,7 @@ use whcode_domain::WhError;
 use crate::http::frames::Frame;
 use crate::http::profile::{FrameFormat, Protocol, ProviderProfile};
 use crate::metering::Usage;
-use crate::provider::LlmRequest;
+use crate::provider::{LlmRequest, Role};
 
 /// 单帧解码结果（协议层 → chunk 语义；FR-206／FR-208）。
 #[derive(Debug, Clone, PartialEq)]
@@ -123,8 +123,73 @@ fn body_string(value: Value) -> Result<String, WhError> {
         .map_err(|err| whcode_domain::WhError::invalid_state(format!("请求体序列化失败：{err}")))
 }
 
-fn messages_role_user(request: &LlmRequest) -> Value {
-    json!([{ "role": "user", "content": request.prompt }])
+/// OpenAI 兼容扁平消息数组（FR-720：openai/ollama/cohere 直映，role 稳定名）。
+fn messages_flat(request: &LlmRequest) -> Value {
+    Value::Array(
+        request
+            .messages
+            .iter()
+            .map(|m| json!({ "role": m.role.as_str(), "content": m.content }))
+            .collect(),
+    )
+}
+
+/// Anthropic 消息映射（FR-720）：system 抽为顶层 `system` 段（换行连接）；
+/// user/assistant 交替进 `messages`；tool 结果以 user 文本消息承载
+/// （tool_result 结构化块需 tool_use_id，随 P0-2 工具接线扩展，见 plan-p0-1 §2.3）。
+fn anthropic_messages(request: &LlmRequest) -> (String, Value) {
+    let system = request
+        .messages
+        .iter()
+        .filter(|m| m.role == Role::System)
+        .map(|m| m.content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let messages = Value::Array(
+        request
+            .messages
+            .iter()
+            .filter(|m| m.role != Role::System)
+            .map(|m| {
+                // Anthropic 只接受 user/assistant 交替；tool 结果按 user 承载。
+                let role = if m.role == Role::Assistant {
+                    "assistant"
+                } else {
+                    "user"
+                };
+                json!({ "role": role, "content": m.content })
+            })
+            .collect(),
+    );
+    (system, messages)
+}
+
+/// Gemini 内容映射（FR-720）：system 抽为 `systemInstruction`；user→`user`，
+/// assistant/tool→`model`（Gemini 角色词；tool 结果随 P0-2 结构化）。
+fn gemini_contents(request: &LlmRequest) -> (Option<Value>, Value) {
+    let system = request
+        .messages
+        .iter()
+        .filter(|m| m.role == Role::System)
+        .map(|m| json!({ "text": m.content }))
+        .collect::<Vec<_>>();
+    let system_instruction = (!system.is_empty()).then(|| json!({ "parts": system }));
+    let contents = Value::Array(
+        request
+            .messages
+            .iter()
+            .filter(|m| m.role != Role::System)
+            .map(|m| {
+                let role = if m.role == Role::User {
+                    "user"
+                } else {
+                    "model"
+                };
+                json!({ "role": role, "parts": [{ "text": m.content }] })
+            })
+            .collect(),
+    );
+    (system_instruction, contents)
 }
 
 fn extract_usage(
@@ -168,7 +233,7 @@ impl WireProtocol for OpenAi {
     ) -> Result<String, WhError> {
         let mut body = json!({
             "model": profile.model,
-            "messages": messages_role_user(request),
+            "messages": messages_flat(request),
             "stream": true,
             "stream_options": { "include_usage": true },
             "max_tokens": profile.max_tokens,
@@ -270,12 +335,16 @@ impl WireProtocol for Anthropic {
         request: &LlmRequest,
         profile: &ProviderProfile,
     ) -> Result<String, WhError> {
-        let body = json!({
+        let (system, messages) = anthropic_messages(request);
+        let mut body = json!({
             "model": profile.model,
             "max_tokens": profile.max_tokens,
-            "messages": messages_role_user(request),
+            "messages": messages,
             "stream": true,
         });
+        if !system.is_empty() {
+            body["system"] = json!(system);
+        }
         body_string(merge_extra(body, &profile.extra_body)?)
     }
 
@@ -376,10 +445,14 @@ impl WireProtocol for Gemini {
         request: &LlmRequest,
         profile: &ProviderProfile,
     ) -> Result<String, WhError> {
-        let body = json!({
-            "contents": [{ "parts": [{ "text": request.prompt }] }],
+        let (system_instruction, contents) = gemini_contents(request);
+        let mut body = json!({
+            "contents": contents,
             "generationConfig": { "maxOutputTokens": profile.max_tokens },
         });
+        if let Some(instruction) = system_instruction {
+            body["systemInstruction"] = instruction;
+        }
         body_string(merge_extra(body, &profile.extra_body)?)
     }
 
@@ -476,7 +549,7 @@ impl WireProtocol for Ollama {
     ) -> Result<String, WhError> {
         let body = json!({
             "model": profile.model,
-            "messages": messages_role_user(request),
+            "messages": messages_flat(request),
             "stream": true,
         });
         body_string(merge_extra(body, &profile.extra_body)?)
@@ -555,7 +628,7 @@ impl WireProtocol for Cohere {
     ) -> Result<String, WhError> {
         let body = json!({
             "model": profile.model,
-            "messages": messages_role_user(request),
+            "messages": messages_flat(request),
             "stream": true,
         });
         body_string(merge_extra(body, &profile.extra_body)?)
@@ -636,7 +709,31 @@ mod tests {
             session_id: "S".to_string(),
             task_id: None,
             model: "m".to_string(),
-            prompt: "hi".to_string(),
+            messages: vec![crate::provider::LlmMessage::user("hi")],
+            max_tokens: 64,
+            timeout: None,
+        }
+    }
+
+    fn multi_message_request() -> LlmRequest {
+        use crate::provider::{LlmMessage, Role};
+        LlmRequest {
+            request_id: "R".to_string(),
+            session_id: "S".to_string(),
+            task_id: None,
+            model: "m".to_string(),
+            messages: vec![
+                LlmMessage {
+                    role: Role::System,
+                    content: "你是测试助手".to_string(),
+                },
+                LlmMessage::user("第一轮"),
+                LlmMessage {
+                    role: Role::Assistant,
+                    content: "第一轮回复".to_string(),
+                },
+                LlmMessage::user("第二轮"),
+            ],
             max_tokens: 64,
             timeout: None,
         }
@@ -663,6 +760,102 @@ mod tests {
             OpenAi.request_path(&profile(Protocol::OpenAi)),
             "/v1/chat/completions"
         );
+    }
+
+    #[test]
+    fn flat_protocols_map_multi_message_roles_in_order() {
+        // FR-720：openai/ollama/cohere 直映四角色数组，顺序与角色稳定名一致。
+        for (name, protocol) in [
+            ("openai", Protocol::OpenAi),
+            ("ollama", Protocol::Ollama),
+            ("cohere", Protocol::Cohere),
+        ] {
+            let body = registry(protocol)
+                .request_body(&multi_message_request(), &profile(protocol))
+                .expect("body");
+            let value: Value = serde_json::from_str(&body).expect("JSON");
+            let roles: Vec<&str> = value["messages"]
+                .as_array()
+                .expect("messages 数组")
+                .iter()
+                .map(|m| m["role"].as_str().expect("role"))
+                .collect();
+            assert_eq!(
+                roles,
+                ["system", "user", "assistant", "user"],
+                "{name} 角色顺序"
+            );
+            assert_eq!(value["messages"][0]["content"], "你是测试助手");
+        }
+    }
+
+    #[test]
+    fn anthropic_extracts_system_and_maps_turns() {
+        // FR-720：system 抽顶层段，user/assistant 交替；tool 按 user 承载（P0-2 结构化）。
+        let mut multi = multi_message_request();
+        multi.messages.push(crate::provider::LlmMessage {
+            role: crate::provider::Role::Tool,
+            content: "工具结果".to_string(),
+        });
+        let body = Anthropic
+            .request_body(&multi, &profile(Protocol::Anthropic))
+            .expect("body");
+        let value: Value = serde_json::from_str(&body).expect("JSON");
+        assert_eq!(value["system"], "你是测试助手", "system 抽为顶层段");
+        let roles: Vec<&str> = value["messages"]
+            .as_array()
+            .expect("messages")
+            .iter()
+            .map(|m| m["role"].as_str().expect("role"))
+            .collect();
+        assert_eq!(roles, ["user", "assistant", "user", "user"], "交替轮次");
+        assert!(
+            !value["messages"][0]["content"].as_str().unwrap().is_empty(),
+            "正文保留"
+        );
+    }
+
+    #[test]
+    fn gemini_extracts_system_instruction_and_maps_roles() {
+        // FR-720：system→systemInstruction；user→user，assistant→model。
+        let body = Gemini
+            .request_body(&multi_message_request(), &profile(Protocol::Gemini))
+            .expect("body");
+        let value: Value = serde_json::from_str(&body).expect("JSON");
+        assert_eq!(
+            value["systemInstruction"]["parts"][0]["text"],
+            "你是测试助手"
+        );
+        let roles: Vec<&str> = value["contents"]
+            .as_array()
+            .expect("contents")
+            .iter()
+            .map(|c| c["role"].as_str().expect("role"))
+            .collect();
+        assert_eq!(roles, ["user", "model", "user"], "Gemini 角色词映射");
+        assert_eq!(value["contents"][0]["parts"][0]["text"], "第一轮");
+    }
+
+    #[test]
+    fn single_user_message_is_equivalent_across_protocols() {
+        // FR-720：单条 user 消息与既有单发行为等价（各协议首条均为 user/hi）。
+        for protocol in [
+            Protocol::OpenAi,
+            Protocol::Anthropic,
+            Protocol::Gemini,
+            Protocol::Ollama,
+            Protocol::Cohere,
+        ] {
+            let body = registry(protocol)
+                .request_body(&request(), &profile(protocol))
+                .expect("body");
+            let value: Value = serde_json::from_str(&body).expect("JSON");
+            let first_content = match protocol {
+                Protocol::Gemini => value["contents"][0]["parts"][0]["text"].clone(),
+                _ => value["messages"][0]["content"].clone(),
+            };
+            assert_eq!(first_content, "hi", "{protocol:?} 单消息等价");
+        }
     }
 
     #[test]

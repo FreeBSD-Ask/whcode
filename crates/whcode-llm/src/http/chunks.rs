@@ -171,6 +171,7 @@ impl ChunkNormalizer {
             final_chunk,
             usage,
             finish_reason,
+            tool_calls: Vec::new(),
         }
     }
 }

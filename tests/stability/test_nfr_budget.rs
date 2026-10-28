@@ -224,7 +224,9 @@ fn nfr206_llm_stream_paced_realistic_rate() {
         session_id: "S-NFR206".to_string(),
         task_id: None,
         model: "stub".to_string(),
-        prompt: "流式预算负载。".repeat(512), // 约 3.6 KiB → 115 chunk/次
+        messages: vec![whcode_llm::provider::LlmMessage::user(
+            "流式预算负载。".repeat(512), // 约 3.6 KiB → 115 chunk/次
+        )],
         max_tokens: 0,
         timeout: None,
     };
@@ -262,7 +264,9 @@ fn nfr206_llm_stream_full_feed_capacity() {
         session_id: "S-NFR206F".to_string(),
         task_id: None,
         model: "stub".to_string(),
-        prompt: "流式容量负载。".repeat(8_192), // 约 57 KiB → 约 1 800 chunk/次
+        messages: vec![whcode_llm::provider::LlmMessage::user(
+            "流式容量负载。".repeat(8_192), // 约 57 KiB → 约 1 800 chunk/次
+        )],
         max_tokens: 0,
         timeout: None,
     };
