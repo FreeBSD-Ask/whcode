@@ -21,6 +21,12 @@
   使经由该对象产生的返回值整体带污染——改为按请求求值、即用即弃。
   测试侧把凭据／会话标识／证书材料派生值从断言消息中移除，只保留静态文案、常量与 bool
   （CodeQL 的敏感来源是命名启发式，`.len()` 计数同样携带污染）。
+  首轮修复后复测残留 2 条（`cui_dispatch.rs` 的 CUI 人读输出与 `stream.rs` 的流式汇总），
+  根因是求值活动仍在返回值作用域内：装配期 `with_tls` 用 `inject()` 的**结果**做冲突校验、
+  请求期把鉴权头值长度计入共享传输状态。二次修复：装配期改用 `AuthScheme` 的声明名
+  （`declared_header_names`／`declared_query_names`）做重复校验，凭据只做可用性判定、
+  求值结果不外泄；请求期鉴权头只按名字计费（`metered_header_bytes`），值长度不再写入
+  传输快照——传输量计量对鉴权头少计其值长度（误差数十字节，口径变化见本条目）。
   新增 `.github/scripts/check-code-scanning.py`（事实源 GitHub API：0 open 为 GO、有告警为
   FAIL、查询阻塞为 BLOCKED）与 `ci.yml` 的 `code-scanning` job（schedule 与手动触发）；
   AGENTS.md §5.2 立“零告警铁律”，标准验证链与 G4 退出判据同步。

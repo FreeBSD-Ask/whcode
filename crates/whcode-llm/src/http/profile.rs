@@ -232,6 +232,28 @@ impl fmt::Debug for AuthInjection {
 }
 
 impl AuthScheme {
+    /// 声明将要注入的请求头名（**不求值凭据**；装配期冲突校验用）。
+    ///
+    /// 头名来自方案本身而非密钥值，因此装配期可以在不接触密钥的前提下拒绝
+    /// “extra_headers 与鉴权头重复”的剖面。
+    #[must_use]
+    pub fn declared_header_names(&self) -> Vec<&str> {
+        match self {
+            Self::None | Self::Query { .. } => Vec::new(),
+            Self::Bearer { .. } => vec!["authorization"],
+            Self::Header { name, .. } => vec![name.as_str()],
+        }
+    }
+
+    /// 声明将要注入的查询参数名（**不求值凭据**；装配期冲突校验用）。
+    #[must_use]
+    pub fn declared_query_names(&self) -> Vec<&str> {
+        match self {
+            Self::None | Self::Bearer { .. } | Self::Header { .. } => Vec::new(),
+            Self::Query { name, .. } => vec![name.as_str()],
+        }
+    }
+
     /// 按方案求值凭据并生成注入项（T162；FR-203／NFR-213）。
     ///
     /// `prefix` 原样拼接在密钥之前（需要空格时请显式包含，例如 `Bearer `）。
