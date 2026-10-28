@@ -195,6 +195,20 @@ def main() -> int:
         extra = sorted(set(numbers) - expected)
         failures.append(f"checklist 编号不连续（缺 {missing[:10]}，越界 {extra[:10]}）")
 
+    # ADR-046 证据态分布（登记语义，不阻断；阻断校验在 check_counts.py）。
+    state_pattern = re.compile(r"^- \[[ x]\] Check \d+:(?: \[([a-z-]+)\])?", re.MULTILINE)
+    state_dist: dict[str, int] = {}
+    for state in state_pattern.findall(check_body):
+        key = state or "present"
+        state_dist[key] = state_dist.get(key, 0) + 1
+    state_summary = " ".join(
+        f"{k}={state_dist.get(k, 0)}"
+        for k in (
+            "present", "wired", "exercised", "outcome-supported",
+            "missing", "unobserved", "not-applicable",
+        )
+    )
+
     print(
         "追溯统计："
         f"FR={len(spec_frs)}，任务={len(task_ids)}，检查点={len(numbers)}；"
@@ -202,6 +216,7 @@ def main() -> int:
         f"幻影 FR {len(phantom_frs)}，幻影任务 {len(phantom_tasks)}，"
         f"已登记缺口 {len(registered)}"
     )
+    print(f"证据态分布：{state_summary}（ADR-046）")
     if registered:
         detail = "、".join(f"FR-{fr}→{gap}" for fr, gap in sorted(registered.items()))
         print(f"已登记缺口（不通过，仅免于门禁失败）：{detail}")

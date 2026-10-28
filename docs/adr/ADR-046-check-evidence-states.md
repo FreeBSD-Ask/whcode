@@ -79,10 +79,16 @@
 
 ## 6. 实施摘要
 
-- 本提交：ADR-046 + AGENTS.md §9 增补 + 里程碑评审指南（`docs/guides/milestone-review.md`，
-  建议书 D2）。
-- 后续批次（迁移提交）：回填脚本（`local/`，不入库）+ 308 条全量标注 + `check_counts.py`/
-  `traceability.py` 扩展 + 门禁全绿；迁移完成后本 ADR §6 增补实施记录。
+- 2026-10-29 提交一：ADR-046 + AGENTS.md §9 增补 + 里程碑评审指南
+  （`docs/guides/milestone-review.md`，建议书 D2）。
+- **2026-10-29 提交二（迁移批次，已完成）**：308 条全量标注（`local/tag_check_states.py`
+  脚本辅助 + 抽样人工确认：54 条含历史"未通过/未取得"叙事的 `[x]` 经全叙事段核对均为
+  后续批次收口，勾选成立）；分布 `exercised=246 / outcome-supported=46 / missing=10 /
+  unobserved=6`（16 条未勾选逐条定态：22/25/96/99/116/195 平台证据与长跑未取得
+  `unobserved`，134 与 300—308 确认未实施 `missing`）；`check_counts.py` 新增
+  `check_evidence_states` 阻断校验（态枚举 + `[x]` 态 ≥ `exercised` + 无标注 `[x]` 失败），
+  `traceability.py` 新增分布统计（不阻断）；checklist 头部语义行同步；门禁全绿
+  （计数/追溯/EOL/layout）。
 
 ## 7. 修订记录
 

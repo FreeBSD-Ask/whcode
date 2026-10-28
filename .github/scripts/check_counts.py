@@ -13,6 +13,37 @@ TASKS = ROOT / "specs" / "001-whcode-harness" / "tasks.md"
 CHECKLIST = ROOT / "specs" / "001-whcode-harness" / "checklist.md"
 PROCESS = ROOT / "docs" / "guides" / "software-engineering-process.md"
 
+# ADR-046 证据态枚举：`- [x] Check N: [state] 判据…`；无标注按 present 处理。
+EVIDENCE_STATES = (
+    "present", "wired", "exercised", "outcome-supported",
+    "missing", "unobserved", "not-applicable",
+)
+CHECK_LINE = re.compile(r"^- \[([ x])\] Check (\d+):(?: \[([a-z-]+)\])?", re.M)
+
+
+def check_evidence_states(checklist: str) -> tuple[list[str], dict[str, int]]:
+    """证据态登记校验（ADR-046 §2.3）。
+
+    勾选通过（`[x]`）意味着复核已实际执行留痕，态不得低于 `exercised`；
+    态值必须在七值枚举内。未勾选条目不校验态级（exercised ≠ 通过，
+    验证已执行但判据未满足是合法中间态）。无标注 `[x]` 同样失败——
+    "通过必须留态"，防止迁移后新增条目绕过登记。
+    """
+    failures: list[str] = []
+    dist: dict[str, int] = {}
+    for mark, num, state in CHECK_LINE.findall(checklist):
+        if state and state not in EVIDENCE_STATES:
+            failures.append(f"Check {num} 证据态非法：{state}")
+            continue
+        key = state or "present"
+        dist[key] = dist.get(key, 0) + 1
+        if mark == "x" and state not in ("exercised", "outcome-supported"):
+            failures.append(
+                f"Check {num} 已勾选通过但证据态为 {state or '无标注(present)'}，"
+                "不得低于 exercised（ADR-046）"
+            )
+    return failures, dist
+
 
 def check_task_check_consistency(checklist: str, tasks_text: str) -> list[str]:
     """任务↔Check 联动校验（2026-10-24 全局复核后加入）。
@@ -89,6 +120,8 @@ def main() -> int:
     failures: list[str] = []
     failures += check_task_check_consistency(checklist, tasks)
     failures += check_check_number_continuity(checklist)
+    state_failures, state_dist = check_evidence_states(checklist)
+    failures += state_failures
 
     def expect(pattern: str, source: str, key: str, label: str) -> None:
         matches = re.findall(pattern, source)
@@ -116,6 +149,10 @@ def main() -> int:
 
     print(
         f"actual: FR={actual['fr']} tasks={actual['tasks']} checks={actual['checks']}"
+    )
+    print(
+        "evidence states: "
+        + " ".join(f"{k}={state_dist.get(k, 0)}" for k in EVIDENCE_STATES)
     )
     if failures:
         for item in failures:
