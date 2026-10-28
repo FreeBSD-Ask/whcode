@@ -30,9 +30,11 @@ use std::process::ExitCode;
 
 use whcode_domain::{ErrorCode, SCHEMA_VERSION, WhError};
 
-/// 二进制构建时间戳（UTC，精确到分钟；由 `build.rs` 注入 `WHCODE_BUILD_STAMP`）。
+/// 二进制版本戳（精确到分钟；由 `build.rs` 注入 `WHCODE_BUILD_STAMP`）。
 ///
-/// 版本号定义为**构建时间**（用户要求，2026-10-23）；未注入时显式 `unknown`（不伪装）。
+/// 版本号定义为**构建时间**（用户要求，2026-10-23）：本地构建为墙钟（本地时区偏移，
+/// 探测不可用时 UTC `Z`）；发布构建由 CI 从 git 提交时间注入 UTC `Z` 形式，使同一
+/// 提交的全新构建字节一致（ADR-047）。未注入时显式 `unknown`（不伪装）。
 const BUILD_STAMP: &str = match option_env!("WHCODE_BUILD_STAMP") {
     Some(stamp) => stamp,
     None => "unknown",

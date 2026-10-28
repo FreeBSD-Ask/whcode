@@ -82,6 +82,33 @@ def sha256(path: pathlib.Path) -> str:
     return digest.hexdigest()
 
 
+#: zip 条目时间戳下限（zip 格式起点 1980-01-01；ADR-047）。
+ZIP_EPOCH_FLOOR: tuple[int, int, int, int, int, int] = (1980, 1, 1, 0, 0, 0)
+
+
+def source_epoch() -> int:
+    """确定性打包基准（ADR-047）：`SOURCE_DATE_EPOCH` 存在时为基准秒，否则打包墙钟。
+
+    发布链（build-release.yml）从 git 提交时间导出该值，使同一提交的打包产物
+    字节一致；本地未设置时保持墙钟行为。非法值显式中止，不以未校验值继续。
+    """
+    raw = os.environ.get("SOURCE_DATE_EPOCH")
+    if raw is None:
+        return int(time.time())
+    try:
+        value = int(raw)
+    except ValueError:
+        raise SystemExit(f"SOURCE_DATE_EPOCH={raw!r} 不是整数秒，中止打包（不以未校验值继续）") from None
+    if value < 0:
+        raise SystemExit(f"SOURCE_DATE_EPOCH={raw!r} 为负数，中止打包")
+    return value
+
+
+def zip_date_time(epoch: int) -> tuple[int, int, int, int, int, int]:
+    """zip 条目 `date_time`：UTC 时间元组；早于 1980 时钳到格式下限。"""
+    return max(time.gmtime(epoch)[:6], ZIP_EPOCH_FLOOR)
+
+
 def host_triple() -> str | None:
     """宿主 Windows 架构 -> Rust 三元组；非 Windows 或未知架构返回 None。"""
     if platform.system() != "Windows":
@@ -268,6 +295,7 @@ def build_package(out_dir: pathlib.Path, target: str) -> tuple[pathlib.Path, lis
         else "Windows 11 amd64 为唯一验收目标（ADR-013）；ARM64 为构建交付目标（ADR-043），"
         "本包不作验收结论，运行证据以原生 ARM64 采集为准"
     )
+    epoch = source_epoch()
     lines = [
         f"WHCode Windows {arch} 发布包",
         f"package = {package_name}",
@@ -277,7 +305,8 @@ def build_package(out_dir: pathlib.Path, target: str) -> tuple[pathlib.Path, lis
         f"rustc = {rustc_line}",
         f"python = {platform.python_version()}",
         f"os = {platform.platform()}",
-        f"generated_utc = {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
+        f"source_date_epoch = {epoch}",
+        f"generated_utc = {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(epoch))}",
         f"platform_scope = {scope_line}",
         "",
         "清单（文件 / 字节 / SHA256 / 来源）：",
@@ -305,10 +334,16 @@ def build_package(out_dir: pathlib.Path, target: str) -> tuple[pathlib.Path, lis
     )
 
     zip_path = out_dir / f"{package_name}.zip"
+    # 确定性写包（ADR-047）：显式 ZipInfo 固定条目时间戳与属性——默认 write() 取文件
+    # 磁盘 mtime，打包时刻不同即字节不同；条目顺序由 sorted() 保证，压缩级别恒定。
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for child in sorted(staging.rglob("*")):
             if child.is_file():
-                archive.write(child, arcname=f"{package_name}/{child.name}")
+                entry = zipfile.ZipInfo(f"{package_name}/{child.name}", date_time=zip_date_time(epoch))
+                entry.create_system = 0
+                entry.external_attr = 0o644 << 16
+                entry.compress_type = zipfile.ZIP_DEFLATED
+                archive.writestr(entry, child.read_bytes())
     shutil.rmtree(staging)
     return zip_path, entries
 
@@ -404,6 +439,7 @@ def verify_install(zip_path: pathlib.Path) -> tuple[int, list[dict[str, object]]
 
 
 def write_record(path: pathlib.Path, zip_path: pathlib.Path, entries: list[dict[str, object]], results: list[dict[str, object]], target: str) -> None:
+    epoch = source_epoch()
     lines = [
         f"WHCode Windows {SUPPORTED_TARGETS[target]} 发布包安装验证记录（tasks.md T118／Check 118；ADR-043 口径见 platform_scope）",
         f"utc = {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
@@ -411,6 +447,8 @@ def write_record(path: pathlib.Path, zip_path: pathlib.Path, entries: list[dict[
         f"target_triple = {target}",
         f"os = {platform.platform()}",
         f"machine = {platform.machine()}",
+        f"python = {platform.python_version()}",
+        f"source_date_epoch = {epoch}",
         "",
         "验证方式：解包到仓库外临时目录，并把 cwd 切到解包目录后运行；",
         "临时目录在记录生成后删除（不留本地状态）。",

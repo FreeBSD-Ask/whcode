@@ -13,6 +13,14 @@
 
 ### 变更
 
+- 发布链可重现构建（2026-10-29，ADR-047，用户指令）：同一提交的全新构建在**同机同工具链**
+  下字节一致。`whcode-bin/build.rs` 支持外部注入 `WHCODE_BUILD_STAMP`（合法值透传、非法值
+  告警回退墙钟）；`build-release.yml` 以 HEAD 提交时间导出 `WHCODE_BUILD_STAMP`（UTC `Z`）
+  与 `SOURCE_DATE_EPOCH` 注入构建与打包；`package-windows.py` 由 `SOURCE_DATE_EPOCH` 驱动
+  `generated_utc` 与 zip 条目时间戳（条目属性与顺序固定）。发布物版本戳语义改为"源码对应的
+  提交时刻"（2026-10-23"版本号 = 构建墙钟"的发布路径修订，本地开发仍为墙钟）。
+  范围：跨机字节一致明确不支持（Python zlib 压缩流与 MSVC 代码生成存在机器差异，已在
+  ADR-047 §1 实测归因）；发布页 `.sha256` 仍是权威校验和。
 - Windows ARM64 构建交付目标（2026-10-28，ADR-043，用户指令）：新增
   `aarch64-pc-windows-msvc` 发布包 `whcode-<version>-windows-arm64.zip`（与 amd64 包同批
   发布，各带 `.sha256`）；`ci.yml` 平台矩阵新增 `windows-arm64` 条目（`windows-11-arm`

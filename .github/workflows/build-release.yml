@@ -57,6 +57,19 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # 确定性构建基准（ADR-047）：用 HEAD 提交时间导出 SOURCE_DATE_EPOCH（打包基准）
+      # 与 WHCODE_BUILD_STAMP（版本戳，UTC `Z` 形式），使同一提交的全新构建与打包
+      # 字节一致；本地构建未注入时保持墙钟行为。两变量随 GITHUB_ENV 作用于后续步骤。
+      - name: 确定性构建基准（ADR-047）：提交时间 → WHCODE_BUILD_STAMP／SOURCE_DATE_EPOCH
+        shell: bash
+        run: |
+          set -euo pipefail
+          epoch=$(git log -1 --format=%ct)
+          {
+            echo "SOURCE_DATE_EPOCH=${epoch}"
+            echo "WHCODE_BUILD_STAMP=$(date -u -d "@${epoch}" +%Y-%m-%dT%H:%MZ)"
+          } >> "$GITHUB_ENV"
+
       # 按宿主三元组自动选择：amd64 runner 拉 amd64 载荷，windows-11-arm runner 拉 arm64 载荷
       # （fetch-duckdb.py 的 host_target 推断，ADR-043）。
       - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）

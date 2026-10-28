@@ -3,6 +3,11 @@
 //! 版本号定义为二进制构建时间（用户要求，2026-10-23）：构建脚本在运行时取系统时钟
 //! 并注入 `cargo:rustc-env`，`whcode --version` / `doctor` 原样报告。
 //!
+//! **外部注入（ADR-047，可重现构建）**：环境变量 `WHCODE_BUILD_STAMP` 已存在且合
+//! 规式时原样透传（发布构建由 CI 从 git 提交时间导出 UTC `Z` 形式），使同一提交的
+//! 全新构建字节一致；未注入或值不合规式时回退构建墙钟——非法值输出构建告警并忽略，
+//! 不静默接受。
+//!
 //! 时区获取（零新依赖、零 unsafe、**不做平台判定**）：
 //! 契约测试把 `build.rs` 计入 crate 源码，平台条件编译必须集中在 `whcode-platform`
 //! （NFR-101），因此本脚本不按平台名分流，改为按**可用性**依次探测外部时间
@@ -16,9 +21,16 @@
 //! 文件变化时重跑本脚本——版本戳随本包源码构建更新；若仅依赖变化导致重链接，版本戳
 //! 可能仍是上一次本包构建的时刻（那仍是该二进制的"构建时间"）。
 
-use std::process::Command;
+use std::{env, process::Command};
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=WHCODE_BUILD_STAMP");
+    // 外部注入优先（ADR-047）：发布构建用提交时间保证同一提交可重现；
+    // 未注入或非法时走构建墙钟（非法值已在 provided_stamp 内告警）。
+    if let Some(stamp) = provided_stamp() {
+        println!("cargo:rustc-env=WHCODE_BUILD_STAMP={stamp}");
+        return;
+    }
     match local_minute_stamp() {
         Some(stamp) => println!("cargo:rustc-env=WHCODE_BUILD_STAMP={stamp}"),
         None => {
@@ -30,6 +42,30 @@ fn main() {
             println!("cargo:rustc-env=WHCODE_BUILD_STAMP={stamp}");
         }
     }
+}
+
+/// 外部注入的版本戳（ADR-047）：`WHCODE_BUILD_STAMP` 已设置且合规式时返回原值。
+///
+/// 接受与墙钟路径同门的两种形式：`YYYY-MM-DDTHH:MM±HH:MM`（22，带偏移）与
+/// `YYYY-MM-DDTHH:MMZ`（17，UTC）。未设置返回 `None`；设置但非法也返回 `None`
+/// 并输出构建告警（回退墙钟，不静默接受垃圾值）。
+fn provided_stamp() -> Option<String> {
+    let Ok(raw) = env::var("WHCODE_BUILD_STAMP") else {
+        return None;
+    };
+    let trimmed = raw.trim();
+    let parsed = if trimmed.len() == 17 && trimmed.ends_with('Z') && valid_head(&trimmed[..16]) {
+        Some(trimmed.to_string())
+    } else {
+        normalize_stamp(trimmed)
+    };
+    if parsed.is_none() {
+        println!(
+            "cargo:warning=WHCODE_BUILD_STAMP 注入值 {raw:?} 不合规式\
+             （应为 YYYY-MM-DDTHH:MM±HH:MM 或 YYYY-MM-DDTHH:MMZ），忽略并回退构建墙钟"
+        );
+    }
+    parsed
 }
 
 /// 本地构建时间戳：`YYYY-MM-DDTHH:MM±HH:MM`；按可用性探测，无平台条件编译（NFR-101）。
