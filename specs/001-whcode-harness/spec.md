@@ -246,6 +246,16 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
 - **FR-207**: 记录 token 数、模型参数、延迟和成本；估算值标记为估算，供应商计量值另行保存（P1）
 - **FR-208**: 追踪记录提供完整性标记（缺失 chunk、脱敏、降采样、持久化失败）（P1）
 
+**Agent Turn 循环（2026-10-28 新增，ADR-044；交付归属 M3 扩展）**
+
+- **FR-718**: 一次 `llm run` 编排一轮 agent turn：循环执行“中止检查→预算检查→消息组装→模型 step→终止判定→工具执行与结果回填（接线后）”；终止条件为模型返回无工具调用、迭代上限、用户取消或预算超限；所有终止均以可查询事件显式记录，不静默截断（P0）
+- **FR-719**: turn 迭代硬上限默认 16（可配置），达上限显式终止并记录事件；每轮模型 step 沿用单次调用的 chunk 数（1024）与输出字节（1 MiB）上限，超限显式标记 truncated（P0）
+- **FR-720**: 模型请求支持 system/user/assistant/tool 四角色消息数组；openai/anthropic/gemini/ollama/cohere 五协议请求体映射一致；单条 user 消息与现行行为等价（P0）
+- **FR-721**: 每轮消息组装按上下文预算加载（FR-105 契约：items/next_cursor/consumed_budget/truncated_reason）；预算不足以容纳下一轮时显式终止 turn 并报告原因；不静默压缩（自动压缩属后续需求）（P0）
+- **FR-722**: turn 内全部关键事件（请求开始/完成/失败、工具调用开始/结束）以 domain `EventKind` 稳定名经 store 写者落 `events` 表，payload 不含正文；turn 内 user/assistant/tool 消息轮次落 `messages` 表；turn_id 贯穿 turn 内事件与信封（扩展 FR-204 关联链）；信封 events 数组命名与 `EventKind` 稳定名收敛（P0）
+- **FR-723**: 单会话同进程至多一个活跃 turn；用户取消经现有 `.live`/`.cancel` 标记机制在每轮迭代与每个 chunk 前生效（“下一 chunk 边界生效”语义不变）（P0）
+- **FR-724**: 模型返回工具调用而工具执行未接线时，记录 ToolCallStarted/ToolCallFinished（state=unknown、未接线标记）并终止 turn；不得静默忽略或伪造执行结果；工具系统（P0-2）接线后以真实执行替换（P0）
+
 **Spec Kit / SDD 工作流（§4.3）**
 
 - **FR-301**: 初始化工作区时创建或导入 Constitution，并记录版本与变更审计（P0）

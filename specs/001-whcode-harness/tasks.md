@@ -503,6 +503,55 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 
 ---
 
+## Phase 22: Agent Turn 循环编排器（P0-1，Priority: P1）
+
+**Purpose**: 差异比较书 `local/diff-zcode-vs-whcode.md` §4 P0-1（2026-10-28）：把 `llm run`
+的单次模型调用升级为多轮 agent turn 循环（中止检查→预算检查→消息组装→模型 step→终止判定→
+工具执行回填接线点），补齐“无 turn 循环即非编码 Harness”的结构性缺失。决策见 ADR-044
+（2026-10-28 已批准）；实施计划草案见 `local/plan-p0-1-turn-loop.md`（不入库）。
+依赖：T167（llm 四端接线）、T034（事件写者）、T056+（事件流）；工具执行归 P0-2，不在本阶段。
+
+- [ ] T204 [P] 多消息契约：`crates/whcode-llm/src/provider.rs` 新增 `LlmMessage{role, content}`
+  与四角色枚举（system/user/assistant/tool），`LlmRequest.prompt` 改为
+  `messages: Vec<LlmMessage>`（非空校验上移调用方）；`StubProvider` 兼容单条 user 消息
+  （默认行为不变）（FR-720；ADR-044 决策 3）
+- [ ] T205 [P] 五协议多消息映射：`crates/whcode-llm/src/http/protocols.rs` 五个 `request_body`
+  由单条 user 消息改为 messages 数组映射（anthropic/gemini 按 system 段 + 交替轮次展开）；
+  每协议新增角色与顺序单测（FR-720；ADR-044 决策 3）
+- [ ] T206 [P] `StubProvider` 多步剧本：支持可编程步序（每步 chunk 序列、finish_reason、
+  tool_calls 列表），无剧本时保持现行单步行为（既有测试不破）；供 turn 循环无网络测试
+  （FR-718 测试夹具；ADR-044 决策 4）
+- [ ] T207 turn 循环骨架：`crates/whcode-app/src/turn.rs` 新增 `run_turn`——前置校验复用
+  `llm.rs`（权限 `Capability::SessionCreate`/会话存在性/剖面/凭据/请求 ID），循环执行中止
+  检查→预算检查→消息组装→模型 step→终止判定；终止判定表：无工具调用（model_finished）/
+  迭代上限 `MAX_TURN_ITERATIONS`（默认 16，可配置，iteration_limit）/取消（cancelled）/
+  预算超限（budget_exceeded）/工具未接线（tool_not_wired）；单会话同进程活跃 turn 登记
+  （RAII，冲突拒绝）；取消标记在每轮迭代与每个 chunk 前检查（FR-718／719／723／724；
+  ADR-044 决策 4／7）
+- [ ] T208 事件与消息落表接线：turn 关键事件经 store 写者公共 API 落 `events` 表（kind 用
+  domain `EventKind` 稳定名；payload 只含标识与计数，turn_id 贯穿，不含正文）；turn 内
+  user/assistant/tool 轮次落 `messages` 表（>1 MiB 走引用或登记缺口，不静默截断）；信封
+  `events` 数组 kind 收敛到 `EventKind` 稳定名（废除 `llm.*` 小写名）（FR-722；ADR-044 决策 5）
+- [ ] T209 预算检查接线：每轮迭代前经 `load_context` 检查上下文预算（FR-105 契约），预算
+  不足以容纳下一轮时显式终止 turn 并把 truncated_reason 写入终止事件与信封（FR-721；
+  ADR-044 决策 2；自动压缩归 P1-3，不在本阶段）
+- [ ] T210 信封与四端适配：`LlmRunOutcome` 新增 `turn_id`/`iterations`/`termination_reason`；
+  TUI 结果视图、CUI `llm run` JSON 信封、Web `llm/run` 响应、SSH 输出四端同步；
+  `surface.rs` 登记与对等契约门禁同步；`contracts/cui-cli.md` 同步（FR-718／722；ADR-044
+  决策 1）
+- [ ] T211 测试集：正向（多轮至 model_finished、事件 seq 单调、turn_id 贯穿、messages 可重建）
+  与失败路径（迭代上限/预算超限/tool_not_wired/取消/权限拒绝/未知会话/空提示词）测试；
+  安全断言（事件与信封不含提示词/正文/凭据，FR-203 口径）与资源断言（单会话单活跃 turn、
+  无新线程、无无界累积）（FR-718—724；ADR-044 决策 4／7）
+- [ ] T212 文档同步：spec.md FR-718—724、tasks.md 本阶段勾选、checklist.md Check 300—308、
+  CHANGELOG（`llm run` 语义升级/信封字段扩展/事件命名收敛）与实现记录（FR-305 口径；
+  测试验收入口按 ADR-037）
+
+**Checkpoint**: turn 循环骨架可独立验证（桩剧本驱动），P0-2 工具系统具备挂载点
+（tool_not_wired 路径替换为真实执行）
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
