@@ -90,3 +90,15 @@
   首版草案曾用 `--target` 交叉构建 arm64 发布产物，但在原生 ARM64 宿主上会造成
   `target/<三元组>/release/`（构建）与 `target/release/`（打包期望）两套布局打架，
   属实现期发现的缺陷，已改为原生宿主构建消除。
+- **2026-10-28（CI 实跑缺陷与修复）**：首轮推送 run `40691533216`（build-release）与
+  `40691532314`（ci）的 `windows-arm64` lane 均失败，症状为 `0xC0000135`
+  （`STATUS_DLL_NOT_FOUND`）：打包与安装验证通过（包内有 dll），但 `target/release/` 与
+  `target/debug/deps/` 缺 `duckdb.dll`，TUI 冒烟与 `whcode_app` 测试二进制无法启动。
+  根因：工作流在步骤 `env` 里显式导出的 `DUCKDB_LIB_DIR` 是**相对路径**，而
+  `crates/whcode-store/build.rs` 用 `Path::new(lib_dir).join("duckdb.dll").is_file()` 判定
+  时，构建脚本进程的 cwd 是 crate 目录，相对路径被判为不存在而**静默跳过复制**；链接期
+  rustc 的 cwd 是工作区根，同一相对路径却能命中，于是"编译通过、运行期缺 dll"。
+  amd64 lane 未触发，是因为它走 `.cargo/config.toml` 的 `relative = true`（cargo 解析为
+  绝对路径）。修复：`build.rs` 把相对 `DUCKDB_LIB_DIR` 按**工作区根**解析（从
+  `CARGO_MANIFEST_DIR` 上溯含 `[workspace]` 的 Cargo.toml），与 cargo 的 `relative = true`
+  同口径；已本地验证相对路径下 release/debug 均能复制 dll、TUI 冒烟三项通过。
