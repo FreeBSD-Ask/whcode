@@ -344,9 +344,10 @@ impl HttpClient {
                 "非法剖面：model 含空白或控制字符；模型标识不得跨行或带空格",
             ));
         }
-        // 装配期 fail-fast：凭据必须可求值（缺失/为空立即可操作报错），但求值结果不外泄——
-        // 注入项含密钥原文，进入构造结果会把密钥派生值带进对象与返回值（NFR-213）。
-        profile.auth.inject()?;
+        // 装配期 fail-fast：凭据必须可求值（缺失/为空立即可操作报错）。
+        // 收口为 unit 后再传播错误：`?` 会把被检查的 Result 内容（含注入项／密钥原文）
+        // 带向调用方返回值，使构造结果被当作密钥派生值（NFR-213，CodeQL TryExpr 建模）。
+        profile.auth.inject().map(|_| ())?;
         let protocol = protocols::registry(profile.protocol);
         validate_profile_transport(&profile, protocol)?;
 
@@ -440,8 +441,15 @@ impl HttpClient {
         }))
     }
 
+    #[expect(
+        clippy::question_mark,
+        reason = "安全扫描建模：`?` 会把注入项带向调用方返回值，故改用显式 match 让注入项只存活于本帧"
+    )]
     fn send_probe_once(&self, request_id: &str, path: &str) -> Result<String, WhError> {
-        let auth = self.profile.auth.inject()?;
+        let auth = match self.profile.auth.inject() {
+            Ok(auth) => auth,
+            Err(err) => return Err(err),
+        };
         let url = endpoint_url(&self.profile.base_url, path);
         let mut query = self.profile.query.clone();
         query.extend(auth.query().iter().cloned());
@@ -490,6 +498,14 @@ impl HttpClient {
     }
 
     /// 发送流式请求并返回 chunk 流（DNS、连接、发送与响应头都在本次调用内完成）。
+    ///
+    /// 注入项（含密钥原文）只存活于本帧：这里刻意不用 `?`，因为 CodeQL 的 `TryExpr`
+    /// 建模会把被检 Result 的内容带向调用方返回值，使 ChunkStream 被当作密钥派生值
+    /// 传播到上层的输出面（NFR-213）。
+    #[expect(
+        clippy::question_mark,
+        reason = "安全扫描建模：`?` 会把注入项带向返回值，故改用显式 match"
+    )]
     fn open_stream(
         &self,
         request: &LlmRequest,
@@ -504,8 +520,14 @@ impl HttpClient {
                 self.profile.read_timeout_ms,
             ));
         }
-        let auth = self.profile.auth.inject()?;
-        let (prepared, metered) = self.prepare(request, &auth)?;
+        let auth = match self.profile.auth.inject() {
+            Ok(auth) => auth,
+            Err(err) => return Err(err),
+        };
+        let (prepared, metered) = match self.prepare(request, &auth) {
+            Ok(prepared) => prepared,
+            Err(err) => return Err(err),
+        };
         let sent_at = Instant::now();
         let response = match decorate(
             self.agent.post(&prepared.url),
