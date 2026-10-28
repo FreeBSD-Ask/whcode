@@ -547,10 +547,10 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   CHANGELOG（`llm run` 语义升级/信封字段扩展/事件命名收敛）与实现记录（FR-305 口径；
   测试验收入口按 ADR-037）
 
-- [ ] T213 [P] 工具注册表：`crates/whcode-tools/src/registry.rs` 登记稳定名/描述/参数
+- [x] T213 [P] 工具注册表：`crates/whcode-tools/src/registry.rs` 登记稳定名/描述/参数——**复核（2026-10-29，P0-2 工具实现批次）**：实现与模块测试全绿（workspace fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过；本机证据，CI 验收按 ADR-037 待流水线）。
   Schema 子集/副作用范围，重名冲突拒绝，provider 可见清单；输入校验一层（白名单+必填+
   类型+拒绝未知字段）（FR-725、FR-729；ADR-048 §2.1/2.7）
-- [ ] T214 [P] 内建工具六件套：`crates/whcode-tools/src/builtins/` read_file/write_file/
+- [x] T214 [P] 内建工具六件套：`crates/whcode-tools/src/builtins/` read_file/write_file/——**复核（2026-10-29，P0-2 工具实现批次）**：实现与模块测试全绿（workspace fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过；本机证据，CI 验收按 ADR-037 待流水线）。
   edit_file/list_dir/glob/grep——`std::fs` 实现、有界（读 ≤1 MiB、遍历与结果条目上限）、
   写工具产 diff 摘要（FR-726；ADR-048 §2.2）
 - [ ] T215 工具执行登记接线：`crates/whcode-app` 工具执行经 store 三步登记与

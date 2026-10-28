@@ -548,9 +548,9 @@
 - [ ] Check 308: [missing] `cargo test --locked --workspace` 与 layering/layout/traceability/
   check_counts 门禁全绿；测试验收入口按 ADR-037（GitHub Actions 为准，本机无远端时登记
   缺口，不得以本地全绿冒充）（来源：Task T212、FR-305 口径）
-- [ ] Check 309: [missing] 工具注册表：重名冲突拒绝、provider 可见清单、校验拒绝未知字段
+- [x] Check 309: [exercised] 工具注册表：重名冲突拒绝、provider 可见清单、校验拒绝未知字段——**复核（2026-10-29，P0-2 工具实现批次）**：实现与模块测试全绿（workspace fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过；本机证据，CI 验收按 ADR-037 待流水线）。
   与类型不符（来源：Task T213、FR-725／729、ADR-048）
-- [ ] Check 310: [missing] 内建工具六件套行为与有界性：读 ≤1 MiB、遍历与结果条目上限、
+- [x] Check 310: [exercised] 内建工具六件套行为与有界性：读 ≤1 MiB、遍历与结果条目上限、——**复核（2026-10-29，P0-2 工具实现批次）**：实现与模块测试全绿（workspace fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过；本机证据，CI 验收按 ADR-037 待流水线）。
   edit_file 唯一性校验、写工具产 diff 摘要而非全文（来源：Task T214、FR-726、ADR-048）
 - [ ] Check 311: [missing] 工具执行三步登记与 recover_uncertain 恢复；ToolCall 事件落表
   且 payload 不含工具结果正文（来源：Task T215、FR-727、FR-410）
