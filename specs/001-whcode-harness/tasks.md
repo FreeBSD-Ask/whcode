@@ -511,14 +511,14 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 （2026-10-28 已批准）；实施计划见 `specs/001-whcode-harness/plan-p0-1-turn-loop.md`。
 依赖：T167（llm 四端接线）、T034（事件写者）、T056+（事件流）；工具执行归 P0-2，不在本阶段。
 
-- [ ] T204 [P] 多消息契约：`crates/whcode-llm/src/provider.rs` 新增 `LlmMessage{role, content}`
+- [x] T204 [P] 多消息契约：`crates/whcode-llm/src/provider.rs` 新增 `LlmMessage{role, content}`——**复核（2026-10-29，P0-1 契约层批次）**：实现与单测全绿（workspace build/fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过，本机运行证据；CI 验收按 ADR-037 待远端流水线）。
   与四角色枚举（system/user/assistant/tool），`LlmRequest.prompt` 改为
   `messages: Vec<LlmMessage>`（非空校验上移调用方）；`StubProvider` 兼容单条 user 消息
   （默认行为不变）（FR-720；ADR-044 决策 3）
-- [ ] T205 [P] 五协议多消息映射：`crates/whcode-llm/src/http/protocols.rs` 五个 `request_body`
+- [x] T205 [P] 五协议多消息映射：`crates/whcode-llm/src/http/protocols.rs` 五个 `request_body`——**复核（2026-10-29，P0-1 契约层批次）**：实现与单测全绿（workspace build/fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过，本机运行证据；CI 验收按 ADR-037 待远端流水线）。
   由单条 user 消息改为 messages 数组映射（anthropic/gemini 按 system 段 + 交替轮次展开）；
   每协议新增角色与顺序单测（FR-720；ADR-044 决策 3）
-- [ ] T206 [P] `StubProvider` 多步剧本：支持可编程步序（每步 chunk 序列、finish_reason、
+- [x] T206 [P] `StubProvider` 多步剧本：支持可编程步序（每步 chunk 序列、finish_reason、——**复核（2026-10-29，P0-1 契约层批次）**：实现与单测全绿（workspace build/fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过，本机运行证据；CI 验收按 ADR-037 待远端流水线）。
   tool_calls 列表），无剧本时保持现行单步行为（既有测试不破）；供 turn 循环无网络测试
   （FR-718 测试夹具；ADR-044 决策 4）
 - [ ] T207 turn 循环骨架：`crates/whcode-app/src/turn.rs` 新增 `run_turn`——前置校验复用

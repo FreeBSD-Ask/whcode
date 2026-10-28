@@ -525,12 +525,12 @@
 
 ## 第十三层：Agent Turn 循环编排器（2026-10-28 新增，Task T204—T212，FR-718—724，ADR-044）
 
-- [ ] Check 300: [missing] `LlmMessage`/四角色枚举（system/user/assistant/tool）与 `LlmRequest.messages`
+- [x] Check 300: [exercised] `LlmMessage`/四角色枚举（system/user/assistant/tool）与 `LlmRequest.messages`——**复核（2026-10-29，P0-1 契约层批次）**：实现与单测全绿（workspace build/fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过，本机运行证据；CI 验收按 ADR-037 待远端流水线）。
   契约落地，`StubProvider` 单条 user 消息兼容且默认行为不变、既有测试零破坏（来源：
   Task T204、FR-720、ADR-044 决策 3）
-- [ ] Check 301: [missing] 五协议 request_body 多消息映射（anthropic/gemini 按 system 段 + 交替轮次
+- [x] Check 301: [exercised] 五协议 request_body 多消息映射（anthropic/gemini 按 system 段 + 交替轮次——**复核（2026-10-29，P0-1 契约层批次）**：实现与单测全绿（workspace build/fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过，本机运行证据；CI 验收按 ADR-037 待远端流水线）。
   展开）各有角色与顺序单测且全绿（来源：Task T205、FR-720）
-- [ ] Check 302: [missing] `StubProvider` 多步剧本可编程（每步 chunk/finish_reason/tool_calls），
+- [x] Check 302: [exercised] `StubProvider` 多步剧本可编程（每步 chunk/finish_reason/tool_calls），——**复核（2026-10-29，P0-1 契约层批次）**：实现与单测全绿（workspace build/fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过，本机运行证据；CI 验收按 ADR-037 待远端流水线）。
   无剧本时现行单步行为不变（来源：Task T206、FR-718）
 - [ ] Check 303: [missing] turn 五种终止（model_finished/iteration_limit/cancelled/budget_exceeded/
   tool_not_wired）各有正向或失败路径测试，且全部终止显式留可查询事件（来源：Task T207、

@@ -344,9 +344,11 @@ impl HttpClient {
                 "非法剖面：model 含空白或控制字符；模型标识不得跨行或带空格",
             ));
         }
-        let auth = profile.auth.inject()?;
+        // 装配期 fail-fast：凭据必须可求值（缺失/为空立即可操作报错），但求值结果不外泄——
+        // 注入项含密钥原文，进入构造结果会把密钥派生值带进对象与返回值（NFR-213）。
+        profile.auth.inject()?;
         let protocol = protocols::registry(profile.protocol);
-        validate_profile_transport(&profile, &auth, protocol)?;
+        validate_profile_transport(&profile, protocol)?;
 
         let connection_id = profile.name.clone();
         let agent = build_agent(&profile, tls);
@@ -461,7 +463,8 @@ impl HttpClient {
         };
         record_connected(&self.transport);
         record_rtt(&self.transport, sent_at.elapsed());
-        record_sent(&self.transport, header_wire_bytes(headers));
+        // 鉴权头的值长度不计入传输量：密钥派生值不写入共享传输状态（NFR-213）。
+        record_sent(&self.transport, metered_header_bytes(headers));
 
         let status = response.status().as_u16();
         let request_id = header_value(response.headers(), "x-request-id")
@@ -502,7 +505,7 @@ impl HttpClient {
             ));
         }
         let auth = self.profile.auth.inject()?;
-        let prepared = self.prepare(request, &auth)?;
+        let (prepared, metered) = self.prepare(request, &auth)?;
         let sent_at = Instant::now();
         let response = match decorate(
             self.agent.post(&prepared.url),
@@ -526,10 +529,7 @@ impl HttpClient {
         };
         record_connected(&self.transport);
         record_rtt(&self.transport, sent_at.elapsed());
-        record_sent(
-            &self.transport,
-            request_wire_bytes(&prepared.headers, prepared.body.len()),
-        );
+        record_sent(&self.transport, metered);
 
         let request_id = header_value(response.headers(), "x-request-id")
             .unwrap_or_else(|| request.request_id.clone());
@@ -578,11 +578,15 @@ impl HttpClient {
         })
     }
 
+    /// 构造一次请求的静态部分，并给出可计量的线上字节数。
+    ///
+    /// 计量不含鉴权头的值长度：该长度是密钥派生值，写入共享传输状态会污染传输快照
+    /// 与流对象（NFR-213）。鉴权头只按名字与分隔符计费。
     fn prepare(
         &self,
         request: &LlmRequest,
         auth: &AuthInjection,
-    ) -> Result<PreparedRequest, WhError> {
+    ) -> Result<(PreparedRequest, u64), WhError> {
         let path = self.protocol.request_path(&self.profile);
         let url = endpoint_url(&self.profile.base_url, &path);
         let body = self.protocol.request_body(request, &self.profile)?;
@@ -593,15 +597,20 @@ impl HttpClient {
         ));
         headers.extend(self.protocol.extra_headers());
         headers.extend(self.profile.extra_headers.iter().cloned());
+        let metered = request_wire_bytes(&headers, body.len())
+            .saturating_add(metered_header_bytes(auth.headers()));
         headers.extend(auth.headers().iter().cloned());
         let mut query = self.profile.query.clone();
         query.extend(auth.query().iter().cloned());
-        Ok(PreparedRequest {
-            url,
-            headers,
-            query,
-            body,
-        })
+        Ok((
+            PreparedRequest {
+                url,
+                headers,
+                query,
+                body,
+            },
+            metered,
+        ))
     }
 }
 
@@ -633,19 +642,22 @@ impl Provider for HttpClient {
     }
 }
 
-/// 校验剖面里所有进入请求的头与查询参数；与鉴权项重复会被拒绝（避免鉴权值被覆盖）。
+/// 校验剖面里所有进入请求的头与查询参数；与鉴权方案声明的头名/参数名重复会被拒绝
+/// （避免鉴权值被覆盖）。
+///
+/// 只用方案**声明的名字**判断冲突，不求值凭据：装配期不接触密钥原文。
 fn validate_profile_transport(
     profile: &ProviderProfile,
-    auth: &AuthInjection,
     protocol: &'static dyn WireProtocol,
 ) -> Result<(), WhError> {
+    let auth_headers = profile.auth.declared_header_names();
+    let auth_query = profile.auth.declared_query_names();
     for (name, value) in &profile.extra_headers {
         profile::validate_header_name(name)?;
         profile::validate_header_value(name, value)?;
-        if auth
-            .headers()
+        if auth_headers
             .iter()
-            .any(|(auth_name, _)| auth_name.eq_ignore_ascii_case(name))
+            .any(|auth_name| auth_name.eq_ignore_ascii_case(name))
         {
             return Err(WhError::invalid_state(format!(
                 "非法剖面：extra_headers 重复设置了鉴权头 {name}；请只保留 auth 一处\
@@ -656,7 +668,7 @@ fn validate_profile_transport(
     for (name, value) in &profile.query {
         profile::validate_query_name(name)?;
         profile::validate_query_value(name, value)?;
-        if auth.query().iter().any(|(auth_name, _)| auth_name == name) {
+        if auth_query.iter().any(|auth_name| *auth_name == name) {
             return Err(WhError::invalid_state(format!(
                 "非法剖面：query 重复设置了鉴权参数 {name}；请只保留 auth 一处"
             )));
@@ -875,6 +887,17 @@ fn header_wire_bytes(headers: &[(String, String)]) -> u64 {
     headers
         .iter()
         .map(|(name, value)| (name.len() + value.len() + 4) as u64)
+        .sum()
+}
+
+/// 不含头值的线上长度（名字、冒号空格与 CRLF）。
+///
+/// 鉴权头的值长度是密钥派生值：凡要写入共享状态（传输计数）或返回给调用方的计量，
+/// 一律走本函数，避免密钥派生值离开请求构造作用域（NFR-213）。
+fn metered_header_bytes(headers: &[(String, String)]) -> u64 {
+    headers
+        .iter()
+        .map(|(name, _)| (name.len() + 4) as u64)
         .sum()
 }
 
