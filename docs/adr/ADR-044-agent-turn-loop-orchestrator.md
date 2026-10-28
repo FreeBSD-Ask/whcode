@@ -103,8 +103,8 @@
 
 ## 5. 实施摘要
 
-实施计划草案见 `local/plan-p0-1-turn-loop.md`（不入库；批准后按 G0—G5 落入
-spec.md/tasks.md/checklist.md）。要点：
+实施计划见 `specs/001-whcode-harness/plan-p0-1-turn-loop.md`（2026-10-28 随批准入库）。
+要点：
 
 - 需求增量 FR-718—724（turn 编排/迭代上限/多消息契约/预算终止/事件事实源/单活跃
   turn/未接线显式终止），已落入 spec.md；
