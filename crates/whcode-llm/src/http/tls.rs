@@ -722,7 +722,7 @@ mod tests {
         assert_eq!(outcome.leaf_chain_der[0], pki.chain_der[0].as_ref());
         assert_eq!(outcome.leaf_chain_der[1], pki.chain_der[1].as_ref());
         let version = outcome.tls_version.expect("必须报告协议版本");
-        assert!(version.starts_with("TLSv1_"), "协议版本：{version}");
+        assert!(version.starts_with("TLSv1_"), "协议版本必须为 TLSv1.x");
     }
 
     /// 2. 未受信根：握手失败且错误可操作（指向 ca-extra.pem／system 档位）。
@@ -741,8 +741,14 @@ mod tests {
         .expect_err("未受信根必须失败");
         assert_eq!(err.code, ErrorCode::InvalidState);
         assert!(!err.retryable, "未受信属配置问题，不可重试");
-        assert!(err.message.contains("签发者"), "{}", err.message);
-        assert!(err.message.contains("ca-extra.pem"), "{}", err.message);
+        assert!(
+            err.message.contains("签发者"),
+            "错误消息必须指出签发者不受信"
+        );
+        assert!(
+            err.message.contains("ca-extra.pem"),
+            "错误消息必须指向 ca-extra.pem 档位"
+        );
         assert!(
             !err.message.contains("PRIVATE KEY"),
             "错误消息不得包含私钥内容：{}",
@@ -764,7 +770,10 @@ mod tests {
         )
         .expect_err("证书仅含 localhost 时以 IP 校验必须失败");
         assert_eq!(err.code, ErrorCode::InvalidState);
-        assert!(err.message.contains("SAN"), "{}", err.message);
+        assert!(
+            err.message.contains("SAN"),
+            "IP 主机名必须有 SAN 不匹配错误"
+        );
         drop(server);
 
         let ip_only = test_pki("ip-only", &["127.0.0.1"], (2024, 1, 1), (2035, 1, 1));
@@ -778,7 +787,10 @@ mod tests {
         )
         .expect_err("证书仅含 IP 时以主机名校验必须失败");
         assert_eq!(err.code, ErrorCode::InvalidState);
-        assert!(err.message.contains("SAN"), "{}", err.message);
+        assert!(
+            err.message.contains("SAN"),
+            "仅有 IP 的证书必须报 SAN 不匹配"
+        );
     }
 
     /// 预算切片（连线级，不建套接字）：多候选地址时每个只拿均分份额，黑洞地址不得吃掉全部
@@ -815,7 +827,7 @@ mod tests {
         )
         .expect_err("过期证书必须失败");
         assert_eq!(err.code, ErrorCode::InvalidState);
-        assert!(err.message.contains("已过期"), "{}", err.message);
+        assert!(err.message.contains("已过期"), "错误消息必须说明证书已过期");
     }
 
     /// 5a. builtin 档位：`ca-extra` 中的根生效（基线为另一份不受信根）。
@@ -988,7 +1000,7 @@ mod tests {
         assert!(tls.use_sni(), "保留默认 SNI");
         match tls.root_certs() {
             ureq::tls::RootCerts::Specific(certs) => assert_eq!(certs.len(), 1),
-            other => panic!("必须使用具体根集合，而非默认 webpki 或平台验证器：{other:?}"),
+            _ => panic!("必须使用具体根集合，而非默认 webpki 或平台验证器"),
         }
 
         let err = build_agent(TrustMode::Builtin, "", "").expect_err("空信任集必须拒绝");

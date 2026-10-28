@@ -276,14 +276,14 @@ fn optional_timeout(value: Duration) -> Option<Duration> {
 
 /// 真实供应商客户端（同步；一次调用占用发起线程）。
 ///
-/// 构造即求值凭据与校验端点：**只在用户显式选择剖面时构造**，不得用于启动、`doctor`、
-/// `serve` 或枚举路径（ADR-031 决策 4：无剖面即无请求）。`Debug` 只打印剖面名、协议与
-/// 注入项**数量**，鉴权头／查询参数值（可能含密钥）恒不输出。
+/// 构造即校验端点与凭据可用：**只在用户显式选择剖面时构造**，不得用于启动、`doctor`、
+/// `serve` 或枚举路径（ADR-031 决策 4：无剖面即无请求）。已求值的密钥值不驻留实例，
+/// 只在单次请求内求值与使用（缩小密钥的生存期与传播面）。`Debug` 只打印剖面名、
+/// 协议与鉴权方案声明（来源名，不含密钥值）。
 pub struct HttpClient {
     profile: ProviderProfile,
     protocol: &'static dyn WireProtocol,
     agent: ureq::Agent,
-    auth: Arc<AuthInjection>,
     transport: Arc<Mutex<TransportState>>,
     retry: RetryPolicy,
     unknown_frames: Arc<AtomicU64>,
@@ -291,12 +291,11 @@ pub struct HttpClient {
 
 impl std::fmt::Debug for HttpClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // 只打印剖面名、协议与注入项数量；鉴权值（可能含密钥）恒不输出。
+        // 只打印剖面名、协议与鉴权方案声明；鉴权值（可能含密钥）恒不输出。
         f.debug_struct("HttpClient")
             .field("provider", &self.profile.name)
             .field("protocol", &self.protocol.name())
-            .field("auth_headers", &self.auth.headers().len())
-            .field("auth_query", &self.auth.query().len())
+            .field("auth", &self.profile.auth)
             .finish()
     }
 }
@@ -355,7 +354,6 @@ impl HttpClient {
             profile,
             protocol,
             agent,
-            auth: Arc::new(auth),
             transport: Arc::new(Mutex::new(TransportState::new(connection_id))),
             retry: RetryPolicy::default(),
             unknown_frames: Arc::new(AtomicU64::new(0)),
@@ -441,10 +439,11 @@ impl HttpClient {
     }
 
     fn send_probe_once(&self, request_id: &str, path: &str) -> Result<String, WhError> {
+        let auth = self.profile.auth.inject()?;
         let url = endpoint_url(&self.profile.base_url, path);
         let mut query = self.profile.query.clone();
-        query.extend(self.auth.query().iter().cloned());
-        let headers = self.auth.headers();
+        query.extend(auth.query().iter().cloned());
+        let headers = auth.headers();
         let sent_at = Instant::now();
         let response = match decorate(self.agent.get(&url), headers, &query).call() {
             Ok(response) => response,
@@ -473,7 +472,7 @@ impl HttpClient {
         record_received(&self.transport, body.len() as u64);
         if !(200..=299).contains(&status) {
             record_disconnect(&self.transport, &format!("status_{status}"));
-            let message = self.auth.redact(&self.protocol.error_message(&body));
+            let message = auth.redact(&self.protocol.error_message(&body));
             return Err(errors::normalize_status(
                 status,
                 &message,
@@ -502,7 +501,8 @@ impl HttpClient {
                 self.profile.read_timeout_ms,
             ));
         }
-        let prepared = self.prepare(request)?;
+        let auth = self.profile.auth.inject()?;
+        let prepared = self.prepare(request, &auth)?;
         let sent_at = Instant::now();
         let response = match decorate(
             self.agent.post(&prepared.url),
@@ -540,7 +540,7 @@ impl HttpClient {
             let body = read_bounded_body(response.into_body(), errors::MAX_ERROR_BODY_BYTES)
                 .unwrap_or_default();
             record_disconnect(&self.transport, &format!("status_{status}"));
-            let message = self.auth.redact(&self.protocol.error_message(&body));
+            let message = auth.redact(&self.protocol.error_message(&body));
             return Err(errors::normalize_status(
                 status,
                 &message,
@@ -578,7 +578,11 @@ impl HttpClient {
         })
     }
 
-    fn prepare(&self, request: &LlmRequest) -> Result<PreparedRequest, WhError> {
+    fn prepare(
+        &self,
+        request: &LlmRequest,
+        auth: &AuthInjection,
+    ) -> Result<PreparedRequest, WhError> {
         let path = self.protocol.request_path(&self.profile);
         let url = endpoint_url(&self.profile.base_url, &path);
         let body = self.protocol.request_body(request, &self.profile)?;
@@ -589,9 +593,9 @@ impl HttpClient {
         ));
         headers.extend(self.protocol.extra_headers());
         headers.extend(self.profile.extra_headers.iter().cloned());
-        headers.extend(self.auth.headers().iter().cloned());
+        headers.extend(auth.headers().iter().cloned());
         let mut query = self.profile.query.clone();
-        query.extend(self.auth.query().iter().cloned());
+        query.extend(auth.query().iter().cloned());
         Ok(PreparedRequest {
             url,
             headers,
@@ -1361,7 +1365,7 @@ mod tests {
             session_id: "S-1".to_string(),
             task_id: None,
             model: "m".to_string(),
-            prompt: "hi".to_string(),
+            messages: vec![crate::provider::LlmMessage::user("hi")],
             max_tokens: 16,
             timeout: None,
         }

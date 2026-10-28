@@ -30,7 +30,7 @@ use std::time::Instant;
 use serde::Serialize;
 use serde_json::{Value, json};
 use whcode_domain::{ErrorCode, WhError};
-use whcode_llm::http::profile::{AuthScheme, ProviderProfile, Secret};
+use whcode_llm::http::profile::ProviderProfile;
 use whcode_llm::{CancelToken, LlmRequest, Provider, TransportSnapshot, Usage};
 
 use crate::authz::{Actor, Capability, Policy, require};
@@ -255,16 +255,15 @@ pub struct LlmCancelOutcome {
 
 /// 真实 Provider 的装配接口（由装配根实现；app 只见 trait，零网络依赖）。
 pub trait ProviderFactory {
-    /// 由剖面与已求值凭据构造 Provider。
+    /// 由剖面构造 Provider。
+    ///
+    /// 凭据不作为实参传入：剖面的 `auth` 声明凭据来源，由传输层自行求值并校验；
+    /// 已求值的密钥值不得流经工厂边界（它不属于装配协议，且会扩大密钥的传播面）。
     ///
     /// # Errors
     ///
     /// 传输层未就绪、凭据不可用或构造失败时返回结构化错误（不得伪造成功）。
-    fn create(
-        &self,
-        profile: &ProviderProfile,
-        credential: Option<Secret>,
-    ) -> Result<Box<dyn Provider>, WhError>;
+    fn create(&self, profile: &ProviderProfile) -> Result<Box<dyn Provider>, WhError>;
 }
 
 /// 四端共用的 LLM 调用上下文（由装配根构造并注入）。
@@ -365,7 +364,6 @@ pub fn run(
         ));
     }
     let max_tokens = request.max_tokens.unwrap_or(profile.max_tokens);
-    let credential = resolve_credential(&profile.auth)?;
     let request_id = request
         .request_id
         .as_deref()
@@ -377,7 +375,7 @@ pub fn run(
     let (_, _, total) = profile.timeouts();
     let marker = CancelMarker::begin(context.cancel_dir, &request_id)?;
     let cancel = CancelToken::default();
-    let provider = context.factory.create(profile, credential)?;
+    let provider = context.factory.create(profile)?;
     if !provider.is_available() {
         return Err(WhError::invalid_state(format!(
             "Provider {} 不可用：检查剖面与凭据来源后重试",
@@ -390,7 +388,7 @@ pub fn run(
         session_id: session.to_string(),
         task_id: None,
         model: model.clone(),
-        prompt: prompt.to_string(),
+        messages: vec![whcode_llm::provider::LlmMessage::user(prompt.to_string())],
         max_tokens,
         timeout: Some(total),
     };
@@ -559,16 +557,6 @@ fn registry_unavailable() -> WhError {
     )
 }
 
-/// 求值剖面声明的凭据（缺失/为空返回 `invalid_state`，消息只含来源名或路径）。
-fn resolve_credential(auth: &AuthScheme) -> Result<Option<Secret>, WhError> {
-    match auth {
-        AuthScheme::Bearer { credential }
-        | AuthScheme::Header { credential, .. }
-        | AuthScheme::Query { credential, .. } => Ok(Some(credential.resolve()?)),
-        AuthScheme::None => Ok(None),
-    }
-}
-
 /// 请求 ID 校验：只允许 `[A-Za-z0-9_-]`，长度 1..=[`MAX_REQUEST_ID_LEN`]（作为文件名安全）。
 fn validate_request_id(request_id: &str) -> Result<&str, WhError> {
     let trimmed = request_id.trim();
@@ -664,7 +652,7 @@ mod tests {
     use super::*;
     use whcode_domain::ErrorCode;
     use whcode_llm::StubProvider;
-    use whcode_llm::http::profile::CredentialRef;
+    use whcode_llm::http::profile::{AuthScheme, CredentialRef};
     use whcode_store::apply_migrations;
 
     use crate::{DefaultPolicy, NewSession, actor_with_all_capabilities, new_session};
@@ -673,11 +661,7 @@ mod tests {
     struct StubFactory;
 
     impl ProviderFactory for StubFactory {
-        fn create(
-            &self,
-            _profile: &ProviderProfile,
-            _credential: Option<Secret>,
-        ) -> Result<Box<dyn Provider>, WhError> {
+        fn create(&self, _profile: &ProviderProfile) -> Result<Box<dyn Provider>, WhError> {
             Ok(Box::new(StubProvider::new()))
         }
     }
@@ -686,11 +670,7 @@ mod tests {
     struct PendingFactory;
 
     impl ProviderFactory for PendingFactory {
-        fn create(
-            &self,
-            _profile: &ProviderProfile,
-            _credential: Option<Secret>,
-        ) -> Result<Box<dyn Provider>, WhError> {
+        fn create(&self, _profile: &ProviderProfile) -> Result<Box<dyn Provider>, WhError> {
             Err(WhError::invalid_state(
                 "待接线：whcode-llm 的 HTTP 客户端未就绪（结构化失败，不伪造调用成功）",
             ))

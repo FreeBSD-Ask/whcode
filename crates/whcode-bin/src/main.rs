@@ -1173,7 +1173,10 @@ mod tests {
         let blocked_report = tls_report(&blocked.path, 1_793_000_000_000);
         assert!(blocked_report.value.is_null());
         let blocked_error = blocked_report.error.expect("必须给出不可用原因");
-        assert!(blocked_error.contains("不是目录"), "{blocked_error}");
+        assert!(
+            blocked_error.contains("不是目录"),
+            "不可用原因须说明路径不是目录"
+        );
     }
 
     /// 速览行不把“未知”写成 0：`system` 档位读库失败写 `unknown`，内置副本不参与写 `n/a`。

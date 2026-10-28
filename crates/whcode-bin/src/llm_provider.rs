@@ -27,7 +27,7 @@ use whcode_app::llm::{
 };
 use whcode_domain::WhError;
 use whcode_llm::Provider;
-use whcode_llm::http::profile::{ProviderProfile, Secret};
+use whcode_llm::http::profile::ProviderProfile;
 
 /// 装配根的真实 Provider 工厂。
 ///
@@ -62,11 +62,7 @@ fn now_ms() -> u64 {
 }
 
 impl ProviderFactory for LocalProviderFactory {
-    fn create(
-        &self,
-        profile: &ProviderProfile,
-        _credential: Option<Secret>,
-    ) -> Result<Box<dyn Provider>, WhError> {
+    fn create(&self, profile: &ProviderProfile) -> Result<Box<dyn Provider>, WhError> {
         #[cfg(feature = "http")]
         {
             let tls = match &self.trust {
@@ -250,7 +246,7 @@ mod tests {
         #[cfg(feature = "http")]
         {
             let provider = LocalProviderFactory::default()
-                .create(&profile(), None)
+                .create(&profile())
                 .expect("http feature 下应构造真实 Provider");
             assert_eq!(provider.name(), "p");
             assert!(
@@ -261,7 +257,7 @@ mod tests {
         #[cfg(not(feature = "http"))]
         {
             let err = LocalProviderFactory::default()
-                .create(&profile(), None)
+                .create(&profile())
                 .expect_err("未启用 feature 必须结构化失败");
             assert_eq!(err.code, ErrorCode::NotSupported);
             assert!(err.message.contains("http feature"), "{err}");

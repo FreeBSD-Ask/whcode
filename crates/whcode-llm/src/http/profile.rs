@@ -767,9 +767,10 @@ mod tests {
 
         for injection in [&bearer, &custom, &query] {
             let debug = format!("{injection:?}");
+            let leaked = debug.contains("fake-secret-value");
             assert!(
-                !debug.contains("fake-secret-value"),
-                "AuthInjection 的 Debug 不得输出密钥：{debug}"
+                !leaked,
+                "AuthInjection 的 Debug 不得输出密钥（检测到密钥值）"
             );
         }
         let _ = std::fs::remove_file(path);

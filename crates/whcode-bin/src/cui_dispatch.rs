@@ -1530,7 +1530,7 @@ mod tests {
             &en,
         )
         .expect("任务列表");
-        assert!(human.starts_with("Session "), "英文摘要：{human}");
+        assert!(human.starts_with("Session "), "英文摘要必须英文起头");
         let zh = whcode_domain::i18n::I18n::default();
         let (_, human) = execute(
             &Command::Task {
@@ -1540,7 +1540,7 @@ mod tests {
             &zh,
         )
         .expect("任务列表");
-        assert!(human.starts_with("会话 "), "中文摘要：{human}");
+        assert!(human.starts_with("会话 "), "中文摘要必须中文起头");
         let _ = std::fs::remove_dir_all(&workspace);
     }
 
@@ -1828,7 +1828,7 @@ mod tests {
                 entry["capability"]
             );
         }
-        assert!(human.contains("js="), "人类可读摘要：{human}");
+        assert!(human.contains("js="), "人类可读摘要必须含运行时行");
 
         // 同形比对：同一 inventory 注入 Web API，顶层与条目字段集合一致。
         let mut conn = duckdb::Connection::open_in_memory().expect("内存库");
@@ -1922,7 +1922,7 @@ mod tests {
             human
                 .lines()
                 .any(|line| line.starts_with("预算") && line.contains("4096")),
-            "人类可读摘要（记录式）：{human}"
+            "人类可读摘要（记录式）必须含预算行"
         );
 
         // 显式 --budget：透传应用服务（FR-108）。
@@ -2041,7 +2041,7 @@ mod tests {
         assert_eq!(value["fonts"].as_array().expect("fonts 数组").len(), 4);
         assert!(value["fonts_dir"].is_string());
         assert!(value["terminal"].is_object());
-        assert!(human.contains("内置字体状态"), "中文摘要：{human}");
+        assert!(human.contains("内置字体状态"), "中文摘要必须含字体状态");
         let en = whcode_domain::i18n::I18n::load("en", whcode_domain::i18n::LocaleSource::Explicit);
         let (_, human) = execute(
             &Command::Font {
@@ -2051,7 +2051,10 @@ mod tests {
             &en,
         )
         .expect("status 可执行");
-        assert!(human.contains("Built-in fonts status"), "英文摘要：{human}");
+        assert!(
+            human.contains("Built-in fonts status"),
+            "英文摘要必须含字体状态"
+        );
         let _ = std::fs::remove_dir_all(&workspace);
     }
 
@@ -2078,8 +2081,8 @@ mod tests {
         .expect("dry-run 无副作用");
         assert_eq!(value["dry_run"], serde_json::json!(true));
         assert_eq!(value["installed"].as_array().expect("计划项").len(), 4);
-        assert!(human.contains("[dry-run"), "摘要：{human}");
-        assert!(human.contains("Sarasa Mono SC"), "含终端配置片段：{human}");
+        assert!(human.contains("[dry-run"), "摘要必须标 dry-run");
+        assert!(human.contains("Sarasa Mono SC"), "摘要必须含终端配置片段");
         let _ = std::fs::remove_dir_all(&workspace);
     }
 
@@ -2115,16 +2118,10 @@ mod tests {
             &texts,
         )
         .expect("会话详情");
-        assert!(
-            !show.contains('\u{1b}'),
-            "非 TTY 输出不得含 ANSI 转义：{show:?}"
-        );
-        assert!(
-            show.starts_with(&format!("会话 {id}")),
-            "记录必须有标题行：{show:?}"
-        );
+        assert!(!show.contains('\u{1b}'), "非 TTY 输出不得含 ANSI 转义");
+        assert!(show.starts_with(&format!("会话 {id}")), "记录必须有标题行");
         for label in ["标题", "阶段", "状态", "归档"] {
-            assert!(show.contains(label), "记录缺少标签 {label}：{show:?}");
+            assert!(show.contains(label), "记录缺少标签 {label}");
         }
 
         let (_, list) = execute(
@@ -2138,12 +2135,9 @@ mod tests {
         let header = list.lines().next().unwrap_or_default();
         assert!(
             header.contains("ID") && header.contains("标题"),
-            "列表必须为带表头的对齐表格：{list:?}"
+            "列表必须为带表头的对齐表格"
         );
-        assert!(
-            list.lines().count() >= 2,
-            "列表必须包含至少一条数据行：{list:?}"
-        );
+        assert!(list.lines().count() >= 2, "列表必须包含至少一条数据行");
 
         // 空工作区：显式空态，不输出空白。
         let empty_workspace = temp_workspace("record-style-empty");
@@ -2198,12 +2192,9 @@ mod tests {
         .expect("空任务列表");
         assert!(
             empty_tasks.contains("总计 0"),
-            "空任务列表必须给出显式零计数：{empty_tasks:?}"
+            "空任务列表必须给出显式零计数"
         );
-        assert!(
-            !empty_tasks.contains('\u{1b}'),
-            "空任务列表不得含 ANSI：{empty_tasks:?}"
-        );
+        assert!(!empty_tasks.contains('\u{1b}'), "空任务列表不得含 ANSI");
 
         // 直接经 store 播种一条任务（CUI 没有 task create 命令）。
         let db = workspace.join(crate::workspace::WORKSPACE_DB_FILE);
@@ -2233,14 +2224,11 @@ mod tests {
         )
         .expect("任务详情");
         assert_eq!(value["task"]["id"], "T-1");
-        assert!(
-            human.contains("补齐记录排版"),
-            "记录必须含任务标题：{human:?}"
-        );
-        assert!(!human.contains('\u{1b}'), "非 TTY 不得含 ANSI：{human:?}");
+        assert!(human.contains("补齐记录排版"), "记录必须含任务标题");
+        assert!(!human.contains('\u{1b}'), "非 TTY 不得含 ANSI");
         assert!(
             human.lines().any(|line| line.starts_with("状态")),
-            "记录必须有状态标签：{human:?}"
+            "记录必须有状态标签"
         );
 
         let (value, human) = execute(
@@ -2254,11 +2242,11 @@ mod tests {
         )
         .expect("spec status");
         assert_eq!(value["session_id"], id);
-        assert!(human.contains(&id), "记录标题必须含会话：{human:?}");
-        assert!(!human.contains('\u{1b}'), "非 TTY 不得含 ANSI：{human:?}");
+        assert!(human.contains(&id), "记录标题必须含会话");
+        assert!(!human.contains('\u{1b}'), "非 TTY 不得含 ANSI");
         assert!(
             human.lines().any(|line| line.starts_with("阶段")),
-            "记录必须有阶段标签：{human:?}"
+            "记录必须有阶段标签"
         );
 
         let _ = std::fs::remove_dir_all(&workspace);

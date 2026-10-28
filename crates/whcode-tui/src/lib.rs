@@ -1614,8 +1614,7 @@ mod tests {
         );
         assert!(
             !report.status.contains("not_supported"),
-            "有执行器时不得报不可用：{:?}",
-            report.status
+            "有执行器时不得报不可用"
         );
     }
 
@@ -1647,8 +1646,7 @@ mod tests {
         );
         assert!(
             report.status.contains("not_supported"),
-            "状态行必须显式不可用：{:?}",
-            report.status
+            "状态行必须显式不可用"
         );
     }
 

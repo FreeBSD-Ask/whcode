@@ -2896,7 +2896,7 @@ mod tests {
                     .as_str()
                     .unwrap_or("")
                     .contains(expected),
-                "{payload} → {response:?}"
+                "{payload} → 响应消息须包含预期原因"
             );
         }
 

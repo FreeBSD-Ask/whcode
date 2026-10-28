@@ -13,6 +13,17 @@
 
 ### 变更
 
+- Code Scanning 修正到零告警并立为纪律（2026-10-29，用户指令）：`security/code-scanning`
+  46 条 CodeQL 告警（`rust/cleartext-logging` 45、`rust/log-injection` 1）全部修复。
+  生产侧两处根因：`ProviderFactory::create` 接收了从未使用的已求值凭据（`_credential`），
+  使密钥值跨越装配边界并污染 dyn 派发调用的返回值链路——该参数删除，凭据由传输层自行
+  求值（失败时机不变）；`HttpClient` 原先把 `AuthInjection`（含密钥原文）驻留在实例里，
+  使经由该对象产生的返回值整体带污染——改为按请求求值、即用即弃。
+  测试侧把凭据／会话标识／证书材料派生值从断言消息中移除，只保留静态文案、常量与 bool
+  （CodeQL 的敏感来源是命名启发式，`.len()` 计数同样携带污染）。
+  新增 `.github/scripts/check-code-scanning.py`（事实源 GitHub API：0 open 为 GO、有告警为
+  FAIL、查询阻塞为 BLOCKED）与 `ci.yml` 的 `code-scanning` job（schedule 与手动触发）；
+  AGENTS.md §5.2 立“零告警铁律”，标准验证链与 G4 退出判据同步。
 - 发布链可重现构建（2026-10-29，ADR-047，用户指令）：同一提交的全新构建在**同机同工具链**
   下字节一致。`whcode-bin/build.rs` 支持外部注入 `WHCODE_BUILD_STAMP`（合法值透传、非法值
   告警回退墙钟）；`build-release.yml` 以 HEAD 提交时间导出 `WHCODE_BUILD_STAMP`（UTC `Z`）

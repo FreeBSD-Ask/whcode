@@ -2302,12 +2302,10 @@ mod tests {
         ] {
             assert!(
                 report.created.iter().any(|item| item == name),
-                "{name} 必须记录在 created：{:?}",
-                report.created
+                "{name} 必须记录在 created"
             );
         }
         assert!(report.regenerated_server_cert, "首次初始化必须生成自签证书");
-
         let settings = load_settings(&paths).expect("读取设置");
         assert_eq!(settings, TlsSettings::default());
         assert_eq!(
@@ -2434,8 +2432,7 @@ mod tests {
         ] {
             assert!(
                 report.created.iter().any(|item| item == name),
-                "{name} 必须记录在 created：{:?}",
-                report.created
+                "{name} 必须记录在 created"
             );
         }
         assert!(
@@ -2522,8 +2519,7 @@ mod tests {
                 .notes
                 .iter()
                 .any(|note| note.contains(&old_sha) && note.contains(&bundle_sha)),
-            "刷新提示须记录旧／新哈希：{:?}",
-            report.notes
+            "刷新提示须记录旧／新哈希"
         );
         let manifest = load_seed_manifest(&paths.seed_manifest()).expect("刷新后的清单");
         assert_eq!(manifest.seeded_sha256, bundle_sha);
@@ -2542,8 +2538,7 @@ mod tests {
         );
         assert!(
             report.notes.iter().any(|note| note.contains("已被")),
-            "须提示已修改：{:?}",
-            report.notes
+            "须提示已修改"
         );
         let status = status(&paths, NOW_MS).expect("状态");
         assert!(
@@ -2561,8 +2556,7 @@ mod tests {
         );
         assert!(
             report.notes.iter().any(|note| note.contains("缺失或损坏")),
-            "清单缺失须提示：{:?}",
-            report.notes
+            "清单缺失须提示"
         );
 
         write_file(&paths.seed_manifest(), b"not json");
@@ -2574,8 +2568,7 @@ mod tests {
         );
         assert!(
             report.notes.iter().any(|note| note.contains("缺失或损坏")),
-            "清单损坏须提示：{:?}",
-            report.notes
+            "清单损坏须提示"
         );
     }
 
@@ -2799,19 +2792,20 @@ mod tests {
         let der = cert.der();
         let meta = describe_cert_der(der.as_ref()).expect("解析 DER 证书");
 
-        assert!(meta.subject.contains("CN="), "主题：{}", meta.subject);
+        assert!(meta.subject.contains("CN="), "主题必须给出 CN");
         assert!(
             meta.sans.contains(&"describe.local".to_string()),
-            "SAN：{:?}",
-            meta.sans
+            "SAN 必须包含 describe.local"
         );
         assert!(
             meta.sans.contains(&"127.0.0.1".to_string()),
-            "SAN：{:?}",
-            meta.sans
+            "SAN 必须包含 127.0.0.1"
         );
         let not_after = meta.not_after.expect("必须给出生效时间");
-        assert!(not_after.ends_with('Z'), "ISO 8601：{not_after}");
+        assert!(
+            not_after.ends_with('Z'),
+            "到期时间必须是 UTC ISO 8601（以 Z 结尾）"
+        );
         assert!(meta.not_before.is_some());
         assert_eq!(meta.sha256, sha256_hex(der.as_ref()));
         assert_eq!(meta.sha256.len(), 64);
@@ -3115,8 +3109,7 @@ mod tests {
                 .inbound
                 .sans
                 .contains(&"external.local".to_string()),
-            "状态须展示外部证书 SAN：{:?}",
-            status_after.inbound.sans
+            "状态须展示外部证书 SAN"
         );
         assert_eq!(
             std::fs::read_to_string(paths.server_cert()).expect("读取"),
@@ -3421,7 +3414,7 @@ mod tests {
             Some(count) => {
                 assert!(
                     count > 0,
-                    "系统库读取成功时份数应大于 0（0 须在 notes 中说明）：{count}"
+                    "系统库读取成功时份数应大于 0（0 须在 notes 中说明）"
                 );
                 let extra_count = status
                     .outbound
@@ -3440,8 +3433,7 @@ mod tests {
                         .notes
                         .iter()
                         .any(|note| note.contains("系统证书库不可用")),
-                    "读库失败须写 notes：{:?}",
-                    status.notes
+                    "读库失败须写 notes"
                 );
                 assert_eq!(
                     status.outbound.effective_root_count, None,
@@ -3497,13 +3489,13 @@ mod tests {
             .expect("须记录过期重新生成的原因");
         assert!(
             regenerated_note.contains("旧指纹") && regenerated_note.contains(&expired_sha),
-            "须记录旧指纹 {expired_sha}：{regenerated_note}"
+            "须记录旧指纹"
         );
         let status_after = status(&paths, NOW_MS).expect("状态");
         let new_sha = status_after.inbound.sha256.as_deref().expect("新指纹");
         assert!(
             regenerated_note.contains("新指纹") && regenerated_note.contains(new_sha),
-            "须记录新指纹 {new_sha}：{regenerated_note}"
+            "须记录新指纹"
         );
         assert!(
             status_after
@@ -3522,8 +3514,7 @@ mod tests {
             report.notes.iter().any(|note| {
                 note.contains("到期") && note.contains(&format!("不足 {CERT_RENEW_WARN_DAYS} 天"))
             }),
-            "须按 {CERT_RENEW_WARN_DAYS} 天阈值告警到期：{:?}",
-            report.notes
+            "须按 CERT_RENEW_WARN_DAYS 天阈值告警到期"
         );
         let status_after = status(&paths, NOW_MS).expect("状态");
         assert_eq!(
