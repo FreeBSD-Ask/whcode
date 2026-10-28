@@ -135,6 +135,9 @@ cargo run -p whcode-bin --release --             # Windows 默认 GUI；--tui �
   可用对象 `{"url": ...}` 或字符串。URL 可为公网地址或
   `data:image/{png|jpeg|webp};base64,...` Data URL；支持 JPG/JPEG/PNG/WebP。
 - 已实测拒绝的形态：`type: "image_base64"` 返回 400 `invalid content`，不要使用。
+- 函数调用（2026-10-29 实测）：原生支持 OpenAI 兼容 `tools`/`tool_choice`/`tool_call_id`
+  流程，工具结果以 `role: "tool"` 回传，`function.arguments` 为可解析 JSON 字符串；
+  P0-2 工具系统无需 JSON 协议模拟。
 - 思考参数：`thinking` 必须是对象 `{"type": "enabled"}`（字符串会 400 `invalid arguments`）；
   `reasoning_effort` 取 `low`/`medium`/`high`/`max`/`none`，项目测试用 `max`。
 - 上限：上下文 256K（用户提供，官方未单列，标 `[待验证]`）、`max_tokens` 上限 65536；

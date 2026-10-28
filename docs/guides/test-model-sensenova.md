@@ -73,6 +73,8 @@ SenseNova 6.8 Flash Lite（`sensenova-6.8-flash-lite`）是轻量级**原生多�
   `{"type": "enabled"}`；传字符串会返回 400 `invalid arguments`。思考内容与最终输出共享
   `max_tokens` 配额。
 - **函数调用**：标准 `tools`/`tool_choice`/`tool_call_id` 流程；工具结果以 `role: tool` 回传。
+  **2026-10-29 实测确认可用**（见 §6.1）：OpenAI 兼容 function calling 原生支持，
+  无需 JSON 协议模拟。
 - **结构化输出**：`response_format: {"type": "json_object"}`；官方建议提示词中包含 `json`
   关键字并提供示例，且不要与思考模式同时依赖。
 - **采样参数**：`temperature` 默认 1、`top_p` 默认 1、`n` 范围 1—7、`seed` 为 Beta。
@@ -103,6 +105,30 @@ SenseNova 6.8 Flash Lite（`sensenova-6.8-flash-lite`）是轻量级**原生多�
 
 **结论**：图像输入可用，推荐 `content` 内容块 + `image_url` 对象 + `data:image/png;base64,...`；
 思考参数用对象形态。图片张数与总大小上限仍未实测，保持 `[待验证]`。
+
+### 6.1 函数调用实测（2026-10-29）
+
+用 `local/probe_sensenova_tools.py`（探针不入库）验证，凭据来自 `local/sensenova.env`，
+双工具定义（`read_file`/`list_dir`），全部 OpenAI 兼容请求形态：
+
+| 用例 | effort | 结果 |
+|---|---|---|
+| T1 单工具触发（“读取 src/main.rs”） | max | 200；`finish_reason: "tool_calls"`；`tool_calls[0]` 含 `id`（`call_` 前缀）、`type: "function"`、`function.name`、`function.arguments` 为**可解析 JSON 字符串** `{"path": "src/main.rs"}`；耗时 1.67s |
+| T2 工具结果回传（`role:"tool"` + `tool_call_id`） | low | 200；`finish_reason: "stop"`；模型基于回传内容产出最终文本——多轮工具消息格式可用 |
+| T3 双工具选择（“只列目录不读文件”） | low | 200；正确选择 `list_dir`（非 `read_file`），参数 `{"path": "docs"}` 正确 |
+| T4 `tool_choice: "none"` | low | 200；未产生 tool_calls，直接文本回答——`tool_choice` 控制可用 |
+
+**结论（P0-2 前置解除）**：sensenova-6.8-flash-lite **原生支持 OpenAI 兼容 function calling**，
+`tools`/`tool_choice`/`tool_call_id`/`role:"tool"` 全链路可用，P0-2 工具系统 ADR 无需
+JSON 协议模拟或换供应商方案。
+
+**行为观察（标 `[待验证]`，是否一致复现未多次采样）**：
+
+- `tool_choice: "none"` 时 prompt 用量 56 tokens（对照含工具定义的 403—475），
+  疑似服务端此时不把工具 schema 注入 prompt；
+- tool_calls 响应未见 `reasoning_content` 字段（与 2026-10-21 纯文本响应不同），
+  思考内容可能被服务端内部消费；
+- T1 `content` 为两个换行符（工具调用响应正文为空，仅 `tool_calls` 有值）。
 
 ## 7. 官方来源
 
