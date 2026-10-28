@@ -4,7 +4,7 @@
 > 作用等价于 `AGENTS.md` / `CLAUDE.md`。它是**入口与摘要**，不复制规范正文；
 > 与 `docs/guides/`、`specs/`、ADR 冲突时，以那些文档为准。
 
-**最后更新**：2026-10-28 | **适用版本**：`0.1.0`（M0 基线，未发布）
+**最后更新**：2026-10-29 | **适用版本**：`0.1.0`（M0 基线，未发布）
 
 ## 1. 项目定位与硬边界
 
@@ -111,6 +111,7 @@ python .github/scripts/check_counts.py                        # 任务/Check/FR 
 python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑；--target aarch64-pc-windows-msvc 只打包，ARM64 安装验证由 CI 原生 runner 执行，ADR-043）
 python .github/scripts/check-eol.py                   # LF + 无 BOM 审计
 python .github/scripts/check-workflows.py       # CI workflow 语义门禁（与 CI 同源）
+python .github/scripts/check-code-scanning.py   # Code Scanning 零 open 告警门禁（推送后复核；需 GitHub 凭据与网络）
 python .github/scripts/benchmarks/measure-resources.py               # 资源铁律 M1/C4：测试进程 RSS/CPU 达标
 python .github/scripts/benchmarks/check-frontend-budget.py    # 前端预算审计（涉及前端时）
 ```
@@ -221,6 +222,27 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
   离线门禁通过 → 提交。例外必须走 ADR，不得以“临时”为名跳过。
 - Dependabot 的 `github-actions` PR 只负责提议：合并前必须运行 `--update` 并提交清单，
   否则离线门禁失败；不得以自动升级为由绕过最新版本 + 固定 SHA 的要求。
+
+### 5.2 Code Scanning 零告警铁律（2026-10-28，用户指令）
+
+- `security/code-scanning`（CodeQL 默认分析）必须**时刻保持 0 条 open 告警**。
+  推送后必须运行 `python .github/scripts/check-code-scanning.py` 复核；`ci.yml` 的
+  `code-scanning` job 在每周 schedule 与手动触发时复核。查询被阻塞（无凭据/无网络/无
+  分析）时写“阻塞”并停下，不得跳过、不得以本地推断冒充通过（ADR-037）。
+- 告警只能由**修复代码 + CodeQL 重新分析**消除；禁止用 dismiss／关闭告警代替修复，
+  AI 不得以“误报”为由批量关闭。确属模型误判时，必须先写威胁模型与证据再申请，
+  且以代码级收口（bool 化、脱敏取值、非敏感命名）落地，不做静默压制。
+- 日志、事件、错误消息与**测试断言消息/panic 文案**一律不得插值凭据、会话标识或
+  证书材料派生值。CodeQL 的敏感来源是**命名启发式**：`secret`、`session_id`/
+  `session_key`、`user_id`、`cert` 词根、`api_key`/`api_token`/`oauth`/`auth_key`、
+  `password` 等；`bool` 与整型计数**不是**屏障（`.len()` 之和同样携带污染）。
+  因此断言消息只写静态文案或常量（如 `{name}`、`{DEFAULT_LIMIT}`），需要诊断值时
+  先降为 bool 再断言；函数名含 `redact`/`hash`/`crypt`/`encode` 不在敏感词表内。
+- 新增 `println!`/`eprintln!`/日志宏输出前，必须确认该值不沿“持有凭据的对象”传播：
+  dyn 派发的方法，其结果会继承接收者的污染，所以**已求值的密钥值不得驻留长期对象**
+  （`HttpClient` 按请求求值、即用即弃），已求值的凭据也不得跨装配边界传参。
+- 新增或修改测试后，必须在本机复跑 `.github/scripts/check-code-scanning.py`；
+  有 open 告警必须修完再推送，不得"先推再修"。
 
 ## 6. UI 与资源纪律
 

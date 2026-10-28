@@ -1158,3 +1158,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 .github/scripts/check-actions.py --online
+
+  # ---------------- Code Scanning 零 open 告警门禁（用户指令 2026-10-28） ----------------
+  # 纪律：security/code-scanning 必须时刻保持 0 条 open 告警（AGENTS.md §5.2）。
+  # 只在 schedule 与手动触发运行：push 触发的 CodeQL 分析需数分钟才完成，同一事件内查询
+  # 只能读到上一轮分析（刚修复、尚未重分析的告警仍为 open），会把修复误判为失败。
+  code-scanning:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 复核 open 告警为零（事实源：GitHub API，本地推断不作结论）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 .github/scripts/check-code-scanning.py
