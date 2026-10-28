@@ -143,6 +143,8 @@ Step5 finding-bound 修复（独立 post-fix 子代理复评）与后续跟进
 
 ## 修订记录
 
+- **2026-10-29**：新增交叉引用——本目录与 `research/zcode-comparison/` 已综合为统一三方
+  比较 [`research/synthesis/`](../synthesis/README.md)（含完整建议书）。
 - **2026-10-28（首版）**：基于插件缓存 `0.7.0-alpha2` 快照全量直读（README/模型 4 篇/
   ARCHITECTURE/主 Skill 及 references 9 篇/.agents 五技能/hooks/适配矩阵/ADR 索引/
   AGENTS.md/CI/specs 样例/friendly-cli/agent-verify-loop/observability/recovery-evidence/

@@ -38,6 +38,8 @@
 
 ## 修订记录
 
+- **2026-10-29**：新增交叉引用——本目录与 `research/better-harness/` 已综合为统一三方
+  比较 [`research/synthesis/`](../synthesis/README.md)（含完整建议书）。
 - **2026-10-28（首版入库）**：原差异书 `local/diff-zcode-vs-whcode.md` 按域拆分并**深度修订**。
   16 个并行源码直读子代理分域重读 ZCode（8234 TS 文件）与 WHCode 源码，逐域核实原判定、
   修正失效参照路径、验证存疑项。相对原稿的**结论修正**集中在：域 B（WHCode 非“”，
