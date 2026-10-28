@@ -113,3 +113,10 @@
   字节数、sha256 交叉校验，失败即中止；补记发布形态的真实成本（发布构建、打包安装验证、
   TUI／Web 冒烟、两次 artifact 下载）与 `v*` tag 批量推送触发发布的风险及操作纪律；
   登记发布包有效性（非空、有效 zip）与 `.sha256` 两字段判据。
+- **2026-10-28（ADR-043：ARM64 构建交付目标）**：矩阵由两档改三档（debug/amd64、
+  release/amd64、release/arm64，arm64 走 `windows-11-arm` 原生 runner，打包与安装验证在
+  原生宿主上取得真实运行证据）。发布作业下载双架构资产，`check-release.py --arch` 逐架构
+  校验后上传两个 zip 与两个 `.sha256`；安装验证记录改按架构命名
+  `install-verify-windows-{amd64,arm64}.txt`（决策 7 的“名称保持不变”仅 amd64 保留，
+  `smoke-evidence` 更名 `smoke-evidence-windows-<arch>`，属 ADR-043 批准的命名修订）。
+  ARM64 结论只作平台证据，不进入验收（ADR-013 不变）。

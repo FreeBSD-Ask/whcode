@@ -4,7 +4,7 @@
 > 作用等价于 `AGENTS.md` / `CLAUDE.md`。它是**入口与摘要**，不复制规范正文；
 > 与 `docs/guides/`、`specs/`、ADR 冲突时，以那些文档为准。
 
-**最后更新**：2026-10-24 | **适用版本**：`0.1.0`（M0 基线，未发布）
+**最后更新**：2026-10-28 | **适用版本**：`0.1.0`（M0 基线，未发布）
 
 ## 1. 项目定位与硬边界
 
@@ -14,6 +14,8 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 当前硬边界（不得自行放宽）：
 
 - 唯一验收目标：**Windows 11 amd64**，目标三元组 `x86_64-pc-windows-msvc`（ADR-013）；
+- **Windows ARM64 为构建交付目标**（`aarch64-pc-windows-msvc`，ADR-043）：产出 arm64 发布包，
+  CI `windows-arm64`（原生 `windows-11-arm` runner）结果只作平台证据，**不进入验收**；
 - **不支持任何 32 位平台**；
 - FreeBSD/NetBSD/OpenBSD/DragonFly **延后**：代码与文档保留，不作验收结论；FreeBSD/NetBSD
   在 GitHub CI 随 `main` 自动运行（仅作平台证据），OpenBSD/DragonFly 无原生测试、保留手工占位；
@@ -97,7 +99,7 @@ $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 标准验证链（提交前至少跑前五项；涉及布局/CI 时全跑）：
 
 ```powershell
-python .github/scripts/fetch-duckdb.py                        # 首次构建前置：拉取并校验 DuckDB
+python .github/scripts/fetch-duckdb.py                        # 首次构建前置：拉取并校验 DuckDB（交叉／ARM64 载荷：--target aarch64-pc-windows-msvc，ADR-043）
 cargo build --locked --workspace
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
@@ -106,7 +108,7 @@ cargo test -p whcode-tests --test layering       # 分层/平台分支/前端不
 cargo test -p whcode-tests --test layout         # 目录分类门禁
 python .github/scripts/traceability.py                        # FR↔任务↔Check 三方追溯（含缺口登记合规）
 python .github/scripts/check_counts.py                        # 任务/Check/FR 计数声明与实际一致
-python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑）
+python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑；--target aarch64-pc-windows-msvc 只打包，ARM64 安装验证由 CI 原生 runner 执行，ADR-043）
 python .github/scripts/check-eol.py                   # LF + 无 BOM 审计
 python .github/scripts/check-workflows.py       # CI workflow 语义门禁（与 CI 同源）
 python .github/scripts/benchmarks/measure-resources.py               # 资源铁律 M1/C4：测试进程 RSS/CPU 达标

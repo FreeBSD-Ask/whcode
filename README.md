@@ -2,7 +2,8 @@
 
 Rust 原生、本地优先的 LLM 编码 Harness。数据落在一个 DuckDB 文件里，事件可追踪，
 规格驱动开发的门禁由程序执行。当前只以 Windows 11 amd64（`x86_64-pc-windows-msvc`）
-为验收目标；BSD 的代码与文档保留，验收按 ADR-013 延后。
+为验收目标；Windows ARM64（`aarch64-pc-windows-msvc`）提供构建交付包，结论只作平台证据
+（ADR-043）；BSD 的代码与文档保留，验收按 ADR-013 延后。
 
 许可证 BSD-2-Clause（见 [LICENSE](./LICENSE)），版权归 FreeBSD 中文社区。
 Cargo 版本 `0.1.0`，尚未发布；变更见 [CHANGELOG.md](./CHANGELOG.md)。

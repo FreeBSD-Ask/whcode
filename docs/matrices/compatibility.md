@@ -7,6 +7,7 @@
 | 平台 | 状态 | 依据 |
 |---|---|---|
 | Windows 11 amd64（`x86_64-pc-windows-msvc`） | **唯一验收目标**，已验收（M0—M9 测试在本机通过；2026-10-23 进度复核后 `fmt`/`clippy`/`test`/契约/布局门禁全绿） | ADR-013 |
+| Windows 11 arm64（`aarch64-pc-windows-msvc`） | **构建交付目标**（ADR-043）：产出 arm64 发布包，在原生 `windows-11-arm` runner 取得平台证据；不进入验收 | ADR-043 |
 | FreeBSD / NetBSD | **延后**：代码级兼容（交叉类型检查通过），无原生构建与运行证据 | ADR-013、T020/T021 |
 | OpenBSD / DragonFly BSD | **延后**：移出原生目标，改由内置 SSH 客户端控制 | ADR-011/013 |
 | 32 位平台 | **不支持** | ADR-013 |

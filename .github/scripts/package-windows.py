@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Windows 发布包打包与安装验证（tasks.md T118；Check 118；ADR-013）。
+"""Windows 发布包打包与安装验证（tasks.md T118；Check 118；ADR-013／ADR-043）。
 
 纪律（与 AGENTS.md §5/§9、docs/guides/signal-chain-completeness.md 同源）：
   - 只用 Python 标准库；不调用 PowerShell 之外的 shell，不使用任何 GNU 工具；
@@ -11,11 +11,19 @@
     `未取得`，不以 0 条输出冒充通过；
   - 产物为 UTF-8 无 BOM、LF。
 
+架构口径（ADR-013／ADR-043）：
+  - `--target x86_64-pc-windows-msvc`（默认）：amd64 是唯一验收目标，可打包并安装验证；
+  - `--target aarch64-pc-windows-msvc`：ARM64 是构建交付目标（非验收目标）。exe 取自
+    `target/<三元组>/release/`（交叉构建）或 `target/release/`（原生 ARM64 宿主构建）；
+  - `--verify` 只在**宿主架构与目标架构一致**时允许：amd64 宿主无法运行 arm64 二进制，
+    反之亦然。交叉产物的安装验证由原生 ARM64 runner / 设备取得，本机只打包。
+
 用法：
-    python .github/scripts/package-windows.py                      # 只打包
+    python .github/scripts/package-windows.py                      # 只打包（主机架构）
     python .github/scripts/package-windows.py --verify             # 打包 + 仓库外解包运行验证
     python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt
     python .github/scripts/package-windows.py --out target/dist --verify
+    python .github/scripts/package-windows.py --target aarch64-pc-windows-msvc   # ARM64 包
 """
 
 from __future__ import annotations
@@ -34,7 +42,12 @@ import time
 import zipfile
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-TARGET_TRIPLE = "x86_64-pc-windows-msvc"
+
+#: 目标三元组 -> 包名中的架构标识与人类可读描述（ADR-043）。
+SUPPORTED_TARGETS: dict[str, str] = {
+    "x86_64-pc-windows-msvc": "amd64",
+    "aarch64-pc-windows-msvc": "arm64",
+}
 
 #: 随包发布的文档（仓库相对路径 -> 包内文件名）。兼容矩阵必须随包发布（Check 118）。
 DOC_FILES: dict[str, str] = {
@@ -67,6 +80,18 @@ def sha256(path: pathlib.Path) -> str:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def host_triple() -> str | None:
+    """宿主 Windows 架构 -> Rust 三元组；非 Windows 或未知架构返回 None。"""
+    if platform.system() != "Windows":
+        return None
+    machine = platform.machine().upper()
+    if machine == "AMD64":
+        return "x86_64-pc-windows-msvc"
+    if machine == "ARM64":
+        return "aarch64-pc-windows-msvc"
+    return None
 
 
 def read_version() -> str:
@@ -105,12 +130,23 @@ def read_version() -> str:
     raise RuntimeError("未能解析版本号（crate 与 workspace 均无显式 version）")
 
 
-def find_duckdb_dll() -> pathlib.Path:
-    """定位 `.github/scripts/fetch-duckdb.py` 校验过的预编译 DLL（多版本缓存时取最高版本目录）。"""
-    roots = sorted((REPO_ROOT / "vendor" / "duckdb").glob("*/duckdb.dll"))
+def find_duckdb_dll(target: str) -> pathlib.Path:
+    """定位 fetch-duckdb.py 校验过的预编译 DLL（按目标三元组；多版本缓存时取最高版本目录）。"""
+    roots = sorted((REPO_ROOT / "vendor" / "duckdb").glob(f"*/{target}/duckdb.dll"))
     if not roots:
-        raise RuntimeError("未找到 vendor/duckdb/<版本>/duckdb.dll，请先运行 python .github/scripts/fetch-duckdb.py")
+        raise RuntimeError(
+            f"未找到 vendor/duckdb/<版本>/{target}/duckdb.dll，"
+            "请先运行 python .github/scripts/fetch-duckdb.py "
+            + ("" if target == (host_triple() or "") else f"--target {target}")
+        )
     return roots[-1]
+
+
+def binary_path(target: str) -> pathlib.Path:
+    """发布 exe 路径：宿主构建在 target/release/，交叉构建在 target/<三元组>/release/。"""
+    if target == host_triple():
+        return REPO_ROOT / "target" / "release" / "whcode.exe"
+    return REPO_ROOT / "target" / target / "release" / "whcode.exe"
 
 
 def find_rustc() -> str | None:
@@ -130,24 +166,33 @@ def find_rustc() -> str | None:
     return None
 
 
-def collect_binaries() -> dict[str, pathlib.Path]:
-    exe = REPO_ROOT / "target" / "release" / "whcode.exe"
+def collect_binaries(target: str) -> dict[str, pathlib.Path]:
+    exe = binary_path(target)
     if not exe.is_file():
-        raise RuntimeError("未找到 target/release/whcode.exe，请先 cargo build --release --locked -p whcode-bin")
-    return {"whcode.exe": exe, "duckdb.dll": find_duckdb_dll()}
+        raise RuntimeError(
+            f"未找到 {exe.relative_to(REPO_ROOT)}，请先 cargo build --release --locked -p whcode-bin"
+            + ("" if target == (host_triple() or "") else f" --target {target}")
+        )
+    return {"whcode.exe": exe, "duckdb.dll": find_duckdb_dll(target)}
 
 
-def build_package(out_dir: pathlib.Path) -> tuple[pathlib.Path, list[dict[str, object]]]:
+def can_execute_locally(target: str) -> bool:
+    """宿主能否直接运行该目标的二进制（决定 --version 戳记与 --verify 是否可用）。"""
+    return target == host_triple()
+
+
+def build_package(out_dir: pathlib.Path, target: str) -> tuple[pathlib.Path, list[dict[str, object]]]:
     """组装包目录并压缩；返回 (zip 路径, 清单条目)。"""
     version = read_version()
-    package_name = f"whcode-{version}-windows-amd64"
+    arch = SUPPORTED_TARGETS[target]
+    package_name = f"whcode-{version}-windows-{arch}"
     staging = out_dir / package_name
     if staging.exists():
         shutil.rmtree(staging)
     staging.mkdir(parents=True)
 
     entries: list[dict[str, object]] = []
-    for name, source in collect_binaries().items():
+    for name, source in collect_binaries(target).items():
         shutil.copy2(source, staging / name)
         entries.append(
             {
@@ -174,9 +219,9 @@ def build_package(out_dir: pathlib.Path) -> tuple[pathlib.Path, list[dict[str, o
         source = REPO_ROOT / relative
         if not source.is_file():
             raise RuntimeError(f"缺失字体许可文件：{relative}")
-        target = staging / packed
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
+        target_path = staging / packed
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target_path)
         entries.append(
             {
                 "file": packed,
@@ -186,14 +231,20 @@ def build_package(out_dir: pathlib.Path) -> tuple[pathlib.Path, list[dict[str, o
             }
         )
 
-    stamp = subprocess.run(
-        [str(staging / "whcode.exe"), "--version"],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    )
+    executable_here = can_execute_locally(target)
+    if executable_here:
+        stamp = subprocess.run(
+            [str(staging / "whcode.exe"), "--version"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        binary_version = stamp.stdout.strip() or "未取得（--version 无输出）"
+    else:
+        # 交叉构建产物不能在当前宿主运行：显式标注，不伪造“可执行”信号（信号链完备原则）。
+        binary_version = f"未取得（{target} 产物不在 {platform.machine()} 宿主上执行）"
     rustc_path = find_rustc()
     rustc = (
         subprocess.run(
@@ -210,18 +261,24 @@ def build_package(out_dir: pathlib.Path) -> tuple[pathlib.Path, list[dict[str, o
     rustc_line = "未取得（rustc 不在 PATH，也未在 CARGO_HOME/~/.cargo/bin 找到）"
     if rustc is not None:
         rustc_line = (rustc.stdout.splitlines() or ["未取得（rustc 无输出）"])[0] or "未取得（rustc 无输出）"
+    scope_line = (
+        "Windows 11 amd64 唯一验收目标（ADR-013）；"
+        "FreeBSD/NetBSD/OpenBSD/DragonFly 延后，本包不作任何 BSD 运行结论"
+        if target == "x86_64-pc-windows-msvc"
+        else "Windows 11 amd64 为唯一验收目标（ADR-013）；ARM64 为构建交付目标（ADR-043），"
+        "本包不作验收结论，运行证据以原生 ARM64 采集为准"
+    )
     lines = [
-        "WHCode Windows 11 amd64 发布包",
+        f"WHCode Windows {arch} 发布包",
         f"package = {package_name}",
         f"version = {version}",
-        f"target_triple = {TARGET_TRIPLE}",
-        f"binary_version = {stamp.stdout.strip() or '未取得'}",
+        f"target_triple = {target}",
+        f"binary_version = {binary_version}",
         f"rustc = {rustc_line}",
         f"python = {platform.python_version()}",
         f"os = {platform.platform()}",
         f"generated_utc = {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
-        "platform_scope = Windows 11 amd64 唯一验收目标（ADR-013）；"
-        "FreeBSD/NetBSD/OpenBSD/DragonFly 延后，本包不作任何 BSD 运行结论",
+        f"platform_scope = {scope_line}",
         "",
         "清单（文件 / 字节 / SHA256 / 来源）：",
     ]
@@ -346,11 +403,12 @@ def verify_install(zip_path: pathlib.Path) -> tuple[int, list[dict[str, object]]
         shutil.rmtree(workspace_root, ignore_errors=True)
 
 
-def write_record(path: pathlib.Path, zip_path: pathlib.Path, entries: list[dict[str, object]], results: list[dict[str, object]]) -> None:
+def write_record(path: pathlib.Path, zip_path: pathlib.Path, entries: list[dict[str, object]], results: list[dict[str, object]], target: str) -> None:
     lines = [
-        "WHCode Windows 11 amd64 发布包安装验证记录（tasks.md T118／Check 118）",
+        f"WHCode Windows {SUPPORTED_TARGETS[target]} 发布包安装验证记录（tasks.md T118／Check 118；ADR-043 口径见 platform_scope）",
         f"utc = {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
         f"package = {zip_path.name}（{zip_path.stat().st_size} 字节，sha256={sha256(zip_path)}）",
+        f"target_triple = {target}",
         f"os = {platform.platform()}",
         f"machine = {platform.machine()}",
         "",
@@ -380,18 +438,32 @@ def write_record(path: pathlib.Path, zip_path: pathlib.Path, entries: list[dict[
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Windows 发布包打包与安装验证")
+    parser.add_argument(
+        "--target",
+        default="x86_64-pc-windows-msvc",
+        choices=sorted(SUPPORTED_TARGETS),
+        help="目标三元组（默认 amd64 验收目标；ARM64 见 ADR-043）",
+    )
     parser.add_argument("--out", default=str(REPO_ROOT / "target" / "dist"), help="输出目录（默认 target/dist）")
     parser.add_argument("--verify", action="store_true", help="仓库外临时目录解包并运行验证")
     parser.add_argument("--record", default=None, help="验证记录输出路径（需与 --verify 同用）")
     args = parser.parse_args()
+    target = args.target
 
-    if platform.system() != "Windows" or platform.machine() != "AMD64":
-        return fail(f"本脚本只在 Windows 11 amd64 上产出验收结论，当前为 {platform.platform()}/{platform.machine()}（ADR-013）")
+    host = host_triple()
+    if host is None:
+        return fail(f"本脚本只在 Windows 上产出交付物，当前为 {platform.platform()}（ADR-013）")
+    if args.verify and not can_execute_locally(target):
+        return fail(
+            f"宿主 {platform.machine()} 无法运行 {target} 产物，拒绝 --verify（交叉编译不冒充平台结论，"
+            "ADR-013／G-01）；ARM64 包的安装验证须在原生 ARM64 runner 或设备上取得（ADR-043）。"
+            "如只要打包，请去掉 --verify。"
+        )
 
     out_dir = pathlib.Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     try:
-        zip_path, entries = build_package(out_dir)
+        zip_path, entries = build_package(out_dir, target)
     except RuntimeError as exc:
         return fail(str(exc))
 
@@ -400,7 +472,7 @@ def main() -> int:
         print(f"  {entry['file']}: {entry['bytes']} 字节")
 
     if not args.verify:
-        print("未做安装验证（加 --verify 在仓库外解包运行）")
+        print("未做安装验证（加 --verify 在仓库外解包运行；仅宿主架构与目标一致时可用）")
         return 0
 
     failures, results = verify_install(zip_path)
@@ -412,7 +484,7 @@ def main() -> int:
         record = pathlib.Path(args.record)
         if not record.is_absolute():
             record = REPO_ROOT / record
-        write_record(record, zip_path, entries, results)
+        write_record(record, zip_path, entries, results, target)
         print(f"验证记录：{record}")
     if failures:
         return fail(f"安装验证未通过（{failures} 项失败）")

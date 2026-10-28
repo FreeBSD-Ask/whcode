@@ -12,6 +12,8 @@
 !/artifacts/progress-review-2026-10-23.md
 # 发布包安装验证与 quickstart 全流程留证属验收证据（Check 118／124），随仓库版本化。
 !/artifacts/install-verify-windows-amd64.txt
+# ADR-043：ARM64 安装验证记录由原生 windows-11-arm runner 产出，随仓库版本化后可复核。
+!/artifacts/install-verify-windows-arm64.txt
 !/artifacts/quickstart-run-2026-10-23.md
 # V-003 交互式 TUI 取证属验收证据（Check 24）：修复前后帧、像素截图、宽度与 resize 实测。
 !/artifacts/tui-v003-2026-10-23/

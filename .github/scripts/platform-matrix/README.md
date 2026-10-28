@@ -1,14 +1,15 @@
 # .github/scripts/platform-matrix
 
-平台依赖记录与交叉检查脚本（tasks.md T005/T020/T021；§9、§11.1）。Windows 11 amd64 为唯一验收目标；BSD 延后、仅手工触发（ADR-013）。
+平台依赖记录与交叉检查脚本（tasks.md T005/T020/T021；§9、§11.1）。Windows 11 amd64 为唯一验收目标；Windows ARM64 为构建交付目标（ADR-043，只作平台证据、不验收）；BSD 延后、仅手工触发（ADR-013）。
 
 **平台矩阵已并入 `.github/workflows/ci.yml`（2026-10-25 测试统一入口）**：
-GitHub Actions 只执行该目录下的文件；矩阵包含 windows/freebsd/netbsd/openbsd/dragonfly
-五个条目，`fail-fast: false` 并行执行，单平台失败不取消其他平台。本目录只保留脚本。
+GitHub Actions 只执行该目录下的文件；矩阵包含 windows/windows-arm64/freebsd/netbsd/openbsd/dragonfly
+六个条目，`fail-fast: false` 并行执行，单平台失败不取消其他平台。本目录只保留脚本。
 
 | 平台（矩阵条目） | 范围（ADR-013） | 状态 |
 |---|---|---|
 | Windows 11 x86_64 | **在范围内（唯一验收目标）** | 原生 runner；构建、测试、打包与安装验证，证据见 `artifacts/install-verify-windows-amd64.txt` 与 `artifacts/m0-report.md` |
+| Windows 11 arm64 | 构建交付目标（ADR-043，不验收） | `windows-11-arm` 原生 runner；全量测试、SSH 回环、运行时门控与依赖记录，只作平台证据 |
 | FreeBSD x86_64 | 延后 | vmactions VM；push main/dispatch 运行，仅作平台证据 |
 | NetBSD x86_64 | 延后 | vmactions VM；push main/dispatch 运行，仅作平台证据 |
 | OpenBSD x86_64 | 延后 | 仅 `workflow_dispatch` 占位（ADR-011；不作原生目标） |
@@ -26,7 +27,7 @@ GitHub Actions 只执行该目录下的文件；矩阵包含 windows/freebsd/net
 | `bsd-ssh-client.sh` | BSD SSH 客户端＋服务端回环验收记录（Check 25／96／99） |
 | `cross-check.py` | 本机跨目标**代码级**检查（见下方纪律：不构成运行验证） |
 
-发布包脚本在 `.github/scripts/` 根级：`.github/scripts/package-windows.py`（打包 + 仓库外解包安装验证；T118／Check 118）。
+发布包脚本在 `.github/scripts/` 根级：`.github/scripts/package-windows.py`（打包 + 仓库外解包安装验证；T118／Check 118；`--target` 支持 `x86_64-pc-windows-msvc`／`aarch64-pc-windows-msvc`，ARM64 的 `--verify` 只在原生宿主放行，ADR-043）。
 
 纪律：
 

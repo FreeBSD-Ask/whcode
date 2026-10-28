@@ -55,6 +55,13 @@
   工具链低于 `Cargo.toml` 的 `rust-version` 时（如 NetBSD pkgsrc rust 1.96.1 < 1.99）按
   环境限制显式 SKIP 并写明，不伪造通过。代价与失效条件同上一修订（VM 分钟、长期红灯风险；
   配额不可接受或上游 action 不再维护时回到手工触发）。
+- **2026-10-28（用户指令：Windows ARM64 构建交付目标，ADR-043）**：新增
+  `aarch64-pc-windows-msvc` 为**构建交付目标**（产出可下载、可安装验证的 arm64 发布包），
+  **唯一验收目标不变**（仍为 Windows 11 amd64）。`ci.yml` 平台矩阵新增 `windows-arm64`
+  （`windows-11-arm` 原生 runner）跑全量测试、SSH 回环、运行时门控与依赖记录，
+  Windows x64 lane 另加 ARM64 交叉 `cargo check`；两者结论一律只作平台证据，不进入验收。
+  交叉检查沿用本 ADR 决策 4 的口径：代码级可构建性**不冒充平台结论**，ARM64 的真实运行
+  证据由原生 runner 取得。代价与失效条件见 ADR-043（预览 runner 风险、双包体积、配额）。
 
 ## 影响
 

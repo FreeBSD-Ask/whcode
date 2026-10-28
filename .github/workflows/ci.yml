@@ -7,6 +7,10 @@
 #   - schedule（每周一 03:17 UTC）：只跑 action 版本联网审计，不跑测试（job 级 if 门控）。
 #   - workflow_dispatch 的 `desktop` 输入：额外跑 GUI 探针；托管 runner 无交互桌面，
 #     结果按 headless/虚拟显示口径记录，不替代真实桌面人工证据。
+#   - 平台矩阵含 windows-arm64（windows-11-arm 原生 runner，ADR-043）：跑全量测试、SSH
+#     回环、运行时门控与依赖记录，结论只作平台证据，不进验收（验收仍为 Windows 11
+#     amd64，ADR-013）；Windows x64 lane 另含 ARM64 交叉构建检查（cargo check --target，
+#     代码级可构建性，不冒充平台结论）。
 #
 # 纪律：
 #   - 所有 job 只读仓库；上传 artifact 使用 Actions 运行时令牌。
@@ -51,6 +55,8 @@ jobs:
         include:
           - platform: windows
             os: windows-latest
+          - platform: windows-arm64
+            os: windows-11-arm
           - platform: freebsd
             os: ubuntu-latest
           - platform: netbsd
@@ -78,6 +84,16 @@ jobs:
       - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
         if: matrix.platform == 'windows'
         run: python .github/scripts/fetch-duckdb.py
+
+      # ADR-043：cargo check 只做目标代码级类型检查，不链接、不运行 arm64 二进制；
+      # aws-lc-sys 等 C 依赖的目标编译仍会发生，故先拉取 arm64 载荷并覆盖 DUCKDB_LIB_DIR。
+      - name: ARM64 交叉构建检查（ADR-043：代码级可构建性，不作平台结论）
+        if: matrix.platform == 'windows'
+        run: |
+          rustup target add aarch64-pc-windows-msvc
+          python .github/scripts/fetch-duckdb.py --target aarch64-pc-windows-msvc
+          $env:DUCKDB_LIB_DIR = "vendor/duckdb/2.0.0/aarch64-pc-windows-msvc"
+          cargo check --locked --workspace --target aarch64-pc-windows-msvc
 
       - name: 格式与静态检查（T003）
         if: matrix.platform == 'windows'
@@ -204,6 +220,70 @@ jobs:
       - name: 前端预算（FR-618／ADR-014）
         if: matrix.platform == 'windows'
         run: python .github/scripts/benchmarks/check-frontend-budget.py
+
+      # ---------------- Windows ARM64（windows-11-arm 原生；ADR-043 平台证据层） ----------------
+      # 结论只作平台证据，不进验收（ADR-013：验收仅 Windows 11 amd64）；本 lane 不重复
+      # 架构无关门禁（fmt／clippy／EOL／计数／追溯已在 x64 lane 执行）。
+      - name: 显示锁定工具链（rust-toolchain.toml）
+        if: matrix.platform == 'windows-arm64'
+        run: rustup show
+
+      - name: 拉取并校验预编译 DuckDB（宿主推断为 arm64 载荷，ADR-043）
+        if: matrix.platform == 'windows-arm64'
+        run: python .github/scripts/fetch-duckdb.py
+
+      - name: 测试（全量；真实原生运行）
+        if: matrix.platform == 'windows-arm64'
+        # [env] 表不覆盖已存在的 OS 环境变量：显式导出 arm64 载荷目录，
+        # 覆盖 .cargo/config.toml 的 amd64 默认值（ADR-043）。
+        env:
+          DUCKDB_LIB_DIR: vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
+        run: cargo test --locked --workspace
+
+      - name: 内置 SSH 回环验收（原生 ARM64 客户端与服务端）
+        if: matrix.platform == 'windows-arm64'
+        shell: pwsh
+        env:
+          DUCKDB_LIB_DIR: vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
+        run: |
+          New-Item -ItemType Directory -Force artifacts/ssh-acceptance | Out-Null
+          cargo test --locked -p whcode-ssh -- --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/ssh-acceptance/windows-arm64-client.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $client = Select-String -Path artifacts/ssh-acceptance/windows-arm64-client.txt `
+            -Pattern 'bsd_client_acceptance_loopback \.\.\. ok'
+          $server = Select-String -Path artifacts/ssh-acceptance/windows-arm64-client.txt `
+            -Pattern 'bsd_server_acceptance_loopback \.\.\. ok'
+          if (-not $client -or -not $server) {
+            Write-Output "::error title=SSH loopback (Windows ARM64)::验收用例未同时执行（零不等于通过）"
+            exit 1
+          }
+          Write-Output "::notice title=SSH loopback (Windows ARM64)::GO（客户端与服务端回环用例均已执行）"
+
+      - name: 上传 ARM64 SSH 回环验收记录
+        if: matrix.platform == 'windows-arm64'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ssh-acceptance-windows-arm64
+          if-no-files-found: warn
+          path: artifacts/ssh-acceptance/
+
+      - name: 运行时 feature 门控测试（T110／ADR-029：原生 ARM64 引擎路径）
+        if: matrix.platform == 'windows-arm64'
+        env:
+          DUCKDB_LIB_DIR: vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
+        run: cargo test --locked -p whcode-runtime --lib --features runtime-js
+
+      - name: 产出依赖记录（V-001，ARM64 原生 runner）
+        if: matrix.platform == 'windows-arm64'
+        run: python .github/scripts/platform-matrix/record_deps.py artifacts
+
+      - name: 上传 ARM64 依赖记录
+        if: matrix.platform == 'windows-arm64'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deps-windows-arm64
+          path: artifacts/deps-windows.txt
 
       # ---------------- FreeBSD（最新 15.x release） ----------------
       - name: 在 FreeBSD VM 中构建、测试与记录
@@ -653,7 +733,7 @@ jobs:
       # check-run 注解是公开可读的机器证据（日志下载需登录）：把 store／SSH 判据行
       # 以 notice 形式附在 job 上，供无凭据复核；NO-GO 不改写、缺文件显式告警。
       - name: 公布 BSD 验收结论（公开注解）
-        if: always() && matrix.platform != 'windows' && github.event_name != 'pull_request'
+        if: always() && matrix.platform != 'windows' && matrix.platform != 'windows-arm64' && github.event_name != 'pull_request'
         run: |
           set -eu
           found=0

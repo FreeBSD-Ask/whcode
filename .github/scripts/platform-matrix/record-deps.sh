@@ -61,13 +61,26 @@ pinned_channel=$(
 [ -n "${pinned_channel:-}" ] || pinned_channel="<未取得证据>"
 
 # DuckDB 版本来源优先级（每平台只取一处，来源写进记录文件，避免把包版本误当运行期证据）：
-#   1. vendor/duckdb/<version>/：官方预编译库解包目录，目录名即版本；
+#   1. vendor/duckdb/<version>/<triple>/：官方预编译库解包目录（按目标三元组分目录，
+#      ADR-043；优先当前宿主三元组）；
 #   2. WHCODE_DUCKDB_VERSION：调用方已用包管理器校验过版本时显式传入，免重复探测；
 #   3. 系统包：FreeBSD `pkg info duckdb`、NetBSD `pkg_info duckdb`。CI 的 BSD 矩阵走
 #      包管理器安装的 libduckdb，没有 vendor 目录；缺这条兜底时四类版本中的 DuckDB
 #      一项就永远是占位符（run 40159516841 的 deps-freebsd.txt 即此情形）。
-duckdb_dir=$(ls -d vendor/duckdb/*/ 2>/dev/null | grep -v '\.cache' | head -n 1)
-duckdb_dir=${duckdb_dir%/}
+duckdb_dir=""
+for candidate in vendor/duckdb/*/*/; do
+    [ -d "$candidate" ] || continue
+    case $candidate in *'.cache'*) continue ;; esac
+    candidate=${candidate%/}
+    if [ "$(basename "$candidate")" = "${host_triple:-}" ]; then
+        duckdb_dir=$candidate
+        break
+    fi
+done
+if [ -z "$duckdb_dir" ]; then
+    duckdb_dir=$(ls -d vendor/duckdb/*/*/ 2>/dev/null | grep -v '\.cache' | head -n 1)
+    duckdb_dir=${duckdb_dir%/}
+fi
 duckdb_version="<未取得证据：无 vendor 目录与 duckdb 系统包>"
 duckdb_source="<未取得证据>"
 duckdb_payload="<未取得证据>"
@@ -75,8 +88,8 @@ duckdb_sha="<未取得证据>"
 duckdb_lib=""
 duckdb_known=0
 
-if [ -n "${duckdb_dir:-}" ]; then
-    duckdb_version=$(basename "$duckdb_dir")
+if [ -n "$duckdb_dir" ]; then
+    duckdb_version=$(basename "$(dirname "$duckdb_dir")")
     duckdb_source="vendor:$duckdb_dir"
     duckdb_payload=$duckdb_dir
     duckdb_lib=$(ls "$duckdb_dir"/libduckdb.so "$duckdb_dir"/libduckdb.dylib \

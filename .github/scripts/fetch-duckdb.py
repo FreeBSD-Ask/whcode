@@ -5,12 +5,15 @@
   - 只使用官方发布物（DuckDB 官方预编译包，MIT 许可）；来源 URL 与 SHA256 固定在
     本文件，不得从其他来源替换；
   - 校验失败即中止，不得以未校验的文件继续构建（ADR-010 报告纪律）；
-  - 解包到 `vendor/duckdb/<version>/`；该目录不入库（见 .gitignore），但拉取后
-    会在其中写入 PROVENANCE.txt 作为本机留证。
+  - 解包到 `vendor/duckdb/<版本>/<目标三元组>/`；该目录不入库（见 .gitignore），但
+    拉取后会在其中写入 PROVENANCE.txt 作为本机留证。按三元组分目录后，同一版本
+    的多架构载荷（amd64 与 arm64，ADR-043）可共存，互不覆盖。
 
-平台覆盖（实测，见 docs/adr/ADR-DB-BUILD.md）：
+平台覆盖（实测，见 docs/adr/ADR-DB-BUILD.md 与 docs/adr/ADR-043-windows-arm64-build-target.md）：
   - Windows x86_64（x86_64-pc-windows-msvc）：官方提供
     `duckdb-shared-libs-windows-amd64.tar.gz`（tar.gz，非 zip）；
+  - Windows ARM64（aarch64-pc-windows-msvc）：官方提供
+    `duckdb-shared-libs-windows-arm64.tar.gz`（ADR-043：构建交付目标，验收仍为 amd64）；
   - FreeBSD / NetBSD / OpenBSD / DragonFly：官方**不提供**预编译包，须经 pkg/ports 或
     以 `bundled-cmake` 源码构建；属后续真实平台验证项，本脚本显式报错而**不**静默降级。
 
@@ -18,8 +21,10 @@
 含反斜杠或盘符的成员名；归档内符号链接等其他类型不落盘。
 
 用法：
-    python .github/scripts/fetch-duckdb.py            # 拉取 + 校验 + 解包
-    python .github/scripts/fetch-duckdb.py --check    # 只校验已存在的缓存/已解包目录
+    python .github/scripts/fetch-duckdb.py            # 按主机三元组拉取 + 校验 + 解包
+    python .github/scripts/fetch-duckdb.py --check    # 只校验已解包目录
+    python .github/scripts/fetch-duckdb.py --target aarch64-pc-windows-msvc
+                                                      # 交叉构建前置：显式拉取目标三元组载荷
 """
 
 from __future__ import annotations
@@ -46,6 +51,12 @@ PACKAGES: dict[str, tuple[str, str, int]] = {
         "duckdb-shared-libs-windows-amd64.tar.gz",
         "2b83169128239de5f45fe21de80f99bf436e53aa4bb24020dd951a1ba8d4b95f",
         19_833_650,
+    ),
+    # ADR-043（2026-10-28）：SHA256 与字节数为官方发布物实测值（下载后复算），非官方公布值。
+    "aarch64-pc-windows-msvc": (
+        "duckdb-shared-libs-windows-arm64.tar.gz",
+        "159ce60eb587112b8c5f290b8beea56af5f13be4d13679de127ad9bfaafb7447",
+        18_389_170,
     ),
 }
 
@@ -76,11 +87,14 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 def host_target() -> str:
-    """推断当前主机对应的 Rust 目标三元组（仅覆盖本项目平台矩阵中的 Windows）。"""
+    """推断当前主机对应的 Rust 目标三元组（覆盖本项目平台矩阵中的 Windows 两架构）。"""
     system = platform.system().lower()
     machine = platform.machine().lower()
-    if system == "windows" and machine in {"amd64", "x86_64"}:
-        return "x86_64-pc-windows-msvc"
+    if system == "windows":
+        if machine in {"amd64", "x86_64"}:
+            return "x86_64-pc-windows-msvc"
+        if machine in {"arm64", "aarch64"}:
+            return "aarch64-pc-windows-msvc"
     return f"{machine}-unknown-{system}"
 
 
@@ -92,8 +106,9 @@ def sha256_of(path: pathlib.Path) -> str:
     return digest.hexdigest()
 
 
-def vendor_dir() -> pathlib.Path:
-    return REPO_ROOT / "vendor" / "duckdb" / DUCKDB_VERSION
+def vendor_dir(target: str | None = None) -> pathlib.Path:
+    base = REPO_ROOT / "vendor" / "duckdb" / DUCKDB_VERSION
+    return base if target is None else base / target
 
 
 def cache_dir() -> pathlib.Path:
@@ -127,7 +142,7 @@ def fetch(target: str, archive: str, expected: str, expected_size: int) -> pathl
         )
     print(f"SHA256 校验通过：{actual}（{actual_size} 字节）")
 
-    dest = vendor_dir()
+    dest = vendor_dir(target)
     if dest.exists():
         shutil.rmtree(dest)
     dest.mkdir(parents=True)
@@ -209,32 +224,60 @@ def extract_tar_gz(archive_path: pathlib.Path, dest: pathlib.Path) -> dict[str, 
     return extracted
 
 
-def verify_extracted() -> int:
-    dest = vendor_dir()
-    if not dest.is_dir():
-        print(f"未找到 {dest}：请先执行 python .github/scripts/fetch-duckdb.py")
+def extracted_targets() -> list[str]:
+    """已解包的目标三元组列表（vendor/duckdb/<版本>/ 下的三元组子目录，排除 .cache）。"""
+    root = vendor_dir()
+    if not root.is_dir():
+        return []
+    return sorted(p.name for p in root.iterdir() if p.is_dir() and p.name != ".cache")
+
+
+def verify_extracted(target: str | None = None) -> int:
+    if target is not None:
+        dest = vendor_dir(target)
+        if not dest.is_dir():
+            print(f"未找到 {dest}：请先执行 python .github/scripts/fetch-duckdb.py --target {target}")
+            return 1
+        missing = [name for name in ("duckdb.h", "duckdb.dll") if not (dest / name).is_file()]
+        if missing:
+            print(f"{dest} 缺少必需文件：{missing}")
+            return 1
+        print(f"已解包目录可用：{dest}")
+        return 0
+
+    targets = extracted_targets()
+    if not targets:
+        print(
+            f"未找到 {vendor_dir()}/<目标三元组>："
+            "请先执行 python .github/scripts/fetch-duckdb.py [--target <三元组>]"
+        )
         return 1
-    missing = [name for name in ("duckdb.h", "duckdb.dll") if not (dest / name).is_file()]
-    if missing:
-        print(f"{dest} 缺少必需文件：{missing}")
-        return 1
-    sources = json.dumps(
-        {target: archive for target, (archive, _, _) in PACKAGES.items()},
-        ensure_ascii=False,
-    )
-    print(f"已解包目录可用：{dest}（预编译来源：{sources}）")
-    return 0
+    ready: dict[str, str] = {}
+    for name in targets:
+        dest = vendor_dir(name)
+        missing = [item for item in ("duckdb.h", "duckdb.dll") if not (dest / item).is_file()]
+        ready[name] = (
+            f"{dest}（预编译来源：{json.dumps({name: archive for target, (archive, _, _) in PACKAGES.items() if target == name}, ensure_ascii=False)}）"
+            if not missing
+            else f"{dest} 缺少必需文件：{missing}"
+        )
+    for name, line in ready.items():
+        print(line)
+    return 0 if all("缺少" not in line for line in ready.values()) else 1
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="拉取并校验预编译 DuckDB")
     parser.add_argument("--check", action="store_true", help="只校验，不下载")
+    parser.add_argument(
+        "--target",
+        default=None,
+        choices=sorted(PACKAGES),
+        help="目标三元组（默认按主机推断；交叉构建时显式指定目标架构）",
+    )
     args = parser.parse_args()
 
-    if args.check:
-        return verify_extracted()
-
-    target = host_target()
+    target = args.target if args.target is not None else host_target()
     if target in NO_PREBUILT:
         sys.exit(
             f"{target} 无官方预编译包：请改用系统包（pkg/ports）或以 bundled-cmake "
@@ -244,9 +287,12 @@ def main() -> int:
         supported = ", ".join(sorted(PACKAGES))
         sys.exit(f"未登记预编译来源的目标 {target}；已登记：{supported}")
 
+    if args.check:
+        return verify_extracted(target)
+
     archive, expected, expected_size = PACKAGES[target]
     fetch(target, archive, expected, expected_size)
-    return verify_extracted()
+    return verify_extracted(target)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,14 @@
 
 ### 变更
 
+- Windows ARM64 构建交付目标（2026-10-28，ADR-043，用户指令）：新增
+  `aarch64-pc-windows-msvc` 发布包 `whcode-<version>-windows-arm64.zip`（与 amd64 包同批
+  发布，各带 `.sha256`）；`ci.yml` 平台矩阵新增 `windows-arm64` 条目（`windows-11-arm`
+  原生 runner：全量测试、SSH 回环、运行时门控与依赖记录），Windows x64 lane 增加 ARM64
+  交叉 `cargo check --target`；`build-release.yml` 矩阵改为 debug/amd64、release/amd64、
+  release/arm64 三档。预编译 DuckDB 改为 `vendor/duckdb/<版本>/<三元组>/` 多架构布局，
+  `fetch-duckdb.py --target`、`package-windows.py --target`、`check-release.py --arch`
+  随之扩展。**验收口径不变**：Windows 11 amd64 仍是唯一验收目标，ARM64 结论只作平台证据。
 - ⚠ **BREAKING**：Windows 下无子命令启动默认进入 **GUI**（`whcode` 等价 `whcode gui`），
   不再默认进入 TUI（2026-10-25，T203）。显式入口：`--tui` 终端界面、`--cli` 命令行、
   `--gui` 与 `gui` 子命令等价；其他平台无参数仍进 TUI。选择器可放在子命令前后，两个不同

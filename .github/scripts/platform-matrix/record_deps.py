@@ -202,22 +202,41 @@ def find_windows_sdk() -> str:
     return ", ".join(versions) if versions else f"{NO_EVIDENCE}：未安装 Windows SDK>"
 
 
+def host_triple() -> str:
+    """宿主 Windows 架构 -> Rust 三元组；其他系统返回空串（BSD 无 vendor 载荷）。"""
+    if platform.system() != "Windows":
+        return ""
+    machine = platform.machine().upper()
+    if machine == "AMD64":
+        return "x86_64-pc-windows-msvc"
+    if machine == "ARM64":
+        return "aarch64-pc-windows-msvc"
+    return ""
+
+
 def find_duckdb() -> tuple[str, str, pathlib.Path | None]:
     root = REPO_ROOT / "vendor" / "duckdb"
-    candidates = (
+    version_dirs = (
         [p for p in root.glob("*") if p.is_dir() and not p.name.startswith(".")]
         if root.is_dir()
         else []
     )
-    if not candidates:
+    if not version_dirs:
         return f"{NO_EVIDENCE}：未拉取预编译库>", f"{NO_EVIDENCE}：未拉取预编译库>", None
-    newest = sorted(candidates, key=lambda p: p.name, reverse=True)[0]
-    lib_names = ("duckdb.dll", "libduckdb.so", "libduckdb.dylib")
-    for name in lib_names:
-        payload = newest / name
-        if payload.is_file():
-            return newest.name, sha256_of(payload), newest
-    return newest.name, f"{NO_EVIDENCE}：目录中未找到动态库>", newest
+    newest = sorted(version_dirs, key=lambda p: p.name, reverse=True)[0]
+    # ADR-043：vendor/duckdb/<版本>/<三元组>/ 按目标三元组分目录；优先记录当前宿主
+    # 架构的载荷（本脚本只记录宿主证据，交叉构建载荷由其所属平台记录）。
+    triples = sorted(p for p in newest.iterdir() if p.is_dir())
+    if not triples:
+        return newest.name, f"{NO_EVIDENCE}：目录中未找到三元组载荷>", newest
+    host = host_triple()
+    ordered = [p for p in triples if p.name == host] + [p for p in triples if p.name != host]
+    for candidate in ordered:
+        for name in ("duckdb.dll", "libduckdb.so", "libduckdb.dylib"):
+            payload = candidate / name
+            if payload.is_file():
+                return newest.name, sha256_of(payload), candidate
+    return newest.name, f"{NO_EVIDENCE}：目录中未找到动态库>", ordered[0]
 
 
 def runtime_engine_version(cargo: str | None) -> str:

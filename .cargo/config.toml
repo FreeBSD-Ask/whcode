@@ -1,10 +1,13 @@
 # 构建期环境（tasks.md T022、docs/adr/ADR-DB-BUILD.md）。
 [env]
 # 预编译 DuckDB（唯一默认持久化后端，ADR-001）。由 .github/scripts/fetch-duckdb.py 拉取并校验
-# SHA256 后解包至此目录；该目录不入库（.gitignore），未拉取时构建显式失败——
-# 禁止静默改用其他后端或未经批准的源码构建（§9.1）。
-# 说明：本目录只有 Windows 预编译包；BSD 平台走 pkg/ports 或源码构建（见 ADR-DB-BUILD）。
-DUCKDB_LIB_DIR = { value = "vendor/duckdb/2.0.0", relative = true }
+# SHA256 后解包至 vendor/duckdb/<版本>/<目标三元组>/（按三元组分目录，多架构载荷可共存，
+# ADR-043）；该目录不入库（.gitignore），未拉取时构建显式失败——禁止静默改用其他后端或
+# 未经批准的源码构建（§9.1）。
+# 说明：此处指向**主机默认架构**（amd64）的载荷；交叉构建（cargo build --target
+# aarch64-pc-windows-msvc）时在环境中导出 DUCKDB_LIB_DIR 指向 arm64 子目录——
+# cargo [env] 表不覆盖已存在的 OS 环境变量，故导出值优先生效（CI 工作流已按此约定）。
+DUCKDB_LIB_DIR = { value = "vendor/duckdb/2.0.0/x86_64-pc-windows-msvc", relative = true }
 
 # 构建期环境（tasks.md T025）：SSH 客户端原型引入 russh → aws-lc-rs → aws-lc-sys。
 # aws-lc-sys 在 Windows x86_64 上默认调用 nasm.exe 汇编优化代码；本机未安装 NASM，
