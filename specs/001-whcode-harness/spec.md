@@ -255,6 +255,11 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
 - **FR-722**: turn 内全部关键事件（请求开始/完成/失败、工具调用开始/结束）以 domain `EventKind` 稳定名经 store 写者落 `events` 表，payload 不含正文；turn 内 user/assistant/tool 消息轮次落 `messages` 表；turn_id 贯穿 turn 内事件与信封（扩展 FR-204 关联链）；信封 events 数组命名与 `EventKind` 稳定名收敛（P0）
 - **FR-723**: 单会话同进程至多一个活跃 turn；用户取消经现有 `.live`/`.cancel` 标记机制在每轮迭代与每个 chunk 前生效（“下一 chunk 边界生效”语义不变）（P0）
 - **FR-724**: 模型返回工具调用而工具执行未接线时，记录 ToolCallStarted/ToolCallFinished（state=unknown、未接线标记）并终止 turn；不得静默忽略或伪造执行结果；工具系统（P0-2）接线后以真实执行替换（P0）
+- **FR-725**: 工具注册表（whcode-tools）：每个工具登记稳定名、描述、参数 JSON Schema 子集与副作用范围声明；重名/别名冲突拒绝注册；提供 provider 可见清单供模型请求 tools 数组组装（ADR-048）（P0）
+- **FR-726**: 内建工具六件套：read_file、write_file、edit_file（精确串替换+唯一性校验）、list_dir、glob（有界遍历）、grep（字面/单正则，结果有界）；读工具不修改工作区，写工具 产出 diff 摘要而非全文（ADR-048 §2.2）（P0）
+- **FR-727**: 工具执行经 store tool_exec 三步登记（record_intent→mark_running→record_result），终态三值 succeeded/failed/unknown；崩溃恢复经 recover_uncertain 标记 unknown、不重放副作用；事件 ToolCallStarted/ToolCallFinished 落 events 表且 payload 不含正文与工具结果（FR-410、FR-722 口径）（P0）
+- **FR-728**: 模型工具调用解析与回填：openai 兼容族 tool_calls 帧解析（其余协议标 [待验证]）；turn 内按声明顺序串行执行，每轮工具调用数硬上限（默认 8，可配置）；结果以 role:"tool" 消息回填下一轮，超 64 KiB 截断并附 truncated 标记；结果正文不进事件与日志 （ADR-048 §2.3—2.6）（P0）
+- **FR-729**: 工具安全边界：路径参数解析为工作区内相对路径，拒绝绝对路径、.. 越界与工作区外目标；执行前经 authz 权限面；输入校验拒绝未知字段与类型不符（ADR-048 §2.7）（P0）
 
 **Spec Kit / SDD 工作流（§4.3）**
 
