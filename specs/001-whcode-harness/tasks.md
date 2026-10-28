@@ -505,7 +505,7 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 
 ## Phase 22: Agent Turn 循环编排器（P0-1，Priority: P1）
 
-**Purpose**: 差异比较书 `local/diff-zcode-vs-whcode.md` §4 P0-1（2026-10-28）：把 `llm run`
+**Purpose**: 研究 `research/zcode-comparison/` §4 P0-1（2026-10-28 按 ADR-045 入库）：把 `llm run`
 的单次模型调用升级为多轮 agent turn 循环（中止检查→预算检查→消息组装→模型 step→终止判定→
 工具执行回填接线点），补齐“无 turn 循环即非编码 Harness”的结构性缺失。决策见 ADR-044
 （2026-10-28 已批准）；实施计划见 `specs/001-whcode-harness/plan-p0-1-turn-loop.md`。

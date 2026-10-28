@@ -65,6 +65,8 @@ fn top_level_entries_follow_layout() {
         "assets",
         "crates",
         "docs",
+        // 外部参照与调研证据（对照/差距/参照路径/存疑项）；不承载需求承诺，ADR-045。
+        "research",
         // 可移植工程准则（供其他项目复制；不依赖本项目代码）。
         "engineering-doctrine",
         "local",

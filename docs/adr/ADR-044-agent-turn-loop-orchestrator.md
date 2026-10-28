@@ -3,8 +3,9 @@
 - **状态**：已批准（2026-10-28，用户审阅通过；G0—G5 落入 spec/tasks/checklist 随批准执行）
 - **日期**：2026-10-28
 - **责任**：Agent 核心循环负责人
-- **相关**：差异比较书 `local/diff-zcode-vs-whcode.md` §4 P0-1（不入库）、ADR-007、ADR-018、
-  ADR-031、ADR-032、FR-105/107、FR-201—208、FR-410、NFR-215/216
+- **相关**：差异比较研究 `research/zcode-comparison/` §4 P0-1（域 A、actionable-gaps.md P0；
+  `local/diff-zcode-vs-whcode.md` 已按 ADR-045 迁移入库为研究证据，本地留档）、ADR-007、
+  ADR-018、ADR-031、ADR-032、FR-105/107、FR-201—208、FR-410、NFR-215/216
 
 ## 1. 事实与证据
 
@@ -87,7 +88,8 @@
 ## 3. 三重时间
 
 - **过去来源**：ADR-031/032 交付 LLM 单次调用与四端共用入口；ADR-007/FR-410 交付工具登记
-  协议；FR-105/107 交付上下文预算加载；比较书 §4 判定 turn 循环为 P0（决定项目成立）。
+  协议；FR-105/107 交付上下文预算加载；研究 `research/zcode-comparison/actionable-gaps.md`
+  P0 判定 turn 循环为 P0（决定项目成立）。
 - **现在证据**：上节双方源码直读；`StubProvider` 可扩展为多步剧本驱动循环测试（无网络、
   可复现）。
 - **将来失效条件**：P0-2 工具系统落地（“未接线终止”路径被真实执行替换）；P1-3 自动压缩

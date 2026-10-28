@@ -4,7 +4,8 @@
 - **状态**：已批准并入库（2026-10-28 用户审阅通过 ADR-044；同日 FR-718—724／T204—T212／
   Check 300—308 落入 spec.md／tasks.md／checklist.md，本计划按规则入
   `specs/001-whcode-harness/`）
-- **来源**：`local/diff-zcode-vs-whcode.md` §4 P0-1（差异比较书，不入库）+
+- **来源**：`research/zcode-comparison/` §4 P0-1（域 A／actionable-gaps.md P0，2026-10-28
+  按 ADR-045 入库）+
   `docs/adr/ADR-044-agent-turn-loop-orchestrator.md`（已批准）
 - **边界**：本文件是 P0-1 的实施计划；不复制 ADR-044 全文，冲突时以 ADR-044 与 specs 为准。
 
@@ -229,5 +230,5 @@ SSH 白名单命令输出；`surface.rs` 登记与对等契约门禁测试同步
 
 ---
 
-*生成方式：本文件由主代理基于 `local/diff-zcode-vs-whcode.md` §4 P0-1、ADR-044 与
-WHCode/ZCode 双侧源码直读起草，2026-10-28 经用户批准后按规则入库 specs。*
+*生成方式：本文件由主代理基于 `research/zcode-comparison/`（域 A、actionable-gaps.md P0）、
+ADR-044 与 WHCode/ZCode 双侧源码直读起草，2026-10-28 经用户批准后按规则入库 specs。*
