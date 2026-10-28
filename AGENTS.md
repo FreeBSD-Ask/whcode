@@ -239,8 +239,14 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
   因此断言消息只写静态文案或常量（如 `{name}`、`{DEFAULT_LIMIT}`），需要诊断值时
   先降为 bool 再断言；函数名含 `redact`/`hash`/`crypt`/`encode` 不在敏感词表内。
 - 新增 `println!`/`eprintln!`/日志宏输出前，必须确认该值不沿“持有凭据的对象”传播：
-  dyn 派发的方法，其结果会继承接收者的污染，所以**已求值的密钥值不得驻留长期对象**
-  （`HttpClient` 按请求求值、即用即弃），已求值的凭据也不得跨装配边界传参。
+  dyn 派发的方法，其结果会继承接收者的污染；**`?`（TryExpr）本身也是污染通道**——对被检
+  `Result` 内容（含 `Ok` 里的密钥值）做 `?`，会使该函数的返回 `Result` 被判为密钥派生值。
+  因此**已求值的密钥值不得驻留长期对象**（`HttpClient` 按请求求值、即用即弃），不得跨装配
+  边界传参，也不要用 `secret_result?` 直接传播：装配期判定收口为 `map(|_| ())`，请求期用
+  显式 `match` 让注入项只存活于本帧（见 `HttpClient::with_tls`／`open_stream` 的 `#[expect]` 说明）。
+- 装配期需要在“不接触密钥”的前提下校验剖面（如鉴权头重复）：用
+  `AuthScheme::declared_header_names()`／`declared_query_names()` 这类**声明名**，不要先
+  `inject()` 再比较——求值结果一旦进入返回值作用域，整条输出链都会被判为密钥派生。
 - 新增或修改测试后，必须在本机复跑 `.github/scripts/check-code-scanning.py`；
   有 open 告警必须修完再推送，不得"先推再修"。
 
