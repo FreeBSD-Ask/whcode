@@ -532,13 +532,13 @@
   展开）各有角色与顺序单测且全绿（来源：Task T205、FR-720）
 - [x] Check 302: [exercised] `StubProvider` 多步剧本可编程（每步 chunk/finish_reason/tool_calls），——**复核（2026-10-29，P0-1 契约层批次）**：实现与单测全绿（workspace build/fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过，本机运行证据；CI 验收按 ADR-037 待远端流水线）。
   无剧本时现行单步行为不变（来源：Task T206、FR-718）
-- [ ] Check 303: [missing] turn 五种终止（model_finished/iteration_limit/cancelled/budget_exceeded/
+- [ ] Check 303: [missing] ——**部分复核（2026-10-30，R1 批次）**：model_finished/tool_not_wired/cancelled/budget_exceeded 四种终止各有测试且终止事件可查（桩剧本驱动）；iteration_limit 的端到端测试依赖 T216 工具接线（P0-1 下每步必停，分支为纵深防御，代码内以 #[expect] 显式标注），接线后补测并转勾。
   tool_not_wired）各有正向或失败路径测试，且全部终止显式留可查询事件（来源：Task T207、
   FR-718／719／723／724、ADR-044 决策 4）
-- [ ] Check 304: [missing] turn 关键事件以 domain `EventKind` 稳定名经 store 写者落 `events` 表
+- [x] Check 304: [exercised] turn 关键事件以 domain `EventKind` 稳定名经 store 写者落 `events` 表——**复核（2026-10-30，P0-1 R1 批次）**：turn.rs 循环骨架/事件落表/预算接线实现，workspace fmt/clippy -D warnings/test 57 套件 0 失败（本机证据；CI 验收按 ADR-037 待本轮推送流水线）。
   （payload 不含正文）、turn_id 贯穿、消息轮次落 `messages` 表、信封 events 命名收敛；
   全链路序列化不含提示词/正文/凭据（FR-203 口径）（来源：Task T208、FR-722、ADR-044 决策 5）
-- [ ] Check 305: [missing] 每轮预算检查接线：预算超限显式终止且 truncated_reason 写入终止事件与
+- [x] Check 305: [exercised] 每轮预算检查接线：预算超限显式终止且 truncated_reason 写入终止事件与——**复核（2026-10-30，P0-1 R1 批次）**：turn.rs 循环骨架/事件落表/预算接线实现，workspace fmt/clippy -D warnings/test 57 套件 0 失败（本机证据；CI 验收按 ADR-037 待本轮推送流水线）。
   信封，不静默压缩（来源：Task T209、FR-721、ADR-044 决策 2）
 - [ ] Check 306: [missing] `LlmRunOutcome` 扩展 turn_id/iterations/termination_reason，四端信封一致，
   surface 对等契约门禁通过，`contracts/cui-cli.md` 同步（来源：Task T210、FR-718／722）

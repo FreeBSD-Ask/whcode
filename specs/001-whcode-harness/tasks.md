@@ -535,18 +535,18 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 - [x] T206 [P] `StubProvider` 多步剧本：支持可编程步序（每步 chunk 序列、finish_reason、——**复核（2026-10-29，P0-1 契约层批次）**：实现与单测全绿（workspace build/fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过，本机运行证据；CI 验收按 ADR-037 待远端流水线）。
   tool_calls 列表），无剧本时保持现行单步行为（既有测试不破）；供 turn 循环无网络测试
   （FR-718 测试夹具；ADR-044 决策 4）
-- [ ] T207 turn 循环骨架：`crates/whcode-app/src/turn.rs` 新增 `run_turn`——前置校验复用
+- [x] T207 turn 循环骨架：`crates/whcode-app/src/turn.rs` 新增 `run_turn`——前置校验复用——**复核（2026-10-30，P0-1 R1 批次）**：turn.rs 循环骨架/事件落表/预算接线实现，workspace fmt/clippy -D warnings/test 57 套件 0 失败（本机证据；CI 验收按 ADR-037 待本轮推送流水线）。
   `llm.rs`（权限 `Capability::SessionCreate`/会话存在性/剖面/凭据/请求 ID），循环执行中止
   检查→预算检查→消息组装→模型 step→终止判定；终止判定表：无工具调用（model_finished）/
   迭代上限 `MAX_TURN_ITERATIONS`（默认 16，可配置，iteration_limit）/取消（cancelled）/
   预算超限（budget_exceeded）/工具未接线（tool_not_wired）；单会话同进程活跃 turn 登记
   （RAII，冲突拒绝）；取消标记在每轮迭代与每个 chunk 前检查（FR-718／719／723／724；
   ADR-044 决策 4／7）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
-- [ ] T208 事件与消息落表接线：turn 关键事件经 store 写者公共 API 落 `events` 表（kind 用
+- [x] T208 事件与消息落表接线：turn 关键事件经 store 写者公共 API 落 `events` 表（kind 用——**复核（2026-10-30，P0-1 R1 批次）**：turn.rs 循环骨架/事件落表/预算接线实现，workspace fmt/clippy -D warnings/test 57 套件 0 失败（本机证据；CI 验收按 ADR-037 待本轮推送流水线）。
   domain `EventKind` 稳定名；payload 只含标识与计数，turn_id 贯穿，不含正文）；turn 内
   user/assistant/tool 轮次落 `messages` 表（>1 MiB 走引用或登记缺口，不静默截断）；信封
   `events` 数组 kind 收敛到 `EventKind` 稳定名（废除 `llm.*` 小写名）（FR-722；ADR-044 决策 5）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
-- [ ] T209 预算检查接线：每轮迭代前经 `load_context` 检查上下文预算（FR-105 契约），预算
+- [x] T209 预算检查接线：每轮迭代前经 `load_context` 检查上下文预算（FR-105 契约），预算——**复核（2026-10-30，P0-1 R1 批次）**：turn.rs 循环骨架/事件落表/预算接线实现，workspace fmt/clippy -D warnings/test 57 套件 0 失败（本机证据；CI 验收按 ADR-037 待本轮推送流水线）。
   不足以容纳下一轮时显式终止 turn 并把 truncated_reason 写入终止事件与信封（FR-721；
   ADR-044 决策 2；自动压缩归 P1-3，不在本阶段）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
 - [ ] T210 信封与四端适配：`LlmRunOutcome` 新增 `turn_id`/`iterations`/`termination_reason`；

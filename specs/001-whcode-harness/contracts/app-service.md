@@ -110,11 +110,16 @@ Web 为单线程服务循环，同进程请求不能互相取消；跨进程（C
 | 供应商 5xx | `internal`（`retryable=true`） | 99 | 500 |
 | 连接 / TLS / 读取超时 | `io_error` / `timeout` | 70 / 90 | 500（现状映射） |
 
-**有界事件**（`llm.run` 结果中的 `events`，只含标识与计数，不含提示词或密钥）：
-`llm.request_started`（`request_id`／`provider`／`protocol`／`model`／`max_tokens`）、
-每 chunk 一条 `llm.delta`（`index`／`chars`）、`llm.finished`（`chunks`／`completed`／
-`truncated`／`integrity_gaps`／`finish_reason`／`usage`）。`completed = false` 或
+**有界事件**（`llm.run`／`llm.turn` 结果中的 `events`，只含标识与计数，不含提示词或
+密钥；自 2026-10-30 FR-722 命名收敛，kind 与 `events` 表落库事件同名）：
+`RequestStarted`（`request_id`／`provider`／`protocol`／`model`／`max_tokens`；
+turn 版本另带 `turn_id`／`iteration`）、每 chunk 一条 `StreamingChunk`
+（`index`／`chars`）、`RequestCompleted`（`chunks`／`completed`／`truncated`／
+`integrity_gaps`／`finish_reason`／`usage`）。`completed = false` 或
 `integrity_gaps > 0` 表示完整性缺口（FR-208），不得据“有正文”推断成功。
+turn 编排器另发 `ContextState`（预算）、`ToolCallStarted/Finished`（FR-724 未接线
+过渡期 `state=unknown`）与 `RuntimeTerminated`（`termination_reason` 五稳定名）；
+旧小写名（`llm.request_started` 等）废弃（ADR-044 决策 7）。
 
 ## 3. 状态快照（四端同源）
 

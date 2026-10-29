@@ -45,6 +45,7 @@ pub mod service;
 pub mod smoke;
 pub mod tasks;
 pub mod tool_exec;
+pub mod turn;
 pub mod wal;
 pub mod writer;
 
@@ -101,6 +102,8 @@ pub use tool_exec::{
     MAX_RECOVERED, RecoveredExec, RecoveryReport, ToolExecRow, UNCERTAIN_NEXT_ACTION, load,
     mark_running, record_intent, record_result, recover_uncertain,
 };
+pub use turn::{AppendTurnReport, TurnEventDraft, TurnMessageDraft, append_turn};
+
 pub use wal::{
     CheckpointReason, CheckpointReport, EffectiveWalSettings, WalPolicy, apply_wal_policy,
     run_checkpoint, should_checkpoint_on_idle,
