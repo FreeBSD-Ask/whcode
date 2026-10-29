@@ -545,7 +545,7 @@
 - [x] Check 307: [exercised] 正向/失败路径测试集全绿：五种终止、事件 seq 单调、turn_id 贯穿、messages——**复核（2026-10-30，P0-1 R2 批次）**：四端切 run_turn + 集成测试 + 文档同步全绿（workspace 57+1 套件 0 失败；本机证据，CI 验收按 ADR-037 以推送流水线为准）。
   可重建、权限拒绝/未知会话/空提示词；安全断言（不含正文凭据）与资源断言（单会话单活跃
   turn、无新线程、无无界累积）通过（来源：Task T211、FR-718—724、ADR-044 决策 4／7）
-- [ ] Check 308: [wired] ——**部分复核（2026-10-30，R2 批次）**：本地门禁链全绿（fmt/clippy -D warnings/test、layering/layout、traceability/check_counts、EOL）；GitHub Actions 结论待本轮推送流水线出结果后转勾（ADR-037：以 CI 为准）。
+- [x] Check 308: [exercised] ——**复核（2026-10-30，R2 批次）**：本地门禁链全绿后**CI 验收达成**：GitHub Actions run 40934880360（ci）／40934880465（build-release）／40934880093（CodeQL）三流水线 success（提交 9de0439，代码与 38de05e 同源）；ADR-037 口径收口。
   check_counts 门禁全绿；测试验收入口按 ADR-037（GitHub Actions 为准，本机无远端时登记
   缺口，不得以本地全绿冒充）（来源：Task T212、FR-305 口径）
 - [x] Check 309: [exercised] 工具注册表：重名冲突拒绝、provider 可见清单、校验拒绝未知字段——**复核（2026-10-29，P0-2 工具实现批次）**：实现与模块测试全绿（workspace fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过；本机证据，CI 验收按 ADR-037 待流水线）。
