@@ -1535,18 +1535,20 @@ pub fn handle_request_with_llm(
                 let model = optional_body_str(&body, "model");
                 let request_id = optional_body_str(&body, "request_id");
                 let max_tokens = body.get("max_tokens").and_then(serde_json::Value::as_u64);
-                let outcome = whcode_app::llm::run(
+                let outcome = whcode_app::turn::run_turn(
                     conn,
                     &policy,
                     actor,
                     llm,
-                    &whcode_app::llm::LlmRunRequest {
+                    &whcode_app::turn::TurnRequest {
                         session_id: session.to_string(),
                         provider: provider.to_string(),
                         prompt: prompt.to_string(),
                         model: model.map(str::to_string),
                         max_tokens,
                         request_id: request_id.map(str::to_string),
+                        iterations_limit: None,
+                        budget_tokens: None,
                     },
                     now_ms()?,
                 )?;

@@ -13,6 +13,19 @@
 
 ### 变更
 
+- **`llm run` 语义升级为 agent turn 循环**（2026-10-30，FR-718—724、ADR-044、T207—T212）：
+  一次 `llm run` 现编排完整 turn（中止/预算检查→消息组装→模型 step→终止判定），迭代
+  上限 16；终止原因稳定名（model_finished/iteration_limit/cancelled/budget_exceeded/
+  tool_not_wired/error）全部以 `RuntimeTerminated` 事件落 `events` 表，消息轮次落
+  `messages` 表（user/assistant/tool，content_ref 直存 ≤1 MiB）；单会话至多一个活跃
+  turn；模型声明工具调用而工具未接线时记录 `state=unknown` 证据并显式终止（P0-2 接线
+  后替换，ADR-048）。信封 `events` kind 收敛为 `EventKind` 稳定名（旧小写名
+  `llm.request_started` 等废弃，契约 app-service.md 已同步）——四端 JSON 信封新增
+  `turn_id`/`iterations`/`termination_reason` 字段（0.1.0 未发布窗口内破坏性变更，
+  无兼容承诺）。
+
+### 变更
+
 - 宪法修订：新增原则 X“知难行易：任务认知先于手段”（2026-10-29，ADR-049，用户指令“修宪”）：
   从一刻哲学第 21 章 §21.2／§21.4 与四版前言（`file_id 22, block 3—4`、`block 8`；`file_id 41,
   block 52`）提取“知难行易，故而行也变得困难”与“Code is cheap. Show me the talk.”，把任务方向、

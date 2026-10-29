@@ -486,6 +486,8 @@ pub fn run_turn(
         }
 
         // ── 末轮取消：显式终止，不伪造完成 ───────────────────────────────
+        // 取消路径丢弃未验证的部分正文（用户中止）；截断/错误路径保留其为完整性证据
+        // （FR-208）——两者不对称是有意设计，不是遗漏。
         if cancel.is_cancelled() {
             persister.flush(conn, &mut pending_events, &messages)?;
             break TerminationReason::Cancelled;

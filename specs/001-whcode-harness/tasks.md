@@ -549,15 +549,15 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 - [x] T209 预算检查接线：每轮迭代前经 `load_context` 检查上下文预算（FR-105 契约），预算——**复核（2026-10-30，P0-1 R1 批次）**：turn.rs 循环骨架/事件落表/预算接线实现，workspace fmt/clippy -D warnings/test 57 套件 0 失败（本机证据；CI 验收按 ADR-037 待本轮推送流水线）。
   不足以容纳下一轮时显式终止 turn 并把 truncated_reason 写入终止事件与信封（FR-721；
   ADR-044 决策 2；自动压缩归 P1-3，不在本阶段）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
-- [ ] T210 信封与四端适配：`LlmRunOutcome` 新增 `turn_id`/`iterations`/`termination_reason`；
+- [x] T210 信封与四端适配：`LlmRunOutcome` 新增 `turn_id`/`iterations`/`termination_reason`；——**复核（2026-10-30，P0-1 R2 批次）**：四端切 run_turn + 集成测试 + 文档同步全绿（workspace 57+1 套件 0 失败；本机证据，CI 验收按 ADR-037 以推送流水线为准）。
   TUI 结果视图、CUI `llm run` JSON 信封、Web `llm/run` 响应、SSH 输出四端同步；
   `surface.rs` 登记与对等契约门禁同步；`contracts/cui-cli.md` 同步（FR-718／722；ADR-044
   决策 1）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
-- [ ] T211 测试集：正向（多轮至 model_finished、事件 seq 单调、turn_id 贯穿、messages 可重建）
+- [x] T211 测试集：正向（多轮至 model_finished、事件 seq 单调、turn_id 贯穿、messages 可重建）——**复核（2026-10-30，P0-1 R2 批次）**：四端切 run_turn + 集成测试 + 文档同步全绿（workspace 57+1 套件 0 失败；本机证据，CI 验收按 ADR-037 以推送流水线为准）。
   与失败路径（迭代上限/预算超限/tool_not_wired/取消/权限拒绝/未知会话/空提示词）测试；
   安全断言（事件与信封不含提示词/正文/凭据，FR-203 口径）与资源断言（单会话单活跃 turn、
   无新线程、无无界累积）（FR-718—724；ADR-044 决策 4／7）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
-- [ ] T212 文档同步：spec.md FR-718—724、tasks.md 本阶段勾选、checklist.md Check 300—308、
+- [x] T212 文档同步：spec.md FR-718—724、tasks.md 本阶段勾选、checklist.md Check 300—308、——**复核（2026-10-30，P0-1 R2 批次）**：四端切 run_turn + 集成测试 + 文档同步全绿（workspace 57+1 套件 0 失败；本机证据，CI 验收按 ADR-037 以推送流水线为准）。
   CHANGELOG（`llm run` 语义升级/信封字段扩展/事件命名收敛）与实现记录（FR-305 口径；
   测试验收入口按 ADR-037）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
 

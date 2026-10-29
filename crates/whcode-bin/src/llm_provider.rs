@@ -173,18 +173,20 @@ impl TuiLlmExecutor {
 
 impl whcode_tui::LlmExecutor for TuiLlmExecutor {
     fn run(&self, session_id: &str, provider: &str, prompt: &str) -> Result<String, WhError> {
-        let outcome = whcode_app::llm::run(
-            &self.conn.borrow(),
+        let outcome = whcode_app::turn::run_turn(
+            &mut self.conn.borrow_mut(),
             &whcode_app::DefaultPolicy,
             &whcode_app::actor_with_all_capabilities("tui-local"),
             &self.llm.context(),
-            &whcode_app::llm::LlmRunRequest {
+            &whcode_app::turn::TurnRequest {
                 session_id: session_id.to_string(),
                 provider: provider.to_string(),
                 prompt: prompt.to_string(),
                 model: None,
                 max_tokens: None,
                 request_id: None,
+                iterations_limit: None,
+                budget_tokens: None,
             },
             now_ms(),
         )?;

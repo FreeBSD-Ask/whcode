@@ -15,6 +15,11 @@ path = "src/lib.rs"
 name = "layering"
 path = "contract/test_layering.rs"
 
+[[test]]
+name = "turn_loop"
+path = "integration/test_turn_loop.rs"
+
+
 # 基线夹具正确性检查（tasks.md T027、V-006）。
 [[test]]
 name = "baseline_check"
