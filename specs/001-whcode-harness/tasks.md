@@ -567,17 +567,17 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 - [x] T214 [P] 内建工具六件套：`crates/whcode-tools/src/builtins/` read_file/write_file/——**复核（2026-10-29，P0-2 工具实现批次）**：实现与模块测试全绿（workspace fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过；本机证据，CI 验收按 ADR-037 待流水线）。
   edit_file/list_dir/glob/grep——`std::fs` 实现、有界（读 ≤1 MiB、遍历与结果条目上限）、
   写工具产 diff 摘要（FR-726；ADR-048 §2.2）
-- [ ] T215 工具执行登记接线：`crates/whcode-app` 工具执行经 store 三步登记与
+- [x] T215 工具执行登记接线：`crates/whcode-app` 工具执行经 store 三步登记与——**复核（2026-10-30，P0-2 R3 批次）**：实现与测试全绿（workspace 58 套件 0 失败；本机证据，CI 验收按 ADR-037 待推送流水线）。
   recover_uncertain；ToolCallStarted/Finished 事件落表（payload 只带标识与计数）
   （FR-727；ADR-048 §2.4）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
-- [ ] T216 turn 集成：模型 tool_calls 解析（openai 兼容族）→ 串行执行（每轮上限 8）→
+- [x] T216 turn 集成：模型 tool_calls 解析（openai 兼容族）→ 串行执行（每轮上限 8）→——**复核（2026-10-30，P0-2 R3 批次）**：实现与测试全绿（workspace 58 套件 0 失败；本机证据，CI 验收按 ADR-037 待推送流水线）。
   role:"tool" 回填 → continue；FR-724 的 tool_not_wired 分支替换（依赖 T207）
   （FR-728；ADR-048 §2.5/2.8）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
-- [ ] T217 [P] 工具安全边界：工作区相对路径绑定（拒绝绝对/.. 逃逸）、authz 权限面、
+- [x] T217 [P] 工具安全边界：工作区相对路径绑定（拒绝绝对/.. 逃逸）、authz 权限面、——**复核（2026-10-30，P0-2 R3 批次）**：实现与测试全绿（workspace 58 套件 0 失败；本机证据，CI 验收按 ADR-037 待推送流水线）。
   结果 64 KiB 截断标记（FR-729；ADR-048 §2.6/2.7）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
-- [ ] T218 [P] 测试集：注册表冲突/校验拒绝、六件套正反路径、登记三步与恢复、解析回填、
+- [x] T218 [P] 测试集：注册表冲突/校验拒绝、六件套正反路径、登记三步与恢复、解析回填、——**复核（2026-10-30，P0-2 R3 批次）**：实现与测试全绿（workspace 58 套件 0 失败；本机证据，CI 验收按 ADR-037 待推送流水线）。
   越界拒绝、截断标记；安全断言（结果不进事件）（ADR-048；layering 口径）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
-- [ ] T219 文档同步：spec/tasks/checklist 勾选、CHANGELOG、ADR-048 §6 实施记录
+- [x] T219 文档同步：spec/tasks/checklist 勾选、CHANGELOG、ADR-048 §6 实施记录——**复核（2026-10-30，P0-2 R3 批次）**：实现与测试全绿（workspace 58 套件 0 失败；本机证据，CI 验收按 ADR-037 待推送流水线）。
   （FR-305 口径；测试验收入口按 ADR-037）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
 
 **Checkpoint**: 工具六件套经三步登记可被 turn 循环真实执行与回填（P0-2 闭环）

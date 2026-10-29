@@ -532,7 +532,7 @@
   展开）各有角色与顺序单测且全绿（来源：Task T205、FR-720）
 - [x] Check 302: [exercised] `StubProvider` 多步剧本可编程（每步 chunk/finish_reason/tool_calls），——**复核（2026-10-29，P0-1 契约层批次）**：实现与单测全绿（workspace build/fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过，本机运行证据；**CI 验收（2026-10-30）**：GitHub Actions run 40917601992（ci/build-release/CodeQL）三流水线 success，ADR-037 口径收口）。
   无剧本时现行单步行为不变（来源：Task T206、FR-718）
-- [ ] Check 303: [missing] ——**部分复核（2026-10-30，R1 批次）**：model_finished/tool_not_wired/cancelled/budget_exceeded 四种终止各有测试且终止事件可查（桩剧本驱动）；iteration_limit 的端到端测试依赖 T216 工具接线（P0-1 下每步必停，分支为纵深防御，代码内以 #[expect] 显式标注），接线后补测并转勾。
+- [x] Check 303: [exercised] ——**复核（2026-10-30，R3 批次）**：T216 接线后五种终止全部有测试（iteration_limit 端到端已补：工具剧本持续循环至上限）；**CI 验收（2026-10-30）**：run 40961338976（ci）／40961339093（build-release）／40961337640（CodeQL）三流水线 success（提交 75d78d9），ADR-037 口径收口。
   tool_not_wired）各有正向或失败路径测试，且全部终止显式留可查询事件（来源：Task T207、
   FR-718／719／723／724、ADR-044 决策 4）
 - [x] Check 304: [exercised] turn 关键事件以 domain `EventKind` 稳定名经 store 写者落 `events` 表——**复核（2026-10-30，P0-1 R1 批次）**：turn.rs 循环骨架/事件落表/预算接线实现，workspace fmt/clippy -D warnings/test 57 套件 0 失败（本机证据；CI 验收按 ADR-037 待本轮推送流水线）。
@@ -552,12 +552,12 @@
   与类型不符（来源：Task T213、FR-725／729、ADR-048）
 - [x] Check 310: [exercised] 内建工具六件套行为与有界性：读 ≤1 MiB、遍历与结果条目上限、——**复核（2026-10-29，P0-2 工具实现批次）**：实现与模块测试全绿（workspace fmt/clippy -D warnings/test 57 套件 0 失败、layering/layout 门禁通过；本机证据，CI 验收按 ADR-037 待流水线）。
   edit_file 唯一性校验、写工具产 diff 摘要而非全文（来源：Task T214、FR-726、ADR-048）
-- [ ] Check 311: [missing] 工具执行三步登记与 recover_uncertain 恢复；ToolCall 事件落表
+- [x] Check 311: [exercised] 工具执行三步登记与 recover_uncertain 恢复；ToolCall 事件落表——**复核（2026-10-30，P0-2 R3 批次）**：实现与测试全绿（workspace 58 套件 0 失败；**CI 验收（2026-10-30）**：run 40961338976／40961339093／40961337640 三流水线 success（提交 75d78d9），ADR-037 口径收口）。
   且 payload 不含工具结果正文（来源：Task T215、FR-727、FR-410）
-- [ ] Check 312: [missing] 解析回填闭环：openai 兼容族 tool_calls 解析、每轮上限 8、
+- [x] Check 312: [exercised] 解析回填闭环：openai 兼容族 tool_calls 解析、每轮上限 8、——**复核（2026-10-30，P0-2 R3 批次）**：实现与测试全绿（workspace 58 套件 0 失败；**CI 验收（2026-10-30）**：run 40961338976／40961339093／40961337640 三流水线 success（提交 75d78d9），ADR-037 口径收口）。
   role:"tool" 回填、tool_not_wired 过渡分支替换为真实执行（来源：Task T216、FR-728、
   ADR-044 复审触发 1）
-- [ ] Check 313: [missing] 安全边界：绝对路径与 .. 逃逸拒绝、authz 权限面、结果 64 KiB
+- [x] Check 313: [exercised] 安全边界：绝对路径与 .. 逃逸拒绝、authz 权限面、结果 64 KiB——**复核（2026-10-30，P0-2 R3 批次）**：实现与测试全绿（workspace 58 套件 0 失败；**CI 验收（2026-10-30）**：run 40961338976／40961339093／40961337640 三流水线 success（提交 75d78d9），ADR-037 口径收口）。
   截断标记；序列化不含正文凭据（来源：Task T217、FR-729、FR-203）
 - [ ] Check 314: [missing] 正向/失败路径测试集全绿（注册冲突/校验拒绝/六件套/登记恢复/
   解析回填/越界/截断），layering 口径（来源：Task T218、ADR-048）
