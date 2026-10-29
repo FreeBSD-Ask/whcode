@@ -13,6 +13,13 @@
 
 ### 变更
 
+- **工具系统接线：模型工具调用真实执行**（2026-10-30，FR-725—729、ADR-048、T213—T219）：
+  turn 循环内模型声明的工具调用经 store `tool_exec` 三步登记（prepared→running→终态）
+  执行内建六件套（read/write/edit/list/glob/grep），结果以 `role:"tool"` 消息回填并
+  继续循环；权限面 v1（读工具 SessionRead／写工具 SessionCreate，专用 WorkspaceWrite
+  归 P2-1 broker）；工作区路径绑定 fail-closed；FR-724 的 `tool_not_wired` 过渡行为
+  已替换（ADR-044 复审触发 1 兑现），Web 端工作区绑定已贯通，`llm run` 从"会说话"
+  升级为"会做事"。
 - **`llm run` 语义升级为 agent turn 循环**（2026-10-30，FR-718—724、ADR-044、T207—T212）：
   一次 `llm run` 现编排完整 turn（中止/预算检查→消息组装→模型 step→终止判定），迭代
   上限 16；终止原因稳定名（model_finished/iteration_limit/cancelled/budget_exceeded/

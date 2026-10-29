@@ -71,6 +71,7 @@ fn request(session_id: &str, prompt: &str) -> TurnRequest {
         request_id: None,
         iterations_limit: None,
         budget_tokens: None,
+        workspace_root: None,
     }
 }
 
@@ -148,9 +149,9 @@ fn turn_persists_monotonic_events_threaded_by_turn_id_and_rebuildable_messages()
 }
 
 #[test]
-fn unwired_tool_call_terminates_and_leaves_unknown_evidence() {
+fn tool_call_executes_and_returns_result_to_model() {
     let (mut conn, id, dir, registry, _fixture_factory) = fixture();
-    // 本用例需要工具剧本：替换夹具的回显 Provider。
+    // 本用例需要工具剧本：替换夹具的回显 Provider；工作区绑定真实文件。
     let factory = StubFactory(StubProvider::with_script(vec![
         StubStep {
             chunks: vec!["调用".to_string()],
@@ -161,32 +162,44 @@ fn unwired_tool_call_terminates_and_leaves_unknown_evidence() {
                 arguments: r#"{"path":"src/lib.rs"}"#.to_string(),
             }],
         },
-        StubStep::simple("不应到达", "stop"),
+        StubStep::simple("结果已回填", "stop"),
     ]));
+    std::fs::create_dir_all(dir.join("src")).expect("工作区子目录");
+    std::fs::write(dir.join("src/lib.rs"), "fn itest() {}\n").expect("工作区文件");
     let context = LlmContext {
         registry: Some(&registry),
         registry_error: None,
         factory: &factory,
         cancel_dir: &dir,
     };
+    let mut req = request(&id, "读文件");
+    req.workspace_root = Some(dir.clone());
     let outcome = run_turn(
         &mut conn,
         &DefaultPolicy,
         &actor_with_all_capabilities("turn-itest"),
         &context,
-        &request(&id, "读文件"),
+        &req,
         13,
     )
-    .expect("tool_not_wired 是正常终止");
-    assert_eq!(outcome.termination_reason, "tool_not_wired");
-    let unknown: i64 = conn
+    .expect("turn 完成（工具执行后继续）");
+    assert_eq!(outcome.termination_reason, "model_finished");
+    assert_eq!(outcome.iterations, 2, "工具执行后进入第二轮");
+    let exec_state: String = conn
         .query_row(
-            "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='ToolCallFinished'
-             AND CAST(CAST(payload_json AS JSON)->>'$.state' AS VARCHAR)='unknown'",
+            "SELECT state FROM tool_executions WHERE tool_call_id='call-itest'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("登记行");
+    assert_eq!(exec_state, "completed", "三步登记终态（T215）");
+    let tool_msg: String = conn
+        .query_row(
+            "SELECT content_ref FROM messages WHERE session_id=? AND role='tool'",
             [&id],
             |row| row.get(0),
         )
-        .expect("计数");
-    assert_eq!(unknown, 1, "FR-724 证据：unknown 工具调用落表");
+        .expect("tool 消息");
+    assert!(tool_msg.contains("fn itest()"), "工具结果以 role:tool 回填");
     let _ = std::fs::remove_dir_all(&dir);
 }

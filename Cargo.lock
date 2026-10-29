@@ -6152,6 +6152,7 @@ dependencies = [
  "whcode-platform",
  "whcode-speckit",
  "whcode-store",
+ "whcode-tools",
  "x509-parser",
 ]
 

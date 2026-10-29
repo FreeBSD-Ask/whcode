@@ -151,6 +151,7 @@ impl ServeLlm {
 pub struct TuiLlmExecutor {
     llm: ServeLlm,
     conn: std::rc::Rc<std::cell::RefCell<duckdb::Connection>>,
+    workspace: PathBuf,
 }
 
 impl TuiLlmExecutor {
@@ -167,6 +168,7 @@ impl TuiLlmExecutor {
         Ok(Self {
             llm: ServeLlm::from_env(workspace)?,
             conn,
+            workspace: workspace.to_path_buf(),
         })
     }
 }
@@ -187,6 +189,7 @@ impl whcode_tui::LlmExecutor for TuiLlmExecutor {
                 request_id: None,
                 iterations_limit: None,
                 budget_tokens: None,
+                workspace_root: Some(self.workspace.clone()),
             },
             now_ms(),
         )?;

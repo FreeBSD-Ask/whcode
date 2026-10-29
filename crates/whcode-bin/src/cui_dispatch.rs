@@ -310,6 +310,7 @@ fn llm_command(
                     request_id: request_id.clone(),
                     iterations_limit: None,
                     budget_tokens: None,
+                    workspace_root: Some(workspace.to_path_buf()),
                 },
                 now_ms()?,
             )?;

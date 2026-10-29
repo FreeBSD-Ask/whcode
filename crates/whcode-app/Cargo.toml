@@ -11,6 +11,7 @@ license.workspace = true
 # ADR-018：app 经 store 公共 API 访问存储；SQL 仍只在 store。
 whcode-domain = { path = "../whcode-domain" }
 whcode-store = { path = "../whcode-store" }
+whcode-tools = { path = "../whcode-tools" }
 # 事件导出经 llm 追踪层脱敏（FR-205）；llm 为同层领域服务（ADR-018 同口径）。
 whcode-llm = { path = "../whcode-llm" }
 # 门禁编排经 speckit 状态机与工作流配置（FR-307/308）；speckit 为同层领域服务。

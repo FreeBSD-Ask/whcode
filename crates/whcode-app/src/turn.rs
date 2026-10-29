@@ -22,9 +22,11 @@ use std::time::Instant;
 
 use serde::Serialize;
 use serde_json::{Value, json};
+use whcode_domain::RuntimeExecutionStatus;
 use whcode_domain::{ErrorCode, EventKind, WhError};
 use whcode_llm::provider::{LlmMessage, LlmToolCall, Role};
 use whcode_llm::{CancelToken, LlmRequest, Usage};
+use whcode_store::tool_exec::{mark_running, record_intent, record_result};
 use whcode_store::{TurnEventDraft, TurnMessageDraft, append_turn};
 
 use crate::authz::{Actor, Capability, Policy, require};
@@ -35,7 +37,7 @@ use crate::llm::{
 };
 use crate::session::show_session;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// turn 迭代硬上限（FR-719；请求可用 `iterations_limit` 调低，不可调高）。
 pub const MAX_TURN_ITERATIONS: u32 = 16;
@@ -95,6 +97,9 @@ pub struct TurnRequest {
     pub iterations_limit: Option<u32>,
     /// 上下文预算（token；`None` 用 [`DEFAULT_TURN_BUDGET_TOKENS`]）。
     pub budget_tokens: Option<usize>,
+    /// 工具执行的工作区根（ADR-048；`None` 时所有工具调用以结构化失败回填，
+    /// turn 继续——前端未绑定工作区属装配缺口，显式暴露而非静默降级）。
+    pub workspace_root: Option<PathBuf>,
 }
 
 /// turn 的结果（信封；`LlmRunOutcome` 的 turn 扩展，四端适配属 T210）。
@@ -309,6 +314,8 @@ pub fn run_turn(
         )));
     }
 
+    let tool_registry = whcode_tools::default_registry()
+        .map_err(|err| WhError::internal(format!("工具注册表构造失败：{err}")))?;
     let mut messages: Vec<LlmMessage> = vec![LlmMessage {
         role: Role::User,
         content: prompt.to_string(),
@@ -349,13 +356,6 @@ pub fn run_turn(
     // user 提示词先行落表（FR-722：turn 内 user 轮次落表；预算检查据此可见本轮输入）。
     persister.flush(conn, &mut pending_events, &messages)?;
 
-    // P0-1 口径：工具未接线时每个 step 必然终止（model_finished/tool_not_wired/error/
-    // cancelled/budget_exceeded），循环体当前只执行一次——clippy never_loop 如实报告。
-    // T216 接线真实工具执行后循环生效，届时移除本 expect（ADR-044 复审触发 1）。
-    #[expect(
-        clippy::never_loop,
-        reason = "P0-1 每步必停；T216 工具接线后循环生效并移除本标注"
-    )]
     let termination: TerminationReason = loop {
         // ── 取消检查（每轮迭代前，FR-723）────────────────────────────────
         if marker.is_cancelled() {
@@ -550,35 +550,47 @@ pub fn run_turn(
             break TerminationReason::ModelFinished;
         }
 
-        // ── FR-724：工具执行未接线（P0-1 过渡）——记录 unknown 并终止 ─────
-        for tool_call in &step_tool_calls {
+        // ── T216/T215：真实工具执行（ADR-048；FR-724 过渡行为已替换，
+        // ADR-044 复审触发 1 兑现）——三步登记 + whcode-tools 执行 + role:tool 回填，
+        // 然后继续循环（终止只由 model_finished/limit/cancel/budget/error 决定）。
+        for (tool_index, tool_call) in step_tool_calls.iter().enumerate() {
+            let exec_id = format!("TX-{request_id}-{iteration}-{tool_index}");
+            let (status, result_text, side_effect): (
+                RuntimeExecutionStatus,
+                String,
+                Option<String>,
+            ) = execute_tool_call(
+                conn,
+                policy,
+                actor,
+                &tool_registry,
+                request.workspace_root.as_deref(),
+                &exec_id,
+                tool_call,
+                now_ms,
+            );
             emit!(
                 EventKind::ToolCallStarted,
                 "iteration": iteration,
                 "request_id": request_id,
                 "tool_call_id": tool_call.id,
                 "tool_name": tool_call.name,
-                "state": "unknown",
-                "unwired": true,
+                "exec_id": exec_id,
             );
+            messages.push(LlmMessage {
+                role: Role::Tool,
+                content: result_text.clone(),
+            });
             emit!(
                 EventKind::ToolCallFinished,
                 "iteration": iteration,
                 "request_id": request_id,
                 "tool_call_id": tool_call.id,
-                "state": "unknown",
-                "unwired": true,
+                "state": status.as_str(),
+                "side_effect": side_effect,
             );
         }
-        messages.push(LlmMessage {
-            role: Role::Tool,
-            content: format!(
-                "工具执行未接线（P0-2 前过渡）：{} 个工具调用保持 unknown，未产生任何副作用",
-                step_tool_calls.len()
-            ),
-        });
         persister.flush(conn, &mut pending_events, &messages)?;
-        break TerminationReason::ToolNotWired;
     };
 
     // ── turn 终止事件（五种终止全部显式落表，FR-718）────────────────────
@@ -611,6 +623,143 @@ pub fn run_turn(
         events: envelope,
         transport,
     })
+}
+
+/// 执行单个工具调用：权限面 → 校验 → 三步登记（prepared→running→终态）→ 执行 →
+/// role:tool 结果文本。任何失败都转为**结构化失败结果**回填给模型（turn 继续），
+/// 不中断循环、不伪造成功（FR-718/ADR-048 §2.4—2.7）。
+#[allow(clippy::too_many_arguments)]
+fn execute_tool_call(
+    conn: &mut duckdb::Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    registry: &whcode_tools::ToolRegistry,
+    workspace_root: Option<&Path>,
+    exec_id: &str,
+    tool_call: &LlmToolCall,
+    now_ms: u64,
+) -> (RuntimeExecutionStatus, String, Option<String>) {
+    // 权限面（T217 v1 和解）：读工具 SessionRead、写工具 SessionCreate——
+    // 专用 WorkspaceWrite 能力归 P2-1 动态权限 broker（ADR-048 §2.7 注记）。
+    let capability_for = |scope| match scope {
+        whcode_tools::SideEffectScope::ReadOnly => Capability::SessionRead,
+        whcode_tools::SideEffectScope::WorkspaceWrite => Capability::SessionCreate,
+    };
+    let fail = |status, text: String, side_effect: Option<String>| (status, text, side_effect);
+
+    let Some(tool) = registry.get(tool_call.name.as_str()) else {
+        return fail(
+            RuntimeExecutionStatus::Failed,
+            format!("工具 {} 不存在：可用工具见注册表清单", tool_call.name),
+            None,
+        );
+    };
+    let descriptor = tool.descriptor();
+    if let Err(err) = require(policy, actor, capability_for(descriptor.side_effect_scope)) {
+        return fail(
+            RuntimeExecutionStatus::Failed,
+            format!("工具 {} 被权限面拒绝：{err}", tool_call.name),
+            None,
+        );
+    }
+    let arguments: serde_json::Value = match serde_json::from_str(&tool_call.arguments) {
+        Ok(value) => value,
+        Err(err) => {
+            return fail(
+                RuntimeExecutionStatus::Failed,
+                format!("工具 {} 参数不是合法 JSON：{err}", tool_call.name),
+                None,
+            );
+        }
+    };
+    if let Err(err) = whcode_tools::validate_arguments(&descriptor, &arguments) {
+        return fail(
+            RuntimeExecutionStatus::Failed,
+            format!("工具 {} 参数校验失败：{err}", tool_call.name),
+            None,
+        );
+    }
+    let Some(workspace) = workspace_root else {
+        return fail(
+            RuntimeExecutionStatus::Failed,
+            "工具执行未绑定工作区（装配缺口）：本轮工具调用全部拒绝".to_string(),
+            None,
+        );
+    };
+
+    // 三步登记（T215）：prepared → running → 终态；登记失败转为执行失败（不伪造）。
+    let input_hash = {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        tool_call.name.hash(&mut hasher);
+        tool_call.arguments.hash(&mut hasher);
+        format!("{:016x}", hasher.finish())
+    };
+    if let Err(err) = record_intent(conn, exec_id, &tool_call.id, &input_hash) {
+        return fail(
+            RuntimeExecutionStatus::Failed,
+            format!("工具 {} 登记意图失败：{err}", tool_call.name),
+            None,
+        );
+    }
+    if let Err(err) = mark_running(conn, exec_id, now_ms) {
+        return fail(
+            RuntimeExecutionStatus::Failed,
+            format!("工具 {} 标记运行失败：{err}", tool_call.name),
+            None,
+        );
+    }
+    match tool.execute(workspace, &arguments) {
+        Ok(output) => {
+            if let Err(err) = record_result(
+                conn,
+                exec_id,
+                RuntimeExecutionStatus::Completed,
+                output.truncated.then_some("output:truncated"),
+                None,
+                now_ms,
+            ) {
+                return fail(
+                    RuntimeExecutionStatus::Failed,
+                    format!("工具 {} 登记结果失败：{err}", tool_call.name),
+                    None,
+                );
+            }
+            let marker = if output.truncated { "[已截断] " } else { "" };
+            (
+                RuntimeExecutionStatus::Completed,
+                format!(
+                    "工具 {} 执行成功：\n{}{}",
+                    tool_call.name, marker, output.content
+                ),
+                None,
+            )
+        }
+        Err(err) => {
+            if let Err(record_err) = record_result(
+                conn,
+                exec_id,
+                RuntimeExecutionStatus::Failed,
+                None,
+                None,
+                now_ms,
+            ) {
+                return fail(
+                    RuntimeExecutionStatus::Failed,
+                    format!(
+                        "工具 {} 执行失败且结果登记失败：{err}；{record_err}",
+                        tool_call.name
+                    ),
+                    None,
+                );
+            }
+            (
+                RuntimeExecutionStatus::Failed,
+                format!("工具 {} 执行失败：{err}", tool_call.name),
+                None,
+            )
+        }
+    }
 }
 
 #[cfg(test)]
@@ -690,6 +839,7 @@ mod tests {
             request_id: None,
             iterations_limit: None,
             budget_tokens: None,
+            workspace_root: None,
         }
     }
 
@@ -776,47 +926,97 @@ mod tests {
     }
 
     #[test]
-    fn tool_call_without_wiring_records_unknown_and_terminates() {
+    fn tool_call_executes_via_registry_and_returns_result() {
         let mut conn = migrated();
         let actor = actor_with_all_capabilities("turn-test");
         let policy = DefaultPolicy;
         let registry = registry();
         let factory = StubFactory(StubProvider::with_script(vec![
             tool_call_step(),
-            StubStep::simple("不应到达", "stop"),
+            StubStep::simple("工具结果已回填", "stop"),
         ]));
-        let dir = temp_dir("unwired");
+        let dir = temp_dir("wired");
+        // 工作区绑定（T216）：真实执行 read_file（T213/T214 六件套）。
+        std::fs::create_dir_all(dir.join("src")).expect("工作区子目录");
+        std::fs::write(dir.join("src/lib.rs"), "fn wired() {}\n").expect("工作区文件");
         let ctx = context(&registry, &factory, &dir);
         let id = session(&mut conn);
-        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &request(&id, "读文件"), 7)
-            .expect("tool_not_wired 是正常终止");
-        assert_eq!(outcome.termination_reason, "tool_not_wired");
-        assert_eq!(outcome.iterations, 1, "未接线即终止，不进入第二轮");
-        let started: i64 = conn
+        let mut req = request(&id, "读文件");
+        req.workspace_root = Some(dir.clone());
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 7).expect("完成");
+        // FR-724 过渡行为已替换：工具真实执行后 turn 继续至第二轮完成。
+        assert_eq!(outcome.termination_reason, "model_finished");
+        assert_eq!(outcome.iterations, 2);
+        let succeeded: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='ToolCallStarted'
-                 AND CAST(CAST(payload_json AS JSON)->>'$.state' AS VARCHAR)='unknown'",
+                "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='ToolCallFinished'
+                 AND CAST(CAST(payload_json AS JSON)->>'$.state' AS VARCHAR)='completed'",
                 [&id],
                 |row| row.get(0),
             )
-            .expect("工具事件");
-        assert_eq!(started, 1, "FR-724：unknown 状态的 ToolCallStarted 落表");
-        let tool_msg: i64 = conn
+            .expect("工具终态");
+        assert_eq!(succeeded, 1, "工具执行成功落表（三步登记终态）");
+        let tool_msg: String = conn
             .query_row(
-                "SELECT COUNT(*) FROM messages WHERE session_id=? AND role='tool'",
+                "SELECT content_ref FROM messages WHERE session_id=? AND role='tool'",
                 [&id],
                 |row| row.get(0),
             )
             .expect("tool 消息");
-        assert_eq!(tool_msg, 1, "未接线说明以 role:tool 轮次落表");
+        assert!(
+            tool_msg.contains("fn wired()"),
+            "工具结果以 role:tool 回填：{tool_msg}"
+        );
+        // 三步登记（T215）：tool_executions 行存在且终态。
+        let exec_state: String = conn
+            .query_row(
+                "SELECT state FROM tool_executions WHERE tool_call_id='call-1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("登记行");
+        assert_eq!(exec_state, "completed");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn iteration_limit_zero_is_rejected_and_clamped_to_cap() {
-        // 诚实口径：P0-1 下工具未接线即终止，循环每步必停（model_finished 或
-        // tool_not_wired），iteration_limit 分支是 T216 接线后的纵深防御——
-        // 其端到端测试在 T216 落地（Check 303 复审注记登记）。此处只测入口约束。
+    fn unwired_workspace_fails_tools_structurally_and_continues() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            tool_call_step(),
+            StubStep::simple("失败已回填", "stop"),
+        ]));
+        let dir = temp_dir("unwired");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "读文件");
+        req.workspace_root = None; // 装配缺口显式暴露：工具结构化失败，turn 继续
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 7).expect("完成");
+        assert_eq!(outcome.termination_reason, "model_finished");
+        let tool_msg: String = conn
+            .query_row(
+                "SELECT content_ref FROM messages WHERE session_id=? AND role='tool'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("tool 消息");
+        assert!(tool_msg.contains("未绑定工作区"), "{tool_msg}");
+        // 登记边界（ADR-048 §2.4）：登记覆盖"已受理执行"；受理前拒绝
+        // （权限/参数校验/工作区绑定）不产生登记行——无执行即无终态可记。
+        let registered: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tool_executions", [], |row| row.get(0))
+            .expect("登记");
+        assert_eq!(registered, 0, "受理前拒绝不登记");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn iteration_limit_terminates_when_tools_keep_looping() {
+        // T216 接线后循环生效：每步声明工具调用 → 真实执行（失败也回填继续）
+        // → 达上限显式终止（FR-719/Check 303 收口）。
         let mut conn = migrated();
         let actor = actor_with_all_capabilities("turn-test");
         let policy = DefaultPolicy;

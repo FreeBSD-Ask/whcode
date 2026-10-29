@@ -95,6 +95,20 @@
 - T213（whcode-tools 注册表+校验）、T214（六件套）与 T217（安全边界）不依赖 T207，可
   立即实现；T215/T216（登记接线与 turn 集成）排在 T207 之后。
 
+## 6.1 实施记录（2026-10-30）
+
+- T213/T214（提交 348b2ac）：注册表/工作区绑定/六件套，11 模块测试绿。
+- T215—T217（本批）：turn 循环内三步登记（`record_intent`→`mark_running`→
+  `record_result`，exec_id `TX-<request_id>-<iteration>-<n>`）、`execute_tool_call`
+  （权限面→校验→登记→执行→role:tool 回填，任何失败结构化回填不中断循环）、
+  workspace 全链路贯通（CUI/TUI/Web：`TurnRequest.workspace_root`）。
+- **登记边界**：登记覆盖"已受理执行"；受理前拒绝（权限/参数/绑定）不产生登记行。
+- **权限面 v1 和解**：读工具 SessionRead／写工具 SessionCreate；专用 WorkspaceWrite
+  归 P2-1 动态权限 broker（§2.7 注记兑现）。web 端 workspace 经
+  `handle_request_with_llm` 线程化贯通。
+- FR-724 `tool_not_wired` 过渡行为已替换；turn.rs 的 `#[expect(never_loop)]` 移除
+  （循环真实生效）；Check 303 的 iteration_limit 端到端测试补齐。
+
 ## 7. 修订记录
 
 - **2026-10-29（首版，已批准）**：用户批准建议书全部功能建议后起草；编号顺延至 048

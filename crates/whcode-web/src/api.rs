@@ -534,6 +534,7 @@ pub fn handle_request_with_certs(
         default_locale,
         cert,
         None,
+        None,
     )
 }
 
@@ -553,6 +554,7 @@ pub fn handle_request_with_llm(
     default_locale: &str,
     cert: Option<&CertApiContext<'_>>,
     llm: Option<&whcode_app::llm::LlmContext<'_>>,
+    workspace_root: Option<&std::path::Path>,
 ) -> HttpResponse {
     // 认证 + Origin（§10.2、V-110）。
     if let Err(error) = security::check_auth(auth_enabled, token, request.header("authorization")) {
@@ -1549,6 +1551,7 @@ pub fn handle_request_with_llm(
                         request_id: request_id.map(str::to_string),
                         iterations_limit: None,
                         budget_tokens: None,
+                        workspace_root: workspace_root.map(std::path::Path::to_path_buf),
                     },
                     now_ms()?,
                 )?;
