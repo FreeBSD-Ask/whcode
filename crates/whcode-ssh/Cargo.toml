@@ -9,7 +9,7 @@ license.workspace = true
 
 [dependencies]
 # SSH 客户端与服务端实现（T025 客户端原型 + T096—T098 服务端；ADR-030）。版本由外部锁定，不得降级。
-russh = "0.64.1"
+russh = "0.65.0"
 # 异步运行时：`net`（TCP 监听/连接）、`time`（有界超时）、`sync`（有界命令队列与一次性
 # 回执：`mpsc::try_send` + `oneshot`，Handler 异步等待不阻塞运行时线程）、`rt`
 # （`serve_ssh_blocking` 以 current_thread 运行时承载 russh 事件循环——线程数有界，
