@@ -13,6 +13,16 @@
 
 ### 变更
 
+- 宪法修订：新增原则 X“知难行易：任务认知先于手段”（2026-10-29，ADR-049，用户指令“修宪”）：
+  从一刻哲学第 21 章 §21.2／§21.4 与四版前言（`file_id 22, block 3—4`、`block 8`；`file_id 41,
+  block 52`）提取“知难行易，故而行也变得困难”与“Code is cheap. Show me the talk.”，把任务方向、
+  目标、用户真实意图复述、非目标与判据立为开工前置，手段（工具/框架/路径）后置且不得写进需求。
+  宪法版本 1.1.1 → 1.2.0（MINOR），Sync Impact Report 记录问题、备选方案、影响范围与迁移计划；
+  唯一正文 `docs/guides/knowing-before-doing.md`，落点覆盖 AGENTS、philosophy、yike-philosophy、
+  过程/需求/PR 指南、engineering-doctrine 00/01 与五份模板。全局任务适用：`tasks.md` 设
+  “全局执行前置”条款（T001—T220），13 个未勾选任务带认知卡标注，已勾选任务不补写（以其来源
+  FR/Check/实现记录为最小“知”证据，禁止伪造回填）。新增 `.github/scripts/check-knowing-first.py`
+  落点门禁（结构检查，不验语义）并接入 `ci.yml`；账本 T220/Check 316。
 - Code Scanning 修正到零告警并立为纪律（2026-10-29，用户指令）：`security/code-scanning`
   46 条 CodeQL 告警（`rust/cleartext-logging` 45、`rust/log-injection` 1）全部修复。
   生产侧两处根因：`ProviderFactory::create` 接收了从未使用的已求值凭据（`_credential`），

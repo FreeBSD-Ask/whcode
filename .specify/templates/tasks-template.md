@@ -18,6 +18,14 @@ description: "Task list template for feature implementation"
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
+- **Cognition first**: every task MUST have a task cognition card (direction, goal, user-intent restatement, non-goals, evidence) before any means are chosen; annotate the card location on the task line (see `docs/guides/knowing-before-doing.md`).
+
+## Task Cognition Precondition
+
+No task may start before its task cognition card is written: direction (what changes), goal
+(decidable success condition), user-intent restatement (ambiguity marked `[须提问]`), non-goals,
+existing evidence, and means (last; not a requirement). Completed tasks are not backfilled;
+their source requirement, acceptance check and implementation record are the minimum evidence.
 
 ## Path Conventions
 

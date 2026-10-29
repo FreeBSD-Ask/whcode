@@ -105,6 +105,10 @@ jobs:
         if: matrix.platform == 'windows'
         run: python .github/scripts/check-eol.py
 
+      - name: 知难行易落点门禁（宪法原则 X）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/check-knowing-first.py
+
       - name: 测试（含分层与目录分类契约）
         if: matrix.platform == 'windows'
         run: cargo test --locked --workspace

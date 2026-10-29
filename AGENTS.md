@@ -34,7 +34,7 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 5. **内存安全**：普通 Rust 零 `unsafe`；禁止 `mem::forget`；队列/缓冲/缓存必须有界；句柄 RAII 并有释放测试；汇编仅按 ADR-015 例外（NFR-215）。
 6. **性能与并发**：内存/CPU 优化先测量；多线程禁止原型先行；设计前研读一手文献并提交并发档案；汇编仅按 ADR-015 例外（NFR-216/217）。
 
-### 1.2 核心哲学（2026-10-21）
+### 1.2 核心哲学（2026-10-21，2026-10-29 增补知难行易）
 
 1. **形式主义**：任何代码、接口、文档、流程、UI 都是形式；先问它解决什么真实矛盾，答不出不做。
 2. **正负和解**：任何功能都有代价；提案必须写正面、负面、承担者与和解理由。
@@ -42,6 +42,7 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 4. **物质—意识**：文档必须落到代码/测试/产物，产物必须被文档解释；不一致以可复现事实为准。
 5. **没有最佳实践**：现行硬约束是当前和解，不是永恒真理；变更走 ADR 并写复审条件。
 6. **0 信任**：不信任报错、文档、外部事实与自己的旧结论；按风险独立复核。
+7. **知难行易（任务认知先于手段）**：先弄清任务方向、目标与用户真实意图，手段（工具/框架/路径）是次要且可替换的变量；方向不明必须提问，不得先开工（`docs/guides/knowing-before-doing.md`，宪法原则 X）。
 
 ### 1.3 自由、主体性与安全（2026-10-21）
 
@@ -87,6 +88,7 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 | 14 | `docs/guides/yike-philosophy.md` | 一刻哲学源流、二十九章命题与工程翻译 |
 | 15 | `engineering-doctrine/README.md` | 可移植工程哲学与开发准则（供其他项目复制） |
 | 16 | `docs/guides/signal-chain-completeness.md` | 信号链完备原则（T116 复盘：交付 = 信号存在，而非执行存在） |
+| 17 | `docs/guides/knowing-before-doing.md` | 开工前任务认知卡：方向、目标、用户意图、判据、非目标；手段后置 |
 
 ## 3. 环境与常用命令
 
@@ -108,6 +110,7 @@ cargo test -p whcode-tests --test layering       # 分层/平台分支/前端不
 cargo test -p whcode-tests --test layout         # 目录分类门禁
 python .github/scripts/traceability.py                        # FR↔任务↔Check 三方追溯（含缺口登记合规）
 python .github/scripts/check_counts.py                        # 任务/Check/FR 计数声明与实际一致
+python .github/scripts/check-knowing-first.py     # 知难行易落点门禁（宪法原则 X）
 python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑；--target aarch64-pc-windows-msvc 只打包，ARM64 安装验证由 CI 原生 runner 执行，ADR-043）
 python .github/scripts/check-eol.py                   # LF + 无 BOM 审计
 python .github/scripts/check-workflows.py       # CI workflow 语义门禁（与 CI 同源）
@@ -331,6 +334,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 8. 自由与安全审查：退出/导出/离线/默认值可撤销可用；安全措施有威胁模型、证据、代价与失效条件（NFR-218/219）。
 9. 不伪造/未知显式、反进步叙事、文档假设与复审日期已核对（NFR-220—222）。
 10. 证据层级与三次复查已执行；不可逆决策附设计与回退证据。
+11. **知难行易**：开工前有任务认知卡（方向/目标/用户意图/判据/非目标），手段选择晚于认知；歧义已提问或登记（`docs/guides/knowing-before-doing.md`）。
 
 提交约定（用户已授权代理自行提交）：
 
@@ -340,6 +344,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 
 ## 10. 不确定时
 
+- 任务方向、目标或用户真实意图不明：先写任务认知卡并提问，不得先选手段或开工（`docs/guides/knowing-before-doing.md`）。
 - 需求歧义：先查 `spec.md` 与 ADR；仍不明确则向用户提问，不自行假设后大规模实现。
 - 设计冲突：新开 ADR 或在既有 ADR 上追加修订记录，再改代码。
 - 平台/性能结论：没有目标平台实测就写“阻塞”，并给出复现所需的命令与环境。
