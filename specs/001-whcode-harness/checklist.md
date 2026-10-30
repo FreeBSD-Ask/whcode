@@ -572,7 +572,7 @@
   （来源：Task T221、FR-730、ADR-050）
 - [ ] Check 318: [missing] 重试模块测试全绿：含重启失败上抛回归（不得以流结束
   伪造成功）与策略校验（来源：Task T222、FR-730、ADR-050 §2.6）
-- [ ] Check 319: [missing] 工厂接线生效（真实 Provider 包 decorator）与 ADR-050
+- [x] Check 319: [exercised] ——**复核（2026-10-31，P1-2 批次）**：**CI 验收达成**：GitHub Actions run 41105697780（ci）／41105697753（build-release）／41105697425（CodeQL）三流水线 success（提交 2751748）；ADR-037 口径收口。
   落档；layering/layout/traceability/check_counts 门禁全绿（来源：Task T223、
   ADR-037 口径）
   `.github/scripts/check-knowing-first.py` 校验；`tasks.md` 全局执行前置条款与未勾选任务
