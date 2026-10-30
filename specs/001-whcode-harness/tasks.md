@@ -622,12 +622,12 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   次数上界、重启失败上抛（回归）、策略校验（FR-730；ADR-050 §2.6）
 - [x] T223 工厂接线与文档：`LocalProviderFactory::create` 包 decorator + ADR-050——**复核（2026-10-31，P1-2 批次）**：decorator 修复（重启失败静默结束缺陷）+ 测试 7 项全绿（workspace 本机证据；CI 验收按 ADR-037 待推送流水线）。- [x] T223 工厂接线与文档：`LocalProviderFactory::create` 包 decorator + ADR-050——**复核（2026-10-31，P1-2 批次）**：decorator 修复（重启失败静默结束缺陷）+ 测试 7 项全绿（workspace 本机证据；CI 验收按 ADR-037 待推送流水线）。
 
-- [ ] T224 [P] 折叠函数：`crates/whcode-app/src/context.rs` `fold_messages_for_budget`——
+- [x] T224 [P] 折叠函数：`crates/whcode-app/src/context.rs` `fold_messages_for_budget`————**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；CI 验收按 ADR-037 待推送流水线）。
   保留首条 user + 预算内尾部窗口，中段折叠为摘要消息（含折叠计数与首行），构造上
   保证 ≤ 预算（FR-731；ADR-051 §2.2）
-- [ ] T225 turn 接线：预算压力分支改折叠一次 + compress_context 指针 + ContextState
+- [x] T225 turn 接线：预算压力分支改折叠一次 + compress_context 指针 + ContextState——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；CI 验收按 ADR-037 待推送流水线）。
   (compressed=true) 事件落表，折叠后仍超才 budget_exceeded（FR-731；ADR-051 §2.3）
-- [ ] T226 [P] 测试：折叠保留锚点与尾部窗口、摘要内容可查、turn 预算压力折叠后
+- [x] T226 [P] 测试：折叠保留锚点与尾部窗口、摘要内容可查、turn 预算压力折叠后——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；CI 验收按 ADR-037 待推送流水线）。
   继续至完成、二次压力显式终止、指针与事件落表（FR-731；ADR-051）
 
   落档 + CHANGELOG（FR-730；ADR-050 §6）
