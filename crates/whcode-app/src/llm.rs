@@ -29,7 +29,7 @@ use std::time::Instant;
 
 use serde::Serialize;
 use serde_json::{Value, json};
-use whcode_domain::{ErrorCode, WhError};
+use whcode_domain::{ErrorCode, EventKind, WhError};
 use whcode_llm::http::profile::ProviderProfile;
 use whcode_llm::{CancelToken, LlmRequest, Provider, TransportSnapshot, Usage};
 
@@ -397,7 +397,7 @@ pub fn run(
 
     let mut events = Vec::with_capacity(MAX_STREAM_CHUNKS + 2);
     events.push(json!({
-        "kind": "llm.request_started",
+        "kind": EventKind::RequestStarted.as_str(),
         "request_id": request_id,
         "provider": profile.name,
         "protocol": profile.protocol.as_str(),
@@ -448,7 +448,7 @@ pub fn run(
             provider_usage = chunk.usage;
         }
         events.push(json!({
-            "kind": "llm.delta",
+            "kind": EventKind::StreamingChunk.as_str(),
             "index": chunk.index,
             "chars": chars,
         }));
@@ -471,7 +471,7 @@ pub fn run(
     };
     let completed = finish_reason.is_some();
     events.push(json!({
-        "kind": "llm.finished",
+        "kind": EventKind::RequestCompleted.as_str(),
         "request_id": request_id,
         "chunks": chunks.len(),
         "completed": completed,
@@ -558,7 +558,7 @@ fn registry_unavailable() -> WhError {
 }
 
 /// 请求 ID 校验：只允许 `[A-Za-z0-9_-]`，长度 1..=[`MAX_REQUEST_ID_LEN`]（作为文件名安全）。
-fn validate_request_id(request_id: &str) -> Result<&str, WhError> {
+pub(crate) fn validate_request_id(request_id: &str) -> Result<&str, WhError> {
     let trimmed = request_id.trim();
     if trimmed.is_empty() || trimmed.len() > MAX_REQUEST_ID_LEN {
         return Err(WhError::invalid_state(format!(
@@ -578,7 +578,12 @@ fn validate_request_id(request_id: &str) -> Result<&str, WhError> {
 }
 
 /// 自动请求 ID：`llm-<now>-<hash>`（不含提示词正文，桶号稳定可复用）。
-fn generate_request_id(session: &str, provider: &str, prompt: &str, now_ms: u64) -> String {
+pub(crate) fn generate_request_id(
+    session: &str,
+    provider: &str,
+    prompt: &str,
+    now_ms: u64,
+) -> String {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     session.hash(&mut hasher);
@@ -589,7 +594,7 @@ fn generate_request_id(session: &str, provider: &str, prompt: &str, now_ms: u64)
 }
 
 /// 取消标记路径。
-fn marker_path(dir: &Path, request_id: &str, suffix: &str) -> PathBuf {
+pub(crate) fn marker_path(dir: &Path, request_id: &str, suffix: &str) -> PathBuf {
     dir.join(format!("{request_id}{suffix}"))
 }
 
@@ -608,13 +613,13 @@ fn cancelled_error(request_id: &str) -> WhError {
 /// 活跃标记（RAII）：创建 `<request_id>.live`，析构时清理 `.live` 与 `.cancel`。
 ///
 /// 不新增线程与锁；每个进程至多一个活跃标记（单次调用占用调用线程）。
-struct CancelMarker {
+pub(crate) struct CancelMarker {
     dir: PathBuf,
     request_id: String,
 }
 
 impl CancelMarker {
-    fn begin(dir: &Path, request_id: &str) -> Result<Self, WhError> {
+    pub(crate) fn begin(dir: &Path, request_id: &str) -> Result<Self, WhError> {
         std::fs::create_dir_all(dir).map_err(|err| {
             WhError::new(
                 ErrorCode::IoError,
@@ -634,7 +639,7 @@ impl CancelMarker {
         })
     }
 
-    fn is_cancelled(&self) -> bool {
+    pub(crate) fn is_cancelled(&self) -> bool {
         marker_path(&self.dir, &self.request_id, CANCEL_SUFFIX).exists()
     }
 }

@@ -428,7 +428,14 @@ fn serve_web(
         // LLM 面（T167）：启动时解析剖面与出站信任（不做网络请求；无剖面即无请求）。
         llm: ServeLlm::from_env(workspace)?,
     };
-    serve_loop(listener, &mut conn, actor, security, tls_config)
+    serve_loop(
+        listener,
+        &mut conn,
+        actor,
+        security,
+        tls_config,
+        Some(workspace),
+    )
 }
 
 /// 有效入站档位：`--tls` 参数 > 工作区设置 > 默认 `builtin`（ADR-040 决策 3）。
@@ -604,6 +611,7 @@ fn serve_loop(
     actor: Actor,
     security: ServeSecurity,
     tls: Option<Arc<ServerConfig>>,
+    workspace_root: Option<&Path>,
 ) -> Result<(), WhError> {
     listener.set_nonblocking(true).map_err(|err| {
         WhError::new(ErrorCode::IoError, format!("监听套接字非阻塞化失败：{err}"))
@@ -620,7 +628,15 @@ fn serve_loop(
         let mut progressed = false;
         accept_ready(&listener, &mut clients, &mut progressed, tls.as_ref());
         for client in clients.iter_mut() {
-            pump_client(client, &mut state, conn, &actor, &security, &mut progressed);
+            pump_client(
+                client,
+                &mut state,
+                conn,
+                &actor,
+                &security,
+                &mut progressed,
+                workspace_root,
+            );
         }
         if last_poll.elapsed() >= EVENT_POLL_INTERVAL {
             last_poll = Instant::now();
@@ -716,12 +732,21 @@ fn pump_client(
     actor: &Actor,
     security: &ServeSecurity,
     progressed: &mut bool,
+    workspace_root: Option<&Path>,
 ) {
     if client.dead {
         return;
     }
     if matches!(&client.phase, Phase::Reading { .. }) {
-        pump_reading(client, conn, actor, security, state, progressed);
+        pump_reading(
+            client,
+            conn,
+            actor,
+            security,
+            state,
+            progressed,
+            workspace_root,
+        );
         return;
     }
     if matches!(&client.phase, Phase::Subscriber { .. }) {
@@ -743,6 +768,7 @@ fn pump_reading(
     security: &ServeSecurity,
     state: &mut BroadcastState,
     progressed: &mut bool,
+    workspace_root: Option<&Path>,
 ) {
     read_request_bytes(client, progressed);
     if client.dead {
@@ -791,7 +817,7 @@ fn pump_reading(
             enter_writing(client, &reply, None);
         }
         RequestOutcome::Complete(raw) => {
-            let reply = respond(conn, &raw, actor, security);
+            let reply = respond(conn, &raw, actor, security, workspace_root);
             route_reply(client, reply, state);
         }
     }
@@ -1343,6 +1369,7 @@ fn respond(
     raw: &[u8],
     actor: &whcode_app::Actor,
     security: &ServeSecurity,
+    workspace_root: Option<&Path>,
 ) -> Reply {
     let request = match api::parse_request(raw) {
         Ok(request) => request,
@@ -1402,6 +1429,7 @@ fn respond(
         &security.default_locale,
         cert_context.as_ref(),
         Some(&llm_context),
+        workspace_root,
     );
     Reply {
         ws_upgrade: is_ws && response.status == 101,
@@ -1639,7 +1667,8 @@ mod tests {
         let mut conn = migrated_memory_conn();
         let actor = actor_with_all_capabilities("tester");
         let security = ServeSecurity::loopback();
-        let mut send = |request: &str| respond(&mut conn, &raw_request(request), &actor, &security);
+        let mut send =
+            |request: &str| respond(&mut conn, &raw_request(request), &actor, &security, None);
 
         // 静态资产（GET）。
         let reply = send("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
@@ -1718,6 +1747,7 @@ mod tests {
             )),
             &actor,
             &security,
+            None,
         );
         assert_eq!(
             create.response.status,
@@ -1731,6 +1761,7 @@ mod tests {
             &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
             &actor,
             &security,
+            None,
         );
         assert_eq!(reply.response.status, 200);
         let body = String::from_utf8_lossy(&reply.response.body).into_owned();
@@ -1761,6 +1792,7 @@ mod tests {
             )),
             &actor,
             &ServeSecurity::loopback(),
+            None,
         );
         assert_eq!(create.response.status, 201);
 
@@ -1775,6 +1807,7 @@ mod tests {
             &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
             &actor,
             &authenticated,
+            None,
         );
         assert_eq!(reply.response.status, 200);
         let body = String::from_utf8_lossy(&reply.response.body).into_owned();
@@ -1807,6 +1840,7 @@ mod tests {
                 )),
                 &actor,
                 &security,
+                None,
             );
             assert_eq!(
                 create.response.status,
@@ -1821,6 +1855,7 @@ mod tests {
             &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
             &actor,
             &security,
+            None,
         );
         let body = String::from_utf8_lossy(&reply.response.body).into_owned();
         assert_eq!(
@@ -1869,7 +1904,13 @@ mod tests {
         let request = raw_request("GET /api/certs HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
 
         // 未接线（测试默认 loopback）：明确 invalid_state。
-        let unwired = respond(&mut conn, &request, &actor, &ServeSecurity::loopback());
+        let unwired = respond(
+            &mut conn,
+            &request,
+            &actor,
+            &ServeSecurity::loopback(),
+            None,
+        );
         assert_eq!(unwired.response.status, 400);
         let body: serde_json::Value = serde_json::from_slice(&unwired.response.body).expect("JSON");
         assert_eq!(body["code"], "invalid_state");
@@ -1897,7 +1938,7 @@ mod tests {
             }),
             ..ServeSecurity::loopback()
         };
-        let reply = respond(&mut conn, &request, &actor, &security);
+        let reply = respond(&mut conn, &request, &actor, &security, None);
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(
             reply.response.status,
@@ -1921,7 +1962,7 @@ mod tests {
         let page = raw_request("GET /settings/certs HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
 
         // 未接线：明确“未接线”，不渲染成“没有证书”。
-        let unwired = respond(&mut conn, &page, &actor, &ServeSecurity::loopback());
+        let unwired = respond(&mut conn, &page, &actor, &ServeSecurity::loopback(), None);
         assert_eq!(unwired.response.status, 200, "设置页不得 404/500 空页");
         assert!(
             unwired
@@ -1961,7 +2002,7 @@ mod tests {
             }),
             ..ServeSecurity::loopback()
         };
-        let wired = respond(&mut conn, &page, &actor, &security);
+        let wired = respond(&mut conn, &page, &actor, &security, None);
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(wired.response.status, 200);
         let body = String::from_utf8_lossy(&wired.response.body);
@@ -1981,7 +2022,7 @@ mod tests {
 
         // 脚本资产：`/settings.js` 走静态白名单，非空且声明原生 ESM 的 API 路径。
         let script = raw_request("GET /settings.js HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
-        let reply = respond(&mut conn, &script, &actor, &ServeSecurity::loopback());
+        let reply = respond(&mut conn, &script, &actor, &ServeSecurity::loopback(), None);
         assert_eq!(reply.response.status, 200);
         assert!(
             reply
@@ -2024,7 +2065,7 @@ mod tests {
             .name("serve-loop-test".into())
             .spawn(move || {
                 let mut server_conn = server_conn;
-                let _ = serve_loop(listener, &mut server_conn, actor, security, tls);
+                let _ = serve_loop(listener, &mut server_conn, actor, security, tls, None);
             })
             .expect("启动服务器线程");
         TestServer { addr, conn }

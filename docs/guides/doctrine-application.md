@@ -9,7 +9,7 @@
 
 | 准则 | 项目现状 | 结论 |
 |---|---|---|
-| 00 哲学 | `philosophy.md`、`yike-philosophy.md`、AGENTS 1.2—1.4 | 已落地；本轮补证据层级 |
+| 00 哲学 | `philosophy.md`、`yike-philosophy.md`、AGENTS 1.2—1.4、宪法原则 X | 已落地；本轮补证据层级与知难行易 |
 | 01 过程 | G0—G5、tasks/checklist、门禁脚本 | 已落地；G4 补三次复查 |
 | 02 需求 | FR/NFR、追溯、变更控制 | 已落地；补证据层级与三次复查 |
 | 03 设计 | design-principles、crate 分层、layering 门禁 | 已落地 |
@@ -26,6 +26,10 @@
 3. **可逆性分级**：可逆决策快速验证；不可逆决策（数据格式、协议、权限、并发内存序）
    设计先行并留回退证据。
 4. **登记**：T148、Check 249；计数同步为 148 任务 / 249 检查点。
+5. **知难行易（宪法原则 X，2026-10-29 修宪）**：新增唯一正文 `docs/guides/knowing-before-doing.md`
+   与 ADR-049，宪法 1.1.1 → 1.2.0；落点覆盖 AGENTS、哲学/过程/需求/PR 指南、可移植准则与五份
+   模板；`tasks.md` 设全局执行前置（T001—T220），13 个未勾选任务带认知卡标注，已勾选任务不补写；
+   `.github/scripts/check-knowing-first.py` 接入 `ci.yml`；登记 T220、Check 316。
 
 ## 3. 回流到准则
 
@@ -37,6 +41,7 @@
 | AI 总结不能作为唯一证据 | `01-process.md` §8、PR 模板 |
 | FR/任务/Check 需要单一计数来源 | `07-delivery.md` §3 |
 | 文档需要假设、适用范围与复审日期 | `07-delivery.md` §3 |
+| 规则会退化为空壳，落点必须有程序门禁 | `01-process.md` G3、`templates/tasks.template.md`、`docs/guides/knowing-before-doing.md` §7 |
 
 ## 4. 剩余缺口
 
@@ -47,6 +52,7 @@
 | 并发设计档案无样例 | NFR-216 缺可复用样例 | 首个并发任务按模板产出并归档 |
 | 文档复审日期未逐项登记 | NFR-222 只能部分判定 | 从 M1 起为 ADR/指南补复审字段 |
 | `.github/scripts/check_counts.py` 未覆盖所有计数位置 | 仍可能局部漂移 | 按失败案例追加模式 |
+| 认知卡语义无程序判定 | `check-knowing-first.py` 只验落点与标注，不验“知”是否正确 | 语义正确性只能由用户确认；连续两批次卡片不改变决策即按 ADR-049 §5 复审 |
 
 ## 5. 下一周期触发
 

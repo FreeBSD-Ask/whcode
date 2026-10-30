@@ -1054,7 +1054,7 @@ pub const SURFACES: &[SurfaceEntry] = &[
         audited: false,
         frontends: [
             Support::Implemented {
-                anchor: "cui_dispatch::llm_command（LlmCommand::Run → whcode_app::llm::run）",
+                anchor: "cui_dispatch::llm_command（LlmCommand::Run → whcode_app::turn::run_turn，FR-718）",
             },
             Support::Implemented {
                 anchor: "TuiAction::LlmRun（剖面名→提示词两步输入 → llm_provider::TuiLlmExecutor::run）",
@@ -1063,7 +1063,7 @@ pub const SURFACES: &[SurfaceEntry] = &[
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
             Support::Implemented {
-                anchor: "POST /api/llm/run（handle_request_with_llm）",
+                anchor: "POST /api/llm/run（handle_request_with_llm → whcode_app::turn::run_turn，FR-718）",
             },
         ],
     },

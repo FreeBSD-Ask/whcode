@@ -24,6 +24,7 @@ pub mod correlation;
 pub mod http;
 pub mod metering;
 pub mod provider;
+pub mod retry;
 pub mod stream;
 pub mod trace;
 pub mod transport_events;

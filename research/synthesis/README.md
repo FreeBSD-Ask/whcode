@@ -140,6 +140,8 @@ Loop Discovery 十项决策门与最小所有者路由；学习捕获（复发�
 
 ## 修订记录
 
+- **2026-10-29（proposal-v2）**：规则重载后第二阶段建议书 [proposal-v2.md](proposal-v2.md)
+  入库（P0 收口路线 R1—R4 + 认知卡、双会话协调协议、D6—D9 决策请求）。
 - **2026-10-29（首版）**：综合 `research/zcode-comparison/`（16 域，ZCode commit `3c5b227`）
   与 `research/better-harness/`（commit `b605532`）两份一手研究；26 行统一能力矩阵
   （执行 9 + 评审 6 + 治理 5 + 平台 6）+ 十条交叉发现 + 独有能力合并清单。建议书见

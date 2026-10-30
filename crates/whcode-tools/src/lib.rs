@@ -1,14 +1,25 @@
-//! # whcode-tools
+//! # whcode-tools（ADR-048：P0-2 工具系统）
 //!
-//! 工具注册、权限策略、调用意图与结果登记（§8.4、ADR-007）。
+//! 工具注册表、输入校验、工作区路径绑定与内建工具六件套（FR-725—726、FR-729）。
 //!
-//! **当前状态：骨架，功能未实现。**
+//! 分层边界（`test_layering`）：本 crate 只依赖 `whcode-domain`（叶子）；文件操作用
+//! `std::fs`（无平台条件编译，平台差异归 `whcode-platform`）；**不做持久化**——
+//! 工具执行的三步登记协议（prepared→running→终态 + `recover_uncertain`，§0.3-8 不承诺
+//! exactly-once；FR-410 unknown 语义）由 `whcode-app` 经 `whcode-store` 公共 API 落库
+//! （ADR-018：SQL 只在 store；登记接线属 T215）。
 //!
-//! 必须实现的协议（不承诺 exactly-once，§0.3-8）：
-//! 1. 参数 schema 校验与权限策略判定（白名单；破坏性操作须策略显式允许，§10.2）；
-//! 2. 执行前提交 `prepared` 意图与检查点；
-//! 3. 执行中标记 `running`，受超时/取消/输出上限约束；
-//! 4. 结束后在同一事务登记输出摘要、退出码与副作用凭证；
-//! 5. 无法判断是否完成时标记 `unknown`，禁止盲目重放（FR-410）。
-//!
-//! 状态类型见 `whcode_domain::RuntimeExecutionStatus`；持久化由 `whcode-store` 写者服务执行。
+//! 有界性（NFR-215）：[`MAX_TOOL_OUTPUT_BYTES`] 输出上限、读文件 1 MiB 上限
+//! （[`builtins::MAX_READ_BYTES`]）、遍历目录数与结果条目上限；全部同步执行，不新增线程。
+
+pub mod builtins;
+pub mod paths;
+pub mod registry;
+
+/// 工具输出正文上限（64 KiB；超限截断并显式标记，FR-728/R-05 对策）。
+pub const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1024;
+
+pub use builtins::default_registry;
+pub use registry::{
+    ParamType, SideEffectScope, Tool, ToolDescriptor, ToolOutput, ToolParameter, ToolRegistry,
+    validate_arguments,
+};

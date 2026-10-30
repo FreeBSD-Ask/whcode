@@ -295,19 +295,22 @@ fn llm_command(
         } => {
             // 追踪级别是显式输入：未知取值直接拒绝，不静默回落到默认档。
             let trace_level = parse_trace_level(trace_level)?;
-            let conn = open_db(workspace, config)?;
-            let outcome = whcode_app::llm::run(
-                &conn,
+            let mut conn = open_db(workspace, config)?;
+            let outcome = whcode_app::turn::run_turn(
+                &mut conn,
                 policy,
                 actor,
                 &context,
-                &whcode_app::llm::LlmRunRequest {
+                &whcode_app::turn::TurnRequest {
                     session_id: session.clone(),
                     provider: provider.clone(),
                     prompt: prompt.clone(),
                     model: model.clone(),
                     max_tokens: *max_tokens,
                     request_id: request_id.clone(),
+                    iterations_limit: None,
+                    budget_tokens: None,
+                    workspace_root: Some(workspace.to_path_buf()),
                 },
                 now_ms()?,
             )?;

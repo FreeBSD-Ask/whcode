@@ -27,6 +27,7 @@
 | `bsd-interface.md` | BSD 平台接口预留契约（延后，不作验收结论） |
 | `doctrine-application.md` | 工程准则应用记录（审计/改动/缺口） |
 | `yike-philosophy.md` | 一刻哲学源流与工程翻译 |
+| `knowing-before-doing.md` | 知难行易（宪法原则 X）：任务认知卡、门禁落点、反例与复审触发 |
 
 ## T119 交付记录（2026-10-23）
 

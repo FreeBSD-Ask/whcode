@@ -151,6 +151,7 @@ impl ServeLlm {
 pub struct TuiLlmExecutor {
     llm: ServeLlm,
     conn: std::rc::Rc<std::cell::RefCell<duckdb::Connection>>,
+    workspace: PathBuf,
 }
 
 impl TuiLlmExecutor {
@@ -167,24 +168,28 @@ impl TuiLlmExecutor {
         Ok(Self {
             llm: ServeLlm::from_env(workspace)?,
             conn,
+            workspace: workspace.to_path_buf(),
         })
     }
 }
 
 impl whcode_tui::LlmExecutor for TuiLlmExecutor {
     fn run(&self, session_id: &str, provider: &str, prompt: &str) -> Result<String, WhError> {
-        let outcome = whcode_app::llm::run(
-            &self.conn.borrow(),
+        let outcome = whcode_app::turn::run_turn(
+            &mut self.conn.borrow_mut(),
             &whcode_app::DefaultPolicy,
             &whcode_app::actor_with_all_capabilities("tui-local"),
             &self.llm.context(),
-            &whcode_app::llm::LlmRunRequest {
+            &whcode_app::turn::TurnRequest {
                 session_id: session_id.to_string(),
                 provider: provider.to_string(),
                 prompt: prompt.to_string(),
                 model: None,
                 max_tokens: None,
                 request_id: None,
+                iterations_limit: None,
+                budget_tokens: None,
+                workspace_root: Some(self.workspace.clone()),
             },
             now_ms(),
         )?;
