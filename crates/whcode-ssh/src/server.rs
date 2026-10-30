@@ -32,7 +32,9 @@ use duckdb::Connection;
 use russh::ChannelId;
 use russh::Pty;
 use russh::keys::{Algorithm, PublicKey};
-use russh::server::{Auth, ChannelOpenHandle, Handler, Msg, Server as RusshServer, Session};
+use russh::server::{
+    Auth, ChannelOpenHandle, Handler, Msg, Server as RusshServer, Session, VerifiedPublicKey,
+};
 use whcode_app::{Actor, Capability};
 use whcode_domain::{ErrorCode, WhError};
 
@@ -327,23 +329,24 @@ impl Handler for SshSessionHandler {
     async fn auth_publickey(
         &mut self,
         user: &str,
-        public_key: &PublicKey,
+        key: VerifiedPublicKey<'_>,
     ) -> Result<Auth, Self::Error> {
-        if public_key.algorithm() != Algorithm::Ed25519 {
+        // russh 0.65：回调改发 `VerifiedPublicKey`（签名已验证的公钥 + 请求算法）。
+        if *key.algorithm != Algorithm::Ed25519 {
             self.record(
                 user,
                 "auth-denied",
                 false,
-                format!("algorithm={}", public_key.algorithm()),
+                format!("algorithm={}", key.algorithm),
             );
             return Ok(Auth::reject());
         }
-        if !authorized_contains(&self.shared.authorized_keys, public_key) {
+        if !authorized_contains(&self.shared.authorized_keys, key.public_key) {
             self.record(
                 user,
                 "auth-denied",
                 false,
-                format!("fingerprint={}", hostkey::fingerprint(public_key)),
+                format!("fingerprint={}", hostkey::fingerprint(key.public_key)),
             );
             return Ok(Auth::reject());
         }
@@ -355,7 +358,7 @@ impl Handler for SshSessionHandler {
             &actor.id,
             "auth-accepted",
             true,
-            format!("fingerprint={}", hostkey::fingerprint(public_key)),
+            format!("fingerprint={}", hostkey::fingerprint(key.public_key)),
         );
         self.context.actor = Some(actor);
         Ok(Auth::Accept)
