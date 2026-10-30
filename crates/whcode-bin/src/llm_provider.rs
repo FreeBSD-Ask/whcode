@@ -79,7 +79,11 @@ impl ProviderFactory for LocalProviderFactory {
                 None => None,
             };
             let client = whcode_llm::http::client::HttpClient::with_tls(profile.clone(), tls)?;
-            Ok(Box::new(client))
+            // FR-730/ADR-050：流式生成重试（首 chunk 前失败才重放；交互优先策略）。
+            Ok(whcode_llm::retry::with_stream_retry(
+                Box::new(client),
+                whcode_llm::retry::StreamRetryPolicy::standard(),
+            ))
         }
         #[cfg(not(feature = "http"))]
         {

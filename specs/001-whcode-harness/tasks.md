@@ -602,7 +602,27 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   （移除落点后退出 1，逐字节恢复后退出 0）；`check_counts.py`/`traceability.py` 退出 0；
   `cargo test -p whcode-tests --test layout` 通过；workspace 全量测试隔离复跑退出 0
   （首轮与 clippy/layout 并发时 whcode-store 套件异常退出，隔离复跑 115/115 通过）
+  （本机证据；CI 验收按 ADR-037 待流水线）。- [x] T220 [P] 知难行易全局落地：新增 `docs/guides/knowing-before-doing.md`（唯一正文）与
+  `docs/adr/ADR-049-constitution-knowing-before-doing.md`；宪法新增原则 X（1.1.1 → 1.2.0）；
+  `AGENTS.md` 五处、`philosophy.md` §11、`yike-philosophy.md` 第 21 章与 §3、
+  `software-engineering-process.md` G0/G1/§1.5/§5/§6、`requirements-engineering.md` §2.1/§6、
+  `pr-checklist.md`、`docs/guides/README.md` 落点；`engineering-doctrine` 00/01 与五份模板；
+  `tasks.md` 全局执行前置与 13 个未勾选任务标注；新增 `.github/scripts/check-knowing-first.py`
+  并接入 `ci.yml`；`checklist.md` Check 316。**复核（2026-10-29，修宪批次）**：
+  `check-knowing-first.py` 退出 0（18 个落点、13 个未勾选任务带标注）；失败路径实测
+  （移除落点后退出 1，逐字节恢复后退出 0）；`check_counts.py`/`traceability.py` 退出 0；
+  `cargo test -p whcode-tests --test layout` 通过；workspace 全量测试隔离复跑退出 0
+  （首轮与 clippy/layout 并发时 whcode-store 套件异常退出，隔离复跑 115/115 通过）
   （本机证据；CI 验收按 ADR-037 待流水线）。
+
+- [x] T221 流式重试 decorator：`crates/whcode-llm/src/retry.rs`——safe_to_retry——**复核（2026-10-31，P1-2 批次）**：decorator 修复（重启失败静默结束缺陷）+ 测试 7 项全绿（workspace 本机证据；CI 验收按 ADR-037 待推送流水线）。
+  判据（零 chunk 已发射才重放）、退避（retry_after_ms 优先）、总预算上界、取消感知、
+  attempts 并入 reconnect_attempts（FR-730；ADR-050 §2）
+- [x] T222 重试模块测试：首 chunk 前重试成功、中途失败上抛、非重试不重试、——**复核（2026-10-31，P1-2 批次）**：decorator 修复（重启失败静默结束缺陷）+ 测试 7 项全绿（workspace 本机证据；CI 验收按 ADR-037 待推送流水线）。
+  次数上界、重启失败上抛（回归）、策略校验（FR-730；ADR-050 §2.6）
+- [x] T223 工厂接线与文档：`LocalProviderFactory::create` 包 decorator + ADR-050——**复核（2026-10-31，P1-2 批次）**：decorator 修复（重启失败静默结束缺陷）+ 测试 7 项全绿（workspace 本机证据；CI 验收按 ADR-037 待推送流水线）。
+  落档 + CHANGELOG（FR-730；ADR-050 §6）
+
 
 ---
 

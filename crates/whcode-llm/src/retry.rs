@@ -17,7 +17,10 @@
 //! 总预算 60 s——对照 ZCode（10 次、基准 2 s、上限 60 s）：交互场景中长时间阻塞调用
 //! 线程的代价高于边际成功率；复审触发＝真实会话首 chunk 失败率统计（§5）。
 
-use std::sync::{Arc, atomic::{AtomicU64, Ordering}};
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
 use std::time::{Duration, Instant};
 
 use whcode_domain::WhError;
@@ -118,9 +121,9 @@ impl Provider for RetryingProvider {
 
     fn transport_snapshot(&self) -> Option<TransportSnapshot> {
         let mut snapshot = self.inner.transport_snapshot()?;
-        snapshot.reconnect_attempts = snapshot
-            .reconnect_attempts
-            .saturating_add(u32::try_from(self.attempts.load(Ordering::Relaxed)).unwrap_or(u32::MAX));
+        snapshot.reconnect_attempts = snapshot.reconnect_attempts.saturating_add(
+            u32::try_from(self.attempts.load(Ordering::Relaxed)).unwrap_or(u32::MAX),
+        );
         Some(snapshot)
     }
 
@@ -150,11 +153,14 @@ impl Provider for RetryingProvider {
                     });
                 }
                 Err(err) => {
-                    if !err.retryable || retries_left == 0 || !sleep_backoff(
-                        cancel,
-                        retry_after_ms(&err).unwrap_or(next_delay.min(self.policy.max_delay)),
-                        deadline,
-                    ) {
+                    if !err.retryable
+                        || retries_left == 0
+                        || !sleep_backoff(
+                            cancel,
+                            retry_after_ms(&err).unwrap_or(next_delay.min(self.policy.max_delay)),
+                            deadline,
+                        )
+                    {
                         return Err(err);
                     }
                     if cancel.is_cancelled() {
@@ -186,36 +192,12 @@ struct RetryStream {
     last_error: Option<WhError>,
 }
 
-impl RetryStream {
-    fn restart(&mut self) -> Result<(), WhError> {
-        self.attempts.fetch_add(1, Ordering::Relaxed);
-        self.retries_left = self.retries_left.saturating_sub(1);
-        self.next_delay = self
-            .next_delay
-            .checked_mul(2)
-            .unwrap_or(self.policy.max_delay)
-            .min(self.policy.max_delay);
-        match self.provider.execute(&self.request, &self.cancel) {
-            Ok(stream) => {
-                self.inner = Some(stream);
-                Ok(())
-            }
-            Err(err) => {
-                self.inner = None;
-                Err(err)
-            }
-        }
-    }
-}
-
 impl Iterator for RetryStream {
     type Item = Result<crate::provider::LlmChunk, WhError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let Some(stream) = self.inner.as_mut() else {
-                return None;
-            };
+            let stream = self.inner.as_mut()?;
             match stream.next() {
                 Some(Ok(chunk)) => {
                     self.emitted = true;
@@ -228,25 +210,36 @@ impl Iterator for RetryStream {
                     }
                     self.inner = None;
                     self.last_error = Some(err);
-                    let delay = retry_after_ms(self.last_error.as_ref().expect("已存错误"))
-                        .unwrap_or(self.next_delay.min(self.policy.max_delay));
-                    if !sleep_backoff(&self.cancel, delay, self.deadline) {
-                        return self.last_error.take().map(Err);
-                    }
-                    if self.cancel.is_cancelled() {
-                        return self.last_error.take().map(Err);
-                    }
-                    if let Err(restart_err) = self.restart() {
-                        // 重启请求失败：同判定继续重试或上抛。
-                        if !self.emitted
-                            && restart_err.retryable
-                            && self.retries_left > 0
-                            && sleep_backoff(&self.cancel, self.next_delay.min(self.policy.max_delay), self.deadline)
-                            && !self.cancel.is_cancelled()
+                    // 有界重试环：等待 → 重启 → 再判定；失败不静默结束流（返回 None
+                    // 会被调用方当作“正常完成”，属于伪造成功——必须显式上抛）。
+                    loop {
+                        let last = self.last_error.as_ref().expect("已存错误");
+                        let delay = retry_after_ms(last)
+                            .unwrap_or(self.next_delay.min(self.policy.max_delay));
+                        if !sleep_backoff(&self.cancel, delay, self.deadline)
+                            || self.cancel.is_cancelled()
                         {
-                            continue;
+                            return self.last_error.take().map(Err);
                         }
-                        return self.last_error.take().map(Err);
+                        if self.retries_left == 0 {
+                            return Some(Err(self.last_error.take().expect("已存错误")));
+                        }
+                        self.attempts.fetch_add(1, Ordering::Relaxed);
+                        self.retries_left = self.retries_left.saturating_sub(1);
+                        self.next_delay = self
+                            .next_delay
+                            .checked_mul(2)
+                            .unwrap_or(self.policy.max_delay)
+                            .min(self.policy.max_delay);
+                        match self.provider.execute(&self.request, &self.cancel) {
+                            Ok(stream) => {
+                                self.inner = Some(stream);
+                                break;
+                            }
+                            Err(restart_err) => {
+                                self.last_error = Some(restart_err);
+                            }
+                        }
                     }
                 }
                 None => return None,
@@ -268,4 +261,264 @@ pub fn validate_policy(policy: &StreamRetryPolicy) -> Result<(), WhError> {
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::provider::{LlmChunk, ProviderCapabilities};
+    use serde_json::json;
+    use std::sync::atomic::AtomicU32;
+    use whcode_domain::ErrorCode;
+
+    /// 夹具：前 `failures` 次 execute 返回错误（可配可重试性/中途失败）。
+    struct FlakyProvider {
+        failures: AtomicU32,
+        non_retryable: bool,
+        mid_stream: bool,
+    }
+
+    impl FlakyProvider {
+        fn new(failures: u32) -> Self {
+            Self {
+                failures: AtomicU32::new(failures),
+                non_retryable: false,
+                mid_stream: false,
+            }
+        }
+
+        fn non_retryable(failures: u32) -> Self {
+            Self {
+                failures: AtomicU32::new(failures),
+                non_retryable: true,
+                mid_stream: false,
+            }
+        }
+
+        fn mid_stream() -> Self {
+            Self {
+                failures: AtomicU32::new(1),
+                non_retryable: false,
+                mid_stream: true,
+            }
+        }
+    }
+
+    fn flaky_err() -> WhError {
+        WhError::new(ErrorCode::IoError, "连接被拒（夹具）".to_string())
+            .with_details(json!({ "retry_after_ms": 1 }))
+    }
+
+    impl Provider for FlakyProvider {
+        fn name(&self) -> &str {
+            "flaky"
+        }
+
+        fn capabilities(&self) -> ProviderCapabilities {
+            ProviderCapabilities {
+                streaming: true,
+                cancel: true,
+                usage_reporting: false,
+            }
+        }
+
+        fn is_available(&self) -> bool {
+            true
+        }
+
+        fn transport_snapshot(&self) -> Option<TransportSnapshot> {
+            Some(TransportSnapshot {
+                connection_id: "flaky".to_string(),
+                state: "idle".to_string(),
+                bytes_sent: 0,
+                bytes_received: 0,
+                rtt_samples: Vec::new(),
+                reconnect_attempts: 0,
+            })
+        }
+
+        fn execute(
+            &self,
+            _request: &LlmRequest,
+            _cancel: &CancelToken,
+        ) -> Result<ChunkStream, WhError> {
+            let remaining = self.failures.fetch_sub(1, Ordering::SeqCst);
+            if remaining > 1 {
+                let mut err = flaky_err();
+                if self.non_retryable {
+                    err.retryable = false;
+                }
+                return Err(err);
+            }
+            let chunks: Vec<Result<LlmChunk, WhError>> = if self.mid_stream {
+                vec![
+                    Ok(LlmChunk {
+                        index: 0,
+                        text: "部分".to_string(),
+                        final_chunk: false,
+                        usage: None,
+                        finish_reason: None,
+                        tool_calls: Vec::new(),
+                    }),
+                    Err(flaky_err()),
+                ]
+            } else {
+                vec![Ok(LlmChunk {
+                    index: 0,
+                    text: "ok".to_string(),
+                    final_chunk: true,
+                    usage: None,
+                    finish_reason: Some("stop".to_string()),
+                    tool_calls: Vec::new(),
+                })]
+            };
+            Ok(ChunkStream {
+                inner: Box::new(chunks.into_iter()),
+            })
+        }
+    }
+
+    fn request() -> LlmRequest {
+        LlmRequest {
+            request_id: "R".to_string(),
+            session_id: "S".to_string(),
+            task_id: None,
+            model: "m".to_string(),
+            messages: vec![crate::provider::LlmMessage::user("hi")],
+            max_tokens: 16,
+            timeout: None,
+        }
+    }
+
+    fn fast_policy() -> StreamRetryPolicy {
+        StreamRetryPolicy {
+            max_retries: 3,
+            base_delay: Duration::from_millis(1),
+            max_delay: Duration::from_millis(4),
+            total_budget: Duration::from_secs(1),
+        }
+    }
+
+    #[test]
+    fn pre_stream_failure_is_retried_and_succeeds() {
+        let provider = with_stream_retry(Box::new(FlakyProvider::new(2)), fast_policy());
+        let chunks: Vec<_> = provider
+            .execute(&request(), &CancelToken::default())
+            .expect("重试后成功")
+            .collect::<Result<_, _>>()
+            .expect("流完整");
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0].text, "ok");
+        // 可观测：尝试次数并入传输快照 reconnect_attempts（3 次尝试 = 2 次重试）。
+        let snapshot = provider.transport_snapshot().expect("快照");
+        assert_eq!(snapshot.reconnect_attempts, 2);
+    }
+
+    #[test]
+    fn mid_stream_failure_after_chunk_is_not_retried() {
+        let provider = with_stream_retry(Box::new(FlakyProvider::mid_stream()), fast_policy());
+        let result: Result<Vec<_>, _> = provider
+            .execute(&request(), &CancelToken::default())
+            .expect("流建立")
+            .collect();
+        let err = result.expect_err("chunk 已发射后的失败必须上抛（safe_to_retry 判据）");
+        assert!(err.retryable, "错误本身可重试，但重放不安全");
+    }
+
+    #[test]
+    fn non_retryable_failure_is_not_retried() {
+        let provider = with_stream_retry(Box::new(FlakyProvider::non_retryable(2)), fast_policy());
+        let err = provider
+            .execute(&request(), &CancelToken::default())
+            .expect_err("不可重试错误必须立即上抛");
+        assert!(!err.retryable);
+        assert_eq!(
+            provider
+                .transport_snapshot()
+                .expect("快照")
+                .reconnect_attempts,
+            1
+        );
+    }
+
+    #[test]
+    fn retries_are_bounded_by_max_retries() {
+        let provider = with_stream_retry(Box::new(FlakyProvider::new(u32::MAX)), fast_policy());
+        assert!(
+            provider
+                .execute(&request(), &CancelToken::default())
+                .is_err()
+        );
+        // 4 次尝试（1 + 3 重试），全部记入快照。
+        assert_eq!(
+            provider
+                .transport_snapshot()
+                .expect("快照")
+                .reconnect_attempts,
+            4
+        );
+    }
+
+    #[test]
+    fn restart_failure_is_surfaced_not_silently_dropped() {
+        // 回归（T221）：execute 首次成功、重启请求失败——失败必须上抛，
+        // 不得以“流结束”伪造成功（修复前 continue 回到 None 分支）。
+        struct RestartFailThenStream {
+            calls: AtomicU32,
+        }
+        impl Provider for RestartFailThenStream {
+            fn name(&self) -> &str {
+                "restart-fail"
+            }
+            fn capabilities(&self) -> ProviderCapabilities {
+                ProviderCapabilities {
+                    streaming: true,
+                    cancel: true,
+                    usage_reporting: false,
+                }
+            }
+            fn is_available(&self) -> bool {
+                true
+            }
+            fn execute(
+                &self,
+                _request: &LlmRequest,
+                _cancel: &CancelToken,
+            ) -> Result<ChunkStream, WhError> {
+                let call = self.calls.fetch_add(1, Ordering::SeqCst);
+                if call == 0 {
+                    // 流建立后、任何 chunk 之前失败（触发流内重试）。
+                    return Ok(ChunkStream {
+                        inner: Box::new(std::iter::once(Err(flaky_err()))),
+                    });
+                }
+                Err(flaky_err())
+            }
+        }
+        let provider = with_stream_retry(
+            Box::new(RestartFailThenStream {
+                calls: AtomicU32::new(0),
+            }),
+            fast_policy(),
+        );
+        let result: Result<Vec<_>, _> = provider
+            .execute(&request(), &CancelToken::default())
+            .expect("流建立（首次 execute 成功）")
+            .collect();
+        let err = result.expect_err("重启失败必须显式上抛，不得静默结束");
+        assert!(err.retryable);
+    }
+
+    #[test]
+    fn policy_validation_rejects_inverted_delays() {
+        let policy = StreamRetryPolicy {
+            max_retries: 2,
+            base_delay: Duration::from_secs(5),
+            max_delay: Duration::from_secs(1),
+            total_budget: Duration::from_secs(10),
+        };
+        let err = validate_policy(&policy).expect_err("倒挂策略必须拒绝");
+        assert!(err.message.contains("max_delay"), "{err}");
+        assert!(validate_policy(&StreamRetryPolicy::none()).is_ok());
+    }
 }

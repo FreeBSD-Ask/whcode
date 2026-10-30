@@ -260,6 +260,7 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
 - **FR-727**: 工具执行经 store tool_exec 三步登记（record_intent→mark_running→record_result），终态三值 succeeded/failed/unknown；崩溃恢复经 recover_uncertain 标记 unknown、不重放副作用；事件 ToolCallStarted/ToolCallFinished 落 events 表且 payload 不含正文与工具结果（FR-410、FR-722 口径）（P0）
 - **FR-728**: 模型工具调用解析与回填：openai 兼容族 tool_calls 帧解析（其余协议标 [待验证]）；turn 内按声明顺序串行执行，每轮工具调用数硬上限（默认 8，可配置）；结果以 role:"tool" 消息回填下一轮，超 64 KiB 截断并附 truncated 标记；结果正文不进事件与日志 （ADR-048 §2.3—2.6）（P0）
 - **FR-729**: 工具安全边界：路径参数解析为工作区内相对路径，拒绝绝对路径、.. 越界与工作区外目标；执行前经 authz 权限面；输入校验拒绝未知字段与类型不符（ADR-048 §2.7）（P0）
+- **FR-730**: 流式生成重试（whcode-llm decorator）：失败发生在首个 chunk 之前且错误可重试（WhError.retryable）时按有界策略重放（默认 5 次、基准 1s、×2、单次上限 30s、总预算 60s）；429 的 retry_after_ms 优先于固定退避；退避睡眠取消感知；尝试次数并入传输快照 reconnect_attempts；chunk 已发射后的失败一律上抛（safe_to_retry 判据），重启请求失败不得以流结束伪造成功（ADR-050）（P1）
 
 **Spec Kit / SDD 工作流（§4.3）**
 
