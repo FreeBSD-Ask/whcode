@@ -17,10 +17,10 @@
 //! 总预算 60 s——对照 ZCode（10 次、基准 2 s、上限 60 s）：交互场景中长时间阻塞调用
 //! 线程的代价高于边际成功率；复审触发＝真实会话首 chunk 失败率统计（§5）。
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, atomic::{AtomicU64, Ordering}};
 use std::time::{Duration, Instant};
 
-use whcode_domain::{ErrorCode, WhError};
+use whcode_domain::WhError;
 
 use crate::provider::{ChunkStream, LlmRequest, Provider};
 use crate::{CancelToken, TransportSnapshot};
@@ -65,6 +65,19 @@ impl StreamRetryPolicy {
     }
 }
 
+/// 退避睡眠（取消感知切片；返回 false 表示已取消或超总预算）。
+fn sleep_backoff(cancel: &CancelToken, delay: Duration, deadline: Instant) -> bool {
+    let until = Instant::now() + delay;
+    while Instant::now() < until {
+        if cancel.is_cancelled() {
+            return false;
+        }
+        let remain = u64::try_from((until - Instant::now()).as_millis()).unwrap_or(0);
+        std::thread::sleep(Duration::from_millis(SLEEP_SLICE_MS.min(remain)));
+    }
+    Instant::now() < deadline
+}
+
 /// 429 等 backpressure 错误 details 里的 `retry_after_ms`（供应商口径优先于固定退避）。
 fn retry_after_ms(err: &WhError) -> Option<Duration> {
     err.details
@@ -78,16 +91,16 @@ fn retry_after_ms(err: &WhError) -> Option<Duration> {
 #[must_use]
 pub fn with_stream_retry(inner: Box<dyn Provider>, policy: StreamRetryPolicy) -> Box<dyn Provider> {
     Box::new(RetryingProvider {
-        inner,
+        inner: Arc::from(inner),
         policy,
-        attempts: AtomicU64::new(0),
+        attempts: Arc::new(AtomicU64::new(0)),
     })
 }
 
 struct RetryingProvider {
-    inner: Box<dyn Provider>,
+    inner: Arc<dyn Provider>,
     policy: StreamRetryPolicy,
-    attempts: AtomicU64,
+    attempts: Arc<AtomicU64>,
 }
 
 impl Provider for RetryingProvider {
@@ -112,71 +125,90 @@ impl Provider for RetryingProvider {
     }
 
     fn execute(&self, request: &LlmRequest, cancel: &CancelToken) -> Result<ChunkStream, WhError> {
-        self.attempts.fetch_add(1, Ordering::Relaxed);
-        let stream = self.inner.execute(request, cancel)?;
-        Ok(ChunkStream {
-            inner: Box::new(RetryStream {
-                inner: Some(stream),
-                request: request.clone(),
-                cancel: cancel.clone(),
-                provider: self,
-                retries_left: self.policy.max_retries,
-                next_delay: self.policy.base_delay,
-                deadline: Instant::now() + self.policy.total_budget,
-                emitted: false,
-            }),
-        })
-        // 首次 execute 的即时失败也交给 RetryStream 统一判定：该路径同样满足
-        // “未发射任何 chunk”，由迭代器完成重试或上抛。
+        let mut retries_left = self.policy.max_retries;
+        let mut next_delay = self.policy.base_delay;
+        let deadline = Instant::now() + self.policy.total_budget;
+        // 连接期失败（发送请求即错）在此重试；流建立后的失败交给 RetryStream。
+        loop {
+            self.attempts.fetch_add(1, Ordering::Relaxed);
+            match self.inner.execute(request, cancel) {
+                Ok(stream) => {
+                    return Ok(ChunkStream {
+                        inner: Box::new(RetryStream {
+                            inner: Some(stream),
+                            request: request.clone(),
+                            cancel: cancel.clone(),
+                            provider: Arc::clone(&self.inner),
+                            policy: self.policy,
+                            attempts: Arc::clone(&self.attempts),
+                            retries_left,
+                            next_delay,
+                            deadline,
+                            emitted: false,
+                            last_error: None,
+                        }),
+                    });
+                }
+                Err(err) => {
+                    if !err.retryable || retries_left == 0 || !sleep_backoff(
+                        cancel,
+                        retry_after_ms(&err).unwrap_or(next_delay.min(self.policy.max_delay)),
+                        deadline,
+                    ) {
+                        return Err(err);
+                    }
+                    if cancel.is_cancelled() {
+                        return Err(err);
+                    }
+                    retries_left = retries_left.saturating_sub(1);
+                    next_delay = next_delay
+                        .checked_mul(2)
+                        .unwrap_or(self.policy.max_delay)
+                        .min(self.policy.max_delay);
+                }
+            }
+        }
     }
 }
 
-/// 带重试语义的流迭代器（`emitted` 是 safe_to_retry 的判定状态）。
-struct RetryStream<'p> {
+/// 带重试语义的流迭代器（`emitted` 是 safe_to_retry 的判定状态；全 owned，'static）。
+struct RetryStream {
     inner: Option<ChunkStream>,
     request: LlmRequest,
     cancel: CancelToken,
-    provider: &'p RetryingProvider,
+    provider: Arc<dyn Provider>,
+    policy: StreamRetryPolicy,
+    attempts: Arc<AtomicU64>,
     retries_left: u32,
     next_delay: Duration,
     deadline: Instant,
     emitted: bool,
+    last_error: Option<WhError>,
 }
 
-impl RetryStream<'_> {
-    /// 退避睡眠（取消感知切片；返回 false 表示已取消或超预算，调用方上抛 last_error）。
-    fn backoff_sleep(&mut self, last_error: &WhError) -> bool {
-        let delay =
-            retry_after_ms(last_error).unwrap_or(self.next_delay.min(self.provider.policy.max_delay));
-        let deadline = Instant::now() + delay;
-        while Instant::now() < deadline {
-            if self.cancel.is_cancelled() {
-                return false;
-            }
-            let remain = u64::try_from((deadline - Instant::now()).as_millis()).unwrap_or(0);
-            std::thread::sleep(Duration::from_millis(SLEEP_SLICE_MS.min(remain)));
-        }
-        // 总预算：等待累计超预算则不再重试。
-        Instant::now() < self.deadline
-    }
-
-    fn restart(&mut self) {
-        self.provider.attempts.fetch_add(1, Ordering::Relaxed);
+impl RetryStream {
+    fn restart(&mut self) -> Result<(), WhError> {
+        self.attempts.fetch_add(1, Ordering::Relaxed);
         self.retries_left = self.retries_left.saturating_sub(1);
         self.next_delay = self
             .next_delay
             .checked_mul(2)
-            .unwrap_or(self.provider.policy.max_delay)
-            .min(self.provider.policy.max_delay);
-        self.inner = self
-            .provider
-            .inner
-            .execute(&self.request, &self.cancel)
-            .ok();
+            .unwrap_or(self.policy.max_delay)
+            .min(self.policy.max_delay);
+        match self.provider.execute(&self.request, &self.cancel) {
+            Ok(stream) => {
+                self.inner = Some(stream);
+                Ok(())
+            }
+            Err(err) => {
+                self.inner = None;
+                Err(err)
+            }
+        }
     }
 }
 
-impl Iterator for RetryStream<'_> {
+impl Iterator for RetryStream {
     type Item = Result<crate::provider::LlmChunk, WhError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -195,16 +227,26 @@ impl Iterator for RetryStream<'_> {
                         return Some(Err(err));
                     }
                     self.inner = None;
-                    if !self.backoff_sleep(&err) {
-                        return Some(Err(err));
+                    self.last_error = Some(err);
+                    let delay = retry_after_ms(self.last_error.as_ref().expect("已存错误"))
+                        .unwrap_or(self.next_delay.min(self.policy.max_delay));
+                    if !sleep_backoff(&self.cancel, delay, self.deadline) {
+                        return self.last_error.take().map(Err);
                     }
                     if self.cancel.is_cancelled() {
-                        return Some(Err(err));
+                        return self.last_error.take().map(Err);
                     }
-                    self.restart();
-                    if self.inner.is_none() {
-                        // 重启请求即时失败：进入下一轮判定（仍可能继续重试）。
-                        continue;
+                    if let Err(restart_err) = self.restart() {
+                        // 重启请求失败：同判定继续重试或上抛。
+                        if !self.emitted
+                            && restart_err.retryable
+                            && self.retries_left > 0
+                            && sleep_backoff(&self.cancel, self.next_delay.min(self.policy.max_delay), self.deadline)
+                            && !self.cancel.is_cancelled()
+                        {
+                            continue;
+                        }
+                        return self.last_error.take().map(Err);
                     }
                 }
                 None => return None,
