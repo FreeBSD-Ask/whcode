@@ -30,7 +30,7 @@ use whcode_store::tool_exec::{mark_running, record_intent, record_result};
 use whcode_store::{TurnEventDraft, TurnMessageDraft, append_turn};
 
 use crate::authz::{Actor, Capability, Policy, require};
-use crate::context::load_context;
+use crate::context::{fold_messages_for_budget, load_context};
 use crate::llm::{
     CancelMarker, LlmChunkView, LlmContext, MAX_OUTPUT_BYTES, MAX_STREAM_CHUNKS,
     generate_request_id, validate_request_id,
@@ -209,7 +209,9 @@ impl TurnPersister {
                     Role::System => "system",
                 },
                 content: m.content.clone(),
-                token_count: None,
+                // 落表即估算 token（4 字符/token，FR-207 口径）：预算检查据此可见
+                // turn 自身的输出增长（R2 引入、重构中丢失，本批恢复并回归固化）。
+                token_count: Some((m.content.chars().count() as i64 / 4).max(1)),
                 parent_id: None,
             })
             .collect();
@@ -333,6 +335,8 @@ pub fn run_turn(
     let mut completed = false;
     let mut truncated = false;
     let mut integrity_gaps = 0u64;
+    let mut compressed_once = false;
+    let mut table_pressure_observed = false;
     let mut usage = None;
     let mut transport = None;
 
@@ -366,15 +370,87 @@ pub fn run_turn(
         }
         // ── 预算检查（T209/FR-721：历史超预算即显式终止，不静默压缩）──────
         let window = load_context(conn, policy, actor, session, budget_tokens)?;
+        // 压力信号 = 请求视图（内存消息数组）的估算——这才是发给模型的内容大小；
+        // 表口径（load_context）截断降为观察事件（ADR-051 修订 FR-721 语义）。
+        let in_memory_est: usize = messages
+            .iter()
+            .map(|m| crate::context::estimate_tokens(&m.content))
+            .sum();
+        if in_memory_est > budget_tokens {
+            if compressed_once {
+                emit!(
+                    EventKind::ContextState,
+                    "iteration": iterations,
+                    "budget_tokens": budget_tokens,
+                    "in_memory_est": in_memory_est,
+                    "compressed_once": true,
+                );
+                break TerminationReason::BudgetExceeded;
+            }
+            compressed_once = true;
+            let end_seq: i64 = conn
+                .query_row(
+                    "SELECT COALESCE(MAX(seq), 0) FROM events WHERE session_id = ?",
+                    [session],
+                    |row| row.get(0),
+                )
+                .map_err(|err| {
+                    WhError::new(ErrorCode::IoError, format!("读取会话事件序号失败：{err}"))
+                })?;
+            match fold_messages_for_budget(&messages, budget_tokens) {
+                Some(report) => {
+                    let _ = crate::context::compress_context(
+                        conn,
+                        policy,
+                        actor,
+                        &crate::context::ContextCompression {
+                            session_id: session,
+                            window_start_seq: base_seq + 1,
+                            window_end_seq: end_seq,
+                            total_tokens: i64::try_from(report.folded_count * 4)
+                                .unwrap_or(i64::MAX),
+                            summary_ref: &format!("in-memory:{turn_id}:iteration-{iterations}"),
+                        },
+                    )?;
+                    emit!(
+                        EventKind::ContextState,
+                        "iteration": iterations,
+                        "compressed": true,
+                        "folded_count": report.folded_count,
+                        "in_memory_before": in_memory_est,
+                    );
+                    messages = report.messages;
+                    // 折叠后的数组 = [已落表前缀..., 摘要]：持久化游标对齐为
+                    // "仅摘要未落表"（被折叠原文已在表中，不重放）。
+                    persister.persisted = messages.len().saturating_sub(1);
+                    persister.flush(conn, &mut pending_events, &messages)?;
+                    continue;
+                }
+                None => {
+                    emit!(
+                        EventKind::ContextState,
+                        "iteration": iterations,
+                        "budget_tokens": budget_tokens,
+                        "in_memory_est": in_memory_est,
+                        "foldable": false,
+                    );
+                    break TerminationReason::BudgetExceeded;
+                }
+            }
+        }
         if let Some(reason) = window.truncated_reason {
-            emit!(
-                EventKind::ContextState,
-                "iteration": iterations,
-                "consumed_budget": window.consumed_budget,
-                "budget_tokens": budget_tokens,
-                "truncated_reason": reason,
-            );
-            break TerminationReason::BudgetExceeded;
+            // 表口径截断仅观察（每 turn 首次），不终止（ADR-051 修订 FR-721）。
+            if !table_pressure_observed {
+                table_pressure_observed = true;
+                emit!(
+                    EventKind::ContextState,
+                    "iteration": iterations,
+                    "consumed_budget": window.consumed_budget,
+                    "budget_tokens": budget_tokens,
+                    "truncated_reason": reason,
+                    "observed_only": true,
+                );
+            }
         }
         if iterations >= iterations_limit {
             break TerminationReason::IterationLimit;
@@ -1063,16 +1139,17 @@ mod tests {
     }
 
     #[test]
-    fn budget_exceeded_terminates_with_reason_event() {
+    fn table_pressure_with_small_request_observed_but_not_terminated() {
+        // 表口径截断（种子大消息）≠ 请求超预算：内存请求可执行时继续（ADR-051
+        // 把 load_context 从"终止判定"降为"观察事件"，压力信号改内存估算）。
         let mut conn = migrated();
         let actor = actor_with_all_capabilities("turn-test");
         let policy = DefaultPolicy;
         let registry = registry();
         let factory = StubFactory(StubProvider::new());
-        let dir = temp_dir("budget");
+        let dir = temp_dir("budget-obs");
         let ctx = context(&registry, &factory, &dir);
         let id = session(&mut conn);
-        // 预置一条大计量消息：load_context 即截断 → budget_exceeded（T209）。
         conn.execute(
             "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
              VALUES ('M-seed', ?, 'user', 'seed', 999999, current_timestamp, NULL)",
@@ -1081,18 +1158,98 @@ mod tests {
         .expect("预置消息");
         let mut req = request(&id, "预算测试");
         req.budget_tokens = Some(1_000);
-        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 5).expect("预算终止");
-        assert_eq!(outcome.termination_reason, "budget_exceeded");
-        assert_eq!(outcome.iterations, 0, "预算检查在模型 step 之前");
-        let state: i64 = conn
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 5).expect("完成");
+        assert_eq!(outcome.termination_reason, "model_finished");
+        let observed: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='ContextState'
-                 AND CAST(CAST(payload_json AS JSON)->>'$.truncated_reason' AS VARCHAR) IS NOT NULL",
+                 AND CAST(CAST(payload_json AS JSON)->>'$.observed_only' AS VARCHAR)='true'",
                 [&id],
                 |row| row.get(0),
             )
-            .expect("ContextState 事件");
-        assert!(state >= 1, "预算终止必须有 truncated_reason 事件");
+            .expect("观察事件");
+        assert!(observed >= 1, "表口径截断必须留观察事件");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 工具调用步骤（助手正文可配大小）：工具执行失败回填 → 循环继续 → 请求增长。
+    fn huge_tool_call_step(text_chars: usize) -> StubStep {
+        StubStep {
+            chunks: vec!["x".repeat(text_chars)],
+            finish_reason: "tool_call".to_string(),
+            tool_calls: vec![whcode_llm::provider::LlmToolCall {
+                id: "call-1".to_string(),
+                name: "read_file".to_string(),
+                arguments: r#"{"path":"no-such-file"}"#.to_string(),
+            }],
+        }
+    }
+
+    #[test]
+    fn request_growth_over_budget_folds_once_then_terminates() {
+        // 内存请求增长超预算 → 折叠一次（compressed 事件 + 指针落表）→ 再超 →
+        // 显式 budget_exceeded（每 turn 至多折叠一次，ADR-051 §2.5）。
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            huge_tool_call_step(1200), // 300 token：首轮后即超预算
+            huge_tool_call_step(1200),
+        ]));
+        let dir = temp_dir("fold");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "折叠锚点");
+        req.budget_tokens = Some(300);
+        req.workspace_root = Some(dir.clone());
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 6).expect("显式终止");
+        assert_eq!(outcome.termination_reason, "budget_exceeded");
+        let compressed: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='ContextState'
+                 AND CAST(CAST(payload_json AS JSON)->>'$.compressed' AS VARCHAR)='true'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("压缩事件");
+        assert_eq!(compressed, 1, "折叠事件恰好一次");
+        let pointer: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM context_windows WHERE session_id=?",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("压缩指针");
+        assert_eq!(pointer, 1, "compress_context 指针落表（既有表获得消费者）");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fold_keeps_turn_alive_across_subsequent_rounds() {
+        // 折叠后小请求继续多轮：turn 存活性证明（折叠不是一次性的缓刑）。
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            huge_tool_call_step(1200), // 首轮即超预算 → 折叠
+            huge_tool_call_step(4),    // 之后小步 → 折叠后可继续多轮
+            huge_tool_call_step(4),
+        ]));
+        let dir = temp_dir("fold-alive");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "折叠锚点");
+        req.budget_tokens = Some(300);
+        req.iterations_limit = Some(4);
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 9).expect("上限终止");
+        assert_eq!(outcome.termination_reason, "iteration_limit");
+        assert!(
+            outcome.iterations >= 3,
+            "折叠后至少再执行两轮：{}",
+            outcome.iterations
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

@@ -251,8 +251,102 @@ pub fn load_summary_pointer(
     }))
 }
 
+/// 折叠报告（ADR-051 §2.2）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FoldReport {
+    /// 折叠后的消息数组（模型请求视图；表历史不受影响）。
+    pub messages: Vec<whcode_llm::provider::LlmMessage>,
+    /// 被折叠的中段消息数。
+    pub folded_count: usize,
+    /// 折叠摘要正文（与数组中的摘要消息一致）。
+    pub summary: String,
+}
+
+/// 单条消息的 token 估算（4 字符/token 启发式，FR-207 口径；至少 1）。
+#[must_use]
+pub(crate) fn estimate_tokens(content: &str) -> usize {
+    (content.chars().count() / 4).max(1)
+}
+
+/// 折叠的预算下限：摘要自身开销（头部 + ≤5 行样例）约 75 token，低于此值折叠
+/// 无法构造出 ≤ 预算的结果（直接终止比无效折叠诚实）。
+pub(crate) const FOLD_MIN_BUDGET_TOKENS: usize = 256;
+/// 摘要样例行数上限。
+const FOLD_SAMPLE_LINES: usize = 5;
+/// 摘要样例行字符上限。
+const FOLD_SAMPLE_CHARS: usize = 40;
+
+/// 把 turn 内存消息数组按预算折叠一次（FR-731、ADR-051 §2.2）。
+///
+/// 形态：**锚点 + 全量摘要**——保留最早一条 user 消息（任务锚点），其余全部折叠为
+/// 一条 user 角色摘要（折叠计数 + 边界说明 + 首行样例 ≤5 行）。摘要估算有上界
+/// （约 75 token），配合锚点守卫（锚点自身超预算 → `None`）构造上保证折叠后
+/// ≤ 预算。数组已在预算内、预算低于下限、锚点超预算或无可折叠中段时返回 `None`
+/// （不折叠，调用方终止）。messages 表历史不删不改（FR-107）。
+#[must_use]
+pub fn fold_messages_for_budget(
+    messages: &[whcode_llm::provider::LlmMessage],
+    budget_tokens: usize,
+) -> Option<FoldReport> {
+    use whcode_llm::provider::{LlmMessage, Role};
+    if budget_tokens < FOLD_MIN_BUDGET_TOKENS {
+        return None;
+    }
+    let total: usize = messages.iter().map(|m| estimate_tokens(&m.content)).sum();
+    if total <= budget_tokens {
+        return None; // 已在预算内：无需折叠。
+    }
+    let anchor_index = messages.iter().position(|m| m.role == Role::User);
+    let anchor_est = anchor_index.map_or(0, |i| estimate_tokens(&messages[i].content));
+    if anchor_est + 75 >= budget_tokens {
+        return None; // 锚点自身（+摘要开销）就超预算：任何折叠都无法救。
+    }
+    let fold_start = anchor_index.map_or(0, |i| i + 1);
+    let folded_count = messages.len() - fold_start;
+    if folded_count == 0 {
+        return None; // 无可折叠中段。
+    }
+    let folded_tokens: usize = messages[fold_start..]
+        .iter()
+        .map(|m| estimate_tokens(&m.content))
+        .sum();
+    let mut samples = Vec::new();
+    for message in &messages[fold_start..] {
+        if samples.len() == FOLD_SAMPLE_LINES {
+            break;
+        }
+        let first_line = message.content.lines().next().unwrap_or("");
+        let head: String = first_line.chars().take(FOLD_SAMPLE_CHARS).collect();
+        let role = match message.role {
+            Role::User => "user",
+            Role::Assistant => "assistant",
+            Role::Tool => "tool",
+            Role::System => "system",
+        };
+        samples.push(format!("- [{role}] {head}"));
+    }
+    let summary = format!(
+        "[上下文已折叠] 中段 {folded_count} 条消息（约 {folded_tokens} token，起点序          {fold_start}）折叠为本摘要；原文仍在事件与消息历史中可查。样例：
+{}",
+        samples.join("
+")
+    );
+    let mut result = Vec::with_capacity(fold_start + 1);
+    result.extend(messages[..fold_start].iter().cloned());
+    result.push(LlmMessage {
+        role: Role::User,
+        content: summary.clone(),
+    });
+    Some(FoldReport {
+        messages: result,
+        folded_count,
+        summary,
+    })
+}
+
 #[cfg(test)]
 mod tests {
+
     use super::*;
     use crate::authz::{DefaultPolicy, actor_with_all_capabilities};
     use duckdb::params;
@@ -398,5 +492,83 @@ mod tests {
                 .expect("无指针")
                 .is_none()
         );
+    }
+}
+
+#[cfg(test)]
+mod fold_tests {
+    use super::fold_messages_for_budget;
+    use whcode_llm::provider::{LlmMessage, Role};
+
+    fn user(text: &str) -> LlmMessage {
+        LlmMessage {
+            role: Role::User,
+            content: text.to_string(),
+        }
+    }
+
+    fn assistant(text: &str) -> LlmMessage {
+        LlmMessage {
+            role: Role::Assistant,
+            content: text.to_string(),
+        }
+    }
+
+    #[test]
+    fn within_budget_returns_none() {
+        let messages = vec![user("短"), assistant("短")];
+        assert!(fold_messages_for_budget(&messages, 256).is_none());
+    }
+
+    #[test]
+    fn below_floor_returns_none() {
+        let messages = vec![user(&"长".repeat(400)), assistant(&"长".repeat(400))];
+        assert!(
+            fold_messages_for_budget(&messages, 100).is_none(),
+            "预算 < 256 不折叠"
+        );
+    }
+
+    #[test]
+    fn anchor_alone_busting_budget_returns_none() {
+        let messages = vec![user(&"q".repeat(4000)), assistant(&"q".repeat(400))];
+        assert!(
+            fold_messages_for_budget(&messages, 300).is_none(),
+            "锚点自身超预算：任何折叠都无法救"
+        );
+    }
+
+    #[test]
+    fn folds_everything_after_anchor_into_bounded_summary() {
+        let messages = vec![
+            user("任务锚点"),
+            assistant(&"x".repeat(1200)),
+            assistant(&"y".repeat(1200)),
+            assistant("最近的收尾"),
+        ];
+        let report = fold_messages_for_budget(&messages, 300).expect("应折叠");
+        assert_eq!(report.folded_count, 3, "锚点之后全部折叠");
+        assert_eq!(report.messages.len(), 2, "锚点 + 摘要");
+        assert_eq!(report.messages[0], user("任务锚点"));
+        assert!(report.messages[1].content.contains("[上下文已折叠]"));
+        assert!(report.messages[1].content.contains("3 条消息"));
+        assert!(
+            report.messages[1].content.contains("[assistant] "),
+            "样例带角色标注"
+        );
+        // 构造保证：折叠后 ≤ 预算。
+        let total: usize = report
+            .messages
+            .iter()
+            .map(|m| (m.content.chars().count() / 4).max(1))
+            .sum();
+        assert!(total <= 300, "折叠后必须 ≤ 预算：{total}");
+    }
+
+    #[test]
+    fn no_foldable_middle_returns_none() {
+        // 锚点缺失（首条即 assistant）：fold_start=0、无中段 → 不折叠。
+        let messages = vec![assistant(&"x".repeat(1200)), user("后续")];
+        assert!(fold_messages_for_budget(&messages, 300).is_none());
     }
 }

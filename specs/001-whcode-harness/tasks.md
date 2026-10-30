@@ -620,7 +620,16 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   attempts 并入 reconnect_attempts（FR-730；ADR-050 §2）
 - [x] T222 重试模块测试：首 chunk 前重试成功、中途失败上抛、非重试不重试、——**复核（2026-10-31，P1-2 批次）**：decorator 修复（重启失败静默结束缺陷）+ 测试 7 项全绿（workspace 本机证据；CI 验收按 ADR-037 待推送流水线）。
   次数上界、重启失败上抛（回归）、策略校验（FR-730；ADR-050 §2.6）
-- [x] T223 工厂接线与文档：`LocalProviderFactory::create` 包 decorator + ADR-050——**复核（2026-10-31，P1-2 批次）**：decorator 修复（重启失败静默结束缺陷）+ 测试 7 项全绿（workspace 本机证据；CI 验收按 ADR-037 待推送流水线）。
+- [x] T223 工厂接线与文档：`LocalProviderFactory::create` 包 decorator + ADR-050——**复核（2026-10-31，P1-2 批次）**：decorator 修复（重启失败静默结束缺陷）+ 测试 7 项全绿（workspace 本机证据；CI 验收按 ADR-037 待推送流水线）。- [x] T223 工厂接线与文档：`LocalProviderFactory::create` 包 decorator + ADR-050——**复核（2026-10-31，P1-2 批次）**：decorator 修复（重启失败静默结束缺陷）+ 测试 7 项全绿（workspace 本机证据；CI 验收按 ADR-037 待推送流水线）。
+
+- [ ] T224 [P] 折叠函数：`crates/whcode-app/src/context.rs` `fold_messages_for_budget`——
+  保留首条 user + 预算内尾部窗口，中段折叠为摘要消息（含折叠计数与首行），构造上
+  保证 ≤ 预算（FR-731；ADR-051 §2.2）
+- [ ] T225 turn 接线：预算压力分支改折叠一次 + compress_context 指针 + ContextState
+  (compressed=true) 事件落表，折叠后仍超才 budget_exceeded（FR-731；ADR-051 §2.3）
+- [ ] T226 [P] 测试：折叠保留锚点与尾部窗口、摘要内容可查、turn 预算压力折叠后
+  继续至完成、二次压力显式终止、指针与事件落表（FR-731；ADR-051）
+
   落档 + CHANGELOG（FR-730；ADR-050 §6）
 
 
