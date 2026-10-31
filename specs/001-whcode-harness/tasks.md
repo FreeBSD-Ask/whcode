@@ -636,7 +636,7 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   tool_call_id、role:tool 结果回填（FR-733；ADR-052 §2.4）
 - [ ] T229 [P] 测试：正常委派（子 turn 完成父继续）、数量上限拒绝、深度超限拒绝、
   子失败结构化回填、父取消传播（FR-732—733；ADR-052）
-- [ ] T230 文档同步：spec/tasks/checklist 勾选、ADR-052 §6 实施记录、CHANGELOG
+- [ ] T230 文档同步：spec/tasks/checklist 勾选、ADR-052 §6 实施记录、CHANGELOG——**任务认知卡**：方向=子代理编排收口；目标=嵌套 run_turn + 三重硬上限 + 事件回填；判据=Check 323—326；非目标=并行执行/镜像前缀。
 - [ ] T231 [P] 工具清单随请求下发：LlmRequest.tools + openai 兼容族映射——**任务认知卡**：方向=真实供应商工具调用前置；目标=LlmRequest 携带 manifest 并映射进 openai tools 数组；判据=请求体含 tools 字段且与注册表一致；非目标=anthropic/gemini 映射延后
   （anthropic/gemini 等按能力登记）；FR-734 为真实供应商工具调用的前置（ADR-048
   追加；〔未实现〕显式标记）——**认知卡**：方向=真实供应商工具调用前置；目标=LlmRequest
