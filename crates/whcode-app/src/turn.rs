@@ -333,27 +333,22 @@ pub fn run_turn(
     let tool_manifest = serde_json::Value::Array(tool_registry.provider_manifest());
     // ADR-053：技能描述以 system 消息注入（截 200 字符/技能，上限 10 技能）。
     let mut messages: Vec<LlmMessage> = Vec::new();
-    if let Some(ws) = &request.workspace_root {
-        if let Ok((skills, _)) = crate::skills::scan_skills(ws) {
-            if !skills.is_empty() {
-                let desc: Vec<String> = skills
-                    .iter()
-                    .take(10)
-                    .map(|s| format!("- {}: {}", s.name, s.description))
-                    .collect();
-                messages.push(LlmMessage {
-                    role: Role::System,
-                    content: format!(
-                        "可用技能（按需 read_file 读取 .zcode/skills/<name>/SKILL.md）：
-{}",
-                        desc.join(
-                            "
-"
-                        )
-                    ),
-                });
-            }
-        }
+    if let Some(ws) = &request.workspace_root
+        && let Ok((skills, _)) = crate::skills::scan_skills(ws)
+        && !skills.is_empty()
+    {
+        let desc: Vec<String> = skills
+            .iter()
+            .take(10)
+            .map(|s| format!("- {}: {}", s.name, s.description))
+            .collect();
+        messages.push(LlmMessage {
+            role: Role::System,
+            content: format!(
+                "可用技能（按需 read_file 读取 .zcode/skills/<name>/SKILL.md）：\n{}",
+                desc.join("\n")
+            ),
+        });
     }
     messages.push(LlmMessage {
         role: Role::User,
