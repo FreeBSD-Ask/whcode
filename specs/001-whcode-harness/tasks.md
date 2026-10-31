@@ -642,7 +642,7 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   frontmatter 解析（name + description），坏文件跳过记 warning（FR-735；ADR-053 §2.3）
 - [ ] T233 [P] 可达性门禁：SKILL.md 引用的相对路径文件必须存在；缺失即测试失败
   （FR-735；ADR-053 §2.2；BH doc-link-graph 先手）
-- [ ] T234 turn 注入：技能描述以 system 消息追加进 LlmRequest.messages（截 200 字符、
+- [ ] T234 turn 注入：技能描述以 system 消息追加进 LlmRequest.messages（截 200 字符、——**任务认知卡**：方向=技能注入 turn 请求；目标=system 消息追加描述（截 200/上限 10）；判据=Check 330；非目标=正文注入
   上限 10 技能）；空技能列表时跳过注入（FR-735；ADR-053 §2.4）
 - [ ] T235 [P] 测试：扫描/解析正反路径、可达性门禁、注入格式与上限；层ing 口径——**任务认知卡**：方向=技能测试收口；目标=扫描/门禁/注入/上限全绿；判据=Check 331；非目标=正文注入
   （FR-735；ADR-053）
