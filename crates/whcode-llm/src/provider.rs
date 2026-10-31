@@ -166,6 +166,12 @@ impl CancelToken {
     pub fn is_cancelled(&self) -> bool {
         self.0.load(Ordering::SeqCst)
     }
+
+    /// 共享内部标志（供 MCP 看门狗等组件跨线程轮询取消状态；FR-736 接线用）。
+    #[must_use]
+    pub fn shared_flag(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.0)
+    }
 }
 
 /// 流式结果：chunk 迭代器 + 计量（Metering source，FR-207）。

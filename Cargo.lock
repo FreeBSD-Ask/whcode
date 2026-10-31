@@ -6149,6 +6149,7 @@ dependencies = [
  "time",
  "whcode-domain",
  "whcode-llm",
+ "whcode-mcp",
  "whcode-platform",
  "whcode-speckit",
  "whcode-store",
@@ -6222,6 +6223,17 @@ dependencies = [
  "serde_json",
  "ureq",
  "whcode-domain",
+]
+
+[[package]]
+name = "whcode-mcp"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "whcode-domain",
+ "whcode-platform",
+ "whcode-runtime",
 ]
 
 [[package]]

@@ -14,7 +14,7 @@
 
 | 目录 | 类别 | 职责 | 入库规则 |
 |---|---|---|---|
-| `crates/` | 产品代码 | 14 个成员 crate，按 §6.2 单向依赖（domain → app → 服务 → 前端适配器） | 入库 |
+| `crates/` | 产品代码 | 15 个成员 crate，按 §6.2 单向依赖（domain → app → 服务 → 前端适配器） | 入库 |
 | `tests/` | 验证 | 六类测试：unit / contract / integration / crash / stability / fixtures；每类有 README | 入库 |
 | `docs/` | 治理文档 | `adr/`（决策记录）、`matrices/`（平台/能力/决策矩阵）、`guides/`（操作指南） | 入库 |
 | `research/` | 治理（研究证据） | 外部参照与调研证据：对照、差距登记、参照路径、存疑项、上游源码分析（如 `zcode-comparison/`）；**不承载需求承诺**，研究结论转化为承诺须走 G0—G5 门禁（ADR-045） | 入库（引用的外部源码克隆不入库，仍在 `local/`，以路径+commit 指向） |

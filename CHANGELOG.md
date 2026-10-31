@@ -13,6 +13,17 @@
 
 ### 变更
 
+- **MCP 客户端最小集（stdio）**（2026-11-01，FR-736/737、ADR-054、T236—T239）：新增
+  `whcode-mcp`（第 15 个成员 crate，领域服务层）——显式配置 `.zcode/mcp.json` 驱动的
+  MCP 服务器子进程会话：spawn（最小环境注入 + 显式 env 回填）、initialize 握手
+  （2025-06-18，未知版本中止）、newline 分帧 JSON-RPC 2.0 请求配对、30s 默认超时
+  看门狗终止进程树解锁（turn 取消令牌同权）、shutdown/Drop 零残留；`tools/list`
+  投影为 `mcp__<server>__<tool>` 命名空间工具并入 turn 工具清单（描述 500 字符、
+  inputSchema 4 KiB、总预算 64 KiB 三重上限）；工具调用走与内置工具同一条三步登记
+  与 `role:tool` 回填，权限面 fail-closed 一律按 SessionCreate 判定；连接失败以
+  system 消息显式告示（不静默）。范围：v1 仅 stdio transport（官方规范 2025-06-18
+  现行双 transport 之一，"Clients SHOULD support stdio whenever possible"）；
+  Streamable HTTP/OAuth 留 P1-7 后续批次。
 - **工具系统接线：模型工具调用真实执行**（2026-10-30，FR-725—729、ADR-048、T213—T219）：
   turn 循环内模型声明的工具调用经 store `tool_exec` 三步登记（prepared→running→终态）
   执行内建六件套（read/write/edit/list/glob/grep），结果以 `role:"tool"` 消息回填并

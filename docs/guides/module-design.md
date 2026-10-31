@@ -14,7 +14,7 @@ whcode-platform      （唯一允许 cfg(target_os) 的 crate）
    ↑
 whcode-app           （命令、权限、快照；不依赖前端；SQL 只在 store——ADR-018）
    ↑
-whcode-store / whcode-llm / whcode-speckit / whcode-tools / whcode-runtime
+whcode-store / whcode-llm / whcode-speckit / whcode-tools / whcode-runtime / whcode-mcp
    ↑
 whcode-tui / whcode-cui / whcode-web / whcode-ssh   （只经 app 访问状态，禁止触库）
    ↑
@@ -165,6 +165,22 @@ TLS 的依赖落点是这条边界的特例（ADR-031／ADR-040）：**出站**�
 
 - **职责**（M8）：Runtime Provider、payload 校验、子进程 worker、能力等级。
 - **失败模式**：能力不足返回结构化错误（`runtime_unavailable`），不静默跳过。
+
+### whcode-mcp
+
+- **职责**（FR-736/737、ADR-054）：MCP 客户端最小集——stdio transport 子进程会话
+  （spawn 环境净化 / initialize 握手 / newline JSON-RPC 2.0 请求配对 / 超时看门狗 /
+  shutdown 零残留）、`tools/list` 投影（`mcp__<server>__<tool>` 命名空间、三重上限）
+  与 `tools/call` 调用。
+- **不负责**：Streamable HTTP/OAuth（P1-7 后续批次）；工具登记与回填（turn 层
+  `execute_tool_call` 与 store 三步登记，本 crate 只产出结果）；空闲连接池。
+- **关键类型**：`McpConfig`、`McpSession`、`McpManager`、`McpManifest`、`CancelFlag`。
+- **依赖**：`whcode-domain`、`whcode-platform`（进程树终止/进程组）、`whcode-runtime`
+  （worker 最小环境注入——服务层内横向依赖，ADR-054 §2.2 声明）、`serde_json`。
+- **失败模式**：单服务器连接失败记录不中断（正确的空与错误的空强制区分）；会话
+  IO/协议失败标记 `broken` 后快速失败；超时看门狗杀树归因超时、取消归因取消。
+- **测试**：`#[cfg(test)]` 内联（协议/配置/投影/有界行读取）+
+  `tests/mcp_session.rs`（fixture 服务器生命周期正反路径、零残留）。
 
 ### whcode-tui
 

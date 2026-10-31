@@ -330,7 +330,28 @@ pub fn run_turn(
 
     let tool_registry = whcode_tools::default_registry()
         .map_err(|err| WhError::internal(format!("工具注册表构造失败：{err}")))?;
-    let tool_manifest = serde_json::Value::Array(tool_registry.provider_manifest());
+    // FR-736/737、ADR-054：MCP 服务器 per-turn 连接（无配置 = 空管理器，功能关闭）；
+    // 连接失败逐服务器记录，以 system 消息显式告示（不静默，区分正确的空与错误的空）。
+    let mut mcp_manager =
+        whcode_mcp::McpManager::connect_workspace(request.workspace_root.as_deref())?;
+    let mut tool_manifest = serde_json::Value::Array(tool_registry.provider_manifest());
+    let mut mcp_notices: Vec<String> = Vec::new();
+    if !mcp_manager.is_empty() || !mcp_manager.connect_errors().is_empty() {
+        let manifest = mcp_manager.tool_manifest();
+        let Some(entries) = tool_manifest.as_array_mut() else {
+            return Err(WhError::internal("工具清单不是数组"));
+        };
+        entries.extend(manifest.entries);
+        for (server, error) in mcp_manager.connect_errors() {
+            mcp_notices.push(format!("- 服务器 {server} 连接失败：{error}"));
+        }
+        if manifest.truncated {
+            mcp_notices.push("- MCP 工具清单超出总预算上限，超出部分未投影".to_string());
+        }
+        for note in manifest.notes {
+            mcp_notices.push(format!("- {note}"));
+        }
+    }
     // ADR-053：技能描述以 system 消息注入（截 200 字符/技能，上限 10 技能）。
     let mut messages: Vec<LlmMessage> = Vec::new();
     if let Some(ws) = &request.workspace_root
@@ -347,6 +368,17 @@ pub fn run_turn(
             content: format!(
                 "可用技能（按需 read_file 读取 .zcode/skills/<name>/SKILL.md）：\n{}",
                 desc.join("\n")
+            ),
+        });
+    }
+    // ADR-054：MCP 连接失败/清单截断以 system 消息告示（错误状态可观测，模型可据此
+    // 不调用不可用工具；正确的空 = 无配置时不产生任何消息）。
+    if !mcp_notices.is_empty() {
+        messages.push(LlmMessage {
+            role: Role::System,
+            content: format!(
+                "MCP 服务器状态（本轮可用工具以工具清单为准）：\n{}",
+                mcp_notices.join("\n")
             ),
         });
     }
@@ -693,6 +725,8 @@ pub fn run_turn(
                 policy,
                 actor,
                 &tool_registry,
+                &mut mcp_manager,
+                &cancel,
                 request.workspace_root.as_deref(),
                 &exec_id,
                 tool_call,
@@ -1013,15 +1047,28 @@ fn handle_spawn_subagent(
     Ok(())
 }
 
+/// 工具输入哈希（三步登记的 input_hash；name + arguments 的 FNV 视图）。
+fn tool_input_hash(name: &str, arguments: &str) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    name.hash(&mut hasher);
+    arguments.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
 /// 执行单个工具调用：权限面 → 校验 → 三步登记（prepared→running→终态）→ 执行 →
 /// role:tool 结果文本。任何失败都转为**结构化失败结果**回填给模型（turn 继续），
 /// 不中断循环、不伪造成功（FR-718/ADR-048 §2.4—2.7）。
+///
+/// `mcp__` 前缀的调用走 MCP 投影路径（FR-737、ADR-054 §2.8/2.10）。
 #[allow(clippy::too_many_arguments)]
 fn execute_tool_call(
     conn: &mut duckdb::Connection,
     policy: &dyn Policy,
     actor: &Actor,
     registry: &whcode_tools::ToolRegistry,
+    mcp: &mut whcode_mcp::McpManager,
+    cancel: &CancelToken,
     workspace_root: Option<&Path>,
     exec_id: &str,
     tool_call: &LlmToolCall,
@@ -1034,6 +1081,13 @@ fn execute_tool_call(
         whcode_tools::SideEffectScope::WorkspaceWrite => Capability::SessionCreate,
     };
     let fail = |status, text: String, side_effect: Option<String>| (status, text, side_effect);
+
+    // FR-737：MCP 投影工具——动态名不进内置注册表，命名空间前缀分派。
+    if let Some((server, tool_name)) = whcode_mcp::parse_tool_name(&tool_call.name) {
+        return execute_mcp_tool_call(
+            conn, policy, actor, mcp, cancel, &server, &tool_name, exec_id, tool_call, now_ms,
+        );
+    }
 
     let Some(tool) = registry.get(tool_call.name.as_str()) else {
         return fail(
@@ -1076,13 +1130,7 @@ fn execute_tool_call(
     };
 
     // 三步登记（T215）：prepared → running → 终态；登记失败转为执行失败（不伪造）。
-    let input_hash = {
-        use std::hash::{Hash, Hasher};
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        tool_call.name.hash(&mut hasher);
-        tool_call.arguments.hash(&mut hasher);
-        format!("{:016x}", hasher.finish())
-    };
+    let input_hash = tool_input_hash(&tool_call.name, &tool_call.arguments);
     if let Err(err) = record_intent(conn, exec_id, &tool_call.id, &input_hash) {
         return fail(
             RuntimeExecutionStatus::Failed,
@@ -1145,6 +1193,132 @@ fn execute_tool_call(
                 RuntimeExecutionStatus::Failed,
                 format!("工具 {} 执行失败：{err}", tool_call.name),
                 None,
+            )
+        }
+    }
+}
+
+/// MCP 投影工具执行（FR-737、ADR-054 §2.8/2.10）：权限面 **fail-closed**（外部服务
+/// 器代码不可信，一律按 SessionCreate 写权限判定）→ 参数只验 JSON 对象形态
+/// （inputSchema 契约由服务器侧执行）→ 三步登记与内置工具同一条管线 → tools/call
+/// （超时看门狗 + 取消感知）→ `role:tool` 回填。isError 按失败回填，不伪造成功。
+#[allow(clippy::too_many_arguments)]
+fn execute_mcp_tool_call(
+    conn: &mut duckdb::Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    mcp: &mut whcode_mcp::McpManager,
+    cancel: &CancelToken,
+    server: &str,
+    tool_name: &str,
+    exec_id: &str,
+    tool_call: &LlmToolCall,
+    now_ms: u64,
+) -> (RuntimeExecutionStatus, String, Option<String>) {
+    let fail = |status, text: String| (status, text, Some("mcp:external".to_string()));
+    // 权限面 fail-closed（ADR-054 §2.8）：MCP 工具不区分读写，统一按写权限。
+    if let Err(err) = require(policy, actor, Capability::SessionCreate) {
+        return fail(
+            RuntimeExecutionStatus::Failed,
+            format!("MCP 工具 {} 被权限面拒绝：{err}", tool_call.name),
+        );
+    }
+    let arguments: serde_json::Value =
+        match serde_json::from_str::<serde_json::Value>(&tool_call.arguments) {
+            Ok(value) if value.is_object() => value,
+            Ok(_) => {
+                return fail(
+                    RuntimeExecutionStatus::Failed,
+                    format!("MCP 工具 {} 参数必须是 JSON 对象", tool_call.name),
+                );
+            }
+            Err(err) => {
+                return fail(
+                    RuntimeExecutionStatus::Failed,
+                    format!("MCP 工具 {} 参数不是合法 JSON：{err}", tool_call.name),
+                );
+            }
+        };
+    // 三步登记：prepared → running → 终态（与内置工具同一条管线，FR-737）。
+    let input_hash = tool_input_hash(&tool_call.name, &tool_call.arguments);
+    if let Err(err) = record_intent(conn, exec_id, &tool_call.id, &input_hash) {
+        return fail(
+            RuntimeExecutionStatus::Failed,
+            format!("MCP 工具 {} 登记意图失败：{err}", tool_call.name),
+        );
+    }
+    if let Err(err) = mark_running(conn, exec_id, now_ms) {
+        return fail(
+            RuntimeExecutionStatus::Failed,
+            format!("MCP 工具 {} 标记运行失败：{err}", tool_call.name),
+        );
+    }
+    let cancel_flag = whcode_mcp::CancelFlag::from_shared(cancel.shared_flag());
+    match mcp.call_tool(server, tool_name, &arguments, Some(cancel_flag)) {
+        Ok(output) => {
+            let status = if output.is_error {
+                RuntimeExecutionStatus::Failed
+            } else {
+                RuntimeExecutionStatus::Completed
+            };
+            if let Err(err) = record_result(
+                conn,
+                exec_id,
+                status,
+                output.truncated.then_some("output:truncated"),
+                None,
+                now_ms,
+            ) {
+                return fail(
+                    RuntimeExecutionStatus::Failed,
+                    format!("MCP 工具 {} 登记结果失败：{err}", tool_call.name),
+                );
+            }
+            let marker = if output.truncated { "[已截断] " } else { "" };
+            let error_note = if output.is_error {
+                "（服务器报告执行失败）"
+            } else {
+                ""
+            };
+            let non_text = if output.non_text_count > 0 {
+                format!("（非文本内容块 ×{} 已省略）", output.non_text_count)
+            } else {
+                String::new()
+            };
+            (
+                status,
+                format!(
+                    "MCP 工具 {} 执行{}：\n{}{}{}{}",
+                    tool_call.name,
+                    if output.is_error { "失败" } else { "成功" },
+                    marker,
+                    output.text,
+                    error_note,
+                    non_text
+                ),
+                Some("mcp:external".to_string()),
+            )
+        }
+        Err(err) => {
+            if let Err(record_err) = record_result(
+                conn,
+                exec_id,
+                RuntimeExecutionStatus::Failed,
+                None,
+                None,
+                now_ms,
+            ) {
+                return fail(
+                    RuntimeExecutionStatus::Failed,
+                    format!(
+                        "MCP 工具 {} 执行失败且结果登记失败：{err}；{record_err}",
+                        tool_call.name
+                    ),
+                );
+            }
+            fail(
+                RuntimeExecutionStatus::Failed,
+                format!("MCP 工具 {} 执行失败：{err}", tool_call.name),
             )
         }
     }

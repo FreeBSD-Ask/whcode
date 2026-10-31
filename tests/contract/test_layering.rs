@@ -20,8 +20,8 @@ const FRONTENDS: [&str; 5] = [
     "whcode-gui",
 ];
 
-/// workspace 全部成员 crate（tasks.md T001；T150 新增 `whcode-gui`）。
-const ALL_CRATES: [&str; 14] = [
+/// workspace 全部成员 crate（tasks.md T001；T150 新增 `whcode-gui`；T236 新增 `whcode-mcp`）。
+const ALL_CRATES: [&str; 15] = [
     "whcode-domain",
     "whcode-app",
     "whcode-llm",
@@ -29,6 +29,7 @@ const ALL_CRATES: [&str; 14] = [
     "whcode-speckit",
     "whcode-tools",
     "whcode-runtime",
+    "whcode-mcp",
     "whcode-tui",
     "whcode-cui",
     "whcode-web",

@@ -270,6 +270,21 @@ frontmatter 解析（name + description）；技能描述注入 turn 的 system 
 （description 截 200 字符，技能数上限 10）；正文由模型按需 read_file 读取；
 SKILL.md 引用的相对路径文件必须存在且可达（门禁强制）；坏文件跳过并记 warning
 （ADR-053）（P1）
+- **FR-736**: MCP 客户端最小集（whcode-mcp，ADR-054）：stdio transport——显式配置
+`.zcode/mcp.json`（服务器 ≤ 8、enabled 开关、无自动发现；无配置文件=功能关闭、
+坏配置=显式报错）驱动的子进程会话：spawn（最小环境注入 + 显式 env 回填，凭据值
+不入日志与事件）→ initialize 握手（2025-06-18，未知版本中止）→ newline 分帧
+JSON-RPC 2.0 请求/响应配对；请求超时默认 30s（上限 600s）由看门狗线程到点
+terminate_tree 解锁阻塞读（turn 取消令牌同权、50ms 轮询）；shutdown/Drop 关
+stdin→宽限→terminate_tree→reap，进程树终止复用 whcode-platform（Windows
+taskkill /T /F 口径）（P1）
+- **FR-737**: MCP 工具投影与权限面（ADR-054）：tools/list（跟随 cursor、每服务器
+工具 ≤ 64）投影为 `mcp__<server>__<tool>` 命名空间工具并入 turn 工具清单（描述截
+500 字符、inputSchema ≤ 4 KiB、MCP 清单总预算 ≤ 64 KiB 超限按序丢尾）；调用走与
+内置工具同一条三步登记与 role:tool 回填，权限面 fail-closed 一律按 WorkspaceWrite
+（SessionCreate）判定；参数只验 JSON 对象形态（inputSchema 契约由服务器侧执行）；
+连接失败以 system 消息显式告示（不静默）；结果取 content[].text 拼接，isError 按
+失败回填（P1）
 
 **Spec Kit / SDD 工作流（§4.3）**
 

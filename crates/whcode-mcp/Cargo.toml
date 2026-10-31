@@ -1,0 +1,18 @@
+[package]
+name = "whcode-mcp"
+description = "WHCode MCP 客户端最小集：stdio transport、JSON-RPC 2.0 协议层与工具投影"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+whcode-domain = { path = "../whcode-domain" }
+whcode-platform = { path = "../whcode-platform" }
+whcode-runtime = { path = "../whcode-runtime" }
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

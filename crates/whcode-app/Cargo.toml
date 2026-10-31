@@ -16,6 +16,8 @@ whcode-tools = { path = "../whcode-tools" }
 whcode-llm = { path = "../whcode-llm" }
 # 门禁编排经 speckit 状态机与工作流配置（FR-307/308）；speckit 为同层领域服务。
 whcode-speckit = { path = "../whcode-speckit" }
+# MCP 客户端最小集（FR-736/737、ADR-054）；mcp 为同层领域服务（进程/环境治理在 platform/runtime）。
+whcode-mcp = { path = "../whcode-mcp" }
 serde.workspace = true
 serde_json.workspace = true
 # 仅使用 duckdb::Connection 类型（命令签名）；连接的打开与管理在 store/装配根（ADR-018）。
