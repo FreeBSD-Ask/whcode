@@ -9,12 +9,18 @@ license.workspace = true
 
 [dependencies]
 # ADR-027：关闭默认 wgpu 特性，改用 tiny-skia 软件光栅——默认不创建 GPU 上下文（NFR-212）。
-# "x11"：default-features = false 会把 iced_tiny_skia 的 x11/wayland 一并关掉，Unix
-# （含 FreeBSD，ADR-013 修订）上 softbuffer 无任何后端可用，宏展开出现未用类型参数
-# 编译错误（run 41227890594 实测）；Windows 走内建后端不受影响。
+# "x11"/"wayland"：default-features = false 会把 iced_tiny_skia 的 x11/wayland 一并关掉，
+# Unix（含 FreeBSD，ADR-013 修订）上 softbuffer 无任何后端可用，宏展开出现未用类型参数
+# 编译错误（run 41227890594 实测）。此外 iced_winit-0.14.1 的 conversion.rs 对 BSD
+# 目标（dragonfly/freebsd/netbsd/openbsd）硬编码导入 `winit::platform::wayland::
+# WindowAttributesExtWayland` 并调用 `.with_name()`——只开 x11 时该模块不存在，
+# 报 E0432 未解析导入与 E0599 with_name 不在作用域（run 41238694183 实测），故 BSD
+# 必须同时启用 wayland。winit 的 wayland 依赖全部 cfg(all(unix, ...)) 门控，Windows
+# 走内建后端不受影响（仍软件光栅，无 GPU 上下文）。
 iced = { version = "0.14.0", default-features = false, features = [
     "tiny-skia",
     "x11",
+    "wayland",
     "thread-pool",
     "crisp",
     "web-colors",
