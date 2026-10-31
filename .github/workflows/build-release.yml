@@ -2,7 +2,9 @@
 # 冒烟与发布链拆为独立矩阵文件，让门禁／测试（ci.yml）与交付（本文件）各自拥有
 # 触发语义与权限边界。
 #
-# 触发：push main、push tag v*、pull_request、workflow_dispatch。
+# 触发（2026-10-31 用户指令，2026-11-01 实施）：push tag v*、workflow_dispatch——
+# push main 不再自动构建 release（每次推送都出包太频繁）；交付构建随 tag 发布或按需
+# 手动触发。门禁与测试仍由 ci.yml 每次 push main 运行（ADR-037），不受本收敛影响。
 #
 # 矩阵三档（fail-fast: false，三档互不掩盖失败；ADR-043）：
 #   - debug/amd64（windows-latest）：构建 workspace 并产出依赖记录（V-001），只验证依赖图可解；
@@ -21,9 +23,7 @@ name: build-release
 
 on:
   push:
-    branches: [main]
     tags: ["v*"]
-  pull_request:
   workflow_dispatch:
 
 # Windows runner 控制台默认代码页非 UTF-8；脚本含中文输出，统一强制 Python UTF-8 模式。
