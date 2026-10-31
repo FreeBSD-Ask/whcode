@@ -1,13 +1,15 @@
-//! # MCP stdio 会话（FR-736、ADR-054 §2.4—2.6）
+//! # MCP 会话（FR-736、ADR-054 §2.4—2.6；ADR-055 §2.1 传输抽象）
 //!
-//! 一个 [`McpSession`] 对应一个 MCP 服务器子进程：spawn（环境净化 + 进程组 +
-//! stderr 丢弃）→ initialize 握手 → 请求/响应配对（newline 分帧、有界行读取）→
-//! shutdown（关 stdin → 宽限等待 → `terminate_tree` → reap）。
+//! [`McpSession`] 是**传输无关**的协议会话：initialize 握手、tools/list、tools/call、
+//! 请求/响应配对、外来消息计数、失效标记。实际 I/O 经 [`Transport`] 六原语解耦——
+//! stdio 子进程（[`StdioTransport`]，ADR-054 §2.4—2.6）与 HTTP 端点（后续批次，
+//! ADR-055 §2.2）各实现；协议/投影/权限层保持传输无关。
 //!
 //! 并发/线程模型（NFR-216、ADR-054 §2.5）：会话本身零常驻线程；每个在途请求由
-//! [`Watchdog`] 创建一条瞬态看门狗线程——到点（超时或取消）`terminate_tree` 终止
-//! 服务器进程树，使阻塞中的 `read` 以 EOF 解锁。看门狗为分离线程，退出由 `done`
-//! 标志驱动（至多存活到 deadline + 一个轮询周期），不 join。
+//! [`Watchdog`] 创建一条瞬态看门狗线程——到点（超时或取消）调用 [`Transport`] 的
+//! `abort_handle` 终止传输（stdio：`terminate_tree` 使阻塞中的读以 EOF 解锁）。
+//! 看门狗为分离线程，退出由 `done` 标志驱动（至多存活到 deadline + 一个轮询周期），
+//! 不 join。
 //!
 //! 超时窗口覆盖**写与读全程**：看门狗在写请求行之前武装（大参数写入同样受保护）。
 
@@ -27,7 +29,7 @@ use crate::protocol::{
     ToolCallResult,
 };
 
-/// 单行入站消息上限（字节；超出即会话失效并终止进程，防无界累积）。
+/// 单行入站消息上限（字节；超出即会话失效并终止传输，防无界累积）。
 pub const MAX_LINE_BYTES: usize = 1024 * 1024;
 
 /// 单次请求容忍的外来消息上限（未配对响应/通知/服务器请求；超出即会话失效，
@@ -61,13 +63,53 @@ impl CancelFlag {
     }
 }
 
-/// 瞬态看门狗：轮询（deadline / 取消 / done），到点终止进程树解锁阻塞读。
+/// EOF 归因种类（传输自检退出状态后报告；会话层据此格式化错误消息）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EofKind {
+    /// 取消标志已置位（请求被上层取消）。
+    Cancelled,
+    /// 对端已退出（超时看门狗杀树，或服务器自行退出）。
+    Exited,
+    /// 对端意外关闭（非取消非退出——传输中断）。
+    Closed,
+}
+
+/// 传输抽象（ADR-055 §2.1）：会话层只依赖以下原语；写帧/读帧/终止各自实现。
+///
+/// 对象安全（`Box<dyn Transport>` 由 [`McpSession`] 持有）；stdio 与 HTTP 两实现
+/// 共享同一协议层。`abort_handle` 返回**侧信道**终止句柄（不借用 `self`，避免与
+/// 阻塞中的 `read_message` 互锁——看门狗在独立线程调用）。
+pub trait Transport: Send {
+    /// 写一帧（stdio：单行换行分帧；http：POST JSON 帧）。失败即传输失效。
+    fn write_message(&mut self, line: &str) -> Result<(), WhError>;
+
+    /// 读一帧；`Ok(None)` 表示对端关闭（EOF）。必须受 `cap` 上限约束（有界）。
+    fn read_message(&mut self, cap: usize) -> Result<Option<String>, WhError>;
+
+    /// 独立终止句柄（看门狗侧信道；不借用 `self`）。
+    fn abort_handle(&self) -> Arc<dyn Fn() + Send + Sync>;
+
+    /// EOF 归因（`&mut self` 允许传输自检退出状态，如 `try_wait` 去竞态）。
+    fn eof_kind(&mut self, cancel: Option<CancelFlag>) -> EofKind;
+
+    /// 优雅/强制关闭（幂等）：stdio 关管道→宽限→杀树→reap；http 发 DELETE+释放连接。
+    fn shutdown(&mut self);
+
+    /// 诊断/零残留断言 pid（HTTP 无进程，返回 0）。
+    fn pid(&self) -> u32;
+}
+
+/// 瞬态看门狗：轮询（deadline / 取消 / done），到点调用终止句柄解锁阻塞读。
 struct Watchdog {
     done: Arc<AtomicBool>,
 }
 
 impl Watchdog {
-    fn arm(pid: u32, deadline: Instant, cancel: Option<CancelFlag>) -> Self {
+    fn arm(
+        abort: Arc<dyn Fn() + Send + Sync>,
+        deadline: Instant,
+        cancel: Option<CancelFlag>,
+    ) -> Self {
         let done = Arc::new(AtomicBool::new(false));
         let done_thread = Arc::clone(&done);
         std::thread::spawn(move || {
@@ -78,9 +120,8 @@ impl Watchdog {
                 if Instant::now() >= deadline
                     || cancel.as_ref().is_some_and(CancelFlag::is_cancelled)
                 {
-                    // 终止服务器进程树（平台层封装；taskkill /T /F 或进程组信号），
-                    // 使调用线程阻塞中的 stdout 读以 EOF 解锁。
-                    let _ = whcode_platform::process::terminate_tree(pid);
+                    // 终止传输（stdio：杀进程树使阻塞读以 EOF 解锁）。
+                    abort();
                     return;
                 }
                 std::thread::sleep(WATCHDOG_POLL);
@@ -96,21 +137,19 @@ impl Drop for Watchdog {
     }
 }
 
-/// MCP 服务器子进程会话（per-turn 生命周期；`Drop` 负责全部回收路径）。
-pub struct McpSession {
-    server_name: String,
+/// stdio 子进程传输（ADR-054 §2.4—2.6；行为与重构前一致）。
+///
+/// 持有子进程 + stdin/stdout 管道 + 进程组/看门狗逻辑；stderr 丢弃（ADR-054
+/// §2.6，防日志管道填满阻塞服务器；诊断靠退出码与协议错误）。
+pub struct StdioTransport {
     child: Child,
     stdin: Option<ChildStdin>,
     stdout: Option<BufReader<ChildStdout>>,
-    next_id: u64,
-    initialized: bool,
-    broken: bool,
-    /// 入站通知计数（saturating；不累积消息本体）。
-    notifications_seen: u64,
+    pid: u32,
 }
 
-impl McpSession {
-    /// 启动服务器子进程（不做 initialize——握手由调用方显式执行，便于测试分层）。
+impl StdioTransport {
+    /// 启动服务器子进程（不做 initialize——握手由会话层显式执行）。
     ///
     /// 环境净化（ADR-054 §2.9）：`apply_minimal_env` 先收敛父环境为最小白名单，
     /// 显式 `env` 随后回填（用户为服务器声明的授权通道）；**不再过
@@ -136,13 +175,125 @@ impl McpSession {
         let mut child = command.spawn().map_err(|err| {
             WhError::new(ErrorCode::IoError, format!("MCP 服务器启动失败：{err}"))
         })?;
+        let pid = child.id();
         let stdin = child.stdin.take();
         let stdout = child.stdout.take().map(BufReader::new);
         Ok(Self {
-            server_name: config.name.clone(),
             child,
             stdin,
             stdout,
+            pid,
+        })
+    }
+}
+
+impl Transport for StdioTransport {
+    fn write_message(&mut self, line: &str) -> Result<(), WhError> {
+        let Some(stdin) = self.stdin.as_mut() else {
+            return Err(WhError::new(
+                ErrorCode::IoError,
+                "stdin 不可写（会话已关闭）",
+            ));
+        };
+        let result = writeln!(stdin, "{line}").and_then(|()| stdin.flush());
+        if let Err(err) = result {
+            return Err(WhError::new(
+                ErrorCode::IoError,
+                format!("写入 MCP 服务器失败：{err}"),
+            ));
+        }
+        Ok(())
+    }
+
+    fn read_message(&mut self, cap: usize) -> Result<Option<String>, WhError> {
+        let Some(reader) = self.stdout.as_mut() else {
+            return Err(WhError::new(
+                ErrorCode::IoError,
+                "stdout 不可读（会话已关闭）",
+            ));
+        };
+        read_line_bounded(reader, cap).map_err(|err| WhError::new(ErrorCode::IoError, err.to_string()))
+    }
+
+    fn abort_handle(&self) -> Arc<dyn Fn() + Send + Sync> {
+        let pid = self.pid;
+        Arc::new(move || {
+            let _ = whcode_platform::process::terminate_tree(pid);
+        })
+    }
+
+    fn eof_kind(&mut self, cancel: Option<CancelFlag>) -> EofKind {
+        // 杀树与退出状态登记存在竞态：`try_wait` 短暂轮询确认（≤ 500ms），
+        // 仍存活才归因为"对端意外关闭"。
+        let mut exited = self.child.try_wait().ok().flatten().is_some();
+        for _ in 0..50 {
+            if exited {
+                break;
+            }
+            match self.child.try_wait() {
+                Ok(Some(_)) => {
+                    exited = true;
+                    break;
+                }
+                Ok(None) => std::thread::sleep(Duration::from_millis(10)),
+                Err(_) => break,
+            }
+        }
+        if cancel.is_some_and(|flag| flag.is_cancelled()) {
+            EofKind::Cancelled
+        } else if exited {
+            EofKind::Exited
+        } else {
+            EofKind::Closed
+        }
+    }
+
+    fn shutdown(&mut self) {
+        // 先关读写端再等/杀：避免杀树后残留管道句柄。
+        self.stdout = None;
+        self.stdin = None;
+        for _ in 0..(SHUTDOWN_GRACE.as_millis() / 10) {
+            match self.child.try_wait() {
+                Ok(Some(_)) | Err(_) => return,
+                Ok(None) => std::thread::sleep(Duration::from_millis(10)),
+            }
+        }
+        if self.pid != 0 {
+            let _ = whcode_platform::process::terminate_tree(self.pid);
+        }
+        let _ = self.child.wait();
+    }
+
+    fn pid(&self) -> u32 {
+        self.pid
+    }
+}
+
+/// MCP 服务器会话（per-turn 生命周期；`Drop` 负责全部回收路径）。
+///
+/// 传输无关：持有 `Box<dyn Transport>`（stdio 或 http），协议层只调用
+/// [`Transport`] 原语。`broken` 置位后所有协议调用拒绝（失效即中止）。
+pub struct McpSession {
+    server_name: String,
+    transport: Box<dyn Transport>,
+    next_id: u64,
+    initialized: bool,
+    broken: bool,
+    /// 入站通知计数（saturating；不累积消息本体）。
+    notifications_seen: u64,
+}
+
+impl McpSession {
+    /// 启动 stdio 服务器会话（不做 initialize——握手由调用方显式执行）。
+    ///
+    /// # Errors
+    ///
+    /// 子进程启动失败时返回 [`ErrorCode::IoError`]。
+    pub fn spawn(config: &McpServerConfig) -> Result<Self, WhError> {
+        let transport = StdioTransport::spawn(config)?;
+        Ok(Self {
+            server_name: config.name.clone(),
+            transport: Box::new(transport),
             next_id: 0,
             initialized: false,
             broken: false,
@@ -168,10 +319,10 @@ impl McpSession {
         self.notifications_seen
     }
 
-    /// 服务器子进程 PID（零残留断言与诊断用；会话关闭后无意义）。
+    /// 服务器进程 PID（零残留断言与诊断用；HTTP 传输返回 0；会话关闭后无意义）。
     #[must_use]
     pub fn pid(&self) -> u32 {
-        self.child.id()
+        self.transport.pid()
     }
 
     /// initialize 握手：请求 → 版本协商（未知版本中止）→ `notifications/initialized`。
@@ -192,7 +343,7 @@ impl McpSession {
         let result = self.request("initialize", &params, timeout, cancel)?;
         let info = protocol::parse_initialize_result(&result).map_err(|err| self.poison(err))?;
         let notification = protocol::encode_notification("notifications/initialized", &json!({}));
-        self.write_line(&notification)?;
+        self.write(&notification)?;
         self.initialized = true;
         Ok(info)
     }
@@ -274,11 +425,11 @@ impl McpSession {
         Ok(call)
     }
 
-    /// 会话级请求：写请求行 → 逐行读入站消息直到配对响应（外来消息计数丢弃）。
+    /// 会话级请求：写请求帧 → 逐帧读入站消息直到配对响应（外来消息计数丢弃）。
     ///
     /// # Errors
     ///
-    /// 会话失效、写失败、读失败、超时、取消、行越界、外来消息越限或服务器返回
+    /// 会话失效、写失败、读失败、超时、取消、帧越界、外来消息越限或服务器返回
     /// JSON-RPC 错误时返回 [`WhError`]。
     fn request(
         &mut self,
@@ -297,39 +448,47 @@ impl McpSession {
         self.next_id += 1;
         // 看门狗在写之前武装：大参数写阻塞与读阻塞同受超时/取消保护。
         let deadline = Instant::now() + timeout;
-        let _watchdog = Watchdog::arm(self.child.id(), deadline, cancel.clone());
-        self.write_line(&protocol::encode_request(id, method, params))?;
+        let abort = self.transport.abort_handle();
+        let _watchdog = Watchdog::arm(abort, deadline, cancel.clone());
+        self.write(&protocol::encode_request(id, method, params))?;
 
-        // 读响应期间把 stdout 从 self 取出（借用分离）：读循环内需要 &mut self
-        // 做写入/失效/计数，与逐行读取互不重叠；结束后归还。
-        let mut stdout = self.stdout.take();
-        let outcome = self.await_response(id, stdout.as_mut(), timeout, cancel);
-        self.stdout = stdout;
-        outcome
+        self.await_response(id, timeout, cancel)
     }
 
-    /// 逐行读入站消息直到配对响应（`reader` 已从会话取出，见 [`Self::request`]）。
+    /// 逐帧读入站消息直到配对响应（读/写/计数均经 [`Transport`] 原语）。
     fn await_response(
         &mut self,
         id: u64,
-        reader: Option<&mut BufReader<ChildStdout>>,
         timeout: Duration,
         cancel: Option<CancelFlag>,
     ) -> Result<Value, WhError> {
-        let Some(reader) = reader else {
-            return Err(self.poison(WhError::new(
-                ErrorCode::IoError,
-                "stdout 不可读（会话已关闭）",
-            )));
-        };
         let mut foreign = 0u32;
         loop {
-            let line = match read_line_bounded(reader, MAX_LINE_BYTES) {
+            let line = match self.transport.read_message(MAX_LINE_BYTES) {
                 Ok(Some(line)) => line,
-                Ok(None) => return Err(self.classify_eof(timeout, cancel)),
-                Err(err) => {
-                    return Err(self.poison(WhError::new(ErrorCode::IoError, err.to_string())));
+                Ok(None) => {
+                    let kind = self.transport.eof_kind(cancel);
+                    let err = match kind {
+                        EofKind::Cancelled => WhError::new(
+                            ErrorCode::RuntimeUnavailable,
+                            format!("MCP 服务器 {} 因取消请求被终止", self.server_name),
+                        ),
+                        EofKind::Exited => WhError::new(
+                            ErrorCode::Timeout,
+                            format!(
+                                "MCP 服务器 {} 在 {}ms 内未响应，已被终止",
+                                self.server_name,
+                                timeout.as_millis()
+                            ),
+                        ),
+                        EofKind::Closed => WhError::new(
+                            ErrorCode::IoError,
+                            format!("MCP 服务器 {} 的传输提前关闭", self.server_name),
+                        ),
+                    };
+                    return Err(self.poison(err));
                 }
+                Err(err) => return Err(self.poison(err)),
             };
             let incoming = protocol::parse_line(&line).map_err(|err| self.poison(err))?;
             match incoming {
@@ -360,7 +519,7 @@ impl McpSession {
                         METHOD_NOT_FOUND,
                         "whcode-mcp 未声明该方法能力",
                     );
-                    self.write_line(&rejection)?;
+                    self.write(&rejection)?;
                     foreign += 1;
                 }
             }
@@ -373,48 +532,6 @@ impl McpSession {
                     ),
                 )));
             }
-        }
-    }
-
-    /// EOF 分类：看门狗杀树后读端关闭——按取消/超时/意外退出归因（不混为一谈）。
-    ///
-    /// 杀树与退出状态登记存在竞态：`try_wait` 短暂轮询确认（≤ 500ms），
-    /// 仍存活才归因为"stdout 提前关闭"。
-    fn classify_eof(&mut self, timeout: Duration, cancel: Option<CancelFlag>) -> WhError {
-        self.broken = true;
-        let mut exited = self.child.try_wait().ok().flatten().is_some();
-        for _ in 0..50 {
-            if exited {
-                break;
-            }
-            match self.child.try_wait() {
-                Ok(Some(_)) => {
-                    exited = true;
-                    break;
-                }
-                Ok(None) => std::thread::sleep(Duration::from_millis(10)),
-                Err(_) => break,
-            }
-        }
-        if cancel.is_some_and(|flag| flag.is_cancelled()) {
-            WhError::new(
-                ErrorCode::RuntimeUnavailable,
-                format!("MCP 服务器 {} 因取消请求被终止", self.server_name),
-            )
-        } else if exited {
-            WhError::new(
-                ErrorCode::Timeout,
-                format!(
-                    "MCP 服务器 {} 在 {}ms 内未响应，已被终止",
-                    self.server_name,
-                    timeout.as_millis()
-                ),
-            )
-        } else {
-            WhError::new(
-                ErrorCode::IoError,
-                format!("MCP 服务器 {} 的 stdout 提前关闭", self.server_name),
-            )
         }
     }
 
@@ -440,40 +557,17 @@ impl McpSession {
         Ok(())
     }
 
-    fn write_line(&mut self, line: &str) -> Result<(), WhError> {
-        let Some(stdin) = self.stdin.as_mut() else {
-            return Err(self.poison(WhError::new(
-                ErrorCode::IoError,
-                "stdin 不可写（会话已关闭）",
-            )));
-        };
-        let result = writeln!(stdin, "{line}").and_then(|()| stdin.flush());
-        if let Err(err) = result {
-            return Err(self.poison(WhError::new(
-                ErrorCode::IoError,
-                format!("写入 MCP 服务器失败：{err}"),
-            )));
-        }
-        Ok(())
+    /// 写一帧；失败即 poison（传输不可恢复）。
+    fn write(&mut self, line: &str) -> Result<(), WhError> {
+        self.transport
+            .write_message(line)
+            .map_err(|err| self.poison(err))
     }
 
-    /// 关闭会话：stdin EOF → 宽限等待 → `terminate_tree` → reap（幂等）。
+    /// 关闭会话（幂等）：置失效并交由传输层回收（stdio：宽限→杀树→reap）。
     pub fn shutdown(&mut self) {
         self.broken = true;
-        // 先关读写端再等/杀：避免杀树后残留管道句柄。
-        self.stdout = None;
-        self.stdin = None;
-        for _ in 0..(SHUTDOWN_GRACE.as_millis() / 10) {
-            match self.child.try_wait() {
-                Ok(Some(_)) | Err(_) => return,
-                Ok(None) => std::thread::sleep(Duration::from_millis(10)),
-            }
-        }
-        let pid = self.child.id();
-        if pid != 0 {
-            let _ = whcode_platform::process::terminate_tree(pid);
-        }
-        let _ = self.child.wait();
+        self.transport.shutdown();
     }
 }
 
