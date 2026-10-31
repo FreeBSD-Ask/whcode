@@ -30,8 +30,29 @@
   `llm.request_started` 等废弃，契约 app-service.md 已同步）——四端 JSON 信封新增
   `turn_id`/`iterations`/`termination_reason` 字段（0.1.0 未发布窗口内破坏性变更，
   无兼容承诺）。
-
-### 变更
+- **技能最小集（skills v1）**（2026-10-31，FR-735、ADR-053、T232—T235、Check 328—331）：
+  turn 循环扫描工作区 `.zcode/skills/<name>/SKILL.md` 并解析 frontmatter（name +
+  description），技能描述以 system 消息注入模型请求（单条截 200 字符、技能数上限 10），
+  正文由模型按需 `read_file` 读取；SKILL.md 引用的相对路径文件必须存在且可达（门禁
+  强制），坏文件跳过并记 warning，不中断 turn。Check 330 的 turn 注入接线与
+  collapsible_if clippy 修复随本批收口（CI run 41197419832 三流水线 success）。
+- **子代理编排**（2026-10-31，FR-732/733、ADR-052、T227—T230、Check 323—326）：
+  模型经 `spawn_subagent` 工具调用委派子任务，执行器同步嵌套 run_turn（独立
+  request_id/turn_id、同一会话落表）；硬上限三重——每 turn 子代理数 ≤ 3、递归深度
+  = 1、子 turn 迭代上限继承请求；超限结构化拒绝不中断父 turn；子 turn 事件落父
+  会话并以 `role:"tool"` 结果回填父循环，父取消在子 turn chunk 边界生效。
+- **工具清单随请求下发**（2026-10-31，FR-734、T231、ADR-048 追加）：LlmRequest 携带
+  registry.provider_manifest，openai 兼容族映射进请求体 `tools` 数组（其余协议映射随
+  各自能力登记）——此前工具定义从未随请求下发，真实供应商的 tool_calls 依赖该能力。
+- **流式生成重试**（2026-10-31，ADR-050、T221—T223）：重试 decorator 包装 Provider，
+  safe_to_retry 判据——首 chunk 前失败可重试、已输出 chunk 后失败上抛、非可重试错误
+  不重试；`LocalProviderFactory::create` 完成接线。
+- **上下文压缩 v1（请求视图折叠）**（2026-10-31，ADR-051、T224—T226）：turn 预算压力
+  分支改为折叠一次 `fold_messages_for_budget`（保留锚点与尾部窗口）+ compress_context
+  指针 + ContextState 登记，摘要内容可查。
+- **构建触发收敛**（2026-11-01 实施，用户指令 2026-10-31）：`build-release.yml` 不再随
+  push main 自动构建 release（每次推送都出包太频繁）；交付构建保留 push tag v* 与
+  workflow_dispatch 手动触发。门禁与测试仍由 ci.yml 每次 push 运行（ADR-037 口径不变）。
 
 - 宪法修订：新增原则 X“知难行易：任务认知先于手段”（2026-10-29，ADR-049，用户指令“修宪”）：
   从一刻哲学第 21 章 §21.2／§21.4 与四版前言（`file_id 22, block 3—4`、`block 8`；`file_id 41,
@@ -843,19 +864,16 @@
   `40267545791`，`store_gate = NO-GO`）：改为只构建 `libduckdb.so` 并手工复制共享库与
   `duckdb.h`，不经 CMake 安装规则；NetBSD 的 rustup 安装改为仅在 `rustc` 可执行时前置 PATH，
   下载失败回退 pkgsrc 并显式 SKIP。
-
-### 计划
-
-- M1 存储与事件基座：14 表 schema 与可重复迁移、单写者服务线程、游标分页、预聚合概览、
-  清理/压缩、监控（tasks.md T032—T045）。
-
-### 修复
-
 - 测量证据的环境字段不再伪造（2026-10-25）：`test_memory_limit`／`test_writer_stress`／
   `test_query_plan` 曾把 `machine_note` 写死为本机机型与内存，GitHub runner 上生成的证据
   同样带着该字符串。现改为如实标注“未采集”，保留实测的 `os`／`arch`／`logical_cores`；
   三个夹具已用 `--ignored --nocapture` 复跑并重新生成证据。CI 产物复测记录见
   `artifacts/ci-artifact-verify-2026-10-25.md`。
+
+### 计划
+
+- M1 存储与事件基座：14 表 schema 与可重复迁移、单写者服务线程、游标分页、预聚合概览、
+  清理/压缩、监控（tasks.md T032—T045）。
 
 ## [0.1.0] — 2026-10-21（M0 基线）
 
