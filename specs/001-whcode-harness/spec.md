@@ -265,6 +265,11 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
 - **FR-732**: 子代理编排（whcode-app）：模型经 spawn_subagent 工具调用委派子任务，执行器同步嵌套 run_turn（独立 request_id/turn_id、同一会话落表）；硬上限三重——每 turn 子代理数 ≤ 3、递归深度 = 1（子代理不得再 spawn）、子 turn 迭代上限继承请求；超限结构化拒绝不中断父 turn（ADR-052）（P1）
 - **FR-733**: 子 turn 事件落父会话（session_id=父、request_id=子请求），父 turn 的ToolCallStarted/Finished 关联 tool_call_id；子 turn 终止原因与末轮正文以 role:tool 结果回填父循环，子代理失败为结构化失败不伪造成功；父取消在子 turn chunk 边界生效（FR-722/FR-723 口径；ADR-052）（P1）
 - **FR-734**: 工具清单随请求下发：LlmRequest 携带工具清单（registry.provider_manifest），openai 兼容族映射到请求体 tools 数组（其余协议映射随各自能力登记）；此前工具定义从未随请求下发——真实供应商的 tool_calls 依赖该能力，桩剧本测试不受影响（ADR-048 追加；〔未实现〕T231 登记）（P1）
+- **FR-735**: 技能最小集（whcode-app）：`.zcode/skills/<name>/SKILL.md` 扫描与
+frontmatter 解析（name + description）；技能描述注入 turn 的 system 消息
+（description 截 200 字符，技能数上限 10）；正文由模型按需 read_file 读取；
+SKILL.md 引用的相对路径文件必须存在且可达（门禁强制）；坏文件跳过并记 warning
+（ADR-053）（P1）
 
 **Spec Kit / SDD 工作流（§4.3）**
 
