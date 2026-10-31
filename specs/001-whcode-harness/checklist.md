@@ -573,12 +573,12 @@
 - [ ] Check 318: [missing] 重试模块测试全绿：含重启失败上抛回归（不得以流结束
   伪造成功）与策略校验（来源：Task T222、FR-730、ADR-050 §2.6）
 - [x] Check 319: [exercised] ——**复核（2026-10-31，P1-2 批次）**：**CI 验收达成**：GitHub Actions run 41105697780（ci）／41105697753（build-release）／41105697425（CodeQL）三流水线 success（提交 2751748）；ADR-037 口径收口。
-- [x] Check 320: [exercised] 折叠函数：保留首条 user 锚点与预算内尾部窗口，摘要含——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；CI 验收按 ADR-037 待推送流水线）。
+- [x] Check 320: [exercised] 折叠函数：保留首条 user 锚点与预算内尾部窗口，摘要含——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；**CI 验收（2026-10-31）**：run 41136291096／41136291058 success，ADR-037 口径收口）。
   折叠计数与边界说明，构造上 ≤ 预算（来源：Task T224、FR-731、ADR-051）
-- [x] Check 321: [exercised] turn 预算压力折叠后继续循环至完成；二次压力显式——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；CI 验收按 ADR-037 待推送流水线）。
+- [x] Check 321: [exercised] turn 预算压力折叠后继续循环至完成；二次压力显式——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；**CI 验收（2026-10-31）**：run 41136291096／41136291058 success，ADR-037 口径收口）。
   budget_exceeded 终止；ContextState(compressed=true) 与 context_windows 指针落表
   （来源：Task T225、FR-731、ADR-051）
-- [x] Check 322: [exercised] 折叠与集成测试全绿；messages 表历史不删不改（来源：——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；CI 验收按 ADR-037 待推送流水线）。
+- [x] Check 322: [exercised] 折叠与集成测试全绿；messages 表历史不删不改（来源：——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；**CI 验收（2026-10-31）**：run 41136291096／41136291058 success，ADR-037 口径收口）。
   Task T226、FR-107、ADR-051）
   落档；layering/layout/traceability/check_counts 门禁全绿（来源：Task T223、
   ADR-037 口径）
