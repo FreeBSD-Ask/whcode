@@ -681,6 +681,18 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   计数与门禁一致；判据=Check 335；非目标=跨平台 CI 矩阵扩展。——**复核（2026-11-01，
   P1-7 批次一）**：测试/文档/计数五处声明同步完成（run 41230318736 六车道 success，
   同 T236 复核口径）。
+- [ ] T240 [P] FreeBSD 完整平台证据车道（ADR-013 修订，2026-10-31 用户指令）：ci.yml
+  FreeBSD job 移除 continue-on-error——latest pkg 安装 iced/winit 编译期 X11/字体栈依赖
+  （pkgconf/libX11/libXcursor/libXrandr/libXi/libxkbcommon/fontconfig/freetype2/wayland；
+  vmactions slirp DNS 不支持 SRV，pkg 仓库用直连 https）；全量 `cargo build/test --locked
+  --workspace`（不再排除 whcode-gui／whcode-bin）；三门硬判定（进程组零残留／store 引擎
+  2.0.0／SSH 回环，任一 NO-GO 即中止）；TUI/Web 冒烟（`--exe target/debug/whcode`）；
+  代码级等价：`whcode-platform::child_pids` 非 Windows 以 `ps -eo pid=,ppid=` 实现、
+  `test_process_cleanup` 类 Unix 真两层树执行、whcode-gui iced 启用 x11 feature——
+  **任务认知卡**：方向=FreeBSD 从“证据不阻断”升级为硬门禁车道；目标=全量构建/测试/
+  三门/冒烟在 CI 全绿且失败即红；判据=Check 336；非目标=验收口径改变（仍 Windows 11
+  amd64）、性能分位数（perf 车道仍仅 Windows）、GUI 运行时证据（VM 无显示）——
+  复核待 CI 取证后转勾
   （anthropic/gemini 等按能力登记）；FR-734 为真实供应商工具调用的前置（ADR-048
   追加；〔未实现〕显式标记）——**认知卡**：方向=真实供应商工具调用前置；目标=LlmRequest
   携带 manifest 并映射进 openai tools 数组；判据=请求体含 tools 字段且与注册表一致；
