@@ -307,8 +307,11 @@ jobs:
             # latest pkg 仓库（用户指令 2026-10-31）：quarterly 快照偏旧，latest 保证
             # iced/winit 传递依赖所需的 X11 客户端库与 pkgconf 不落后。同名仓库覆盖
             # /etc/pkg/FreeBSD.conf 的 quarterly；${ABI} 由 pkg 运行时展开。
+            # 不用 pkg+:// scheme——它强制 SRV 解析，vmactions 的 QEMU slirp DNS
+            # 不支持（run 41226866787 实测 packagesite URL error）；直连 https 走
+            # A 记录，并显式保留指纹签名校验（不用默认 unsigned）。
             mkdir -p /usr/local/etc/pkg/repos
-            printf 'FreeBSD: { url: "pkg+https://pkg.freebsd.org/${ABI}/latest" }\n' \
+            printf 'FreeBSD: {\n  url: "https://pkg.freebsd.org/${ABI}/latest",\n  signature_type: "fingerprints",\n  fingerprints: "/usr/share/keys/pkg"\n}\n' \
               > /usr/local/etc/pkg/repos/whcode-latest.conf
             pkg update -q
             # GUI 编译期系统依赖（run 40159516841 的 25 个编译错误即缺这组包，
