@@ -30,6 +30,14 @@
   `llm.request_started` 等废弃，契约 app-service.md 已同步）——四端 JSON 信封新增
   `turn_id`/`iterations`/`termination_reason` 字段（0.1.0 未发布窗口内破坏性变更，
   无兼容承诺）。
+- **FreeBSD 完整平台证据车道（硬门禁）**（2026-10-31，用户指令；ADR-013 修订）：ci.yml
+  FreeBSD lane 移除 `continue-on-error`——pkg 切 latest 仓库并安装 iced/winit 编译期
+  X11/字体栈系统依赖（此前 25 个编译错误的根因），全量 `cargo build/test --workspace`
+  不再排除 whcode-gui／whcode-bin，三门（进程组／store 2.0.0／SSH 回环）任一 NO-GO 即
+  中止，新增 TUI/Web 冒烟（`--exe target/debug/whcode`）。代码级等价：`child_pids`
+  非 Windows 以 `ps -eo pid=,ppid=` 实现（撤销“延后”），`test_process_cleanup` 在类
+  Unix 以 `sh → sleep ×2` 真两层树执行。验收口径不变（Windows 11 amd64）；性能分位数
+  与 GUI 运行时证据显式登记未取得。
 - **技能最小集（skills v1）**（2026-10-31，FR-735、ADR-053、T232—T235、Check 328—331）：
   turn 循环扫描工作区 `.zcode/skills/<name>/SKILL.md` 并解析 frontmatter（name +
   description），技能描述以 system 消息注入模型请求（单条截 200 字符、技能数上限 10），

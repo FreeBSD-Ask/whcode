@@ -391,8 +391,9 @@ pub fn process_exists(pid: u32) -> Result<bool, whcode_domain::WhError> {
 
 /// 列出某进程的**直接**子进程 PID（Check 201：零残留验证）。
 ///
-/// Windows 经 PowerShell `Get-CimInstance Win32_Process` 查询；其他平台返回结构化
-/// 错误（未实现，不伪装）。返回值可能为空（进程尚无子进程）。
+/// Windows 经 PowerShell `Get-CimInstance Win32_Process` 查询；类 Unix（含 BSD）经
+/// `ps -eo pid=,ppid=` 全表枚举后按父 PID 过滤（2026-10-31 用户指令解除 BSD 延后，
+/// 此前该路径返回结构化“延后”错误）。返回值可能为空（进程尚无子进程）。
 ///
 /// # Errors
 ///
@@ -433,11 +434,40 @@ pub fn child_pids(pid: u32) -> Result<Vec<u32>, whcode_domain::WhError> {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        let _ = pid;
-        Err(whcode_domain::WhError::new(
-            whcode_domain::ErrorCode::IoError,
-            "子进程枚举在非 Windows 平台未实现（BSD 进程组验证属 M7，ADR-013 延后）：不静默伪装结论",
-        ))
+        // `ps -eo pid=,ppid=`：POSIX/BSD 通用输出（等号形式不带表头），每行依次为
+        // PID 与父 PID 两个十进制字段。解析失败按错误上报，不猜测、不以空表冒充。
+        let output = std::process::Command::new("ps")
+            .args(["-eo", "pid=,ppid="])
+            .output()
+            .map_err(|err| {
+                whcode_domain::WhError::new(
+                    whcode_domain::ErrorCode::IoError,
+                    format!("ps 不可用，无法枚举子进程：{err}"),
+                )
+            })?;
+        if !output.status.success() {
+            return Err(whcode_domain::WhError::new(
+                whcode_domain::ErrorCode::IoError,
+                format!(
+                    "子进程枚举失败：{}（stderr 尾部：{}）",
+                    output.status.code().unwrap_or(-1),
+                    String::from_utf8_lossy(&output.stderr)
+                ),
+            ));
+        }
+        let text = String::from_utf8_lossy(&output.stdout);
+        let mut pids: Vec<u32> = text
+            .lines()
+            .filter_map(|line| {
+                let mut fields = line.split_whitespace();
+                let child: u32 = fields.next()?.parse().ok()?;
+                let parent: u32 = fields.next()?.parse().ok()?;
+                (parent == pid).then_some(child)
+            })
+            .collect();
+        pids.sort_unstable();
+        pids.dedup();
+        Ok(pids)
     }
 }
 
@@ -468,7 +498,7 @@ mod tests {
     #[test]
     fn terminate_tree_reports_invalid_pid_as_error() {
         let result = terminate_tree(u32::MAX);
-        // 本机（Windows）：taskkill 对无效 PID 非零退出 → Err；其他平台：延后错误。
+        // 本机（Windows）：taskkill 对无效 PID 非零退出 → Err；其他平台：目标校验拒绝。
         assert!(result.is_err(), "无效 PID 必须返回错误而非 panic");
         if cfg!(target_os = "windows") {
             let err = result.expect_err("无效 PID");
@@ -589,7 +619,8 @@ mod tests {
     ///
     /// CI 环境（GitHub Windows runner）PowerShell 启动可达数秒；5 秒延时子进程可能在
     /// 首次枚举完成前已退出。用 30 秒延时并在 30 秒窗口内轮询，避免把“枚举慢”误判为
-    /// “未列出子进程”。
+    /// “未列出子进程”。类 Unix 走 `ps` 全表枚举（2026-10-31 起），枚举失败即失败，
+    /// 不再有“延后”跳过路径。
     #[test]
     fn child_pids_lists_spawned_child_and_lifecycle_is_observable() {
         let mut child = sleep_command(30).spawn().expect("启动子进程");
@@ -605,12 +636,7 @@ mod tests {
                         break list;
                     }
                 }
-                Err(err) => {
-                    assert!(err.message.contains("延后"), "非实现错误须写明延后：{err}");
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return;
-                }
+                Err(err) => panic!("子进程枚举失败，零残留判据无从成立：{err}"),
             }
             std::thread::sleep(std::time::Duration::from_millis(500));
         };

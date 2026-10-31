@@ -293,17 +293,30 @@ jobs:
       - name: 在 FreeBSD VM 中构建、测试与记录
         id: freebsd_vm
         if: matrix.platform == 'freebsd' && github.event_name != 'pull_request'
-        # ADR-013：BSD 只作平台证据；VM／引导失败不应把整次 CI 变红，
-        # 结论仍由上传的证据文件与 check-run 注解承载（NO-GO 不改写）。
-        continue-on-error: true
+        # 2026-10-31 用户指令（允许 ports／latest pkg；ADR-013 修订记录）：FreeBSD
+        # 构建跑通＋功能等价——移除 continue-on-error，本 lane 成为硬门禁：工具链、
+        # 全量构建（含 whcode-gui／whcode-bin）、全量测试、三门（进程组／store／SSH）
+        # 与 TUI/Web 冒烟任一失败即红。唯一验收目标仍是 Windows 11 amd64；FreeBSD
+        # 结论继续标注平台证据身份，不进入验收结论。
         uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
           # 只写主版本：action 自动取最新 15.x 点版本。
           release: "15"
           usesh: true
           prepare: |
-            pkg install -y curl cmake ninja python3
-            pkg install -y duckdb || true
+            # latest pkg 仓库（用户指令 2026-10-31）：quarterly 快照偏旧，latest 保证
+            # iced/winit 传递依赖所需的 X11 客户端库与 pkgconf 不落后。同名仓库覆盖
+            # /etc/pkg/FreeBSD.conf 的 quarterly；${ABI} 由 pkg 运行时展开。
+            mkdir -p /usr/local/etc/pkg/repos
+            printf 'FreeBSD: { url: "pkg+https://pkg.freebsd.org/${ABI}/latest" }\n' \
+              > /usr/local/etc/pkg/repos/whcode-latest.conf
+            pkg update -q
+            # GUI 编译期系统依赖（run 40159516841 的 25 个编译错误即缺这组包，
+            # 不是 iced 不支持 BSD）：iced→winit→x11/xkbcommon；字体栈→fontconfig/
+            # freetype2；软件光栅 present→libX11。全部来自 ports／latest pkg。
+            pkg install -y curl cmake ninja python3 pkgconf \
+              libX11 libXcursor libXrandr libXi libxkbcommon \
+              fontconfig freetype2 wayland
           run: |
             set -e
             mkdir -p artifacts/store-acceptance artifacts/ssh-acceptance
@@ -321,18 +334,9 @@ jobs:
             echo "phase=toolchain-ok" >> "$progress"
             echo "rustc_version=$(rustc --version)" >> "$progress"
 
-            echo "=== 代码级检查（平台中立 crate，不链接 DuckDB／GUI）==="
-            cargo check --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
-              -p whcode-llm -p whcode-runtime
-            echo "phase=code-check-ok" >> "$progress"
-
-            echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
-            cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
-              -p whcode-llm -p whcode-runtime
-            echo "phase=package-tests-ok" >> "$progress"
-
             # Check 109／201 的 BSD 侧：进程组终止后孙进程零残留。退码 0 不足以判定，
-            # 必须看到验收用例名；缺用例按 NO-GO 记录（零不等于通过）。
+            # 必须看到验收用例名；缺用例按 NO-GO 记录（零不等于通过）。whcode-platform
+            # 不链接 DuckDB，先于源码构建执行。硬门禁：NO-GO 即中止。
             echo "=== BSD 进程组零残留（Check 109／201）==="
             pg_log=/tmp/whcode-process-group.$$.log
             pg=NO-GO
@@ -353,87 +357,60 @@ jobs:
             } > artifacts/process-group/freebsd-process-group.txt
             rm -f "$pg_log"
             echo "process_group_gate=$pg" >> "$progress"
+            if [ "$pg" != GO ]; then
+              echo "进程组门禁 NO-GO：硬门禁下中止（详见 freebsd-process-group.txt）"
+              exit 1
+            fi
 
-            # DuckDB 2.0.0 源码构建必须先于 SSH 与 store 冒烟：pkg 的 1.5.6 与冻结引擎
-            # 2.0.0（ADR-034）主版本不一致，store 的引擎版本断言必然失败，SSH 测试也会
-            # 链接到错误版本。脚本只记录不判定，NO-GO 不得改写为 GO。
+            # DuckDB 2.0.0 源码构建必须先于后续一切链接 libduckdb 的构建与测试：pkg
+            # 无 2.0.0（ADR-034 冻结引擎），版本不匹配时 store 引擎断言必然失败。脚本
+            # 只记录不判定（始终退出 0），硬门禁下由本脚本读证据文件并裁决。
             echo "=== DuckDB 2.0.0 源码构建与 store 冒烟（Check 22／ADR-034）==="
             sh .github/scripts/platform-matrix/bsd-duckdb.sh
             echo "phase=duckdb-script-done" >> "$progress"
-            if [ -f artifacts/store-acceptance/freebsd-duckdb.env ]; then
-              # shellcheck disable=SC1091
-              . artifacts/store-acceptance/freebsd-duckdb.env
+            if [ ! -f artifacts/store-acceptance/freebsd-duckdb.env ]; then
+              echo "DuckDB 2.0.0 源码构建未产出环境（freebsd-duckdb.env 缺失）：硬门禁下中止"
+              exit 1
             fi
+            # shellcheck disable=SC1091
+            . artifacts/store-acceptance/freebsd-duckdb.env
+            if ! grep -q '^store_gate = GO' artifacts/store-acceptance/freebsd-store.txt; then
+              echo "store 门禁 NO-GO：硬门禁下中止（详见 freebsd-store.txt）"
+              exit 1
+            fi
+            echo "STORE_GATE_RESULT=GO（源码构建 DuckDB 2.0.0；store 冒烟已由 bsd-duckdb.sh 执行）"
 
             echo "=== SSH 客户端＋服务端 BSD 回环验收（Check 25／96／99；V-004 仍延后）==="
             # 脚本始终退出 0，结论写在 artifacts/ssh-acceptance/<platform>-client.txt；
-            # 不得以退出码代替阅读证据文件（NO-GO 不得改写为 GO）。
+            # 不得以退出码代替阅读证据文件。硬门禁：NO-GO 即中止。
             sh .github/scripts/platform-matrix/bsd-ssh-client.sh
-            echo "phase=ssh-script-done" >> "$progress"
-
-            # DuckDB 环境选择：源码构建就绪时用它；否则退回 pkg（1.5.6），并保留
-            # “版本不匹配属 R-01 现实化路径”的独立结论。依赖记录必须在选择之后执行，
-            # 否则 record-deps.sh 取不到 DUCKDB_LIB_DIR（run 40159516841 即此情形）。
-            duckdb_ready=0
-            store_gate=NO-GO
-            if [ "${WHCODE_DUCKDB_READY:-0}" = 1 ]; then
-              duckdb_ready=1
-              if grep -q '^store_gate = GO' artifacts/store-acceptance/freebsd-store.txt; then
-                store_gate=GO
-                echo "STORE_GATE_RESULT=GO（源码构建 DuckDB 2.0.0；store 冒烟已由 bsd-duckdb.sh 执行）"
-              else
-                echo "STORE_GATE_RESULT=NO-GO（源码构建就绪但 store 冒烟未通过，详见 freebsd-store.txt）"
-              fi
-              # whcode-bin 依赖 whcode-gui（iced→softbuffer），BSD 上不可构建，doctor 探针
-              # 只会得到编译错误；显式跳过，引擎版本改用源码构建版本并在记录文件标注来源。
-              export WHCODE_SKIP_RUNTIME_PROBE=1
-            else
-              echo "=== DuckDB 包校验（源码构建未就绪，退回 pkg）==="
-              if pkg info duckdb >/dev/null 2>&1; then
-                export DUCKDB_LIB_DIR=/usr/local/lib
-                export DUCKDB_INCLUDE_DIR=/usr/local/include
-                export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-                duckdb_ready=1
-                echo "pkg DuckDB：$(pkg info duckdb | tr '\n' ' ')"
-                export WHCODE_SKIP_RUNTIME_PROBE=1
-              else
-                echo "pkg 无 duckdb：依赖记录中 DuckDB 版本将标注未取得证据"
-              fi
-
-              echo "=== DuckDB store 冒烟（Check 22；独立于 GUI 编译结果）==="
-              # 工作区级 `cargo test` 会编译 whcode-tests，其 dev 依赖含 whcode-gui，
-              # GUI 编译失败（run 40159516841：25 errors）会短路 build/test，导致 whcode-store
-              # 的建库／事务写读／关闭重启／迁移用例一个都没执行。store 冒烟因此单独先跑：
-              # 它只依赖域层与 libduckdb，是 DuckDB 原生可用性的最小可判定集合；
-              # 其结论不得被工作区级 NO-GO 掩盖或替代。
-              if [ "$duckdb_ready" -eq 1 ] && cargo test --locked -p whcode-store; then
-                store_gate=GO
-                echo "STORE_GATE_RESULT=GO（whcode-store 建库/事务/重启/迁移用例已执行）"
-              elif [ "$duckdb_ready" -eq 1 ]; then
-                echo "STORE_GATE_RESULT=NO-GO（whcode-store 冒烟失败：版本或 ABI 不匹配，属 R-01 预期风险路径）"
-              else
-                echo "STORE_GATE_RESULT=NO-GO（pkg 无 duckdb：store 冒烟无法执行）"
-              fi
+            if ! grep -q '^ssh_loopback_gate = GO' artifacts/ssh-acceptance/freebsd-client.txt; then
+              echo "SSH 回环门禁 NO-GO：硬门禁下中止（详见 freebsd-client.txt）"
+              exit 1
             fi
+            echo "phase=ssh-gate-go" >> "$progress"
 
-            echo "=== 依赖记录（V-001，须在 DUCKDB_* 导出之后）==="
+            # 2026-10-31 用户指令解除 --exclude：whcode-gui 的系统依赖由 prepare 安装，
+            # GUI／bin 必须参与构建与测试，功能等价以全量通过为准。
+            echo "=== 全量构建（workspace 含 GUI／bin）==="
+            cargo build --locked --workspace
+            echo "phase=workspace-build-ok" >> "$progress"
+
+            echo "=== 全量测试（workspace 全部 crate，含集成/稳定性/契约）==="
+            cargo test --locked --workspace
+            echo "phase=workspace-tests-ok" >> "$progress"
+
+            echo "=== 依赖记录（V-001，须在 DUCKDB_* 导出之后；doctor 真实运行时探针）==="
             mkdir -p artifacts
             sh .github/scripts/platform-matrix/record-deps.sh artifacts
 
-            echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
-            if [ "$duckdb_ready" -eq 1 ]; then
-              # 工作区级 gate 只回答“整棵工作区是否可构建/可测试”，与 store 冒烟是两段结论：
-              # 它仍可能因 whcode-tests 的 GUI dev 依赖失败，故与 STORE_GATE_RESULT 分开记录。
-              if [ "$store_gate" = GO ] && \
-                cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
-                && cargo test --locked --workspace --exclude whcode-gui --exclude whcode-bin; then
-                echo "GATE_RESULT=GO"
-              else
-                echo "GATE_RESULT=NO-GO（工作区级构建/测试未通过；若 STORE_GATE_RESULT=GO，则此处失败来自 whcode-tests 的 GUI dev 依赖，不是 DuckDB ABI 结论）"
-              fi
-            else
-              echo "GATE_RESULT=NO-GO（pkg 无 duckdb：需源码构建，待评估）"
-            fi
+            echo "=== TUI 冒烟（--version／doctor／非交互退出；功能等价证据）==="
+            python3 .github/scripts/tui-smoke.py --exe target/debug/whcode --json artifacts/tui-smoke-freebsd.json
+
+            echo "=== Web 服务端冒烟（/api/status、/api/sessions、首页；功能等价证据）==="
+            python3 .github/scripts/web-smoke.py --exe target/debug/whcode --json artifacts/web-smoke-freebsd.json
+
+            echo "GATE_RESULT=GO（全量构建＋全量测试＋三门 GO＋TUI/Web 冒烟；2026-10-31 用户指令硬门禁）"
             echo "phase=done" >> "$progress"
 
       - name: 归档 FreeBSD 结论
@@ -466,6 +443,18 @@ jobs:
           path: |
             artifacts/store-acceptance/
             artifacts/process-group/
+
+      # 功能等价证据（2026-10-31 用户指令）：TUI/Web 冒烟 JSON 随作业归档；
+      # 冒烟失败时 JSON 可能缺失或为半成品，always() 上传、缺文件按警告处理。
+      - name: 上传 FreeBSD 冒烟证据（TUI／Web）
+        if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: smoke-evidence-freebsd
+          if-no-files-found: warn
+          path: |
+            artifacts/tui-smoke-freebsd.json
+            artifacts/web-smoke-freebsd.json
 
       # ---------------- NetBSD（最新 11.x release） ----------------
       - name: 在 NetBSD VM 中构建、测试与记录
