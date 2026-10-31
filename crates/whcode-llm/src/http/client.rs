@@ -1413,6 +1413,7 @@ mod tests {
             messages: vec![crate::provider::LlmMessage::user("hi")],
             max_tokens: 16,
             timeout: None,
+            tools: None,
         }
     }
 

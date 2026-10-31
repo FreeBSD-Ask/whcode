@@ -238,6 +238,9 @@ impl WireProtocol for OpenAi {
             "stream_options": { "include_usage": true },
             "max_tokens": profile.max_tokens,
         });
+        if let Some(tools) = &request.tools {
+            body["tools"] = tools.clone();
+        }
         body = merge_extra(body, &profile.extra_body)?;
         body_string(body)
     }
@@ -712,6 +715,7 @@ mod tests {
             messages: vec![crate::provider::LlmMessage::user("hi")],
             max_tokens: 64,
             timeout: None,
+            tools: None,
         }
     }
 
@@ -736,6 +740,7 @@ mod tests {
             ],
             max_tokens: 64,
             timeout: None,
+            tools: None,
         }
     }
 
@@ -1014,6 +1019,34 @@ mod tests {
             data: r#"{"delta":{"finish_reason":"COMPLETE"},"usage":{"tokens":{"input_tokens":2,"output_tokens":3}}}"#.to_string(),
         });
         assert!(matches!(finish, DecodeOutcome::Finish { .. }));
+    }
+
+    #[test]
+    fn openai_request_body_includes_tools_when_present() {
+        // FR-734：tools 数组随请求下发（openai 兼容族）。
+        let mut req = request();
+        req.tools = Some(serde_json::json!([
+            { "type": "function", "function": { "name": "read_file", "parameters": {} } }
+        ]));
+        let body = OpenAi
+            .request_body(&req, &profile(Protocol::OpenAi))
+            .expect("body");
+        let value: Value = serde_json::from_str(&body).expect("JSON");
+        assert_eq!(value["tools"][0]["type"], "function");
+        assert_eq!(value["tools"][0]["function"]["name"], "read_file");
+    }
+
+    #[test]
+    fn no_tools_field_when_none() {
+        // tools: None 时不产生 tools 键。
+        let body = OpenAi
+            .request_body(&request(), &profile(Protocol::OpenAi))
+            .expect("body");
+        let value: Value = serde_json::from_str(&body).expect("JSON");
+        assert!(
+            value.get("tools").is_none(),
+            "tools: None 时不得产生 tools 键"
+        );
     }
 
     #[test]

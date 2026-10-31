@@ -105,6 +105,8 @@ pub struct LlmRequest {
     pub max_tokens: u64,
     /// 超时；`None` 为不限（桩 Provider 不受影响）。
     pub timeout: Option<Duration>,
+    /// 工具清单（FR-734：provider_manifest 的 JSON 数组；`None` = 无工具）。
+    pub tools: Option<serde_json::Value>,
 }
 
 impl LlmRequest {
@@ -418,6 +420,7 @@ mod tests {
             messages: vec![LlmMessage::user(prompt)],
             max_tokens: 128,
             timeout: None,
+            tools: None,
         }
     }
 

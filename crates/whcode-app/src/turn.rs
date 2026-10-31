@@ -330,6 +330,7 @@ pub fn run_turn(
 
     let tool_registry = whcode_tools::default_registry()
         .map_err(|err| WhError::internal(format!("工具注册表构造失败：{err}")))?;
+    let tool_manifest = serde_json::Value::Array(tool_registry.provider_manifest());
     let mut messages: Vec<LlmMessage> = vec![LlmMessage {
         role: Role::User,
         content: prompt.to_string(),
@@ -479,6 +480,7 @@ pub fn run_turn(
             task_id: None,
             model: model.clone(),
             messages: messages.clone(),
+            tools: Some(tool_manifest.clone()),
             max_tokens,
             timeout: Some(total),
         };
@@ -1750,7 +1752,7 @@ mod subagent_tests {
         let mut script = Vec::new();
         for i in 1..=5 {
             script.push(spawn_step(&format!("call-{i}")));
-            script.push(StubStep::simple(&format!("子任务 {i} 完成"), "stop"));
+            script.push(StubStep::simple(format!("子任务 {i} 完成"), "stop"));
         }
         script.push(StubStep::simple("收尾", "stop"));
         let (mut conn, id, dir, context) = fixture(script);
@@ -1758,7 +1760,8 @@ mod subagent_tests {
         let policy = DefaultPolicy;
         let mut req = request(&id, "超量委派", 0);
         req.iterations_limit = Some(12);
-        let outcome = run_turn(&mut conn, &policy, &actor, &context, &req, 31).expect("上限后收尾");
+        let _outcome =
+            run_turn(&mut conn, &policy, &actor, &context, &req, 31).expect("上限后收尾");
         let quota_rejects: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='ToolCallFinished'
@@ -1791,7 +1794,6 @@ mod subagent_tests {
         let _ = std::fs::remove_dir_all(dir2);
     }
 
-    #[test]
     #[test]
     fn invalid_spawn_arguments_reject_structurally() {
         let (mut conn, id, dir, context) = fixture(vec![

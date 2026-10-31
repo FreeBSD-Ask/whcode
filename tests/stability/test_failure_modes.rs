@@ -55,6 +55,7 @@ fn request() -> LlmRequest {
         messages: vec![whcode_llm::provider::LlmMessage::user("hello")],
         max_tokens: 16,
         timeout: None,
+        tools: None,
     }
 }
 

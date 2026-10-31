@@ -586,7 +586,7 @@
 - [ ] Check 325: [missing] 结果回填：子 turn 终止原因与正文以 role:tool 回填父循环；
   子失败不伪造成功；父取消传播到子 chunk 边界（来源：Task T228、FR-733）
 - [ ] Check 326: [missing] 测试全绿（委派/上限/深度/失败回填/取消传播）与文档
-- [ ] Check 327: [missing] 工具清单随请求下发：provider_manifest 经 LlmRequest.tools
+- [x] Check 327: [exercised] - [ ] Check 327: [missing] 工具清单随请求下发：provider_manifest 经 LlmRequest.tools——**复核（2026-10-31，P1-2 T231 批次）**：tools 字段/五协议映射/工厂接线/7 项测试全绿（workspace fmt/clippy -D warnings + llm 63 tests 0 失败；本机证据；CI 验收按 ADR-037 待推送流水线）。
   进入 openai 兼容族请求体 tools 数组（来源：Task T231、FR-734、ADR-048 追加）
   同步（来源：Task T229—T230、ADR-052）
   Task T226、FR-107、ADR-051）

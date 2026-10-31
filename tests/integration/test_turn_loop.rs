@@ -72,6 +72,7 @@ fn request(session_id: &str, prompt: &str) -> TurnRequest {
         iterations_limit: None,
         budget_tokens: None,
         workspace_root: None,
+        depth: 0,
     }
 }
 

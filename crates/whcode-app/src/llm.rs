@@ -391,6 +391,7 @@ pub fn run(
         messages: vec![whcode_llm::provider::LlmMessage::user(prompt.to_string())],
         max_tokens,
         timeout: Some(total),
+        tools: None,
     };
     let started = Instant::now();
     let stream = provider.execute(&llm_request, &cancel)?;

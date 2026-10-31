@@ -229,6 +229,7 @@ fn nfr206_llm_stream_paced_realistic_rate() {
         )],
         max_tokens: 0,
         timeout: None,
+        tools: None,
     };
     const RATE_CHUNKS_PER_SEC: u64 = 25;
     let started = Instant::now();
@@ -269,6 +270,7 @@ fn nfr206_llm_stream_full_feed_capacity() {
         )],
         max_tokens: 0,
         timeout: None,
+        tools: None,
     };
     let started = Instant::now();
     let mut total_chunks = 0u64;

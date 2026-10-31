@@ -364,6 +364,7 @@ mod tests {
             messages: vec![crate::provider::LlmMessage::user(prompt)],
             max_tokens: 64,
             timeout: None,
+            tools: None,
         }
     }
 
