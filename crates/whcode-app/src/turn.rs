@@ -331,10 +331,34 @@ pub fn run_turn(
     let tool_registry = whcode_tools::default_registry()
         .map_err(|err| WhError::internal(format!("工具注册表构造失败：{err}")))?;
     let tool_manifest = serde_json::Value::Array(tool_registry.provider_manifest());
-    let mut messages: Vec<LlmMessage> = vec![LlmMessage {
+    // ADR-053：技能描述以 system 消息注入（截 200 字符/技能，上限 10 技能）。
+    let mut messages: Vec<LlmMessage> = Vec::new();
+    if let Some(ws) = &request.workspace_root {
+        if let Ok((skills, _)) = crate::skills::scan_skills(ws) {
+            if !skills.is_empty() {
+                let desc: Vec<String> = skills
+                    .iter()
+                    .take(10)
+                    .map(|s| format!("- {}: {}", s.name, s.description))
+                    .collect();
+                messages.push(LlmMessage {
+                    role: Role::System,
+                    content: format!(
+                        "可用技能（按需 read_file 读取 .zcode/skills/<name>/SKILL.md）：
+{}",
+                        desc.join(
+                            "
+"
+                        )
+                    ),
+                });
+            }
+        }
+    }
+    messages.push(LlmMessage {
         role: Role::User,
         content: prompt.to_string(),
-    }];
+    });
     let mut pending_events: Vec<TurnEventDraft> = Vec::new();
     let mut persister = TurnPersister {
         session: session.to_string(),

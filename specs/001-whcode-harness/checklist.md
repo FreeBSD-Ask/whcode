@@ -589,7 +589,7 @@
 - [x] Check 327: [exercised] - [ ] Check 327: [missing] 工具清单随请求下发：provider_manifest 经 LlmRequest.tools——**复核（2026-10-31，P1-2 T231 批次）**：tools 字段/五协议映射/工厂接线/7 项测试全绿（workspace fmt/clippy -D warnings + llm 63 tests 0 失败，本机证据；**CI 验收（2026-10-31）**：run 41197419832（ci）三流水线 success（提交 602794d），ADR-037 口径收口）。
 - [x] Check 328: [exercised] 技能扫描：SKILL.md frontmatter 解析、坏文件跳过记 warning、不 panic（来源：Task T232、FR-735、ADR-053）——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
 - [x] Check 329: [exercised] 可达性门禁：SKILL.md 引用的相对路径不存在即失败（来源：Task T233、FR-735、ADR-053 §2.2）——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
-- [ ] Check 330: [missing] turn 注入：技能描述以 system 消息追加（截 200、上限 10）；空列表跳过（来源：Task T234、FR-735、ADR-053 §2.4）
+- [x] Check 330: [exercised] turn 注入：技能描述以 system 消息追加（截 200、上限 10）；空列表跳过（来源：Task T234、FR-735、ADR-053 §2.4）——**复核（2026-10-31，技能注入接线批次）**：turn.rs 技能扫描→system 消息注入→构建绿（workspace fmt/clippy -D warnings；CI 验收按 ADR-037 待推送流水线）。
 - [x] Check 331: [exercised] 技能与集成测试全绿；layering 口径（来源：Task T235、ADR-053）——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
   进入 openai 兼容族请求体 tools 数组（来源：Task T231、FR-734、ADR-048 追加）
   同步（来源：Task T229—T230、ADR-052）
