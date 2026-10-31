@@ -45,15 +45,15 @@
 
 | 项 | 当前值 | 出处 |
 |---|---|---|
-| 需求 | 112 条 FR 定义；NFR-101—107、NFR-201—222；31 项验收（V-001—V-007、V-101—V-110、V-201—V-207、V-301—V-307） | `specs/001-whcode-harness/spec.md` |
+| 需求 | 113 条 FR 定义；NFR-101—107、NFR-201—222；31 项验收（V-001—V-007、V-101—V-110、V-201—V-207、V-301—V-307） | `specs/001-whcode-harness/spec.md` |
 | 任务 | 220 条（T001—T220，编号连续；T162—T167 属并行变更未交付任务） | `specs/001-whcode-harness/tasks.md` |
-| 验收检查点 | Check 1—327 | `specs/001-whcode-harness/checklist.md` |
+| 验收检查点 | Check 1—331 | `specs/001-whcode-harness/checklist.md` |
 | 可执行结构门禁 | `layering`、`layout` 两个契约测试 | `tests/contract/test_layering.rs`、`tests/contract/test_layout.rs` |
 | 测试规模 | 2026-10-21 全量运行 154 例通过、0 失败、3 例 `#[ignore]`（内存上限、写者压力、查询计划实验） | `cargo test --locked --workspace` 输出 |
 | 配置管理基线 | git 标签 `v0.1.0-m0`（M0 基线，**未发布**） | `CHANGELOG.md`、`README.md` |
 | 平台范围 | Windows 11 amd64 在范围内；FreeBSD/NetBSD/OpenBSD/DragonFly 延后 | ADR-013、`docs/matrices/platform-matrix.md` |
 
-**口径约束**：上表是过程快照，不是验收结论。Check 1—327 中仍有未通过项；`v0.1.0-m0`
+**口径约束**：上表是过程快照，不是验收结论。Check 1—331 中仍有未通过项；`v0.1.0-m0`
 标签也不等于“已发布”。计数会随任务推进变化，更新时必须同时修正本表与相关文档。
 
 ### 1.5 哲学基线
@@ -156,7 +156,7 @@ G5 已打标签 `v0.1.0-m0`，但 README 明确“未发布”。因此 M0 的�
 | 产物 | `spec.md` 的 FR/NFR；`specs/001-whcode-harness/checklists/requirements.md`；`tasks.md`；`checklist.md`；必要时 ADR |
 | 退出判据 | 1）每条 FR 有稳定编号、P0/P1、可测判据、证据位置、归属里程碑；2）每条 FR 至少有一个任务与一个 Check；3）未验证项标 `[待验证]` 且有退出条件；4）无实现细节绑定（架构约束除外，须 ADR）；5）需求质量清单通过；6）每条需求有可执行的证伪条件；7）需求与文档标注假设、适用范围与复审日期；8）每条 FR 从认知卡目标派生，手段未写成需求；存量已勾选任务以其来源 FR/Check/实现记录为最小“知”证据 |
 | 评审方式 | 需求工程抽查（见 `docs/guides/requirements-engineering.md`）；`checklists/requirements.md` 逐条核对；AI 代理反向找“孤儿需求/断链/不可测判据”；用户对范围与优先级批准 |
-| 当前证据 | 112 条 FR 定义、231 条任务、327 项 Check；FR-611—FR-618、FR-711—FR-717、FR-619—FR-625、FR-626／627、FR-718—724、FR-725—729、FR-730—733 已登记 |
+| 当前证据 | 113 条 FR 定义、235 条任务、331 项 Check；FR-611—FR-618、FR-711—FR-717、FR-619—FR-625、FR-626／627、FR-718—724、FR-725—729、FR-730—733 已登记 |
 | 缺口 | 无正式 CR 表单编号；无独立需求属性表（来源、稳定性、验证方法以行内标注替代） |
 
 ### 3.3 G2 设计基线
@@ -274,7 +274,7 @@ G5 已打标签 `v0.1.0-m0`，但 README 明确“未发布”。因此 M0 的�
 
 | 教科书产物 | 本仓库对应 | 现状 | 缺口 |
 |---|---|---|---|
-| SRS（IEEE 29148） | `specs/001-whcode-harness/spec.md` | 112 条 FR 定义、NFR、验收场景、Assumptions | 无独立“需求属性表”；以 FR 行内标注替代 |
+| SRS（IEEE 29148） | `specs/001-whcode-harness/spec.md` | 113 条 FR 定义、NFR、验收场景、Assumptions | 无独立“需求属性表”；以 FR 行内标注替代 |
 | SDD（IEEE 1016） | `plan.md` + `data-model.md` + `contracts/` + `docs/guides/module-design.md` | 有架构、数据模型、六份契约、模块设计 | 无逐模块的算法与状态机时序图 |
 | 需求工程规范 | `docs/guides/requirements-engineering.md` | 模板、追溯抽查、变更控制 | 无正式 CR 表单编号体系（以 ADR 编号承担） |
 | 设计原则/哲学 | `docs/guides/design-principles.md` | 原则 → 可执行落点 | 无 |

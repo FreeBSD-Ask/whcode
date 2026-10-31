@@ -41,6 +41,7 @@ pub mod queue;
 pub mod replay;
 pub mod residency;
 pub mod session;
+pub mod skills;
 pub mod snapshot;
 pub mod stage_role;
 pub mod surface;
