@@ -116,10 +116,15 @@ pub fn append_turn(
         .transaction()
         .map_err(|err| turn_err("开始事务", err))?;
     let base_seq: i64 = tx
-        .query_row("SELECT COALESCE(MAX(seq), 0) FROM events", [], |row| {
-            row.get(0)
-        })
-        .map_err(|err| turn_err("分配事件序号", err))?;
+        .query_row(
+            "SELECT GREATEST(\
+             (SELECT COALESCE(MAX(seq), 0) FROM events), \
+             (SELECT COALESCE(MAX(CAST(SUBSTRING(id FROM 5) AS INTEGER)), 0) \
+              FROM messages WHERE id LIKE 'MSG-%'))",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|err| turn_err("分配序号（events+messages 双源）", err))?;
     let mut seq = base_seq;
     let mut seqs = Vec::with_capacity(events.len() + messages.len());
 

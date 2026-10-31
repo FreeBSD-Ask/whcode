@@ -194,6 +194,7 @@ impl whcode_tui::LlmExecutor for TuiLlmExecutor {
                 iterations_limit: None,
                 budget_tokens: None,
                 workspace_root: Some(self.workspace.clone()),
+                depth: 0,
             },
             now_ms(),
         )?;

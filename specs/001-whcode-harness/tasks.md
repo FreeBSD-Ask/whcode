@@ -627,7 +627,23 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   保证 ≤ 预算（FR-731；ADR-051 §2.2）
 - [x] T225 turn 接线：预算压力分支改折叠一次 + compress_context 指针 + ContextState——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；CI 验收按 ADR-037 待推送流水线）。
   (compressed=true) 事件落表，折叠后仍超才 budget_exceeded（FR-731；ADR-051 §2.3）
-- [x] T226 [P] 测试：折叠保留锚点与尾部窗口、摘要内容可查、turn 预算压力折叠后——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；CI 验收按 ADR-037 待推送流水线）。
+- [x] T226 [P] 测试：折叠保留锚点与尾部窗口、摘要内容可查、turn 预算压力折叠后——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；CI 验收按 ADR-037 待推送流水线）。- [x] T226 [P] 测试：折叠保留锚点与尾部窗口、摘要内容可查、turn 预算压力折叠后——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；CI 验收按 ADR-037 待推送流水线）。
+
+- [ ] T227 子代理执行器：`crates/whcode-app/src/turn.rs` spawn_subagent 工具调用
+  分支——同步嵌套 run_turn（独立 request_id/turn_id、深度参数）、三重硬上限
+  （FR-732；ADR-052 §2.2—2.3）
+- [ ] T228 事件与结果回填：子 turn 事件落父会话、父 ToolCall 事件关联
+  tool_call_id、role:tool 结果回填（FR-733；ADR-052 §2.4）
+- [ ] T229 [P] 测试：正常委派（子 turn 完成父继续）、数量上限拒绝、深度超限拒绝、
+  子失败结构化回填、父取消传播（FR-732—733；ADR-052）
+- [ ] T230 文档同步：spec/tasks/checklist 勾选、ADR-052 §6 实施记录、CHANGELOG
+- [ ] T231 [P] 工具清单随请求下发：LlmRequest.tools + openai 兼容族映射——**任务认知卡**：方向=真实供应商工具调用前置；目标=LlmRequest 携带 manifest 并映射进 openai tools 数组；判据=请求体含 tools 字段且与注册表一致；非目标=anthropic/gemini 映射延后
+  （anthropic/gemini 等按能力登记）；FR-734 为真实供应商工具调用的前置（ADR-048
+  追加；〔未实现〕显式标记）——**认知卡**：方向=真实供应商工具调用前置；目标=LlmRequest
+  携带 manifest 并映射进 openai tools 数组；判据=请求体含 tools 字段且与注册表一致；
+  非目标=anthropic/gemini 映射（按能力登记延后）
+  （FR-305 口径；CI 验收按 ADR-037）
+
   继续至完成、二次压力显式终止、指针与事件落表（FR-731；ADR-051）
 
   落档 + CHANGELOG（FR-730；ADR-050 §6）

@@ -262,6 +262,9 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
 - **FR-729**: 工具安全边界：路径参数解析为工作区内相对路径，拒绝绝对路径、.. 越界与工作区外目标；执行前经 authz 权限面；输入校验拒绝未知字段与类型不符（ADR-048 §2.7）（P0）
 - **FR-730**: 流式生成重试（whcode-llm decorator）：失败发生在首个 chunk 之前且错误可重试（WhError.retryable）时按有界策略重放（默认 5 次、基准 1s、×2、单次上限 30s、总预算 60s）；429 的 retry_after_ms 优先于固定退避；退避睡眠取消感知；尝试次数并入传输快照 reconnect_attempts；chunk 已发射后的失败一律上抛（safe_to_retry 判据），重启请求失败不得以流结束伪造成功（ADR-050）（P1）
 - **FR-731**: turn 预算压力下的请求视图折叠（ADR-051）：预算压力触发时将内存消息数组折叠一次——保留最早 user 锚点 + 预算内尾部窗口，中段折叠为带边界说明的摘要消息（确定性、无 LLM）；messages 表历史不删不改，折叠指针经 compress_context 落context_windows 表；折叠成功以 ContextState(compressed=true) 事件落表并继续循环，折叠后仍超或再超则显式终止；每 turn 至多折叠一次（P1）
+- **FR-732**: 子代理编排（whcode-app）：模型经 spawn_subagent 工具调用委派子任务，执行器同步嵌套 run_turn（独立 request_id/turn_id、同一会话落表）；硬上限三重——每 turn 子代理数 ≤ 3、递归深度 = 1（子代理不得再 spawn）、子 turn 迭代上限继承请求；超限结构化拒绝不中断父 turn（ADR-052）（P1）
+- **FR-733**: 子 turn 事件落父会话（session_id=父、request_id=子请求），父 turn 的ToolCallStarted/Finished 关联 tool_call_id；子 turn 终止原因与末轮正文以 role:tool 结果回填父循环，子代理失败为结构化失败不伪造成功；父取消在子 turn chunk 边界生效（FR-722/FR-723 口径；ADR-052）（P1）
+- **FR-734**: 工具清单随请求下发：LlmRequest 携带工具清单（registry.provider_manifest），openai 兼容族映射到请求体 tools 数组（其余协议映射随各自能力登记）；此前工具定义从未随请求下发——真实供应商的 tool_calls 依赖该能力，桩剧本测试不受影响（ADR-048 追加；〔未实现〕T231 登记）（P1）
 
 **Spec Kit / SDD 工作流（§4.3）**
 

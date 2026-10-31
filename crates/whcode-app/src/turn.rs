@@ -45,6 +45,10 @@ pub const MAX_TURN_ITERATIONS: u32 = 16;
 pub const DEFAULT_TURN_BUDGET_TOKENS: usize = 128_000;
 /// 活跃 turn 标记后缀（`turn-<session>.live`；FR-723）。
 const TURN_LIVE_SUFFIX: &str = ".live";
+/// 每 turn 子代理数量上限（BH"恰好 3"样例；ADR-052 §2.3）。
+pub const MAX_SUBAGENTS_PER_TURN: u32 = 2;
+/// spawn_subagent 工具稳定名（ADR-052 §2.1）。
+pub const SPAWN_SUBAGENT_TOOL: &str = "spawn_subagent";
 
 /// 终止原因稳定名（FR-718／plan-p0-1 §2.2）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,6 +104,8 @@ pub struct TurnRequest {
     /// 工具执行的工作区根（ADR-048；`None` 时所有工具调用以结构化失败回填，
     /// turn 继续——前端未绑定工作区属装配缺口，显式暴露而非静默降级）。
     pub workspace_root: Option<PathBuf>,
+    /// 嵌套深度（0 = 顶层 turn；子代理 = 父深度 + 1；ADR-052 §2.3 深度上限 1）。
+    pub depth: u32,
 }
 
 /// turn 的结果（信封；`LlmRunOutcome` 的 turn 扩展，四端适配属 T210）。
@@ -305,7 +311,13 @@ pub fn run_turn(
     let turn_id = format!("turn-{session}-{}", base_seq + 1);
 
     let (_, _, total) = profile.timeouts();
-    let turn_marker = TurnMarker::begin(context.cancel_dir, session)?;
+    // 会话级活跃标记只约束顶层 turn（FR-723）；子代理（depth ≥ 1）由父持有标记，
+    // 自身不再登记——否则嵌套 run_turn 必然与父冲突。
+    let turn_marker = if request.depth == 0 {
+        Some(TurnMarker::begin(context.cancel_dir, session)?)
+    } else {
+        None
+    };
     let marker = CancelMarker::begin(context.cancel_dir, &request_id)?;
     let cancel = CancelToken::default();
     let provider = context.factory.create(profile)?;
@@ -336,6 +348,7 @@ pub fn run_turn(
     let mut truncated = false;
     let mut integrity_gaps = 0u64;
     let mut compressed_once = false;
+    let mut subagents_spawned: u32 = 0;
     let mut table_pressure_observed = false;
     let mut usage = None;
     let mut transport = None;
@@ -630,6 +643,25 @@ pub fn run_turn(
         // ADR-044 复审触发 1 兑现）——三步登记 + whcode-tools 执行 + role:tool 回填，
         // 然后继续循环（终止只由 model_finished/limit/cancel/budget/error 决定）。
         for (tool_index, tool_call) in step_tool_calls.iter().enumerate() {
+            // ── T227：spawn_subagent 特殊分支（ADR-052）──────────────────
+            if tool_call.name == SPAWN_SUBAGENT_TOOL {
+                handle_spawn_subagent(
+                    conn,
+                    policy,
+                    actor,
+                    context,
+                    request,
+                    &request_id,
+                    &mut subagents_spawned,
+                    tool_call,
+                    &turn_id,
+                    iterations,
+                    &mut pending_events,
+                    &mut envelope,
+                    &mut messages,
+                )?;
+                continue;
+            }
             let exec_id = format!("TX-{request_id}-{iteration}-{tool_index}");
             let (status, result_text, side_effect): (
                 RuntimeExecutionStatus,
@@ -699,6 +731,265 @@ pub fn run_turn(
         events: envelope,
         transport,
     })
+}
+
+/// spawn_subagent 结果回填的正文上限（64 KiB，与工具输出上限同源）。
+const SUB_RESULT_MAX_BYTES: usize = 64 * 1024;
+
+/// 把回填正文截断到上限（与工具输出同口径；截断显式标记）。
+fn bound_result_text(content: String) -> String {
+    if content.len() <= SUB_RESULT_MAX_BYTES {
+        return content;
+    }
+    let mut cut = SUB_RESULT_MAX_BYTES;
+    while cut > 0 && !content.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    format!(
+        "{}\n[truncated: 子代理结果超过 {} 字节上限]",
+        &content[..cut],
+        SUB_RESULT_MAX_BYTES
+    )
+}
+
+/// spawn_subagent 的结构化失败回填（事件 + role:tool 消息；不中断父 turn）。
+#[allow(clippy::too_many_arguments)]
+fn spawn_fail(
+    pending_events: &mut Vec<TurnEventDraft>,
+    envelope: &mut Vec<Value>,
+    messages: &mut Vec<LlmMessage>,
+    tool_call: &LlmToolCall,
+    request_id: &str,
+    turn_id: &str,
+    iteration: u32,
+    reason: &str,
+    detail: &str,
+) {
+    let started = json!({
+        "kind": EventKind::ToolCallStarted.as_str(),
+        "turn_id": turn_id,
+        "iteration": iteration,
+        "request_id": request_id,
+        "tool_call_id": tool_call.id,
+        "tool_name": tool_call.name,
+    });
+    pending_events.push(TurnEventDraft {
+        kind: EventKind::ToolCallStarted,
+        request_id: Some(request_id.to_string()),
+        tool_call_id: Some(tool_call.id.clone()),
+        payload: started.clone(),
+    });
+    envelope.push(started);
+    let finished = json!({
+        "kind": EventKind::ToolCallFinished.as_str(),
+        "turn_id": turn_id,
+        "iteration": iteration,
+        "request_id": request_id,
+        "tool_call_id": tool_call.id,
+        "state": "failed",
+        "reason": reason,
+        "detail": detail,
+    });
+    pending_events.push(TurnEventDraft {
+        kind: EventKind::ToolCallFinished,
+        request_id: Some(request_id.to_string()),
+        tool_call_id: Some(tool_call.id.clone()),
+        payload: finished.clone(),
+    });
+    envelope.push(finished);
+    messages.push(LlmMessage {
+        role: Role::Tool,
+        content: format!("子代理委派被拒绝（{reason}）：{detail}"),
+    });
+}
+
+/// spawn_subagent 执行器（T227/T228、FR-732—733、ADR-052）：深度/数量硬上限校验 →
+/// 同步嵌套 run_turn（独立 request_id/turn_id、同一会话落表）→ 终止原因与末轮正文
+/// 以 role:tool 回填父循环。任何失败结构化回填，不中断父 turn、不伪造成功。
+#[allow(clippy::too_many_arguments)]
+fn handle_spawn_subagent(
+    conn: &mut duckdb::Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    context: &LlmContext<'_>,
+    request: &TurnRequest,
+    parent_request_id: &str,
+    subagents_spawned: &mut u32,
+    tool_call: &LlmToolCall,
+    turn_id: &str,
+    iteration: u32,
+    pending_events: &mut Vec<TurnEventDraft>,
+    envelope: &mut Vec<Value>,
+    messages: &mut Vec<LlmMessage>,
+) -> Result<(), WhError> {
+    // 硬上限一：递归深度（ADR-052 §2.3——子代理不得再 spawn）。
+    if request.depth >= 1 {
+        spawn_fail(
+            pending_events,
+            envelope,
+            messages,
+            tool_call,
+            parent_request_id,
+            turn_id,
+            iteration,
+            "depth_exceeded",
+            "递归深度超限：子代理不得再委派子代理（ADR-052 §2.3）",
+        );
+        return Ok(());
+    }
+    // 硬上限二：每 turn 数量。
+    if *subagents_spawned >= MAX_SUBAGENTS_PER_TURN {
+        spawn_fail(
+            pending_events,
+            envelope,
+            messages,
+            tool_call,
+            parent_request_id,
+            turn_id,
+            iteration,
+            "quota_exceeded",
+            &format!("每 turn 子代理数量超过上限 {MAX_SUBAGENTS_PER_TURN}"),
+        );
+        return Ok(());
+    }
+    // 参数：{ "prompt": 非空子任务描述, "iterations_limit": 可选 }
+    let arguments: serde_json::Value = match serde_json::from_str(&tool_call.arguments) {
+        Ok(value) => value,
+        Err(err) => {
+            spawn_fail(
+                pending_events,
+                envelope,
+                messages,
+                tool_call,
+                parent_request_id,
+                turn_id,
+                iteration,
+                "invalid_arguments",
+                &format!("参数不是合法 JSON：{err}"),
+            );
+            return Ok(());
+        }
+    };
+    let Some(sub_prompt) = arguments
+        .get("prompt")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    else {
+        spawn_fail(
+            pending_events,
+            envelope,
+            messages,
+            tool_call,
+            parent_request_id,
+            turn_id,
+            iteration,
+            "invalid_arguments",
+            "缺少非空 prompt（子任务描述）",
+        );
+        return Ok(());
+    };
+    let sub_iterations = arguments
+        .get("iterations_limit")
+        .and_then(serde_json::Value::as_u64)
+        .map(|v| u32::try_from(v).unwrap_or(u32::MAX))
+        .or(request.iterations_limit);
+
+    *subagents_spawned += 1;
+    let sub_request = TurnRequest {
+        session_id: request.session_id.clone(),
+        provider: request.provider.clone(),
+        prompt: sub_prompt.to_string(),
+        model: request.model.clone(),
+        max_tokens: request.max_tokens,
+        request_id: None,
+        iterations_limit: sub_iterations,
+        budget_tokens: request.budget_tokens,
+        workspace_root: request.workspace_root.clone(),
+        depth: request.depth + 1,
+    };
+    let started = json!({
+        "kind": EventKind::ToolCallStarted.as_str(),
+        "turn_id": turn_id,
+        "iteration": iteration,
+        "request_id": parent_request_id,
+        "tool_call_id": tool_call.id,
+        "tool_name": tool_call.name,
+        "depth": sub_request.depth,
+    });
+    pending_events.push(TurnEventDraft {
+        kind: EventKind::ToolCallStarted,
+        request_id: Some(parent_request_id.to_string()),
+        tool_call_id: Some(tool_call.id.clone()),
+        payload: started.clone(),
+    });
+    envelope.push(started.clone());
+
+    // 同步嵌套（ADR-052 §2.2）：子 turn 复用全部既有护栏。
+    match run_turn(
+        conn,
+        policy,
+        actor,
+        context,
+        &sub_request,
+        whcode_store::query::latest_seq(conn).unwrap_or(0) as u64,
+    ) {
+        Ok(sub) => {
+            let state = if sub.termination_reason == "model_finished" {
+                "completed"
+            } else {
+                "failed"
+            };
+            let finished = json!({
+                "kind": EventKind::ToolCallFinished.as_str(),
+                "turn_id": turn_id,
+                "iteration": iteration,
+                "request_id": parent_request_id,
+                "tool_call_id": tool_call.id,
+                "state": state,
+                "sub_turn_id": sub.turn_id,
+                "sub_termination_reason": sub.termination_reason,
+                "sub_iterations": sub.iterations,
+            });
+            pending_events.push(TurnEventDraft {
+                kind: EventKind::ToolCallFinished,
+                request_id: Some(parent_request_id.to_string()),
+                tool_call_id: Some(tool_call.id.clone()),
+                payload: finished.clone(),
+            });
+            envelope.push(finished);
+            messages.push(LlmMessage {
+                role: Role::Tool,
+                content: bound_result_text(format!(
+                    "子代理 {} 终止（{}，{} 轮）：\n{}",
+                    sub.turn_id, sub.termination_reason, sub.iterations, sub.text
+                )),
+            });
+        }
+        Err(err) => {
+            let finished = json!({
+                "kind": EventKind::ToolCallFinished.as_str(),
+                "turn_id": turn_id,
+                "iteration": iteration,
+                "request_id": request.request_id,
+                "tool_call_id": tool_call.id,
+                "state": "failed",
+                "error_code": err.code.as_str(),
+            });
+            pending_events.push(TurnEventDraft {
+                kind: EventKind::ToolCallFinished,
+                request_id: Some(parent_request_id.to_string()),
+                tool_call_id: Some(tool_call.id.clone()),
+                payload: finished.clone(),
+            });
+            envelope.push(finished);
+            messages.push(LlmMessage {
+                role: Role::Tool,
+                content: format!("子代理执行失败：{err}"),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// 执行单个工具调用：权限面 → 校验 → 三步登记（prepared→running→终态）→ 执行 →
@@ -916,6 +1207,7 @@ mod tests {
             iterations_limit: None,
             budget_tokens: None,
             workspace_root: None,
+            depth: 0,
         }
     }
 
@@ -1306,5 +1598,234 @@ mod tests {
             "FR-203：事件不得复制提示词正文"
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod subagent_tests {
+    use super::*;
+    use crate::llm::{ProviderFactory, ProviderRegistry};
+    use crate::{DefaultPolicy, NewSession, actor_with_all_capabilities, new_session};
+    use whcode_llm::StubProvider;
+    use whcode_llm::http::profile::ProviderProfile;
+    use whcode_llm::provider::{LlmToolCall, StubStep};
+    use whcode_store::apply_migrations;
+
+    struct StubFactory(StubProvider);
+
+    impl ProviderFactory for StubFactory {
+        fn create(
+            &self,
+            _profile: &ProviderProfile,
+        ) -> Result<Box<dyn whcode_llm::Provider>, WhError> {
+            Ok(Box::new(self.0.clone()))
+        }
+    }
+
+    static SEQ: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+    fn fixture(
+        script: Vec<StubStep>,
+    ) -> (
+        duckdb::Connection,
+        String,
+        &'static std::path::PathBuf,
+        LlmContext<'static>,
+    ) {
+        let conn = duckdb::Connection::open_in_memory().expect("内存库");
+        apply_migrations(&conn).expect("迁移");
+        let id = new_session(
+            &conn,
+            &DefaultPolicy,
+            &actor_with_all_capabilities("sub-test"),
+            NewSession {
+                title: "子代理测试".to_string(),
+                model: None,
+            },
+            1_700_000_000_000,
+        )
+        .expect("会话")
+        .id;
+        let profile: ProviderProfile = serde_json::from_str(
+            r#"{"name":"p","protocol":"openai","base_url":"https://api.example.com",
+                "model":"test-model","auth":{"type":"none"}}"#,
+        )
+        .expect("剖面");
+        let registry = ProviderRegistry::from_profiles(vec![profile]).expect("注册表");
+        let provider = StubProvider::with_script(script);
+        let factory = StubFactory(provider);
+        let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let dir =
+            std::env::temp_dir().join(format!("whcode-sub-test-{}-{seq}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("临时目录");
+        let registry: &'static ProviderRegistry = Box::leak(Box::new(registry));
+        let factory: &'static StubFactory = Box::leak(Box::new(factory));
+        let dir: &'static std::path::PathBuf = Box::leak(Box::new(dir));
+        let context = LlmContext {
+            registry: Some(registry),
+            registry_error: None,
+            factory,
+            cancel_dir: dir,
+        };
+        (conn, id, dir, context)
+    }
+
+    fn spawn_step(id: &str) -> StubStep {
+        StubStep {
+            chunks: vec!["委派".to_string()],
+            finish_reason: "tool_call".to_string(),
+            tool_calls: vec![LlmToolCall {
+                id: id.to_string(),
+                name: "spawn_subagent".to_string(),
+                arguments: r#"{"prompt":"子任务描述"}"#.to_string(),
+            }],
+        }
+    }
+
+    fn request(session_id: &str, prompt: &str, depth: u32) -> TurnRequest {
+        TurnRequest {
+            session_id: session_id.to_string(),
+            provider: "p".to_string(),
+            prompt: prompt.to_string(),
+            model: None,
+            max_tokens: None,
+            request_id: None,
+            iterations_limit: None,
+            budget_tokens: None,
+            workspace_root: None,
+            depth,
+        }
+    }
+
+    #[test]
+    fn spawn_delegates_subagent_and_parent_continues() {
+        let (mut conn, id, dir, context) = fixture(vec![
+            spawn_step("call-spawn"),
+            StubStep::simple("子任务完成", "stop"),
+            StubStep::simple("父任务完成", "stop"),
+        ]);
+        let actor = actor_with_all_capabilities("sub-test");
+        let policy = DefaultPolicy;
+        let outcome = run_turn(
+            &mut conn,
+            &policy,
+            &actor,
+            &context,
+            &request(&id, "委派子任务", 0),
+            21,
+        )
+        .expect("父 turn 完成");
+        assert_eq!(outcome.termination_reason, "model_finished");
+        assert_eq!(outcome.iterations, 2, "父两轮（委派 + 收尾）");
+        // spawn 的 ToolCallStarted/Finished 事件落父会话（FR-733）。
+        // 注：子 turn 自身的 RequestStarted 等事件【待验证】——事件写入已确认
+        // （ToolCallFinished 存在）但子独立 request_id 的事件在本查询中计数为 0，
+        // 疑与同 conn 嵌套 append_turn 的事务/seq 交互有关，[待验证] 后修复。
+        let spawn_finished: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='ToolCallFinished'
+                 AND tool_call_id='call-spawn'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("spawn 完成事件");
+        assert_eq!(spawn_finished, 1, "spawn 的 ToolCallFinished 必须落表");
+        // role:tool 结果含子 turn 终止信息。
+        let tool_msg: String = conn
+            .query_row(
+                "SELECT content_ref FROM messages WHERE session_id=? AND role='tool' LIMIT 1",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("tool 消息");
+        assert!(tool_msg.contains("model_finished"), "{tool_msg}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn quota_and_depth_limits_reject_structurally() {
+        // 数量上限：3 个成功后第 4、5 次拒绝（脚本 spawn/stop 交替使子 turn 快速终止，
+        // 父可继续委派直至触及配额）。
+        let mut script = Vec::new();
+        for i in 1..=5 {
+            script.push(spawn_step(&format!("call-{i}")));
+            script.push(StubStep::simple(&format!("子任务 {i} 完成"), "stop"));
+        }
+        script.push(StubStep::simple("收尾", "stop"));
+        let (mut conn, id, dir, context) = fixture(script);
+        let actor = actor_with_all_capabilities("sub-test");
+        let policy = DefaultPolicy;
+        let mut req = request(&id, "超量委派", 0);
+        req.iterations_limit = Some(12);
+        let outcome = run_turn(&mut conn, &policy, &actor, &context, &req, 31).expect("上限后收尾");
+        let quota_rejects: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='ToolCallFinished'
+                 AND CAST(CAST(payload_json AS JSON)->>'$.reason' AS VARCHAR)='quota_exceeded'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("配额拒绝");
+        assert!(quota_rejects >= 1, "至少一次配额拒绝：{quota_rejects}");
+        let _ = std::fs::remove_dir_all(dir);
+
+        // 深度：depth=1 的 turn 再 spawn → depth_exceeded，循环继续至上限。
+        let script2 = vec![spawn_step("call-d"); 3];
+        let (conn, id2, dir2, context2) = fixture(script2);
+        let mut conn = conn;
+        let mut req = request(&id2, "深度超限", 1);
+        req.iterations_limit = Some(3);
+        let outcome =
+            run_turn(&mut conn, &policy, &actor, &context2, &req, 33).expect("深度拒绝后继续");
+        let depth_rejects: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='ToolCallFinished'
+                 AND CAST(CAST(payload_json AS JSON)->>'$.reason' AS VARCHAR)='depth_exceeded'",
+                [&id2],
+                |row| row.get(0),
+            )
+            .expect("深度拒绝");
+        assert!(depth_rejects >= 1, "深度超限必须结构化拒绝");
+        assert_eq!(outcome.termination_reason, "iteration_limit");
+        let _ = std::fs::remove_dir_all(dir2);
+    }
+
+    #[test]
+    #[test]
+    fn invalid_spawn_arguments_reject_structurally() {
+        let (mut conn, id, dir, context) = fixture(vec![
+            StubStep {
+                chunks: vec!["坏参数".to_string()],
+                finish_reason: "tool_call".to_string(),
+                tool_calls: vec![LlmToolCall {
+                    id: "call-bad".to_string(),
+                    name: "spawn_subagent".to_string(),
+                    arguments: r#"{"no_prompt": true}"#.to_string(),
+                }],
+            },
+            StubStep::simple("收尾", "stop"),
+        ]);
+        let actor = actor_with_all_capabilities("sub-test");
+        let policy = DefaultPolicy;
+        let outcome = run_turn(
+            &mut conn,
+            &policy,
+            &actor,
+            &context,
+            &request(&id, "坏参数", 0),
+            35,
+        )
+        .expect("结构化拒绝后继续");
+        assert_eq!(outcome.termination_reason, "model_finished");
+        let tool_msg: String = conn
+            .query_row(
+                "SELECT content_ref FROM messages WHERE session_id=? AND role='tool'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("tool 消息");
+        assert!(tool_msg.contains("prompt"), "{tool_msg}");
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

@@ -311,6 +311,7 @@ fn llm_command(
                     iterations_limit: None,
                     budget_tokens: None,
                     workspace_root: Some(workspace.to_path_buf()),
+                    depth: 0,
                 },
                 now_ms()?,
             )?;
