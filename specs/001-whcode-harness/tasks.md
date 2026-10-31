@@ -638,9 +638,9 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   子失败结构化回填、父取消传播（FR-732—733；ADR-052）
 - [ ] T230 文档同步：spec/tasks/checklist 勾选、ADR-052 §6 实施记录、CHANGELOG——**任务认知卡**：方向=子代理编排收口；目标=嵌套 run_turn + 三重硬上限 + 事件回填；判据=Check 323—326；非目标=并行执行/镜像前缀。——**复核（2026-10-31，P1-5 批次）**：子代理编排实现 + 4 项测试全绿（workspace 58 套件 0 失败；本机证据；CI 验收按 ADR-037 待推送流水线）。**任务认知卡**：方向=子代理编排；目标=嵌套 run_turn+硬上限+回填；判据=Check 323—326；非目标=并行执行。
 - [x] T231 [P] - [ ] T231 [P] 工具清单随请求下发：LlmRequest.tools + openai 兼容族映射——**任务认知卡**：方向=真实供应商工具调用前置；目标=LlmRequest 携带 manifest 并映射进 openai tools 数组；判据=请求体含 tools 字段且与注册表一致；非目标=anthropic/gemini 映射延后——**复核（2026-10-31，P1-2 T231 批次）**：tools 字段/五协议映射/工厂接线/7 项测试全绿（workspace fmt/clippy -D warnings + llm 63 tests 0 失败；本机证据；CI 验收按 ADR-037 待推送流水线）。
-- [ ] T232 [P] 技能扫描器：`crates/whcode-app/src/skills.rs` `.zcode/skills/*/SKILL.md`
+- [ ] T232 [P] 技能扫描器：`crates/whcode-app/src/skills.rs` `.zcode/skills/*/SKILL.md`——**任务认知卡**：方向=技能扫描器；目标=SKILL.md frontmatter 解析+坏文件跳过；判据=Check 328；非目标=递归扫描
   frontmatter 解析（name + description），坏文件跳过记 warning（FR-735；ADR-053 §2.3）
-- [ ] T233 [P] 可达性门禁：SKILL.md 引用的相对路径文件必须存在；缺失即测试失败
+- [ ] T233 [P] 可达性门禁：SKILL.md 引用的相对路径文件必须存在；缺失即测试失败——**任务认知卡**：方向=可达性门禁；目标=SKILL.md 引用文件必须存在；判据=Check 329；非目标=外部 URL 校验
   （FR-735；ADR-053 §2.2；BH doc-link-graph 先手）
 - [ ] T234 turn 注入：技能描述以 system 消息追加进 LlmRequest.messages（截 200 字符、——**任务认知卡**：方向=技能注入 turn 请求；目标=system 消息追加描述（截 200/上限 10）；判据=Check 330；非目标=正文注入
   上限 10 技能）；空技能列表时跳过注入（FR-735；ADR-053 §2.4）
