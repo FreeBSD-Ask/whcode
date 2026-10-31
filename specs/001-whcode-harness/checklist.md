@@ -591,10 +591,10 @@
 - [x] Check 329: [exercised] 可达性门禁：SKILL.md 引用的相对路径不存在即失败（来源：Task T233、FR-735、ADR-053 §2.2）——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
 - [x] Check 330: [exercised] turn 注入：技能描述以 system 消息追加（截 200、上限 10）；空列表跳过（来源：Task T234、FR-735、ADR-053 §2.4）——**复核（2026-10-31，技能注入接线批次）**：turn.rs 技能扫描→system 消息注入→构建绿（workspace fmt/clippy -D warnings；CI 验收按 ADR-037 待推送流水线）。
 - [x] Check 331: [exercised] 技能与集成测试全绿；layering 口径（来源：Task T235、ADR-053）——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
-- [ ] Check 332: [present] MCP 协议与配置可判定：JSON-RPC 2.0 编解码正反路径（请求/通知/响应/错误/坏帧拒绝）、`.zcode/mcp.json` 加载与上限校验——无配置=正确的空（功能关闭）、坏配置=显式报错（来源：Task T236、FR-736、ADR-054 §2.2—2.3）
-- [ ] Check 333: [present] MCP stdio 会话生命周期：spawn 环境净化（最小白名单+显式 env 回填+进程组）、initialize 握手（未知版本中止）、请求/响应配对、超时看门狗终止进程树解锁、shutdown/Drop 零残留（process_exists 断言）（来源：Task T237、FR-736、ADR-054 §2.4—2.6）
-- [ ] Check 334: [present] MCP 投影与权限面：mcp__ 命名空间清单三重上限（描述/schema/总预算）、execute_tool_call 分派走三步登记、权限 fail-closed（SessionCreate）、连接失败 system 告示、isError 失败回填（来源：Task T238、FR-737、ADR-054 §2.7—2.10）
-- [ ] Check 335: [present] MCP 测试集与文档门禁全绿：fixture（echo/hang/spam）覆盖生命周期正反路径、layering ALL_CRATES 15、counts/traceability/knowing-first 全绿（来源：Task T239、FR-736—737、ADR-054）
+- [x] Check 332: [exercised] MCP 协议与配置可判定：JSON-RPC 2.0 编解码正反路径（请求/通知/响应/错误/坏帧拒绝）、`.zcode/mcp.json` 加载与上限校验——无配置=正确的空（功能关闭）、坏配置=显式报错（来源：Task T236、FR-736、ADR-054 §2.2—2.3）——**复核（2026-11-01，P1-7 批次一）**：协议/配置单测 10 项全绿；**CI 验收（2026-11-01）**：run 41230318736（ci @ d596702）windows/windows-arm64/measurements/netbsd/openbsd/dragonfly 六车道 success，ADR-037 口径收口；freebsd failure 为 softbuffer 0.4.8 既有问题（run 41227890594 同败），与本批次无关。
+- [x] Check 333: [exercised] MCP stdio 会话生命周期：spawn 环境净化（最小白名单+显式 env 回填+进程组）、initialize 握手（未知版本中止）、请求/响应配对、超时看门狗终止进程树解锁、shutdown/Drop 零残留（process_exists 断言）（来源：Task T237、FR-736、ADR-054 §2.4—2.6）——**复核（2026-11-01，P1-7 批次一）**：fixture 集成测试 6 项覆盖握手/截断/超时零残留/取消/外来消息容忍/未握手守卫（run 41230318736 六车道 success，同 Check 332 复核口径）。
+- [x] Check 334: [exercised] MCP 投影与权限面：mcp__ 命名空间清单三重上限（描述/schema/总预算）、execute_tool_call 分派走三步登记、权限 fail-closed（SessionCreate）、连接失败 system 告示、isError 失败回填（来源：Task T238、FR-737、ADR-054 §2.7—2.10）——**复核（2026-11-01，P1-7 批次一）**：投影单测 + turn 接线落地（run 41230318736 六车道 success，同 Check 332 复核口径）。
+- [x] Check 335: [exercised] MCP 测试集与文档门禁全绿：fixture（echo/hang/spam）覆盖生命周期正反路径、layering ALL_CRATES 15、counts/traceability/knowing-first 全绿（来源：Task T239、FR-736—737、ADR-054）——**复核（2026-11-01，P1-7 批次一）**：counts/traceability/knowing-first/EOL 本地绿 + CI 六车道 success（同 Check 332 复核口径）；workspace 级 clippy/test 本地被杀软拦截未取得（已登记），按 CI 为准。
   进入 openai 兼容族请求体 tools 数组（来源：Task T231、FR-734、ADR-048 追加）
   同步（来源：Task T229—T230、ADR-052）
   Task T226、FR-107、ADR-051）

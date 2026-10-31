@@ -646,31 +646,41 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   上限 10 技能）；空技能列表时跳过注入（FR-735；ADR-053 §2.4）
 - [x] T235 [P] 测试：扫描/解析正反路径、可达性门禁、注入格式与上限；层ing 口径——**任务认知卡**：方向=技能测试收口；目标=扫描/门禁/注入/上限全绿；判据=Check 331；非目标=正文注入——**复核（2026-10-31，P1-5/P1-6 批次）**：实现与测试全绿（workspace 58 套件 0 失败；CI run 41197419832 三流水线 success，ADR-037 口径收口）。
   （FR-735；ADR-053）
-- [ ] T236 [P] MCP 协议层与配置：`crates/whcode-mcp` JSON-RPC 2.0 编解码（请求/通知/
+- [x] T236 [P] MCP 协议层与配置：`crates/whcode-mcp` JSON-RPC 2.0 编解码（请求/通知/
   响应/错误）、initialize/tools list/call 消息解析、`.zcode/mcp.json` 加载与上限校验
   （服务器 ≤ 8、env ≤ 16 键）（FR-736；ADR-054 §2.2—2.3）——**任务认知卡**：方向=
   MCP stdio 客户端最小集（P1-7，ZCode 最大差距项收尾）；目标=自研 JSON-RPC（rmcp/tokio
   与全仓同步架构冲突）+ 显式 opt-in 配置；判据=Check 332；非目标=HTTP transport/
-  OAuth/连接池/事件 schema 扩展。
-- [ ] T237 [P] MCP stdio 会话：spawn（apply_minimal_env+显式 env 回填+进程组+
+  OAuth/连接池/事件 schema 扩展。——**复核（2026-11-01，P1-7 批次一）**：实现与测试
+  全绿（whcode-mcp 23 项测试 + whcode-app 152 项测试本地绿、fmt 全绿；**CI 验收
+  （2026-11-01）**：run 41230318736（ci @ d596702）windows/windows-arm64/measurements/
+  netbsd/openbsd/dragonfly 六车道 success，ADR-037 口径收口；freebsd failure 为
+  softbuffer 0.4.8 既有问题（run 41227890594 同败），与本批次无关；workspace 级
+  clippy/test 本地被杀软拦截未取得，按 CI 为准）。
+- [x] T237 [P] MCP stdio 会话：spawn（apply_minimal_env+显式 env 回填+进程组+
   stderr null）、initialize 握手（2025-06-18，未知版本中止）、请求/响应配对（未匹配
   id 计数丢弃、服务器请求回 -32601）、超时看门狗（terminate_tree 解锁阻塞读、取消
   令牌同权 50ms 轮询）、shutdown/Drop 关 stdin→宽限→terminate_tree→reap（FR-736；
   ADR-054 §2.4—2.6）——**任务认知卡**：方向=会话生命周期与超时语义；目标=阻塞读+
   看门狗解锁、Drop 覆盖全部早退路径、进程零残留；判据=Check 333；非目标=空闲连接池、
-  Job Object（需 ADR-015 例外另议）。
-- [ ] T238 [P] MCP 投影与 turn 接线：mcp__<server>__<tool> 命名空间清单合并（描述截
+  Job Object（需 ADR-015 例外另议）。——**复核（2026-11-01，P1-7 批次一）**：fixture
+  集成测试覆盖超时零残留（process_exists 断言）/取消感知/外来消息容忍（run 41230318736
+  六车道 success，同 T236 复核口径）。
+- [x] T238 [P] MCP 投影与 turn 接线：mcp__<server>__<tool> 命名空间清单合并（描述截
   500、schema ≤ 4 KiB、总预算 ≤ 64 KiB 丢尾）+ execute_tool_call 分派（权限
   fail-closed 按 SessionCreate、三步登记、tools/call 回填、isError 按失败、连接失败
   system 消息告示）（FR-737；ADR-054 §2.7—2.10）——**任务认知卡**：方向=MCP 工具
   进入 turn 循环；目标=与内置工具同一条登记/回填管线，动态名不破坏 whcode-tools
   静态名契约（清单层合并、分派层前缀分支）；判据=Check 334；非目标=allow/deny
-  细粒度白名单、连接池。
-- [ ] T239 [P] MCP 测试集与文档同步：协议正反路径、fixture 服务器（echo/hang/spam
+  细粒度白名单、连接池。——**复核（2026-11-01，P1-7 批次一）**：turn.rs 清单合并+
+  分派+fail-closed 权限落地（run 41230318736 六车道 success，同 T236 复核口径）。
+- [x] T239 [P] MCP 测试集与文档同步：协议正反路径、fixture 服务器（echo/hang/spam
   三模式）、超时零残留（process_exists 断言）、投影边界与权限面；module-design
   15 crate、AGENTS 架构图、分层 ALL_CRATES 14→15、CHANGELOG（FR-736—737；ADR-054
   §5）——**任务认知卡**：方向=收口与证据；目标=fixture 覆盖生命周期正反路径、文档
-  计数与门禁一致；判据=Check 335；非目标=跨平台 CI 矩阵扩展。
+  计数与门禁一致；判据=Check 335；非目标=跨平台 CI 矩阵扩展。——**复核（2026-11-01，
+  P1-7 批次一）**：测试/文档/计数五处声明同步完成（run 41230318736 六车道 success，
+  同 T236 复核口径）。
   （anthropic/gemini 等按能力登记）；FR-734 为真实供应商工具调用的前置（ADR-048
   追加；〔未实现〕显式标记）——**认知卡**：方向=真实供应商工具调用前置；目标=LlmRequest
   携带 manifest 并映射进 openai tools 数组；判据=请求体含 tools 字段且与注册表一致；
