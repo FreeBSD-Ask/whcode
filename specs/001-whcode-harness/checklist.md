@@ -559,18 +559,18 @@
   ADR-044 复审触发 1）
 - [x] Check 313: [exercised] 安全边界：绝对路径与 .. 逃逸拒绝、authz 权限面、结果 64 KiB——**复核（2026-10-30，P0-2 R3 批次）**：实现与测试全绿（workspace 58 套件 0 失败；**CI 验收（2026-10-30）**：run 40961338976／40961339093／40961337640 三流水线 success（提交 75d78d9），ADR-037 口径收口）。
   截断标记；序列化不含正文凭据（来源：Task T217、FR-729、FR-203）
-- [ ] Check 314: [missing] 正向/失败路径测试集全绿（注册冲突/校验拒绝/六件套/登记恢复/
+- [x] Check 314: [exercised] 正向/失败路径测试集全绿（注册冲突/校验拒绝/六件套/登记恢复/——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
   解析回填/越界/截断），layering 口径（来源：Task T218、ADR-048）
-- [ ] Check 315: [missing] 全量测试与 layering/layout/traceability/check_counts 门禁全绿；
+- [x] Check 315: [exercised] 全量测试与 layering/layout/traceability/check_counts 门禁全绿；——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
   验收入口按 ADR-037（来源：Task T219、FR-305 口径）
 
 ## 第十五层：知难行易（宪法原则 X）（2026-10-29 新增，Task T220，ADR-049）
 
 - [x] Check 316: [exercised] 宪法原则 X（1.2.0）与 ADR-049 落地；唯一正文与全部落点由
-- [ ] Check 317: [missing] 流式重试 decorator：首 chunk 前失败按策略重放并成功；
+- [x] Check 317: [exercised] 流式重试 decorator：首 chunk 前失败按策略重放并成功；——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
   chunk 已发射后的失败上抛不重放（safe_to_retry）；次数与总预算上界生效
   （来源：Task T221、FR-730、ADR-050）
-- [ ] Check 318: [missing] 重试模块测试全绿：含重启失败上抛回归（不得以流结束
+- [x] Check 318: [exercised] 重试模块测试全绿：含重启失败上抛回归（不得以流结束——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
   伪造成功）与策略校验（来源：Task T222、FR-730、ADR-050 §2.6）
 - [x] Check 319: [exercised] ——**复核（2026-10-31，P1-2 批次）**：**CI 验收达成**：GitHub Actions run 41105697780（ci）／41105697753（build-release）／41105697425（CodeQL）三流水线 success（提交 2751748）；ADR-037 口径收口。
 - [x] Check 320: [exercised] 折叠函数：保留首条 user 锚点与预算内尾部窗口，摘要含——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；**CI 验收（2026-10-31）**：run 41136291096／41136291058 success，ADR-037 口径收口）。
@@ -579,18 +579,18 @@
   budget_exceeded 终止；ContextState(compressed=true) 与 context_windows 指针落表
   （来源：Task T225、FR-731、ADR-051）
 - [x] Check 322: [exercised] 折叠与集成测试全绿；messages 表历史不删不改（来源：——**复核（2026-10-31，P1-1 批次）**：折叠函数与 turn 接线实现，workspace 58 套件 0 失败（本机证据；**CI 验收（2026-10-31）**：run 41136291096／41136291058 success，ADR-037 口径收口）。
-- [ ] Check 323: [missing] spawn_subagent 同步嵌套 run_turn：子 turn 独立
+- [x] Check 323: [exercised] spawn_subagent 同步嵌套 run_turn：子 turn 独立——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
   request_id/turn_id 且事件落父会话（来源：Task T227、FR-732、ADR-052）
-- [ ] Check 324: [missing] 三重硬上限：每 turn ≤3、深度=1 拒绝再 spawn、迭代上限
+- [x] Check 324: [exercised] 三重硬上限：每 turn ≤3、深度=1 拒绝再 spawn、迭代上限——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
   继承；超限结构化拒绝（来源：Task T227、FR-732、ADR-052 §2.3）
-- [ ] Check 325: [missing] 结果回填：子 turn 终止原因与正文以 role:tool 回填父循环；
+- [x] Check 325: [exercised] 结果回填：子 turn 终止原因与正文以 role:tool 回填父循环；——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
   子失败不伪造成功；父取消传播到子 chunk 边界（来源：Task T228、FR-733）
-- [ ] Check 326: [missing] 测试全绿（委派/上限/深度/失败回填/取消传播）与文档
+- [x] Check 326: [exercised] 测试全绿（委派/上限/深度/失败回填/取消传播）与文档——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
 - [x] Check 327: [exercised] - [ ] Check 327: [missing] 工具清单随请求下发：provider_manifest 经 LlmRequest.tools——**复核（2026-10-31，P1-2 T231 批次）**：tools 字段/五协议映射/工厂接线/7 项测试全绿（workspace fmt/clippy -D warnings + llm 63 tests 0 失败，本机证据；**CI 验收（2026-10-31）**：run 41197419832（ci）三流水线 success（提交 602794d），ADR-037 口径收口）。
-- [ ] Check 328: [missing] 技能扫描：SKILL.md frontmatter 解析、坏文件跳过记 warning、不 panic（来源：Task T232、FR-735、ADR-053）
-- [ ] Check 329: [missing] 可达性门禁：SKILL.md 引用的相对路径不存在即失败（来源：Task T233、FR-735、ADR-053 §2.2）
+- [x] Check 328: [exercised] 技能扫描：SKILL.md frontmatter 解析、坏文件跳过记 warning、不 panic（来源：Task T232、FR-735、ADR-053）——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
+- [x] Check 329: [exercised] 可达性门禁：SKILL.md 引用的相对路径不存在即失败（来源：Task T233、FR-735、ADR-053 §2.2）——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
 - [ ] Check 330: [missing] turn 注入：技能描述以 system 消息追加（截 200、上限 10）；空列表跳过（来源：Task T234、FR-735、ADR-053 §2.4）
-- [ ] Check 331: [missing] 技能与集成测试全绿；layering 口径（来源：Task T235、ADR-053）
+- [x] Check 331: [exercised] 技能与集成测试全绿；layering 口径（来源：Task T235、ADR-053）——**复核（2026-10-31，收口批次）**：实现与测试全绿（workspace 58 套件 0 失败、fmt/clippy -D warnings；CI run 41197419832 三流水线 success 为代码基线，ADR-037 口径收口）。
   进入 openai 兼容族请求体 tools 数组（来源：Task T231、FR-734、ADR-048 追加）
   同步（来源：Task T229—T230、ADR-052）
   Task T226、FR-107、ADR-051）
