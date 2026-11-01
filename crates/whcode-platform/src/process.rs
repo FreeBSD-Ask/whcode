@@ -392,7 +392,7 @@ pub fn process_exists(pid: u32) -> Result<bool, whcode_domain::WhError> {
 /// 列出某进程的**直接**子进程 PID（Check 201：零残留验证）。
 ///
 /// Windows 经 PowerShell `Get-CimInstance Win32_Process` 查询；类 Unix（含 BSD）经
-/// `ps -eo pid=,ppid=` 全表枚举后按父 PID 过滤（2026-10-31 用户指令解除 BSD 延后，
+/// `ps -ax -o pid=,ppid=` 全表枚举后按父 PID 过滤（2026-10-31 用户指令解除 BSD 延后，
 /// 此前该路径返回结构化“延后”错误）。返回值可能为空（进程尚无子进程）。
 ///
 /// # Errors
@@ -651,6 +651,39 @@ mod tests {
             }
             std::thread::sleep(std::time::Duration::from_millis(500));
         };
+        // 诊断：FreeBSD VM 上 ps 枚举未见子进程（run 41274057966 与 41286535291 同败，
+        // 前者用 `ps -eo`、后者用 `ps -ax -o` 均返回 []）。仅失败路径触发；打印原始 ps
+        // 输出中与子/父 PID 相关的行、总行数与子进程存活探测，供 CI 日志定位根因。
+        // 确认根因后移除本段。
+        if !pids.contains(&pid) {
+            let test_pid = std::process::id();
+            eprintln!(
+                "[child_pids-diag] test_pid={test_pid} child_pid={pid} child_pids={pids:?} 存活={:?}",
+                process_exists(pid)
+            );
+            match std::process::Command::new("ps")
+                .args(["-ax", "-o", "pid=,ppid="])
+                .output()
+            {
+                Ok(o) => {
+                    let stdout = String::from_utf8_lossy(&o.stdout);
+                    let total = stdout.lines().count();
+                    let relevant: Vec<&str> = stdout
+                        .lines()
+                        .filter(|l| {
+                            l.contains(&test_pid.to_string()) || l.contains(&pid.to_string())
+                        })
+                        .collect();
+                    let head: Vec<&str> = stdout.lines().take(3).collect();
+                    eprintln!(
+                        "[child_pids-diag] ps -ax -o pid=,ppid= 退出={} 总行={total} 首3行={head:?} 相关行：\n{}",
+                        o.status.code().unwrap_or(-1),
+                        relevant.join("\n")
+                    );
+                }
+                Err(e) => eprintln!("[child_pids-diag] ps 调用失败：{e}"),
+            }
+        }
         assert!(pids.contains(&pid), "应列出子进程 {pid}：{pids:?}");
         assert!(
             process_exists(pid).expect("查询子进程"),
