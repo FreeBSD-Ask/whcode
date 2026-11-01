@@ -392,7 +392,7 @@ pub fn process_exists(pid: u32) -> Result<bool, whcode_domain::WhError> {
 /// 列出某进程的**直接**子进程 PID（Check 201：零残留验证）。
 ///
 /// Windows 经 PowerShell `Get-CimInstance Win32_Process` 查询；类 Unix（含 BSD）经
-/// `ps -ax -o pid=,ppid=` 全表枚举后按父 PID 过滤（2026-10-31 用户指令解除 BSD 延后，
+/// `ps -ax -o pid,ppid` 全表枚举后按父 PID 过滤（2026-10-31 用户指令解除 BSD 延后，
 /// 此前该路径返回结构化“延后”错误）。返回值可能为空（进程尚无子进程）。
 ///
 /// # Errors
@@ -434,14 +434,17 @@ pub fn child_pids(pid: u32) -> Result<Vec<u32>, whcode_domain::WhError> {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        // `ps -ax -o pid=,ppid=`：Linux（procps）与 BSD（FreeBSD/NetBSD/OpenBSD/
+        // `ps -ax -o pid,ppid`：Linux（procps）与 BSD（FreeBSD/NetBSD/OpenBSD/
         // DragonFly）通用。`-a`+`-x` 全表枚举（含无 tty 进程——FreeBSD 的 `-e` 语义
-        // 不同，run 41274057966 实测只开 `-e` 未列出无 tty 子进程）；`-o pid=,ppid=`
-        // 输出不带表头。等号形式在部分 ps 实现按内部列序输出，故解析用“哪个字段
-        // 等于被查父 PID、另一个即子 PID”的顺序无关判据。解析失败按错误上报，
-        // 不猜测、不以空表冒充。
+        // 不同，run 41274057966 实测只开 `-e` 未列出无 tty 子进程）。**不用 `=` 表头
+        // 抑制**：run 41290577560 诊断证实 `-o pid=,ppid=` 在 NetBSD 输出畸形单列
+        // （首行字面 `,ppid=`、裸 PID 无 PPID、仅 24 行——`=` 抑制逗号列表不被
+        // NetBSD 正确处理），故用 `pid,ppid`（带表头行，解析时跳过非数字行）。
+        // 表头行 `PID PPID` 解析失败即跳过；数据行 `pid ppid` 顺序无关匹配（等号
+        // 形式在部分 ps 实现按内部列序输出，故用“哪个字段等于被查父 PID、另一个
+        // 即子 PID”的判据）。解析失败按错误上报，不猜测、不以空表冒充。
         let output = std::process::Command::new("ps")
-            .args(["-ax", "-o", "pid=,ppid="])
+            .args(["-ax", "-o", "pid,ppid"])
             .output()
             .map_err(|err| {
                 whcode_domain::WhError::new(
@@ -662,7 +665,7 @@ mod tests {
                 process_exists(pid)
             );
             match std::process::Command::new("ps")
-                .args(["-ax", "-o", "pid=,ppid="])
+                .args(["-ax", "-o", "pid,ppid"])
                 .output()
             {
                 Ok(o) => {
