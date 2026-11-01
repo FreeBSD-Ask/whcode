@@ -52,7 +52,18 @@
   `default-features = false` 会把 `iced_tiny_skia` 的 x11/wayland 一并关掉，Unix（含
   FreeBSD）上 softbuffer 0.4.8 无任何后端可用，宏展开报 E0392 未用类型参数编译错误
   （Windows 走内建后端不受影响）；修复为 `whcode-gui` 的 iced 特性显式启用 `"x11"`
-  （commit e949459），FreeBSD 车道随此恢复构建。
+  （commit e949459），FreeBSD 车道随此恢复构建。**2026-11-01 补记二（run 41238694183
+  实测）**：`iced_winit-0.14.1` 的 `conversion.rs` 对 BSD 目标（freebsd/netbsd/
+  openbsd/dragonfly）无条件导入 `winit::platform::wayland::WindowAttributesExtWayland`
+  并调用 `.with_name()`——只开 `x11` 时该模块不存在，报 E0432/E0599；启用
+  `iced/wayland`（winit 的 wayland 依赖全部 `cfg(all(unix,…))` 门控，Windows 不受
+  影响）。**2026-11-01 补记三（run 41243062927 实测）**：`whcode-llm` 的
+  `classify_io_error` 未识别 `ErrorKind::ConnectionRefused`，FreeBSD 对已关闭回环
+  端口 `connect` 即时报 `ECONNREFUSED`，落入 `Io` 兜底致测试
+  `unreachable_endpoint…_is_retryable` 失败（`failure 分类：io`）；修复为将
+  `ConnectionRefused`/`NotConnected` 归一为 `TransportFailure::Connect`（与
+  `ureq::Error::ConnectionFailed` 同语义），失败分类为 `connect`，Windows 侧
+  `timeout` 行为不变（全量 92 例通过）。
 - **技能最小集（skills v1）**（2026-10-31，FR-735、ADR-053、T232—T235、Check 328—331）：
   turn 循环扫描工作区 `.zcode/skills/<name>/SKILL.md` 并解析 frontmatter（name +
   description），技能描述以 system 消息注入模型请求（单条截 200 字符、技能数上限 10），

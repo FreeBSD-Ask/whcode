@@ -48,6 +48,10 @@ jobs:
     if: github.event_name != 'schedule'
     name: platform-${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
+    # 门禁超时（2026-11-01）：VM 车道（FreeBSD/NetBSD/OpenBSD/DragonFly）含 pkg 安装、
+    # DuckDB 源码构建、全量构建/测试/冒烟，任一环节挂死不得无限占用 runner——90 分钟
+    # 封顶，超时按失败处理（硬门禁语义，ADR-013 修订 2026-10-31）。
+    timeout-minutes: 90
     # 触发语义放在步骤级：GitHub 的 jobs.<job_id>.if 不支持 matrix 上下文。
     strategy:
       fail-fast: false

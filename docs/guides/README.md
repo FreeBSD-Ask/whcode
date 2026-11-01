@@ -24,7 +24,7 @@
 | `performance-and-concurrency.md` | 并发设计档案、一手文献门槛、测量→复测流程 |
 | `signal-chain-completeness.md` | 信号链完备原则（T116 复盘） |
 | `test-model-sensenova.md` | 测试模型接入、图像输入与已知限制 |
-| `bsd-interface.md` | BSD 平台接口预留契约（延后，不作验收结论） |
+| `bsd-interface.md` | BSD 平台接口契约（FreeBSD 硬门禁证据车道，其余 BSD 延后；不作验收结论） |
 | `doctrine-application.md` | 工程准则应用记录（审计/改动/缺口） |
 | `yike-philosophy.md` | 一刻哲学源流与工程翻译 |
 | `knowing-before-doing.md` | 知难行易（宪法原则 X）：任务认知卡、门禁落点、反例与复审触发 |
