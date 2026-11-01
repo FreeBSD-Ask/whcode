@@ -404,6 +404,11 @@ jobs:
             echo "phase=workspace-build-ok" >> "$progress"
 
             echo "=== 全量测试（workspace 全部 crate，含集成/稳定性/契约）==="
+            # 禁核心转储：tests/integration/test_durability.rs 的子进程以
+            # std::process::abort()（SIGABRT）模拟强杀，FreeBSD 上默认 core 转储落
+            # tests/durability-*.core，被并行 layout 契约门禁判为未登记条目
+            # （run 41295875953 实测）。ulimit -c 0 只禁 dump，不改测试语义。
+            ulimit -c 0
             cargo test --locked --workspace
             echo "phase=workspace-tests-ok" >> "$progress"
 
@@ -687,6 +692,8 @@ jobs:
             fi
 
             if [ "$duckdb_ready" -eq 1 ]; then
+              # 禁核心转储（同 FreeBSD 车道：durability abort() 的 core 落 tests/ 会破 layout 门禁）。
+              ulimit -c 0
               if cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
                 && cargo test --locked --workspace --exclude whcode-gui --exclude whcode-bin; then
                 echo "GATE_RESULT=GO"
