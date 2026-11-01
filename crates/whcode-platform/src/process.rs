@@ -467,16 +467,15 @@ pub fn child_pids(pid: u32) -> Result<Vec<u32>, whcode_domain::WhError> {
             .lines()
             .filter_map(|line| {
                 let mut fields = line.split_whitespace();
-                let first: u32 = fields.next()?.parse().ok()?;
-                let second: u32 = fields.next()?.parse().ok()?;
-                // 顺序无关：若任一字段等于被查父 PID，另一字段即其子 PID。
-                if first == pid {
-                    Some(second)
-                } else if second == pid {
-                    Some(first)
-                } else {
-                    None
-                }
+                let pid_col: u32 = fields.next()?.parse().ok()?;
+                let ppid_col: u32 = fields.next()?.parse().ok()?;
+                // `-o pid,ppid` 列序固定（POSIX 按指定列输出）：第一列 pid、第二列
+                // ppid。只按 **ppid 列** 匹配被查父——不能用“任一字段等于被查父”
+                // 的顺序无关判据：对“被查进程自身”那一行（`pid ppid=其父`），
+                // `first == pid` 会把**其父进程**误判为子进程（run 41321154622
+                // FreeBSD process_cleanup 实证：sh 的父进程被当作孙进程，测试进程
+                // 恒“存在”，`wait_until_gone` 假失败）。列序固定则 ppid 列即父。
+                if ppid_col == pid { Some(pid_col) } else { None }
             })
             .collect();
         pids.sort_unstable();
@@ -688,6 +687,28 @@ mod tests {
             }
         }
         assert!(pids.contains(&pid), "应列出子进程 {pid}：{pids:?}");
+        // 防回归（run 41321154622 FreeBSD process_cleanup 教训）：`ps -o pid,ppid`
+        // 的顺序无关解析会把“被查进程自身那一行”（`pid=被查父 ppid=其父`）误判为
+        // 返回**其父进程**——于是 child_pids(test_pid) 会混入 cargo 主进程 PID，
+        // 集成测试把它当“孙进程”检查，恒“存在”而假失败（6650 残留）。此处决定性
+        // 断言：Unix 下用 `ps -o ppid=` 取 test 进程的父 PID，child_pids 不得返回它。
+        #[cfg(not(target_os = "windows"))]
+        {
+            let test_pid = std::process::id();
+            let pp = std::process::Command::new("ps")
+                .args(["-o", "ppid=", "-p", &test_pid.to_string()])
+                .output()
+                .expect("ps 可取父 PID");
+            let parent_pid: u32 = String::from_utf8_lossy(&pp.stdout)
+                .split_whitespace()
+                .next()
+                .and_then(|t| t.parse().ok())
+                .expect("ps 父 PID 可解析");
+            assert!(
+                !pids.contains(&parent_pid),
+                "child_pids 不应返回被查进程的父进程 {parent_pid}（旧解析误判根因）：{pids:?}"
+            );
+        }
         assert!(
             process_exists(pid).expect("查询子进程"),
             "子进程 {pid} 应存在"
