@@ -719,15 +719,21 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   预算、Authorization 头（均延后）。——**复核（2026-11-01，P1-7 批次二）**：config
   url 字段 + XOR/scheme 单测（`url_field_xor_command_and_scheme` 覆盖互斥/缺一/
   https/http 回环/http 远程拒绝/ftp 拒绝）、manager `connect_one` 走
-  `McpSession::connect`；CI 验收（ADR-037）待推送流水线后转勾。
-- [ ] T243 [P] MCP HTTP 测试集与文档同步（ADR-055 §6）：http-test-server fixture
+  `McpSession::connect`；**CI 验收（2026-11-01）**：run 41286535291（e036ba5）
+  platform-windows success（ADR-037 口径收口）＋ windows-arm64/measurements/netbsd/
+  openbsd/dragonfly success；freebsd 唯一 failure 为 whcode-platform child_pids 测试
+  （并行会话 T240/Check 336 车道），与本批次无关。
+- [x] T243 [P] MCP HTTP 测试集与文档同步（ADR-055 §6）：http-test-server fixture
   （echo/hang/nosession/auth 四模式、每连接一线程）+ HTTP 集成测试 6 项（握手往返
   /超时/预置取消/404/401/shutdown 失效）；module-design、AGENTS 架构图、ADR-055 转正、
   计数声明（FR 116／任务 243／Check 339）、CHANGELOG（FR-738；ADR-055 §6）
   ——**任务认知卡**：方向=HTTP 传输证据与收口；目标=fixture 覆盖正反路径、计数与
   门禁一致；判据=Check 339；非目标=SSE 流式测试、OAuth 授权流测试。——**复核
   （2026-11-01，P1-7 批次二）**：fixture + 6 项集成测试全绿（6/6）、layering/layout
-  门禁全绿（含零 unsafe 继承）；CI 验收（ADR-037）待推送流水线后转勾。
+  门禁全绿（含零 unsafe 继承）；**CI 验收（2026-11-01）**：run 41286535291（e036ba5）
+  platform-windows success（ADR-037 口径收口）＋ windows-arm64/measurements/netbsd/
+  openbsd/dragonfly success；freebsd 唯一 failure 为 whcode-platform child_pids 测试
+  （并行会话 T240/Check 336 车道），与本批次无关。
   （anthropic/gemini 等按能力登记）；FR-734 为真实供应商工具调用的前置（ADR-048
   追加；〔未实现〕显式标记）——**认知卡**：方向=真实供应商工具调用前置；目标=LlmRequest
   携带 manifest 并映射进 openai tools 数组；判据=请求体含 tools 字段且与注册表一致；

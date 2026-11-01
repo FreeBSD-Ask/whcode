@@ -599,26 +599,33 @@
   全量构建（含 whcode-gui／whcode-bin）、全量测试、三门（进程组零残留／store 引擎
   2.0.0／SSH 回环）与 TUI/Web 冒烟全绿，且任一失败即红（无 continue-on-error）；VM
   日志或 artifact 可归因（来源：Task T240、ADR-013 修订 2026-10-31）
-- [ ] Check 337: [exercised] MCP 传输抽象与 Streamable HTTP 可运行：trait Transport
+- [x] Check 337: [exercised] MCP 传输抽象与 Streamable HTTP 可运行：trait Transport
   六原语（write_message/read_message/abort_handle/eof_kind/shutdown/pid）解耦协议层与
   I/O、stdio 行为保持（重构无回归）、HttpTransport 每请求一次 POST + 会话头往返
   （fixture 非 initialize 强制 `Mcp-Session-Id`，完整往返即证明回带）、超时归因
   （ureq 请求超时）、取消前置检查、DELETE 关闭（来源：Task T241、FR-736—738、
   ADR-055 §2.1—2.2）——**复核（2026-11-01，P1-7 批次二）**：HTTP 集成 6/6（握手
   往返/超时/预置取消/404/401/shutdown）+ stdio 集成 6/6（行为保持）本地全绿；
-  CI 验收（ADR-037）待推送流水线后转勾。
-- [ ] Check 338: [exercised] MCP HTTP 配置与权限准入：`url` XOR `command` 互斥、
+  **CI 验收（2026-11-01）**：run 41286535291（e036ba5）platform-windows success
+  （ADR-037 口径收口）＋ windows-arm64/measurements/netbsd/openbsd/dragonfly success；
+  freebsd 唯一 failure 为 whcode-platform child_pids 测试（并行会话 T240/Check 336
+  车道，whcode-mcp 在 freebsd 6/6 通过），与本批次无关。
+- [x] Check 338: [exercised] MCP HTTP 配置与权限准入：`url` XOR `command` 互斥、
   https 任意主机/http 仅限回环（远程明文拒绝）、`connect` 分派、权限 fail-closed
   SessionCreate（不因传输放宽）（来源：Task T242、FR-738、ADR-055 §2.3、§2.8）
   ——**复核（2026-11-01，P1-7 批次二）**：`url_field_xor_command_and_scheme` 单测
-  （互斥/缺一/https/http 回环/http 远程拒绝/ftp 拒绝）全绿；CI 验收（ADR-037）待
-  推送流水线后转勾。
-- [ ] Check 339: [exercised] MCP HTTP 测试集与文档门禁全绿：fixture（echo/hang/
+  （互斥/缺一/https/http 回环/http 远程拒绝/ftp 拒绝）全绿；**CI 验收（2026-11-01）**：
+  run 41286535291（e036ba5）platform-windows success（ADR-037 口径收口）＋
+  windows-arm64/measurements/netbsd/openbsd/dragonfly success；freebsd 唯一 failure
+  为 whcode-platform child_pids 测试（并行会话 T240/Check 336 车道），与本批次无关。
+- [x] Check 339: [exercised] MCP HTTP 测试集与文档门禁全绿：fixture（echo/hang/
   nosession/auth）覆盖正反路径、layering 零 unsafe 继承、counts/traceability/
   knowing-first 全绿（来源：Task T243、FR-738、ADR-055 §6）——**复核（2026-11-01，
   P1-7 批次二）**：fixture + 6 项集成测试全绿、layering/layout 门禁全绿；
-  workspace 级 clippy 本地被杀软拦截未取得（已登记），按 CI 为准；CI 验收
-  （ADR-037）待推送流水线后转勾。
+  workspace 级 clippy 本地被杀软拦截未取得（已登记），按 CI 为准；**CI 验收
+  （2026-11-01）**：run 41286535291（e036ba5）platform-windows success（ADR-037 口径
+  收口）＋ windows-arm64/measurements/netbsd/openbsd/dragonfly success；freebsd 唯一
+  failure 为 whcode-platform child_pids 测试（并行会话 T240/Check 336 车道），与本批次无关。
   进入 openai 兼容族请求体 tools 数组（来源：Task T231、FR-734、ADR-048 追加）
   同步（来源：Task T229—T230、ADR-052）
   Task T226、FR-107、ADR-051）
