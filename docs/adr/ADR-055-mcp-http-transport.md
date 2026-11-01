@@ -1,6 +1,6 @@
 # ADR-055: MCP 客户端第二传输——Streamable HTTP 请求-响应（P1-7 批次二）
 
-**状态**：草案（2026-11-01，待实施批收口转已批准）
+**状态**：已批准（2026-11-01，P1-7 批次二实施收口转正；实施与证据见 §6）
 **前置**：ADR-054（MCP 客户端最小集 stdio v1，已批准）；ADR-013（平台验收口径）
 
 ## 1. 背景与决策
@@ -110,11 +110,27 @@
 - 登记：FR-738 / T241—T243 / Check 337—339（计数以并行会话 T240/Check 336 落地后的实际
   基数为准，登记时按 ADR-046 口径同步 spec/tasks/checklist/software-engineering-process）。
 - fixture：`http-test-server`（单端点 POST + 会话头 + DELETE，无 SSE；模式：echo/hang/
-  bad-version/require-session/401）。
+  nosession/auth，每连接一线程）。
+- 实现细节（ureq 3.5 API 实测）：`RequestBuilder` 无 per-request 超时——每请求独立
+  `Agent`（`timeout_global` 覆盖连接+写+读整个操作预算，MCP HTTP 低频、代价可忽略）；
+  `http_status_as_error(false)` 关闭 4xx/5xx 短路，由状态码分支归因（404 会话失效/
+  401 鉴权/405 SSE/其余显式报状态）；响应头经 `http` crate `.headers()` 读取。
+- 实施证据（2026-11-01，P1-7 批次二）：HTTP 集成 6/6（握手往返+会话头回带/超时归因/
+  预置取消/404/401/shutdown 失效）+ stdio 集成 6/6（行为保持，重构无回归）；
+  `clippy -p whcode-mcp --all-targets -D warnings` 干净；`cargo build/test --locked
+  --workspace`、`fmt --check`、layering、layout 全绿（workspace 级 clippy 本地被杀软
+  拦截未取得——`os error 5` 复制 build-script-build.exe，whcode-store/whcode-bin，
+  已登记，按 ADR-037 以 CI 为准）。
+- 登记：FR-738 / T241—T243 / Check 337—339（计数 116/243/339，ADR-046 口径同步
+  spec/tasks/checklist/software-engineering-process）；追溯与计数门禁全绿
+  （traceability：FR=116/任务=243/检查点=339 无断链；check_counts：counts consistent）。
 - 验收：layering `ALL_CRATES` 不变（无新 crate）；CI 六车道 + freebsd 平台证据（ADR-013
-  口径）；本地 clippy/test/layering/layout 全绿。
+  口径）待推送流水线（ADR-037）。
 
 ## 7. 修订记录
 
 - **2026-11-01（草案）**：批次二设计定稿（scope＝HTTP 请求-响应，无 SSE/OAuth）；编号 055
   （054 为 stdio v1 批次一）。
+- **2026-11-01（转正，P1-7 批次二）**：实施收口——trait Transport + StdioTransport
+  重构（提交 f82aab5，行为保持）+ HttpTransport + config url XOR command + connect
+  分派落地；fixture + HTTP 集成 6/6 全绿；§6 补实施证据与 ureq 3.5 API 实测细节。

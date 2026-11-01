@@ -434,10 +434,14 @@ pub fn child_pids(pid: u32) -> Result<Vec<u32>, whcode_domain::WhError> {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        // `ps -eo pid=,ppid=`：POSIX/BSD 通用输出（等号形式不带表头），每行依次为
-        // PID 与父 PID 两个十进制字段。解析失败按错误上报，不猜测、不以空表冒充。
+        // `ps -ax -o pid=,ppid=`：Linux（procps）与 BSD（FreeBSD/NetBSD/OpenBSD/
+        // DragonFly）通用。`-a`+`-x` 全表枚举（含无 tty 进程——FreeBSD 的 `-e` 语义
+        // 不同，run 41274057966 实测只开 `-e` 未列出无 tty 子进程）；`-o pid=,ppid=`
+        // 输出不带表头。等号形式在部分 ps 实现按内部列序输出，故解析用“哪个字段
+        // 等于被查父 PID、另一个即子 PID”的顺序无关判据。解析失败按错误上报，
+        // 不猜测、不以空表冒充。
         let output = std::process::Command::new("ps")
-            .args(["-eo", "pid=,ppid="])
+            .args(["-ax", "-o", "pid=,ppid="])
             .output()
             .map_err(|err| {
                 whcode_domain::WhError::new(
@@ -460,9 +464,16 @@ pub fn child_pids(pid: u32) -> Result<Vec<u32>, whcode_domain::WhError> {
             .lines()
             .filter_map(|line| {
                 let mut fields = line.split_whitespace();
-                let child: u32 = fields.next()?.parse().ok()?;
-                let parent: u32 = fields.next()?.parse().ok()?;
-                (parent == pid).then_some(child)
+                let first: u32 = fields.next()?.parse().ok()?;
+                let second: u32 = fields.next()?.parse().ok()?;
+                // 顺序无关：若任一字段等于被查父 PID，另一字段即其子 PID。
+                if first == pid {
+                    Some(second)
+                } else if second == pid {
+                    Some(first)
+                } else {
+                    None
+                }
             })
             .collect();
         pids.sort_unstable();

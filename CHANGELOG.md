@@ -24,6 +24,15 @@
   system 消息显式告示（不静默）。范围：v1 仅 stdio transport（官方规范 2025-06-18
   现行双 transport 之一，"Clients SHOULD support stdio whenever possible"）；
   Streamable HTTP/OAuth 留 P1-7 后续批次。
+- **MCP 客户端第二传输：Streamable HTTP 请求-响应**（2026-11-01，FR-738、ADR-055、
+  T241—T243）：传输抽象 `trait Transport` 解耦协议层与 I/O（stdio 子进程逻辑迁入
+  `StdioTransport`，行为保持无回归）；新增 `HttpTransport`——每请求一次 POST
+  （JSON-RPC 帧为请求体）、`initialize` 响应头 `Mcp-Session-Id` 捕获并回带、
+  `notifications/initialized` 202、`shutdown` 尽力 DELETE 结束会话（best-effort）；
+  超时由 ureq 请求超时承担（默认 30s、上限 600s），取消在请求前置检查（阻塞中的
+  请求不可中断，见 ADR-055 §5 复审触发）；config `url` 与 `command` 互斥（https 任意
+  主机、http 仅限回环，远程明文拒绝）；范围：本轮不含 OAuth 与 SSE（二者规范可选、
+  无首手使用证据，各自留待真实矛盾）。
 - **工具系统接线：模型工具调用真实执行**（2026-10-30，FR-725—729、ADR-048、T213—T219）：
   turn 循环内模型声明的工具调用经 store `tool_exec` 三步登记（prepared→running→终态）
   执行内建六件套（read/write/edit/list/glob/grep），结果以 `role:"tool"` 消息回填并

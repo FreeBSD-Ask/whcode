@@ -168,19 +168,25 @@ TLS 的依赖落点是这条边界的特例（ADR-031／ADR-040）：**出站**�
 
 ### whcode-mcp
 
-- **职责**（FR-736/737、ADR-054）：MCP 客户端最小集——stdio transport 子进程会话
-  （spawn 环境净化 / initialize 握手 / newline JSON-RPC 2.0 请求配对 / 超时看门狗 /
-  shutdown 零残留）、`tools/list` 投影（`mcp__<server>__<tool>` 命名空间、三重上限）
-  与 `tools/call` 调用。
-- **不负责**：Streamable HTTP/OAuth（P1-7 后续批次）；工具登记与回填（turn 层
-  `execute_tool_call` 与 store 三步登记，本 crate 只产出结果）；空闲连接池。
-- **关键类型**：`McpConfig`、`McpSession`、`McpManager`、`McpManifest`、`CancelFlag`。
+- **职责**（FR-736/737/738、ADR-054/055）：MCP 客户端最小集——传输抽象 `trait Transport`
+  六原语解耦协议层与 I/O（stdio：`StdioTransport` 子进程会话——spawn 环境净化 /
+  initialize 握手 / newline JSON-RPC 2.0 请求配对 / 超时看门狗 / shutdown 零残留；
+  http：`HttpTransport` Streamable HTTP 请求-响应——每请求 POST + 会话头往返 +
+  DELETE 关闭 + ureq 请求超时 + 取消前置检查）、`tools/list` 投影
+  （`mcp__<server>__<tool>` 命名空间、三重上限）与 `tools/call` 调用。
+- **不负责**：OAuth/SSE（ADR-055 §5 复审触发；无首手使用证据，留待真实矛盾）；工具登记
+  与回填（turn 层 `execute_tool_call` 与 store 三步登记，本 crate 只产出结果）；空闲连接池。
+- **关键类型**：`McpConfig`、`McpSession`、`McpManager`、`McpManifest`、`CancelFlag`、
+  `Transport`、`StdioTransport`、`HttpTransport`、`EofKind`。
 - **依赖**：`whcode-domain`、`whcode-platform`（进程树终止/进程组）、`whcode-runtime`
-  （worker 最小环境注入——服务层内横向依赖，ADR-054 §2.2 声明）、`serde_json`。
+  （worker 最小环境注入——服务层内横向依赖，ADR-054 §2.2 声明）、`serde_json`、
+  `ureq`（Streamable HTTP，rustls；与 whcode-llm 同版本同口径，ADR-055 §2.10）。
 - **失败模式**：单服务器连接失败记录不中断（正确的空与错误的空强制区分）；会话
-  IO/协议失败标记 `broken` 后快速失败；超时看门狗杀树归因超时、取消归因取消。
-- **测试**：`#[cfg(test)]` 内联（协议/配置/投影/有界行读取）+
-  `tests/mcp_session.rs`（fixture 服务器生命周期正反路径、零残留）。
+  IO/协议失败标记 `broken` 后快速失败；超时看门狗杀树归因超时、取消归因取消
+  （http：ureq 请求超时归因超时、取消前置检查归因取消）。
+- **测试**：`#[cfg(test)]` 内联（协议/配置/投影/有界行读取）+ `tests/mcp_session.rs`
+  （stdio fixture 服务器生命周期正反路径、零残留）+ `tests/mcp_http_session.rs`
+  （http fixture `http-test-server` 握手往返/超时/取消/404/401/shutdown）。
 
 ### whcode-tui
 
