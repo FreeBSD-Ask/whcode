@@ -20,7 +20,7 @@
 | Windows | Windows 11（10.0.26300） | x86_64 | `x86_64-pc-windows-msvc` | **在范围内（唯一验收目标）** | 通过（本机实测） | 通过（数据库冒烟 4 步、引擎版本探测与工作区测试） | `artifacts/deps-windows.txt`；`docs/adr/ADR-DB-BUILD.md` | rustc 1.99.1（LLVM 23.1.1）、MSVC 工具集 14.44.35207、Windows SDK 10.0.26100.0；不使用任何 GNU 工具链；DuckDB 引擎 `v2.0.0` |
 | Windows ARM64 | 未固定（托管 `windows-11-arm` 预览 runner） | arm64 | `aarch64-pc-windows-msvc` | **构建交付目标（ADR-043，不验收）** | 未取得（2026-10-28 推送后由 `windows-arm64` lane 实跑取得） | 未取得（同上；arm64 包在原生 runner 安装验证） | `docs/adr/ADR-043-windows-arm64-build-target.md`；`.github/workflows/ci.yml` | arm64 预编译 DuckDB 载荷 SHA256 固定于 `fetch-duckdb.py`；一切结论只作平台证据 |
 | FreeBSD | 未固定 | x86_64 | `x86_64-unknown-freebsd` | **完整平台证据车道（硬门禁，2026-10-31）** | 随 main 全量构建/全量测试/三门（进程组/store 2.0.0/SSH 回环）/TUI-Web 冒烟；不作验收结论 | 性能分位数未取得（perf 车道仅 Windows） | `docs/adr/ADR-013-platform-scope-windows-only.md`；`docs/adr/ADR-DB-BUILD.md` | 恢复时须新 ADR 并补齐 D-14 要求的证据链 |
-| NetBSD | 未固定 | x86_64 | `x86_64-unknown-netbsd` | **延后（ADR-013，不验收）** | 历史：代码级交叉检查通过（排除 3 个 crate） | 未取得（延后） | 同上 | 同上 |
+| NetBSD | 未固定 | x86_64 | `x86_64-unknown-netbsd` | **随 CI 自动运行（仅平台证据、不阻断）** | 随 main 自动运行 | 进程组零残留 GO（Check 201）；store/SSH 验收受环境限制未取得 | 同上 | 同上 |
 | OpenBSD | 未固定 | x86_64 | `x86_64-unknown-openbsd` | **延后（ADR-013；本就不作原生目标，见 ADR-011）** | 不适用 | 未取得（延后） | `docs/adr/ADR-011-platform-commitment-revision.md`；`docs/adr/ADR-013-platform-scope-windows-only.md` | 客户端能力属 M7，本轮不验收 |
 | DragonFly BSD | 未固定 | x86_64 | `x86_64-unknown-dragonfly` | **延后（ADR-013；本就不作原生目标，见 ADR-011）** | 不适用 | 未取得（延后） | 同上 | 同上 |
 

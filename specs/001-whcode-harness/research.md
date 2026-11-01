@@ -4,7 +4,7 @@
 
 **输入基线**：《WHCode 技术任务书 v3.0》§16 参考资料 [S1]—[S8] 为本项目对依赖能力与语义的核验依据。本文不重新做外部调研：凡任务书已作出架构决定的条目，Decision 记录该决定及其理由；凡任务书标记 `[待验证]` 或设决策截止点的条目，本文不给出结论，只登记候选、判据与决策点（对应 plan.md C-06 门禁：未验证能力不得表述为已交付）。
 
-> **平台范围说明（ADR-013，2026-10-21）**：本文的五平台表述保留为历史研究记录；当前唯一验收目标是 Windows 11 amd64，FreeBSD/NetBSD/OpenBSD/DragonFly 全部延后。凡涉及五平台验收的 Decision 与 TBD，均以 ADR-013 与 `docs/matrices/platform-matrix.md` 为准。
+> **平台范围说明（ADR-013，2026-10-21）**：本文的五平台表述保留为历史研究记录；当前唯一验收目标是 Windows 11 amd64；FreeBSD 现为完整平台证据车道（硬门禁，不作验收结论），NetBSD 随 CI 自动运行（仅证据），OpenBSD/DragonFly 仍延后。凡涉及五平台验收的 Decision 与 TBD，均以 ADR-013 与 `docs/matrices/platform-matrix.md` 为准。
 
 ## R-01 Rust 工具链与平台目标矩阵
 

@@ -20,7 +20,7 @@
 
 ### User Story 1 - M0 平台可行性与基线冻结 (Priority: P1) 🎯 MVP
 
-工程团队在 **Windows 11 amd64**（唯一验收目标，ADR-013）上，用锁定版本的工具链完成 Workspace 骨架、嵌入式单文件数据库（DuckDB，ADR-001）原生构建、TUI 最小闭环、事件写者原型与基线性能测量；产出 ADR-001—ADR-010 的批准记录，冻结平台矩阵与候选性能预算（或经 ADR 修订）。FreeBSD/NetBSD/OpenBSD/DragonFly BSD 全部**延后**（ADR-013），不进入本轮验收结论。
+工程团队在 **Windows 11 amd64**（唯一验收目标，ADR-013）上，用锁定版本的工具链完成 Workspace 骨架、嵌入式单文件数据库（DuckDB，ADR-001）原生构建、TUI 最小闭环、事件写者原型与基线性能测量；产出 ADR-001—ADR-010 的批准记录，冻结平台矩阵与候选性能预算（或经 ADR 修订）。FreeBSD 为完整平台证据车道（硬门禁，2026-10-31 用户指令，不作验收结论）；NetBSD 随 CI 自动运行（仅平台证据）；OpenBSD/DragonFly BSD 仍**延后**（ADR-013），均不进入本轮验收结论。
 
 **Why this priority**: 任务书 §12.1 规定进入大规模实现前必须先完成 M0；DuckDB 原生依赖在硬目标失败时需要 Go/No-Go 决策，是全部后续工作的前提（ADR-010、R-01）。平台范围已收敛为单一目标，避免因无环境平台长期无法收口（ADR-013）。
 
@@ -529,10 +529,10 @@ taskkill /T /F 口径）（P1）
 - **TUI 非交互退出（M0）**：TUI 不得在 stdin 非交互（管道／重定向）时进入事件循环，无参数启动必须立即退出且退出码为 0，避免自动化环境挂起；验收判据见 `checklist.md` Check 226，证据由 `local/tui_smoke.py` 的 `graceful_exit_on_closed_stdin` 采集
 - **用户故事↔里程碑映射**为本轮工程决策：US-n ↔ M-(n-1)；任务书里程碑范围未被改动
 - **待决策事项 D-01—D-14** 以任务书建议默认值与后续决策进入对应决策点：首版优先 x86_64（D-01）；单库单工作区（D-02）；Web 为独立 UI（D-03）；SSH 公钥+受限入口（D-04）；追踪默认 redacted（D-05，M1）；性能硬指标 M0 冻结（D-06）；运行时独立 payload（D-07，M8 前）；首版不宣称完整 Node.js（D-08，M8 前）；Python 先验证子进程协议（D-09，M8 前）；独立 db compact（D-10，M1）；默认系统分配器（D-11，M9）；P1 运行时不阻塞首个可用版本（D-12，M0）；平台承诺修订（D-13）；平台范围收敛（D-14）
-- **验收环境**：本轮只需 Windows 11 amd64 的真实构建/测试环境（已取得）；FreeBSD/NetBSD/OpenBSD/DragonFly 按 ADR-013 延后，不再作为本轮阻塞项；恢复任一平台时必须具备该平台真实环境并补齐证据，不得以交叉编译代替运行验证（G-01）
+- **验收环境**：本轮只需 Windows 11 amd64 的真实构建/测试环境（已取得）；FreeBSD 现为完整平台证据车道（硬门禁，会红，不作验收结论）；NetBSD 随 CI 自动运行（仅证据、不阻断）；OpenBSD/DragonFly 仍按 ADR-013 延后（手工占位）；恢复任一平台时必须具备该平台真实环境并补齐证据，不得以交叉编译代替运行验证（G-01）
 - **D-01 修订**：Windows 验收使用 `x86_64-pc-windows-msvc`，**不使用任何 GNU 工具链**；实测 rustc 1.99.1、MSVC 14.44.35207、Windows SDK 10.0.26100.0。`rust-toolchain.toml` 仅锁版本号 `1.99.1`；host triple 由各平台 runner 默认值决定，本机用目录级 `rustup override` 选 msvc（不入库）
 - **DuckDB 分发策略**：采用官方预编译动态库，不源码构建；`.github/scripts/fetch-duckdb.py` 校验 SHA256 后解包到 `vendor/duckdb/2.0.0/`，`.cargo/config.toml` 注入 `DUCKDB_LIB_DIR`，Windows 由 `crates/whcode-store/build.rs` 复制 `duckdb.dll`；运行期引擎版本实测 `v2.0.0`，crate 精确锁定 `=1.20000.0`（详见 `docs/adr/ADR-DB-BUILD.md`、`ADR-034`）
-- **平台范围收敛（ADR-013）**：唯一验收目标为 Windows 11 `x86_64`（`x86_64-pc-windows-msvc`）；**不考虑任何 32 位平台**；FreeBSD/NetBSD/OpenBSD/DragonFly 全部延后——保留代码、文档与 CI 定义，但不作为验收目标，恢复须新 ADR 并补齐完整证据链（构建、数据库冒烟、依赖记录、性能分位数、客户端/服务端证据）。延后不等同于“已支持”或“已放弃”
+- **平台范围收敛（ADR-013）**：唯一验收目标为 Windows 11 `x86_64`（`x86_64-pc-windows-msvc`）；**不考虑任何 32 位平台**；FreeBSD 为完整平台证据车道（硬门禁，2026-10-31 用户指令，不作验收结论）、NetBSD 随 CI 自动运行（仅平台证据、不阻断）、OpenBSD/DragonFly 仍延后（手工占位）——保留代码、文档与 CI 定义，但不作为验收目标，恢复须新 ADR 并补齐完整证据链（构建、数据库冒烟、依赖记录、性能分位数、客户端/服务端证据）。延后不等同于“已支持”或“已放弃”
 - **平台承诺修订（ADR-011）**：OpenBSD 与 DragonFly BSD 移出原生安装目标，改由内置 SSH 客户端（FR-611）控制；该方向仍有效，但按 ADR-013 延后，不进入本轮验收
 - **自由与安全基线**：不替用户定义善、道德或自由；退出权、完整导出、离线核心能力与默认值可撤销进入验收；安全措施按威胁模型与证据评估，不以“最佳实践/合规”结项（NFR-218/219、Task T146、Check 244—245；详见 `docs/guides/philosophy.md` §10）
 - **一刻哲学基线**：`docs/guides/yike-philosophy.md` 记录来源与工程翻译；不伪造/未知显式、反进步叙事、用户友好与文档时效作为设计与验收判据（NFR-220—222、Task T147、Check 246—248）

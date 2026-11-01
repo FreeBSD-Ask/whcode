@@ -687,13 +687,13 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   vmactions slirp DNS 不支持 SRV，pkg 仓库用直连 https）；全量 `cargo build/test --locked
   --workspace`（不再排除 whcode-gui／whcode-bin）；三门硬判定（进程组零残留／store 引擎
   2.0.0／SSH 回环，任一 NO-GO 即中止）；TUI/Web 冒烟（`--exe target/debug/whcode`）；
-  代码级等价：`whcode-platform::child_pids` 非 Windows 以 `ps -eo pid=,ppid=` 实现、
+  代码级等价：`whcode-platform::child_pids` 非 Windows 以 `ps -ax -o pid=,ppid=` 实现、
   `test_process_cleanup` 类 Unix 真两层树执行、whcode-gui iced 启用 x11 feature——
   **任务认知卡**：方向=FreeBSD 从“证据不阻断”升级为硬门禁车道；目标=全量构建/测试/
   三门/冒烟在 CI 全绿且失败即红；判据=Check 336；非目标=验收口径改变（仍 Windows 11
   amd64）、性能分位数（perf 车道仍仅 Windows）、GUI 运行时证据（VM 无显示）——
   复核待 CI 取证后转勾
-- [ ] T241 [P] MCP 传输抽象与 Streamable HTTP 传输（ADR-055 §2.1—2.2）：trait
+- [x] T241 [P] MCP 传输抽象与 Streamable HTTP 传输（ADR-055 §2.1—2.2）：trait
   Transport 六原语（write_message/read_message/abort_handle/eof_kind/shutdown/pid）
   解耦协议层与 I/O——stdio 子进程逻辑（spawn 环境净化/进程组/看门狗 terminate_tree/
   stderr 丢弃）迁入 StdioTransport（行为保持，重构无回归）；HttpTransport 每请求一次
@@ -706,8 +706,11 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   复核“行为保持，无缺陷”）、HttpTransport + `McpSession::connect` 分派落地；本地
   HTTP 集成 6/6 + stdio 集成 6/6 + `clippy -p whcode-mcp` 干净；workspace
   build/test/fmt/layering/layout 全绿（workspace 级 clippy 被杀软拦截已登记，CI 为准）；
-  CI 验收（ADR-037）待推送流水线后转勾。
-- [ ] T242 [P] MCP HTTP 配置与权限面（ADR-055 §2.3、§2.8）：config `url` XOR
+  **CI 验收（2026-11-01）**：run 41286535291（e036ba5）platform-windows success
+  （ADR-037 口径收口）＋ windows-arm64/measurements/netbsd/openbsd/dragonfly success；
+  freebsd 唯一 failure 为 whcode-platform child_pids 测试（并行会话 T240/Check 336
+  车道，whcode-mcp 在 freebsd 6/6 通过），与本批次无关。
+- [x] T242 [P] MCP HTTP 配置与权限面（ADR-055 §2.3、§2.8）：config `url` XOR
   `command` 互斥 + scheme 校验（https 任意主机、http 仅限回环 127.0.0.1/localhost/::1，
   远程明文拒绝）；`McpSession::connect` 按 url 分派（无 url 回落 stdio）；投影与调用
   权限 fail-closed SessionCreate 复用（与 stdio 同一条管线，不因传输放宽）（FR-738；

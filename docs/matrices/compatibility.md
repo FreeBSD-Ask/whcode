@@ -9,7 +9,7 @@
 | Windows 11 amd64（`x86_64-pc-windows-msvc`） | **唯一验收目标**，已验收（M0—M9 测试在本机通过；2026-10-23 进度复核后 `fmt`/`clippy`/`test`/契约/布局门禁全绿） | ADR-013 |
 | Windows 11 arm64（`aarch64-pc-windows-msvc`） | **构建交付目标**（ADR-043）：产出 arm64 发布包，在原生 `windows-11-arm` runner 取得平台证据；不进入验收 | ADR-043 |
 | FreeBSD | **完整平台证据车道（硬门禁）**（2026-10-31 用户指令解除延后）：ci.yml 随 `main` 全量构建（含 GUI／bin）、全量测试、三门与 TUI/Web 冒烟，失败即红；**不作验收结论**，性能分位数未取得 | ADR-013 修订（2026-10-31） |
-| NetBSD | **延后**：代码级兼容（交叉类型检查通过），无原生构建与运行证据（CI 仅跑不依赖 libduckdb 的包级测试，不阻断） | ADR-013、T020/T021 |
+| NetBSD | **随 CI 自动运行（仅平台证据、不阻断）**：进程组零残留证据已取得（Check 201）；store 门与 SSH 验收受包版 CMake 编译器环境限制，见 checklist Check 22/25/96/99 未勾选 | ADR-013、T020/T021 |
 | OpenBSD / DragonFly BSD | **延后**：移出原生目标，改由内置 SSH 客户端控制 | ADR-011/013 |
 | 32 位平台 | **不支持** | ADR-013 |
 

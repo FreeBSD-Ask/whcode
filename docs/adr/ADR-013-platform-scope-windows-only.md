@@ -70,7 +70,7 @@
   run 40159516841 的 25 个编译错误即缺这组包，非 iced 不支持 BSD）；随后全量
   `cargo build/test --locked --workspace`（不再排除 whcode-gui／whcode-bin）、三门硬判定
   （进程组零残留、store 引擎 2.0.0、SSH 回环，任一 NO-GO 即中止）与 TUI/Web 冒烟。
-  代码级等价：`whcode-platform::child_pids` 非 Windows 路径以 `ps -eo pid=,ppid=` 实现
+  代码级等价：`whcode-platform::child_pids` 非 Windows 路径以 `ps -ax -o pid=,ppid=` 实现
   （原“延后”错误撤销），`tests/stability/test_process_cleanup.rs` 在类 Unix 以
   `sh → sleep ×2` 真两层树执行（不再跳过）。
   **验收口径不变**：唯一验收目标仍为 Windows 11 amd64；FreeBSD 结论标注平台证据身份，
