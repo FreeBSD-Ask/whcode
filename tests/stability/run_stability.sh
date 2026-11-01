@@ -51,7 +51,9 @@ echo "长跑参数：时长 ${TOTAL_SECONDS}s，采样间隔 ${INTERVAL_SECONDS}
 echo "判据：JSONL 逐样本落盘；event_missing 必须为 0；写者队列为空时深度为 0 且 writer_queue_empty=true，不以 null 冒充空队列。" | tee -a "$LOG_FILE"
 
 cd "$ROOT"
-cargo test --locked -p whcode-tests --test stability_run -- --ignored --nocapture 2>&1 | tee -a "$LOG_FILE" &
+# ADR-025 组合判据前置：release 构建（summary 须记录 build_profile=release）。
+# 若去掉 --release，本地深检产出 debug 序列，判据将因"前置不满足"判无权判定（无效）。
+cargo test --locked --release -p whcode-tests --test stability_run -- --ignored --nocapture 2>&1 | tee -a "$LOG_FILE" &
 CARGO_PID=$!
 cleanup() {
     taskkill //PID "$CARGO_PID" //T //F >/dev/null 2>&1 || kill "$CARGO_PID" 2>/dev/null || true
