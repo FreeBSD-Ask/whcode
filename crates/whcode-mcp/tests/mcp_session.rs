@@ -16,6 +16,7 @@ fn fixture_config(mode: &str) -> McpServerConfig {
     McpServerConfig {
         name: "test".to_string(),
         command: env!("CARGO_BIN_EXE_mcp-test-server").to_string(),
+        url: None,
         args: vec![mode.to_string()],
         env: Default::default(),
         timeout_ms: 30_000,

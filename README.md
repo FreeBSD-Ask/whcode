@@ -3,14 +3,14 @@
 Rust 原生、本地优先的 LLM 编码 Harness。数据落在一个 DuckDB 文件里，事件可追踪，
 规格驱动开发的门禁由程序执行。当前只以 Windows 11 amd64（`x86_64-pc-windows-msvc`）
 为验收目标；Windows ARM64（`aarch64-pc-windows-msvc`）提供构建交付包，结论只作平台证据
-（ADR-043）；BSD 的代码与文档保留，验收按 ADR-013 延后。
+（ADR-043）；BSD 代码与文档保留：FreeBSD 为完整平台证据车道（硬门禁，ADR-013 修订 2026-10-31——随 main 全量构建含 GUI/bin、全量测试、三门进程组零残留/store 2.0.0/SSH 回环、TUI/Web 冒烟，任一失败即红；系统依赖允许 FreeBSD ports/latest pkg）；NetBSD 随 CI 自动运行（仅平台证据、不阻断）；OpenBSD/DragonFly 为手工占位。验收仍按 ADR-013 以 Windows 11 amd64 为准，四 BSD 均不作验收结论，性能分位数未取得（perf 车道仅 Windows）。
 
 许可证 BSD-2-Clause（见 [LICENSE](./LICENSE)），版权归 FreeBSD 中文社区。
 Cargo 版本 `0.1.0`，尚未发布；变更见 [CHANGELOG.md](./CHANGELOG.md)。
 
 ## 当前状态
 
-M0—M6、M8 与四端对等收口已实现；M7 SSH 服务端已实现，四 BSD 现场验收延后；M9 的
+M0—M6、M8 与四端对等收口已实现；M7 SSH 服务端已实现；FreeBSD 经 CI 硬门禁车道做全量构建/测试/三门/TUI-Web 冒烟（平台证据，不作验收结论），NetBSD 随 CI 自动运行（仅证据），OpenBSD/DragonFly 延后；M9 的
 5.5 小时稳定性长跑尚无合格数据，真实 LLM 供应商的客户端装配未交付。逐项进度、未完成
 原因与证据位置见[项目状态快照](./docs/guides/project-status.md)，权威账本是
 [tasks.md](./specs/001-whcode-harness/tasks.md) 与

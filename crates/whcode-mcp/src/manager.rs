@@ -160,7 +160,7 @@ impl McpManager {
         server: &crate::config::McpServerConfig,
         timeout: Duration,
     ) -> Result<ConnectedServer, WhError> {
-        let mut session = McpSession::spawn(server)?;
+        let mut session = McpSession::connect(server)?;
         session.initialize(timeout, None)?;
         let set = session.list_tools(timeout, None)?;
         Ok(ConnectedServer {

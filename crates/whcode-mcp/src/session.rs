@@ -13,7 +13,7 @@
 //!
 //! 超时窗口覆盖**写与读全程**：看门狗在写请求行之前武装（大参数写入同样受保护）。
 
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -80,8 +80,14 @@ pub enum EofKind {
 /// 共享同一协议层。`abort_handle` 返回**侧信道**终止句柄（不借用 `self`，避免与
 /// 阻塞中的 `read_message` 互锁——看门狗在独立线程调用）。
 pub trait Transport: Send {
-    /// 写一帧（stdio：单行换行分帧；http：POST JSON 帧）。失败即传输失效。
-    fn write_message(&mut self, line: &str) -> Result<(), WhError>;
+    /// 写一帧（stdio：单行换行分帧；http：POST JSON 帧）。`timeout`/`cancel` 供
+    /// http 的请求超时与取消前置检查（stdio 由看门狗覆盖，忽略之）。失败即传输失效。
+    fn write_message(
+        &mut self,
+        line: &str,
+        timeout: Duration,
+        cancel: Option<CancelFlag>,
+    ) -> Result<(), WhError>;
 
     /// 读一帧；`Ok(None)` 表示对端关闭（EOF）。必须受 `cap` 上限约束（有界）。
     fn read_message(&mut self, cap: usize) -> Result<Option<String>, WhError>;
@@ -188,7 +194,12 @@ impl StdioTransport {
 }
 
 impl Transport for StdioTransport {
-    fn write_message(&mut self, line: &str) -> Result<(), WhError> {
+    fn write_message(
+        &mut self,
+        line: &str,
+        _timeout: Duration,
+        _cancel: Option<CancelFlag>,
+    ) -> Result<(), WhError> {
         let Some(stdin) = self.stdin.as_mut() else {
             return Err(WhError::new(
                 ErrorCode::IoError,
@@ -212,7 +223,8 @@ impl Transport for StdioTransport {
                 "stdout 不可读（会话已关闭）",
             ));
         };
-        read_line_bounded(reader, cap).map_err(|err| WhError::new(ErrorCode::IoError, err.to_string()))
+        read_line_bounded(reader, cap)
+            .map_err(|err| WhError::new(ErrorCode::IoError, err.to_string()))
     }
 
     fn abort_handle(&self) -> Arc<dyn Fn() + Send + Sync> {
@@ -269,6 +281,179 @@ impl Transport for StdioTransport {
     }
 }
 
+/// Streamable HTTP 请求-响应传输（ADR-055 §2.2、§2.5—2.6）。
+///
+/// 每请求一次 POST（JSON-RPC 帧为请求体）；响应体作为单条消息缓冲，供
+/// `read_message` 取出。`initialize` 响应头 `Mcp-Session-Id` 被捕获并回带于后续
+/// 请求；`shutdown` 尽力发 DELETE 结束会话（best-effort，失败忽略）。
+///
+/// 无进程树（`pid`=0）；无看门狗杀树——超时由 ureq 请求超时承担，取消在请求前
+/// 检查（阻塞中的 ureq 不可中断；见 ADR-055 §5 复审触发）。
+pub struct HttpTransport {
+    url: String,
+    session_id: Option<String>,
+    /// 上一次 POST 缓冲的响应体（`read_message` 取出；通知为 `None`）。
+    pending: Option<String>,
+    cancel: Arc<AtomicBool>,
+}
+
+/// DELETE 结束会话的超时（best-effort 清理不得悬挂——服务器无响应时快速放弃）。
+const HTTP_DELETE_TIMEOUT: Duration = Duration::from_secs(2);
+
+impl HttpTransport {
+    /// 构造（不做握手——握手由会话层显式执行）。
+    #[must_use]
+    pub fn spawn(url: &str) -> Self {
+        Self {
+            url: url.to_string(),
+            session_id: None,
+            pending: None,
+            cancel: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    /// POST 一帧；返回响应体（`None`=202 通知接受无响应体）。错误按状态码归因。
+    fn post(&mut self, line: &str, timeout: Duration) -> Result<Option<String>, WhError> {
+        // ureq 3.5 无 per-request 超时：每请求独立 agent（连接池随 agent drop 释放）。
+        // MCP HTTP 请求低频，重建代价可忽略；`timeout_global` 覆盖整个操作预算
+        // （连接 + 写 + 读响应），即 ADR-055 §2.5 的"ureq 请求超时承担超时"。
+        // `http_status_as_error(false)`：4xx/5xx 不短路——由下方按状态码归因
+        // （404 会话失效、401 鉴权、405 SSE，其余显式报状态）。
+        let agent = ureq::Agent::config_builder()
+            .timeout_global(Some(timeout))
+            .http_status_as_error(false)
+            .build()
+            .new_agent();
+        let mut request = agent
+            .post(&self.url)
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json, text/event-stream")
+            .header("MCP-Protocol-Version", PROTOCOL_VERSION);
+        if let Some(sid) = &self.session_id {
+            request = request.header("Mcp-Session-Id", sid);
+        }
+        let response = request.send(line).map_err(|err| {
+            let code = match &err {
+                ureq::Error::Timeout(_) => ErrorCode::Timeout,
+                ureq::Error::ConnectionFailed | ureq::Error::HostNotFound => ErrorCode::IoError,
+                _ => ErrorCode::RuntimeUnavailable,
+            };
+            WhError::new(code, format!("MCP HTTP 请求失败：{err}"))
+        })?;
+        let status = response.status().as_u16();
+        match status {
+            200 => {
+                if let Some(sid) = response
+                    .headers()
+                    .get("Mcp-Session-Id")
+                    .and_then(|v| v.to_str().ok())
+                {
+                    self.session_id = Some(sid.to_string());
+                }
+                let reader = response.into_body().into_reader();
+                let mut buf = Vec::with_capacity(4096.min(MAX_LINE_BYTES));
+                reader
+                    .take((MAX_LINE_BYTES as u64) + 1)
+                    .read_to_end(&mut buf)
+                    .map_err(|err| {
+                        WhError::new(ErrorCode::IoError, format!("MCP HTTP 读响应失败：{err}"))
+                    })?;
+                if buf.len() > MAX_LINE_BYTES {
+                    return Err(WhError::new(ErrorCode::ParseError, "MCP HTTP 响应体超上限"));
+                }
+                String::from_utf8(buf).map(Some).map_err(|err| {
+                    WhError::new(
+                        ErrorCode::ParseError,
+                        format!("MCP HTTP 响应非 UTF-8：{err}"),
+                    )
+                })
+            }
+            202 => Ok(None),
+            404 => Err(WhError::new(
+                ErrorCode::RuntimeUnavailable,
+                "MCP HTTP 会话已失效（需重建会话）",
+            )),
+            405 => Err(WhError::new(
+                ErrorCode::RuntimeUnavailable,
+                "MCP HTTP 服务器要求 SSE 流，本批次不支持（ADR-055 §5）",
+            )),
+            401 => Err(WhError::new(
+                ErrorCode::RuntimeUnavailable,
+                "MCP HTTP 需鉴权（OAuth 未实现，ADR-055 §2.6）",
+            )),
+            _ => Err(WhError::new(
+                ErrorCode::RuntimeUnavailable,
+                format!("MCP HTTP 状态 {status}"),
+            )),
+        }
+    }
+}
+
+impl Transport for HttpTransport {
+    fn write_message(
+        &mut self,
+        line: &str,
+        timeout: Duration,
+        cancel: Option<CancelFlag>,
+    ) -> Result<(), WhError> {
+        if cancel.is_some_and(|flag| flag.is_cancelled()) {
+            return Err(WhError::new(
+                ErrorCode::RuntimeUnavailable,
+                "MCP HTTP 请求被取消",
+            ));
+        }
+        self.pending = self.post(line, timeout)?;
+        Ok(())
+    }
+
+    fn read_message(&mut self, cap: usize) -> Result<Option<String>, WhError> {
+        let Some(body) = self.pending.take() else {
+            return Ok(None);
+        };
+        if body.len() > cap {
+            return Err(WhError::new(
+                ErrorCode::ParseError,
+                format!("MCP HTTP 消息超过 {cap} 字节上限"),
+            ));
+        }
+        Ok(Some(body))
+    }
+
+    fn abort_handle(&self) -> Arc<dyn Fn() + Send + Sync> {
+        let cancel = Arc::clone(&self.cancel);
+        Arc::new(move || {
+            cancel.store(true, Ordering::SeqCst);
+        })
+    }
+
+    fn eof_kind(&mut self, cancel: Option<CancelFlag>) -> EofKind {
+        if cancel.is_some_and(|flag| flag.is_cancelled()) {
+            EofKind::Cancelled
+        } else {
+            EofKind::Closed
+        }
+    }
+
+    fn shutdown(&mut self) {
+        // best-effort DELETE 结束会话（失败忽略）；独立 agent 带短超时，不悬挂。
+        if let Some(sid) = self.session_id.take() {
+            let agent = ureq::Agent::config_builder()
+                .timeout_global(Some(HTTP_DELETE_TIMEOUT))
+                .build()
+                .new_agent();
+            let _ = agent
+                .delete(&self.url)
+                .header("Mcp-Session-Id", &sid)
+                .call();
+        }
+        self.pending = None;
+    }
+
+    fn pid(&self) -> u32 {
+        0
+    }
+}
+
 /// MCP 服务器会话（per-turn 生命周期；`Drop` 负责全部回收路径）。
 ///
 /// 传输无关：持有 `Box<dyn Transport>`（stdio 或 http），协议层只调用
@@ -294,6 +479,27 @@ impl McpSession {
         Ok(Self {
             server_name: config.name.clone(),
             transport: Box::new(transport),
+            next_id: 0,
+            initialized: false,
+            broken: false,
+            notifications_seen: 0,
+        })
+    }
+
+    /// 按传输类型连接（ADR-055 §2.2—2.3）：`url` 存在 → HTTP 端点，否则 stdio
+    /// 子进程。握手仍由调用方显式执行。
+    ///
+    /// # Errors
+    ///
+    /// 子进程启动失败（stdio）时返回 [`ErrorCode::IoError`]。
+    pub fn connect(config: &McpServerConfig) -> Result<Self, WhError> {
+        let transport: Box<dyn Transport> = match config.url.as_deref() {
+            Some(url) => Box::new(HttpTransport::spawn(url)),
+            None => Box::new(StdioTransport::spawn(config)?),
+        };
+        Ok(Self {
+            server_name: config.name.clone(),
+            transport,
             next_id: 0,
             initialized: false,
             broken: false,
@@ -340,10 +546,10 @@ impl McpSession {
             "capabilities": {},
             "clientInfo": { "name": CLIENT_NAME, "version": env!("CARGO_PKG_VERSION") },
         });
-        let result = self.request("initialize", &params, timeout, cancel)?;
+        let result = self.request("initialize", &params, timeout, cancel.clone())?;
         let info = protocol::parse_initialize_result(&result).map_err(|err| self.poison(err))?;
         let notification = protocol::encode_notification("notifications/initialized", &json!({}));
-        self.write(&notification)?;
+        self.write(&notification, timeout, cancel)?;
         self.initialized = true;
         Ok(info)
     }
@@ -450,7 +656,11 @@ impl McpSession {
         let deadline = Instant::now() + timeout;
         let abort = self.transport.abort_handle();
         let _watchdog = Watchdog::arm(abort, deadline, cancel.clone());
-        self.write(&protocol::encode_request(id, method, params))?;
+        self.write(
+            &protocol::encode_request(id, method, params),
+            timeout,
+            cancel.clone(),
+        )?;
 
         self.await_response(id, timeout, cancel)
     }
@@ -519,7 +729,7 @@ impl McpSession {
                         METHOD_NOT_FOUND,
                         "whcode-mcp 未声明该方法能力",
                     );
-                    self.write(&rejection)?;
+                    self.write(&rejection, timeout, cancel.clone())?;
                     foreign += 1;
                 }
             }
@@ -557,10 +767,16 @@ impl McpSession {
         Ok(())
     }
 
-    /// 写一帧；失败即 poison（传输不可恢复）。
-    fn write(&mut self, line: &str) -> Result<(), WhError> {
+    /// 写一帧；失败即 poison（传输不可恢复）。`timeout`/`cancel` 传给传输
+    /// （http 请求超时与取消检查；stdio 忽略）。
+    fn write(
+        &mut self,
+        line: &str,
+        timeout: Duration,
+        cancel: Option<CancelFlag>,
+    ) -> Result<(), WhError> {
         self.transport
-            .write_message(line)
+            .write_message(line, timeout, cancel)
             .map_err(|err| self.poison(err))
     }
 

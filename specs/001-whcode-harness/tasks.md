@@ -693,6 +693,38 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   三门/冒烟在 CI 全绿且失败即红；判据=Check 336；非目标=验收口径改变（仍 Windows 11
   amd64）、性能分位数（perf 车道仍仅 Windows）、GUI 运行时证据（VM 无显示）——
   复核待 CI 取证后转勾
+- [ ] T241 [P] MCP 传输抽象与 Streamable HTTP 传输（ADR-055 §2.1—2.2）：trait
+  Transport 六原语（write_message/read_message/abort_handle/eof_kind/shutdown/pid）
+  解耦协议层与 I/O——stdio 子进程逻辑（spawn 环境净化/进程组/看门狗 terminate_tree/
+  stderr 丢弃）迁入 StdioTransport（行为保持，重构无回归）；HttpTransport 每请求一次
+  POST（JSON-RPC 帧为请求体、会话头往返、202/404/405/401 状态归因、DELETE 关闭、
+  ureq 请求超时承担超时、取消前置检查、响应体有界 ≤ 1 MiB）（FR-736/738；ADR-055）
+  ——**任务认知卡**：方向=MCP 传输可插拔（stdio/HTTP 同协议层）；目标=协议/投影/
+  权限层传输无关，stdio 行为保持，HTTP 请求-响应可运行；判据=Check 337；非目标=
+  SSE 流、OAuth、连接池（均见 ADR-055 §5 复审触发）。——**复核（2026-11-01，
+  P1-7 批次二）**：trait + StdioTransport 重构（提交 f82aab5，6/6 测试 + clippy 独立
+  复核“行为保持，无缺陷”）、HttpTransport + `McpSession::connect` 分派落地；本地
+  HTTP 集成 6/6 + stdio 集成 6/6 + `clippy -p whcode-mcp` 干净；workspace
+  build/test/fmt/layering/layout 全绿（workspace 级 clippy 被杀软拦截已登记，CI 为准）；
+  CI 验收（ADR-037）待推送流水线后转勾。
+- [ ] T242 [P] MCP HTTP 配置与权限面（ADR-055 §2.3、§2.8）：config `url` XOR
+  `command` 互斥 + scheme 校验（https 任意主机、http 仅限回环 127.0.0.1/localhost/::1，
+  远程明文拒绝）；`McpSession::connect` 按 url 分派（无 url 回落 stdio）；投影与调用
+  权限 fail-closed SessionCreate 复用（与 stdio 同一条管线，不因传输放宽）（FR-738；
+  ADR-055）——**任务认知卡**：方向=HTTP 服务器声明与准入；目标=url 字段互斥校验、
+  远程明文拒绝、权限不因传输放宽；判据=Check 338；非目标=OAuth scope 协商、连接池
+  预算、Authorization 头（均延后）。——**复核（2026-11-01，P1-7 批次二）**：config
+  url 字段 + XOR/scheme 单测（`url_field_xor_command_and_scheme` 覆盖互斥/缺一/
+  https/http 回环/http 远程拒绝/ftp 拒绝）、manager `connect_one` 走
+  `McpSession::connect`；CI 验收（ADR-037）待推送流水线后转勾。
+- [ ] T243 [P] MCP HTTP 测试集与文档同步（ADR-055 §6）：http-test-server fixture
+  （echo/hang/nosession/auth 四模式、每连接一线程）+ HTTP 集成测试 6 项（握手往返
+  /超时/预置取消/404/401/shutdown 失效）；module-design、AGENTS 架构图、ADR-055 转正、
+  计数声明（FR 116／任务 243／Check 339）、CHANGELOG（FR-738；ADR-055 §6）
+  ——**任务认知卡**：方向=HTTP 传输证据与收口；目标=fixture 覆盖正反路径、计数与
+  门禁一致；判据=Check 339；非目标=SSE 流式测试、OAuth 授权流测试。——**复核
+  （2026-11-01，P1-7 批次二）**：fixture + 6 项集成测试全绿（6/6）、layering/layout
+  门禁全绿（含零 unsafe 继承）；CI 验收（ADR-037）待推送流水线后转勾。
   （anthropic/gemini 等按能力登记）；FR-734 为真实供应商工具调用的前置（ADR-048
   追加；〔未实现〕显式标记）——**认知卡**：方向=真实供应商工具调用前置；目标=LlmRequest
   携带 manifest 并映射进 openai tools 数组；判据=请求体含 tools 字段且与注册表一致；

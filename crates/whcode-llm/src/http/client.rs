@@ -977,6 +977,17 @@ fn classify_io_error(err: &std::io::Error) -> TransportFailure {
     ) {
         return TransportFailure::Timeout;
     }
+    // 拒绝连接（对已关闭端口 connect 得 ECONNREFUSED，FreeBSD/其他 Unix 对回环
+    // 关闭端口即时报错而非超时）与未连接套接字属连接期失败，归一为 Connect——与
+    // classify_ureq_error 的 ureq::Error::ConnectionFailed 同语义；此前未识别而落入
+    // Io 兜底（run 41243062927 实测 failure 分类：io）。连接成功后的流中复位
+    // （ConnectionReset）仍归 Io，不作连接期处理。
+    if matches!(
+        err.kind(),
+        std::io::ErrorKind::ConnectionRefused | std::io::ErrorKind::NotConnected
+    ) {
+        return TransportFailure::Connect;
+    }
     let mut current: Option<&(dyn std::error::Error + 'static)> = err
         .get_ref()
         .map(|inner| inner as &(dyn std::error::Error + 'static));
@@ -997,13 +1008,19 @@ fn classify_io_error(err: &std::io::Error) -> TransportFailure {
                 _ => TransportFailure::Io,
             };
         }
-        if let Some(io) = source.downcast_ref::<std::io::Error>()
-            && matches!(
+        if let Some(io) = source.downcast_ref::<std::io::Error>() {
+            if matches!(
                 io.kind(),
                 std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
-            )
-        {
-            return TransportFailure::Timeout;
+            ) {
+                return TransportFailure::Timeout;
+            }
+            if matches!(
+                io.kind(),
+                std::io::ErrorKind::ConnectionRefused | std::io::ErrorKind::NotConnected
+            ) {
+                return TransportFailure::Connect;
+            }
         }
         current = source.source();
     }
@@ -1581,10 +1598,11 @@ mod tests {
         let err = client
             .execute(&request(), &CancelToken::default())
             .expect_err("不可达端点必须失败");
-        // 0 信任口径（Windows 11 amd64 实测，2026-10-25）：对已关闭的回环端口，
+        // 0 信任口径：Windows 11 amd64（2026-10-25 实测）对已关闭的回环端口，
         // `std::net::TcpStream::connect_timeout` 在整段预算用尽后报 `TimedOut`（没有
-        // RST／拒绝语义，`raw_os_error` 为 `None`），因此此处归一为 `timeout`；
-        // 平台确实报连接错误时才是 `io_error`。两者都可重试，由调用方决定。
+        // RST／拒绝语义，`raw_os_error` 为 `None`），归一为 `timeout`；FreeBSD 等
+        // Unix（2026-11-01 run 41243062927 实测）对已关闭端口 connect 立即得
+        // `ECONNREFUSED`，归一为 `connect`。两者都可重试，由调用方决定。
         assert!(
             matches!(err.code, ErrorCode::Timeout | ErrorCode::IoError),
             "{err}"

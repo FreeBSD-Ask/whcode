@@ -13,6 +13,8 @@ whcode-platform = { path = "../whcode-platform" }
 whcode-runtime = { path = "../whcode-runtime" }
 serde.workspace = true
 serde_json.workspace = true
+# Streamable HTTP 传输（ADR-055 §2.10）：与 whcode-llm 同版本同口径（rustls，无默认特性）。
+ureq = { version = "3.5.0", default-features = false, features = ["rustls"] }
 
 [lints]
 workspace = true

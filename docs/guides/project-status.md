@@ -29,8 +29,7 @@
 
 ## 未完成项与原因
 
-- **BSD 现场验收**：T099，以及 Check 20/21/22/25/96/99/109/201 的 BSD 侧。ADR-013 将四 BSD
-  全部延后；CI 的 FreeBSD/NetBSD 任务只产出平台证据，不进入验收结论。2026-10-26 的
+- **BSD 现场验收**：T099，以及 Check 20/21/22/25/96/99/109/201 的 BSD 侧。ADR-013 修订（2026-10-31，用户指令）将 FreeBSD 设为完整平台证据车道（硬门禁：随 main 全量构建含 GUI/bin、全量测试、三门进程组零残留/store 2.0.0/SSH 回环、TUI/Web 冒烟，任一失败即红；系统依赖允许 FreeBSD ports/latest pkg）；NetBSD 随 CI 自动运行（仅平台证据、不阻断）；OpenBSD/DragonFly 为手工占位。四者均不作验收结论（验收仍为 Windows 11 amd64），性能分位数未取得（perf 车道仅 Windows）。2026-10-26 的
   FreeBSD run `40267545791` 已给出 `ssh_loopback_gate = GO`（客户端＋服务端回环）；
   DuckDB 2.0 源码构建在 `cmake --install` 阶段失败（静态库体积/安装规则），已改为只构建
   `libduckdb.so` 并手工复制共享库与头文件，NetBSD 的 rustup PATH 回退也已修复，待下一轮
@@ -78,7 +77,7 @@
 
 | 工作流 | 触发 | 职责 |
 |---|---|---|
-| `ci.yml` | push main、PR、手动 | 门禁与测试、五平台矩阵（Windows 必过；BSD 只作平台证据）、短测量、Windows SSH 回环／TLS 专项／Playwright tablist 验收；性能与桌面型测试由 `workflow_dispatch` 输入触发 |
+| `ci.yml` | push main、PR、手动 | 门禁与测试、平台矩阵（Windows 必过＝唯一验收；FreeBSD 硬门禁证据车道；NetBSD 自动证据；OpenBSD/DragonFly 手工占位）、短测量、Windows SSH 回环／TLS 专项／Playwright tablist 验收；性能与桌面型测试由 `workflow_dispatch` 输入触发 |
 | `build-release.yml` | push、tag `v*`、手动 | debug 与 release 矩阵构建、打包安装验证、冒烟、SHA256；tag 时更新 GitHub Release |
 | `long-run.yml` | 手动，或 push 改动 `artifacts/long-run-request-*.md` | 5.5 小时稳定性长跑（ADR-033，release 剖面、300 s 采样），一次约消耗 5.5 小时 Windows runner 配额；摘要以公开注解公布 |
 

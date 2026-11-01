@@ -285,6 +285,13 @@ taskkill /T /F 口径）（P1）
 （SessionCreate）判定；参数只验 JSON 对象形态（inputSchema 契约由服务器侧执行）；
 连接失败以 system 消息显式告示（不静默）；结果取 content[].text 拼接，isError 按
 失败回填（P1）
+- **FR-738**: MCP Streamable HTTP 传输（whcode-mcp，ADR-055）：`url` 端点（与
+  `command` 互斥、显式配置）驱动请求-响应传输——每请求一次 POST（JSON-RPC 帧为
+  请求体），`initialize` 响应头 `Mcp-Session-Id` 捕获并回带于后续请求，
+  `notifications/initialized` 202、`shutdown` 尽力 DELETE 结束会话（best-effort）；
+  超时由 ureq 请求超时承担（默认 30s、上限 600s），取消在请求前置检查（阻塞中的
+  请求不可中断，见 ADR-055 §5 复审触发）；远程仅 https、http 仅限回环
+  （127.0.0.1/localhost/::1），远程明文拒绝；本轮不含 OAuth 与 SSE（P1）
 
 **Spec Kit / SDD 工作流（§4.3）**
 
