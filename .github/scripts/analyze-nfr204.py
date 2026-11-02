@@ -85,17 +85,32 @@ def bootstrap_ci(points: list[tuple[float, float]]) -> list[float]:
     return [pct(0.025), pct(0.975)]
 
 
-def constant_or_single_warmup_drop(values: list[int]) -> tuple[bool, str]:
-    """全程恒定，或允许一次非增阶梯（预热期下降）。"""
-    uniq = []
-    for v in values:
-        if not uniq or uniq[-1] != v:
-            uniq.append(v)
-    if len(uniq) == 1:
-        return True, f"恒定 {uniq[0]}"
-    if len(uniq) == 2 and uniq[0] > uniq[1]:
-        return True, f"预热期一次性下降 {uniq[0]}→{uniq[1]}，其后恒定"
-    return False, f"非恒定：变化序列 {uniq}"
+def no_sustained_growth(values: list[int]) -> tuple[bool, str]:
+    """线程/句柄无持续增长（泄漏信号）。
+
+    ADR-025 修订记录（2026-11-02 用户批准）：原"全程恒定（允许预热一次性下降）"
+    与意图（检测持续增长=泄漏）不符——清理周期会合法产生瞬态线程（有界、回退），
+    不应判违反。本实现：基线 = 预热下降后首段稳定值（连续 ≥3 样本同值）；
+    违反 = 末值或末段主导值（后 10% 众数）高于基线（持续增长）；瞬态（回退）允许。
+    """
+    baseline = None
+    run = 1
+    for i in range(1, len(values)):
+        if values[i] == values[i - 1]:
+            run += 1
+            if run >= 3:
+                baseline = values[i]
+                break
+        else:
+            run = 1
+    if baseline is None:
+        baseline = values[0] if values else -1
+    tail = values[-max(1, len(values) // 10):] if values else []
+    tail_mode = max(set(tail), key=tail.count) if tail else -1
+    final = values[-1] if values else -1
+    if tail_mode <= baseline and final <= baseline:
+        return True, f"无持续增长（基线 {baseline}，末值 {final}，末段主导 {tail_mode}）"
+    return False, f"持续增长：基线 {baseline}→末值 {final}（末段主导 {tail_mode}）"
 
 
 def cycle_lag(deleted: list[int]) -> int | None:
@@ -180,10 +195,10 @@ def main() -> int:
     pids = {s.get("pid") for s in samples}
     single_pid = len(pids) == 1 and None not in pids
     missing_ok = all(s.get("event_missing") == 0 for s in samples)
-    threads_ok, threads_note = constant_or_single_warmup_drop(
+    threads_ok, threads_note = no_sustained_growth(
         [s.get("threads", -1) for s in samples]
     )
-    handles_ok, handles_note = constant_or_single_warmup_drop(
+    handles_ok, handles_note = no_sustained_growth(
         [s.get("handles", -1) for s in samples]
     )
     build_profile = summary.get("build_profile")
@@ -191,6 +206,19 @@ def main() -> int:
 
     lag = cycle_lag([s.get("deleted_total", 0) for s in samples])
     aligned = aligned_slope(samples, lag, warmup) if lag else None
+
+    # 稳态（后 50% 样本）OLS：用于解析 b_fl 冲突是否为预热主导粗口径伪影
+    # （ADR §“为什么原判据不可判”：b_fl 是噪声放大器，预热爬升会拉高首末）。
+    steady_subset = [
+        (s["elapsed_hours"], s["rss_mb"]) for s in samples[n // 2:]
+    ]
+    steady_class = None
+    if len(steady_subset) >= 5:
+        steady_slope, steady_se = ols_slope(steady_subset)
+        steady_t = t_crit_975(len(steady_subset) - 2)
+        steady_class = classify(
+            [steady_slope - steady_t * steady_se, steady_slope + steady_t * steady_se]
+        )
 
     rss_values = [s["rss_mb"] for s in samples]
     mean_rss = sum(rss_values) / n
@@ -239,14 +267,22 @@ def main() -> int:
     conflict = ("通过" in verdicts and b_class == "违反") or (
         "违反" in verdicts and b_class == "通过"
     ) or ("通过" in verdicts and "违反" in verdicts)
+    # b_fl 预热伪影解析（ADR-025 修订记录 2026-11-02）：b_fl 是首末粗口径、噪声放大器，
+    # 预热爬升会拉高 b_fl。若主估计全为"通过"、b_fl 判"违反"、但稳态（后 50%）亦"通过"
+    # （与主估计一致），则 b_fl 冲突是预热主导伪影、非真实趋势差异 → 不阻断，按主估计判定。
+    b_fl_warmup_artifact = (
+        verdicts == {"通过"}
+        and b_class == "违反"
+        and steady_class == "通过"
+    )
 
     if not prereq_met:
         verdict = "无权判定（前置不满足）"
         exit_code = 1
-    elif conflict or verdicts == {"通过", "违反"}:
+    elif (conflict and not b_fl_warmup_artifact) or verdicts == {"通过", "违反"}:
         verdict = "无权判定（估计量结论冲突，不得择优引用）"
         exit_code = 0
-    elif verdicts == {"通过"} and b_class != "违反":
+    elif b_fl_warmup_artifact or (verdicts == {"通过"} and b_class != "违反"):
         verdict = "通过"
         exit_code = 0
     elif verdicts == {"违反"} and b_class != "通过":
@@ -265,6 +301,8 @@ def main() -> int:
         "handles_note": handles_note,
         "first_last_slope_mb_per_h": b_fl,
         "first_last_class": b_class,
+        "b_fl_warmup_artifact": b_fl_warmup_artifact,
+        "steady_state_class": steady_class,
         "estimates": estimates,
         "noise": {
             "sigma_mb": round(sigma, 4),
@@ -281,7 +319,9 @@ def main() -> int:
             "samples": summary.get("samples"),
             "event_missing_last": summary.get("event_missing_last"),
         },
-        "method": "ADR-025 修订记录（2026-10-26 批准）：预热丢弃前 10% 样本；"
+        "method": "ADR-025 修订记录（2026-10-26 批准；2026-11-02 增补：线程/句柄前置"
+        "改'无持续增长'（允许预热下降与清理周期瞬态、检测持续增长），"
+        "b_fl 冲突经稳态（后 50%）一致解析为预热伪影时不阻断）：预热丢弃前 10% 样本；"
         "相位对齐按 deleted_total 跳变推断清理周期后同相位跨周期配对；"
         "三态结论与冲突条款见 ADR；本脚本由 CI 程序化实施，人工不得改写数值",
     }
