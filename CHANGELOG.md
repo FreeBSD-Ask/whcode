@@ -13,6 +13,15 @@
 
 ### 变更
 
+- **FreeBSD 车道技术债偿还：验收证据落库与四项 Check 回填**（2026-11-03，run
+  `41481740766` 硬门禁口径下首次全绿）：ci.yml platform-freebsd 全量构建（含 GUI/bin）＋
+  全量测试＋三门（进程组零残留／store 引擎 2.0.0／SSH 回环）＋TUI/Web 冒烟全 GO。
+  六平台 SSH 回环验收记录（FreeBSD/NetBSD 双向四项 GO、Windows amd64/ARM64 真实
+  TCP 回环协议验收、OpenBSD/DragonFly rust<MSRV 阻塞记录）落库
+  `artifacts/ssh-acceptance/`（含 README 索引）；store 门/进程组门/FreeBSD 冒烟落库
+  `artifacts/store-acceptance/`。回填：Check 25/96/99/195/336 转勾、T099/T240 转勾
+  （Check 22 更新注记保持未勾——NetBSD 新阻塞＝上游 DuckDB 2.0.0 依赖 glibc
+  `features.h`，非本仓可修）；unobserved 5→1。前置修复见 v301 平台盲区（ccc2cff）。
 - **NFR-204 稳定性判据收口：本机 24h 深检通过，T116/Check 116 转勾**（2026-11-02，
   ADR-025/033）：24h 深检（287 样本、单 PID、release、`event_missing` 全程 0）经
   `analyze-nfr204.py` 程序化判定 verdict=**通过**——`warmup_ols` −0.3551

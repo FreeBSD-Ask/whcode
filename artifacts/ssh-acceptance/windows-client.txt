@@ -1,0 +1,129 @@
+   Compiling syn v3.0.9
+   Compiling bitflags v2.13.2
+   Compiling once_cell v1.21.4
+   Compiling half v2.7.1
+   Compiling arrow-schema v60.0.0
+   Compiling ahash v0.8.12
+   Compiling arrow-buffer v60.0.0
+   Compiling hashbrown v0.17.1
+   Compiling windows-sys v0.61.2
+   Compiling arrow-data v60.0.0
+   Compiling time v0.3.55
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling arrow-array v60.0.0
+   Compiling thiserror v2.0.21
+   Compiling futures-macro v0.3.34
+   Compiling displaydoc v0.2.7
+   Compiling futures-util v0.3.34
+   Compiling arrow-cmp v60.0.0
+   Compiling serde v1.0.229
+   Compiling whcode-domain v0.1.0 (D:\a\whcode\whcode\crates\whcode-domain)
+   Compiling arrow-select v60.0.0
+   Compiling libduckdb-sys v1.20000.0
+   Compiling arrow-row v60.0.0
+   Compiling arrow-arith v60.0.0
+   Compiling arrow-ord v60.0.0
+   Compiling arrow-string v60.0.0
+   Compiling arrow-cast v60.0.0
+   Compiling asn1-rs v0.7.2
+   Compiling socket2 v0.6.5
+   Compiling mio v1.2.4
+   Compiling crossterm v0.29.0
+   Compiling tokio-macros v2.7.2
+   Compiling tokio v1.54.1
+   Compiling rustls v0.23.46
+   Compiling whcode-platform v0.1.0 (D:\a\whcode\whcode\crates\whcode-platform)
+   Compiling arrow v60.0.0
+   Compiling futures-executor v0.3.34
+   Compiling duckdb v1.20000.0
+   Compiling ureq v3.5.0
+   Compiling der-parser v10.0.0
+   Compiling futures v0.3.34
+   Compiling whcode-runtime v0.1.0 (D:\a\whcode\whcode\crates\whcode-runtime)
+   Compiling oid-registry v0.8.1
+   Compiling schannel v0.1.30
+   Compiling yasna v0.6.0
+   Compiling x509-parser v0.18.1
+   Compiling pageant v0.2.4
+   Compiling rcgen v0.14.10
+   Compiling rustls-native-certs v0.8.5
+   Compiling whcode-mcp v0.1.0 (D:\a\whcode\whcode\crates\whcode-mcp)
+   Compiling whcode-store v0.1.0 (D:\a\whcode\whcode\crates\whcode-store)
+   Compiling russh-util v0.52.0
+   Compiling russh-cryptovec v0.62.0
+   Compiling whcode-tools v0.1.0 (D:\a\whcode\whcode\crates\whcode-tools)
+   Compiling whcode-llm v0.1.0 (D:\a\whcode\whcode\crates\whcode-llm)
+   Compiling whcode-speckit v0.1.0 (D:\a\whcode\whcode\crates\whcode-speckit)
+   Compiling russh v0.65.0
+   Compiling whcode-app v0.1.0 (D:\a\whcode\whcode\crates\whcode-app)
+   Compiling whcode-ssh v0.1.0 (D:\a\whcode\whcode\crates\whcode-ssh)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 14s
+     Running unittests src\lib.rs (target\debug\deps\whcode_ssh-4555c98f2b6fa402.exe)
+
+running 47 tests
+test adapter::tests::audit_log_is_bounded_and_counts_overflow ... ok
+test adapter::tests::executor_drop_joins_thread_and_releases_connection ... ok
+test adapter::tests::app_errors_map_to_nonzero_exit_and_stderr ... ok
+test adapter::tests::output_bound_truncates_to_limit_and_flags ... ok
+test adapter::tests::empty_workspace_reports_correct_emptiness_not_silent_empty ... ok
+test hostkey::tests::authorized_keys_missing_is_an_error_and_empty_file_yields_no_keys ... ok
+test hostkey::tests::authorized_keys_parses_ed25519_and_rejects_other_or_broken_lines ... ok
+test hostkey::tests::host_key_is_created_once_and_reloads_with_same_fingerprint ... ok
+test hostkey::tests::host_key_rejects_non_ed25519_key_file ... ok
+test policy::tests::command_summary_is_stable_and_capability_mapping_matches_app ... ok
+test policy::tests::default_policy_denies_shell_always ... ok
+test policy::tests::outside_whitelist_and_bad_usage_are_denied_structured ... ok
+test policy::tests::shell_requires_switch_and_explicit_grant ... ok
+test policy::tests::whitelist_commands_map_to_capability_checked_decisions ... ok
+test adapter::tests::executor_round_trip_runs_whcode_command_via_app_service ... ok
+test adapter::tests::three_concurrent_sessions_write_through_single_executor ... ok
+test proto::tests::client_command_policy_allows_whcode_and_denies_shell_by_default ... ok
+WHCode SSH：首次连接 127.0.0.1:60601，主机密钥指纹 SHA256:5kkQ7ca35zEr1ZQdOoP/hvsILAlZzt9M9BftZQLOSeg（已记录到 C:\Users\RUNNER~1\AppData\Local\Temp\whcode-ssh-proto-trust-1416-1.known_hosts，请人工核对；之后指纹变化将被拒绝）
+WHCode SSH：首次连接 127.0.0.1:60603，主机密钥指纹 SHA256:wZVeQPw8yqGVbgWQhpNjZA8PbQEgBxrzxSLOXNDtmWM（已记录到 C:\Users\RUNNER~1\AppData\Local\Temp\whcode-ssh-proto-trust-1416.known_hosts，请人工核对；之后指纹变化将被拒绝）
+WHCode SSH：首次连接 127.0.0.1:60606，主机密钥指纹 SHA256:x8ymC9mnGjpkz0MfH+I/ryAknfZ3vR2n6RHrDzAxBsU（已记录到 C:\Users\RUNNER~1\AppData\Local\Temp\whcode-ssh-proto-trust-1416-4.known_hosts，请人工核对；之后指纹变化将被拒绝）
+test adapter::tests::bounded_queue_rejects_with_backpressure_when_full ... ok
+WHCode SSH：首次连接 127.0.0.1:60608，主机密钥指纹 SHA256:0gU/SKDa1jxAXtUw/iAqrpR22v3en+tR2uHQXMNQekw（已记录到 C:\Users\RUNNER~1\AppData\Local\Temp\whcode-ssh-proto-trust-1416.known_hosts，请人工核对；之后指纹变化将被拒绝）
+test proto::tests::end_to_end_exec_reports_completed_with_output ... ok
+WHCode SSH：首次连接 127.0.0.1:60610，主机密钥指纹 SHA256:55uAk7/t4+u1C/E3tng/p82+Pes/BEORhA7mGWi2wE8（已记录到 C:\Users\RUNNER~1\AppData\Local\Temp\whcode-ssh-proto-trust-1416.known_hosts，请人工核对；之后指纹变化将被拒绝）
+test proto::tests::end_to_end_large_output_is_truncated_to_tail ... ok
+WHCode SSH：首次连接 127.0.0.1:60612，主机密钥指纹 SHA256:i02NJkNpo6RDNv7w09uM+IdST7CHN4L8dUf71Q5P4Bs（已记录到 C:\Users\RUNNER~1\AppData\Local\Temp\whcode-ssh-proto-trust-1416.known_hosts，请人工核对；之后指纹变化将被拒绝）
+test proto::tests::end_to_end_nonzero_exit_is_failed ... ok
+test proto::tests::exit_status_maps_to_completed_or_failed ... ok
+test proto::tests::intent_records_explicit_shell_grant ... ok
+WHCode SSH：首次连接 127.0.0.1:60614，主机密钥指纹 SHA256:hmbrfMeOLsZ4aATMXYERmyScbIbQ+/bImuFytCbgd5w（已记录到 C:\Users\RUNNER~1\AppData\Local\Temp\whcode-ssh-proto-trust-1416-6.known_hosts，请人工核对；之后指纹变化将被拒绝）
+test proto::tests::command_without_exit_status_is_unknown_not_completed_or_failed ... ok
+WHCode SSH：主机密钥与信任记录不匹配（信任文件第 1 行期望 SHA256:6EIbQZ4B+pavQMyJ5Pu9NKGrggayos1NKNAJTDGYIqw，实际 SHA256:hmbrfMeOLsZ4aATMXYERmyScbIbQ+/bImuFytCbgd5w）：拒绝连接（中间人风险；如确为服务端换钥，请人工更新 C:\Users\RUNNER~1\AppData\Local\Temp\whcode-ssh-proto-trust-1416-6.known_hosts）
+test proto::tests::known_hosts_tofu_first_seen_then_trusted_then_mismatch ... ok
+test proto::tests::shell_denied_by_default_leaves_registry_untouched ... ok
+test proto::tests::tail_buffer_keeps_tail_and_flags_truncation ... ok
+test proto::tests::validation_rejects_invalid_targets_without_any_registry_call ... ok
+test server::tests::authorized_keys_with_comments_match_commentless_client_keys ... ok
+test server::tests::bsd_server_acceptance_loopback ... ok
+test server::tests::disconnect_reclaims_session_resources ... ok
+test server::tests::host_key_tofu_first_seen_trusted_then_mismatch_rejected ... ok
+test server::tests::non_ed25519_public_key_is_rejected_by_algorithm ... ok
+test server::tests::outside_whitelist_command_is_denied_structured ... ok
+test server::tests::pty_and_window_change_are_recorded_and_passed_to_execution ... ok
+test server::tests::publickey_auth_success_and_whitelist_exec_round_trip ... ok
+test server::tests::session_context_bounds_channels_and_tracks_sizes ... ok
+test server::tests::shell_is_denied_by_default_and_structured_when_granted ... ok
+test server::tests::three_concurrent_ssh_sessions_write_through_single_connection ... ok
+test server::tests::unauthorized_public_key_is_rejected_and_audited ... ok
+test trust::tests::comments_and_blank_lines_are_ignored ... ok
+test trust::tests::different_host_and_port_are_independent_entries ... ok
+test trust::tests::three_branches_first_seen_trusted_and_mismatch ... ok
+test trust::tests::unreadable_trust_file_fails_closed_instead_of_first_seen ... ok
+test proto::tests::connection_failure_is_failed_and_records_intent_before_result ... ok
+test proto::tests::registry_failures_are_propagated ... ok
+WHCode SSH：首次连接 127.0.0.1:60647，主机密钥指纹 SHA256:I2qe1pCfyG3IrNrm/cyOEtNFKuQ5bQKsxufcXvCMsMs（已记录到 C:\Users\RUNNER~1\AppData\Local\Temp\whcode-ssh-proto-trust-1416-10.known_hosts，请人工核对；之后指纹变化将被拒绝）
+test proto::tests::bsd_client_acceptance_loopback ... ok
+
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.28s
+
+   Doc-tests whcode_ssh
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

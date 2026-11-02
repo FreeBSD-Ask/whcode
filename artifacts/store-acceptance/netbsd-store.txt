@@ -1,0 +1,158 @@
+# WHCode DuckDB 2.0.0 源码构建与 store 冒烟：NetBSD 平台证据（Check 22）
+format_version = 1
+generated_at_utc = 2026-11-02T16:47:06Z
+script = .github/scripts/platform-matrix/bsd-duckdb.sh
+source = Check 22、ADR-034（冻结引擎 2.0.0）、ADR-DB-BUILD、R-01
+scope = NetBSD 为 best-effort 平台证据；按 ADR-013 延后，不进入验收结论
+
+[platform]
+os_name = NetBSD
+os_release = 11.0
+machine = amd64
+detailed = NetBSD netbsd 11.0 NetBSD 11.0 (GENERIC) #0: Thu Jul 30 15:23:12 UTC 2026  mkrepro@mkrepro.NetBSD.org:/usr/src/sys/arch/amd64/compile/GENERIC amd64
+ncpu = 4
+physmem_bytes = -1
+
+[toolchain]
+pinned_channel = 1.99.1
+rustc = rustc 1.99.1 (58cf8f9c3 2026-10-13) binary: rustc commit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67 commit-date: 2026-10-13 host: x86_64-unknown-netbsd release: 1.99.1 LLVM version: 23.1.1 
+cargo = cargo 1.99.1 (5f94df478 2026-08-27)
+cc = cc (nb3 20260326) 12.5.0
+cxx = c++ (nb3 20260326) 12.5.0
+cmake = cmake version 4.4.3
+ninja = Please do not use your administrator account for IRC.
+ninja_sane = no（--version 未输出版本号）
+python3 = <未取得证据：python3 不可用>
+
+[duckdb_source]
+version = 2.0.0
+tag = v2.0.0
+release_commit = d54cbbe3df17e8e5ce68312f483b4155836112aa
+override_git_describe = v2.0.0
+archive_url = https://github.com/duckdb/duckdb/archive/v2.0.0.tar.gz
+archive_path = /tmp/duckdb-2.0.0.tar.gz
+archive_size_bytes = 106477075
+archive_size_research_reference_2026_10_25 = 106477075
+archive_sha256_local = SHA256
+archive_sha256_expected = <未提供：上游未发布该归档摘要，仅记录本地计算值>
+archive_digest_upstream = <未提供：GitHub 自动源码归档无官方 SHA-256 与摘要清单>
+tag_commit_verification = <未取得：git 不可用>
+
+[duckdb_build]
+status = 编译失败
+prefix = /usr/local/whcode-duckdb-2.0.0
+jobs = 2
+generator = Unix Makefiles
+make_program = /usr/pkg/bin/gmake
+cmake_options = -G Unix Makefiles -DCMAKE_BUILD_TYPE=Release -DBUILD_UNITTESTS=OFF -DBUILD_SHELL=OFF -DENABLE_UNITTEST_CPP_TESTS=OFF -DSKIP_EXTENSIONS=jemalloc -DOVERRIDE_GIT_DESCRIBE=v2.0.0 -DDUCKDB_MAJOR_VERSION=2 -DDUCKDB_MINOR_VERSION=0 -DDUCKDB_PATCH_VERSION=0
+build_seconds = 384
+install_seconds = 未取得
+
+[duckdb_environment]
+duckdb_lib_dir = /usr/pkg/lib
+duckdb_include_dir = /usr/pkg/include
+ld_library_path = /usr/pkg/lib
+whcode_duckdb_version = <未设置>
+env_file = artifacts/store-acceptance/netbsd-duckdb.env
+
+[engine_probe]
+engine_version = <未取得>
+engine_version_matches_frozen_major = <未取得>
+probe_exit_code = 未执行
+
+[command]
+cargo_test = cargo test --locked -p whcode-store
+cargo_exit_code = 未执行
+test_seconds = 未取得
+test_result_lines =
+<未取得证据：无 test result 行>
+acceptance_test = smoke_reports_engine_version_from_runtime
+
+[verdict]
+store_gate = NO-GO（DuckDB 编译失败：In file included from /tmp/duckdb-2.0.0-build/src/function/table/version/ub_duckdb_func_table_version.cpp:2: In file included from /tmp/duckdb-2.0.0-build/src/function/table/version/../../../../../duckdb-2.0.0-src/src/function/table/version/pragma_version.cpp:4: /tmp/duckdb-2.0.0-src/src/include/duckdb/common/platform.hpp:22:10: fatal error: 'features.h' file not found    22 | #include <features.h>       |          ^~~~~~~~~~~~ 1 error generated. gmake[3]: *** [src/function/table/version/CMakeFiles/duckdb_func_table_version.dir/build.make:79: src/function/table/version/CMakeFiles/duckdb_func_table_version.dir/ub_duckdb_func_table_version.cpp.o] Error 1 gmake[2]: *** [CMakeFiles/Makefile2:8030: src/function/table/version/CMakeFiles/duckdb_func_table_version.dir/all] Error 2 gmake[2]: *** Waiting for unfinished jobs.... [ 47%] Built target duckdb_func_window gmake[1]: *** [CMakeFiles/Makefile2:6213: src/CMakeFiles/duckdb.dir/rule] Error 2 gmake: *** [Makefile:689: duckdb] Error 2 （见 build_output_tail））
+build_gate = NO-GO（DuckDB 编译失败：In file included from /tmp/duckdb-2.0.0-build/src/function/table/version/ub_duckdb_func_table_version.cpp:2: In file included from /tmp/duckdb-2.0.0-build/src/function/table/version/../../../../../duckdb-2.0.0-src/src/function/table/version/pragma_version.cpp:4: /tmp/duckdb-2.0.0-src/src/include/duckdb/common/platform.hpp:22:10: fatal error: 'features.h' file not found    22 | #include <features.h>       |          ^~~~~~~~~~~~ 1 error generated. gmake[3]: *** [src/function/table/version/CMakeFiles/duckdb_func_table_version.dir/build.make:79: src/function/table/version/CMakeFiles/duckdb_func_table_version.dir/ub_duckdb_func_table_version.cpp.o] Error 1 gmake[2]: *** [CMakeFiles/Makefile2:8030: src/function/table/version/CMakeFiles/duckdb_func_table_version.dir/all] Error 2 gmake[2]: *** Waiting for unfinished jobs.... [ 47%] Built target duckdb_func_window gmake[1]: *** [CMakeFiles/Makefile2:6213: src/CMakeFiles/duckdb.dir/rule] Error 2 gmake: *** [Makefile:689: duckdb] Error 2 （见 build_output_tail））
+
+[build_output_tail]
+[ 38%] Building CXX object src/common/vector_operations/CMakeFiles/duckdb_vector_operations.dir/vector_copy.cpp.o
+[ 39%] Building CXX object src/common/value_operations/CMakeFiles/duckdb_value_operations.dir/ub_duckdb_value_operations.cpp.o
+[ 39%] Built target duckdb_value_operations
+[ 40%] Building CXX object src/common/vector/CMakeFiles/duckdb_common_vector_types.dir/ub_duckdb_common_vector_types.cpp.o
+[ 40%] Building CXX object src/common/vector_operations/CMakeFiles/duckdb_vector_operations.dir/generators.cpp.o
+[ 40%] Building CXX object src/common/vector_operations/CMakeFiles/duckdb_vector_operations.dir/vector_hash.cpp.o
+[ 40%] Built target duckdb_common_vector_types
+[ 40%] Building CXX object src/common/util/CMakeFiles/duckdb_common_util.dir/ub_duckdb_common_util.cpp.o
+[ 41%] Building CXX object src/common/vector_operations/CMakeFiles/duckdb_vector_operations.dir/vector_storage.cpp.o
+[ 41%] Built target duckdb_common_util
+[ 41%] Building CXX object src/common/types/variant/CMakeFiles/duckdb_common_variant.dir/ub_duckdb_common_variant.cpp.o
+[ 41%] Building CXX object src/common/vector_operations/CMakeFiles/duckdb_vector_operations.dir/null_operations.cpp.o
+[ 41%] Building CXX object src/common/vector_operations/CMakeFiles/duckdb_vector_operations.dir/numeric_inplace_operators.cpp.o
+[ 41%] Building CXX object src/common/vector_operations/CMakeFiles/duckdb_vector_operations.dir/is_distinct_from.cpp.o
+[ 41%] Built target duckdb_vector_operations
+[ 41%] Building CXX object src/common/types/row/CMakeFiles/duckdb_common_types_row.dir/ub_duckdb_common_types_row.cpp.o
+[ 41%] Built target duckdb_common_variant
+[ 41%] Building CXX object src/common/types/column/CMakeFiles/duckdb_common_types_column.dir/ub_duckdb_common_types_column.cpp.o
+[ 41%] Built target duckdb_common_types_column
+[ 42%] Building CXX object src/common/types/CMakeFiles/duckdb_common_types.dir/ub_duckdb_common_types.cpp.o
+[ 42%] Built target duckdb_common_types_row
+[ 43%] Building CXX object src/common/sort/CMakeFiles/duckdb_sort.dir/ub_duckdb_sort.cpp.o
+[ 43%] Built target duckdb_sort
+[ 44%] Building CXX object src/common/row_operations/CMakeFiles/duckdb_row_operations.dir/ub_duckdb_row_operations.cpp.o
+[ 44%] Built target duckdb_common_types
+[ 44%] Building CXX object src/common/serializer/CMakeFiles/duckdb_common_serializer.dir/ub_duckdb_common_serializer.cpp.o
+[ 44%] Built target duckdb_common_serializer
+[ 44%] Building CXX object src/common/tree_renderer/CMakeFiles/duckdb_common_tree_renderer.dir/ub_duckdb_common_tree_renderer.cpp.o
+[ 44%] Built target duckdb_row_operations
+[ 44%] Building CXX object src/common/progress_bar/CMakeFiles/duckdb_progress_bar.dir/ub_duckdb_progress_bar.cpp.o
+[ 44%] Built target duckdb_progress_bar
+[ 44%] Building CXX object src/common/operator/CMakeFiles/duckdb_common_operators.dir/ub_duckdb_common_operators.cpp.o
+[ 44%] Built target duckdb_common_tree_renderer
+[ 45%] Building CXX object src/common/multi_file/CMakeFiles/duckdb_common_multi_file.dir/ub_duckdb_common_multi_file.cpp.o
+[ 45%] Built target duckdb_common_operators
+[ 45%] Building CXX object src/common/exception/CMakeFiles/duckdb_common_exception.dir/ub_duckdb_common_exception.cpp.o
+[ 45%] Built target duckdb_common_exception
+[ 45%] Building CXX object src/common/enums/CMakeFiles/duckdb_common_enums.dir/ub_duckdb_common_enums.cpp.o
+[ 45%] Built target duckdb_common_multi_file
+[ 46%] Building CXX object src/common/arrow/appender/CMakeFiles/duckdb_common_arrow_appender.dir/ub_duckdb_common_arrow_appender.cpp.o
+[ 46%] Built target duckdb_common_enums
+[ 46%] Building CXX object src/common/crypto/CMakeFiles/duckdb_common_crypto.dir/ub_duckdb_common_crypto.cpp.o
+[ 46%] Built target duckdb_common_arrow_appender
+[ 46%] Building CXX object src/common/arrow/CMakeFiles/duckdb_common_arrow.dir/ub_duckdb_common_arrow.cpp.o
+[ 46%] Built target duckdb_common_crypto
+[ 46%] Building CXX object src/common/allocator/CMakeFiles/duckdb_common_allocator.dir/ub_duckdb_common_allocator.cpp.o
+[ 46%] Built target duckdb_common_allocator
+[ 46%] Building CXX object src/common/adbc/nanoarrow/CMakeFiles/duckdb_adbc_nanoarrow.dir/ub_duckdb_adbc_nanoarrow.cpp.o
+[ 46%] Built target duckdb_adbc_nanoarrow
+[ 46%] Building CXX object src/common/adbc/CMakeFiles/duckdb_adbc.dir/ub_duckdb_adbc.cpp.o
+[ 46%] Built target duckdb_common_arrow
+[ 46%] Building CXX object src/common/CMakeFiles/duckdb_common.dir/ub_duckdb_common.cpp.o
+[ 46%] Built target duckdb_adbc
+[ 46%] Building CXX object src/catalog/default/CMakeFiles/duckdb_catalog_default_entries.dir/ub_duckdb_catalog_default_entries.cpp.o
+[ 46%] Built target duckdb_catalog_default_entries
+[ 46%] Building CXX object src/catalog/catalog_entry/CMakeFiles/duckdb_catalog_entries.dir/ub_duckdb_catalog_entries.cpp.o
+[ 46%] Built target duckdb_catalog_entries
+[ 47%] Building CXX object src/catalog/catalog_entry/dependency/CMakeFiles/duckdb_catalog_entries_dependency.dir/ub_duckdb_catalog_entries_dependency.cpp.o
+[ 47%] Built target duckdb_catalog_entries_dependency
+[ 47%] Building CXX object src/catalog/CMakeFiles/duckdb_catalog.dir/ub_duckdb_catalog.cpp.o
+[ 47%] Built target duckdb_common
+[ 47%] Building CXX object src/function/variant/CMakeFiles/duckdb_function_variant.dir/ub_duckdb_function_variant.cpp.o
+[ 47%] Built target duckdb_catalog
+[ 47%] Building CXX object src/function/window/CMakeFiles/duckdb_func_window.dir/ub_duckdb_func_window.cpp.o
+[ 47%] Built target duckdb_function_variant
+[ 47%] Building CXX object src/function/table/arrow/CMakeFiles/duckdb_arrow_conversion.dir/ub_duckdb_arrow_conversion.cpp.o
+[ 47%] Built target duckdb_arrow_conversion
+[ 47%] Building CXX object src/function/table/version/CMakeFiles/duckdb_func_table_version.dir/ub_duckdb_func_table_version.cpp.o
+In file included from /tmp/duckdb-2.0.0-build/src/function/table/version/ub_duckdb_func_table_version.cpp:2:
+In file included from /tmp/duckdb-2.0.0-build/src/function/table/version/../../../../../duckdb-2.0.0-src/src/function/table/version/pragma_version.cpp:4:
+/tmp/duckdb-2.0.0-src/src/include/duckdb/common/platform.hpp:22:10: fatal error: 'features.h' file not found
+   22 | #include <features.h>
+      |          ^~~~~~~~~~~~
+1 error generated.
+gmake[3]: *** [src/function/table/version/CMakeFiles/duckdb_func_table_version.dir/build.make:79: src/function/table/version/CMakeFiles/duckdb_func_table_version.dir/ub_duckdb_func_table_version.cpp.o] Error 1
+gmake[2]: *** [CMakeFiles/Makefile2:8030: src/function/table/version/CMakeFiles/duckdb_func_table_version.dir/all] Error 2
+gmake[2]: *** Waiting for unfinished jobs....
+[ 47%] Built target duckdb_func_window
+gmake[1]: *** [CMakeFiles/Makefile2:6213: src/CMakeFiles/duckdb.dir/rule] Error 2
+gmake: *** [Makefile:689: duckdb] Error 2
+
+[cargo_output]
+<未取得证据：cargo test 未执行，无输出>

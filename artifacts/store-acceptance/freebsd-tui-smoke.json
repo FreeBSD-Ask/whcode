@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "exe": "target/debug/whcode",
+  "workspace": "/tmp/whcode-tui-smoke-gj47nw4s",
+  "checks": [
+    {
+      "check": "version_exit_zero",
+      "ok": true,
+      "detail": "exit=0 out=whcode 2026-11-02T16:57+00:00"
+    },
+    {
+      "check": "doctor_json_envelope",
+      "ok": true,
+      "detail": "exit=0 engine=v2.0.0"
+    },
+    {
+      "check": "graceful_exit_on_closed_stdin",
+      "ok": true,
+      "detail": "exit=0 out=whcode 2026-11-02T16:57+00:00 —— 当前没有可用的交互控制台，未启动界面\n可用：--tui（终端界面）、--cli <子命令>、-"
+    }
+  ],
+  "failed": 0,
+  "manual_gaps": [
+    "物理键盘输入计数",
+    "真实 resize 重绘",
+    "Ctrl-C 退出与终端回显恢复",
+    "强杀进程后 raw mode 残留"
+  ],
+  "note": "本报告只覆盖可自动化三项；manual_gaps 需真实控制台人工留证（V-003）。"
+}

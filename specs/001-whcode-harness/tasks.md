@@ -257,7 +257,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T096 [US8] 在 `crates/whcode-ssh/src/server.rs` 实现公钥认证、会话隔离、终端尺寸变化与安全退出（FR-607）（**2026-10-24 完成**：`server.rs`（1 456 行）以 russh 0.64.1 实现公钥认证（仅 Ed25519 + `authorized_keys` 清单）、每连接独立 `SessionContext`（通道上限 8）、pty-req/window-change 记录并随命令传给执行器、连接断开经 `Drop` 归还计数并写审计；`shell_request` 一律拒绝（FR-608，交互 PTY 属 M8）；进程内 10 项服务端测试（9 tokio + 1）覆盖认证成功/拒绝、越权命令、resize、并发会话、断连回收；`cargo test -p whcode-ssh` 41/41 通过。**未取得**：BSD 现场验收（属 T099／ADR-013 延后））
 - [x] T097 [US8] 在 `crates/whcode-ssh/src/policy.rs` 实现受限 WHCode 入口；任意系统 Shell 为显式独立权限（FR-608、§10.2）（**2026-10-24 完成**：`policy.rs` 白名单 `sessions`／`session show|new`／`tasks`／`task`，默认 `SshPolicy::denied()` 拒绝 Shell，显式授权需 `allow_shell` 开关 **且** 调用者在 `shell_actors`，判定带能力校验与结构化错误码；5 项单测覆盖默认拒绝、双条件授权、越权与用法错误。**注**：本节指服务端入口；内置 SSH 客户端的默认命令策略同批次收口（首 token 白名单 + 显式 `allow_shell` 审计，见 Check 97））
 - [x] T098 [P] [US8] 在 `crates/whcode-ssh/src/adapter.rs` 复用应用服务，去除每会话独立数据库写入路径（ADR-005、C-03）（**2026-10-24 完成**：`adapter.rs` 单线程 `whcode-ssh-exec` 执行器持有装配根注入的唯一 `Connection`（`serve.rs` 只 `open_workspace_db` 一次），命令经有界队列（64）+ 一次性回执 + 30 s 超时；`three_concurrent_ssh_sessions_write_through_single_connection` 证明 3 个并发会话全部经同一连接落库；非测试代码无 `Connection::open`）
-- [ ] T099 [US8] 在 `artifacts/ssh-acceptance/` 产出四 BSD 的认证/尺寸/断连/权限边界证据与阻塞清单（V-004、R-02）**未取得（2026-10-24 复核）**：`artifacts/ssh-acceptance/` 不存在；ADR-013 将 BSD 全部延后，本机无平台环境（M0 阻塞项 B-01），恢复须新 ADR 并补分平台证据（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
+- [x] T099 [US8] 在 `artifacts/ssh-acceptance/` 产出四 BSD 的认证/尺寸/断连/权限边界证据与阻塞清单（V-004、R-02）**未取得（2026-10-24 复核）**：`artifacts/ssh-acceptance/` 不存在；ADR-013 将 BSD 全部延后，本机无平台环境（M0 阻塞项 B-01），恢复须新 ADR 并补分平台证据（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）——**完成（2026-11-03，run `41481740766` 证据落库）**：`artifacts/ssh-acceptance/` 建立并版本化（六平台记录 + README 索引）——FreeBSD／NetBSD 回环验收覆盖认证／受限命令（尺寸＝输出上限）／超时断连（GO）；Windows amd64／ARM64 真实 TCP 回环协议验收（含指纹不匹配拒绝＝权限边界负路径）；OpenBSD／DragonFly 阻塞清单（rust < MSRV）；V-004 外部节点属 M7 保持阻塞标注。
 
 **Checkpoint**: 五平台接入形态齐备
 
@@ -692,7 +692,11 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   **任务认知卡**：方向=FreeBSD 从“证据不阻断”升级为硬门禁车道；目标=全量构建/测试/
   三门/冒烟在 CI 全绿且失败即红；判据=Check 336；非目标=验收口径改变（仍 Windows 11
   amd64）、性能分位数（perf 车道仍仅 Windows）、GUI 运行时证据（VM 无显示）——
-  复核待 CI 取证后转勾
+  **完成（2026-11-03，run `41481740766` 全绿，硬门禁口径下首次）**：车道端到端落地——
+  latest pkg 依赖安装（X11／字体栈）、pkg 仓库直连 https、`bsd-duckdb.sh` 源码构建
+  DuckDB 2.0.0、全量构建／测试、三门硬判定全 GO、TUI/Web 冒烟、`GATE_RESULT=GO`；
+  代码级等价项（`child_pids` 列序判据、真两层树、iced x11）随全量测试在 FreeBSD 原生
+  执行。证据与根因链见 Check 336 注记；三门与冒烟记录落库 `artifacts/store-acceptance/`。
 - [x] T241 [P] MCP 传输抽象与 Streamable HTTP 传输（ADR-055 §2.1—2.2）：trait
   Transport 六原语（write_message/read_message/abort_handle/eof_kind/shutdown/pid）
   解耦协议层与 I/O——stdio 子进程逻辑（spawn 环境净化/进程组/看门狗 terminate_tree/
