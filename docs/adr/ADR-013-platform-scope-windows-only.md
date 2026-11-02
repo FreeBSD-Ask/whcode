@@ -86,34 +86,35 @@
   引导性失败，或 `python .github/scripts/check-workflows.py` 不再覆盖 FreeBSD job
   语义时，复审本修订。
 - **2026-11-03（用户指令：NetBSD/OpenBSD 仅支持 SSH 远程开发——如在 Windows/FreeBSD
-  SSH 到 NetBSD/OpenBSD）**：两平台的支持定位收敛为**被连入的 SSH 远程开发目标**：
-  从 Windows／FreeBSD 以内置 SSH 客户端（FR-611）连入使用，**不要求目标机具备原生
-  rust 工具链或原生 whcode 运行**（引擎/DuckDB 原生构建不再作判据）。落点：
+  SSH 到 NetBSD/OpenBSD；同日追加：DragonFly 同待遇）**：三平台的支持定位收敛为
+  **被连入的 SSH 远程开发目标**：从 Windows／FreeBSD 以内置 SSH 客户端（FR-611）
+  连入使用，**不要求目标机具备原生 rust 工具链或原生 whcode 运行**（引擎/DuckDB
+  原生构建不再作判据）。落点：
   - NetBSD：原生 SSH 回环验收已 GO（rust 1.99.1 可用，run `41481740766`）——保留为
     平台证据与远程开发能力的直接证明；原生 store/DuckDB（上游 2.0.0 依赖 glibc
     `features.h`，NetBSD 无此头）**经本修订豁免**，Check 22 的 NetBSD 分支据此解除
     （Windows GO＋FreeBSD GO 已取得）。
-  - OpenBSD：连通性与受限入口证据的取得方式＝**真实连入取证**（从 Windows/FreeBSD
-    以内置 SSH 客户端连入真实 OpenBSD 主机，V-004 口径，M7 或具备主机时补），
-    不再以“上游 rust ≥ 1.99”为唯一恢复条件；被连入侧仅需 sshd（OpenBSD 基本系统
-    自带）。阻塞记录（rust < MSRV）保留为工具链现状证据。
-  - DragonFly **不在本指令内**：维持阻塞记录与原恢复条件（上游 rust ≥ 1.99），
-    同口径扩展须另行指令。
+  - OpenBSD／DragonFly（追加指令并入）：连通性与受限入口证据的取得方式＝**真实连入
+    取证**（从 Windows/FreeBSD 以内置 SSH 客户端连入真实主机，V-004 口径，M7 或具备
+    主机时补），不再以“上游 rust ≥ 1.99”为恢复条件；被连入侧仅需 sshd（OpenBSD
+    基本系统自带；DragonFly 同为基本系统组件）。工具链阻塞记录（OpenBSD ports rust
+    1.98.1／DragonFly dports rust 1.85.1 < MSRV 1.99）保留为工具链现状证据。
   - 证据形态：连入侧记录（认证／受限命令／超时断连／输出上限＋主机密钥指纹/TOFU）
-    落 `artifacts/ssh-acceptance/` 同口径；验收目标仍为 Windows 11 amd64，两平台
+    落 `artifacts/ssh-acceptance/` 同口径；验收目标仍为 Windows 11 amd64，三平台
     结论不进入验收。
   **正负和解**：正面＝无原生工具链的 BSD 有可判定的支持路径与证据形态，消除
   “等上游 rust”的无限期阻塞，且与产品自身 SSH 能力（FR-611/FR-607）互为验证；
   负面＝NetBSD/OpenBSD 不再有原生 whcode 运行证据（引擎行为、资源、性能均无从
   取得），目标证据依赖真实主机可得性。承担者＝平台矩阵负责人。**三重时间**：
   过去＝2026-10-24 两次修订的“四 BSD 真实运行”口径（OpenBSD VM 曾真实运行
-  cargo check）；现在＝NetBSD SSH GO、OpenBSD rust<MSRV 阻塞（run 41481740766）；
-  将来失效＝用户撤回指令，或 OpenBSD/NetBSD 上游 rust ≥ MSRV 且需要原生证据时
-  恢复原生车道（新修订）。**复审触发**（绑定命令＋判定）：
+  cargo check）；现在＝NetBSD SSH GO、OpenBSD/DragonFly rust<MSRV 阻塞
+  （run 41481740766）；将来失效＝用户撤回指令，或三平台上游 rust ≥ MSRV 且需要
+  原生证据时恢复原生车道（新修订）。**复审触发**（绑定命令＋判定）：
   `python .github/scripts/check-eol.py` 之外，检查 `artifacts/ssh-acceptance/` 中
-  `openbsd-client.txt` 阻塞记录：若 OpenBSD CI job 出现非“工具链低于 MSRV”的失败
-  （`gh run view <run> --json jobs --jq`），或 GitHub Actions 的 `vmactions/openbsd-vm`
-  镜像不再提供时，复审本修订。
+  `openbsd-client.txt`／`dragonfly-client.txt` 阻塞记录：若 OpenBSD/DragonFly CI
+  job 出现非“工具链低于 MSRV”的失败（`gh run view <run> --json jobs --jq`），或
+  GitHub Actions 的 `vmactions/openbsd-vm`／`cross-platform-actions` 镜像不再提供时，
+  复审本修订。
 
 ## 影响
 

@@ -9,7 +9,7 @@
 **范围（ADR-013，2026-10-21 用户决策；2026-10-24 两次修订 BSD CI；2026-10-28 增 ARM64 交付目标；2026-10-31 修订：FreeBSD 升为完整平台证据车道（硬门禁））**：
 唯一验收目标是**Windows 11 amd64**；**Windows ARM64（`aarch64-pc-windows-msvc`）为构建交付目标**
 （ADR-043：产出 arm64 发布包并在原生 `windows-11-arm` runner 取得平台证据，不进入验收）；
-不考虑任何 32 位平台；FreeBSD 为完整平台证据车道（硬门禁，ADR-013 修订 2026-10-31：随 main 全量构建含 GUI/bin、全量测试、三门进程组零残留/store 2.0.0/SSH 回环、TUI/Web 冒烟，任一失败即红，系统依赖允许 FreeBSD ports/latest pkg）；NetBSD 随 CI 自动运行（仅平台证据、不阻断）；OpenBSD/DragonFly 为手工占位（workflow_dispatch）。**NetBSD/OpenBSD 仅支持 SSH 远程开发**（ADR-013 修订 2026-11-03 用户指令：作为被 Windows/FreeBSD 内置 SSH 客户端连入的目标，不要求原生工具链/引擎）。四者均不进入验收结论（验收仍为 Windows 11 amd64），性能分位数未取得（perf 车道仅 Windows）。版本口径为各平台
+不考虑任何 32 位平台；FreeBSD 为完整平台证据车道（硬门禁，ADR-013 修订 2026-10-31：随 main 全量构建含 GUI/bin、全量测试、三门进程组零残留/store 2.0.0/SSH 回环、TUI/Web 冒烟，任一失败即红，系统依赖允许 FreeBSD ports/latest pkg）；NetBSD 随 CI 自动运行（仅平台证据、不阻断）；OpenBSD/DragonFly 为手工占位（workflow_dispatch）。**NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发**（ADR-013 修订 2026-11-03 用户指令：作为被 Windows/FreeBSD 内置 SSH 客户端连入的目标，不要求原生工具链/引擎；DragonFly 同日追加同待遇）。四者均不进入验收结论（验收仍为 Windows 11 amd64），性能分位数未取得（perf 车道仅 Windows）。版本口径为各平台
 **最新 release**（FreeBSD `15`、NetBSD `11`、OpenBSD `8` 前缀自动取最新点版本；DragonFly
 精确 `6.4.2`）；**`-current` 未覆盖**——上游 vmactions action 只提供 release 表、无快照输入
 （ADR-013 修订记录），不得以 release 结果冒充 current 证据。工具链低于 MSRV 的发行版按
@@ -22,7 +22,7 @@
 | FreeBSD | 未固定 | x86_64 | `x86_64-unknown-freebsd` | **完整平台证据车道（硬门禁，2026-10-31）** | 全绿（run `41481740766`，硬门禁口径首次：全量构建含 GUI/bin＋全量测试＋三门全 GO＋TUI/Web 冒烟；证据 `artifacts/store-acceptance/`）；不作验收结论 | 性能分位数未取得（perf 车道仅 Windows） | `docs/adr/ADR-013-platform-scope-windows-only.md`；`docs/adr/ADR-DB-BUILD.md` | 恢复时须新 ADR 并补齐 D-14 要求的证据链 |
 | NetBSD | 未固定 | x86_64 | `x86_64-unknown-netbsd` | **SSH 远程开发目标（被连入，ADR-013 修订 2026-11-03）＋CI 自动运行（仅平台证据）** | 随 main 自动运行（rust 1.99.1 可用） | SSH 回环验收 GO（客户端＋服务端四项，`artifacts/ssh-acceptance/netbsd-client.txt`）；进程组零残留 GO（Check 201）；原生 store/DuckDB 豁免（上游 2.0.0 依赖 glibc `features.h`） | 同上；`artifacts/store-acceptance/netbsd-store.txt` | 远程开发能力＝从 Windows/FreeBSD 以内置 SSH 客户端连入 |
 | OpenBSD | 未固定 | x86_64 | `x86_64-unknown-openbsd` | **SSH 远程开发目标（被连入，ADR-013 修订 2026-11-03）** | 不适用（ports rust 1.98.1 < MSRV 1.99，阻塞记录入库） | 连通性与受限入口证据待真实连入取证（V-004 口径，M7 或具备主机时；被连入侧仅需 sshd） | `docs/adr/ADR-011-platform-commitment-revision.md`；`docs/adr/ADR-013-platform-scope-windows-only.md`；`artifacts/ssh-acceptance/openbsd-client.txt` | 客户端能力属 M7，本轮不验收 |
-| DragonFly BSD | 未固定 | x86_64 | `x86_64-unknown-dragonfly` | **延后（ADR-013；不在 2026-11-03 SSH 远程开发指令内）** | 不适用（dports rust 1.85.1 < MSRV 1.99，阻塞记录入库） | 未取得（延后；恢复条件＝上游 rust ≥ 1.99） | 同上；`artifacts/ssh-acceptance/dragonfly-client.txt` | 同口径扩展须另行指令 |
+| DragonFly BSD | 未固定 | x86_64 | `x86_64-unknown-dragonfly` | **SSH 远程开发目标（被连入，ADR-013 修订 2026-11-03，同日追加同待遇）** | 不适用（dports rust 1.85.1 < MSRV 1.99，阻塞记录入库） | 连通性与受限入口证据待真实连入取证（V-004 口径，M7 或具备主机时；被连入侧仅需 sshd） | 同上；`artifacts/ssh-acceptance/dragonfly-client.txt` | 同 OpenBSD |
 
 **32 位平台**：明确不在范围内（ADR-013）。不提供 `i686` 目标、不测量、不在 CI 中构建；
 任何 32 位结果都不得作为承诺依据。
@@ -65,7 +65,7 @@
 
 历史缺口（冻结前状态，保留供复盘）：
 
-- **跨平台数据缺失**：NetBSD/OpenBSD 仅支持 SSH 远程开发（被连入目标，ADR-013 修订 2026-11-03），无原生 whcode 运行数据；FreeBSD 为硬门禁证据车道但不作验收结论；性能预算口径为 Windows 11 amd64。
+- **跨平台数据缺失**：NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发（被连入目标，ADR-013 修订 2026-11-03），无原生 whcode 运行数据；FreeBSD 为硬门禁证据车道但不作验收结论；性能预算口径为 Windows 11 amd64。
 - **长时数据缺失**：没有 72 小时 RSS 时间序列与斜率（NFR-204、§11.5）。
 - **测量纪律字段**：基线报告已含 OS、硬件、编译类型、工具链、数据库版本、数据规模、采样窗口与脚本；
   `.github/scripts/benchmarks/` 已建立并产出归档。
@@ -121,7 +121,7 @@ cargo check -p whcode-ssh --target x86_64-unknown-freebsd
 
 原因：`whcode-store` 需要目标平台的 libduckdb 原生库（官方无 BSD 预编译包），`whcode-ssh` 的 `russh` 依赖 `aws-lc-rs`；两者均需目标平台的 C 工具链（CMake、编译器、汇编器），本机不具备 BSD 交叉 C 工具链。命令失败属**环境阻塞**，不得据此判定代码不可移植，也不得据此判定原生依赖不可用。
 
-OpenBSD 与 DragonFly 已移出原生安装目标（ADR-011），不对其执行原生构建或交叉运行验收；其客户端证据须在真实节点上取得，归属 M7——OpenBSD 按 ADR-013 修订 2026-11-03 走 SSH 远程连入取证（被连入侧仅需 sshd），DragonFly 维持原恢复条件（上游 rust ≥ 1.99）。
+OpenBSD 与 DragonFly 已移出原生安装目标（ADR-011），不对其执行原生构建或交叉运行验收；其客户端证据须在真实节点上取得，归属 M7——两者均按 ADR-013 修订 2026-11-03 走 SSH 远程连入取证（被连入侧仅需 sshd）。
 
 ## 复核与更新纪律
 

@@ -11,7 +11,7 @@
 | FreeBSD | **完整平台证据车道（硬门禁）**（2026-10-31 用户指令解除延后）：ci.yml 随 `main` 全量构建（含 GUI／bin）、全量测试、三门与 TUI/Web 冒烟，失败即红；2026-11-03 起 run `41481740766` 全绿（三门 GO＋冒烟，证据 `artifacts/store-acceptance/`）；**不作验收结论**，性能分位数未取得 | ADR-013 修订（2026-10-31） |
 | NetBSD | **仅支持 SSH 远程开发（被连入目标）＋随 CI 自动运行（仅平台证据）**（ADR-013 修订 2026-11-03）：SSH 回环验收 GO（客户端＋服务端四项，`artifacts/ssh-acceptance/netbsd-client.txt`）、进程组零残留 GO（Check 201）；原生 store/DuckDB 豁免（上游 2.0.0 依赖 glibc `features.h`） | ADR-013、T020/T021 |
 | OpenBSD | **仅支持 SSH 远程开发（被连入目标）**（ADR-013 修订 2026-11-03）：节点证据从 Windows/FreeBSD 以内置 SSH 客户端连入取得（V-004 口径，M7 或具备主机时）；工具链阻塞记录（ports rust 1.98.1 < MSRV）已入库 | ADR-011/013 |
-| DragonFly BSD | **延后**：移出原生目标，改由内置 SSH 客户端控制（不在 2026-11-03 SSH 远程开发指令内，恢复条件＝上游 rust ≥ 1.99） | ADR-011/013 |
+| DragonFly BSD | **仅支持 SSH 远程开发（被连入目标）**（ADR-013 修订 2026-11-03，同日追加同待遇）：节点证据从 Windows/FreeBSD 以内置 SSH 客户端连入取得（V-004 口径，M7 或具备主机时）；工具链阻塞记录（dports rust 1.85.1 < MSRV）已入库 | ADR-011/013 |
 | 32 位平台 | **不支持** | ADR-013 |
 
 ## 2. 已知限制（M9 时点）
