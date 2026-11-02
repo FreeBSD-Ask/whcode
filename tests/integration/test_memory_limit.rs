@@ -428,21 +428,21 @@ fn run_group(group: Group, workspace: &Path, payload_text: &str) -> GroupResult 
     if let Some(err) = captured.as_ref().map(|item| item.message.clone()) {
         println!("本组捕获写入错误（实验记录器，不判失败）：{err}");
     }
-    if let Some(rows) = finalized.rows {
-        if failed_at.is_none() {
-            // 全成功路径守恒：committed == succeeded - pending（待写尚未入库）。
-            let expected = succeeded
-                .checked_sub(pending_events)
-                .expect("待写条目数不得大于成功写入条数");
-            assert_eq!(
-                rows,
-                i64::try_from(expected).expect("事件规模必须可转换为 i64"),
-                "写入条数统计不自洽：库内行数 {rows}，成功 {succeeded}，待写 {pending_events}"
-            );
-        }
-        // 失败路径不做等式断言：两种失败模式的守恒口径不同——校验期失败的事件被直接
-        // 拒收（committed = succeeded - pending），批次提交失败的事件按幂等键保留进待写、
-        // 连同失败那条（committed = attempted - pending）；数字全部入报告供分析。
+    // 全成功路径守恒：committed == succeeded - pending（待写尚未入库）。失败路径不做
+    // 等式断言：两种失败模式的守恒口径不同——校验期失败的事件被直接拒收
+    // （committed = succeeded - pending），批次提交失败的事件按幂等键保留进待写、
+    // 连同失败那条（committed = attempted - pending）；数字全部入报告供分析。
+    if let Some(rows) = finalized.rows
+        && failed_at.is_none()
+    {
+        let expected = succeeded
+            .checked_sub(pending_events)
+            .expect("待写条目数不得大于成功写入条数");
+        assert_eq!(
+            rows,
+            i64::try_from(expected).expect("事件规模必须可转换为 i64"),
+            "写入条数统计不自洽：库内行数 {rows}，成功 {succeeded}，待写 {pending_events}"
+        );
     }
 
     let outcome = match (failed_at, failure_stage) {
