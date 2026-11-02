@@ -1,0 +1,567 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling libm v0.2.16
+   Compiling cfg-if v1.0.5
+   Compiling autocfg v1.5.1
+   Compiling bitflags v2.13.2
+   Compiling memchr v2.8.3
+   Compiling thiserror v2.0.21
+   Compiling once_cell v1.21.4
+   Compiling bytes v1.12.1
+   Compiling windows-link v0.2.1
+   Compiling version_check v0.9.5
+   Compiling zerocopy v0.8.63
+   Compiling unicode-segmentation v1.13.3
+   Compiling serde_core v1.0.229
+   Compiling equivalent v1.0.3
+   Compiling foldhash v0.2.0
+   Compiling allocator-api2 v0.2.21
+   Compiling itoa v1.0.18
+   Compiling smallvec v1.16.3
+   Compiling log v0.4.34
+   Compiling zmij v1.0.23
+   Compiling num-traits v0.2.19
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.154
+   Compiling getrandom v0.3.4
+   Compiling ahash v0.8.12
+   Compiling hashbrown v0.17.1
+   Compiling libc v0.2.191
+   Compiling heck v0.5.0
+   Compiling arrow-schema v60.0.0
+   Compiling pin-project-lite v0.2.17
+   Compiling time-core v0.1.9
+   Compiling unicode-width v0.2.2
+   Compiling num-conv v0.2.2
+   Compiling futures-sink v0.3.34
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling powerfmt v0.2.1
+   Compiling futures-core v0.3.34
+   Compiling time-macros v0.2.32
+   Compiling ryu v1.0.23
+   Compiling deranged v0.5.9
+   Compiling futures-channel v0.3.34
+   Compiling futures-task v0.3.34
+   Compiling smol_str v0.2.2
+   Compiling lexical-util v1.0.7
+   Compiling futures-io v0.3.34
+   Compiling parking_lot_core v0.9.12
+   Compiling base64 v0.23.1
+   Compiling cc v1.9.0
+   Compiling winapi v0.3.9
+   Compiling slab v0.4.12
+   Compiling convert_case v0.10.0
+   Compiling web-time v1.1.0
+   Compiling scopeguard v1.2.0
+   Compiling zeroize v1.9.1
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling crc32fast v1.5.3
+   Compiling lock_api v0.4.14
+   Compiling lilt v0.8.2
+   Compiling rustls-pki-types v1.15.1
+   Compiling core_maths v0.1.1
+   Compiling slotmap v1.1.1
+   Compiling windows-sys v0.61.2
+   Compiling raw-window-handle v0.6.2
+   Compiling glam v0.25.0
+   Compiling simd-adler32 v0.3.10
+   Compiling rustc-hash v2.1.3
+   Compiling adler2 v2.0.1
+   Compiling time v0.3.55
+   Compiling litrs v1.0.1
+   Compiling miniz_oxide v0.9.1
+   Compiling num-integer v0.1.47
+   Compiling chrono v0.4.45
+   Compiling num-complex v0.4.6
+   Compiling num-bigint v0.5.1
+   Compiling ring v0.17.14
+   Compiling crossterm_winapi v0.9.1
+   Compiling document-features v0.2.12
+   Compiling parking_lot v0.12.5
+   Compiling lexical-parse-integer v1.0.6
+   Compiling lexical-write-integer v1.0.6
+   Compiling filetime v0.2.29
+   Compiling aho-corasick v1.1.5
+   Compiling getrandom v0.2.17
+   Compiling minimal-lexical v0.2.1
+   Compiling regex-syntax v0.8.11
+   Compiling untrusted v0.9.0
+   Compiling nom v7.1.3
+   Compiling synstructure v0.13.2
+   Compiling tar v0.4.46
+   Compiling lexical-write-float v1.0.6
+   Compiling lexical-parse-float v1.0.6
+   Compiling flate2 v1.1.10
+   Compiling ttf-parser v0.25.1
+   Compiling regex-automata v0.4.18
+   Compiling zerocopy-derive v0.8.63
+   Compiling derive_more-impl v2.1.1
+   Compiling rustversion v1.0.23
+   Compiling zeno v0.3.3
+   Compiling memmap2 v0.9.12
+   Compiling tinyvec v1.13.3
+   Compiling thiserror-impl v2.0.21
+   Compiling bytemuck_derive v1.12.1
+   Compiling serde_derive v1.0.229
+   Compiling futures-macro v0.3.34
+   Compiling httparse v1.10.1
+   Compiling typenum v1.20.1
+   Compiling yazi v0.2.1
+   Compiling derive_more v2.1.1
+   Compiling crossterm v0.29.0
+   Compiling displaydoc v0.2.7
+   Compiling rusticata-macros v4.1.0
+   Compiling hybrid-array v0.4.15
+   Compiling asn1-rs-impl v0.2.0
+   Compiling fontdb v0.23.0
+   Compiling regex v1.13.1
+   Compiling asn1-rs-derive v0.6.0
+   Compiling futures-util v0.3.34
+   Compiling bytemuck v1.25.2
+   Compiling tracing-attributes v0.1.31
+   Compiling lexical-core v1.0.6
+   Compiling iced_core v0.14.0
+   Compiling atoi v3.1.1
+   Compiling font-types v0.12.7
+   Compiling font-types v0.10.1
+   Compiling comfy-table v8.0.1
+   Compiling tracing-core v0.1.36
+   Compiling rustls v0.23.46
+   Compiling read-fonts v0.41.0
+   Compiling sys-locale v0.3.2
+   Compiling read-fonts v0.35.0
+   Compiling foldhash v0.1.5
+   Compiling rangemap v1.8.0
+   Compiling unicode-linebreak v0.1.5
+   Compiling unicode-bidi v0.3.18
+   Compiling whcode-domain v0.1.0 (D:\WHCode\crates\whcode-domain)
+   Compiling libduckdb-sys v1.20000.0
+   Compiling futures-executor v0.3.34
+   Compiling self_cell v1.3.0
+   Compiling rustc-hash v1.1.0
+   Compiling unicode-script v0.5.8
+   Compiling ident_case v1.0.1
+   Compiling strsim v0.11.1
+   Compiling linebender_resource_handle v0.1.1
+   Compiling tracing v0.1.44
+   Compiling half v2.7.1
+   Compiling futures v0.3.34
+   Compiling darling_core v0.24.1
+   Compiling rustls-webpki v0.103.16
+   Compiling hashbrown v0.15.5
+   Compiling iced_futures v0.14.0
+   Compiling asn1-rs v0.7.2
+   Compiling strum_macros v0.27.2
+   Compiling arrow-buffer v60.0.0
+   Compiling http v1.5.0
+   Compiling windows_x86_64_msvc v0.52.6
+   Compiling either v1.19.0
+   Compiling oid-registry v0.8.1
+   Compiling subtle v2.6.1
+   Compiling itertools v0.14.0
+   Compiling arrow-data v60.0.0
+   Compiling castaway v0.2.4
+   Compiling ureq-proto v0.6.5
+   Compiling hashlink v0.10.0
+   Compiling whcode-platform v0.1.0 (D:\WHCode\crates\whcode-platform)
+   Compiling crypto-common v0.2.2
+   Compiling arrow-array v60.0.0
+   Compiling block-buffer v0.12.1
+   Compiling strum_macros v0.28.0
+   Compiling harfrust v0.3.2
+   Compiling skrifa v0.37.0
+   Compiling skrifa v0.44.0
+   Compiling darling_macro v0.24.1
+   Compiling num-bigint v0.4.8
+   Compiling webpki-roots v1.0.11
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling percent-encoding v2.3.2
+   Compiling fallible-iterator v0.3.0
+   Compiling arrayvec v0.7.8
+   Compiling whcode-store v0.1.0 (D:\WHCode\crates\whcode-store)
+   Compiling cast v0.3.0
+   Compiling strum v0.27.2
+   Compiling arrayref v0.3.9
+   Compiling static_assertions v1.1.0
+   Compiling arrow-cmp v60.0.0
+   Compiling swash v0.2.10
+   Compiling arrow-arith v60.0.0
+   Compiling arrow-row v60.0.0
+   Compiling const-oid v0.10.2
+   Compiling arrow-select v60.0.0
+   Compiling strict-num v0.1.1
+   Compiling utf8-zero v0.8.1
+   Compiling ureq v3.5.0
+   Compiling strum v0.28.0
+   Compiling tiny-skia-path v0.11.4
+   Compiling digest v0.11.3
+   Compiling cosmic-text v0.15.0
+   Compiling arrow-ord v60.0.0
+   Compiling arrow-cast v60.0.0
+   Compiling arrow-string v60.0.0
+   Compiling arrow v60.0.0
+   Compiling iced_graphics v0.14.0
+   Compiling duckdb v1.20000.0
+   Compiling darling v0.24.1
+   Compiling compact_str v0.9.1
+   Compiling der-parser v10.0.0
+   Compiling unicode-truncate v2.0.1
+   Compiling whcode-runtime v0.1.0 (D:\WHCode\crates\whcode-runtime)
+   Compiling iced_debug v0.14.0
+   Compiling kasuari v0.4.13
+   Compiling schannel v0.1.30
+   Compiling yasna v0.6.0
+   Compiling pem v4.0.0
+   Compiling lru v0.18.5
+   Compiling indoc v2.0.8
+   Compiling cfg_aliases v0.2.2
+   Compiling critical-section v1.2.0
+   Compiling cpufeatures v0.3.1
+   Compiling data-encoding v2.11.1
+   Compiling lazy_static v1.5.1
+   Compiling sha2 v0.11.1
+   Compiling ratatui-core v0.1.2
+   Compiling winit v0.30.13
+   Compiling rcgen v0.14.10
+   Compiling rustls-native-certs v0.8.5
+   Compiling x509-parser v0.18.1
+   Compiling whcode-mcp v0.1.0 (D:\WHCode\crates\whcode-mcp)
+   Compiling windows-targets v0.52.6
+   Compiling tiny-skia v0.11.4
+   Compiling kurbo v0.10.4
+   Compiling softbuffer v0.4.8
+   Compiling instability v0.3.14
+   Compiling whcode-tools v0.1.0 (D:\WHCode\crates\whcode-tools)
+   Compiling whcode-llm v0.1.0 (D:\WHCode\crates\whcode-llm)
+   Compiling whcode-speckit v0.1.0 (D:\WHCode\crates\whcode-speckit)
+   Compiling error-code v3.4.0
+   Compiling clipboard-win v5.4.3
+   Compiling iced_tiny_skia v0.14.1
+   Compiling whcode-app v0.1.0 (D:\WHCode\crates\whcode-app)
+   Compiling windows-sys v0.52.0
+   Compiling iced_runtime v0.14.0
+   Compiling line-clipping v0.3.8
+   Compiling dpi v0.1.2
+   Compiling cursor-icon v1.2.0
+   Compiling iced_program v0.14.0
+   Compiling iced_renderer v0.14.0
+   Compiling ratatui-widgets v0.3.2
+   Compiling window_clipboard v0.5.1
+   Compiling clap_lex v1.1.1
+   Compiling anstyle v1.0.14
+   Compiling iced_widget v0.14.2
+   Compiling ratatui-crossterm v0.1.2
+   Compiling clap_derive v4.6.7
+   Compiling whcode-web v0.1.0 (D:\WHCode\crates\whcode-web)
+   Compiling clap_builder v4.6.7
+   Compiling whcode-tests v0.1.0 (D:\WHCode\tests)
+   Compiling iced_winit v0.14.1
+   Compiling ratatui-macros v0.7.2
+   Compiling ratatui v0.30.2
+   Compiling iced v0.14.0
+   Compiling whcode-tui v0.1.0 (D:\WHCode\crates\whcode-tui)
+   Compiling whcode-gui v0.1.0 (D:\WHCode\crates\whcode-gui)
+   Compiling clap v4.6.7
+   Compiling whcode-cui v0.1.0 (D:\WHCode\crates\whcode-cui)
+    Finished `release` profile [optimized] target(s) in 2m 54s
+     Running stability\test_stability_run.rs (target\release\deps\stability_run-3c2b06491583fc12.exe)
+
+running 1 test
+长跑启动：86400 秒，间隔 300 秒，输出 artifacts/stability-24h-deepinspect-20261101/timeseries.jsonl
+test stability_run_collects_section_11_5_series has been running for over 60 seconds
+样本 1：0.08 h RSS 74.07 MB CPU null（首样本无区间）% 线程 10 句柄 165 事件 111000 缺失 0 写者队列 19/10000 条 最老 551 ms
+样本 2：0.17 h RSS 85.20 MB CPU 10.52% 线程 10 句柄 165 事件 121860 缺失 0 写者队列 19/10000 条 最老 525 ms
+样本 3：0.25 h RSS 95.77 MB CPU 10.41% 线程 9 句柄 165 事件 132720 缺失 0 写者队列 19/10000 条 最老 543 ms
+样本 4：0.33 h RSS 108.52 MB CPU 10.69% 线程 9 句柄 165 事件 143580 缺失 0 写者队列 19/10000 条 最老 547 ms
+样本 5：0.42 h RSS 113.62 MB CPU 10.45% 线程 9 句柄 165 事件 154440 缺失 0 写者队列 19/10000 条 最老 522 ms
+样本 6：0.50 h RSS 120.32 MB CPU 10.58% 线程 9 句柄 165 事件 165300 缺失 0 写者队列 19/10000 条 最老 534 ms
+样本 7：0.58 h RSS 125.39 MB CPU 10.39% 线程 9 句柄 165 事件 176180 缺失 0 写者队列 19/10000 条 最老 513 ms
+样本 8：0.67 h RSS 126.20 MB CPU 10.47% 线程 9 句柄 165 事件 187040 缺失 0 写者队列 19/10000 条 最老 526 ms
+样本 9：0.75 h RSS 129.32 MB CPU 10.51% 线程 9 句柄 165 事件 197900 缺失 0 写者队列 19/10000 条 最老 531 ms
+样本 10：0.83 h RSS 128.65 MB CPU 11.14% 线程 9 句柄 165 事件 208640 缺失 0 写者队列 19/10000 条 最老 512 ms
+样本 11：0.92 h RSS 136.56 MB CPU 11.26% 线程 9 句柄 165 事件 219380 缺失 0 写者队列 19/10000 条 最老 519 ms
+样本 12：1.00 h RSS 138.74 MB CPU 11.57% 线程 9 句柄 165 事件 230080 缺失 0 写者队列 19/10000 条 最老 537 ms
+样本 13：1.08 h RSS 134.20 MB CPU 11.65% 线程 9 句柄 165 事件 240800 缺失 0 写者队列 19/10000 条 最老 543 ms
+样本 14：1.17 h RSS 141.47 MB CPU 12.24% 线程 9 句柄 165 事件 251520 缺失 0 写者队列 19/10000 条 最老 538 ms
+样本 15：1.25 h RSS 145.00 MB CPU 12.11% 线程 9 句柄 165 事件 262240 缺失 0 写者队列 19/10000 条 最老 519 ms
+样本 16：1.33 h RSS 143.94 MB CPU 12.03% 线程 9 句柄 165 事件 272980 缺失 0 写者队列 19/10000 条 最老 528 ms
+样本 17：1.42 h RSS 140.99 MB CPU 11.79% 线程 9 句柄 165 事件 283700 缺失 0 写者队列 19/10000 条 最老 526 ms
+样本 18：1.50 h RSS 142.00 MB CPU 11.47% 线程 9 句柄 165 事件 294440 缺失 0 写者队列 19/10000 条 最老 534 ms
+样本 19：1.58 h RSS 144.11 MB CPU 12.02% 线程 9 句柄 165 事件 305160 缺失 0 写者队列 19/10000 条 最老 518 ms
+样本 20：1.67 h RSS 142.25 MB CPU 12.01% 线程 9 句柄 165 事件 315880 缺失 0 写者队列 19/10000 条 最老 514 ms
+样本 21：1.75 h RSS 142.49 MB CPU 12.01% 线程 9 句柄 165 事件 326620 缺失 0 写者队列 19/10000 条 最老 520 ms
+样本 22：1.83 h RSS 145.18 MB CPU 12.02% 线程 9 句柄 165 事件 337340 缺失 0 写者队列 19/10000 条 最老 531 ms
+样本 23：1.92 h RSS 139.77 MB CPU 11.55% 线程 9 句柄 165 事件 348060 缺失 0 写者队列 19/10000 条 最老 535 ms
+样本 24：2.00 h RSS 143.51 MB CPU 11.79% 线程 9 句柄 165 事件 358780 缺失 0 写者队列 19/10000 条 最老 512 ms
+样本 25：2.08 h RSS 143.70 MB CPU 11.11% 线程 9 句柄 165 事件 369560 缺失 0 写者队列 19/10000 条 最老 495 ms
+样本 26：2.17 h RSS 145.24 MB CPU 11.02% 线程 9 句柄 165 事件 380320 缺失 0 写者队列 19/10000 条 最老 504 ms
+样本 27：2.25 h RSS 143.89 MB CPU 11.82% 线程 9 句柄 165 事件 391080 缺失 0 写者队列 19/10000 条 最老 468 ms
+样本 28：2.33 h RSS 140.32 MB CPU 14.23% 线程 9 句柄 165 事件 101420 缺失 0 写者队列 19/10000 条 最老 501 ms
+样本 29：2.42 h RSS 140.13 MB CPU 10.42% 线程 9 句柄 165 事件 112220 缺失 0 写者队列 19/10000 条 最老 494 ms
+样本 30：2.50 h RSS 140.57 MB CPU 10.66% 线程 9 句柄 165 事件 123000 缺失 0 写者队列 19/10000 条 最老 489 ms
+样本 31：2.58 h RSS 142.58 MB CPU 10.78% 线程 9 句柄 165 事件 133780 缺失 0 写者队列 19/10000 条 最老 511 ms
+样本 32：2.67 h RSS 143.60 MB CPU 10.77% 线程 9 句柄 165 事件 144560 缺失 0 写者队列 19/10000 条 最老 474 ms
+样本 33：2.75 h RSS 141.90 MB CPU 10.71% 线程 9 句柄 165 事件 155340 缺失 0 写者队列 19/10000 条 最老 499 ms
+样本 34：2.83 h RSS 142.24 MB CPU 10.62% 线程 9 句柄 165 事件 166120 缺失 0 写者队列 19/10000 条 最老 414 ms
+样本 35：2.92 h RSS 143.18 MB CPU 10.88% 线程 9 句柄 165 事件 176900 缺失 0 写者队列 19/10000 条 最老 396 ms
+样本 36：3.00 h RSS 144.16 MB CPU 11.60% 线程 9 句柄 165 事件 187600 缺失 0 写者队列 19/10000 条 最老 537 ms
+样本 37：3.08 h RSS 143.36 MB CPU 11.87% 线程 9 句柄 165 事件 198240 缺失 0 写者队列 19/10000 条 最老 1191 ms
+样本 38：3.17 h RSS 147.05 MB CPU 13.71% 线程 9 句柄 165 事件 208480 缺失 0 写者队列 19/10000 条 最老 494 ms
+样本 39：3.25 h RSS 142.27 MB CPU 14.47% 线程 9 句柄 165 事件 218840 缺失 0 写者队列 19/10000 条 最老 540 ms
+样本 40：3.33 h RSS 145.57 MB CPU 16.53% 线程 9 句柄 165 事件 229060 缺失 0 写者队列 19/10000 条 最老 515 ms
+样本 41：3.42 h RSS 143.27 MB CPU 16.32% 线程 9 句柄 165 事件 239280 缺失 0 写者队列 19/10000 条 最老 539 ms
+样本 42：3.50 h RSS 144.89 MB CPU 16.23% 线程 9 句柄 165 事件 249520 缺失 0 写者队列 19/10000 条 最老 522 ms
+样本 43：3.58 h RSS 143.50 MB CPU 15.82% 线程 9 句柄 165 事件 259780 缺失 0 写者队列 19/10000 条 最老 515 ms
+样本 44：3.67 h RSS 146.38 MB CPU 15.74% 线程 9 句柄 165 事件 270080 缺失 0 写者队列 19/10000 条 最老 650 ms
+样本 45：3.75 h RSS 148.79 MB CPU 17.35% 线程 9 句柄 165 事件 280240 缺失 0 写者队列 19/10000 条 最老 1097 ms
+样本 46：3.83 h RSS 140.99 MB CPU 18.18% 线程 9 句柄 165 事件 290300 缺失 0 写者队列 19/10000 条 最老 1174 ms
+样本 47：3.92 h RSS 143.41 MB CPU 17.90% 线程 9 句柄 165 事件 300360 缺失 0 写者队列 19/10000 条 最老 973 ms
+样本 48：4.00 h RSS 143.98 MB CPU 17.67% 线程 9 句柄 165 事件 310480 缺失 0 写者队列 19/10000 条 最老 1068 ms
+样本 49：4.08 h RSS 142.38 MB CPU 16.53% 线程 9 句柄 165 事件 320620 缺失 0 写者队列 19/10000 条 最老 714 ms
+样本 50：4.17 h RSS 146.34 MB CPU 17.52% 线程 9 句柄 165 事件 330760 缺失 0 写者队列 19/10000 条 最老 1017 ms
+样本 51：4.25 h RSS 149.56 MB CPU 16.43% 线程 9 句柄 165 事件 340980 缺失 0 写者队列 19/10000 条 最老 961 ms
+样本 52：4.33 h RSS 148.80 MB CPU 12.80% 线程 9 句柄 165 事件 351600 缺失 0 写者队列 19/10000 条 最老 539 ms
+样本 53：4.42 h RSS 139.00 MB CPU 12.23% 线程 9 句柄 165 事件 362300 缺失 0 写者队列 19/10000 条 最老 466 ms
+样本 54：4.50 h RSS 143.87 MB CPU 14.65% 线程 9 句柄 165 事件 372720 缺失 0 写者队列 19/10000 条 最老 597 ms
+样本 55：4.58 h RSS 145.58 MB CPU 17.80% 线程 9 句柄 165 事件 382460 缺失 0 写者队列 19/10000 条 最老 1456 ms
+样本 56：4.67 h RSS 150.57 MB CPU 19.42% 线程 9 句柄 165 事件 392440 缺失 0 写者队列 19/10000 条 最老 1422 ms
+样本 57：4.75 h RSS 151.93 MB CPU 25.85% 线程 9 句柄 165 事件 101560 缺失 0 写者队列 19/10000 条 最老 1201 ms
+样本 58：4.83 h RSS 147.67 MB CPU 17.60% 线程 9 句柄 165 事件 111120 缺失 0 写者队列 19/10000 条 最老 548 ms
+样本 59：4.92 h RSS 146.60 MB CPU 14.29% 线程 10 句柄 165 事件 121140 缺失 0 写者队列 19/10000 条 最老 479 ms
+样本 60：5.00 h RSS 147.45 MB CPU 15.47% 线程 9 句柄 165 事件 131420 缺失 0 写者队列 19/10000 条 最老 513 ms
+样本 61：5.08 h RSS 152.54 MB CPU 16.74% 线程 9 句柄 165 事件 141580 缺失 0 写者队列 19/10000 条 最老 583 ms
+样本 62：5.17 h RSS 148.17 MB CPU 16.56% 线程 9 句柄 165 事件 151740 缺失 0 写者队列 19/10000 条 最老 555 ms
+样本 63：5.25 h RSS 144.44 MB CPU 13.61% 线程 9 句柄 165 事件 162300 缺失 0 写者队列 19/10000 条 最老 549 ms
+样本 64：5.33 h RSS 149.93 MB CPU 13.94% 线程 9 句柄 165 事件 172760 缺失 0 写者队列 19/10000 条 最老 577 ms
+样本 65：5.42 h RSS 146.73 MB CPU 14.97% 线程 9 句柄 165 事件 183100 缺失 0 写者队列 19/10000 条 最老 627 ms
+样本 66：5.50 h RSS 148.36 MB CPU 17.24% 线程 9 句柄 165 事件 193260 缺失 0 写者队列 19/10000 条 最老 579 ms
+样本 67：5.58 h RSS 149.23 MB CPU 18.26% 线程 9 句柄 165 事件 203220 缺失 0 写者队列 19/10000 条 最老 752 ms
+样本 68：5.67 h RSS 149.98 MB CPU 18.83% 线程 9 句柄 165 事件 213160 缺失 0 写者队列 19/10000 条 最老 807 ms
+样本 69：5.75 h RSS 151.38 MB CPU 17.81% 线程 9 句柄 165 事件 223140 缺失 0 写者队列 19/10000 条 最老 741 ms
+样本 70：5.83 h RSS 148.43 MB CPU 17.24% 线程 9 句柄 165 事件 233200 缺失 0 写者队列 19/10000 条 最老 661 ms
+样本 71：5.92 h RSS 148.01 MB CPU 16.26% 线程 9 句柄 165 事件 243380 缺失 0 写者队列 19/10000 条 最老 602 ms
+样本 72：6.00 h RSS 150.97 MB CPU 19.13% 线程 9 句柄 165 事件 253360 缺失 0 写者队列 19/10000 条 最老 729 ms
+样本 73：6.08 h RSS 147.93 MB CPU 15.61% 线程 9 句柄 165 事件 263680 缺失 0 写者队列 19/10000 条 最老 665 ms
+样本 74：6.17 h RSS 148.99 MB CPU 16.33% 线程 9 句柄 165 事件 273960 缺失 0 写者队列 19/10000 条 最老 615 ms
+样本 75：6.25 h RSS 152.15 MB CPU 16.86% 线程 9 句柄 165 事件 284100 缺失 0 写者队列 19/10000 条 最老 6542 ms
+样本 76：6.33 h RSS 150.94 MB CPU 14.60% 线程 9 句柄 165 事件 294280 缺失 0 写者队列 19/10000 条 最老 689 ms
+样本 77：6.42 h RSS 148.64 MB CPU 15.96% 线程 9 句柄 165 事件 304580 缺失 0 写者队列 19/10000 条 最老 643 ms
+样本 78：6.50 h RSS 149.62 MB CPU 14.10% 线程 9 句柄 165 事件 315040 缺失 0 写者队列 19/10000 条 最老 643 ms
+样本 79：6.58 h RSS 147.27 MB CPU 15.76% 线程 9 句柄 165 事件 325320 缺失 0 写者队列 19/10000 条 最老 615 ms
+样本 80：6.67 h RSS 150.68 MB CPU 15.45% 线程 9 句柄 165 事件 335600 缺失 0 写者队列 19/10000 条 最老 683 ms
+样本 81：6.75 h RSS 147.91 MB CPU 15.64% 线程 9 句柄 165 事件 345880 缺失 0 写者队列 19/10000 条 最老 668 ms
+样本 82：6.83 h RSS 154.78 MB CPU 14.61% 线程 9 句柄 165 事件 356320 缺失 0 写者队列 19/10000 条 最老 672 ms
+样本 83：6.92 h RSS 156.03 MB CPU 15.27% 线程 9 句柄 165 事件 366660 缺失 0 写者队列 19/10000 条 最老 682 ms
+样本 84：7.00 h RSS 148.05 MB CPU 16.19% 线程 9 句柄 165 事件 376960 缺失 0 写者队列 19/10000 条 最老 672 ms
+样本 85：7.08 h RSS 150.96 MB CPU 15.46% 线程 9 句柄 165 事件 387300 缺失 0 写者队列 19/10000 条 最老 582 ms
+样本 86：7.17 h RSS 151.23 MB CPU 14.02% 线程 9 句柄 165 事件 397780 缺失 0 写者队列 19/10000 条 最老 618 ms
+样本 87：7.25 h RSS 144.84 MB CPU 17.99% 线程 9 句柄 165 事件 107820 缺失 0 写者队列 19/10000 条 最老 618 ms
+样本 88：7.33 h RSS 147.01 MB CPU 13.42% 线程 9 句柄 165 事件 118380 缺失 0 写者队列 19/10000 条 最老 603 ms
+样本 89：7.42 h RSS 150.29 MB CPU 13.34% 线程 9 句柄 165 事件 128920 缺失 0 写者队列 19/10000 条 最老 621 ms
+样本 90：7.50 h RSS 144.97 MB CPU 13.85% 线程 9 句柄 165 事件 139400 缺失 0 写者队列 19/10000 条 最老 598 ms
+样本 91：7.58 h RSS 146.46 MB CPU 13.33% 线程 9 句柄 165 事件 149920 缺失 0 写者队列 19/10000 条 最老 540 ms
+样本 92：7.67 h RSS 147.14 MB CPU 12.86% 线程 9 句柄 165 事件 160560 缺失 0 写者队列 19/10000 条 最老 601 ms
+样本 93：7.75 h RSS 149.97 MB CPU 12.98% 线程 9 句柄 165 事件 171140 缺失 0 写者队列 19/10000 条 最老 580 ms
+样本 94：7.83 h RSS 152.95 MB CPU 13.28% 线程 9 句柄 165 事件 181720 缺失 0 写者队列 19/10000 条 最老 611 ms
+样本 95：7.92 h RSS 146.15 MB CPU 12.84% 线程 9 句柄 165 事件 192280 缺失 0 写者队列 19/10000 条 最老 594 ms
+样本 96：8.00 h RSS 147.52 MB CPU 13.39% 线程 9 句柄 165 事件 202700 缺失 0 写者队列 19/10000 条 最老 1772 ms
+样本 97：8.08 h RSS 146.34 MB CPU 13.24% 线程 9 句柄 165 事件 212900 缺失 0 写者队列 19/10000 条 最老 1083 ms
+样本 98：8.17 h RSS 146.38 MB CPU 12.98% 线程 9 句柄 165 事件 223440 缺失 0 写者队列 19/10000 条 最老 598 ms
+样本 99：8.25 h RSS 149.99 MB CPU 12.49% 线程 9 句柄 165 事件 233460 缺失 0 写者队列 19/10000 条 最老 559 ms
+样本 100：8.33 h RSS 148.31 MB CPU 12.62% 线程 9 句柄 165 事件 244100 缺失 0 写者队列 19/10000 条 最老 598 ms
+样本 101：8.42 h RSS 152.32 MB CPU 12.49% 线程 9 句柄 165 事件 254720 缺失 0 写者队列 19/10000 条 最老 537 ms
+样本 102：8.50 h RSS 148.52 MB CPU 12.09% 线程 9 句柄 165 事件 265420 缺失 0 写者队列 19/10000 条 最老 510 ms
+样本 103：8.58 h RSS 150.89 MB CPU 12.49% 线程 9 句柄 165 事件 276100 缺失 0 写者队列 19/10000 条 最老 547 ms
+样本 104：8.67 h RSS 152.80 MB CPU 11.82% 线程 9 句柄 165 事件 286840 缺失 0 写者队列 19/10000 条 最老 572 ms
+样本 105：8.75 h RSS 151.30 MB CPU 12.50% 线程 9 句柄 165 事件 297480 缺失 0 写者队列 19/10000 条 最老 446 ms
+样本 106：8.83 h RSS 152.59 MB CPU 12.28% 线程 9 句柄 165 事件 308140 缺失 0 写者队列 19/10000 条 最老 513 ms
+样本 107：8.92 h RSS 149.32 MB CPU 11.79% 线程 9 句柄 165 事件 318860 缺失 0 写者队列 19/10000 条 最老 491 ms
+样本 108：9.00 h RSS 151.12 MB CPU 11.83% 线程 9 句柄 165 事件 329600 缺失 0 写者队列 19/10000 条 最老 519 ms
+样本 109：9.08 h RSS 150.58 MB CPU 11.60% 线程 9 句柄 165 事件 340360 缺失 0 写者队列 19/10000 条 最老 488 ms
+样本 110：9.17 h RSS 152.39 MB CPU 11.54% 线程 9 句柄 165 事件 351100 缺失 0 写者队列 19/10000 条 最老 512 ms
+样本 111：9.25 h RSS 151.57 MB CPU 11.30% 线程 9 句柄 165 事件 361860 缺失 0 写者队列 19/10000 条 最老 501 ms
+样本 112：9.33 h RSS 149.54 MB CPU 11.90% 线程 9 句柄 165 事件 372560 缺失 0 写者队列 19/10000 条 最老 488 ms
+样本 113：9.42 h RSS 151.15 MB CPU 11.48% 线程 9 句柄 165 事件 383300 缺失 0 写者队列 19/10000 条 最老 498 ms
+样本 114：9.50 h RSS 151.21 MB CPU 11.74% 线程 9 句柄 165 事件 394040 缺失 0 写者队列 19/10000 条 最老 509 ms
+样本 115：9.58 h RSS 153.93 MB CPU 14.76% 线程 9 句柄 165 事件 104380 缺失 0 写者队列 19/10000 条 最老 498 ms
+样本 116：9.67 h RSS 140.39 MB CPU 11.34% 线程 9 句柄 165 事件 115080 缺失 0 写者队列 19/10000 条 最老 531 ms
+样本 117：9.75 h RSS 146.42 MB CPU 11.40% 线程 9 句柄 165 事件 125820 缺失 0 写者队列 19/10000 条 最老 507 ms
+样本 118：9.83 h RSS 146.68 MB CPU 11.26% 线程 9 句柄 165 事件 136580 缺失 0 写者队列 19/10000 条 最老 500 ms
+样本 119：9.92 h RSS 143.81 MB CPU 11.49% 线程 9 句柄 165 事件 147320 缺失 0 写者队列 19/10000 条 最老 497 ms
+样本 120：10.00 h RSS 146.25 MB CPU 10.92% 线程 9 句柄 165 事件 158080 缺失 0 写者队列 19/10000 条 最老 474 ms
+样本 121：10.08 h RSS 150.73 MB CPU 11.21% 线程 9 句柄 165 事件 168820 缺失 0 写者队列 19/10000 条 最老 401 ms
+样本 122：10.17 h RSS 146.76 MB CPU 11.39% 线程 9 句柄 165 事件 179540 缺失 0 写者队列 19/10000 条 最老 491 ms
+样本 123：10.25 h RSS 147.56 MB CPU 11.57% 线程 9 句柄 165 事件 190300 缺失 0 写者队列 19/10000 条 最老 490 ms
+样本 124：10.33 h RSS 150.06 MB CPU 11.36% 线程 9 句柄 165 事件 201060 缺失 0 写者队列 19/10000 条 最老 500 ms
+样本 125：10.42 h RSS 148.80 MB CPU 11.19% 线程 9 句柄 165 事件 211820 缺失 0 写者队列 19/10000 条 最老 501 ms
+样本 126：10.50 h RSS 150.31 MB CPU 11.24% 线程 9 句柄 165 事件 222560 缺失 0 写者队列 19/10000 条 最老 487 ms
+样本 127：10.58 h RSS 148.52 MB CPU 11.01% 线程 9 句柄 165 事件 233300 缺失 0 写者队列 19/10000 条 最老 494 ms
+样本 128：10.67 h RSS 148.69 MB CPU 11.27% 线程 9 句柄 165 事件 244060 缺失 0 写者队列 19/10000 条 最老 480 ms
+样本 129：10.75 h RSS 154.04 MB CPU 11.59% 线程 9 句柄 165 事件 254800 缺失 0 写者队列 19/10000 条 最老 503 ms
+样本 130：10.83 h RSS 149.87 MB CPU 11.51% 线程 9 句柄 165 事件 265540 缺失 0 写者队列 19/10000 条 最老 509 ms
+样本 131：10.92 h RSS 151.92 MB CPU 11.24% 线程 9 句柄 165 事件 276280 缺失 0 写者队列 19/10000 条 最老 477 ms
+样本 132：11.00 h RSS 148.15 MB CPU 11.36% 线程 9 句柄 165 事件 287040 缺失 0 写者队列 19/10000 条 最老 466 ms
+样本 133：11.08 h RSS 143.02 MB CPU 11.41% 线程 9 句柄 165 事件 297780 缺失 0 写者队列 19/10000 条 最老 504 ms
+样本 134：11.17 h RSS 154.49 MB CPU 11.38% 线程 9 句柄 165 事件 308540 缺失 0 写者队列 19/10000 条 最老 484 ms
+样本 135：11.25 h RSS 151.08 MB CPU 11.69% 线程 9 句柄 165 事件 319280 缺失 0 写者队列 19/10000 条 最老 467 ms
+样本 136：11.33 h RSS 152.67 MB CPU 11.29% 线程 9 句柄 165 事件 330020 缺失 0 写者队列 19/10000 条 最老 478 ms
+样本 137：11.42 h RSS 147.24 MB CPU 11.47% 线程 9 句柄 165 事件 340780 缺失 0 写者队列 19/10000 条 最老 486 ms
+样本 138：11.50 h RSS 151.37 MB CPU 11.47% 线程 9 句柄 165 事件 351520 缺失 0 写者队列 19/10000 条 最老 477 ms
+样本 139：11.58 h RSS 156.21 MB CPU 11.41% 线程 9 句柄 165 事件 362280 缺失 0 写者队列 19/10000 条 最老 465 ms
+样本 140：11.67 h RSS 150.28 MB CPU 11.49% 线程 9 句柄 165 事件 373020 缺失 0 写者队列 19/10000 条 最老 429 ms
+样本 141：11.75 h RSS 157.80 MB CPU 11.44% 线程 9 句柄 165 事件 383740 缺失 0 写者队列 19/10000 条 最老 478 ms
+样本 142：11.83 h RSS 152.87 MB CPU 11.25% 线程 9 句柄 165 事件 394480 缺失 0 写者队列 19/10000 条 最老 483 ms
+样本 143：11.92 h RSS 149.91 MB CPU 14.73% 线程 9 句柄 165 事件 104820 缺失 0 写者队列 19/10000 条 最老 486 ms
+样本 144：12.00 h RSS 144.86 MB CPU 11.13% 线程 9 句柄 165 事件 115580 缺失 0 写者队列 19/10000 条 最老 470 ms
+样本 145：12.08 h RSS 148.50 MB CPU 10.97% 线程 9 句柄 165 事件 126320 缺失 0 写者队列 19/10000 条 最老 485 ms
+样本 146：12.17 h RSS 144.25 MB CPU 10.99% 线程 9 句柄 165 事件 137060 缺失 0 写者队列 19/10000 条 最老 482 ms
+样本 147：12.25 h RSS 146.58 MB CPU 11.17% 线程 9 句柄 165 事件 147820 缺失 0 写者队列 19/10000 条 最老 492 ms
+样本 148：12.33 h RSS 148.23 MB CPU 11.38% 线程 9 句柄 165 事件 158560 缺失 0 写者队列 19/10000 条 最老 488 ms
+样本 149：12.42 h RSS 149.70 MB CPU 11.14% 线程 9 句柄 165 事件 169320 缺失 0 写者队列 19/10000 条 最老 477 ms
+样本 150：12.50 h RSS 148.70 MB CPU 11.17% 线程 9 句柄 165 事件 180060 缺失 0 写者队列 19/10000 条 最老 484 ms
+样本 151：12.58 h RSS 140.38 MB CPU 11.04% 线程 9 句柄 165 事件 190800 缺失 0 写者队列 19/10000 条 最老 507 ms
+样本 152：12.67 h RSS 150.27 MB CPU 11.46% 线程 9 句柄 165 事件 201540 缺失 0 写者队列 19/10000 条 最老 478 ms
+样本 153：12.75 h RSS 146.25 MB CPU 11.56% 线程 9 句柄 165 事件 212280 缺失 0 写者队列 19/10000 条 最老 486 ms
+样本 154：12.83 h RSS 148.97 MB CPU 11.31% 线程 9 句柄 165 事件 223040 缺失 0 写者队列 19/10000 条 最老 484 ms
+样本 155：12.92 h RSS 148.45 MB CPU 11.35% 线程 9 句柄 165 事件 233780 缺失 0 写者队列 19/10000 条 最老 562 ms
+样本 156：13.00 h RSS 150.39 MB CPU 11.66% 线程 9 句柄 165 事件 244360 缺失 0 写者队列 19/10000 条 最老 915 ms
+样本 157：13.08 h RSS 149.56 MB CPU 11.46% 线程 9 句柄 165 事件 254440 缺失 0 写者队列 19/10000 条 最老 533 ms
+样本 158：13.17 h RSS 150.23 MB CPU 12.09% 线程 9 句柄 165 事件 265180 缺失 0 写者队列 19/10000 条 最老 468 ms
+样本 159：13.25 h RSS 150.11 MB CPU 11.74% 线程 9 句柄 165 事件 275940 缺失 0 写者队列 19/10000 条 最老 493 ms
+样本 160：13.33 h RSS 149.23 MB CPU 11.45% 线程 9 句柄 165 事件 286680 缺失 0 写者队列 19/10000 条 最老 481 ms
+样本 161：13.42 h RSS 152.67 MB CPU 11.07% 线程 9 句柄 165 事件 297440 缺失 0 写者队列 19/10000 条 最老 499 ms
+样本 162：13.50 h RSS 150.68 MB CPU 11.34% 线程 9 句柄 165 事件 308200 缺失 0 写者队列 19/10000 条 最老 492 ms
+样本 163：13.58 h RSS 151.17 MB CPU 11.64% 线程 9 句柄 165 事件 318940 缺失 0 写者队列 19/10000 条 最老 488 ms
+样本 164：13.67 h RSS 153.02 MB CPU 11.26% 线程 9 句柄 165 事件 329700 缺失 0 写者队列 19/10000 条 最老 481 ms
+样本 165：13.75 h RSS 151.39 MB CPU 11.40% 线程 9 句柄 165 事件 340460 缺失 0 写者队列 19/10000 条 最老 494 ms
+样本 166：13.83 h RSS 152.24 MB CPU 11.10% 线程 9 句柄 165 事件 351220 缺失 0 写者队列 19/10000 条 最老 511 ms
+样本 167：13.92 h RSS 151.35 MB CPU 11.36% 线程 9 句柄 165 事件 361960 缺失 0 写者队列 19/10000 条 最老 509 ms
+样本 168：14.00 h RSS 155.33 MB CPU 11.53% 线程 9 句柄 165 事件 372700 缺失 0 写者队列 19/10000 条 最老 496 ms
+样本 169：14.08 h RSS 156.13 MB CPU 11.54% 线程 9 句柄 165 事件 383460 缺失 0 写者队列 19/10000 条 最老 500 ms
+样本 170：14.17 h RSS 157.25 MB CPU 11.48% 线程 9 句柄 165 事件 394220 缺失 0 写者队列 19/10000 条 最老 503 ms
+样本 171：14.25 h RSS 158.20 MB CPU 14.24% 线程 9 句柄 165 事件 104560 缺失 0 写者队列 19/10000 条 最老 491 ms
+样本 172：14.33 h RSS 145.78 MB CPU 11.16% 线程 9 句柄 165 事件 115280 缺失 0 写者队列 19/10000 条 最老 511 ms
+样本 173：14.42 h RSS 147.27 MB CPU 11.04% 线程 9 句柄 165 事件 126040 缺失 0 写者队列 19/10000 条 最老 492 ms
+样本 174：14.50 h RSS 147.47 MB CPU 11.12% 线程 9 句柄 165 事件 136800 缺失 0 写者队列 19/10000 条 最老 479 ms
+样本 175：14.58 h RSS 146.27 MB CPU 10.99% 线程 9 句柄 165 事件 147560 缺失 0 写者队列 19/10000 条 最老 509 ms
+样本 176：14.67 h RSS 150.32 MB CPU 10.82% 线程 9 句柄 165 事件 158340 缺失 0 写者队列 19/10000 条 最老 446 ms
+样本 177：14.75 h RSS 149.18 MB CPU 11.34% 线程 9 句柄 165 事件 169100 缺失 0 写者队列 19/10000 条 最老 490 ms
+样本 178：14.83 h RSS 148.18 MB CPU 11.30% 线程 9 句柄 165 事件 179860 缺失 0 写者队列 19/10000 条 最老 497 ms
+样本 179：14.92 h RSS 151.03 MB CPU 11.16% 线程 9 句柄 165 事件 190620 缺失 0 写者队列 19/10000 条 最老 498 ms
+样本 180：15.00 h RSS 146.86 MB CPU 11.32% 线程 9 句柄 165 事件 201340 缺失 0 写者队列 19/10000 条 最老 504 ms
+样本 181：15.08 h RSS 150.79 MB CPU 10.94% 线程 9 句柄 165 事件 212100 缺失 0 写者队列 19/10000 条 最老 489 ms
+样本 182：15.17 h RSS 149.39 MB CPU 11.19% 线程 9 句柄 165 事件 222860 缺失 0 写者队列 19/10000 条 最老 501 ms
+样本 183：15.25 h RSS 149.18 MB CPU 11.14% 线程 9 句柄 165 事件 233600 缺失 0 写者队列 19/10000 条 最老 476 ms
+样本 184：15.33 h RSS 147.11 MB CPU 11.43% 线程 9 句柄 165 事件 244380 缺失 0 写者队列 19/10000 条 最老 496 ms
+样本 185：15.42 h RSS 150.65 MB CPU 11.22% 线程 9 句柄 165 事件 255120 缺失 0 写者队列 19/10000 条 最老 495 ms
+样本 186：15.50 h RSS 152.70 MB CPU 11.35% 线程 9 句柄 165 事件 265880 缺失 0 写者队列 19/10000 条 最老 514 ms
+样本 187：15.58 h RSS 148.72 MB CPU 11.27% 线程 9 句柄 165 事件 276620 缺失 0 写者队列 19/10000 条 最老 489 ms
+样本 188：15.67 h RSS 147.90 MB CPU 11.53% 线程 9 句柄 165 事件 287380 缺失 0 写者队列 19/10000 条 最老 498 ms
+样本 189：15.75 h RSS 154.19 MB CPU 11.51% 线程 9 句柄 165 事件 298140 缺失 0 写者队列 19/10000 条 最老 490 ms
+样本 190：15.83 h RSS 150.33 MB CPU 11.60% 线程 9 句柄 165 事件 308900 缺失 0 写者队列 19/10000 条 最老 498 ms
+样本 191：15.92 h RSS 151.58 MB CPU 11.34% 线程 9 句柄 165 事件 319640 缺失 0 写者队列 19/10000 条 最老 489 ms
+样本 192：16.00 h RSS 150.86 MB CPU 11.28% 线程 9 句柄 165 事件 330400 缺失 0 写者队列 19/10000 条 最老 490 ms
+样本 193：16.08 h RSS 153.02 MB CPU 11.52% 线程 9 句柄 165 事件 341160 缺失 0 写者队列 19/10000 条 最老 495 ms
+样本 194：16.17 h RSS 153.15 MB CPU 11.32% 线程 9 句柄 165 事件 351900 缺失 0 写者队列 19/10000 条 最老 495 ms
+样本 195：16.25 h RSS 149.62 MB CPU 11.22% 线程 9 句柄 165 事件 362660 缺失 0 写者队列 19/10000 条 最老 482 ms
+样本 196：16.33 h RSS 154.32 MB CPU 11.24% 线程 9 句柄 165 事件 373400 缺失 0 写者队列 19/10000 条 最老 489 ms
+样本 197：16.42 h RSS 151.80 MB CPU 11.61% 线程 9 句柄 165 事件 384140 缺失 0 写者队列 19/10000 条 最老 487 ms
+样本 198：16.50 h RSS 154.82 MB CPU 11.49% 线程 9 句柄 165 事件 394900 缺失 0 写者队列 19/10000 条 最老 460 ms
+样本 199：16.58 h RSS 150.36 MB CPU 14.60% 线程 9 句柄 165 事件 105240 缺失 0 写者队列 19/10000 条 最老 489 ms
+样本 200：16.67 h RSS 144.34 MB CPU 11.10% 线程 9 句柄 165 事件 116000 缺失 0 写者队列 19/10000 条 最老 485 ms
+样本 201：16.75 h RSS 148.24 MB CPU 10.69% 线程 9 句柄 165 事件 126760 缺失 0 写者队列 19/10000 条 最老 506 ms
+样本 202：16.83 h RSS 145.39 MB CPU 11.11% 线程 9 句柄 165 事件 137500 缺失 0 写者队列 19/10000 条 最老 480 ms
+样本 203：16.92 h RSS 144.00 MB CPU 11.32% 线程 9 句柄 165 事件 148260 缺失 0 写者队列 19/10000 条 最老 470 ms
+样本 204：17.00 h RSS 147.40 MB CPU 11.18% 线程 9 句柄 165 事件 159020 缺失 0 写者队列 19/10000 条 最老 487 ms
+样本 205：17.08 h RSS 147.62 MB CPU 11.02% 线程 9 句柄 165 事件 169780 缺失 0 写者队列 19/10000 条 最老 478 ms
+样本 206：17.17 h RSS 147.73 MB CPU 11.09% 线程 9 句柄 165 事件 180540 缺失 0 写者队列 19/10000 条 最老 478 ms
+样本 207：17.25 h RSS 147.82 MB CPU 11.48% 线程 9 句柄 165 事件 191280 缺失 0 写者队列 19/10000 条 最老 471 ms
+样本 208：17.33 h RSS 148.56 MB CPU 11.29% 线程 9 句柄 165 事件 202040 缺失 0 写者队列 19/10000 条 最老 480 ms
+样本 209：17.42 h RSS 147.75 MB CPU 11.23% 线程 9 句柄 165 事件 212800 缺失 0 写者队列 19/10000 条 最老 483 ms
+样本 210：17.50 h RSS 148.36 MB CPU 11.16% 线程 9 句柄 165 事件 223560 缺失 0 写者队列 19/10000 条 最老 492 ms
+样本 211：17.58 h RSS 150.14 MB CPU 10.93% 线程 9 句柄 165 事件 234320 缺失 0 写者队列 19/10000 条 最老 484 ms
+样本 212：17.67 h RSS 148.40 MB CPU 11.14% 线程 9 句柄 165 事件 245080 缺失 0 写者队列 19/10000 条 最老 478 ms
+样本 213：17.75 h RSS 148.24 MB CPU 11.51% 线程 9 句柄 165 事件 255840 缺失 0 写者队列 19/10000 条 最老 473 ms
+样本 214：17.83 h RSS 152.66 MB CPU 11.43% 线程 9 句柄 165 事件 266600 缺失 0 写者队列 19/10000 条 最老 472 ms
+样本 215：17.92 h RSS 148.51 MB CPU 11.33% 线程 9 句柄 165 事件 277360 缺失 0 写者队列 19/10000 条 最老 498 ms
+样本 216：18.00 h RSS 154.20 MB CPU 11.49% 线程 9 句柄 165 事件 288100 缺失 0 写者队列 19/10000 条 最老 735 ms
+样本 217：18.08 h RSS 151.33 MB CPU 11.42% 线程 9 句柄 165 事件 298720 缺失 0 写者队列 19/10000 条 最老 493 ms
+样本 218：18.17 h RSS 150.16 MB CPU 11.37% 线程 9 句柄 165 事件 309480 缺失 0 写者队列 19/10000 条 最老 514 ms
+样本 219：18.25 h RSS 153.31 MB CPU 11.62% 线程 9 句柄 165 事件 320220 缺失 0 写者队列 19/10000 条 最老 489 ms
+样本 220：18.33 h RSS 144.53 MB CPU 11.21% 线程 9 句柄 165 事件 330980 缺失 0 写者队列 19/10000 条 最老 501 ms
+样本 221：18.42 h RSS 151.04 MB CPU 13.33% 线程 9 句柄 165 事件 341560 缺失 0 写者队列 19/10000 条 最老 494 ms
+样本 222：18.50 h RSS 150.61 MB CPU 14.15% 线程 9 句柄 165 事件 352020 缺失 0 写者队列 19/10000 条 最老 491 ms
+样本 223：18.58 h RSS 147.89 MB CPU 20.44% 线程 9 句柄 165 事件 361820 缺失 0 写者队列 19/10000 条 最老 1344 ms
+样本 224：18.67 h RSS 150.27 MB CPU 19.24% 线程 9 句柄 165 事件 371760 缺失 0 写者队列 19/10000 条 最老 572 ms
+样本 225：18.75 h RSS 147.80 MB CPU 19.86% 线程 9 句柄 165 事件 381680 缺失 0 写者队列 19/10000 条 最老 1146 ms
+样本 226：18.83 h RSS 156.43 MB CPU 20.48% 线程 9 句柄 165 事件 391520 缺失 0 写者队列 19/10000 条 最老 1323 ms
+样本 227：18.92 h RSS 144.79 MB CPU 30.59% 线程 9 句柄 165 事件 100100 缺失 0 写者队列 19/10000 条 最老 32736 ms
+样本 228：19.00 h RSS 145.67 MB CPU 24.47% 线程 9 句柄 165 事件 109380 缺失 0 写者队列 19/10000 条 最老 1659 ms
+样本 229：19.08 h RSS 145.26 MB CPU 20.62% 线程 9 句柄 165 事件 119100 缺失 0 写者队列 19/10000 条 最老 1030 ms
+样本 230：19.17 h RSS 150.27 MB CPU 19.18% 线程 9 句柄 165 事件 129040 缺失 0 写者队列 19/10000 条 最老 1343 ms
+样本 231：19.25 h RSS 149.29 MB CPU 22.57% 线程 9 句柄 165 事件 138600 缺失 0 写者队列 19/10000 条 最老 1815 ms
+样本 232：19.33 h RSS 146.45 MB CPU 17.05% 线程 9 句柄 165 事件 148680 缺失 0 写者队列 19/10000 条 最老 1332 ms
+样本 233：19.42 h RSS 135.23 MB CPU 16.55% 线程 9 句柄 165 事件 158800 缺失 0 写者队列 19/10000 条 最老 1086 ms
+样本 234：19.50 h RSS 132.27 MB CPU 17.35% 线程 9 句柄 165 事件 168940 缺失 0 写者队列 19/10000 条 最老 709 ms
+样本 235：19.58 h RSS 136.61 MB CPU 18.30% 线程 9 句柄 165 事件 179000 缺失 0 写者队列 19/10000 条 最老 1105 ms
+样本 236：19.67 h RSS 136.10 MB CPU 16.47% 线程 9 句柄 165 事件 189160 缺失 0 写者队列 19/10000 条 最老 466 ms
+样本 237：19.75 h RSS 136.53 MB CPU 16.48% 线程 9 句柄 165 事件 199360 缺失 0 写者队列 19/10000 条 最老 785 ms
+样本 238：19.83 h RSS 136.65 MB CPU 16.21% 线程 9 句柄 165 事件 209580 缺失 0 写者队列 19/10000 条 最老 493 ms
+样本 239：19.92 h RSS 141.50 MB CPU 16.24% 线程 9 句柄 165 事件 219820 缺失 0 写者队列 19/10000 条 最老 482 ms
+样本 240：20.00 h RSS 136.97 MB CPU 16.34% 线程 9 句柄 165 事件 230080 缺失 0 写者队列 19/10000 条 最老 505 ms
+样本 241：20.08 h RSS 139.27 MB CPU 18.61% 线程 9 句柄 165 事件 240100 缺失 0 写者队列 19/10000 条 最老 510 ms
+样本 242：20.17 h RSS 135.98 MB CPU 15.93% 线程 9 句柄 165 事件 250340 缺失 0 写者队列 19/10000 条 最老 485 ms
+样本 243：20.25 h RSS 135.93 MB CPU 16.14% 线程 9 句柄 165 事件 260580 缺失 0 写者队列 19/10000 条 最老 494 ms
+样本 244：20.33 h RSS 137.72 MB CPU 16.42% 线程 9 句柄 165 事件 270820 缺失 0 写者队列 19/10000 条 最老 481 ms
+样本 245：20.42 h RSS 138.20 MB CPU 16.58% 线程 9 句柄 165 事件 281040 缺失 0 写者队列 19/10000 条 最老 668 ms
+样本 246：20.50 h RSS 142.76 MB CPU 16.56% 线程 9 句柄 165 事件 291300 缺失 0 写者队列 19/10000 条 最老 477 ms
+样本 247：20.58 h RSS 138.70 MB CPU 16.49% 线程 9 句柄 165 事件 301500 缺失 0 写者队列 19/10000 条 最老 480 ms
+样本 248：20.67 h RSS 134.32 MB CPU 17.58% 线程 9 句柄 165 事件 311540 缺失 0 写者队列 19/10000 条 最老 1173 ms
+样本 249：20.75 h RSS 139.49 MB CPU 17.26% 线程 9 句柄 165 事件 321700 缺失 0 写者队列 19/10000 条 最老 1077 ms
+样本 250：20.83 h RSS 139.73 MB CPU 15.99% 线程 9 句柄 165 事件 332000 缺失 0 写者队列 19/10000 条 最老 982 ms
+样本 251：20.92 h RSS 140.88 MB CPU 16.40% 线程 9 句柄 165 事件 342220 缺失 0 写者队列 19/10000 条 最老 446 ms
+样本 252：21.00 h RSS 140.08 MB CPU 16.34% 线程 9 句柄 165 事件 352480 缺失 0 写者队列 19/10000 条 最老 448 ms
+样本 253：21.08 h RSS 142.02 MB CPU 15.89% 线程 9 句柄 165 事件 362740 缺失 0 写者队列 19/10000 条 最老 444 ms
+样本 254：21.17 h RSS 143.31 MB CPU 16.03% 线程 9 句柄 165 事件 373020 缺失 0 写者队列 19/10000 条 最老 423 ms
+样本 255：21.25 h RSS 139.67 MB CPU 16.79% 线程 9 句柄 165 事件 383240 缺失 0 写者队列 19/10000 条 最老 448 ms
+样本 256：21.33 h RSS 141.06 MB CPU 16.50% 线程 9 句柄 165 事件 393520 缺失 0 写者队列 19/10000 条 最老 433 ms
+样本 257：21.42 h RSS 133.55 MB CPU 22.71% 线程 9 句柄 165 事件 102960 缺失 0 写者队列 19/10000 条 最老 458 ms
+样本 258：21.50 h RSS 130.51 MB CPU 15.81% 线程 9 句柄 165 事件 113220 缺失 0 写者队列 19/10000 条 最老 432 ms
+样本 259：21.58 h RSS 131.79 MB CPU 15.76% 线程 9 句柄 165 事件 123460 缺失 0 写者队列 19/10000 条 最老 446 ms
+样本 260：21.67 h RSS 138.21 MB CPU 16.29% 线程 9 句柄 165 事件 133740 缺失 0 写者队列 19/10000 条 最老 443 ms
+样本 261：21.75 h RSS 137.39 MB CPU 16.22% 线程 9 句柄 165 事件 144000 缺失 0 写者队列 19/10000 条 最老 459 ms
+样本 262：21.83 h RSS 129.88 MB CPU 16.38% 线程 9 句柄 165 事件 154240 缺失 0 写者队列 19/10000 条 最老 436 ms
+样本 263：21.92 h RSS 135.83 MB CPU 16.04% 线程 9 句柄 165 事件 164500 缺失 0 写者队列 19/10000 条 最老 434 ms
+样本 264：22.00 h RSS 137.91 MB CPU 15.83% 线程 9 句柄 165 事件 174760 缺失 0 写者队列 19/10000 条 最老 447 ms
+样本 265：22.08 h RSS 138.43 MB CPU 15.95% 线程 9 句柄 165 事件 185020 缺失 0 写者队列 19/10000 条 最老 435 ms
+样本 266：22.17 h RSS 136.34 MB CPU 16.59% 线程 9 句柄 165 事件 195260 缺失 0 写者队列 19/10000 条 最老 428 ms
+样本 267：22.25 h RSS 136.89 MB CPU 16.14% 线程 9 句柄 165 事件 205540 缺失 0 写者队列 19/10000 条 最老 432 ms
+样本 268：22.33 h RSS 137.55 MB CPU 15.38% 线程 9 句柄 165 事件 215860 缺失 0 写者队列 19/10000 条 最老 436 ms
+样本 269：22.42 h RSS 134.87 MB CPU 16.04% 线程 9 句柄 165 事件 226120 缺失 0 写者队列 19/10000 条 最老 471 ms
+样本 270：22.50 h RSS 137.14 MB CPU 15.87% 线程 9 句柄 165 事件 236400 缺失 0 写者队列 19/10000 条 最老 429 ms
+样本 271：22.58 h RSS 140.16 MB CPU 16.26% 线程 9 句柄 165 事件 246680 缺失 0 写者队列 19/10000 条 最老 432 ms
+样本 272：22.67 h RSS 141.32 MB CPU 16.52% 线程 9 句柄 165 事件 256940 缺失 0 写者队列 19/10000 条 最老 431 ms
+样本 273：22.75 h RSS 139.13 MB CPU 16.31% 线程 9 句柄 165 事件 267200 缺失 0 写者队列 19/10000 条 最老 438 ms
+样本 274：22.83 h RSS 141.06 MB CPU 16.01% 线程 9 句柄 165 事件 277480 缺失 0 写者队列 19/10000 条 最老 421 ms
+样本 275：22.92 h RSS 142.95 MB CPU 16.32% 线程 9 句柄 165 事件 287740 缺失 0 写者队列 19/10000 条 最老 422 ms
+样本 276：23.00 h RSS 146.67 MB CPU 18.21% 线程 9 句柄 165 事件 297520 缺失 0 写者队列 19/10000 条 最老 485 ms
+样本 277：23.08 h RSS 140.94 MB CPU 14.90% 线程 9 句柄 165 事件 307800 缺失 0 写者队列 19/10000 条 最老 444 ms
+样本 278：23.17 h RSS 136.95 MB CPU 16.40% 线程 9 句柄 165 事件 318040 缺失 0 写者队列 19/10000 条 最老 423 ms
+样本 279：23.25 h RSS 139.80 MB CPU 16.11% 线程 9 句柄 165 事件 328300 缺失 0 写者队列 19/10000 条 最老 430 ms
+样本 280：23.33 h RSS 137.43 MB CPU 16.13% 线程 9 句柄 165 事件 338560 缺失 0 写者队列 19/10000 条 最老 443 ms
+样本 281：23.42 h RSS 145.47 MB CPU 16.16% 线程 9 句柄 165 事件 348840 缺失 0 写者队列 19/10000 条 最老 428 ms
+样本 282：23.50 h RSS 144.74 MB CPU 16.25% 线程 9 句柄 165 事件 359080 缺失 0 写者队列 19/10000 条 最老 428 ms
+样本 283：23.58 h RSS 146.88 MB CPU 16.48% 线程 9 句柄 165 事件 369360 缺失 0 写者队列 19/10000 条 最老 438 ms
+样本 284：23.67 h RSS 141.89 MB CPU 16.83% 线程 9 句柄 165 事件 379560 缺失 0 写者队列 19/10000 条 最老 419 ms
+样本 285：23.75 h RSS 142.81 MB CPU 16.41% 线程 9 句柄 165 事件 389820 缺失 0 写者队列 19/10000 条 最老 444 ms
+样本 286：23.84 h RSS 135.56 MB CPU 22.70% 线程 9 句柄 165 事件 100100 缺失 0 写者队列 19/10000 条 最老 23557 ms
+样本 287：23.92 h RSS 141.65 MB CPU 17.26% 线程 9 句柄 165 事件 109480 缺失 0 写者队列 19/10000 条 最老 466 ms
+汇总：{"build_profile":"release","duckdb_version":"v2.0.0","duration_hours":24.0,"event_missing_last":0,"failed_tasks":1,"kind":"summary","memory_limit_setting":"183.1 MiB","note":"rss_slope_mb_per_h 为首末差值口径，按 ADR-025 组合判据仅作交叉核对（主判据为预热后、按事件行数相位对齐的最小二乘斜率及 95% CI，由长跑后分析计算）；写者队列取自 EventWriter 待写缓冲（目标表 m0_events），events 表持续写入为直连、不计入该队列","rss_first_mb":74.07,"rss_last_mb":141.65,"rss_max_mb":158.2,"rss_slope_mb_per_h":2.8353,"samples":287,"threads_setting":"4","writer_deleted_total":2919841,"writer_events":100019,"writer_queue_depth_peak":20,"writer_submitted_total":3019860}
+test stability_run_collects_section_11_5_series ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 86448.16s
+
+done at 2026-11-02T12:07:49Z
