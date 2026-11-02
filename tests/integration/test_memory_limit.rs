@@ -66,6 +66,8 @@ struct Group {
     requested_mb: u32,
     /// 该组写入的事件条数。
     events: usize,
+    /// 该组的批次行数上限（大载荷组须减小，避免进程内待写缓冲随 payload 体积放大）。
+    batch_rows: usize,
 }
 
 /// 四组主对照（同一数据规模）：§5.4 默认值、候选最大值、足够高但仍有界的对照值，
@@ -76,24 +78,28 @@ const GROUPS: [Group; 4] = [
         memory_limit: "128MB",
         requested_mb: 128,
         events: EVENTS,
+        batch_rows: BATCH_ROWS,
     },
     Group {
         label: "192MB",
         memory_limit: "192MB",
         requested_mb: 192,
         events: EVENTS,
+        batch_rows: BATCH_ROWS,
     },
     Group {
         label: "384MB",
         memory_limit: "384MB",
         requested_mb: 384,
         events: EVENTS,
+        batch_rows: BATCH_ROWS,
     },
     Group {
         label: "1024MB",
         memory_limit: "1024MB",
         requested_mb: 1_024,
         events: EVENTS,
+        batch_rows: BATCH_ROWS,
     },
 ];
 
@@ -103,6 +109,7 @@ const PROBE: Group = Group {
     memory_limit: "192MB",
     requested_mb: 192,
     events: PROBE_EVENTS,
+    batch_rows: BATCH_ROWS,
 };
 
 /// 单组的实测记录。
@@ -232,6 +239,124 @@ fn memory_limit_baseline_experiment() {
     let _ = fs::remove_dir_all(&workspace);
 }
 
+/// 大载荷实验（ADR-012 未决项②的大载荷覆盖；Check 134 证据）。
+///
+/// 主实验的 payload 是 131 字节 JSON——ADR-012 的“大规模载荷未测”缺口指的是这个：
+/// 缓冲管理器上限（192MB）在**单条 1 MiB、总量远超上限**的写入路径下是否仍然成立
+/// （溢写 / 报错 / 成功，都是有效证据）。
+///
+/// 设计：两组同规模对照——192MB（过渡基线，数据量 512 MiB ≫ 上限，强制触及溢写路径）
+/// 与 1024MB（高上限对照）；payload 为 `{"text":"x"×1048576}`（JSON 约 1 MiB），
+/// 512 条／组，批次行数上限 8——批次缓冲按行数有界，行数大时进程内待写缓冲会随
+/// payload 体积线性放大（500 行 × 1 MiB ≈ 500 MB），故大载荷组必须减小批次。
+///
+/// 纪律与主实验一致：实验**记录器**而非断言器——失败/溢写/成功都如实记录，只断言
+/// 设置生效与条数统计自洽；`memory_limit` 不代表进程 RSS；单机单次不构成预算冻结。
+#[test]
+#[ignore = "实验记录器：需用 --ignored 显式运行，结果写入 artifacts/memory-limit-large-payload.json"]
+fn memory_limit_large_payload_experiment() {
+    let workspace = temp_workspace();
+    // payload 文本 1 MiB：JSON 后约 1 MiB/条。
+    let payload_text = "x".repeat(1_048_576);
+    let payload_bytes = serde_json::to_vec(&json!({ "text": &payload_text }))
+        .expect("固定 payload 必须可序列化")
+        .len();
+
+    println!("== memory_limit 大载荷实验（ADR-012 未决项②）==");
+    println!(
+        "固定夹具：512 条/组，payload {payload_bytes} 字节，批次 {BATCH_ROWS} 行，threads = {THREADS}"
+    );
+
+    let groups = [
+        Group {
+            label: "192MB@512@1MiB",
+            memory_limit: "192MB",
+            requested_mb: 192,
+            events: 512,
+            batch_rows: 8,
+        },
+        Group {
+            label: "1024MB@512@1MiB",
+            memory_limit: "1024MB",
+            requested_mb: 1_024,
+            events: 512,
+            batch_rows: 8,
+        },
+    ];
+    let mut results = Vec::with_capacity(groups.len());
+    for group in groups {
+        let result = run_group(group, &workspace, &payload_text);
+        print_group(&result);
+        results.push(result);
+    }
+
+    let conclusion = match (results[0].failed_at, results[0].failure_stage) {
+        (Some(at), _) => format!(
+            "192MB 上限下大载荷写入在第 {at} 条失败（错误原文见 groups[0]）——\
+             192MB 过渡基线在大载荷路径的适用边界即此处，M1 校准时须复核"
+        ),
+        (None, "final_flush") => {
+            "192MB 下 512 条 submit 成功但收尾 flush 失败（溢写/收尾路径边界）".to_string()
+        }
+        _ => "192MB 与 1024MB 下 512 条 1 MiB 载荷全部完成写入（db_bytes 见各组）——\
+              未触发失败；缓冲管理器经溢写消化了超出上限的数据量"
+            .to_string(),
+    };
+    println!("== 结论：{conclusion} ==");
+
+    let report = json!({
+        "schema_version": 1,
+        "experiment": "memory-limit-large-payload",
+        "adr": "ADR-012",
+        "generated_at_utc": utc_now_rfc3339(),
+        "environment": {
+            "os": std::env::consts::OS,
+            "arch": std::env::consts::ARCH,
+            "logical_cores": std::thread::available_parallelism()
+                .map(std::num::NonZeroUsize::get)
+                .unwrap_or(1),
+        },
+        "fixture": {
+            "events_per_group": 512,
+            "event_kind": EventKind::StreamingChunk.as_str(),
+            "payload_text_bytes": 1_048_576,
+            "payload_json_bytes": payload_bytes,
+            "total_data_mb_per_group": 512,
+            "persistence_level": PersistenceLevel::Redacted.as_str(),
+            "batch_rows": BATCH_ROWS,
+            "batch_window_ms": BATCH_WINDOW_MS,
+            "threads": THREADS,
+            "database": "临时目录下的文件库（每组独立文件）",
+            "checkpoint": "每组结束后显式 CHECKPOINT",
+        },
+        "groups": results,
+        "conclusion": conclusion,
+        "notes": [
+            "实验记录器：失败/溢写/成功都是有效证据，不判失败；只断言设置生效与条数自洽",
+            "192MB 是 DB 缓冲管理器的过渡基线，不是 RSS 预算（ADR-012）",
+            "单机单次样本不构成预算冻结；M1 校准（大载荷 1 MiB、长时、temp_directory 溢写验证）是 ADR-012 退出条件",
+        ],
+    });
+
+    let out = workspace_root()
+        .join("artifacts")
+        .join("memory-limit-large-payload.json");
+    if let Some(parent) = out.parent() {
+        fs::create_dir_all(parent).expect("创建 artifacts 目录");
+    }
+    fs::write(
+        &out,
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&report).expect("实验报告必须可序列化")
+        ),
+    )
+    .expect("写入大载荷实验证据");
+    println!("证据已写入 {}", out.display());
+
+    let _ = fs::remove_dir_all(&workspace);
+}
+
 /// 运行一组：配置上限、回读、用 `EventWriter` 写入、收尾统计。
 fn run_group(group: Group, workspace: &Path, payload_text: &str) -> GroupResult {
     let db = workspace.join(format!(
@@ -254,7 +379,7 @@ fn run_group(group: Group, workspace: &Path, payload_text: &str) -> GroupResult 
     let mut writer = EventWriter::new(
         conn,
         WriterConfig {
-            batch_rows: BATCH_ROWS,
+            batch_rows: group.batch_rows,
             batch_window_ms: BATCH_WINDOW_MS,
             ..WriterConfig::default()
         },

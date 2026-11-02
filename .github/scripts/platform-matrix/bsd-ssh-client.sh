@@ -20,6 +20,11 @@
 # 边界：该用例是**回环**测试（进程内测试桩），证明客户端路径在本平台可运行，不构成任何
 # 外部节点的连通性证据；V-004 仍属 M7，BSD 结论按 ADR-013 延后、不进入验收结论。
 #
+# V-004 升级口径（ADR-013 修订 2026-11-03，SSH 远程开发目标）：另跑 real_sshd_acceptance_loopback
+# 对**系统自带 OpenSSH sshd**（真实进程、独立密钥对）做同机回环互操作，单独记 real_sshd_gate
+# （GO／SKIPPED／NO-GO）——本轮只记录不升门（不并入 ssh_loopback_gate 硬判定），稳定后再评估；
+# 跨机外部节点证据仍属 M7。
+#
 # 纪律：本脚本只记录、不判定交付；NO-GO 不得改写为 GO。脚本始终以 0 退出（与
 # record-deps.sh 一致：结论写在证据文件与日志里），因此**不得**以退出码代替阅读证据文件。
 #
@@ -34,10 +39,12 @@ uname_s=$(uname -s 2>/dev/null || echo unknown)
 platform=$(printf '%s' "$uname_s" | tr 'A-Z' 'a-z')
 OUT_FILE="$OUT_DIR/$platform-client.txt"
 RAW_LOG="$OUT_DIR/.$platform-client.raw.$$"
+RAW_LOG2="$OUT_DIR/.$platform-client.realsshd.$$"
 
 # 原始日志只作中转，写进证据文件后删除（临时文件不留在仓库里）。
-trap 'rm -f "$RAW_LOG"' EXIT HUP INT TERM
+trap 'rm -f "$RAW_LOG" "$RAW_LOG2"' EXIT HUP INT TERM
 : > "$RAW_LOG"
+: > "$RAW_LOG2"
 
 # libduckdb 探测：显式环境变量优先，其次 FreeBSD／NetBSD 系统包目录。
 duckdb_lib=""
@@ -107,6 +114,26 @@ if [ "$cargo_ok" -eq 1 ]; then
     fi
 fi
 
+# —— 真实 sshd 互操作（V-004 CI 可达升级；ADR-013 修订 2026-11-03）——
+# 前置：回环验收 GO（客户端可编译可运行才谈互操作）。单独记 real_sshd_gate，只记录不升门。
+real_verdict="未执行"
+real_reason="回环验收未通过或 cargo 不可用，未运行真实 sshd 互操作"
+if [ "$cargo_ok" -eq 1 ] && [ "$verdict" = "GO" ]; then
+    CARGO_TERM_COLOR=never NO_COLOR=1 cargo test --locked -p whcode-ssh real_sshd -- --ignored --nocapture > "$RAW_LOG2" 2>&1
+    real_rc=$?
+    if grep -Eq 'real_sshd_acceptance_loopback \.\.\. ok' "$RAW_LOG2" \
+        && grep -Eq 'REAL_SSHD_INTEROP: GO' "$RAW_LOG2"; then
+        real_verdict="GO"
+        real_reason="真实 sshd 互操作通过：公钥认证/通道执行/退出码映射/stderr 捕获/TOFU/显式授权回传/超时终止"
+    elif grep -Eq 'REAL_SSHD_SKIPPED' "$RAW_LOG2"; then
+        real_verdict="SKIPPED"
+        real_reason=$(grep -m1 'REAL_SSHD_SKIPPED' "$RAW_LOG2" | sed 's/^REAL_SSHD_SKIPPED: //')
+    else
+        real_verdict="NO-GO"
+        real_reason="真实 sshd 互操作失败（退出码 $real_rc；详见 real_sshd_output）"
+    fi
+fi
+
 {
     echo "# WHCode 内置 SSH：$uname_s 客户端＋服务端回环验收（Check 25／96／99）"
     echo "format_version = 1"
@@ -146,6 +173,20 @@ fi
     echo "scope = 回环（进程内测试桩）；不构成任何外部节点连通性证据"
     echo "v_004 = 未取得（M7；ADR-013 延后，BSD 结论不进入验收）"
     echo
+    echo "[real_sshd]"
+    echo "real_sshd_gate = $real_verdict（$real_reason）"
+    echo "server = 系统自带 OpenSSH sshd（真实进程、独立密钥对、最小配置、真实 TCP 回环）"
+    echo "covers = 公钥认证/通道执行/退出码映射/stderr 捕获/TOFU/显式授权内容回传/超时终止"
+    echo "scope = 同机回环互操作；不是跨机外部节点证据（V-004 跨机口径仍属 M7）"
+    echo "gate_policy = 只记录不升门（不并入 ssh_loopback_gate 硬判定；稳定后经评估再升）"
+    echo
+    echo "[real_sshd_output]"
+    if [ -s "$RAW_LOG2" ]; then
+        cat "$RAW_LOG2"
+    else
+        echo "<未取得证据：真实 sshd 互操作未执行>"
+    fi
+    echo
     echo "[cargo_output]"
     if [ -s "$RAW_LOG" ]; then
         cat "$RAW_LOG"
@@ -155,6 +196,7 @@ fi
 } > "$OUT_FILE"
 
 echo "SSH_CLIENT_GATE_RESULT=$verdict（$reason）"
+echo "REAL_SSHD_GATE_RESULT=$real_verdict（$real_reason）"
 echo "证据：$OUT_FILE"
 
 exit 0

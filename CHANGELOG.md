@@ -13,6 +13,19 @@
 
 ### 变更
 
+- **四项平台证据缺口转 GitHub CI（V-004 升级／ADR-012 大载荷／BSD 量化／GUI 探针）**
+  （2026-11-03，用户指令"4.1—4.4 全部转 GitHub CI"）：①真实 sshd 互操作验收
+  `real_sshd_acceptance_loopback`（`#[ignore]`，bsd-ssh-client.sh 在 BSD VM 显式驱动）——
+  对系统自带 OpenSSH sshd（真实进程、独立密钥对、最小配置回退）验证公钥认证/通道执行/
+  退出码映射/stderr 捕获/TOFU/显式授权内容回传/超时终止，单独记 `real_sshd_gate`
+  （只记录不升门，稳定后再评估）；本机 Windows 实测 GO（真实 Windows OpenSSH sshd 全链路）。
+  ②BSD 量化测量记录 `bsd-perf.sh`（FreeBSD/NetBSD job 新步骤）：bench baseline＋概览
+  p95＋NFR-207，**记录口径**（VM 共享、debug 构建、不参与 ADR-025 预算判定），NetBSD 无
+  libduckdb 时 SKIPPED 如实登记。③`memory_limit` 新增大载荷实验（1 MiB payload × 512 条
+  @192MB/1024MB，批次行数 8 防止进程内待写缓冲随 payload 放大）——measurements job 自动
+  执行，补 ADR-012"大载荷未测"缺口。④GUI 探针与 Windows 性能预算走既有 dispatch 车道
+  （desktop/perf 输入），随本轮代码 dispatch 收证。Gate 纪律：real_sshd 与 BSD 量化均为
+  记录型证据，不改变既有硬门禁判定条件。
 - **平台定位修订：NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发**（2026-11-03，用户指令
   ＋同日追加 DragonFly 同待遇，ADR-013 修订）：三平台定位收敛为**被连入的 SSH 远程开发
   目标**——从 Windows/FreeBSD 以内置 SSH 客户端（FR-611）连入使用，不要求目标机具备

@@ -422,6 +422,9 @@ jobs:
             echo "=== Web 服务端冒烟（/api/status、/api/sessions、首页；功能等价证据）==="
             python3 .github/scripts/web-smoke.py --exe target/debug/whcode --json artifacts/web-smoke-freebsd.json
 
+            echo "=== BSD 量化测量记录（ADR-025 证据车道扩展；只记录不判定，脚本恒退出 0）==="
+            sh .github/scripts/platform-matrix/bsd-perf.sh
+
             echo "GATE_RESULT=GO（全量构建＋全量测试＋三门 GO＋TUI/Web 冒烟；2026-10-31 用户指令硬门禁）"
             echo "phase=done" >> "$progress"
 
@@ -467,6 +470,15 @@ jobs:
           path: |
             artifacts/tui-smoke-freebsd.json
             artifacts/web-smoke-freebsd.json
+
+      # 量化测量（2026-11-03）：记录口径——VM 共享环境、debug 构建、不参与 ADR-025 预算判定。
+      - name: 上传 FreeBSD 量化测量记录（记录口径，不作预算判定）
+        if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bsd-perf-freebsd
+          if-no-files-found: warn
+          path: artifacts/bsd-perf/
 
       # ---------------- NetBSD（最新 11.x release） ----------------
       - name: 在 NetBSD VM 中构建、测试与记录
@@ -669,6 +681,10 @@ jobs:
             sh .github/scripts/platform-matrix/bsd-ssh-client.sh
             echo "phase=ssh-script-done" >> "$progress"
 
+            echo "=== BSD 量化测量记录（ADR-025 证据车道扩展；只记录不判定，脚本恒退出 0）==="
+            sh .github/scripts/platform-matrix/bsd-perf.sh
+            echo "phase=perf-recorded" >> "$progress"
+
             echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
             duckdb_ready=0
             if [ "${WHCODE_DUCKDB_READY:-0}" = 1 ]; then
@@ -737,6 +753,15 @@ jobs:
           if-no-files-found: warn
           path: artifacts/ssh-acceptance/
 
+      # 量化测量（2026-11-03）：NetBSD 无 libduckdb 时按 SKIPPED 如实记录，不伪造测量。
+      - name: 上传 NetBSD 量化测量记录（记录口径，不作预算判定）
+        if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bsd-perf-netbsd
+          if-no-files-found: warn
+          path: artifacts/bsd-perf/
+
       # check-run 注解是公开可读的机器证据（日志下载需登录）：把 store／SSH 判据行
       # 以 notice 形式附在 job 上，供无凭据复核；NO-GO 不改写、缺文件显式告警。
       - name: 公布 BSD 验收结论（公开注解）
@@ -745,10 +770,10 @@ jobs:
           set -eu
           found=0
           for f in artifacts/store-acceptance/*-store.txt artifacts/ssh-acceptance/*-client.txt \
-            artifacts/process-group/*-process-group.txt; do
+            artifacts/process-group/*-process-group.txt artifacts/bsd-perf/*-perf.txt; do
             [ -f "$f" ] || continue
             found=1
-            verdict=$(grep -m1 -E '^(store_gate|ssh_loopback_gate|process_group_gate) = ' "$f" || true)
+            verdict=$(grep -m1 -E '^(store_gate|ssh_loopback_gate|process_group_gate|real_sshd_gate|perf_record_gate) = ' "$f" || true)
             [ -n "$verdict" ] || verdict="<未取得判据行>"
             echo "::notice title=BSD evidence $(basename "$f")::$verdict"
             echo "$f：$verdict" >> "$GITHUB_STEP_SUMMARY"
@@ -1058,6 +1083,7 @@ jobs:
             artifacts/stability-ci/timeseries.jsonl
             artifacts/writer-service-stress.json
             artifacts/memory-limit-experiment.json
+            artifacts/memory-limit-large-payload.json
             artifacts/query-plan-report.json
             artifacts/nfr-budget-report.json
             artifacts/resource-report.json
