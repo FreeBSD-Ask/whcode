@@ -21,7 +21,12 @@
   **不构成任何外部节点连通性证据**；V-004（M7）在各记录中显式标注"未取得"。
 - OpenBSD／DragonFly 按现行 ADR-013 修订（2026-10-31 用户指令）无原生测试车道、
   保留手工占位；其阻塞原因（工具链 rust 低于 MSRV）随记录入库，非静默跳过。
-  恢复条件：上游 rust ≥ 1.99 可用后以同脚本补取证。
+  **恢复路径（2026-11-03 ADR-013 修订：NetBSD/OpenBSD 仅支持 SSH 远程开发）**：
+  OpenBSD 走真实连入取证——从 Windows/FreeBSD 以内置 SSH 客户端连入真实 OpenBSD
+  主机（V-004 口径，被连入侧仅需 sshd）；DragonFly 不在该指令内，维持原恢复条件
+  （上游 rust ≥ 1.99 后以同脚本补取证）。
+- NetBSD 定位（同修订）：被连入的 SSH 远程开发目标——原生 SSH 回环验收 GO（本目录
+  `netbsd-client.txt`）即远程开发能力的直接证明；原生 store/DuckDB 经修订豁免。
 
 ## 关联证据
 

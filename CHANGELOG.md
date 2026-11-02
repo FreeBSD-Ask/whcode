@@ -13,6 +13,14 @@
 
 ### 变更
 
+- **平台定位修订：NetBSD/OpenBSD 仅支持 SSH 远程开发**（2026-11-03，用户指令，
+  ADR-013 修订）：两平台定位收敛为**被连入的 SSH 远程开发目标**——从 Windows/FreeBSD
+  以内置 SSH 客户端（FR-611）连入使用，不要求目标机具备原生 rust 工具链或原生 whcode
+  运行。NetBSD 原生 SSH 回环验收 GO 维持为证据；NetBSD 原生 store/DuckDB 豁免
+  （上游 2.0.0 依赖 glibc `features.h`，Check 22 据此转勾）；OpenBSD 节点证据走真实
+  连入取证（V-004 口径，不再等上游 rust）；DragonFly 不在指令内维持延后。台账：
+  Check 22 转勾（unobserved 1→0），文档同步（AGENTS.md、platform-matrix、
+  compatibility、project-status、ssh-acceptance README）。
 - **FreeBSD 车道技术债偿还：验收证据落库与四项 Check 回填**（2026-11-03，run
   `41481740766` 硬门禁口径下首次全绿）：ci.yml platform-freebsd 全量构建（含 GUI/bin）＋
   全量测试＋三门（进程组零残留／store 引擎 2.0.0／SSH 回环）＋TUI/Web 冒烟全 GO。

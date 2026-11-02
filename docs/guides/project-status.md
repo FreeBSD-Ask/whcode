@@ -1,4 +1,4 @@
-# 项目状态快照（2026-11-01）
+# 项目状态快照（2026-11-03）
 
 本页是**带日期的状态快照**，供了解进度用。权威账本始终是
 [`tasks.md`](../../specs/001-whcode-harness/tasks.md)（任务勾选）与
@@ -12,8 +12,8 @@
 | 项 | 数量 |
 |---|---|
 | 功能需求 FR | 116 |
-| 任务 | 243（已完成 237，未完成 6） |
-| 验收检查点 | 339（已通过 328，未通过 11） |
+| 任务 | 243（已完成 240，未完成 3） |
+| 验收检查点 | 339（已通过 337，未通过 2） |
 
 ## 里程碑
 
@@ -21,24 +21,16 @@
 |---|---|
 | M0 平台可行性与基线冻结 | Windows 工程基线有条件通过（ADR-016）；V-004 延后至 M7 |
 | M1 存储与事件基座、M2 会话与任务、M3 LLM 与上下文、M4 SDD 门禁、M5 TUI/CUI、M6 Web | 实现完成，测试在库 |
-| M7 SSH | 服务端实现完成（russh 0.64.1，ADR-030）；四 BSD 现场验收延后（ADR-013） |
+| M7 SSH | 服务端实现完成（russh 0.64.1，ADR-030）；FreeBSD/NetBSD SSH 回环验收 GO（客户端＋服务端四项，run `41481740766`）；V-004 外部节点延后至 M7；NetBSD/OpenBSD 定位为 SSH 远程开发目标（ADR-013 修订 2026-11-03） |
 | M8 可选执行运行时 | 实现完成，feature 默认关闭 |
-| M9 优化与发布 | 部分完成：兼容矩阵、运行时清单、热点优化（T115）、发布包与指南已交付；5.5 小时稳定性（T116）尚无合格数据 |
+| M9 优化与发布 | 已交付：兼容矩阵、运行时清单、热点优化（T115）、发布包与指南；稳定性（NFR-204）以 24h 深检收口通过（T116/Check 116/195，2026-11-02） |
 | Phase 13 跨里程碑收尾 | 已完成（安全复查、quickstart 全流程、追溯审计） |
 | 四端对等（FR-619—625） | 已完成（ADR-032）；54 条能力登记表为单一事实源 |
 
 ## 未完成项与原因
 
-- **BSD 现场验收**：T099，以及 Check 20/21/22/25/96/99/109/201 的 BSD 侧。ADR-013 修订（2026-10-31，用户指令）将 FreeBSD 设为完整平台证据车道（硬门禁：随 main 全量构建含 GUI/bin、全量测试、三门进程组零残留/store 2.0.0/SSH 回环、TUI/Web 冒烟，任一失败即红；系统依赖允许 FreeBSD ports/latest pkg）；NetBSD 随 CI 自动运行（仅平台证据、不阻断）；OpenBSD/DragonFly 为手工占位。四者均不作验收结论（验收仍为 Windows 11 amd64），性能分位数未取得（perf 车道仅 Windows）。2026-10-26 的
-  FreeBSD run `40267545791` 已给出 `ssh_loopback_gate = GO`（客户端＋服务端回环）；
-  DuckDB 2.0 源码构建在 `cmake --install` 阶段失败（静态库体积/安装规则），已改为只构建
-  `libduckdb.so` 并手工复制共享库与头文件，NetBSD 的 rustup PATH 回退也已修复，待下一轮
-  CI 判定。所有 BSD 判据以公开 check-run 注解与 `*-progress.txt` 公布，无需登录即可复核。
-- **5.5 小时稳定性（NFR-204）**：T116 与 Check 116/195。2026-10-25 的 CI 长跑（run
-  40154046118）已取得 65 个样本，但 RSS 斜率 0.6987／0.943 MB/h 高于 0.5 MB/h 预算；
-  2026-10-25 已把长跑夹具改用正式 `EventWriter` 并输出队列深度／最老项年龄（目标表
-  `m0_events`，`events` 表仍直连，已显式标注）；分析见
-  `artifacts/nfr204-disposition-2026-10-25.md`（含判据分辨力不足的论证与 ADR-025 修订提议）。
+- **BSD 验收（2026-11-03 已收口一批）**：Check 22/25/96/99/195/336 与 T099/T240 已转勾（run `41481740766` 硬门禁首次全绿，证据落库 `artifacts/ssh-acceptance/` 与 `artifacts/store-acceptance/`）。ADR-013 修订（2026-10-31）设 FreeBSD 为完整平台证据车道（硬门禁）；修订（2026-11-03，用户指令）定 **NetBSD/OpenBSD 仅支持 SSH 远程开发**（被 Windows/FreeBSD 内置 SSH 客户端连入的目标，不要求原生工具链/引擎；NetBSD 原生 SSH GO 维持为证据，NetBSD 原生 store 豁免——上游 DuckDB 2.0.0 依赖 glibc `features.h`；OpenBSD 节点证据走真实连入取证）。**仍开放**：V-004 外部节点连通性（M7）；DragonFly 不在 2026-11-03 指令内（维持延后，恢复条件＝上游 rust ≥ 1.99）；性能分位数未取得（perf 车道仅 Windows）。
+- **稳定性（NFR-204，已收口）**：T116/Check 116/195。5.5h CI 窗口对 0.5 MB/h 无分辨力（run 40529349945 无权判定）后按 ADR-025 升级 24h 本机深检——287 样本、多口径一致负斜率（warmup_ols −0.3551、phase_aligned −0.2681、稳态 −1.24）、线程/句柄无持续增长，**verdict=通过**（2026-11-02）；判据增补见 ADR-025 修订记录；证据 `artifacts/nfr204-verdict-24h-2026-11-02.md`。
 - **真实 LLM 供应商**：T162—T167。T162—T166 已落地并通过 77 项 `http` 测试与本地回环端到端
   （`artifacts/llm-e2e-2026-10-25.md`）；T167 仅 CUI／Web 接线，TUI／GUI 仍为 `Reserved`
   （ADR-032），四端全翻转未完成。
@@ -49,7 +41,7 @@
 - **GUI 线程预算**：DuckDB 2.0.0 单连接打开约 80 线程，GUI 空闲实测 88 线程／297—330 句柄，
   超过 ADR-027 的 24／256；处置见 `docs/adr/ADR-042-duckdb-connection-thread-budget.md`
   （提议，待用户批准）。
-- **ADR 未决项**：Check 134 依赖 BSD 范围恢复后把三份部分批准 ADR 转正。
+- **ADR 未决项**：Check 134 保持未勾——ADR-012 的退出条件是 M1 基准校准（M0 内无法转正）；ADR-005/010 的平台口径已按 ADR-013 修订（2026-11-03：NetBSD/OpenBSD 仅支持 SSH 远程开发）更新。
 
 ## 能力快照
 
@@ -77,7 +69,7 @@
 
 | 工作流 | 触发 | 职责 |
 |---|---|---|
-| `ci.yml` | push main、PR、手动 | 门禁与测试、平台矩阵（Windows 必过＝唯一验收；FreeBSD 硬门禁证据车道；NetBSD 自动证据；OpenBSD/DragonFly 手工占位）、短测量、Windows SSH 回环／TLS 专项／Playwright tablist 验收；性能与桌面型测试由 `workflow_dispatch` 输入触发 |
+| `ci.yml` | push main、PR、手动 | 门禁与测试、平台矩阵（Windows 必过＝唯一验收；FreeBSD 硬门禁证据车道；NetBSD 自动证据＋SSH 远程开发目标；OpenBSD SSH 远程开发目标、DragonFly 手工占位）、短测量、Windows SSH 回环／TLS 专项／Playwright tablist 验收；性能与桌面型测试由 `workflow_dispatch` 输入触发 |
 | `build-release.yml` | push、tag `v*`、手动 | debug 与 release 矩阵构建、打包安装验证、冒烟、SHA256；tag 时更新 GitHub Release |
 | `long-run.yml` | 手动，或 push 改动 `artifacts/long-run-request-*.md` | 5.5 小时稳定性长跑（ADR-033，release 剖面、300 s 采样），一次约消耗 5.5 小时 Windows runner 配额；摘要以公开注解公布 |
 
