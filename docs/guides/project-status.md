@@ -41,6 +41,12 @@
 - **GUI 线程预算**：DuckDB 2.0.0 单连接打开约 80 线程，GUI 空闲实测 88 线程／297—330 句柄，
   超过 ADR-027 的 24／256；处置见 `docs/adr/ADR-042-duckdb-connection-thread-budget.md`
   （提议，待用户批准）。
+- **GUI 空闲线程待查（2026-11-03 观察）**：本机 release 构建、DPI 2.0、客户区 1100×900 下
+  空闲线程实测 **28**（CI 托管 runner 同条件实测 17），高于 ADR-027 的「线程 ≤ 24」。
+  尚未定位：可能是高 DPI 渲染路径或本机 16 核的运行时线程池规模差异，**不作为结论**、
+  也不据此改预算。复查方式：`python .github/scripts/gui-probe.py --exe target/release/whcode.exe
+  --out artifacts/gui-run-<date>`，比较 `resources.threads` 与 `dpi_scale`／核数；需要
+  ADR-042 的 `async_threads` 口径复测后再定。
 - **ADR 未决项**：无。Check 134 于 2026-11-03 转勾——ADR-005、ADR-010、ADR-012 三份"部分批准"经证据收口转正（SSH 回环＋real-sshd 互操作、FreeBSD 源码构建 DuckDB 2.0.0、大载荷边界量化＋24h 深检），ADR-001—014 无未决条件；M1 基准校准仍按 ADR-012 原退出条件执行（属里程碑工作，非 ADR 未决项）。
 
 ## 能力快照
