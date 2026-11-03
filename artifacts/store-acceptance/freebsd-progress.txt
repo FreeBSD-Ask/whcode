@@ -1,0 +1,9 @@
+phase=bootstrap-start
+phase=toolchain-ok
+rustc_version=rustc 1.99.1 (58cf8f9c3 2026-10-13)
+process_group_gate=GO
+phase=duckdb-script-done
+phase=ssh-gate-go
+phase=workspace-build-ok
+phase=workspace-tests-ok
+phase=done

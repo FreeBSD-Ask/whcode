@@ -1,6 +1,6 @@
 # WHCode DuckDB 2.0.0 源码构建与 store 冒烟：FreeBSD 平台证据（Check 22）
 format_version = 1
-generated_at_utc = 2026-11-02T16:52:46Z
+generated_at_utc = 2026-11-03T03:22:55Z
 script = .github/scripts/platform-matrix/bsd-duckdb.sh
 source = Check 22、ADR-034（冻结引擎 2.0.0）、ADR-DB-BUILD、R-01
 scope = FreeBSD 为 best-effort 平台证据；按 ADR-013 延后，不进入验收结论
@@ -46,7 +46,7 @@ jobs = 2
 generator = Ninja
 make_program = <未指定：使用 CMake 默认>
 cmake_options = -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_UNITTESTS=OFF -DBUILD_SHELL=OFF -DENABLE_UNITTEST_CPP_TESTS=OFF -DSKIP_EXTENSIONS=jemalloc -DOVERRIDE_GIT_DESCRIBE=v2.0.0 -DDUCKDB_MAJOR_VERSION=2 -DDUCKDB_MINOR_VERSION=0 -DDUCKDB_PATCH_VERSION=0
-build_seconds = 1298
+build_seconds = 1517
 install_seconds = 0
 installed_libs = /usr/local/whcode-duckdb-2.0.0/lib/libduckdb.so 
 
@@ -65,9 +65,9 @@ probe_exit_code = 0
 [command]
 cargo_test = cargo test --locked -p whcode-store
 cargo_exit_code = 0
-test_seconds = 62
+test_seconds = 63
 test_result_lines =
-  test result: ok. 118 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.19s
+  test result: ok. 118 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.11s
   test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 acceptance_test = smoke_reports_engine_version_from_runtime
 
@@ -76,7 +76,7 @@ store_gate = GO（cargo test 通过，且验收用例 smoke_reports_engine_versi
 build_gate = GO（libduckdb 2.0.0 已安装并可链接）
 
 [build_output_tail]
-[351/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_enums.cpp.o
+[351/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_extension.cpp.o
 [352/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions.cpp.o
 [353/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_scan.cpp.o
 [354/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_serializer.cpp.o
@@ -107,10 +107,10 @@ build_gate = GO（libduckdb 2.0.0 已安装并可链接）
 [379/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_strip_nulls.cpp.o
 [380/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/read_json.cpp.o
 [381/428] Building C object extension/json/CMakeFiles/json_extension.dir/__/__/codegen/link/json_describe.c.o
-[382/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/read_single_json_file.cpp.o
-[383/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/collation/collation_collator.cpp.o
-[384/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/collation/collation_loader.cpp.o
-[385/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/collation/collation_normalizer.cpp.o
+[382/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/collation/collation_collator.cpp.o
+[383/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/read_single_json_file.cpp.o
+[384/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/collation/collation_normalizer.cpp.o
+[385/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/collation/collation_loader.cpp.o
 [386/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/collation/generated/collation_data.cpp.o
 [387/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/astronomy.cpp.o
 [388/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/chinese.cpp.o
@@ -162,70 +162,70 @@ build_gate = GO（libduckdb 2.0.0 已安装并可链接）
   Downloaded adler2 v2.0.1
   Downloaded ahash v0.8.12
   Downloaded arrow-arith v60.0.0
-  Downloaded fallible-streaming-iterator v0.1.9
-  Downloaded cast v0.3.0
-  Downloaded version_check v0.9.5
-  Downloaded const-random v0.1.18
-  Downloaded const-random-macro v0.1.16
+  Downloaded arrow v60.0.0
+  Downloaded tiny-keccak v2.0.2
+  Downloaded fallible-iterator v0.3.0
+  Downloaded filetime v0.2.29
+  Downloaded aho-corasick v1.1.5
   Downloaded crunchy v0.2.4
+  Downloaded comfy-table v8.0.1
+  Downloaded hashlink v0.10.0
+  Downloaded const-random v0.1.18
+  Downloaded autocfg v1.5.1
+  Downloaded getrandom v0.3.4
+  Downloaded regex v1.13.1
+  Downloaded atoi v3.1.1
+  Downloaded fallible-streaming-iterator v0.1.9
+  Downloaded iana-time-zone v0.1.65
+  Downloaded lexical-parse-integer v1.0.6
+  Downloaded ryu v1.0.23
+  Downloaded arrow-cmp v60.0.0
+  Downloaded arrow-data v60.0.0
+  Downloaded arrow-ord v60.0.0
+  Downloaded arrow-select v60.0.0
+  Downloaded lexical-util v1.0.7
+  Downloaded arrow-cast v60.0.0
   Downloaded heck v0.5.0
   Downloaded strum v0.27.2
-  Downloaded arrow-cmp v60.0.0
   Downloaded xattr v1.6.1
-  Downloaded autocfg v1.5.1
-  Downloaded foldhash v0.1.5
+  Downloaded cast v0.3.0
+  Downloaded lexical-parse-float v1.0.6
+  Downloaded const-random-macro v0.1.16
   Downloaded lexical-core v1.0.6
   Downloaded simd-adler32 v0.3.10
-  Downloaded tiny-keccak v2.0.2
-  Downloaded filetime v0.2.29
-  Downloaded num-integer v0.1.47
-  Downloaded getrandom v0.2.17
-  Downloaded atoi v3.1.1
-  Downloaded num-complex v0.4.6
+  Downloaded version_check v0.9.5
   Downloaded strum_macros v0.27.2
-  Downloaded fallible-iterator v0.3.0
-  Downloaded hashlink v0.10.0
-  Downloaded lexical-parse-integer v1.0.6
-  Downloaded iana-time-zone v0.1.65
-  Downloaded crc32fast v1.5.3
-  Downloaded arrow-ord v60.0.0
-  Downloaded getrandom v0.3.4
-  Downloaded arrow-string v60.0.0
-  Downloaded half v2.7.1
-  Downloaded once_cell v1.21.4
-  Downloaded ryu v1.0.23
-  Downloaded aho-corasick v1.1.5
   Downloaded arrow-row v60.0.0
+  Downloaded num-complex v0.4.6
+  Downloaded num-integer v0.1.47
+  Downloaded arrow-string v60.0.0
+  Downloaded bytes v1.12.1
+  Downloaded getrandom v0.2.17
   Downloaded lexical-write-integer v1.0.6
   Downloaded num-traits v0.2.19
-  Downloaded tar v0.4.46
-  Downloaded arrow v60.0.0
-  Downloaded arrow-data v60.0.0
+  Downloaded once_cell v1.21.4
   Downloaded base64 v0.23.1
-  Downloaded bytes v1.12.1
-  Downloaded comfy-table v8.0.1
-  Downloaded miniz_oxide v0.9.1
+  Downloaded chrono v0.4.45
+  Downloaded crc32fast v1.5.3
   Downloaded flate2 v1.1.10
+  Downloaded half v2.7.1
+  Downloaded unicode-width v0.2.2
+  Downloaded miniz_oxide v0.9.1
   Downloaded arrow-schema v60.0.0
+  Downloaded foldhash v0.1.5
   Downloaded lexical-write-float v1.0.6
+  Downloaded num-bigint v0.5.1
   Downloaded zerocopy-derive v0.8.63
   Downloaded arrow-buffer v60.0.0
-  Downloaded lexical-util v1.0.7
-  Downloaded libm v0.2.16
-  Downloaded num-bigint v0.5.1
-  Downloaded regex v1.13.1
-  Downloaded arrow-select v60.0.0
   Downloaded hashbrown v0.15.5
-  Downloaded arrow-cast v60.0.0
+  Downloaded tar v0.4.46
   Downloaded hashbrown v0.17.1
-  Downloaded lexical-parse-float v1.0.6
+  Downloaded libm v0.2.16
   Downloaded zlib-rs v0.6.8
-  Downloaded chrono v0.4.45
   Downloaded duckdb v1.20000.0
   Downloaded arrow-array v60.0.0
-  Downloaded unicode-width v0.2.2
-  Downloaded zerocopy v0.8.63
   Downloaded regex-syntax v0.8.11
+  Downloaded zerocopy v0.8.63
   Downloaded regex-automata v0.4.18
   Downloaded libduckdb-sys v1.20000.0
    Compiling autocfg v1.5.1
@@ -247,59 +247,59 @@ build_gate = GO（libduckdb 2.0.0 已安装并可链接）
    Compiling num-bigint v0.5.1
    Compiling num-complex v0.4.6
    Compiling chrono v0.4.45
+   Compiling lexical-util v1.0.7
    Compiling zerocopy-derive v0.8.63
    Compiling memchr v2.8.3
-   Compiling lexical-util v1.0.7
    Compiling crc32fast v1.5.3
    Compiling simd-adler32 v0.3.10
    Compiling adler2 v2.0.1
    Compiling miniz_oxide v0.9.1
-   Compiling lexical-write-integer v1.0.6
    Compiling xattr v1.6.1
    Compiling filetime v0.2.29
-   Compiling lexical-parse-integer v1.0.6
    Compiling aho-corasick v1.1.5
+   Compiling lexical-write-integer v1.0.6
+   Compiling lexical-parse-integer v1.0.6
    Compiling regex-syntax v0.8.11
    Compiling serde_json v1.0.154
    Compiling regex-automata v0.4.18
    Compiling lexical-parse-float v1.0.6
-   Compiling tar v0.4.46
-   Compiling flate2 v1.1.10
    Compiling lexical-write-float v1.0.6
-   Compiling unicode-segmentation v1.13.3
+   Compiling flate2 v1.1.10
+   Compiling tar v0.4.46
    Compiling unicode-width v0.2.2
-   Compiling lexical-core v1.0.6
+   Compiling unicode-segmentation v1.13.3
    Compiling comfy-table v8.0.1
    Compiling libduckdb-sys v1.20000.0
-   Compiling half v2.7.1
+   Compiling lexical-core v1.0.6
    Compiling regex v1.13.1
-   Compiling arrow-buffer v60.0.0
+   Compiling half v2.7.1
    Compiling atoi v3.1.1
+   Compiling base64 v0.23.1
    Compiling heck v0.5.0
+   Compiling arrow-buffer v60.0.0
    Compiling foldhash v0.1.5
    Compiling ryu v1.0.23
-   Compiling base64 v0.23.1
    Compiling hashbrown v0.15.5
    Compiling strum_macros v0.27.2
    Compiling arrow-data v60.0.0
    Compiling hashlink v0.10.0
+   Compiling whcode-store v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-store)
    Compiling arrow-array v60.0.0
    Compiling strum v0.27.2
+   Compiling fallible-iterator v0.3.0
    Compiling fallible-streaming-iterator v0.1.9
    Compiling cast v0.3.0
-   Compiling fallible-iterator v0.3.0
-   Compiling whcode-store v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-store)
    Compiling whcode-domain v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-domain)
    Compiling arrow-cmp v60.0.0
-   Compiling arrow-arith v60.0.0
    Compiling arrow-row v60.0.0
+   Compiling arrow-arith v60.0.0
    Compiling arrow-select v60.0.0
    Compiling arrow-ord v60.0.0
    Compiling arrow-string v60.0.0
    Compiling arrow-cast v60.0.0
    Compiling arrow v60.0.0
    Compiling duckdb v1.20000.0
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 55.30s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 57.13s
      Running unittests src/lib.rs (target/debug/deps/whcode_store-09dff598cca77e06)
 
 running 118 tests
@@ -307,22 +307,22 @@ test audit::tests::missing_table_is_io_error_with_actionable_message ... ok
 test audit::tests::insert_record_round_trips_fields_and_variant_detail ... ok
 test audit::tests::duplicate_primary_key_is_rejected_and_row_is_preserved ... ok
 test checkpoints::tests::insert_checkpoint_rejects_invalid_inputs_with_structured_errors ... ok
+test checkpoints::tests::insert_checkpoint_prunes_to_default_retain_keeping_largest_steps ... ok
 test checkpoints::tests::transition_failure_rolls_back_task_event_and_checkpoint ... ok
 test checkpoints::tests::transition_commits_task_event_and_checkpoint_together ... ok
-test checkpoints::tests::insert_checkpoint_prunes_to_default_retain_keeping_largest_steps ... ok
 test checkpoints::tests::recover_defaults_to_max_step_resolves_refs_and_reports_missing ... ok
 test checkpoints::tests::transition_rejects_invalid_json_and_oversized_payload_before_write ... ok
 test compact::tests::compact_rejects_missing_db_and_concurrent_maintenance ... ok
-test checkpoints::tests::transition_with_oversized_delta_rolls_back_task_and_event ... ok
 test checkpoints::tests::transition_rejects_mismatched_state_and_missing_task_without_side_effects ... ok
+test checkpoints::tests::transition_with_oversized_delta_rolls_back_task_and_event ... ok
 test compact::tests::space_report_counts_wal_when_present ... ok
 test directory::tests::create_assigns_monotonic_prefixed_ids ... ok
 test directory::tests::create_rejects_empty_title_and_status ... ok
 test checkpoints::tests::twenty_transitions_keep_bounded_incremental_history ... ok
 test directory::tests::event_cursor_reflects_max_seq ... ok
-test directory::tests::list_orders_newest_first_and_filters_archived ... ok
-test directory::tests::rename_and_touch_report_missing_sessions ... ok
 test compact::tests::verify_copy_rejects_missing_index_and_row_drift ... ok
+test directory::tests::rename_and_touch_report_missing_sessions ... ok
+test directory::tests::list_orders_newest_first_and_filters_archived ... ok
 test export::tests::export_requires_migrated_source_and_lists_excluded_tables ... ok
 test export::tests::has_any_workspace_data_reflects_any_of_the_three_tables ... ok
 test export::tests::import_rejects_checksum_drift_and_wrong_hash ... ok
@@ -341,10 +341,10 @@ test monitor::tests::table_stats_are_exact_counts ... ok
 test overview::tests::consistency_annotation_partitions_fields ... ok
 test overview::tests::computes_counts_and_stage_distribution_from_tasks ... ok
 test overview::tests::missing_overview_returns_none_and_unknown_session_is_rejected ... ok
-test overview::tests::rebuild_persists_row_and_load_matches_compute ... ok
 test overview::tests::rebuild_all_includes_sessions_without_tasks ... ok
-test overview::tests::stale_row_is_detected_and_rebuild_refreshes_it ... ok
+test overview::tests::rebuild_persists_row_and_load_matches_compute ... ok
 test overview::tests::repeated_refresh_is_idempotent_and_keeps_single_row ... ok
+test overview::tests::stale_row_is_detected_and_rebuild_refreshes_it ... ok
 test purge::tests::archived_only_limits_selection ... ok
 test purge::tests::abort_policy_rejects_at_preview_and_execute ... ok
 test purge::tests::empty_selection_executes_noop_and_audits ... ok
@@ -352,31 +352,31 @@ test purge::tests::execute_rechecks_protection_after_preview ... ok
 test purge::tests::audit_records_survive_purge_and_export_excludes_them ... ok
 test purge::tests::execute_requires_explicit_confirmation ... ok
 test purge::tests::preview_selects_by_time_and_reports_protected ... ok
+test compact::tests::compact_switches_file_and_preserves_data ... ok
 test purge::tests::sessions_criterion_selects_by_id_with_protection ... ok
 test purge::tests::preview_set_matches_executed_deletions ... ok
 test purge::tests::set_archived_flips_flag_audits_and_missing_ids_rejected ... ok
 test purge::tests::ttl_criterion_boundary_and_negative_rejected ... ok
 test purge::tests::ttl_within_default_active_window_protects_everything ... ok
-test compact::tests::compact_switches_file_and_preserves_data ... ok
-test query::tests::backward_pages_cover_events_without_gaps_or_duplicates ... ok
 test query::tests::cursors_are_exclusive_in_both_directions ... ok
-test query::tests::message_pages_use_timestamp_and_id_tiebreak ... ok
-test schema::tests::checksum_is_stable_and_versioned ... ok
+test query::tests::backward_pages_cover_events_without_gaps_or_duplicates ... ok
 test query::tests::forward_pages_cover_events_without_gaps_or_duplicates ... ok
+test schema::tests::checksum_is_stable_and_versioned ... ok
 test query::tests::page_size_is_bounded_and_validated ... ok
-test schema::tests::creates_all_tables_and_is_idempotent ... ok
+test query::tests::message_pages_use_timestamp_and_id_tiebreak ... ok
 test schema::tests::event_payloads_are_object_variants ... ok
+test schema::tests::creates_all_tables_and_is_idempotent ... ok
 test schema::tests::events_payload_column_is_variant ... ok
-test schema::tests::events_table_has_expected_columns ... ok
-test schema::tests::migration_versions_are_strictly_increasing ... ok
 test schema::tests::failed_migration_does_not_mark_version ... ok
+test schema::tests::migration_versions_are_strictly_increasing ... ok
+test schema::tests::events_table_has_expected_columns ... ok
 test service::tests::batch_row_threshold_is_configurable ... ok
 test schema::tests::json_columns_are_variant_and_text_columns_stay_text ... ok
-test service::tests::critical_event_is_confirmed ... ok
 test service::tests::defaults_match_baseline_and_config_is_effective ... ok
+test service::tests::critical_event_is_confirmed ... ok
 test service::tests::buffered_event_is_flushed_by_time_window ... ok
-test service::tests::duplicate_key_is_deduplicated_through_service ... ok
 test service::tests::drop_drains_accepted_requests ... ok
+test service::tests::duplicate_key_is_deduplicated_through_service ... ok
 test service::tests::queue_depth_tracks_waiting_requests_and_capacity ... ok
 test service::tests::queue_is_bounded_and_reports_backpressure ... ok
 test service::tests::writer_panic_is_reported_and_later_requests_are_rejected ... ok
@@ -392,37 +392,37 @@ test tasks::tests::insert_task_rejects_invalid_and_top_level_null_acceptance_wit
 test tasks::tests::unknown_status_value_is_rejected_not_silently_mapped ... ok
 test tool_exec::tests::intent_then_result_reaches_completed ... ok
 test tool_exec::tests::missing_record_reports_not_found ... ok
-test tool_exec::tests::recovery_marks_only_uncertain_states ... ok
-test tool_exec::tests::result_rejects_non_terminal_and_wrong_order ... ok
 test tasks::tests::detail_projections_are_bounded_and_exclude_content ... ok
+test tool_exec::tests::result_rejects_non_terminal_and_wrong_order ... ok
+test tool_exec::tests::recovery_marks_only_uncertain_states ... ok
 test turn::tests::appends_events_and_messages_in_one_transaction_with_monotonic_seqs ... ok
 test turn::tests::rejects_empty_session_bad_role_and_oversized_payload ... ok
-test tasks::tests::tasks_of_session_returns_all_statuses_ordered_and_bounded ... ok
-test wal::tests::idle_decision_is_pure_and_window_boundary_is_inclusive ... ok
 test turn::tests::rollback_leaves_no_partial_rows ... ok
+test wal::tests::idle_decision_is_pure_and_window_boundary_is_inclusive ... ok
 test wal::tests::default_policy_keeps_settings_and_readback_is_stable ... ok
+test tasks::tests::tasks_of_session_returns_all_statuses_ordered_and_bounded ... ok
 test wal::tests::policy_overrides_are_effective_and_rejected_when_invalid ... ok
-test writer::tests::batch_row_threshold_triggers_commit ... ok
 test wal::tests::run_checkpoint_reports_wal_sizes_and_reason ... ok
+test writer::tests::batch_row_threshold_triggers_commit ... ok
 test writer::tests::batch_window_deadline_triggers_commit ... ok
 test writer::tests::critical_event_is_committed_and_confirmed ... ok
 test writer::tests::batch_larger_than_insert_chunk_keeps_seq_contiguous ... ok
 test writer::tests::duplicate_idempotency_key_returns_existing_seq ... ok
 test writer::tests::duplicate_key_in_pending_batch_is_not_queued_twice ... ok
-test writer::tests::empty_idempotency_key_is_rejected ... ok
 test writer::tests::dedup_across_flushes_returns_existing_seq ... ok
 test writer::tests::duplicate_key_in_same_batch_is_deduplicated ... ok
-test writer::tests::oldest_pending_age_reports_queue_age_without_changing_semantics ... ok
+test writer::tests::empty_idempotency_key_is_rejected ... ok
 test writer::tests::flush_if_due_commits_only_after_window ... ok
-test writer::tests::retry_after_failed_flush_keeps_seq_unambiguous ... ok
+test writer::tests::oldest_pending_age_reports_queue_age_without_changing_semantics ... ok
 test writer::tests::oversized_payload_is_rejected_not_truncated ... ok
+test writer::tests::retry_after_failed_flush_keeps_seq_unambiguous ... ok
 test writer::tests::saturated_buffer_returns_backpressure_and_keeps_entries ... ok
 test writer::tests::zero_batch_rows_is_rejected - should panic ... ok
 test writer::tests::write_failure_propagates_and_batch_is_retained ... ok
 test writer::tests::many_keys_exceed_query_chunk_still_dedups ... ok
 test export::tests::export_import_round_trip_preserves_all_tables ... ok
 
-test result: ok. 118 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.19s
+test result: ok. 118 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.11s
 
    Doc-tests whcode_store
 

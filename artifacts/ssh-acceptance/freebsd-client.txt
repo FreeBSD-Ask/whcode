@@ -1,6 +1,6 @@
 # WHCode 内置 SSH：FreeBSD 客户端＋服务端回环验收（Check 25／96／99）
 format_version = 1
-generated_at_utc = 2026-11-02T16:54:58Z
+generated_at_utc = 2026-11-03T03:25:35Z
 script = .github/scripts/platform-matrix/bsd-ssh-client.sh
 source = Task T025、FR-611、ADR-011、V-004
 
@@ -34,129 +34,186 @@ covers = 客户端公钥认证/受限命令/输出上限/超时断连；服务�
 scope = 回环（进程内测试桩）；不构成任何外部节点连通性证据
 v_004 = 未取得（M7；ADR-013 延后，BSD 结论不进入验收）
 
+[real_sshd]
+real_sshd_gate = GO（真实 sshd 互操作通过：公钥认证/通道执行/退出码映射/stderr 捕获/TOFU/显式授权回传/超时终止）
+server = 系统自带 OpenSSH sshd（真实进程、独立密钥对、最小配置、真实 TCP 回环）
+covers = 公钥认证/通道执行/退出码映射/stderr 捕获/TOFU/显式授权内容回传/超时终止
+scope = 同机回环互操作；不是跨机外部节点证据（V-004 跨机口径仍属 M7）
+gate_policy = 只记录不升门（不并入 ssh_loopback_gate 硬判定；稳定后经评估再升）
+
+[real_sshd_output]
+warning: constant `HKCU_FONTS_KEY_FULL` is never used
+  --> crates/whcode-platform/src/fonts.rs:18:7
+   |
+18 | const HKCU_FONTS_KEY_FULL: &str = concat!(
+   |       ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `whcode-platform` (lib) generated 1 warning
+   Compiling whcode-store v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-store)
+   Compiling whcode-app v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-app)
+   Compiling whcode-ssh v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-ssh)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.71s
+     Running unittests src/lib.rs (target/debug/deps/whcode_ssh-2bed62cc72381974)
+
+running 1 test
+WHCode SSH：首次连接 127.0.0.1:25572，主机密钥指纹 SHA256:DRIhIJ1e2+zmYu8lipB2iMSwQqkaOFHvPq4dSsOBN4A（已记录到 /tmp/whcode-real-sshd-6149-0/known_hosts，请人工核对；之后指纹变化将被拒绝）
+REAL_SSHD_INTEROP: GO os=freebsd config_level=full sshd=/usr/sbin/sshd
+test proto::tests::real_sshd_acceptance_loopback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 47 filtered out; finished in 2.57s
+
+
 [cargo_output]
  Downloading crates ...
-  Downloaded aead v0.6.1
-  Downloaded asn1-rs-derive v0.6.0
-  Downloaded cpubits v0.1.1
-  Downloaded crypto-common v0.2.2
-  Downloaded cpufeatures v0.3.1
   Downloaded argon2 v0.6.0
-  Downloaded cipher v0.5.2
-  Downloaded cmake v0.1.58
+  Downloaded block-buffer v0.12.1
+  Downloaded aead v0.6.1
+  Downloaded asn1-rs v0.7.2
+  Downloaded futures-macro v0.3.34
+  Downloaded futures-sink v0.3.34
+  Downloaded hex v0.4.3
+  Downloaded aes v0.9.3
+  Downloaded cpufeatures v0.3.1
   Downloaded futures-task v0.3.34
-  Downloaded inout v0.2.5
-  Downloaded rand_core v0.10.1
+  Downloaded generic-array v0.14.7
+  Downloaded asn1-rs-impl v0.2.0
+  Downloaded deranged v0.5.9
+  Downloaded ghash v0.6.0
+  Downloaded aes-gcm v0.11.1
+  Downloaded block-padding v0.4.2
+  Downloaded ctr v0.10.1
+  Downloaded cpubits v0.1.1
+  Downloaded generic-array v1.4.5
+  Downloaded base64ct v1.8.3
+  Downloaded cbc v0.2.1
+  Downloaded ctutils v0.4.3
+  Downloaded dunce v1.0.5
   Downloaded futures-io v0.3.34
+  Downloaded hex-literal v1.1.0
+  Downloaded http v1.5.0
+  Downloaded md5 v0.8.1
+  Downloaded pbkdf2 v0.13.0
+  Downloaded rand_core v0.10.1
+  Downloaded asn1-rs-derive v0.6.0
+  Downloaded bcrypt-pbkdf v0.11.0
+  Downloaded bit-vec v0.9.1
+  Downloaded blowfish v0.10.0
+  Downloaded cfg_aliases v0.2.2
+  Downloaded const-oid v0.10.2
+  Downloaded crypto-common v0.2.2
+  Downloaded group v0.14.0
+  Downloaded futures-core v0.3.34
+  Downloaded lazy_static v1.5.1
+  Downloaded percent-encoding v2.3.2
+  Downloaded rfc6979 v0.6.0
+  Downloaded utf8-zero v0.8.1
+  Downloaded pem-rfc7468 v1.0.0
+  Downloaded subtle v2.6.1
+  Downloaded inout v0.2.5
+  Downloaded num-conv v0.2.2
+  Downloaded openssl-probe v0.2.1
   Downloaded byteorder v1.5.0
   Downloaded cmov v0.5.4
-  Downloaded pin-project-lite v0.2.17
+  Downloaded getrandom v0.4.3
   Downloaded kem v0.3.0
-  Downloaded futures-sink v0.3.34
-  Downloaded ghash v0.6.0
-  Downloaded dunce v1.0.5
-  Downloaded percent-encoding v2.3.2
-  Downloaded bcrypt-pbkdf v0.11.0
-  Downloaded futures-macro v0.3.34
-  Downloaded generic-array v0.14.7
   Downloaded password-hash v0.6.1
-  Downloaded asn1-rs-impl v0.2.0
-  Downloaded curve25519-dalek-derive v0.1.1
-  Downloaded hex-literal v1.1.0
-  Downloaded lazy_static v1.5.1
-  Downloaded md5 v0.8.1
-  Downloaded num-conv v0.2.2
-  Downloaded primeorder v0.14.0
+  Downloaded find-msvc-tools v0.1.15
+  Downloaded httparse v1.10.1
   Downloaded base16ct v1.0.0
-  Downloaded block-buffer v0.12.1
-  Downloaded block-padding v0.4.2
-  Downloaded cfg_aliases v0.2.2
-  Downloaded chacha20 v0.10.2
-  Downloaded ff v0.14.0
-  Downloaded hybrid-array v0.4.15
-  Downloaded module-lattice v0.2.3
-  Downloaded pkcs8 v0.11.0
-  Downloaded ctutils v0.4.3
-  Downloaded data-encoding v2.11.1
-  Downloaded delegate v0.13.5
-  Downloaded digest v0.11.3
+  Downloaded curve25519-dalek-derive v0.1.1
+  Downloaded primefield v0.14.0
+  Downloaded minimal-lexical v0.2.1
+  Downloaded cmake v0.1.58
   Downloaded displaydoc v0.2.7
   Downloaded ed25519 v3.0.0
   Downloaded enum_dispatch v0.3.13
-  Downloaded find-msvc-tools v0.1.15
-  Downloaded fs_extra v1.3.0
-  Downloaded futures-core v0.3.34
-  Downloaded futures-executor v0.3.34
-  Downloaded group v0.14.0
-  Downloaded hex v0.4.3
+  Downloaded ff v0.14.0
   Downloaded jobserver v0.1.35
   Downloaded keccak v0.2.2
+  Downloaded module-lattice v0.2.3
   Downloaded oid-registry v0.8.1
-  Downloaded openssl-probe v0.2.1
-  Downloaded pbkdf2 v0.13.0
-  Downloaded pem v4.0.0
-  Downloaded pem-rfc7468 v1.0.0
   Downloaded phc v0.6.1
-  Downloaded pkg-config v0.3.34
-  Downloaded aes v0.9.3
-  Downloaded base64ct v1.8.3
-  Downloaded bit-vec v0.9.1
-  Downloaded cbc v0.2.1
-  Downloaded const-oid v0.10.2
-  Downloaded ctr v0.10.1
-  Downloaded deranged v0.5.9
-  Downloaded primefield v0.14.0
-  Downloaded tokio-macros v2.7.2
-  Downloaded polyval v0.7.3
-  Downloaded rand v0.10.3
-  Downloaded rusticata-macros v4.1.0
-  Downloaded ecdsa v0.17.0
-  Downloaded futures-channel v0.3.34
-  Downloaded getrandom v0.4.3
-  Downloaded hmac v0.13.0
-  Downloaded httparse v1.10.1
-  Downloaded ml-kem v0.3.3
+  Downloaded pin-project-lite v0.2.17
   Downloaded pkcs1 v0.8.0-rc.4
+  Downloaded pkcs5 v0.8.1
+  Downloaded pkg-config v0.3.34
+  Downloaded powerfmt v0.2.1
+  Downloaded russh-cryptovec v0.62.0
+  Downloaded rusticata-macros v4.1.0
+  Downloaded tokio-macros v2.7.2
+  Downloaded untrusted v0.9.0
+  Downloaded chacha20 v0.10.2
+  Downloaded data-encoding v2.11.1
+  Downloaded delegate v0.13.5
+  Downloaded des v0.9.0
+  Downloaded digest v0.11.3
+  Downloaded ecdsa v0.17.0
+  Downloaded fs_extra v1.3.0
+  Downloaded futures-channel v0.3.34
+  Downloaded futures-executor v0.3.34
+  Downloaded hmac v0.13.0
+  Downloaded ml-kem v0.3.3
+  Downloaded pem v4.0.0
   Downloaded poly1305 v0.9.1
-  Downloaded blowfish v0.10.0
-  Downloaded rfc6979 v0.6.0
+  Downloaded sec1 v0.8.1
   Downloaded sha1 v0.11.0
-  Downloaded subtle v2.6.1
-  Downloaded sponge-cursor v0.1.0
+  Downloaded signature v3.0.0
+  Downloaded slab v0.4.12
   Downloaded time-core v0.1.9
   Downloaded universal-hash v0.6.1
-  Downloaded untrusted v0.9.0
-  Downloaded powerfmt v0.2.1
-  Downloaded utf8-zero v0.8.1
-  Downloaded russh-util v0.52.0
-  Downloaded signature v3.0.0
   Downloaded untrusted v0.7.1
   Downloaded wnaf v0.14.1
-  Downloaded zeroize v1.9.1
-  Downloaded sha2 v0.11.1
-  Downloaded shlex v2.0.1
+  Downloaded blake2 v0.11.0
+  Downloaded cipher v0.5.2
+  Downloaded elliptic-curve v0.14.1
+  Downloaded futures v0.3.34
+  Downloaded p256 v0.14.0
+  Downloaded p384 v0.14.0
+  Downloaded primeorder v0.14.0
+  Downloaded rustls-native-certs v0.8.5
   Downloaded rustversion v1.0.23
-  Downloaded ssh-cipher v0.3.0
+  Downloaded scrypt v0.12.0
+  Downloaded sponge-cursor v0.1.0
+  Downloaded time-macros v0.2.32
+  Downloaded zeroize v1.9.1
+  Downloaded der-parser v10.0.0
+  Downloaded ed25519-dalek v3.0.0
+  Downloaded hybrid-array v0.4.15
+  Downloaded num-bigint v0.4.8
+  Downloaded pkcs8 v0.11.0
+  Downloaded serdect v0.4.3
+  Downloaded shlex v2.0.1
+  Downloaded spki v0.8.1
   Downloaded ssh-encoding v0.3.0
   Downloaded synstructure v0.13.2
-  Downloaded serdect v0.4.3
-  Downloaded spki v0.8.1
-  Downloaded rustls-native-certs v0.8.5
-  Downloaded scrypt v0.12.0
-  Downloaded slab v0.4.12
-  Downloaded russh-cryptovec v0.62.0
-  Downloaded sec1 v0.8.1
-  Downloaded salsa20 v0.11.0
-  Downloaded time-macros v0.2.32
   Downloaded yasna v0.6.0
+  Downloaded crypto-bigint v0.7.5
+  Downloaded nom v7.1.3
+  Downloaded p521 v0.14.0
+  Downloaded polyval v0.7.3
+  Downloaded rcgen v0.14.10
+  Downloaded russh-util v0.52.0
   Downloaded rustls-pki-types v1.15.1
+  Downloaded salsa20 v0.11.0
+  Downloaded sha2 v0.11.1
+  Downloaded ssh-cipher v0.3.0
+  Downloaded cc v1.9.0
+  Downloaded der v0.8.2
+  Downloaded hkdf v0.13.0
   Downloaded socket2 v0.6.5
   Downloaded ureq-proto v0.6.5
-  Downloaded rcgen v0.14.10
+  Downloaded crypto-primes v0.7.2
+  Downloaded rsa v0.10.0-rc.18
   Downloaded rustls-webpki v0.103.16
   Downloaded typenum v1.20.1
   Downloaded x509-parser v0.18.1
-  Downloaded rsa v0.10.0-rc.18
+  Downloaded futures-util v0.3.34
+  Downloaded rand v0.10.3
+  Downloaded aws-lc-rs v1.18.2
+  Downloaded curve25519-dalek v5.0.0
+  Downloaded nix v0.31.3
   Downloaded ssh-key v0.7.0-rc.11
   Downloaded sha3 v0.12.0
   Downloaded ureq v3.5.0
@@ -165,34 +222,8 @@ v_004 = 未取得（M7；ADR-013 延后，BSD 结论不进入验收）
   Downloaded time v0.3.55
   Downloaded shake v0.1.0
   Downloaded rustls v0.23.46
-  Downloaded tokio v1.54.1
   Downloaded ring v0.17.14
-  Downloaded pkcs5 v0.8.1
-  Downloaded asn1-rs v0.7.2
-  Downloaded blake2 v0.11.0
-  Downloaded des v0.9.0
-  Downloaded elliptic-curve v0.14.1
-  Downloaded futures v0.3.34
-  Downloaded generic-array v1.4.5
-  Downloaded der-parser v10.0.0
-  Downloaded p256 v0.14.0
-  Downloaded p384 v0.14.0
-  Downloaded ed25519-dalek v3.0.0
-  Downloaded minimal-lexical v0.2.1
-  Downloaded der v0.8.2
-  Downloaded http v1.5.0
-  Downloaded num-bigint v0.4.8
-  Downloaded p521 v0.14.0
-  Downloaded nom v7.1.3
-  Downloaded aes-gcm v0.11.1
-  Downloaded crypto-primes v0.7.2
-  Downloaded cc v1.9.0
-  Downloaded hkdf v0.13.0
-  Downloaded futures-util v0.3.34
-  Downloaded aws-lc-rs v1.18.2
-  Downloaded crypto-bigint v0.7.5
-  Downloaded curve25519-dalek v5.0.0
-  Downloaded nix v0.31.3
+  Downloaded tokio v1.54.1
   Downloaded aws-lc-sys v0.46.0
    Compiling libc v0.2.191
    Compiling zeroize v1.9.1
@@ -210,11 +241,11 @@ v_004 = 未取得（M7；ADR-013 延后，BSD 结论不进入验收）
    Compiling syn v3.0.9
    Compiling cpubits v0.1.1
    Compiling base64ct v1.8.3
+   Compiling pem-rfc7468 v1.0.0
    Compiling crypto-common v0.2.2
    Compiling block-buffer v0.12.1
    Compiling block-padding v0.4.2
    Compiling inout v0.2.5
-   Compiling pem-rfc7468 v1.0.0
    Compiling num-integer v0.1.47
    Compiling cipher v0.5.2
    Compiling digest v0.11.3
@@ -224,17 +255,17 @@ v_004 = 未取得（M7；ADR-013 延后，BSD 结论不进入验收）
    Compiling jobserver v0.1.35
    Compiling shlex v2.0.1
    Compiling find-msvc-tools v0.1.15
+   Compiling rand v0.10.3
    Compiling cc v1.9.0
    Compiling polyval v0.7.3
-   Compiling rand v0.10.3
    Compiling sha2 v0.11.1
    Compiling der v0.8.2
    Compiling crypto-bigint v0.7.5
    Compiling once_cell v1.21.4
    Compiling zerocopy-derive v0.8.63
    Compiling thiserror-impl v2.0.21
-   Compiling num-bigint v0.5.1
    Compiling ghash v0.6.0
+   Compiling num-bigint v0.5.1
    Compiling pbkdf2 v0.13.0
    Compiling aes v0.9.3
    Compiling zerocopy v0.8.63
@@ -258,25 +289,25 @@ v_004 = 未取得（M7；ADR-013 延后，BSD 结论不进入验收）
    Compiling pkcs8 v0.11.0
    Compiling ff v0.14.0
    Compiling crc32fast v1.5.3
-   Compiling mio v1.2.4
    Compiling group v0.14.0
-   Compiling arrow-buffer v60.0.0
+   Compiling mio v1.2.4
    Compiling ring v0.17.14
+   Compiling arrow-buffer v60.0.0
    Compiling signature v3.0.0
    Compiling errno v0.3.14
-   Compiling base16ct v1.0.0
    Compiling num-conv v0.2.2
    Compiling adler2 v2.0.1
    Compiling time-core v0.1.9
+   Compiling base16ct v1.0.0
    Compiling simd-adler32 v0.3.10
+   Compiling sec1 v0.8.1
    Compiling time-macros v0.2.32
    Compiling miniz_oxide v0.9.1
    Compiling arrow-data v60.0.0
-   Compiling sec1 v0.8.1
    Compiling whcode-domain v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-domain)
    Compiling hkdf v0.13.0
-   Compiling rustls-pki-types v1.15.1
    Compiling arrow-array v60.0.0
+   Compiling rustls-pki-types v1.15.1
    Compiling deranged v0.5.9
    Compiling powerfmt v0.2.1
    Compiling elliptic-curve v0.14.1
@@ -284,14 +315,14 @@ v_004 = 未取得（M7；ADR-013 延后，BSD 结论不进入验收）
    Compiling signal-hook-registry v1.4.8
    Compiling primefield v0.14.0
    Compiling convert_case v0.10.0
-   Compiling time v0.3.55
    Compiling getrandom v0.2.17
    Compiling untrusted v0.9.0
    Compiling semver v1.0.28
    Compiling minimal-lexical v0.2.1
+   Compiling time v0.3.55
    Compiling parking_lot_core v0.9.12
-   Compiling nom v7.1.3
    Compiling rustc_version v0.4.1
+   Compiling nom v7.1.3
    Compiling arrow-cmp v60.0.0
    Compiling derive_more-impl v2.1.1
    Compiling arrow-select v60.0.0
@@ -306,49 +337,49 @@ v_004 = 未取得（M7；ADR-013 延后，BSD 结论不进入验收）
    Compiling dunce v1.0.5
    Compiling httparse v1.10.1
    Compiling asn1-rs-derive v0.6.0
-   Compiling ecdsa v0.17.0
    Compiling aws-lc-sys v0.46.0
+   Compiling ecdsa v0.17.0
    Compiling signal-hook-mio v0.2.5
    Compiling primeorder v0.14.0
-   Compiling libduckdb-sys v1.20000.0
    Compiling arrow-ord v60.0.0
+   Compiling libduckdb-sys v1.20000.0
    Compiling derive_more v2.1.1
-   Compiling rustix v1.1.5
-   Compiling rusticata-macros v4.1.0
-   Compiling curve25519-dalek v5.0.0
    Compiling parking_lot v0.12.5
+   Compiling rusticata-macros v4.1.0
+   Compiling rustix v1.1.5
+   Compiling curve25519-dalek v5.0.0
    Compiling asn1-rs-impl v0.2.0
    Compiling displaydoc v0.2.7
    Compiling atoi v3.1.1
-   Compiling futures-sink v0.3.34
-   Compiling cfg_aliases v0.2.2
-   Compiling futures-core v0.3.34
    Compiling rustls v0.23.46
-   Compiling strum_macros v0.27.2
-   Compiling asn1-rs v0.7.2
+   Compiling futures-sink v0.3.34
+   Compiling futures-core v0.3.34
+   Compiling cfg_aliases v0.2.2
    Compiling arrow-cast v60.0.0
    Compiling futures-channel v0.3.34
    Compiling nix v0.31.3
+   Compiling asn1-rs v0.7.2
+   Compiling strum_macros v0.27.2
    Compiling crossterm v0.29.0
    Compiling arrow-string v60.0.0
    Compiling rustls-webpki v0.103.16
-   Compiling arrow-arith v60.0.0
    Compiling arrow-row v60.0.0
+   Compiling arrow-arith v60.0.0
    Compiling ssh-encoding v0.3.0
    Compiling curve25519-dalek-derive v0.1.1
    Compiling futures-macro v0.3.34
    Compiling http v1.5.0
    Compiling generic-array v0.14.7
    Compiling keccak v0.2.2
-   Compiling rustversion v1.0.23
-   Compiling slab v0.4.12
-   Compiling oid-registry v0.8.1
-   Compiling futures-io v0.3.34
    Compiling futures-task v0.3.34
-   Compiling byteorder v1.5.0
    Compiling sponge-cursor v0.1.0
-   Compiling futures-util v0.3.34
+   Compiling byteorder v1.5.0
+   Compiling rustversion v1.0.23
+   Compiling oid-registry v0.8.1
+   Compiling slab v0.4.12
+   Compiling futures-io v0.3.34
    Compiling blowfish v0.10.0
+   Compiling futures-util v0.3.34
    Compiling ureq-proto v0.6.5
    Compiling arrow v60.0.0
    Compiling whcode-platform v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-platform)
@@ -360,9 +391,9 @@ warning: constant `HKCU_FONTS_KEY_FULL` is never used
    |
    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
 
-warning: `whcode-platform` (lib) generated 1 warning
    Compiling strum v0.27.2
    Compiling webpki-roots v1.0.11
+warning: `whcode-platform` (lib) generated 1 warning
    Compiling ed25519 v3.0.0
    Compiling crypto-primes v0.7.2
    Compiling pkcs1 v0.8.0-rc.4
@@ -371,27 +402,27 @@ warning: `whcode-platform` (lib) generated 1 warning
    Compiling blake2 v0.11.0
    Compiling num-bigint v0.4.8
    Compiling socket2 v0.6.5
-   Compiling percent-encoding v2.3.2
    Compiling data-encoding v2.11.1
-   Compiling aws-lc-rs v1.18.2
    Compiling utf8-zero v0.8.1
-   Compiling ureq v3.5.0
-   Compiling duckdb v1.20000.0
-   Compiling der-parser v10.0.0
+   Compiling aws-lc-rs v1.18.2
+   Compiling percent-encoding v2.3.2
    Compiling whcode-store v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-store)
+   Compiling duckdb v1.20000.0
+   Compiling ureq v3.5.0
+   Compiling der-parser v10.0.0
    Compiling tokio v1.54.1
+   Compiling rsa v0.10.0-rc.18
    Compiling argon2 v0.6.0
    Compiling ssh-cipher v0.3.0
-   Compiling rsa v0.10.0-rc.18
-   Compiling futures-executor v0.3.34
    Compiling ed25519-dalek v3.0.0
    Compiling whcode-runtime v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-runtime)
+   Compiling futures-executor v0.3.34
    Compiling bcrypt-pbkdf v0.11.0
    Compiling shake v0.1.0
    Compiling sha3 v0.12.0
-   Compiling p256 v0.14.0
    Compiling p521 v0.14.0
    Compiling p384 v0.14.0
+   Compiling p256 v0.14.0
    Compiling yasna v0.6.0
    Compiling pem v4.0.0
    Compiling sha1 v0.11.0
@@ -399,37 +430,37 @@ warning: `whcode-platform` (lib) generated 1 warning
    Compiling module-lattice v0.2.3
    Compiling untrusted v0.7.1
    Compiling hex v0.4.3
-   Compiling openssl-probe v0.2.1
    Compiling lazy_static v1.5.1
-   Compiling x509-parser v0.18.1
+   Compiling openssl-probe v0.2.1
+   Compiling enum_dispatch v0.3.13
    Compiling rustls-native-certs v0.8.5
    Compiling ssh-key v0.7.0-rc.11
-   Compiling enum_dispatch v0.3.13
+   Compiling x509-parser v0.18.1
    Compiling ml-kem v0.3.3
    Compiling rcgen v0.14.10
    Compiling russh-util v0.52.0
    Compiling generic-array v1.4.5
    Compiling whcode-mcp v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-mcp)
-   Compiling russh-cryptovec v0.62.0
    Compiling futures v0.3.34
-   Compiling whcode-llm v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-llm)
+   Compiling russh-cryptovec v0.62.0
    Compiling whcode-tools v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-tools)
    Compiling whcode-speckit v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-speckit)
+   Compiling whcode-llm v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-llm)
    Compiling delegate v0.13.5
    Compiling hex-literal v1.1.0
    Compiling md5 v0.8.1
    Compiling whcode-app v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-app)
    Compiling russh v0.65.0
    Compiling whcode-ssh v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-ssh)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 08s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 22s
      Running unittests src/lib.rs (target/debug/deps/whcode_ssh-2bed62cc72381974)
 
-running 47 tests
+running 48 tests
 test adapter::tests::audit_log_is_bounded_and_counts_overflow ... ok
-test adapter::tests::app_errors_map_to_nonzero_exit_and_stderr ... ok
 test adapter::tests::executor_drop_joins_thread_and_releases_connection ... ok
-test adapter::tests::output_bound_truncates_to_limit_and_flags ... ok
+test adapter::tests::app_errors_map_to_nonzero_exit_and_stderr ... ok
 test adapter::tests::empty_workspace_reports_correct_emptiness_not_silent_empty ... ok
+test adapter::tests::output_bound_truncates_to_limit_and_flags ... ok
 test hostkey::tests::authorized_keys_missing_is_an_error_and_empty_file_yields_no_keys ... ok
 test hostkey::tests::authorized_keys_parses_ed25519_and_rejects_other_or_broken_lines ... ok
 test hostkey::tests::host_key_is_created_once_and_reloads_with_same_fingerprint ... ok
@@ -440,30 +471,31 @@ test policy::tests::outside_whitelist_and_bad_usage_are_denied_structured ... ok
 test policy::tests::shell_requires_switch_and_explicit_grant ... ok
 test policy::tests::whitelist_commands_map_to_capability_checked_decisions ... ok
 test adapter::tests::executor_round_trip_runs_whcode_command_via_app_service ... ok
-test adapter::tests::three_concurrent_sessions_write_through_single_executor ... ok
 test proto::tests::client_command_policy_allows_whcode_and_denies_shell_by_default ... ok
+test adapter::tests::three_concurrent_sessions_write_through_single_executor ... ok
 test proto::tests::connection_failure_is_failed_and_records_intent_before_result ... ok
 test proto::tests::end_to_end_exec_reports_completed_with_output ... ok
 test adapter::tests::bounded_queue_rejects_with_backpressure_when_full ... ok
-test proto::tests::end_to_end_nonzero_exit_is_failed ... ok
+test proto::tests::end_to_end_large_output_is_truncated_to_tail ... ok
 test proto::tests::exit_status_maps_to_completed_or_failed ... ok
 test proto::tests::intent_records_explicit_shell_grant ... ok
-test proto::tests::end_to_end_large_output_is_truncated_to_tail ... ok
+test proto::tests::end_to_end_nonzero_exit_is_failed ... ok
+test proto::tests::real_sshd_acceptance_loopback ... ignored, 真实 sshd 互操作：需目标机自带 sshd／ssh-keygen；由 bsd-ssh-client.sh 以 --ignored 驱动
 test proto::tests::registry_failures_are_propagated ... ok
 test proto::tests::shell_denied_by_default_leaves_registry_untouched ... ok
 test proto::tests::tail_buffer_keeps_tail_and_flags_truncation ... ok
 test proto::tests::validation_rejects_invalid_targets_without_any_registry_call ... ok
 test server::tests::authorized_keys_with_comments_match_commentless_client_keys ... ok
-test proto::tests::known_hosts_tofu_first_seen_then_trusted_then_mismatch ... ok
 test proto::tests::command_without_exit_status_is_unknown_not_completed_or_failed ... ok
-test server::tests::bsd_server_acceptance_loopback ... ok
-test server::tests::host_key_tofu_first_seen_trusted_then_mismatch_rejected ... ok
+test proto::tests::known_hosts_tofu_first_seen_then_trusted_then_mismatch ... ok
 test server::tests::disconnect_reclaims_session_resources ... ok
 test server::tests::non_ed25519_public_key_is_rejected_by_algorithm ... ok
+test server::tests::bsd_server_acceptance_loopback ... ok
+test server::tests::host_key_tofu_first_seen_trusted_then_mismatch_rejected ... ok
 test server::tests::outside_whitelist_command_is_denied_structured ... ok
 test server::tests::session_context_bounds_channels_and_tracks_sizes ... ok
-test server::tests::publickey_auth_success_and_whitelist_exec_round_trip ... ok
 test server::tests::pty_and_window_change_are_recorded_and_passed_to_execution ... ok
+test server::tests::publickey_auth_success_and_whitelist_exec_round_trip ... ok
 test server::tests::unauthorized_public_key_is_rejected_and_audited ... ok
 test trust::tests::comments_and_blank_lines_are_ignored ... ok
 test trust::tests::different_host_and_port_are_independent_entries ... ok
@@ -473,7 +505,7 @@ test server::tests::shell_is_denied_by_default_and_structured_when_granted ... o
 test server::tests::three_concurrent_ssh_sessions_write_through_single_connection ... ok
 test proto::tests::bsd_client_acceptance_loopback ... ok
 
-test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.31s
+test result: ok. 47 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 3.24s
 
    Doc-tests whcode_ssh
 

@@ -20,10 +20,10 @@
 
 | 步 | 工作 | 门禁/证据 | 状态 |
 |---|---|---|---|
-| A1 | FreeBSD `child_pids` 修复：**根因已定位**——`ps -ax -o pid=,ppid=` 在 NetBSD 输出**畸形单列**（run 41290577560 诊断：首行字面 `,ppid=`、裸 PID 无 PPID、仅 24 行；`=` 表头抑制逗号列表不被 NetBSD 正确处理），FreeBSD 同调用间歇不稳定。修复＝`ps -axo pid,ppid`（无 `=`）＋表头跳过解析＋失败诊断 | `platform-freebsd`＋`platform-netbsd` CI 绿 | **in-flight** |
-| A2 | whcode-bin 测试二进制 **SIGSEGV**（signal 11 退出崩溃，run 41290577560 首次露出，此前 child_pids 失败中止未到）——识别崩溃测试、判 flaky/FreeBSD 特有/真 bug | 定位 + `platform-freebsd` 绿 | pending |
-| A3 | 回填 Check 336 注记（run ID）＋Check 22/25/96/99/201 注记更新；T240 转勾 | `platform-freebsd` 绿证据 | gated on A1 |
-| A4 | 计数声明复核（116/243/339）＋`m0-report.md` 更新 | `check_counts.py` consistent | gated on A1 |
+| A1 | FreeBSD `child_pids` 修复：**根因已定位**——`ps -ax -o pid=,ppid=` 在 NetBSD 输出**畸形单列**（run 41290577560 诊断：首行字面 `,ppid=`、裸 PID 无 PPID、仅 24 行；`=` 表头抑制逗号列表不被 NetBSD 正确处理），FreeBSD 同调用间歇不稳定。修复＝`ps -axo pid,ppid`（无 `=`）＋表头跳过解析＋失败诊断 | `platform-freebsd`＋`platform-netbsd` CI 绿 | **done**（f7bc34f：`ps` 只按 ppid 列匹配，撤销「顺序无关」过度宽容；`platform-freebsd` 于 run 41481740766、41568982820 绿） |
+| A2 | whcode-bin 测试二进制 **SIGSEGV**（signal 11 退出崩溃，run 41290577560 首现、41529766439 复现）——识别崩溃测试、判 flaky/FreeBSD 特有/真 bug | 定位 + `platform-freebsd` 绿 | **monitoring**：已在 run 41481740766／41568982820 两次不复现（88 项全过后**退出路径**崩溃，判间歇性、FreeBSD 特有）；取证管线已接线——`--no-fail-fast`（崩溃不掩蔽其余二进制）＋失败时单线程复跑＋`truss -f` 尾迹（artifact `a2-diag-freebsd`）＋VM 失败标记保全 copyback（5b1842d）。下次复现即按尾迹定位 atexit／库析构顺序 |
+| A3 | 回填 Check 336 注记（run ID）＋Check 22/25/96/99/201 注记更新；T240 转勾 | `platform-freebsd` 绿证据 | **done**（7ab12c7：Check 22/25/96/99/195/336＋T099/T240 转勾；a9881f4／ec69964 补 ADR-013 三平台修订） |
+| A4 | 计数声明复核（116/243/339）＋`m0-report.md` 更新 | `check_counts.py` consistent | **done**（counts consistent；evidence states exercised 291／outcome-supported 48／missing 0／unobserved 0） |
 
 ### 阶段 B — P0-2 工具循环深化（M0 收口后主线）
 

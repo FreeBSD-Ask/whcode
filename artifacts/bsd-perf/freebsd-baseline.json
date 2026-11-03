@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "command": "bench baseline",
+  "duckdb_engine_version": "v2.0.0",
+  "measurement_discipline": {
+    "os_name": "freebsd",
+    "os_version": "<未取得证据：whcode bench 不读取系统版本；由 .github/scripts/benchmarks/run-baseline.py 采集>",
+    "cpu": {
+      "model": "<未取得证据：whcode bench 不读取 CPU 型号；由 .github/scripts/benchmarks/run-baseline.py 采集>",
+      "cores_physical": null,
+      "cores_logical": 4,
+      "evidence": "std::thread::available_parallelism（逻辑核数）；物理核数与型号由编排脚本补齐"
+    },
+    "memory": {
+      "total_bytes": null,
+      "evidence": "<未取得证据：whcode bench 不读取总内存；由 .github/scripts/benchmarks/run-baseline.py 采集>"
+    },
+    "build_profile": "debug",
+    "rust_toolchain": "<未取得证据：由 .github/scripts/benchmarks/run-baseline.py 通过 rustc -vV 采集>",
+    "rustc_release": "<未取得证据：由 .github/scripts/benchmarks/run-baseline.py 通过 rustc -vV 采集>",
+    "rustc_host": "<未取得证据：由 .github/scripts/benchmarks/run-baseline.py 通过 rustc -vV 采集>",
+    "duckdb_engine_version": "v2.0.0",
+    "database_parameters": {
+      "memory_limit": "183.1 MiB",
+      "threads": "4",
+      "evidence": "连接上执行 SET 后，用 current_setting(...) 回读运行期取值"
+    },
+    "data_scale": {
+      "events_per_run": 20000,
+      "latency_samples_per_run": 200,
+      "payload_bytes": 131,
+      "event_kind_throughput": "streaming_chunk",
+      "event_kind_latency": "tool_call_started",
+      "persistence_level": "redacted",
+      "idempotency_keys": "baseline-<run>-<phase>-<index>（每次运行唯一；去重语义由 tests/stability 单独验证）"
+    },
+    "sampling": {
+      "repeats": 3,
+      "batch_rows": 500,
+      "batch_window_ms": 3600000,
+      "throughput_method": "端到端墙钟：写入 N 条事件并执行末尾 flush（含批次事务提交与临时目录 I/O）",
+      "latency_method": "逐条关键事件 submit 的墙钟耗时（每次 submit 触发一次事务提交）",
+      "latency_unit": "microseconds",
+      "quantile_method": "nearest_rank"
+    },
+    "script_path": "<未取得证据：独立运行 whcode bench baseline 时无编排脚本；由 .github/scripts/benchmarks/run-baseline.py 覆盖>",
+    "generated_at_utc": "2026-11-03T03:42:58Z",
+    "notes": [
+      "本报告是单机单次样本（固定数据集与批次策略），单次样本本身不构成预算冻结；预算已按 ADR-025（2026-10-23）在 Windows 11 amd64 上冻结，取 spec 候选值（V-006、R-12）",
+      "不同平台的结果不得合并为一组平均值；分位数由实测样本按 nearest-rank 计算，不以平均值代替",
+      "memory_limit 仅约束 DuckDB 缓冲管理器，不代表 WHCode 进程 RSS 上限（§5.2）",
+      "固定夹具的数据库参数为 memory_limit=192MB、threads=min(4, 逻辑核数)、async_threads=threads（ADR-042 配置收敛，2026-10-26 起）：本机 192MB + 4 线程在写入约 1000 条时触发 DuckDB OOM，故采用 §5.4 候选最大值；该取值经 ADR-025 随预算一并冻结（NFR-210 以 192 MB 为当前口径）"
+    ]
+  },
+  "runs": [
+    {
+      "run": 0,
+      "events_written": 20000,
+      "latency_samples": 200,
+      "event_rows": 20200,
+      "write_wall_ms": 6172.8687820000005,
+      "throughput_events_per_second": 3239.984633776717,
+      "latency_us": {
+        "p50": 7616.757,
+        "p95": 8012.063,
+        "p99": 8286.053,
+        "sample_count": 200,
+        "unit": "microseconds"
+      },
+      "db_bytes": 1847296
+    },
+    {
+      "run": 1,
+      "events_written": 20000,
+      "latency_samples": 200,
+      "event_rows": 20200,
+      "write_wall_ms": 6077.293049,
+      "throughput_events_per_second": 3290.9388832731934,
+      "latency_us": {
+        "p50": 7575.162,
+        "p95": 7825.835999999999,
+        "p99": 8085.96,
+        "sample_count": 200,
+        "unit": "microseconds"
+      },
+      "db_bytes": 1847296
+    },
+    {
+      "run": 2,
+      "events_written": 20000,
+      "latency_samples": 200,
+      "event_rows": 20200,
+      "write_wall_ms": 6084.221181,
+      "throughput_events_per_second": 3287.191475296236,
+      "latency_us": {
+        "p50": 7491.213,
+        "p95": 7723.793,
+        "p99": 7855.752,
+        "sample_count": 200,
+        "unit": "microseconds"
+      },
+      "db_bytes": 1847296
+    }
+  ],
+  "aggregate": {
+    "runs": 3,
+    "latency_us": {
+      "p50": 7556.135,
+      "p95": 7875.116999999999,
+      "p99": 8198.339,
+      "sample_count": 600,
+      "unit": "microseconds"
+    },
+    "throughput_events_per_second_median": 3287.191475296236,
+    "throughput_events_per_second_min": 3239.984633776717,
+    "throughput_events_per_second_max": 3290.9388832731934,
+    "total_events_written": 60000,
+    "total_latency_samples": 600,
+    "note": "同一平台、同一机器、同一次调用内的重复样本汇总；不是跨平台平均值"
+  }
+}

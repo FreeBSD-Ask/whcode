@@ -1,0 +1,169 @@
+# WHCode BSD 量化测量记录（FreeBSD；ADR-025 证据车道扩展）
+format_version = 1
+generated_at_utc = 2026-11-03T03:45:43Z
+script = .github/scripts/platform-matrix/bsd-perf.sh
+source = Check 195／NFR-201—210、ADR-025、ADR-013 修订 2026-11-03
+
+[platform]
+os_name = FreeBSD
+os_release = 15.1-RELEASE-p3
+machine = amd64
+detailed = FreeBSD freebsd 15.1-RELEASE-p3 FreeBSD 15.1-RELEASE-p3 releng/15.1-n283611-88e7371d9dc2 GENERIC amd64
+ncpu = 4
+physmem_bytes = 6387589120
+
+[toolchain]
+pinned_channel = 1.99.1
+rustc = rustc 1.99.1 (58cf8f9c3 2026-10-13) binary: rustc commit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67 commit-date: 2026-10-13 host: x86_64-unknown-freebsd release: 1.99.1 LLVM version: 23.1.1 
+build_profile = debug（与所在 job 的测试构建一致；非 release 口径）
+
+[environment]
+duckdb_native_library = /usr/local/whcode-duckdb-2.0.0/lib/libduckdb.so
+duckdb_lib_dir = /usr/local/whcode-duckdb-2.0.0/lib
+
+[verdict]
+perf_record_gate = RECORDED（三项记录型测量已执行（bench baseline／概览 p95／NFR-207）；只记录不判定）
+budget_scope = 冻结预算（ADR-025）范围＝Windows 11 amd64；BSD 数值不参与预算判定
+scope = VM 共享环境受控测量信号（邻居负载不可控、debug 构建）；信噪口径以本节为准
+
+[artifacts]
+baseline_json = artifacts/bsd-perf/freebsd-baseline.json
+overview_report = artifacts/overview-perf-m2.json（overview_perf 测试自写；成功时）
+
+[logs]
+warning: constant `HKCU_FONTS_KEY_FULL` is never used
+  --> crates/whcode-platform/src/fonts.rs:18:7
+   |
+18 | const HKCU_FONTS_KEY_FULL: &str = concat!(
+   |       ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `whcode-platform` (lib) generated 1 warning
+   Compiling whcode-store v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-store)
+   Compiling whcode-app v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-app)
+   Compiling whcode-ssh v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-ssh)
+   Compiling whcode-tui v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-tui)
+   Compiling whcode-cui v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-cui)
+   Compiling whcode-web v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-web)
+   Compiling whcode-gui v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-gui)
+   Compiling whcode-bin v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-bin)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.50s
+     Running `target/debug/whcode bench baseline --out artifacts/bsd-perf/freebsd-baseline.json`
+whcode bench baseline（schema v1）
+duckdb_engine_version: v2.0.0
+run 0: 3240.0 条/秒；提交延迟 p50 7616.8 / p95 8012.1 / p99 8286.1 µs；事件行 20200；数据库 1847296 字节
+run 1: 3290.9 条/秒；提交延迟 p50 7575.2 / p95 7825.8 / p99 8086.0 µs；事件行 20200；数据库 1847296 字节
+run 2: 3287.2 条/秒；提交延迟 p50 7491.2 / p95 7723.8 / p99 7855.8 µs；事件行 20200；数据库 1847296 字节
+汇总（3 次重复）：p50 7556.1 / p95 7875.1 / p99 8198.3 µs（样本 600）；吞吐中位数 3287.2 条/秒
+报告：artifacts/bsd-perf/freebsd-baseline.json
+测量条件见 measurement_discipline；单机单次样本，不构成预算冻结（R-12）
+   Compiling cc v1.9.0
+   Compiling num-bigint v0.5.1
+   Compiling futures v0.3.34
+   Compiling hybrid-array v0.4.15
+   Compiling iced_futures v0.14.0
+   Compiling libduckdb-sys v1.20000.0
+   Compiling subtle v2.6.1
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling iced_graphics v0.14.0
+   Compiling wayland-backend v0.3.17
+   Compiling arrow-buffer v60.0.0
+   Compiling ring v0.17.14
+warning: constant `HKCU_FONTS_KEY_FULL` is never used
+  --> crates/whcode-platform/src/fonts.rs:18:7
+   |
+18 | const HKCU_FONTS_KEY_FULL: &str = concat!(
+   |       ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `whcode-platform` (lib) generated 1 warning
+   Compiling whcode-store v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-store)
+   Compiling digest v0.11.3
+   Compiling iced_debug v0.14.0
+   Compiling sha2 v0.11.1
+   Compiling wayland-client v0.31.15
+   Compiling arrow-data v60.0.0
+   Compiling wayland-csd-frame v0.3.0
+   Compiling whcode-llm v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-llm)
+   Compiling arrow-array v60.0.0
+   Compiling wayland-protocols v0.32.13
+   Compiling wayland-cursor v0.31.14
+   Compiling rustls v0.23.46
+   Compiling calloop-wayland-source v0.4.1
+   Compiling calloop-wayland-source v0.3.0
+   Compiling softbuffer v0.4.8
+   Compiling iced_tiny_skia v0.14.1
+   Compiling arrow-cmp v60.0.0
+   Compiling arrow-row v60.0.0
+   Compiling arrow-select v60.0.0
+   Compiling wayland-protocols-wlr v0.3.12
+   Compiling arrow-arith v60.0.0
+   Compiling rustls-webpki v0.103.16
+   Compiling arrow-ord v60.0.0
+   Compiling arrow-string v60.0.0
+   Compiling arrow-cast v60.0.0
+   Compiling arrow v60.0.0
+   Compiling wayland-protocols-misc v0.3.12
+   Compiling wayland-protocols-experimental v20250721.0.1
+   Compiling smithay-client-toolkit v0.20.0
+   Compiling duckdb v1.20000.0
+   Compiling ureq v3.5.0
+   Compiling smithay-clipboard v0.7.3
+   Compiling whcode-mcp v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-mcp)
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling rcgen v0.14.10
+   Compiling sctk-adwaita v0.10.1
+   Compiling whcode-app v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-app)
+   Compiling clipboard_wayland v0.2.2
+   Compiling wayland-protocols-plasma v0.3.12
+   Compiling iced_runtime v0.14.0
+   Compiling window_clipboard v0.5.1
+   Compiling iced_program v0.14.0
+   Compiling iced_renderer v0.14.0
+   Compiling iced_widget v0.14.2
+   Compiling whcode-tui v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-tui)
+   Compiling winit v0.30.13
+   Compiling whcode-cui v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-cui)
+   Compiling whcode-web v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-web)
+   Compiling iced_winit v0.14.1
+   Compiling iced v0.14.0
+   Compiling whcode-gui v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-gui)
+   Compiling whcode-tests v0.1.0 (/home/runner/work/whcode/whcode/tests)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 18s
+     Running integration/test_overview_perf.rs (target/debug/deps/overview_perf-cc653972e84851cb)
+
+running 1 test
+概览查询（1 万任务）：p50 7765 µs / p95 7930 µs / p99 7984 µs（冻结预算 p95 ≤ 50000 µs，ADR-025；范围 Windows 11 amd64）
+性能报告已写入 /home/runner/work/whcode/whcode/tests/../artifacts/overview-perf-m2.json
+test overview_p95_within_frozen_budget_and_report_is_archived ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 24.15s
+
+warning: constant `HKCU_FONTS_KEY_FULL` is never used
+  --> crates/whcode-platform/src/fonts.rs:18:7
+   |
+18 | const HKCU_FONTS_KEY_FULL: &str = concat!(
+   |       ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `whcode-platform` (lib) generated 1 warning
+   Compiling whcode-store v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-store)
+   Compiling whcode-app v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-app)
+   Compiling whcode-gui v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-gui)
+   Compiling whcode-cui v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-cui)
+   Compiling whcode-web v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-web)
+   Compiling whcode-tui v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-tui)
+   Compiling whcode-tests v0.1.0 (/home/runner/work/whcode/whcode/tests)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.57s
+     Running stability/test_nfr_budget.rs (target/debug/deps/nfr_budget-95feeaa0ccab27ed)
+
+running 1 test
+NFR-207 会话切换: n=20 p50=9.3ms p95=9.7ms p99=9.9ms min=8.7ms max=10.0ms
+test nfr207_switch_latency_within_frozen_budget ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 51.26s
+

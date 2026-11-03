@@ -15,6 +15,19 @@
 | `openbsd-client.txt` | OpenBSD | `NO-GO（阻塞记录）` | ports rust 1.98.1 < MSRV 1.99，未执行 |
 | `dragonfly-client.txt` | DragonFly BSD | `NO-GO（阻塞记录）` | dports rust 1.85.1 < MSRV 1.99，未执行 |
 
+## 真实 sshd 互操作（记录型，`real_sshd_gate`）
+
+同一脚本内另跑 `real_sshd_acceptance_loopback`：对目标机**系统自带 OpenSSH sshd**（真实
+进程、独立密钥对、真实 TCP 回环）验证公钥认证／通道执行／退出码映射／stderr 捕获／
+TOFU 记录／显式授权内容回传／超时终止。结果记在 `<platform>-client.txt` 的 `[real_sshd]`
+节：`real_sshd_gate = GO／SKIPPED／NO-GO`。
+
+- run `41568982820`：FreeBSD `real_sshd_gate = GO`（`sshd=/usr/sbin/sshd`、配置档 full、
+  `REAL_SSHD_INTEROP: GO os=freebsd`）；Windows 本机实测 GO（Windows OpenSSH sshd）。
+- **门禁政策**：记录型——不并入 `ssh_loopback_gate` 硬判定，稳定后再评估升门；
+  跨机外部节点证据仍属 V-004／M7。
+- 相关量化记录：`../bsd-perf/`（`bsd-perf.sh`，记录口径，不参与 ADR-025 预算判定）。
+
 ## 范围与边界（各记录内已注明）
 
 - BSD 侧为**回环验收**（进程内测试桩）：验证客户端栈与服务端四项（Check 96），

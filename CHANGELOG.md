@@ -13,6 +13,18 @@
 
 ### 变更
 
+- **平台证据收口：三份 ADR 转正、Check 134 转勾、台账全绿**（2026-11-03，run
+  `41568982820`）：①ADR-005（SSH 入口）转正——FreeBSD/NetBSD 回环 GO（服务端四项＋
+  客户端四项）＋Windows/FreeBSD **真实 sshd 互操作 GO**（`real_sshd_gate`，记录型），
+  V-004 跨机归 M7；②ADR-010（DuckDB 原生构建分开验收）转正——FreeBSD 源码构建
+  DuckDB 2.0.0＋`store_gate = GO`，NetBSD 上游 `features.h` 缺口经 ADR-013 修订豁免；
+  ③ADR-012（`memory_limit` 基线）转正——大载荷实验量化边界（1 MiB 载荷 @192MB 第 312 条
+  失败、1024MB 全过），长时由 NFR-204 收口。台账：**missing 0／unobserved 0**
+  （exercised 291＋outcome-supported 48＝339）、任务 240/243。②另新增 BSD 量化记录车道
+  （`bsd-perf.sh`：FreeBSD 写入 p95 7875 µs、吞吐 3287 条/秒、概览 p95 7930 µs、NFR-207
+  p95 9.7 ms，VM/debug 记录口径不参与预算判定）与 CI 证据保全修复（VM 失败时先行保全
+  copyback 再由宿主判红，避免"失败即丢证据"）。③NetBSD 本轮红＝runner 磁盘耗尽
+  （`No space left on device`）属基础设施，非代码回归。
 - **四项平台证据缺口转 GitHub CI（V-004 升级／ADR-012 大载荷／BSD 量化／GUI 探针）**
   （2026-11-03，用户指令"4.1—4.4 全部转 GitHub CI"）：①真实 sshd 互操作验收
   `real_sshd_acceptance_loopback`（`#[ignore]`，bsd-ssh-client.sh 在 BSD VM 显式驱动）——
