@@ -409,8 +409,37 @@ jobs:
             # tests/durability-*.core，被并行 layout 契约门禁判为未登记条目
             # （run 41295875953 实测）。ulimit -c 0 只禁 dump，不改测试语义。
             ulimit -c 0
-            cargo test --locked --workspace
-            echo "phase=workspace-tests-ok" >> "$progress"
+            # --no-fail-fast：一个测试二进制崩溃不得掩蔽其余二进制的结论（长线计划 A2）。
+            # 失败时按「单线程复跑 → truss 尾迹」两段取证（A2 债务：whcode-bin 测试
+            # 二进制退出路径 SIGSEGV，run 41290577560 首现、41529766439 复现），证据
+            # 随 artifact 上传；门禁语义不变——失败仍然 exit 1。
+            cargo_rc=0
+            cargo test --locked --workspace --no-fail-fast || cargo_rc=$?
+            if [ "$cargo_rc" -eq 0 ]; then
+              echo "phase=workspace-tests-ok" >> "$progress"
+            else
+              echo "workspace 测试失败（rc=$cargo_rc）：开始 A2 诊断（单线程复跑＋truss 尾迹）"
+              mkdir -p artifacts/a2-diag
+              {
+                echo "workspace_cargo_rc=$cargo_rc"
+                echo "=== 单线程复跑 whcode-bin tests ==="
+              } > artifacts/a2-diag/single-thread.txt
+              single_rc=0
+              cargo test --locked -p whcode-bin --bin whcode -- --test-threads=1 \
+                >> artifacts/a2-diag/single-thread.txt 2>&1 || single_rc=$?
+              echo "single_thread_rc=$single_rc" >> artifacts/a2-diag/single-thread.txt
+              # 直接定位测试二进制（cargo 已构建）：deps/whcode-<hash>（排除 .d 依赖文件）。
+              a2_bin=$(ls -t target/debug/deps/whcode-* 2>/dev/null | grep -v '\.d$' | head -n 1)
+              echo "binary=${a2_bin:-<未定位>}" >> artifacts/a2-diag/single-thread.txt
+              if [ -n "${a2_bin:-}" ] && command -v truss >/dev/null 2>&1; then
+                timeout 900 truss -f -o artifacts/a2-diag/truss.log -- "$a2_bin" \
+                  --test-threads=1 > artifacts/a2-diag/direct-run.txt 2>&1 || true
+                tail -n 80 artifacts/a2-diag/truss.log \
+                  >> artifacts/a2-diag/direct-run.txt 2>/dev/null || true
+              fi
+              echo "A2 诊断证据已写入 artifacts/a2-diag/"
+              exit 1
+            fi
 
             echo "=== 依赖记录（V-001，须在 DUCKDB_* 导出之后；doctor 真实运行时探针）==="
             mkdir -p artifacts
@@ -470,6 +499,16 @@ jobs:
           path: |
             artifacts/tui-smoke-freebsd.json
             artifacts/web-smoke-freebsd.json
+
+      # A2 债务诊断证据（whcode-bin 测试二进制退出路径 SIGSEGV）：单线程复跑输出与
+      # truss 系统调用尾迹——定位崩溃发生在退出路径还是某条用例。
+      - name: 上传 FreeBSD A2 诊断证据（测试崩溃时）
+        if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: a2-diag-freebsd
+          if-no-files-found: ignore
+          path: artifacts/a2-diag/
 
       # 量化测量（2026-11-03）：记录口径——VM 共享环境、debug 构建、不参与 ADR-025 预算判定。
       - name: 上传 FreeBSD 量化测量记录（记录口径，不作预算判定）
