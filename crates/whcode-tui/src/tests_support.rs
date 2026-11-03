@@ -116,6 +116,7 @@ pub fn fixture_snapshot(view: ViewId) -> ViewSnapshot {
         ViewId::Spec => {
             snapshot.spec_status = "阶段：design · 门禁 4/4 通过 · 产物 v3".into();
         }
+        ViewId::Chat => {}
         ViewId::Diff => {
             snapshot.diff = vec![
                 DiffLine {

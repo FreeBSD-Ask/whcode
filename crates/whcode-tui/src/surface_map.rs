@@ -78,6 +78,7 @@ fn view_surface(view: ViewId) -> &'static str {
         ViewId::Events => "view.events",
         ViewId::Spec => "view.spec",
         ViewId::Diff => "view.diff",
+        ViewId::Chat => "view.chat",
     }
 }
 

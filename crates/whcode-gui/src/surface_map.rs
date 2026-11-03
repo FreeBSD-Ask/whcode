@@ -54,6 +54,7 @@ fn view_surface(view: ViewId) -> &'static str {
         ViewId::Events => "view.events",
         ViewId::Spec => "view.spec",
         ViewId::Diff => "view.diff",
+        ViewId::Chat => "view.chat",
     }
 }
 
@@ -72,6 +73,7 @@ mod tests {
             GuiAction::SelectView(ViewId::Events),
             GuiAction::SelectView(ViewId::Spec),
             GuiAction::SelectView(ViewId::Diff),
+            GuiAction::SelectView(ViewId::Chat),
             GuiAction::NextSession,
             GuiAction::PrevSession,
             GuiAction::Refresh,
@@ -98,6 +100,7 @@ mod tests {
             GuiAction::SelectView(ViewId::Events),
             GuiAction::SelectView(ViewId::Spec),
             GuiAction::SelectView(ViewId::Diff),
+            GuiAction::SelectView(ViewId::Chat),
             GuiAction::NextSession,
             GuiAction::PrevSession,
             GuiAction::Refresh,
@@ -115,15 +118,38 @@ mod tests {
         }
     }
 
-    /// Task 179：登记表中 GUI 已实现的条目必须全部为读面（GUI 无写能力）。
+    /// ADR-056：GUI 已实现条目 = 读面 ∪ 白名单写面（对话 + 会话/任务/清理命令）；
+    /// 白名单外的写/破坏性面不得在 GUI 出现已实现（如 `spec.*` 门禁操作、`settings.cert.write`）。
     #[test]
-    fn gui_implemented_surfaces_are_read_only() {
+    fn gui_implemented_surfaces_are_reads_or_whitelisted_writes() {
+        const WRITES: [&str; 9] = [
+            "session.new",
+            "session.rename",
+            "session.archive",
+            "session.delete",
+            "task.retry",
+            "task.abort",
+            "db.purge",
+            "llm.run",
+            "llm.cancel",
+        ];
         for entry in SURFACES {
-            if matches!(entry.support(FrontendId::Gui), Support::Implemented { .. }) {
-                assert_eq!(
-                    entry.effect,
-                    EffectClass::Read,
-                    "{} 在 GUI 已实现但不是读面（FR-711 只读 v1）",
+            if !matches!(entry.support(FrontendId::Gui), Support::Implemented { .. }) {
+                continue;
+            }
+            let whitelisted = WRITES.contains(&entry.id);
+            assert!(
+                entry.effect == EffectClass::Read || whitelisted,
+                "{} 在 GUI 已实现但既非读面也不在 ADR-056 写白名单",
+                entry.id
+            );
+            if whitelisted {
+                assert!(
+                    matches!(
+                        entry.support(FrontendId::Gui),
+                        Support::Implemented { anchor } if anchor.contains("whcode_gui::State::")
+                    ),
+                    "{} 的 GUI 锚点必须指向 GUI 真实函数（ADR-056）",
                     entry.id
                 );
             }

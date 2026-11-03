@@ -138,13 +138,14 @@ mod tests {
         assert!(!state.quit(), "视图切换不应触发退出");
     }
 
-    /// 非导航键（如 `0`、`7`）仍是普通按键：计数且不改变视图。
+    /// 非导航键（如 `0`、`8`）仍是普通按键：计数且不改变视图（`7` 现切换到对话视图，
+    /// ADR-056 七视图）。
     #[test]
     fn non_navigation_digits_do_not_switch_views() {
         let mut state = TuiState::new(80, 24);
         state.handle(UiEvent::Key('3'));
         state.handle(UiEvent::Key('0'));
-        state.handle(UiEvent::Key('7'));
+        state.handle(UiEvent::Key('8'));
         assert_eq!(state.view(), ViewId::Context, "仅 3 切换视图");
         assert_eq!(state.keys_seen(), 2, "0 与 7 是普通按键");
     }

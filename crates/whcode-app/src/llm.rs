@@ -65,6 +65,17 @@ pub struct ProviderRegistry {
 }
 
 impl ProviderRegistry {
+    /// 剖面名清单（注册表顺序；GUI 对话视图的剖面选择用，ADR-056）。
+    #[must_use]
+    pub fn profile_names(&self) -> Vec<String> {
+        self.profiles
+            .iter()
+            .map(|profile| profile.name.clone())
+            .collect()
+    }
+}
+
+impl ProviderRegistry {
     /// 从 JSON 文本构造：接受 `{"profiles": [...]}` 或裸数组 `[...]`。
     ///
     /// # Errors

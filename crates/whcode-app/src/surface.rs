@@ -297,8 +297,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（n → SessionNew）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "whcode_gui::State::submit_session_new（ADR-056）",
             },
             Support::Implemented {
                 anchor: "POST /api/sessions/new",
@@ -363,8 +363,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（m → SessionRename）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "whcode_gui::State::submit_session_rename（ADR-056）",
             },
             Support::Implemented {
                 anchor: "POST /api/sessions/rename",
@@ -389,8 +389,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::request_confirm（A → SessionArchive 预览→确认）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "whcode_gui::State::submit_session_archive（预览→确认，ADR-056）",
             },
             Support::Implemented {
                 anchor: "POST /api/sessions/archive",
@@ -411,8 +411,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::request_confirm（d → SessionDelete 预览→确认）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "whcode_gui::State::submit_session_delete（预览→确认，ADR-056）",
             },
             Support::Implemented {
                 anchor: "POST /api/sessions/delete",
@@ -524,8 +524,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::task_action（R → TaskRetry）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "whcode_gui::State::submit_task_retry（ADR-056）",
             },
             Support::Implemented {
                 anchor: "POST /api/tasks/retry",
@@ -546,8 +546,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::task_action（X → TaskAbort）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "whcode_gui::State::submit_task_abort（ADR-056）",
             },
             Support::Implemented {
                 anchor: "POST /api/tasks/abort",
@@ -794,8 +794,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::request_confirm（p → Purge 预览→确认）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "whcode_gui::State::submit_purge（预览→确认，ADR-056）",
             },
             Support::Implemented {
                 anchor: "POST /api/purge",
@@ -1059,8 +1059,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "TuiAction::LlmRun（剖面名→提示词两步输入 → llm_provider::TuiLlmExecutor::run）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "whcode_gui::State::submit_chat（对话视图，ADR-056）",
             },
             Support::Implemented {
                 anchor: "POST /api/llm/run（handle_request_with_llm → whcode_app::turn::run_turn，FR-718）",
@@ -1081,8 +1081,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "TuiAction::LlmCancel（请求 ID 输入 → llm_provider::TuiLlmExecutor::cancel）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "whcode_gui::State::cancel_chat（ADR-056）",
             },
             Support::Implemented {
                 anchor: "POST /api/llm/cancel（handle_request_with_llm）",
@@ -1486,6 +1486,28 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    SurfaceEntry {
+        id: "view.chat",
+        kind: SurfaceKind::View,
+        capability: Capability::SessionCreate,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CuiCommandSurface,
+            },
+            Support::Implemented {
+                anchor: "LoopCore::prepare（ViewId::Chat）",
+            },
+            Support::Implemented {
+                anchor: "State::prepare（ViewId::Chat）",
+            },
+            Support::Implemented {
+                anchor: "POST /api/llm/run（Web 的对话面即 llm API）",
+            },
+        ],
+    },
     // 在线可见（其他端更改；FR-605／624）：Web 经 WebSocket 推送；TUI 低频游标检查
     // （T178 已交付）；GUI 显式刷新（FR-711／714）。
     SurfaceEntry {
@@ -1689,7 +1711,7 @@ mod tests {
     }
 
     #[test]
-    fn six_views_plus_online_visibility_are_view_kind() {
+    fn seven_views_plus_online_visibility_are_view_kind() {
         let views: Vec<&str> = SURFACES
             .iter()
             .filter(|entry| entry.kind == SurfaceKind::View)
@@ -1706,6 +1728,7 @@ mod tests {
                 "view.events",
                 "view.spec",
                 "view.diff",
+                "view.chat",
                 "view.changes"
             ],
             "视图面条目为证书设置页 + 六视图 + 在线可见（FR-601／622／624、ADR-040）"
@@ -1784,18 +1807,13 @@ mod tests {
                     entry.support(frontend)
                 );
             }
-            assert_eq!(
-                entry.support(FrontendId::Gui),
-                &Support::Excluded {
-                    reason: ExclusionReason::GuiReadOnlyV1
-                }
-            );
         }
     }
 
-    /// GUI 全部业务写命令登记 `GUI_READ_ONLY_V1`（FR-711、Task 179.1）。
+    /// ADR-056 四端对等：GUI 业务写命令与 llm 面全部翻转为已实现（真实锚点；
+    /// 破坏族仍预览→确认）。`gui_read_only_v1` 理由码保留于码表（历史口径）。
     #[test]
-    fn gui_business_writes_are_excluded_with_read_only_v1() {
+    fn gui_business_writes_are_implemented_with_anchors() {
         for id in [
             "session.new",
             "session.rename",
@@ -1806,14 +1824,16 @@ mod tests {
             "db.purge",
             "llm.run",
             "llm.cancel",
+            "view.chat",
         ] {
             let entry = find(id).expect(id);
-            assert_eq!(
-                entry.support(FrontendId::Gui),
-                &Support::Excluded {
-                    reason: ExclusionReason::GuiReadOnlyV1
-                },
-                "{id} 的 GUI 状态必须为 GUI_READ_ONLY_V1"
+            assert!(
+                matches!(
+                    entry.support(FrontendId::Gui),
+                    Support::Implemented { anchor } if !anchor.is_empty()
+                ),
+                "{id} 的 GUI 必须已实现并带锚点（ADR-056），实际 {:?}",
+                entry.support(FrontendId::Gui)
             );
         }
     }

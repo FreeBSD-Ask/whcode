@@ -1,13 +1,16 @@
 //! # whcode-gui
 //!
-//! 原生桌面 GUI（只读 v1，FR-711—FR-715、ADR-027）。
+//! 原生桌面 GUI（FR-711—FR-715、ADR-027；交互对等见 ADR-056）。
 //!
 //! 边界：
-//! - 只经 [`whcode_app::view_source`] 的只读快照取数，**不触库**、不绕过应用服务（ADR-003）；
+//! - 取数只经 [`whcode_app::view_source`] 的只读快照，**不触库**、不绕过应用服务（ADR-003）；
 //! - 不内嵌任何浏览器引擎（ADR-026）；渲染由 `iced` 自绘，使用 **tiny-skia 软件光栅**，
 //!   默认不创建 GPU 上下文（NFR-212、ADR-027）；
 //! - 空闲不重绘：没有定时器与动画，重绘只由输入或窗口事件触发（FR-714）；
-//! - v1 只读：破坏性命令不经 GUI（FR-711）。
+//! - 写命令与 LLM 对话（ADR-056）：经装配根注入的 [`CommandExecutor`] 与
+//!   [`GuiLlmExecutor`]，语义与 TUI 三端一致——`run_turn` 同步等待完成（执行期间界面
+//!   阻塞，与 TUI 同）；破坏性命令预览→确认两段式；执行器未接入时显式提示
+//!   `not_supported`（不静默无响应）。
 //!
 //! 渲染纪律（§5.3）：帧路径只消费准备阶段生成的纯数据快照，不反序列化 JSON、不查询数据库。
 
@@ -16,12 +19,14 @@ pub mod surface_map;
 use std::rc::Rc;
 
 use iced::keyboard::{Key, key};
-use iced::widget::{button, column, container, rich_text, row, scrollable, span, text};
+use iced::widget::{button, column, container, rich_text, row, scrollable, span, text, text_input};
 use iced::{
     Background, Border, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme,
     window,
 };
+use whcode_app::commands::{CommandExecutor, FrontendCommand};
 use whcode_app::view_source::{VIEW_COUNT, ViewId, ViewSnapshot, ViewSource};
+use whcode_domain::WhError;
 use whcode_domain::i18n::I18n;
 
 /// 窗口初始逻辑尺寸（与 FR-712 的预算口径一致）。
@@ -136,6 +141,43 @@ impl GuiTheme {
     }
 }
 
+/// GUI 侧 LLM 执行器（ADR-056；语义与 `whcode_tui::LlmExecutor` 一致）。
+///
+/// 由装配根实现（包装 `TuiLlmExecutor`）：GUI 不直接依赖 `whcode-bin`，经此 trait 反转。
+pub trait GuiLlmExecutor {
+    /// 发起一次真实调用（同步；会话取 GUI 当前选中会话）。
+    ///
+    /// # Errors
+    ///
+    /// 剖面未注册、凭据缺失或调用失败时返回 [`WhError`]。
+    fn run(&self, session_id: &str, provider: &str, prompt: &str) -> Result<String, WhError>;
+
+    /// 取消同机正在运行的调用。
+    ///
+    /// # Errors
+    ///
+    /// 请求 ID 非法或无活跃调用时返回 [`WhError`]。
+    fn cancel(&self, request_id: &str) -> Result<String, WhError>;
+
+    /// 可选剖面名清单（注册表顺序；对话视图显示与默认选择用）。
+    fn profiles(&self) -> Vec<String>;
+}
+
+/// 会话操作面板的当前状态（ADR-056；破坏性命令两段式）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum OpMode {
+    /// 新建会话：输入即标题。
+    SessionNew,
+    /// 重命名会话：输入即新标题。
+    SessionRename,
+    /// 归档/恢复预览已出，待确认（`archived` 为目标状态）。
+    SessionArchive { archived: bool },
+    /// 删除预览已出，待确认。
+    SessionDelete,
+    /// 清理预览已出，待确认（`before_ms` 冻结于预览时点）。
+    Purge { before_ms: i64 },
+}
+
 /// 启动参数。
 #[derive(Default)]
 pub struct RunOptions {
@@ -143,9 +185,14 @@ pub struct RunOptions {
     pub theme: GuiTheme,
     /// 界面文本层（FR-615）：默认 zh-CN + en 回退。
     pub texts: I18n,
+    /// 写命令执行器（FR-623/ADR-056）：`Some` 时会话/任务/清理写操作可用；`None` 时
+    /// 显式提示 `not_supported`（不静默无响应，与 TUI 同口径）。
+    pub command_executor: Option<Box<dyn CommandExecutor>>,
+    /// LLM 执行器（ADR-056）：`Some` 时对话视图可用；`None` 时显式提示 `not_supported`。
+    pub llm_executor: Option<Box<dyn GuiLlmExecutor>>,
 }
 
-/// 界面消息（全部由按键或窗口事件产生，无定时器）。
+/// 界面消息（按键、窗口事件与控件回调产生；无定时器）。
 #[derive(Debug, Clone)]
 enum Message {
     SelectView(ViewId),
@@ -154,10 +201,37 @@ enum Message {
     Refresh,
     CycleTheme,
     Resized(Size),
-    Quit,
+    // —— 对话（ADR-056）——
+    /// 剖面名输入。
+    ChatProviderChanged(String),
+    /// 提示词输入。
+    ChatInputChanged(String),
+    /// 提交一轮对话（同步 `run_turn`；执行期间界面阻塞，与 TUI 同语义）。
+    ChatSubmit,
+    /// 取消正在运行的调用（按请求 ID）。
+    ChatCancel,
+    // —— 会话/任务/清理操作（ADR-056）——
+    /// 操作面板输入（标题／任务 ID）。
+    OpInputChanged(String),
+    /// 打开操作面板（新建／重命名；破坏性命令先进入预览态）。
+    OpStart(OpMode),
+    /// 破坏性命令：先预览（confirm=false，不写库）。
+    OpPreview,
+    /// 破坏性命令：确认执行（confirm=true）。
+    OpConfirm,
+    /// 关闭操作面板（不执行任何写操作）。
+    OpCancel,
+    /// 任务重试（按下标索引 `snapshot.tasks`）。
+    TaskRetry(usize),
+    /// 任务中止（按下标索引）。
+    TaskAbort(usize),
+    /// Esc：有面板时取消面板，否则退出。
+    EscapeKey,
+    /// 字符键（门控在 update：对话视图／操作面板打开时忽略全局快捷键）。
+    Key(char),
 }
 
-/// 应用状态：只持有只读快照与选择位置。
+/// 应用状态：只读快照 + 交互状态（对话与写操作，ADR-056）。
 struct State {
     source: Rc<dyn ViewSource>,
     texts: I18n,
@@ -172,16 +246,42 @@ struct State {
     snapshot: ViewSnapshot,
     /// 当前窗口逻辑尺寸（状态栏显示，FR-712 口径）。
     size: Size,
+    /// 写命令执行器（`None` = 装配未接入，写操作显式提示）。
+    executor: Option<Rc<dyn CommandExecutor>>,
+    /// LLM 执行器（`None` = 装配未接入，对话显式提示）。
+    llm: Option<Rc<dyn GuiLlmExecutor>>,
+    /// 对话视图：剖面名（默认取执行器剖面清单首项）。
+    chat_provider: String,
+    /// 对话视图：提示词输入。
+    chat_input: String,
+    /// 对话视图：最近一次结果摘要或错误（不复制模型正文）。
+    chat_last: Option<String>,
+    /// 操作面板模式（`None` = 关闭）。
+    op_mode: Option<OpMode>,
+    /// 操作面板输入（标题／任务 ID）。
+    op_input: String,
+    /// 操作面板反馈行（预览结果或错误）。
+    op_feedback: Option<String>,
 }
 
 impl State {
-    fn new(source: Rc<dyn ViewSource>, texts: I18n, theme: GuiTheme) -> Self {
+    fn new(
+        source: Rc<dyn ViewSource>,
+        texts: I18n,
+        theme: GuiTheme,
+        executor: Option<Rc<dyn CommandExecutor>>,
+        llm: Option<Rc<dyn GuiLlmExecutor>>,
+    ) -> Self {
         let snapshot = source.snapshot(ViewId::Sessions, None);
         let session_ids = snapshot
             .sessions
             .iter()
             .map(|row| row.id.clone())
             .collect::<Vec<_>>();
+        let chat_provider = llm
+            .as_ref()
+            .and_then(|llm| llm.profiles().into_iter().next())
+            .unwrap_or_default();
         Self {
             source,
             texts,
@@ -191,6 +291,14 @@ impl State {
             session_ids,
             snapshot,
             size: WINDOW_SIZE,
+            executor,
+            llm,
+            chat_provider,
+            chat_input: String::new(),
+            chat_last: None,
+            op_mode: None,
+            op_input: String::new(),
+            op_feedback: None,
         }
     }
 
@@ -253,7 +361,7 @@ impl State {
             ViewId::Tasks => self.snapshot.tasks.len(),
             ViewId::Events => self.snapshot.events.len(),
             ViewId::Diff => self.snapshot.diff.len(),
-            ViewId::Context | ViewId::Spec => 0,
+            ViewId::Context | ViewId::Spec | ViewId::Chat => 0,
         }
     }
 
@@ -283,10 +391,26 @@ impl State {
 /// 窗口创建或渲染后端初始化失败时返回 `iced::Error`。
 pub fn run(source: Box<dyn ViewSource>, options: RunOptions) -> iced::Result {
     let source: Rc<dyn ViewSource> = Rc::from(source);
-    let RunOptions { theme, texts } = options;
+    let RunOptions {
+        theme,
+        texts,
+        command_executor,
+        llm_executor,
+    } = options;
+    // 执行器以 Rc 共享进状态闭包（iced 的状态构造器要求可重复调用；Rc 克隆即可）。
+    let executor_shared: Option<Rc<dyn CommandExecutor>> = command_executor.map(Rc::from);
+    let llm_shared: Option<Rc<dyn GuiLlmExecutor>> = llm_executor.map(Rc::from);
 
     let mut app = iced::application(
-        move || State::new(Rc::clone(&source), texts.clone(), theme),
+        move || {
+            State::new(
+                Rc::clone(&source),
+                texts.clone(),
+                theme,
+                executor_shared.clone(),
+                llm_shared.clone(),
+            )
+        },
         update,
         view,
     )
@@ -360,6 +484,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::SelectView(view) => {
             state.view = view;
             state.prepare();
+            return Task::none();
         }
         Message::NextSession => {
             if !state.session_ids.is_empty() {
@@ -371,6 +496,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                 state.view = ViewId::Sessions;
                 state.prepare();
             }
+            return Task::none();
         }
         Message::PrevSession => {
             if !state.session_ids.is_empty() {
@@ -378,15 +504,310 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                 state.view = ViewId::Sessions;
                 state.prepare();
             }
+            return Task::none();
         }
         Message::Refresh => {
             state.prepare();
+            return Task::none();
         }
-        Message::CycleTheme => state.theme = state.theme.next(),
-        Message::Resized(size) => state.size = size,
-        Message::Quit => return iced::exit(),
+        Message::CycleTheme => {
+            state.theme = state.theme.next();
+            return Task::none();
+        }
+        Message::Resized(size) => {
+            state.size = size;
+            return Task::none();
+        }
+        Message::Key(key) => {
+            // 全局快捷键仅在「无文本输入场景」生效：对话视图与操作面板打开时，
+            // 键盘由文本输入控件接管（数字与 j/k/r/t/q 是内容而非命令）。
+            if state.op_mode.is_some() || state.view == ViewId::Chat {
+                return Task::none();
+            }
+            match key {
+                '1' | '2' | '3' | '4' | '5' | '6' | '7' => {
+                    let index = (key.to_digit(10).unwrap_or(1) as usize).saturating_sub(1);
+                    if let Some(view) = ViewId::ALL.get(index).copied() {
+                        let _ = update(state, Message::SelectView(view));
+                    }
+                    return Task::none();
+                }
+                'j' => {
+                    let _ = update(state, Message::NextSession);
+                    return Task::none();
+                }
+                'k' => {
+                    let _ = update(state, Message::PrevSession);
+                    return Task::none();
+                }
+                'r' => {
+                    let _ = update(state, Message::Refresh);
+                    return Task::none();
+                }
+                't' => {
+                    let _ = update(state, Message::CycleTheme);
+                    return Task::none();
+                }
+                'q' => return iced::exit(),
+                _ => return Task::none(),
+            }
+        }
+        Message::EscapeKey => {
+            if state.op_mode.take().is_some() {
+                state.op_input.clear();
+                state.op_feedback = None;
+            } else {
+                return iced::exit();
+            }
+        }
+        Message::ChatProviderChanged(value) => state.chat_provider = value,
+        Message::ChatInputChanged(value) => state.chat_input = value,
+        Message::ChatSubmit => chat_submit(state),
+        Message::ChatCancel => chat_cancel(state),
+        Message::OpInputChanged(value) => state.op_input = value,
+        Message::OpStart(mode) => {
+            state.op_mode = Some(mode);
+            state.op_input.clear();
+            state.op_feedback = None;
+        }
+        Message::OpPreview => op_preview(state),
+        Message::OpConfirm => op_confirm(state),
+        Message::OpCancel => {
+            state.op_mode = None;
+            state.op_input.clear();
+            state.op_feedback = None;
+        }
+        Message::TaskRetry(index) => task_action(state, index, false),
+        Message::TaskAbort(index) => task_action(state, index, true),
     }
     Task::none()
+}
+
+/// 对话提交（ADR-056）：同步 `run_turn`——执行期间界面阻塞，与 TUI 同语义。
+fn chat_submit(state: &mut State) {
+    let Some(llm) = state.llm.as_ref() else {
+        state.chat_last = Some(state.texts.resolve("gui.chat.not_supported").to_string());
+        return;
+    };
+    if state.chat_input.trim().is_empty() {
+        state.chat_last = Some(state.texts.resolve("gui.chat.empty").to_string());
+        return;
+    }
+    let Some(session) = state.selected_session() else {
+        state.chat_last = Some(state.texts.resolve("gui.chat.none").to_string());
+        return;
+    };
+    let provider = if state.chat_provider.trim().is_empty() {
+        llm.profiles().into_iter().next().unwrap_or_default()
+    } else {
+        state.chat_provider.trim().to_string()
+    };
+    let prompt = std::mem::take(&mut state.chat_input);
+    match llm.run(&session, &provider, &prompt) {
+        Ok(summary) => {
+            state.chat_last = Some(summary);
+            // turn 已产生事件与消息：显式刷新对齐（FR-624 的 GUI 手动刷新语义）。
+            state.prepare();
+        }
+        Err(err) => {
+            state.chat_last = Some(format!("{}: {err}", state.texts.resolve("gui.chat.error")));
+        }
+    }
+}
+
+/// 取消正在运行的调用（请求 ID 取上次摘要中的 `request_id=…`，与 TUI 同口径）。
+fn chat_cancel(state: &mut State) {
+    let Some(llm) = state.llm.as_ref() else {
+        state.chat_last = Some(state.texts.resolve("gui.chat.not_supported").to_string());
+        return;
+    };
+    let request_id = state
+        .chat_last
+        .as_deref()
+        .and_then(|text| text.rsplit("request_id=").next())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if request_id.is_empty() {
+        state.chat_last = Some(state.texts.resolve("gui.chat.no_request").to_string());
+        return;
+    }
+    match llm.cancel(&request_id) {
+        Ok(summary) => state.chat_last = Some(summary),
+        Err(err) => {
+            state.chat_last = Some(format!("{}: {err}", state.texts.resolve("gui.chat.error")));
+        }
+    }
+}
+
+/// 会话/任务/清理写命令统一入口：Capability 与确认语义由 `execute_command` 承担。
+fn execute(state: &mut State, command: FrontendCommand) {
+    let Some(executor) = state.executor.as_ref() else {
+        state.op_feedback = Some(state.texts.resolve("gui.op.not_supported").to_string());
+        return;
+    };
+    match executor.execute(command) {
+        Ok(outcome) => {
+            state.op_feedback = Some(op_outcome_text(&outcome));
+            state.op_mode = None;
+            state.op_input.clear();
+            // 写后刷新（FR-624 手动刷新语义的对齐：本端写入后本地立即可见）。
+            state.prepare();
+        }
+        Err(err) => {
+            state.op_feedback = Some(format!("{}: {err}", state.texts.resolve("gui.op.error")))
+        }
+    }
+}
+
+/// 操作面板预览（破坏性命令 confirm=false；不写库、不写审计）。
+fn op_preview(state: &mut State) {
+    let Some(mode) = state.op_mode.clone() else {
+        return;
+    };
+    let Some(executor) = state.executor.as_ref() else {
+        state.op_feedback = Some(state.texts.resolve("gui.op.not_supported").to_string());
+        return;
+    };
+    let Some(session) = state.selected_session() else {
+        state.op_feedback = Some(state.texts.resolve("gui.chat.none").to_string());
+        return;
+    };
+    let now = now_ms();
+    let outcome = match mode {
+        OpMode::SessionArchive { archived } => executor.execute(FrontendCommand::SessionArchive {
+            session_id: session,
+            archived,
+            confirm: false,
+            now_ms: now,
+        }),
+        OpMode::SessionDelete => executor.execute(FrontendCommand::SessionDelete {
+            session_id: session,
+            confirm: false,
+            now_ms: now,
+        }),
+        OpMode::Purge { before_ms } => executor.execute(FrontendCommand::PurgePreview {
+            before_ms,
+            now_ms: now,
+        }),
+        OpMode::SessionNew | OpMode::SessionRename => return,
+    };
+    match outcome {
+        Ok(result) => {
+            // 预览不关面板：下一步 OpConfirm 才执行（FR-623 两段式）。
+            state.op_feedback = Some(op_outcome_text(&result));
+        }
+        Err(err) => {
+            state.op_feedback = Some(format!("{}: {err}", state.texts.resolve("gui.op.error")))
+        }
+    }
+}
+
+/// 操作面板确认执行（confirm=true）。
+fn op_confirm(state: &mut State) {
+    let Some(mode) = state.op_mode.clone() else {
+        return;
+    };
+    let now = now_ms();
+    let command = match mode {
+        OpMode::SessionNew => {
+            let title = std::mem::take(&mut state.op_input);
+            FrontendCommand::SessionNew {
+                title,
+                model: None,
+                now_ms: now,
+            }
+        }
+        OpMode::SessionRename => {
+            let title = std::mem::take(&mut state.op_input);
+            FrontendCommand::SessionRename {
+                session_id: state.selected_session().unwrap_or_default(),
+                title,
+                now_ms: now,
+            }
+        }
+        OpMode::SessionArchive { archived } => FrontendCommand::SessionArchive {
+            session_id: state.selected_session().unwrap_or_default(),
+            archived,
+            confirm: true,
+            now_ms: now,
+        },
+        OpMode::SessionDelete => FrontendCommand::SessionDelete {
+            session_id: state.selected_session().unwrap_or_default(),
+            confirm: true,
+            now_ms: now,
+        },
+        OpMode::Purge { before_ms } => FrontendCommand::PurgeExecute {
+            before_ms,
+            confirm: true,
+            now_ms: now,
+        },
+    };
+    execute(state, command);
+}
+
+/// 任务操作（retry/abort；按下标索引快照任务行）。
+fn task_action(state: &mut State, index: usize, abort: bool) {
+    let Some(task) = state.snapshot.tasks.get(index) else {
+        return;
+    };
+    let task_id = task.id.clone();
+    let now = now_ms();
+    let command = if abort {
+        FrontendCommand::TaskAbort {
+            task_id,
+            now_ms: now,
+        }
+    } else {
+        FrontendCommand::TaskRetry {
+            task_id,
+            now_ms: now,
+        }
+    };
+    execute(state, command);
+}
+
+/// `CommandOutcome` 的人可读摘要（不复制模型正文；事件已入库）。
+#[allow(clippy::match_same_arms)]
+fn op_outcome_text(outcome: &whcode_app::commands::CommandOutcome) -> String {
+    match outcome {
+        whcode_app::commands::CommandOutcome::Session(row) => {
+            format!("session={} title={}", row.id, row.title)
+        }
+        whcode_app::commands::CommandOutcome::SessionArchivePreview {
+            session,
+            target_archived,
+        } => format!(
+            "preview: session={} -> archived={}",
+            session.id, target_archived
+        ),
+        whcode_app::commands::CommandOutcome::SessionDeletePreview(preview) => {
+            format!("preview: sessions={}", preview.counts.sessions)
+        }
+        whcode_app::commands::CommandOutcome::SessionDeleted(result) => {
+            format!("deleted_sessions={}", result.deleted_sessions.len())
+        }
+        whcode_app::commands::CommandOutcome::Task(row) => {
+            format!("task={} status={}", row.id, row.status.as_str())
+        }
+        whcode_app::commands::CommandOutcome::PurgePreview(preview) => {
+            format!("preview: cutoff_ms={}", preview.cutoff_ms)
+        }
+        whcode_app::commands::CommandOutcome::PurgeExecuted(result) => {
+            format!(
+                "purged: sessions={} tasks={}",
+                result.deleted.sessions, result.deleted.tasks
+            )
+        }
+    }
+}
+
+/// 毫秒时钟（与 TUI 的 now_ms 同口径：系统墙钟）。
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|delta| delta.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 fn subscription(_: &State) -> Subscription<Message> {
@@ -394,6 +815,10 @@ fn subscription(_: &State) -> Subscription<Message> {
 }
 
 /// 原始事件 → 消息。`RedrawRequested` 必须返回 `None`（否则会形成无限重绘循环）。
+///
+/// 字符键统一以 [`Message::Key`] 送入 update——全局快捷键的门控在 update 内按状态裁决
+/// （对话视图输入中／操作面板打开时停用，由文本输入控件接管键盘）；`listen_raw` 只收
+/// fn 指针，无法闭包捕获状态。
 fn handle_event(
     event: iced::Event,
     _status: iced::event::Status,
@@ -402,19 +827,8 @@ fn handle_event(
     match event {
         iced::Event::Window(window::Event::Resized(size)) => Some(Message::Resized(size)),
         iced::Event::Keyboard(iced::keyboard::Event::KeyPressed { key, .. }) => match key {
-            Key::Named(key::Named::Escape) => Some(Message::Quit),
-            Key::Character(character) => match character.as_str() {
-                "1" | "2" | "3" | "4" | "5" | "6" => {
-                    let index = character.parse::<usize>().ok()?.saturating_sub(1);
-                    ViewId::ALL.get(index).copied().map(Message::SelectView)
-                }
-                "j" => Some(Message::NextSession),
-                "k" => Some(Message::PrevSession),
-                "r" => Some(Message::Refresh),
-                "t" => Some(Message::CycleTheme),
-                "q" => Some(Message::Quit),
-                _ => None,
-            },
+            Key::Named(key::Named::Escape) => Some(Message::EscapeKey),
+            Key::Character(character) => Some(Message::Key(character.chars().next()?)),
             _ => None,
         },
         _ => None,
@@ -450,20 +864,11 @@ fn sidebar_button(state: &State, item: ViewId) -> Element<'_, Message> {
         .into()
 }
 
-fn view(state: &State) -> Element<'_, Message> {
-    let items: Vec<Element<'_, Message>> = ViewId::ALL
-        .iter()
-        .map(|item| sidebar_button(state, *item))
-        .collect();
-    let sidebar = container(column(items).spacing(4))
-        .width(Length::Fixed(200.0))
-        .height(Length::Fill);
-
+/// 只读正文（既有渲染路径；Chat 视图不经过这里）。
+fn read_body(state: &State, mono: bool) -> Element<'_, Message> {
     let lines = state.snapshot.render_lines_limited(500);
-    // diff 预览用等宽字体（拉丁 JetBrains Mono／CJK Sarasa Mono SC），其余用比例字体。
-    let mono = state.view == ViewId::Diff;
-    let body: Element<'_, Message> = if lines.is_empty() {
-        rich_line(state.texts.resolve("tui.empty"), false, 16.0)
+    if lines.is_empty() {
+        rich_line(state.texts.resolve("tui.empty"), mono, 16.0)
     } else {
         scrollable(
             column(
@@ -477,6 +882,247 @@ fn view(state: &State) -> Element<'_, Message> {
         .style(move |_, _| state.theme.scrollbar())
         .height(Length::Fill)
         .into()
+    }
+}
+
+/// 对话视图（ADR-056）：剖面 + 提示词 + 发送/取消 + 最近结果。
+fn chat_panel(state: &State) -> Element<'_, Message> {
+    let provider_input = text_input(
+        state.texts.resolve("gui.chat.prompt.placeholder"),
+        state.chat_provider.as_str(),
+    )
+    .on_input(Message::ChatProviderChanged)
+    .padding(6)
+    .width(Length::Fill);
+    let provider_label = state.texts.resolve("gui.chat.provider");
+    let input = text_input(
+        state.texts.resolve("gui.chat.prompt.placeholder"),
+        state.chat_input.as_str(),
+    )
+    .on_input(Message::ChatInputChanged)
+    .on_submit(Message::ChatSubmit)
+    .padding(6)
+    .width(Length::Fill);
+    let send = button(rich_line(state.texts.resolve("gui.chat.send"), false, 14.0))
+        .on_press_maybe(state.llm.as_ref().map(|_| Message::ChatSubmit))
+        .padding(6);
+    let cancel = button(rich_line(
+        state.texts.resolve("gui.chat.cancel"),
+        false,
+        14.0,
+    ))
+    .on_press(Message::ChatCancel)
+    .padding(6);
+    let last = state
+        .chat_last
+        .as_deref()
+        .map(|text| {
+            state
+                .texts
+                .resolve_fmt("gui.chat.last", &[("summary", text)])
+        })
+        .unwrap_or_else(|| state.texts.resolve("gui.chat.hint").to_string());
+    column![
+        rich_line(provider_label, false, 14.0),
+        provider_input,
+        row![input, send, cancel].spacing(8),
+        scrollable(column(vec![
+            rich_line(last.as_str(), false, 14.0),
+            rich_line(state.texts.resolve("gui.chat.history.hint"), false, 13.0),
+        ]))
+        .height(Length::Fill),
+    ]
+    .spacing(8)
+    .into()
+}
+
+/// 会话操作按钮行（Sessions 视图；执行器未接入时按钮显式禁用提示走反馈行）。
+fn op_buttons(state: &State) -> Element<'_, Message> {
+    let enabled = state.executor.is_some();
+    let item = |label: &str, message: Message| -> Element<'_, Message> {
+        let theme = state.theme;
+        let button = button(rich_line(label, false, 13.0)).padding([4, 8]);
+        if enabled {
+            button.on_press(message).style(move |_t, _s| {
+                let (background, foreground) = theme.colors();
+                button::Style {
+                    background: Some(Background::Color(background)),
+                    text_color: foreground,
+                    border: Border::default(),
+                    shadow: Shadow::default(),
+                    snap: true,
+                }
+            })
+        } else {
+            button.style(move |_t, _s| {
+                let (background, foreground) = theme.colors();
+                button::Style {
+                    background: Some(Background::Color(background)),
+                    text_color: foreground,
+                    border: Border::default(),
+                    shadow: Shadow::default(),
+                    snap: true,
+                }
+            })
+        }
+        .into()
+    };
+    row![
+        item(
+            state.texts.resolve("gui.op.new"),
+            Message::OpStart(OpMode::SessionNew)
+        ),
+        item(
+            state.texts.resolve("gui.op.rename"),
+            Message::OpStart(OpMode::SessionRename)
+        ),
+        item(
+            state.texts.resolve("gui.op.archive"),
+            Message::OpStart(OpMode::SessionArchive { archived: true })
+        ),
+        item(
+            state.texts.resolve("gui.op.restore"),
+            Message::OpStart(OpMode::SessionArchive { archived: false })
+        ),
+        item(
+            state.texts.resolve("gui.op.delete"),
+            Message::OpStart(OpMode::SessionDelete)
+        ),
+        item(
+            state.texts.resolve("gui.op.purge"),
+            Message::OpStart(OpMode::Purge {
+                before_ms: purge_cutoff_ms()
+            })
+        ),
+    ]
+    .spacing(6)
+    .into()
+}
+
+/// 清理截止：默认早于 30 天（预览面板可改天数——op_input 即天数文本）。
+fn purge_cutoff_ms() -> i64 {
+    now_ms() as i64 - 30 * 24 * 60 * 60 * 1000
+}
+
+/// 操作面板（op_mode 激活时渲染在正文上方）：输入 + 预览/确认/取消 + 反馈行。
+fn op_panel(state: &State) -> Element<'_, Message> {
+    let mode = state.op_mode.clone().unwrap_or(OpMode::SessionNew);
+    let needs_input = matches!(
+        mode,
+        OpMode::SessionNew | OpMode::SessionRename | OpMode::Purge { .. }
+    );
+    let destructive = matches!(
+        mode,
+        OpMode::SessionArchive { .. } | OpMode::SessionDelete | OpMode::Purge { .. }
+    );
+    let placeholder = match mode {
+        OpMode::SessionNew | OpMode::SessionRename => state.texts.resolve("gui.op.input.title"),
+        OpMode::Purge { .. } => state.texts.resolve("gui.op.input.days"),
+        _ => "",
+    };
+    let mut panel = column![];
+    if needs_input {
+        panel = panel.push(
+            text_input(placeholder, state.op_input.as_str())
+                .on_input(Message::OpInputChanged)
+                .on_submit(Message::OpConfirm)
+                .padding(6)
+                .width(Length::Fill),
+        );
+    }
+    let mut actions = row![].spacing(6);
+    if destructive {
+        actions = actions.push(
+            button(rich_line(
+                state.texts.resolve("gui.op.preview"),
+                false,
+                13.0,
+            ))
+            .on_press(Message::OpPreview)
+            .padding([4, 8]),
+        );
+        actions = actions.push(
+            button(rich_line(
+                state.texts.resolve("gui.op.confirm"),
+                false,
+                13.0,
+            ))
+            .on_press(Message::OpConfirm)
+            .padding([4, 8]),
+        );
+    } else {
+        actions = actions.push(
+            button(rich_line(
+                state.texts.resolve("gui.op.confirm"),
+                false,
+                13.0,
+            ))
+            .on_press(Message::OpConfirm)
+            .padding([4, 8]),
+        );
+    }
+    actions = actions.push(
+        button(rich_line(state.texts.resolve("gui.op.cancel"), false, 13.0))
+            .on_press(Message::OpCancel)
+            .padding([4, 8]),
+    );
+    panel = panel.push(actions);
+    if let Some(feedback) = state.op_feedback.as_deref() {
+        panel = panel.push(rich_line(feedback, false, 13.0));
+    }
+    panel.spacing(6).into()
+}
+
+/// 任务行按钮（Tasks 视图）：每行 retry/abort（与 TUI 的 R/X 同语义，ADR-056）。
+fn task_buttons(state: &State) -> Element<'_, Message> {
+    let mut rows = column![].spacing(2);
+    for (index, task) in state.snapshot.tasks.iter().take(50).enumerate() {
+        let label = format!("{} {} {}", task.id, task.status.as_str(), task.title);
+        let retry = button(rich_line(
+            state.texts.resolve("gui.task.retry"),
+            false,
+            12.0,
+        ))
+        .on_press(Message::TaskRetry(index))
+        .padding([2, 6]);
+        let abort = button(rich_line(
+            state.texts.resolve("gui.task.abort"),
+            false,
+            12.0,
+        ))
+        .on_press(Message::TaskAbort(index))
+        .padding([2, 6]);
+        rows = rows.push(row![rich_line(label.as_str(), false, 13.0), retry, abort,].spacing(6));
+    }
+    if state.snapshot.tasks.is_empty() {
+        rows = rows.push(rich_line(state.texts.resolve("tui.empty"), false, 13.0));
+    }
+    scrollable(rows.height(Length::Fill)).into()
+}
+
+fn view(state: &State) -> Element<'_, Message> {
+    let items: Vec<Element<'_, Message>> = ViewId::ALL
+        .iter()
+        .map(|item| sidebar_button(state, *item))
+        .collect();
+    let sidebar = container(column(items).spacing(4))
+        .width(Length::Fixed(200.0))
+        .height(Length::Fill);
+
+    let body: Element<'_, Message> = match state.view {
+        ViewId::Chat => chat_panel(state),
+        ViewId::Sessions if state.op_mode.is_some() => {
+            column![op_panel(state), read_body(state, false)]
+                .spacing(8)
+                .into()
+        }
+        ViewId::Sessions => column![op_buttons(state), read_body(state, false)]
+            .spacing(8)
+            .into(),
+        ViewId::Tasks => column![task_buttons(state), read_body(state, true)]
+            .spacing(8)
+            .into(),
+        _ => read_body(state, state.view == ViewId::Diff),
     };
 
     // 顶栏：视图标题（20）+ 当前会话（13）；其下为 KPI 条与正文；底部状态栏。
@@ -598,7 +1244,7 @@ mod tests {
     /// 空数据源状态（T199 顶栏/KPI/状态栏取证；不触库）。
     fn empty_state() -> State {
         let source: Rc<dyn ViewSource> = Rc::new(whcode_app::view_source::EmptyViewSource);
-        State::new(source, I18n::default(), GuiTheme::EinkDay)
+        State::new(source, I18n::default(), GuiTheme::EinkDay, None, None)
     }
 
     /// T199：窗口标题与网络层同源词条（应用名 + 视图序号），状态栏含主题名。
@@ -611,7 +1257,7 @@ mod tests {
             state.title()
         );
         assert!(
-            state.title().contains("会话 (1/6)"),
+            state.title().contains("会话 (1/7)"),
             "标题须含视图序号：{}",
             state.title()
         );

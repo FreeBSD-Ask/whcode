@@ -224,6 +224,33 @@ impl whcode_tui::LlmExecutor for TuiLlmExecutor {
     }
 }
 
+impl TuiLlmExecutor {
+    /// 剖面名清单（注册表顺序；未配置注册表时为空，GUI 对话视图显示空剖面并提示）。
+    #[must_use]
+    pub fn profile_names(&self) -> Vec<String> {
+        self.llm
+            .registry
+            .as_ref()
+            .map_or_else(Vec::new, |registry| registry.profile_names())
+    }
+}
+
+/// GUI 侧适配（ADR-056）：同一执行器实现 GUI 的 [`whcode_gui::GuiLlmExecutor`]，
+/// 语义逐条对齐 TUI（同步 run／cancel + 剖面清单）。
+impl whcode_gui::GuiLlmExecutor for TuiLlmExecutor {
+    fn run(&self, session_id: &str, provider: &str, prompt: &str) -> Result<String, WhError> {
+        whcode_tui::LlmExecutor::run(self, session_id, provider, prompt)
+    }
+
+    fn cancel(&self, request_id: &str) -> Result<String, WhError> {
+        whcode_tui::LlmExecutor::cancel(self, request_id)
+    }
+
+    fn profiles(&self) -> Vec<String> {
+        self.profile_names()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

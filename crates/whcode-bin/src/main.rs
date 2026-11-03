@@ -423,15 +423,21 @@ fn gui_command(args: &[String]) -> ExitCode {
         theme,
         texts,
         source,
-        ..
+        executor,
+        llm_executor,
     } = match prepare_frontend(args) {
         Ok(prepared) => prepared,
         Err(code) => return code,
     };
     let gui_theme = whcode_gui::GuiTheme::parse(theme.as_str()).unwrap_or_default();
+    // ADR-056 四端对等：GUI 与 TUI 共用同一执行器装配（写命令 + LLM）。
     let options = whcode_gui::RunOptions {
         theme: gui_theme,
         texts,
+        command_executor: executor
+            .map(|item| Box::new(item) as Box<dyn whcode_app::commands::CommandExecutor>),
+        llm_executor: llm_executor
+            .map(|item| Box::new(item) as Box<dyn whcode_gui::GuiLlmExecutor>),
     };
     match whcode_gui::run(source, options) {
         Ok(()) => ExitCode::SUCCESS,

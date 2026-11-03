@@ -13,6 +13,17 @@
 
 ### 变更
 
+- **四端功能对等：GUI 交互化（ADR-056，用户指令立项并实现）**（2026-11-03）：GUI 从
+  只读 v1 升级为交互对等——①新增第 7 视图「对话」（剖面输入 + 提示词 + 发送/取消 +
+  最近结果；`run_turn` 同步语义与 TUI/CUI/Web 一致）；②写命令面板：会话 new/rename
+  （输入确认）、archive/delete 与清理 purge（**预览→确认两段式**）、任务 retry/abort
+  （任务行按钮）；全部经装配根注入的 `CommandExecutor`/`GuiLlmExecutor` 唯一门面，
+  未接入显式 `not_supported`；③对等矩阵 9 面 GUI 翻转 `Implemented`（真实锚点）+
+  新增 `view.chat` 视图面，`VIEW_COUNT` 6→7，TUI/GUI 穷尽 match 同步；④键盘门控：
+  对话/面板场景全局快捷键停用（Esc 取消面板）。登记：ADR-056 立项、ADR-032 GUI 行翻转、
+  FR-711/623 修订注记、T244—T247、Check 340—342、tasks 247/checks 342 全绿；
+  `gui_business_writes_are_implemented_with_anchors` 等契约测试 10/10。
+  已知边界：turn 期间界面阻塞（与 TUI 同语义，ADR-056 决策 3；后台化属 Phase 2）。
 - **平台证据收口：三份 ADR 转正、Check 134 转勾、台账全绿**（2026-11-03，run
   `41568982820`）：①ADR-005（SSH 入口）转正——FreeBSD/NetBSD 回环 GO（服务端四项＋
   客户端四项）＋Windows/FreeBSD **真实 sshd 互操作 GO**（`real_sshd_gate`，记录型），

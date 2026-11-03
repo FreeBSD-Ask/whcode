@@ -1128,7 +1128,7 @@ fn view_total(view: ViewId, snapshot: &ViewSnapshot) -> usize {
         ViewId::Sessions => snapshot.sessions.len(),
         ViewId::Tasks => snapshot.tasks.len(),
         ViewId::Events => snapshot.events.len(),
-        ViewId::Context | ViewId::Spec | ViewId::Diff => 0,
+        ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat => 0,
     }
 }
 
@@ -1175,7 +1175,7 @@ fn layout_columns<'a, F: Fn(usize) -> &'a str>(view: ViewId, width: usize, cell:
             out.push(' ');
             push_cell(&mut out, cell(2), flex, false);
         }
-        ViewId::Context | ViewId::Spec | ViewId::Diff => {}
+        ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat => {}
     }
     clamp_line(&mut out, width);
     out
@@ -1199,7 +1199,7 @@ fn column_header(view: ViewId, texts: &I18n, width: usize) -> String {
             "tui.col.retry",
         ],
         ViewId::Events => &["tui.col.seq", "tui.col.kind", "tui.col.summary"],
-        ViewId::Context | ViewId::Spec | ViewId::Diff => &[],
+        ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat => &[],
     };
     layout_columns(view, width, |index| {
         keys.get(index).map_or("", |key| {
@@ -1786,7 +1786,7 @@ mod tests {
                 lines[0]
             );
             assert!(
-                lines[0].contains(&format!("{} ({}/6)", view.title(), view.index())),
+                lines[0].contains(&format!("{} ({}/7)", view.title(), view.index())),
                 "{view:?} 顶栏必须含视图序号：{:?}",
                 lines[0]
             );
@@ -1803,7 +1803,7 @@ mod tests {
             );
             // 键位提示栏（末行）：键位与窗口尺寸。
             let last = lines.last().copied().unwrap_or_default();
-            for expected in ["1-6 视图", "j/k 移动", "q 退出", "80x24"] {
+            for expected in ["1-7 视图", "j/k 移动", "q 退出", "80x24"] {
                 assert!(
                     last.contains(expected),
                     "{view:?} 键位提示栏缺少 {expected:?}：{last:?}"
@@ -1831,7 +1831,7 @@ mod tests {
                         assert!(text.contains(&row.kind), "{view:?} 缺类型 {}", row.kind);
                     }
                 }
-                ViewId::Context | ViewId::Spec | ViewId::Diff => {
+                ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat => {
                     for line in snapshot.render_lines() {
                         assert!(
                             text.contains(line.as_str()),
@@ -2030,7 +2030,7 @@ mod tests {
     fn empty_source_renders_explicit_placeholder() {
         let text = render_empty_frame(ViewId::Tasks, 60, 12);
         assert!(text.contains("（暂无数据）"), "空视图必须显式提示：{text}");
-        assert!(text.contains("任务 (2/6)"), "顶栏必须含视图序号：{text}");
+        assert!(text.contains("任务 (2/7)"), "顶栏必须含视图序号：{text}");
     }
 
     /// FR-615：英文文本层进入渲染帧（顶栏/键位栏/空提示），数据字段不翻译。
@@ -2049,7 +2049,7 @@ mod tests {
         );
         let text = buffer_text(&buffer);
         assert!(
-            text.contains("WHCode Coding Harness  |  Tasks (2/6)"),
+            text.contains("WHCode Coding Harness  |  Tasks (2/7)"),
             "英文顶栏：{text}"
         );
         assert!(text.contains("no session"), "英文顶栏会话占位：{text}");

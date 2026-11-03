@@ -388,7 +388,7 @@ taskkill /T /F 口径）（P1）
   - 判据：Given 同一夹具库，When 分别读取 TUI／GUI／Web 上下文与 diff，Then 内容与顺序一致；Given 数据源失败，Then 快照摘要显式标注错误而非伪造空；Given CUI `context budget`，Then JSON 含 `schema_version`、预算、来源与截断原因
   - 证据：视图快照测试；Web API 测试；CUI 信封测试
   - 依据：FR-601、FR-603、FR-609、FR-711；`contracts/app-service.md` §2
-- **FR-623**: 写入面一致（业务写命令）（P1；[架构]；交付归属 M6）: 会话 new／rename／archive／delete、任务 retry／abort、清理 purge 必须在 CUI、TUI、Web 共用同一 `whcode-app::commands` 门面：相同前置校验、相同 `Capability` 判定、相同 dry-run／确认语义、相同审计字段与错误码；TUI 必须提供对应键盘动作与确认界面；GUI 按 FR-711 只读并登记 `GUI_READ_ONLY_V1`；破坏性命令在任何交互端都不得无预览、无确认直接执行
+- **FR-623**: 写入面一致（业务写命令）（P1；[架构]；交付归属 M6）: 会话 new／rename／archive／delete、任务 retry／abort、清理 purge 必须在 CUI、TUI、Web 共用同一 `whcode-app::commands` 门面：相同前置校验、相同 `Capability` 判定、相同 dry-run／确认语义、相同审计字段与错误码；TUI 必须提供对应键盘动作与确认界面；GUI 按 ADR-056 交互对等（原 `GUI_READ_ONLY_V1`，2026-11-03 翻转）；破坏性命令在任何交互端都不得无预览、无确认直接执行
   - 判据：Given 无删除能力调用者，When 任一端执行 delete，Then 均为 `permission_denied`、`retryable = false`；Given 任一端 purge 预览，Then 不产生删除与审计执行记录；Given 确认执行，Then 三端最终计数与审计一致
   - 证据：`whcode-app::commands` 测试；TUI 确认流程测试；CUI／Web 行为等价测试
   - 依据：FR-101、FR-401／408、FR-509、FR-604；ADR-009
@@ -427,8 +427,8 @@ taskkill /T /F 口径）（P1）
 
 **原生桌面 GUI（2026-10-23 新增需求，交付归属 M10）**
 
-- **FR-711**: 系统必须提供**原生桌面 GUI** 前端，与 TUI／CUI／Web／SSH 共享同一应用服务与权限检查：v1 为**只读**六视图浏览（会话、任务、上下文、事件、Spec 状态、diff 预览）＋会话选择＋刷新，破坏性命令不经 GUI；不得直接访问数据库、不得内嵌任何浏览器引擎（ADR-026）；验收平台限定 Windows 11 amd64（ADR-013）（P1）
-  - 依据：ADR-026 铁律与 ADR-027 选型实测（`artifacts/gui-spike-2026-10-23.md`）；只读优先是为了先固定资源与可验证性，再谈写入
+- **FR-711**: 系统必须提供**原生桌面 GUI** 前端，与 TUI／CUI／Web／SSH 共享同一应用服务与权限检查：v1 为**只读**六视图浏览（会话、任务、上下文、事件、Spec 状态、diff 预览）＋会话选择＋刷新，破坏性命令不经 GUI；不得直接访问数据库、不得内嵌任何浏览器引擎（ADR-026）；验收平台限定 Windows 11 amd64（ADR-013）（P1）**修订（2026-11-03，ADR-056：四端功能对等，用户指令）**：v1.0 只读口径升级为 v1.1 交互对等——新增对话视图（第 7 视图，`run_turn` 同步语义与 TUI 一致）与会话 new／rename／archive／delete、任务 retry／abort、清理 purge 的写面（破坏性命令仍预览→确认两段式）；写命令经装配根注入的执行器走 `whcode-app::commands` 唯一门面，GUI 不直连库；执行器未接入时显式 `not_supported`。资源预算（FR-712）不变并在 CI 探针复核。
+  - 依据：ADR-026 铁律与 ADR-027 选型实测（`artifacts/gui-spike-2026-10-23.md`）；只读优先是为了先固定资源与可验证性，再谈写入；交互化依据＝用户对等指令 + TUI 执行器已在装配根就绪（ADR-056 侦察）
 - **FR-712**: GUI 必须满足资源预算：1200×800、六视图、无动画的空闲态 **RSS ≤ 96 MB、私有内存 ≤ 80 MB、线程 ≤ 24、句柄 ≤ 256、CPU ≤ 0.2% 单核**；**默认不创建 GPU 上下文**（采用软件光栅，或在探测失败时降级而非崩溃）；CJK 字体必须按需或子集加载，不得整份常驻（P1）
   - 依据：TUI 基线 27.4 MB／4 线程、Win32 53.6 MB／8 线程、iced+软件光栅 80.9 MB／22 线程；取 iced 实测值上浮 20% 作为一版可判定预算，超出即触发复审
 - **FR-713**: GUI 必须实现主题精确色值：与 FR-612 相同的三套（`#000000`／`#E6E6E6`／`#FFFFFF`）外加 `terminal-green`（纯黑 `#000000` 底 + 荧光绿 `#00FF00` 字，2026-10-24 用户新增；黑色为 OLED 兼容纯黑，可完全关断像素），共四套，不得依赖系统深色模式；文字抗锯齿允许存在，但**无彩色中间灰**（R=G=B 且亮度 32—223）像素占比必须可量化并记录，目标 ≤ 5%（单色前景三套按亮度口径的历史记录与真灰口径数值一致；`terminal-green` 为彩色前景，以截图只出现精确两色与抗锯齿过渡为主判据，亮度口径仅记录不设达标线）；主题切换不得要求重启（P1）

@@ -19,18 +19,18 @@
 
 | SurfaceId | 类别 | 效果 | CUI | TUI | GUI | Web | 依据／理由 |
 |---|---|---|---|---|---|---|---|
-| `session.new` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-101；◐ gui_read_only_v1 |
+| `session.new` | Command | Write | ✅ | ✅ | ✅ | ✅ | FR-101；ADR-056 |
 | `session.list` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-101 |
 | `session.show` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-101 |
-| `session.rename` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-101；◐ gui_read_only_v1 |
-| `session.archive` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-101；◐ gui_read_only_v1 |
-| `session.delete` | Command | Destructive | ✅ | ✅ | ◐ | ✅ | FR-101／509；◐ gui_read_only_v1 |
+| `session.rename` | Command | Write | ✅ | ✅ | ✅ | ✅ | FR-101；ADR-056 |
+| `session.archive` | Command | Write | ✅ | ✅ | ✅ | ✅ | FR-101；ADR-056 |
+| `session.delete` | Command | Destructive | ✅ | ✅ | ✅ | ✅ | FR-101／509；ADR-056 |
 | `session.switch` | Command | Read | ⏳ | ⏳ | ⏳ | ⏳ | FR-102；⏳ 未排期 |
 | `task.list` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-103／104 |
 | `task.overview` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-103／104 |
 | `task.show` | Command | Read | ✅ | ◐ | ◐ | ◐ | FR-103／104；◐ view_summary_only |
-| `task.retry` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-401／408；◐ gui_read_only_v1 |
-| `task.abort` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-401／408；◐ gui_read_only_v1 |
+| `task.retry` | Command | Write | ✅ | ✅ | ✅ | ✅ | FR-401／408；ADR-056 |
+| `task.abort` | Command | Write | ✅ | ✅ | ✅ | ✅ | FR-401／408；ADR-056 |
 | `context.budget` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-105／108 |
 | `events.list` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-202 |
 | `events.export` | Command | Write | ✅ | ◐ | ◐ | ✅ | FR-205；◐ command_output_only |
@@ -41,7 +41,7 @@
 | `spec.analyze` | Command | Read | ⏳ | ⏳ | ◐ | ⏳ | FR-301—314；⏳ 未排期；◐ gui_read_only_v1 |
 | `spec.converge` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-301—314；⏳ 未排期；◐ gui_read_only_v1 |
 | `spec.force-advance` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-301—314；⏳ 未排期；◐ gui_read_only_v1 |
-| `db.purge` | Command | Destructive | ✅ | ✅ | ◐ | ✅ | FR-507—510；◐ gui_read_only_v1 |
+| `db.purge` | Command | Destructive | ✅ | ✅ | ✅ | ✅ | FR-507—510；ADR-056 |
 | `db.stats` | Command | Read | ✅ | ◐ | ◐ | ◐ | FR-507—510；◐ cli_local_admin |
 | `db.check` | Command | Read | ✅ | ◐ | ◐ | ◐ | FR-507—510；◐ cli_local_admin |
 | `db.compact` | Command | Destructive | ✅ | ◐ | ◐ | ◐ | FR-507—510；◐ cli_local_admin |
@@ -54,8 +54,8 @@
 | `runtime.enable` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-701—710；⏳ M8；◐ six_view_scope |
 | `runtime.disable` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-701—710；⏳ M8；◐ six_view_scope |
 | `runtime.install` | Command | Write | ⏳ | ⏳ | ◐ | ⏳ | FR-701—710；⏳ M8；◐ six_view_scope |
-| `llm.run` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-201—208；T167 接线（CUI／Web／TUI 三端，TUI 剖面→提示词两步输入）；◐ gui_read_only_v1 |
-| `llm.cancel` | Command | Write | ✅ | ✅ | ◐ | ✅ | FR-201—208；T167 接线（CUI／Web／TUI 三端）；◐ gui_read_only_v1 |
+| `llm.run` | Command | Write | ✅ | ✅ | ✅ | ✅ | FR-201—208；T167 接线（CUI／Web／TUI 三端，TUI 剖面→提示词两步输入）；ADR-056 |
+| `llm.cancel` | Command | Write | ✅ | ✅ | ✅ | ✅ | FR-201—208；T167 接线（CUI／Web／TUI 三端）；ADR-056 |
 | `theme.switch` | Command | Read | ◐ | ✅ | ✅ | ✅ | FR-612／713／625；◐ cui_no_theme |
 | `locale` | Command | Read | ✅ | ✅ | ✅ | ✅ | FR-615／625 |
 | `settings.cert.read` | View | Read | ◐ | ◐ | ◐ | ✅ | FR-626／627、ADR-040 决策 4；◐ web_settings_only、six_view_scope |
@@ -74,6 +74,7 @@
 | `view.events` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-601／622；◐ cui_command_surface |
 | `view.spec` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-601／622；◐ cui_command_surface |
 | `view.diff` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-601／622；◐ cui_command_surface |
+| `view.chat` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-711；◐ cui_command_surface（Web 经 llm API） |
 | `view.changes` | View | Read | ◐ | ✅ | ◐ | ✅ | FR-605／624；◐ cui_request_only、gui_manual_refresh |
 
 **权限**：全部命令经 `whcode-app::authz` 统一判定（拒绝 `permission_denied` 不可重试，

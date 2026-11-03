@@ -14,7 +14,7 @@ use serde::Serialize;
 use std::borrow::Cow;
 
 /// 视图总数（切换键 1—6 与之一一对应）。
-pub const VIEW_COUNT: usize = 6;
+pub const VIEW_COUNT: usize = 7;
 
 /// 视图标识（六视图，FR-601）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -31,10 +31,12 @@ pub enum ViewId {
     Spec,
     /// diff 预览。
     Diff,
+    /// 对话（LLM 交互；ADR-056 四端对等）。
+    Chat,
 }
 
 impl ViewId {
-    /// 全部视图（固定顺序：切换键 `1`—`6` 依次对应）。
+    /// 全部视图（固定顺序：切换键 `1`—`7` 依次对应）。
     pub const ALL: [ViewId; VIEW_COUNT] = [
         Self::Sessions,
         Self::Tasks,
@@ -42,6 +44,7 @@ impl ViewId {
         Self::Events,
         Self::Spec,
         Self::Diff,
+        Self::Chat,
     ];
 
     /// 稳定标识（配置与切换）。
@@ -54,6 +57,7 @@ impl ViewId {
             Self::Events => "events",
             Self::Spec => "spec",
             Self::Diff => "diff",
+            Self::Chat => "chat",
         }
     }
 
@@ -67,6 +71,7 @@ impl ViewId {
             Self::Events => "事件",
             Self::Spec => "Spec 状态",
             Self::Diff => "diff 预览",
+            Self::Chat => "对话",
         }
     }
 
@@ -80,6 +85,7 @@ impl ViewId {
             Self::Events => "view.events",
             Self::Spec => "view.spec",
             Self::Diff => "view.diff",
+            Self::Chat => "view.chat",
         }
     }
 
@@ -93,6 +99,7 @@ impl ViewId {
             Self::Events => 4,
             Self::Spec => 5,
             Self::Diff => 6,
+            Self::Chat => 7,
         }
     }
 
@@ -106,6 +113,7 @@ impl ViewId {
             '4' => Some(Self::Events),
             '5' => Some(Self::Spec),
             '6' => Some(Self::Diff),
+            '7' => Some(Self::Chat),
             _ => None,
         }
     }
@@ -172,7 +180,7 @@ const fn selection_marker(selected: bool) -> &'static str {
     if selected { "> " } else { "" }
 }
 
-/// 视图快照（六视图之一的只读数据；渲染层只消费，不反序列化）。
+/// 视图快照（七视图之一的只读数据；渲染层只消费，不反序列化）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ViewSnapshot {
     /// 当前视图。
@@ -283,6 +291,8 @@ impl ViewSnapshot {
                 .take(remaining)
                 .map(|line| format!("{}{}", line.marker, line.text))
                 .collect(),
+            // 对话视图（ADR-056）：turn 历史即事件流（Events 视图承载），此处无独立行。
+            ViewId::Chat => Vec::new(),
         });
         lines
     }
@@ -341,7 +351,7 @@ impl ViewSnapshot {
                     ],
                 })
                 .collect(),
-            ViewId::Context | ViewId::Spec | ViewId::Diff => Vec::new(),
+            ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat => Vec::new(),
         }
     }
 }
@@ -414,7 +424,7 @@ mod tests {
             assert_eq!(view.index(), offset + 1);
             assert!(!view.title().is_empty());
         }
-        for other in ['0', '7', 'a', ' ', '\u{4e2d}'] {
+        for other in ['0', '8', 'a', ' ', '\u{4e2d}'] {
             assert_eq!(ViewId::from_key(other), None, "{other:?} 不是视图切换键");
         }
     }
@@ -604,5 +614,22 @@ pub struct EmptyViewSource;
 impl ViewSource for EmptyViewSource {
     fn snapshot(&self, view: ViewId, _session: Option<&str>) -> ViewSnapshot {
         ViewSnapshot::empty(view)
+    }
+}
+
+impl Default for ViewSnapshot {
+    /// 空快照：起始视图（Sessions）、无摘要、无行——对话视图等自持状态的视图使用。
+    fn default() -> Self {
+        Self {
+            view: ViewId::Sessions,
+            summary: String::new(),
+            sessions: Vec::new(),
+            tasks: Vec::new(),
+            events: Vec::new(),
+            spec_status: String::new(),
+            context_summary: String::new(),
+            diff: Vec::new(),
+            selected_index: None,
+        }
     }
 }

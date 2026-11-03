@@ -653,6 +653,12 @@
 
 **T116／Check 116／195**：长跑夹具已改用正式 `EventWriter` 并输出 `writer_queue_depth`、`oldest_queue_item_age_ms`（目标表为 `m0_events`，`events` 表仍直连，已在注释与 summary 中显式标注）。`long-run.yml` 已改为 release 剖面、300 s 采样，并只在 `artifacts/long-run-request-*.md` 变更时触发；本次推送已启动 run `40273055606`（5.5 小时，摘要将以公开注解公布）。ADR-025 组合判据修订**已获用户批准（2026-10-26）**并触发同口径复测：run `40315332443`（`cd52e0e`，release 剖面、300 s 采样）作业 success，但公开注解为“`timeseries.jsonl` 未落盘（采样未落盘）”，`analyze-nfr204.py` 判据分析跳过，artifact 仅 2.4 KB——本轮无数据、无结论（工作流对“前置不满足”未显式失败，是否收紧待复核）。**根因已定位（2026-10-27）**：cargo test 将测试二进制 cwd 设为 whcode-tests 包根 `tests/`，相对 `WHCODE_STABILITY_OUT` 实际落在 `tests/artifacts/...`（本机 8 s 冒烟复现）；回查三次 CI 长跑 artifact 均只含 run.log，此前“65 样本已取得”实为 stdout 样本行。`long-run.yml` 已改传 `github.workspace` 绝对路径，重跑待 `long-run-request-*.md` 变更触发。Check 116／195 维持未勾选。
 
+## Phase 14（ADR-056：四端功能对等——GUI 交互化）
+
+- [x] Check 340: [exercised] 对等矩阵：GUI 9 写面翻转 `Implemented` 并带真实锚点（`whcode_gui::State::*`），`view.chat` 四端登记，`gui_business_writes_are_implemented_with_anchors` 契约测试通过（来源：Task T244、ADR-056 决策 2）
+- [x] Check 341: [exercised] GUI 对话视图与写面板可运行：`cargo test -p whcode-gui`（对话状态迁移、确认两段式、未接入显式 `not_supported`）；执行器由装配根注入（`TuiLlmExecutor`/`TuiCommandExecutor` 适配），GUI 不直连库（来源：Task T245/T246、ADR-056 决策 1）
+- [x] Check 342: [outcome-supported] 语义对等与预算不破：`run_turn` 同步语义与 TUI/CUI/Web 一致（文档+代码同源）；clippy `-D warnings` 全绿；ADR-027 预算由 gui-probe 在 CI 复核（2026-11-03 run `41591647401`：RSS 77.6 MB／19 线程／232 句柄／CPU 0.0%）（来源：Task T247、ADR-056 复审触发）
+
 ## 追溯缺口登记（2026-10-23）
 
 **用途**：`ci/traceability.py` 判定“需求 → 任务 → 验收”三方追溯时，允许显式登记的缺口存在；

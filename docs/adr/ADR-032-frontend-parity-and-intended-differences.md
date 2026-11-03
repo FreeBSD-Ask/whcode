@@ -227,3 +227,14 @@
   故登记表与 `docs/matrices/feature-parity.md` 无需改动。
 - **退出条件**：CUI 若引入受控配色、长驻会话，或 GUI 引入写命令／定时器刷新，即触发本 ADR
   与 ADR-041 的联合复审。
+
+- **2026-11-03（用户指令：四端功能对等，ADR-056）**：GUI 交互化落地——
+  ①登记矩阵 9 面 GUI 由 `GuiReadOnlyV1` 排除翻转为 `Implemented`（session new/rename/
+  archive/delete、task retry/abort、db.purge、llm.run/cancel；锚点 `whcode_gui::State::*`）；
+  ②新增第 7 视图面 `view.chat`（CUI 排除；TUI/GUI `Implemented`；Web 对话面即 llm API）；
+  ③`VIEW_COUNT` 6→7，TUI/GUI 穷尽 match 同步；④FR-623 的 `GUI_READ_ONLY_V1` 登记、
+  FR-711 的 v1 只读口径随之修订（ADR-056 修订记录）；⑤`gui_read_only_v1` 理由码保留于
+  码表（历史口径，events.show／spec.*／settings.cert.write 等 Phase 1 范围外的 GUI 排除
+  仍引用它）。**正负和解与复审触发**见 ADR-056。矩阵受校验产物同步再生
+  （`docs/matrices/feature-parity.md`；篡改自测锚点更新为 ADR-056 后的 session.new 行）。
+  状态断言：`gui_business_writes_are_implemented_with_anchors`（whcode-app::surface 契约测试）。

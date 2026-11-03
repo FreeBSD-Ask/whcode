@@ -58,6 +58,9 @@ impl StoreViewSource {
             ViewId::Context => self.build_context(session),
             ViewId::Spec => self.build_spec(session),
             ViewId::Diff => self.build_diff(session),
+            // 对话视图（ADR-056）：无独立快照——输入与摘要由 GUI/TUI 自持状态，
+            // turn 历史经 Events 视图查看。
+            ViewId::Chat => Ok(ViewSnapshot::default()),
         }
     }
 

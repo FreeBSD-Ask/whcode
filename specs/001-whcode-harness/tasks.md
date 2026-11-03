@@ -1381,3 +1381,10 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 
 **未完成项**：跨平台吞吐基线、72 小时时间序列、V-003 人工四项、V-004 服务端验收仍未取得；
 因此 B-05 与 B-07 均不得记为已关闭。
+
+## Tasks（2026-11-03 追加）：ADR-056 四端功能对等——GUI 交互化
+
+- [x] T244 [P] [US11] ADR-056 立项与对等矩阵翻转：GUI 9 面（session new/rename/archive/delete、task retry/abort、db.purge、llm.run/cancel）由 `gui_read_only_v1` 翻转为 `Implemented`（真实锚点），新增 `view.chat` 视图面（四端），`VIEW_COUNT` 6→7；ADR-032 GUI 行翻转、FR-711/623 注记（ADR-056 决策 1—4）（FR-711、ADR-032）
+- [x] T245 [P] [US11] GUI 对话视图：第 7 视图（`ViewId::Chat`）——剖面输入 + 提示词输入 + 发送/取消 + 最近结果；`GuiLlmExecutor` trait（bin 侧 `TuiLlmExecutor` 适配），`run_turn` 同步语义与 TUI/CUI/Web 一致（ADR-056 决策 1、3；FR-718）
+- [x] T246 [P] [US11] GUI 写命令面板：会话 new/rename（输入确认）、archive/delete（预览→确认两段式）、清理 purge（预览→确认，截止天数输入）、任务 retry/abort（任务行按钮）；全部经 `CommandExecutor` 唯一门面，未接入时显式 `not_supported`（ADR-056 决策 1；FR-623）
+- [x] T247 [US11] GUI 键盘门控与测试：全局快捷键在对话/面板场景停用（Esc 取消面板）、`1`—`7` 切换、对话/写流单测、ADR-027 预算探针复核（gui-probe 四主题 + 资源在 CI 复核）（ADR-056 复审触发）

@@ -199,8 +199,8 @@ fn feature_parity_matrix_rows_match_registry() {
 fn tampered_matrix_is_rejected() {
     let matrix = include_str!("../../docs/matrices/feature-parity.md");
     let flipped = matrix.replacen(
-        "| `session.new` | Command | Write | ✅ | ✅ | ◐ | ✅ |",
-        "| `session.new` | Command | Write | ⏳ | ✅ | ◐ | ✅ |",
+        "| `session.new` | Command | Write | ✅ | ✅ | ✅ | ✅ |",
+        "| `session.new` | Command | Write | ⏳ | ✅ | ✅ | ✅ |",
         1,
     );
     assert_ne!(flipped, matrix, "篡改锚点必须命中矩阵（防止测试空转）");
