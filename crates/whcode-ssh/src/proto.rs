@@ -1847,7 +1847,9 @@ mod tests {
 
         // —— 六、探针：超时终止（有界超时对真实 sshd 成立）——
         // 挂起命令同样跨 shell：Windows 用 ping 轮询（v305 同款），BSD 用 sleep。
-        let hang_command = if cfg!(windows) {
+        // 用运行期判定（std::env::consts::OS）而非 cfg：平台 cfg 只允许出现在
+        // whcode-platform（NFR-101，test_layering 强制）。
+        let hang_command = if std::env::consts::OS == "windows" {
             "ping -n 30 127.0.0.1 > NUL"
         } else {
             "sleep 30"
