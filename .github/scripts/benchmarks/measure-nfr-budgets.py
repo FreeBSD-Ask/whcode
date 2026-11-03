@@ -327,8 +327,10 @@ def measure_nfr205() -> dict:
     ws = pathlib.Path(tempfile.mkdtemp(prefix="whcode-nfr205-"))
     prepare_workspace(ws)
     startup = win32process.STARTUPINFO()
+    # 必须显式 --tui：Windows 无参数时的默认入口是 GUI（ADR-026），GUI 不读控制台输入，
+    # q 注入必然超时（run 41589210436 实测「TUI 未在 10 s 内响应 q」的根因）。
     process_handle, _thread, pid, _tid = win32process.CreateProcess(
-        None, f'"{EXE}" --workspace "{ws}"', None, None, False,
+        None, f'"{EXE}" --tui --workspace "{ws}"', None, None, False,
         CREATE_NEW_CONSOLE, None, str(ROOT), startup,
     )
     handle = open_process(pid)
