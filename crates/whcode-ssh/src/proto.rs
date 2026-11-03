@@ -1596,4 +1596,372 @@ mod tests {
             let _ = std::fs::remove_file(path);
         }
     }
+
+    /// 真实 sshd（系统 OpenSSH 服务端二进制）回环互操作验收——V-004 的 CI 可达升级口径
+    /// （ADR-013 修订 2026-11-03：NetBSD/OpenBSD/DragonFly 为被连入的 SSH 远程开发目标，
+    /// 本测试在 BSD VM 内以系统自带 sshd 验证客户端互操作）。
+    ///
+    /// 与 [`bsd_client_acceptance_loopback`] 的差异：服务端不是进程内测试桩，而是目标机
+    /// **真实 sshd 进程**（独立密钥对、独立最小配置、真实 TCP 回环）。证明内容对第三方
+    /// OpenSSH 实现成立：公钥认证、通道执行、退出码映射、stderr 捕获、TOFU 信任记录、
+    /// 显式授权路径的内容回传与超时终止。
+    ///
+    /// 边界（不得扩大解释）：同机回环互操作——**不是**跨机外部节点证据；V-004 的跨机
+    /// 口径仍属 M7。目标机无 sshd／ssh-keygen 时显式打印 `REAL_SSHD_SKIPPED` 并返回
+    /// （区分“正确的空”与“错误的空”，不伪造 GO）。
+    ///
+    /// 驱动方式：`cargo test -p whcode-ssh real_sshd -- --ignored --nocapture`
+    /// （由 `.github/scripts/platform-matrix/bsd-ssh-client.sh` 在 BSD VM 显式运行；
+    /// 结果单独记 `real_sshd_gate`，先记录、稳定后再评估升门）。
+    #[tokio::test]
+    #[ignore = "真实 sshd 互操作：需目标机自带 sshd／ssh-keygen；由 bsd-ssh-client.sh 以 --ignored 驱动"]
+    async fn real_sshd_acceptance_loopback() {
+        // —— 一、前置探测：sshd 与 ssh-keygen 二进制 ——
+        // sshd re-exec 要求**绝对路径**（PATH 裸名会被 OpenSSH 拒绝："sshd re-exec
+        // requires execution with an absolute path"），因此解析出绝对路径再使用。
+        let sshd = resolve_binary(
+            &[
+                "/usr/sbin/sshd",
+                "/usr/bin/sshd",
+                "/sbin/sshd",
+                "/usr/local/sbin/sshd",
+            ],
+            "sshd",
+        );
+        let keygen = resolve_binary(
+            &["/usr/bin/ssh-keygen", "/usr/local/bin/ssh-keygen"],
+            "ssh-keygen",
+        );
+        let (Some(sshd), Some(keygen)) = (sshd, keygen) else {
+            println!("REAL_SSHD_SKIPPED: 目标机无 sshd 或 ssh-keygen（工具链现状，非客户端缺陷）");
+            return;
+        };
+
+        // —— 二、独立密钥对与最小配置（临时目录，测试结束整体回收）——
+        let seq = KEY_SEQ.fetch_add(1, Ordering::Relaxed);
+        let dir =
+            std::env::temp_dir().join(format!("whcode-real-sshd-{}-{seq}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("创建真实 sshd 临时工作目录");
+        let user_key = dir.join("id_ed25519");
+        let host_key = dir.join("ssh_host_ed25519_key");
+        run_quiet(
+            &keygen,
+            &[
+                "-q",
+                "-t",
+                "ed25519",
+                "-N",
+                "",
+                "-C",
+                "whcode-real-sshd",
+                "-f",
+                user_key.to_str().expect("临时路径必须是 UTF-8"),
+            ],
+        );
+        run_quiet(
+            &keygen,
+            &[
+                "-q",
+                "-t",
+                "ed25519",
+                "-N",
+                "",
+                "-C",
+                "whcode-real-sshd-host",
+                "-f",
+                host_key.to_str().expect("临时路径必须是 UTF-8"),
+            ],
+        );
+        let public_key = std::fs::read_to_string(user_key.with_extension("pub"))
+            .expect("ssh-keygen 必须产出公钥");
+        let auth_keys = dir.join("authorized_keys");
+        std::fs::write(&auth_keys, public_key).expect("写入 authorized_keys");
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("占用临时端口探测");
+        let port = listener.local_addr().expect("读取临时端口").port();
+        drop(listener);
+
+        // 完整配置优先；目标机 OpenSSH 不认识个别选项时回退最小配置（逐级降级，如实记录）。
+        let config_full = format!(
+            "Port {port}\nListenAddress 127.0.0.1\nHostKey {}\nPidFile {}\n\
+             AuthorizedKeysFile {}\nPubkeyAuthentication yes\nPasswordAuthentication no\n\
+             KbdInteractiveAuthentication no\nPermitRootLogin yes\nUsePAM no\n\
+             StrictModes no\nX11Forwarding no\nPrintMotd no\nLogLevel VERBOSE\n",
+            host_key.display(),
+            dir.join("sshd.pid").display(),
+            auth_keys.display()
+        );
+        let config_minimal = format!(
+            "Port {port}\nListenAddress 127.0.0.1\nHostKey {}\nPidFile {}\n\
+             AuthorizedKeysFile {}\nPubkeyAuthentication yes\nPasswordAuthentication no\n",
+            host_key.display(),
+            dir.join("sshd.pid").display(),
+            auth_keys.display()
+        );
+        let config_path = dir.join("sshd_config");
+        std::fs::write(&config_path, &config_full).expect("写入完整 sshd 配置");
+        let mut config_level = "full";
+        if validate_config(&sshd, &config_path).is_err() {
+            std::fs::write(&config_path, &config_minimal).expect("写入最小 sshd 配置");
+            config_level = "minimal";
+            if let Err(err) = validate_config(&sshd, &config_path) {
+                println!("REAL_SSHD_SKIPPED: sshd 拒绝最小配置（{err}）");
+                let _ = std::fs::remove_dir_all(&dir);
+                return;
+            }
+        }
+
+        // —— 三、启动真实 sshd（前台子进程；就绪后再交 Drop 守卫，异常路径也不残留）——
+        let log_path = dir.join("sshd.log");
+        let mut child = match std::process::Command::new(&sshd)
+            .args([
+                "-D",
+                "-f",
+                config_path.to_str().expect("配置路径必须是 UTF-8"),
+                "-E",
+                log_path.to_str().expect("日志路径必须是 UTF-8"),
+            ])
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(err) => {
+                println!("REAL_SSHD_SKIPPED: sshd 启动失败（{err}）");
+                let _ = std::fs::remove_dir_all(&dir);
+                return;
+            }
+        };
+
+        // 就绪轮询：10 秒内端口必须可连。子进程**提前退出**＝当前环境无法运行 sshd
+        // （非 root／privsep 用户缺失／Windows 服务化限制）→ SKIPPED，区分环境限制与
+        // 真实缺陷；仍在运行但端口不通才是真失败。
+        let mut ready = false;
+        for _ in 0..20 {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    println!(
+                        "REAL_SSHD_SKIPPED: sshd 启动后立即退出（status={status}；\
+                         权限或服务化环境限制）；日志：{}",
+                        std::fs::read_to_string(&log_path).unwrap_or_default()
+                    );
+                    let _ = std::fs::remove_dir_all(&dir);
+                    return;
+                }
+                Ok(None) => {}
+                Err(err) => {
+                    println!("REAL_SSHD_SKIPPED: sshd 状态查询失败（{err}）");
+                    let _ = std::fs::remove_dir_all(&dir);
+                    return;
+                }
+            }
+            if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+                ready = true;
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        }
+        assert!(
+            ready,
+            "真实 sshd 仍在运行但端口未就绪；sshd 日志：{}",
+            std::fs::read_to_string(&log_path).unwrap_or_default()
+        );
+
+        struct SshdGuard(std::process::Child);
+        impl Drop for SshdGuard {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let _guard = SshdGuard(child);
+
+        // —— 四、探针：受限路径（远端无 whcode → 非零退出 + stderr 捕获）——
+        let user = current_user();
+        let trust = dir.join("known_hosts");
+        let registry = CollectingExecRegistry::new();
+        let restricted = SshTarget {
+            host: "127.0.0.1".to_string(),
+            port,
+            user: user.clone(),
+            private_key_path: user_key.clone(),
+            command: "whcode session list".to_string(),
+            allow_shell: false,
+            timeout_ms: 15_000,
+            known_hosts_path: trust.clone(),
+        };
+        let report = run_command(&restricted, &registry)
+            .await
+            .expect("真实 sshd 受限执行必须返回报告而非错误");
+        assert!(
+            matches!(
+                report.status,
+                RuntimeExecutionStatus::Completed | RuntimeExecutionStatus::Failed
+            ),
+            "远端命令必须真实执行并回传终态：{}",
+            report.note
+        );
+        assert_ne!(
+            report.exit_code,
+            Some(0),
+            "目标机未安装 whcode，远端 shell 必须报非零退出：{}",
+            report.note
+        );
+        assert!(
+            !report.stderr_tail.is_empty(),
+            "远端 stderr 必须被捕获（shell 的 not found 类错误）：{}",
+            report.stderr_tail
+        );
+        let trust_text = std::fs::read_to_string(&trust).unwrap_or_default();
+        assert!(
+            !trust_text.is_empty(),
+            "TOFU 必须在首次连接时记录真实 sshd 主机密钥指纹"
+        );
+
+        // —— 五、探针：显式授权路径（内容回传 = 完整执行链路证明）——
+        // 命令须跨远端 shell 语义成立（BSD sh 与 Windows OpenSSH 的 cmd.exe）：echo 两端皆可。
+        let granted = SshTarget {
+            command: "echo WHCODE-REAL-SSHD-OK".to_string(),
+            allow_shell: true,
+            ..restricted.clone()
+        };
+        let granted_report = run_command(&granted, &registry)
+            .await
+            .expect("显式授权路径必须返回报告");
+        assert_eq!(
+            granted_report.status,
+            RuntimeExecutionStatus::Completed,
+            "printf 必须真实执行：{}",
+            granted_report.note
+        );
+        assert_eq!(granted_report.exit_code, Some(0));
+        assert!(
+            granted_report.stdout_tail.contains("WHCODE-REAL-SSHD-OK"),
+            "显式授权路径必须内容回传：{}",
+            granted_report.stdout_tail
+        );
+        assert!(
+            granted_report.note.contains("shell-granted"),
+            "显式授权必须写进结果说明供审计：{}",
+            granted_report.note
+        );
+
+        // —— 六、探针：超时终止（有界超时对真实 sshd 成立）——
+        // 挂起命令同样跨 shell：Windows 用 ping 轮询（v305 同款），BSD 用 sleep。
+        // 用运行期判定（std::env::consts::OS）而非 cfg：平台 cfg 只允许出现在
+        // whcode-platform（NFR-101，test_layering 强制）。
+        let hang_command = if std::env::consts::OS == "windows" {
+            "ping -n 30 127.0.0.1 > NUL"
+        } else {
+            "sleep 30"
+        };
+        let timed = SshTarget {
+            command: hang_command.to_string(),
+            allow_shell: true,
+            timeout_ms: 1_500,
+            ..restricted.clone()
+        };
+        let timed_report = run_command(&timed, &registry)
+            .await
+            .expect("超时探针必须返回报告");
+        // SSH 路径超时＝三时点中断语义（未知终态、要求核对、禁止盲目重放，V-307 同源）；
+        // 与子进程路径的 TimedOut 不同，这里以 Unknown 表达“已超时、结果不可知”。
+        assert!(
+            matches!(
+                timed_report.status,
+                RuntimeExecutionStatus::Unknown | RuntimeExecutionStatus::TimedOut
+            ),
+            "超时必须标记为不可知终态并要求核对：{}",
+            timed_report.note
+        );
+        assert!(
+            timed_report.note.contains("核对") || timed_report.note.contains("不得盲目重放"),
+            "超时说明必须要求核对：{}",
+            timed_report.note
+        );
+
+        println!(
+            "REAL_SSHD_INTEROP: GO os={} config_level={config_level} sshd={sshd}",
+            std::env::consts::OS
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 解析二进制绝对路径：POSIX 绝对候选仅在非 Windows 平台逐个 `is_file`
+    /// （Windows 上 `/usr/bin/...` 会相对当前盘根解析、可能误命中），未命中再经 PATH
+    /// 解析（unix `which`／Windows `where`，取首个非空行）；找不到返回 `None`。
+    fn resolve_binary(absolute: &[&str], name: &str) -> Option<String> {
+        let from_list = if std::env::consts::OS == "windows" {
+            None
+        } else {
+            absolute
+                .iter()
+                .find(|bin| std::path::Path::new(bin).is_file())
+                .map(|bin| (*bin).to_string())
+        };
+        from_list.or_else(|| {
+            for resolver in ["which", "where"] {
+                let output = std::process::Command::new(resolver).arg(name).output();
+                if let Ok(output) = output
+                    && output.status.success()
+                {
+                    let line = String::from_utf8_lossy(&output.stdout)
+                        .lines()
+                        .next()
+                        .unwrap_or("")
+                        .trim()
+                        .to_string();
+                    // 解析结果必须真实存在：Git Bash 的 which 会返回 POSIX 风格路径
+                    // （/usr/bin/...），Rust 的 spawn 无法直接使用，必须丢弃。
+                    if !line.is_empty() && std::path::Path::new(&line).is_file() {
+                        return Some(line);
+                    }
+                }
+            }
+            None
+        })
+    }
+
+    /// 静默运行外部命令（ssh-keygen）；失败即 panic——密钥对缺失时后续步骤无从谈起。
+    fn run_quiet(bin: &str, args: &[&str]) {
+        let output = std::process::Command::new(bin)
+            .args(args)
+            .output()
+            .unwrap_or_else(|err| panic!("spawn {bin} 失败：{err}"));
+        assert!(
+            output.status.success(),
+            "{bin} {args:?} 失败：{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    /// `sshd -t -f <config>`：配置校验；返回错误原文供登记。
+    fn validate_config(sshd: &str, config: &std::path::Path) -> Result<(), String> {
+        let output = std::process::Command::new(sshd)
+            .args(["-t", "-f", config.to_str().expect("配置路径必须是 UTF-8")])
+            .output()
+            .map_err(|err| format!("spawn sshd 失败：{err}"))?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+        }
+    }
+
+    /// 当前用户名：`USER` 环境变量优先，回退 `id -un`，再回退 `root`（vmactions 默认）。
+    fn current_user() -> String {
+        if let Ok(user) = std::env::var("USER")
+            && !user.trim().is_empty()
+        {
+            return user;
+        }
+        if let Ok(output) = std::process::Command::new("id").args(["-un"]).output()
+            && output.status.success()
+        {
+            let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !name.is_empty() {
+                return name;
+            }
+        }
+        "root".to_string()
+    }
 }

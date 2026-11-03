@@ -240,6 +240,57 @@ def sample(pid: int) -> dict[str, float]:
     return json.loads(out.stdout.strip())
 
 
+def color_ratios(image, colors: tuple[str, ...]) -> dict[str, float]:  # noqa: ANN001
+    """返回给定十六进制色值在截图中的精确像素占比（含抗锯齿误差容限 ±2）。
+
+    `top_colors` 只给前三名，无法回答"某套主题的精确色值是否在场"——文字抗锯齿产生的
+    混合色往往比原色像素更多，导致按 top-2 比色的旧口径误判（2026-11-03 实测：
+    amoled-night 的 #E6E6E6 只占 1.1%，被 #EEEEEE 挤出前三）。本函数直接统计目标色。
+    """
+    rgb = image.convert("RGB")
+    total = rgb.width * rgb.height
+    targets = []
+    for item in colors:
+        text = item.lstrip("#")
+        targets.append((int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16)))
+    counts = [0] * len(targets)
+    for pixel in rgb.getdata():
+        for index, (red, green, blue) in enumerate(targets):
+            if (
+                abs(pixel[0] - red) <= 2
+                and abs(pixel[1] - green) <= 2
+                and abs(pixel[2] - blue) <= 2
+            ):
+                counts[index] += 1
+    return {item: round(count / total, 4) for item, count in zip(colors, counts)}
+
+
+def classify_theme(image) -> tuple[str | None, dict[str, float]]:  # noqa: ANN001
+    """按调色板把截图归到四套主题之一：取「背景占比 + 前景占比」最高的主题。
+
+    四套主题的 (bg, fg) 互不相同（eink-day 白底黑字／eink-night 黑底白字／
+    amoled-night 黑底 #E6E6E6／terminal-green 黑底 #00FF00），用两色占比之和即可
+    唯一识别，且对背景比例不敏感（前景像素少也能识别）。
+    """
+    detail: dict[str, float] = {}
+    scores: dict[str, float] = {}
+    for theme, (background, foreground) in THEME_PALETTES.items():
+        ratios = color_ratios(image, (background, foreground))
+        detail.update({f"{theme}:{color}": ratio for color, ratio in ratios.items()})
+        # eink-day 与 eink-night 共用 {#FFFFFF, #000000} 两色，仅靠「两色之和」无法区分
+        # （两者都是 0.98 量级）。判据必须先要求**背景色占主导**（≥50% 像素），再用
+        # 前景占比区分黑底三主题（eink-night 白字 / amoled-night #E6E6E6 / terminal-green #00FF00）。
+        background_ratio = ratios[background]
+        scores[theme] = (
+            background_ratio + ratios[foreground] if background_ratio >= 0.5 else -1.0
+        )
+    best = max(scores, key=lambda item: scores[item])
+    # 最高分过低说明画面不是任一主题（例如空白/其他进程的窗口），宁可不判。
+    if scores[best] < 0.5:
+        return None, detail
+    return best, detail
+
+
 def pixel_stats(image) -> dict[str, float]:  # noqa: ANN001
     """统计最多三种出现最多的颜色与中间灰比例（墨水屏关键判据）。
 
@@ -302,29 +353,34 @@ def run_theme(
     )
     result: dict[str, object] = {"theme": theme}
     try:
+        # 就绪判据（2026-11-03 修正）：窗口句柄出现 ≠ 应用就绪——冷启动时可能先出现
+        # 一个零尺寸/无标题的顶层窗口（实测 eink-day 首轮：client_size [0,0]、标题为空、
+        # 按键全部落空、q 超时）。要求「客户区 ≥ 400×300 且标题非空，且连续两次采样一致」，
+        # 每轮重新解析窗口句柄（跳过零尺寸窗口），总期限 90 秒。
         hwnd = 0
-        for _ in range(150):
+        deadline = time.time() + 90
+        last_signature: tuple[int, tuple[int, int], str] | None = None
+        while time.time() < deadline:
             if process.poll() is not None:
                 stdout, stderr = process.communicate()
-                result["error"] = f"进程提前退出 code={process.returncode} out={stdout!r} err={stderr!r}"
+                result["error"] = (
+                    f"进程提前退出 code={process.returncode} out={stdout!r} err={stderr!r}"
+                )
                 return result
-            hwnd = find_window(process.pid)
-            if hwnd:
-                break
-            time.sleep(0.2)
-        if not hwnd:
-            result["error"] = "未找到窗口"
-            return result
-        # 窗口句柄出现 ≠ 应用就绪：iced 首帧与标题设置可能落后数秒（实测冷启动
-        # 时按键全部落空、q 超时）。标题非空且连续两次采样一致才认为就绪。
-        ready_deadline = time.time() + 30
-        last_title = ""
-        while time.time() < ready_deadline:
-            title = window_title(hwnd)
-            if title and title == last_title:
-                break
-            last_title = title
+            candidate = find_window(process.pid)
+            if candidate:
+                size = client_size(candidate)
+                title = window_title(candidate)
+                if size[0] >= 400 and size[1] >= 300 and title:
+                    signature = (candidate, size, title)
+                    if signature == last_signature:
+                        hwnd = candidate
+                        break
+                    last_signature = signature
             time.sleep(0.5)
+        if not hwnd:
+            result["error"] = "窗口未在 90 秒内就绪（客户区 ≥400×300 且标题非空）"
+            return result
 
         user32.ShowWindow(hwnd, SW_RESTORE)
         result["focus_initial"] = focus(hwnd)
@@ -374,24 +430,42 @@ def run_theme(
         press(VK_3, hwnd)
         time.sleep(0.5)
 
-        # FR-713：`t` 键循环四套主题，切换不重启（四步后回到起始主题）
+        # FR-713：`t` 键循环四套主题，切换不重启（四步后回到起始主题）。
+        # 判定口径（2026-11-03 修正）：按**调色板归主题**，而非 top-2 精确色值——文字
+        # 抗锯齿的混合色像素数往往多于原色（amoled-night 的 #E6E6E6 仅占 1.1%，被
+        # #EEEEEE 挤出前三，旧口径必然误判）；切换后轮询至画面稳定（软件光栅 + WM
+        # 重绘有延迟，固定 0.4s 会拍到上一帧）。
         start = THEMES.index(theme)
-        expected = [
-            sorted(THEME_PALETTES[THEMES[(start + step) % len(THEMES)]])
-            for step in range(1, len(THEMES) + 1)
+        expected_themes = [
+            THEMES[(start + step) % len(THEMES)] for step in range(1, len(THEMES) + 1)
         ]
-        actual: list[list[str] | None] = []
+        actual_themes: list[str | None] = []
+        observed: list[dict[str, float]] = []
         for step in range(1, len(THEMES) + 1):
             if not press(VK_T, hwnd):
-                actual.append(None)
+                actual_themes.append(None)
+                observed.append({})
                 continue
-            time.sleep(0.4)
-            image, _ = grab_client(hwnd, out_dir / f"gui-{theme}-theme{step}.png")
-            if image is None:
-                actual.append(None)
-                continue
-            actual.append(sorted(item["rgb"] for item in pixel_stats(image)["top_colors"][:2]))
-        result["theme_cycle"] = {"expected": expected, "actual": actual, "ok": expected == actual}
+            expected_theme = expected_themes[step - 1]
+            seen: str | None = None
+            detail: dict[str, float] = {}
+            deadline = time.time() + 6
+            while time.time() < deadline:
+                time.sleep(0.4)
+                image, _ = grab_client(hwnd, out_dir / f"gui-{theme}-theme{step}.png")
+                if image is None:
+                    continue
+                seen, detail = classify_theme(image)
+                if seen == expected_theme:
+                    break
+            actual_themes.append(seen)
+            observed.append(detail)
+        result["theme_cycle"] = {
+            "expected_themes": expected_themes,
+            "actual_themes": actual_themes,
+            "observed_ratios": observed,
+            "ok": actual_themes == expected_themes,
+        }
 
         if measure_resources:
             # FR-714：最小化期间必须停止绘制（实测 CPU 增量 + 还原后一次重绘）

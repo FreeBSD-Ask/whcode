@@ -28,4 +28,4 @@ pub use manager::{
     tool_display_name,
 };
 pub use protocol::{McpTool, PROTOCOL_VERSION, ToolCallResult};
-pub use session::{CancelFlag, EofKind, McpSession, StdioTransport, Transport};
+pub use session::{CancelFlag, EofKind, HttpTransport, McpSession, StdioTransport, Transport};

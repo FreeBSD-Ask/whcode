@@ -13,6 +13,61 @@
 
 ### 变更
 
+- **平台证据收口：三份 ADR 转正、Check 134 转勾、台账全绿**（2026-11-03，run
+  `41568982820`）：①ADR-005（SSH 入口）转正——FreeBSD/NetBSD 回环 GO（服务端四项＋
+  客户端四项）＋Windows/FreeBSD **真实 sshd 互操作 GO**（`real_sshd_gate`，记录型），
+  V-004 跨机归 M7；②ADR-010（DuckDB 原生构建分开验收）转正——FreeBSD 源码构建
+  DuckDB 2.0.0＋`store_gate = GO`，NetBSD 上游 `features.h` 缺口经 ADR-013 修订豁免；
+  ③ADR-012（`memory_limit` 基线）转正——大载荷实验量化边界（1 MiB 载荷 @192MB 第 312 条
+  失败、1024MB 全过），长时由 NFR-204 收口。台账：**missing 0／unobserved 0**
+  （exercised 291＋outcome-supported 48＝339）、任务 240/243。②另新增 BSD 量化记录车道
+  （`bsd-perf.sh`：FreeBSD 写入 p95 7875 µs、吞吐 3287 条/秒、概览 p95 7930 µs、NFR-207
+  p95 9.7 ms，VM/debug 记录口径不参与预算判定）与 CI 证据保全修复（VM 失败时先行保全
+  copyback 再由宿主判红，避免"失败即丢证据"）。③NetBSD 本轮红＝runner 磁盘耗尽
+  （`No space left on device`）属基础设施，非代码回归。
+- **四项平台证据缺口转 GitHub CI（V-004 升级／ADR-012 大载荷／BSD 量化／GUI 探针）**
+  （2026-11-03，用户指令"4.1—4.4 全部转 GitHub CI"）：①真实 sshd 互操作验收
+  `real_sshd_acceptance_loopback`（`#[ignore]`，bsd-ssh-client.sh 在 BSD VM 显式驱动）——
+  对系统自带 OpenSSH sshd（真实进程、独立密钥对、最小配置回退）验证公钥认证/通道执行/
+  退出码映射/stderr 捕获/TOFU/显式授权内容回传/超时终止，单独记 `real_sshd_gate`
+  （只记录不升门，稳定后再评估）；本机 Windows 实测 GO（真实 Windows OpenSSH sshd 全链路）。
+  ②BSD 量化测量记录 `bsd-perf.sh`（FreeBSD/NetBSD job 新步骤）：bench baseline＋概览
+  p95＋NFR-207，**记录口径**（VM 共享、debug 构建、不参与 ADR-025 预算判定），NetBSD 无
+  libduckdb 时 SKIPPED 如实登记。③`memory_limit` 新增大载荷实验（1 MiB payload × 512 条
+  @192MB/1024MB，批次行数 8 防止进程内待写缓冲随 payload 放大）——measurements job 自动
+  执行，补 ADR-012"大载荷未测"缺口。④GUI 探针与 Windows 性能预算走既有 dispatch 车道
+  （desktop/perf 输入），随本轮代码 dispatch 收证。Gate 纪律：real_sshd 与 BSD 量化均为
+  记录型证据，不改变既有硬门禁判定条件。
+- **平台定位修订：NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发**（2026-11-03，用户指令
+  ＋同日追加 DragonFly 同待遇，ADR-013 修订）：三平台定位收敛为**被连入的 SSH 远程开发
+  目标**——从 Windows/FreeBSD 以内置 SSH 客户端（FR-611）连入使用，不要求目标机具备
+  原生 rust 工具链或原生 whcode 运行。NetBSD 原生 SSH 回环验收 GO 维持为证据；NetBSD
+  原生 store/DuckDB 豁免（上游 2.0.0 依赖 glibc `features.h`，Check 22 据此转勾）；
+  OpenBSD/DragonFly 节点证据走真实连入取证（V-004 口径，不再等上游 rust）。台账：
+  Check 22 转勾（unobserved 1→0），文档同步（AGENTS.md、platform-matrix、
+  compatibility、project-status、ssh-acceptance README）。
+- **FreeBSD 车道技术债偿还：验收证据落库与四项 Check 回填**（2026-11-03，run
+  `41481740766` 硬门禁口径下首次全绿）：ci.yml platform-freebsd 全量构建（含 GUI/bin）＋
+  全量测试＋三门（进程组零残留／store 引擎 2.0.0／SSH 回环）＋TUI/Web 冒烟全 GO。
+  六平台 SSH 回环验收记录（FreeBSD/NetBSD 双向四项 GO、Windows amd64/ARM64 真实
+  TCP 回环协议验收、OpenBSD/DragonFly rust<MSRV 阻塞记录）落库
+  `artifacts/ssh-acceptance/`（含 README 索引）；store 门/进程组门/FreeBSD 冒烟落库
+  `artifacts/store-acceptance/`。回填：Check 25/96/99/195/336 转勾、T099/T240 转勾
+  （Check 22 更新注记保持未勾——NetBSD 新阻塞＝上游 DuckDB 2.0.0 依赖 glibc
+  `features.h`，非本仓可修）；unobserved 5→1。前置修复见 v301 平台盲区（ccc2cff）。
+- **NFR-204 稳定性判据收口：本机 24h 深检通过，T116/Check 116 转勾**（2026-11-02，
+  ADR-025/033）：24h 深检（287 样本、单 PID、release、`event_missing` 全程 0）经
+  `analyze-nfr204.py` 程序化判定 verdict=**通过**——`warmup_ols` −0.3551
+  [−0.4545, −0.2557]、`phase_aligned` −0.2681 [−0.5785, 0.0412]（95% 上界均 < 0.5 冻结
+  预算）、最小可辨斜率 0.0834（24h 窗口成功分辨，5.5h 窗口为 1.129 无分辨力）、线程/
+  句柄无持续增长（基线 9/165、末值 9/165，清理周期瞬态回退）；首末斜率 2.8353 判定为
+  预热伪影（头 2h 74→144 MB 爬升后平台，稳态后 12h OLS −1.24 与主估计一致）。配套
+  ADR-025 修订记录增补（2026-11-02 用户批准）：线程/句柄前置由"全程恒定"改为"无持续
+  增长（泄漏信号）"，b_fl 冲突经稳态（后 50%）一致解析为预热伪影时不阻断——冻结值
+  0.5 MB/h 与三态阈值不变。脚本新增稳态 OLS 与伪影解析分支，合成序列五态验证全绿
+  （单元 5 项 + 通过/前置不满足/违反/冲突保持/伪影解析）。证据：
+  `artifacts/nfr204-verdict-24h-2026-11-02.md`（登记）、
+  `artifacts/stability-24h-deepinspect-20261101/`（timeseries + verdict + run.log）。
 - **MCP 客户端最小集（stdio）**（2026-11-01，FR-736/737、ADR-054、T236—T239）：新增
   `whcode-mcp`（第 15 个成员 crate，领域服务层）——显式配置 `.zcode/mcp.json` 驱动的
   MCP 服务器子进程会话：spawn（最小环境注入 + 显式 env 回填）、initialize 握手
@@ -24,6 +79,15 @@
   system 消息显式告示（不静默）。范围：v1 仅 stdio transport（官方规范 2025-06-18
   现行双 transport 之一，"Clients SHOULD support stdio whenever possible"）；
   Streamable HTTP/OAuth 留 P1-7 后续批次。
+- **MCP 客户端第二传输：Streamable HTTP 请求-响应**（2026-11-01，FR-738、ADR-055、
+  T241—T243）：传输抽象 `trait Transport` 解耦协议层与 I/O（stdio 子进程逻辑迁入
+  `StdioTransport`，行为保持无回归）；新增 `HttpTransport`——每请求一次 POST
+  （JSON-RPC 帧为请求体）、`initialize` 响应头 `Mcp-Session-Id` 捕获并回带、
+  `notifications/initialized` 202、`shutdown` 尽力 DELETE 结束会话（best-effort）；
+  超时由 ureq 请求超时承担（默认 30s、上限 600s），取消在请求前置检查（阻塞中的
+  请求不可中断，见 ADR-055 §5 复审触发）；config `url` 与 `command` 互斥（https 任意
+  主机、http 仅限回环，远程明文拒绝）；范围：本轮不含 OAuth 与 SSE（二者规范可选、
+  无首手使用证据，各自留待真实矛盾）。
 - **工具系统接线：模型工具调用真实执行**（2026-10-30，FR-725—729、ADR-048、T213—T219）：
   turn 循环内模型声明的工具调用经 store `tool_exec` 三步登记（prepared→running→终态）
   执行内建六件套（read/write/edit/list/glob/grep），结果以 `role:"tool"` 消息回填并
@@ -52,7 +116,18 @@
   `default-features = false` 会把 `iced_tiny_skia` 的 x11/wayland 一并关掉，Unix（含
   FreeBSD）上 softbuffer 0.4.8 无任何后端可用，宏展开报 E0392 未用类型参数编译错误
   （Windows 走内建后端不受影响）；修复为 `whcode-gui` 的 iced 特性显式启用 `"x11"`
-  （commit e949459），FreeBSD 车道随此恢复构建。
+  （commit e949459），FreeBSD 车道随此恢复构建。**2026-11-01 补记二（run 41238694183
+  实测）**：`iced_winit-0.14.1` 的 `conversion.rs` 对 BSD 目标（freebsd/netbsd/
+  openbsd/dragonfly）无条件导入 `winit::platform::wayland::WindowAttributesExtWayland`
+  并调用 `.with_name()`——只开 `x11` 时该模块不存在，报 E0432/E0599；启用
+  `iced/wayland`（winit 的 wayland 依赖全部 `cfg(all(unix,…))` 门控，Windows 不受
+  影响）。**2026-11-01 补记三（run 41243062927 实测）**：`whcode-llm` 的
+  `classify_io_error` 未识别 `ErrorKind::ConnectionRefused`，FreeBSD 对已关闭回环
+  端口 `connect` 即时报 `ECONNREFUSED`，落入 `Io` 兜底致测试
+  `unreachable_endpoint…_is_retryable` 失败（`failure 分类：io`）；修复为将
+  `ConnectionRefused`/`NotConnected` 归一为 `TransportFailure::Connect`（与
+  `ureq::Error::ConnectionFailed` 同语义），失败分类为 `connect`，Windows 侧
+  `timeout` 行为不变（全量 92 例通过）。
 - **技能最小集（skills v1）**（2026-10-31，FR-735、ADR-053、T232—T235、Check 328—331）：
   turn 循环扫描工作区 `.zcode/skills/<name>/SKILL.md` 并解析 frontmatter（name +
   description），技能描述以 system 消息注入模型请求（单条截 200 字符、技能数上限 10），

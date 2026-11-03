@@ -392,7 +392,7 @@ pub fn process_exists(pid: u32) -> Result<bool, whcode_domain::WhError> {
 /// 列出某进程的**直接**子进程 PID（Check 201：零残留验证）。
 ///
 /// Windows 经 PowerShell `Get-CimInstance Win32_Process` 查询；类 Unix（含 BSD）经
-/// `ps -eo pid=,ppid=` 全表枚举后按父 PID 过滤（2026-10-31 用户指令解除 BSD 延后，
+/// `ps -ax -o pid,ppid` 全表枚举后按父 PID 过滤（2026-10-31 用户指令解除 BSD 延后，
 /// 此前该路径返回结构化“延后”错误）。返回值可能为空（进程尚无子进程）。
 ///
 /// # Errors
@@ -434,10 +434,17 @@ pub fn child_pids(pid: u32) -> Result<Vec<u32>, whcode_domain::WhError> {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        // `ps -eo pid=,ppid=`：POSIX/BSD 通用输出（等号形式不带表头），每行依次为
-        // PID 与父 PID 两个十进制字段。解析失败按错误上报，不猜测、不以空表冒充。
+        // `ps -ax -o pid,ppid`：Linux（procps）与 BSD（FreeBSD/NetBSD/OpenBSD/
+        // DragonFly）通用。`-a`+`-x` 全表枚举（含无 tty 进程——FreeBSD 的 `-e` 语义
+        // 不同，run 41274057966 实测只开 `-e` 未列出无 tty 子进程）。**不用 `=` 表头
+        // 抑制**：run 41290577560 诊断证实 `-o pid=,ppid=` 在 NetBSD 输出畸形单列
+        // （首行字面 `,ppid=`、裸 PID 无 PPID、仅 24 行——`=` 抑制逗号列表不被
+        // NetBSD 正确处理），故用 `pid,ppid`（带表头行，解析时跳过非数字行）。
+        // 表头行 `PID PPID` 解析失败即跳过；数据行 `pid ppid` 顺序无关匹配（等号
+        // 形式在部分 ps 实现按内部列序输出，故用“哪个字段等于被查父 PID、另一个
+        // 即子 PID”的判据）。解析失败按错误上报，不猜测、不以空表冒充。
         let output = std::process::Command::new("ps")
-            .args(["-eo", "pid=,ppid="])
+            .args(["-ax", "-o", "pid,ppid"])
             .output()
             .map_err(|err| {
                 whcode_domain::WhError::new(
@@ -460,9 +467,15 @@ pub fn child_pids(pid: u32) -> Result<Vec<u32>, whcode_domain::WhError> {
             .lines()
             .filter_map(|line| {
                 let mut fields = line.split_whitespace();
-                let child: u32 = fields.next()?.parse().ok()?;
-                let parent: u32 = fields.next()?.parse().ok()?;
-                (parent == pid).then_some(child)
+                let pid_col: u32 = fields.next()?.parse().ok()?;
+                let ppid_col: u32 = fields.next()?.parse().ok()?;
+                // `-o pid,ppid` 列序固定（POSIX 按指定列输出）：第一列 pid、第二列
+                // ppid。只按 **ppid 列** 匹配被查父——不能用“任一字段等于被查父”
+                // 的顺序无关判据：对“被查进程自身”那一行（`pid ppid=其父`），
+                // `first == pid` 会把**其父进程**误判为子进程（run 41321154622
+                // FreeBSD process_cleanup 实证：sh 的父进程被当作孙进程，测试进程
+                // 恒“存在”，`wait_until_gone` 假失败）。列序固定则 ppid 列即父。
+                if ppid_col == pid { Some(pid_col) } else { None }
             })
             .collect();
         pids.sort_unstable();
@@ -640,7 +653,62 @@ mod tests {
             }
             std::thread::sleep(std::time::Duration::from_millis(500));
         };
+        // 诊断：FreeBSD VM 上 ps 枚举未见子进程（run 41274057966 与 41286535291 同败，
+        // 前者用 `ps -eo`、后者用 `ps -ax -o` 均返回 []）。仅失败路径触发；打印原始 ps
+        // 输出中与子/父 PID 相关的行、总行数与子进程存活探测，供 CI 日志定位根因。
+        // 确认根因后移除本段。
+        if !pids.contains(&pid) {
+            let test_pid = std::process::id();
+            eprintln!(
+                "[child_pids-diag] test_pid={test_pid} child_pid={pid} child_pids={pids:?} 存活={:?}",
+                process_exists(pid)
+            );
+            match std::process::Command::new("ps")
+                .args(["-ax", "-o", "pid,ppid"])
+                .output()
+            {
+                Ok(o) => {
+                    let stdout = String::from_utf8_lossy(&o.stdout);
+                    let total = stdout.lines().count();
+                    let relevant: Vec<&str> = stdout
+                        .lines()
+                        .filter(|l| {
+                            l.contains(&test_pid.to_string()) || l.contains(&pid.to_string())
+                        })
+                        .collect();
+                    let head: Vec<&str> = stdout.lines().take(3).collect();
+                    eprintln!(
+                        "[child_pids-diag] ps -ax -o pid=,ppid= 退出={} 总行={total} 首3行={head:?} 相关行：\n{}",
+                        o.status.code().unwrap_or(-1),
+                        relevant.join("\n")
+                    );
+                }
+                Err(e) => eprintln!("[child_pids-diag] ps 调用失败：{e}"),
+            }
+        }
         assert!(pids.contains(&pid), "应列出子进程 {pid}：{pids:?}");
+        // 防回归（run 41321154622 FreeBSD process_cleanup 教训）：`ps -o pid,ppid`
+        // 的顺序无关解析会把“被查进程自身那一行”（`pid=被查父 ppid=其父`）误判为
+        // 返回**其父进程**——于是 child_pids(test_pid) 会混入 cargo 主进程 PID，
+        // 集成测试把它当“孙进程”检查，恒“存在”而假失败（6650 残留）。此处决定性
+        // 断言：Unix 下用 `ps -o ppid=` 取 test 进程的父 PID，child_pids 不得返回它。
+        #[cfg(not(target_os = "windows"))]
+        {
+            let test_pid = std::process::id();
+            let pp = std::process::Command::new("ps")
+                .args(["-o", "ppid=", "-p", &test_pid.to_string()])
+                .output()
+                .expect("ps 可取父 PID");
+            let parent_pid: u32 = String::from_utf8_lossy(&pp.stdout)
+                .split_whitespace()
+                .next()
+                .and_then(|t| t.parse().ok())
+                .expect("ps 父 PID 可解析");
+            assert!(
+                !pids.contains(&parent_pid),
+                "child_pids 不应返回被查进程的父进程 {parent_pid}（旧解析误判根因）：{pids:?}"
+            );
+        }
         assert!(
             process_exists(pid).expect("查询子进程"),
             "子进程 {pid} 应存在"

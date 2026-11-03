@@ -1,0 +1,7 @@
+# WHCode 内置 SSH 验收：DragonFly 环境阻塞记录（Check 25／99）
+format_version = 1
+generated_at_utc = 2026-11-02T16:30:01Z
+[blocked]
+reason = dports rust 1.85.1 低于 MSRV 1.99
+[verdict]
+ssh_loopback_gate = NO-GO（dports rust 1.85.1 低于 MSRV 1.99，未执行）

@@ -1,0 +1,432 @@
+# WHCode DuckDB 2.0.0 源码构建与 store 冒烟：FreeBSD 平台证据（Check 22）
+format_version = 1
+generated_at_utc = 2026-11-03T03:22:55Z
+script = .github/scripts/platform-matrix/bsd-duckdb.sh
+source = Check 22、ADR-034（冻结引擎 2.0.0）、ADR-DB-BUILD、R-01
+scope = FreeBSD 为 best-effort 平台证据；按 ADR-013 延后，不进入验收结论
+
+[platform]
+os_name = FreeBSD
+os_release = 15.1-RELEASE-p3
+machine = amd64
+detailed = FreeBSD freebsd 15.1-RELEASE-p3 FreeBSD 15.1-RELEASE-p3 releng/15.1-n283611-88e7371d9dc2 GENERIC amd64
+freebsd_version = 15.1-RELEASE-p3 15.1-RELEASE-p3 
+ncpu = 4
+physmem_bytes = 6387589120
+
+[toolchain]
+pinned_channel = 1.99.1
+rustc = rustc 1.99.1 (58cf8f9c3 2026-10-13) binary: rustc commit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67 commit-date: 2026-10-13 host: x86_64-unknown-freebsd release: 1.99.1 LLVM version: 23.1.1 
+cargo = cargo 1.99.1 (5f94df478 2026-08-27)
+cc = FreeBSD clang version 19.1.7 (https://github.com/llvm/llvm-project.git llvmorg-19.1.7-0-gcd708029e0b2)
+cxx = FreeBSD clang version 19.1.7 (https://github.com/llvm/llvm-project.git llvmorg-19.1.7-0-gcd708029e0b2)
+cmake = cmake version 3.31.12
+ninja = 1.13.2
+ninja_sane = yes
+python3 = Python 3.12.14
+
+[duckdb_source]
+version = 2.0.0
+tag = v2.0.0
+release_commit = d54cbbe3df17e8e5ce68312f483b4155836112aa
+override_git_describe = v2.0.0
+archive_url = https://github.com/duckdb/duckdb/archive/v2.0.0.tar.gz
+archive_path = /tmp/duckdb-2.0.0.tar.gz
+archive_size_bytes = 106477075
+archive_size_research_reference_2026_10_25 = 106477075
+archive_sha256_local = 7e89053255046bfb26afbd7f524a2fb84df7dbef496aa911ea35e4a1182fdc00
+archive_sha256_expected = <未提供：上游未发布该归档摘要，仅记录本地计算值>
+archive_digest_upstream = <未提供：GitHub 自动源码归档无官方 SHA-256 与摘要清单>
+tag_commit_verification = <未取得：git 不可用>
+
+[duckdb_build]
+status = 已构建
+prefix = /usr/local/whcode-duckdb-2.0.0
+jobs = 2
+generator = Ninja
+make_program = <未指定：使用 CMake 默认>
+cmake_options = -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_UNITTESTS=OFF -DBUILD_SHELL=OFF -DENABLE_UNITTEST_CPP_TESTS=OFF -DSKIP_EXTENSIONS=jemalloc -DOVERRIDE_GIT_DESCRIBE=v2.0.0 -DDUCKDB_MAJOR_VERSION=2 -DDUCKDB_MINOR_VERSION=0 -DDUCKDB_PATCH_VERSION=0
+build_seconds = 1517
+install_seconds = 0
+installed_libs = /usr/local/whcode-duckdb-2.0.0/lib/libduckdb.so 
+
+[duckdb_environment]
+duckdb_lib_dir = /usr/local/whcode-duckdb-2.0.0/lib
+duckdb_include_dir = /usr/local/whcode-duckdb-2.0.0/include
+ld_library_path = /usr/local/whcode-duckdb-2.0.0/lib
+whcode_duckdb_version = 2.0.0
+env_file = artifacts/store-acceptance/freebsd-duckdb.env
+
+[engine_probe]
+engine_version = v2.0.0
+engine_version_matches_frozen_major = 1（v2.x，与冻结主版本一致）
+probe_exit_code = 0
+
+[command]
+cargo_test = cargo test --locked -p whcode-store
+cargo_exit_code = 0
+test_seconds = 63
+test_result_lines =
+  test result: ok. 118 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.11s
+  test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+acceptance_test = smoke_reports_engine_version_from_runtime
+
+[verdict]
+store_gate = GO（cargo test 通过，且验收用例 smoke_reports_engine_version_from_runtime 已执行）
+build_gate = GO（libduckdb 2.0.0 已安装并可链接）
+
+[build_output_tail]
+[351/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_extension.cpp.o
+[352/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions.cpp.o
+[353/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_scan.cpp.o
+[354/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_serializer.cpp.o
+[355/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_deserializer.cpp.o
+[356/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/serialize_json.cpp.o
+[357/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_array_length.cpp.o
+[358/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/copy_json.cpp.o
+[359/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_contains.cpp.o
+[360/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_exists.cpp.o
+[361/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_extract.cpp.o
+[362/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_keys.cpp.o
+[363/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_merge_patch.cpp.o
+[364/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_pretty.cpp.o
+[365/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_table_in_out.cpp.o
+[366/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_structure.cpp.o
+[367/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_transform.cpp.o
+[368/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_create.cpp.o
+[369/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_geojson.cpp.o
+[370/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_type.cpp.o
+[371/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_valid.cpp.o
+[372/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_value.cpp.o
+[373/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_serialize_sql.cpp.o
+[374/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_serialize_plan.cpp.o
+[375/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_normalize.cpp.o
+[376/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_deep_merge.cpp.o
+[377/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_merge_patch_diff.cpp.o
+[378/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_modify.cpp.o
+[379/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/json_strip_nulls.cpp.o
+[380/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/read_json.cpp.o
+[381/428] Building C object extension/json/CMakeFiles/json_extension.dir/__/__/codegen/link/json_describe.c.o
+[382/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/collation/collation_collator.cpp.o
+[383/428] Building CXX object extension/json/CMakeFiles/json_extension.dir/json_functions/read_single_json_file.cpp.o
+[384/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/collation/collation_normalizer.cpp.o
+[385/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/collation/collation_loader.cpp.o
+[386/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/collation/generated/collation_data.cpp.o
+[387/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/astronomy.cpp.o
+[388/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/chinese.cpp.o
+[389/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/calendar.cpp.o
+[390/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/coptic.cpp.o
+[391/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/grego.cpp.o
+[392/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/gregorian.cpp.o
+[393/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/hebrew.cpp.o
+[394/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/islamic.cpp.o
+[395/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/japanese.cpp.o
+[396/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/persian.cpp.o
+[397/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/timezone.cpp.o
+[398/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/tz_loader.cpp.o
+[399/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/datetime/generated/tz_data.cpp.o
+[400/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu-current.cpp.o
+[401/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu_extension.cpp.o
+[402/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu-datefunc.cpp.o
+[403/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu-dateadd.cpp.o
+[404/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu-datesub.cpp.o
+[405/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu-datepart.cpp.o
+[406/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu-datetrunc.cpp.o
+[407/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu-makedate.cpp.o
+[408/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu-list-range.cpp.o
+[409/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu-table-range.cpp.o
+[410/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu-strptime.cpp.o
+[411/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu-timebucket.cpp.o
+[412/428] Building C object extension/icu/CMakeFiles/icu_extension.dir/__/__/codegen/link/icu_describe.c.o
+[413/428] Building CXX object src/main/extension/CMakeFiles/duckdb_loadable_extensions.dir/extension_install_dynamic.cpp.o
+[414/428] Building CXX object extension/icu/CMakeFiles/icu_extension.dir/icu-timezone.cpp.o
+[415/428] Building CXX object src/main/extension/local_extension_repository/CMakeFiles/duckdb_local_extension_repository.dir/local_extension_repository.cpp.o
+[416/428] Building CXX object src/main/extension/CMakeFiles/duckdb_loadable_extensions.dir/extension_load_dynamic.cpp.o
+[417/428] Linking CXX static library src/libduckdb_static.a
+[418/428] Linking CXX static library extension/json/libjson_extension.a
+[419/428] Linking CXX static library extension/core_functions/libcore_functions_extension.a
+[420/428] Linking CXX static library extension/parquet/libparquet_extension.a
+[421/428] Linking CXX static library extension/icu/libicu_extension.a
+[422/428] Building C object src/CMakeFiles/duckdb.dir/duckdb_static_extension_loader.c.o
+[423/428] Building CXX object src/CMakeFiles/duckdb.dir/__/extension/loader/static_extension_autoregister.cpp.o
+[424/428] Linking CXX static library src/main/extension/libduckdb_loadable_extensions.a
+[425/428] Linking CXX static library src/main/extension/local_extension_repository/libduckdb_local_extension_repository.a
+[426/428] Building CXX object src/main/http/CMakeFiles/duckdb_httplib.dir/http_client_httplib.cpp.o
+[427/428] Linking CXX static library src/main/http/libduckdb_httplib.a
+[428/428] Linking CXX shared library src/libduckdb.so
+=== 安装共享库与头文件到 /usr/local/whcode-duckdb-2.0.0 ===
+=== 清理构建树与解包源码 ===
+
+[cargo_output]
+ Downloading crates ...
+  Downloaded adler2 v2.0.1
+  Downloaded ahash v0.8.12
+  Downloaded arrow-arith v60.0.0
+  Downloaded arrow v60.0.0
+  Downloaded tiny-keccak v2.0.2
+  Downloaded fallible-iterator v0.3.0
+  Downloaded filetime v0.2.29
+  Downloaded aho-corasick v1.1.5
+  Downloaded crunchy v0.2.4
+  Downloaded comfy-table v8.0.1
+  Downloaded hashlink v0.10.0
+  Downloaded const-random v0.1.18
+  Downloaded autocfg v1.5.1
+  Downloaded getrandom v0.3.4
+  Downloaded regex v1.13.1
+  Downloaded atoi v3.1.1
+  Downloaded fallible-streaming-iterator v0.1.9
+  Downloaded iana-time-zone v0.1.65
+  Downloaded lexical-parse-integer v1.0.6
+  Downloaded ryu v1.0.23
+  Downloaded arrow-cmp v60.0.0
+  Downloaded arrow-data v60.0.0
+  Downloaded arrow-ord v60.0.0
+  Downloaded arrow-select v60.0.0
+  Downloaded lexical-util v1.0.7
+  Downloaded arrow-cast v60.0.0
+  Downloaded heck v0.5.0
+  Downloaded strum v0.27.2
+  Downloaded xattr v1.6.1
+  Downloaded cast v0.3.0
+  Downloaded lexical-parse-float v1.0.6
+  Downloaded const-random-macro v0.1.16
+  Downloaded lexical-core v1.0.6
+  Downloaded simd-adler32 v0.3.10
+  Downloaded version_check v0.9.5
+  Downloaded strum_macros v0.27.2
+  Downloaded arrow-row v60.0.0
+  Downloaded num-complex v0.4.6
+  Downloaded num-integer v0.1.47
+  Downloaded arrow-string v60.0.0
+  Downloaded bytes v1.12.1
+  Downloaded getrandom v0.2.17
+  Downloaded lexical-write-integer v1.0.6
+  Downloaded num-traits v0.2.19
+  Downloaded once_cell v1.21.4
+  Downloaded base64 v0.23.1
+  Downloaded chrono v0.4.45
+  Downloaded crc32fast v1.5.3
+  Downloaded flate2 v1.1.10
+  Downloaded half v2.7.1
+  Downloaded unicode-width v0.2.2
+  Downloaded miniz_oxide v0.9.1
+  Downloaded arrow-schema v60.0.0
+  Downloaded foldhash v0.1.5
+  Downloaded lexical-write-float v1.0.6
+  Downloaded num-bigint v0.5.1
+  Downloaded zerocopy-derive v0.8.63
+  Downloaded arrow-buffer v60.0.0
+  Downloaded hashbrown v0.15.5
+  Downloaded tar v0.4.46
+  Downloaded hashbrown v0.17.1
+  Downloaded libm v0.2.16
+  Downloaded zlib-rs v0.6.8
+  Downloaded duckdb v1.20000.0
+  Downloaded arrow-array v60.0.0
+  Downloaded regex-syntax v0.8.11
+  Downloaded zerocopy v0.8.63
+  Downloaded regex-automata v0.4.18
+  Downloaded libduckdb-sys v1.20000.0
+   Compiling autocfg v1.5.1
+   Compiling libm v0.2.16
+   Compiling zerocopy v0.8.63
+   Compiling syn v2.0.119
+   Compiling libc v0.2.191
+   Compiling num-traits v0.2.19
+   Compiling getrandom v0.3.4
+   Compiling version_check v0.9.5
+   Compiling ahash v0.8.12
+   Compiling bytes v1.12.1
+   Compiling bitflags v2.13.2
+   Compiling arrow-schema v60.0.0
+   Compiling iana-time-zone v0.1.65
+   Compiling once_cell v1.21.4
+   Compiling hashbrown v0.17.1
+   Compiling num-integer v0.1.47
+   Compiling num-bigint v0.5.1
+   Compiling num-complex v0.4.6
+   Compiling chrono v0.4.45
+   Compiling lexical-util v1.0.7
+   Compiling zerocopy-derive v0.8.63
+   Compiling memchr v2.8.3
+   Compiling crc32fast v1.5.3
+   Compiling simd-adler32 v0.3.10
+   Compiling adler2 v2.0.1
+   Compiling miniz_oxide v0.9.1
+   Compiling xattr v1.6.1
+   Compiling filetime v0.2.29
+   Compiling aho-corasick v1.1.5
+   Compiling lexical-write-integer v1.0.6
+   Compiling lexical-parse-integer v1.0.6
+   Compiling regex-syntax v0.8.11
+   Compiling serde_json v1.0.154
+   Compiling regex-automata v0.4.18
+   Compiling lexical-parse-float v1.0.6
+   Compiling lexical-write-float v1.0.6
+   Compiling flate2 v1.1.10
+   Compiling tar v0.4.46
+   Compiling unicode-width v0.2.2
+   Compiling unicode-segmentation v1.13.3
+   Compiling comfy-table v8.0.1
+   Compiling libduckdb-sys v1.20000.0
+   Compiling lexical-core v1.0.6
+   Compiling regex v1.13.1
+   Compiling half v2.7.1
+   Compiling atoi v3.1.1
+   Compiling base64 v0.23.1
+   Compiling heck v0.5.0
+   Compiling arrow-buffer v60.0.0
+   Compiling foldhash v0.1.5
+   Compiling ryu v1.0.23
+   Compiling hashbrown v0.15.5
+   Compiling strum_macros v0.27.2
+   Compiling arrow-data v60.0.0
+   Compiling hashlink v0.10.0
+   Compiling whcode-store v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-store)
+   Compiling arrow-array v60.0.0
+   Compiling strum v0.27.2
+   Compiling fallible-iterator v0.3.0
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling cast v0.3.0
+   Compiling whcode-domain v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-domain)
+   Compiling arrow-cmp v60.0.0
+   Compiling arrow-row v60.0.0
+   Compiling arrow-arith v60.0.0
+   Compiling arrow-select v60.0.0
+   Compiling arrow-ord v60.0.0
+   Compiling arrow-string v60.0.0
+   Compiling arrow-cast v60.0.0
+   Compiling arrow v60.0.0
+   Compiling duckdb v1.20000.0
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 57.13s
+     Running unittests src/lib.rs (target/debug/deps/whcode_store-09dff598cca77e06)
+
+running 118 tests
+test audit::tests::missing_table_is_io_error_with_actionable_message ... ok
+test audit::tests::insert_record_round_trips_fields_and_variant_detail ... ok
+test audit::tests::duplicate_primary_key_is_rejected_and_row_is_preserved ... ok
+test checkpoints::tests::insert_checkpoint_rejects_invalid_inputs_with_structured_errors ... ok
+test checkpoints::tests::insert_checkpoint_prunes_to_default_retain_keeping_largest_steps ... ok
+test checkpoints::tests::transition_failure_rolls_back_task_event_and_checkpoint ... ok
+test checkpoints::tests::transition_commits_task_event_and_checkpoint_together ... ok
+test checkpoints::tests::recover_defaults_to_max_step_resolves_refs_and_reports_missing ... ok
+test checkpoints::tests::transition_rejects_invalid_json_and_oversized_payload_before_write ... ok
+test compact::tests::compact_rejects_missing_db_and_concurrent_maintenance ... ok
+test checkpoints::tests::transition_rejects_mismatched_state_and_missing_task_without_side_effects ... ok
+test checkpoints::tests::transition_with_oversized_delta_rolls_back_task_and_event ... ok
+test compact::tests::space_report_counts_wal_when_present ... ok
+test directory::tests::create_assigns_monotonic_prefixed_ids ... ok
+test directory::tests::create_rejects_empty_title_and_status ... ok
+test checkpoints::tests::twenty_transitions_keep_bounded_incremental_history ... ok
+test directory::tests::event_cursor_reflects_max_seq ... ok
+test compact::tests::verify_copy_rejects_missing_index_and_row_drift ... ok
+test directory::tests::rename_and_touch_report_missing_sessions ... ok
+test directory::tests::list_orders_newest_first_and_filters_archived ... ok
+test export::tests::export_requires_migrated_source_and_lists_excluded_tables ... ok
+test export::tests::has_any_workspace_data_reflects_any_of_the_three_tables ... ok
+test export::tests::import_rejects_checksum_drift_and_wrong_hash ... ok
+test export::tests::import_rejects_duplicate_ids_against_populated_target ... ok
+test export::tests::import_rejects_format_and_schema_mismatch ... ok
+test indexes::tests::fresh_database_reports_all_required_indexes_missing ... ok
+test indexes::tests::legacy_messages_index_is_replaced_by_three_column_index ... ok
+test indexes::tests::registry_entries_are_unique_and_described ... ok
+test export::tests::import_rejects_unmigrated_target ... ok
+test indexes::tests::required_indexes_exist_after_migration ... ok
+test monitor::tests::collect_reports_database_tables_wal_writer_and_plans ... ok
+test monitor::tests::collect_without_writer_or_queries_has_optional_sections_empty ... ok
+test monitor::tests::plan_query_rejects_write_statements ... ok
+test monitor::tests::plan_query_returns_explain_rows_and_analyze_variant ... ok
+test monitor::tests::table_stats_are_exact_counts ... ok
+test overview::tests::consistency_annotation_partitions_fields ... ok
+test overview::tests::computes_counts_and_stage_distribution_from_tasks ... ok
+test overview::tests::missing_overview_returns_none_and_unknown_session_is_rejected ... ok
+test overview::tests::rebuild_all_includes_sessions_without_tasks ... ok
+test overview::tests::rebuild_persists_row_and_load_matches_compute ... ok
+test overview::tests::repeated_refresh_is_idempotent_and_keeps_single_row ... ok
+test overview::tests::stale_row_is_detected_and_rebuild_refreshes_it ... ok
+test purge::tests::archived_only_limits_selection ... ok
+test purge::tests::abort_policy_rejects_at_preview_and_execute ... ok
+test purge::tests::empty_selection_executes_noop_and_audits ... ok
+test purge::tests::execute_rechecks_protection_after_preview ... ok
+test purge::tests::audit_records_survive_purge_and_export_excludes_them ... ok
+test purge::tests::execute_requires_explicit_confirmation ... ok
+test purge::tests::preview_selects_by_time_and_reports_protected ... ok
+test compact::tests::compact_switches_file_and_preserves_data ... ok
+test purge::tests::sessions_criterion_selects_by_id_with_protection ... ok
+test purge::tests::preview_set_matches_executed_deletions ... ok
+test purge::tests::set_archived_flips_flag_audits_and_missing_ids_rejected ... ok
+test purge::tests::ttl_criterion_boundary_and_negative_rejected ... ok
+test purge::tests::ttl_within_default_active_window_protects_everything ... ok
+test query::tests::cursors_are_exclusive_in_both_directions ... ok
+test query::tests::backward_pages_cover_events_without_gaps_or_duplicates ... ok
+test query::tests::forward_pages_cover_events_without_gaps_or_duplicates ... ok
+test schema::tests::checksum_is_stable_and_versioned ... ok
+test query::tests::page_size_is_bounded_and_validated ... ok
+test query::tests::message_pages_use_timestamp_and_id_tiebreak ... ok
+test schema::tests::event_payloads_are_object_variants ... ok
+test schema::tests::creates_all_tables_and_is_idempotent ... ok
+test schema::tests::events_payload_column_is_variant ... ok
+test schema::tests::failed_migration_does_not_mark_version ... ok
+test schema::tests::migration_versions_are_strictly_increasing ... ok
+test schema::tests::events_table_has_expected_columns ... ok
+test service::tests::batch_row_threshold_is_configurable ... ok
+test schema::tests::json_columns_are_variant_and_text_columns_stay_text ... ok
+test service::tests::defaults_match_baseline_and_config_is_effective ... ok
+test service::tests::critical_event_is_confirmed ... ok
+test service::tests::buffered_event_is_flushed_by_time_window ... ok
+test service::tests::drop_drains_accepted_requests ... ok
+test service::tests::duplicate_key_is_deduplicated_through_service ... ok
+test service::tests::queue_depth_tracks_waiting_requests_and_capacity ... ok
+test service::tests::queue_is_bounded_and_reports_backpressure ... ok
+test service::tests::writer_panic_is_reported_and_later_requests_are_rejected ... ok
+test smoke::tests::engine_version_probe_reports_structured_version ... ok
+test smoke::tests::missing_parent_directory_is_reported_as_io_error ... ok
+test smoke::tests::smoke_covers_all_steps_on_fresh_file ... ok
+test service::tests::multiple_producers_keep_seq_unique ... ok
+test smoke::tests::smoke_is_repeatable_on_existing_file ... ok
+test smoke::tests::smoke_reports_engine_version_from_runtime ... ok
+test tasks::tests::insert_get_update_roundtrip_and_missing_reports ... ok
+test tasks::tests::distributions_and_active_tasks_cover_workspace_and_session_scopes ... ok
+test tasks::tests::insert_task_rejects_invalid_and_top_level_null_acceptance_without_rows ... ok
+test tasks::tests::unknown_status_value_is_rejected_not_silently_mapped ... ok
+test tool_exec::tests::intent_then_result_reaches_completed ... ok
+test tool_exec::tests::missing_record_reports_not_found ... ok
+test tasks::tests::detail_projections_are_bounded_and_exclude_content ... ok
+test tool_exec::tests::result_rejects_non_terminal_and_wrong_order ... ok
+test tool_exec::tests::recovery_marks_only_uncertain_states ... ok
+test turn::tests::appends_events_and_messages_in_one_transaction_with_monotonic_seqs ... ok
+test turn::tests::rejects_empty_session_bad_role_and_oversized_payload ... ok
+test turn::tests::rollback_leaves_no_partial_rows ... ok
+test wal::tests::idle_decision_is_pure_and_window_boundary_is_inclusive ... ok
+test wal::tests::default_policy_keeps_settings_and_readback_is_stable ... ok
+test tasks::tests::tasks_of_session_returns_all_statuses_ordered_and_bounded ... ok
+test wal::tests::policy_overrides_are_effective_and_rejected_when_invalid ... ok
+test wal::tests::run_checkpoint_reports_wal_sizes_and_reason ... ok
+test writer::tests::batch_row_threshold_triggers_commit ... ok
+test writer::tests::batch_window_deadline_triggers_commit ... ok
+test writer::tests::critical_event_is_committed_and_confirmed ... ok
+test writer::tests::batch_larger_than_insert_chunk_keeps_seq_contiguous ... ok
+test writer::tests::duplicate_idempotency_key_returns_existing_seq ... ok
+test writer::tests::duplicate_key_in_pending_batch_is_not_queued_twice ... ok
+test writer::tests::dedup_across_flushes_returns_existing_seq ... ok
+test writer::tests::duplicate_key_in_same_batch_is_deduplicated ... ok
+test writer::tests::empty_idempotency_key_is_rejected ... ok
+test writer::tests::flush_if_due_commits_only_after_window ... ok
+test writer::tests::oldest_pending_age_reports_queue_age_without_changing_semantics ... ok
+test writer::tests::oversized_payload_is_rejected_not_truncated ... ok
+test writer::tests::retry_after_failed_flush_keeps_seq_unambiguous ... ok
+test writer::tests::saturated_buffer_returns_backpressure_and_keeps_entries ... ok
+test writer::tests::zero_batch_rows_is_rejected - should panic ... ok
+test writer::tests::write_failure_propagates_and_batch_is_retained ... ok
+test writer::tests::many_keys_exceed_query_chunk_still_dedups ... ok
+test export::tests::export_import_round_trip_preserves_all_tables ... ok
+
+test result: ok. 118 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.11s
+
+   Doc-tests whcode_store
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -48,6 +48,10 @@ jobs:
     if: github.event_name != 'schedule'
     name: platform-${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
+    # 门禁超时（2026-11-01）：VM 车道（FreeBSD/NetBSD/OpenBSD/DragonFly）含 pkg 安装、
+    # DuckDB 源码构建、全量构建/测试/冒烟，任一环节挂死不得无限占用 runner——90 分钟
+    # 封顶，超时按失败处理（硬门禁语义，ADR-013 修订 2026-10-31）。
+    timeout-minutes: 90
     # 触发语义放在步骤级：GitHub 的 jobs.<job_id>.if 不支持 matrix 上下文。
     strategy:
       fail-fast: false
@@ -321,6 +325,14 @@ jobs:
               libX11 libXcursor libXrandr libXi libxkbcommon \
               fontconfig freetype2 wayland
           run: |
+            # 证据保全（2026-11-03）：vmactions 的 copyback（rsync 回宿主）是 action
+            # 内部的**后置步骤**，VM 脚本非零退出会让它被跳过——run 41529766439 实测：
+            # 门禁失败后宿主上传的是仓库里已入库的旧 freebsd-client.txt（generated_at
+            # 与上轮同秒），本轮 VM 新产出（含 real_sshd_gate=GO）全部丢失。
+            # 因此脚本主体改为子 shell 执行：失败只写标记文件并 exit 0（保证 copyback
+            # 发生），由宿主步骤 `${freebsd_gate_marker}` 判定红灯——门禁语义不变。
+            set +e
+            (
             set -e
             mkdir -p artifacts/store-acceptance artifacts/ssh-acceptance
             progress=artifacts/store-acceptance/freebsd-progress.txt
@@ -400,8 +412,42 @@ jobs:
             echo "phase=workspace-build-ok" >> "$progress"
 
             echo "=== 全量测试（workspace 全部 crate，含集成/稳定性/契约）==="
-            cargo test --locked --workspace
-            echo "phase=workspace-tests-ok" >> "$progress"
+            # 禁核心转储：tests/integration/test_durability.rs 的子进程以
+            # std::process::abort()（SIGABRT）模拟强杀，FreeBSD 上默认 core 转储落
+            # tests/durability-*.core，被并行 layout 契约门禁判为未登记条目
+            # （run 41295875953 实测）。ulimit -c 0 只禁 dump，不改测试语义。
+            ulimit -c 0
+            # --no-fail-fast：一个测试二进制崩溃不得掩蔽其余二进制的结论（长线计划 A2）。
+            # 失败时按「单线程复跑 → truss 尾迹」两段取证（A2 债务：whcode-bin 测试
+            # 二进制退出路径 SIGSEGV，run 41290577560 首现、41529766439 复现），证据
+            # 随 artifact 上传；门禁语义不变——失败仍然 exit 1。
+            cargo_rc=0
+            cargo test --locked --workspace --no-fail-fast || cargo_rc=$?
+            if [ "$cargo_rc" -eq 0 ]; then
+              echo "phase=workspace-tests-ok" >> "$progress"
+            else
+              echo "workspace 测试失败（rc=$cargo_rc）：开始 A2 诊断（单线程复跑＋truss 尾迹）"
+              mkdir -p artifacts/a2-diag
+              {
+                echo "workspace_cargo_rc=$cargo_rc"
+                echo "=== 单线程复跑 whcode-bin tests ==="
+              } > artifacts/a2-diag/single-thread.txt
+              single_rc=0
+              cargo test --locked -p whcode-bin --bin whcode -- --test-threads=1 \
+                >> artifacts/a2-diag/single-thread.txt 2>&1 || single_rc=$?
+              echo "single_thread_rc=$single_rc" >> artifacts/a2-diag/single-thread.txt
+              # 直接定位测试二进制（cargo 已构建）：deps/whcode-<hash>（排除 .d 依赖文件）。
+              a2_bin=$(ls -t target/debug/deps/whcode-* 2>/dev/null | grep -v '\.d$' | head -n 1)
+              echo "binary=${a2_bin:-<未定位>}" >> artifacts/a2-diag/single-thread.txt
+              if [ -n "${a2_bin:-}" ] && command -v truss >/dev/null 2>&1; then
+                timeout 900 truss -f -o artifacts/a2-diag/truss.log -- "$a2_bin" \
+                  --test-threads=1 > artifacts/a2-diag/direct-run.txt 2>&1 || true
+                tail -n 80 artifacts/a2-diag/truss.log \
+                  >> artifacts/a2-diag/direct-run.txt 2>/dev/null || true
+              fi
+              echo "A2 诊断证据已写入 artifacts/a2-diag/"
+              exit 1
+            fi
 
             echo "=== 依赖记录（V-001，须在 DUCKDB_* 导出之后；doctor 真实运行时探针）==="
             mkdir -p artifacts
@@ -413,13 +459,29 @@ jobs:
             echo "=== Web 服务端冒烟（/api/status、/api/sessions、首页；功能等价证据）==="
             python3 .github/scripts/web-smoke.py --exe target/debug/whcode --json artifacts/web-smoke-freebsd.json
 
+            echo "=== BSD 量化测量记录（ADR-025 证据车道扩展；只记录不判定，脚本恒退出 0）==="
+            sh .github/scripts/platform-matrix/bsd-perf.sh
+
             echo "GATE_RESULT=GO（全量构建＋全量测试＋三门 GO＋TUI/Web 冒烟；2026-10-31 用户指令硬门禁）"
             echo "phase=done" >> "$progress"
+            )
+            body_rc=$?
+            set -e
+            if [ "$body_rc" -ne 0 ]; then
+              mkdir -p artifacts
+              echo "freebsd_gate_failed_rc=$body_rc" > artifacts/freebsd-gate-failed.txt
+              echo "FREEBSD_GATE_FAILED=$body_rc（证据已保全，由宿主步骤判红）"
+            fi
 
       - name: 归档 FreeBSD 结论
         if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
         run: |
-          echo "FreeBSD 绿路径：${{ steps.freebsd_vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "FreeBSD 绿路径（VM 步骤 outcome）：${{ steps.freebsd_vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f artifacts/freebsd-gate-failed.txt ]; then
+            echo "FreeBSD 硬门禁：**失败**（$(cat artifacts/freebsd-gate-failed.txt)）" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "FreeBSD 硬门禁：结论由「FreeBSD 硬门禁判定（VM 失败标记）」步骤裁决。" >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "DuckDB Go/No-Go 见 VM 日志末尾；两者均只作平台证据，不进入验收结论。" >> "$GITHUB_STEP_SUMMARY"
 
       - name: 上传 FreeBSD 依赖记录
@@ -458,6 +520,41 @@ jobs:
           path: |
             artifacts/tui-smoke-freebsd.json
             artifacts/web-smoke-freebsd.json
+
+      # A2 债务诊断证据（whcode-bin 测试二进制退出路径 SIGSEGV）：单线程复跑输出与
+      # truss 系统调用尾迹——定位崩溃发生在退出路径还是某条用例。
+      - name: 上传 FreeBSD A2 诊断证据（测试崩溃时）
+        if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: a2-diag-freebsd
+          if-no-files-found: ignore
+          path: artifacts/a2-diag/
+
+      # 量化测量（2026-11-03）：记录口径——VM 共享环境、debug 构建、不参与 ADR-025 预算判定。
+      - name: 上传 FreeBSD 量化测量记录（记录口径，不作预算判定）
+        if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bsd-perf-freebsd
+          if-no-files-found: warn
+          path: artifacts/bsd-perf/
+
+      # 硬门禁判定（2026-11-03）：VM 脚本改为失败写标记、恒 exit 0（保证 copyback 把
+      # 本轮证据带回宿主），红灯由此步骤裁决——门禁语义不变，证据不再因失败而丢失。
+      - name: FreeBSD 硬门禁判定（VM 失败标记）
+        if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
+        run: |
+          if [ -f artifacts/freebsd-gate-failed.txt ]; then
+            cat artifacts/freebsd-gate-failed.txt
+            echo "::error title=FreeBSD gate::VM 内门禁失败（证据已保全，详见 artifacts）"
+            exit 1
+          fi
+          if [ ! -f artifacts/store-acceptance/freebsd-progress.txt ]; then
+            echo "::error title=FreeBSD gate::VM 未产出进度文件——证据链缺失，不得视为通过"
+            exit 1
+          fi
+          echo "FreeBSD 硬门禁：VM 内全部检查通过"
 
       # ---------------- NetBSD（最新 11.x release） ----------------
       - name: 在 NetBSD VM 中构建、测试与记录
@@ -660,6 +757,10 @@ jobs:
             sh .github/scripts/platform-matrix/bsd-ssh-client.sh
             echo "phase=ssh-script-done" >> "$progress"
 
+            echo "=== BSD 量化测量记录（ADR-025 证据车道扩展；只记录不判定，脚本恒退出 0）==="
+            sh .github/scripts/platform-matrix/bsd-perf.sh
+            echo "phase=perf-recorded" >> "$progress"
+
             echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
             duckdb_ready=0
             if [ "${WHCODE_DUCKDB_READY:-0}" = 1 ]; then
@@ -683,6 +784,8 @@ jobs:
             fi
 
             if [ "$duckdb_ready" -eq 1 ]; then
+              # 禁核心转储（同 FreeBSD 车道：durability abort() 的 core 落 tests/ 会破 layout 门禁）。
+              ulimit -c 0
               if cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
                 && cargo test --locked --workspace --exclude whcode-gui --exclude whcode-bin; then
                 echo "GATE_RESULT=GO"
@@ -726,6 +829,15 @@ jobs:
           if-no-files-found: warn
           path: artifacts/ssh-acceptance/
 
+      # 量化测量（2026-11-03）：NetBSD 无 libduckdb 时按 SKIPPED 如实记录，不伪造测量。
+      - name: 上传 NetBSD 量化测量记录（记录口径，不作预算判定）
+        if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bsd-perf-netbsd
+          if-no-files-found: warn
+          path: artifacts/bsd-perf/
+
       # check-run 注解是公开可读的机器证据（日志下载需登录）：把 store／SSH 判据行
       # 以 notice 形式附在 job 上，供无凭据复核；NO-GO 不改写、缺文件显式告警。
       - name: 公布 BSD 验收结论（公开注解）
@@ -734,10 +846,10 @@ jobs:
           set -eu
           found=0
           for f in artifacts/store-acceptance/*-store.txt artifacts/ssh-acceptance/*-client.txt \
-            artifacts/process-group/*-process-group.txt; do
+            artifacts/process-group/*-process-group.txt artifacts/bsd-perf/*-perf.txt; do
             [ -f "$f" ] || continue
             found=1
-            verdict=$(grep -m1 -E '^(store_gate|ssh_loopback_gate|process_group_gate) = ' "$f" || true)
+            verdict=$(grep -m1 -E '^(store_gate|ssh_loopback_gate|process_group_gate|real_sshd_gate|perf_record_gate) = ' "$f" || true)
             [ -n "$verdict" ] || verdict="<未取得判据行>"
             echo "::notice title=BSD evidence $(basename "$f")::$verdict"
             echo "$f：$verdict" >> "$GITHUB_STEP_SUMMARY"
@@ -1047,6 +1159,7 @@ jobs:
             artifacts/stability-ci/timeseries.jsonl
             artifacts/writer-service-stress.json
             artifacts/memory-limit-experiment.json
+            artifacts/memory-limit-large-payload.json
             artifacts/query-plan-report.json
             artifacts/nfr-budget-report.json
             artifacts/resource-report.json
@@ -1131,8 +1244,14 @@ jobs:
       - name: GUI 探针（四主题／按键／空闲资源）
         run: python .github/scripts/gui-probe.py --exe target/release/whcode.exe --out artifacts/gui-run-ci
 
-      - name: NFR-205/206 控制台与流式 CPU 测量（headless 口径）
-        run: python .github/scripts/benchmarks/measure-nfr-budgets.py --only nfr205,nfr206 --skip-build
+      # NFR-205 通过 AttachConsole/FreeConsole 驱动真实控制台 TUI，跑完会摘掉本进程的
+      # 控制台——随后的 subprocess 创建在 CI 上报 WinError 6（句柄失效，run 41584222035 实测）。
+      # 因此两者**分进程执行**：每次调用都是全新解释器，句柄状态互不污染。
+      - name: NFR-205 真实控制台 TUI 空闲 CPU（headless 口径，独立进程）
+        run: python .github/scripts/benchmarks/measure-nfr-budgets.py --only nfr205 --skip-build
+
+      - name: NFR-206 流式期间 CPU（headless 口径，独立进程）
+        run: python .github/scripts/benchmarks/measure-nfr-budgets.py --only nfr206 --skip-build
 
       - name: 上传 GUI 证据
         if: always()

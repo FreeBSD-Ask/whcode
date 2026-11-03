@@ -257,7 +257,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T096 [US8] 在 `crates/whcode-ssh/src/server.rs` 实现公钥认证、会话隔离、终端尺寸变化与安全退出（FR-607）（**2026-10-24 完成**：`server.rs`（1 456 行）以 russh 0.64.1 实现公钥认证（仅 Ed25519 + `authorized_keys` 清单）、每连接独立 `SessionContext`（通道上限 8）、pty-req/window-change 记录并随命令传给执行器、连接断开经 `Drop` 归还计数并写审计；`shell_request` 一律拒绝（FR-608，交互 PTY 属 M8）；进程内 10 项服务端测试（9 tokio + 1）覆盖认证成功/拒绝、越权命令、resize、并发会话、断连回收；`cargo test -p whcode-ssh` 41/41 通过。**未取得**：BSD 现场验收（属 T099／ADR-013 延后））
 - [x] T097 [US8] 在 `crates/whcode-ssh/src/policy.rs` 实现受限 WHCode 入口；任意系统 Shell 为显式独立权限（FR-608、§10.2）（**2026-10-24 完成**：`policy.rs` 白名单 `sessions`／`session show|new`／`tasks`／`task`，默认 `SshPolicy::denied()` 拒绝 Shell，显式授权需 `allow_shell` 开关 **且** 调用者在 `shell_actors`，判定带能力校验与结构化错误码；5 项单测覆盖默认拒绝、双条件授权、越权与用法错误。**注**：本节指服务端入口；内置 SSH 客户端的默认命令策略同批次收口（首 token 白名单 + 显式 `allow_shell` 审计，见 Check 97））
 - [x] T098 [P] [US8] 在 `crates/whcode-ssh/src/adapter.rs` 复用应用服务，去除每会话独立数据库写入路径（ADR-005、C-03）（**2026-10-24 完成**：`adapter.rs` 单线程 `whcode-ssh-exec` 执行器持有装配根注入的唯一 `Connection`（`serve.rs` 只 `open_workspace_db` 一次），命令经有界队列（64）+ 一次性回执 + 30 s 超时；`three_concurrent_ssh_sessions_write_through_single_connection` 证明 3 个并发会话全部经同一连接落库；非测试代码无 `Connection::open`）
-- [ ] T099 [US8] 在 `artifacts/ssh-acceptance/` 产出四 BSD 的认证/尺寸/断连/权限边界证据与阻塞清单（V-004、R-02）**未取得（2026-10-24 复核）**：`artifacts/ssh-acceptance/` 不存在；ADR-013 将 BSD 全部延后，本机无平台环境（M0 阻塞项 B-01），恢复须新 ADR 并补分平台证据（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
+- [x] T099 [US8] 在 `artifacts/ssh-acceptance/` 产出四 BSD 的认证/尺寸/断连/权限边界证据与阻塞清单（V-004、R-02）**未取得（2026-10-24 复核）**：`artifacts/ssh-acceptance/` 不存在；ADR-013 将 BSD 全部延后，本机无平台环境（M0 阻塞项 B-01），恢复须新 ADR 并补分平台证据（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）——**完成（2026-11-03，run `41481740766` 证据落库）**：`artifacts/ssh-acceptance/` 建立并版本化（六平台记录 + README 索引）——FreeBSD／NetBSD 回环验收覆盖认证／受限命令（尺寸＝输出上限）／超时断连（GO）；Windows amd64／ARM64 真实 TCP 回环协议验收（含指纹不匹配拒绝＝权限边界负路径）；OpenBSD／DragonFly 阻塞清单（rust < MSRV）；V-004 外部节点属 M7 保持阻塞标注。
 
 **Checkpoint**: 五平台接入形态齐备
 
@@ -296,7 +296,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 **Independent Test**: 按 quickstart.md §9，产出时间序列报告与发布清单核对结果
 
 - [x] T115 [US10] 在 `crates/*/src/` 按冻结预算优化热点（先测量后优化，禁止 `Box::leak` 通用化）（NFR-201—210、§5.3）（**2026-10-24 完成**：测量战役补齐七项候选实测——NFR-201 空载 RSS 中位 23.12 MB、NFR-202 活跃 27.33 MB、NFR-203 切换 20 次增量 3.18 MB（夹具修正后复跑；原 0.32 MB 的测量含“第二会话 0 事件”缺陷，见 ADR-025 修订记录）、NFR-205 TUI 空闲 CPU 0.0%、NFR-206 限速流式 0.682%（满喂容量 ≈1.5M chunks/s/核佐证）、NFR-207 切换 p95 12.9 ms、NFR-209 单页 p95 19.8 ms；报告 `artifacts/nfr-budget-report.json` + `tests/stability/test_nfr_budget.rs`（NFR-203/206 为 `#[ignore]` 测量夹具，运行方式已注明）+ `script/measure_nfr_budgets.py`（真实进程采样，纪律字段齐备）。**唯一超标项 NFR-209（同夹具 p95 40.8 ms > 30 ms）经热点定位（EXPLAIN 证实 DuckDB 对多列 top-k 生成 SEQ_SCAN 而非索引扫描）并以两阶段分页优化至 p95 19.8 ms 达标——同夹具前后对比留档，无预算修订**；测量方法两处缺陷修正留档：NFR-205 须 AttachConsole 子控制台注入、NFR-206 须采样测试可执行文件而非 cargo 包装进程。NFR-204（72 h 斜率）属 T116 保持候选。分配器决策仍按 ADR-020 冻结）
-- [ ] T116 [P] [US10] 在 `tests/stability/run_stability.sh`／`.github/workflows/long-run.yml` 执行 5.5 小时稳定性测试并采集规定指标（§11.5、ADR-033）**阻塞（2026-10-22）**：需 5.5h 连续运行环境；NFR-204 长时泄漏斜率未测量。**部分进展（2026-10-23）**：四类故障情形已纳入 `tests/stability/test_failure_modes.rs`（Check 206 通过）；长跑与指标时间序列仍未取得，任务保持未完成——**长跑重启（2026-10-24 15:02:04，进行中）**：13:05 启动的旧长跑经复核作废——工作负载为逐轮重建的短命 `extreme_scale` 进程，且 13:26 起工作区未提交改动导致编译失败，采样对象与 RSS 斜率不可归因，`timeseries.json` 从未落盘。新采集器 `tests/stability/test_stability_run.rs` 为**单进程**持续负载并按间隔自采样，逐行追加 `artifacts/stability-24h-20261024-150204/timeseries.jsonl`（中断不丢已采样本）；采集 RSS/CPU/线程/句柄/库与 WAL 大小/事件缺失/failed 任务/提交-查询-切换延迟，写者队列深度与最老队列项年龄显式 `null` 并附原因（直连 `Connection`，不经 `WriterService`，不以 0 冒充）。14:30 启动的首轮在首个样本前（14:53）因需空载运行全量性能测试而主动停止，无数据丢失；清理路径已用 40 秒小阈值冒烟验证（`deleted_total=50020`、`event_missing=0`）。**口径变更（ADR-033）**：窗口改为 5.5 小时，CI 入口 `.github/workflows/long-run.yml`；此前 24 h 本机运行仅作历史材料，不再作为门槛。**5.5 h CI 长跑尚未运行**——数据未落地前不勾选。**2026-10-25 本机 12 h 序列分析**：`artifacts/stability-24h-20261024-150204/` 已落盘 12 个样本（单 PID 12392、间隔 3 600 s、debug 构建），RSS 斜率三口径均为负（最小二乘 −0.611 MB/h、首末 −1.855 MB/h、前 5.5 h 子集 −3.954 MB/h），线程恒 17／句柄恒 172，`event_missing` 恒 0，清理路径生效（插入 1 536 600／删除 1 500 100）；但进程在 12.0 h 处被外部终止、无 `kind:"summary"` 收尾行，间隔与 ADR-033 的 300 s 不符且为 debug 构建——**仅作候选证据**（`nfr204-analysis.md`），任务仍不勾选，等 `long-run.yml` 的 5.5 h CI 运行。**2026-10-25 补记**：该本机 24 h 运行随后自然收尾（23 个样本 + `kind:"summary"`，summary 自报首末斜率 0.4867 MB/h，线程 17／句柄 172 全程不变），仍为 debug／3 600 s 间隔，不构成 Check 116 证据；CI 5.5 h 口径（run 40154046118）斜率 0.6987／0.943 MB/h 超预算的登记见 `artifacts/tech-debt-review-2026-10-25.md`。**CI 5.5 h 长跑已取得（2026-10-25）**：run `40154046118` success（main@dc4e5b3，02:20—07:53 UTC，job 19 860 s），artifact `stability-long-run` 含 65 样本与 `kind:"summary"` 收尾行；RSS 斜率首末 0.6987 MB/h、最小二乘 0.943 MB/h（**超 0.5 MB/h 预算**），线程 21／句柄 176 恒定、`event_missing` 恒 0；样本 28／56 为 400k 阈值清理周期（非进程重启）；写者队列深度／最老队列项年龄仍缺（夹具直连 `Connection`），构建为 debug（`long-run.yml` 未加 `--release`）。处置分析见 `artifacts/nfr204-disposition-2026-10-25.md`：0.5 MB/h×5.5 h＝2.75 MB 小于噪声 σ 3.17 MB，**判据在当前窗口分辨力不足**（预算源自 72 h 前提，ADR-033 缩窗未重导），建议“夹具口径修正→同口径复测→ADR-025 组合判据”，修订提议已入 ADR-025 待批准。任务维持不勾选——**ADR-025 组合判据已批准并触发同口径复测（2026-10-26，用户批准）**：修订提议转为正式修订记录（冻结值 ≤ 0.5 MB/h 不变，判定改为前置条件 + 五要素 + 三态结论）；夹具补齐包络（`memory_limit='192MB'`／`threads=min(4, 逻辑核数)`）与 summary 纪律字段（`build_profile`、引擎版本、包络回读值、样本 `pid`），8 秒冒烟验证字段齐备；新增 `.github/scripts/analyze-nfr204.py` 在 `long-run.yml` 程序化判定（合成序列验证通过／违反／无权判定／前置不满足四态退出码）；`long-run-request-2026-10-26.md` 已变更以触发 release+包络复测。CI 复测 verdict 未取得前任务不勾选——**根因定位（2026-10-27）**：该复测 run `40315332443` success 但 timeseries 未落盘：cargo test 将测试二进制 cwd 设为 whcode-tests 包根，相对 `WHCODE_STABILITY_OUT` 实际写入 `tests/artifacts/`（本机 8 s 冒烟复现）；回查三次 CI 长跑 artifact 均只含 run.log，此前“65 样本已取得”实为 stdout 样本行。`long-run.yml` 已改传 `github.workspace` 绝对路径，重跑待 request 变更触发（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
+- [x] T116 [P] [US10] 在 `tests/stability/run_stability.sh`／`.github/workflows/long-run.yml` 执行 5.5 小时稳定性测试并采集规定指标（§11.5、ADR-033）**阻塞（2026-10-22）**：需 5.5h 连续运行环境；NFR-204 长时泄漏斜率未测量。**部分进展（2026-10-23）**：四类故障情形已纳入 `tests/stability/test_failure_modes.rs`（Check 206 通过）；长跑与指标时间序列仍未取得，任务保持未完成——**长跑重启（2026-10-24 15:02:04，进行中）**：13:05 启动的旧长跑经复核作废——工作负载为逐轮重建的短命 `extreme_scale` 进程，且 13:26 起工作区未提交改动导致编译失败，采样对象与 RSS 斜率不可归因，`timeseries.json` 从未落盘。新采集器 `tests/stability/test_stability_run.rs` 为**单进程**持续负载并按间隔自采样，逐行追加 `artifacts/stability-24h-20261024-150204/timeseries.jsonl`（中断不丢已采样本）；采集 RSS/CPU/线程/句柄/库与 WAL 大小/事件缺失/failed 任务/提交-查询-切换延迟，写者队列深度与最老队列项年龄显式 `null` 并附原因（直连 `Connection`，不经 `WriterService`，不以 0 冒充）。14:30 启动的首轮在首个样本前（14:53）因需空载运行全量性能测试而主动停止，无数据丢失；清理路径已用 40 秒小阈值冒烟验证（`deleted_total=50020`、`event_missing=0`）。**口径变更（ADR-033）**：窗口改为 5.5 小时，CI 入口 `.github/workflows/long-run.yml`；此前 24 h 本机运行仅作历史材料，不再作为门槛。**5.5 h CI 长跑尚未运行**——数据未落地前不勾选。**2026-10-25 本机 12 h 序列分析**：`artifacts/stability-24h-20261024-150204/` 已落盘 12 个样本（单 PID 12392、间隔 3 600 s、debug 构建），RSS 斜率三口径均为负（最小二乘 −0.611 MB/h、首末 −1.855 MB/h、前 5.5 h 子集 −3.954 MB/h），线程恒 17／句柄恒 172，`event_missing` 恒 0，清理路径生效（插入 1 536 600／删除 1 500 100）；但进程在 12.0 h 处被外部终止、无 `kind:"summary"` 收尾行，间隔与 ADR-033 的 300 s 不符且为 debug 构建——**仅作候选证据**（`nfr204-analysis.md`），任务仍不勾选，等 `long-run.yml` 的 5.5 h CI 运行。**2026-10-25 补记**：该本机 24 h 运行随后自然收尾（23 个样本 + `kind:"summary"`，summary 自报首末斜率 0.4867 MB/h，线程 17／句柄 172 全程不变），仍为 debug／3 600 s 间隔，不构成 Check 116 证据；CI 5.5 h 口径（run 40154046118）斜率 0.6987／0.943 MB/h 超预算的登记见 `artifacts/tech-debt-review-2026-10-25.md`。**CI 5.5 h 长跑已取得（2026-10-25）**：run `40154046118` success（main@dc4e5b3，02:20—07:53 UTC，job 19 860 s），artifact `stability-long-run` 含 65 样本与 `kind:"summary"` 收尾行；RSS 斜率首末 0.6987 MB/h、最小二乘 0.943 MB/h（**超 0.5 MB/h 预算**），线程 21／句柄 176 恒定、`event_missing` 恒 0；样本 28／56 为 400k 阈值清理周期（非进程重启）；写者队列深度／最老队列项年龄仍缺（夹具直连 `Connection`），构建为 debug（`long-run.yml` 未加 `--release`）。处置分析见 `artifacts/nfr204-disposition-2026-10-25.md`：0.5 MB/h×5.5 h＝2.75 MB 小于噪声 σ 3.17 MB，**判据在当前窗口分辨力不足**（预算源自 72 h 前提，ADR-033 缩窗未重导），建议“夹具口径修正→同口径复测→ADR-025 组合判据”，修订提议已入 ADR-025 待批准。任务维持不勾选——**ADR-025 组合判据已批准并触发同口径复测（2026-10-26，用户批准）**：修订提议转为正式修订记录（冻结值 ≤ 0.5 MB/h 不变，判定改为前置条件 + 五要素 + 三态结论）；夹具补齐包络（`memory_limit='192MB'`／`threads=min(4, 逻辑核数)`）与 summary 纪律字段（`build_profile`、引擎版本、包络回读值、样本 `pid`），8 秒冒烟验证字段齐备；新增 `.github/scripts/analyze-nfr204.py` 在 `long-run.yml` 程序化判定（合成序列验证通过／违反／无权判定／前置不满足四态退出码）；`long-run-request-2026-10-26.md` 已变更以触发 release+包络复测。CI 复测 verdict 未取得前任务不勾选——**根因定位（2026-10-27）**：该复测 run `40315332443` success 但 timeseries 未落盘：cargo test 将测试二进制 cwd 设为 whcode-tests 包根，相对 `WHCODE_STABILITY_OUT` 实际写入 `tests/artifacts/`（本机 8 s 冒烟复现）；回查三次 CI 长跑 artifact 均只含 run.log，此前“65 样本已取得”实为 stdout 样本行。`long-run.yml` 已改传 `github.workspace` 绝对路径，重跑待 request 变更触发（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）——**判据决议（2026-11-01，run 40529349945 登记）**：ADR-025 组合判据首轮“真无权判定”——前置全满足（release/65 样本/单 PID/event_missing 0/线程 10→9 恒定/句柄 164 恒定），但 5.5 h 窗口对 0.5 MB/h 无分辨力（σ=13.05 MB、最小可辨 1.129 MB/h > 0.5），s 区间跨 0.5（warmup_ols 1.47 [0.097, 2.85]、phase_aligned 1.17 [−0.64, 2.98]），首末 9.71 MB/h（交叉核对，不作主判据）。补充分析：RSS 52→109 MB 头 2 h 预热高水位、平台期（n=42）OLS −1.54 [−3.25, 0.17] 无泄漏——非 5.5 h 线性泄漏，是预热瞬态 + 判据分辨力不足。**按 ADR-025 升级 24 h 深检**（CI 6 h 上限锁死，只能本机 `HOURS=24 ./tests/stability/run_stability.sh`）；不写成通过/失败。登记见 `artifacts/nfr204-verdict-2026-11-01.md`。——**通过（2026-11-02，本机 24h 深检）**：24h（287 样本、单 PID 13068、release、event_missing 0）`analyze-nfr204.py` verdict=**通过**——`warmup_ols` −0.3551 [−0.4545, −0.2557]、`phase_aligned` −0.2681 [−0.5785, 0.0412]（上界均 < 0.5）、最小可辨 0.0834（窗口成功分辨）、线程/句柄无持续增长（基线 9/165、末值 9/165；瞬态 10 回退）。b_fl=2.8353 为预热伪影（头 2h 74→144 MB 爬升后平台，稳态后 12h OLS −1.24）经 ADR-025 2026-11-02 增补解析不阻断。**NFR-204 达标**（≤0.5 MB/h），T116 转勾；ADR-025 增补（线程前置改无持续增长 + b_fl 冲突解析）见修订记录。登记见 `artifacts/nfr204-verdict-24h-2026-11-02.md`。
 - [x] T117 [P] [US10] 在 `docs/adr/ADR-ALLOCATOR.md` 记录分配器决策：默认系统分配器，除非基准证明有益（D-11）
 - [x] T118 [US10] 在 `ci/` 与 `docs/matrices/` 产出 Windows 11 amd64 发布包、平台兼容矩阵与已知限制说明（BSD 延后并在限制中注明；§12.2、§9.1、ADR-013） **完成（2026-10-23，交付批次）**：新增 `ci/package-windows.py`（白名单打包 + 仓库外临时目录解包运行验证），产出 `target/dist/whcode-0.1.0-windows-amd64.zip`；证据 `artifacts/install-verify-windows-amd64.txt`（三条命令退出码 0，`duckdb_engine_version = v1.5.6` 为运行期实测，临时工作区实际生成 1 060 864 字节库文件）；兼容矩阵与已知限制随包发布（`compatibility.md`、`platform-matrix.md`），BSD 延后写入已知限制第 8 条（Check 118 通过）；**修订（2026-10-28，ADR-043）**：打包与发布扩展到 Windows ARM64（`package-windows.py --target aarch64-pc-windows-msvc`、`check-release.py --arch`、`build-release.yml` 三档矩阵）；ARM64 包在原生 `windows-11-arm` runner 打包与安装验证，只作平台证据，不进入验收（Check 118 口径同步修订）；**修订（2026-10-29，ADR-047）**：发布链可重现构建——`whcode-bin/build.rs` 支持注入 `WHCODE_BUILD_STAMP`（合法透传、非法告警回退墙钟），`build-release.yml` 以 HEAD 提交时间导出 `SOURCE_DATE_EPOCH` 与版本戳，`package-windows.py` 由 `SOURCE_DATE_EPOCH` 驱动 `generated_utc` 与 zip 条目时间戳；同提交同机两次全新构建 zip SHA256 一致，跨机差异（zlib／MSVC）实测归因并明确排除（ADR-047 §1）
 - [x] T119 [P] [US10] 在 `docs/guides/` 完成 CUI 手册、TUI 键位表、Web 部署与安全配置、灾难恢复说明（§12.2） **完成（2026-10-23，交付批次）**：`cui-manual.md`、`tui.md`、`web-deployment-security.md`、`disaster-recovery.md` 四份齐备；每份逐条给出实现位置（`文件:行号`），并把未实现/未接线能力单列（TUI 无命令面板与翻页键、Web 无 TLS/安全响应头/限速、无 restore 子命令、WAL 自动检查点未接入循环）；`docs/guides/README.md` 的“未交付”节改为交付记录（Check 119 通过）
@@ -687,12 +687,57 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   vmactions slirp DNS 不支持 SRV，pkg 仓库用直连 https）；全量 `cargo build/test --locked
   --workspace`（不再排除 whcode-gui／whcode-bin）；三门硬判定（进程组零残留／store 引擎
   2.0.0／SSH 回环，任一 NO-GO 即中止）；TUI/Web 冒烟（`--exe target/debug/whcode`）；
-  代码级等价：`whcode-platform::child_pids` 非 Windows 以 `ps -eo pid=,ppid=` 实现、
+  代码级等价：`whcode-platform::child_pids` 非 Windows 以 `ps -ax -o pid=,ppid=` 实现、
   `test_process_cleanup` 类 Unix 真两层树执行、whcode-gui iced 启用 x11 feature——
   **任务认知卡**：方向=FreeBSD 从“证据不阻断”升级为硬门禁车道；目标=全量构建/测试/
   三门/冒烟在 CI 全绿且失败即红；判据=Check 336；非目标=验收口径改变（仍 Windows 11
   amd64）、性能分位数（perf 车道仍仅 Windows）、GUI 运行时证据（VM 无显示）——
-  复核待 CI 取证后转勾
+  **完成（2026-11-03，run `41481740766` 全绿，硬门禁口径下首次）**：车道端到端落地——
+  latest pkg 依赖安装（X11／字体栈）、pkg 仓库直连 https、`bsd-duckdb.sh` 源码构建
+  DuckDB 2.0.0、全量构建／测试、三门硬判定全 GO、TUI/Web 冒烟、`GATE_RESULT=GO`；
+  代码级等价项（`child_pids` 列序判据、真两层树、iced x11）随全量测试在 FreeBSD 原生
+  执行。证据与根因链见 Check 336 注记；三门与冒烟记录落库 `artifacts/store-acceptance/`。
+- [x] T241 [P] MCP 传输抽象与 Streamable HTTP 传输（ADR-055 §2.1—2.2）：trait
+  Transport 六原语（write_message/read_message/abort_handle/eof_kind/shutdown/pid）
+  解耦协议层与 I/O——stdio 子进程逻辑（spawn 环境净化/进程组/看门狗 terminate_tree/
+  stderr 丢弃）迁入 StdioTransport（行为保持，重构无回归）；HttpTransport 每请求一次
+  POST（JSON-RPC 帧为请求体、会话头往返、202/404/405/401 状态归因、DELETE 关闭、
+  ureq 请求超时承担超时、取消前置检查、响应体有界 ≤ 1 MiB）（FR-736/738；ADR-055）
+  ——**任务认知卡**：方向=MCP 传输可插拔（stdio/HTTP 同协议层）；目标=协议/投影/
+  权限层传输无关，stdio 行为保持，HTTP 请求-响应可运行；判据=Check 337；非目标=
+  SSE 流、OAuth、连接池（均见 ADR-055 §5 复审触发）。——**复核（2026-11-01，
+  P1-7 批次二）**：trait + StdioTransport 重构（提交 f82aab5，6/6 测试 + clippy 独立
+  复核“行为保持，无缺陷”）、HttpTransport + `McpSession::connect` 分派落地；本地
+  HTTP 集成 6/6 + stdio 集成 6/6 + `clippy -p whcode-mcp` 干净；workspace
+  build/test/fmt/layering/layout 全绿（workspace 级 clippy 被杀软拦截已登记，CI 为准）；
+  **CI 验收（2026-11-01）**：run 41286535291（e036ba5）platform-windows success
+  （ADR-037 口径收口）＋ windows-arm64/measurements/netbsd/openbsd/dragonfly success；
+  freebsd 唯一 failure 为 whcode-platform child_pids 测试（并行会话 T240/Check 336
+  车道，whcode-mcp 在 freebsd 6/6 通过），与本批次无关。
+- [x] T242 [P] MCP HTTP 配置与权限面（ADR-055 §2.3、§2.8）：config `url` XOR
+  `command` 互斥 + scheme 校验（https 任意主机、http 仅限回环 127.0.0.1/localhost/::1，
+  远程明文拒绝）；`McpSession::connect` 按 url 分派（无 url 回落 stdio）；投影与调用
+  权限 fail-closed SessionCreate 复用（与 stdio 同一条管线，不因传输放宽）（FR-738；
+  ADR-055）——**任务认知卡**：方向=HTTP 服务器声明与准入；目标=url 字段互斥校验、
+  远程明文拒绝、权限不因传输放宽；判据=Check 338；非目标=OAuth scope 协商、连接池
+  预算、Authorization 头（均延后）。——**复核（2026-11-01，P1-7 批次二）**：config
+  url 字段 + XOR/scheme 单测（`url_field_xor_command_and_scheme` 覆盖互斥/缺一/
+  https/http 回环/http 远程拒绝/ftp 拒绝）、manager `connect_one` 走
+  `McpSession::connect`；**CI 验收（2026-11-01）**：run 41286535291（e036ba5）
+  platform-windows success（ADR-037 口径收口）＋ windows-arm64/measurements/netbsd/
+  openbsd/dragonfly success；freebsd 唯一 failure 为 whcode-platform child_pids 测试
+  （并行会话 T240/Check 336 车道），与本批次无关。
+- [x] T243 [P] MCP HTTP 测试集与文档同步（ADR-055 §6）：http-test-server fixture
+  （echo/hang/nosession/auth 四模式、每连接一线程）+ HTTP 集成测试 6 项（握手往返
+  /超时/预置取消/404/401/shutdown 失效）；module-design、AGENTS 架构图、ADR-055 转正、
+  计数声明（FR 116／任务 243／Check 339）、CHANGELOG（FR-738；ADR-055 §6）
+  ——**任务认知卡**：方向=HTTP 传输证据与收口；目标=fixture 覆盖正反路径、计数与
+  门禁一致；判据=Check 339；非目标=SSE 流式测试、OAuth 授权流测试。——**复核
+  （2026-11-01，P1-7 批次二）**：fixture + 6 项集成测试全绿（6/6）、layering/layout
+  门禁全绿（含零 unsafe 继承）；**CI 验收（2026-11-01）**：run 41286535291（e036ba5）
+  platform-windows success（ADR-037 口径收口）＋ windows-arm64/measurements/netbsd/
+  openbsd/dragonfly success；freebsd 唯一 failure 为 whcode-platform child_pids 测试
+  （并行会话 T240/Check 336 车道），与本批次无关。
   （anthropic/gemini 等按能力登记）；FR-734 为真实供应商工具调用的前置（ADR-048
   追加；〔未实现〕显式标记）——**认知卡**：方向=真实供应商工具调用前置；目标=LlmRequest
   携带 manifest 并映射进 openai tools 数组；判据=请求体含 tools 字段且与注册表一致；

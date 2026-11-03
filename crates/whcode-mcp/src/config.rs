@@ -39,7 +39,11 @@ pub struct McpServerConfig {
     /// 服务器名（`[a-z0-9_-]{1,32}`；命名空间 `mcp__<name>__<tool>` 的组成部分）。
     pub name: String,
     /// 启动命令（可执行文件名或路径；PATH 解析交给父环境最小白名单）。
+    /// stdio 服务器必填；HTTP 服务器为空（与 [`Self::url`] 互斥，ADR-055 §2.3）。
     pub command: String,
+    /// Streamable HTTP 端点（`https://…`，或 `http://127.0.0.1|localhost` 回环）。
+    /// HTTP 服务器必填；stdio 服务器为 `None`（与 [`Self::command`] 互斥）。
+    pub url: Option<String>,
     /// 启动参数（≤ 32 条）。
     pub args: Vec<String>,
     /// 显式 env（≤ [`MAX_ENV_KEYS`] 键；用户为该服务器声明的授权通道，ADR-054 §2.9）。
@@ -64,7 +68,10 @@ pub struct McpConfig {
 #[serde(deny_unknown_fields)]
 struct RawServer {
     name: String,
+    #[serde(default)]
     command: String,
+    #[serde(default)]
+    url: Option<String>,
     #[serde(default)]
     args: Vec<String>,
     #[serde(default)]
@@ -141,6 +148,7 @@ impl McpConfig {
             servers.push(McpServerConfig {
                 name: server.name,
                 command: server.command,
+                url: server.url,
                 args: server.args,
                 env: server.env,
                 timeout_ms: server.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS),
@@ -173,6 +181,24 @@ fn valid_env_key(key: &str) -> bool {
     (1..=64).contains(&key.len()) && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
+/// URL scheme 校验（ADR-055 §2.3）：`https` 任意主机；`http` 仅限回环（远程明文拒绝）。
+fn valid_url(url: &str) -> bool {
+    let Some((scheme, rest)) = url.split_once("://") else {
+        return false;
+    };
+    let host_port = rest.split(['/', '?', '#']).next().unwrap_or("");
+    // 主机段（IPv6 括号剥除；host:port 去端口）。
+    let host = host_port
+        .strip_prefix('[')
+        .and_then(|h| h.split(']').next())
+        .unwrap_or_else(|| host_port.split(':').next().unwrap_or(""));
+    match scheme {
+        "https" => !host_port.is_empty(),
+        "http" => matches!(host, "127.0.0.1" | "localhost" | "::1"),
+        _ => false,
+    }
+}
+
 fn validate_server(server: &RawServer) -> Result<(), WhError> {
     if !valid_name(&server.name) {
         return Err(WhError::new(
@@ -183,10 +209,33 @@ fn validate_server(server: &RawServer) -> Result<(), WhError> {
             ),
         ));
     }
-    if server.command.trim().is_empty() {
+    if server.command.trim().is_empty() && server.url.is_none() {
         return Err(WhError::new(
             ErrorCode::ParseError,
-            format!("MCP 服务器 {} 的 command 不能为空", server.name),
+            format!(
+                "MCP 服务器 {} 必须提供 command（stdio）或 url（HTTP）之一",
+                server.name
+            ),
+        ));
+    }
+    if !server.command.trim().is_empty() && server.url.is_some() {
+        return Err(WhError::new(
+            ErrorCode::ParseError,
+            format!(
+                "MCP 服务器 {} 的 command 与 url 互斥（只能二选一）",
+                server.name
+            ),
+        ));
+    }
+    if let Some(url) = &server.url
+        && !valid_url(url)
+    {
+        return Err(WhError::new(
+            ErrorCode::ParseError,
+            format!(
+                "MCP 服务器 {} 的 url `{url}` 非法（要求 https，或 http 仅限回环 127.0.0.1/localhost/::1）",
+                server.name
+            ),
         ));
     }
     if server.args.len() > 32 {
@@ -338,5 +387,49 @@ mod tests {
             "enabled=false 不参与连接"
         );
         assert_eq!(config.enabled_servers()[0].name, "on");
+    }
+
+    #[test]
+    fn url_field_xor_command_and_scheme() {
+        // url 与 command 互斥（ADR-055 §2.3）。
+        let err = McpConfig::parse(
+            br#"{"servers":[{"name":"a","command":"c","url":"https://example.com/mcp"}]}"#,
+        )
+        .expect_err("command+url 互斥拒绝");
+        assert!(err.message.contains("互斥"), "指名互斥：{err}");
+
+        // 两者皆无 → 拒绝。
+        let err =
+            McpConfig::parse(br#"{"servers":[{"name":"a"}]}"#).expect_err("缺 command+url 拒绝");
+        assert!(err.message.contains("之一"), "指名缺一：{err}");
+
+        // 仅 url（https）→ 合法，command 为空。
+        let config =
+            McpConfig::parse(br#"{"servers":[{"name":"a","url":"https://example.com/mcp"}]}"#)
+                .expect("https 合法");
+        assert_eq!(config.servers[0].command, "");
+        assert_eq!(
+            config.servers[0].url.as_deref(),
+            Some("https://example.com/mcp")
+        );
+
+        // http 回环（含端口）→ 合法。
+        let config =
+            McpConfig::parse(br#"{"servers":[{"name":"a","url":"http://127.0.0.1:8080/mcp"}]}"#)
+                .expect("http 回环合法");
+        assert_eq!(
+            config.servers[0].url.as_deref(),
+            Some("http://127.0.0.1:8080/mcp")
+        );
+
+        // http 远程 → 拒绝（远程明文禁止）。
+        let err = McpConfig::parse(br#"{"servers":[{"name":"a","url":"http://example.com/mcp"}]}"#)
+            .expect_err("http 远程拒绝");
+        assert!(err.message.contains("回环"), "指名回环：{err}");
+
+        // 非 http(s) scheme → 拒绝。
+        let err = McpConfig::parse(br#"{"servers":[{"name":"a","url":"ftp://example.com/mcp"}]}"#)
+            .expect_err("ftp 拒绝");
+        assert!(err.message.contains("非法"), "指名非法：{err}");
     }
 }

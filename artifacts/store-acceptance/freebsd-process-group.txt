@@ -1,0 +1,46 @@
+# WHCode BSD 进程组零残留（Check 109／201）
+format_version = 1
+platform = FreeBSD
+test = process_group_termination_kills_grandchild_and_leaves_no_residue
+process_group_gate = GO
+[cargo_output_tail]
+   Compiling signal-hook v0.3.18
+   Compiling parking_lot_core v0.9.12
+   Compiling unicode-segmentation v1.13.3
+   Compiling convert_case v0.10.0
+   Compiling syn v3.0.9
+   Compiling errno v0.3.14
+   Compiling signal-hook-registry v1.4.8
+   Compiling syn v2.0.119
+   Compiling thiserror v2.0.21
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.154
+   Compiling rustix v1.1.5
+   Compiling smallvec v1.16.3
+   Compiling cfg-if v1.0.5
+   Compiling scopeguard v1.2.0
+   Compiling log v0.4.34
+   Compiling mio v1.2.4
+   Compiling lock_api v0.4.14
+   Compiling thiserror-impl v2.0.21
+   Compiling derive_more-impl v2.1.1
+   Compiling serde_derive v1.0.229
+   Compiling litrs v1.0.1
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling bitflags v2.13.2
+   Compiling derive_more v2.1.1
+   Compiling document-features v0.2.12
+   Compiling signal-hook-mio v0.2.5
+   Compiling parking_lot v0.12.5
+   Compiling crossterm v0.29.0
+   Compiling whcode-domain v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-domain)
+   Compiling whcode-platform v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-platform)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.88s
+     Running unittests src/lib.rs (target/debug/deps/whcode_platform-2cd85a802d2d01d7)
+
+running 1 test
+test process::tests::process_group_termination_kills_grandchild_and_leaves_no_residue ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 2.03s
+

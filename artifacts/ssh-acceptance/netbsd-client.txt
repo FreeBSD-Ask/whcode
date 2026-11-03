@@ -1,0 +1,178 @@
+# WHCode 内置 SSH：NetBSD 客户端＋服务端回环验收（Check 25／96／99）
+format_version = 1
+generated_at_utc = 2026-11-02T16:48:43Z
+script = .github/scripts/platform-matrix/bsd-ssh-client.sh
+source = Task T025、FR-611、ADR-011、V-004
+
+[platform]
+os_name = NetBSD
+os_release = 11.0
+machine = amd64
+detailed = NetBSD netbsd 11.0 NetBSD 11.0 (GENERIC) #0: Thu Jul 30 15:23:12 UTC 2026  mkrepro@mkrepro.NetBSD.org:/usr/src/sys/arch/amd64/compile/GENERIC amd64
+
+[toolchain]
+pinned_channel = 1.99.1
+rustc = rustc 1.99.1 (58cf8f9c3 2026-10-13) binary: rustc commit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67 commit-date: 2026-10-13 host: x86_64-unknown-netbsd release: 1.99.1 LLVM version: 23.1.1 
+cargo = cargo 1.99.1 (5f94df478 2026-08-27)
+
+[environment]
+duckdb_native_library = /usr/pkg/lib/libduckdb.so
+duckdb_lib_dir = /usr/pkg/lib
+duckdb_include_dir = /usr/pkg/include
+ld_library_path = /usr/pkg/lib:/usr/pkg/lib
+
+[command]
+cargo_test = cargo test --locked -p whcode-ssh
+cargo_exit_code = 0
+
+[verdict]
+ssh_loopback_gate = GO（cargo test 通过，客户端与服务端回环验收用例均已执行）
+client_test = bsd_client_acceptance_loopback
+server_test = bsd_server_acceptance_loopback
+covers = 客户端公钥认证/受限命令/输出上限/超时断连；服务端认证/会话隔离/resize/安全退出
+scope = 回环（进程内测试桩）；不构成任何外部节点连通性证据
+v_004 = 未取得（M7；ADR-013 延后，BSD 结论不进入验收）
+
+[cargo_output]
+   Compiling syn v3.0.9
+   Compiling once_cell v1.21.4
+   Compiling half v2.7.1
+   Compiling ahash v0.8.12
+   Compiling hashbrown v0.17.1
+   Compiling arrow-buffer v60.0.0
+   Compiling ring v0.17.14
+   Compiling time v0.3.55
+   Compiling arrow-data v60.0.0
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling arrow-array v60.0.0
+   Compiling memchr v2.8.3
+   Compiling thiserror v2.0.21
+   Compiling serde_json v1.0.154
+   Compiling parking_lot_core v0.9.12
+   Compiling rustix v1.1.5
+   Compiling serde v1.0.229
+   Compiling arrow-cmp v60.0.0
+   Compiling parking_lot v0.12.5
+   Compiling whcode-domain v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-domain)
+   Compiling libduckdb-sys v1.20000.0
+   Compiling arrow-select v60.0.0
+   Compiling displaydoc v0.2.7
+   Compiling rustls v0.23.46
+   Compiling asn1-rs v0.7.2
+   Compiling crossterm v0.29.0
+   Compiling arrow-ord v60.0.0
+   Compiling arrow-string v60.0.0
+   Compiling arrow-arith v60.0.0
+   Compiling arrow-cast v60.0.0
+   Compiling arrow-row v60.0.0
+   Compiling aws-lc-sys v0.46.0
+   Compiling rustls-webpki v0.103.16
+   Compiling futures-macro v0.3.34
+   Compiling slab v0.4.12
+   Compiling futures-util v0.3.34
+   Compiling arrow v60.0.0
+   Compiling whcode-platform v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-platform)
+warning: constant `HKCU_FONTS_KEY_FULL` is never used
+  --> crates/whcode-platform/src/fonts.rs:18:7
+   |
+18 | const HKCU_FONTS_KEY_FULL: &str = concat!(
+   |       ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `whcode-platform` (lib) generated 1 warning
+   Compiling tokio-macros v2.7.2
+   Compiling duckdb v1.20000.0
+   Compiling ureq v3.5.0
+   Compiling whcode-store v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-store)
+   Compiling tokio v1.54.1
+   Compiling der-parser v10.0.0
+   Compiling whcode-runtime v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-runtime)
+   Compiling futures-executor v0.3.34
+   Compiling oid-registry v0.8.1
+   Compiling yasna v0.6.0
+   Compiling enum_dispatch v0.3.13
+   Compiling rcgen v0.14.10
+   Compiling x509-parser v0.18.1
+   Compiling russh-util v0.52.0
+   Compiling futures v0.3.34
+   Compiling whcode-mcp v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-mcp)
+   Compiling whcode-tools v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-tools)
+   Compiling whcode-llm v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-llm)
+   Compiling whcode-speckit v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-speckit)
+   Compiling whcode-app v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-app)
+   Compiling aws-lc-rs v1.18.2
+   Compiling russh v0.65.0
+   Compiling whcode-ssh v0.1.0 (/home/runner/work/whcode/whcode/crates/whcode-ssh)
+warning: linker stderr: ld: /home/runner/work/whcode/whcode/target/debug/deps/libmio-4ee8b1f99139cfb4.rlib(mio-4ee8b1f99139cfb4.mio.f2c0a458c0c37da9-cgu.0.rcgu.o): in function `<mio::sys::unix::selector::Selector>::setup_waker':
+         /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mio-1.2.4/src/sys/unix/mod.rs:8:(.text._RNvMNtNtNtCskQahJcztKuz_3mio3sys4unix8selectorNtB2_8Selector11setup_waker+0x12a): warning: reference to compatibility __kevent50(); use kevent()
+         ld: /home/runner/work/whcode/whcode/target/debug/deps/librustix-d9298de675739fee.rlib(rustix-d9298de675739fee.rustix.8fa57fb607459349-cgu.0.rcgu.o): in function `rustix::backend::io::syscalls::dup3':
+         /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustix-1.1.5/src/backend/libc/io/syscalls.rs:283:(.text._RNvNtNtNtCsckCRA2Ry6jl_6rustix7backend2io8syscalls4dup3+0x48): warning: reference to compatibility dup3(); include <unistd.h> to generate correct reference
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: linker stdout: ld: /home/runner/work/whcode/whcode/target/debug/deps/libmio-4ee8b1f99139cfb4.rlib(mio-4ee8b1f99139cfb4.mio.f2c0a458c0c37da9-cgu.0.rcgu.o): note: the message above does not take linker garbage collection into account
+         ld: /home/runner/work/whcode/whcode/target/debug/deps/librustix-d9298de675739fee.rlib(rustix-d9298de675739fee.rustix.8fa57fb607459349-cgu.0.rcgu.o): note: the message above does not take linker garbage collection into account
+
+warning: `whcode-ssh` (lib test) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 33s
+     Running unittests src/lib.rs (target/debug/deps/whcode_ssh-980f08418c23bb29)
+
+running 47 tests
+test adapter::tests::audit_log_is_bounded_and_counts_overflow ... ok
+test adapter::tests::executor_drop_joins_thread_and_releases_connection ... ok
+test adapter::tests::app_errors_map_to_nonzero_exit_and_stderr ... ok
+test adapter::tests::output_bound_truncates_to_limit_and_flags ... ok
+test adapter::tests::empty_workspace_reports_correct_emptiness_not_silent_empty ... ok
+test hostkey::tests::authorized_keys_missing_is_an_error_and_empty_file_yields_no_keys ... ok
+test hostkey::tests::authorized_keys_parses_ed25519_and_rejects_other_or_broken_lines ... ok
+test hostkey::tests::host_key_is_created_once_and_reloads_with_same_fingerprint ... ok
+test hostkey::tests::host_key_rejects_non_ed25519_key_file ... ok
+test policy::tests::command_summary_is_stable_and_capability_mapping_matches_app ... ok
+test policy::tests::default_policy_denies_shell_always ... ok
+test policy::tests::outside_whitelist_and_bad_usage_are_denied_structured ... ok
+test policy::tests::shell_requires_switch_and_explicit_grant ... ok
+test policy::tests::whitelist_commands_map_to_capability_checked_decisions ... ok
+test adapter::tests::bounded_queue_rejects_with_backpressure_when_full ... ok
+test proto::tests::client_command_policy_allows_whcode_and_denies_shell_by_default ... ok
+test adapter::tests::three_concurrent_sessions_write_through_single_executor ... ok
+test adapter::tests::executor_round_trip_runs_whcode_command_via_app_service ... ok
+test proto::tests::connection_failure_is_failed_and_records_intent_before_result ... ok
+test proto::tests::end_to_end_large_output_is_truncated_to_tail ... ok
+test proto::tests::end_to_end_nonzero_exit_is_failed ... ok
+test proto::tests::exit_status_maps_to_completed_or_failed ... ok
+test proto::tests::intent_records_explicit_shell_grant ... ok
+test proto::tests::known_hosts_tofu_first_seen_then_trusted_then_mismatch ... ok
+test proto::tests::registry_failures_are_propagated ... ok
+test proto::tests::shell_denied_by_default_leaves_registry_untouched ... ok
+test proto::tests::tail_buffer_keeps_tail_and_flags_truncation ... ok
+test proto::tests::validation_rejects_invalid_targets_without_any_registry_call ... ok
+test server::tests::authorized_keys_with_comments_match_commentless_client_keys ... ok
+test proto::tests::command_without_exit_status_is_unknown_not_completed_or_failed ... ok
+test server::tests::disconnect_reclaims_session_resources ... ok
+test proto::tests::end_to_end_exec_reports_completed_with_output ... ok
+test server::tests::host_key_tofu_first_seen_trusted_then_mismatch_rejected ... ok
+test server::tests::non_ed25519_public_key_is_rejected_by_algorithm ... ok
+test server::tests::outside_whitelist_command_is_denied_structured ... ok
+test server::tests::bsd_server_acceptance_loopback ... ok
+test server::tests::session_context_bounds_channels_and_tracks_sizes ... ok
+test server::tests::publickey_auth_success_and_whitelist_exec_round_trip ... ok
+test server::tests::shell_is_denied_by_default_and_structured_when_granted ... ok
+test server::tests::unauthorized_public_key_is_rejected_and_audited ... ok
+test trust::tests::comments_and_blank_lines_are_ignored ... ok
+test trust::tests::different_host_and_port_are_independent_entries ... ok
+test trust::tests::three_branches_first_seen_trusted_and_mismatch ... ok
+test trust::tests::unreadable_trust_file_fails_closed_instead_of_first_seen ... ok
+test server::tests::pty_and_window_change_are_recorded_and_passed_to_execution ... ok
+test server::tests::three_concurrent_ssh_sessions_write_through_single_connection ... ok
+test proto::tests::bsd_client_acceptance_loopback ... ok
+
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.36s
+
+   Doc-tests whcode_ssh
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

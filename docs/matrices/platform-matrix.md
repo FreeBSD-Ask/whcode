@@ -6,13 +6,10 @@
 
 ## 平台矩阵
 
-**范围（ADR-013，2026-10-21 用户决策；2026-10-24 两次修订 BSD CI；2026-10-28 增 ARM64 交付目标）**：
+**范围（ADR-013，2026-10-21 用户决策；2026-10-24 两次修订 BSD CI；2026-10-28 增 ARM64 交付目标；2026-10-31 修订：FreeBSD 升为完整平台证据车道（硬门禁））**：
 唯一验收目标是**Windows 11 amd64**；**Windows ARM64（`aarch64-pc-windows-msvc`）为构建交付目标**
 （ADR-043：产出 arm64 发布包并在原生 `windows-11-arm` runner 取得平台证据，不进入验收）；
-不考虑任何 32 位平台；FreeBSD/NetBSD/OpenBSD/DragonFly 全部**延后**
-（保留代码与文档，不进入验收结论）。四个 BSD 的构建与测试都在 GitHub CI 的单一矩阵
-工作流 `.github/workflows/ci.yml` 中随 `main` 自动运行；矩阵设置
-`fail-fast: false` 并行执行，单平台失败不取消其他平台（仅作平台证据）。版本口径为各平台
+不考虑任何 32 位平台；FreeBSD 为完整平台证据车道（硬门禁，ADR-013 修订 2026-10-31：随 main 全量构建含 GUI/bin、全量测试、三门进程组零残留/store 2.0.0/SSH 回环、TUI/Web 冒烟，任一失败即红，系统依赖允许 FreeBSD ports/latest pkg）；NetBSD 随 CI 自动运行（仅平台证据、不阻断）；OpenBSD/DragonFly 为手工占位（workflow_dispatch）。**NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发**（ADR-013 修订 2026-11-03 用户指令：作为被 Windows/FreeBSD 内置 SSH 客户端连入的目标，不要求原生工具链/引擎；DragonFly 同日追加同待遇）。四者均不进入验收结论（验收仍为 Windows 11 amd64），性能分位数未取得（perf 车道仅 Windows）。版本口径为各平台
 **最新 release**（FreeBSD `15`、NetBSD `11`、OpenBSD `8` 前缀自动取最新点版本；DragonFly
 精确 `6.4.2`）；**`-current` 未覆盖**——上游 vmactions action 只提供 release 表、无快照输入
 （ADR-013 修订记录），不得以 release 结果冒充 current 证据。工具链低于 MSRV 的发行版按
@@ -22,10 +19,10 @@
 |---|---|---|---|---|---|---|---|---|
 | Windows | Windows 11（10.0.26300） | x86_64 | `x86_64-pc-windows-msvc` | **在范围内（唯一验收目标）** | 通过（本机实测） | 通过（数据库冒烟 4 步、引擎版本探测与工作区测试） | `artifacts/deps-windows.txt`；`docs/adr/ADR-DB-BUILD.md` | rustc 1.99.1（LLVM 23.1.1）、MSVC 工具集 14.44.35207、Windows SDK 10.0.26100.0；不使用任何 GNU 工具链；DuckDB 引擎 `v2.0.0` |
 | Windows ARM64 | 未固定（托管 `windows-11-arm` 预览 runner） | arm64 | `aarch64-pc-windows-msvc` | **构建交付目标（ADR-043，不验收）** | 未取得（2026-10-28 推送后由 `windows-arm64` lane 实跑取得） | 未取得（同上；arm64 包在原生 runner 安装验证） | `docs/adr/ADR-043-windows-arm64-build-target.md`；`.github/workflows/ci.yml` | arm64 预编译 DuckDB 载荷 SHA256 固定于 `fetch-duckdb.py`；一切结论只作平台证据 |
-| FreeBSD | 未固定 | x86_64 | `x86_64-unknown-freebsd` | **延后（ADR-013，不验收）** | 历史：代码级交叉检查通过（排除 3 个 crate） | 未取得（延后，不再作为阻塞项） | `docs/adr/ADR-013-platform-scope-windows-only.md`；`docs/adr/ADR-DB-BUILD.md` | 恢复时须新 ADR 并补齐 D-14 要求的证据链 |
-| NetBSD | 未固定 | x86_64 | `x86_64-unknown-netbsd` | **延后（ADR-013，不验收）** | 历史：代码级交叉检查通过（排除 3 个 crate） | 未取得（延后） | 同上 | 同上 |
-| OpenBSD | 未固定 | x86_64 | `x86_64-unknown-openbsd` | **延后（ADR-013；本就不作原生目标，见 ADR-011）** | 不适用 | 未取得（延后） | `docs/adr/ADR-011-platform-commitment-revision.md`；`docs/adr/ADR-013-platform-scope-windows-only.md` | 客户端能力属 M7，本轮不验收 |
-| DragonFly BSD | 未固定 | x86_64 | `x86_64-unknown-dragonfly` | **延后（ADR-013；本就不作原生目标，见 ADR-011）** | 不适用 | 未取得（延后） | 同上 | 同上 |
+| FreeBSD | 未固定 | x86_64 | `x86_64-unknown-freebsd` | **完整平台证据车道（硬门禁，2026-10-31）** | 全绿（run `41481740766`，硬门禁口径首次：全量构建含 GUI/bin＋全量测试＋三门全 GO＋TUI/Web 冒烟；证据 `artifacts/store-acceptance/`）；不作验收结论 | 性能分位数未取得（perf 车道仅 Windows） | `docs/adr/ADR-013-platform-scope-windows-only.md`；`docs/adr/ADR-DB-BUILD.md` | 恢复时须新 ADR 并补齐 D-14 要求的证据链 |
+| NetBSD | 未固定 | x86_64 | `x86_64-unknown-netbsd` | **SSH 远程开发目标（被连入，ADR-013 修订 2026-11-03）＋CI 自动运行（仅平台证据）** | 随 main 自动运行（rust 1.99.1 可用） | SSH 回环验收 GO（客户端＋服务端四项，`artifacts/ssh-acceptance/netbsd-client.txt`）；进程组零残留 GO（Check 201）；原生 store/DuckDB 豁免（上游 2.0.0 依赖 glibc `features.h`） | 同上；`artifacts/store-acceptance/netbsd-store.txt` | 远程开发能力＝从 Windows/FreeBSD 以内置 SSH 客户端连入 |
+| OpenBSD | 未固定 | x86_64 | `x86_64-unknown-openbsd` | **SSH 远程开发目标（被连入，ADR-013 修订 2026-11-03）** | 不适用（ports rust 1.98.1 < MSRV 1.99，阻塞记录入库） | 连通性与受限入口证据待真实连入取证（V-004 口径，M7 或具备主机时；被连入侧仅需 sshd） | `docs/adr/ADR-011-platform-commitment-revision.md`；`docs/adr/ADR-013-platform-scope-windows-only.md`；`artifacts/ssh-acceptance/openbsd-client.txt` | 客户端能力属 M7，本轮不验收 |
+| DragonFly BSD | 未固定 | x86_64 | `x86_64-unknown-dragonfly` | **SSH 远程开发目标（被连入，ADR-013 修订 2026-11-03，同日追加同待遇）** | 不适用（dports rust 1.85.1 < MSRV 1.99，阻塞记录入库） | 连通性与受限入口证据待真实连入取证（V-004 口径，M7 或具备主机时；被连入侧仅需 sshd） | 同上；`artifacts/ssh-acceptance/dragonfly-client.txt` | 同 OpenBSD |
 
 **32 位平台**：明确不在范围内（ADR-013）。不提供 `i686` 目标、不测量、不在 CI 中构建；
 任何 32 位结果都不得作为承诺依据。
@@ -39,7 +36,7 @@
   交叉 `cargo check --target aarch64-pc-windows-msvc` 只是代码级可构建性，不构成本行结论
   （ADR-043）。
 - FreeBSD 与 NetBSD 的“构建状态”仅指**代码级交叉检查**：`cargo check` 不链接，也不运行目标平台二进制。它不覆盖 DuckDB 原生库、TLS 依赖、SSH、终端与运行时 payload，因此**不能**作为 V-002 的通过证据（ADR-010、G-01）。
-- 内置 SSH 客户端的四平台连通性冒烟**尚未执行**：`crates/whcode-ssh/src/proto.rs` 的测试为回环测试，只能证明客户端路径可运行，不构成 Windows、FreeBSD、NetBSD、OpenBSD 或 DragonFly 任一平台的节点证据（FR-611、V-004）。
+- 内置 SSH 客户端的**外部节点连通性（V-004）尚未取得**：回环验收已在 Windows（amd64/ARM64）、FreeBSD、NetBSD 真实执行并 GO（`artifacts/ssh-acceptance/`，2026-11-03），但回环测试不构成对外部节点的连通性证据（FR-611、V-004，归属 M7）；OpenBSD 节点证据按 ADR-013 修订 2026-11-03 走 SSH 远程连入取证。
 - `whcode-store` 与 `whcode-ssh` 无法参与交叉检查：前者需要目标平台的 libduckdb 原生库（官方无 BSD 预编译包），后者经 `russh` 引入 `aws-lc-rs`，均需要目标平台的 C 工具链（CMake、编译器与汇编器）。这是**阻塞项**，不是代码缺陷，也不构成任何平台结论。
 
 ## 性能预算冻结状态
@@ -68,7 +65,7 @@
 
 历史缺口（冻结前状态，保留供复盘）：
 
-- **跨平台数据缺失**：FreeBSD/NetBSD 无运行环境，OpenBSD/DragonFly 不作为原生目标；ADR-013 已将其移出验收范围。
+- **跨平台数据缺失**：NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发（被连入目标，ADR-013 修订 2026-11-03），无原生 whcode 运行数据；FreeBSD 为硬门禁证据车道但不作验收结论；性能预算口径为 Windows 11 amd64。
 - **长时数据缺失**：没有 72 小时 RSS 时间序列与斜率（NFR-204、§11.5）。
 - **测量纪律字段**：基线报告已含 OS、硬件、编译类型、工具链、数据库版本、数据规模、采样窗口与脚本；
   `.github/scripts/benchmarks/` 已建立并产出归档。
@@ -124,7 +121,7 @@ cargo check -p whcode-ssh --target x86_64-unknown-freebsd
 
 原因：`whcode-store` 需要目标平台的 libduckdb 原生库（官方无 BSD 预编译包），`whcode-ssh` 的 `russh` 依赖 `aws-lc-rs`；两者均需目标平台的 C 工具链（CMake、编译器、汇编器），本机不具备 BSD 交叉 C 工具链。命令失败属**环境阻塞**，不得据此判定代码不可移植，也不得据此判定原生依赖不可用。
 
-OpenBSD 与 DragonFly 已移出原生安装目标（ADR-011），不对其执行原生构建或交叉运行验收；其客户端证据须在真实节点上取得，归属 M7。
+OpenBSD 与 DragonFly 已移出原生安装目标（ADR-011），不对其执行原生构建或交叉运行验收；其客户端证据须在真实节点上取得，归属 M7——两者均按 ADR-013 修订 2026-11-03 走 SSH 远程连入取证（被连入侧仅需 sshd）。
 
 ## 复核与更新纪律
 

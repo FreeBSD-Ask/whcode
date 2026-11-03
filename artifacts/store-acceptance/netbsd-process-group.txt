@@ -1,0 +1,25 @@
+# WHCode BSD 进程组零残留（Check 109／201）
+format_version = 1
+platform = NetBSD
+test = process_group_termination_kills_grandchild_and_leaves_no_residue
+process_group_gate = GO
+[cargo_output_tail]
+warning: linker stderr: ld: /home/runner/work/whcode/whcode/target/debug/deps/libmio-3e79c142ee746cb7.rlib(mio-3e79c142ee746cb7.mio.89544c31cb8df97b-cgu.0.rcgu.o): in function `<mio::sys::unix::selector::Selector>::setup_waker':
+         /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mio-1.2.4/src/sys/unix/mod.rs:8:(.text._RNvMNtNtNtCsbN02dc3deUF_3mio3sys4unix8selectorNtB2_8Selector11setup_waker+0x12a): warning: reference to compatibility __kevent50(); use kevent()
+         ld: /home/runner/work/whcode/whcode/target/debug/deps/librustix-09c7ff960270080f.rlib(rustix-09c7ff960270080f.rustix.b9e4f281d0ce340e-cgu.0.rcgu.o): in function `rustix::backend::io::syscalls::dup3':
+         /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustix-1.1.5/src/backend/libc/io/syscalls.rs:283:(.text._RNvNtNtNtCsfXvGN2KF9OQ_6rustix7backend2io8syscalls4dup3+0x48): warning: reference to compatibility dup3(); include <unistd.h> to generate correct reference
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: linker stdout: ld: /home/runner/work/whcode/whcode/target/debug/deps/libmio-3e79c142ee746cb7.rlib(mio-3e79c142ee746cb7.mio.89544c31cb8df97b-cgu.0.rcgu.o): note: the message above does not take linker garbage collection into account
+         ld: /home/runner/work/whcode/whcode/target/debug/deps/librustix-09c7ff960270080f.rlib(rustix-09c7ff960270080f.rustix.b9e4f281d0ce340e-cgu.0.rcgu.o): note: the message above does not take linker garbage collection into account
+
+warning: `whcode-platform` (lib test) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running unittests src/lib.rs (target/debug/deps/whcode_platform-a98c4d2a4e057b27)
+
+running 1 test
+test process::tests::process_group_termination_kills_grandchild_and_leaves_no_residue ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 2.05s
+

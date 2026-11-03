@@ -148,11 +148,27 @@ def get_json(url: str, timeout: float = 5.0) -> dict:
         return json.loads(response.read().decode("utf-8"))
 
 
+# ---------------------------------------------------------------- 子进程
+
+def run_captured(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+    """捕获输出的子进程调用；**stdin 一律 DEVNULL**。
+
+    NFR-205 通过 FreeConsole/AttachConsole 驱动真实控制台后，本进程继承的 stdin
+    句柄可能已失效（CI 上 pwsh 把控制台句柄传给 Python）；此时 Popen 会调
+    `_winapi.DuplicateHandle` 复制该句柄而报 `OSError [WinError 6] 句柄无效`
+    （run 41584222035／41586640103 两轮实测，均发生在 NFR-205 之后）。显式
+    stdin=DEVNULL 后不再复制那条死句柄。其余调用点同样走本 helper，避免以后
+    再因顺序变化踩同一个坑。
+    """
+    kwargs.setdefault("stdin", subprocess.DEVNULL)
+    return subprocess.run(cmd, **kwargs)
+
+
 # ---------------------------------------------------------------- 夹具
 
 
 def build_release() -> None:
-    subprocess.run(
+    run_captured(
         ["cargo", "build", "--locked", "--release", "-p", "whcode-bin"],
         cwd=ROOT, check=True, capture_output=True, text=True,
     )
@@ -161,7 +177,7 @@ def build_release() -> None:
 def prepare_workspace(dir_path: pathlib.Path) -> None:
     """经产品自身入口迁移（不绕开 schema_migrations 记账）。"""
     dir_path.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
+    run_captured(
         [str(EXE), "db", "stats", "--workspace", str(dir_path)],
         cwd=ROOT, check=True, capture_output=True, text=True,
     )
@@ -311,8 +327,10 @@ def measure_nfr205() -> dict:
     ws = pathlib.Path(tempfile.mkdtemp(prefix="whcode-nfr205-"))
     prepare_workspace(ws)
     startup = win32process.STARTUPINFO()
+    # 必须显式 --tui：Windows 无参数时的默认入口是 GUI（ADR-026），GUI 不读控制台输入，
+    # q 注入必然超时（run 41589210436 实测「TUI 未在 10 s 内响应 q」的根因）。
     process_handle, _thread, pid, _tid = win32process.CreateProcess(
-        None, f'"{EXE}" --workspace "{ws}"', None, None, False,
+        None, f'"{EXE}" --tui --workspace "{ws}"', None, None, False,
         CREATE_NEW_CONSOLE, None, str(ROOT), startup,
     )
     handle = open_process(pid)
@@ -331,6 +349,9 @@ def measure_nfr205() -> dict:
         rss = rss_mb(handle, counters)
         # 注入 q 必须落到**子进程**的新控制台：先脱离本进程控制台再附着子进程
         # （tui_manual_smoke 同款；CONIN$ 打开的是“当前附着控制台”的输入缓冲）。
+        # 注意：本函数跑完会留下“无控制台”状态，之后在本进程内创建 subprocess 会在
+        # CI 上报 WinError 6（句柄失效，run 41584222035 实测）。因此 NFR-205 必须与
+        # NFR-206 等需要 subprocess 的测量**分进程执行**（CI 已按两条独立命令运行）。
         win32console.FreeConsole()
         attached = True
         deadline = time.monotonic() + 20.0
@@ -395,7 +416,7 @@ def measure_nfr206() -> dict:
     注意：必须采样**测试可执行文件**本身，不能采 `cargo test` 包装进程
     （cargo 自身在测试期间几乎零 CPU——首跑实测采到 0.0% 的歧义信号，已修正）。
     """
-    build = subprocess.run(
+    build = run_captured(
         ["cargo", "test", "--locked", "--no-run", "-p", "whcode-tests", "--test", "nfr_budget"],
         cwd=ROOT, capture_output=True, text=True,
     )
@@ -474,8 +495,8 @@ def measure_nfr206() -> dict:
 
 
 def discipline() -> dict:
-    rustc = subprocess.run(["rustc", "--version"], capture_output=True, text=True).stdout.strip()
-    uname = subprocess.run(["cmd", "/C", "ver"], capture_output=True, text=True).stdout.strip()
+    rustc = run_captured(["rustc", "--version"], capture_output=True, text=True).stdout.strip()
+    uname = run_captured(["cmd", "/C", "ver"], capture_output=True, text=True).stdout.strip()
     return {
         "generated_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         "os": uname,
@@ -509,7 +530,22 @@ def main() -> int:
         print(f"测量 {name} …", flush=True)
         results.append(runners[name]())
 
-    report = {"discipline": discipline(), "results": results}
+    # 局部运行（--only 子集）**不得摧毁**已入库的完整报告：按 NFR 合并——本次测到的
+    # 覆盖同名条目，未测到的沿用既有记录（2026-11-03 实测：本地单跑 nfr205 会把
+    # artifacts/nfr-budget-report.json 覆写成只含一项，等于删掉 NFR-201—210 的基线记录）。
+    merged: list[dict] = []
+    measured = {item.get("nfr") for item in results}
+    if REPORT.is_file():
+        try:
+            previous = json.loads(REPORT.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            previous = {}
+        for item in previous.get("results", []):
+            if isinstance(item, dict) and item.get("nfr") not in measured:
+                merged.append(item)
+    merged.extend(results)
+    merged.sort(key=lambda item: str(item.get("nfr")))
+    report = {"discipline": discipline(), "results": merged}
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n"

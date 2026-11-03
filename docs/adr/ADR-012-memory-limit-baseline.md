@@ -1,6 +1,6 @@
 # ADR-012：`memory_limit` 基线复核——192MB 的 OOM 断言未被独立复现
 
-- **状态**：部分批准（2026-10-21；对 T027 断言的证伪证据充分，但“冻结 192MB 基线”的证据不足，未决条件已列明）
+- **状态**：批准（2026-10-21 部分批准 → **2026-11-03 转正**：大载荷边界已量化、长时由 NFR-204 收口、多平台按 ADR-013 修订定案；详见修订记录）
 - **来源**：《WHCode 技术任务书 v3.0》§5.2（测量纪律）、§5.4（数据库配置基线）、NFR-301—NFR-306；tasks.md T027、T028；`crates/whcode-bin/src/bench.rs` 的 `MEMORY_LIMIT` 注释；`crates/whcode-bin/src/config.rs` 的 `DEFAULT_MEMORY_LIMIT_MB`
 - **责任人**：存储与基准负责人（决策）；落地维护：`whcode-store` 与基准夹具维护者
 - **退出条件**：M1 基准校准在更大载荷、更长负载与临时目录异常条件下复核本结论；在此之前 192MB 只是“未复现失败”的过渡基线，不得表述为已冻结的性能结论
@@ -120,3 +120,32 @@ M1 基准校准必须完成以下事项后，才可冻结或修订该基线：
   四组 2000 条写入均无 OOM；192MB@20000 条探针亦完成。128MB 只有 2000 条小样本，未取得
   20000 条 release 吞吐，不能据此证明 NFR-210，故**默认 `memory_limit` 保持 192MB**。
   证据见 `artifacts/memory-limit-experiment-2.0.json` 与 ADR-025 修订记录。
+- **2026-11-03（大载荷覆盖＋状态转正）**：新增 `memory_limit_large_payload_experiment`
+  （`tests/integration/test_memory_limit.rs`，`#[ignore]` 记录器）：payload 取 domain 契约
+  上限内最大档（`MAX_PAYLOAD_BYTES` 1 MiB − 64 字节 = 1 048 512 字节文本），512 条/组，
+  批次行数 8（待写缓冲按行数有界，行数大时随载荷线性放大），192MB 与 1024MB 两组对照。
+  **实测**（CI run `41568982820` measurements job，Windows 11 runner；本机复现一致）：
+  192MB 组在第 **312 条**失败——`FATAL Error: Failed to create checkpoint because of
+  error: failed to pin block of size 1.0 MiB (182.8 MiB/183.1 MiB used)`；1024MB 组
+  512 条全部完成（库 1.58 MB）。
+  **判读**：192MB 在**单条 1 MiB 载荷**路径上有明确边界（缓冲管理器无法在 183.1 MiB
+  上限内固定 1 MiB 块完成 checkpoint），但这**不是** T027 声称的「约 1000 条小载荷 OOM」——
+  小载荷（131 字节 JSON）路径在 128/192/384/1024MB 四组与 192MB@20000 条探针下均无失败
+  （2026-11-02 复测）。因此**默认 `DEFAULT_MEMORY_LIMIT_MB` 保持 192**，并把边界条件写入
+  M1 校准清单：单条载荷接近上限时必须提高 `memory_limit` 或压低批次行数
+  （批次行数 × 单条载荷 ≤ 缓冲余量）；本次实验的 8 行批次即为该口径的实例。
+  **状态转「批准」的依据**：①大载荷——本实验已量化边界；②长时——NFR-204 由 24h 深检
+  收口通过（ADR-025 修订记录 2026-11-02）；③多平台——ADR-013 修订（2026-11-03）定
+  NetBSD/OpenBSD/DragonFly 仅 SSH 远程开发、FreeBSD 原生 DuckDB 2.0.0 源码构建并 store 冒烟
+  GO（`artifacts/store-acceptance/freebsd-store.txt`）；④T027 原始错误无法重建，保留为历史
+  缺口、不再阻断。M1 基准校准仍按原退出条件执行（属里程碑工作，非 ADR 未决项）。
+  **正负和解**：正面＝192MB 从「未复现失败」升级为「已知边界的过渡基线」，大载荷路径的
+  失效点可复现可定位；负面＝192MB 在高载荷场景不可用，使用方必须自行调参或限批次——承担者
+  ＝store 与基准夹具维护者；和解理由＝把不确定性变成可测量的边界条件，比维持「没复现」
+  更可操作。**三重时间**：过去＝2026-10-21 部分批准与 2026-10-24 的 2.0.0 复测；
+  现在＝1 MiB 载荷 312 条触界（run 41568982820）与 24h 稳定性通过；将来失效＝DuckDB
+  版本变化（缓冲管理器/checkpoint 行为）、`MAX_PAYLOAD_BYTES` 调整、或 M1 校准给出新边界。
+  **复审触发**（绑定命令＋判定）：`cargo test --locked -p whcode-tests --test
+  memory_limit -- --ignored --nocapture` 输出的 `conclusion` 若不再是「192MB 在第 312 条
+  附近失败」，或 DuckDB 主版本变化（`smoke_reports_engine_version_from_runtime`），即复审本节。
+  证据：`artifacts/memory-limit-experiment.json`、`artifacts/memory-limit-large-payload.json`。

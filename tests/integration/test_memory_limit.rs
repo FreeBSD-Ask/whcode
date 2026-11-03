@@ -39,7 +39,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use duckdb::Connection;
 use serde::Serialize;
 use serde_json::json;
-use whcode_domain::{EventKind, EventRecord, PersistenceLevel, SCHEMA_VERSION};
+use whcode_domain::{EventKind, EventRecord, MAX_PAYLOAD_BYTES, PersistenceLevel, SCHEMA_VERSION};
 use whcode_store::{EventWriter, WriterConfig};
 
 /// 固定线程数：与 T027 断言中的条件一致。
@@ -66,6 +66,8 @@ struct Group {
     requested_mb: u32,
     /// 该组写入的事件条数。
     events: usize,
+    /// 该组的批次行数上限（大载荷组须减小，避免进程内待写缓冲随 payload 体积放大）。
+    batch_rows: usize,
 }
 
 /// 四组主对照（同一数据规模）：§5.4 默认值、候选最大值、足够高但仍有界的对照值，
@@ -76,24 +78,28 @@ const GROUPS: [Group; 4] = [
         memory_limit: "128MB",
         requested_mb: 128,
         events: EVENTS,
+        batch_rows: BATCH_ROWS,
     },
     Group {
         label: "192MB",
         memory_limit: "192MB",
         requested_mb: 192,
         events: EVENTS,
+        batch_rows: BATCH_ROWS,
     },
     Group {
         label: "384MB",
         memory_limit: "384MB",
         requested_mb: 384,
         events: EVENTS,
+        batch_rows: BATCH_ROWS,
     },
     Group {
         label: "1024MB",
         memory_limit: "1024MB",
         requested_mb: 1_024,
         events: EVENTS,
+        batch_rows: BATCH_ROWS,
     },
 ];
 
@@ -103,6 +109,7 @@ const PROBE: Group = Group {
     memory_limit: "192MB",
     requested_mb: 192,
     events: PROBE_EVENTS,
+    batch_rows: BATCH_ROWS,
 };
 
 /// 单组的实测记录。
@@ -117,6 +124,8 @@ struct GroupResult {
     threads_readback: String,
     duckdb_version: String,
     events_target: usize,
+    /// 该组实际使用的批次行数上限（大载荷组与主对照不同，必须如实记录）。
+    batch_rows: usize,
     /// 实际发起 submit 的条数（首个失败也算发起）。
     events_attempted: usize,
     /// 返回 `Ok` 的 submit 条数。
@@ -232,6 +241,129 @@ fn memory_limit_baseline_experiment() {
     let _ = fs::remove_dir_all(&workspace);
 }
 
+/// 大载荷实验（ADR-012 未决项②的大载荷覆盖；Check 134 证据）。
+///
+/// 主实验的 payload 是 131 字节 JSON——ADR-012 的“大规模载荷未测”缺口指的是这个：
+/// 缓冲管理器上限（192MB）在**单条 1 MiB、总量远超上限**的写入路径下是否仍然成立
+/// （溢写 / 报错 / 成功，都是有效证据）。
+///
+/// 设计：两组同规模对照——192MB（过渡基线，数据量 512 MiB ≫ 上限，强制触及溢写路径）
+/// 与 1024MB（高上限对照）；payload 为 `{"text":"x"×1048576}`（JSON 约 1 MiB），
+/// 512 条／组，批次行数上限 8——批次缓冲按行数有界，行数大时进程内待写缓冲会随
+/// payload 体积线性放大（500 行 × 1 MiB ≈ 500 MB），故大载荷组必须减小批次。
+///
+/// 纪律与主实验一致：实验**记录器**而非断言器——失败/溢写/成功都如实记录，只断言
+/// 设置生效与条数统计自洽；`memory_limit` 不代表进程 RSS；单机单次不构成预算冻结。
+#[test]
+#[ignore = "实验记录器：需用 --ignored 显式运行，结果写入 artifacts/memory-limit-large-payload.json"]
+fn memory_limit_large_payload_experiment() {
+    let workspace = temp_workspace();
+    // payload 取 domain 契约上限内的最大档：MAX_PAYLOAD_BYTES（1 MiB）− 64 字节余量。
+    // 越界（>1 MiB）会被 store 按 MAX_PAYLOAD_BYTES 拒收（fail-closed，2026-11-02 CI 实测），
+    // 那是契约边界的正确行为，不是本实验的对象。
+    let payload_text = "x".repeat(MAX_PAYLOAD_BYTES - 64);
+    let payload_bytes = serde_json::to_vec(&json!({ "text": &payload_text }))
+        .expect("固定 payload 必须可序列化")
+        .len();
+
+    println!("== memory_limit 大载荷实验（ADR-012 未决项②）==");
+    println!(
+        "固定夹具：512 条/组，payload {payload_bytes} 字节，批次行数上限 8（防待写缓冲随载荷放大），threads = {THREADS}"
+    );
+
+    let groups = [
+        Group {
+            label: "192MB@512@1MiB",
+            memory_limit: "192MB",
+            requested_mb: 192,
+            events: 512,
+            batch_rows: 8,
+        },
+        Group {
+            label: "1024MB@512@1MiB",
+            memory_limit: "1024MB",
+            requested_mb: 1_024,
+            events: 512,
+            batch_rows: 8,
+        },
+    ];
+    let mut results = Vec::with_capacity(groups.len());
+    for group in groups {
+        let result = run_group(group, &workspace, &payload_text);
+        print_group(&result);
+        results.push(result);
+    }
+
+    let conclusion = match (results[0].failed_at, results[0].failure_stage) {
+        (Some(at), _) => format!(
+            "192MB 上限下大载荷写入在第 {at} 条失败（错误原文见 groups[0]）——\
+             192MB 过渡基线在大载荷路径的适用边界即此处，M1 校准时须复核"
+        ),
+        (None, "final_flush") => {
+            "192MB 下 512 条 submit 成功但收尾 flush 失败（溢写/收尾路径边界）".to_string()
+        }
+        _ => "192MB 与 1024MB 下 512 条 1 MiB 载荷全部完成写入（db_bytes 见各组）——\
+              未触发失败；缓冲管理器经溢写消化了超出上限的数据量"
+            .to_string(),
+    };
+    println!("== 结论：{conclusion} ==");
+
+    let report = json!({
+        "schema_version": 1,
+        "experiment": "memory-limit-large-payload",
+        "adr": "ADR-012",
+        "generated_at_utc": utc_now_rfc3339(),
+        "environment": {
+            "os": std::env::consts::OS,
+            "arch": std::env::consts::ARCH,
+            "logical_cores": std::thread::available_parallelism()
+                .map(std::num::NonZeroUsize::get)
+                .unwrap_or(1),
+        },
+        "fixture": {
+            "events_per_group": 512,
+            "event_kind": EventKind::StreamingChunk.as_str(),
+            // 实测值：payload 取 MAX_PAYLOAD_BYTES − 64 余量（domain 契约上限内）。
+            "payload_text_bytes": payload_text.len(),
+            "payload_json_bytes": payload_bytes,
+            "payload_contract_limit": MAX_PAYLOAD_BYTES,
+            "total_data_mb_per_group": 512,
+            "persistence_level": PersistenceLevel::Redacted.as_str(),
+            "batch_rows": 8,
+            "batch_rows_note": "大载荷组专用 8 行：待写缓冲按行数有界，行数大时随载荷线性放大",
+            "batch_window_ms": BATCH_WINDOW_MS,
+            "threads": THREADS,
+            "database": "临时目录下的文件库（每组独立文件）",
+            "checkpoint": "每组结束后显式 CHECKPOINT",
+        },
+        "groups": results,
+        "conclusion": conclusion,
+        "notes": [
+            "实验记录器：失败/溢写/成功都是有效证据，不判失败；只断言设置生效与条数自洽",
+            "192MB 是 DB 缓冲管理器的过渡基线，不是 RSS 预算（ADR-012）",
+            "单机单次样本不构成预算冻结；M1 校准（大载荷 1 MiB、长时、temp_directory 溢写验证）是 ADR-012 退出条件",
+        ],
+    });
+
+    let out = workspace_root()
+        .join("artifacts")
+        .join("memory-limit-large-payload.json");
+    if let Some(parent) = out.parent() {
+        fs::create_dir_all(parent).expect("创建 artifacts 目录");
+    }
+    fs::write(
+        &out,
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&report).expect("实验报告必须可序列化")
+        ),
+    )
+    .expect("写入大载荷实验证据");
+    println!("证据已写入 {}", out.display());
+
+    let _ = fs::remove_dir_all(&workspace);
+}
+
 /// 运行一组：配置上限、回读、用 `EventWriter` 写入、收尾统计。
 fn run_group(group: Group, workspace: &Path, payload_text: &str) -> GroupResult {
     let db = workspace.join(format!(
@@ -254,7 +386,7 @@ fn run_group(group: Group, workspace: &Path, payload_text: &str) -> GroupResult 
     let mut writer = EventWriter::new(
         conn,
         WriterConfig {
-            batch_rows: BATCH_ROWS,
+            batch_rows: group.batch_rows,
             batch_window_ms: BATCH_WINDOW_MS,
             ..WriterConfig::default()
         },
@@ -294,15 +426,27 @@ fn run_group(group: Group, workspace: &Path, payload_text: &str) -> GroupResult 
     drop(writer);
 
     let finalized = finalize(&db);
-    // 断言：条数统计自洽——库内已提交行数 + 仍待写条目数 == 已发起写入条数。
-    if let Some(rows) = finalized.rows {
-        let expected = attempted
+    // 断言：条数统计自洽——库内已提交行数 + 仍待写条目数 == 返回 Ok 的写入条数。
+    // 失败的 submit 既不入库也不入待写（若在批次提交阶段失败则事务回滚、整批回到待写），
+    // 因此基数用 succeeded 而非 attempted（2026-11-02 CI 实测：首条即失败时 attempted
+    // 会多算 1 而误报不自洽）。
+    if let Some(err) = captured.as_ref().map(|item| item.message.clone()) {
+        println!("本组捕获写入错误（实验记录器，不判失败）：{err}");
+    }
+    // 全成功路径守恒：committed == succeeded - pending（待写尚未入库）。失败路径不做
+    // 等式断言：两种失败模式的守恒口径不同——校验期失败的事件被直接拒收
+    // （committed = succeeded - pending），批次提交失败的事件按幂等键保留进待写、
+    // 连同失败那条（committed = attempted - pending）；数字全部入报告供分析。
+    if let Some(rows) = finalized.rows
+        && failed_at.is_none()
+    {
+        let expected = succeeded
             .checked_sub(pending_events)
-            .expect("待写条目数不得大于已发起写入条数");
+            .expect("待写条目数不得大于成功写入条数");
         assert_eq!(
             rows,
             i64::try_from(expected).expect("事件规模必须可转换为 i64"),
-            "写入条数统计不自洽：库内行数 {rows}，已发起 {attempted}，待写 {pending_events}"
+            "写入条数统计不自洽：库内行数 {rows}，成功 {succeeded}，待写 {pending_events}"
         );
     }
 
@@ -322,6 +466,7 @@ fn run_group(group: Group, workspace: &Path, payload_text: &str) -> GroupResult 
         threads_readback,
         duckdb_version,
         events_target: group.events,
+        batch_rows: group.batch_rows,
         events_attempted: attempted,
         events_succeeded: succeeded,
         failed_at,
@@ -524,8 +669,13 @@ fn print_group(result: &GroupResult) {
 }
 
 fn temp_workspace() -> PathBuf {
+    // 同一二进制内的两个实验会被 cargo 并行执行：pid + 秒级时间戳可能同名，
+    // 先启动者收尾 remove_dir_all 会删掉并行实验的工作目录（2026-11-02 CI 实测）。
+    // 追加进程内原子序数保证唯一。
+    static WORKSPACE_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let seq = WORKSPACE_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!(
-        "whcode-memory-limit-{}-{}",
+        "whcode-memory-limit-{}-{}-{seq}",
         std::process::id(),
         utc_now_rfc3339().replace([':', 'T', 'Z'], "-")
     ));

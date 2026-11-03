@@ -1,0 +1,66 @@
+{
+  "verdict": "通过",
+  "exit_code": 0,
+  "budget_mb_per_h": 0.5,
+  "prerequisites": {
+    "release_build": true,
+    "samples_ge_60": true,
+    "sample_count": 287,
+    "single_pid": true,
+    "pids": [
+      "13068"
+    ],
+    "event_missing_zero": true,
+    "threads_constant": true,
+    "handles_constant": true
+  },
+  "threads_note": "无持续增长（基线 9，末值 9，末段主导 9）",
+  "handles_note": "无持续增长（基线 165，末值 165，末段主导 165）",
+  "first_last_slope_mb_per_h": 2.8353,
+  "first_last_class": "违反",
+  "b_fl_warmup_artifact": true,
+  "steady_state_class": "通过",
+  "estimates": [
+    {
+      "name": "warmup_ols",
+      "slope": -0.3551,
+      "se": 0.0507,
+      "ci95_t": [
+        -0.4545,
+        -0.2557
+      ],
+      "ci95_bootstrap": [
+        -0.4644,
+        -0.2491
+      ],
+      "verdict": "通过"
+    },
+    {
+      "pairs": 230,
+      "cycle_lag_samples": 28,
+      "slope_mb_per_h": -0.2681,
+      "ci95": [
+        -0.5775,
+        0.0412
+      ],
+      "name": "phase_aligned",
+      "verdict": "通过"
+    }
+  ],
+  "noise": {
+    "sigma_mb": 9.1772,
+    "minimal_detectable_slope_mb_per_h": 0.0834,
+    "warmup_discarded": 29,
+    "bootstrap_reps": 10000,
+    "bootstrap_seed": 20261026
+  },
+  "summary_fields": {
+    "build_profile": "release",
+    "duckdb_version": "v2.0.0",
+    "memory_limit_setting": "183.1 MiB",
+    "threads_setting": "4",
+    "samples": 287,
+    "event_missing_last": 0
+  },
+  "method": "ADR-025 修订记录（2026-10-26 批准；2026-11-02 增补：线程/句柄前置改'无持续增长'（允许预热下降与清理周期瞬态、检测持续增长），b_fl 冲突经稳态（后 50%）一致解析为预热伪影时不阻断）：预热丢弃前 10% 样本；相位对齐按 deleted_total 跳变推断清理周期后同相位跨周期配对；三态结论与冲突条款见 ADR；本脚本由 CI 程序化实施，人工不得改写数值"
+}
