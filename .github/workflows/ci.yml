@@ -1244,8 +1244,14 @@ jobs:
       - name: GUI 探针（四主题／按键／空闲资源）
         run: python .github/scripts/gui-probe.py --exe target/release/whcode.exe --out artifacts/gui-run-ci
 
-      - name: NFR-205/206 控制台与流式 CPU 测量（headless 口径）
-        run: python .github/scripts/benchmarks/measure-nfr-budgets.py --only nfr205,nfr206 --skip-build
+      # NFR-205 通过 AttachConsole/FreeConsole 驱动真实控制台 TUI，跑完会摘掉本进程的
+      # 控制台——随后的 subprocess 创建在 CI 上报 WinError 6（句柄失效，run 41584222035 实测）。
+      # 因此两者**分进程执行**：每次调用都是全新解释器，句柄状态互不污染。
+      - name: NFR-205 真实控制台 TUI 空闲 CPU（headless 口径，独立进程）
+        run: python .github/scripts/benchmarks/measure-nfr-budgets.py --only nfr205 --skip-build
+
+      - name: NFR-206 流式期间 CPU（headless 口径，独立进程）
+        run: python .github/scripts/benchmarks/measure-nfr-budgets.py --only nfr206 --skip-build
 
       - name: 上传 GUI 证据
         if: always()

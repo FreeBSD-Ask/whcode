@@ -331,6 +331,9 @@ def measure_nfr205() -> dict:
         rss = rss_mb(handle, counters)
         # 注入 q 必须落到**子进程**的新控制台：先脱离本进程控制台再附着子进程
         # （tui_manual_smoke 同款；CONIN$ 打开的是“当前附着控制台”的输入缓冲）。
+        # 注意：本函数跑完会留下“无控制台”状态，之后在本进程内创建 subprocess 会在
+        # CI 上报 WinError 6（句柄失效，run 41584222035 实测）。因此 NFR-205 必须与
+        # NFR-206 等需要 subprocess 的测量**分进程执行**（CI 已按两条独立命令运行）。
         win32console.FreeConsole()
         attached = True
         deadline = time.monotonic() + 20.0
