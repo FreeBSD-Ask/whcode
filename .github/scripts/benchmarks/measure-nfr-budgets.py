@@ -530,7 +530,22 @@ def main() -> int:
         print(f"测量 {name} …", flush=True)
         results.append(runners[name]())
 
-    report = {"discipline": discipline(), "results": results}
+    # 局部运行（--only 子集）**不得摧毁**已入库的完整报告：按 NFR 合并——本次测到的
+    # 覆盖同名条目，未测到的沿用既有记录（2026-11-03 实测：本地单跑 nfr205 会把
+    # artifacts/nfr-budget-report.json 覆写成只含一项，等于删掉 NFR-201—210 的基线记录）。
+    merged: list[dict] = []
+    measured = {item.get("nfr") for item in results}
+    if REPORT.is_file():
+        try:
+            previous = json.loads(REPORT.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            previous = {}
+        for item in previous.get("results", []):
+            if isinstance(item, dict) and item.get("nfr") not in measured:
+                merged.append(item)
+    merged.extend(results)
+    merged.sort(key=lambda item: str(item.get("nfr")))
+    report = {"discipline": discipline(), "results": merged}
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n"

@@ -64,6 +64,8 @@
 # ADR-012 memory_limit 实验（主对照与大载荷）——M1 校准与 Check 134 的判定依据。
 !/artifacts/memory-limit-experiment.json
 !/artifacts/memory-limit-large-payload.json
+# GUI 运行时证据（CI desktop job，四主题截图 + summary + README；Check 251／252、ADR-027）。
+!/artifacts/gui-run-2026-11-03/
 # 四端界面现代化证据（ADR-041）：TUI 帧预算与 Web 前端预算基线；新产物同目录追加。
 !/artifacts/ui-modern-2026-10-25/
 # M0 退出报告是治理交付物（tasks.md T031、§12.2），必须随仓库版本化。
