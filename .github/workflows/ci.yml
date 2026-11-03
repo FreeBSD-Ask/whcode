@@ -325,6 +325,14 @@ jobs:
               libX11 libXcursor libXrandr libXi libxkbcommon \
               fontconfig freetype2 wayland
           run: |
+            # 证据保全（2026-11-03）：vmactions 的 copyback（rsync 回宿主）是 action
+            # 内部的**后置步骤**，VM 脚本非零退出会让它被跳过——run 41529766439 实测：
+            # 门禁失败后宿主上传的是仓库里已入库的旧 freebsd-client.txt（generated_at
+            # 与上轮同秒），本轮 VM 新产出（含 real_sshd_gate=GO）全部丢失。
+            # 因此脚本主体改为子 shell 执行：失败只写标记文件并 exit 0（保证 copyback
+            # 发生），由宿主步骤 `${freebsd_gate_marker}` 判定红灯——门禁语义不变。
+            set +e
+            (
             set -e
             mkdir -p artifacts/store-acceptance artifacts/ssh-acceptance
             progress=artifacts/store-acceptance/freebsd-progress.txt
@@ -456,11 +464,24 @@ jobs:
 
             echo "GATE_RESULT=GO（全量构建＋全量测试＋三门 GO＋TUI/Web 冒烟；2026-10-31 用户指令硬门禁）"
             echo "phase=done" >> "$progress"
+            )
+            body_rc=$?
+            set -e
+            if [ "$body_rc" -ne 0 ]; then
+              mkdir -p artifacts
+              echo "freebsd_gate_failed_rc=$body_rc" > artifacts/freebsd-gate-failed.txt
+              echo "FREEBSD_GATE_FAILED=$body_rc（证据已保全，由宿主步骤判红）"
+            fi
 
       - name: 归档 FreeBSD 结论
         if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
         run: |
-          echo "FreeBSD 绿路径：${{ steps.freebsd_vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "FreeBSD 绿路径（VM 步骤 outcome）：${{ steps.freebsd_vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f artifacts/freebsd-gate-failed.txt ]; then
+            echo "FreeBSD 硬门禁：**失败**（$(cat artifacts/freebsd-gate-failed.txt)）" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "FreeBSD 硬门禁：结论由「FreeBSD 硬门禁判定（VM 失败标记）」步骤裁决。" >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "DuckDB Go/No-Go 见 VM 日志末尾；两者均只作平台证据，不进入验收结论。" >> "$GITHUB_STEP_SUMMARY"
 
       - name: 上传 FreeBSD 依赖记录
@@ -518,6 +539,22 @@ jobs:
           name: bsd-perf-freebsd
           if-no-files-found: warn
           path: artifacts/bsd-perf/
+
+      # 硬门禁判定（2026-11-03）：VM 脚本改为失败写标记、恒 exit 0（保证 copyback 把
+      # 本轮证据带回宿主），红灯由此步骤裁决——门禁语义不变，证据不再因失败而丢失。
+      - name: FreeBSD 硬门禁判定（VM 失败标记）
+        if: always() && matrix.platform == 'freebsd' && github.event_name != 'pull_request'
+        run: |
+          if [ -f artifacts/freebsd-gate-failed.txt ]; then
+            cat artifacts/freebsd-gate-failed.txt
+            echo "::error title=FreeBSD gate::VM 内门禁失败（证据已保全，详见 artifacts）"
+            exit 1
+          fi
+          if [ ! -f artifacts/store-acceptance/freebsd-progress.txt ]; then
+            echo "::error title=FreeBSD gate::VM 未产出进度文件——证据链缺失，不得视为通过"
+            exit 1
+          fi
+          echo "FreeBSD 硬门禁：VM 内全部检查通过"
 
       # ---------------- NetBSD（最新 11.x release） ----------------
       - name: 在 NetBSD VM 中构建、测试与记录

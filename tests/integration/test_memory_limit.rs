@@ -124,6 +124,8 @@ struct GroupResult {
     threads_readback: String,
     duckdb_version: String,
     events_target: usize,
+    /// 该组实际使用的批次行数上限（大载荷组与主对照不同，必须如实记录）。
+    batch_rows: usize,
     /// 实际发起 submit 的条数（首个失败也算发起）。
     events_attempted: usize,
     /// 返回 `Ok` 的 submit 条数。
@@ -321,11 +323,14 @@ fn memory_limit_large_payload_experiment() {
         "fixture": {
             "events_per_group": 512,
             "event_kind": EventKind::StreamingChunk.as_str(),
-            "payload_text_bytes": 1_048_576,
+            // 实测值：payload 取 MAX_PAYLOAD_BYTES − 64 余量（domain 契约上限内）。
+            "payload_text_bytes": payload_text.len(),
             "payload_json_bytes": payload_bytes,
+            "payload_contract_limit": MAX_PAYLOAD_BYTES,
             "total_data_mb_per_group": 512,
             "persistence_level": PersistenceLevel::Redacted.as_str(),
-            "batch_rows": BATCH_ROWS,
+            "batch_rows": 8,
+            "batch_rows_note": "大载荷组专用 8 行：待写缓冲按行数有界，行数大时随载荷线性放大",
             "batch_window_ms": BATCH_WINDOW_MS,
             "threads": THREADS,
             "database": "临时目录下的文件库（每组独立文件）",
@@ -461,6 +466,7 @@ fn run_group(group: Group, workspace: &Path, payload_text: &str) -> GroupResult 
         threads_readback,
         duckdb_version,
         events_target: group.events,
+        batch_rows: group.batch_rows,
         events_attempted: attempted,
         events_succeeded: succeeded,
         failed_at,
