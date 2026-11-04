@@ -103,6 +103,8 @@ SCRIPT_DELETE_PATTERNS = [
 #: - `sacred_*` 是源文本考据工作数据，配套的导出/检查脚本一并保留
 #:   （删脚本则考据数据不可复现）。
 SCRIPT_KEEP_ALWAYS = [
+    "register_change.py",
+    "precommit-verify.sh",
     "sensenova.env",
     "dml_cte_ab.py",
     "baseline_v7.py",
