@@ -12,8 +12,7 @@
 //! （C-03）；Diff 视图经 `whcode_app::overview::converge_differences` 产出 converge
 //! 差异（Check 179），TUI 与原生 GUI 共用本 trait 实现，自动同源。
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use duckdb::Connection;
 use whcode_app::view_source::{EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource};
@@ -32,7 +31,7 @@ const SUMMARY_CHARS: usize = 96;
 
 /// 工作区只读视图数据源。
 pub struct StoreViewSource {
-    conn: Rc<RefCell<Connection>>,
+    conn: Arc<Mutex<Connection>>,
     policy: DefaultPolicy,
     actor: Actor,
     texts: I18n,
@@ -41,7 +40,7 @@ pub struct StoreViewSource {
 impl StoreViewSource {
     /// 以已打开的工作区连接构造（连接与文本层由装配根持有）。
     #[must_use]
-    pub fn new(conn: Rc<RefCell<Connection>>, texts: I18n) -> Self {
+    pub fn new(conn: Arc<Mutex<Connection>>, texts: I18n) -> Self {
         Self {
             conn,
             policy: DefaultPolicy,
@@ -66,12 +65,12 @@ impl StoreViewSource {
 
     /// 持久化事件游标（FR-624/T178）：O(1) 单值查询，供 TUI 低频在线可见检查。
     fn cursor_of(&self) -> Option<i64> {
-        whcode_store::latest_seq(&self.conn.borrow()).ok()
+        whcode_store::latest_seq(&self.conn.lock().expect("store 连接锁中毒")).ok()
     }
 
     fn build_sessions(&self) -> Result<ViewSnapshot, WhError> {
         let rows = whcode_app::list_sessions(
-            &self.conn.borrow(),
+            &self.conn.lock().expect("store 连接锁中毒"),
             &self.policy,
             &self.actor,
             false,
@@ -95,7 +94,7 @@ impl StoreViewSource {
             return Ok(no_session(ViewId::Tasks, &self.texts));
         };
         let overview = whcode_app::task_overview(
-            &self.conn.borrow(),
+            &self.conn.lock().expect("store 连接锁中毒"),
             &self.policy,
             &self.actor,
             Some(session),
@@ -127,14 +126,18 @@ impl StoreViewSource {
         let Some(session) = session else {
             return Ok(no_session(ViewId::Events, &self.texts));
         };
-        let cursor =
-            whcode_app::build_snapshot(&self.conn.borrow(), &self.policy, &self.actor, session)?
-                .event_cursor;
+        let cursor = whcode_app::build_snapshot(
+            &self.conn.lock().expect("store 连接锁中毒"),
+            &self.policy,
+            &self.actor,
+            session,
+        )?
+        .event_cursor;
         let after = cursor
             .saturating_sub(i64::try_from(EVENT_TAIL).unwrap_or(i64::MAX))
             .max(0);
         let export = whcode_app::events_export(
-            &self.conn.borrow(),
+            &self.conn.lock().expect("store 连接锁中毒"),
             &self.policy,
             &self.actor,
             session,
@@ -169,7 +172,7 @@ impl StoreViewSource {
             return Ok(no_session(ViewId::Context, &self.texts));
         };
         let window = whcode_app::load_context(
-            &self.conn.borrow(),
+            &self.conn.lock().expect("store 连接锁中毒"),
             &self.policy,
             &self.actor,
             session,
@@ -208,8 +211,12 @@ impl StoreViewSource {
         let Some(session) = session else {
             return Ok(no_session(ViewId::Spec, &self.texts));
         };
-        let snapshot =
-            whcode_app::build_snapshot(&self.conn.borrow(), &self.policy, &self.actor, session)?;
+        let snapshot = whcode_app::build_snapshot(
+            &self.conn.lock().expect("store 连接锁中毒"),
+            &self.policy,
+            &self.actor,
+            session,
+        )?;
         let stage = snapshot.session.stage.as_deref().unwrap_or("[unknown]");
         let active = snapshot
             .active_task
@@ -238,7 +245,7 @@ impl StoreViewSource {
             return Ok(no_session(ViewId::Diff, &self.texts));
         };
         let view = whcode_app::overview::converge_differences(
-            &self.conn.borrow(),
+            &self.conn.lock().expect("store 连接锁中毒"),
             &self.policy,
             &self.actor,
             session,
@@ -285,16 +292,16 @@ impl ViewSource for StoreViewSource {
     }
 }
 
-/// TUI 写命令执行器（T177/FR-623）：与视图数据源共享同一条工作区连接
-/// （`Rc<RefCell>`，单线程 TUI 无并发共享；Check 98 口径——写者服务/单连接
-/// 为唯一写路径），经 `whcode-app::commands` 门面执行。
+/// TUI/GUI 写命令执行器（T177/FR-623、ADR-056 Phase 2）：与视图数据源共享同一条
+/// 工作区连接（`Arc<Mutex>`——GUI 后台执行 turn 需跨线程，互斥保证单写路径；
+/// Check 98 口径——写者服务/单连接为唯一写路径），经 `whcode-app::commands` 门面执行。
 pub struct TuiCommandExecutor {
-    conn: Rc<RefCell<Connection>>,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl TuiCommandExecutor {
     #[must_use]
-    pub fn new(conn: Rc<RefCell<Connection>>) -> Self {
+    pub fn new(conn: Arc<Mutex<Connection>>) -> Self {
         Self { conn }
     }
 }
@@ -304,7 +311,7 @@ impl whcode_app::commands::CommandExecutor for TuiCommandExecutor {
         &self,
         command: whcode_app::FrontendCommand,
     ) -> Result<whcode_app::CommandOutcome, WhError> {
-        let mut conn = self.conn.borrow_mut();
+        let mut conn = self.conn.lock().expect("store 连接锁中毒");
         whcode_app::execute_command(
             &mut conn,
             &DefaultPolicy,
@@ -353,7 +360,7 @@ mod tests {
     #[test]
     fn empty_workspace_reports_correct_emptiness() {
         let source = StoreViewSource::new(
-            std::rc::Rc::new(std::cell::RefCell::new(migrated_conn())),
+            std::sync::Arc::new(std::sync::Mutex::new(migrated_conn())),
             I18n::default(),
         );
         let sessions = source.snapshot(ViewId::Sessions, None);
@@ -367,7 +374,7 @@ mod tests {
         );
         // 英文文本层：同一快照的摘要切换语言（数据字段不翻译）。
         let english = StoreViewSource::new(
-            std::rc::Rc::new(std::cell::RefCell::new(migrated_conn())),
+            std::sync::Arc::new(std::sync::Mutex::new(migrated_conn())),
             I18n::load("en", whcode_domain::i18n::LocaleSource::Explicit),
         );
         let tasks = english.snapshot(ViewId::Tasks, None);
@@ -390,7 +397,7 @@ mod tests {
         )
         .expect("插入事件");
         let source = StoreViewSource::new(
-            std::rc::Rc::new(std::cell::RefCell::new(conn)),
+            std::sync::Arc::new(std::sync::Mutex::new(conn)),
             I18n::default(),
         );
 
@@ -447,7 +454,7 @@ mod tests {
         let conn = migrated_conn();
         seed_diff_fixture(&conn);
         let source = StoreViewSource::new(
-            std::rc::Rc::new(std::cell::RefCell::new(conn)),
+            std::sync::Arc::new(std::sync::Mutex::new(conn)),
             I18n::default(),
         );
 
@@ -474,7 +481,7 @@ mod tests {
         let english_conn = migrated_conn();
         seed_diff_fixture(&english_conn);
         let english = StoreViewSource::new(
-            std::rc::Rc::new(std::cell::RefCell::new(english_conn)),
+            std::sync::Arc::new(std::sync::Mutex::new(english_conn)),
             I18n::load("en", LocaleSource::Explicit),
         );
         let diff = english.snapshot(ViewId::Diff, Some("S-T"));
