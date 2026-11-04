@@ -671,3 +671,4 @@
   当前无已登记缺口，追溯门禁要求零断链。
 
 ---
+- [x] Check 343: [exercised] Phase 2 后台执行：turn 期间界面不冻结（`turn_running` 冻结触库交互、进度/完成/取消可达）、连接共享 `Arc/Mutex`（Send 前置，编译期证明 `gui_executors_are_send_sync`）、进度回调 `run_turn_with_progress`（`run_turn` 委托零改动）；`cargo test -p whcode-gui` ChatDone/冻结/守卫流程测试通过；审计身份 `gui-local`（来源：Task T248、ADR-056 修订记录 2026-11-05）

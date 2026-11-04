@@ -245,6 +245,29 @@ pub fn run_turn(
     request: &TurnRequest,
     now_ms: u64,
 ) -> Result<TurnOutcome, WhError> {
+    run_turn_with_progress(conn, policy, actor, context, request, None, now_ms)
+}
+
+/// 进度回调（ADR-056 Phase 2）：每收到一个流式块调用一次（参数＝本轮**累计**块数，
+/// 跨迭代累加）。回调在调用线程同步执行，必须非阻塞、不得触库——GUI 用它把块计数
+/// 经有界通道送到界面（`try_send`，满即丢弃：进度是有损信号）。
+pub type TurnProgress<'a> = &'a (dyn Fn(u64) + Send + Sync);
+
+/// [`run_turn`] 的进度版：`progress = Some` 时逐块回调（GUI 后台执行用），`None`
+/// 行为与 [`run_turn`] 完全一致（CUI／TUI／Web 与既有测试零改动）。
+///
+/// # Errors
+///
+/// 与 [`run_turn`] 相同。
+pub fn run_turn_with_progress(
+    conn: &mut duckdb::Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    context: &LlmContext<'_>,
+    request: &TurnRequest,
+    progress: Option<TurnProgress<'_>>,
+    now_ms: u64,
+) -> Result<TurnOutcome, WhError> {
     require(policy, actor, Capability::SessionCreate)?;
     let session = request.session_id.trim();
     if session.is_empty() {
@@ -425,6 +448,8 @@ pub fn run_turn(
     // user 提示词先行落表（FR-722：turn 内 user 轮次落表；预算检查据此可见本轮输入）。
     persister.flush(conn, &mut pending_events, &messages)?;
 
+    // 累计块数（跨迭代；ADR-056 Phase 2 进度回调的计数口径）。
+    let mut total_chunks: u64 = 0;
     let termination: TerminationReason = loop {
         // ── 取消检查（每轮迭代前，FR-723）────────────────────────────────
         if marker.is_cancelled() {
@@ -611,6 +636,10 @@ pub fn run_turn(
                 "index": chunk.index,
                 "chars": chars,
             );
+            total_chunks = total_chunks.saturating_add(1);
+            if let Some(progress) = progress {
+                progress(total_chunks);
+            }
             let final_chunk = chunk.final_chunk;
             if final_chunk {
                 step_finish.clone_from(&chunk.finish_reason);

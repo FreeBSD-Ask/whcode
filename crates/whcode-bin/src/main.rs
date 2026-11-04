@@ -436,8 +436,9 @@ fn gui_command(args: &[String]) -> ExitCode {
         texts,
         command_executor: executor
             .map(|item| Box::new(item) as Box<dyn whcode_app::commands::CommandExecutor>),
-        llm_executor: llm_executor
-            .map(|item| Box::new(item) as Box<dyn whcode_gui::GuiLlmExecutor>),
+        llm_executor: llm_executor.map(|item| {
+            std::sync::Arc::new(item) as std::sync::Arc<dyn whcode_gui::GuiLlmExecutor>
+        }),
     };
     match whcode_gui::run(source, options) {
         Ok(()) => ExitCode::SUCCESS,

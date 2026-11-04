@@ -23,7 +23,10 @@
   对话/面板场景全局快捷键停用（Esc 取消面板）。登记：ADR-056 立项、ADR-032 GUI 行翻转、
   FR-711/623 修订注记、T244—T247、Check 340—342、tasks 247/checks 342 全绿；
   `gui_business_writes_are_implemented_with_anchors` 等契约测试 10/10。
-  已知边界：turn 期间界面阻塞（与 TUI 同语义，ADR-056 决策 3；后台化属 Phase 2）。
+  **Phase 2（2026-11-05 交付，用户批准）**：turn 后台执行——界面不冻结（`turn_running`
+  冻结触库交互、进度/完成/取消可达）；连接共享改 `Arc/Mutex`（Send 前置，行为中性，
+  编译期证明 `gui_executors_are_send_sync`）；`run_turn_with_progress` 逐块回调
+  （界面呈现「生成中：N 块…」，有损进度）；审计身份 `gui-local`。
 - **平台证据收口：三份 ADR 转正、Check 134 转勾、台账全绿**（2026-11-03，run
   `41568982820`）：①ADR-005（SSH 入口）转正——FreeBSD/NetBSD 回环 GO（服务端四项＋
   客户端四项）＋Windows/FreeBSD **真实 sshd 互操作 GO**（`real_sshd_gate`，记录型），

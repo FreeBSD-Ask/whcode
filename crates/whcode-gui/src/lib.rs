@@ -18,6 +18,9 @@ pub mod surface_map;
 
 use std::rc::Rc;
 
+use iced::futures::StreamExt;
+use iced::futures::channel::mpsc;
+use iced::futures::channel::oneshot;
 use iced::keyboard::{Key, key};
 use iced::widget::{button, column, container, rich_text, row, scrollable, span, text, text_input};
 use iced::{
@@ -144,15 +147,24 @@ impl GuiTheme {
 /// GUI 侧 LLM 执行器（ADR-056；语义与 `whcode_tui::LlmExecutor` 一致）。
 ///
 /// 由装配根实现（包装 `TuiLlmExecutor`）：GUI 不直接依赖 `whcode-bin`，经此 trait 反转。
-pub trait GuiLlmExecutor {
-    /// 发起一次真实调用（同步；会话取 GUI 当前选中会话）。
+/// `Send + Sync` 是 Phase 2（后台执行）的硬要求：`run_with_progress` 在独立线程运行
+/// （独立线程 + `Task::stream` 有损进度通道），界面线程仅经 `cancel` 取消。
+pub trait GuiLlmExecutor: Send + Sync {
+    /// 发起一次真实调用（**阻塞至 turn 完成**；在调用方的后台线程上执行，不冻结界面）。
+    /// 会话取 GUI 当前选中会话；`progress` 逐块回调累计块数（回调必须非阻塞、有损可接受）。
     ///
     /// # Errors
     ///
     /// 剖面未注册、凭据缺失或调用失败时返回 [`WhError`]。
-    fn run(&self, session_id: &str, provider: &str, prompt: &str) -> Result<String, WhError>;
+    fn run_with_progress(
+        &self,
+        session_id: &str,
+        provider: &str,
+        prompt: &str,
+        progress: whcode_app::turn::TurnProgress<'_>,
+    ) -> Result<String, WhError>;
 
-    /// 取消同机正在运行的调用。
+    /// 取消同机正在运行的调用（取消标记目录跨线程生效；不触库、不需要连接锁）。
     ///
     /// # Errors
     ///
@@ -188,8 +200,9 @@ pub struct RunOptions {
     /// 写命令执行器（FR-623/ADR-056）：`Some` 时会话/任务/清理写操作可用；`None` 时
     /// 显式提示 `not_supported`（不静默无响应，与 TUI 同口径）。
     pub command_executor: Option<Box<dyn CommandExecutor>>,
-    /// LLM 执行器（ADR-056）：`Some` 时对话视图可用；`None` 时显式提示 `not_supported`。
-    pub llm_executor: Option<Box<dyn GuiLlmExecutor>>,
+    /// LLM 执行器（ADR-056 Phase 2）：`Some` 时对话视图可用（后台线程执行）；`None`
+    /// 时显式提示 `not_supported`。`Arc` 以便克隆进阻塞线程。
+    pub llm_executor: Option<std::sync::Arc<dyn GuiLlmExecutor>>,
 }
 
 /// 界面消息（按键、窗口事件与控件回调产生；无定时器）。
@@ -206,8 +219,12 @@ enum Message {
     ChatProviderChanged(String),
     /// 提示词输入。
     ChatInputChanged(String),
-    /// 提交一轮对话（同步 `run_turn`；执行期间界面阻塞，与 TUI 同语义）。
+    /// 提交一轮对话（Phase 2：后台线程执行 `run_turn_with_progress`，界面不冻结）。
     ChatSubmit,
+    /// turn 完成（后台线程 → oneshot → `Task::stream` 送达；`turn_running` 解除）。
+    ChatDone(Result<String, WhError>),
+    /// 流式进度（累计块数；有损——通道满即丢弃）。
+    ChatProgress(u64),
     /// 取消正在运行的调用（按请求 ID）。
     ChatCancel,
     // —— 会话/任务/清理操作（ADR-056）——
@@ -248,8 +265,14 @@ struct State {
     size: Size,
     /// 写命令执行器（`None` = 装配未接入，写操作显式提示）。
     executor: Option<Rc<dyn CommandExecutor>>,
-    /// LLM 执行器（`None` = 装配未接入，对话显式提示）。
-    llm: Option<Rc<dyn GuiLlmExecutor>>,
+    /// LLM 执行器（`None` = 装配未接入，对话显式提示）。`Arc`：ChatSubmit 时克隆进
+    /// 后台线程（Phase 2）。
+    llm: Option<std::sync::Arc<dyn GuiLlmExecutor>>,
+    /// turn 运行中（后台线程持有连接锁）：期间除进度/完成/窗口事件外的一切交互
+    /// 冻结在当前画面（数据锁被占用，冻结优于阻塞等待）。
+    turn_running: bool,
+    /// 当前 turn 的累计块数（进度回调经有损通道送达）。
+    chat_progress: u64,
     /// 对话视图：剖面名（默认取执行器剖面清单首项）。
     chat_provider: String,
     /// 对话视图：提示词输入。
@@ -270,7 +293,7 @@ impl State {
         texts: I18n,
         theme: GuiTheme,
         executor: Option<Rc<dyn CommandExecutor>>,
-        llm: Option<Rc<dyn GuiLlmExecutor>>,
+        llm: Option<std::sync::Arc<dyn GuiLlmExecutor>>,
     ) -> Self {
         let snapshot = source.snapshot(ViewId::Sessions, None);
         let session_ids = snapshot
@@ -293,6 +316,8 @@ impl State {
             size: WINDOW_SIZE,
             executor,
             llm,
+            turn_running: false,
+            chat_progress: 0,
             chat_provider,
             chat_input: String::new(),
             chat_last: None,
@@ -399,7 +424,7 @@ pub fn run(source: Box<dyn ViewSource>, options: RunOptions) -> iced::Result {
     } = options;
     // 执行器以 Rc 共享进状态闭包（iced 的状态构造器要求可重复调用；Rc 克隆即可）。
     let executor_shared: Option<Rc<dyn CommandExecutor>> = command_executor.map(Rc::from);
-    let llm_shared: Option<Rc<dyn GuiLlmExecutor>> = llm_executor.map(Rc::from);
+    let llm_shared: Option<std::sync::Arc<dyn GuiLlmExecutor>> = llm_executor;
 
     let mut app = iced::application(
         move || {
@@ -480,7 +505,34 @@ fn rich_line(line: &str, mono: bool, size: f32) -> Element<'static, Message> {
 }
 
 fn update(state: &mut State, message: Message) -> Task<Message> {
+    // turn 运行中：后台线程持有连接锁——除进度/完成/窗口事件外的一切消息冻结在
+    // 当前画面（任何触库操作都会阻塞等待锁，冻结优于卡死；完成后自动刷新）。
+    if state.turn_running {
+        match message {
+            Message::ChatProgress(count) => state.chat_progress = count,
+            Message::ChatDone(result) => {
+                state.turn_running = false;
+                state.chat_progress = 0;
+                match result {
+                    Ok(summary) => {
+                        state.chat_last = Some(summary);
+                        state.prepare();
+                    }
+                    Err(err) => {
+                        state.chat_last =
+                            Some(format!("{}: {err}", state.texts.resolve("gui.chat.error")));
+                    }
+                }
+            }
+            Message::Resized(size) => state.size = size,
+            _ => {}
+        }
+        return Task::none();
+    }
     match message {
+        Message::ChatProgress(_) | Message::ChatDone(_) => {
+            // turn 未在运行（完成后送达的尾消息），无状态可更新。
+        }
         Message::SelectView(view) => {
             state.view = view;
             state.prepare();
@@ -562,7 +614,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::ChatProviderChanged(value) => state.chat_provider = value,
         Message::ChatInputChanged(value) => state.chat_input = value,
-        Message::ChatSubmit => chat_submit(state),
+        Message::ChatSubmit => return chat_submit(state),
         Message::ChatCancel => chat_cancel(state),
         Message::OpInputChanged(value) => state.op_input = value,
         Message::OpStart(mode) => {
@@ -584,18 +636,21 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
 }
 
 /// 对话提交（ADR-056）：同步 `run_turn`——执行期间界面阻塞，与 TUI 同语义。
-fn chat_submit(state: &mut State) {
-    let Some(llm) = state.llm.as_ref() else {
+/// 对话提交（ADR-056 Phase 2）：后台线程执行 `run_turn_with_progress`，界面不冻结。
+/// 进度经有界通道 `try_send` 送达（满即丢弃——进度是有损信号）；完成消息经 oneshot
+/// 保证送达。执行期间 `turn_running` 冻结其余交互。
+fn chat_submit(state: &mut State) -> Task<Message> {
+    let Some(llm) = state.llm.clone() else {
         state.chat_last = Some(state.texts.resolve("gui.chat.not_supported").to_string());
-        return;
+        return Task::none();
     };
     if state.chat_input.trim().is_empty() {
         state.chat_last = Some(state.texts.resolve("gui.chat.empty").to_string());
-        return;
+        return Task::none();
     }
     let Some(session) = state.selected_session() else {
         state.chat_last = Some(state.texts.resolve("gui.chat.none").to_string());
-        return;
+        return Task::none();
     };
     let provider = if state.chat_provider.trim().is_empty() {
         llm.profiles().into_iter().next().unwrap_or_default()
@@ -603,16 +658,29 @@ fn chat_submit(state: &mut State) {
         state.chat_provider.trim().to_string()
     };
     let prompt = std::mem::take(&mut state.chat_input);
-    match llm.run(&session, &provider, &prompt) {
-        Ok(summary) => {
-            state.chat_last = Some(summary);
-            // turn 已产生事件与消息：显式刷新对齐（FR-624 的 GUI 手动刷新语义）。
-            state.prepare();
+    state.turn_running = true;
+    state.chat_progress = 0;
+    let (progress_tx, progress_rx) = mpsc::channel::<Message>(8);
+    let (done_tx, done_rx) = oneshot::channel::<Result<String, WhError>>();
+    std::thread::spawn(move || {
+        let progress = |count: u64| {
+            // 有界通道 try_send（&mut self，故每次克隆 Sender 保持 Fn）；满即丢弃
+            // （进度是有损信号；完成消息走 oneshot 保证送达）。
+            let mut sender = progress_tx.clone();
+            let _ = sender.try_send(Message::ChatProgress(count));
+        };
+        let result = llm.run_with_progress(&session, &provider, &prompt, &progress);
+        let _ = done_tx.send(result);
+    });
+    let done_stream = iced::futures::stream::once(async move {
+        match done_rx.await {
+            Ok(result) => Message::ChatDone(result),
+            Err(_) => Message::ChatDone(Err(WhError::invalid_state(
+                "对话完成通道关闭（后台线程提前终止）",
+            ))),
         }
-        Err(err) => {
-            state.chat_last = Some(format!("{}: {err}", state.texts.resolve("gui.chat.error")));
-        }
-    }
+    });
+    Task::stream(progress_rx.chain(done_stream))
 }
 
 /// 取消正在运行的调用（请求 ID 取上次摘要中的 `request_id=…`，与 TUI 同口径）。
@@ -888,7 +956,7 @@ fn read_body(state: &State, mono: bool) -> Element<'_, Message> {
 /// 对话视图（ADR-056）：剖面 + 提示词 + 发送/取消 + 最近结果。
 fn chat_panel(state: &State) -> Element<'_, Message> {
     let provider_input = text_input(
-        state.texts.resolve("gui.chat.prompt.placeholder"),
+        state.texts.resolve("gui.chat.provider.placeholder"),
         state.chat_provider.as_str(),
     )
     .on_input(Message::ChatProviderChanged)
@@ -903,25 +971,34 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     .on_submit(Message::ChatSubmit)
     .padding(6)
     .width(Length::Fill);
+    // turn 运行中：发送禁用（面板开新 turn 会与连接锁竞争）、取消保持可用
+    // （取消经标记目录跨线程生效，不触库）；状态行呈现运行进度或最近结果。
     let send = button(rich_line(state.texts.resolve("gui.chat.send"), false, 14.0))
-        .on_press_maybe(state.llm.as_ref().map(|_| Message::ChatSubmit))
+        .on_press_maybe((!state.turn_running && state.llm.is_some()).then_some(Message::ChatSubmit))
         .padding(6);
     let cancel = button(rich_line(
         state.texts.resolve("gui.chat.cancel"),
         false,
         14.0,
     ))
-    .on_press(Message::ChatCancel)
+    .on_press_maybe(state.turn_running.then_some(Message::ChatCancel))
     .padding(6);
-    let last = state
-        .chat_last
-        .as_deref()
-        .map(|text| {
-            state
-                .texts
-                .resolve_fmt("gui.chat.last", &[("summary", text)])
-        })
-        .unwrap_or_else(|| state.texts.resolve("gui.chat.hint").to_string());
+    let last = if state.turn_running {
+        state.texts.resolve_fmt(
+            "gui.chat.progress",
+            &[("chunks", &state.chat_progress.to_string())],
+        )
+    } else {
+        state
+            .chat_last
+            .as_deref()
+            .map(|text| {
+                state
+                    .texts
+                    .resolve_fmt("gui.chat.last", &[("summary", text)])
+            })
+            .unwrap_or_else(|| state.texts.resolve("gui.chat.hint").to_string())
+    };
     column![
         rich_line(provider_label, false, 14.0),
         provider_input,
@@ -1310,5 +1387,144 @@ mod tests {
             assert_eq!(normal.border, Border::default(), "侧栏不得加边框");
             assert_eq!(normal.shadow, Shadow::default(), "侧栏不得加阴影");
         }
+    }
+
+    /// Phase 2 测试桩：记录调用的 LLM 执行器（不触库）。
+    struct StubLlm {
+        fail: bool,
+    }
+    impl GuiLlmExecutor for StubLlm {
+        fn run_with_progress(
+            &self,
+            _session_id: &str,
+            _provider: &str,
+            _prompt: &str,
+            progress: whcode_app::turn::TurnProgress<'_>,
+        ) -> Result<String, WhError> {
+            progress(1);
+            progress(2);
+            if self.fail {
+                return Err(WhError::invalid_state("stub 失败"));
+            }
+            Ok("provider=stub chunks=2 completed=true request_id=R-1".to_string())
+        }
+
+        fn cancel(&self, _request_id: &str) -> Result<String, WhError> {
+            Ok("cancelled".to_string())
+        }
+
+        fn profiles(&self) -> Vec<String> {
+            vec!["stub".to_string()]
+        }
+    }
+
+    fn interactive_state(fail: bool) -> State {
+        let source: Rc<dyn ViewSource> = Rc::new(whcode_app::view_source::EmptyViewSource);
+        let mut state = State::new(
+            source,
+            I18n::default(),
+            GuiTheme::EinkDay,
+            None,
+            Some(std::sync::Arc::new(StubLlm { fail })),
+        );
+        // 预置选中会话（对话提交的前置）。
+        state.session_ids = vec!["S-1".to_string()];
+        state.selected = Some(0);
+        state.chat_input = "提示词".to_string();
+        state
+    }
+
+    /// Phase 2：ChatDone 正确解除 turn_running 并落结果（成功路径）。
+    #[test]
+    fn chat_done_clears_running_and_records_summary() {
+        let mut state = interactive_state(false);
+        state.turn_running = true;
+        let _ = update(
+            &mut state,
+            Message::ChatDone(Ok("provider=stub chunks=2 completed=true".to_string())),
+        );
+        assert!(!state.turn_running, "完成后必须解除运行态");
+        assert!(
+            state
+                .chat_last
+                .as_deref()
+                .is_some_and(|text| text.contains("provider=stub")),
+            "完成后必须呈现摘要：{:?}",
+            state.chat_last
+        );
+    }
+
+    /// Phase 2：ChatDone 错误路径同样解除运行态（不把失败伪装成成功）。
+    #[test]
+    fn chat_done_error_clears_running_and_records_error() {
+        let mut state = interactive_state(true);
+        state.turn_running = true;
+        let _ = update(
+            &mut state,
+            Message::ChatDone(Err(WhError::invalid_state("失败"))),
+        );
+        assert!(!state.turn_running, "失败后必须解除运行态");
+        assert!(
+            state
+                .chat_last
+                .as_deref()
+                .is_some_and(|text| text.contains("失败")),
+            "失败必须可见：{:?}",
+            state.chat_last
+        );
+    }
+
+    /// Phase 2：turn 运行中冻结交互（视图切换/刷新被忽略），进度可见。
+    #[test]
+    fn turn_running_freezes_interactions_and_shows_progress() {
+        let mut state = interactive_state(false);
+        state.turn_running = true;
+        state.chat_progress = 7;
+        let _ = update(&mut state, Message::SelectView(ViewId::Tasks));
+        let _ = update(&mut state, Message::Refresh);
+        let _ = update(&mut state, Message::ChatProgress(9));
+        assert_eq!(state.view, ViewId::Sessions, "运行中不得切换视图");
+        assert_eq!(state.chat_progress, 9, "进度必须更新");
+        assert!(state.turn_running, "进度不得解除运行态");
+    }
+
+    /// Phase 2：ChatSubmit 设运行态；无执行器/无会话/空提示词显式提示且不进入运行态。
+    #[test]
+    fn chat_submit_guards_are_explicit() {
+        let mut state = interactive_state(false);
+        state.llm = None;
+        let _ = update(&mut state, Message::ChatSubmit);
+        assert!(
+            state
+                .chat_last
+                .as_deref()
+                .is_some_and(|text| text.contains("not_supported")),
+            "无执行器必须显式提示：{:?}",
+            state.chat_last
+        );
+
+        let mut state = interactive_state(false);
+        state.chat_input = "  ".to_string();
+        let _ = update(&mut state, Message::ChatSubmit);
+        assert!(
+            state
+                .chat_last
+                .as_deref()
+                .is_some_and(|text| text.contains("为空")),
+            "空提示词必须显式提示：{:?}",
+            state.chat_last
+        );
+
+        let mut state = interactive_state(false);
+        state.selected = None;
+        let _ = update(&mut state, Message::ChatSubmit);
+        assert!(
+            state
+                .chat_last
+                .as_deref()
+                .is_some_and(|text| text.contains("未选择会话")),
+            "无会话必须显式提示：{:?}",
+            state.chat_last
+        );
     }
 }

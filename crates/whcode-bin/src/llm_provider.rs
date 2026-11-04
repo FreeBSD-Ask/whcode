@@ -235,11 +235,46 @@ impl TuiLlmExecutor {
     }
 }
 
-/// GUI 侧适配（ADR-056）：同一执行器实现 GUI 的 [`whcode_gui::GuiLlmExecutor`]，
-/// 语义逐条对齐 TUI（同步 run／cancel + 剖面清单）。
+/// GUI 侧适配（ADR-056 Phase 2）：同一执行器实现 GUI 的 [`whcode_gui::GuiLlmExecutor`]。
+/// turn 在调用线程运行（GUI 的后台线程）；审计身份 `gui-local`（与 tui-local 同权，
+/// 区分来源供审计）；进度回调直通 `run_turn_with_progress`。
 impl whcode_gui::GuiLlmExecutor for TuiLlmExecutor {
-    fn run(&self, session_id: &str, provider: &str, prompt: &str) -> Result<String, WhError> {
-        whcode_tui::LlmExecutor::run(self, session_id, provider, prompt)
+    fn run_with_progress(
+        &self,
+        session_id: &str,
+        provider: &str,
+        prompt: &str,
+        progress: whcode_app::turn::TurnProgress<'_>,
+    ) -> Result<String, WhError> {
+        let outcome = whcode_app::turn::run_turn_with_progress(
+            &mut self.conn.lock().expect("store 连接锁中毒"),
+            &whcode_app::DefaultPolicy,
+            &whcode_app::actor_with_all_capabilities("gui-local"),
+            &self.llm.context(),
+            &whcode_app::turn::TurnRequest {
+                session_id: session_id.to_string(),
+                provider: provider.to_string(),
+                prompt: prompt.to_string(),
+                model: None,
+                max_tokens: None,
+                request_id: None,
+                iterations_limit: None,
+                budget_tokens: None,
+                workspace_root: Some(self.workspace.clone()),
+                depth: 0,
+            },
+            Some(progress),
+            now_ms(),
+        )?;
+        Ok(format!(
+            "provider={} model={} chunks={} completed={} truncated={} request_id={}",
+            outcome.provider,
+            outcome.model,
+            outcome.chunks.len(),
+            outcome.completed,
+            outcome.truncated,
+            outcome.request_id,
+        ))
     }
 
     fn cancel(&self, request_id: &str) -> Result<String, WhError> {
@@ -249,6 +284,15 @@ impl whcode_gui::GuiLlmExecutor for TuiLlmExecutor {
     fn profiles(&self) -> Vec<String> {
         self.profile_names()
     }
+}
+
+/// Phase 2 硬前提的编译期证明：GUI 后台执行要求执行器与数据源可跨线程（Send + Sync）。
+#[test]
+fn gui_executors_are_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<TuiLlmExecutor>();
+    assert_send_sync::<crate::store_source::TuiCommandExecutor>();
+    assert_send_sync::<crate::store_source::StoreViewSource>();
 }
 
 #[cfg(test)]

@@ -1388,3 +1388,4 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 - [x] T245 [P] [US11] GUI 对话视图：第 7 视图（`ViewId::Chat`）——剖面输入 + 提示词输入 + 发送/取消 + 最近结果；`GuiLlmExecutor` trait（bin 侧 `TuiLlmExecutor` 适配），`run_turn` 同步语义与 TUI/CUI/Web 一致（ADR-056 决策 1、3；FR-718）
 - [x] T246 [P] [US11] GUI 写命令面板：会话 new/rename（输入确认）、archive/delete（预览→确认两段式）、清理 purge（预览→确认，截止天数输入）、任务 retry/abort（任务行按钮）；全部经 `CommandExecutor` 唯一门面，未接入时显式 `not_supported`（ADR-056 决策 1；FR-623）
 - [x] T247 [US11] GUI 键盘门控与测试：全局快捷键在对话/面板场景停用（Esc 取消面板）、`1`—`7` 切换、对话/写流单测、ADR-027 预算探针复核（gui-probe 四主题 + 资源在 CI 复核）（ADR-056 复审触发）
+- [x] T248 [US11] ADR-056 Phase 2（用户批准「不计成本」）：GUI turn 后台执行——连接共享 `Rc/RefCell` → `Arc/Mutex`（Send 前置，行为中性）、`chat_submit` → `std::thread` + `Task::stream`（有损进度 + oneshot 完成保证送达）、`turn_running` 冻结触库交互（完成后自动刷新）、`run_turn_with_progress` 逐块回调（whcode-app 层新增，`run_turn` 委托零改动）、`gui_executors_are_send_sync` 编译期证明；审计身份 `gui-local`（ADR-056 修订记录；FR-718/FR-624）

@@ -96,3 +96,24 @@ GUI v1（FR-711）是只读六视图浏览器：能看、能选、能刷新，�
 - 后台执行 turn（`Arc<Mutex<Connection>>` 装配改造）＋对话流式增量呈现；
 - GUI 事件视图的游标推进（FR-624 的 GUI 侧从手动刷新到游标可见）；
 - TUI 对话视图的输入整合（当前为全局输入模式）。
+
+## 修订记录
+
+- **2026-11-05（Phase 2 交付，用户批准「批准补遗，不计成本，立刻进行」）**：
+  ①**后台执行**：`chat_submit` 改为 `std::thread` + `iced::Task::stream`（mpsc 有损进度
+  + oneshot 完成保证送达），turn 期间 `turn_running` 冻结触库交互（连接锁被后台线程
+  持有；进度/完成/取消/窗口事件仍可达）；决策 3 的「同步阻塞」被本修订取代——取消经
+  标记目录跨线程生效（不触库、不需要连接锁）。
+  ②**连接共享**：`Rc<RefCell<Connection>>` → `Arc<Mutex<Connection>>`（StoreViewSource、
+  TuiCommandExecutor、TuiLlmExecutor、装配根 shared）——后台线程需要 Send；互斥保住
+  「单连接=唯一写路径」（Check 98）；行为中性（TUI 单线程语义不变，Mutex 无竞争）。
+  ③**流式进度**：`run_turn_with_progress`（whcode-app 层新增，`run_turn` 委托 None
+  零改动）——逐块回调累计块数；GUI 经 `try_send` 有损送达，界面呈现「生成中：N 块…」。
+  ④**Send/Sync 编译期证明**：`gui_executors_are_send_sync`（TuiLlmExecutor／
+  TuiCommandExecutor／StoreViewSource）。**审计**：GUI turn 的 actor 为 `gui-local`
+  （与 tui-local 同权、区分来源）。
+  **正负和解**：正面＝turn 期间界面不冻结、进度可见、取消可达；负面＝turn 期间其余
+  视图数据冻结（连接锁被占用——完成即恢复），有损进度可能丢块（计数口径下无损意义）。
+  承担者＝GUI 用户。**复审触发**：`cargo test --locked -p whcode-gui`（ChatDone/
+  冻结/守卫流程测试）失败即复审；`gui_executors_are_send_sync` 编译失败即复审。
+  tasks T248／Check 343。
