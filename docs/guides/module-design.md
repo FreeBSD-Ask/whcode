@@ -245,11 +245,15 @@ TLS 的依赖落点是这条边界的特例（ADR-031／ADR-040）：**出站**�
 
 ### whcode-gui
 
-- **职责**：原生桌面 GUI（只读 v1，FR-711—FR-715、ADR-027）；iced + `tiny-skia` 软件光栅，
+- **职责**：原生桌面 GUI（FR-711—FR-715、ADR-027；**交互对等见 ADR-056**——对话视图
+  与会话/任务/清理写命令，turn 经后台线程执行不冻结界面）；iced + `tiny-skia` 软件光栅，
   默认不创建 GPU 上下文。
-- **依赖**：仅 `whcode-app`（只读快照 `view_source`）与 `whcode-domain`（i18n）；不触库。
-- **关键类型**：`RunOptions`、`GuiTheme`（四套精确色值，`t` 键循环切换、不重启；`terminal-green` 为纯黑底 OLED 兼容 + 荧光绿 `#00FF00`）、
-  `State`（快照 + 选择位置）。
+- **依赖**：`whcode-app`（只读快照 `view_source` + 写命令 `commands` 门面 + turn）与
+  `whcode-domain`（i18n）；不直接触库——连接由装配根注入（执行器走门面，ADR-003）。
+- **关键类型**：`RunOptions`（含 `command_executor`／`llm_executor` 注入）、`GuiTheme`
+  （四套精确色值，`t` 键循环切换、不重启；`terminal-green` 为纯黑底 OLED 兼容 + 荧光绿
+  `#00FF00`）、`State`（快照 + 选择位置 + 对话/操作状态）、`GuiLlmExecutor`
+  （Send+Sync，后台线程 `run_with_progress` 逐块进度回调）。
 - **失败模式**：窗口/渲染后端初始化失败返回 `iced::Error`；字体来自仓库内置的
   OFL 子集（FR-716／ADR-028），四类文本按字符显式分段：比例文本拉丁 Inter／CJK
   Noto Sans CJK SC，等宽文本拉丁 JetBrains Mono／CJK Sarasa Mono SC；子集缺字由

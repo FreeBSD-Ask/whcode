@@ -1223,7 +1223,9 @@ jobs:
   # 本 job 提供 CI 入口与报告；失败即信号，不用 continue-on-error 掩盖。真实桌面结论仍以
   # 交互式控制台人工证据为准（V-003、FR-714）。
   desktop:
-    if: github.event_name == 'workflow_dispatch' && inputs.desktop
+    # ADR-027 复审触发自动化（2026-11-05）：weekly schedule 与手动 dispatch 均运行——
+    # 预算（RSS/线程/句柄/CPU）与主题判定按推送期噪声口径复核；失败即复审。
+    if: (github.event_name == 'workflow_dispatch' && inputs.desktop) || github.event_name == 'schedule' 
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
