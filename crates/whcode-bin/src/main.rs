@@ -480,10 +480,11 @@ fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
     };
     // 出站信任库（ADR-040 决策 2、T191）：只建出站文件，不生成入站证书；失败不阻断界面。
     ensure_outbound_trust(&workspace, "TUI／GUI");
-    // 连接经 Rc<RefCell> 共享：视图数据源（读）与 TUI 写命令执行器（FR-623）用同一条
-    // 工作区连接（Check 98 口径：单连接为唯一写路径）；库不可用时两者皆缺（只读空源）。
+    // 连接经 Arc<Mutex> 共享（ADR-056 Phase 2）：视图数据源（读）、写命令执行器与
+    // GUI 后台 turn（FR-623）用同一条工作区连接（Check 98 口径：单连接为唯一写路径，
+    // 互斥保证不并发写）；库不可用时两者皆缺（只读空源）。
     let shared = match workspace::open_workspace_db(&workspace, &config) {
-        Ok(conn) => Some(std::rc::Rc::new(std::cell::RefCell::new(conn))),
+        Ok(conn) => Some(std::sync::Arc::new(std::sync::Mutex::new(conn))),
         Err(err) => {
             eprintln!("数据源不可用（界面以空数据源运行，视图显示“暂无数据”）：{err}");
             None
@@ -491,7 +492,7 @@ fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
     };
     let source: Box<dyn whcode_app::view_source::ViewSource> = match &shared {
         Some(conn) => Box::new(store_source::StoreViewSource::new(
-            std::rc::Rc::clone(conn),
+            std::sync::Arc::clone(conn),
             texts.clone(),
         )),
         None => Box::new(whcode_app::view_source::EmptyViewSource),
@@ -501,7 +502,7 @@ fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
     // （LLM 缺失只影响 llm 动作，界面以 not_supported 提示降级）。
     let llm_executor = match (&shared, workspace::resolve_workspace(args, &config)) {
         (Some(conn), Ok(ws)) => {
-            match crate::llm_provider::TuiLlmExecutor::from_env(&ws, std::rc::Rc::clone(conn)) {
+            match crate::llm_provider::TuiLlmExecutor::from_env(&ws, std::sync::Arc::clone(conn)) {
                 Ok(executor) => Some(executor),
                 Err(err) => {
                     eprintln!("LLM 装配不可用（llm 动作以 not_supported 提示）：{err}");

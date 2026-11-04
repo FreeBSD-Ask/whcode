@@ -154,7 +154,7 @@ impl ServeLlm {
 /// 连接与 TUI 写命令执行器共享同一条工作区连接（Check 98 口径：单连接为唯一写路径）。
 pub struct TuiLlmExecutor {
     llm: ServeLlm,
-    conn: std::rc::Rc<std::cell::RefCell<duckdb::Connection>>,
+    conn: std::sync::Arc<std::sync::Mutex<duckdb::Connection>>,
     workspace: PathBuf,
 }
 
@@ -167,7 +167,7 @@ impl TuiLlmExecutor {
     /// `llm_executor: None` 降级，不阻断界面）。
     pub fn from_env(
         workspace: &Path,
-        conn: std::rc::Rc<std::cell::RefCell<duckdb::Connection>>,
+        conn: std::sync::Arc<std::sync::Mutex<duckdb::Connection>>,
     ) -> Result<Self, WhError> {
         Ok(Self {
             llm: ServeLlm::from_env(workspace)?,
@@ -180,7 +180,7 @@ impl TuiLlmExecutor {
 impl whcode_tui::LlmExecutor for TuiLlmExecutor {
     fn run(&self, session_id: &str, provider: &str, prompt: &str) -> Result<String, WhError> {
         let outcome = whcode_app::turn::run_turn(
-            &mut self.conn.borrow_mut(),
+            &mut self.conn.lock().expect("store 连接锁中毒"),
             &whcode_app::DefaultPolicy,
             &whcode_app::actor_with_all_capabilities("tui-local"),
             &self.llm.context(),
