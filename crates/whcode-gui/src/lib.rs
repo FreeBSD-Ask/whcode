@@ -238,7 +238,7 @@ enum Message {
     /// turn 完成（后台线程 → oneshot → `Task::stream` 送达；`turn_running` 解除）。
     ChatDone(Result<String, WhError>),
     /// 流式进度（累计块数；有损——通道满即丢弃）。
-    ChatProgress(u64),
+    ChatProgress(u64, String),
     /// 取消正在运行的调用（按请求 ID）。
     ChatCancel,
     // —— 会话/任务/清理操作（ADR-056）——
@@ -287,6 +287,9 @@ struct State {
     turn_running: bool,
     /// 当前 turn 的累计块数（进度回调经有损通道送达）。
     chat_progress: u64,
+    /// 当前 turn 的流式正文缓冲（FR-741 逐块增量呈现；有界——
+    /// `CHAT_STREAMING_CAP_BYTES` 截断，turn 输出预算 1 MiB 为天然上界）。
+    chat_streaming: String,
     /// 对话视图：剖面名（默认取执行器剖面清单首项）。
     chat_provider: String,
     /// 对话视图：提示词输入。
@@ -332,6 +335,7 @@ impl State {
             llm,
             turn_running: false,
             chat_progress: 0,
+            chat_streaming: String::new(),
             chat_provider,
             chat_input: String::new(),
             chat_last: None,
@@ -523,10 +527,14 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
     // 当前画面（任何触库操作都会阻塞等待锁，冻结优于卡死；完成后自动刷新）。
     if state.turn_running {
         match message {
-            Message::ChatProgress(count) => state.chat_progress = count,
+            Message::ChatProgress(count, delta) => {
+                state.chat_progress = count;
+                append_streaming(&mut state.chat_streaming, &delta);
+            }
             Message::ChatDone(result) => {
                 state.turn_running = false;
                 state.chat_progress = 0;
+                state.chat_streaming.clear();
                 match result {
                     Ok(summary) => {
                         state.chat_last = Some(summary);
@@ -544,7 +552,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         return Task::none();
     }
     match message {
-        Message::ChatProgress(_) | Message::ChatDone(_) => {
+        Message::ChatProgress(_, _) | Message::ChatDone(_) => {
             // turn 未在运行（完成后送达的尾消息），无状态可更新。
         }
         Message::SelectView(view) => {
@@ -651,6 +659,137 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
 
 /// 对话提交（ADR-056）：同步 `run_turn`——执行期间界面阻塞，与 TUI 同语义。
 /// 对话提交（ADR-056 Phase 2）：后台线程执行 `run_turn_with_progress`，界面不冻结。
+/// 对话流式缓冲上限（FR-741 有界性；与 turn 单次输出预算 1 MiB 同量级——
+/// 达到上限即停止追加，块计数照常，截断点落在字符边界）。
+const CHAT_STREAMING_CAP_BYTES: usize = 1024 * 1024;
+/// 对话正文渲染行数上限（视图有界；超限以省略行“…”标注）。
+const CHAT_RENDER_MAX_LINES: usize = 400;
+
+/// 追加流式增量到缓冲（有界：超 `CHAT_STREAMING_CAP_BYTES` 截断并忽略后续）。
+fn append_streaming(buffer: &mut String, delta: &str) {
+    if buffer.len() >= CHAT_STREAMING_CAP_BYTES {
+        return;
+    }
+    buffer.push_str(delta);
+    if buffer.len() > CHAT_STREAMING_CAP_BYTES {
+        let mut cut = CHAT_STREAMING_CAP_BYTES;
+        while !buffer.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        buffer.truncate(cut);
+    }
+}
+
+/// FR-741 markdown 最小集（标题／无序列表／代码围栏／行内码）的行级投影——
+/// 纯函数可测；不引入第三方渲染器（零新增依赖、渲染预算可控），最小集之外的
+/// 语法按普通文本呈现（显式口径，不伪造完整 markdown 支持）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MdLineKind {
+    Heading,
+    Bullet,
+    Text,
+    Code,
+}
+
+/// 一行投影：`kind` 决定前缀与字号，`segs` 内 `bool`＝行内码（等宽字体）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MdLine {
+    kind: MdLineKind,
+    segs: Vec<(bool, String)>,
+}
+
+/// 行内切分：把 `` `code` `` 段与普通段分开（按反引号配对，奇数段为行内码）。
+fn split_inline_code(line: &str) -> Vec<(bool, String)> {
+    let mut parts = Vec::new();
+    for (index, part) in line.split('`').enumerate() {
+        if part.is_empty() {
+            continue;
+        }
+        parts.push((index % 2 == 1, part.to_string()));
+    }
+    if parts.is_empty() {
+        parts.push((false, String::new()));
+    }
+    parts
+}
+
+/// 把对话正文投影为行列表（FR-741 最小集；空行产出空 Text 行保结构）。
+fn md_project(text: &str) -> Vec<MdLine> {
+    let mut lines = Vec::new();
+    let mut in_fence = false;
+    for raw in text.lines() {
+        if raw.trim_start().starts_with("```") {
+            in_fence = !in_fence;
+            continue;
+        }
+        if in_fence {
+            lines.push(MdLine {
+                kind: MdLineKind::Code,
+                segs: vec![(true, raw.to_string())],
+            });
+            continue;
+        }
+        let trimmed = raw.trim_start();
+        let hashes = trimmed.chars().take_while(|c| *c == '#').count();
+        if (1..=6).contains(&hashes) && trimmed[hashes..].starts_with(' ') {
+            lines.push(MdLine {
+                kind: MdLineKind::Heading,
+                segs: split_inline_code(trimmed[hashes..].trim_start()),
+            });
+            continue;
+        }
+        if let Some(rest) = trimmed
+            .strip_prefix("- ")
+            .or_else(|| trimmed.strip_prefix("* "))
+        {
+            lines.push(MdLine {
+                kind: MdLineKind::Bullet,
+                segs: split_inline_code(rest),
+            });
+            continue;
+        }
+        lines.push(MdLine {
+            kind: MdLineKind::Text,
+            segs: split_inline_code(raw),
+        });
+    }
+    lines
+}
+
+/// 投影为视图元素（有界：最多 `CHAT_RENDER_MAX_LINES` 行，超限以“…”行标注）。
+fn md_elements(text: &str) -> Vec<Element<'static, Message>> {
+    let mut elements = Vec::new();
+    for line in md_project(text).into_iter().take(CHAT_RENDER_MAX_LINES) {
+        let size = match line.kind {
+            MdLineKind::Heading => 18.0,
+            _ => 14.0,
+        };
+        let mut spans: Vec<text::Span<'static, (), Font>> = Vec::new();
+        if line.kind == MdLineKind::Bullet {
+            spans.push(
+                span("• ".to_string())
+                    .font(font_for(false, false))
+                    .size(size),
+            );
+        }
+        if line.segs.is_empty() {
+            spans.push(
+                span(" ".to_string())
+                    .font(font_for(false, false))
+                    .size(size),
+            );
+        }
+        for (mono, part) in line.segs {
+            spans.push(span(part).font(font_for(false, mono)).size(size));
+        }
+        elements.push(rich_text(spans).into());
+    }
+    if md_project(text).len() > CHAT_RENDER_MAX_LINES {
+        elements.push(rich_line("…", false, 13.0));
+    }
+    elements
+}
+
 /// 进度经有界通道 `try_send` 送达（满即丢弃——进度是有损信号）；完成消息经 oneshot
 /// 保证送达。执行期间 `turn_running` 冻结其余交互。
 fn chat_submit(state: &mut State) -> Task<Message> {
@@ -674,14 +813,15 @@ fn chat_submit(state: &mut State) -> Task<Message> {
     let prompt = std::mem::take(&mut state.chat_input);
     state.turn_running = true;
     state.chat_progress = 0;
+    state.chat_streaming.clear();
     let (progress_tx, progress_rx) = mpsc::channel::<Message>(8);
     let (done_tx, done_rx) = oneshot::channel::<Result<String, WhError>>();
     std::thread::spawn(move || {
-        let progress = |count: u64| {
+        let progress = |count: u64, delta: &str| {
             // 有界通道 try_send（&mut self，故每次克隆 Sender 保持 Fn）；满即丢弃
             // （进度是有损信号；完成消息走 oneshot 保证送达）。
             let mut sender = progress_tx.clone();
-            let _ = sender.try_send(Message::ChatProgress(count));
+            let _ = sender.try_send(Message::ChatProgress(count, delta.to_string()));
         };
         let result = llm.run_with_progress(&session, &provider, &prompt, &progress);
         let _ = done_tx.send(result);
@@ -1009,31 +1149,38 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     ))
     .on_press_maybe(state.turn_running.then_some(Message::ChatCancel))
     .padding(6);
-    let last = if state.turn_running {
-        state.texts.resolve_fmt(
-            "gui.chat.progress",
-            &[("chunks", &state.chat_progress.to_string())],
-        )
+    // 正文区（FR-741）：运行中＝进度行＋流式增量（markdown 最小集投影，有界）；
+    // 完成后＝最近结果投影；未选会话＝提示。历史消息列表属 T250 后续片。
+    let mut body: Vec<Element<'_, Message>> = if state.turn_running {
+        let mut items = vec![rich_line(
+            state
+                .texts
+                .resolve_fmt(
+                    "gui.chat.progress",
+                    &[("chunks", &state.chat_progress.to_string())],
+                )
+                .as_str(),
+            false,
+            13.0,
+        )];
+        items.extend(md_elements(state.chat_streaming.as_str()));
+        items
     } else {
-        state
-            .chat_last
-            .as_deref()
-            .map(|text| {
-                state
-                    .texts
-                    .resolve_fmt("gui.chat.last", &[("summary", text)])
-            })
-            .unwrap_or_else(|| state.texts.resolve("gui.chat.hint").to_string())
+        match state.chat_last.as_deref() {
+            Some(text) => md_elements(text),
+            None => vec![rich_line(state.texts.resolve("gui.chat.hint"), false, 14.0)],
+        }
     };
+    body.push(rich_line(
+        state.texts.resolve("gui.chat.history.hint"),
+        false,
+        13.0,
+    ));
     column![
         rich_line(provider_label, false, 14.0),
         provider_input,
         row![input, send, cancel].spacing(8),
-        scrollable(column(vec![
-            rich_line(last.as_str(), false, 14.0),
-            rich_line(state.texts.resolve("gui.chat.history.hint"), false, 13.0),
-        ]))
-        .height(Length::Fill),
+        scrollable(column(body)).height(Length::Fill),
     ]
     .spacing(8)
     .into()
@@ -1451,8 +1598,8 @@ mod tests {
             _prompt: &str,
             progress: whcode_app::turn::TurnProgress<'_>,
         ) -> Result<String, WhError> {
-            progress(1);
-            progress(2);
+            progress(1, "你");
+            progress(2, "好");
             if self.fail {
                 return Err(WhError::invalid_state("stub 失败"));
             }
@@ -1524,6 +1671,81 @@ mod tests {
         );
     }
 
+    /// FR-741：进度增量逐块累积到流式缓冲；完成后清空（正文落 chat_last）。
+    #[test]
+    fn chat_progress_appends_streaming_and_done_clears_it() {
+        let mut state = interactive_state(false);
+        state.turn_running = true;
+        let _ = update(&mut state, Message::ChatProgress(1, "你".to_string()));
+        let _ = update(&mut state, Message::ChatProgress(2, "好".to_string()));
+        assert_eq!(state.chat_progress, 2);
+        assert_eq!(state.chat_streaming, "你好");
+        let _ = update(
+            &mut state,
+            Message::ChatDone(Ok("provider=stub chunks=2".to_string())),
+        );
+        assert!(state.chat_streaming.is_empty(), "完成后缓冲必须清空");
+        assert!(
+            state
+                .chat_last
+                .as_deref()
+                .is_some_and(|text| text.contains("provider=stub")),
+        );
+    }
+
+    /// FR-741 有界性：流式缓冲超限截断且截断点落在字符边界（不得 panic）。
+    #[test]
+    fn streaming_buffer_is_bounded_on_char_boundary() {
+        let mut buffer = String::new();
+        let cjk_chunk = "你好世界".repeat(64);
+        for _ in 0..((CHAT_STREAMING_CAP_BYTES / cjk_chunk.len()) + 8) {
+            append_streaming(&mut buffer, &cjk_chunk);
+        }
+        assert!(
+            buffer.len() <= CHAT_STREAMING_CAP_BYTES,
+            "缓冲必须有界：{}",
+            buffer.len()
+        );
+        assert!(buffer.is_char_boundary(buffer.len()));
+    }
+
+    /// FR-741 markdown 最小集投影：标题／无序列表／代码围栏／行内码；其余按普通文本。
+    #[test]
+    fn md_project_covers_minimal_markdown() {
+        let text =
+            "# 标题\n\n- 项目 `code` 一\n* 项目二\n```rust\nlet a = 1;\n```\n普通 `行内` 文本";
+        let lines = md_project(text);
+        assert_eq!(lines.len(), 6, "空行产出空 Text 行：{lines:?}");
+        assert_eq!(lines[0].kind, MdLineKind::Heading);
+        assert_eq!(lines[0].segs, vec![(false, "标题".to_string())]);
+        assert_eq!(lines[1].kind, MdLineKind::Text);
+        assert_eq!(lines[2].kind, MdLineKind::Bullet);
+        assert_eq!(
+            lines[2].segs,
+            vec![
+                (false, "项目 ".to_string()),
+                (true, "code".to_string()),
+                (false, " 一".to_string())
+            ]
+        );
+        assert_eq!(lines[3].kind, MdLineKind::Bullet);
+        assert_eq!(lines[4].kind, MdLineKind::Code);
+        assert_eq!(lines[4].segs, vec![(true, "let a = 1;".to_string())]);
+        assert_eq!(lines[5].kind, MdLineKind::Text);
+    }
+
+    /// FR-741 有界渲染：超过 CHAT_RENDER_MAX_LINES 行时以“…”行标注。
+    #[test]
+    fn md_elements_caps_rendered_lines() {
+        let text = "- 项\n".repeat(CHAT_RENDER_MAX_LINES + 25);
+        let elements = md_elements(text.as_str());
+        assert_eq!(
+            elements.len(),
+            CHAT_RENDER_MAX_LINES + 1,
+            "渲染行必须封顶并以省略行标注"
+        );
+    }
+
     /// Phase 2：turn 运行中冻结交互（视图切换/刷新被忽略），进度可见。
     #[test]
     fn turn_running_freezes_interactions_and_shows_progress() {
@@ -1532,7 +1754,7 @@ mod tests {
         state.chat_progress = 7;
         let _ = update(&mut state, Message::SelectView(ViewId::Tasks));
         let _ = update(&mut state, Message::Refresh);
-        let _ = update(&mut state, Message::ChatProgress(9));
+        let _ = update(&mut state, Message::ChatProgress(9, String::new()));
         assert_eq!(state.view, ViewId::Sessions, "运行中不得切换视图");
         assert_eq!(state.chat_progress, 9, "进度必须更新");
         assert!(state.turn_running, "进度不得解除运行态");

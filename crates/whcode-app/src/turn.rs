@@ -248,10 +248,11 @@ pub fn run_turn(
     run_turn_with_progress(conn, policy, actor, context, request, None, now_ms)
 }
 
-/// 进度回调（ADR-056 Phase 2）：每收到一个流式块调用一次（参数＝本轮**累计**块数，
-/// 跨迭代累加）。回调在调用线程同步执行，必须非阻塞、不得触库——GUI 用它把块计数
-/// 经有界通道送到界面（`try_send`，满即丢弃：进度是有损信号）。
-pub type TurnProgress<'a> = &'a (dyn Fn(u64) + Send + Sync);
+/// 进度回调（ADR-056 Phase 2；FR-741 扩展增量正文）：每收到一个流式块调用一次
+/// （参数＝本轮**累计**块数与本块正文增量，跨迭代累加）。回调在调用线程同步执行，
+/// 必须非阻塞、不得触库——GUI 用它把块计数与增量正文经有界通道送到界面
+/// （`try_send`，满即丢弃：进度是有损信号；增量缓冲上限由调用方负责）。
+pub type TurnProgress<'a> = &'a (dyn Fn(u64, &str) + Send + Sync);
 
 /// [`run_turn`] 的进度版：`progress = Some` 时逐块回调（GUI 后台执行用），`None`
 /// 行为与 [`run_turn`] 完全一致（CUI／TUI／Web 与既有测试零改动）。
@@ -638,7 +639,7 @@ pub fn run_turn_with_progress(
             );
             total_chunks = total_chunks.saturating_add(1);
             if let Some(progress) = progress {
-                progress(total_chunks);
+                progress(total_chunks, &chunk.text);
             }
             let final_chunk = chunk.final_chunk;
             if final_chunk {
