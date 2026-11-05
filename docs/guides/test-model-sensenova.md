@@ -122,6 +122,27 @@ SenseNova 6.8 Flash Lite（`sensenova-6.8-flash-lite`）是轻量级**原生多�
 `tools`/`tool_choice`/`tool_call_id`/`role:"tool"` 全链路可用，P0-2 工具系统 ADR 无需
 JSON 协议模拟或换供应商方案。
 
+### 6.2 函数调用补遗（2026-11-05，长线计划 B1）
+
+用 `local/probe_sensenova_b1.py`（探针不入库）补三场景 + thinking 开关对照：
+
+| 用例 | tool_choice | thinking | 结果 |
+|---|---|---|---|
+| P1 `tool_choice: "required"` | `"required"` | enabled | 200；`tool_calls`（read_file，参数正确）；`reasoning_content: None` |
+| P2 指定函数名 read_file | `{"type":"function","function":{"name":"read_file"}}` | enabled | 200；正确调用 read_file；`reasoning_content: None` |
+| P3 指定函数名 list_dir | 同上但 `list_dir` | enabled | 200；正确调用 **list_dir**（非 read_file）——**指定≠首个**；`reasoning_content: None` |
+| P4 required + thinking off | `"required"` | disabled | 200；`tool_calls` 正常（thinking off 不阻塞工具调用）；`reasoning_content: None` |
+
+**结论**：`tool_choice: "required"` 与指定函数名**原生可用**；指定 list_dir 时正确选择
+非首函数——工具排序无关、指定生效。`reasoning_content` 在 tool_calls 响应中始终为 None
+（4 场景 + thinking 开/关均如此，与 §6.1 T1 观察一致）——**确认为该模型在工具调用
+路径上的稳定行为**，不再标 `[待验证]`。
+
+**行为观察（更新）**：
+- ~~tool_calls 响应未见 `reasoning_content`~~ → **已确认**（6.2 四场景复现，thinking 开/关均无）；
+- `tool_choice: "none"` 时 prompt 用量偏低 → 维持 `[待验证]`；
+- content 为空/换行（工具调用正文为空） → 维持（6.2 全部复现）。
+
 **行为观察（标 `[待验证]`，是否一致复现未多次采样）**：
 
 - `tool_choice: "none"` 时 prompt 用量 56 tokens（对照含工具定义的 403—475），
