@@ -756,13 +756,16 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 **主题保证铁律**（amoled-night 纯黑／eink 口径／terminal-green 四套主题不可稀释）
 为全程前置，四套主题 hex 断言为每批结题前置。
 
-- [ ] T249 [P] 批次 R：ZCode UI 体验层勘察与视觉规格提取——产出
+- [x] T249 [P] 批次 R：ZCode UI 体验层勘察与视觉规格提取——产出
   `research/zcode-comparison/domain-M2-ui-experience.md`（对话流信息架构／工具卡状态机／
   审批四态流／todo 面板／diff 呈现／高级面板／视觉 token 草表）＋ zcode-day/night
   精确色值提案（基线 `local/zcode-src`@3c5b227；勘误与存疑按三次复查标注）（FR-739/740
   依据；ADR-057）——**任务认知卡**：方向=把体验差距变成可勘察清单；目标=domain-M2
   报告＋色值提案冻结待批；判据=七个勘察面逐项有 ZCode 源码锚点、色值有 hex 证据；
-  非目标=任何实现（实现归 B1—B5）
+  非目标=任何实现（实现归 B1—B5）——**复核（2026-11-06）**：domain-M2 七面成文
+  （189 行，结论均带 `local/zcode-src`@3c5b2276 源码锚点，[待验证] 5 项显式登记），
+  zcode-day/night 精确 hex 提案表成文（待用户批准冻结）；判据满足（七面锚点＋色值
+  hex 出处）；CI run（9211ff9，Push on main）success。
 - [ ] T250 [P] 批次 B1 GUI：对话流式渲染——`run_turn_with_progress` 逐块增量、markdown
   最小集原生渲染、消息列表有界/虚拟化、zcode 主题接入（FR-741；FR-739；ADR-057 决策 4）
   ——**任务认知卡**：方向=对话流核心 GUI 侧；目标=流式增量与 markdown 渲染可运行且
