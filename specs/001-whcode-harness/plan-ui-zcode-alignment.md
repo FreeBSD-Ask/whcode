@@ -1,9 +1,9 @@
 # GUI／Web 与 ZCode 全量体验对齐 — 实施计划
 
 - **日期**：2026-11-05
-- **状态**：**提议（待用户批准）**——本计划与 `docs/adr/ADR-057-zcode-experience-alignment.md`
-  （草案）同批送审；批准后 FR／任务／Check 草案落入 spec.md／tasks.md／checklist.md 主账本，
-  计划状态改为“已批准并入库”。
+- **状态**：**已批准并入库（2026-11-05 用户“全部批准”）**——FR-739—753／T249—T263／
+  Check 344—358 已于同日落入 spec.md／tasks.md／checklist.md 主账本；ADR-057 转正；
+  批次 R（T249）启动。
 - **来源**：`research/zcode-comparison/`（2026-10-28 入库，ZCode 基线 commit `3c5b227`）；
   域 M（前端形态）＋本次扩展的体验层勘察需求；ADR-056（GUI 交互对等，已交付 Phase 1＋2）；
   用户指令（2026-11-05）：“图形界面、web界面 要和 zcode 对齐，开启新计划书”。

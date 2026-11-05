@@ -238,3 +238,9 @@
   仍引用它）。**正负和解与复审触发**见 ADR-056。矩阵受校验产物同步再生
   （`docs/matrices/feature-parity.md`；篡改自测锚点更新为 ADR-056 后的 session.new 行）。
   状态断言：`gui_business_writes_are_implemented_with_anchors`（whcode-app::surface 契约测试）。
+
+- **2026-11-05（用户批准 ADR-057）**：**对等判据限范围修订**——在“GUI／Web 对 ZCode
+  全量体验对齐”（ADR-057，`docs/adr/ADR-057-zcode-experience-alignment.md`）范围内，
+  视觉语言与关键交互形态（对话流、工具卡、审批流、diff）升级为对等判据；
+  TUI／CUI 与其余范围仍按本 ADR 五维（业务能力、权限检查、状态迁移、错误语义、
+  可审计性）不变。登记：FR-739—753／T249—T263／Check 344—358（主账本）。
