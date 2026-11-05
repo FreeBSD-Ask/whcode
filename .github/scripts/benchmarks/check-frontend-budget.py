@@ -131,8 +131,10 @@ def main() -> int:
         "app.js",
         "suspend.js",
         "settings.js",
+        "chat.js",
         "index.html",
         "settings.html",
+        "chat.html",
         "styles.css",
     ]:
         path = FRONTEND / name
@@ -152,7 +154,7 @@ def main() -> int:
     # NFR-212：运行时路径不得创建/探测 GPU 上下文——app.js 与 settings.js 不得调用
     # getContext/probeGpu（suspend.js 的 probeGpu 是显式启用的能力探测，未被运行时路径
     # 调用；见 app.js 注释）。
-    for runtime_js in ["app.js", "settings.js"]:
+    for runtime_js in ["app.js", "settings.js", "chat.js"]:
         path = FRONTEND / runtime_js
         if not path.is_file():
             continue
@@ -174,14 +176,15 @@ def main() -> int:
         return 1
     pages = {
         name: dom_start_tags((FRONTEND / name).read_bytes())
-        for name in ["index.html", "settings.html"]
+        for name in ["index.html", "settings.html", "chat.html"]
     }
     print(
         f"前端基线通过：JS gzip app {sizes.get('app.js', 0)} B / "
-        f"settings {sizes.get('settings.js', 0)} B（各 ≤ {JS_BUDGET_BYTES}）/ "
+        f"settings {sizes.get('settings.js', 0)} B / chat {sizes.get('chat.js', 0)} B"
+        f"（各 ≤ {JS_BUDGET_BYTES}）/ "
         f"CSS gzip {sizes.get('styles.css', 0)} B（≤ {CSS_BUDGET_BYTES}）/ "
         f"DOM 起始标签 index {pages['index.html']} · settings {pages['settings.html']}"
-        f"（各 ≤ {DOM_BUDGET_NODES}），无违例"
+        f" · chat {pages['chat.html']}（各 ≤ {DOM_BUDGET_NODES}），无违例"
     )
     return 0
 

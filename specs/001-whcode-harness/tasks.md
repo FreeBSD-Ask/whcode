@@ -766,10 +766,16 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   （189 行，结论均带 `local/zcode-src`@3c5b2276 源码锚点，[待验证] 5 项显式登记），
   zcode-day/night 精确 hex 提案表成文（待用户批准冻结）；判据满足（七面锚点＋色值
   hex 出处）；CI run（9211ff9，Push on main）success。
-- [ ] T250 [P] 批次 B1 GUI：对话流式渲染——`run_turn_with_progress` 逐块增量、markdown
+- [x] T250 [P] 批次 B1 GUI：对话流式渲染——`run_turn_with_progress` 逐块增量、markdown
   最小集原生渲染、消息列表有界/虚拟化、zcode 主题接入（FR-741；FR-739；ADR-057 决策 4）
   ——**任务认知卡**：方向=对话流核心 GUI 侧；目标=流式增量与 markdown 渲染可运行且
   预算不破；判据=`cargo test -p whcode-gui`＋desktop 探针达标；非目标=审批交互（B3）
+  ——**复核（2026-11-06）**：①`TurnProgress` 扩为（累计块数，增量正文），GUI 流式
+  缓冲有界（1 MiB 字符边界）；②markdown 最小集投影（标题/列表/围栏/行内码，零新增
+  依赖，行数封顶 400）；③对话历史经 `conversation_tail`（SessionRead 判权、not_found
+  口径、max≤100）＋缓存（turn 运行期零触库）＋最近 20 条渲染；④desktop 探针在 CI
+  weekly 复核（ADR-027 预算未破）；CI run `42097323936` success，Check 346 同批取证。
+  有界替代虚拟化为 v1 显式口径。
 - [ ] T251 [P] 批次 B1 Web：对话页——WS 逐块推送、服务端直出无 JS 降级、预算审计
   （FR-742；ADR-057 决策 4）——**任务认知卡**：方向=对话流核心 Web 侧；目标=WS 增量
   呈现＋无 JS 降级等价；判据=check-frontend-budget 达标＋行为测试；非目标=审批交互（B3）

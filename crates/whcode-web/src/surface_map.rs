@@ -55,6 +55,8 @@ pub fn surface_of(method: &str, path: &str) -> Option<&'static str> {
         // ── LLM 调用（T167 接线；Web 端为已实现） ─────────────────────
         ("POST", "/api/llm/run") => Some("llm.run"),
         ("POST", "/api/llm/cancel") => Some("llm.cancel"),
+        // ── 对话历史（T251/FR-742；view.chat Web 端为已实现） ─────────
+        ("GET", "/api/chat/tail") => Some("view.chat"),
         // ── 保留守卫路径（预留／排除；Task 172 统一 501 not_supported） ─
         (_, "/api/events/show") => Some("events.show"),
         (_, "/api/spec/next") => Some("spec.next"),
@@ -146,6 +148,8 @@ mod tests {
             // LLM 调用（T167）：CUI／Web 已接线；TUI 仍预留、GUI 只读排除。
             ("POST", "/api/llm/run", "llm.run"),
             ("POST", "/api/llm/cancel", "llm.cancel"),
+            // 对话历史（T251）：view.chat 读面。
+            ("GET", "/api/chat/tail", "view.chat"),
         ];
         for (method, path, id) in routes {
             assert_eq!(surface_of(method, path), Some(id), "{method} {path}");

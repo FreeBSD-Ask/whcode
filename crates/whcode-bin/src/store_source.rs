@@ -296,6 +296,8 @@ impl ViewSource for StoreViewSource {
         // 错误可见性由命令面承担（与 cursor 的 .ok() 口径一致）。
         whcode_app::llm::conversation_tail(
             &self.conn.lock().expect("store 连接锁中毒"),
+            &self.policy,
+            &self.actor,
             session_id,
             max,
         )

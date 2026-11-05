@@ -681,19 +681,23 @@ pub struct ConversationEntry {
 }
 
 /// 会话对话尾部（时间正序；GUI 对话历史与 Web 对话页共用，FR-741／FR-742）。
+/// 权限＝`SessionRead`（对话正文属会话读面，与 `show_session` 同档）。
 ///
 /// 会话不存在 → `not_found`（不把不存在的会话伪装成“正确的空”，FR-622 口径）；
 /// 存在但尚无消息 → 空列表（正确的空）。SQL 只在 store（ADR-018）。
 ///
 /// # Errors
 ///
-/// 会话不存在、`max` 为 0 或超过 [`MAX_CONVERSATION_TAIL`]、数据库查询失败时
-/// 返回 [`WhError`]。
+/// 权限不足、会话不存在、`max` 为 0 或超过 [`MAX_CONVERSATION_TAIL`]、数据库
+/// 查询失败时返回 [`WhError`]。
 pub fn conversation_tail(
     conn: &duckdb::Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
     session_id: &str,
     max: usize,
 ) -> Result<Vec<ConversationEntry>, WhError> {
+    require(policy, actor, Capability::SessionRead)?;
     let session = session_id.trim();
     if session.is_empty() {
         return Err(WhError::invalid_state("对话尾部需要非空 session ID"));

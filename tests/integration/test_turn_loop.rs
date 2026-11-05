@@ -226,9 +226,14 @@ fn conversation_tail_rebuilds_history_and_rejects_unknown_session() {
     )
     .expect("turn 完成");
 
-    let entries =
-        whcode_app::llm::conversation_tail(&conn, &id, whcode_app::llm::MAX_CONVERSATION_TAIL)
-            .expect("对话尾部可读");
+    let entries = whcode_app::llm::conversation_tail(
+        &conn,
+        &DefaultPolicy,
+        &actor_with_all_capabilities("turn-itest"),
+        &id,
+        whcode_app::llm::MAX_CONVERSATION_TAIL,
+    )
+    .expect("对话尾部可读");
     assert!(
         entries
             .iter()
@@ -250,8 +255,14 @@ fn conversation_tail_rebuilds_history_and_rejects_unknown_session() {
         .expect("assistant 存在");
     assert!(user_index < assistant_index, "尾部必须时间正序");
 
-    let err = whcode_app::llm::conversation_tail(&conn, "S-NOPE", 50)
-        .expect_err("不存在的会话必须 not_found");
+    let err = whcode_app::llm::conversation_tail(
+        &conn,
+        &DefaultPolicy,
+        &actor_with_all_capabilities("turn-itest"),
+        "S-NOPE",
+        50,
+    )
+    .expect_err("不存在的会话必须 not_found");
     assert_eq!(err.code, whcode_domain::ErrorCode::NotFound);
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -13,6 +13,19 @@
 
 ### 变更
 
+- **对话流式渲染与历史（T250/FR-741）＋Web 对话页（T251/FR-742）**（2026-11-06，
+  ADR-057 批次 B1）：①`TurnProgress` 回调扩展为（累计块数，增量正文）——GUI 对话
+  增量呈现、流式缓冲有界（1 MiB 字符边界截断）；②GUI markdown 最小集投影（标题/
+  列表/代码围栏/行内码，零新增依赖，渲染行封顶 400）；③GUI 对话历史：消息读取面
+  `whcode_app::llm::conversation_tail`（SessionRead 判权、Backward 取尾、not_found
+  口径、max ≤ 100）＋历史缓存（turn 运行期零触库）＋最近 20 条渲染；④Web 对话页
+  `/chat?session=…`：服务端直出历史尾部（HTML 转义、认证分支不注入数据）、
+  `GET /api/chat/tail`（view.chat 判权）＋`chat.js` 渐进增强发送（`/api/llm/run`
+  同步语义与 CUI/TUI 一致）、无 JS 只读降级；⑤前端预算审计纳入 chat 资产
+  （chat.js gzip 1212 B、chat.html DOM 20）。**剩余项**：WS 逐块增量（serve_loop
+  单线程多路复用，需并发设计档案）。Check 346 已取证（CI run `42097323936`）、
+  347 待 WS 增量后闭。
+
 - **主题层扩展：zcode-day／zcode-night 新增并冻结，默认主题切换**（2026-11-06，
   T252/FR-739—740、ADR-057，用户批准）：①六套主题齐备（TUI/GUI/Web）——既有四套
   铁律色值（amoled-night/eink-day/eink-night/terminal-green）一个不动；zcode 系精确

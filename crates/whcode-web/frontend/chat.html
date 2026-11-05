@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>对话</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="app-bar">
+    <h1>对话</h1>
+    <nav class="app-bar__nav">
+      <a href="/">返回会话</a>
+    </nav>
+  </header>
+  <main id="chat-main">
+    <!-- WHCODE_CHAT_HISTORY -->
+    <noscript><p>当前为无 JavaScript 只读视图：发送需启用脚本（历史仍完整可读）。</p></noscript>
+  </main>
+  <form id="chat-form" hidden>
+    <input id="chat-provider" type="text" required placeholder="剖面名（必填，与 CUI/Web 同一口径）">
+    <input id="chat-prompt" type="text" required placeholder="提示词">
+    <button type="submit">发送</button>
+    <output id="chat-status" role="status"></output>
+  </form>
+  <script type="module" src="/chat.js"></script>
+</body>
+</html>

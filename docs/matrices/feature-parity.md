@@ -91,6 +91,10 @@ CUI 退出码 **55**、Web **HTTP 501**；未登记路径仍为 404（ADR-032 �
 `POST /api/sessions/*`、`/api/tasks/*`、`/api/purge`（预览默认 + 确认执行）与
 `POST /api/certs/*`（档位、根证书、服务端证书；降档须确认、成功写 `tls_config_change` 审计）；
 六套主题经 `data-theme` 运行时切换（zcode 系 2026-11-06 新增，FR-739）；
+对话页 `/chat?session=…` 服务端直出历史尾部（T251，`GET /api/chat/tail` 经 `view.chat`
+判权＝SessionRead；发送经 `/api/llm/run` 同步语义与 CUI/TUI 一致；无 JS 时历史完整
+可读、表单由 chat.js 渐进增强；WS 逐块增量属 T251 剩余项——serve_loop 单线程多路
+复用，需并发设计档案）；
 无 JS 时首页服务端直出只读会话快照（HTML 转义、超限写明截断；仅本机回环未认证模式）。
 `/settings/certs` 设置页已交付（服务端直出 + 原生 ESM `settings.js`，纳入前端预算）：
 档位、根证书与服务端证书编辑、下载、重新生成与连通性校验均走 `/api/certs/*`；

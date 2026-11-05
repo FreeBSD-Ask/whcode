@@ -27,6 +27,10 @@ pub const STYLES_CSS: &str = include_str!("../frontend/styles.css");
 pub const SETTINGS_HTML: &str = include_str!("../frontend/settings.html");
 /// 证书设置页脚本（原生 ESM，无构建链）。
 pub const SETTINGS_JS: &str = include_str!("../frontend/settings.js");
+/// 对话页（T251/FR-742；服务端直出历史尾部，见 [`render_chat`]）。
+pub const CHAT_HTML: &str = include_str!("../frontend/chat.html");
+/// 对话页脚本（原生 ESM，无构建链）。
+pub const CHAT_JS: &str = include_str!("../frontend/chat.js");
 
 /// 静态资产路由：返回 `(Content-Type, 响应体)`；未知路径返回 `None`。
 ///
@@ -44,6 +48,8 @@ pub fn static_asset(path: &str) -> Option<(&'static str, &'static [u8])> {
         "/suspend.js" => ("text/javascript; charset=utf-8", SUSPEND_JS),
         "/settings.js" => ("text/javascript; charset=utf-8", SETTINGS_JS),
         "/settings/certs" => ("text/html; charset=utf-8", SETTINGS_HTML),
+        "/chat" => ("text/html; charset=utf-8", CHAT_HTML),
+        "/chat.js" => ("text/javascript; charset=utf-8", CHAT_JS),
         "/styles.css" => ("text/css; charset=utf-8", STYLES_CSS),
         _ => return None,
     };
@@ -52,6 +58,29 @@ pub fn static_asset(path: &str) -> Option<(&'static str, &'static [u8])> {
 
 /// 首屏注入点：服务端把只读快照渲染到该注释位置（见 [`render_index`]）。
 pub const INITIAL_VIEW_MARKER: &str = "<!-- WHCODE_INITIAL_VIEW -->";
+
+/// 对话历史注入点（T251）：服务端把历史尾部 HTML 渲染到该注释位置。
+pub const CHAT_HISTORY_MARKER: &str = "<!-- WHCODE_CHAT_HISTORY -->";
+
+/// 对话页服务端直出（T251/FR-742）：历史尾部 HTML（调用方已转义）注入标记位置；
+/// 无 JS 时历史完整可读，发送表单由 chat.js 渐进增强（无 JS 显式只读提示）。
+#[must_use]
+pub fn render_chat(history_html: &str, default_theme: &str) -> String {
+    let html = with_default_theme(CHAT_HTML.to_string(), default_theme);
+    html.replacen(CHAT_HISTORY_MARKER, history_html, 1)
+}
+
+/// [`render_chat`] 的认证分支（避免把“未授权”说成“数据不可用”）：不注入业务
+/// 数据，与首页 `render_index_auth_required` 同口径（ADR-022）。
+#[must_use]
+pub fn render_chat_auth_required(default_theme: &str) -> String {
+    let html = with_default_theme(CHAT_HTML.to_string(), default_theme);
+    html.replacen(
+        CHAT_HISTORY_MARKER,
+        "<p>认证已启用：对话数据只经认证后的 /api/* 提供。</p>",
+        1,
+    )
+}
 
 /// 合法主题六套（FR-612/713、T175、FR-739 zcode 系 2026-11-06 新增）：服务端注入的
 /// 默认主题必须取自本表。
@@ -494,6 +523,8 @@ mod tests {
             ("/suspend.js", "text/javascript"),
             ("/settings.js", "text/javascript"),
             ("/settings/certs", "text/html"),
+            ("/chat", "text/html"),
+            ("/chat.js", "text/javascript"),
             ("/styles.css", "text/css"),
         ] {
             let (actual_type, body) =
@@ -732,6 +763,40 @@ mod tests {
                 "{name} 的 bg/fg 必须与铁律值一致"
             );
         }
+    }
+
+    /// T251：对话页路由可达＋render_chat 注入主题与历史（历史 HTML 由调用方转义，
+    /// 注入点原文保留）＋认证分支不注入业务数据。
+    #[test]
+    fn chat_page_routes_and_render_escapes_history() {
+        for (path, content_type) in [("/chat", "text/html"), ("/chat.js", "text/javascript")] {
+            let (actual_type, body) =
+                static_asset(path).unwrap_or_else(|| panic!("{path} 必须可达"));
+            assert!(
+                actual_type.starts_with(content_type),
+                "{path}: {actual_type}"
+            );
+            assert!(!body.is_empty(), "{path} 不得为空资产");
+        }
+        let html = render_chat(
+            "<p data-role=\"entry\"><strong>[user]</strong> &lt;脚本&gt;</p>",
+            "zcode-night",
+        );
+        assert!(
+            html.contains("data-theme=\"zcode-night\""),
+            "对话页必须注入默认主题"
+        );
+        assert!(
+            html.contains("&lt;脚本&gt;") && !html.contains("<脚本>"),
+            "注入点保留调用方已转义的历史"
+        );
+        assert!(html.contains("chat.js"), "脚本引用必须在位");
+        let auth = render_chat_auth_required("zcode-night");
+        assert!(auth.contains("认证已启用"), "认证分支必须显式说明");
+        assert!(
+            !auth.contains("data-role=\"entry\""),
+            "认证分支不得注入业务数据"
+        );
     }
 
     // ── 证书设置页（T190/FR-627） ─────────────────────────────────────────

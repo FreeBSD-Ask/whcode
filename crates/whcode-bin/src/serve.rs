@@ -1392,6 +1392,10 @@ fn respond(
         if path == "/settings/certs" {
             return Reply::plain(settings_response(security));
         }
+        // 对话页服务端直出（T251/FR-742）：历史尾部注入（认证启用时不注入数据）。
+        if path == "/chat" {
+            return Reply::plain(chat_response(conn, actor, security, request.path.as_str()));
+        }
         if let Some((content_type, body)) = assets::static_asset(path) {
             return Reply::plain(HttpResponse {
                 status: 200,
@@ -1445,6 +1449,80 @@ const INITIAL_SESSION_LIMIT: usize = 50;
 /// 查询失败必须渲染成可见错误——不得用“空列表”冒充“没有会话”（信号链完备原则）。
 /// 启用认证时**不注入任何业务数据**（ADR-022）：首页是浏览器导航，无法携带 Bearer 头，
 /// 直出快照会绕过认证边界。
+/// 对话页服务端直出（T251/FR-742）：历史尾部注入 `<main>` 标记位置（HTML 转义、
+/// 无 JS 可读）；认证启用时不注入数据（与首页同口径，ADR-022）。会话缺省取
+/// 首个会话（与会话视图选中语义一致）；无会话则空态。发送经 chat.js 渐进增强。
+fn chat_response(
+    conn: &Connection,
+    actor: &whcode_app::Actor,
+    security: &ServeSecurity,
+    path_with_query: &str,
+) -> HttpResponse {
+    if security.auth_enabled {
+        return HttpResponse {
+            status: 200,
+            headers: vec![(
+                "content-type".to_string(),
+                "text/html; charset=utf-8".to_string(),
+            )],
+            body: assets::render_chat_auth_required(&security.default_theme).into_bytes(),
+        };
+    }
+    let query = path_with_query.split('?').nth(1).unwrap_or("");
+    let requested = query
+        .split('&')
+        .find_map(|pair| pair.strip_prefix("session="))
+        .unwrap_or("");
+    let session = if requested.is_empty() {
+        whcode_app::session::list_sessions(conn, &DefaultPolicy, actor, false, 1)
+            .ok()
+            .and_then(|rows| rows.into_iter().next())
+            .map(|row| row.id)
+            .unwrap_or_default()
+    } else {
+        requested.to_string()
+    };
+    let history_html = if session.is_empty() {
+        "<p>暂无会话：请先在会话页创建（<a href=\"/\">返回</a>）。</p>".to_string()
+    } else {
+        match whcode_app::llm::conversation_tail(
+            conn,
+            &DefaultPolicy,
+            actor,
+            &session,
+            whcode_app::llm::MAX_CONVERSATION_TAIL,
+        ) {
+            Ok(entries) => {
+                let mut html = format!(
+                    "<p><strong>会话 {}</strong>（最近 {} 条，历史读取有界）</p>",
+                    assets::escape_html(&session),
+                    entries.len()
+                );
+                for entry in &entries {
+                    html.push_str(&format!(
+                        "<p data-role=\"entry\"><strong>[{}]</strong> {}</p>",
+                        assets::escape_html(&entry.role),
+                        assets::escape_html(&entry.content),
+                    ));
+                }
+                html
+            }
+            Err(err) => format!(
+                "<p>历史读取失败：{}（错误可见，不静默为空）</p>",
+                assets::escape_html(&err.to_string())
+            ),
+        }
+    };
+    HttpResponse {
+        status: 200,
+        headers: vec![(
+            "content-type".to_string(),
+            "text/html; charset=utf-8".to_string(),
+        )],
+        body: assets::render_chat(&history_html, &security.default_theme).into_bytes(),
+    }
+}
+
 fn index_response(
     conn: &Connection,
     actor: &whcode_app::Actor,

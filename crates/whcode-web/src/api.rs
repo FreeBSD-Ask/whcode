@@ -1523,6 +1523,25 @@ pub fn handle_request_with_llm(
                 Err(error) => error_response(&error),
             }
         }
+        (Method::Get, "/api/chat/tail") => {
+            // 对话尾部（T251/FR-742）：view.chat 读面（SessionRead 在 app 层判定）。
+            let Some(session) = query_value("session") else {
+                return error_response(&WhError::invalid_state("缺 session 参数"));
+            };
+            match whcode_app::llm::conversation_tail(
+                conn,
+                &policy,
+                actor,
+                session,
+                whcode_app::llm::MAX_CONVERSATION_TAIL,
+            ) {
+                Ok(entries) => HttpResponse::json(
+                    200,
+                    &whcode_app::views::conversation_entries_value(&entries),
+                ),
+                Err(error) => error_response(&error),
+            }
+        }
         (Method::Post, "/api/llm/run") => {
             // 真实调用（T167）：权限、会话、剖面、凭据与流式收集都在应用层；
             // Web 只做请求体解析与信封输出。剖面注册表来自装配根（ADR-031 决策 1）。
@@ -3033,5 +3052,33 @@ mod tests {
             detail.contains("inbound") && detail.contains("off"),
             "审计须含档位变化：{detail}"
         );
+    }
+
+    /// T251：对话尾部路由——缺参数显式报错；未知会话 `not_found`（JSON 信封与
+    /// CUI 同源，不把不存在的会话伪装成“正确的空”）。
+    #[test]
+    fn chat_tail_route_rejects_missing_and_unknown_session() {
+        let mut conn = migrated();
+        let call = |conn: &mut Connection, path: &str| {
+            handle_request(
+                conn,
+                false,
+                None,
+                &[],
+                &HttpRequest {
+                    method: Method::Get,
+                    path: path.to_string(),
+                    headers: Vec::new(),
+                    body: Vec::new(),
+                },
+                &actor_with_all_capabilities("t251"),
+            )
+        };
+        let missing = call(&mut conn, "/api/chat/tail");
+        assert_eq!(missing.status, 400, "缺 session 参数必须显式报错");
+        let unknown = call(&mut conn, "/api/chat/tail?session=S-NOPE");
+        assert_eq!(unknown.status, 404, "未知会话必须 not_found");
+        let body = String::from_utf8(unknown.body).expect("UTF-8 信封");
+        assert!(body.contains("not_found"), "信封错误码必须可见：{body}");
     }
 }
