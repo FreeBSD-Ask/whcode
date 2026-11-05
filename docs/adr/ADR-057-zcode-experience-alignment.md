@@ -25,12 +25,19 @@
    关键交互形态（对话流、工具卡、审批流、diff）升级为对等判据；TUI／CUI 与其余范围
    仍按 ADR-032 五维（业务能力、权限、状态迁移、错误语义、可审计性）。ADR-032 追加
    修订记录指向本条。
-2. **主题层扩展**：新增 `zcode-day`／`zcode-night` 两套主题，精确色值由批次 R 从
-   ZCode 基线（`local/zcode-src`，commit `3c5b227`）提取并冻结后写入 AGENTS.md §6 与
-   主题清单；既有四套主题色值与可用性不变；默认主题是否切换由用户单独批准
-   （默认值可见可改可撤销，宪法 §1.3）。
+2. **主题层扩展（主题保证铁律，2026-11-05 用户补遗）**：新增 `zcode-day`／`zcode-night`
+   两套主题，精确色值由批次 R 从 ZCode 基线（`local/zcode-src`，commit `3c5b227`）提取并
+   冻结后写入 AGENTS.md §6 与主题清单；默认主题是否切换由用户单独批准（默认值可见可改
+   可撤销，宪法 §1.3）。**既有四套主题的保证不可稀释**：`amoled-night` 纯黑背景
+   `#000000`、`eink-day`／`eink-night` 的墨水屏口径（真灰判据 R=G=B、避免大面积中间灰
+   与渐变）、`terminal-green` 纯黑＋`#00FF00`，其精确色值、可用性与语义在视觉对齐全程
+   不得被替换、重定义或视觉漂移；zcode 主题是**新增**而非覆盖。锚点：
+   `crates/whcode-gui/src/lib.rs`（Theme 枚举）、`crates/whcode-web/src/assets.rs`
+   （THEMES＋hex 断言测试）。
 3. **视觉 token 单一事实源**：色板／间距／字号／圆角／层级 token 一处定义，GUI 与 Web
-   派生同一来源，一致性由契约测试断言（受校验产物模式，同 feature-parity 矩阵）。
+   派生同一来源，一致性由契约测试断言（受校验产物模式，同 feature-parity 矩阵）；
+   token 派生对既有四套主题**零影响**——四套主题的色值断言测试必须保持通过，
+   任何 token 重构不得改写其渲染结果。
 4. **渲染约束（预算与铁律不放宽）**：GUI 用 iced＋tiny-skia 原生文本能力＋最小自绘
    markdown 集，禁 WebView／HTML 渲染（ADR-026 零例外）；Web 用服务端直出＋原生 ESM
    ＋WS 增量（ADR-014），无 JS 降级保留；双端维持 ADR-027 与前端预算（JS ≤ 50 KB
@@ -102,6 +109,9 @@ TUI／CUI 用户不承担其不受益的成本。
   复审 GUI 渲染选型并对照 ADR-027 预算（判定：探针报告任一字段超阈值）。
 - `cargo test --locked -p whcode-tests --test frontend_parity` 失败 → 复审登记表、
   矩阵与 token 一致性（判定：测试失败即触发）。
+- `cargo test --locked -p whcode-gui`／`cargo test --locked -p whcode-web` 中**主题色值
+  断言**失败 → 复审视觉 token 与主题层改动（判定：任一 hex 断言失败即触发；批次 R 起
+  该断言升级为覆盖六套主题的双端契约测试，见 FR-739）。
 - ZCode 基线演进：`local/zcode-src` HEAD commit ≠ `3c5b227` 且 UI 相关差异清单非空 →
   复审批次 R 勘察与视觉 token（判定：勘察文档头部的基线 commit 字段比对）。
 - 每批合并后 `python .github/scripts/traceability.py` 或 `python .github/scripts/check_counts.py`
@@ -111,3 +121,6 @@ TUI／CUI 用户不承担其不受益的成本。
 
 - 2026-11-05：初稿（提议，待用户批准）。批准后：①FR-739—753／T249+／Check 344+
   落入主账本；②ADR-032 追加修订记录；③批次 R 启动。
+- 2026-11-05 用户补遗（同日并入初稿）：**“主题仍确保 OLED 黑等”**——决策 2 增补主题
+  保证铁律（四套主题精确色值与墨水屏口径不可稀释、zcode 主题为新增而非覆盖）；
+  决策 3 增补 token 派生零影响；复审触发增补双端主题色值断言绑定命令。
