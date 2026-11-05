@@ -178,21 +178,23 @@ mod tests {
             entry.support(FrontendId::Gui),
             Support::Implemented { .. }
         ));
-        // FR-713 四主题：精确名称与四步回原位（色值断言在 lib.rs theme 测试）。
+        // FR-713＋FR-739 六主题：精确名称与六步回原位（色值断言在 lib.rs theme 测试）。
         let names = [
             crate::GuiTheme::EinkDay,
             crate::GuiTheme::EinkNight,
             crate::GuiTheme::AmoledNight,
             crate::GuiTheme::TerminalGreen,
+            crate::GuiTheme::ZcodeDay,
+            crate::GuiTheme::ZcodeNight,
         ];
         for theme in names {
             assert_eq!(crate::GuiTheme::parse(theme.name()), Some(theme));
         }
         let mut theme = crate::GuiTheme::EinkDay;
-        for _ in 0..4 {
+        for _ in 0..6 {
             theme = theme.next();
         }
-        assert_eq!(theme, crate::GuiTheme::EinkDay, "四步必须回原位");
+        assert_eq!(theme, crate::GuiTheme::EinkDay, "六步必须回原位");
     }
 
     /// Task 179：GUI 清单只映射六视图与显式刷新、主题、退出，不出现运行时等被

@@ -11,9 +11,11 @@
 **符号**：✅ 已实现（前端锚点在登记表中）；◐ 已排除（理由码见“依据／理由”列）；
 ⏳ 预留（里程碑见“依据／理由”列）；— 不适用（判定依据见登记表条目注释）。
 
-**最后更新**：2026-10-26（T167 收口：`llm.run`／`llm.cancel` 的 TUI 翻转为已实现
-——`L`／`C` 键位，剖面名→提示词两步输入，经 `llm_provider::TuiLlmExecutor` 真实编排；
-三端 CUI／TUI／Web 均 `Implemented`，GUI 保持只读排除；T190：新增证书库设置两行）。
+**最后更新**：2026-11-06（T252：主题层扩展为六套——zcode-day/zcode-night 新增并冻结，
+默认主题切 `zcode-night`，用户批准；ADR-057/FR-739/FR-740）。历史：2026-10-26（T167 收口：
+`llm.run`／`llm.cancel` 的 TUI 翻转为已实现——`L`／`C` 键位，剖面名→提示词两步输入，
+经 `llm_provider::TuiLlmExecutor` 真实编排；三端 CUI／TUI／Web 均 `Implemented`；
+T190：新增证书库设置两行）。
 依据：`specs/001-whcode-harness/contracts/app-service.md` §2、`crates/whcode-bin/src/cui_dispatch.rs`、
 `crates/whcode-app/src/surface.rs`、`crates/whcode-bin/src/llm_provider.rs`。
 
@@ -88,12 +90,13 @@ CUI 退出码 **55**、Web **HTTP 501**；未登记路径仍为 404（ADR-032 �
 状态快照、上下文、diff、运行时清单、i18n 与证书库状态／CA 下载／连通性校验；写命令经
 `POST /api/sessions/*`、`/api/tasks/*`、`/api/purge`（预览默认 + 确认执行）与
 `POST /api/certs/*`（档位、根证书、服务端证书；降档须确认、成功写 `tls_config_change` 审计）；
-四套主题经 `data-theme` 运行时切换；
+六套主题经 `data-theme` 运行时切换（zcode 系 2026-11-06 新增，FR-739）；
 无 JS 时首页服务端直出只读会话快照（HTML 转义、超限写明截断；仅本机回环未认证模式）。
 `/settings/certs` 设置页已交付（服务端直出 + 原生 ESM `settings.js`，纳入前端预算）：
 档位、根证书与服务端证书编辑、下载、重新生成与连通性校验均走 `/api/certs/*`；
 无 JS 时页面显示只读状态摘要与证书库文件路径（HTML 转义）。
-TUI 补写操作（`n`／`m`／`d`／`A`、`R`／`X`、`p`，破坏性命令先预览后确认）、`t` 四主题循环
+TUI 补写操作（`n`／`m`／`d`／`A`、`R`／`X`、`p`，破坏性命令先预览后确认）、`t` 主题循环
+（FR-739 后六套，默认 `zcode-night`，2026-11-06 用户批准）
 与 ≥1000 ms 低频游标检查（推进才重绘）。GUI 只读六视图，写命令登记 `GUI_READ_ONLY_V1`。
 `llm.run`／`llm.cancel` 的 CUI（`cui_dispatch::llm_command`）、Web（`POST /api/llm/*`）
 与 TUI（`L`／`C` 键位 → `llm_provider::TuiLlmExecutor`，剖面名→提示词两步输入，

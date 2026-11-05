@@ -1,6 +1,6 @@
-//! # 渲染主题（T128、FR-612）
+//! # 渲染主题（T128、FR-612；FR-739 zcode 系新增）
 //!
-//! 三套主题（FR-612，精确色值依据：OLED 仅纯黑关断像素；e-ink 黑→白转换残影最重）：
+//! 六套主题。既有四套为铁律精确色值（OLED 仅纯黑关断像素；e-ink 黑→白转换残影最重）：
 //!
 //! | 主题 | 背景 | 前景 |
 //! |---|---|---|
@@ -9,13 +9,22 @@
 //! | [`EINK_NIGHT`] | `#000000`（纯黑） | `#FFFFFF` |
 //! | [`TERMINAL_GREEN`] | `#000000`（纯黑） | `#00FF00`（2026-10-24 用户新增，CRT 荧光风格） |
 //!
-//! 主题经配置选择（可见、可改、可撤销）；测试断言背景色精确为纯黑/纯白
-//! （墨水屏避免大面积中间灰与渐变，ui-design 纪律）。
+//! 2026-11-06 用户批准新增 zcode 系（ADR-057 决策 2，色值冻结于
+//! `whcode_domain::theme_tokens`——本模块 bg/fg 直接引用该单一事实源，不复制值）：
+//!
+//! | 主题 | 背景 | 前景 |
+//! |---|---|---|
+//! | [`Theme::ZcodeDay`] | `#f8f8f8` | `#262626` |
+//! | [`Theme::ZcodeNight`] | `#161616` | `#d4d4d4`（**默认主题**，用户批准切换） |
+//!
+//! zcode 系无墨水屏/OLED 纯黑承诺（背景允许非纯黑/白）；既有四套铁律不受影响。
+//! 主题经配置选择（可见、可改、可撤销）；测试断言既有四套背景精确为纯黑/纯白。
 //!
 //! 边界：色值为常量声明（渲染应用属 `render.rs`，T083/T129）；终端绘制由终端
 //! 模拟器承担，WHCode 不直接调度 GPU（FR-613 前端部分）。
 
 use serde::{Deserialize, Serialize};
+use whcode_domain::theme_tokens;
 
 /// 背景纯黑（OLED 关断像素）。
 pub const BLACK: &str = "#000000";
@@ -41,28 +50,36 @@ pub const TERMINAL_GREEN: (&str, &str) = (BLACK, "#00FF00");
 pub enum Theme {
     /// AMOLED 夜间。
     AmoledNight,
-    /// 墨水屏日间（默认：最保守、最省电，ui-design §主题）。
-    #[default]
+    /// 墨水屏日间（2026-11-06 前的默认；现默认为 zcode-night，用户批准，ADR-057）。
     EinkDay,
     /// 墨水屏夜间。
     EinkNight,
     /// 终端绿夜间（2026-10-24 用户新增；FR-612 三套为下限，GUI 侧 FR-713 同步四套）。
     TerminalGreen,
+    /// zcode 日间（FR-739，2026-11-06 用户新增并批准冻结；色值源
+    /// `whcode_domain::theme_tokens`）。
+    ZcodeDay,
+    /// zcode 夜间（FR-739；**默认主题**，2026-11-06 用户批准切换）。
+    #[default]
+    ZcodeNight,
 }
 
 impl Theme {
-    /// `t` 键循环顺序（T178.1/FR-625）：四套依配置体系顺序循环，四步回原位。
+    /// `t` 键循环顺序（T178.1/FR-625）：六套依配置体系顺序循环，六步回原位。
     #[must_use]
     pub const fn next(self) -> Self {
         match self {
             Self::EinkDay => Self::EinkNight,
             Self::EinkNight => Self::AmoledNight,
             Self::AmoledNight => Self::TerminalGreen,
-            Self::TerminalGreen => Self::EinkDay,
+            Self::TerminalGreen => Self::ZcodeDay,
+            Self::ZcodeDay => Self::ZcodeNight,
+            Self::ZcodeNight => Self::EinkDay,
         }
     }
 
-    /// 主题的精确色值（背景，前景）。
+    /// 主题的精确色值（背景，前景）。zcode 系引用
+    /// `whcode_domain::theme_tokens` 冻结值（单一事实源，FR-740）。
     #[must_use]
     pub const fn colors(self) -> (&'static str, &'static str) {
         match self {
@@ -70,6 +87,14 @@ impl Theme {
             Self::EinkDay => EINK_DAY,
             Self::EinkNight => EINK_NIGHT,
             Self::TerminalGreen => TERMINAL_GREEN,
+            Self::ZcodeDay => (
+                theme_tokens::ZCODE_DAY.background,
+                theme_tokens::ZCODE_DAY.foreground,
+            ),
+            Self::ZcodeNight => (
+                theme_tokens::ZCODE_NIGHT.background,
+                theme_tokens::ZCODE_NIGHT.foreground,
+            ),
         }
     }
 
@@ -81,6 +106,8 @@ impl Theme {
             Self::EinkDay => "eink-day",
             Self::EinkNight => "eink-night",
             Self::TerminalGreen => "terminal-green",
+            Self::ZcodeDay => "zcode-day",
+            Self::ZcodeNight => "zcode-night",
         }
     }
 }
@@ -99,8 +126,11 @@ impl std::str::FromStr for Theme {
             "eink-day" => Ok(Self::EinkDay),
             "eink-night" => Ok(Self::EinkNight),
             "terminal-green" => Ok(Self::TerminalGreen),
+            "zcode-day" => Ok(Self::ZcodeDay),
+            "zcode-night" => Ok(Self::ZcodeNight),
             other => Err(whcode_domain::WhError::parse_error(format!(
-                "未知主题 {other:?}：合法取值为 amoled-night / eink-day / eink-night / terminal-green"
+                "未知主题 {other:?}：合法取值为 amoled-night / eink-day / eink-night / \
+                 terminal-green / zcode-day / zcode-night"
             ))),
         }
     }
@@ -123,6 +153,7 @@ mod tests {
 
     #[test]
     fn background_colors_are_exactly_pure_black_or_pure_white() {
+        // 既有四套为铁律（OLED/墨水屏口径）；zcode 系无此承诺，见下一测试。
         for theme in [
             Theme::AmoledNight,
             Theme::EinkDay,
@@ -140,6 +171,20 @@ mod tests {
         assert_eq!(Theme::EinkNight.colors(), ("#000000", "#FFFFFF"));
     }
 
+    /// zcode 系精确引用 `theme_tokens` 冻结值（FR-740：本 crate 不复制色值）。
+    #[test]
+    fn zcode_colors_come_from_domain_single_source() {
+        assert_eq!(Theme::ZcodeDay.colors(), ("#f8f8f8", "#262626"));
+        assert_eq!(Theme::ZcodeNight.colors(), ("#161616", "#d4d4d4"));
+        assert_eq!(
+            Theme::ZcodeNight.colors(),
+            (
+                theme_tokens::ZCODE_NIGHT.background,
+                theme_tokens::ZCODE_NIGHT.foreground
+            )
+        );
+    }
+
     #[test]
     fn theme_names_are_stable_for_configuration() {
         assert_eq!(Theme::AmoledNight.as_str(), "amoled-night");
@@ -147,13 +192,21 @@ mod tests {
         assert_eq!(Theme::EinkNight.as_str(), "eink-night");
         assert_eq!(Theme::TerminalGreen.as_str(), "terminal-green");
         assert_eq!(Theme::TerminalGreen.colors(), ("#000000", "#00FF00"));
+        assert_eq!(Theme::ZcodeDay.as_str(), "zcode-day");
+        assert_eq!(Theme::ZcodeNight.as_str(), "zcode-night");
     }
 
-    /// 默认主题为 `eink-day`（ui-design §主题：最保守、最省电）。
+    /// 默认主题为 `zcode-night`（2026-11-06 用户批准切换，ADR-057/FR-739）。
     #[test]
-    fn default_theme_is_eink_day() {
-        assert_eq!(Theme::default(), Theme::EinkDay);
-        assert_eq!(Theme::default().colors(), EINK_DAY);
+    fn default_theme_is_zcode_night() {
+        assert_eq!(Theme::default(), Theme::ZcodeNight);
+        assert_eq!(
+            Theme::default().colors(),
+            (
+                theme_tokens::ZCODE_NIGHT.background,
+                theme_tokens::ZCODE_NIGHT.foreground
+            )
+        );
     }
 
     /// 配置解析：稳定名双向一致；未知名返回可操作的 parse_error。
@@ -164,14 +217,16 @@ mod tests {
             Theme::EinkDay,
             Theme::EinkNight,
             Theme::TerminalGreen,
+            Theme::ZcodeDay,
+            Theme::ZcodeNight,
         ] {
             assert_eq!(theme.as_str().parse::<Theme>(), Ok(theme));
         }
         let err = "midnight".parse::<Theme>().expect_err("未知主题必须失败");
         assert_eq!(err.code, whcode_domain::ErrorCode::ParseError);
         assert!(
-            err.message.contains("amoled-night"),
-            "错误消息须列出合法取值"
+            err.message.contains("amoled-night") && err.message.contains("zcode-night"),
+            "错误消息须列出全部合法取值"
         );
     }
 

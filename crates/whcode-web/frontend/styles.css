@@ -1,5 +1,7 @@
 /* WHCode Web 应用外壳（T197／ADR-041）：无第三方字体、无渐变、无阴影、无 WebGL；
-   四套主题精确色值（FR-612/713）；间距与字号刻度见 docs/guides/ui-design.md §13。
+   六套主题：既有四套铁律精确色值（FR-612/713）＋ zcode 系（FR-739，2026-11-06 用户
+   批准冻结，色值单一事实源 whcode_domain::theme_tokens，本文件为受校验产物——
+   契约测试对照断言，篡改即失败）；间距与字号刻度见 docs/guides/ui-design.md §13。
    层次只由位置、对齐、字重、字号与留白表达；状态不依赖颜色（ui-design §3）。 */
 :root,
 [data-theme="eink-day"] {
@@ -28,6 +30,14 @@
 [data-theme="terminal-green"] {
   --bg: #000000;
   --fg: #00ff00;
+}
+[data-theme="zcode-day"] {
+  --bg: #f8f8f8;
+  --fg: #262626;
+}
+[data-theme="zcode-night"] {
+  --bg: #161616;
+  --fg: #d4d4d4;
 }
 * { box-sizing: border-box; }
 body {

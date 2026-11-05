@@ -42,11 +42,11 @@ const FONT_NOTO: &[u8] = include_bytes!("../assets/fonts/NotoSansCJKsc-Regular.s
 const FONT_JETBRAINS: &[u8] = include_bytes!("../assets/fonts/JetBrainsMono-Regular.subset.ttf");
 const FONT_SARASA: &[u8] = include_bytes!("../assets/fonts/SarasaMonoSC-Regular.subset.ttf");
 
-/// GUI 主题（四套精确色值，FR-612／FR-713；`terminal-green` 为 2026-10-24 用户新增）。
+/// GUI 主题（六套：既有四套铁律精确色值 FR-612／FR-713；zcode 系 FR-739 为
+/// 2026-11-06 用户新增并批准冻结，色值源 `whcode_domain::theme_tokens`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum GuiTheme {
-    /// 墨水屏日间：纯白底、纯黑字（默认，残影最小）。
-    #[default]
+    /// 墨水屏日间：纯白底、纯黑字（残影最小）。
     EinkDay,
     /// 墨水屏夜间：纯黑底、纯白字。
     EinkNight,
@@ -54,6 +54,11 @@ pub enum GuiTheme {
     AmoledNight,
     /// 终端绿夜间：纯黑底（OLED 兼容纯黑）、荧光绿字（CRT P1 风格，#00FF00）。
     TerminalGreen,
+    /// zcode 日间（FR-739，色值单一事实源 `theme_tokens`）。
+    ZcodeDay,
+    /// zcode 夜间（**默认**，2026-11-06 用户批准切换；ADR-057/FR-739）。
+    #[default]
+    ZcodeNight,
 }
 
 impl GuiTheme {
@@ -65,6 +70,8 @@ impl GuiTheme {
             Self::EinkNight => "eink-night",
             Self::AmoledNight => "amoled-night",
             Self::TerminalGreen => "terminal-green",
+            Self::ZcodeDay => "zcode-day",
+            Self::ZcodeNight => "zcode-night",
         }
     }
 
@@ -76,29 +83,36 @@ impl GuiTheme {
             "eink-night" => Some(Self::EinkNight),
             "amoled-night" => Some(Self::AmoledNight),
             "terminal-green" => Some(Self::TerminalGreen),
+            "zcode-day" => Some(Self::ZcodeDay),
+            "zcode-night" => Some(Self::ZcodeNight),
             _ => None,
         }
     }
 
-    /// 下一套主题（`t` 键循环；FR-713：切换不得要求重启）。
+    /// 下一套主题（`t` 键循环；FR-713：切换不得要求重启；FR-739 后为六套）。
     #[must_use]
     const fn next(self) -> Self {
         match self {
             Self::EinkDay => Self::EinkNight,
             Self::EinkNight => Self::AmoledNight,
             Self::AmoledNight => Self::TerminalGreen,
-            Self::TerminalGreen => Self::EinkDay,
+            Self::TerminalGreen => Self::ZcodeDay,
+            Self::ZcodeDay => Self::ZcodeNight,
+            Self::ZcodeNight => Self::EinkDay,
         }
     }
 
-    /// 背景色与前景色（精确 RGB）。
+    /// 背景色与前景色（精确 RGB）。既有四套保持铁律字面值；zcode 系从
+    /// `whcode_domain::theme_tokens` 冻结值解析（FR-740 单一事实源）。
     #[must_use]
-    pub const fn colors(self) -> (Color, Color) {
+    pub fn colors(self) -> (Color, Color) {
         match self {
             Self::EinkDay => (Color::WHITE, Color::BLACK),
             Self::EinkNight => (Color::BLACK, Color::WHITE),
             Self::AmoledNight => (Color::BLACK, Color::from_rgb(0.902, 0.902, 0.902)),
             Self::TerminalGreen => (Color::BLACK, Color::from_rgb(0.0, 1.0, 0.0)),
+            Self::ZcodeDay => zcode_colors(whcode_domain::theme_tokens::ZCODE_DAY),
+            Self::ZcodeNight => zcode_colors(whcode_domain::theme_tokens::ZCODE_NIGHT),
         }
     }
 
@@ -904,6 +918,18 @@ fn handle_event(
 }
 
 /// 侧栏条目样式：只用主题两色（选中反显），不引入灰色、边框或阴影（ADR-041）。
+/// zcode 系色值解析（FR-740 单一事实源）：从 `theme_tokens` 冻结 hex 构建 iced 颜色。
+/// 冻结值合法性由 `whcode-domain::theme_tokens` 测试保证，此处只做不可失败解析的
+/// 显式收口（失败即冻结值被改动，属编译期常量缺陷，panic 信息可定位）。
+fn zcode_colors(tokens: whcode_domain::theme_tokens::ThemeTokens) -> (Color, Color) {
+    let parse = |hex: &str| {
+        let (r, g, b) = whcode_domain::theme_tokens::parse_rgb(hex)
+            .expect("theme_tokens 冻结色值必须为合法 #RRGGBB（模块测试保证）");
+        Color::from_rgb8(r, g, b)
+    };
+    (parse(tokens.background), parse(tokens.foreground))
+}
+
 fn sidebar_style(theme: GuiTheme, selected: bool) -> button::Style {
     let (background, foreground) = theme.colors();
     button::Style {
@@ -1236,6 +1262,8 @@ mod tests {
             GuiTheme::EinkNight,
             GuiTheme::AmoledNight,
             GuiTheme::TerminalGreen,
+            GuiTheme::ZcodeDay,
+            GuiTheme::ZcodeNight,
         ] {
             assert_eq!(GuiTheme::parse(theme.name()), Some(theme));
         }
@@ -1257,21 +1285,43 @@ mod tests {
         assert_eq!(foreground.r, 0.0);
         assert!((foreground.g - 1.0).abs() < f32::EPSILON);
         assert_eq!(foreground.b, 0.0);
+        // zcode 系：从 theme_tokens 冻结值解析（FR-739/740，2026-11-06 用户批准）。
+        let (background, foreground) = GuiTheme::ZcodeDay.colors();
+        assert_eq!(background, Color::from_rgb8(0xf8, 0xf8, 0xf8));
+        assert_eq!(foreground, Color::from_rgb8(0x26, 0x26, 0x26));
+        let (background, foreground) = GuiTheme::ZcodeNight.colors();
+        assert_eq!(background, Color::from_rgb8(0x16, 0x16, 0x16));
+        assert_eq!(foreground, Color::from_rgb8(0xd4, 0xd4, 0xd4));
     }
 
     #[test]
-    fn theme_cycle_returns_to_start_after_four_steps() {
+    fn theme_cycle_returns_to_start_after_six_steps() {
         let mut theme = GuiTheme::EinkDay;
         let mut seen = Vec::new();
-        for _ in 0..4 {
+        for _ in 0..6 {
             theme = theme.next();
             seen.push(theme.name());
         }
         assert_eq!(
             seen,
-            ["eink-night", "amoled-night", "terminal-green", "eink-day"]
+            [
+                "eink-night",
+                "amoled-night",
+                "terminal-green",
+                "zcode-day",
+                "zcode-night",
+                "eink-day"
+            ]
         );
         assert_eq!(theme, GuiTheme::EinkDay);
+    }
+
+    /// 默认主题为 zcode-night（2026-11-06 用户批准切换，ADR-057/FR-739）。
+    #[test]
+    fn default_theme_is_zcode_night() {
+        assert_eq!(GuiTheme::default(), GuiTheme::ZcodeNight);
+        let (background, _foreground) = GuiTheme::default().colors();
+        assert_eq!(background, Color::from_rgb8(0x16, 0x16, 0x16));
     }
 
     #[test]

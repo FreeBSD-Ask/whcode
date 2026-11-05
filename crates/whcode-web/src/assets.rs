@@ -53,19 +53,28 @@ pub fn static_asset(path: &str) -> Option<(&'static str, &'static [u8])> {
 /// 首屏注入点：服务端把只读快照渲染到该注释位置（见 [`render_index`]）。
 pub const INITIAL_VIEW_MARKER: &str = "<!-- WHCODE_INITIAL_VIEW -->";
 
-/// 合法主题四套（FR-612/713、T175）：服务端注入的默认主题必须取自本表。
-pub const THEMES: [&str; 4] = ["eink-day", "eink-night", "amoled-night", "terminal-green"];
+/// 合法主题六套（FR-612/713、T175、FR-739 zcode 系 2026-11-06 新增）：服务端注入的
+/// 默认主题必须取自本表。
+pub const THEMES: [&str; 6] = [
+    "eink-day",
+    "eink-night",
+    "amoled-night",
+    "terminal-green",
+    "zcode-day",
+    "zcode-night",
+];
 
 const HTML_OPEN: &str = "<html lang=\"zh-CN\">";
 
-/// 把服务端默认主题注入 `<html data-theme="…">`（T175）：非法值回落 `eink-day`
-/// （配置笔误不得让首页 500）；浏览器端 `?theme=` 与选择器可在其上运行时覆盖。
+/// 把服务端默认主题注入 `<html data-theme="…">`（T175）：非法值回落 `zcode-night`
+/// （默认主题，2026-11-06 用户批准切换；配置笔误不得让首页 500）；浏览器端
+/// `?theme=` 与选择器可在其上运行时覆盖。
 #[must_use]
 pub fn with_default_theme(html: String, default_theme: &str) -> String {
     let theme = if THEMES.contains(&default_theme) {
         default_theme
     } else {
-        "eink-day"
+        "zcode-night"
     };
     html.replacen(
         HTML_OPEN,
@@ -661,14 +670,18 @@ mod tests {
         assert!(!html.contains(INITIAL_VIEW_MARKER), "标记必须被替换");
     }
 
-    /// 服务端默认主题注入（T175）：合法值原样、非法值回落 eink-day；四套主题的
-    /// 精确色值由 styles.css 的 data-theme 块承载（静态审计，不依赖浏览器）。
+    /// 服务端默认主题注入（T175）：合法值原样、非法值回落 zcode-night（默认主题，
+    /// 2026-11-06 用户批准）；六套主题的精确色值由 styles.css 的 data-theme 块承载
+    /// （静态审计，不依赖浏览器），并与 `whcode_domain::theme_tokens` 单一事实源
+    /// 逐值对照（FR-740 契约：本文件是受校验产物，篡改 CSS 色值即失败）。
     #[test]
     fn default_theme_is_injected_and_validated() {
         for (input, expected) in [
             ("eink-day", "eink-day"),
             ("terminal-green", "terminal-green"),
-            ("neon-pink", "eink-day"),
+            ("zcode-day", "zcode-day"),
+            ("zcode-night", "zcode-night"),
+            ("neon-pink", "zcode-night"),
         ] {
             let html = with_default_theme(INDEX_HTML.to_string(), input);
             assert!(
@@ -682,8 +695,42 @@ mod tests {
                 "styles.css 缺主题块 {theme}"
             );
         }
+        // 既有四套铁律色值（AGENTS.md §6，一个值都不许动）。
         for hex in ["#ffffff", "#000000", "#e6e6e6", "#00ff00"] {
             assert!(STYLES_CSS.contains(hex), "styles.css 缺色值 {hex}");
+        }
+        // FR-740 契约：zcode 系与既有四套的 bg/fg 全部对照单一事实源。
+        let tokens = whcode_domain::theme_tokens::ZCODE;
+        for theme in tokens {
+            let block = STYLES_CSS
+                .split(&format!("[data-theme=\"{}\"]", theme.name))
+                .nth(1)
+                .expect("styles.css 缺 zcode 主题块");
+            let block = &block[..block.find('}').expect("主题块必须闭合")];
+            assert!(
+                block.contains(&format!("--bg: {};", theme.background)),
+                "{} 缺 --bg {}",
+                theme.name,
+                theme.background
+            );
+            assert!(
+                block.contains(&format!("--fg: {};", theme.foreground)),
+                "{} 缺 --fg {}",
+                theme.name,
+                theme.foreground
+            );
+        }
+        for (name, background, foreground) in whcode_domain::theme_tokens::LEGACY_THEMES {
+            let block = STYLES_CSS
+                .split(&format!("[data-theme=\"{name}\"]"))
+                .nth(1)
+                .expect("styles.css 缺既有主题块");
+            let block = &block[..block.find('}').expect("主题块必须闭合")];
+            assert!(
+                block.contains(&format!("--bg: {background};"))
+                    && block.contains(&format!("--fg: {foreground};")),
+                "{name} 的 bg/fg 必须与铁律值一致"
+            );
         }
     }
 

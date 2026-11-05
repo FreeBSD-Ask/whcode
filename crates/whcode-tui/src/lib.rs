@@ -1455,20 +1455,26 @@ mod tests {
         assert_eq!((report.cols, report.rows), (0, 0), "退出后的 Resize 不生效");
     }
 
-    /// T178.1：`t` 四步循环回原位（FR-625），每步产生一帧（主题变化置脏）。
+    /// T178.1：`t` 六步循环回原位（FR-625；FR-739 后为六套），每步产生一帧（主题变化置脏）。
     #[test]
-    fn theme_key_cycles_four_themes_back_to_start() {
+    fn theme_key_cycles_six_themes_back_to_start() {
         use crate::theme::Theme;
         let events = [
             UiEvent::Key('t'),
             UiEvent::Key('t'),
             UiEvent::Key('t'),
             UiEvent::Key('t'),
+            UiEvent::Key('t'),
+            UiEvent::Key('t'),
         ];
         let report = run_scripted(&events);
-        assert_eq!(report.theme, Theme::EinkDay, "四步必须回原位");
+        assert_eq!(
+            report.theme,
+            Theme::ZcodeNight,
+            "六步必须回原位（默认 zcode-night）"
+        );
         let one = run_scripted(&[UiEvent::Key('t')]);
-        assert_eq!(one.theme, Theme::EinkNight, "一步到第二套");
+        assert_eq!(one.theme, Theme::EinkDay, "一步到第二套");
     }
 
     /// T178.2：游标未变空闲零重绘（首帧除外）。

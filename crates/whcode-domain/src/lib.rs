@@ -13,6 +13,7 @@ pub mod event;
 pub mod gate;
 pub mod i18n;
 pub mod state;
+pub mod theme_tokens;
 pub mod tls;
 pub mod trace;
 

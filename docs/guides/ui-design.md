@@ -34,6 +34,8 @@
 | `eink-day`（墨水屏日间） | `#FFFFFF` | `#000000` | 仅用线框与下划线，不用填充色 | 白天、墨水屏 |
 | `eink-night`（墨水屏夜间） | `#000000` | `#FFFFFF` | 线框 `#FFFFFF` | 夜间、墨水屏 |
 | `terminal-green`（终端绿夜间） | `#000000` | `#00FF00` | 滚动条/边框同前景绿 | 夜间、CRT 荧光风格（2026-10-24 用户新增；黑色为 OLED 兼容纯黑） |
+| `zcode-day`（ZCode 日间） | `#f8f8f8` | `#262626` | brand `#000000`、面板 `#ffffff`、侧栏 `#f0f0f0` | 日间常规显示（FR-739，2026-11-06 用户新增并批准冻结；色值单一事实源 `whcode_domain::theme_tokens`，完整 token 表见该模块） |
+| `zcode-night`（ZCode 夜间） | `#161616` | `#d4d4d4` | brand `#ffffff`、面板 `#202020`、卡片 `#2b2b2b` | **默认主题**（2026-11-06 用户批准切换）、夜间常规显示（FR-739） |
 
 规则：
 
@@ -42,21 +44,25 @@
 - 不做渐变、阴影、模糊；边框单线；选中态用反显或 `>` 前缀。
 - 层次只由**位置、对齐、反显、字号刻度与留白**表达（ADR-041）；终端族不得用留白装饰，应用族
   不得用字符画式边框装饰。
-- 主题通过配置选择（`ui.theme`：`amoled-night` / `eink-day` / `eink-night` / `terminal-green`——TUI、GUI 与 Web 均已实现四套；CUI 按 `CUI_NO_THEME` 登记为“终端配色由模拟器控制”），并可用
+- 主题通过配置选择（`ui.theme`：`amoled-night` / `eink-day` / `eink-night` / `terminal-green` /
+  `zcode-day` / `zcode-night`——TUI、GUI 与 Web 均已实现六套；CUI 按 `CUI_NO_THEME` 登记为“终端配色由模拟器控制”），并可用
   环境变量 `WHCODE_UI_THEME` 覆盖（非法值打印警告并回落配置值——不拒绝启动）；默认
-  `eink-day`（最保守、最省电）。TUI 侧由 `whcode-tui` 的 `draw_frame` 应用精确色值
-  （测试断言渲染单元背景精确为 `#000000`/`#FFFFFF`）。
+  `zcode-night`（2026-11-06 用户批准切换，ADR-057/FR-739；既有四套铁律色值一个不动）。
+  TUI 侧由 `whcode-tui` 的 `draw_frame` 应用精确色值
+  （既有四套测试断言渲染单元背景精确为 `#000000`/`#FFFFFF`；zcode 系对照
+  `theme_tokens` 冻结值）。
 
-### 3.1 Web 四主题 CSS 变量与选择器（2026-10-24 交付）
+### 3.1 Web 六主题 CSS 变量与选择器（2026-10-24 交付四套；2026-11-06 增 zcode 系）
 
-- 主题经 `<html data-theme="...">` 承载，四套选择器各定义同名 CSS 变量，精确色值与 §3
+- 主题经 `<html data-theme="...">` 承载，六套选择器各定义同名 CSS 变量，精确色值与 §3
   表一致：`eink-day`（`--bg:#FFFFFF`／`--fg:#000000`）、`eink-night`（`#000000`／
   `#FFFFFF`）、`amoled-night`（`#000000`／`#E6E6E6`）、`terminal-green`（`#000000`／
-  `#00FF00`）（`crates/whcode-web/frontend/styles.css:5-20`）；
+  `#00FF00`）、`zcode-day`（`#f8f8f8`／`#262626`）、`zcode-night`（`#161616`／
+  `#d4d4d4`）（zcode 系色值与 `whcode_domain::theme_tokens` 契约对照，FR-740）；
 - 切换只改 `data-theme` 属性与 CSS 变量，不刷新页面；支持 `?theme=<名>` 显式覆盖并记忆到
   浏览器本地存储，页面内 `#theme-select` 提供运行时切换（`frontend/app.js:628-651`）；
-- 默认主题取配置 `ui.theme`，`WHCODE_UI_THEME` 可覆盖；服务端对非法值回落 `eink-day` 并
-  在页面标注，不拒绝启动（`crates/whcode-web/src/assets.rs:43-48`、`301`）；
+- 默认主题取配置 `ui.theme`（现默认 `zcode-night`），`WHCODE_UI_THEME` 可覆盖；服务端对非法值回落 `zcode-night` 并
+  在页面标注，不拒绝启动（`crates/whcode-web/src/assets.rs`）；
 - 保持无框架、无第三方字体、无 WebGL／视频；四套主题下仍须通过首屏 JS／CSS／DOM
   预算（`.github/scripts/benchmarks/check-frontend-budget.py`，FR-618）。
 
@@ -124,7 +130,7 @@ TUI 在窗口最小化时跳过绘制但继续记账关键事件。
 
 ## 10. UI 验收清单
 
-- [ ] 四套主题色值精确（`#000000` / `#FFFFFF` / `#E6E6E6` / `#00FF00`），可配置切换
+- [ ] 六套主题色值精确（`#000000` / `#FFFFFF` / `#E6E6E6` / `#00FF00` / `#f8f8f8`+`#262626` / `#161616`+`#d4d4d4`），可配置切换
 - [ ] 状态不依赖颜色单独表达
 - [ ] 无动画、无自动播放；Web 无第三方字体（GUI 内置 OFL 子集见 ADR-028）（2026-10-24：真实 Firefox 两模式实测，reduce 无 150 ms 动画定时器、no-preference 恰一次，见 Check 220）
 - [ ] Web 预算达标（JS/CSS/DOM）

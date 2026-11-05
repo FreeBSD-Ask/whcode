@@ -18,7 +18,7 @@ pub const CANDIDATE_MAX_MEMORY_LIMIT_MB: u32 = 384;
 /// UI 配置（FR-612）：主题经配置选择（`ui.theme`），可被环境变量 `WHCODE_UI_THEME` 覆盖。
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct UiConfig {
-    /// 渲染主题；默认 `eink-day`（ui-design §主题：最保守、最省电）。
+    /// 渲染主题；默认 `zcode-night`（2026-11-06 用户批准切换，ADR-057/FR-739）。
     #[serde(default)]
     pub theme: Theme,
     /// 界面语言（FR-625/615）；`None` 时走 `WHCODE_UI_LOCALE` → LANG/LC_ALL → zh-CN。
@@ -146,7 +146,7 @@ impl Config {
             Err(_) => {
                 eprintln!(
                     "WHCODE_UI_THEME={trimmed:?} 不是合法主题\
-                     （amoled-night/eink-day/eink-night/terminal-green），使用配置值 {}",
+                     （amoled-night/eink-day/eink-night/terminal-green/zcode-day/zcode-night），使用配置值 {}",
                     self.ui.theme.as_str()
                 );
                 self.ui.theme
@@ -200,8 +200,8 @@ mod tests {
         assert_eq!(config.db.max_temp_directory_size_mb, None);
         assert_eq!(
             config.ui.theme,
-            Theme::EinkDay,
-            "ui-design §主题：默认 eink-day（最保守、最省电）"
+            Theme::ZcodeNight,
+            "默认主题 zcode-night（2026-11-06 用户批准切换，ADR-057/FR-739）"
         );
     }
 
@@ -271,7 +271,7 @@ mod tests {
             "trace": { "default_level": "redacted" }
         }"#;
         let config = Config::from_json(without_ui).expect("缺 ui 键应取默认值");
-        assert_eq!(config.ui.theme, Theme::EinkDay);
+        assert_eq!(config.ui.theme, Theme::ZcodeNight);
         // 非法主题名必须显式失败（可操作错误），不得静默回落。
         let bad = without_ui.replace(
             "\"trace\"",

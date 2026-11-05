@@ -13,6 +13,16 @@
 
 ### 变更
 
+- **主题层扩展：zcode-day／zcode-night 新增并冻结，默认主题切换**（2026-11-06，
+  T252/FR-739—740、ADR-057，用户批准）：①六套主题齐备（TUI/GUI/Web）——既有四套
+  铁律色值（amoled-night/eink-day/eink-night/terminal-green）一个不动；zcode 系精确
+  色值冻结于 `whcode_domain::theme_tokens`（单一事实源 FR-740：GUI 直接消费、Web
+  `styles.css` 为受校验产物由契约测试逐值对照），提案来源 ZCode `zai-light/zai-dark`
+  块（批次 R，`research/zcode-comparison/domain-M2-ui-experience.md` §7）。②**默认
+  主题切换为 `zcode-night`**（TUI/GUI/Web 配置默认与服务端非法值回落同步），用户批准；
+  `WHCODE_UI_THEME` 与 `ui.theme` 仍可改回任意一套（可见、可改、可撤销）。③`theme.switch`
+  循环扩为六套；主题解析错误消息列出全部合法取值。验收：Check 344/345（待 CI 后取证）。
+
 - **四端功能对等：GUI 交互化（ADR-056，用户指令立项并实现）**（2026-11-03）：GUI 从
   只读 v1 升级为交互对等——①新增第 7 视图「对话」（剖面输入 + 提示词 + 发送/取消 +
   最近结果；`run_turn` 同步语义与 TUI/CUI/Web 一致）；②写命令面板：会话 new/rename
