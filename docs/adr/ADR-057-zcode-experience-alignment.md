@@ -127,3 +127,10 @@ TUI／CUI 用户不承担其不受益的成本。
 - 2026-11-05：**用户批准（“全部批准”）**——①状态提议→已批准；②FR-739—753／
   T249—T263／Check 344—358 同日落入主账本（spec.md／tasks.md／checklist.md）；
   ③ADR-032 追加修订记录（对等判据限范围修订）；④批次 R（T249）启动。
+- 2026-11-06：**用户批准色值冻结与默认主题切换**——①zcode-day/zcode-night 精确色值按
+  批次 R 提案表（`research/zcode-comparison/domain-M2-ui-experience.md` §7）冻结；
+  foreground 取 Tailwind v4 默认调色板（neutral-800 `#262626`／neutral-300 `#d4d4d4`，
+  ZCode 克隆无 node_modules 的既定口径）；②**默认主题切换为 `zcode-night`**（TUI/GUI/
+  Web 配置默认与服务端非法值回落同步）；③落地＝`whcode_domain::theme_tokens` 单一
+  事实源（FR-740）＋TUI/GUI/Web 六套＋Web CSS 受校验产物契约测试；T252/Check 344—345
+  取证（CI run `42078616293`）。既有四套铁律色值零改动。

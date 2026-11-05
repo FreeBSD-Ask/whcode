@@ -773,10 +773,16 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 - [ ] T251 [P] 批次 B1 Web：对话页——WS 逐块推送、服务端直出无 JS 降级、预算审计
   （FR-742；ADR-057 决策 4）——**任务认知卡**：方向=对话流核心 Web 侧；目标=WS 增量
   呈现＋无 JS 降级等价；判据=check-frontend-budget 达标＋行为测试；非目标=审批交互（B3）
-- [ ] T252 [P] 批次 B1 视觉层：视觉 token 单一事实源＋zcode-day/night 双端落地＋四套
+- [x] T252 [P] 批次 B1 视觉层：视觉 token 单一事实源＋zcode-day/night 双端落地＋四套
   主题 hex 断言升级六套全覆盖（FR-739/740；ADR-057 决策 2/3）——**任务认知卡**：
   方向=视觉对齐的单一事实源；目标=token 一处定义双端派生、六套主题断言全绿；
   判据=双端契约测试＋hex 断言通过；非目标=默认主题切换（须用户单独批准）
+  ——**复核（2026-11-06）**：用户批准色值冻结（domain-M2 §7 提案表）＋默认主题切
+  `zcode-night`；`whcode_domain::theme_tokens` 落地（zcode 全 token＋终端 8 色冻结、
+  LEGACY_THEMES 锚点不重定义铁律值），TUI/GUI/Web 六套（t 循环六步回原位）、Web
+  styles.css 受校验产物契约测试逐值对照六套 bg/fg；本地定向 335 例＋layering/layout/
+  frontend_parity＋clippy `-D warnings` 绿；CI run `42078616293`（12c9d27）success；
+  Code Scanning 0 open。Check 344/345 同批转勾。
 - [ ] T253 [P] 批次 B2：会话侧栏对齐（搜索/排序/归档分组）＋任务/todo 面板，双端同批
   （FR-746/747）——**任务认知卡**：方向=会话与任务管理形态对齐；目标=双端同形态
   语义；判据=行为测试＋对等矩阵登记同步；非目标=检查点回滚执行（T254 口径）
