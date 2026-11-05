@@ -80,7 +80,7 @@ pub fn rebuild_overview(
     let tx = conn
         .transaction()
         .map_err(|err| db_err("开始概览重建事务", err))?;
-    if !session_exists(&tx, session_id)? {
+    if !session_exists_in_tx(&tx, session_id)? {
         return Err(WhError::new(
             ErrorCode::NotFound,
             format!("会话不存在，无法重建概览：{session_id}"),
@@ -159,7 +159,20 @@ pub fn load_overview(
     }))
 }
 
-fn session_exists(tx: &duckdb::Transaction<'_>, session_id: &str) -> Result<bool, WhError> {
+/// 会话存在性（读路径，FR-741/742 对话尾部 `not_found` 判定的唯一事实源——
+/// 不把不存在的会话伪装成“正确的空”）。
+pub fn session_exists(conn: &Connection, session_id: &str) -> Result<bool, WhError> {
+    let count: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM sessions WHERE id = ?",
+            params![session_id],
+            |row| row.get(0),
+        )
+        .map_err(|err| db_err("检查会话存在性", err))?;
+    Ok(count > 0)
+}
+
+fn session_exists_in_tx(tx: &duckdb::Transaction<'_>, session_id: &str) -> Result<bool, WhError> {
     let count: i64 = tx
         .query_row(
             "SELECT count(*) FROM sessions WHERE id = ?",

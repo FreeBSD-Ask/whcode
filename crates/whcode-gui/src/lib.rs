@@ -290,6 +290,9 @@ struct State {
     /// 当前 turn 的流式正文缓冲（FR-741 逐块增量呈现；有界——
     /// `CHAT_STREAMING_CAP_BYTES` 截断，turn 输出预算 1 MiB 为天然上界）。
     chat_streaming: String,
+    /// 对话历史缓存（FR-741：提交前与完成后各刷新一次——turn 运行期间连接锁
+    /// 被后台线程持有，**不得**触库读历史；缓存渲染另有条数封顶）。
+    chat_history: Vec<(String, String)>,
     /// 对话视图：剖面名（默认取执行器剖面清单首项）。
     chat_provider: String,
     /// 对话视图：提示词输入。
@@ -336,6 +339,7 @@ impl State {
             turn_running: false,
             chat_progress: 0,
             chat_streaming: String::new(),
+            chat_history: Vec::new(),
             chat_provider,
             chat_input: String::new(),
             chat_last: None,
@@ -350,6 +354,17 @@ impl State {
         self.snapshot = self
             .source
             .snapshot(self.view, self.selected_session().as_deref());
+        if self.view == ViewId::Chat {
+            self.refresh_chat_history();
+        }
+    }
+
+    /// 对话历史刷新（FR-741）：仅在连接锁空闲时调用（prepare／提交前／完成后）。
+    fn refresh_chat_history(&mut self) {
+        self.chat_history = self
+            .selected_session()
+            .map(|session| self.source.conversation_tail(&session, CHAT_HISTORY_MAX))
+            .unwrap_or_default();
     }
 
     fn selected_session(&self) -> Option<String> {
@@ -662,6 +677,10 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
 /// 对话流式缓冲上限（FR-741 有界性；与 turn 单次输出预算 1 MiB 同量级——
 /// 达到上限即停止追加，块计数照常，截断点落在字符边界）。
 const CHAT_STREAMING_CAP_BYTES: usize = 1024 * 1024;
+/// 对话历史拉取条数（≤ `MAX_CONVERSATION_TAIL`；渲染时再按行封顶）。
+const CHAT_HISTORY_MAX: usize = 50;
+/// 对话历史渲染条数上限（视图有界；仅呈现最近若干条，超出部分省略）。
+const CHAT_HISTORY_RENDER: usize = 20;
 /// 对话正文渲染行数上限（视图有界；超限以省略行“…”标注）。
 const CHAT_RENDER_MAX_LINES: usize = 400;
 
@@ -811,6 +830,8 @@ fn chat_submit(state: &mut State) -> Task<Message> {
         state.chat_provider.trim().to_string()
     };
     let prompt = std::mem::take(&mut state.chat_input);
+    // 提交前最后一次读历史（连接锁仍空闲；turn 运行期间不再触库）。
+    state.refresh_chat_history();
     state.turn_running = true;
     state.chat_progress = 0;
     state.chat_streaming.clear();
@@ -1149,10 +1170,28 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     ))
     .on_press_maybe(state.turn_running.then_some(Message::ChatCancel))
     .padding(6);
-    // 正文区（FR-741）：运行中＝进度行＋流式增量（markdown 最小集投影，有界）；
-    // 完成后＝最近结果投影；未选会话＝提示。历史消息列表属 T250 后续片。
-    let mut body: Vec<Element<'_, Message>> = if state.turn_running {
-        let mut items = vec![rich_line(
+    // 正文区（FR-741）：历史（缓存快照，仅最近 CHAT_HISTORY_RENDER 条）→
+    // 运行中＝进度行＋流式增量（markdown 最小集投影，有界）；完成后＝最近结果投影；
+    // 未选会话＝提示。条目格式“[role] 正文”（状态不依赖颜色，ui-design §3）。
+    let skipped = state.chat_history.len().saturating_sub(CHAT_HISTORY_RENDER);
+    let mut body: Vec<Element<'_, Message>> = Vec::new();
+    if skipped > 0 {
+        body.push(rich_line(
+            &format!("…（更早 {skipped} 条已省略）"),
+            false,
+            12.0,
+        ));
+    }
+    let history_start = state.chat_history.len().saturating_sub(CHAT_HISTORY_RENDER);
+    let mut history_text = String::new();
+    for (role, content) in state.chat_history.iter().skip(history_start) {
+        history_text.push_str(&format!("[{role}] {content}\n"));
+    }
+    if !history_text.is_empty() {
+        body.extend(md_elements(history_text.as_str()));
+    }
+    if state.turn_running {
+        body.push(rich_line(
             state
                 .texts
                 .resolve_fmt(
@@ -1162,15 +1201,18 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
                 .as_str(),
             false,
             13.0,
-        )];
-        items.extend(md_elements(state.chat_streaming.as_str()));
-        items
+        ));
+        body.extend(md_elements(state.chat_streaming.as_str()));
     } else {
         match state.chat_last.as_deref() {
-            Some(text) => md_elements(text),
-            None => vec![rich_line(state.texts.resolve("gui.chat.hint"), false, 14.0)],
+            Some(text) => body.extend(md_elements(text)),
+            None => {
+                if state.chat_history.is_empty() {
+                    body.push(rich_line(state.texts.resolve("gui.chat.hint"), false, 14.0));
+                }
+            }
         }
-    };
+    }
     body.push(rich_line(
         state.texts.resolve("gui.chat.history.hint"),
         false,
@@ -1743,6 +1785,41 @@ mod tests {
             elements.len(),
             CHAT_RENDER_MAX_LINES + 1,
             "渲染行必须封顶并以省略行标注"
+        );
+    }
+
+    /// FR-741：对话历史经数据源读入缓存（进入对话视图即刷新；数据形状为
+    /// `(role, content)` 时间正序）。
+    #[test]
+    fn chat_history_loads_from_source_on_view_enter() {
+        struct HistorySource;
+        impl whcode_app::view_source::ViewSource for HistorySource {
+            fn snapshot(
+                &self,
+                view: ViewId,
+                _session: Option<&str>,
+            ) -> whcode_app::view_source::ViewSnapshot {
+                whcode_app::view_source::ViewSnapshot::empty(view)
+            }
+            fn conversation_tail(&self, session_id: &str, max: usize) -> Vec<(String, String)> {
+                assert_eq!(session_id, "S-1");
+                assert!(max <= 100, "拉取数不得超过 app 层上限");
+                vec![
+                    ("user".to_string(), "你好".to_string()),
+                    ("assistant".to_string(), "# 回答\n- 要点".to_string()),
+                ]
+            }
+        }
+        let source: std::rc::Rc<dyn whcode_app::view_source::ViewSource> =
+            std::rc::Rc::new(HistorySource);
+        let mut state = State::new(source, I18n::default(), GuiTheme::default(), None, None);
+        state.session_ids = vec!["S-1".to_string()];
+        state.selected = Some(0);
+        let _ = update(&mut state, Message::SelectView(ViewId::Chat));
+        assert_eq!(state.chat_history.len(), 2, "进入对话视图必须刷新历史缓存");
+        assert_eq!(
+            state.chat_history[0],
+            ("user".to_string(), "你好".to_string())
         );
     }
 

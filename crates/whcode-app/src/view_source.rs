@@ -605,6 +605,14 @@ pub trait ViewSource {
     fn cursor(&self, _session: Option<&str>) -> Option<i64> {
         None
     }
+
+    /// 对话尾部（FR-741 对话历史）：按时间正序返回至多 `max` 条 `(role, content)`。
+    /// 视图数据尽力而为：数据源不可用或读取失败返回空（错误可见性由命令面承担）。
+    /// 纪律：turn 运行期间**不得调用**（连接锁被后台线程持有——GUI 在提交前取
+    /// 快照、完成后刷新）。默认空（空数据源与测试夹具兼容）。
+    fn conversation_tail(&self, _session_id: &str, _max: usize) -> Vec<(String, String)> {
+        Vec::new()
+    }
 }
 
 /// 空数据源：数据源不可用时的回退实现——六视图可切换、可绘制，界面提示“暂无数据”。

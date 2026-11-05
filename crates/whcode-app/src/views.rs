@@ -54,6 +54,27 @@ pub fn purge_counts_value(counts: &PurgeCounts) -> Value {
     })
 }
 
+use crate::llm::ConversationEntry;
+
+/// 对话尾部（`view.chat` 历史，FR-741/742）：`items` 按时间正序；形状与 CUI/Web 同源
+/// （三端共用数据形状，本模块唯一实现）。
+#[must_use]
+pub fn conversation_entries_value(entries: &[ConversationEntry]) -> Value {
+    json!({
+        "items": entries
+            .iter()
+            .map(|entry| {
+                json!({
+                    "id": entry.id,
+                    "role": entry.role,
+                    "content": entry.content,
+                    "ts_us": entry.ts_us,
+                })
+            })
+            .collect::<Vec<_>>(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

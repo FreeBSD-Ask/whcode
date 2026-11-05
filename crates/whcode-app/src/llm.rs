@@ -664,6 +664,71 @@ impl Drop for CancelMarker {
     }
 }
 
+/// 对话尾部条数上限（历史查询必须有界；渲染侧另有行数封顶）。
+pub const MAX_CONVERSATION_TAIL: usize = 100;
+
+/// 对话尾部条目（FR-741／742：`view.chat` 历史视图数据）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConversationEntry {
+    /// 消息 ID（`MSG-{seq}`）。
+    pub id: String,
+    /// 角色（`user`／`assistant`／`tool`，FR-722 口径）。
+    pub role: String,
+    /// 正文（messages 表 `content_ref` 列承载的文本）。
+    pub content: String,
+    /// Unix 微秒时间戳。
+    pub ts_us: i64,
+}
+
+/// 会话对话尾部（时间正序；GUI 对话历史与 Web 对话页共用，FR-741／FR-742）。
+///
+/// 会话不存在 → `not_found`（不把不存在的会话伪装成“正确的空”，FR-622 口径）；
+/// 存在但尚无消息 → 空列表（正确的空）。SQL 只在 store（ADR-018）。
+///
+/// # Errors
+///
+/// 会话不存在、`max` 为 0 或超过 [`MAX_CONVERSATION_TAIL`]、数据库查询失败时
+/// 返回 [`WhError`]。
+pub fn conversation_tail(
+    conn: &duckdb::Connection,
+    session_id: &str,
+    max: usize,
+) -> Result<Vec<ConversationEntry>, WhError> {
+    let session = session_id.trim();
+    if session.is_empty() {
+        return Err(WhError::invalid_state("对话尾部需要非空 session ID"));
+    }
+    if max == 0 || max > MAX_CONVERSATION_TAIL {
+        return Err(WhError::invalid_state(format!(
+            "对话尾部 max 必须在 1..={MAX_CONVERSATION_TAIL}"
+        )));
+    }
+    if !whcode_store::overview::session_exists(conn, session)? {
+        return Err(WhError::new(
+            ErrorCode::NotFound,
+            format!("会话 {session} 不存在"),
+        ));
+    }
+    let page = whcode_store::query::messages_page(
+        conn,
+        session,
+        whcode_store::query::Direction::Backward,
+        None,
+        max,
+    )?;
+    Ok(page
+        .items
+        .into_iter()
+        .rev()
+        .map(|row| ConversationEntry {
+            id: row.id,
+            role: row.role,
+            content: row.content_ref,
+            ts_us: row.ts_us,
+        })
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

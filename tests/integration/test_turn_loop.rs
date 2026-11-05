@@ -204,3 +204,54 @@ fn tool_call_executes_and_returns_result_to_model() {
     assert!(tool_msg.contains("fn itest()"), "工具结果以 role:tool 回填");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// FR-741：turn 落库的 messages 可经 `conversation_tail` 按时间正序重建对话尾部；
+/// 会话不存在 → `not_found`（不把不存在的会话伪装成“正确的空”）。
+#[test]
+fn conversation_tail_rebuilds_history_and_rejects_unknown_session() {
+    let (mut conn, id, dir, registry, factory) = fixture();
+    let context = LlmContext {
+        registry: Some(&registry),
+        registry_error: None,
+        factory: &factory,
+        cancel_dir: &dir,
+    };
+    let _ = run_turn(
+        &mut conn,
+        &DefaultPolicy,
+        &actor_with_all_capabilities("turn-itest"),
+        &context,
+        &request(&id, "历史重建提示词"),
+        11,
+    )
+    .expect("turn 完成");
+
+    let entries =
+        whcode_app::llm::conversation_tail(&conn, &id, whcode_app::llm::MAX_CONVERSATION_TAIL)
+            .expect("对话尾部可读");
+    assert!(
+        entries
+            .iter()
+            .any(|entry| entry.role == "user" && entry.content.contains("历史重建提示词")),
+        "user 消息必须在尾部：{entries:?}"
+    );
+    assert!(
+        entries.iter().any(|entry| entry.role == "assistant"),
+        "assistant 回填必须在尾部：{entries:?}"
+    );
+    // 时间正序：user 提示词先于 assistant 回填。
+    let user_index = entries
+        .iter()
+        .position(|entry| entry.role == "user")
+        .expect("user 存在");
+    let assistant_index = entries
+        .iter()
+        .position(|entry| entry.role == "assistant")
+        .expect("assistant 存在");
+    assert!(user_index < assistant_index, "尾部必须时间正序");
+
+    let err = whcode_app::llm::conversation_tail(&conn, "S-NOPE", 50)
+        .expect_err("不存在的会话必须 not_found");
+    assert_eq!(err.code, whcode_domain::ErrorCode::NotFound);
+    let _ = std::fs::remove_dir_all(&dir);
+}

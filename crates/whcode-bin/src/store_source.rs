@@ -290,6 +290,23 @@ impl ViewSource for StoreViewSource {
     fn cursor(&self, _session: Option<&str>) -> Option<i64> {
         self.cursor_of()
     }
+
+    fn conversation_tail(&self, session_id: &str, max: usize) -> Vec<(String, String)> {
+        // 视图数据尽力而为（trait 契约）：读取失败返回空，不阻塞界面；
+        // 错误可见性由命令面承担（与 cursor 的 .ok() 口径一致）。
+        whcode_app::llm::conversation_tail(
+            &self.conn.lock().expect("store 连接锁中毒"),
+            session_id,
+            max,
+        )
+        .map(|entries| {
+            entries
+                .into_iter()
+                .map(|entry| (entry.role, entry.content))
+                .collect()
+        })
+        .unwrap_or_default()
+    }
 }
 
 /// TUI/GUI 写命令执行器（T177/FR-623、ADR-056 Phase 2）：与视图数据源共享同一条
