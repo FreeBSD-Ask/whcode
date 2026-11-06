@@ -190,6 +190,10 @@ pub fn error_response(error: &WhError) -> HttpResponse {
     let status = match error.code {
         ErrorCode::PermissionDenied => 403,
         ErrorCode::InvalidState => 400,
+        // 可重试的资源繁忙（turn 占满并发槽、写者队列饱和）：503 + Retry-After 由
+        // 调用方补充。不能落到 `_ => 500`——繁忙不是服务端故障，重试语义也不同
+        // （ADR-058 §2.3）。
+        ErrorCode::Backpressure => 503,
         // 已登记但该端不提供（FR-620）；当前统一守卫直接返回 501，此处兜底同码。
         ErrorCode::NotSupported => 501,
         ErrorCode::NotFound => 404,
@@ -1550,29 +1554,13 @@ pub fn handle_request_with_llm(
                     return Err(llm_not_wired());
                 };
                 let body = json_body(request)?;
-                let session = body_str(&body, "session")?;
-                let provider = body_str(&body, "provider")?;
-                let prompt = body_str(&body, "prompt")?;
-                let model = optional_body_str(&body, "model");
-                let request_id = optional_body_str(&body, "request_id");
-                let max_tokens = body.get("max_tokens").and_then(serde_json::Value::as_u64);
+                let turn_request = turn_request_from_body(&body, workspace_root)?;
                 let outcome = whcode_app::turn::run_turn(
                     conn,
                     &policy,
                     actor,
                     llm,
-                    &whcode_app::turn::TurnRequest {
-                        session_id: session.to_string(),
-                        provider: provider.to_string(),
-                        prompt: prompt.to_string(),
-                        model: model.map(str::to_string),
-                        max_tokens,
-                        request_id: request_id.map(str::to_string),
-                        iterations_limit: None,
-                        budget_tokens: None,
-                        workspace_root: workspace_root.map(std::path::Path::to_path_buf),
-                        depth: 0,
-                    },
+                    &turn_request,
                     now_ms()?,
                 )?;
                 serde_json::to_value(&outcome)
@@ -1610,6 +1598,30 @@ pub fn optional_body_str<'a>(body: &'a serde_json::Value, field: &str) -> Option
         .and_then(serde_json::Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
+}
+
+/// 从请求体构造 turn 请求（`/api/llm/run` 与 serve 工作线程拦截共用，ADR-058 §2.7）。
+///
+/// 单一构造器的目的：两条入口（同步路由与工作线程拦截）字段完全同形，分开各写一份
+/// 会在后续加字段时漂移。三必填（session/provider/prompt）缺失或空白即
+/// `invalid_state`；可选项缺省保持 `None`；`iterations_limit`/`budget_tokens` 在请求
+/// 面固定为 `None`（只可调低，默认值取引擎常量）。
+pub fn turn_request_from_body(
+    body: &serde_json::Value,
+    workspace_root: Option<&std::path::Path>,
+) -> Result<whcode_app::turn::TurnRequest, WhError> {
+    Ok(whcode_app::turn::TurnRequest {
+        session_id: body_str(body, "session")?.to_string(),
+        provider: body_str(body, "provider")?.to_string(),
+        prompt: body_str(body, "prompt")?.to_string(),
+        model: optional_body_str(body, "model").map(str::to_string),
+        max_tokens: body.get("max_tokens").and_then(serde_json::Value::as_u64),
+        request_id: optional_body_str(body, "request_id").map(str::to_string),
+        iterations_limit: None,
+        budget_tokens: None,
+        workspace_root: workspace_root.map(std::path::Path::to_path_buf),
+        depth: 0,
+    })
 }
 
 /// 装配根未注入 LLM 上下文时的结构化错误（不伪装成功，也不以 404 掩盖已登记能力）。
