@@ -141,6 +141,9 @@ Loop Discovery 十项决策门与最小所有者路由；学习捕获（复发�
 
 ## 修订记录
 
+- **2026-11-07（全量采纳）**：用户批准 proposal-v3 全部 45 提案与 D10—D15；落账为
+  [`docs/adr/ADR-059-terminal-roadmap-adoption.md`](../../docs/adr/ADR-059-terminal-roadmap-adoption.md)
+  （批次化入账、硬边界零例外、NFR-211 修订方向获批）。
 - **2026-11-07（proposal-v3）**：终态功能建议书 [proposal-v3.md](proposal-v3.md) 入库——综合
   dsh-comparison（19 域）后的“不计实现成本”决策菜单：7 主线 45 提案＋9 反建议＋D10—D15
   决策请求；硬边界零例外，NFR-211 冲突项（PTY/jobs）显式升级为决策请求。
