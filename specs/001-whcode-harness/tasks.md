@@ -801,19 +801,18 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   styles.css 受校验产物契约测试逐值对照六套 bg/fg；本地定向 335 例＋layering/layout/
   frontend_parity＋clippy `-D warnings` 绿；CI run `42078616293`（12c9d27）success；
   Code Scanning 0 open。Check 344/345 同批转勾。
-- [ ] T253 [P] 批次 B2：会话侧栏对齐（搜索/排序/归档分组）＋任务/todo 面板，双端同批
+- [x] T253 [P] 批次 B2：会话侧栏对齐（搜索/排序/归档分组）＋任务/todo 面板，双端同批
   （FR-746/747）——**任务认知卡**：方向=会话与任务管理形态对齐；目标=双端同形态
   语义；判据=行为测试＋对等矩阵登记同步；非目标=检查点回滚执行（T254 口径）
-  ——**复核（2026-11-07，部分完成，维持未勾）**：后端 app 层新增
-  `session_directory`（标题/ID 子串搜索、按最近活跃/创建/标题排序、活跃在前归档在后的
-  分组，搜索词长度有界）与 `task_panel`（总览＋任务卡片：父链依赖、重试计数、截断标记；
-  store 层 `tasks_of_scope` 支持工作区/会话两作用域），单测 2 条；Web 侧 `/api/sessions`
-  接受 `q`/`sort`/`group`（非法值回落默认）并输出 `group` 字段、`/api/tasks` 增 `tasks`
-  卡片数组，行为测试 2 条；前端侧栏增搜索/排序/含归档控件与分组标题，任务面板增依赖
-  缩进、重试计数、进度与截断提示，双语 i18n 键 11 组同批。**未完成（GUI 侧）**：GUI 的
-  会话/任务视图消费 `ViewSnapshot`（`view_source::SessionRow` 缺 `archived`、`TaskRow`
-  缺 `parent_id`），补齐需扩展该共享类型并同时改 TUI 构造点——未实施，故双端同批
-  （FR-610）不成立、Check 351 维持 `[missing]`。
+  ——**完成（2026-11-07）**：后端 app 层 `session_directory`（标题/ID 子串、最近活跃/
+  创建/标题排序、活跃在前归档在后、搜索词 ≤128 字符显式拒绝）与 `task_panel`（总览＋
+  有界卡片：父链 `depends_on` 深度≤8＋环检测、重试计数、`truncated` 显式；store
+  `tasks_of_scope` 支持两作用域）；Web `/api/sessions` 接受 `q`/`sort`/`group` 并输出
+  `group`，`/api/tasks` 增卡片数组与进度；GUI 侧栏增搜索（`apply_session_view` 本地
+  过滤/排序/分组，`session_ids` 同步保证选中不漂）、任务面板按父缩进＋重试＋总览摘要；
+  `ViewSnapshot` 行类型扩 `archived`/时间戳/`parent_id`（TUI 不消费，渲染不变）；
+  i18n zh-CN/en 同批 22 键。测试 4 条（app 2／web 2／GUI 1，其中 app 与 GUI 各覆盖
+  目录规则）；Check 351/352 同批转勾。
 - [ ] T254 [P] 批次 B2：检查点浏览（列表＋差分摘要）；回滚执行后端能力缺则显式降级并
   登记缺口（FR-748）——**任务认知卡**：方向=检查点可视化；目标=浏览可判定、不伪造
   可回滚；判据=浏览面行为测试＋（若降级）缺口登记合规；非目标=回滚执行实现

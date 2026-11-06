@@ -671,8 +671,8 @@
 - [ ] Check 348: [missing] 工具调用卡四端语义一致：事件源 `ToolCallStarted`/`Finished`；GUI/Web 卡片形态、CUI/TUI 结构化文本；参数与输出展示经脱敏管线（`redacted` 贯穿，正文不入事件 payload）（来源：spec FR-743／Task T256、T257）
 - [ ] Check 349: [missing] 审批 broker 后端：权限规则（允许/询问/拒绝）正反路径测试、审批请求与决定落审计事件、拒绝为 `permission_denied` 不可重试、队列有界且无常驻线程（来源：spec FR-744／Task T255）
 - [ ] Check 350: [missing] 双端四态审批交互：批准/拒绝/仅本次/记住规则可判定；破坏性工具默认确认；记住规则写入本地权限规则存储并可在设置页撤销（来源：spec FR-745／Task T256、T257）
-- [ ] Check 351: [missing] 会话侧栏对齐：搜索/排序/归档分组双端同形态语义，行为测试与对等矩阵登记同步（来源：spec FR-746／Task T253）
-- [ ] Check 352: [missing] 任务/todo 面板：依赖、重试计数、进度呈现自 `task.overview` 数据面，双端同语义（来源：spec FR-747／Task T253）
+- [x] Check 351: [exercised] 会话侧栏对齐：搜索/排序/归档分组双端同形态语义，行为测试与对等矩阵登记同步（来源：spec FR-746／Task T253）——**通过（2026-11-07）**：app 层 `session_directory` 为唯一语义源（标题/ID 子串、大小写不敏感、最近活跃/创建/标题排序、活跃在前归档在后、条数封顶 200、搜索词 >128 字符显式拒绝）；Web `/api/sessions?q=&sort=&group=` 与 GUI 侧栏（搜索/三键排序/归档开关）同规则，GUI 侧附加阶段子串匹配（超集，已登记）；测试：`session::tests::session_directory_filters_sorts_and_groups_archived`、`api::tests::sessions_route_applies_search_sort_and_archive_group`、GUI `tests::session_directory_filters_sorts_and_groups_archived`；`feature-parity.md` 的 `view.sessions` 行维持 ✅（能力面未变）。
+- [x] Check 352: [exercised] 任务/todo 面板：依赖、重试计数、进度呈现自 `task.overview` 数据面，双端同语义（来源：spec FR-747／Task T253）——**通过（2026-11-07）**：`overview::task_panel` 在 `task_overview` 之上输出有界卡片（父链 `depends_on` 深度≤8＋环检测、`retry_count` 取原行值、超限 `truncated` 而总览计数仍全量），store `tasks_of_scope` 支持工作区/会话两作用域；Web `/api/tasks` 输出 `tasks`＋`truncated` 与 `done/total` 进度，GUI 任务面板按父存在缩进、显示重试计数与总览摘要；测试：`overview::tests::task_panel_reports_dependency_chain_retries_and_truncation`、`api::tests::tasks_route_reports_cards_with_dependencies_and_retries`。
 - [ ] Check 353: [missing] 检查点浏览：列表＋差分摘要可判定；若回滚执行缺后端能力则显式降级且缺口登记合规，不伪造可回滚（来源：spec FR-748／Task T254）
 - [ ] Check 354: [missing] 子代理运行视图：运行中/完成/失败状态与产出摘要双端可判定（来源：spec FR-749／Task T258、T259）
 - [ ] Check 355: [missing] 技能库与 MCP 状态面板：连接状态、工具清单、超时配置展示双端可判定（来源：spec FR-750／Task T258、T259）
