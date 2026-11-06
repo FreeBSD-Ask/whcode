@@ -58,8 +58,8 @@ use std::io::{ErrorKind, Write};
 use std::net::{IpAddr, SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use duckdb::Connection;
@@ -686,25 +686,29 @@ fn serve_loop(
             .iter()
             .filter(|client| matches!(client.phase, Phase::TurnPending { .. }))
             .count();
+        // 参数组（不是新状态）：把装配根注入的共享只读句柄与每 tick 的活跃 turn
+        // 计数打包，避免泵函数参数个数继续膨胀（clippy too_many_arguments）。
+        let pumps = PumpContext {
+            turn_conn: &conn,
+            actor: &actor,
+            security: &security,
+            workspace_root,
+            active_turns,
+        };
         for client in clients.iter_mut() {
             pump_client(
                 client,
                 &mut state,
                 conn_guard.as_deref_mut(),
-                &conn,
-                &actor,
-                &security,
+                &pumps,
                 &mut progressed,
-                workspace_root,
-                active_turns,
             );
         }
         // turn 增量排水与完成收敛（ADR-058）：每 tick 至多 TURN_DELTA_DRAIN_PER_TICK
         // 帧（＝出站队列容量，整批入队不溢出）；完成即组装与同步路径相同的信封并
         // join 工作线程（客户端提前断开 → 通道断开按结构化失败收敛，无泄漏）。
         let mut delta_frames: Vec<Vec<u8>> = Vec::new();
-        let mut finished: Vec<(usize, Result<whcode_app::turn::TurnOutcome, WhError>)> =
-            Vec::new();
+        let mut finished: Vec<(usize, Result<whcode_app::turn::TurnOutcome, WhError>)> = Vec::new();
         let mut aborted: Vec<usize> = Vec::new();
         for (index, client) in clients.iter_mut().enumerate() {
             let Phase::TurnPending { progress, done, .. } = &mut client.phase else {
@@ -745,7 +749,9 @@ fn serve_loop(
             ));
         }
         for (index, outcome) in finished {
-            let Some(client) = clients.get_mut(index) else { continue };
+            let Some(client) = clients.get_mut(index) else {
+                continue;
+            };
             let response = match outcome {
                 Ok(outcome) => {
                     let value = serde_json::to_value(&outcome).unwrap_or_else(|err| {
@@ -797,7 +803,7 @@ fn serve_loop(
 /// 帧广播＋慢客户端断开＋逐帧刷新（事件轮询与 turn delta 共用的落点，Check 199）。
 fn broadcast_and_flush(
     frames: Vec<Vec<u8>>,
-    clients: &mut Vec<Client>,
+    clients: &mut [Client],
     state: &mut BroadcastState,
     progressed: &mut bool,
 ) {
@@ -806,9 +812,9 @@ fn broadcast_and_flush(
         for slow in state.broadcast_frame(frame) {
             // 慢客户端策略：断开慢者，不停别人。队列已满的连接不再写
             // 关闭帧（只会继续积压），直接断开（Check 199）。
-            if let Some(client) = clients.iter_mut().find(|candidate| {
-                matches!(&candidate.phase, Phase::Subscriber { id, .. } if *id == slow)
-            }) {
+            if let Some(client) = clients.iter_mut().find(
+                |candidate| matches!(&candidate.phase, Phase::Subscriber { id, .. } if *id == slow),
+            ) {
                 client.dead = true;
             }
         }
@@ -873,17 +879,25 @@ fn accept_ready(
     }
 }
 
+/// 请求泵的参数组：装配根注入的共享只读服务句柄 ＋ 每 tick 的活跃 turn 计数。
+///
+/// 分组只为把泵函数参数个数收在 clippy 默认阈值（7）内，不引入新状态；生命周期
+/// 与调用帧同长（`&'a`），不跨 tick 持有。
+struct PumpContext<'a> {
+    turn_conn: &'a Arc<Mutex<Connection>>,
+    actor: &'a Actor,
+    security: &'a ServeSecurity,
+    workspace_root: Option<&'a Path>,
+    active_turns: usize,
+}
+
 /// 推进单个连接：按阶段读（请求/WS 帧）与写（响应/出站队列）各尽力一次。
 fn pump_client(
     client: &mut Client,
     state: &mut BroadcastState,
     conn: Option<&mut Connection>,
-    turn_conn: &Arc<Mutex<Connection>>,
-    actor: &Actor,
-    security: &ServeSecurity,
+    pumps: &PumpContext<'_>,
     progressed: &mut bool,
-    workspace_root: Option<&Path>,
-    active_turns: usize,
 ) {
     if client.dead {
         return;
@@ -893,17 +907,7 @@ fn pump_client(
         return;
     }
     if matches!(&client.phase, Phase::Reading { .. }) {
-        pump_reading(
-            client,
-            conn,
-            turn_conn,
-            actor,
-            security,
-            state,
-            progressed,
-            workspace_root,
-            active_turns,
-        );
+        pump_reading(client, conn, pumps, state, progressed);
         return;
     }
     if matches!(&client.phase, Phase::Subscriber { .. }) {
@@ -921,13 +925,9 @@ fn pump_client(
 fn pump_reading(
     client: &mut Client,
     conn: Option<&mut Connection>,
-    turn_conn: &Arc<Mutex<Connection>>,
-    actor: &Actor,
-    security: &ServeSecurity,
+    pumps: &PumpContext<'_>,
     state: &mut BroadcastState,
     progressed: &mut bool,
-    workspace_root: Option<&Path>,
-    active_turns: usize,
 ) {
     read_request_bytes(client, progressed);
     if client.dead {
@@ -977,9 +977,15 @@ fn pump_reading(
         }
         RequestOutcome::Complete(raw) => {
             let reply = match conn {
-                Some(conn) => {
-                    respond(conn, turn_conn, &raw, actor, security, workspace_root, active_turns)
-                }
+                Some(conn) => respond(
+                    conn,
+                    pumps.turn_conn,
+                    &raw,
+                    pumps.actor,
+                    pumps.security,
+                    pumps.workspace_root,
+                    pumps.active_turns,
+                ),
                 None => busy_or_static(&raw),
             };
             route_reply(client, reply, state);
@@ -1558,7 +1564,14 @@ fn respond(
         && request.path.split('?').next() == Some("/api/llm/run")
         && security.llm.registry.is_some()
     {
-        match turn_intercept(turn_conn, actor, security, workspace_root, &request, active_turns) {
+        match turn_intercept(
+            turn_conn,
+            actor,
+            security,
+            workspace_root,
+            &request,
+            active_turns,
+        ) {
             TurnIntercept::Pending(reply) => return reply,
             TurnIntercept::Busy(response) => return Reply::plain(response),
             TurnIntercept::Passthrough => {}
@@ -1708,12 +1721,6 @@ fn chat_response(
 /// 首页首屏只读快照的会话上限（HTML 直出需守住 DOM 预算，比 TUI/GUI 的 200 更小）。
 const INITIAL_SESSION_LIMIT: usize = 50;
 
-/// 服务端直出首页（FR-618）：把会话快照渲染进 `<noscript>`。
-///
-/// 查询失败必须渲染成可见错误——不得用“空列表”冒充“没有会话”（信号链完备原则）。
-/// 启用认证时**不注入任何业务数据**（ADR-022）：首页是浏览器导航，无法携带 Bearer 头，
-/// 直出快照会绕过认证边界。
-
 /// turn 工作线程拦截结果（ADR-058）：`Pending`＝已 spawn（连接转 TurnPending）；
 /// `Busy`＝并发上限满（显式 503，不排队不 burst）；`Passthrough`＝解析失败或
 /// spawn 失败，交回 api 路由（同步 burst 语义，行为正确仅无直播）。
@@ -1811,7 +1818,11 @@ fn busy_or_static(raw: &[u8]) -> Reply {
         return Reply::plain(HttpResponse::text(400, "bad request"));
     };
     if request.method == Method::Get {
-        let path = request.path.split('?').next().unwrap_or(request.path.as_str());
+        let path = request
+            .path
+            .split('?')
+            .next()
+            .unwrap_or(request.path.as_str());
         if let Some((content_type, body)) = assets::static_asset(path) {
             return Reply::plain(HttpResponse {
                 status: 200,
@@ -1833,6 +1844,11 @@ fn serve_now_ms() -> u64 {
         .map_or(0, |d| d.as_millis() as u64)
 }
 
+/// 服务端直出首页（FR-618）：把会话快照渲染进 `<noscript>`。
+///
+/// 查询失败必须渲染成可见错误——不得用“空列表”冒充“没有会话”（信号链完备原则）。
+/// 启用认证时**不注入任何业务数据**（ADR-022）：首页是浏览器导航，无法携带 Bearer 头，
+/// 直出快照会绕过认证边界。
 fn index_response(
     conn: &Connection,
     actor: &whcode_app::Actor,
@@ -1960,7 +1976,6 @@ fn reason(status: u16) -> &'static str {
 mod tests {
     use std::io::{ErrorKind, Read, Write as _};
     use std::net::{SocketAddr, TcpStream};
-    use std::sync::Arc;
     use std::time::{Duration, Instant};
 
     use duckdb::{Connection, params};
@@ -1982,12 +1997,12 @@ mod tests {
     use whcode_store::apply_migrations;
 
     /// 测试用 turn 工作线程连接槽（ADR-058）：未接线路径不会 spawn 工作线程，
-/// 此处仅为满足 respond 签名；独立内存库避免与用例连接纠缠。
-fn dummy_turn_conn() -> Arc<Mutex<Connection>> {
-    Arc::new(Mutex::new(Connection::open_in_memory().expect("内存库")))
-}
+    /// 此处仅为满足 respond 签名；独立内存库避免与用例连接纠缠。
+    fn dummy_turn_conn() -> Arc<Mutex<Connection>> {
+        Arc::new(Mutex::new(Connection::open_in_memory().expect("内存库")))
+    }
 
-fn migrated_memory_conn() -> Connection {
+    fn migrated_memory_conn() -> Connection {
         let conn = Connection::open_in_memory().expect("内存库");
         apply_migrations(&conn).expect("迁移");
         conn
@@ -2062,9 +2077,17 @@ fn migrated_memory_conn() -> Connection {
         let mut conn = migrated_memory_conn();
         let actor = actor_with_all_capabilities("tester");
         let security = ServeSecurity::loopback();
-        let mut send =
-            |request: &str| respond(&mut conn,
-            &dummy_turn_conn(), &raw_request(request), &actor, &security, None, 0);
+        let mut send = |request: &str| {
+            respond(
+                &mut conn,
+                &dummy_turn_conn(),
+                &raw_request(request),
+                &actor,
+                &security,
+                None,
+                0,
+            )
+        };
 
         // 静态资产（GET）。
         let reply = send("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
@@ -2144,7 +2167,9 @@ fn migrated_memory_conn() -> Connection {
             )),
             &actor,
             &security,
-            None, 0);
+            None,
+            0,
+        );
         assert_eq!(
             create.response.status,
             201,
@@ -2158,7 +2183,9 @@ fn migrated_memory_conn() -> Connection {
             &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
             &actor,
             &security,
-            None, 0);
+            None,
+            0,
+        );
         assert_eq!(reply.response.status, 200);
         let body = String::from_utf8_lossy(&reply.response.body).into_owned();
         assert!(body.contains("<noscript>"), "无 JS 时必须有只读快照");
@@ -2189,7 +2216,9 @@ fn migrated_memory_conn() -> Connection {
             )),
             &actor,
             &ServeSecurity::loopback(),
-            None, 0);
+            None,
+            0,
+        );
         assert_eq!(create.response.status, 201);
 
         let authenticated = ServeSecurity {
@@ -2204,7 +2233,9 @@ fn migrated_memory_conn() -> Connection {
             &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
             &actor,
             &authenticated,
-            None, 0);
+            None,
+            0,
+        );
         assert_eq!(reply.response.status, 200);
         let body = String::from_utf8_lossy(&reply.response.body).into_owned();
         assert!(
@@ -2229,7 +2260,7 @@ fn migrated_memory_conn() -> Connection {
             let payload = format!(r#"{{"title":"会话 {index}"}}"#);
             let create = respond(
                 &mut conn,
-            &dummy_turn_conn(),
+                &dummy_turn_conn(),
                 &raw_request(&format!(
                     "POST /api/sessions/new HTTP/1.1\r\ncontent-type: application/json\r\n\
                      content-length: {}\r\n\r\n{payload}",
@@ -2237,7 +2268,9 @@ fn migrated_memory_conn() -> Connection {
                 )),
                 &actor,
                 &security,
-                None, 0);
+                None,
+                0,
+            );
             assert_eq!(
                 create.response.status,
                 201,
@@ -2252,7 +2285,9 @@ fn migrated_memory_conn() -> Connection {
             &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
             &actor,
             &security,
-            None, 0);
+            None,
+            0,
+        );
         let body = String::from_utf8_lossy(&reply.response.body).into_owned();
         assert_eq!(
             body.matches("<li><code>").count(),
@@ -2306,7 +2341,9 @@ fn migrated_memory_conn() -> Connection {
             &request,
             &actor,
             &ServeSecurity::loopback(),
-            None, 0);
+            None,
+            0,
+        );
         assert_eq!(unwired.response.status, 400);
         let body: serde_json::Value = serde_json::from_slice(&unwired.response.body).expect("JSON");
         assert_eq!(body["code"], "invalid_state");
@@ -2334,8 +2371,15 @@ fn migrated_memory_conn() -> Connection {
             }),
             ..ServeSecurity::loopback()
         };
-        let reply = respond(&mut conn,
-            &dummy_turn_conn(), &request, &actor, &security, None, 0);
+        let reply = respond(
+            &mut conn,
+            &dummy_turn_conn(),
+            &request,
+            &actor,
+            &security,
+            None,
+            0,
+        );
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(
             reply.response.status,
@@ -2359,8 +2403,15 @@ fn migrated_memory_conn() -> Connection {
         let page = raw_request("GET /settings/certs HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
 
         // 未接线：明确“未接线”，不渲染成“没有证书”。
-        let unwired = respond(&mut conn,
-            &dummy_turn_conn(), &page, &actor, &ServeSecurity::loopback(), None, 0);
+        let unwired = respond(
+            &mut conn,
+            &dummy_turn_conn(),
+            &page,
+            &actor,
+            &ServeSecurity::loopback(),
+            None,
+            0,
+        );
         assert_eq!(unwired.response.status, 200, "设置页不得 404/500 空页");
         assert!(
             unwired
@@ -2400,8 +2451,15 @@ fn migrated_memory_conn() -> Connection {
             }),
             ..ServeSecurity::loopback()
         };
-        let wired = respond(&mut conn,
-            &dummy_turn_conn(), &page, &actor, &security, None, 0);
+        let wired = respond(
+            &mut conn,
+            &dummy_turn_conn(),
+            &page,
+            &actor,
+            &security,
+            None,
+            0,
+        );
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(wired.response.status, 200);
         let body = String::from_utf8_lossy(&wired.response.body);
@@ -2421,8 +2479,15 @@ fn migrated_memory_conn() -> Connection {
 
         // 脚本资产：`/settings.js` 走静态白名单，非空且声明原生 ESM 的 API 路径。
         let script = raw_request("GET /settings.js HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
-        let reply = respond(&mut conn,
-            &dummy_turn_conn(), &script, &actor, &ServeSecurity::loopback(), None, 0);
+        let reply = respond(
+            &mut conn,
+            &dummy_turn_conn(),
+            &script,
+            &actor,
+            &ServeSecurity::loopback(),
+            None,
+            0,
+        );
         assert_eq!(reply.response.status, 200);
         assert!(
             reply
@@ -2464,7 +2529,14 @@ fn migrated_memory_conn() -> Connection {
         std::thread::Builder::new()
             .name("serve-loop-test".into())
             .spawn(move || {
-                let _ = serve_loop(listener, Arc::new(Mutex::new(server_conn)), actor, security, tls, None);
+                let _ = serve_loop(
+                    listener,
+                    Arc::new(Mutex::new(server_conn)),
+                    actor,
+                    security,
+                    tls,
+                    None,
+                );
             })
             .expect("启动服务器线程");
         TestServer { addr, conn }
