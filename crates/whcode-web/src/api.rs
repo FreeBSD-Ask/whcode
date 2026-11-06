@@ -614,14 +614,45 @@ pub fn handle_request_with_llm(
             }
         }
         (Method::Get, "/api/sessions") => {
-            match whcode_app::list_sessions(conn, &policy, actor, false, 200) {
-                Ok(sessions) => HttpResponse::json(
-                    200,
-                    &serde_json::json!({
-                        "schema_version": whcode_domain::SCHEMA_VERSION,
-                        "sessions": sessions,
-                    }),
-                ),
+            // 侧栏目录（FR-746）：搜索/排序/归档分组与 GUI 同一应用服务（session_directory）。
+            // 参数非法值回落默认（不报错）：`sort` 未知→最近活跃，`group` 未知→仅活跃。
+            let directory_query = whcode_app::SessionDirectoryQuery {
+                search: query_value("q").unwrap_or("").to_string(),
+                sort: match query_value("sort") {
+                    Some("created") => whcode_app::SessionSort::Created,
+                    Some("title") => whcode_app::SessionSort::Title,
+                    _ => whcode_app::SessionSort::LastActive,
+                },
+                include_archived: matches!(query_value("group"), Some("all" | "archived")),
+                limit: whcode_app::LIST_SESSIONS_LIMIT,
+            };
+            match whcode_app::session_directory(conn, &policy, actor, &directory_query) {
+                Ok(entries) => {
+                    let sessions: Vec<serde_json::Value> = entries
+                        .iter()
+                        .map(|entry| {
+                            let mut value =
+                                serde_json::to_value(&entry.session).unwrap_or_default();
+                            if let Some(object) = value.as_object_mut() {
+                                object.insert(
+                                    "group".to_string(),
+                                    serde_json::json!(match entry.group {
+                                        whcode_app::SessionGroup::Active => "active",
+                                        whcode_app::SessionGroup::Archived => "archived",
+                                    }),
+                                );
+                            }
+                            value
+                        })
+                        .collect();
+                    HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "sessions": sessions,
+                        }),
+                    )
+                }
                 Err(error) => error_response(&error),
             }
         }
@@ -648,26 +679,46 @@ pub fn handle_request_with_llm(
             }
         }
         (Method::Get, "/api/tasks") => {
-            // 任务视图（FR-103）：session 可选——缺省为工作区级总览。
+            // 任务面板（FR-747）：总览（阶段/完成/阻塞/活跃）＋有界任务卡片
+            // （父链依赖、重试计数）；`session` 可选——缺省为工作区级。
             let session = query_value("session");
-            match whcode_app::task_overview(conn, &policy, actor, session) {
-                Ok(overview) => HttpResponse::json(
-                    200,
-                    &serde_json::json!({
-                        "schema_version": whcode_domain::SCHEMA_VERSION,
-                        "session_id": overview.session_id,
-                        "total": overview.total,
-                        "done": overview.done,
-                        "blocked": overview.blocked,
-                        "by_stage": overview.by_stage,
-                        "active": overview.active.iter().map(|row| serde_json::json!({
-                            "id": row.id,
-                            "title": row.title,
-                            "status": row.status.as_str(),
-                            "retry_count": row.retry_count,
-                        })).collect::<Vec<_>>(),
-                    }),
-                ),
+            match whcode_app::task_panel(conn, &policy, actor, session, 100) {
+                Ok(panel) => {
+                    let tasks: Vec<serde_json::Value> = panel
+                        .tasks
+                        .iter()
+                        .map(|card| {
+                            serde_json::json!({
+                                "id": card.id,
+                                "title": card.title,
+                                "stage": card.stage,
+                                "status": card.status.as_str(),
+                                "retry_count": card.retry_count,
+                                "parent_id": card.parent_id,
+                                "depends_on": card.depends_on,
+                            })
+                        })
+                        .collect();
+                    HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "session_id": panel.overview.session_id,
+                            "total": panel.overview.total,
+                            "done": panel.overview.done,
+                            "blocked": panel.overview.blocked,
+                            "by_stage": panel.overview.by_stage,
+                            "active": panel.overview.active.iter().map(|row| serde_json::json!({
+                                "id": row.id,
+                                "title": row.title,
+                                "status": row.status.as_str(),
+                                "retry_count": row.retry_count,
+                            })).collect::<Vec<_>>(),
+                            "tasks": tasks,
+                            "truncated": panel.truncated,
+                        }),
+                    )
+                }
                 Err(error) => error_response(&error),
             }
         }
@@ -1808,6 +1859,106 @@ mod tests {
         assert_eq!(response.status, 200);
         let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
         assert!(body["session_id"].is_null());
+    }
+
+    #[test]
+    fn sessions_route_applies_search_sort_and_archive_group() {
+        let mut conn = migrated();
+        for (id, title) in [("S-1", "Alpha"), ("S-2", "beta"), ("S-3", "Gamma")] {
+            conn.execute(
+                "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+                 VALUES (?, ?, current_timestamp, current_timestamp, 'active')",
+                duckdb::params![id, title],
+            )
+            .expect("创建会话");
+        }
+        conn.execute("UPDATE sessions SET archived = true WHERE id = 'S-2'", [])
+            .expect("归档 beta");
+        let actor = actor_with_all_capabilities("tester");
+
+        let mut fetch = |route: &str| {
+            let req = request(Method::Get, route, false);
+            let response = handle_request(
+                &mut conn,
+                false,
+                None,
+                &security::ALLOWED_ORIGINS,
+                &req,
+                &actor,
+            );
+            assert_eq!(response.status, 200, "{route}");
+            serde_json::from_slice::<serde_json::Value>(&response.body).expect("JSON")
+        };
+
+        // 默认：仅活跃，最近活跃排序（同秒 → ID 兜底），归档不出现。
+        let body = fetch("/api/sessions");
+        let sessions = body["sessions"].as_array().expect("数组");
+        assert_eq!(sessions.len(), 2);
+        assert!(sessions.iter().all(|row| row["group"] == "active"));
+
+        // 标题排序 + 含归档：活跃在前、归档在后。
+        let body = fetch("/api/sessions?sort=title&group=all");
+        let sessions = body["sessions"].as_array().expect("数组");
+        assert_eq!(sessions.len(), 3);
+        assert_eq!(sessions[0]["title"], "Alpha");
+        assert_eq!(sessions[1]["title"], "Gamma");
+        assert_eq!(sessions[2]["title"], "beta");
+        assert_eq!(sessions[2]["group"], "archived", "归档排在活跃之后");
+
+        // 搜索：标题子串匹配（大小写不敏感）。
+        let body = fetch("/api/sessions?q=gam&group=all");
+        let sessions = body["sessions"].as_array().expect("数组");
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0]["id"], "S-3");
+
+        // 非法 sort 回落默认、不报错（参数容错口径）。
+        let body = fetch("/api/sessions?sort=unknown");
+        assert_eq!(body["sessions"].as_array().expect("数组").len(), 2);
+    }
+
+    #[test]
+    fn tasks_route_reports_cards_with_dependencies_and_retries() {
+        let mut conn = migrated();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-T', '任务面板', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("创建会话");
+        conn.execute(
+            "INSERT INTO tasks (id, session_id, title, stage, status, parent_id,
+                                acceptance_json, retry_count, updated_at)
+             VALUES ('T-1', 'S-T', '父任务', 'plan', 'completed', NULL,
+                     CAST('[]' AS JSON)::VARIANT, 0, current_timestamp),
+                    ('T-2', 'S-T', '子任务', 'implement', 'running', 'T-1',
+                     CAST('[]' AS JSON)::VARIANT, 2, current_timestamp)",
+            [],
+        )
+        .expect("插入任务");
+        let actor = actor_with_all_capabilities("tester");
+        let req = request(Method::Get, "/api/tasks?session=S-T", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["total"], 2);
+        assert_eq!(body["done"], 1);
+        assert_eq!(body["truncated"], false);
+        let cards = body["tasks"].as_array().expect("卡片数组");
+        assert_eq!(cards.len(), 2);
+        let child = cards
+            .iter()
+            .find(|card| card["id"] == "T-2")
+            .expect("子任务卡片");
+        assert_eq!(child["retry_count"], 2, "重试计数取原行值");
+        assert_eq!(child["depends_on"], serde_json::json!(["T-1"]));
+        assert_eq!(child["parent_id"], "T-1");
     }
 
     #[test]

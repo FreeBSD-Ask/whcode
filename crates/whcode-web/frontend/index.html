@@ -37,6 +37,20 @@
     <section id="view-sessions" role="tabpanel" aria-labelledby="tab-sessions" tabindex="0">
       <div class="split">
         <div class="split__main">
+          <div id="session-filter" class="toolbar" role="search">
+            <label for="session-search" data-i18n="web.session.search">搜索标题或 ID</label>
+            <input id="session-search" type="search" maxlength="128">
+            <label for="session-sort" data-i18n="web.session.sort">排序</label>
+            <select id="session-sort">
+              <option value="last_active" data-i18n="web.session.sort.last_active">最近活跃</option>
+              <option value="created" data-i18n="web.session.sort.created">创建时间</option>
+              <option value="title" data-i18n="web.session.sort.title">标题</option>
+            </select>
+            <label>
+              <input id="session-show-archived" type="checkbox">
+              <span data-i18n="web.session.show_archived">含归档</span>
+            </label>
+          </div>
           <form id="session-create" class="toolbar">
             <label for="session-title" data-i18n="web.session.title">会话标题</label>
             <input id="session-title" name="title" required maxlength="200">
