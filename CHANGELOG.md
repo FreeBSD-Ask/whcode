@@ -12,6 +12,20 @@
 ## [Unreleased]
 
 ### 变更
+
+- **B2 后端＋Web：会话目录与任务面板（T253 部分，FR-746/747）**（2026-11-07，ADR-057
+  批次 B2）：①app 层新增 `session::session_directory`（标题/ID 子串搜索、最近活跃/
+  创建/标题三种排序、活跃在前归档在后的分组；搜索词 ≤128 字符显式拒绝，不静默截断）
+  与 `overview::task_panel`（`task_overview` 总览＋有界任务卡片：父链依赖 `depends_on`、
+  重试计数原行值、超限 `truncated` 显式标记；store 层新增 `tasks_of_scope` 支持工作区/
+  会话两作用域）；②Web `/api/sessions` 接受 `q`/`sort`/`group`（非法值回落默认）并输出
+  `group` 字段，`/api/tasks` 增 `tasks` 卡片数组；③前端侧栏增搜索（去抖 200 ms）/排序/
+  含归档控件与分组标题，任务面板增依赖缩进、重试计数、`完成 done/total` 进度与截断
+  提示；④i18n zh-CN/en 同批 12 键。测试：app 2 条、web 行为测试 2 条；前端预算达标
+  （app.js gzip 9917 B、DOM index 86）。**缺口**：GUI 侧未实施——其会话/任务视图消费
+  `ViewSnapshot`（`SessionRow` 缺 `archived`、`TaskRow` 缺 `parent_id`），补齐需扩展该
+  共享类型并同步 TUI 构造点；双端同批（FR-610）不成立，T253 维持未勾、Check 351 维持
+  `[missing]`。
 - **ADR-059：终态功能路线全量采纳**（2026-11-07，用户指令“批准所有不计成本的，最佳建议方案”）：
   proposal-v3 的 W1—W7 共 45 提案与 D10—D15 全部批准（含默认建议）；裁定口径＝开发 effort 不作
   过滤、产品硬边界零例外（零 unsafe/原生 GUI/本地优先/平台范围不放宽）；D13 批准 NFR-211 修订
