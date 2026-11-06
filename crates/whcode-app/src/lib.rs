@@ -27,6 +27,7 @@
 //!
 //! 待交付：SDD 门禁编排（M4，T068+）。
 
+pub mod approval;
 pub mod authz;
 pub mod cert;
 pub mod commands;

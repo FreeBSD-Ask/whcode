@@ -35,6 +35,10 @@ pub enum AuditAction {
     SessionArchive,
     /// 证书库配置变更（ADR-040 决策 4；含档位、根证书与服务端证书变更）。
     TlsConfigChange,
+    /// 工具审批请求（T264／FR-754／ADR-060 项 A；只记 `exec_id` 与规则，不记工具参数）。
+    ApprovalAsked,
+    /// 工具审批决定（与 `ApprovalAsked` 成对；审计失败时审批不得生效）。
+    ApprovalDecided,
 }
 
 impl AuditAction {
@@ -52,6 +56,8 @@ impl AuditAction {
             Self::AuthFailureSummary => "auth_failure_summary",
             Self::SessionArchive => "session_archive",
             Self::TlsConfigChange => "tls_config_change",
+            Self::ApprovalAsked => "approval_asked",
+            Self::ApprovalDecided => "approval_decided",
         }
     }
 }

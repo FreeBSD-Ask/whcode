@@ -6,6 +6,7 @@
 //! 复制本 crate 的状态枚举——状态名在代码、数据库、CUI JSON Schema 与 Web 协议中
 //! 必须使用同一套定义（§3.1）。
 
+pub mod approval;
 pub mod audit;
 pub mod checkpoint;
 pub mod error;
@@ -17,6 +18,10 @@ pub mod theme_tokens;
 pub mod tls;
 pub mod trace;
 
+pub use approval::{
+    ApprovalAnswer, ApprovalOutcome, ApprovalRequest, ApprovalRule, ApprovalState,
+    MAX_APPROVAL_ID_LEN, MAX_PENDING_APPROVALS, outcome_for,
+};
 pub use audit::{AuditAction, AuditRecord, AuditSink, CollectingAuditSink};
 pub use checkpoint::{
     CheckpointPolicy, CheckpointState, CheckpointTrigger, DEFAULT_INTERVAL_SECONDS, DEFAULT_RETAIN,
