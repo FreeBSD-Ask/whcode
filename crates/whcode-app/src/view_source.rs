@@ -120,6 +120,9 @@ impl ViewId {
 }
 
 /// 会话树条目（只读快照）。
+///
+/// `archived`／时间戳用于 GUI 侧栏的归档分组与排序（FR-746）；TUI 不消费，
+/// 属附加字段（渲染结果不变）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SessionRow {
     /// 会话 ID。
@@ -130,9 +133,17 @@ pub struct SessionRow {
     pub stage: String,
     /// 会话状态。
     pub status: String,
+    /// 是否已归档（分组依据）。
+    pub archived: bool,
+    /// 创建时间（Unix 毫秒；排序依据）。
+    pub created_at_ms: i64,
+    /// 最近活跃时间（Unix 毫秒；排序依据）。
+    pub last_active_at_ms: i64,
 }
 
 /// 任务条目（只读快照）。
+///
+/// `parent_id` 用于任务面板的依赖呈现（FR-747）；其余字段与既有口径一致。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TaskRow {
     /// 任务 ID。
@@ -143,6 +154,8 @@ pub struct TaskRow {
     pub status: String,
     /// 重试计数。
     pub retry_count: i64,
+    /// 直接父任务（层级依赖；`None` 表示无父）。
+    pub parent_id: Option<String>,
 }
 
 /// 事件条目（只读快照；载荷经准备层处理，帧路径不做反序列化）。
@@ -373,6 +386,9 @@ mod tests {
     fn six_views_render_from_prepared_data() {
         let mut snapshot = ViewSnapshot::empty(ViewId::Sessions);
         snapshot.sessions.push(SessionRow {
+            archived: false,
+            created_at_ms: 0,
+            last_active_at_ms: 0,
             id: "S-1".to_string(),
             title: "会话".to_string(),
             stage: "plan".to_string(),
@@ -436,6 +452,9 @@ mod tests {
         snapshot.summary = "工作区 · 会话 2".to_string();
         for (index, title) in ["甲", "乙"].iter().enumerate() {
             snapshot.sessions.push(SessionRow {
+                archived: false,
+                created_at_ms: 0,
+                last_active_at_ms: 0,
                 id: format!("S-{}", index + 1),
                 title: (*title).to_string(),
                 stage: "plan".to_string(),
@@ -496,6 +515,9 @@ mod tests {
         let mut snapshot = ViewSnapshot::empty(ViewId::Sessions);
         for (index, title) in ["甲", "乙"].iter().enumerate() {
             snapshot.sessions.push(SessionRow {
+                archived: false,
+                created_at_ms: 0,
+                last_active_at_ms: 0,
                 id: format!("S-{}", index + 1),
                 title: (*title).to_string(),
                 stage: "plan".to_string(),
@@ -522,6 +544,7 @@ mod tests {
 
         let mut tasks = ViewSnapshot::empty(ViewId::Tasks);
         tasks.tasks.push(TaskRow {
+            parent_id: None,
             id: "T-1".to_string(),
             title: "构建".to_string(),
             status: "failed".to_string(),
@@ -575,6 +598,9 @@ mod tests {
         let mut snapshot = ViewSnapshot::empty(ViewId::Sessions);
         for index in 0..10_000 {
             snapshot.sessions.push(SessionRow {
+                archived: false,
+                created_at_ms: 0,
+                last_active_at_ms: 0,
                 id: format!("S-{index}"),
                 title: "标题".to_string(),
                 stage: "plan".to_string(),

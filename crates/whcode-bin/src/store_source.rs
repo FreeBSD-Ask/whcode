@@ -73,7 +73,7 @@ impl StoreViewSource {
             &self.conn.lock().expect("store 连接锁中毒"),
             &self.policy,
             &self.actor,
-            false,
+            true,
             SESSION_LIMIT,
         )?;
         let mut snapshot = ViewSnapshot::empty(ViewId::Sessions);
@@ -84,6 +84,9 @@ impl StoreViewSource {
                 title: row.title,
                 stage: row.stage,
                 status: row.status,
+                archived: row.archived,
+                created_at_ms: row.created_at_ms,
+                last_active_at_ms: row.last_active_at_ms,
             })
             .collect();
         Ok(snapshot)
@@ -93,12 +96,15 @@ impl StoreViewSource {
         let Some(session) = session else {
             return Ok(no_session(ViewId::Tasks, &self.texts));
         };
-        let overview = whcode_app::task_overview(
+        // 任务面板（FR-747）：全状态卡片＋父链依赖，而非只看 running。
+        let panel = whcode_app::task_panel(
             &self.conn.lock().expect("store 连接锁中毒"),
             &self.policy,
             &self.actor,
             Some(session),
+            100,
         )?;
+        let overview = &panel.overview;
         let mut snapshot = ViewSnapshot::empty(ViewId::Tasks);
         snapshot.summary = self.texts.resolve_fmt(
             "summary.tasks",
@@ -109,14 +115,15 @@ impl StoreViewSource {
                 ("blocked", &overview.blocked.to_string()),
             ],
         );
-        snapshot.tasks = overview
-            .active
+        snapshot.tasks = panel
+            .tasks
             .into_iter()
-            .map(|row| TaskRow {
-                id: row.id,
-                title: row.title,
-                status: row.status.as_str().to_string(),
-                retry_count: row.retry_count,
+            .map(|card| TaskRow {
+                id: card.id,
+                title: card.title,
+                status: card.status.as_str().to_string(),
+                retry_count: card.retry_count,
+                parent_id: card.parent_id,
             })
             .collect();
         Ok(snapshot)

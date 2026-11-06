@@ -1570,6 +1570,9 @@ mod tests {
             ) -> whcode_app::view_source::ViewSnapshot {
                 let mut snapshot = whcode_app::view_source::ViewSnapshot::empty(view);
                 snapshot.sessions.push(crate::views::SessionRow {
+                    archived: false,
+                    created_at_ms: 0,
+                    last_active_at_ms: 0,
                     id: "S-1".to_string(),
                     title: "夹具".to_string(),
                     stage: "plan".to_string(),
@@ -1637,6 +1640,9 @@ mod tests {
             ) -> whcode_app::view_source::ViewSnapshot {
                 let mut snapshot = whcode_app::view_source::ViewSnapshot::empty(view);
                 snapshot.sessions.push(crate::views::SessionRow {
+                    archived: false,
+                    created_at_ms: 0,
+                    last_active_at_ms: 0,
                     id: "S-1".to_string(),
                     title: "夹具".to_string(),
                     stage: "plan".to_string(),
@@ -1890,6 +1896,9 @@ mod tests {
 
         let mut snapshot = ViewSnapshot::empty(ViewId::Sessions);
         snapshot.sessions.push(SessionRow {
+            archived: false,
+            created_at_ms: 0,
+            last_active_at_ms: 0,
             id: "S-1".into(),
             title: "超长标题".repeat(20),
             stage: "implement".into(),
@@ -2095,12 +2104,18 @@ mod tests {
         let source = RecordingSource {
             sessions: vec![
                 SessionRow {
+                    archived: false,
+                    created_at_ms: 0,
+                    last_active_at_ms: 0,
                     id: "S-1".into(),
                     title: "甲".into(),
                     stage: "plan".into(),
                     status: "active".into(),
                 },
                 SessionRow {
+                    archived: false,
+                    created_at_ms: 0,
+                    last_active_at_ms: 0,
                     id: "S-2".into(),
                     title: "乙".into(),
                     stage: "implement".into(),
@@ -2158,12 +2173,18 @@ mod tests {
 
         let two = FixedSource(vec![
             SessionRow {
+                archived: false,
+                created_at_ms: 0,
+                last_active_at_ms: 0,
                 id: "S-1".into(),
                 title: "甲".into(),
                 stage: "plan".into(),
                 status: "active".into(),
             },
             SessionRow {
+                archived: false,
+                created_at_ms: 0,
+                last_active_at_ms: 0,
                 id: "S-2".into(),
                 title: "乙".into(),
                 stage: "plan".into(),

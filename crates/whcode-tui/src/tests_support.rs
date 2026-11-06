@@ -56,18 +56,27 @@ pub fn fixture_snapshot(view: ViewId) -> ViewSnapshot {
         ViewId::Sessions => {
             snapshot.sessions = vec![
                 SessionRow {
+                    archived: false,
+                    created_at_ms: 0,
+                    last_active_at_ms: 0,
                     id: "S-1".into(),
                     title: "实现会话树".into(),
                     stage: "plan".into(),
                     status: "active".into(),
                 },
                 SessionRow {
+                    archived: false,
+                    created_at_ms: 0,
+                    last_active_at_ms: 0,
                     id: "S-2".into(),
                     title: "修复分页游标".into(),
                     stage: "implement".into(),
                     status: "idle".into(),
                 },
                 SessionRow {
+                    archived: false,
+                    created_at_ms: 0,
+                    last_active_at_ms: 0,
                     id: "S-3".into(),
                     title: "归档旧会话".into(),
                     stage: "specify".into(),
@@ -78,12 +87,14 @@ pub fn fixture_snapshot(view: ViewId) -> ViewSnapshot {
         ViewId::Tasks => {
             snapshot.tasks = vec![
                 TaskRow {
+                    parent_id: None,
                     id: "T-101".into(),
                     title: "补齐索引".into(),
                     status: "running".into(),
                     retry_count: 0,
                 },
                 TaskRow {
+                    parent_id: None,
                     id: "T-102".into(),
                     title: "重试导出".into(),
                     status: "failed".into(),
