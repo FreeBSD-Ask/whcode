@@ -688,7 +688,7 @@
 - [ ] Check 362: [missing] 单工具超时：`timeout_ms` 到期返回 `tool_timeout`（`retryable=false`、`timed_out=true`）；不强杀同进程；正常/超时/上限三路径测试（来源：spec FR-757／Task T267／ADR-060 项 D）
 - [ ] Check 363: [missing] usage 锚点：最近成功请求 usage 单条保存并参与预算判断；锚点缺失回退字符启发式且行为与现行一致（来源：spec FR-758／Task T268／ADR-060 项 E）
 - [ ] Check 364: [missing] 工具输出契约：输出 schema 校验与渲染投影分离；非法输出结构化错误；超限仍按统一上限截断（来源：spec FR-759／Task T269／ADR-060 项 F）
-- [ ] Check 365: [missing] turn 边界先落：`turn/start` 在首次模型调用前单独提交；崩溃模拟下未闭合 turn 可判定（interrupted）（来源：spec FR-760／Task T270／ADR-060 项 G）
+- [x] Check 365: [exercised] turn 边界先落：`turn/start` 在首次模型调用前单独提交；崩溃模拟下未闭合 turn 可判定（interrupted）（来源：spec FR-760／Task T270／ADR-060 项 G）——**取证（2026-11-07，T270）**：`TurnStarted` 在首次模型调用前单独事务落表（不与迭代事件同批）；正常终止与两条错误路径均落 `TurnFinished`；`unclosed_turns` 以成对缺失判定未闭合（store 测试 started-only→命中、正常 turn→空）；本机 cargo test/clippy/fmt 绿；CI 待运行。
 - [ ] Check 366: [missing] 证据态命名对齐：五态映射表可判定、升级由可复现证据驱动、明确拒绝评分制（来源：spec FR-761／Task T271／ADR-060 项 H）
 - [ ] Check 367: [missing] 评审协议指南：`docs/guides/review-protocol.md` 含三域独立/调和冻结/质量门/硬上限 3 与失效条件（来源：Task T272／ADR-059）
 - [ ] Check 368: [missing] 覆盖率试点：`whcode-app`/`whcode-store` 行覆盖 ≥90% 可由脚本复现；阈值与豁免清单成文（来源：spec FR-762／Task T273／ADR-060 项 I）

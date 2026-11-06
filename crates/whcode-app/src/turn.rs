@@ -446,6 +446,14 @@ pub fn run_turn_with_progress(
         }};
     }
 
+    // ── turn 边界先落（T270／FR-760／ADR-060 项 G）──────────────────────
+    // 先于任何模型调用与消息落表单独提交：崩溃时 turn 边界可见，未成对即按 interrupted 判定。
+    // 单独一次事务（不含消息草稿），不与后续迭代事件同批——这是本条的判据。
+    emit!(EventKind::TurnStarted, "depth": request.depth);
+    append_turn(conn, session, &pending_events, &[])?;
+    // append_turn 不清空草稿（清空由 flush 负责）：这里显式清空，避免后续批次重放边界事件。
+    pending_events.clear();
+
     // user 提示词先行落表（FR-722：turn 内 user 轮次落表；预算检查据此可见本轮输入）。
     persister.flush(conn, &mut pending_events, &messages)?;
 
@@ -579,6 +587,12 @@ pub fn run_turn_with_progress(
                     "request_id": request_id,
                     "error_code": err.code.as_str(),
                 );
+                emit!(
+                    EventKind::TurnFinished,
+                    "request_id": request_id,
+                    "termination_reason": "error",
+                    "iterations": iterations,
+                );
                 persister.flush(conn, &mut pending_events, &messages)?;
                 return Err(err);
             }
@@ -611,6 +625,12 @@ pub fn run_turn_with_progress(
                         "iteration": iteration,
                         "request_id": request_id,
                         "error_code": err.code.as_str(),
+                    );
+                    emit!(
+                        EventKind::TurnFinished,
+                        "request_id": request_id,
+                        "termination_reason": "error",
+                        "iterations": iterations,
                     );
                     persister.flush(conn, &mut pending_events, &messages)?;
                     return Err(err);
@@ -789,6 +809,12 @@ pub fn run_turn_with_progress(
     // ── turn 终止事件（五种终止全部显式落表，FR-718）────────────────────
     emit!(
         EventKind::RuntimeTerminated,
+        "request_id": request_id,
+        "termination_reason": termination.as_str(),
+        "iterations": iterations,
+    );
+    emit!(
+        EventKind::TurnFinished,
         "request_id": request_id,
         "termination_reason": termination.as_str(),
         "iterations": iterations,
@@ -1501,6 +1527,22 @@ mod tests {
             )
             .expect("终止事件");
         assert_eq!(reason, "model_finished");
+        // T270／FR-760：turn 边界成对落表；成对缺失即未闭合（interrupted 判定依据）。
+        let (started, finished): (i64, i64) = conn
+            .query_row(
+                "SELECT (SELECT COUNT(*) FROM events WHERE session_id=? AND kind='TurnStarted'),
+                        (SELECT COUNT(*) FROM events WHERE session_id=? AND kind='TurnFinished')",
+                [&id, &id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("边界事件计数");
+        assert_eq!((started, finished), (1, 1), "turn 边界必须成对");
+        assert!(
+            whcode_store::turn::unclosed_turns(&conn, &id)
+                .expect("未闭合扫描")
+                .is_empty(),
+            "正常结束的 turn 不得被判为未闭合"
+        );
         // FR-203：事件载荷不含提示词正文。
         let payload_all: String = conn
             .query_row(

@@ -38,6 +38,10 @@ pub enum EventKind {
     RuntimeTerminated,
     /// 持久化异常。
     PersistenceError,
+    /// turn 开始（T270／FR-760／ADR-060 项 G；在首次模型调用前**单独提交**）。
+    TurnStarted,
+    /// turn 结束（与 `TurnStarted` 成对；缺失即“未闭合 turn”，按 `interrupted` 判定）。
+    TurnFinished,
 }
 
 impl EventKind {
@@ -54,6 +58,8 @@ impl EventKind {
             Self::ToolCallFinished => "ToolCallFinished",
             Self::RuntimeTerminated => "RuntimeTerminated",
             Self::PersistenceError => "PersistenceError",
+            Self::TurnStarted => "TurnStarted",
+            Self::TurnFinished => "TurnFinished",
         }
     }
 
@@ -66,7 +72,9 @@ impl EventKind {
             | Self::ToolCallStarted
             | Self::ToolCallFinished
             | Self::RuntimeTerminated
-            | Self::PersistenceError => EventCriticality::Critical,
+            | Self::PersistenceError
+            | Self::TurnStarted
+            | Self::TurnFinished => EventCriticality::Critical,
             Self::StreamingChunk | Self::ContextState => EventCriticality::Content,
             Self::ProgressChanged => EventCriticality::DisplaySnapshot,
         }

@@ -873,9 +873,16 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 - [ ] T269 [P] 工具输出契约（FR-759；ADR-060 项 F）：输出 schema＋渲染投影＋校验失败结构化
   ——**任务认知卡**：方向=模型面与展示面分离；目标=契约可校验；判据=合法/非法/超限
   三路径；非目标=GUI 卡片渲染（属 T256）
-- [ ] T270 [P] turn 边界先落（FR-760；ADR-060 项 G）：`turn/start` 单独提交＋未闭合可见
+- [x] T270 [P] turn 边界先落（FR-760；ADR-060 项 G）：`turn/start` 单独提交＋未闭合可见
   ——**任务认知卡**：方向=崩溃可判定；目标=边界先于首次模型调用落库；判据=崩溃模拟
   下 `interrupted` 可见；非目标=改事件批处理语义
+  ——**取证（2026-11-07）**：`EventKind::TurnStarted/TurnFinished`（Critical）；
+  `run_turn` 在首次模型调用与消息落表前单独事务提交 `TurnStarted`，正常终止与两条供应商/流
+  错误路径均补 `TurnFinished`；`whcode_store::turn::unclosed_turns`（成对缺失即未闭合，扫描
+  上限 64）供 `interrupted` 判定；测试 `single_round_without_tools_finishes_with_model_finished`
+  断言 (started, finished)==(1,1) 且 unclosed 为空，store 侧
+  `unclosed_turns_detects_started_without_finished` 断言 started-only 被识别；
+  `cargo check --workspace --all-targets`、clippy `-D warnings`、fmt 绿；CI 待运行（ADR-037）。
 - [ ] T271 [P] 证据态命名对齐（FR-761；ADR-060 项 H）：五态映射表＋升级判据＋拒绝评分制
   ——**任务认知卡**：方向=证据语言统一；目标=指南与门禁同口径；判据=映射表可判定；
   非目标=改 Check 编号
