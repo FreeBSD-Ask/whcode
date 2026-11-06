@@ -67,14 +67,15 @@ pub use maintenance::{
     PurgeCounts, PurgeCriteria, PurgePreview, PurgeProtection, PurgeResult, purge_execute,
     purge_preview,
 };
-pub use overview::{TaskOverview, task_overview};
+pub use overview::{TaskCard, TaskOverview, TaskPanel, task_overview, task_panel};
 pub use queue::BoundedQueue;
 pub use replay::{REPLAY_PAGE_LIMIT, ReplayPage, replay_since};
 pub use residency::{ResidencyManager, ResidencyState, UnloadedSession, idle_unload_due};
 pub use session::{
-    LIST_SESSIONS_LIMIT, NewSession, SWITCH_TAIL_LIMIT, SessionView, delete_session, list_sessions,
-    new_session, preview_delete_session, rename_session, set_session_archived, show_session,
-    switch_session,
+    LIST_SESSIONS_LIMIT, MAX_SESSION_SEARCH_CHARS, NewSession, SWITCH_TAIL_LIMIT,
+    SessionDirectoryQuery, SessionEntry, SessionGroup, SessionSort, SessionView, delete_session,
+    list_sessions, new_session, preview_delete_session, rename_session, session_directory,
+    set_session_archived, show_session, switch_session,
 };
 pub use snapshot::{StateSnapshot, build_snapshot};
 pub use stage_role::{StageRole, role_for};

@@ -351,17 +351,38 @@ pub fn tasks_of_session(
     session_id: &str,
     limit: usize,
 ) -> Result<Vec<TaskRow>, WhError> {
+    tasks_of_scope(conn, Some(session_id), limit)
+}
+
+/// 按作用域读取全部任务（`None`＝工作区级），最近更新在前，有界：
+/// `limit` 与 [`MAX_SESSION_TASKS`] 取小者，不使用 `OFFSET`。
+///
+/// 任务面板（FR-747）需要工作区与当前会话两个层级，与 `task_overview` 的
+/// 作用域口径一致；不新增 SQL 语义，只是去掉 session 必填。
+///
+/// # Errors
+///
+/// 状态列含未知取值或查询失败时返回 [`WhError`]。
+pub fn tasks_of_scope(
+    conn: &Connection,
+    session_id: Option<&str>,
+    limit: usize,
+) -> Result<Vec<TaskRow>, WhError> {
     // limit 由调用方提供但封顶于常量上限；整数内插无注入面（同 active_tasks 风格）。
     let effective = limit.min(MAX_SESSION_TASKS);
+    let (clause, binds) = match session_id {
+        Some(id) => (" WHERE session_id = ?".to_string(), vec![id.to_string()]),
+        None => (String::new(), Vec::new()),
+    };
     let sql = format!(
-        "SELECT {TASK_COLUMNS} FROM tasks WHERE session_id = ?
+        "SELECT {TASK_COLUMNS} FROM tasks{clause}
          ORDER BY updated_at DESC, id DESC LIMIT {effective}"
     );
     let mut stmt = conn
         .prepare(&sql)
         .map_err(|err| task_err("会话任务", err))?;
     let mut rows = stmt
-        .query(params![session_id])
+        .query(params_from_iter(binds.iter()))
         .map_err(|err| task_err("会话任务", err))?;
     let mut tasks = Vec::new();
     while let Some(row) = rows.next().map_err(|err| task_err("会话任务", err))? {
