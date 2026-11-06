@@ -12,6 +12,18 @@
 ## [Unreleased]
 
 ### 变更
+- **DeepSeek Harness × WHCode 功能比较书（research/dsh-comparison/，19 域）**（2026-11-07）：
+  DSH 0.2.2-rc.1（commit `fcc0ad4`，2026-11-04，MIT，Node ≥ 24.9，Cordis 全插件框架）源码浅克隆
+  `local/dsh-src`（不入库，ADR-045 口径）；产出 19 域报告（A 核心循环—S 资源性能）＋overview＋
+  actionable-gaps＋README。核心判定：两种组合哲学——DSH 运行期 Cordis 插件树（profile/bundle/
+  patch/HMR）vs WHCode 编译期分层（ADR-045 门禁口径）；40 行能力矩阵＝DSH 领先 20／WHCode
+  领先 11／同构 9；当前最大能力差＝压缩的模型生成摘要（DSH `compaction/start|summary|end`＋锁
+  vs WHCode 结构折叠仅指针，域 E）。P1 建议：四态审批类型（allowed-once/rejected/cancelled/
+  unavailable）、真实摘要生成、失败尝试持久化、单工具超时、usage 锚点计量；反例不采纳：always
+  无限重试、运行期插件加载、Electron/SPA 前端、分散式无全局上限。修正既有判定：MCP/技能/
+  子代理/压缩折叠/流式重试已从“缺失”转为“已实现”（域 I/H/F/E/K）。证据口径：源码给
+  `file:line`（经检索核对），Markdown 引用只给文件路径；未决项逐条留取证方式（各域 §5）。
+  文档同步：`docs/guides/repository-layout.md` 示例增补 `research/dsh-comparison/`。
 
 - **ADR-058 条件闭环：turn 拦截安全与并发修正（M2—M5／M9—M11）**（2026-11-06）：
   ①**认证绕过修复（P0）**——`POST /api/llm/run` 的 turn 拦截原先早于
