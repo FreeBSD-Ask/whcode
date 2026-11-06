@@ -13,6 +13,20 @@
 
 ### 变更
 
+- **ADR-058 条件闭环：turn 拦截安全与并发修正（M2—M5／M9—M11）**（2026-11-06）：
+  ①**认证绕过修复（P0）**——`POST /api/llm/run` 的 turn 拦截原先早于
+  `api::handle_request_with_llm` 的 `check_auth`/`check_origin`，启用认证时无 Bearer 也能
+  触发 turn；现以 `check_request_guards` 前置，失败返回同一错误信封且不 spawn（回归测试
+  `llm_run_requires_auth_before_turn_intercept`）。②**并发上限原子化**——`AtomicUsize`
+  的 `try_update` 读-判-加不可分割，worker 退出（含 panic）由 `SlotGuard` 归还槽位，关闭
+  同 tick 超发（真实上界曾退化为 `MAX_CLIENTS`）。③**busy 语义**——turn 期间触库请求返回
+  503＋标准信封（`code=backpressure`、`retryable=true`、`Retry-After`）；`/api/llm/cancel`
+  与 `/ws` 握手移到锁判定之前（均不触库），turn 期间取消与订阅可达。④**增量通道有损化**——
+  回调改 `try_send`（满即丢并计数），不再在工作线程内阻塞持锁；丢帧以 `llm.loss` 帧公开。
+  ⑤**帧归属**——`llm.chunk` 增 `session`/`request_id`。⑥**构造器收敛**——
+  `api::turn_request_from_body` 成为 `/api/llm/run` 与拦截器的唯一 `TurnRequest` 构造。
+  ⑦`error_response` 增 `Backpressure → 503` 映射。测试 6 条（用例 1—6）；M7 用例 7—11 与
+  三指标归档未取得，T251/Check 347 维持未勾。
 - **对话流式渲染与历史（T250/FR-741）＋Web 对话页（T251/FR-742）**（2026-11-06，
   ADR-057 批次 B1）：①`TurnProgress` 回调扩展为（累计块数，增量正文）——GUI 对话
   增量呈现、流式缓冲有界（1 MiB 字符边界截断）；②GUI markdown 最小集投影（标题/
