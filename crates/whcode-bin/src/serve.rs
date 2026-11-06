@@ -36,13 +36,29 @@
 //! 认证/Origin 语义见 `whcode-web::security` 与 ADR-022：回环模式认证关闭、缺失
 //! `Origin` 放行（同源 GET 与本机 CLI 客户端）；`serve` 无 token 参数——对外监听
 //! 由 bind 层直接拒绝（FR-606），token 配置属未来任务。
+//!
+//! ## 并发设计档案二（ADR-058：turn 工作线程＋WS 逐块转发）
+//! - **结构**：工作区连接升级 `Arc<Mutex<Connection>>`（单连接＝唯一写路径不变，
+//!   Check 98）；`POST /api/llm/run`（LLM 已接线）spawn `turn-worker` 线程——增量经
+//!   `sync_channel(64)` 有界背压回传、完成经 mpsc 保证送达；发起客户端转入
+//!   [`Phase::TurnPending`]，循环每 tick 排水 ≤[`TURN_DELTA_DRAIN_PER_TICK`] 帧
+//!   （＝出站队列容量）广播给订阅者并收敛完成响应；`JoinHandle` 在收敛时 join。
+//! - **正**：FR-742 WS 逐块达成（tick 粒度）；`llm.run` 同步契约零变化（HTTP 响应
+//!   仍在 turn 完成后返回）；静态资产在 turn 期间照常服务。
+//! - **负（承担者）**：turn 期间连接锁被工作线程持有——事件轮询跳过（结束后补齐）、
+//!   触库请求显式 503 busy（可重试，不阻塞循环）；并发上限 [`MAX_ACTIVE_TURNS`]＝2
+//!   （超限显式拒绝）；毒锁 fail-fast 关停服务（一致性优先）。
+//! - **失效条件**：delta 帧速率超排水能力（64 帧/tick × tick 频率）——出站队列涨满
+//!   按慢客户端策略断开；或单核 CPU 成为泵瓶颈（同档案一失效条件）。
+//! - **回退**：git revert 本批次（无 schema/配置变化）；回退验证三指标见
+//!   `docs/adr/ADR-058-turn-stream-ws-relay.md` §2.5。
 
 use std::fs;
 use std::io::{ErrorKind, Write};
 use std::net::{IpAddr, SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -249,7 +265,9 @@ struct ServeSecurity {
     /// 证书设置面上下文（`/api/certs/*`，T190）；测试装配为 `None`（未接线语义）。
     certs: Option<ServeCerts>,
     /// LLM 调用上下文（`/api/llm/*`，T167）：剖面 + 工厂 + 取消标记目录。
-    llm: ServeLlm,
+    /// Arc：turn 工作线程（ADR-058）只捕获本字段，避免 `ServeSecurity` 整体跨线程
+    /// （证书探针等字段无须满足 Send/Sync）。
+    llm: Arc<ServeLlm>,
 }
 
 /// 证书设置面装配（T190、ADR-040 决策 4）：证书库路径、出站探针与本次会话的重启标记。
@@ -275,12 +293,12 @@ impl ServeSecurity {
             default_theme: "amoled-night".to_string(),
             certs: None,
             // 测试装配不读环境变量：显式标记未注入剖面（请求返回结构化错误）。
-            llm: ServeLlm {
+            llm: Arc::new(ServeLlm {
                 registry: None,
                 registry_error: Some("测试装配未注入 LLM 剖面".to_string()),
                 factory: crate::llm_provider::LocalProviderFactory::default(),
                 cancel_dir: whcode_app::llm::cancel_dir_from_env(),
-            },
+            }),
         }
     }
 }
@@ -302,7 +320,7 @@ fn serve_web(
     let db_path = workspace::workspace_db_path(workspace);
     // 写命令（FR-609）需要 `&mut Connection`（store 的事务签名）；服务循环本就单线程
     // 顺序处理请求，不存在并发共享（ADR-002）。
-    let mut conn = workspace::open_workspace_db(workspace, config)?;
+    let conn = workspace::open_workspace_db(workspace, config)?;
     let actor = actor_with_all_capabilities("web-local");
 
     let addr_text = bind_addr
@@ -426,11 +444,12 @@ fn serve_web(
             listen: Some(addr),
         }),
         // LLM 面（T167）：启动时解析剖面与出站信任（不做网络请求；无剖面即无请求）。
-        llm: ServeLlm::from_env(workspace)?,
+        // Arc：turn 工作线程（ADR-058）跨线程借用，ServeLlm 本体不随安全配置整体跨线程。
+        llm: Arc::new(ServeLlm::from_env(workspace)?),
     };
     serve_loop(
         listener,
-        &mut conn,
+        Arc::new(Mutex::new(conn)),
         actor,
         security,
         tls_config,
@@ -553,6 +572,16 @@ struct Reply {
     response: HttpResponse,
     /// 101 握手成功：连接转入订阅者复用（事件广播，Check 199/209）——不再立即关闭。
     ws_upgrade: bool,
+    /// turn 工作线程通道（ADR-058）：`Some` 时连接转入 [`Phase::TurnPending`]，
+    /// `response` 字段不使用。
+    turn_pending: Option<TurnPendingReply>,
+}
+
+/// turn 工作线程的通道组（ADR-058）：增量有界背压（`sync_channel`）＋完成保证送达。
+struct TurnPendingReply {
+    progress: std::sync::mpsc::Receiver<(u64, String)>,
+    done: std::sync::mpsc::Receiver<Result<whcode_app::turn::TurnOutcome, WhError>>,
+    worker: Option<std::thread::JoinHandle<()>>,
 }
 
 impl Reply {
@@ -560,6 +589,7 @@ impl Reply {
         Self {
             response,
             ws_upgrade: false,
+            turn_pending: None,
         }
     }
 }
@@ -588,6 +618,14 @@ enum Phase {
     },
     /// 写完剩余字节（错误响应/关闭帧）后断开；写停滞超时同样断开。
     Closing { buf: Vec<u8>, pos: usize },
+    /// turn 工作线程执行中（ADR-058）：增量帧由服务循环排水广播，完成后组装
+    /// 与同步路径相同的 JSON 信封。worker 在相位收敛时 join（RAII；客户端提前
+    /// 断开则随 turn 自然结束——通道断开，无常驻线程）。
+    TurnPending {
+        progress: std::sync::mpsc::Receiver<(u64, String)>,
+        done: std::sync::mpsc::Receiver<Result<whcode_app::turn::TurnOutcome, WhError>>,
+        worker: Option<std::thread::JoinHandle<()>>,
+    },
 }
 
 /// 一条客户端连接（连接层 RAII：从连接表移除即关闭并注销订阅者）。
@@ -607,7 +645,7 @@ struct Client {
 /// 为 `None` 时保持 `--tls off` 的明文语义（ADR-040 决策 3）。
 fn serve_loop(
     listener: TcpListener,
-    conn: &mut Connection,
+    conn: Arc<Mutex<Connection>>,
     actor: Actor,
     security: ServeSecurity,
     tls: Option<Arc<ServerConfig>>,
@@ -622,50 +660,161 @@ fn serve_loop(
     // 游标起点 = 启动时工作区最大 seq（与 build_snapshot().event_cursor 同一底层
     // `query::latest_seq`；直接取它是因为快照还要求已存在会话，空库会 NotFound）。
     // v1 只广播启动后的新事件；历史经 /api/events 补拉（FR-202/605）。
-    let mut cursor = whcode_store::query::latest_seq(conn)?;
+    let mut cursor = {
+        let guard = conn.lock().expect("store 连接锁中毒");
+        whcode_store::query::latest_seq(&guard)?
+    };
     let mut last_poll = Instant::now();
     loop {
         let mut progressed = false;
         accept_ready(&listener, &mut clients, &mut progressed, tls.as_ref());
+        // 连接槽（ADR-058）：turn 工作线程持锁时为 `None`——静态资产照常服务，
+        // 触库请求显式 503 busy（不静默阻塞唯一循环线程）；事件轮询跳过，
+        // turn 结束后批次自然补齐（实时流量由 delta 帧承载）。
+        let mut conn_guard = match conn.try_lock() {
+            Ok(guard) => Some(guard),
+            Err(std::sync::TryLockError::WouldBlock) => None,
+            Err(std::sync::TryLockError::Poisoned(_)) => {
+                // 单连接＝唯一写路径（Check 98）：一致性被破坏即 fail-fast。
+                return Err(WhError::new(
+                    ErrorCode::IoError,
+                    "store 连接锁中毒（turn 工作线程 panic）".to_string(),
+                ));
+            }
+        };
+        let active_turns = clients
+            .iter()
+            .filter(|client| matches!(client.phase, Phase::TurnPending { .. }))
+            .count();
         for client in clients.iter_mut() {
             pump_client(
                 client,
                 &mut state,
-                conn,
+                conn_guard.as_deref_mut(),
+                &conn,
                 &actor,
                 &security,
                 &mut progressed,
                 workspace_root,
+                active_turns,
             );
         }
-        if last_poll.elapsed() >= EVENT_POLL_INTERVAL {
+        // turn 增量排水与完成收敛（ADR-058）：每 tick 至多 TURN_DELTA_DRAIN_PER_TICK
+        // 帧（＝出站队列容量，整批入队不溢出）；完成即组装与同步路径相同的信封并
+        // join 工作线程（客户端提前断开 → 通道断开按结构化失败收敛，无泄漏）。
+        let mut delta_frames: Vec<Vec<u8>> = Vec::new();
+        let mut finished: Vec<(usize, Result<whcode_app::turn::TurnOutcome, WhError>)> =
+            Vec::new();
+        let mut aborted: Vec<usize> = Vec::new();
+        for (index, client) in clients.iter_mut().enumerate() {
+            let Phase::TurnPending { progress, done, .. } = &mut client.phase else {
+                continue;
+            };
+            for _ in 0..TURN_DELTA_DRAIN_PER_TICK {
+                match progress.try_recv() {
+                    Ok((seq, delta)) => {
+                        progressed = true;
+                        delta_frames.push(
+                            serde_json::to_vec(&serde_json::json!({
+                                "type": "llm.chunk",
+                                "index": seq,
+                                "delta": delta,
+                            }))
+                            .unwrap_or_default(),
+                        );
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => break,
+                }
+            }
+            match done.try_recv() {
+                Ok(outcome) => finished.push((index, outcome)),
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => aborted.push(index),
+                Err(std::sync::mpsc::TryRecvError::Empty) => {}
+            }
+        }
+        if !delta_frames.is_empty() {
+            broadcast_and_flush(delta_frames, &mut clients, &mut state, &mut progressed);
+        }
+        for index in aborted {
+            // 工作线程提前终止（panic 或发送端先行销毁）：按结构化失败收敛，
+            // 不把“无响应”伪装成成功，也不让客户端悬挂在 TurnPending。
+            finished.push((
+                index,
+                Err(WhError::internal("turn 工作线程提前终止（完成通道关闭）")),
+            ));
+        }
+        for (index, outcome) in finished {
+            let Some(client) = clients.get_mut(index) else { continue };
+            let response = match outcome {
+                Ok(outcome) => {
+                    let value = serde_json::to_value(&outcome).unwrap_or_else(|err| {
+                        serde_json::json!({
+                            "error": {
+                                "code": "internal",
+                                "message": format!("LLM 结果序列化失败：{err}"),
+                            }
+                        })
+                    });
+                    HttpResponse::json(200, &value)
+                }
+                Err(err) => api::error_response(&err),
+            };
+            if let Phase::TurnPending { worker, .. } = &mut client.phase {
+                // join 失败＝工作线程 panic：响应已按失败信封收敛，join 结果不传播
+                // （毒锁由下个 tick 的 try_lock fail-fast 承担）。
+                if let Some(worker) = worker.take() {
+                    let _ = worker.join();
+                }
+            }
+            enter_writing(client, &Reply::plain(response), None);
+            progressed = true;
+        }
+        if conn_guard.is_some() && last_poll.elapsed() >= EVENT_POLL_INTERVAL {
             last_poll = Instant::now();
-            match broadcast::poll_events(conn, &policy, &actor, cursor) {
+            match broadcast::poll_events(
+                conn_guard.as_deref().expect("上方刚判定可用"),
+                &policy,
+                &actor,
+                cursor,
+            ) {
                 Ok(batch) => {
                     cursor = batch.cursor;
-                    for frame in batch.frames {
-                        progressed = true;
-                        for slow in state.broadcast_frame(frame) {
-                            // 慢客户端策略：断开慢者，不停别人。队列已满的连接不再写
-                            // 关闭帧（只会继续积压），直接断开（Check 199）。
-                            if let Some(client) = clients.iter_mut().find(|candidate| {
-                                matches!(&candidate.phase, Phase::Subscriber { id, .. } if *id == slow)
-                            }) {
-                                client.dead = true;
-                            }
-                        }
-                        // 逐帧即时刷新：正常客户端当帧送达（队列不积压），慢客户端
-                        // 队列抬升、涨满即被断——广播延迟无劣化的落点（Check 199）。
-                        flush_queues(&mut clients, &mut state, &mut progressed);
-                    }
+                    broadcast_and_flush(batch.frames, &mut clients, &mut state, &mut progressed);
                 }
-                Err(err) => eprintln!("事件轮询失败：{err}"),
+                Err(err) => {
+                    eprintln!("事件轮询失败：{err}");
+                }
             }
         }
         reap(&mut clients, &mut state);
         if !progressed {
             std::thread::sleep(IDLE_PARK);
         }
+    }
+}
+
+/// 帧广播＋慢客户端断开＋逐帧刷新（事件轮询与 turn delta 共用的落点，Check 199）。
+fn broadcast_and_flush(
+    frames: Vec<Vec<u8>>,
+    clients: &mut Vec<Client>,
+    state: &mut BroadcastState,
+    progressed: &mut bool,
+) {
+    for frame in frames {
+        *progressed = true;
+        for slow in state.broadcast_frame(frame) {
+            // 慢客户端策略：断开慢者，不停别人。队列已满的连接不再写
+            // 关闭帧（只会继续积压），直接断开（Check 199）。
+            if let Some(client) = clients.iter_mut().find(|candidate| {
+                matches!(&candidate.phase, Phase::Subscriber { id, .. } if *id == slow)
+            }) {
+                client.dead = true;
+            }
+        }
+        // 逐帧即时刷新：正常客户端当帧送达（队列不积压），慢客户端
+        // 队列抬升、涨满即被断——广播延迟无劣化的落点（Check 199）。
+        flush_queues(clients, state, progressed);
     }
 }
 
@@ -728,24 +877,32 @@ fn accept_ready(
 fn pump_client(
     client: &mut Client,
     state: &mut BroadcastState,
-    conn: &mut Connection,
+    conn: Option<&mut Connection>,
+    turn_conn: &Arc<Mutex<Connection>>,
     actor: &Actor,
     security: &ServeSecurity,
     progressed: &mut bool,
     workspace_root: Option<&Path>,
+    active_turns: usize,
 ) {
     if client.dead {
+        return;
+    }
+    if matches!(&client.phase, Phase::TurnPending { .. }) {
+        // 增量排水与完成收敛在服务循环层统一做（需访问全部客户端做广播/收敛）。
         return;
     }
     if matches!(&client.phase, Phase::Reading { .. }) {
         pump_reading(
             client,
             conn,
+            turn_conn,
             actor,
             security,
             state,
             progressed,
             workspace_root,
+            active_turns,
         );
         return;
     }
@@ -763,12 +920,14 @@ fn pump_client(
 /// HTTP 请求读取泵：非阻塞读 + 有界累积 + 完整性判定；完成后路由。
 fn pump_reading(
     client: &mut Client,
-    conn: &mut Connection,
+    conn: Option<&mut Connection>,
+    turn_conn: &Arc<Mutex<Connection>>,
     actor: &Actor,
     security: &ServeSecurity,
     state: &mut BroadcastState,
     progressed: &mut bool,
     workspace_root: Option<&Path>,
+    active_turns: usize,
 ) {
     read_request_bytes(client, progressed);
     if client.dead {
@@ -817,7 +976,12 @@ fn pump_reading(
             enter_writing(client, &reply, None);
         }
         RequestOutcome::Complete(raw) => {
-            let reply = respond(conn, &raw, actor, security, workspace_root);
+            let reply = match conn {
+                Some(conn) => {
+                    respond(conn, turn_conn, &raw, actor, security, workspace_root, active_turns)
+                }
+                None => busy_or_static(&raw),
+            };
             route_reply(client, reply, state);
         }
     }
@@ -875,6 +1039,16 @@ fn report_tls_failure(client: &Client, err: &std::io::Error) {
 /// 路由响应：普通 HTTP → 写完即断（`connection: close` 不变）；WS 101 → 注册为
 /// 订阅者并保持连接；注册被拒（超订阅者上限）→ 握手 + 1013 关闭帧后断开（显式拒绝）。
 fn route_reply(client: &mut Client, reply: Reply, state: &mut BroadcastState) {
+    if let Some(pending) = reply.turn_pending {
+        // ADR-058：连接转入 TurnPending——响应待写，增量在服务循环层排水广播。
+        client.phase = Phase::TurnPending {
+            progress: pending.progress,
+            done: pending.done,
+            worker: pending.worker,
+        };
+        client.last_active = Instant::now();
+        return;
+    }
     if !reply.ws_upgrade {
         enter_writing(client, &reply, None);
         return;
@@ -1366,15 +1540,30 @@ fn header_content_length(headers: &[u8]) -> usize {
 /// ADR-022 Origin 语义）。
 fn respond(
     conn: &mut Connection,
+    turn_conn: &Arc<Mutex<Connection>>,
     raw: &[u8],
     actor: &whcode_app::Actor,
     security: &ServeSecurity,
     workspace_root: Option<&Path>,
+    active_turns: usize,
 ) -> Reply {
     let request = match api::parse_request(raw) {
         Ok(request) => request,
         Err(_) => return Reply::plain(HttpResponse::text(400, "bad request")),
     };
+    // turn 工作线程拦截（ADR-058）：LLM 已接线时把 turn 移出循环线程执行——
+    // 解析/校验失败与未接线照旧走 api 路由（同一错误信封，不重复实现）；
+    // 并发上限满 → 显式 503（不排队、不 burst）。
+    if request.method == Method::Post
+        && request.path.split('?').next() == Some("/api/llm/run")
+        && security.llm.registry.is_some()
+    {
+        match turn_intercept(turn_conn, actor, security, workspace_root, &request, active_turns) {
+            TurnIntercept::Pending(reply) => return reply,
+            TurnIntercept::Busy(response) => return Reply::plain(response),
+            TurnIntercept::Passthrough => {}
+        }
+    }
     if request.method == Method::Get {
         // 首页可带查询串（`/?session=S-DEMO-1`）：静态路由只看路径部分。
         let path = request
@@ -1438,17 +1627,10 @@ fn respond(
     Reply {
         ws_upgrade: is_ws && response.status == 101,
         response,
+        turn_pending: None,
     }
 }
 
-/// 首页首屏只读快照的会话上限（HTML 直出需守住 DOM 预算，比 TUI/GUI 的 200 更小）。
-const INITIAL_SESSION_LIMIT: usize = 50;
-
-/// 服务端直出首页（FR-618）：把会话快照渲染进 `<noscript>`。
-///
-/// 查询失败必须渲染成可见错误——不得用“空列表”冒充“没有会话”（信号链完备原则）。
-/// 启用认证时**不注入任何业务数据**（ADR-022）：首页是浏览器导航，无法携带 Bearer 头，
-/// 直出快照会绕过认证边界。
 /// 对话页服务端直出（T251/FR-742）：历史尾部注入 `<main>` 标记位置（HTML 转义、
 /// 无 JS 可读）；认证启用时不注入数据（与首页同口径，ADR-022）。会话缺省取
 /// 首个会话（与会话视图选中语义一致）；无会话则空态。发送经 chat.js 渐进增强。
@@ -1521,6 +1703,134 @@ fn chat_response(
         )],
         body: assets::render_chat(&history_html, &security.default_theme).into_bytes(),
     }
+}
+
+/// 首页首屏只读快照的会话上限（HTML 直出需守住 DOM 预算，比 TUI/GUI 的 200 更小）。
+const INITIAL_SESSION_LIMIT: usize = 50;
+
+/// 服务端直出首页（FR-618）：把会话快照渲染进 `<noscript>`。
+///
+/// 查询失败必须渲染成可见错误——不得用“空列表”冒充“没有会话”（信号链完备原则）。
+/// 启用认证时**不注入任何业务数据**（ADR-022）：首页是浏览器导航，无法携带 Bearer 头，
+/// 直出快照会绕过认证边界。
+
+/// turn 工作线程拦截结果（ADR-058）：`Pending`＝已 spawn（连接转 TurnPending）；
+/// `Busy`＝并发上限满（显式 503，不排队不 burst）；`Passthrough`＝解析失败或
+/// spawn 失败，交回 api 路由（同步 burst 语义，行为正确仅无直播）。
+enum TurnIntercept {
+    Pending(Reply),
+    Busy(HttpResponse),
+    Passthrough,
+}
+
+/// 并发上限：同时活跃 turn 工作线程（ADR-058 §2.2；超限显式拒绝不排队）。
+const MAX_ACTIVE_TURNS: usize = 2;
+/// 每 tick 排水的增量帧上限（＝出站队列容量：整批入队不溢出，Check 199 口径）。
+const TURN_DELTA_DRAIN_PER_TICK: usize = 64;
+
+/// turn 工作线程拦截（ADR-058 §2.2）：解析并构造 turn 请求 → spawn 工作线程
+/// （增量经有界背压通道回传、完成经 mpsc 保证送达）；解析失败 → Passthrough
+/// （api 路由给出同一错误信封）；spawn 失败 → Passthrough（极端场景回退同步）。
+fn turn_intercept(
+    turn_conn: &Arc<Mutex<Connection>>,
+    actor: &whcode_app::Actor,
+    security: &ServeSecurity,
+    workspace_root: Option<&Path>,
+    request: &api::HttpRequest,
+    active_turns: usize,
+) -> TurnIntercept {
+    if active_turns >= MAX_ACTIVE_TURNS {
+        return TurnIntercept::Busy(HttpResponse::text(
+            503,
+            "busy: 活跃 turn 已达并发上限（ADR-058），请稍后重试",
+        ));
+    }
+    let Ok(body) = api::json_body(request) else {
+        return TurnIntercept::Passthrough;
+    };
+    let (Some(session), Some(provider), Some(prompt)) = (
+        api::body_str(&body, "session").ok(),
+        api::body_str(&body, "provider").ok(),
+        api::body_str(&body, "prompt").ok(),
+    ) else {
+        return TurnIntercept::Passthrough;
+    };
+    let turn_request = whcode_app::turn::TurnRequest {
+        session_id: session.to_string(),
+        provider: provider.to_string(),
+        prompt: prompt.to_string(),
+        model: api::optional_body_str(&body, "model").map(str::to_string),
+        max_tokens: body.get("max_tokens").and_then(serde_json::Value::as_u64),
+        request_id: api::optional_body_str(&body, "request_id").map(str::to_string),
+        iterations_limit: None,
+        budget_tokens: None,
+        workspace_root: workspace_root.map(std::path::Path::to_path_buf),
+        depth: 0,
+    };
+    let (progress_tx, progress_rx) = std::sync::mpsc::sync_channel(64);
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+    let conn = Arc::clone(turn_conn);
+    let llm = Arc::clone(&security.llm);
+    let actor = actor.clone();
+    let worker = std::thread::Builder::new()
+        .name("turn-worker".to_string())
+        .spawn(move || {
+            let llm = llm.context();
+            let outcome = whcode_app::turn::run_turn_with_progress(
+                &mut conn.lock().expect("store 连接锁中毒"),
+                &DefaultPolicy,
+                &actor,
+                &llm,
+                &turn_request,
+                Some(&|count: u64, delta: &str| {
+                    // 有界背压：通道满则短暂阻塞，消费侧每 tick 排水（ADR-058 §2.2）。
+                    let _ = progress_tx.send((count, delta.to_string()));
+                }),
+                serve_now_ms(),
+            );
+            let _ = done_tx.send(outcome);
+        });
+    let Ok(worker) = worker else {
+        return TurnIntercept::Passthrough;
+    };
+    TurnIntercept::Pending(Reply {
+        response: HttpResponse::text(200, ""),
+        ws_upgrade: false,
+        turn_pending: Some(TurnPendingReply {
+            progress: progress_rx,
+            done: done_rx,
+            worker: Some(worker),
+        }),
+    })
+}
+
+/// turn 工作线程持锁时的降级响应（ADR-058）：静态资产照常（不触库），其余请求
+/// 显式 503 busy——不静默阻塞唯一循环线程，也不伪造成功。
+fn busy_or_static(raw: &[u8]) -> Reply {
+    let Ok(request) = api::parse_request(raw) else {
+        return Reply::plain(HttpResponse::text(400, "bad request"));
+    };
+    if request.method == Method::Get {
+        let path = request.path.split('?').next().unwrap_or(request.path.as_str());
+        if let Some((content_type, body)) = assets::static_asset(path) {
+            return Reply::plain(HttpResponse {
+                status: 200,
+                headers: vec![("content-type".to_string(), content_type.to_string())],
+                body: body.to_vec(),
+            });
+        }
+    }
+    Reply::plain(HttpResponse::text(
+        503,
+        "busy: turn 执行中（连接锁被占用），请稍后重试（ADR-058）",
+    ))
+}
+
+/// 循环线程用的毫秒时间源（与 `api::now_ms` 同口径；工作线程内使用，非墙钟持久化）。
+fn serve_now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64)
 }
 
 fn index_response(
@@ -1665,12 +1975,19 @@ mod tests {
     };
     use crate::tls;
     use crate::workspace::WORKSPACE_DB_FILE;
+    use std::sync::{Arc, Mutex};
     use whcode_app::cert::{CertPaths, load_settings};
     use whcode_app::{Actor, actor_with_all_capabilities};
     use whcode_domain::{ErrorCode, InboundMode, SCHEMA_VERSION};
     use whcode_store::apply_migrations;
 
-    fn migrated_memory_conn() -> Connection {
+    /// 测试用 turn 工作线程连接槽（ADR-058）：未接线路径不会 spawn 工作线程，
+/// 此处仅为满足 respond 签名；独立内存库避免与用例连接纠缠。
+fn dummy_turn_conn() -> Arc<Mutex<Connection>> {
+    Arc::new(Mutex::new(Connection::open_in_memory().expect("内存库")))
+}
+
+fn migrated_memory_conn() -> Connection {
         let conn = Connection::open_in_memory().expect("内存库");
         apply_migrations(&conn).expect("迁移");
         conn
@@ -1746,7 +2063,8 @@ mod tests {
         let actor = actor_with_all_capabilities("tester");
         let security = ServeSecurity::loopback();
         let mut send =
-            |request: &str| respond(&mut conn, &raw_request(request), &actor, &security, None);
+            |request: &str| respond(&mut conn,
+            &dummy_turn_conn(), &raw_request(request), &actor, &security, None, 0);
 
         // 静态资产（GET）。
         let reply = send("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
@@ -1818,6 +2136,7 @@ mod tests {
         let payload = r#"{"title":"<script>alert(1)</script> 只读标题"}"#;
         let create = respond(
             &mut conn,
+            &dummy_turn_conn(),
             &raw_request(&format!(
                 "POST /api/sessions/new HTTP/1.1\r\ncontent-type: application/json\r\n\
                  content-length: {}\r\n\r\n{payload}",
@@ -1825,8 +2144,7 @@ mod tests {
             )),
             &actor,
             &security,
-            None,
-        );
+            None, 0);
         assert_eq!(
             create.response.status,
             201,
@@ -1836,11 +2154,11 @@ mod tests {
 
         let reply = respond(
             &mut conn,
+            &dummy_turn_conn(),
             &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
             &actor,
             &security,
-            None,
-        );
+            None, 0);
         assert_eq!(reply.response.status, 200);
         let body = String::from_utf8_lossy(&reply.response.body).into_owned();
         assert!(body.contains("<noscript>"), "无 JS 时必须有只读快照");
@@ -1863,6 +2181,7 @@ mod tests {
         let payload = r#"{"title":"认证模式秘密标题"}"#;
         let create = respond(
             &mut conn,
+            &dummy_turn_conn(),
             &raw_request(&format!(
                 "POST /api/sessions/new HTTP/1.1\r\ncontent-type: application/json\r\n\
                  content-length: {}\r\n\r\n{payload}",
@@ -1870,8 +2189,7 @@ mod tests {
             )),
             &actor,
             &ServeSecurity::loopback(),
-            None,
-        );
+            None, 0);
         assert_eq!(create.response.status, 201);
 
         let authenticated = ServeSecurity {
@@ -1882,11 +2200,11 @@ mod tests {
         };
         let reply = respond(
             &mut conn,
+            &dummy_turn_conn(),
             &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
             &actor,
             &authenticated,
-            None,
-        );
+            None, 0);
         assert_eq!(reply.response.status, 200);
         let body = String::from_utf8_lossy(&reply.response.body).into_owned();
         assert!(
@@ -1911,6 +2229,7 @@ mod tests {
             let payload = format!(r#"{{"title":"会话 {index}"}}"#);
             let create = respond(
                 &mut conn,
+            &dummy_turn_conn(),
                 &raw_request(&format!(
                     "POST /api/sessions/new HTTP/1.1\r\ncontent-type: application/json\r\n\
                      content-length: {}\r\n\r\n{payload}",
@@ -1918,8 +2237,7 @@ mod tests {
                 )),
                 &actor,
                 &security,
-                None,
-            );
+                None, 0);
             assert_eq!(
                 create.response.status,
                 201,
@@ -1930,11 +2248,11 @@ mod tests {
 
         let reply = respond(
             &mut conn,
+            &dummy_turn_conn(),
             &raw_request("GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n"),
             &actor,
             &security,
-            None,
-        );
+            None, 0);
         let body = String::from_utf8_lossy(&reply.response.body).into_owned();
         assert_eq!(
             body.matches("<li><code>").count(),
@@ -1984,11 +2302,11 @@ mod tests {
         // 未接线（测试默认 loopback）：明确 invalid_state。
         let unwired = respond(
             &mut conn,
+            &dummy_turn_conn(),
             &request,
             &actor,
             &ServeSecurity::loopback(),
-            None,
-        );
+            None, 0);
         assert_eq!(unwired.response.status, 400);
         let body: serde_json::Value = serde_json::from_slice(&unwired.response.body).expect("JSON");
         assert_eq!(body["code"], "invalid_state");
@@ -2016,7 +2334,8 @@ mod tests {
             }),
             ..ServeSecurity::loopback()
         };
-        let reply = respond(&mut conn, &request, &actor, &security, None);
+        let reply = respond(&mut conn,
+            &dummy_turn_conn(), &request, &actor, &security, None, 0);
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(
             reply.response.status,
@@ -2040,7 +2359,8 @@ mod tests {
         let page = raw_request("GET /settings/certs HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
 
         // 未接线：明确“未接线”，不渲染成“没有证书”。
-        let unwired = respond(&mut conn, &page, &actor, &ServeSecurity::loopback(), None);
+        let unwired = respond(&mut conn,
+            &dummy_turn_conn(), &page, &actor, &ServeSecurity::loopback(), None, 0);
         assert_eq!(unwired.response.status, 200, "设置页不得 404/500 空页");
         assert!(
             unwired
@@ -2080,7 +2400,8 @@ mod tests {
             }),
             ..ServeSecurity::loopback()
         };
-        let wired = respond(&mut conn, &page, &actor, &security, None);
+        let wired = respond(&mut conn,
+            &dummy_turn_conn(), &page, &actor, &security, None, 0);
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(wired.response.status, 200);
         let body = String::from_utf8_lossy(&wired.response.body);
@@ -2100,7 +2421,8 @@ mod tests {
 
         // 脚本资产：`/settings.js` 走静态白名单，非空且声明原生 ESM 的 API 路径。
         let script = raw_request("GET /settings.js HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
-        let reply = respond(&mut conn, &script, &actor, &ServeSecurity::loopback(), None);
+        let reply = respond(&mut conn,
+            &dummy_turn_conn(), &script, &actor, &ServeSecurity::loopback(), None, 0);
         assert_eq!(reply.response.status, 200);
         assert!(
             reply
@@ -2142,8 +2464,7 @@ mod tests {
         std::thread::Builder::new()
             .name("serve-loop-test".into())
             .spawn(move || {
-                let mut server_conn = server_conn;
-                let _ = serve_loop(listener, &mut server_conn, actor, security, tls, None);
+                let _ = serve_loop(listener, Arc::new(Mutex::new(server_conn)), actor, security, tls, None);
             })
             .expect("启动服务器线程");
         TestServer { addr, conn }

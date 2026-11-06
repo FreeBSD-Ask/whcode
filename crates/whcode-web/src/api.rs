@@ -186,7 +186,7 @@ fn preferred_locale(request: &HttpRequest) -> Option<String> {
     (!first.is_empty()).then(|| first.to_string())
 }
 
-fn error_response(error: &WhError) -> HttpResponse {
+pub fn error_response(error: &WhError) -> HttpResponse {
     let status = match error.code {
         ErrorCode::PermissionDenied => 403,
         ErrorCode::InvalidState => 400,
@@ -420,7 +420,7 @@ fn not_supported_response(surface_id: &str, support: &Support) -> HttpResponse {
 }
 
 /// 写命令的请求体：必须是 JSON 对象（§8.1：写操作只走 POST + JSON）。
-fn json_body(request: &HttpRequest) -> Result<serde_json::Value, WhError> {
+pub fn json_body(request: &HttpRequest) -> Result<serde_json::Value, WhError> {
     let value: serde_json::Value = serde_json::from_slice(&request.body)
         .map_err(|err| WhError::parse_error(format!("请求体不是合法 JSON：{err}")))?;
     if !value.is_object() {
@@ -430,7 +430,7 @@ fn json_body(request: &HttpRequest) -> Result<serde_json::Value, WhError> {
 }
 
 /// 取非空字符串字段；缺失/空白按“缺参数”处理（错误可操作）。
-fn body_str<'a>(body: &'a serde_json::Value, field: &str) -> Result<&'a str, WhError> {
+pub fn body_str<'a>(body: &'a serde_json::Value, field: &str) -> Result<&'a str, WhError> {
     body.get(field)
         .and_then(serde_json::Value::as_str)
         .filter(|value| !value.trim().is_empty())
@@ -1605,7 +1605,7 @@ pub fn handle_request_with_llm(
 }
 
 /// 取可选的非空字符串字段（缺失／空白返回 `None`，不把空串当有效覆盖）。
-fn optional_body_str<'a>(body: &'a serde_json::Value, field: &str) -> Option<&'a str> {
+pub fn optional_body_str<'a>(body: &'a serde_json::Value, field: &str) -> Option<&'a str> {
     body.get(field)
         .and_then(serde_json::Value::as_str)
         .map(str::trim)
