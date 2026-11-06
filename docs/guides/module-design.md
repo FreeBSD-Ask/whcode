@@ -134,7 +134,8 @@ TLS 的依赖落点是这条边界的特例（ADR-031／ADR-040）：**出站**�
   默认构建不含网络依赖；不得引入第二加密提供者（`aws-lc-rs` 只作 `russh` 传递依赖存在）。
 - **失败模式**：供应商错误归一化为 `WhError`（原文进 details）；关键队列饱和返回
   `backpressure`（可重试，不静默丢弃）；展示饱和丢弃最旧并累计合并标记；取消在
-  下个 chunk 前生效（桩的既定说明）；估算计量必须标记 `cost_is_estimate`（FR-207）；
+  下一轮迭代前与每个 chunk 前生效（跨进程经 `.cancel` 标记，真实 HTTP 流取消见
+  `whcode-llm::http::client`；FR-723）；估算计量必须标记 `cost_is_estimate`（FR-207）；
   断链（相关事件缺 request_id）可检出（FR-204）。
 - **测试**：内联 18 例（桩流式/取消/超时归一化、关键背压与展示合并标记、
   编排不携带正文、四级脱敏与完整性标记、关联与断链、传输事件有界）。
@@ -222,7 +223,12 @@ TLS 的依赖落点是这条边界的特例（ADR-031／ADR-040）：**出站**�
   无目录遍历面）。
 - **进程入口**：`whcode-bin` 的 `serve --web` 装配（contracts/cui-cli.md §1）：
   工作区库 → 回环监听 → 顺序服务循环（单线程；DuckDB `Connection` 为 `Send` 非
-  `Sync`，ADR-002）；WS 为 RFC 6455 握手 + 正常关闭（会话级推送未实现，前端不依赖）。
+  `Sync`，ADR-002）；WS 为 RFC 6455 握手 + 事件广播；turn 期间增量以 `llm.chunk`／
+  `llm.loss` 帧推送（ADR-058）。
+- **公开面**（ADR-058 M10）：`api::{parse_request, error_response, json_body, body_str,
+  optional_body_str, turn_request_from_body}` 供装配根复用——`turn_request_from_body` 是
+  `/api/llm/run` 与 serve 工作线程拦截的**唯一** `TurnRequest` 构造器（防两处漂移）；
+  `error_response` 的 `Backpressure → 503` 是 turn 繁忙的统一语义。
 - **依赖**：`whcode-app`／`whcode-domain`／`serde_json`／`duckdb`（仅透传 `Connection` 类型）；
   **不引入 `rustls`**——入站握手状态机在装配根 `whcode-bin`，本 crate 只持入站 TLS 配置类型、
   状态投影与证书路由（ADR-040 决策 3）。
