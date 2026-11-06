@@ -1,7 +1,8 @@
 # 统一功能差异比较：ZCode × Better Harness × WHCode（research/synthesis/）
 
 - **目录性质**：外部参照与调研证据（入库依据 ADR-045）；**不构成 ADR 或实施承诺**。
-  完整建议书见 [proposal.md](proposal.md)。
+  完整建议书见 [proposal-v3.md](proposal-v3.md)（2026-11-07，不计实现成本口径的终态决策菜单；
+  历史建议书见 [proposal-v2.md](proposal-v2.md)、[proposal.md](proposal.md)）。
 - **来源研究**：
   - [`research/zcode-comparison/`](../zcode-comparison/README.md)——ZCode（zai-org/ZCode，
     commit `3c5b227`，2026-10-20）16 域源码直读报告 + P0—P3 行动指引；
@@ -140,6 +141,9 @@ Loop Discovery 十项决策门与最小所有者路由；学习捕获（复发�
 
 ## 修订记录
 
+- **2026-11-07（proposal-v3）**：终态功能建议书 [proposal-v3.md](proposal-v3.md) 入库——综合
+  dsh-comparison（19 域）后的“不计实现成本”决策菜单：7 主线 45 提案＋9 反建议＋D10—D15
+  决策请求；硬边界零例外，NFR-211 冲突项（PTY/jobs）显式升级为决策请求。
 - **2026-10-29（proposal-v2）**：规则重载后第二阶段建议书 [proposal-v2.md](proposal-v2.md)
   入库（P0 收口路线 R1—R4 + 认知卡、双会话协调协议、D6—D9 决策请求）。
 - **2026-10-29（首版）**：综合 `research/zcode-comparison/`（16 域，ZCode commit `3c5b227`）

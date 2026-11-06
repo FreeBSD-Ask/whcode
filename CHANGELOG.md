@@ -12,6 +12,12 @@
 ## [Unreleased]
 
 ### 变更
+- **终态功能建议书 v3（research/synthesis/proposal-v3.md，不计实现成本口径）**（2026-11-07）：
+  综合四份研究（zcode/better-harness/dsh/synthesis）产出决策菜单——7 主线 45 提案（W1 执行 10/
+  W2 评审 5/W3 会话 6/W4 体验 8/W5 平台 6/W6 生态 4/W7 治理 6）＋9 反建议＋D10—D15 决策请求；
+  成本总账 230—330 人日（知情不作过滤）；硬边界零例外，PTY/jobs 与 NFR-211 冲突显式升级为
+  D13 而非默许。性质＝研究指引，采纳须走 G0—G5；FR-760+ 为提案号段未入册。
+  同步：synthesis/README.md 索引指向 v3。
 - **DeepSeek Harness × WHCode 功能比较书（research/dsh-comparison/，19 域）**（2026-11-07）：
   DSH 0.2.2-rc.1（commit `fcc0ad4`，2026-11-04，MIT，Node ≥ 24.9，Cordis 全插件框架）源码浅克隆
   `local/dsh-src`（不入库，ADR-045 口径）；产出 19 域报告（A 核心循环—S 资源性能）＋overview＋
