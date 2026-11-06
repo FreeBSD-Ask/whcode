@@ -681,7 +681,7 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   计数与门禁一致；判据=Check 335；非目标=跨平台 CI 矩阵扩展。——**复核（2026-11-01，
   P1-7 批次一）**：测试/文档/计数五处声明同步完成（run 41230318736 六车道 success，
   同 T236 复核口径）。
-- [ ] T240 [P] FreeBSD 完整平台证据车道（ADR-013 修订，2026-10-31 用户指令）：ci.yml
+- [x] T240 [P] FreeBSD 完整平台证据车道（ADR-013 修订，2026-10-31 用户指令）：ci.yml
   FreeBSD job 移除 continue-on-error——latest pkg 安装 iced/winit 编译期 X11/字体栈依赖
   （pkgconf/libX11/libXcursor/libXrandr/libXi/libxkbcommon/fontconfig/freetype2/wayland；
   vmactions slirp DNS 不支持 SRV，pkg 仓库用直连 https）；全量 `cargo build/test --locked
@@ -697,6 +697,11 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   DuckDB 2.0.0、全量构建／测试、三门硬判定全 GO、TUI/Web 冒烟、`GATE_RESULT=GO`；
   代码级等价项（`child_pids` 列序判据、真两层树、iced x11）随全量测试在 FreeBSD 原生
   执行。证据与根因链见 Check 336 注记；三门与冒烟记录落库 `artifacts/store-acceptance/`。
+  ——**复核（2026-11-06，台账一致性核对）**：本项与 Check 336 同为 [exercised]，依据
+  2026-11-03 run `41481740766`（platform-freebsd **success**，`GATE_RESULT=GO`：全量构建
+  ＋全量测试＋三门 GO＋TUI/Web 冒烟）；2026-11-06 观察 run `42143683382` 出现
+  `store_gate = NO-GO`（根因未归因，记录见 `docs/matrices/compatibility.md`），不改变
+  本项历史收口结论。
 - [x] T241 [P] MCP 传输抽象与 Streamable HTTP 传输（ADR-055 §2.1—2.2）：trait
   Transport 六原语（write_message/read_message/abort_handle/eof_kind/shutdown/pid）
   解耦协议层与 I/O——stdio 子进程逻辑（spawn 环境净化/进程组/看门狗 terminate_tree/
@@ -779,6 +784,13 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 - [ ] T251 [P] 批次 B1 Web：对话页——WS 逐块推送、服务端直出无 JS 降级、预算审计
   （FR-742；ADR-057 决策 4）——**任务认知卡**：方向=对话流核心 Web 侧；目标=WS 增量
   呈现＋无 JS 降级等价；判据=check-frontend-budget 达标＋行为测试；非目标=审批交互（B3）
+  ——**复核（2026-11-06，部分完成，维持未勾）**：页面/tail API/同步发送（`56e40b9`）＋
+  服务端 turn 工作线程与 `llm.chunk`/`llm.loss` 帧（`fc3a0c0`＋本批 M2—M5/M9/M11）＋
+  前端消费（`chat.js` 订阅 `/ws`、按 session 过滤、有界实时尾、丢帧提示）已落地；前端
+  预算达标（chat.js gzip 2213 B／CSS 2346 B／DOM 20）；ADR-058 已转「已批准（附条件）」。
+  **未闭环**（Check 347 四条件之第 4 条）：三指标端到端归档 `artifacts/turn-ws-relay-*`
+  与新一轮 CI 取证（ADR-058 §2.8.8 用例 7—11）。条件齐备前不得勾选，也不得宣称 FR-742
+  完成。
 - [x] T252 [P] 批次 B1 视觉层：视觉 token 单一事实源＋zcode-day/night 双端落地＋四套
   主题 hex 断言升级六套全覆盖（FR-739/740；ADR-057 决策 2/3）——**任务认知卡**：
   方向=视觉对齐的单一事实源；目标=token 一处定义双端派生、六套主题断言全绿；
