@@ -5,6 +5,7 @@
 
 # 已知二进制类型：禁止规范化，禁止 diff 文本化
 *.png binary
+*.rgba binary
 *.jpg binary
 *.gif binary
 *.ico binary

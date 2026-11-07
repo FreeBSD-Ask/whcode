@@ -1,6 +1,10 @@
 # WHCode
 
-[![ci](https://github.com/FreeBSD-Ask/whcode/actions/workflows/ci.yml/badge.svg)](https://github.com/FreeBSD-Ask/whcode/actions/workflows/ci.yml)
+<p align="center">
+  <img src="assets/brand/logo.svg" alt="WHCode" width="160">
+</p>
+
+[![平台验证](https://github.com/FreeBSD-Ask/whcode/actions/workflows/platform-verification.yml/badge.svg)](https://github.com/FreeBSD-Ask/whcode/actions/workflows/platform-verification.yml)
 
 Rust 原生、本地优先的 LLM 编码 Harness：数据落在一个 DuckDB 文件里，事件可追踪，
 规格驱动开发的门禁由程序执行。原生 GUI、TUI、CUI、Web、SSH 多前端共享同一套应用服务。
@@ -27,11 +31,11 @@ M0—M6、M8 与四端对等收口已实现，M7 SSH 服务端已实现。M9 的
 |---|---|
 | Windows 11 amd64 | **唯一验收目标**（`x86_64-pc-windows-msvc`，ADR-013） |
 | Windows ARM64 | 构建交付目标（ADR-043）：CI 结果仅作平台证据，不进验收 |
-| FreeBSD | 完整平台证据车道（硬门禁）：CI 随 main 全量构建、测试与门禁，任一失败即红；不作验收结论 |
+| FreeBSD | 完整平台证据通道（硬门禁）：CI 随 main 全量构建、测试与门禁，任一失败即红；不作验收结论 |
 | NetBSD | CI 随 main 自动运行，仅平台证据 |
 | OpenBSD／DragonFly | 手工占位；与 NetBSD 同为 SSH 远程开发目标（作为被连入端，不要求原生工具链） |
 
-性能分位数目前仅取自 Windows 车道。平台口径详见
+性能分位数目前仅取自 Windows 通道。平台口径详见
 [ADR-013](./docs/adr/ADR-013-platform-scope-windows-only.md) 与
 [compatibility.md](./docs/matrices/compatibility.md)。
 

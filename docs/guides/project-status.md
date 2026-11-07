@@ -26,9 +26,9 @@ CI 取证）。回填后须重跑上述脚本并更新本表，不得沿用旧�
 ## 四端能力面
 
 `docs/matrices/feature-parity.md` 为受校验产物（来源 `whcode-app::surface::SURFACES`），
-共 **57 条**能力面；✅ 已实现、◐ 已排除、⏳ 预留（每端另有 1—2 行不适用）：
+共 **57 条**能力面；通过 已实现、部分 已排除、预留 预留（每端另有 1—2 行不适用）：
 
-| 端 | ✅ | ◐ | ⏳ |
+| 端 | 通过 | 部分 | 预留 |
 |---|---|---|---|
 | CUI | 33 | 11 | 11 |
 | TUI | 27 | 18 | 11 |
@@ -50,7 +50,7 @@ CI 取证）。回填后须重跑上述脚本并更新本表，不得沿用旧�
 
 ## 未完成项与原因
 
-- **BSD 验收（2026-11-03 已收口一批）**：Check 22/25/96/99/195/336 与 T099/T240 已转勾（run `41481740766` 硬门禁首次全绿，证据落库 `artifacts/ssh-acceptance/` 与 `artifacts/store-acceptance/`）。ADR-013 修订（2026-10-31）设 FreeBSD 为完整平台证据车道（硬门禁）；修订（2026-11-03，用户指令）定 **NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发**（被 Windows/FreeBSD 内置 SSH 客户端连入的目标，不要求原生工具链/引擎；NetBSD 原生 SSH GO 维持为证据，NetBSD 原生 store 豁免——上游 DuckDB 2.0.0 依赖 glibc `features.h`；OpenBSD/DragonFly 节点证据走真实连入取证，DragonFly 同日追加同待遇）。**仍开放**：V-004 外部节点连通性（M7）；性能分位数未取得（perf 车道仅 Windows）。**2026-11-06 观察**：FreeBSD 车道在 run `42143683382` 出现 `store_gate = NO-GO`（DuckDB 源码构建报 `platform.hpp:22 'features.h' file not found`），与 2026-11-03 run `41481740766` 的 GO 不一致，**根因未归因**，不得读作代码回归；CI 结论以最新 run 为准，细节见 `docs/matrices/compatibility.md`。
+- **BSD 验收（2026-11-03 已收口一批）**：Check 22/25/96/99/195/336 与 T099/T240 已转勾（run `41481740766` 硬门禁首次全绿，证据落库 `artifacts/ssh-acceptance/` 与 `artifacts/store-acceptance/`）。ADR-013 修订（2026-10-31）设 FreeBSD 为完整平台证据通道（硬门禁）；修订（2026-11-03，用户指令）定 **NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发**（被 Windows/FreeBSD 内置 SSH 客户端连入的目标，不要求原生工具链/引擎；NetBSD 原生 SSH GO 维持为证据，NetBSD 原生 store 豁免——上游 DuckDB 2.0.0 依赖 glibc `features.h`；OpenBSD/DragonFly 节点证据走真实连入取证，DragonFly 同日追加同待遇）。**仍开放**：V-004 外部节点连通性（M7）；性能分位数未取得（perf 通道仅 Windows）。**2026-11-06 观察**：FreeBSD 通道在 run `42143683382` 出现 `store_gate = NO-GO`（DuckDB 源码构建报 `platform.hpp:22 'features.h' file not found`），与 2026-11-03 run `41481740766` 的 GO 不一致，**根因未归因**，不得读作代码回归；CI 结论以最新 run 为准，细节见 `docs/matrices/compatibility.md`。
 - **稳定性（NFR-204，已收口）**：T116/Check 116/195。5.5h CI 窗口对 0.5 MB/h 无分辨力（run 40529349945 无权判定）后按 ADR-025 升级 24h 本机深检——287 样本、多口径一致负斜率（warmup_ols −0.3551、phase_aligned −0.2681、稳态 −1.24）、线程/句柄无持续增长，**verdict=通过**（2026-11-02）；判据增补见 ADR-025 修订记录；证据 `artifacts/nfr204-verdict-24h-2026-11-02.md`。
 - **真实 LLM 供应商（已接四端）**：T162—T167 完成。T162—T166 通过 77 项 `http` 测试与
   本地回环端到端（`artifacts/llm-e2e-2026-10-25.md`）；T167 于 2026-10-26 收口——CUI／Web／
@@ -113,7 +113,7 @@ CI 取证）。回填后须重跑上述脚本并更新本表，不得沿用旧�
 
 | 工作流 | 触发 | 职责 |
 |---|---|---|
-| `ci.yml` | push main、PR、手动 | 门禁与测试、平台矩阵（Windows 必过＝唯一验收；FreeBSD 硬门禁证据车道；NetBSD 自动证据＋SSH 远程开发目标；OpenBSD/DragonFly SSH 远程开发目标）、短测量、Windows SSH 回环／TLS 专项／Playwright tablist 验收；性能与桌面型测试由 `workflow_dispatch` 输入触发 |
+| `platform-verification.yml` | push main、PR、手动 | 门禁与测试、平台矩阵（Windows 必过＝唯一验收；FreeBSD 硬门禁证据通道；NetBSD 自动证据＋SSH 远程开发目标；OpenBSD/DragonFly SSH 远程开发目标）、短测量、Windows SSH 回环／TLS 专项／Playwright tablist 验收；性能与桌面型测试由 `workflow_dispatch` 输入触发 |
 | `build-release.yml` | push、tag `v*`、手动 | debug 与 release 矩阵构建、打包安装验证、冒烟、SHA256；tag 时更新 GitHub Release |
 | `long-run.yml` | 手动，或 push 改动 `artifacts/long-run-request-*.md` | 5.5 小时稳定性长跑（ADR-033，release 剖面、300 s 采样），一次约消耗 5.5 小时 Windows runner 配额；摘要以公开注解公布 |
 

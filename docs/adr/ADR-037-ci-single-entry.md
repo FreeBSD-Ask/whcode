@@ -6,6 +6,10 @@
 - **责任人**：CI 与门禁维护者
 - **退出条件**：GitHub Actions 配额或 runner 能力不可接受、6 小时上限变化、需要自托管 runner、
   或某个测试无法在 CI 产生可归因信号且必须回到人工证据时，修订本 ADR
+- **工作流文件名（2026-11-07 修订）**：唯一测试入口文件为
+  `.github/workflows/platform-verification.yml`（原 `ci.yml`，用户指令“ci 不能就叫 ci，
+  必须见名知义”）。本 ADR 正文与本仓库 2026-11-07 之前的所有记录中的 `ci.yml` 一律按该
+  文件解读——**历史不回写**（同 `ci/` → `.github/scripts/` 的路径映射口径）。
 
 ## 决策
 
@@ -83,3 +87,18 @@
   发布构建、打包安装验证与 TUI/Web 冒烟，这些迁入 `build-release.yml`；`ci.yml` 保留门禁、
   五平台矩阵、功能测试、短测量、桌面入口与每周 action 审计；测试“通过”口径仍以 `ci.yml`
   为准，构建与发布产物结论以 `build-release.yml` 为准；artifact 名称不变。
+- **2026-11-07（用户指令：工作流不得叫 `ci`，必须见名知义）**：唯一测试入口
+  `.github/workflows/ci.yml` 更名为 `platform-verification.yml`，工作流 `name:` 同步改为
+  `platform-verification`，`measurements` 上传的 artifact 名由 `ci-measurements` 改为
+  `platform-verification-measurements`。**正面**：浏览 `.github/workflows/` 即可从文件名
+  读出职责（验证 / 构建发布 / 长跑），徽章与 `gh run list --workflow=` 不再依赖缩写；
+  **负面**：改名前的 run 级历史查询须用旧名（`--workflow=ci.yml` 仍可查历史 run，GitHub
+  按文件路径归档），且所有引用该路径的指南、矩阵、徽章必须同批更新，否则文档与磁盘不一致；
+  **承担者**：CI 与门禁维护者（本批一次性更新全部活动引用；CHANGELOG、各 ADR 修订记录与账本已完成条目属历史，按映射解读不改写）。**三重时间**：过去＝
+  ADR-037 原决策只要求“单一入口”，未约束命名；现在＝`ci.yml` 在 AGENTS、指南、矩阵与
+  徽章等多处引用，读者无法从名字判断用途（用户 2026-11-07 判定）；将来失效条件＝
+  Actions 对工作流文件数或命名施加限制，或职责再次拆分时，复审本修订。**复审触发**
+  （绑定命令＋判定）：以下任一成立即复审——①`python .github/scripts/check-workflows.py`
+  失败；②`gh run list --workflow=platform-verification.yml --limit 1` 返回空（说明路径与
+  远端不一致）；③`git grep -l 'workflows/ci.yml' -- ':!CHANGELOG.md' ':!docs/adr' ':!specs'`
+  命中活动文档（说明改名未同步）。

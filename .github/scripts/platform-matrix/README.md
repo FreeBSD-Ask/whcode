@@ -2,7 +2,7 @@
 
 平台依赖记录与交叉检查脚本（tasks.md T005/T020/T021；§9、§11.1）。Windows 11 amd64 为唯一验收目标；Windows ARM64 为构建交付目标（ADR-043，只作平台证据、不验收）；BSD 延后、仅手工触发（ADR-013）。
 
-**平台矩阵已并入 `.github/workflows/ci.yml`（2026-10-25 测试统一入口）**：
+**平台矩阵已并入 `.github/workflows/platform-verification.yml`（2026-10-25 测试统一入口）**：
 GitHub Actions 只执行该目录下的文件；矩阵包含 windows/windows-arm64/freebsd/netbsd/openbsd/dragonfly
 六个条目，`fail-fast: false` 并行执行，单平台失败不取消其他平台。本目录只保留脚本。
 

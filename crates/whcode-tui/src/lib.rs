@@ -180,6 +180,22 @@ pub fn run() -> Result<(), WhError> {
     run_with(&EmptyViewSource, RunOptions::default())
 }
 
+/// 启动字标（FR-765、ADR-061）：进入全屏界面前向 stdout 打印一次 ASCII 字标。
+///
+/// 落在终端滚动历史里，不占帧、不参与重绘（因此不影响 T129 空闲零重绘），也不进入
+/// 备用屏；stdout 被重定向（管道、日志文件）时不打印，避免污染机器可读输出。
+fn print_startup_banner() {
+    use std::io::{IsTerminal, Write};
+
+    let mut out = io::stdout();
+    if !out.is_terminal() {
+        return;
+    }
+    // 打印失败（终端已关闭、管道断开）不阻止界面启动：字标是可选的标识，不是功能。
+    let _ = writeln!(out, "{}\n", whcode_domain::brand::ASCII_LOGO);
+    let _ = out.flush();
+}
+
 /// 启动 TUI 闭环：装配根注入数据源、主题与最小化探测。
 ///
 /// 终端生命周期由 [`TerminalGuard`] 管理——任何提前返回或 panic 都会触发恢复。
@@ -188,6 +204,7 @@ pub fn run() -> Result<(), WhError> {
 ///
 /// 进入终端、初始化渲染后端、绘制或读取事件失败时返回 `WhError`（`io_error`）。
 pub fn run_with(source: &dyn ViewSource, options: RunOptions<'_>) -> Result<(), WhError> {
+    print_startup_banner();
     let mut session = CrosstermSession::new();
     let mut guard = TerminalGuard::enter(&mut session)?;
 
@@ -1367,7 +1384,7 @@ fn draw_content(
 
     let mut shown = 0usize;
     if empty {
-        lines.push(Line::from(texts.resolve("tui.empty")));
+        push_empty_state(&mut lines, body_rows, content_width, texts);
     } else if column_view {
         lines.push(Line::from(column_header(view, texts, content_width)));
         for (index, row) in snapshot
@@ -1397,7 +1414,7 @@ fn draw_content(
 
     if lines.is_empty() {
         // 数据源未装配（或视图为空）：显式提示，不伪造内容（不伪装原则）。
-        lines.push(Line::from(texts.resolve("tui.empty")));
+        push_empty_state(&mut lines, body_rows, content_width, texts);
     }
 
     let mut block = Block::default()
@@ -1409,6 +1426,25 @@ fn draw_content(
     }
     // 边框块已把主题样式铺满整个区域（含正文单元），正文不再重复上色。
     frame.render_widget(Paragraph::new(lines).block(block), body_area);
+}
+
+/// 空态正文：放得下就先画 ASCII 字标（FR-765、ADR-061），再给显式空提示。
+///
+/// 判据是“字标宽度 ≤ 可用宽度”且“字标行数 + 1 行空提示 ≤ 可用行数”——**放不下就只给
+/// 空提示**：裁掉半个字标或让它顶掉空提示，都是把“没有数据”说成别的东西（不伪装原则）。
+/// 空提示始终存在，既有帧断言（Check 291 等）据此保持不变。
+fn push_empty_state<'a>(
+    lines: &mut Vec<Line<'a>>,
+    body_rows: usize,
+    content_width: usize,
+    texts: &'a I18n,
+) {
+    let logo_fits = content_width >= whcode_domain::brand::ASCII_LOGO_WIDTH
+        && body_rows >= whcode_domain::brand::ASCII_LOGO_LINES + 1;
+    if logo_fits {
+        lines.extend(whcode_domain::brand::ASCII_LOGO.lines().map(Line::from));
+    }
+    lines.push(Line::from(texts.resolve("tui.empty")));
 }
 
 #[cfg(test)]
@@ -2046,6 +2082,25 @@ mod tests {
         let text = render_empty_frame(ViewId::Tasks, 60, 12);
         assert!(text.contains("（暂无数据）"), "空视图必须显式提示：{text}");
         assert!(text.contains("任务 (2/7)"), "顶栏必须含视图序号：{text}");
+    }
+
+    /// FR-765：空态放得下时显示 ASCII 字标，且**空提示仍在**（字标不顶掉空态语义）。
+    #[test]
+    fn empty_state_shows_ascii_wordmark_when_it_fits() {
+        let text = render_empty_frame(ViewId::Tasks, 100, 30);
+        assert!(
+            text.contains("local-first LLM coding harness"),
+            "空态应显示字标的说明行：{text}"
+        );
+        assert!(text.contains("（暂无数据）"), "字标不得顶掉空提示：{text}");
+    }
+
+    /// FR-765：终端放不下字标时退回纯空提示——不裁切、不溢出（不伪装原则）。
+    #[test]
+    fn empty_state_falls_back_when_wordmark_does_not_fit() {
+        let text = render_empty_frame(ViewId::Tasks, 60, 12);
+        assert!(!text.contains("local-first"), "放不下时不得画字标：{text}");
+        assert!(text.contains("（暂无数据）"), "空提示必须仍在：{text}");
     }
 
     /// FR-615：英文文本层进入渲染帧（顶栏/键位栏/空提示），数据字段不翻译。

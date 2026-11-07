@@ -8,7 +8,7 @@
 |---|---|---|
 | Windows 11 amd64（`x86_64-pc-windows-msvc`） | **唯一验收目标**，已验收（M0—M9 测试在本机通过；2026-10-23 进度复核后 `fmt`/`clippy`/`test`/契约/布局门禁全绿） | ADR-013 |
 | Windows 11 arm64（`aarch64-pc-windows-msvc`） | **构建交付目标**（ADR-043）：产出 arm64 发布包，在原生 `windows-11-arm` runner 取得平台证据；不进入验收 | ADR-043 |
-| FreeBSD | **完整平台证据车道（硬门禁）**（2026-10-31 用户指令解除延后）：ci.yml 随 `main` 全量构建（含 GUI／bin）、全量测试、三门与 TUI/Web 冒烟，失败即红；2026-11-03 起 run `41481740766` 全绿（三门 GO＋冒烟，证据 `artifacts/store-acceptance/`）；**2026-11-06 观察**：run `42143683382` 出现 `store_gate = NO-GO`（DuckDB 源码构建报 `platform.hpp:22 'features.h' file not found`，与 2026-11-03 GO 不一致，**根因未归因**，不得读作代码回归；本行为 2026-11-06 观察记录，未经本地复现 `[待验证]`）；**不作验收结论**，性能分位数未取得 | ADR-013 修订（2026-10-31） |
+| FreeBSD | **完整平台证据通道（硬门禁）**（2026-10-31 用户指令解除延后）：platform-verification.yml 随 `main` 全量构建（含 GUI／bin）、全量测试、三门与 TUI/Web 冒烟，失败即红；2026-11-03 起 run `41481740766` 全绿（三门 GO＋冒烟，证据 `artifacts/store-acceptance/`）；**2026-11-06 观察**：run `42143683382` 出现 `store_gate = NO-GO`（DuckDB 源码构建报 `platform.hpp:22 'features.h' file not found`，与 2026-11-03 GO 不一致，**根因未归因**，不得读作代码回归；本行为 2026-11-06 观察记录，未经本地复现 `[待验证]`）；**不作验收结论**，性能分位数未取得 | ADR-013 修订（2026-10-31） |
 | NetBSD | **仅支持 SSH 远程开发（被连入目标）＋随 CI 自动运行（仅平台证据）**（ADR-013 修订 2026-11-03）：SSH 回环验收 GO（客户端＋服务端四项，`artifacts/ssh-acceptance/netbsd-client.txt`）、进程组零残留 GO（Check 201）；原生 store/DuckDB 豁免（上游 2.0.0 依赖 glibc `features.h`） | ADR-013、T020/T021 |
 | OpenBSD | **仅支持 SSH 远程开发（被连入目标）**（ADR-013 修订 2026-11-03）：节点证据从 Windows/FreeBSD 以内置 SSH 客户端连入取得（V-004 口径，M7 或具备主机时）；工具链阻塞记录（ports rust 1.98.1 < MSRV）已入库 | ADR-011/013 |
 | DragonFly BSD | **仅支持 SSH 远程开发（被连入目标）**（ADR-013 修订 2026-11-03，同日追加同待遇）：节点证据从 Windows/FreeBSD 以内置 SSH 客户端连入取得（V-004 口径，M7 或具备主机时）；工具链阻塞记录（dports rust 1.85.1 < MSRV）已入库 | ADR-011/013 |
@@ -40,7 +40,7 @@
    outcome-supported 49）。未通过项集中在 Phase 24（ADR-057 ZCode 对齐）：B1 余项与
    B2—B5，逐条以 `checklist.md` 为准，本节不复述其判据。
    历史 CI 记录：run 40126145778（2026-10-25）全绿（五平台与 `measurements`）、
-   run 41481740766（2026-11-03）平台车道 success；**CI 结论以最新 run 为准**。
+   run 41481740766（2026-11-03）平台通道 success；**CI 结论以最新 run 为准**。
    NFR-207/209 与测试进程 RSS 属 `perf-budget` 受控测量（`workflow_dispatch` + `perf`），
    不作 push 门禁。
    TUI 七视图、Web UI（含会话/任务/清理/运行时写命令）、CUI 命令树、SDD 门禁、原生 GUI 与

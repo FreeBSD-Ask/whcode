@@ -17,10 +17,10 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 - **Windows ARM64 为构建交付目标**（`aarch64-pc-windows-msvc`，ADR-043）：产出 arm64 发布包，
   CI `windows-arm64`（原生 `windows-11-arm` runner）结果只作平台证据，**不进入验收**；
 - **不支持任何 32 位平台**；
-- **FreeBSD 为完整平台证据车道（硬门禁）**（2026-10-31 用户指令，ADR-013 修订）：ci.yml 的
+- **FreeBSD 为完整平台证据通道（硬门禁）**（2026-10-31 用户指令，ADR-013 修订）：platform-verification.yml 的
   FreeBSD job 随 `main` 全量构建（含 GUI／bin）、全量测试、三门（进程组／store／SSH 回环）
   与 TUI/Web 冒烟，任一失败即红；系统依赖允许取自 FreeBSD ports／latest pkg。
-  **不作验收结论**（验收仍为 Windows 11 amd64）；性能分位数未取得（perf 车道仍仅 Windows）；
+  **不作验收结论**（验收仍为 Windows 11 amd64）；性能分位数未取得（perf 通道仍仅 Windows）；
 - NetBSD 在 GitHub CI 随 `main` 自动运行（仅作平台证据、不阻断 CI）；**NetBSD/OpenBSD/
   DragonFly 仅支持 SSH 远程开发**（作为被 Windows/FreeBSD 内置 SSH 客户端连入的目标，
   不要求原生工具链/引擎——ADR-013 修订 2026-11-03 用户指令，DragonFly 同日追加同待遇）；
@@ -226,7 +226,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 工作流 `uses:` 必须同时满足：**最新 release 版本** + **固定 commit SHA**，写法为
   `owner/repo@<40 位十六进制 SHA> # vX.Y.Z`；禁止 `@main`、`@master`、`@vN` 等可移动引用。
 - `.github/scripts/action-versions.json` 是唯一事实源（版本 + SHA + 复核日期）；`.github/scripts/check-actions.py`
-  在每次 CI 离线校验，`ci.yml` 的 `action-audit` job 每周（schedule）联网复核上游最新版本。
+  在每次 CI 离线校验，`platform-verification.yml` 的 `action-audit` job 每周（schedule）联网复核上游最新版本。
 - 升级流程：`python .github/scripts/check-actions.py --update` 刷新清单 → 同步工作流引用与版本注释 →
   离线门禁通过 → 提交。例外必须走 ADR，不得以“临时”为名跳过。
 - Dependabot 的 `github-actions` PR 只负责提议：合并前必须运行 `--update` 并提交清单，
@@ -235,7 +235,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 ### 5.2 Code Scanning 零告警铁律（2026-10-28，用户指令）
 
 - `security/code-scanning`（CodeQL 默认分析）必须**时刻保持 0 条 open 告警**。
-  推送后必须运行 `python .github/scripts/check-code-scanning.py` 复核；`ci.yml` 的
+  推送后必须运行 `python .github/scripts/check-code-scanning.py` 复核；`platform-verification.yml` 的
   `code-scanning` job 在每周 schedule 与手动触发时复核。查询被阻塞（无凭据/无网络/无
   分析）时写“阻塞”并停下，不得跳过、不得以本地推断冒充通过（ADR-037）。
 - 告警只能由**修复代码 + CodeQL 重新分析**消除；禁止用 dismiss／关闭告警代替修复，
@@ -257,7 +257,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
   `AuthScheme::declared_header_names()`／`declared_query_names()` 这类**声明名**，不要先
   `inject()` 再比较——求值结果一旦进入返回值作用域，整条输出链都会被判为密钥派生。
 - 新增或修改测试后，必须在本机复跑 `.github/scripts/check-code-scanning.py`；
-  有 open 告警必须修完再推送，不得"先推再修"。
+  有 open 告警必须修完再推送，不得“先推再修”。
 
 ## 6. UI 与资源纪律
 
@@ -330,7 +330,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 一个工作单元完成需同时满足：
 
 0. **信号链完备**（`docs/guides/signal-chain-completeness.md`）：工具/采样/测试
-   交付的验收标准是"输出包含可归因信号"，不是"工具不崩溃"。null/空/零是歧义
+   交付的验收标准是“输出包含可归因信号”，不是“工具不崩溃”。null/空/零是歧义
    证据，须区分正确的空与错误的空（前置缺失）；歧义无法区分时**必须提问**；
 1. 对应 `tasks.md` 任务可勾选，且 `checklist.md` 有可判定的 Check；
 2. `fmt` / `clippy` / `test` 全绿，新增行为有正向与失败路径测试（含零 unsafe、有界性与
@@ -339,7 +339,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 4. 文档与进度同步（spec/tasks/checklist/CHANGELOG/README 中受影响者）；
 5. 证据落在 `artifacts/` 或在文档中可定位。
 6. 设计与变更记录含形式审查、正负和解、三重时间依据与 0 信任校验（`docs/guides/philosophy.md` §8.1）；
-   ADR"复审触发"节优先写成"绑定命令 + 判定规则"，命令失效即触发复审（ADR-046，日期仅作辅助）。
+   ADR“复审触发”节优先写成“绑定命令 + 判定规则”，命令失效即触发复审（ADR-046，日期仅作辅助）。
 7. 并发/性能改动附并发设计档案、一手文献依据、同夹具前后测量与回退验证（ADR-015）。
 8. 自由与安全审查：退出/导出/离线/默认值可撤销可用；安全措施有威胁模型、证据、代价与失效条件（NFR-218/219）。
 9. 不伪造/未知显式、反进步叙事、文档假设与复审日期已核对（NFR-220—222）。

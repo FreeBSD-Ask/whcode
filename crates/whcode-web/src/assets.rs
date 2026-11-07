@@ -32,9 +32,13 @@ pub const CHAT_HTML: &str = include_str!("../frontend/chat.html");
 /// 对话页脚本（原生 ESM，无构建链）。
 pub const CHAT_JS: &str = include_str!("../frontend/chat.js");
 
+/// 站点图标（FR-765、ADR-061）：由 `.github/scripts/make-brand-assets.py` 从母版
+/// `assets/brand/logo.svg` 派生（16/32/48 三帧 ICO），二进制资产直接嵌入。
+pub const FAVICON_ICO: &[u8] = include_bytes!("../frontend/favicon.ico");
+
 /// 静态资产路由：返回 `(Content-Type, 响应体)`；未知路径返回 `None`。
 ///
-/// 只接受 GET 语义下声明的六个路径（含首页别名）；查询串已由调用方剥离。
+/// 只接受 GET 语义下声明的路径（含首页别名与站点图标）；查询串已由调用方剥离。
 ///
 /// 首页在本函数中仍是**未注入数据**的模板；服务端直出版本由 [`render_index`] 生成
 /// （无 JS 环境下的只读快照，FR-618）。设置页同理：本函数返回未注入状态的模板，
@@ -42,6 +46,10 @@ pub const CHAT_JS: &str = include_str!("../frontend/chat.js");
 /// `/settings/certs`）。
 #[must_use]
 pub fn static_asset(path: &str) -> Option<(&'static str, &'static [u8])> {
+    // 站点图标是二进制资产，不经过下方 `&str` 通道（那会把字节按 UTF-8 语义处理）。
+    if path == "/favicon.ico" {
+        return Some(("image/x-icon", FAVICON_ICO));
+    }
     let (content_type, body): (&'static str, &'static str) = match path {
         "/" | "/index.html" => ("text/html; charset=utf-8", INDEX_HTML),
         "/app.js" => ("text/javascript; charset=utf-8", APP_JS),
@@ -526,6 +534,7 @@ mod tests {
             ("/chat", "text/html"),
             ("/chat.js", "text/javascript"),
             ("/styles.css", "text/css"),
+            ("/favicon.ico", "image/x-icon"),
         ] {
             let (actual_type, body) =
                 static_asset(path).unwrap_or_else(|| panic!("{path} 必须可达"));
@@ -539,7 +548,7 @@ mod tests {
             "",
             "/../Cargo.toml",
             "/frontend/app.js",
-            "/favicon.ico",
+            "/logo.svg",
             "/APP.JS",
             "/settings",
             "/settings/certs/",

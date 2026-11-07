@@ -28,7 +28,7 @@
   `WHCODE_DISK_FULL_DIR` 指向已耗尽卷；未设置时用例打印“未执行”，不伪造通过。
 - `test_nfr_budget.rs`：ADR-025 冻结预算的测量夹具。NFR-207（会话切换 p50/p95/p99 ≤ 200 ms）
   与 NFR-209（历史单页 p95 ≤ 30 ms）为常规回归可复现项，但因需独占 CPU/磁盘而标 `#[ignore]`，
-  由 `ci.yml` 的 `perf-budget` job（仅 `workflow_dispatch` 且 `perf=true`）独立步骤驱动；
+  由 `platform-verification.yml` 的 `perf-budget` job（仅 `workflow_dispatch` 且 `perf=true`）独立步骤驱动；
   NFR-203（20 次切换 RSS 增量 ≤ 10 MB）与 NFR-206（流式 CPU ≤ 8% 单核）需外部采样，
   由 `.github/scripts/benchmarks/measure-nfr-budgets.py` 驱动。
 - `test_stability_run.rs`：T116 长跑采集器——**单进程**持续写入/查询/切换/清理，
@@ -46,9 +46,9 @@
 
 ## 如何运行
 
-### GitHub Actions（2026-10-25 起：全部测试统一走 ci.yml）
+### GitHub Actions（2026-10-25 起：全部测试统一走 platform-verification.yml）
 
-`.github/workflows/ci.yml` 的 `measurements` job 在 push `main`、PR 与手动触发时运行，
+`.github/workflows/platform-verification.yml` 的 `measurements` job 在 push `main`、PR 与手动触发时运行，
 单 job 上限 350 分钟，按顺序执行：
 
 1. `writer_stress`、`memory_limit`、`query_plan` 三个 `--ignored` 实验；

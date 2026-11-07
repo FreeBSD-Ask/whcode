@@ -1,5 +1,11 @@
-# CI 统一入口（2026-10-25 用户指令）：原 platform-matrix / stability / action-version-audit
-# 三份工作流合并为本文件；5.5 小时长跑因 GitHub 单 job 6 小时上限单独保留在 long-run.yml。
+# 平台验证：五平台证据车道 + 门禁 + 全量测试 + 短测量（唯一测试入口，ADR-037）。
+#
+# 命名（2026-11-07 用户指令“ci 不能就叫 ci，必须见名知义”）：本文件原名 `ci.yml`，
+# 更名为 `platform-verification.yml` 并同步 `name:`；2026-11-07 之前的提交、run 记录、
+# CHANGELOG 与 ADR 修订记录中的 `ci.yml` 一律按本文件解读（历史不回写）。
+#
+# 由来：2026-10-25 把 platform-matrix / stability / action-version-audit 三份工作流合并为
+# 单一入口；5.5 小时长跑因 GitHub 单 job 6 小时上限单独保留在 long-run.yml。
 #
 # 触发与门控：
 #   - push main / pull_request / workflow_dispatch：跑门禁、构建与全部测试、测量；
@@ -16,7 +22,7 @@
 #   - 所有 job 只读仓库；上传 artifact 使用 Actions 运行时令牌。
 #   - 测试与测量的唯一验收入口是 CI；本地脚本仅作复现与排障（用户 2026-10-25 选择）。
 #   - 测量 job 串行执行（写者压力/内存/查询计划/NFR 对资源敏感），避免互相污染。
-name: ci
+name: platform-verification
 
 on:
   workflow_dispatch:
@@ -1152,7 +1158,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ci-measurements
+          name: platform-verification-measurements
           if-no-files-found: warn
           path: |
             artifacts/stability-ci/*.log

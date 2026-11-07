@@ -78,7 +78,7 @@ for row in con.execute(
 | PR 清单 | `docs/guides/pr-checklist.md` 的“任务认知先于手段”项 |
 | 代理入口 | `AGENTS.md` §1.2 第 7 条、§2 必读表、§3 标准验证链、§9 第 11 项、§10 不确定时 |
 | 五份模板 | `engineering-doctrine/templates/{AGENTS,spec,pr-checklist,tasks}.template.md` 与 `.specify/templates/tasks-template.md`；判据：含认知卡字段或指向本文 |
-| 程序门禁 | `.github/scripts/check-knowing-first.py`，由 `ci.yml` 的 windows 门禁步骤调用；判据：落点链接可达、任务标注存在（结构检查，不验语义） |
+| 程序门禁 | `.github/scripts/check-knowing-first.py`，由 `platform-verification.yml` 的 windows 门禁步骤调用；判据：落点链接可达、任务标注存在（结构检查，不验语义） |
 
 ## 5. 反例
 

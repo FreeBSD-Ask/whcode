@@ -54,8 +54,8 @@ Removed sections:
 - b) 只改 AGENTS（否决：可移植准则、需求模板与任务模板不同步）；
 - c) 新增原则 X + 唯一正文 + 程序化落点门禁（采纳）。
 影响范围：AGENTS、philosophy、yike-philosophy、过程/需求/PR 指南、engineering-doctrine
-00/01 与五份模板、specs tasks/checklist（T220/Check 316）、ci.yml；不改 FR/NFR 与产品代码。
-迁移计划：先立唯一正文与宪法原则，再加 check-knowing-first.py 与 ci.yml 步骤，最后登记
+00/01 与五份模板、specs tasks/checklist（T220/Check 316）、platform-verification.yml；不改 FR/NFR 与产品代码。
+迁移计划：先立唯一正文与宪法原则，再加 check-knowing-first.py 与 platform-verification.yml 步骤，最后登记
 账本与 CHANGELOG；存量已勾选任务不补写，以其来源 FR/Check/实现记录为最小“知”证据。
 
 Follow-up TODOs:

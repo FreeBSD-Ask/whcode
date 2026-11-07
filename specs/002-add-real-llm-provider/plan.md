@@ -35,7 +35,7 @@
 本地回环桩服务器用于后续客户端任务；不访问公网；CI 为测试结论唯一入口（ADR-037）
 
 **Target Platform**：Windows 11 amd64（`x86_64-pc-windows-msvc`，ADR-013）；
-FreeBSD 经 CI 硬门禁车道做平台证据（全量构建/测试/三门/TUI-Web 冒烟，不作验收结论），其余 BSD 延后；代码级兼容保留
+FreeBSD 经 CI 硬门禁通道做平台证据（全量构建/测试/三门/TUI-Web 冒烟，不作验收结论），其余 BSD 延后；代码级兼容保留
 
 **Project Type**：多 crate workspace 的领域服务 crate（`whcode-llm`）+ 装配根（`whcode-bin`）
 
@@ -166,7 +166,7 @@ crates/whcode-bin/Cargo.toml     # 唯一启用 http feature 的装配根（无�
 
 - 不访问公网；本地 TLS 夹具用 `rcgen` 自签证书（与 T188 一致）；
 - 不得把凭据写入夹具或日志；测试使用假值并断言脱敏；
-- 结论以 CI（`.github/workflows/ci.yml`）日志与 artifact 为准；本地运行只作复现（ADR-037）；
+- 结论以 CI（`.github/workflows/platform-verification.yml`）日志与 artifact 为准；本地运行只作复现（ADR-037）；
 - 不得用 `#[ignore]` 藏起失败用例。
 
 ## 交付顺序（主账本 T162 → T167）

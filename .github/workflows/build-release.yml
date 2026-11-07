@@ -1,10 +1,10 @@
-# 构建与发布（2026-10-25 用户指令）：把原 ci.yml `platform-windows` 里的构建、打包、
-# 冒烟与发布链拆为独立矩阵文件，让门禁／测试（ci.yml）与交付（本文件）各自拥有
+# 构建与发布（2026-10-25 用户指令）：把原 platform-verification.yml `platform-windows` 里的构建、打包、
+# 冒烟与发布链拆为独立矩阵文件，让门禁／测试（platform-verification.yml）与交付（本文件）各自拥有
 # 触发语义与权限边界。
 #
 # 触发（2026-10-31 用户指令，2026-11-01 实施）：push tag v*、workflow_dispatch——
 # push main 不再自动构建 release（每次推送都出包太频繁）；交付构建随 tag 发布或按需
-# 手动触发。门禁与测试仍由 ci.yml 每次 push main 运行（ADR-037），不受本收敛影响。
+# 手动触发。门禁与测试仍由 platform-verification.yml 每次 push main 运行（ADR-037），不受本收敛影响。
 #
 # 矩阵三档（fail-fast: false，三档互不掩盖失败；ADR-043）：
 #   - debug/amd64（windows-latest）：构建 workspace 并产出依赖记录（V-001），只验证依赖图可解；
@@ -16,7 +16,7 @@
 # 权限：顶层只读；仅 tag 发布 job 提升为 contents: write，且只用 GITHUB_TOKEN，
 # 不引入其他凭据（最小权限，AGENTS.md §1.1）。
 #
-# 纪律：测试“通过”结论仍归 ci.yml（ADR-037）；本文件只承载交付链。
+# 纪律：测试“通过”结论仍归 platform-verification.yml（ADR-037）；本文件只承载交付链。
 # tag 与包版本的一致性、SHA256 独立复算与安装验证记录交叉校验均由 check-release.py 判定
 # （按 --arch 逐架构调用），失败即中止，不以 0 或空值冒充。
 name: build-release
@@ -100,7 +100,7 @@ jobs:
       # 与 package-windows.py 的 binary_path（target==host 时取 target/release/）一致，
       # 避免交叉路径（target/<三元组>/release/）与宿主路径两套布局打架。链接需要 arm64 载荷，
       # 故显式导出 DUCKDB_LIB_DIR 覆盖 .cargo/config.toml 的 amd64 默认值（[env] 不覆盖
-      # 已存在的 OS 环境变量）。交叉 --target 构建只用于 ci.yml 的代码级 cargo check，
+      # 已存在的 OS 环境变量）。交叉 --target 构建只用于 platform-verification.yml 的代码级 cargo check，
       # 不作发布产物（ADR-043）。
       - name: 发布构建（arm64，windows-11-arm 原生 runner，ADR-043）
         if: matrix.profile == 'release' && matrix.arch == 'arm64'

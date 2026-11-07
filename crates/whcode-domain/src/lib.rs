@@ -8,6 +8,7 @@
 
 pub mod approval;
 pub mod audit;
+pub mod brand;
 pub mod checkpoint;
 pub mod error;
 pub mod event;

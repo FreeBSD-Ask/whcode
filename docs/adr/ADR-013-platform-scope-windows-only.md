@@ -63,7 +63,7 @@
   交叉检查沿用本 ADR 决策 4 的口径：代码级可构建性**不冒充平台结论**，ARM64 的真实运行
   证据由原生 runner 取得。代价与失效条件见 ADR-043（预览 runner 风险、双包体积、配额）。
 - **2026-10-31（用户指令：借助 GitHub CI 把 FreeBSD 构建跑通、功能等价实现，允许使用
-  FreeBSD ports 和 latest pkg）**：FreeBSD 从“平台证据不阻断”升级为**完整平台证据车道
+  FreeBSD ports 和 latest pkg）**：FreeBSD 从“平台证据不阻断”升级为**完整平台证据通道
   （硬门禁）**。ci.yml 的 FreeBSD lane（`vmactions/freebsd-vm`，release 15）移除
   `continue-on-error`：pkg 切 `latest` 仓库并安装 iced/winit 编译期系统依赖（pkgconf、
   libX11、libXcursor、libXrandr、libXi、libxkbcommon、fontconfig、freetype2、wayland——
@@ -74,7 +74,7 @@
   （原“延后”错误撤销），`tests/stability/test_process_cleanup.rs` 在类 Unix 以
   `sh → sleep ×2` 真两层树执行（不再跳过）。
   **验收口径不变**：唯一验收目标仍为 Windows 11 amd64；FreeBSD 结论标注平台证据身份，
-  不进入验收。**显式缺口**：性能分位数未取得（NFR-201—210 测量车道仍仅 Windows，
+  不进入验收。**显式缺口**：性能分位数未取得（NFR-201—210 测量通道仍仅 Windows，
   `perf-budget` 为 workflow_dispatch 受控）；GUI 运行时证据未取得（CI VM 无显示，
   只证编译与工作区测试通过）。**正负和解**：正面＝平台分支、路径与信号语义的跨平台
   缺陷随每次 push 暴露；负面＝VM 分钟数增加（job 约 90—120 分钟）且 VM 引导偶发抖动
@@ -82,7 +82,7 @@
   两次修订的“证据不阻断”口径；现在＝三门 GO 的既有证据（run 40346316715 起持续）与
   workspace gate NO-GO 的唯一根因（GUI 系统依赖缺失）；将来失效条件＝vmactions 镜像/
   端口策略变更或 Actions 配额不可接受时回到手工触发（须新 ADR）。**复审触发**（绑定
-  命令＋判定）：`gh run list --workflow=ci.yml` 中 `platform-freebsd` 连续两次非 VM
+  命令＋判定）：`gh run list --workflow=platform-verification.yml` 中 `platform-freebsd` 连续两次非 VM
   引导性失败，或 `python .github/scripts/check-workflows.py` 不再覆盖 FreeBSD job
   语义时，复审本修订。
 - **2026-11-03（用户指令：NetBSD/OpenBSD 仅支持 SSH 远程开发——如在 Windows/FreeBSD
@@ -109,7 +109,7 @@
   过去＝2026-10-24 两次修订的“四 BSD 真实运行”口径（OpenBSD VM 曾真实运行
   cargo check）；现在＝NetBSD SSH GO、OpenBSD/DragonFly rust<MSRV 阻塞
   （run 41481740766）；将来失效＝用户撤回指令，或三平台上游 rust ≥ MSRV 且需要
-  原生证据时恢复原生车道（新修订）。**复审触发**（绑定命令＋判定）：
+  原生证据时恢复原生通道（新修订）。**复审触发**（绑定命令＋判定）：
   `python .github/scripts/check-eol.py` 之外，检查 `artifacts/ssh-acceptance/` 中
   `openbsd-client.txt`／`dragonfly-client.txt` 阻塞记录：若 OpenBSD/DragonFly CI
   job 出现非“工具链低于 MSRV”的失败（`gh run view <run> --json jobs --jq`），或

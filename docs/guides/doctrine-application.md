@@ -21,7 +21,7 @@
 ## 2. 本轮应用
 
 1. **计数门禁**：新增 `.github/scripts/check_counts.py`，从 `spec.md`/`tasks.md`/`checklist.md` 计算
-   FR/任务/Check 实际数量，并核对文档声明；接入 `.github/workflows/ci.yml`（platform 矩阵中的 windows 条目）。
+   FR/任务/Check 实际数量，并核对文档声明；接入 `.github/workflows/platform-verification.yml`（platform 矩阵中的 windows 条目）。
 2. **证据层级与三次复查**：写入 AGENTS §4.2、过程 G4、需求工程 §3.1、PR 清单。
 3. **可逆性分级**：可逆决策快速验证；不可逆决策（数据格式、协议、权限、并发内存序）
    设计先行并留回退证据。
@@ -29,7 +29,7 @@
 5. **知难行易（宪法原则 X，2026-10-29 修宪）**：新增唯一正文 `docs/guides/knowing-before-doing.md`
    与 ADR-049，宪法 1.1.1 → 1.2.0；落点覆盖 AGENTS、哲学/过程/需求/PR 指南、可移植准则与五份
    模板；`tasks.md` 设全局执行前置（T001—T220），13 个未勾选任务带认知卡标注，已勾选任务不补写；
-   `.github/scripts/check-knowing-first.py` 接入 `ci.yml`；登记 T220、Check 316。
+   `.github/scripts/check-knowing-first.py` 接入 `platform-verification.yml`；登记 T220、Check 316。
 
 ## 3. 回流到准则
 

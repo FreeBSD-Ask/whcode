@@ -38,6 +38,14 @@ use whcode_domain::i18n::I18n;
 /// 窗口初始逻辑尺寸（与 FR-712 的预算口径一致）。
 const WINDOW_SIZE: Size = Size::new(1200.0, 800.0);
 
+/// 窗口图标（FR-765、ADR-061）：`assets/brand/logo.svg` 经
+/// `.github/scripts/make-brand-assets.py` 派生的 64×64 原始 RGBA。
+///
+/// 用原始 RGBA 而不是 PNG：GUI 不为一张图标引入图像解码依赖（依赖最小化，NFR-215）。
+const WINDOW_ICON_RGBA: &[u8] = include_bytes!("../assets/brand/icon-64.rgba");
+/// 图标边长（像素），与生成脚本的 `GUI_ICON_SIZE` 必须一致。
+const WINDOW_ICON_SIZE: u32 = 64;
+
 /// 内置字体子集（FR-716／ADR-028）：完整字体在 `assets/fonts/source`，
 /// 这里只嵌入 `.github/scripts/subset-fonts.py` 生成的子集，避免整份 CJK 字体常驻。
 const FONT_INTER: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.subset.ttf");
@@ -558,6 +566,13 @@ pub fn run(source: Box<dyn ViewSource>, options: RunOptions) -> iced::Result {
     .window(window::Settings {
         size: WINDOW_SIZE,
         position: window::Position::Centered,
+        // 图标缺失不阻止启动（取 `None` 即系统默认图标）：图标是标识，不是功能。
+        icon: window::icon::from_rgba(
+            WINDOW_ICON_RGBA.to_vec(),
+            WINDOW_ICON_SIZE,
+            WINDOW_ICON_SIZE,
+        )
+        .ok(),
         ..window::Settings::default()
     })
     .default_font(Font::with_name("Inter"));
