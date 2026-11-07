@@ -110,8 +110,11 @@ fn top_level_entries_follow_layout() {
                  或更新指南与本测试"
             );
         } else {
+            // 多语言 README（T278）：`README.<locale>.md` 与 README.md 同属项目入口。
+            let localized_readme =
+                name.starts_with("README.") && name.ends_with(".md");
             assert!(
-                allowed_files.contains(&name.as_str()),
+                allowed_files.contains(&name.as_str()) || localized_readme,
                 "仓库根出现未登记文件“{name}”；根文件只允许工程清单，源码/脚本/文档必须入目录"
             );
         }

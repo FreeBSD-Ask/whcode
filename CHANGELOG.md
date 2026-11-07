@@ -13,6 +13,14 @@
 
 ### 变更
 
+- **README 十二种译文与术语口径统一**（2026-11-08，用户指令）：①新增 `README.<locale>.md`
+  十二份（`zh-TW`／`en`／`ja`／`ko`／`ru`／`fr`／`es`／`de`／`ar`／`hi`／`ur`／`bn`），
+  `README.md` 顶部加语言选择行，根文件白名单按前缀放行并在 `repository-layout.md` 登记；
+  ②术语统一：德语 cancel 改用 `Stoppen`（与 abort 的 `Abbrechen` 区分）、阿拉伯语列标签
+  `ID` 与其余目录一致；③Web 样式表逻辑属性不变量测试（`stylesheet_uses_logical_direction_
+  properties_only`），保证 `dir="rtl"` 翻转的是布局而不只是文字顺序。译文未经母语者校对
+  （ADR-062 已知限制）。
+
 - **界面语言扩展至十三套＋RTL 文档方向（T278／FR-766／ADR-062）**（2026-11-08）：
   ①新增 `zh-TW`／`ja`／`ko`／`ru`／`fr`／`es`／`de`／`ar`／`hi`／`ur`／`bn` 十一套目录，连同
   既有 `zh-CN`／`en` 全部经 `include_str!` 内嵌；②区域标签归一（`zh-HK`／`zh-Hant`→`zh-TW`、

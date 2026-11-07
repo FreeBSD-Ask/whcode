@@ -736,6 +736,32 @@ mod tests {
         assert!(!html.contains(INITIAL_VIEW_MARKER), "标记必须被替换");
     }
 
+    /// RTL 镜像的前提：样式表只用逻辑属性（`margin-inline`／`padding-inline`），
+    /// 不含物理 `left`／`right` 与 `text-align: left|right`——否则 `dir="rtl"` 只翻转
+    /// 文本顺序而不翻转布局，阿拉伯语界面会出现错位。
+    ///
+    /// 这是一条**不变量**：新增样式若引入物理方向属性，本测试失败，须改成逻辑属性。
+    #[test]
+    fn stylesheet_uses_logical_direction_properties_only() {
+        for forbidden in [
+            "text-align: left",
+            "text-align: right",
+            "margin-left:",
+            "margin-right:",
+            "padding-left:",
+            "padding-right:",
+            "float: left",
+            "float: right",
+            "border-left:",
+            "border-right:",
+        ] {
+            assert!(
+                !STYLES_CSS.contains(forbidden),
+                "styles.css 不得使用物理方向属性“{forbidden}”：改用 *-inline-* 逻辑属性（RTL 镜像）"
+            );
+        }
+    }
+
     /// 文档语言与方向注入（T277）：繁体归一为 `zh-TW`，阿拉伯语／乌尔都语写 `rtl`，
     /// 其余写 `ltr`；方向属性不得与语言标记冲突。
     #[test]

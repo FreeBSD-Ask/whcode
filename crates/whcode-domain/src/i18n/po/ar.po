@@ -954,7 +954,7 @@ msgid "summary.tasks"
 msgstr "الجلسة {session} · الإجمالي {total} · المنجز {done} · المحظور {blocked}"
 
 msgid "tui.col.id"
-msgstr "المعرّف"
+msgstr "ID"
 
 msgid "tui.col.kind"
 msgstr "النوع"

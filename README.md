@@ -6,6 +6,8 @@
 
 [![平台验证](https://github.com/FreeBSD-Ask/whcode/actions/workflows/platform-verification.yml/badge.svg)](https://github.com/FreeBSD-Ask/whcode/actions/workflows/platform-verification.yml)
 
+简体中文 | [繁體中文](README.zh-TW.md) | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Русский](README.ru.md) | [Français](README.fr.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [اردو](README.ur.md) | [বাংলা](README.bn.md)
+
 Rust 原生、本地优先的 LLM 编码 Harness：数据落在一个 DuckDB 文件里，事件可追踪，
 规格驱动开发的门禁由程序执行。原生 GUI、TUI、CUI、Web、SSH 多前端共享同一套应用服务。
 

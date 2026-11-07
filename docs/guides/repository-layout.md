@@ -32,6 +32,7 @@
 
 根文件只允许工程清单（`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、`rustfmt.toml`）、
 标准开源文件（`LICENSE`、`README.md`、`CONTRIBUTING.md`、`SECURITY.md`、`CHANGELOG.md`）、
+多语言入口（`README.<locale>.md`，2026-11-08 起十二种语言各一份，白名单按前缀放行）、
 代理协作入口（`AGENTS.md`）与编码策略文件（`.gitattributes`、`.editorconfig`）；点开头条目不受
 `test_layout` 枚举限制，其中 `.specify/` 已按治理工具链入库，其余点开头目录仍视为本机工具状态；由 `test_layout` 门禁强制。
 
