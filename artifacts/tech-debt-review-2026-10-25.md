@@ -19,25 +19,25 @@
 
 | 红线 | 扫描结果 | 判定 |
 |---|---|---|
-| 无 TODO/FIXME/HACK/XXX | `crates/` 与 `tests/` 合计 0 处 | ✅ |
-| 无 unsafe（NFR-215） | `Cargo.toml` 第 55 行 `workspace.lints.rust.unsafe_code = "forbid"`；grep `[[:space:]]unsafe[[:space:]]`：`crates/` 1 处命中且为注释（`whcode-runtime/src/js.rs:216` “无需 unsafe 闭包 API”，非代码）；`tests/` 0 处。实际 unsafe 代码 0 处 | ✅ |
-| 无忙等（无 sleep 的 loop+try_wait/try_recv） | `worker.rs` try_wait 轮询在 `None` 分支 sleep 10 ms ✓；`ssh/server.rs` 客户端两处 loop 走 russh `channel.wait().await`（异步挂起，非轮询）✓；`ssh/proto.rs` loop 以 deadline + `tokio::time::timeout` 界定 ✓；`bin/serve.rs` serve_loop 整 tick 无进展停靠 `IDLE_PARK`（25 ms）✓；`app/gates.rs` loop 在测试代码内且以阶段到达为 break 条件 ✓；`app/context.rs` loop 以预算超限 break + 分页游标界定 ✓；`serve.rs` 写出泵/订阅者队列 loop 以队列深度与 WouldBlock 界定 ✓ | ✅ |
-| 无每会话常驻线程 | 全部 spawn 站点逐一核对：非测试区仅两处，均为**启动期单例**——`ssh/adapter.rs:213`（`whcode-ssh-exec` 执行线程，`CommandExecutor::start` 仅在 `server.rs:623` 服务启动时调用一次，非每会话）；`store/service.rs:131`（`whcode-writer` 写者线程，启动期单例）。其余 8 处（`worker.rs:353/384`、`python.rs:619`、`adapter.rs:532`、`serve.rs:1520/1671`、`service.rs:512`、`platform/process.rs:303`）全部位于 `#[cfg(test)]` 测试代码 | ✅ |
-| 无 mem::forget / Box::leak | `crates/` + `tests/` 0 处（含 `ManuallyDrop` 附加扫描） | ✅ |
+| 无 TODO/FIXME/HACK/XXX | `crates/` 与 `tests/` 合计 0 处 | 通过 |
+| 无 unsafe（NFR-215） | `Cargo.toml` 第 55 行 `workspace.lints.rust.unsafe_code = "forbid"`；grep `[[:space:]]unsafe[[:space:]]`：`crates/` 1 处命中且为注释（`whcode-runtime/src/js.rs:216` “无需 unsafe 闭包 API”，非代码）；`tests/` 0 处。实际 unsafe 代码 0 处 | 通过 |
+| 无忙等（无 sleep 的 loop+try_wait/try_recv） | `worker.rs` try_wait 轮询在 `None` 分支 sleep 10 ms 是；`ssh/server.rs` 客户端两处 loop 走 russh `channel.wait().await`（异步挂起，非轮询）是；`ssh/proto.rs` loop 以 deadline + `tokio::time::timeout` 界定 是；`bin/serve.rs` serve_loop 整 tick 无进展停靠 `IDLE_PARK`（25 ms）是；`app/gates.rs` loop 在测试代码内且以阶段到达为 break 条件 是；`app/context.rs` loop 以预算超限 break + 分页游标界定 是；`serve.rs` 写出泵/订阅者队列 loop 以队列深度与 WouldBlock 界定 是 | 通过 |
+| 无每会话常驻线程 | 全部 spawn 站点逐一核对：非测试区仅两处，均为**启动期单例**——`ssh/adapter.rs:213`（`whcode-ssh-exec` 执行线程，`CommandExecutor::start` 仅在 `server.rs:623` 服务启动时调用一次，非每会话）；`store/service.rs:131`（`whcode-writer` 写者线程，启动期单例）。其余 8 处（`worker.rs:353/384`、`python.rs:619`、`adapter.rs:532`、`serve.rs:1520/1671`、`service.rs:512`、`platform/process.rs:303`）全部位于 `#[cfg(test)]` 测试代码 | 通过 |
+| 无 mem::forget / Box::leak | `crates/` + `tests/` 0 处（含 `ManuallyDrop` 附加扫描） | 通过 |
 
 ## 组件级分配有界扫描（旧表 8 项 + 新增 serve.rs）
 
 | 组件 | 分配 | 有界 |
 |---|---|---|
-| `app/queue.rs` BoundedQueue | `capacity` 字段 + `push_critical` 满载背压错误 + `push_snapshot` 淘汰最旧 | ✅ |
-| `app/context.rs` items | 预算截断（`consumed + tokens > budget_tokens` → truncated/break） | ✅ |
-| `llm/stream.rs` EventRouter | `CRITICAL_CAPACITY = 256`（常量）/ display 容量由构造参数给定 | ✅ |
-| `store/query.rs` 分页 | `MAX_PAGE_SIZE = 1000`；`fetch_limit` 拒绝 0 与超限，内部取 `limit+1` 探页 | ✅（旧报告的 `1..=1000` 字面量已改为常量口径，等价强制） |
-| `store/directory.rs` 列表 | `MAX_LIST_LIMIT = 1000`；“list limit 须在 1..={MAX_LIST_LIMIT}” | ✅ |
-| `app/session.rs` switch | `SWITCH_TAIL_LIMIT = 50`，`tail_complete` 显式标注截断 | ✅ |
-| `web/security.rs` + `web/api.rs` | `MAX_MESSAGE_BYTES = 1024 * 1024`（1 MB）；`parse_request` 体超限即拒 | ✅ |
-| `tui` ViewSnapshot | **位置变更**：`tui/src/views.rs` 已不存在（T150 下沉），现为 `app/src/view_source.rs`（TUI 经 `pub use whcode_app::view_source as views` 别名引用）；渲染只消费，投影行数受上界（`limited_projection_is_bounded_and_consistent` 测试锁定） | ✅ |
-| **新增** `bin/serve.rs`（单线程多路复用服务器） | 连接上限 `MAX_CLIENTS = 96`；订阅者上限 `MAX_WS_CLIENTS = 32`（超出握手后 1013 显式拒绝）；请求头 `REQUEST_HEADER_CAP = 16 KiB`；入站帧缓冲 `WS_INPUT_CAP = MAX_MESSAGE_BYTES + WS_HEADER_MAX`；每订阅者出站队列 `MAX_QUEUED_FRAMES = 64` 帧且溢出即断（慢客户端策略）；Writing 阶段单响应 buf（≤ 1 MB）+ 部分写残余；读空闲 5 s / 写停滞 `WRITE_STALL_TIMEOUT` 5 s；事件轮询 200 ms（`POLL_PAGE_LIMIT = 500`）；唯一循环线程空闲停靠 25 ms | ✅（并发设计档案见 `docs/adr/ADR-017-writer-service-concurrency.md` 与模块文档；每 tick 最坏工作量以常量界定） |
+| `app/queue.rs` BoundedQueue | `capacity` 字段 + `push_critical` 满载背压错误 + `push_snapshot` 淘汰最旧 | 通过 |
+| `app/context.rs` items | 预算截断（`consumed + tokens > budget_tokens` → truncated/break） | 通过 |
+| `llm/stream.rs` EventRouter | `CRITICAL_CAPACITY = 256`（常量）/ display 容量由构造参数给定 | 通过 |
+| `store/query.rs` 分页 | `MAX_PAGE_SIZE = 1000`；`fetch_limit` 拒绝 0 与超限，内部取 `limit+1` 探页 | 通过（旧报告的 `1..=1000` 字面量已改为常量口径，等价强制） |
+| `store/directory.rs` 列表 | `MAX_LIST_LIMIT = 1000`；“list limit 须在 1..={MAX_LIST_LIMIT}” | 通过 |
+| `app/session.rs` switch | `SWITCH_TAIL_LIMIT = 50`，`tail_complete` 显式标注截断 | 通过 |
+| `web/security.rs` + `web/api.rs` | `MAX_MESSAGE_BYTES = 1024 * 1024`（1 MB）；`parse_request` 体超限即拒 | 通过 |
+| `tui` ViewSnapshot | **位置变更**：`tui/src/views.rs` 已不存在（T150 下沉），现为 `app/src/view_source.rs`（TUI 经 `pub use whcode_app::view_source as views` 别名引用）；渲染只消费，投影行数受上界（`limited_projection_is_bounded_and_consistent` 测试锁定） | 通过 |
+| **新增** `bin/serve.rs`（单线程多路复用服务器） | 连接上限 `MAX_CLIENTS = 96`；订阅者上限 `MAX_WS_CLIENTS = 32`（超出握手后 1013 显式拒绝）；请求头 `REQUEST_HEADER_CAP = 16 KiB`；入站帧缓冲 `WS_INPUT_CAP = MAX_MESSAGE_BYTES + WS_HEADER_MAX`；每订阅者出站队列 `MAX_QUEUED_FRAMES = 64` 帧且溢出即断（慢客户端策略）；Writing 阶段单响应 buf（≤ 1 MB）+ 部分写残余；读空闲 5 s / 写停滞 `WRITE_STALL_TIMEOUT` 5 s；事件轮询 200 ms（`POLL_PAGE_LIMIT = 500`）；唯一循环线程空闲停靠 25 ms | 通过（并发设计档案见 `docs/adr/ADR-017-writer-service-concurrency.md` 与模块文档；每 tick 最坏工作量以常量界定） |
 
 ## 结构化技术债登记（按仓库分区实测计数）
 

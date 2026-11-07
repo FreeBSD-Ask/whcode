@@ -45,15 +45,15 @@
 
 | 项 | 当前值 | 出处 |
 |---|---|---|
-| 需求 | 142 条 FR 定义；NFR-101—107、NFR-201—222；31 项验收（V-001—V-007、V-101—V-110、V-201—V-207、V-301—V-307） | `specs/001-whcode-harness/spec.md` |
+| 需求 | 144 条 FR 定义；NFR-101—107、NFR-201—222；31 项验收（V-001—V-007、V-101—V-110、V-201—V-207、V-301—V-307） | `specs/001-whcode-harness/spec.md` |
 | 任务 | 263 条（T001—T263，编号连续） | `specs/001-whcode-harness/tasks.md` |
-| 验收检查点 | Check 1—370 | `specs/001-whcode-harness/checklist.md` |
+| 验收检查点 | Check 1—374 | `specs/001-whcode-harness/checklist.md` |
 | 可执行结构门禁 | `layering`、`layout` 两个契约测试 | `tests/contract/test_layering.rs`、`tests/contract/test_layout.rs` |
 | 测试规模 | 2026-10-21 全量运行 154 例通过、0 失败、3 例 `#[ignore]`（内存上限、写者压力、查询计划实验） | `cargo test --locked --workspace` 输出 |
 | 配置管理基线 | git 标签 `v0.1.0-m0`（M0 基线，**未发布**） | `CHANGELOG.md`、`README.md` |
-| 平台范围 | Windows 11 amd64 在范围内（唯一验收目标）；FreeBSD 为完整平台证据车道（硬门禁，非验收结论）；NetBSD CI 自动运行（证据、不阻断）；OpenBSD/DragonFly 手工占位 | ADR-013、`docs/matrices/platform-matrix.md` |
+| 平台范围 | Windows 11 amd64 在范围内（唯一验收目标）；FreeBSD 为完整平台证据通道（硬门禁，非验收结论）；NetBSD CI 自动运行（证据、不阻断）；OpenBSD/DragonFly 手工占位 | ADR-013、`docs/matrices/platform-matrix.md` |
 
-**口径约束**：上表是过程快照，不是验收结论。Check 1—370 中仍有未取证项（Check 344—358，ADR-057 立项批次；Check 359—370，ADR-060 Phase 1 首批）；`v0.1.0-m0`
+**口径约束**：上表是过程快照，不是验收结论。Check 1—374 中仍有未取证项（Check 344—358，ADR-057 立项批次；Check 359—370，ADR-060 Phase 1 首批；Check 371—372，品牌与 i18n 收口批）；`v0.1.0-m0`
 标签也不等于“已发布”。计数会随任务推进变化，更新时必须同时修正本表与相关文档。
 
 ### 1.5 哲学基线
@@ -156,7 +156,7 @@ G5 已打标签 `v0.1.0-m0`，但 README 明确“未发布”。因此 M0 的�
 | 产物 | `spec.md` 的 FR/NFR；`specs/001-whcode-harness/checklists/requirements.md`；`tasks.md`；`checklist.md`；必要时 ADR |
 | 退出判据 | 1）每条 FR 有稳定编号、P0/P1、可测判据、证据位置、归属里程碑；2）每条 FR 至少有一个任务与一个 Check；3）未验证项标 `[待验证]` 且有退出条件；4）无实现细节绑定（架构约束除外，须 ADR）；5）需求质量清单通过；6）每条需求有可执行的证伪条件；7）需求与文档标注假设、适用范围与复审日期；8）每条 FR 从认知卡目标派生，手段未写成需求；存量已勾选任务以其来源 FR/Check/实现记录为最小“知”证据 |
 | 评审方式 | 需求工程抽查（见 `docs/guides/requirements-engineering.md`）；`checklists/requirements.md` 逐条核对；AI 代理反向找“孤儿需求/断链/不可测判据”；用户对范围与优先级批准 |
-| 当前证据 | 142 条 FR 定义、275 条任务、370 项 Check；FR-611—FR-618、FR-711—FR-717、FR-619—FR-625、FR-626／627、FR-718—724、FR-725—729、FR-730—737、FR-738、FR-739—753、FR-754—764 已登记 |
+| 当前证据 | 144 条 FR 定义、279 条任务、374 项 Check；FR-611—FR-618、FR-711—FR-717、FR-619—FR-625、FR-626／627、FR-718—724、FR-725—729、FR-730—737、FR-738、FR-739—753、FR-754—764、FR-765、FR-766 已登记 |
 | 缺口 | 无正式 CR 表单编号；无独立需求属性表（来源、稳定性、验证方法以行内标注替代） |
 
 ### 3.3 G2 设计基线
@@ -178,7 +178,7 @@ G5 已打标签 `v0.1.0-m0`，但 README 明确“未发布”。因此 M0 的�
 | 输入 | G2 产物、任务清单、测试位置约定 |
 | 活动 | 编码；单元测试与失败路径测试；静态检查；文档同步；任务状态更新 |
 | 产物 | `crates/**`、`tests/**`、测试输出、`CHANGELOG.md` 条目、必要的模块文档更新 |
-| 退出判据 | 1）`cargo fmt --all --check` 无差异；2）`cargo clippy --workspace --all-targets -- -D warnings` 零告警；3）`cargo test --locked --workspace` 全部通过；4）新增行为至少有一个正向与一个失败路径测试；5）`test_layering` 与 `test_layout` 通过；6）未完成任务不得勾选；7）`[待验证]` 不得以推断关闭；8）测试包含证伪路径，而非仅证明实现正确；9）并发实现有模型/差分/压力验证，汇编有回退与差分测试；10）CI 工作流的 action 引用为**最新 release 版本 + 固定 commit SHA**，并通过 `.github/scripts/check-actions.py`（离线）与每周 `ci.yml` 的 `action-audit` job（联网） |
+| 退出判据 | 1）`cargo fmt --all --check` 无差异；2）`cargo clippy --workspace --all-targets -- -D warnings` 零告警；3）`cargo test --locked --workspace` 全部通过；4）新增行为至少有一个正向与一个失败路径测试；5）`test_layering` 与 `test_layout` 通过；6）未完成任务不得勾选；7）`[待验证]` 不得以推断关闭；8）测试包含证伪路径，而非仅证明实现正确；9）并发实现有模型/差分/压力验证，汇编有回退与差分测试；10）CI 工作流的 action 引用为**最新 release 版本 + 固定 commit SHA**，并通过 `.github/scripts/check-actions.py`（离线）与每周 `platform-verification.yml` 的 `action-audit` job（联网） |
 | 评审方式 | 可执行门禁；`docs/guides/pr-checklist.md` 逐项；AI 代理按“反例优先”审查；涉及安全、权限、恢复的改动必须由用户复核 |
 | 当前证据 | 154 例测试通过、0 失败；fmt/clippy 全绿；写者服务、迁移、游标分页、索引基准、概览预聚合与监控已补齐 |
 | 缺口 | 无独立人类代码评审记录；TUI 人工交互项不能由单元测试替代 |
@@ -274,7 +274,7 @@ G5 已打标签 `v0.1.0-m0`，但 README 明确“未发布”。因此 M0 的�
 
 | 教科书产物 | 本仓库对应 | 现状 | 缺口 |
 |---|---|---|---|
-| SRS（IEEE 29148） | `specs/001-whcode-harness/spec.md` | 142 条 FR 定义、NFR、验收场景、Assumptions | 无独立“需求属性表”；以 FR 行内标注替代 |
+| SRS（IEEE 29148） | `specs/001-whcode-harness/spec.md` | 144 条 FR 定义、NFR、验收场景、Assumptions | 无独立“需求属性表”；以 FR 行内标注替代 |
 | SDD（IEEE 1016） | `plan.md` + `data-model.md` + `contracts/` + `docs/guides/module-design.md` | 有架构、数据模型、六份契约、模块设计 | 无逐模块的算法与状态机时序图 |
 | 需求工程规范 | `docs/guides/requirements-engineering.md` | 模板、追溯抽查、变更控制 | 无正式 CR 表单编号体系（以 ADR 编号承担） |
 | 设计原则/哲学 | `docs/guides/design-principles.md` | 原则 → 可执行落点 | 无 |

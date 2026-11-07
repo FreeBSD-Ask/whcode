@@ -59,7 +59,7 @@
 `local/duckdb-thread-config-probe-2026-10-26.txt`）：
 
 - DuckDB 2.0.0 受支持的线程配置项共 7 项：`threads`（= `worker_threads`）、
-  **`async_threads`（默认 64，"tasks like I/O"）**、`external_threads`（默认 1）、
+  **`async_threads`（默认 64，“tasks like I/O”）**、`external_threads`（默认 1）、
   `pin_threads`、`scheduler_process_partial`、`allocator_background_threads`（默认 false）。
 - **原第 1 节“与 `db.threads = 1／2／4` 无关”的结论不完整**：遗漏的旋钮是 `async_threads`。
   16（worker 默认）+ 64（async 默认）≈ 80，正是“单连接 open 后约 80 线程”与 +67 增量的来源。

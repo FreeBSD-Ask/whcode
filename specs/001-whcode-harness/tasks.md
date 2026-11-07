@@ -1,5 +1,5 @@
 ---
-description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
+description: “Task list for WHCode — Rust 原生 LLM 编码 Harness”
 ---
 
 # Tasks: WHCode — Rust 原生 LLM 编码 Harness
@@ -58,7 +58,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 
 **Purpose**: 所有用户故事共享的核心类型与基础设施，必须先行完成
 
-**⚠️ CRITICAL**: 本阶段完成前不得开始任何用户故事实现
+**关键要求**：本阶段完成前不得开始任何用户故事实现
 
 - [x] T010 在 `crates/whcode-domain/src/state.rs` 定义四组状态枚举：任务（pending/ready/running/blocked/completed/failed/aborted/interrupted/unknown）、LLM 请求、运行时执行、SDD 阶段（data-model.md §2，§3.1）
 - [x] T011 [P] 在 `crates/whcode-domain/src/event.rs` 定义事件类型枚举与 payload 上限、持久化等级（contracts/event-schema.md，FR-201）
@@ -75,7 +75,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 
 ---
 
-## Phase 3: User Story 1 - M0 平台可行性与基线冻结 (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 - M0 平台可行性与基线冻结 (Priority: P1，MVP)
 
 **Goal**: 平台可行性（ADR-013 后 Windows 11 amd64 为唯一验收目标，BSD 延后）、数据库冒烟、TUI 最小闭环、SSH 风险原型、事件写者原型、基线性能报告与 ADR 批准，冻结平台矩阵与性能预算
 
@@ -281,7 +281,7 @@ description: "Task list for WHCode — Rust 原生 LLM 编码 Harness"
 - [x] T109 [US9] 在 `crates/whcode-platform/src/process.rs` 实现 Windows 子进程树与 BSD 进程组/信号的终止清理，保留 stderr 尾部（FR-409、§10.2）（复核注记 2026-10-23：Windows 子进程树经 `taskkill /T /F /PID` 已实现并有用例；2026-10-23 补记：新增 `process_exists`/`child_pids` 与 `tests/stability/test_process_cleanup.rs`，Windows 零残留已自动化验证；**BSD 进程组分支仍未实现**——`terminate_tree` 在非 Windows 返回结构化错误并注明属 M7，不静默伪装成功；Check 201 因 BSD 证据缺失维持未勾选）
 - [x] T110 [P] [US9] 在 `crates/whcode-runtime/src/js.rs` 接入受限 ECMAScript 引擎，Node API 缺失时返回能力不足（D-08、§4.7.1）（**2026-10-24 完成**：按 ADR-029（修订 ADR-024 的 D-08 条款，附基准与回退路径）接入 Boa 0.21.1，feature `runtime-js` 门控——默认构建零依赖零开销（FR-704/NFR-102，`cargo tree -p whcode-runtime` 无 boa）；引擎路径：`input` 冻结全局注入，`require`/`process`/`fs`/`net`/`http`/`child_process` 六名字注册为抛出“能力不足”的桩（Check 109/153），死循环经 `RuntimeLimits`（循环 1 000 000 次/递归 256 层）有界 + 墙钟事后判定 `timed_out`；固定 ECMAScript 测试集 9 例（含中文内容与中文标识符）全过；基准（同脚本 1 000 次求值）：debug 3 064.9 次/秒、release 28 579.9 次/秒，测试进程 RSS release 15.1 MiB；默认构建行为不变（诚实不可用）。声明保持 Restricted + 三项不支持项，指纹 `boa/0.21/js/restricted`，不表述为 Node.js）
 - [x] T111 [P] [US9] 在 `crates/whcode-runtime/src/python.rs` 实现 Python 子进程 worker 与受限实现档位（D-09、§4.7.1）（**2026-10-24 完成**：worker 协议——子进程 `<interpreter> -I -c <引导>` 从 stdin 读单行 JSON 请求（一次性临时文件注入，请求上限 4 MiB），脚本输出重定向进 8 KiB 有界缓冲（超限写显式截断标记），结果/回溯封顶后以协议 JSON 返回，失败非零退出 + stderr；`PythonEnv` 记录解释器绝对路径/版本/实现名/ABI（本机实测 `.cp314-win_amd64.pyd`）/sys_prefix/C 扩展探测 bool（Check 111/154）；受限档位列五项不支持项，文档写明“承诺边界不是沙箱——子进程以当前用户权限运行，OS 级隔离未实现”；取消与超时可区分；输出上限、凭据剥离、并发闸门经 worker 既有机制）
-- [x] T112 [P] [US9] 在 `crates/whcode-runtime/src/gitbash.rs` 实现 Windows PortableGit payload 校验与 Bash/coreutils/管道/重定向验证（V-304）（**2026-10-24 完成**：payload 校验转调 `payload::validate`（来源白名单/版本/平台/哈希四重；fnv64 定位意外损坏检测、防篡改须外部签名——失效条件注明）；`locate_bash` 候选 ≤9 项逐个实测 `--version`；Bash 执行 `bash -c` + stdin 临时文件注入 + worker 超时/输出上限/取消；ADR-024 五类探测全部真实取证（本机 bash 5.3.9：管道→`A`、重定向读回、含空格路径、超时终止 `timed_out=true`、目标命令 `git version 2.54.0.windows.1`）；execute cwd 固定临时目录，workdir_policy "temp" 名副其实）
+- [x] T112 [P] [US9] 在 `crates/whcode-runtime/src/gitbash.rs` 实现 Windows PortableGit payload 校验与 Bash/coreutils/管道/重定向验证（V-304）（**2026-10-24 完成**：payload 校验转调 `payload::validate`（来源白名单/版本/平台/哈希四重；fnv64 定位意外损坏检测、防篡改须外部签名——失效条件注明）；`locate_bash` 候选 ≤9 项逐个实测 `--version`；Bash 执行 `bash -c` + stdin 临时文件注入 + worker 超时/输出上限/取消；ADR-024 五类探测全部真实取证（本机 bash 5.3.9：管道→`A`、重定向读回、含空格路径、超时终止 `timed_out=true`、目标命令 `git version 2.54.0.windows.1`）；execute cwd 固定临时目录，workdir_policy “temp” 名副其实）
 - [x] T113 [P] [US9] 在 `crates/whcode-runtime/src/bsdshell.rs` 实现 BSD Shell provider，名称与能力不与 `gitbash` 混同（§4.7.1）
 - [x] T114 [US9] 在 `tests/integration/test_runtime_acceptance.rs` 与 `tests/crash/test_side_effect_recovery.rs` 覆盖 V-301—V-307（含三时点中断 → `unknown`）（FR-406、FR-410）（**2026-10-24 完成**：V-301—V-303/V-305—V-307 由 `test_runtime_acceptance.rs` 六用例与 `tests/crash/test_side_effect_recovery.rs` 四注入点覆盖（2026-10-23 复核确认）；V-304 随 T112 补 `v304_gitbash_payload_and_bash_capability`（payload 四重正反 + 五类探测），V-301—V-307 全部有自动化用例）
 
@@ -571,7 +571,7 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   recover_uncertain；ToolCallStarted/Finished 事件落表（payload 只带标识与计数）
   （FR-727；ADR-048 §2.4）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
 - [x] T216 turn 集成：模型 tool_calls 解析（openai 兼容族）→ 串行执行（每轮上限 8）→——**复核（2026-10-30，P0-2 R3 批次）**：实现与测试全绿（workspace 58 套件 0 失败；本机证据，CI 验收按 ADR-037 待推送流水线）。
-  role:"tool" 回填 → continue；FR-724 的 tool_not_wired 分支替换（依赖 T207）
+  role:“tool” 回填 → continue；FR-724 的 tool_not_wired 分支替换（依赖 T207）
   （FR-728；ADR-048 §2.5/2.8）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
 - [x] T217 [P] 工具安全边界：工作区相对路径绑定（拒绝绝对/.. 逃逸）、authz 权限面、——**复核（2026-10-30，P0-2 R3 批次）**：实现与测试全绿（workspace 58 套件 0 失败；本机证据，CI 验收按 ADR-037 待推送流水线）。
   结果 64 KiB 截断标记（FR-729；ADR-048 §2.6/2.7）（开工前置：任务认知卡，见 `docs/guides/knowing-before-doing.md` §3）
@@ -654,7 +654,7 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   OAuth/连接池/事件 schema 扩展。——**复核（2026-11-01，P1-7 批次一）**：实现与测试
   全绿（whcode-mcp 23 项测试 + whcode-app 152 项测试本地绿、fmt 全绿；**CI 验收
   （2026-11-01）**：run 41230318736（ci @ d596702）windows/windows-arm64/measurements/
-  netbsd/openbsd/dragonfly 六车道 success，ADR-037 口径收口；freebsd failure 为
+  netbsd/openbsd/dragonfly 六通道 success，ADR-037 口径收口；freebsd failure 为
   softbuffer 0.4.8 既有问题（run 41227890594 同败），与本批次无关；workspace 级
   clippy/test 本地被杀软拦截未取得，按 CI 为准）。
 - [x] T237 [P] MCP stdio 会话：spawn（apply_minimal_env+显式 env 回填+进程组+
@@ -665,7 +665,7 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   看门狗解锁、Drop 覆盖全部早退路径、进程零残留；判据=Check 333；非目标=空闲连接池、
   Job Object（需 ADR-015 例外另议）。——**复核（2026-11-01，P1-7 批次一）**：fixture
   集成测试覆盖超时零残留（process_exists 断言）/取消感知/外来消息容忍（run 41230318736
-  六车道 success，同 T236 复核口径）。
+  六通道 success，同 T236 复核口径）。
 - [x] T238 [P] MCP 投影与 turn 接线：mcp__<server>__<tool> 命名空间清单合并（描述截
   500、schema ≤ 4 KiB、总预算 ≤ 64 KiB 丢尾）+ execute_tool_call 分派（权限
   fail-closed 按 SessionCreate、三步登记、tools/call 回填、isError 按失败、连接失败
@@ -673,15 +673,15 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   进入 turn 循环；目标=与内置工具同一条登记/回填管线，动态名不破坏 whcode-tools
   静态名契约（清单层合并、分派层前缀分支）；判据=Check 334；非目标=allow/deny
   细粒度白名单、连接池。——**复核（2026-11-01，P1-7 批次一）**：turn.rs 清单合并+
-  分派+fail-closed 权限落地（run 41230318736 六车道 success，同 T236 复核口径）。
+  分派+fail-closed 权限落地（run 41230318736 六通道 success，同 T236 复核口径）。
 - [x] T239 [P] MCP 测试集与文档同步：协议正反路径、fixture 服务器（echo/hang/spam
   三模式）、超时零残留（process_exists 断言）、投影边界与权限面；module-design
   15 crate、AGENTS 架构图、分层 ALL_CRATES 14→15、CHANGELOG（FR-736—737；ADR-054
   §5）——**任务认知卡**：方向=收口与证据；目标=fixture 覆盖生命周期正反路径、文档
   计数与门禁一致；判据=Check 335；非目标=跨平台 CI 矩阵扩展。——**复核（2026-11-01，
-  P1-7 批次一）**：测试/文档/计数五处声明同步完成（run 41230318736 六车道 success，
+  P1-7 批次一）**：测试/文档/计数五处声明同步完成（run 41230318736 六通道 success，
   同 T236 复核口径）。
-- [x] T240 [P] FreeBSD 完整平台证据车道（ADR-013 修订，2026-10-31 用户指令）：ci.yml
+- [x] T240 [P] FreeBSD 完整平台证据通道（ADR-013 修订，2026-10-31 用户指令）：ci.yml
   FreeBSD job 移除 continue-on-error——latest pkg 安装 iced/winit 编译期 X11/字体栈依赖
   （pkgconf/libX11/libXcursor/libXrandr/libXi/libxkbcommon/fontconfig/freetype2/wayland；
   vmactions slirp DNS 不支持 SRV，pkg 仓库用直连 https）；全量 `cargo build/test --locked
@@ -689,10 +689,10 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   2.0.0／SSH 回环，任一 NO-GO 即中止）；TUI/Web 冒烟（`--exe target/debug/whcode`）；
   代码级等价：`whcode-platform::child_pids` 非 Windows 以 `ps -ax -o pid=,ppid=` 实现、
   `test_process_cleanup` 类 Unix 真两层树执行、whcode-gui iced 启用 x11 feature——
-  **任务认知卡**：方向=FreeBSD 从“证据不阻断”升级为硬门禁车道；目标=全量构建/测试/
+  **任务认知卡**：方向=FreeBSD 从“证据不阻断”升级为硬门禁通道；目标=全量构建/测试/
   三门/冒烟在 CI 全绿且失败即红；判据=Check 336；非目标=验收口径改变（仍 Windows 11
-  amd64）、性能分位数（perf 车道仍仅 Windows）、GUI 运行时证据（VM 无显示）——
-  **完成（2026-11-03，run `41481740766` 全绿，硬门禁口径下首次）**：车道端到端落地——
+  amd64）、性能分位数（perf 通道仍仅 Windows）、GUI 运行时证据（VM 无显示）——
+  **完成（2026-11-03，run `41481740766` 全绿，硬门禁口径下首次）**：通道端到端落地——
   latest pkg 依赖安装（X11／字体栈）、pkg 仓库直连 https、`bsd-duckdb.sh` 源码构建
   DuckDB 2.0.0、全量构建／测试、三门硬判定全 GO、TUI/Web 冒烟、`GATE_RESULT=GO`；
   代码级等价项（`child_pids` 列序判据、真两层树、iced x11）随全量测试在 FreeBSD 原生
@@ -718,7 +718,7 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   **CI 验收（2026-11-01）**：run 41286535291（e036ba5）platform-windows success
   （ADR-037 口径收口）＋ windows-arm64/measurements/netbsd/openbsd/dragonfly success；
   freebsd 唯一 failure 为 whcode-platform child_pids 测试（并行会话 T240/Check 336
-  车道，whcode-mcp 在 freebsd 6/6 通过），与本批次无关。
+  通道，whcode-mcp 在 freebsd 6/6 通过），与本批次无关。
 - [x] T242 [P] MCP HTTP 配置与权限面（ADR-055 §2.3、§2.8）：config `url` XOR
   `command` 互斥 + scheme 校验（https 任意主机、http 仅限回环 127.0.0.1/localhost/::1，
   远程明文拒绝）；`McpSession::connect` 按 url 分派（无 url 回落 stdio）；投影与调用
@@ -731,7 +731,7 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   `McpSession::connect`；**CI 验收（2026-11-01）**：run 41286535291（e036ba5）
   platform-windows success（ADR-037 口径收口）＋ windows-arm64/measurements/netbsd/
   openbsd/dragonfly success；freebsd 唯一 failure 为 whcode-platform child_pids 测试
-  （并行会话 T240/Check 336 车道），与本批次无关。
+  （并行会话 T240/Check 336 通道），与本批次无关。
 - [x] T243 [P] MCP HTTP 测试集与文档同步（ADR-055 §6）：http-test-server fixture
   （echo/hang/nosession/auth 四模式、每连接一线程）+ HTTP 集成测试 6 项（握手往返
   /超时/预置取消/404/401/shutdown 失效）；module-design、AGENTS 架构图、ADR-055 转正、
@@ -742,7 +742,7 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   门禁全绿（含零 unsafe 继承）；**CI 验收（2026-11-01）**：run 41286535291（e036ba5）
   platform-windows success（ADR-037 口径收口）＋ windows-arm64/measurements/netbsd/
   openbsd/dragonfly success；freebsd 唯一 failure 为 whcode-platform child_pids 测试
-  （并行会话 T240/Check 336 车道），与本批次无关。
+  （并行会话 T240/Check 336 通道），与本批次无关。
   （anthropic/gemini 等按能力登记）；FR-734 为真实供应商工具调用的前置（ADR-048
   追加；〔未实现〕显式标记）——**认知卡**：方向=真实供应商工具调用前置；目标=LlmRequest
   携带 manifest 并映射进 openai tools 数组；判据=请求体含 tools 字段且与注册表一致；
@@ -928,7 +928,35 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   ——**任务认知卡**：方向=真链路证据；目标=跳过不假绿；判据=有/无凭据两路径；
   非目标=全量 e2e
 
+## Tasks（2026-11-07 追加）：CUI 帮助文本 i18n 收口
+
+- [x] T276 CUI 帮助文本 i18n（FR-615）：clap 命令树帮助改由文本目录注入（`cli.*` 键，
+  zh-CN／en 双表等键），新增全局 `--lang` 显式覆盖（预扫描先于帮助渲染、白名单校验、
+  非法值退出码 2），无控制台提示同批本地化；新增 `i18n/po/<locale>.po` 派生源文件、
+  生成器与同步门禁
+  ——**任务认知卡**：方向=收口既有 FR-615 的“帮助”一项，不是新增需求——命令输出早已
+  走文本目录，唯 clap 帮助树仍是硬编码中文；目标=同一命令的帮助在 zh-CN／en 下一致
+  可切换，语言选择可显式指定且失效可见；判据=双语帮助测试、键缺失保留原文、非法
+  `--lang` 退出码 2、PO 与 properties 双向全等；非目标=翻译 clap 框架词（`Usage:`／
+  `Commands:`／`Options:` 属上游静态串，无本地化钩子）、不改其它前端的 locale 链、
+  不引入新依赖
+
+
 ---
+
+## Tasks（2026-11-08 追加）：界面语言扩展与 RTL 方向
+
+- [x] T278 十三套语言目录（FR-766／ADR-062）：`zh-CN`／`zh-TW`／`en`／`ja`／`ko`／`ru`／`fr`／
+  `es`／`de`／`ar`／`hi`／`ur`／`bn` 全部内嵌（`include_str!`），区域标签归一（`zh-HK`→`zh-TW`、
+  `ja-JP`→`ja`、未知→`en`）与回退链统一；`i18n/po/<locale>.po` 由生成器派生并由契约测试
+  校验双向全等；Web 直出注入 `lang`／`dir`——**任务认知卡**：方向=按用户指令把“双语”扩为
+  十三语，复用既有加载器而不改解析语义；目标=任一语言下文案完整、回退不露键名、
+  繁体不被简体顶替；判据=键集合与占位符全等、结构缺陷零、区域归一如表、PO 同步；
+  非目标=复数形态（properties 无 `msgid_plural`）、母语审校（人工）、clap 框架词本地化
+- [ ] T279 TUI／GUI 的 RTL 布局镜像（FR-766／ADR-062）：列序、文本对齐、图标与箭头翻转；
+  Web 侧的 `dir` 只到文档级——**任务认知卡**：方向=镜像属渲染层，不能靠文档级属性冒充；
+  目标=阿拉伯语／乌尔都语下三端视觉顺序一致；判据=列序与对齐的单测 ＋ 人工截图核对；
+  非目标=重排 BiDi 算法（终端与系统字形负责）、改动 LTR 语言布局
 
 ## Dependencies & Execution Order
 
@@ -1105,7 +1133,7 @@ Task: "实现 SSH 客户端原型 in crates/whcode-ssh/src/proto.rs"           #
 
 ### 实现记录（2026-10-22，批次 4：Web 仅限局域网 + 认证边界；ADR-023）
 
-**背景**：用户指令"Web 仅限局域网"。原 `serve --web` 只有回环无认证模式：
+**背景**：用户指令“Web 仅限局域网”。原 `serve --web` 只有回环无认证模式：
 非回环地址被 bind 层拒绝（FR-606 后半不可达），且认证模式的 Origin 规则与真实浏览器
 冲突（同源 GET 不带 Origin → 一律 403，实测复现）。
 
@@ -1119,7 +1147,7 @@ Task: "实现 SSH 客户端原型 in crates/whcode-ssh/src/proto.rs"           #
    `http://<bind>` + `localhost`/`127.0.0.1` 同端口）。
 4. **Origin 语义修订**（ADR-023）：缺失 Origin **两种模式均放行**——同源 GET 与 CLI
    不带 Origin；认证模式跨站由 Bearer 阻断（自定义头触发预检，本服务不返回 CORS
-   许可）。带 Origin 时仍必须命中允许集。原"认证模式要求 Origin"会使局域网浏览器
+   许可）。带 Origin 时仍必须命中允许集。原“认证模式要求 Origin”会使局域网浏览器
    一律 403（实测缺陷）。
 5. 前端：token 经 URL **fragment**（`#token=…`）读取——fragment 不发送给服务器
    （§10.2 禁止 query token）；内存保存并附加 `Authorization: Bearer`。静态资产/API
@@ -1137,7 +1165,7 @@ Connected/Cursor 6/事件 6 行/任务摘要，token 不入 URL/日志）。
 ### 实现记录（2026-10-22，批次 3：文本层接线——T130 端到端落地）
 
 **背景**：`whcode-domain::i18n`（T130）已交付并有测试，但 TUI/Web/CUI 全部硬编码中文
-（55 个键中仅 10 个且无消费方）——又一处"组件在、功能不在"。
+（55 个键中仅 10 个且无消费方）——又一处“组件在、功能不在”。
 
 **交付**：
 
@@ -1157,7 +1185,7 @@ TUI 真实控制台 zh 13/13、en 13/13；CUI 同一命令 zh/en 输出（数据
 
 **发现并修复**：主入口路由回归——`whcode --workspace DIR`（无子命令）被误送 CUI
 clap（要求子命令）；改为“含位置参数 → CUI；仅旗标 → 交互入口”，并跳过带值旗标的值
-（`--workspace DIR` 的路径不再是"位置参数"）。另修复首屏带 `?session=` 时任务列表
+（`--workspace DIR` 的路径不再是“位置参数”）。另修复首屏带 `?session=` 时任务列表
 需等 15 个轮询周期才出现（启动即拉取）。
 
 **未完成（显式标注）**：clap `--help` 文本与应用/存储层错误消息仍为中文（需
@@ -1166,7 +1194,7 @@ clap（要求子命令）；改为“含位置参数 → CUI；仅旗标 → 交
 ### 实现记录（2026-10-22，批次 2：CUI 命令调度装配——T084/T085 接线）
 
 **背景**：CUI 的 clap 命令树、信封与三个视图模块早已交付，但 `whcode` 无任何 CUI
-子命令可执行（Check 90 阻塞、T088 的"同命令"用例无法落地）——又一处"组件在、功能不在"。
+子命令可执行（Check 90 阻塞、T088 的“同命令”用例无法落地）——又一处“组件在、功能不在”。
 
 **交付**：
 
@@ -1190,7 +1218,7 @@ clap（要求子命令）；改为“含位置参数 → CUI；仅旗标 → 交
 跳过；显式按 ID 删除改为不套活跃窗口（TTL 清理保留保护）。`--json` 初版只允许放在
 子命令前（clap 非全局）→ 改为全局旗标。
 
-**未完成**：Web 写 API 未交付 → "写命令跨端一致"（Check 90 完整）未取得；
+**未完成**：Web 写 API 未交付 → “写命令跨端一致”（Check 90 完整）未取得；
 `spec` 门禁命令需 SDD 产物工作区上下文。
 
 ### 实现记录（2026-10-22，批次 1：前端数据接入——TUI 真实数据源 + Web 任务/会话选择）
@@ -1413,7 +1441,7 @@ workflow 审计全绿；workspace 测试全绿（T126 清理重构：clippy 零�
 T138—T148 的交付物均已在早前提交落盘（software-engineering-process、
 philosophy、yike-philosophy、design-principles、requirements-engineering、
 ui-design、performance-and-concurrency、doctrine-application 八份指南；
-ci/check_counts.py 计数门禁；unsafe_code="forbid" 契约测试 T143）。
+ci/check_counts.py 计数门禁；unsafe_code=“forbid” 契约测试 T143）。
 
 **T122 保留项（诚实标注）**：plan.md 剩余 5 处 `[待验证]` 为**诚实的开放决策**
 （Web HTTP/SSH 依赖选型未定——axum/russh 按 M6/M7 平台证据定案），不是遗留
@@ -1441,7 +1469,7 @@ R-13 自动提交扰动）。
 fmt/clippy 零差异零告警。ADR-019（clap 采用，plan.md 既定选型，derive API、
 default-features 关闭）；T084 命令树按 contracts/cui-cli.md §1（force-advance
 强制 --reason、破坏性命令 dry-run/yes 旗标）；T088 一致性契约（路由同源/权限
-语义一致/错误码前端无关）——T082 交付后须追加"同命令最终状态一致"用例。
+语义一致/错误码前端无关）——T082 交付后须追加“同命令最终状态一致”用例。
 
 ### 实现记录（2026-10-22，M5 部分完成，T085/T086/T087/T089/T130/T131）
 
@@ -1494,7 +1522,7 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 3. **app 新增 `whcode-llm` 依赖**：事件导出经 llm 追踪层脱敏（FR-205）；llm 为同层
    领域服务，方向 app→llm 与分层图一致。
 4. **压缩摘要只记指针**：摘要正文由 LLM 调用生成（后续接入），本模块只记录
-   `context_windows` 指针行，FR-107 的"原文仍可查"由测试断言。
+   `context_windows` 指针行，FR-107 的“原文仍可查”由测试断言。
 5. **store `EventRow` 增补 Serialize**：事件导出 JSON 化需要（serde 为 store 既有依赖）。
 6. **V-103 断线补拉**：补拉从排他游标之后开始，断线期间的关键事件集合在补拉中
    齐备（durability 测试已覆盖 V-104，不重复）。
@@ -1508,7 +1536,7 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 
 实现期记录的偏差（均为任务描述内的合理调整，已留档）：
 
-1. **ADR-018（架构口径统一）**：AGENTS/module-design 的"app 不依赖存储实现"与
+1. **ADR-018（架构口径统一）**：AGENTS/module-design 的“app 不依赖存储实现”与
    可执行门禁（只禁前端触库）不一致。裁决：app 直接依赖 store 公共 API、SQL 只在
    store（端口-适配器被 ADR-001 唯一后端约束否决）；分层图同步修订。
 2. **store 新增 `directory`/`tasks` 存储原语与 schema v4（会话 ID 序列）**：T046—T052
@@ -1568,3 +1596,15 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 - [x] T246 [P] [US11] GUI 写命令面板：会话 new/rename（输入确认）、archive/delete（预览→确认两段式）、清理 purge（预览→确认，截止天数输入）、任务 retry/abort（任务行按钮）；全部经 `CommandExecutor` 唯一门面，未接入时显式 `not_supported`（ADR-056 决策 1；FR-623）
 - [x] T247 [US11] GUI 键盘门控与测试：全局快捷键在对话/面板场景停用（Esc 取消面板）、`1`—`7` 切换、对话/写流单测、ADR-027 预算探针复核（gui-probe 四主题 + 资源在 CI 复核）（ADR-056 复审触发）
 - [x] T248 [US11] ADR-056 Phase 2（用户批准「不计成本」）：GUI turn 后台执行——连接共享 `Rc/RefCell` → `Arc/Mutex`（Send 前置，行为中性）、`chat_submit` → `std::thread` + `Task::stream`（有损进度 + oneshot 完成保证送达）、`turn_running` 冻结触库交互（完成后自动刷新）、`run_turn_with_progress` 逐块回调（whcode-app 层新增，`run_turn` 委托零改动）、`gui_executors_are_send_sync` 编译期证明；审计身份 `gui-local`（ADR-056 修订记录；FR-718/FR-624）
+
+## Tasks（2026-11-07 追加）：品牌标识
+
+- [x] T277 品牌标识（FR-765／ADR-061）：母版 `logo.svg` 入 `assets/brand/`（`SOURCES.md` 记
+  来源／许可／SHA-256 与位图封装结构）；`.github/scripts/make-brand-assets.py` 从母版按
+  `<use>` 偏移合成两层并派生 GUI 窗口图标（64×64 原始 RGBA）与 Web favicon（16/32/48 ICO），
+  提供 `--check` 复现校验；`whcode-domain::brand::ASCII_LOGO` 纯 ASCII 字标常量（47 列×8 行）；
+  CUI `doctor` 顶部与 TUI 进入全屏前一次／空态视图显示字标，放不下时只保留显式空提示
+  ——**任务认知卡**：方向=给四个前端一个可考的品牌归属，不是视觉改版；目标=主标志有唯一
+  位置、图标在零图像解码依赖下进入 GUI／Web、终端有 ASCII 标识；判据=`--check` 一致、
+  图标路由可达而 `/logo.svg` 仍 404、字标尺寸契约测试、空态放不下时只留空提示；
+  非目标=改主题色值、重新设计标志、给 TUI 加动画或新依赖、翻译字标（语言中立）

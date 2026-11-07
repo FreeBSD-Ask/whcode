@@ -98,7 +98,13 @@
 
 ## 7. 国际化与 RTL
 
-- 文案键：`i18n/<locale>/<domain>.po`；键名语义化（`session.archive.confirm`），不嵌 UI 文案；
+- 文案键：扁平点分键（`session.archive.confirm`、`cli.session.new.title`），不嵌 UI 文案；
+  键名以渲染面前缀分组（`cli.*`、`tui.*`、`web.*`、`gui.*`、`settings.*`）；
+- 资源落点（2026-11-07 核正，以实现为准）：编译期内建目录
+  `crates/whcode-domain/src/i18n/<locale>.properties`（`include_str!` 嵌入）；
+  派生 PO 源文件 `crates/whcode-domain/src/i18n/po/<locale>.po`（翻译者入口，
+  由 `.github/scripts/i18n-po.py` 生成，契约测试校验双向全等）；运行时覆盖目录
+  `<root>/i18n/po/<locale>.po`（`root` 为 `WHCODE_I18N_DIR` 或可执行文件旁）；
 - 复数与性别：使用 gettext `ngettext` 语义；不得用字符串拼接复数；
 - RTL（阿拉伯语等）：
   - 布局方向由 `dir` 决定（`ltr`/`rtl`），TUI 侧预留 `text_direction` 接口；

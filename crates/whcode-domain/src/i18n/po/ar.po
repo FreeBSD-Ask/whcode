@@ -1,0 +1,1246 @@
+# ar translation catalog for WHCode (FR-615).
+# Generated from i18n/ar.properties by .github/scripts/i18n-po.py; do not edit by hand.
+# Edit the properties file instead, then regenerate — a contract test fails on drift.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: whcode 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/FreeBSD-Ask/whcode/issues\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "app.title"
+msgstr "WHCode — إطار عمل للبرمجة بالوكيل"
+
+msgid "cli.about"
+msgstr "WHCode — إطار عمل للبرمجة بالوكيل"
+
+msgid "cli.context.about"
+msgstr "عرض ميزانية السياق (FR-105/108؛ contracts/cui-cli.md §1)."
+
+msgid "cli.context.budget.about"
+msgstr "عرض الميزانية: الميزانية الحالية والمصادر المحمّلة وسبب القطع والمؤشر (عبر `whcode_app::load_context`)."
+
+msgid "cli.context.budget.budget"
+msgstr "الميزانية بالرموز؛ والافتراضي هو خط أساس العرض (4096، كعرض السياق في TUI)."
+
+msgid "cli.context.budget.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.db.about"
+msgstr "صيانة قاعدة البيانات وتنظيفها (FR-507—510)."
+
+msgid "cli.db.archive.about"
+msgstr "تصدير مساحة العمل."
+
+msgid "cli.db.archive.export"
+msgstr "مسار الإخراج."
+
+msgid "cli.db.check.about"
+msgstr "فحص الفهارس المطلوبة."
+
+msgid "cli.db.checkpoint.about"
+msgstr "نقطة تحقق صريحة (FR-510؛ تطبّق تجاوزات سياسة WAL اختياريًا، التعافي من الكوارث §5)."
+
+msgid "cli.db.checkpoint.autocheckpoint"
+msgstr "تجاوز wal_autocheckpoint (مثل 1MB؛ لا يتغير عند الإغفال)."
+
+msgid "cli.db.checkpoint.threshold"
+msgstr "تجاوز عتبة نقطة التحقق التلقائية في WAL (مثل 16MB؛ لا يتغير عند الإغفال)."
+
+msgid "cli.db.compact.about"
+msgstr "ضغط قاعدة البيانات على القرص (نسخ—تحقق—تبديل، FR-510؛ تشغيل تجريبي افتراضيًا)."
+
+msgid "cli.db.compact.dry-run"
+msgstr "معاينة فقط (الافتراضي)."
+
+msgid "cli.db.compact.yes"
+msgstr "تأكيد التنفيذ."
+
+msgid "cli.db.explain.about"
+msgstr "تحليل خطة الاستعلام (استعلامات للقراءة فقط، العقد §2-2)."
+
+msgid "cli.db.explain.query"
+msgstr "SQL للقراءة فقط (يبدأ بالكلمة SELECT أو WITH)."
+
+msgid "cli.db.purge.about"
+msgstr "التفريغ حسب العمر (FR-508/509؛ تشغيل تجريبي افتراضيًا)."
+
+msgid "cli.db.purge.before"
+msgstr "وقت القطع (مللي ثانية Unix)."
+
+msgid "cli.db.purge.dry-run"
+msgstr "معاينة فقط (الافتراضي)."
+
+msgid "cli.db.purge.yes"
+msgstr "تأكيد التنفيذ."
+
+msgid "cli.db.restore.about"
+msgstr "استعادة تصدير في مساحة عمل فارغة (عكس `db archive`؛ تأكيد صريح، بلا معاينة)."
+
+msgid "cli.db.restore.from"
+msgstr "مسار ملف التصدير (صيغة whcode-export)."
+
+msgid "cli.db.restore.yes"
+msgstr "تأكيد التنفيذ (الاستعادة تكتب؛ ويجب أن تكون قاعدة البيانات الهدف فارغة)."
+
+msgid "cli.db.stats.about"
+msgstr "إحصاءات قاعدة البيانات (FR-507)."
+
+msgid "cli.doctor.about"
+msgstr "فحص ذاتي للبيئة والإعدادات (M0)."
+
+msgid "cli.doctor.json"
+msgstr "إخراج JSON."
+
+msgid "cli.events.about"
+msgstr "استعلامات الأحداث وتصديرها (FR-202/205)."
+
+msgid "cli.events.export.about"
+msgstr "التصدير (سياسة التنقيح منصوص عليها في التصدير، FR-205)."
+
+msgid "cli.events.export.after"
+msgstr "مؤشر البداية."
+
+msgid "cli.events.export.format"
+msgstr "صيغة الإخراج (json/jsonl)."
+
+msgid "cli.events.export.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.events.list.about"
+msgstr "سرد الأحداث (تدريجيًا بالمؤشر)."
+
+msgid "cli.events.list.after"
+msgstr "مؤشر البداية (حصري)."
+
+msgid "cli.events.list.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.events.show.about"
+msgstr "تفاصيل حدث واحد."
+
+msgid "cli.events.show.event"
+msgstr "معرّف الحدث."
+
+msgid "cli.font.about"
+msgstr "تثبيت الخطوط المرفقة وفحص تعريف الطرفية (FR-717؛ أمر موارد محلي، بلا قاعدة بيانات وبلا مساحة عمل)."
+
+msgid "cli.font.install.about"
+msgstr "تثبيت الخطوط الأربعة المرفقة في مجلد خطوط المستخدم وكتابة تسجيل HKCU (دلالة النسخ فوق الموجود، وآمن لإعادة التشغيل)."
+
+msgid "cli.font.install.dry-run"
+msgstr "الإبلاغ عن الإجراءات التي ستُنفذ دون تغيير النظام."
+
+msgid "cli.font.install.from"
+msgstr "مجلد مصدر الخطوط (تخطيط مسطح أو تخطيط المستودع `source/<family>/`)؛ الافتراضي هو الفحص بجوار الملف التنفيذي ثم `assets/fonts/source` في المجلد الحالي (مراجعة ADR-028 رقم 1)."
+
+msgid "cli.font.status.about"
+msgstr "الإبلاغ عن حالة تثبيت الخطوط وتعريف الطرفية (للقراءة فقط)."
+
+msgid "cli.font.uninstall.about"
+msgstr "إلغاء تثبيت الخطوط المرفقة: إزالة التسجيل وحذف الملفات من مجلد خطوط المستخدم (بأفضل جهد، ويُبلَّغ عن كل بند)."
+
+msgid "cli.font.uninstall.dry-run"
+msgstr "الإبلاغ عن الإجراءات التي ستُنفذ دون تغيير النظام."
+
+msgid "cli.hint.no_console"
+msgstr "whcode {version} — لا طرفية تفاعلية متاحة، ولم تبدأ أي واجهة"
+
+msgid "cli.hint.options"
+msgstr "المتاح: --tui (واجهة طرفية)، --cli <subcommand>، --lang <locale>، --help"
+
+msgid "cli.json"
+msgstr "إخراج JSON (مغلّف schema_version، FR-602)؛ مقبول قبل أي أمر فرعي أو بعده."
+
+msgid "cli.lang"
+msgstr "لغة نص الواجهة (مثل zh-CN وen؛ تتجاوز LANG/LC_ALL، FR-615)."
+
+msgid "cli.llm.about"
+msgstr "استدعاء النموذج (FR-201؛ `llm run` و`llm cancel`، contracts/cui-cli.md §1)."
+
+msgid "cli.llm.cancel.about"
+msgstr "إلغاء استدعاء جارٍ على هذا الجهاز (يسري قبل الكتلة التالية)."
+
+msgid "cli.llm.cancel.request"
+msgstr "معرّف الطلب (يطبعه `llm run` أو يُعدّ مسبقًا عبر `--request-id`)."
+
+msgid "cli.llm.run.about"
+msgstr "إجراء استدعاء حقيقي واحد (متزامن؛ تُصدر الزيادات المتدفقة كتسلسل محدود في النهاية)."
+
+msgid "cli.llm.run.max-tokens"
+msgstr "تجاوز `max_tokens` في ملف التعريف."
+
+msgid "cli.llm.run.model"
+msgstr "تجاوز معرّف نموذج ملف التعريف."
+
+msgid "cli.llm.run.prompt"
+msgstr "نص الطلب (لا يُكتب في الأحداث أو السجلات أبدًا)."
+
+msgid "cli.llm.run.provider"
+msgstr "اسم ملف التعريف (اختيار صريح، قرار ADR-031 رقم 4)."
+
+msgid "cli.llm.run.request-id"
+msgstr "معرّف طلب معدّ مسبقًا (وهو مفتاح `llm cancel`؛ وإلا يُولّد من الاستدعاء)."
+
+msgid "cli.llm.run.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.llm.run.trace-level"
+msgstr "مستوى التتبع (off/metadata/redacted/full)."
+
+msgid "cli.runtime.about"
+msgstr "إدارة بيئات التشغيل (FR-701—710؛ M8)."
+
+msgid "cli.runtime.disable.about"
+msgstr "تعطيل بيئة تشغيل."
+
+msgid "cli.runtime.disable.name"
+msgstr "اسم بيئة التشغيل."
+
+msgid "cli.runtime.enable.about"
+msgstr "تمكين بيئة تشغيل."
+
+msgid "cli.runtime.enable.name"
+msgstr "اسم بيئة التشغيل."
+
+msgid "cli.runtime.install.about"
+msgstr "تثبيت حزمة."
+
+msgid "cli.runtime.install.name"
+msgstr "اسم بيئة التشغيل."
+
+msgid "cli.runtime.list.about"
+msgstr "سرد بيئات التشغيل."
+
+msgid "cli.runtime.status.about"
+msgstr "حالة بيئة التشغيل."
+
+msgid "cli.runtime.status.name"
+msgstr "اسم بيئة التشغيل."
+
+msgid "cli.serve.about"
+msgstr "نقاط دخول النقل (M6/M7)."
+
+msgid "cli.serve.bind"
+msgstr "عنوان الربط (العنوان الراجع المحلي فقط افتراضيًا، FR-606)."
+
+msgid "cli.serve.ssh"
+msgstr "نقطة دخول SSH (M7، مؤجلة)."
+
+msgid "cli.serve.web"
+msgstr "نقطة دخول الويب (M6)."
+
+msgid "cli.session.about"
+msgstr "دورة حياة الجلسة (FR-101)."
+
+msgid "cli.session.archive.about"
+msgstr "أرشفة أو استعادة (عائلة مدمّرة وفق العقد §2-1: تشغيل تجريبي افتراضيًا، و`--yes` ينفّذ)."
+
+msgid "cli.session.archive.dry-run"
+msgstr "معاينة فقط (الافتراضي)."
+
+msgid "cli.session.archive.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.session.archive.unarchive"
+msgstr "استعادة جلسة مؤرشفة."
+
+msgid "cli.session.archive.yes"
+msgstr "تأكيد التنفيذ (يتعارض مع --dry-run، §8.1)."
+
+msgid "cli.session.delete.about"
+msgstr "حذف جلسة (مدمّر؛ تشغيل تجريبي افتراضيًا، FR-509)."
+
+msgid "cli.session.delete.dry-run"
+msgstr "معاينة فقط (الافتراضي)."
+
+msgid "cli.session.delete.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.session.delete.yes"
+msgstr "تأكيد التنفيذ (يتعارض مع --dry-run، §8.1)."
+
+msgid "cli.session.list.about"
+msgstr "سرد الجلسات."
+
+msgid "cli.session.list.all"
+msgstr "تضمين الجلسات المؤرشفة."
+
+msgid "cli.session.new.about"
+msgstr "إنشاء جلسة."
+
+msgid "cli.session.new.model"
+msgstr "النموذج (اختياري)."
+
+msgid "cli.session.new.title"
+msgstr "العنوان."
+
+msgid "cli.session.rename.about"
+msgstr "إعادة تسمية جلسة."
+
+msgid "cli.session.rename.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.session.rename.title"
+msgstr "العنوان الجديد."
+
+msgid "cli.session.show.about"
+msgstr "عرض جلسة واحدة."
+
+msgid "cli.session.show.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.spec.about"
+msgstr "مراحل SDD وبواباتها (FR-307—312)."
+
+msgid "cli.spec.analyze.about"
+msgstr "فحص التحليل (FR-306)."
+
+msgid "cli.spec.analyze.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.spec.converge.about"
+msgstr "فحص التقارب (FR-310/311)."
+
+msgid "cli.spec.converge.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.spec.force-advance.about"
+msgstr "تجاوز بوابة يدويًا (FR-312؛ السبب مطلوب، العقد §2-3)."
+
+msgid "cli.spec.force-advance.reason"
+msgstr "تبرير تجاوز البوابة (مطلوب، FR-312)."
+
+msgid "cli.spec.force-advance.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.spec.force-advance.to"
+msgstr "المرحلة الهدف."
+
+msgid "cli.spec.next.about"
+msgstr "المرحلة التالية."
+
+msgid "cli.spec.next.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.spec.status.about"
+msgstr "حالة المرحلة الحالية (FR-314)."
+
+msgid "cli.spec.status.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.spec.validate.about"
+msgstr "التحقق من المخرجات."
+
+msgid "cli.spec.validate.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.status.about"
+msgstr "لقطة الحالة (FR-314)."
+
+msgid "cli.status.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.task.abort.about"
+msgstr "إيقاف مهمة (FR-408)."
+
+msgid "cli.task.abort.task"
+msgstr "معرّف المهمة."
+
+msgid "cli.task.about"
+msgstr "فحص المهام والتحكم بها (FR-401/408)."
+
+msgid "cli.task.list.about"
+msgstr "سرد المهام."
+
+msgid "cli.task.list.session"
+msgstr "معرّف الجلسة."
+
+msgid "cli.task.retry.about"
+msgstr "إعادة محاولة مهمة (FR-401)."
+
+msgid "cli.task.retry.task"
+msgstr "معرّف المهمة."
+
+msgid "cli.task.show.about"
+msgstr "تفاصيل المهمة (أصناف المعلومات الخمسة في FR-104)."
+
+msgid "cli.task.show.task"
+msgstr "معرّف المهمة."
+
+msgid "cli.workspace"
+msgstr "مجلد مساحة العمل (مساحة العمل المضبوطة، وإلا المجلد الحالي؛ يحدد موقع `<workspace>/whcode.duckdb`)."
+
+msgid "cui.archive_dry_run"
+msgstr "تشغيل تجريبي: ستُؤرشف الجلسة {session} — مرّر --yes للتنفيذ (استخدم --unarchive للتراجع)"
+
+msgid "cui.archived"
+msgstr "أُرشفت الجلسة {session}"
+
+msgid "cui.checkpoint_done"
+msgstr "تمت نقطة التحقق: WAL {before} → {after}"
+
+msgid "cui.compact_done"
+msgstr "انتهى الضغط (switched={switched})"
+
+msgid "cui.compact_dry_run"
+msgstr "تشغيل تجريبي: الملف {file} بايت، WAL {wal} بايت — مرّر --yes للضغط (لا وعد بتقليص الحجم)"
+
+msgid "cui.created"
+msgstr "أُنشئت الجلسة {session}"
+
+msgid "cui.delete_dry_run"
+msgstr "تشغيل تجريبي: ستُحذف الجلسة {session} ({events} حدثًا، {tasks} مهمة؛ تم تجاهل {skipped} محمية) — مرّر --yes للتنفيذ"
+
+msgid "cui.deleted"
+msgstr "حُذفت الجلسة {session}"
+
+msgid "cui.empty"
+msgstr "(لا سجلات)"
+
+msgid "cui.exported"
+msgstr "صُدِّر إلى {path} (بصمة {hash})"
+
+msgid "cui.font.deleted"
+msgstr "محذوف"
+
+msgid "cui.font.dry_run"
+msgstr "[تشغيل تجريبي]"
+
+msgid "cui.font.install.header"
+msgstr "{dry_run}تثبيت الخطوط المدمجة: {source} -> {dir}"
+
+msgid "cui.font.install.line"
+msgstr "{family}: نسخ {source} -> {target}، السجل {reg_state}"
+
+msgid "cui.font.installed"
+msgstr "مثبَّت"
+
+msgid "cui.font.missing"
+msgstr "مفقود"
+
+msgid "cui.font.reg_pending"
+msgstr "في انتظار التسجيل"
+
+msgid "cui.font.registered"
+msgstr "مسجَّل"
+
+msgid "cui.font.removed"
+msgstr "أُزيل تسجيله"
+
+msgid "cui.font.status.header"
+msgstr "حالة الخطوط المدمجة (مجلد المستخدم: {dir})"
+
+msgid "cui.font.status.line"
+msgstr "{family} ({file}): الملف {file_state}، السجل {reg_state}"
+
+msgid "cui.font.terminal.found"
+msgstr "تعريف الطرفية: {file} (الوجوه: {faces}؛ المطابقات المدمجة: {hits})"
+
+msgid "cui.font.terminal.none"
+msgstr "تعريف الطرفية: لم يُعثر على إعدادات Windows Terminal (ليس خطأ)"
+
+msgid "cui.font.uninstall.header"
+msgstr "{dry_run}إلغاء تثبيت الخطوط المدمجة"
+
+msgid "cui.font.uninstall.line"
+msgstr "{family}: السجل {unreg_state}، الملف {file_state}"
+
+msgid "cui.font.unregistered"
+msgstr "غير مسجَّل"
+
+msgid "cui.indexes_ok"
+msgstr "الفهارس مكتملة"
+
+msgid "cui.plan_rows"
+msgstr "{rows} صف خطة (analyze=false، لم يُنفَّذ الاستعلام)"
+
+msgid "cui.purge_dry_run"
+msgstr "تشغيل تجريبي: ستُفرَّغ {sessions} جلسة / {events} حدثًا (تم تجاهل {skipped} محمية) — مرّر --yes للتنفيذ"
+
+msgid "cui.purged"
+msgstr "فُرّغت {events} حدثًا"
+
+msgid "cui.record.archived"
+msgstr "مؤرشف"
+
+msgid "cui.record.artifacts"
+msgstr "المخرجات"
+
+msgid "cui.record.budget"
+msgstr "الميزانية"
+
+msgid "cui.record.checkpoints"
+msgstr "نقاط التحقق"
+
+msgid "cui.record.cursor"
+msgstr "المؤشر"
+
+msgid "cui.record.failure"
+msgstr "الفشل"
+
+msgid "cui.record.items"
+msgstr "العناصر"
+
+msgid "cui.record.model"
+msgstr "النموذج"
+
+msgid "cui.record.no"
+msgstr "لا"
+
+msgid "cui.record.session"
+msgstr "الجلسة {session}"
+
+msgid "cui.record.task"
+msgstr "المهمة {task}"
+
+msgid "cui.record.truncated"
+msgstr "مقطوع"
+
+msgid "cui.record.used"
+msgstr "المستخدم"
+
+msgid "cui.record.yes"
+msgstr "نعم"
+
+msgid "cui.renamed"
+msgstr "أُعيدت تسمية الجلسة {session}"
+
+msgid "cui.restore_done"
+msgstr "تمت الاستعادة: من {source}"
+
+msgid "cui.spec_status"
+msgstr "الجلسة {session}: المرحلة {stage} · المؤشر {cursor}"
+
+msgid "cui.status_line"
+msgstr "{session} {title} [{stage}] status={status} cursor={cursor}"
+
+msgid "cui.task_aborted"
+msgstr "{task} أُوقفت → {status}"
+
+msgid "cui.task_retried"
+msgstr "{task} أُعيدت محاولتها (retry={retry}) → {status}"
+
+msgid "cui.tasks_summary"
+msgstr "الجلسة {session}: الإجمالي {total} · المنجز {done} · المحظور {blocked} · النشط {active}"
+
+msgid "cui.unarchive_dry_run"
+msgstr "تشغيل تجريبي: ستُلغى أرشفة الجلسة {session} — مرّر --yes للتنفيذ"
+
+msgid "cui.unarchived"
+msgstr "أُلغيت أرشفة الجلسة {session}"
+
+msgid "error.datasource"
+msgstr "خطأ في مصدر البيانات: {error}"
+
+msgid "error.permission_denied"
+msgstr "تم رفض الإذن"
+
+msgid "gui.chat.cancel"
+msgstr "إلغاء"
+
+msgid "gui.chat.empty"
+msgstr "الطلب فارغ"
+
+msgid "gui.chat.error"
+msgstr "فشلت المحادثة"
+
+msgid "gui.chat.hint"
+msgstr "اختر جلسة واكتب طلبًا؛ ينتظر الإرسال حتى الانتهاء (كما في TUI)"
+
+msgid "gui.chat.history.hint"
+msgstr "تُحفظ أحداث الجولات في قاعدة البيانات — راجع عرض الأحداث للسجل الكامل"
+
+msgid "gui.chat.last"
+msgstr "آخر نتيجة: {summary}"
+
+msgid "gui.chat.no_request"
+msgstr "لا يوجد معرّف طلب لإلغائه (أرسل جولة أولًا)"
+
+msgid "gui.chat.none"
+msgstr "لا توجد جلسة محددة — اختر واحدة في عرض الجلسات (j/k)"
+
+msgid "gui.chat.not_supported"
+msgstr "منفّذ LLM غير موصول (not_supported)"
+
+msgid "gui.chat.progress"
+msgstr "جارٍ التوليد: {chunks} كتل…"
+
+msgid "gui.chat.prompt.placeholder"
+msgstr "اكتب طلبك ثم اضغط Enter للإرسال"
+
+msgid "gui.chat.provider"
+msgstr "ملف تعريف النموذج (LLM): {provider}"
+
+msgid "gui.chat.provider.placeholder"
+msgstr "اسم ملف التعريف"
+
+msgid "gui.chat.send"
+msgstr "إرسال"
+
+msgid "gui.checkpoints.degraded"
+msgstr "التراجع غير منفَّذ (التصفح فقط)"
+
+msgid "gui.checkpoints.empty"
+msgstr "لا نقاط تحقق لهذه المهمة"
+
+msgid "gui.checkpoints.hint"
+msgstr "اضغط نقاط التحقق على صف المهمة"
+
+msgid "gui.checkpoints.open"
+msgstr "نقاط التحقق"
+
+msgid "gui.checkpoints.title"
+msgstr "نقاط التحقق"
+
+msgid "gui.kpi.count"
+msgstr "الجلسات {sessions} · صفوف العرض {rows}"
+
+msgid "gui.op.archive"
+msgstr "أرشفة"
+
+msgid "gui.op.cancel"
+msgstr "إلغاء"
+
+msgid "gui.op.confirm"
+msgstr "تأكيد"
+
+msgid "gui.op.delete"
+msgstr "حذف"
+
+msgid "gui.op.error"
+msgstr "فشلت العملية"
+
+msgid "gui.op.input.days"
+msgstr "أيام حد التفريغ"
+
+msgid "gui.op.input.title"
+msgstr "العنوان"
+
+msgid "gui.op.new"
+msgstr "جديد"
+
+msgid "gui.op.not_supported"
+msgstr "منفّذ الأوامر غير موصول (not_supported)"
+
+msgid "gui.op.preview"
+msgstr "معاينة"
+
+msgid "gui.op.purge"
+msgstr "تفريغ (الأقدم من 30 يومًا)"
+
+msgid "gui.op.rename"
+msgstr "إعادة تسمية"
+
+msgid "gui.op.restore"
+msgstr "استعادة"
+
+msgid "gui.session.archived"
+msgstr "مؤرشفة"
+
+msgid "gui.session.group.active"
+msgstr "— نشطة —"
+
+msgid "gui.session.group.archived"
+msgstr "— مؤرشفة —"
+
+msgid "gui.session.none"
+msgstr "لا جلسة"
+
+msgid "gui.session.off"
+msgstr "مخفية"
+
+msgid "gui.session.on"
+msgstr "معروضة"
+
+msgid "gui.session.search"
+msgstr "بحث بالعنوان أو المعرّف"
+
+msgid "gui.session.sort.created"
+msgstr "تاريخ الإنشاء"
+
+msgid "gui.session.sort.recent"
+msgstr "الأحدث"
+
+msgid "gui.session.sort.title"
+msgstr "العنوان"
+
+msgid "gui.status.theme"
+msgstr "السمة: {theme}"
+
+msgid "gui.task.abort"
+msgstr "إيقاف"
+
+msgid "gui.task.retries"
+msgstr "محاولات {count}"
+
+msgid "gui.task.retry"
+msgstr "إعادة المحاولة"
+
+msgid "menu.context"
+msgstr "السياق"
+
+msgid "menu.diff"
+msgstr "الفروق"
+
+msgid "menu.events"
+msgstr "الأحداث"
+
+msgid "menu.sessions"
+msgstr "الجلسات"
+
+msgid "menu.spec"
+msgstr "المواصفة"
+
+msgid "menu.tasks"
+msgstr "المهام"
+
+msgid "settings.action.done"
+msgstr "تم: {label}"
+
+msgid "settings.action.failed"
+msgstr "فشل الإجراء ({label}): {code} {message}"
+
+msgid "settings.action.running"
+msgstr "جارٍ: {label}"
+
+msgid "settings.back"
+msgstr "العودة إلى الصفحة الرئيسية"
+
+msgid "settings.confirm.builtin_empty"
+msgstr "هذا يمسح النسخة الجذرية المرفقة (ولن يشارك الأساس المدمج بعد الآن). هل تريد المتابعة؟"
+
+msgid "settings.confirm.external_key"
+msgstr "هذا يحفظ الشهادة الخارجية والمفتاح الخاص ويحوّل وضع الوارد إلى external. هل تريد المتابعة؟"
+
+msgid "settings.confirm.inbound_off"
+msgstr "هذا يعطّل TLS الوارد (عودة إلى HTTP العادي) ويسري بعد إعادة تشغيل serve --web. هل تريد المتابعة؟"
+
+msgid "settings.confirm.regenerate"
+msgstr "هذا يعيد توليد شهادة الخادم ذاتية التوقيع (وتصبح البصمة الحالية غير صالحة). هل تريد المتابعة؟"
+
+msgid "settings.confirm.reset_builtin"
+msgstr "هذا يستعيد النسخة الجذرية المرفقة إلى الأصل المشحون. هل تريد المتابعة؟"
+
+msgid "settings.confirm.reset_extra"
+msgstr "هذا يمسح الجذور الإضافية. هل تريد المتابعة؟"
+
+msgid "settings.error.bad_port"
+msgstr "يجب أن يكون المنفذ عددًا صحيحًا في المدى 1..=65535"
+
+msgid "settings.error.generic"
+msgstr "فشل الإجراء"
+
+msgid "settings.error.load"
+msgstr "تعذّرت قراءة حالة الشهادة: {code} {message}"
+
+msgid "settings.error.missing_host"
+msgstr "أدخل اسم مضيف أو عنوان IP أولًا"
+
+msgid "settings.error.missing_pem"
+msgstr "املأ سلسلة الشهادة والمفتاح الخاص (PEM) أولًا"
+
+msgid "settings.field.count"
+msgstr "العدد: {value}"
+
+msgid "settings.field.modified"
+msgstr "آخر تعديل: {value}"
+
+msgid "settings.field.newer"
+msgstr "نسخة مدمجة أحدث: {value}"
+
+msgid "settings.field.path"
+msgstr "المسار: {value}"
+
+msgid "settings.field.sha256"
+msgstr "SHA-256: {value}"
+
+msgid "settings.inbound.builtin"
+msgstr "شهادة ذاتية التوقيع مدمجة (builtin)"
+
+msgid "settings.inbound.builtin_hint"
+msgstr "يولّد شهادة ECDSA P-256 ذاتية التوقيع لكل مساحة عمل (397 يومًا)؛ ويغطي حقل SAN القيم localhost و127.0.0.1 و::1 واسم المضيف."
+
+msgid "settings.inbound.cert_pem_label"
+msgstr "رفع سلسلة الشهادة (PEM)"
+
+msgid "settings.inbound.days_remaining"
+msgstr "الأيام المتبقية: {value}"
+
+msgid "settings.inbound.download"
+msgstr "تنزيل الشهادة العامة (PEM)"
+
+msgid "settings.inbound.external"
+msgstr "شهادة خارجية (external)"
+
+msgid "settings.inbound.external_hint"
+msgstr "يستخدم سلسلة شهادة PEM والمفتاح الخاص غير المشفّر الذي ترفعه؛ والمفتاح الخاص للكتابة فقط."
+
+msgid "settings.inbound.key_pem_label"
+msgstr "رفع المفتاح الخاص (PEM غير مشفّر، يُمسح بعد الإرسال)"
+
+msgid "settings.inbound.key_saved"
+msgstr "حُفظ المفتاح الخاص؛ ولم يعد معروضًا (أُفرغ الحقل)."
+
+msgid "settings.inbound.legend"
+msgstr "الوضع"
+
+msgid "settings.inbound.material"
+msgstr "الشهادة موجودة: {cert} · المفتاح الخاص موجود: {key}"
+
+msgid "settings.inbound.no_material"
+msgstr "لا توجد مواد شهادة خادم بعد (ارفع سلسلة أو أعد توليد الشهادة ذاتية التوقيع)"
+
+msgid "settings.inbound.not_after"
+msgstr "صالحة حتى: {value}"
+
+msgid "settings.inbound.off"
+msgstr "إيقاف TLS (off)"
+
+msgid "settings.inbound.off_hint"
+msgstr "يعود إلى HTTP العادي (ADR-023)؛ يتطلب تأكيدًا صريحًا ولا يُلغى تلقائيًا أبدًا."
+
+msgid "settings.inbound.regenerate"
+msgstr "إعادة توليد الشهادة ذاتية التوقيع"
+
+msgid "settings.inbound.sans"
+msgstr "SAN: {value}"
+
+msgid "settings.inbound.sha256"
+msgstr "بصمة SHA-256: {value}"
+
+msgid "settings.inbound.subject"
+msgstr "الموضوع: {value}"
+
+msgid "settings.inbound.title"
+msgstr "TLS الوارد (serve --web)"
+
+msgid "settings.inbound.upload"
+msgstr "رفع والتبديل إلى external"
+
+msgid "settings.link"
+msgstr "إعدادات الشهادة"
+
+msgid "settings.local_mode"
+msgstr "صفحة إعدادات محلية"
+
+msgid "settings.modes.save"
+msgstr "حفظ الأوضاع"
+
+msgid "settings.notes.none"
+msgstr "لا ملاحظات إضافية"
+
+msgid "settings.notes.title"
+msgstr "ملاحظات"
+
+msgid "settings.outbound.builtin"
+msgstr "نسخة مرفقة (builtin)"
+
+msgid "settings.outbound.builtin_hint"
+msgstr "يستخدم نسخة الجذور المرفقة في مساحة العمل أساسًا، ثم تُضاف الجذور الإضافية بعدها."
+
+msgid "settings.outbound.builtin_pem_label"
+msgstr "النسخة الجذرية المرفقة (PEM، قابلة للتحرير)"
+
+msgid "settings.outbound.effective_line"
+msgstr "شهادات الجذور الفعّالة: {value}"
+
+msgid "settings.outbound.empty_extra"
+msgstr "لا جذور إضافية مضبوطة (فارغ كما ينبغي: لا شهادات في الملف)"
+
+msgid "settings.outbound.extra_pem_label"
+msgstr "جذور إضافية (PEM، تُطبَّق في الوضعين)"
+
+msgid "settings.outbound.hint"
+msgstr "لا يوجد وضع يعطّل التحقق من السلسلة أو اسم المضيف؛ ولا مفتاح لتخطي التحقق."
+
+msgid "settings.outbound.legend"
+msgstr "وضع مخزن الثقة"
+
+msgid "settings.outbound.missing_builtin"
+msgstr "النسخة المرفقة مفقودة: لم تُبلغ الحالة عن الملف"
+
+msgid "settings.outbound.reset_builtin"
+msgstr "استعادة النسخة المرفقة"
+
+msgid "settings.outbound.reset_extra"
+msgstr "مسح الجذور الإضافية"
+
+msgid "settings.outbound.save_builtin"
+msgstr "حفظ النسخة المرفقة"
+
+msgid "settings.outbound.save_extra"
+msgstr "حفظ الجذور الإضافية"
+
+msgid "settings.outbound.system"
+msgstr "مخزن نظام التشغيل (system)"
+
+msgid "settings.outbound.system_hint"
+msgstr "يستخدم مخزن جذور نظام التشغيل أساسًا، وتُضاف الجذور الإضافية كذلك. مخزن النظام الفارغ خطأ ولا يرتد أبدًا إلى النسخة المرفقة."
+
+msgid "settings.outbound.system_na"
+msgstr "لا ينطبق (الوضع الحالي لا يقرأ مخزن النظام)"
+
+msgid "settings.outbound.system_roots_line"
+msgstr "شهادات جذور النظام: {value}"
+
+msgid "settings.outbound.title"
+msgstr "الثقة في HTTPS الصادر"
+
+msgid "settings.restart_banner"
+msgstr "تغيّرت شهادة الوارد أو الوضع؛ أعد تشغيل serve --web لتطبيق التغيير."
+
+msgid "settings.status.no"
+msgstr "لا"
+
+msgid "settings.status.unknown"
+msgstr "غير معروف"
+
+msgid "settings.status.yes"
+msgstr "نعم"
+
+msgid "settings.title"
+msgstr "إعدادات الشهادة"
+
+msgid "settings.verify.button"
+msgstr "فحص"
+
+msgid "settings.verify.failed"
+msgstr "فشل الفحص: {error}"
+
+msgid "settings.verify.host"
+msgstr "المضيف"
+
+msgid "settings.verify.ok"
+msgstr "نجح الفحص: الموضوع {subject} · صالحة حتى {not_after} · البصمة {sha256} · {tls_version}"
+
+msgid "settings.verify.port"
+msgstr "المنفذ"
+
+msgid "settings.verify.title"
+msgstr "فحص الاتصال الصادر"
+
+msgid "status.idle"
+msgstr "خامل"
+
+msgid "status.running"
+msgstr "قيد التشغيل"
+
+msgid "summary.context"
+msgstr "الجلسة {session} · الميزانية {budget} · المستخدم {used} · العناصر {items}{truncated}"
+
+msgid "summary.context_truncated"
+msgstr "· مقطوع: {reason}"
+
+msgid "summary.diff"
+msgstr "الجلسة {session} · المهام {total} · ناجحة {pass} / فاشلة {fail} / غير مختبرة {untested}{truncated}"
+
+msgid "summary.diff.truncated"
+msgstr "· قائمة الفروق مقطوعة"
+
+msgid "summary.events"
+msgstr "الجلسة {session} · المؤشر {from}..{to} (الذيل ≤ {limit})"
+
+msgid "summary.none"
+msgstr "لا شيء"
+
+msgid "summary.spec"
+msgstr "الجلسة {session} · المرحلة {stage} · المؤشر {cursor} · المهمة النشطة {task}"
+
+msgid "summary.tasks"
+msgstr "الجلسة {session} · الإجمالي {total} · المنجز {done} · المحظور {blocked}"
+
+msgid "tui.col.id"
+msgstr "المعرّف"
+
+msgid "tui.col.kind"
+msgstr "النوع"
+
+msgid "tui.col.retry"
+msgstr "المحاولات"
+
+msgid "tui.col.seq"
+msgstr "التسلسل"
+
+msgid "tui.col.stage"
+msgstr "المرحلة"
+
+msgid "tui.col.status"
+msgstr "الحالة"
+
+msgid "tui.col.summary"
+msgstr "الملخص"
+
+msgid "tui.col.title"
+msgstr "العنوان"
+
+msgid "tui.diff_unwired"
+msgstr "(مصدر الفروق غير موصول بعد: فروق التقارب معلّقة؛ لا شيء مُختلق)"
+
+msgid "tui.empty"
+msgstr "(لا بيانات)"
+
+msgid "tui.footer"
+msgstr "1-7 العروض  j/k للتنقل  r للتحديث  t للسمة  q للخروج  |  {cols}x{rows}"
+
+msgid "tui.header.none"
+msgstr "لا جلسة"
+
+msgid "tui.no_session"
+msgstr "(لا جلسة محددة — اضغط j/k)"
+
+msgid "tui.runtimes"
+msgstr "بيئات التشغيل: {list}"
+
+msgid "tui.title"
+msgstr "{app}  |  {view} ({index}/{count})"
+
+msgid "view.chat"
+msgstr "المحادثة"
+
+msgid "view.context"
+msgstr "السياق"
+
+msgid "view.diff"
+msgstr "معاينة الفروق"
+
+msgid "view.events"
+msgstr "الأحداث"
+
+msgid "view.sessions"
+msgstr "الجلسات"
+
+msgid "view.spec"
+msgstr "حالة المواصفة"
+
+msgid "view.tasks"
+msgstr "المهام"
+
+msgid "web.action.failed"
+msgstr "فشل الإجراء ({label}): {error}"
+
+msgid "web.checkpoints.degraded"
+msgstr "التراجع غير منفَّذ (تدهور صريح): التصفح وملخصات الفروق فقط"
+
+msgid "web.checkpoints.empty"
+msgstr "لا نقاط تحقق لهذه المهمة"
+
+msgid "web.checkpoints.failed"
+msgstr "فشل تحميل نقاط التحقق: {error}"
+
+msgid "web.checkpoints.hint"
+msgstr "اختر مهمة لعرض نقاط التحقق وملخصات الفروق"
+
+msgid "web.checkpoints.ready"
+msgstr "التراجع متاح"
+
+msgid "web.checkpoints.refs"
+msgstr "{count} مرجع مخرجات"
+
+msgid "web.checkpoints.title"
+msgstr "نقاط التحقق"
+
+msgid "web.checkpoints.truncated"
+msgstr "تجاوزت نقاط التحقق الحد؛ القائمة مقطوعة"
+
+msgid "web.cleanup.bad_days"
+msgstr "يجب أن تكون أيام الاحتفاظ 1 على الأقل"
+
+msgid "web.cleanup.confirm"
+msgstr "تأكيد التفريغ"
+
+msgid "web.cleanup.days"
+msgstr "أيام الاحتفاظ"
+
+msgid "web.cleanup.done"
+msgstr "فُرّغت {sessions} جلسة"
+
+msgid "web.cleanup.preview"
+msgstr "معاينة"
+
+msgid "web.cleanup.preview_required"
+msgstr "عاين قبل تأكيد التفريغ"
+
+msgid "web.cleanup.preview_result"
+msgstr "ستُفرَّغ {sessions} جلسة"
+
+msgid "web.conn.connected"
+msgstr "متصل"
+
+msgid "web.conn.disconnected"
+msgstr "غير متصل"
+
+msgid "web.context.empty"
+msgstr "(فارغ كما ينبغي: لا شيء يتسع في الميزانية)"
+
+msgid "web.context.no_session"
+msgstr "لا توجد جلسة محددة"
+
+msgid "web.context.summary"
+msgstr "الميزانية {consumed}/{budget} · المصادر {sources} · مقطوع {truncated}"
+
+msgid "web.cursor"
+msgstr "المؤشر {n}"
+
+msgid "web.diff.empty"
+msgstr "(لا فروق: كل معايير القبول ناجحة)"
+
+msgid "web.diff.no_session"
+msgstr "لا توجد جلسة محددة"
+
+msgid "web.diff.summary"
+msgstr "المهام {total} · ناجحة {pass} / فاشلة {fail} / غير مختبرة {untested}{truncated}"
+
+msgid "web.diff.truncated"
+msgstr "(مقطوع)"
+
+msgid "web.export.done"
+msgstr "اكتمل التصدير"
+
+msgid "web.export.json"
+msgstr "تصدير JSON"
+
+msgid "web.export.jsonl"
+msgstr "تصدير JSONL"
+
+msgid "web.recovering"
+msgstr "جارٍ الاستعادة…"
+
+msgid "web.runtimes"
+msgstr "بيئات التشغيل"
+
+msgid "web.runtimes.available"
+msgstr "متاحة"
+
+msgid "web.runtimes.unavailable"
+msgstr "غير متاحة"
+
+msgid "web.runtimes.unknown"
+msgstr "لم تُفحص بعد"
+
+msgid "web.runtimes.unwired"
+msgstr "جرد بيئات التشغيل غير موصول"
+
+msgid "web.session.archive_confirm"
+msgstr "تأكيد الأرشفة"
+
+msgid "web.session.archive_preview"
+msgstr "معاينة الأرشفة"
+
+msgid "web.session.archive_preview_required"
+msgstr "عاين قبل تأكيد الأرشفة"
+
+msgid "web.session.archive_preview_result"
+msgstr "ستُؤرشف الجلسة {session} — أكّد للتنفيذ"
+
+msgid "web.session.archived"
+msgstr "أُرشفت الجلسة {session}"
+
+msgid "web.session.create"
+msgstr "إنشاء"
+
+msgid "web.session.delete_confirm"
+msgstr "تأكيد الحذف"
+
+msgid "web.session.delete_preview"
+msgstr "معاينة الحذف"
+
+msgid "web.session.delete_preview_result"
+msgstr "سيُحذف: الأحداث {events} · المهام {tasks}"
+
+msgid "web.session.deleted"
+msgstr "حُذفت {n} جلسة"
+
+msgid "web.session.group_active"
+msgstr "نشطة"
+
+msgid "web.session.group_archived"
+msgstr "مؤرشفة"
+
+msgid "web.session.none"
+msgstr "لا توجد جلسة محددة"
+
+msgid "web.session.preview_required"
+msgstr "عاين قبل تأكيد الحذف"
+
+msgid "web.session.rename"
+msgstr "إعادة تسمية"
+
+msgid "web.session.rename_placeholder"
+msgstr "عنوان جديد"
+
+msgid "web.session.search"
+msgstr "بحث بالعنوان أو المعرّف"
+
+msgid "web.session.show_archived"
+msgstr "تضمين المؤرشفة"
+
+msgid "web.session.sort"
+msgstr "الترتيب"
+
+msgid "web.session.sort.created"
+msgstr "تاريخ الإنشاء"
+
+msgid "web.session.sort.last_active"
+msgstr "النشاط الأخير"
+
+msgid "web.session.sort.title"
+msgstr "العنوان"
+
+msgid "web.session.title"
+msgstr "عنوان الجلسة"
+
+msgid "web.session.title_required"
+msgstr "أدخل عنوان الجلسة أولًا"
+
+msgid "web.tab.context"
+msgstr "السياق"
+
+msgid "web.tab.diff"
+msgstr "الفروق"
+
+msgid "web.tab.history"
+msgstr "السجل"
+
+msgid "web.tab.maintenance"
+msgstr "الصيانة"
+
+msgid "web.tab.sessions"
+msgstr "الجلسات"
+
+msgid "web.tab.spec"
+msgstr "SDD"
+
+msgid "web.tab.tasks"
+msgstr "المهام"
+
+msgid "web.task.abort"
+msgstr "إيقاف"
+
+msgid "web.task.depends"
+msgstr "يعتمد على {depends}"
+
+msgid "web.task.progress"
+msgstr "منجز {done}/{total} · محظور {blocked}"
+
+msgid "web.task.retries"
+msgstr "محاولات {count}"
+
+msgid "web.task.retry"
+msgstr "إعادة المحاولة"
+
+msgid "web.task.truncated"
+msgstr "تجاوزت بطاقات المهام الحد فقُطعت (إحصاءات الملخص كاملة)"
+
+msgid "web.tasks_summary"
+msgstr "الإجمالي {total} · المنجز {done} · المحظور {blocked}"
+
+msgid "web.theme.default"
+msgstr "الافتراضية"
+
+msgid "web.theme.label"
+msgstr "السمة"
+

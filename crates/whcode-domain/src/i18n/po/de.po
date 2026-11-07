@@ -1,0 +1,1246 @@
+# de translation catalog for WHCode (FR-615).
+# Generated from i18n/de.properties by .github/scripts/i18n-po.py; do not edit by hand.
+# Edit the properties file instead, then regenerate — a contract test fails on drift.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: whcode 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/FreeBSD-Ask/whcode/issues\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "app.title"
+msgstr "WHCode – lokale Coding-Harness"
+
+msgid "cli.about"
+msgstr "WHCode – lokale Coding-Harness"
+
+msgid "cli.context.about"
+msgstr "Ansicht des Kontextbudgets (FR-105/108; contracts/cui-cli.md §1)."
+
+msgid "cli.context.budget.about"
+msgstr "Budgetansicht: aktuelles Budget, geladene Quellen, Grund der Kürzung und Cursor (über `whcode_app::load_context`)."
+
+msgid "cli.context.budget.budget"
+msgstr "Budget in Tokens; standardmäßig die Anzeigebasis (4096, wie in der Kontextansicht der TUI)."
+
+msgid "cli.context.budget.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.db.about"
+msgstr "Datenbankwartung und -bereinigung (FR-507—510)."
+
+msgid "cli.db.archive.about"
+msgstr "Arbeitsbereich exportieren."
+
+msgid "cli.db.archive.export"
+msgstr "Ausgabepfad."
+
+msgid "cli.db.check.about"
+msgstr "Erforderliche Indizes prüfen."
+
+msgid "cli.db.checkpoint.about"
+msgstr "Ausdrücklicher Prüfpunkt (FR-510; optional mit Überschreibungen der WAL-Richtlinie, disaster-recovery §5)."
+
+msgid "cli.db.checkpoint.autocheckpoint"
+msgstr "wal_autocheckpoint überschreiben (z. B. 1MB; ohne Angabe unverändert)."
+
+msgid "cli.db.checkpoint.threshold"
+msgstr "Schwelle für automatische WAL-Prüfpunkte überschreiben (z. B. 16MB; ohne Angabe unverändert)."
+
+msgid "cli.db.compact.about"
+msgstr "Datenbank auf der Platte komprimieren (Kopieren – Prüfen – Tauschen, FR-510; standardmäßig dry-run)."
+
+msgid "cli.db.compact.dry-run"
+msgstr "Nur Vorschau (Standard)."
+
+msgid "cli.db.compact.yes"
+msgstr "Ausführung bestätigen."
+
+msgid "cli.db.explain.about"
+msgstr "Analyse des Abfrageplans (nur lesende Abfragen, Vertrag §2-2)."
+
+msgid "cli.db.explain.query"
+msgstr "Nur lesendes SQL (beginnend mit SELECT/WITH)."
+
+msgid "cli.db.purge.about"
+msgstr "Nach Alter bereinigen (FR-508/509; standardmäßig dry-run)."
+
+msgid "cli.db.purge.before"
+msgstr "Grenzzeitpunkt (Unix-Millisekunden)."
+
+msgid "cli.db.purge.dry-run"
+msgstr "Nur Vorschau (Standard)."
+
+msgid "cli.db.purge.yes"
+msgstr "Ausführung bestätigen."
+
+msgid "cli.db.restore.about"
+msgstr "Einen Export in einen leeren Arbeitsbereich wiederherstellen (Umkehrung von `db archive`; ausdrückliche Bestätigung, keine Vorschau)."
+
+msgid "cli.db.restore.from"
+msgstr "Pfad der Exportdatei (Format whcode-export)."
+
+msgid "cli.db.restore.yes"
+msgstr "Ausführung bestätigen (Wiederherstellung schreibt; die Zieldatenbank muss leer sein)."
+
+msgid "cli.db.stats.about"
+msgstr "Datenbankstatistik (FR-507)."
+
+msgid "cli.doctor.about"
+msgstr "Selbstprüfung von Umgebung und Konfiguration (M0)."
+
+msgid "cli.doctor.json"
+msgstr "JSON ausgeben."
+
+msgid "cli.events.about"
+msgstr "Ereignisabfragen und -export (FR-202/205)."
+
+msgid "cli.events.export.about"
+msgstr "Export (die Richtlinie zur Schwärzung wird im Export angegeben, FR-205)."
+
+msgid "cli.events.export.after"
+msgstr "Startcursor."
+
+msgid "cli.events.export.format"
+msgstr "Ausgabeformat (json/jsonl)."
+
+msgid "cli.events.export.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.events.list.about"
+msgstr "Ereignisse auflisten (inkrementell über den Cursor)."
+
+msgid "cli.events.list.after"
+msgstr "Startcursor (ausschließend)."
+
+msgid "cli.events.list.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.events.show.about"
+msgstr "Details eines Ereignisses."
+
+msgid "cli.events.show.event"
+msgstr "Ereignis-ID."
+
+msgid "cli.font.about"
+msgstr "Installation der mitgelieferten Schriften und Prüfung der Terminal-Deklaration (FR-717; lokaler Ressourcenbefehl, ohne Datenbank und ohne Arbeitsbereich)."
+
+msgid "cli.font.install.about"
+msgstr "Die vier mitgelieferten Schriften im Schriftverzeichnis des Benutzers installieren und die HKCU-Registrierung schreiben (Kopieren mit Überschreiben, gefahrlos wiederholbar)."
+
+msgid "cli.font.install.dry-run"
+msgstr "Die auszuführenden Aktionen nur melden, ohne das System zu ändern."
+
+msgid "cli.font.install.from"
+msgstr "Quellverzeichnis der Schriften (flache Ablage oder die Repository-Ablage `source/<family>/`); standardmäßig wird neben der ausführbaren Datei und dann `assets/fonts/source` im aktuellen Verzeichnis geprüft (ADR-028 Revision 1)."
+
+msgid "cli.font.status.about"
+msgstr "Installationszustand der Schriften und Terminal-Deklaration melden (nur lesend)."
+
+msgid "cli.font.uninstall.about"
+msgstr "Mitgelieferte Schriften entfernen: Registrierung austragen und Dateien aus dem Schriftverzeichnis des Benutzers löschen (nach bestem Bemühen, Punkt für Punkt gemeldet)."
+
+msgid "cli.font.uninstall.dry-run"
+msgstr "Die auszuführenden Aktionen nur melden, ohne das System zu ändern."
+
+msgid "cli.hint.no_console"
+msgstr "whcode {version} – keine interaktive Konsole verfügbar, keine Oberfläche gestartet"
+
+msgid "cli.hint.options"
+msgstr "Verfügbar: --tui (Terminaloberfläche), --cli <Unterbefehl>, --lang <Sprachkennung>, --help"
+
+msgid "cli.json"
+msgstr "JSON ausgeben (schema_version-Hülle, FR-602); vor oder nach jedem Unterbefehl erlaubt."
+
+msgid "cli.lang"
+msgstr "Sprache der Oberflächentexte (z. B. zh-CN, en; überschreibt LANG/LC_ALL, FR-615)."
+
+msgid "cli.llm.about"
+msgstr "Modellaufruf (FR-201; `llm run` und `llm cancel`, contracts/cui-cli.md §1)."
+
+msgid "cli.llm.cancel.about"
+msgstr "Einen auf diesem Rechner laufenden Aufruf abbrechen (wirkt vor dem nächsten Chunk)."
+
+msgid "cli.llm.cancel.request"
+msgstr "Anfrage-ID (von `llm run` ausgegeben oder über `--request-id` vorab gesetzt)."
+
+msgid "cli.llm.run.about"
+msgstr "Einen echten Aufruf ausführen (synchron; Streaming-Zuwächse werden am Ende als begrenzte Folge ausgegeben)."
+
+msgid "cli.llm.run.max-tokens"
+msgstr "`max_tokens` des Profils überschreiben."
+
+msgid "cli.llm.run.model"
+msgstr "Modellkennung des Profils überschreiben."
+
+msgid "cli.llm.run.prompt"
+msgstr "Prompt-Text (wird nie in Ereignisse oder Protokolle geschrieben)."
+
+msgid "cli.llm.run.provider"
+msgstr "Profilname (ausdrückliche Wahl, ADR-031 Entscheidung 4)."
+
+msgid "cli.llm.run.request-id"
+msgstr "Vorab gesetzte Anfrage-ID (der Schlüssel für `llm cancel`; sonst aus dem Aufruf erzeugt)."
+
+msgid "cli.llm.run.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.llm.run.trace-level"
+msgstr "Stufe der Ablaufverfolgung (off/metadata/redacted/full)."
+
+msgid "cli.runtime.about"
+msgstr "Verwaltung der Laufzeitumgebungen (FR-701—710; M8)."
+
+msgid "cli.runtime.disable.about"
+msgstr "Laufzeitumgebung deaktivieren."
+
+msgid "cli.runtime.disable.name"
+msgstr "Name der Laufzeitumgebung."
+
+msgid "cli.runtime.enable.about"
+msgstr "Laufzeitumgebung aktivieren."
+
+msgid "cli.runtime.enable.name"
+msgstr "Name der Laufzeitumgebung."
+
+msgid "cli.runtime.install.about"
+msgstr "Ein Payload installieren."
+
+msgid "cli.runtime.install.name"
+msgstr "Name der Laufzeitumgebung."
+
+msgid "cli.runtime.list.about"
+msgstr "Laufzeitumgebungen auflisten."
+
+msgid "cli.runtime.status.about"
+msgstr "Zustand der Laufzeitumgebung."
+
+msgid "cli.runtime.status.name"
+msgstr "Name der Laufzeitumgebung."
+
+msgid "cli.serve.about"
+msgstr "Einstiegspunkte der Transporte (M6/M7)."
+
+msgid "cli.serve.bind"
+msgstr "Bindeadresse (standardmäßig nur Loopback, FR-606)."
+
+msgid "cli.serve.ssh"
+msgstr "SSH-Einstiegspunkt (M7, zurückgestellt)."
+
+msgid "cli.serve.web"
+msgstr "Web-Einstiegspunkt (M6)."
+
+msgid "cli.session.about"
+msgstr "Lebenszyklus der Sitzungen (FR-101)."
+
+msgid "cli.session.archive.about"
+msgstr "Archivieren oder Wiederherstellen (destruktive Familie nach Vertrag §2-1: standardmäßig dry-run, `--yes` führt aus)."
+
+msgid "cli.session.archive.dry-run"
+msgstr "Nur Vorschau (Standard)."
+
+msgid "cli.session.archive.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.session.archive.unarchive"
+msgstr "Archivierte Sitzung wiederherstellen."
+
+msgid "cli.session.archive.yes"
+msgstr "Ausführung bestätigen (schließt --dry-run aus, §8.1)."
+
+msgid "cli.session.delete.about"
+msgstr "Sitzung löschen (destruktiv; standardmäßig dry-run, FR-509)."
+
+msgid "cli.session.delete.dry-run"
+msgstr "Nur Vorschau (Standard)."
+
+msgid "cli.session.delete.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.session.delete.yes"
+msgstr "Ausführung bestätigen (schließt --dry-run aus, §8.1)."
+
+msgid "cli.session.list.about"
+msgstr "Sitzungen auflisten."
+
+msgid "cli.session.list.all"
+msgstr "Archivierte Sitzungen einbeziehen."
+
+msgid "cli.session.new.about"
+msgstr "Sitzung anlegen."
+
+msgid "cli.session.new.model"
+msgstr "Modell (optional)."
+
+msgid "cli.session.new.title"
+msgstr "Titel."
+
+msgid "cli.session.rename.about"
+msgstr "Sitzung umbenennen."
+
+msgid "cli.session.rename.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.session.rename.title"
+msgstr "Neuer Titel."
+
+msgid "cli.session.show.about"
+msgstr "Eine Sitzung anzeigen."
+
+msgid "cli.session.show.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.spec.about"
+msgstr "SDD-Phasen und Gates (FR-307—312)."
+
+msgid "cli.spec.analyze.about"
+msgstr "Analyze-Prüfung (FR-306)."
+
+msgid "cli.spec.analyze.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.spec.converge.about"
+msgstr "Converge-Abgleich (FR-310/311)."
+
+msgid "cli.spec.converge.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.spec.force-advance.about"
+msgstr "Ein Gate von Hand überschreiten (FR-312; Begründung erforderlich, Vertrag §2-3)."
+
+msgid "cli.spec.force-advance.reason"
+msgstr "Begründung für das erzwungene Überschreiten des Gates (erforderlich, FR-312)."
+
+msgid "cli.spec.force-advance.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.spec.force-advance.to"
+msgstr "Zielphase."
+
+msgid "cli.spec.next.about"
+msgstr "Nächste Phase."
+
+msgid "cli.spec.next.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.spec.status.about"
+msgstr "Aktueller Zustand der Phase (FR-314)."
+
+msgid "cli.spec.status.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.spec.validate.about"
+msgstr "Artefakte prüfen."
+
+msgid "cli.spec.validate.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.status.about"
+msgstr "Momentaufnahme des Zustands (FR-314)."
+
+msgid "cli.status.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.task.abort.about"
+msgstr "Aufgabe abbrechen (FR-408)."
+
+msgid "cli.task.abort.task"
+msgstr "Aufgaben-ID."
+
+msgid "cli.task.about"
+msgstr "Abfrage und Steuerung von Aufgaben (FR-401/408)."
+
+msgid "cli.task.list.about"
+msgstr "Aufgaben auflisten."
+
+msgid "cli.task.list.session"
+msgstr "Sitzungs-ID."
+
+msgid "cli.task.retry.about"
+msgstr "Aufgabe erneut ausführen (FR-401)."
+
+msgid "cli.task.retry.task"
+msgstr "Aufgaben-ID."
+
+msgid "cli.task.show.about"
+msgstr "Aufgabendetails (die fünf Informationsklassen aus FR-104)."
+
+msgid "cli.task.show.task"
+msgstr "Aufgaben-ID."
+
+msgid "cli.workspace"
+msgstr "Verzeichnis des Arbeitsbereichs (konfigurierter Arbeitsbereich, sonst cwd; findet `<workspace>/whcode.duckdb`)."
+
+msgid "cui.archive_dry_run"
+msgstr "dry-run: Sitzung {session} würde archiviert – mit --yes ausführen (mit --unarchive rückgängig machen)"
+
+msgid "cui.archived"
+msgstr "Sitzung {session} archiviert"
+
+msgid "cui.checkpoint_done"
+msgstr "Prüfpunkt abgeschlossen: WAL {before} → {after}"
+
+msgid "cui.compact_done"
+msgstr "compact abgeschlossen (switched={switched})"
+
+msgid "cui.compact_dry_run"
+msgstr "dry-run: Datei {file} B, WAL {wal} B – mit --yes komprimieren (eine Verkleinerung wird nicht zugesagt)"
+
+msgid "cui.created"
+msgstr "Sitzung {session} angelegt"
+
+msgid "cui.delete_dry_run"
+msgstr "dry-run: Sitzung {session} würde gelöscht ({events} Ereignisse, {tasks} Aufgaben; {skipped} geschützte übersprungen) – mit --yes ausführen"
+
+msgid "cui.deleted"
+msgstr "Sitzung {session} gelöscht"
+
+msgid "cui.empty"
+msgstr "(keine Einträge)"
+
+msgid "cui.exported"
+msgstr "Nach {path} exportiert (Hash {hash})"
+
+msgid "cui.font.deleted"
+msgstr "gelöscht"
+
+msgid "cui.font.dry_run"
+msgstr "[dry-run]"
+
+msgid "cui.font.install.header"
+msgstr "{dry_run}Mitgelieferte Schriften installieren: {source} → {dir}"
+
+msgid "cui.font.install.line"
+msgstr "{family}: {source} → {target} kopieren, Registrierung {reg_state}"
+
+msgid "cui.font.installed"
+msgstr "installiert"
+
+msgid "cui.font.missing"
+msgstr "fehlt"
+
+msgid "cui.font.reg_pending"
+msgstr "ausstehend"
+
+msgid "cui.font.registered"
+msgstr "registriert"
+
+msgid "cui.font.removed"
+msgstr "deregistriert"
+
+msgid "cui.font.status.header"
+msgstr "Status der mitgelieferten Schriften (Benutzerverzeichnis: {dir})"
+
+msgid "cui.font.status.line"
+msgstr "{family} ({file}): Datei {file_state}, Registrierung {reg_state}"
+
+msgid "cui.font.terminal.found"
+msgstr "Terminal-Deklaration: {file} (Faces: {faces}; Treffer in mitgelieferten Schriften: {hits})"
+
+msgid "cui.font.terminal.none"
+msgstr "Terminal-Deklaration: keine Einstellungen für Windows Terminal gefunden (kein Fehler)"
+
+msgid "cui.font.uninstall.header"
+msgstr "{dry_run}Mitgelieferte Schriften deinstallieren"
+
+msgid "cui.font.uninstall.line"
+msgstr "{family}: Registrierung {unreg_state}, Datei {file_state}"
+
+msgid "cui.font.unregistered"
+msgstr "nicht registriert"
+
+msgid "cui.indexes_ok"
+msgstr "Indizes vollständig"
+
+msgid "cui.plan_rows"
+msgstr "{rows} Planzeilen (analyze=false, Abfrage nicht ausgeführt)"
+
+msgid "cui.purge_dry_run"
+msgstr "dry-run: {sessions} Sitzungen / {events} Ereignisse würden bereinigt ({skipped} geschützte übersprungen) – mit --yes ausführen"
+
+msgid "cui.purged"
+msgstr "{events} Ereignisse bereinigt"
+
+msgid "cui.record.archived"
+msgstr "Archiviert"
+
+msgid "cui.record.artifacts"
+msgstr "Artefakte"
+
+msgid "cui.record.budget"
+msgstr "Budget"
+
+msgid "cui.record.checkpoints"
+msgstr "Prüfpunkte"
+
+msgid "cui.record.cursor"
+msgstr "Cursor"
+
+msgid "cui.record.failure"
+msgstr "Fehlerursache"
+
+msgid "cui.record.items"
+msgstr "Einträge"
+
+msgid "cui.record.model"
+msgstr "Modell"
+
+msgid "cui.record.no"
+msgstr "nein"
+
+msgid "cui.record.session"
+msgstr "Sitzung {session}"
+
+msgid "cui.record.task"
+msgstr "Aufgabe {task}"
+
+msgid "cui.record.truncated"
+msgstr "Gekürzt"
+
+msgid "cui.record.used"
+msgstr "Genutzt"
+
+msgid "cui.record.yes"
+msgstr "ja"
+
+msgid "cui.renamed"
+msgstr "Sitzung {session} umbenannt"
+
+msgid "cui.restore_done"
+msgstr "Wiederherstellung abgeschlossen: Quelle {source}"
+
+msgid "cui.spec_status"
+msgstr "Sitzung {session}: Phase {stage} · Cursor {cursor}"
+
+msgid "cui.status_line"
+msgstr "{session} {title} [{stage}] status={status} cursor={cursor}"
+
+msgid "cui.task_aborted"
+msgstr "{task} abgebrochen → {status}"
+
+msgid "cui.task_retried"
+msgstr "{task} erneut ausgeführt (retry={retry}) → {status}"
+
+msgid "cui.tasks_summary"
+msgstr "Sitzung {session}: gesamt {total} · erledigt {done} · blockiert {blocked} · aktiv {active}"
+
+msgid "cui.unarchive_dry_run"
+msgstr "dry-run: Archivierung von Sitzung {session} würde aufgehoben – mit --yes ausführen"
+
+msgid "cui.unarchived"
+msgstr "Archivierung von Sitzung {session} aufgehoben"
+
+msgid "error.datasource"
+msgstr "Fehler der Datenquelle: {error}"
+
+msgid "error.permission_denied"
+msgstr "Zugriff verweigert"
+
+msgid "gui.chat.cancel"
+msgstr "Abbrechen"
+
+msgid "gui.chat.empty"
+msgstr "Prompt ist leer"
+
+msgid "gui.chat.error"
+msgstr "Chat fehlgeschlagen"
+
+msgid "gui.chat.hint"
+msgstr "Sitzung auswählen und Prompt eingeben; das Senden blockiert bis zum Abschluss (synchron wie in der TUI)"
+
+msgid "gui.chat.history.hint"
+msgstr "Turn-Ereignisse werden dauerhaft gespeichert – die vollständige Historie steht in der Ansicht „Ereignisse“"
+
+msgid "gui.chat.last"
+msgstr "Letztes Ergebnis: {summary}"
+
+msgid "gui.chat.no_request"
+msgstr "Keine Anfrage-ID zum Abbrechen (zuerst einen Turn senden)"
+
+msgid "gui.chat.none"
+msgstr "Keine Sitzung ausgewählt – zuerst in der Sitzungsansicht auswählen (j/k)"
+
+msgid "gui.chat.not_supported"
+msgstr "LLM-Executor nicht angebunden (not_supported)"
+
+msgid "gui.chat.progress"
+msgstr "Wird generiert: {chunks} Blöcke…"
+
+msgid "gui.chat.prompt.placeholder"
+msgstr "Prompt eingeben, Enter sendet"
+
+msgid "gui.chat.provider"
+msgstr "LLM-Profil: {provider}"
+
+msgid "gui.chat.provider.placeholder"
+msgstr "Profilname"
+
+msgid "gui.chat.send"
+msgstr "Senden"
+
+msgid "gui.checkpoints.degraded"
+msgstr "Rollback nicht implementiert (nur Ansicht)"
+
+msgid "gui.checkpoints.empty"
+msgstr "Keine Prüfpunkte für diese Aufgabe"
+
+msgid "gui.checkpoints.hint"
+msgstr "In der Aufgabenzeile „Prüfpunkte“ drücken"
+
+msgid "gui.checkpoints.open"
+msgstr "Prüfpunkte"
+
+msgid "gui.checkpoints.title"
+msgstr "Prüfpunkte"
+
+msgid "gui.kpi.count"
+msgstr "Sitzungen {sessions} · Zeilen in der Ansicht {rows}"
+
+msgid "gui.op.archive"
+msgstr "Archivieren"
+
+msgid "gui.op.cancel"
+msgstr "Abbrechen"
+
+msgid "gui.op.confirm"
+msgstr "Bestätigen"
+
+msgid "gui.op.delete"
+msgstr "Löschen"
+
+msgid "gui.op.error"
+msgstr "Vorgang fehlgeschlagen"
+
+msgid "gui.op.input.days"
+msgstr "Aufbewahrungstage bis zur Bereinigung"
+
+msgid "gui.op.input.title"
+msgstr "Titel"
+
+msgid "gui.op.new"
+msgstr "Neu"
+
+msgid "gui.op.not_supported"
+msgstr "Befehls-Executor nicht angebunden (not_supported)"
+
+msgid "gui.op.preview"
+msgstr "Vorschau"
+
+msgid "gui.op.purge"
+msgstr "Bereinigen (älter als 30 Tage)"
+
+msgid "gui.op.rename"
+msgstr "Umbenennen"
+
+msgid "gui.op.restore"
+msgstr "Wiederherstellen"
+
+msgid "gui.session.archived"
+msgstr "Archiviert"
+
+msgid "gui.session.group.active"
+msgstr "– Aktiv –"
+
+msgid "gui.session.group.archived"
+msgstr "– Archiviert –"
+
+msgid "gui.session.none"
+msgstr "keine Sitzung"
+
+msgid "gui.session.off"
+msgstr "ausgeblendet"
+
+msgid "gui.session.on"
+msgstr "sichtbar"
+
+msgid "gui.session.search"
+msgstr "Titel oder ID suchen"
+
+msgid "gui.session.sort.created"
+msgstr "Erstellt"
+
+msgid "gui.session.sort.recent"
+msgstr "Zuletzt"
+
+msgid "gui.session.sort.title"
+msgstr "Titel"
+
+msgid "gui.status.theme"
+msgstr "Design: {theme}"
+
+msgid "gui.task.abort"
+msgstr "Abbrechen"
+
+msgid "gui.task.retries"
+msgstr "Wiederholungen {count}"
+
+msgid "gui.task.retry"
+msgstr "Wiederholen"
+
+msgid "menu.context"
+msgstr "Kontext"
+
+msgid "menu.diff"
+msgstr "Diff"
+
+msgid "menu.events"
+msgstr "Ereignisse"
+
+msgid "menu.sessions"
+msgstr "Sitzungen"
+
+msgid "menu.spec"
+msgstr "Spezifikation"
+
+msgid "menu.tasks"
+msgstr "Aufgaben"
+
+msgid "settings.action.done"
+msgstr "Abgeschlossen: {label}"
+
+msgid "settings.action.failed"
+msgstr "Vorgang fehlgeschlagen ({label}): {code} {message}"
+
+msgid "settings.action.running"
+msgstr "Läuft: {label}"
+
+msgid "settings.back"
+msgstr "Zurück zur Startseite"
+
+msgid "settings.confirm.builtin_empty"
+msgstr "Damit wird die mitgelieferte Wurzelkopie geleert (die eingebaute Basis wirkt nicht mehr mit). Fortfahren?"
+
+msgid "settings.confirm.external_key"
+msgstr "Damit werden das externe Zertifikat und der private Schlüssel gespeichert und der eingehende Modus auf external umgestellt. Fortfahren?"
+
+msgid "settings.confirm.inbound_off"
+msgstr "Damit wird eingehendes TLS deaktiviert (zurück zu einfachem HTTP); wirksam nach einem Neustart von serve --web. Fortfahren?"
+
+msgid "settings.confirm.regenerate"
+msgstr "Damit wird das selbstsignierte Serverzertifikat neu erzeugt (der aktuelle Fingerabdruck wird ungültig). Fortfahren?"
+
+msgid "settings.confirm.reset_builtin"
+msgstr "Damit wird die mitgelieferte Wurzelkopie auf das ausgelieferte Asset zurückgesetzt. Fortfahren?"
+
+msgid "settings.confirm.reset_extra"
+msgstr "Damit werden die zusätzlichen Wurzeln geleert. Fortfahren?"
+
+msgid "settings.error.bad_port"
+msgstr "Der Port muss eine ganze Zahl in 1..=65535 sein"
+
+msgid "settings.error.generic"
+msgstr "Vorgang fehlgeschlagen"
+
+msgid "settings.error.load"
+msgstr "Zertifikatsstatus kann nicht gelesen werden: {code} {message}"
+
+msgid "settings.error.missing_host"
+msgstr "Zuerst einen Hostnamen oder ein IP-Literal eingeben"
+
+msgid "settings.error.missing_pem"
+msgstr "Zuerst Zertifikatskette und privaten Schlüssel (PEM) ausfüllen"
+
+msgid "settings.field.count"
+msgstr "Anzahl: {value}"
+
+msgid "settings.field.modified"
+msgstr "Geändert: {value}"
+
+msgid "settings.field.newer"
+msgstr "Neuere mitgelieferte Version: {value}"
+
+msgid "settings.field.path"
+msgstr "Pfad: {value}"
+
+msgid "settings.field.sha256"
+msgstr "SHA-256: {value}"
+
+msgid "settings.inbound.builtin"
+msgstr "Eingebautes selbstsigniertes Zertifikat (builtin)"
+
+msgid "settings.inbound.builtin_hint"
+msgstr "Erzeugt pro Arbeitsbereich ein selbstsigniertes ECDSA-P-256-Zertifikat (397 Tage); das SAN deckt localhost, 127.0.0.1, ::1 und den Hostnamen ab."
+
+msgid "settings.inbound.cert_pem_label"
+msgstr "Zertifikatskette hochladen (PEM)"
+
+msgid "settings.inbound.days_remaining"
+msgstr "Verbleibende Tage: {value}"
+
+msgid "settings.inbound.download"
+msgstr "Öffentliches Zertifikat herunterladen (PEM)"
+
+msgid "settings.inbound.external"
+msgstr "Externes Zertifikat (external)"
+
+msgid "settings.inbound.external_hint"
+msgstr "Verwendet die hochgeladene PEM-Zertifikatskette und den unverschlüsselten privaten Schlüssel; der private Schlüssel ist nur schreibbar."
+
+msgid "settings.inbound.key_pem_label"
+msgstr "Privaten Schlüssel hochladen (unverschlüsseltes PEM, nach dem Absenden geleert)"
+
+msgid "settings.inbound.key_saved"
+msgstr "Privater Schlüssel gespeichert; er wird nicht mehr angezeigt (das Feld wurde geleert)."
+
+msgid "settings.inbound.legend"
+msgstr "Modus"
+
+msgid "settings.inbound.material"
+msgstr "Zertifikat vorhanden: {cert} · privater Schlüssel vorhanden: {key}"
+
+msgid "settings.inbound.no_material"
+msgstr "Noch kein Material für das Serverzertifikat (Kette hochladen oder selbstsigniertes Zertifikat neu erzeugen)"
+
+msgid "settings.inbound.not_after"
+msgstr "Gültig bis: {value}"
+
+msgid "settings.inbound.off"
+msgstr "TLS aus (off)"
+
+msgid "settings.inbound.off_hint"
+msgstr "Kehrt zu einfachem HTTP zurück (ADR-023); erfordert ausdrückliche Bestätigung und wird nie stillschweigend zurückgenommen."
+
+msgid "settings.inbound.regenerate"
+msgstr "Selbstsigniertes Zertifikat neu erzeugen"
+
+msgid "settings.inbound.sans"
+msgstr "SAN: {value}"
+
+msgid "settings.inbound.sha256"
+msgstr "Fingerabdruck SHA-256: {value}"
+
+msgid "settings.inbound.subject"
+msgstr "Inhaber: {value}"
+
+msgid "settings.inbound.title"
+msgstr "Eingehendes TLS (serve --web)"
+
+msgid "settings.inbound.upload"
+msgstr "Hochladen und auf external umstellen"
+
+msgid "settings.link"
+msgstr "Zertifikatseinstellungen"
+
+msgid "settings.local_mode"
+msgstr "Lokale Einstellungsseite"
+
+msgid "settings.modes.save"
+msgstr "Modi speichern"
+
+msgid "settings.notes.none"
+msgstr "Keine weiteren Hinweise"
+
+msgid "settings.notes.title"
+msgstr "Hinweise"
+
+msgid "settings.outbound.builtin"
+msgstr "Mitgelieferte Kopie (builtin)"
+
+msgid "settings.outbound.builtin_hint"
+msgstr "Die mitgelieferte Wurzelkopie im Arbeitsbereich dient als Basis; zusätzliche Wurzeln werden angehängt."
+
+msgid "settings.outbound.builtin_pem_label"
+msgstr "Mitgelieferte Wurzelkopie (PEM, editierbar)"
+
+msgid "settings.outbound.effective_line"
+msgstr "Wirksame Wurzelzertifikate: {value}"
+
+msgid "settings.outbound.empty_extra"
+msgstr "Keine zusätzlichen Wurzeln konfiguriert (korrekt leer: keine Zertifikate in der Datei)"
+
+msgid "settings.outbound.extra_pem_label"
+msgstr "Zusätzliche Wurzeln (PEM, in beiden Modi wirksam)"
+
+msgid "settings.outbound.hint"
+msgstr "Kein Modus schaltet die Prüfung von Kette oder Hostname ab; einen Schalter zum Überspringen der Prüfung gibt es nicht."
+
+msgid "settings.outbound.legend"
+msgstr "Modus des Vertrauensspeichers"
+
+msgid "settings.outbound.missing_builtin"
+msgstr "Mitgelieferte Kopie fehlt: Der Status meldet die Datei nicht"
+
+msgid "settings.outbound.reset_builtin"
+msgstr "Mitgelieferte Kopie wiederherstellen"
+
+msgid "settings.outbound.reset_extra"
+msgstr "Zusätzliche Wurzeln leeren"
+
+msgid "settings.outbound.save_builtin"
+msgstr "Mitgelieferte Kopie speichern"
+
+msgid "settings.outbound.save_extra"
+msgstr "Zusätzliche Wurzeln speichern"
+
+msgid "settings.outbound.system"
+msgstr "Speicher des Betriebssystems (system)"
+
+msgid "settings.outbound.system_hint"
+msgstr "Der Wurzelspeicher des Betriebssystems dient als Basis; zusätzliche Wurzeln werden ebenfalls angehängt. Ein leerer Systemspeicher ist ein Fehler und fällt nie auf die mitgelieferte Kopie zurück."
+
+msgid "settings.outbound.system_na"
+msgstr "Nicht zutreffend (der aktuelle Modus liest den Systemspeicher nicht)"
+
+msgid "settings.outbound.system_roots_line"
+msgstr "Wurzelzertifikate des Systems: {value}"
+
+msgid "settings.outbound.title"
+msgstr "Vertrauen für ausgehendes HTTPS"
+
+msgid "settings.restart_banner"
+msgstr "Eingehendes Zertifikat oder Modus geändert; zum Anwenden serve --web neu starten."
+
+msgid "settings.status.no"
+msgstr "nein"
+
+msgid "settings.status.unknown"
+msgstr "Unbekannt"
+
+msgid "settings.status.yes"
+msgstr "ja"
+
+msgid "settings.title"
+msgstr "Zertifikatseinstellungen"
+
+msgid "settings.verify.button"
+msgstr "Prüfen"
+
+msgid "settings.verify.failed"
+msgstr "Prüfung fehlgeschlagen: {error}"
+
+msgid "settings.verify.host"
+msgstr "Host"
+
+msgid "settings.verify.ok"
+msgstr "Prüfung erfolgreich: Inhaber {subject} · gültig bis {not_after} · Fingerabdruck {sha256} · {tls_version}"
+
+msgid "settings.verify.port"
+msgstr "Port"
+
+msgid "settings.verify.title"
+msgstr "Prüfung der ausgehenden Verbindung"
+
+msgid "status.idle"
+msgstr "Leerlauf"
+
+msgid "status.running"
+msgstr "Läuft"
+
+msgid "summary.context"
+msgstr "Sitzung {session} · Budget {budget} · genutzt {used} · Einträge {items}{truncated}"
+
+msgid "summary.context_truncated"
+msgstr "· gekürzt: {reason}"
+
+msgid "summary.diff"
+msgstr "Sitzung {session} · Aufgaben {total} · bestanden {pass} / fehlgeschlagen {fail} / ungetestet {untested}{truncated}"
+
+msgid "summary.diff.truncated"
+msgstr "· Differenzliste gekürzt"
+
+msgid "summary.events"
+msgstr "Sitzung {session} · Cursor {from}..{to} (Ende ≤ {limit})"
+
+msgid "summary.none"
+msgstr "keine"
+
+msgid "summary.spec"
+msgstr "Sitzung {session} · Phase {stage} · Cursor {cursor} · aktive Aufgabe {task}"
+
+msgid "summary.tasks"
+msgstr "Sitzung {session} · gesamt {total} · erledigt {done} · blockiert {blocked}"
+
+msgid "tui.col.id"
+msgstr "ID"
+
+msgid "tui.col.kind"
+msgstr "Art"
+
+msgid "tui.col.retry"
+msgstr "Wiederholungen"
+
+msgid "tui.col.seq"
+msgstr "Nr."
+
+msgid "tui.col.stage"
+msgstr "Phase"
+
+msgid "tui.col.status"
+msgstr "Status"
+
+msgid "tui.col.summary"
+msgstr "Zusammenfassung"
+
+msgid "tui.col.title"
+msgstr "Titel"
+
+msgid "tui.diff_unwired"
+msgstr "(Diff-Quelle nicht angebunden: converge-Differenz folgt später; es wird nichts erfunden)"
+
+msgid "tui.empty"
+msgstr "(keine Daten)"
+
+msgid "tui.footer"
+msgstr "1-7 Ansichten  j/k bewegen  r aktualisieren  t Design  q beenden  |  {cols}x{rows}"
+
+msgid "tui.header.none"
+msgstr "keine Sitzung"
+
+msgid "tui.no_session"
+msgstr "(keine Sitzung ausgewählt – j/k drücken)"
+
+msgid "tui.runtimes"
+msgstr "Laufzeitumgebungen: {list}"
+
+msgid "tui.title"
+msgstr "{app}  |  {view} ({index}/{count})"
+
+msgid "view.chat"
+msgstr "Chat"
+
+msgid "view.context"
+msgstr "Kontext"
+
+msgid "view.diff"
+msgstr "Diff-Vorschau"
+
+msgid "view.events"
+msgstr "Ereignisse"
+
+msgid "view.sessions"
+msgstr "Sitzungen"
+
+msgid "view.spec"
+msgstr "Spezifikationsstatus"
+
+msgid "view.tasks"
+msgstr "Aufgaben"
+
+msgid "web.action.failed"
+msgstr "Vorgang fehlgeschlagen ({label}): {error}"
+
+msgid "web.checkpoints.degraded"
+msgstr "Rollback ist nicht implementiert (ausdrückliche Einschränkung): nur Ansicht und Delta-Zusammenfassungen"
+
+msgid "web.checkpoints.empty"
+msgstr "Keine Prüfpunkte für diese Aufgabe"
+
+msgid "web.checkpoints.failed"
+msgstr "Prüfpunkte konnten nicht geladen werden: {error}"
+
+msgid "web.checkpoints.hint"
+msgstr "Aufgabe auswählen, um Prüfpunkte und Delta-Zusammenfassungen zu sehen"
+
+msgid "web.checkpoints.ready"
+msgstr "Rollback verfügbar"
+
+msgid "web.checkpoints.refs"
+msgstr "{count} Artefaktverweise"
+
+msgid "web.checkpoints.title"
+msgstr "Prüfpunkte"
+
+msgid "web.checkpoints.truncated"
+msgstr "Prüfpunkte überschreiten die Obergrenze; die Liste wurde gekürzt"
+
+msgid "web.cleanup.bad_days"
+msgstr "Aufbewahrungstage müssen mindestens 1 betragen"
+
+msgid "web.cleanup.confirm"
+msgstr "Bereinigung bestätigen"
+
+msgid "web.cleanup.days"
+msgstr "Aufbewahrungstage"
+
+msgid "web.cleanup.done"
+msgstr "{sessions} Sitzung(en) bereinigt"
+
+msgid "web.cleanup.preview"
+msgstr "Vorschau"
+
+msgid "web.cleanup.preview_required"
+msgstr "Vor dem Bestätigen der Bereinigung zuerst die Vorschau aufrufen"
+
+msgid "web.cleanup.preview_result"
+msgstr "{sessions} Sitzung(en) werden bereinigt"
+
+msgid "web.conn.connected"
+msgstr "Verbunden"
+
+msgid "web.conn.disconnected"
+msgstr "Getrennt"
+
+msgid "web.context.empty"
+msgstr "(korrekt leer: nichts passt ins Budget)"
+
+msgid "web.context.no_session"
+msgstr "Keine Sitzung ausgewählt"
+
+msgid "web.context.summary"
+msgstr "Budget {consumed}/{budget} · Quellen {sources} · gekürzt {truncated}"
+
+msgid "web.cursor"
+msgstr "Cursor {n}"
+
+msgid "web.diff.empty"
+msgstr "(keine Abweichungen: alle Abnahmekriterien bestanden)"
+
+msgid "web.diff.no_session"
+msgstr "Keine Sitzung ausgewählt"
+
+msgid "web.diff.summary"
+msgstr "Aufgaben {total} · bestanden {pass} / fehlgeschlagen {fail} / ungetestet {untested}{truncated}"
+
+msgid "web.diff.truncated"
+msgstr "(gekürzt)"
+
+msgid "web.export.done"
+msgstr "Export abgeschlossen"
+
+msgid "web.export.json"
+msgstr "JSON exportieren"
+
+msgid "web.export.jsonl"
+msgstr "JSONL exportieren"
+
+msgid "web.recovering"
+msgstr "Wird wiederhergestellt…"
+
+msgid "web.runtimes"
+msgstr "Laufzeitumgebungen"
+
+msgid "web.runtimes.available"
+msgstr "verfügbar"
+
+msgid "web.runtimes.unavailable"
+msgstr "nicht verfügbar"
+
+msgid "web.runtimes.unknown"
+msgstr "nicht geprüft"
+
+msgid "web.runtimes.unwired"
+msgstr "Bestand der Laufzeitumgebungen ist nicht angebunden"
+
+msgid "web.session.archive_confirm"
+msgstr "Archivierung bestätigen"
+
+msgid "web.session.archive_preview"
+msgstr "Archivierung prüfen"
+
+msgid "web.session.archive_preview_required"
+msgstr "Vor dem Bestätigen der Archivierung zuerst die Vorschau aufrufen"
+
+msgid "web.session.archive_preview_result"
+msgstr "Sitzung {session} würde archiviert – zum Ausführen bestätigen"
+
+msgid "web.session.archived"
+msgstr "Sitzung {session} archiviert"
+
+msgid "web.session.create"
+msgstr "Anlegen"
+
+msgid "web.session.delete_confirm"
+msgstr "Löschung bestätigen"
+
+msgid "web.session.delete_preview"
+msgstr "Löschung prüfen"
+
+msgid "web.session.delete_preview_result"
+msgstr "Wird gelöscht: {events} Ereignisse · {tasks} Aufgaben"
+
+msgid "web.session.deleted"
+msgstr "{n} Sitzung(en) gelöscht"
+
+msgid "web.session.group_active"
+msgstr "Aktiv"
+
+msgid "web.session.group_archived"
+msgstr "Archiviert"
+
+msgid "web.session.none"
+msgstr "Keine Sitzung ausgewählt"
+
+msgid "web.session.preview_required"
+msgstr "Vor dem Bestätigen der Löschung zuerst die Vorschau aufrufen"
+
+msgid "web.session.rename"
+msgstr "Umbenennen"
+
+msgid "web.session.rename_placeholder"
+msgstr "Neuer Titel"
+
+msgid "web.session.search"
+msgstr "Titel oder ID suchen"
+
+msgid "web.session.show_archived"
+msgstr "Archivierte einbeziehen"
+
+msgid "web.session.sort"
+msgstr "Sortierung"
+
+msgid "web.session.sort.created"
+msgstr "Erstellt"
+
+msgid "web.session.sort.last_active"
+msgstr "Zuletzt aktiv"
+
+msgid "web.session.sort.title"
+msgstr "Titel"
+
+msgid "web.session.title"
+msgstr "Sitzungstitel"
+
+msgid "web.session.title_required"
+msgstr "Zuerst einen Sitzungstitel eingeben"
+
+msgid "web.tab.context"
+msgstr "Kontext"
+
+msgid "web.tab.diff"
+msgstr "Diff"
+
+msgid "web.tab.history"
+msgstr "Verlauf"
+
+msgid "web.tab.maintenance"
+msgstr "Wartung"
+
+msgid "web.tab.sessions"
+msgstr "Sitzungen"
+
+msgid "web.tab.spec"
+msgstr "SDD"
+
+msgid "web.tab.tasks"
+msgstr "Aufgaben"
+
+msgid "web.task.abort"
+msgstr "Abbrechen"
+
+msgid "web.task.depends"
+msgstr "Hängt ab von {depends}"
+
+msgid "web.task.progress"
+msgstr "Erledigt {done}/{total} · blockiert {blocked}"
+
+msgid "web.task.retries"
+msgstr "Wiederholungen {count}"
+
+msgid "web.task.retry"
+msgstr "Wiederholen"
+
+msgid "web.task.truncated"
+msgstr "Aufgabenkarten überschreiten die Obergrenze und wurden gekürzt (die Zählwerte der Übersicht bleiben vollständig)"
+
+msgid "web.tasks_summary"
+msgstr "gesamt {total} · erledigt {done} · blockiert {blocked}"
+
+msgid "web.theme.default"
+msgstr "Standard"
+
+msgid "web.theme.label"
+msgstr "Design"
+

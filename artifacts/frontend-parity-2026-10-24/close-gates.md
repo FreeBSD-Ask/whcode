@@ -27,7 +27,7 @@ Check。新增 FR 计数来自 FR-619—625 转正（86 → 93）。
 | `cargo test -p whcode-cui` | 16 passed / 0 failed（`retained_commands_map_to_reserved_surfaces` 已移除 runtime list；`implemented_commands_map_to_implemented_surfaces` 增补 `context budget` 与 `runtime list`） |
 | `cargo test -p whcode-tui` | 60 passed / 0 failed（含 `write_and_theme_actions_are_implemented`、游标零重绘与推进重绘用例） |
 
-矩阵逐行比对覆盖：行数 54、行序与登记表一致、类别与效果、四端状态符号（✅／◐／⏳／—）、
+矩阵逐行比对覆盖：行数 54、行序与登记表一致、类别与效果、四端状态符号（通过／部分／预留／—）、
 每个 Excluded 的理由码、每个 Reserved 的里程碑。负向用例证明篡改状态符号或理由码会使
 校验失败（非空转）。
 

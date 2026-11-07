@@ -97,7 +97,7 @@
   根因：工作流在步骤 `env` 里显式导出的 `DUCKDB_LIB_DIR` 是**相对路径**，而
   `crates/whcode-store/build.rs` 用 `Path::new(lib_dir).join("duckdb.dll").is_file()` 判定
   时，构建脚本进程的 cwd 是 crate 目录，相对路径被判为不存在而**静默跳过复制**；链接期
-  rustc 的 cwd 是工作区根，同一相对路径却能命中，于是"编译通过、运行期缺 dll"。
+  rustc 的 cwd 是工作区根，同一相对路径却能命中，于是“编译通过、运行期缺 dll”。
   amd64 lane 未触发，是因为它走 `.cargo/config.toml` 的 `relative = true`（cargo 解析为
   绝对路径）。修复：`build.rs` 把相对 `DUCKDB_LIB_DIR` 按**工作区根**解析（从
   `CARGO_MANIFEST_DIR` 上溯含 `[workspace]` 的 Cargo.toml），与 cargo 的 `relative = true`

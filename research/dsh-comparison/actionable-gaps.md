@@ -34,7 +34,7 @@ MCP stdio/HTTP（ADR-054/055）、压缩折叠（ADR-051）、子代理（ADR-05
 | 重复调用提醒 | 连续 3/5/8 次注入提醒（域 B） | 无 | 事件式提醒（不注入模型） | 无（事件级） |
 | 溢出落盘（spill） | 头尾保留＋地址，保存失败保持内联（域 B） | 64 KiB 截断 | `whcode-tools` 溢出策略 | 须定保留期与上限 |
 | 模型目录 | `listModels`＋badge（域 K） | profile 静态声明 | profile 增可选 `models[]`；GUI/Web 选择器 | 修订 ADR-031 |
-| 基准进 PR 门禁 | 八组基准＋内存压力车道（域 S） | `bench baseline` 仅手动 | 选 turn 首 token/切换/历史页三项进 CI | 修订 ADR-025；噪声取中位 |
+| 基准进 PR 门禁 | 八组基准＋内存压力通道（域 S） | `bench baseline` 仅手动 | 选 turn 首 token/切换/历史页三项进 CI | 修订 ADR-025；噪声取中位 |
 | 文档生成与新鲜度校验 | `gen-tool-catalog`＋`verify-cordis-catalog`（域 P） | 无 | 从 `provider_manifest()` 生成工具目录，脚本校验 | 修订 ADR-045 |
 
 ## P3：远期（仅记录，不排期）

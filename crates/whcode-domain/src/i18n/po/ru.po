@@ -1,0 +1,1246 @@
+# ru translation catalog for WHCode (FR-615).
+# Generated from i18n/ru.properties by .github/scripts/i18n-po.py; do not edit by hand.
+# Edit the properties file instead, then regenerate — a contract test fails on drift.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: whcode 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/FreeBSD-Ask/whcode/issues\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "app.title"
+msgstr "WHCode — среда для агентного кодирования"
+
+msgid "cli.about"
+msgstr "WHCode — среда для агентного кодирования"
+
+msgid "cli.context.about"
+msgstr "Представление бюджета контекста (FR-105/108; contracts/cui-cli.md §1)."
+
+msgid "cli.context.budget.about"
+msgstr "Представление бюджета: текущий бюджет, загруженные источники, причина усечения и курсор (через `whcode_app::load_context`)."
+
+msgid "cli.context.budget.budget"
+msgstr "Бюджет в токенах; по умолчанию базовое значение отображения (4096, как в представлении контекста TUI)."
+
+msgid "cli.context.budget.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.db.about"
+msgstr "Обслуживание и очистка базы данных (FR-507—510)."
+
+msgid "cli.db.archive.about"
+msgstr "Экспортировать рабочую область."
+
+msgid "cli.db.archive.export"
+msgstr "Путь вывода."
+
+msgid "cli.db.check.about"
+msgstr "Проверка обязательных индексов."
+
+msgid "cli.db.checkpoint.about"
+msgstr "Явная контрольная точка (FR-510; при необходимости применяет переопределения политики WAL, disaster-recovery §5)."
+
+msgid "cli.db.checkpoint.autocheckpoint"
+msgstr "Переопределить wal_autocheckpoint (например, 1MB; если не задан — без изменений)."
+
+msgid "cli.db.checkpoint.threshold"
+msgstr "Переопределить порог автоматической контрольной точки WAL (например, 16MB; если не задан — без изменений)."
+
+msgid "cli.db.compact.about"
+msgstr "Сжать базу данных на диске (копирование — проверка — переключение, FR-510; по умолчанию dry-run)."
+
+msgid "cli.db.compact.dry-run"
+msgstr "Только предпросмотр (по умолчанию)."
+
+msgid "cli.db.compact.yes"
+msgstr "Подтвердить выполнение."
+
+msgid "cli.db.explain.about"
+msgstr "Анализ плана запроса (запросы только на чтение, контракт §2-2)."
+
+msgid "cli.db.explain.query"
+msgstr "SQL только на чтение (начинается с SELECT/WITH)."
+
+msgid "cli.db.purge.about"
+msgstr "Очистка по возрасту (FR-508/509; по умолчанию dry-run)."
+
+msgid "cli.db.purge.before"
+msgstr "Граница времени (миллисекунды Unix)."
+
+msgid "cli.db.purge.dry-run"
+msgstr "Только предпросмотр (по умолчанию)."
+
+msgid "cli.db.purge.yes"
+msgstr "Подтвердить выполнение."
+
+msgid "cli.db.restore.about"
+msgstr "Восстановить экспорт в пустую рабочую область (обратная операция к `db archive`; явное подтверждение, без предпросмотра)."
+
+msgid "cli.db.restore.from"
+msgstr "Путь к файлу экспорта (формат whcode-export)."
+
+msgid "cli.db.restore.yes"
+msgstr "Подтвердить выполнение (восстановление пишет в базу; целевая база должна быть пустой)."
+
+msgid "cli.db.stats.about"
+msgstr "Статистика базы данных (FR-507)."
+
+msgid "cli.doctor.about"
+msgstr "Самопроверка окружения и конфигурации (M0)."
+
+msgid "cli.doctor.json"
+msgstr "Вывод JSON."
+
+msgid "cli.events.about"
+msgstr "Запросы и экспорт событий (FR-202/205)."
+
+msgid "cli.events.export.about"
+msgstr "Экспорт (политика сокрытия указывается в экспорте, FR-205)."
+
+msgid "cli.events.export.after"
+msgstr "Начальный курсор."
+
+msgid "cli.events.export.format"
+msgstr "Формат вывода (json/jsonl)."
+
+msgid "cli.events.export.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.events.list.about"
+msgstr "Список событий (инкрементально по курсору)."
+
+msgid "cli.events.list.after"
+msgstr "Начальный курсор (не включается)."
+
+msgid "cli.events.list.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.events.show.about"
+msgstr "Подробности одного события."
+
+msgid "cli.events.show.event"
+msgstr "Идентификатор события."
+
+msgid "cli.font.about"
+msgstr "Установка встроенных шрифтов и проверка объявления в терминале (FR-717; локальная ресурсная команда, без базы данных и рабочей области)."
+
+msgid "cli.font.install.about"
+msgstr "Установить четыре встроенных шрифта в пользовательский каталог шрифтов и записать регистрацию HKCU (семантика копирования с перезаписью, повторный запуск безопасен)."
+
+msgid "cli.font.install.dry-run"
+msgstr "Только сообщить о действиях, которые были бы выполнены, не меняя систему."
+
+msgid "cli.font.install.from"
+msgstr "Каталог источников шрифтов (плоская раскладка или раскладка репозитория `source/<family>/`); по умолчанию последовательно проверяются каталог рядом с исполняемым файлом и `assets/fonts/source` в текущем каталоге (ADR-028, редакция 1)."
+
+msgid "cli.font.status.about"
+msgstr "Сообщить состояние установки шрифтов и объявление в терминале (только чтение)."
+
+msgid "cli.font.uninstall.about"
+msgstr "Удалить встроенные шрифты: снять регистрацию и удалить файлы из пользовательского каталога шрифтов (по возможности, с отчётом по каждому пункту)."
+
+msgid "cli.font.uninstall.dry-run"
+msgstr "Только сообщить о действиях, которые были бы выполнены, не меняя систему."
+
+msgid "cli.hint.no_console"
+msgstr "whcode {version} — интерактивная консоль недоступна, интерфейс не запущен"
+
+msgid "cli.hint.options"
+msgstr "Доступно: --tui (терминальный интерфейс), --cli <подкоманда>, --lang <язык>, --help"
+
+msgid "cli.json"
+msgstr "Вывод JSON (конверт schema_version, FR-602); допускается до или после любой подкоманды."
+
+msgid "cli.lang"
+msgstr "Язык текстов интерфейса (например, zh-CN, en; перекрывает LANG/LC_ALL, FR-615)."
+
+msgid "cli.llm.about"
+msgstr "Вызов модели (FR-201; `llm run` и `llm cancel`, contracts/cui-cli.md §1)."
+
+msgid "cli.llm.cancel.about"
+msgstr "Отменить вызов, выполняемый на этой машине (вступает в силу до следующего фрагмента)."
+
+msgid "cli.llm.cancel.request"
+msgstr "Идентификатор запроса (выводится `llm run` или задаётся через `--request-id`)."
+
+msgid "cli.llm.run.about"
+msgstr "Выполнить один реальный вызов (синхронно; потоковые приращения выводятся ограниченной последовательностью в конце)."
+
+msgid "cli.llm.run.max-tokens"
+msgstr "Переопределить `max_tokens` профиля."
+
+msgid "cli.llm.run.model"
+msgstr "Переопределить идентификатор модели профиля."
+
+msgid "cli.llm.run.prompt"
+msgstr "Текст запроса (не записывается в события и журналы)."
+
+msgid "cli.llm.run.provider"
+msgstr "Имя профиля (явный выбор, ADR-031, решение 4)."
+
+msgid "cli.llm.run.request-id"
+msgstr "Заданный заранее идентификатор запроса (ключ для `llm cancel`; иначе формируется по вызову)."
+
+msgid "cli.llm.run.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.llm.run.trace-level"
+msgstr "Уровень трассировки (off/metadata/redacted/full)."
+
+msgid "cli.runtime.about"
+msgstr "Управление средами выполнения (FR-701—710; M8)."
+
+msgid "cli.runtime.disable.about"
+msgstr "Отключить среду выполнения."
+
+msgid "cli.runtime.disable.name"
+msgstr "Имя среды выполнения."
+
+msgid "cli.runtime.enable.about"
+msgstr "Включить среду выполнения."
+
+msgid "cli.runtime.enable.name"
+msgstr "Имя среды выполнения."
+
+msgid "cli.runtime.install.about"
+msgstr "Установить payload."
+
+msgid "cli.runtime.install.name"
+msgstr "Имя среды выполнения."
+
+msgid "cli.runtime.list.about"
+msgstr "Список сред выполнения."
+
+msgid "cli.runtime.status.about"
+msgstr "Состояние среды выполнения."
+
+msgid "cli.runtime.status.name"
+msgstr "Имя среды выполнения."
+
+msgid "cli.serve.about"
+msgstr "Точки входа транспорта (M6/M7)."
+
+msgid "cli.serve.bind"
+msgstr "Адрес привязки (по умолчанию только петлевой, FR-606)."
+
+msgid "cli.serve.ssh"
+msgstr "Точка входа SSH (M7, отложено)."
+
+msgid "cli.serve.web"
+msgstr "Точка входа Web (M6)."
+
+msgid "cli.session.about"
+msgstr "Жизненный цикл сессии (FR-101)."
+
+msgid "cli.session.archive.about"
+msgstr "Архивирование и восстановление (деструктивное семейство по контракту §2-1: по умолчанию dry-run, выполнение по `--yes`)."
+
+msgid "cli.session.archive.dry-run"
+msgstr "Только предпросмотр (по умолчанию)."
+
+msgid "cli.session.archive.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.session.archive.unarchive"
+msgstr "Восстановить архивную сессию."
+
+msgid "cli.session.archive.yes"
+msgstr "Подтвердить выполнение (несовместимо с --dry-run, §8.1)."
+
+msgid "cli.session.delete.about"
+msgstr "Удалить сессию (деструктивно; по умолчанию dry-run, FR-509)."
+
+msgid "cli.session.delete.dry-run"
+msgstr "Только предпросмотр (по умолчанию)."
+
+msgid "cli.session.delete.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.session.delete.yes"
+msgstr "Подтвердить выполнение (несовместимо с --dry-run, §8.1)."
+
+msgid "cli.session.list.about"
+msgstr "Список сессий."
+
+msgid "cli.session.list.all"
+msgstr "Включая архивные сессии."
+
+msgid "cli.session.new.about"
+msgstr "Создать сессию."
+
+msgid "cli.session.new.model"
+msgstr "Модель (необязательно)."
+
+msgid "cli.session.new.title"
+msgstr "Заголовок."
+
+msgid "cli.session.rename.about"
+msgstr "Переименовать сессию."
+
+msgid "cli.session.rename.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.session.rename.title"
+msgstr "Новый заголовок."
+
+msgid "cli.session.show.about"
+msgstr "Показать сессию."
+
+msgid "cli.session.show.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.spec.about"
+msgstr "Этапы и ворота SDD (FR-307—312)."
+
+msgid "cli.spec.analyze.about"
+msgstr "Проверка Analyze (FR-306)."
+
+msgid "cli.spec.analyze.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.spec.converge.about"
+msgstr "Проверка Converge (FR-310/311)."
+
+msgid "cli.spec.converge.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.spec.force-advance.about"
+msgstr "Пройти ворота вручную, принудительно (FR-312; причина обязательна, контракт §2-3)."
+
+msgid "cli.spec.force-advance.reason"
+msgstr "Обоснование принудительного прохода ворот (обязательно, FR-312)."
+
+msgid "cli.spec.force-advance.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.spec.force-advance.to"
+msgstr "Целевой этап."
+
+msgid "cli.spec.next.about"
+msgstr "Следующий этап."
+
+msgid "cli.spec.next.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.spec.status.about"
+msgstr "Текущее состояние этапа (FR-314)."
+
+msgid "cli.spec.status.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.spec.validate.about"
+msgstr "Проверить артефакты."
+
+msgid "cli.spec.validate.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.status.about"
+msgstr "Снимок состояния (FR-314)."
+
+msgid "cli.status.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.task.abort.about"
+msgstr "Прервать задачу (FR-408)."
+
+msgid "cli.task.abort.task"
+msgstr "Идентификатор задачи."
+
+msgid "cli.task.about"
+msgstr "Просмотр и управление задачами (FR-401/408)."
+
+msgid "cli.task.list.about"
+msgstr "Список задач."
+
+msgid "cli.task.list.session"
+msgstr "Идентификатор сессии."
+
+msgid "cli.task.retry.about"
+msgstr "Повторить задачу (FR-401)."
+
+msgid "cli.task.retry.task"
+msgstr "Идентификатор задачи."
+
+msgid "cli.task.show.about"
+msgstr "Подробности задачи (пять классов сведений FR-104)."
+
+msgid "cli.task.show.task"
+msgstr "Идентификатор задачи."
+
+msgid "cli.workspace"
+msgstr "Каталог рабочей области (настроенная область, иначе cwd; по нему определяется `<workspace>/whcode.duckdb`)."
+
+msgid "cui.archive_dry_run"
+msgstr "dry-run: сессия {session} будет архивирована — для выполнения добавить --yes (обратное действие — --unarchive)"
+
+msgid "cui.archived"
+msgstr "Сессия {session} архивирована"
+
+msgid "cui.checkpoint_done"
+msgstr "контрольная точка создана: WAL {before} → {after}"
+
+msgid "cui.compact_done"
+msgstr "compact завершён (switched={switched})"
+
+msgid "cui.compact_dry_run"
+msgstr "dry-run: файл {file} байт, WAL {wal} байт — для выполнения compact добавить --yes (уменьшение размера не гарантируется)"
+
+msgid "cui.created"
+msgstr "Создана сессия {session}"
+
+msgid "cui.delete_dry_run"
+msgstr "dry-run: сессия {session} будет удалена (событий {events}, задач {tasks}; пропущено защищённых {skipped}) — для выполнения добавить --yes"
+
+msgid "cui.deleted"
+msgstr "Сессия {session} удалена"
+
+msgid "cui.empty"
+msgstr "(нет записей)"
+
+msgid "cui.exported"
+msgstr "Экспортировано в {path} (hash {hash})"
+
+msgid "cui.font.deleted"
+msgstr "удалён"
+
+msgid "cui.font.dry_run"
+msgstr "[предпросмотр dry-run]"
+
+msgid "cui.font.install.header"
+msgstr "{dry_run}Установка встроенных шрифтов: {source} → {dir}"
+
+msgid "cui.font.install.line"
+msgstr "{family}: копирование {source} → {target}, регистрация {reg_state}"
+
+msgid "cui.font.installed"
+msgstr "установлен"
+
+msgid "cui.font.missing"
+msgstr "отсутствует"
+
+msgid "cui.font.reg_pending"
+msgstr "ожидает регистрации"
+
+msgid "cui.font.registered"
+msgstr "зарегистрирована"
+
+msgid "cui.font.removed"
+msgstr "снята с регистрации"
+
+msgid "cui.font.status.header"
+msgstr "Состояние встроенных шрифтов (пользовательский каталог: {dir})"
+
+msgid "cui.font.status.line"
+msgstr "{family} ({file}): файл {file_state}, регистрация {reg_state}"
+
+msgid "cui.font.terminal.found"
+msgstr "Объявление в терминале: {file} (faces: {faces}; совпадений со встроенными: {hits})"
+
+msgid "cui.font.terminal.none"
+msgstr "Объявление в терминале: настройки Windows Terminal не найдены (это не ошибка)"
+
+msgid "cui.font.uninstall.header"
+msgstr "{dry_run}Удаление встроенных шрифтов"
+
+msgid "cui.font.uninstall.line"
+msgstr "{family}: регистрация {unreg_state}, файл {file_state}"
+
+msgid "cui.font.unregistered"
+msgstr "не зарегистрирована"
+
+msgid "cui.indexes_ok"
+msgstr "все индексы на месте"
+
+msgid "cui.plan_rows"
+msgstr "строк плана: {rows} (analyze=false, запрос не выполняется)"
+
+msgid "cui.purge_dry_run"
+msgstr "dry-run: будет очищено — сессий {sessions}, событий {events} (пропущено защищённых {skipped}) — для выполнения добавить --yes"
+
+msgid "cui.purged"
+msgstr "Очищено событий: {events}"
+
+msgid "cui.record.archived"
+msgstr "Архив"
+
+msgid "cui.record.artifacts"
+msgstr "Артефакты"
+
+msgid "cui.record.budget"
+msgstr "Бюджет"
+
+msgid "cui.record.checkpoints"
+msgstr "Контрольные точки"
+
+msgid "cui.record.cursor"
+msgstr "Курсор событий"
+
+msgid "cui.record.failure"
+msgstr "Причина сбоя"
+
+msgid "cui.record.items"
+msgstr "Элементы"
+
+msgid "cui.record.model"
+msgstr "Модель"
+
+msgid "cui.record.no"
+msgstr "нет"
+
+msgid "cui.record.session"
+msgstr "Сессия {session}"
+
+msgid "cui.record.task"
+msgstr "Задача {task}"
+
+msgid "cui.record.truncated"
+msgstr "Усечено"
+
+msgid "cui.record.used"
+msgstr "Использовано"
+
+msgid "cui.record.yes"
+msgstr "да"
+
+msgid "cui.renamed"
+msgstr "Сессия {session} переименована"
+
+msgid "cui.restore_done"
+msgstr "восстановление завершено: из {source}"
+
+msgid "cui.spec_status"
+msgstr "Сессия {session}: этап {stage} · курсор {cursor}"
+
+msgid "cui.status_line"
+msgstr "{session} {title} [{stage}] status={status} cursor={cursor}"
+
+msgid "cui.task_aborted"
+msgstr "{task} прервана → {status}"
+
+msgid "cui.task_retried"
+msgstr "{task}: выполнен повтор (retry={retry}) → {status}"
+
+msgid "cui.tasks_summary"
+msgstr "Сессия {session}: всего {total} · выполнено {done} · заблокировано {blocked} · активных {active}"
+
+msgid "cui.unarchive_dry_run"
+msgstr "dry-run: сессия {session} будет разархивирована — для выполнения добавить --yes"
+
+msgid "cui.unarchived"
+msgstr "Сессия {session} разархивирована"
+
+msgid "error.datasource"
+msgstr "Ошибка источника данных: {error}"
+
+msgid "error.permission_denied"
+msgstr "Доступ запрещён"
+
+msgid "gui.chat.cancel"
+msgstr "Отменить"
+
+msgid "gui.chat.empty"
+msgstr "Запрос пуст"
+
+msgid "gui.chat.error"
+msgstr "Сбой диалога"
+
+msgid "gui.chat.hint"
+msgstr "Выбрать сессию и ввести запрос; отправка ждёт завершения (синхронно, как в TUI)"
+
+msgid "gui.chat.history.hint"
+msgstr "Реплики диалога сохраняются в базе — полная история в представлении «События»"
+
+msgid "gui.chat.last"
+msgstr "Последний результат: {summary}"
+
+msgid "gui.chat.no_request"
+msgstr "Нет идентификатора запроса для отмены (сначала отправить реплику)"
+
+msgid "gui.chat.none"
+msgstr "Сессия не выбрана — выбрать её в представлении сессий (j/k)"
+
+msgid "gui.chat.not_supported"
+msgstr "Исполнитель LLM не подключён (not_supported)"
+
+msgid "gui.chat.progress"
+msgstr "Генерация: {chunks} фрагм…"
+
+msgid "gui.chat.prompt.placeholder"
+msgstr "Ввести запрос, Enter — отправить"
+
+msgid "gui.chat.provider"
+msgstr "Профиль LLM: {provider}"
+
+msgid "gui.chat.provider.placeholder"
+msgstr "имя профиля"
+
+msgid "gui.chat.send"
+msgstr "Отправить"
+
+msgid "gui.checkpoints.degraded"
+msgstr "Откат не реализован (только просмотр)"
+
+msgid "gui.checkpoints.empty"
+msgstr "У этой задачи нет контрольных точек"
+
+msgid "gui.checkpoints.hint"
+msgstr "Нажать «Контрольные точки» в строке задачи"
+
+msgid "gui.checkpoints.open"
+msgstr "Контрольные точки"
+
+msgid "gui.checkpoints.title"
+msgstr "Контрольные точки"
+
+msgid "gui.kpi.count"
+msgstr "Сессий {sessions} · строк в представлении {rows}"
+
+msgid "gui.op.archive"
+msgstr "Архивировать"
+
+msgid "gui.op.cancel"
+msgstr "Отменить"
+
+msgid "gui.op.confirm"
+msgstr "Подтвердить"
+
+msgid "gui.op.delete"
+msgstr "Удалить"
+
+msgid "gui.op.error"
+msgstr "Не удалось выполнить операцию"
+
+msgid "gui.op.input.days"
+msgstr "Порог очистки, дней"
+
+msgid "gui.op.input.title"
+msgstr "Заголовок"
+
+msgid "gui.op.new"
+msgstr "Создать"
+
+msgid "gui.op.not_supported"
+msgstr "Исполнитель команд не подключён (not_supported)"
+
+msgid "gui.op.preview"
+msgstr "Предпросмотр"
+
+msgid "gui.op.purge"
+msgstr "Очистить (старше 30 дн.)"
+
+msgid "gui.op.rename"
+msgstr "Переименовать"
+
+msgid "gui.op.restore"
+msgstr "Восстановить"
+
+msgid "gui.session.archived"
+msgstr "Архив"
+
+msgid "gui.session.group.active"
+msgstr "— Активные —"
+
+msgid "gui.session.group.archived"
+msgstr "— Архив —"
+
+msgid "gui.session.none"
+msgstr "сессия не выбрана"
+
+msgid "gui.session.off"
+msgstr "скрыт"
+
+msgid "gui.session.on"
+msgstr "показан"
+
+msgid "gui.session.search"
+msgstr "Поиск по заголовку или ID"
+
+msgid "gui.session.sort.created"
+msgstr "По дате создания"
+
+msgid "gui.session.sort.recent"
+msgstr "Недавние"
+
+msgid "gui.session.sort.title"
+msgstr "По заголовку"
+
+msgid "gui.status.theme"
+msgstr "Тема: {theme}"
+
+msgid "gui.task.abort"
+msgstr "Прервать"
+
+msgid "gui.task.retries"
+msgstr "Повторов: {count}"
+
+msgid "gui.task.retry"
+msgstr "Повторить"
+
+msgid "menu.context"
+msgstr "Контекст"
+
+msgid "menu.diff"
+msgstr "Различия"
+
+msgid "menu.events"
+msgstr "События"
+
+msgid "menu.sessions"
+msgstr "Сессии"
+
+msgid "menu.spec"
+msgstr "Спецификация"
+
+msgid "menu.tasks"
+msgstr "Задачи"
+
+msgid "settings.action.done"
+msgstr "готово: {label}"
+
+msgid "settings.action.failed"
+msgstr "действие не выполнено ({label}): {code} {message}"
+
+msgid "settings.action.running"
+msgstr "выполняется: {label}"
+
+msgid "settings.back"
+msgstr "Вернуться на главную"
+
+msgid "settings.confirm.builtin_empty"
+msgstr "Встроенная копия корневых сертификатов будет очищена (встроенная основа перестанет участвовать в доверии). Продолжить?"
+
+msgid "settings.confirm.external_key"
+msgstr "Внешний сертификат и закрытый ключ будут сохранены, режим входящего TLS переключится на external. Продолжить?"
+
+msgid "settings.confirm.inbound_off"
+msgstr "Входящий TLS будет отключён (возврат к открытому HTTP); изменения вступят в силу после перезапуска serve --web. Продолжить?"
+
+msgid "settings.confirm.regenerate"
+msgstr "Самоподписанный серверный сертификат будет пересоздан (текущий отпечаток станет недействительным). Продолжить?"
+
+msgid "settings.confirm.reset_builtin"
+msgstr "Встроенная копия корневых сертификатов будет восстановлена из поставляемого файла. Продолжить?"
+
+msgid "settings.confirm.reset_extra"
+msgstr "Дополнительные корни будут очищены. Продолжить?"
+
+msgid "settings.error.bad_port"
+msgstr "Порт должен быть целым числом в диапазоне 1..=65535"
+
+msgid "settings.error.generic"
+msgstr "действие не выполнено"
+
+msgid "settings.error.load"
+msgstr "Не удалось прочитать состояние сертификатов: {code} {message}"
+
+msgid "settings.error.missing_host"
+msgstr "Сначала указать имя узла или IP-адрес"
+
+msgid "settings.error.missing_pem"
+msgstr "Сначала указать цепочку сертификатов и закрытый ключ (PEM)"
+
+msgid "settings.field.count"
+msgstr "количество: {value}"
+
+msgid "settings.field.modified"
+msgstr "изменён: {value}"
+
+msgid "settings.field.newer"
+msgstr "встроенная версия новее: {value}"
+
+msgid "settings.field.path"
+msgstr "путь: {value}"
+
+msgid "settings.field.sha256"
+msgstr "SHA-256: {value}"
+
+msgid "settings.inbound.builtin"
+msgstr "Встроенный самоподписанный сертификат (builtin)"
+
+msgid "settings.inbound.builtin_hint"
+msgstr "Для каждой рабочей области создаётся самоподписанный сертификат ECDSA P-256 (397 дней); SAN охватывает localhost, 127.0.0.1, ::1 и имя узла."
+
+msgid "settings.inbound.cert_pem_label"
+msgstr "Загрузить цепочку сертификатов (PEM)"
+
+msgid "settings.inbound.days_remaining"
+msgstr "осталось дней: {value}"
+
+msgid "settings.inbound.download"
+msgstr "Скачать открытый сертификат (PEM)"
+
+msgid "settings.inbound.external"
+msgstr "Внешний сертификат (external)"
+
+msgid "settings.inbound.external_hint"
+msgstr "Используются загруженные цепочка сертификатов PEM и незашифрованный закрытый ключ; закрытый ключ только записывается и не отображается."
+
+msgid "settings.inbound.key_pem_label"
+msgstr "Загрузить закрытый ключ (PEM без шифрования, поле очищается после отправки)"
+
+msgid "settings.inbound.key_saved"
+msgstr "Закрытый ключ сохранён; он больше не отображается (поле очищено)."
+
+msgid "settings.inbound.legend"
+msgstr "Режим"
+
+msgid "settings.inbound.material"
+msgstr "сертификат присутствует: {cert} · закрытый ключ присутствует: {key}"
+
+msgid "settings.inbound.no_material"
+msgstr "Серверного сертификата пока нет (загрузить цепочку или пересоздать самоподписанный сертификат)"
+
+msgid "settings.inbound.not_after"
+msgstr "действителен до: {value}"
+
+msgid "settings.inbound.off"
+msgstr "TLS отключён (off)"
+
+msgid "settings.inbound.off_hint"
+msgstr "Возврат к открытому HTTP (ADR-023); требует явного подтверждения и никогда не выполняется молча."
+
+msgid "settings.inbound.regenerate"
+msgstr "Пересоздать самоподписанный сертификат"
+
+msgid "settings.inbound.sans"
+msgstr "SAN: {value}"
+
+msgid "settings.inbound.sha256"
+msgstr "отпечаток SHA-256: {value}"
+
+msgid "settings.inbound.subject"
+msgstr "субъект: {value}"
+
+msgid "settings.inbound.title"
+msgstr "Входящий TLS (serve --web)"
+
+msgid "settings.inbound.upload"
+msgstr "Загрузить и переключиться на external"
+
+msgid "settings.link"
+msgstr "Настройки сертификатов"
+
+msgid "settings.local_mode"
+msgstr "Локальная страница настроек"
+
+msgid "settings.modes.save"
+msgstr "Сохранить режимы"
+
+msgid "settings.notes.none"
+msgstr "Дополнительных примечаний нет"
+
+msgid "settings.notes.title"
+msgstr "Примечания"
+
+msgid "settings.outbound.builtin"
+msgstr "Встроенная копия (builtin)"
+
+msgid "settings.outbound.builtin_hint"
+msgstr "За основу берётся встроенная в рабочую область копия корневых сертификатов; дополнительные корни добавляются поверх."
+
+msgid "settings.outbound.builtin_pem_label"
+msgstr "Встроенная копия корневых сертификатов (PEM, доступна для правки)"
+
+msgid "settings.outbound.effective_line"
+msgstr "действующих корневых сертификатов: {value}"
+
+msgid "settings.outbound.empty_extra"
+msgstr "Дополнительные корни не заданы (корректная пустота: в файле нет сертификатов)"
+
+msgid "settings.outbound.extra_pem_label"
+msgstr "Дополнительные корни (PEM, действуют в обоих режимах)"
+
+msgid "settings.outbound.hint"
+msgstr "Ни один режим не отключает проверку цепочки и имени узла; переключателя с пропуском проверки нет."
+
+msgid "settings.outbound.legend"
+msgstr "Режим хранилища доверия"
+
+msgid "settings.outbound.missing_builtin"
+msgstr "Встроенная копия отсутствует: состояние не сообщает об этом файле"
+
+msgid "settings.outbound.reset_builtin"
+msgstr "Восстановить встроенную копию"
+
+msgid "settings.outbound.reset_extra"
+msgstr "Очистить дополнительные корни"
+
+msgid "settings.outbound.save_builtin"
+msgstr "Сохранить встроенную копию"
+
+msgid "settings.outbound.save_extra"
+msgstr "Сохранить дополнительные корни"
+
+msgid "settings.outbound.system"
+msgstr "Хранилище ОС (system)"
+
+msgid "settings.outbound.system_hint"
+msgstr "За основу берётся хранилище корневых сертификатов ОС; дополнительные корни также добавляются поверх. Пустое системное хранилище считается ошибкой и не приводит к откату на встроенную копию."
+
+msgid "settings.outbound.system_na"
+msgstr "не применимо (текущий режим не читает системное хранилище)"
+
+msgid "settings.outbound.system_roots_line"
+msgstr "корневых сертификатов в системном хранилище: {value}"
+
+msgid "settings.outbound.title"
+msgstr "Доверие для исходящего HTTPS"
+
+msgid "settings.restart_banner"
+msgstr "Входящий сертификат или режим изменены; для применения перезапустить serve --web."
+
+msgid "settings.status.no"
+msgstr "нет"
+
+msgid "settings.status.unknown"
+msgstr "неизвестно"
+
+msgid "settings.status.yes"
+msgstr "да"
+
+msgid "settings.title"
+msgstr "Настройки сертификатов"
+
+msgid "settings.verify.button"
+msgstr "Проверить"
+
+msgid "settings.verify.failed"
+msgstr "Проверка не удалась: {error}"
+
+msgid "settings.verify.host"
+msgstr "Узел"
+
+msgid "settings.verify.ok"
+msgstr "Проверка успешна: субъект {subject} · действителен до {not_after} · отпечаток {sha256} · {tls_version}"
+
+msgid "settings.verify.port"
+msgstr "Порт"
+
+msgid "settings.verify.title"
+msgstr "Проверка исходящего подключения"
+
+msgid "status.idle"
+msgstr "Ожидание"
+
+msgid "status.running"
+msgstr "Выполняется"
+
+msgid "summary.context"
+msgstr "Сессия {session} · бюджет {budget} · использовано {used} · элементов {items}{truncated}"
+
+msgid "summary.context_truncated"
+msgstr "· причина усечения: {reason}"
+
+msgid "summary.diff"
+msgstr "Сессия {session} · задач {total} · пройдено {pass} / провалено {fail} / не проверено {untested}{truncated}"
+
+msgid "summary.diff.truncated"
+msgstr "· список расхождений усечён"
+
+msgid "summary.events"
+msgstr "Сессия {session} · курсор {from}..{to} (в хвосте не более {limit})"
+
+msgid "summary.none"
+msgstr "нет"
+
+msgid "summary.spec"
+msgstr "Сессия {session} · этап {stage} · курсор {cursor} · активная задача {task}"
+
+msgid "summary.tasks"
+msgstr "Сессия {session} · всего {total} · выполнено {done} · заблокировано {blocked}"
+
+msgid "tui.col.id"
+msgstr "ID"
+
+msgid "tui.col.kind"
+msgstr "Тип"
+
+msgid "tui.col.retry"
+msgstr "Повторы"
+
+msgid "tui.col.seq"
+msgstr "№"
+
+msgid "tui.col.stage"
+msgstr "Этап"
+
+msgid "tui.col.status"
+msgstr "Статус"
+
+msgid "tui.col.summary"
+msgstr "Сводка"
+
+msgid "tui.col.title"
+msgstr "Заголовок"
+
+msgid "tui.diff_unwired"
+msgstr "(источник различий не подключён: расхождения converge ожидают подключения; данные не подделываются)"
+
+msgid "tui.empty"
+msgstr "(нет данных)"
+
+msgid "tui.footer"
+msgstr "1-7 представления  j/k переход  r обновить  t тема  q выход  |  {cols}x{rows}"
+
+msgid "tui.header.none"
+msgstr "сессия не выбрана"
+
+msgid "tui.no_session"
+msgstr "(сессия не выбрана — нажать j/k)"
+
+msgid "tui.runtimes"
+msgstr "Среды выполнения: {list}"
+
+msgid "tui.title"
+msgstr "{app}  |  {view} ({index}/{count})"
+
+msgid "view.chat"
+msgstr "Диалог"
+
+msgid "view.context"
+msgstr "Контекст"
+
+msgid "view.diff"
+msgstr "Предпросмотр различий"
+
+msgid "view.events"
+msgstr "События"
+
+msgid "view.sessions"
+msgstr "Сессии"
+
+msgid "view.spec"
+msgstr "Статус спецификации"
+
+msgid "view.tasks"
+msgstr "Задачи"
+
+msgid "web.action.failed"
+msgstr "Не удалось выполнить действие ({label}): {error}"
+
+msgid "web.checkpoints.degraded"
+msgstr "Откат не реализован (явная деградация): доступны только просмотр и сводки изменений"
+
+msgid "web.checkpoints.empty"
+msgstr "У этой задачи нет контрольных точек"
+
+msgid "web.checkpoints.failed"
+msgstr "Не удалось загрузить контрольные точки: {error}"
+
+msgid "web.checkpoints.hint"
+msgstr "Выбрать задачу, чтобы увидеть контрольные точки и сводки изменений"
+
+msgid "web.checkpoints.ready"
+msgstr "Откат доступен"
+
+msgid "web.checkpoints.refs"
+msgstr "ссылок на артефакты: {count}"
+
+msgid "web.checkpoints.title"
+msgstr "Контрольные точки"
+
+msgid "web.checkpoints.truncated"
+msgstr "Число контрольных точек превышает предел, список усечён"
+
+msgid "web.cleanup.bad_days"
+msgstr "Срок хранения должен быть не меньше 1 дня"
+
+msgid "web.cleanup.confirm"
+msgstr "Подтвердить очистку"
+
+msgid "web.cleanup.days"
+msgstr "Срок хранения, дней"
+
+msgid "web.cleanup.done"
+msgstr "Очищено сессий: {sessions}"
+
+msgid "web.cleanup.preview"
+msgstr "Предпросмотр"
+
+msgid "web.cleanup.preview_required"
+msgstr "Перед подтверждением очистки требуется предпросмотр"
+
+msgid "web.cleanup.preview_result"
+msgstr "Будет очищено сессий: {sessions}"
+
+msgid "web.conn.connected"
+msgstr "Подключено"
+
+msgid "web.conn.disconnected"
+msgstr "Не подключено"
+
+msgid "web.context.empty"
+msgstr "(корректная пустота: в бюджет ничего не помещается)"
+
+msgid "web.context.no_session"
+msgstr "Сессия не выбрана"
+
+msgid "web.context.summary"
+msgstr "Бюджет {consumed}/{budget} · источников {sources} · усечено {truncated}"
+
+msgid "web.cursor"
+msgstr "Курсор {n}"
+
+msgid "web.diff.empty"
+msgstr "(различий нет: все критерии приёмки выполнены)"
+
+msgid "web.diff.no_session"
+msgstr "Сессия не выбрана"
+
+msgid "web.diff.summary"
+msgstr "Задач {total} · пройдено {pass} / провалено {fail} / не проверено {untested}{truncated}"
+
+msgid "web.diff.truncated"
+msgstr "(усечено)"
+
+msgid "web.export.done"
+msgstr "Экспорт завершён"
+
+msgid "web.export.json"
+msgstr "Экспорт JSON"
+
+msgid "web.export.jsonl"
+msgstr "Экспорт JSONL"
+
+msgid "web.recovering"
+msgstr "Восстановление…"
+
+msgid "web.runtimes"
+msgstr "Среды выполнения"
+
+msgid "web.runtimes.available"
+msgstr "доступна"
+
+msgid "web.runtimes.unavailable"
+msgstr "недоступна"
+
+msgid "web.runtimes.unknown"
+msgstr "не проверено"
+
+msgid "web.runtimes.unwired"
+msgstr "Реестр сред выполнения не подключён"
+
+msgid "web.session.archive_confirm"
+msgstr "Подтвердить архивацию"
+
+msgid "web.session.archive_preview"
+msgstr "Предпросмотр архивации"
+
+msgid "web.session.archive_preview_required"
+msgstr "Перед подтверждением архивации требуется предпросмотр"
+
+msgid "web.session.archive_preview_result"
+msgstr "Сессия {session} будет архивирована — подтвердить для выполнения"
+
+msgid "web.session.archived"
+msgstr "Сессия {session} архивирована"
+
+msgid "web.session.create"
+msgstr "Создать"
+
+msgid "web.session.delete_confirm"
+msgstr "Подтвердить удаление"
+
+msgid "web.session.delete_preview"
+msgstr "Предпросмотр удаления"
+
+msgid "web.session.delete_preview_result"
+msgstr "Будет удалено: событий {events} · задач {tasks}"
+
+msgid "web.session.deleted"
+msgstr "Удалено сессий: {n}"
+
+msgid "web.session.group_active"
+msgstr "Активные"
+
+msgid "web.session.group_archived"
+msgstr "Архив"
+
+msgid "web.session.none"
+msgstr "Сессия не выбрана"
+
+msgid "web.session.preview_required"
+msgstr "Перед подтверждением удаления требуется предпросмотр"
+
+msgid "web.session.rename"
+msgstr "Переименовать"
+
+msgid "web.session.rename_placeholder"
+msgstr "Новый заголовок"
+
+msgid "web.session.search"
+msgstr "Поиск по заголовку или ID"
+
+msgid "web.session.show_archived"
+msgstr "Включая архив"
+
+msgid "web.session.sort"
+msgstr "Сортировка"
+
+msgid "web.session.sort.created"
+msgstr "По дате создания"
+
+msgid "web.session.sort.last_active"
+msgstr "По недавней активности"
+
+msgid "web.session.sort.title"
+msgstr "По заголовку"
+
+msgid "web.session.title"
+msgstr "Заголовок сессии"
+
+msgid "web.session.title_required"
+msgstr "Сначала указать заголовок сессии"
+
+msgid "web.tab.context"
+msgstr "Контекст"
+
+msgid "web.tab.diff"
+msgstr "Различия"
+
+msgid "web.tab.history"
+msgstr "История"
+
+msgid "web.tab.maintenance"
+msgstr "Обслуживание"
+
+msgid "web.tab.sessions"
+msgstr "Сессии"
+
+msgid "web.tab.spec"
+msgstr "SDD"
+
+msgid "web.tab.tasks"
+msgstr "Задачи"
+
+msgid "web.task.abort"
+msgstr "Прервать"
+
+msgid "web.task.depends"
+msgstr "Зависит от {depends}"
+
+msgid "web.task.progress"
+msgstr "Выполнено {done}/{total} · заблокировано {blocked}"
+
+msgid "web.task.retries"
+msgstr "Повторов: {count}"
+
+msgid "web.task.retry"
+msgstr "Повторить"
+
+msgid "web.task.truncated"
+msgstr "Число карточек задач превышает предел, они усечены (сводные счётчики полные)"
+
+msgid "web.tasks_summary"
+msgstr "всего {total} · выполнено {done} · заблокировано {blocked}"
+
+msgid "web.theme.default"
+msgstr "По умолчанию"
+
+msgid "web.theme.label"
+msgstr "Тема"
+

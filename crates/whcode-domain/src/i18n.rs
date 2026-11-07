@@ -20,6 +20,13 @@
 //! [`Catalog::resolve`] 回退链：`zh-CN → zh → en`（请求的语言缺键时回退 en，
 //! 再缺则返回键名本身——不伪造文本）。
 //!
+//! ## PO 源文件（翻译者入口）
+//!
+//! `i18n/po/<locale>.po` 是同源派生的翻译源文件：**编辑 `*.properties` 后用**
+//! `python .github/scripts/i18n-po.py` 重新生成，契约测试
+//! `po_catalogs_match_properties` 校验两者逐条一致，漂移即失败。PO 只在安装后
+//! 覆盖内建目录（[`I18n::load_with_po`]），内建目录仍是编译期事实源。
+//!
 //! 边界：仅文本层；渲染层的 RTL/BiDi 处理属 `whcode-tui`/`whcode-web`（本模块
 //! 提供 [`is_rtl_locale`] 判定接口，渲染层不假设 LTR）。
 
@@ -33,8 +40,58 @@ use crate::error::{ErrorCode, WhError};
 /// 编译期嵌入的简体中文资源（默认语言）。
 pub const ZH_CN: &str = include_str!("i18n/zh-CN.properties");
 
+/// 编译期嵌入的繁体中文资源。
+pub const ZH_TW: &str = include_str!("i18n/zh-TW.properties");
+
 /// 编译期嵌入的英语资源（回退语言）。
 pub const EN: &str = include_str!("i18n/en.properties");
+
+/// 编译期嵌入的日语资源。
+pub const JA: &str = include_str!("i18n/ja.properties");
+
+/// 编译期嵌入的朝鲜语资源。
+pub const KO: &str = include_str!("i18n/ko.properties");
+
+/// 编译期嵌入的俄语资源。
+pub const RU: &str = include_str!("i18n/ru.properties");
+
+/// 编译期嵌入的法语资源。
+pub const FR: &str = include_str!("i18n/fr.properties");
+
+/// 编译期嵌入的西班牙语资源。
+pub const ES: &str = include_str!("i18n/es.properties");
+
+/// 编译期嵌入的德语资源。
+pub const DE: &str = include_str!("i18n/de.properties");
+
+/// 编译期嵌入的阿拉伯语资源（RTL）。
+pub const AR: &str = include_str!("i18n/ar.properties");
+
+/// 编译期嵌入的印地语资源。
+pub const HI: &str = include_str!("i18n/hi.properties");
+
+/// 编译期嵌入的乌尔都语资源（RTL）。
+pub const UR: &str = include_str!("i18n/ur.properties");
+
+/// 编译期嵌入的孟加拉语资源。
+pub const BN: &str = include_str!("i18n/bn.properties");
+
+/// 内建语言表：`(语言标识, 内嵌目录文本)`；顺序即文档与界面的展示顺序。
+pub const BUILTIN_LOCALES: &[(&str, &str)] = &[
+    ("zh-CN", ZH_CN),
+    ("zh-TW", ZH_TW),
+    ("en", EN),
+    ("ja", JA),
+    ("ko", KO),
+    ("ru", RU),
+    ("fr", FR),
+    ("es", ES),
+    ("de", DE),
+    ("ar", AR),
+    ("hi", HI),
+    ("ur", UR),
+    ("bn", BN),
+];
 
 /// 运行时 PO 资源子目录（`<root>/i18n/po/<locale>.po`，FR-615）。
 pub const PO_SUBDIR: &str = "i18n/po";
@@ -75,15 +132,46 @@ impl Catalog {
         }
     }
 
-    /// 从内建资源构造目录（`zh*` 取中文，其余取英语——英语是回退语言）。
+    /// 从内建资源构造目录（语言标签归一后取对应目录，未知语言取英语）。
     #[must_use]
     pub fn builtin(locale: &str) -> Self {
-        let text = if locale.starts_with("zh") { ZH_CN } else { EN };
+        let text = builtin_catalog(normalize_locale(locale)).unwrap_or(EN);
         Self {
             locale: locale.to_string(),
             entries: parse_properties(text),
         }
     }
+}
+
+/// 语言标签归一：区域后缀剥离后取内建语言，`zh-*` 按文字系统区分简繁。
+///
+/// - `zh-TW`／`zh-HK`／`zh-MO`／`zh-Hant` 及带区域的形式 → `zh-TW`（繁体）；
+/// - 其余 `zh-*` → `zh-CN`（简体）；
+/// - 其他语言取主语言子标签（`ja-JP` → `ja`）。
+#[must_use]
+pub fn normalize_locale(locale: &str) -> &'static str {
+    let lower = locale.trim().to_ascii_lowercase();
+    if lower.starts_with("zh") {
+        let rest = lower.strip_prefix("zh").unwrap_or_default();
+        let traditional = ["-tw", "-hk", "-mo", "-hant", "_tw", "_hk", "_mo", "_hant"]
+            .iter()
+            .any(|suffix| rest.starts_with(suffix));
+        return if traditional { "zh-TW" } else { "zh-CN" };
+    }
+    let primary = lower.split(['-', '_']).next().unwrap_or_default();
+    BUILTIN_LOCALES
+        .iter()
+        .map(|(tag, _)| *tag)
+        .find(|tag| *tag == primary)
+        .unwrap_or("en")
+}
+
+/// 取内建目录文本；未知语言返回 `None`（由调用方回退英语）。
+fn builtin_catalog(normalized: &str) -> Option<&'static str> {
+    BUILTIN_LOCALES
+        .iter()
+        .find(|(tag, _)| *tag == normalized)
+        .map(|(_, text)| *text)
 }
 
 /// 解析 properties 文本（`key = value`，`#` 注释，UTF-8）。
@@ -342,12 +430,20 @@ impl I18n {
     /// 解析键：主目录 → 回退目录 → 键名本身（不伪造文本）。
     #[must_use]
     pub fn resolve<'a>(&'a self, key: &'a str) -> &'a str {
+        self.try_resolve(key).unwrap_or(key)
+    }
+
+    /// 尝试解析键：主目录 → 回退目录；键缺失返回 `None`。
+    ///
+    /// 与 [`I18n::resolve`] 的区别：调用方需要区分“键缺失”与“译文等于键名”，
+    /// 例如帮助文本注入——键缺失时保留原始文本而不是注入键名。
+    #[must_use]
+    pub fn try_resolve<'a>(&'a self, key: &'a str) -> Option<&'a str> {
         self.primary
             .entries
             .get(key)
             .or_else(|| self.fallback.entries.get(key))
             .map(String::as_str)
-            .unwrap_or(key)
     }
 
     /// 已加载条目（合并：回退语言打底，主语言覆盖）——供 Web `/api/i18n` 下发。
@@ -389,10 +485,18 @@ impl I18n {
 /// RTL 语言判定接口（为阿拉伯语等预留；渲染层不假设 LTR，FR-615）。
 #[must_use]
 pub fn is_rtl_locale(locale: &str) -> bool {
+    // 取主语言子标签判定：`ur-PK`、`ar-EG` 与 `ur`、`ar` 同等对待。
+    let primary = locale
+        .trim()
+        .to_ascii_lowercase()
+        .split(['-', '_'])
+        .next()
+        .unwrap_or_default()
+        .to_string();
     matches!(
-        locale.trim().to_ascii_lowercase().as_str(),
-        "ar" | "he" | "fa" | "ur"
-    ) || locale.trim().to_ascii_lowercase().starts_with("ar-")
+        primary.as_str(),
+        "ar" | "ur" | "he" | "fa" | "yi" | "dv" | "ps" | "sd"
+    )
 }
 
 /// 双向文本处理接口（RTL 预留；返回视觉重排前的逻辑顺序——BiDi 重排在渲染层）。
@@ -404,17 +508,25 @@ pub fn logical_order(text: &str) -> &str {
 /// 回退语言：中文请求回退 `en`，其余请求回退 `zh-CN`（与 [`I18n::load`] 一致）。
 #[must_use]
 pub fn fallback_locale(locale: &str) -> &'static str {
-    if locale.starts_with("zh") {
-        "en"
-    } else {
+    // 回退语言统一为英语：非英语请求缺键时先由英语补齐；英语自身回退简体中文，
+    // 保证任何语言都有完整文本可用（十三套目录均随二进制内嵌）。
+    if locale.trim().to_ascii_lowercase().starts_with("en") {
         "zh-CN"
+    } else {
+        "en"
     }
 }
 
 /// 语言标识白名单校验：ASCII 字母/数字与 `-`、`_`，长度 1—32。
 ///
 /// 目的是禁止路径穿越（`../`）与非法文件名；不校验 BCP 47 的完整语法。
-fn validate_locale(locale: &str) -> Result<(), WhError> {
+/// 公开给前端对显式语言参数（如 CUI `--lang`）做入口预校验，与运行时 PO 加载
+/// 同一口径。
+///
+/// # Errors
+///
+/// 空值、超长或含白名单之外字符时返回 `parse_error`。
+pub fn validate_locale(locale: &str) -> Result<(), WhError> {
     let valid = !locale.is_empty()
         && locale.len() <= MAX_LOCALE_LEN
         && locale
@@ -532,36 +644,110 @@ mod tests {
         assert_eq!(i18n.resolve("nonexistent.key"), "nonexistent.key");
     }
 
-    /// 双语键表必须一致（Check 222“zh-CN 与 en 语义一致”的结构前提）：
-    /// 任一语言缺键都会导致回退到另一种语言或键名——发现即失败。
+    /// try_resolve 必须区分“键缺失”与“译文存在”：注入类调用方据此保留原文。
     #[test]
-    fn both_catalogs_define_the_same_keys() {
-        let zh = parse_properties(ZH_CN);
-        let en = parse_properties(EN);
-        let mut zh_keys: Vec<&String> = zh.keys().collect();
-        let mut en_keys: Vec<&String> = en.keys().collect();
-        zh_keys.sort();
-        en_keys.sort();
-        assert_eq!(zh_keys, en_keys, "zh-CN 与 en 的键集合必须一致");
-        // 占位符集合一致（同一键在两种语言中必须引用同一组参数）。
-        for key in zh_keys {
-            let placeholders = |text: &str| {
-                let mut names: Vec<String> = Vec::new();
-                let mut rest = text;
-                while let Some(start) = rest.find('{') {
-                    let tail = &rest[start + 1..];
-                    let Some(end) = tail.find('}') else { break };
-                    names.push(tail[..end].to_string());
-                    rest = &tail[end + 1..];
-                }
-                names.sort();
-                names
-            };
-            assert_eq!(
-                placeholders(&zh[key]),
-                placeholders(&en[key]),
-                "键 {key} 的占位符集合不一致"
-            );
+    fn try_resolve_distinguishes_missing_key_from_translation() {
+        let i18n = I18n::load("zh-CN", LocaleSource::Default);
+        assert_eq!(i18n.try_resolve("app.title"), Some("旺皇大模型执行框架"));
+        assert_eq!(i18n.try_resolve("nonexistent.key"), None);
+        // en 主目录缺 zh 专属键时经回退目录解析。
+        let en = I18n::load("en", LocaleSource::Explicit);
+        assert!(en.try_resolve("menu.sessions").is_some());
+    }
+
+    /// 提取 `{name}` 占位符集合（排序后比较）。
+    fn placeholders(text: &str) -> Vec<String> {
+        let mut names: Vec<String> = Vec::new();
+        let mut rest = text;
+        while let Some(start) = rest.find('{') {
+            let tail = &rest[start + 1..];
+            let Some(end) = tail.find('}') else { break };
+            names.push(tail[..end].to_string());
+            rest = &tail[end + 1..];
+        }
+        names.sort();
+        names
+    }
+
+    /// 十三套目录的键表必须一致（Check 222 的结构前提）：任一语言缺键都会回退到
+    /// 另一种语言或键名——发现即失败。
+    #[test]
+    fn all_catalogs_define_the_same_keys() {
+        let reference = parse_properties(EN);
+        let mut reference_keys: Vec<&String> = reference.keys().collect();
+        reference_keys.sort();
+        assert!(!reference_keys.is_empty(), "英语目录不得为空");
+        for (locale, text) in BUILTIN_LOCALES {
+            let entries = parse_properties(text);
+            let mut keys: Vec<&String> = entries.keys().collect();
+            keys.sort();
+            assert_eq!(keys, reference_keys, "{locale} 的键集合与 en 不一致");
+            // 占位符集合一致（同一键在每种语言中必须引用同一组参数）。
+            for key in &reference_keys {
+                assert_eq!(
+                    placeholders(&entries[*key]),
+                    placeholders(&reference[*key]),
+                    "{locale} 的键 {key} 占位符集合与 en 不一致"
+                );
+            }
+        }
+    }
+
+    /// 译文与资源卫生：不得以引号起止（解析器会剥离成对引号）、不得含表情符号、
+    /// 不得为空——翻译质量无法自动判定，但这几类结构性缺陷可以。
+    #[test]
+    fn catalogs_are_free_of_structural_defects() {
+        for (locale, text) in BUILTIN_LOCALES {
+            for (key, value) in parse_properties(text) {
+                assert!(!value.trim().is_empty(), "{locale} 的 {key} 为空");
+                assert!(
+                    !value.trim().starts_with('"') && !value.trim().ends_with('"'),
+                    "{locale} 的 {key} 不得以双引号起止：{value}"
+                );
+                assert!(
+                    !value.chars().any(|ch| {
+                        matches!(
+                            ch,
+                            '\u{1f000}'..='\u{1faff}' | '\u{fe0f}' | '\u{2705}' | '\u{274c}'
+                        )
+                    }),
+                    "{locale} 的 {key} 不得含表情符号：{value}"
+                );
+            }
+        }
+    }
+
+    /// 语言标签归一：繁体与区域后缀都落到内建目录，未知语言取英语。
+    #[test]
+    fn locale_tags_normalize_to_builtin_catalogs() {
+        assert_eq!(normalize_locale("zh-CN"), "zh-CN");
+        assert_eq!(normalize_locale("zh-Hans-CN"), "zh-CN");
+        assert_eq!(normalize_locale("zh-TW"), "zh-TW");
+        assert_eq!(normalize_locale("zh-HK"), "zh-TW");
+        assert_eq!(normalize_locale("zh-Hant"), "zh-TW");
+        assert_eq!(normalize_locale("ja-JP"), "ja");
+        assert_eq!(normalize_locale("pt-BR"), "en");
+        // 繁体请求必须拿到繁体目录，而不是简体。
+        let traditional = I18n::load("zh-TW", LocaleSource::Explicit);
+        let simplified = I18n::load("zh-CN", LocaleSource::Explicit);
+        assert_ne!(
+            traditional.resolve("menu.sessions"),
+            simplified.resolve("menu.sessions"),
+            "繁体与简体应是不同目录"
+        );
+        // 未内建的语言回退英语（不返回键名）。
+        let unknown = I18n::load("pt-BR", LocaleSource::Explicit);
+        assert_eq!(unknown.resolve("menu.sessions"), "Sessions");
+    }
+
+    /// RTL 判定覆盖本批新增的阿拉伯语与乌尔都语；孟加拉语与印地语为 LTR。
+    #[test]
+    fn rtl_locales_cover_arabic_and_urdu_only() {
+        for locale in ["ar", "ar-EG", "ur", "ur-PK"] {
+            assert!(is_rtl_locale(locale), "{locale} 应判为 RTL");
+        }
+        for locale in ["bn", "hi", "ja", "ko", "zh-TW", "ru"] {
+            assert!(!is_rtl_locale(locale), "{locale} 不应判为 RTL");
         }
     }
 
@@ -747,6 +933,47 @@ mod tests {
                 ));
             }
             assert_eq!(parse_po(&po), entries, "{name} 经 PO 往返必须无损");
+        }
+    }
+
+    /// T276／T277：`i18n/po/<locale>.po` 必须与同名内建 properties 逐条一致。
+    ///
+    /// PO 是派生文件（翻译者入口），properties 是编译期事实源：任何一侧单独改动都会
+    /// 让两者漂移。门禁口径为**双向全等**——键集合与译文都不许单边变化，重建命令见
+    /// 测试消息（`python .github/scripts/i18n-po.py`）。
+    #[test]
+    fn po_catalogs_match_properties() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src")
+            .join("i18n");
+        for (locale, _) in BUILTIN_LOCALES {
+            let properties = std::fs::read_to_string(dir.join(format!("{locale}.properties")))
+                .unwrap_or_else(|err| panic!("读取 {locale}.properties 失败：{err}"));
+            let po_path = dir.join("po").join(format!("{locale}.po"));
+            let po_text = std::fs::read_to_string(&po_path).unwrap_or_else(|err| {
+                panic!(
+                    "缺少 PO 源文件 {}：{err}（运行 python .github/scripts/i18n-po.py）",
+                    po_path.display()
+                )
+            });
+            let expected = parse_properties(&properties);
+            let actual = parse_po(&po_text);
+            // 文件头的空 msgid 不成为键，两侧键集合必须相同。
+            assert_eq!(
+                actual.keys().collect::<Vec<_>>(),
+                expected.keys().collect::<Vec<_>>(),
+                "{locale}.po 与 {locale}.properties 的键集合不一致\
+                 （运行 python .github/scripts/i18n-po.py 重新生成）"
+            );
+            for (key, value) in &expected {
+                assert_eq!(
+                    actual.get(key).map(String::as_str),
+                    Some(value.as_str()),
+                    "{locale}.po 的 {key} 译文与 properties 不一致\
+                     （运行 python .github/scripts/i18n-po.py 重新生成）"
+                );
+            }
+            assert!(!po_text.contains('\r'), "{locale}.po 必须为 LF 换行");
         }
     }
 }

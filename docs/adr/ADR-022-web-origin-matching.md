@@ -10,12 +10,12 @@
 ## 背景与复现
 
 `security::check_origin` 以**全串精确比较**匹配 `ALLOWED_ORIGINS =
-["http://127.0.0.1", "http://localhost"]`（**不含端口**）。真实浏览器行为与两个独立缺陷：
+[“http://127.0.0.1”, “http://localhost”]`（**不含端口**）。真实浏览器行为与两个独立缺陷：
 
 1. 浏览器 `fetch()` 的 `Origin` 携带**实际端口**（如 `http://127.0.0.1:8737`）——
    全串比较必然不命中 → 403；
 2. **同源 GET 请求不发送 `Origin` 头**（`/api/sessions`、`/api/events`、`/api/status`
-   全部是 GET）——"缺少 Origin 头" → 403。
+   全部是 GET）——“缺少 Origin 头” → 403。
 
 合并效果：**任何真实浏览器都无法访问 API**。此前 Web 服务入口（`serve --web`）未装配，
 缺陷停留在库层未被端到端发现。复现（修订前）：`check_origin(false, &[],
@@ -50,8 +50,8 @@ Some("http://127.0.0.1:8737"))` 与 `check_origin(false, &[], None)` 均返回
 - 浏览器端到端证据：`artifacts/web-browser-2026-10-22.txt`（真实浏览器 API 200、
   标签点击、轮询游标推进）。
 
-- **2026-10-22（认证模式缺失 Origin，ADR-023 复审）**：局域网认证实测发现"认证模式
-  要求 Origin"与真实浏览器冲突（同源 GET 不发送 Origin → 一律 403）。修订为：**缺失
+- **2026-10-22（认证模式缺失 Origin，ADR-023 复审）**：局域网认证实测发现“认证模式
+  要求 Origin“与真实浏览器冲突（同源 GET 不发送 Origin → 一律 403）。修订为：**缺失
   Origin 两种模式均放行**——跨站由 Bearer token 阻断（自定义头触发预检，本服务不返回
   CORS 许可）；带 Origin 时仍必须命中允许集。原规则的初衷（对外监听来源显式）由
   ADR-023 的地址边界 + 认证承担。证据：`artifacts/web-lan-2026-10-22-batch4.txt`。

@@ -23,7 +23,7 @@ use whcode_runtime::{
 fn v301_default_build_runs_without_runtimes() {
     // FR-704：default = [] 无任何运行时 feature；worker 仍可用（std 子进程）。
     // shell 按平台选取（shell_command：Windows 用 `cmd /C`，BSD/Linux 用 `sh -c`）——
-    // 此前硬编码 `cmd` 在 FreeBSD 车道 ENOENT（run 41469604171 v301 误报“执行不可用”）；
+    // 此前硬编码 `cmd` 在 FreeBSD 通道 ENOENT（run 41469604171 v301 误报“执行不可用”）；
     // 断言对象是 std 子进程执行本身，不是某个具体 shell（与 V-305 同一助手）。
     let mut command = whcode_platform::shell_command("echo ok");
     let result = execute(

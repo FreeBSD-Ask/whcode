@@ -124,7 +124,7 @@
 - 登记：FR-738 / T241—T243 / Check 337—339（计数 116/243/339，ADR-046 口径同步
   spec/tasks/checklist/software-engineering-process）；追溯与计数门禁全绿
   （traceability：FR=116/任务=243/检查点=339 无断链；check_counts：counts consistent）。
-- 验收：layering `ALL_CRATES` 不变（无新 crate）；CI 六车道 + freebsd 平台证据（ADR-013
+- 验收：layering `ALL_CRATES` 不变（无新 crate）；CI 六通道 + freebsd 平台证据（ADR-013
   口径）待推送流水线（ADR-037）。
 
 ## 7. 修订记录

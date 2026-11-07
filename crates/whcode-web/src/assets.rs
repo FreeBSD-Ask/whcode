@@ -103,6 +103,32 @@ pub const THEMES: [&str; 6] = [
 
 const HTML_OPEN: &str = "<html lang=\"zh-CN\">";
 
+/// `<html lang="…"` 前缀（主题注入后仍是唯一锚点，避免两处硬编码漂移）。
+const HTML_LANG_PREFIX: &str = "<html lang=\"zh-CN\"";
+
+/// 注入文档语言与书写方向（FR-615 多语言扩展，T277）。
+///
+/// 语言取调用方解析出的生效语言（`ServeSecurity::default_locale`，已含 `?locale=` 与
+/// Accept-Language 的覆盖结果）；标签归一为内建语言（`zh-HK` → `zh-TW`，`ja-JP` → `ja`），
+/// 阿拉伯语与乌尔都语写 `dir="rtl"`，其余 `dir="ltr"`。
+///
+/// 边界：本函数只设置文档级方向属性。镜像布局（列序、文本对齐、图标翻转）属渲染层，
+/// 未实现的部分在文档中登记为缺口，不以 `dir` 冒充镜像已完成。
+#[must_use]
+pub fn with_direction(html: String, locale: &str) -> String {
+    let tag = whcode_domain::i18n::normalize_locale(locale);
+    let dir = if whcode_domain::i18n::is_rtl_locale(locale) {
+        "rtl"
+    } else {
+        "ltr"
+    };
+    html.replacen(
+        HTML_LANG_PREFIX,
+        &format!("<html lang=\"{tag}\" dir=\"{dir}\""),
+        1,
+    )
+}
+
 /// 把服务端默认主题注入 `<html data-theme="…">`（T175）：非法值回落 `zcode-night`
 /// （默认主题，2026-11-06 用户批准切换；配置笔误不得让首页 500）；浏览器端
 /// `?theme=` 与选择器可在其上运行时覆盖。
@@ -708,6 +734,25 @@ mod tests {
             "认证模式不得渲染任何会话列表"
         );
         assert!(!html.contains(INITIAL_VIEW_MARKER), "标记必须被替换");
+    }
+
+    /// 文档语言与方向注入（T277）：繁体归一为 `zh-TW`，阿拉伯语／乌尔都语写 `rtl`，
+    /// 其余写 `ltr`；方向属性不得与语言标记冲突。
+    #[test]
+    fn document_direction_follows_locale() {
+        for (locale, lang, dir) in [
+            ("ar", "ar", "rtl"),
+            ("ur-PK", "ur", "rtl"),
+            ("zh-HK", "zh-TW", "ltr"),
+            ("ja-JP", "ja", "ltr"),
+            ("pt-BR", "en", "ltr"),
+        ] {
+            let html = with_direction(INDEX_HTML.to_string(), locale);
+            assert!(
+                html.contains(&format!("<html lang=\"{lang}\" dir=\"{dir}\"")),
+                "{locale} 应注入 lang={lang} dir={dir}"
+            );
+        }
     }
 
     /// 服务端默认主题注入（T175）：合法值原样、非法值回落 zcode-night（默认主题，

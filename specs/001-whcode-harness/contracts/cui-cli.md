@@ -34,6 +34,24 @@ whcode
 
 实现时必须统一参数命名、退出码、错误 JSON 与 `--json` 语义；破坏性命令需支持 dry-run 或确认机制（§8.1）。
 
+**全局旗标**（可放在子命令之前或之后）：
+
+| 旗标 | 语义 |
+|---|---|
+| `--json` | 统一信封输出（`schema_version` + `data`；§3） |
+| `--workspace DIR` | 工作区目录（定位 `<workspace>/whcode.duckdb`） |
+| `--lang LOCALE` | 界面文本语言（如 `zh-CN`、`en`），显式覆盖 `LANG`／`LC_ALL`（FR-615）；取值限 ASCII 字母数字与 `-`／`_`、长度 1—32，非法值退出码 **2** |
+
+**帮助文本语言（2026-11-07 收口，FR-615）**：命令与参数说明来自文本目录（键
+`cli.<子命令路径>.<参数长名>`，如 `cli.session.new.title`），由
+`whcode_cui::cli::apply_i18n` 在构造 clap 命令树时注入。`--help` 的输出发生在解析
+内部，因此 `--lang` 先经预扫描（`prescan_lang`）确定语言，帮助与后续命令输出同源。
+键缺失时保留 derive 原文——不注入键名、不伪造文本。**已知局限**：clap 的框架词
+（`Usage:`／`Commands:`／`Options:`／`Print help`）是上游静态串，无本地化钩子，
+始终为英文；正文（全部命令与参数说明）随语言切换。上游若提供本地化 API，本条即
+失效并收编。
+
+
 四端对等接线说明（FR-619—623、ADR-032）：
 
 - `context budget` 输出与 `whcode_app::load_context` 同源：JSON 含 `schema_version`、预算、

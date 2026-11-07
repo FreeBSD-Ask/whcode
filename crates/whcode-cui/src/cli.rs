@@ -11,7 +11,8 @@
 //! 统一语义（契约 §2）：`db vacuum` 不存在（磁盘压缩命名 `db compact`）；`db explain`
 //! 只接受只读查询；`spec force-advance` 必须要求 `--reason`（clap `required`）。
 
-use clap::{Parser, Subcommand};
+use clap::{Command as ClapCommand, CommandFactory, FromArgMatches, Parser, Subcommand};
+use whcode_domain::i18n::I18n;
 
 /// whcode 命令行入口（contracts/cui-cli.md §1 命令树）。
 #[derive(Debug, Clone, PartialEq, Parser)]
@@ -24,6 +25,10 @@ pub struct Cli {
     /// 工作区目录（默认配置工作区/cwd；装配根用于定位 `<workspace>/whcode.duckdb`）。
     #[arg(long, global = true)]
     pub workspace: Option<String>,
+
+    /// 界面文本语言（如 zh-CN、en；显式覆盖 LANG/LC_ALL，FR-615）。
+    #[arg(long, global = true, value_name = "LOCALE", value_parser = parse_lang_value)]
+    pub lang: Option<String>,
 
     /// 子命令。
     #[command(subcommand)]
@@ -468,15 +473,25 @@ pub enum ParseOutcome {
 }
 
 /// 解析命令行（保留 clap 的错误类别：帮助/版本 vs 用法错误）。
+///
+/// `texts` 提供时先把文本目录注入命令树（FR-615）：`-h`／`--help` 的渲染发生在
+/// 解析内部，帮助语言必须在构造 `Command` 时确定；键缺失的节点保留 derive 原文。
 #[must_use]
-pub fn parse_outcome<I, T>(args: I) -> ParseOutcome
+pub fn parse_outcome<I, T>(args: I, texts: Option<&I18n>) -> ParseOutcome
 where
     I: IntoIterator<Item = T>,
     T: Into<std::ffi::OsString> + Clone,
 {
     use clap::error::ErrorKind;
-    match Cli::try_parse_from(args) {
-        Ok(cli) => ParseOutcome::Command(cli),
+    let mut command = <Cli as CommandFactory>::command();
+    if let Some(texts) = texts {
+        command = apply_i18n(command, texts);
+    }
+    match command.try_get_matches_from(args) {
+        Ok(matches) => {
+            let cli = Cli::from_arg_matches(&matches).expect("derive 命令树与匹配项同构");
+            ParseOutcome::Command(cli)
+        }
         Err(err) => match err.kind() {
             ErrorKind::DisplayHelp
             | ErrorKind::DisplayVersion
@@ -488,9 +503,252 @@ where
     }
 }
 
+/// 预扫描 `--lang`（FR-615 显式覆盖）。
+///
+/// 帮助渲染先于参数解析，语言必须先于 clap 确定：本函数只认 `--lang VALUE` 与
+/// `--lang=VALUE` 两种形态，返回值已过域层白名单校验（[`whcode_domain::i18n::validate_locale`]）。
+/// 值缺失（`--lang` 是最后一个参数）时按未提供处理，交由 clap 报用法错误。
+///
+/// # Errors
+///
+/// 语言标识非法（空、超长、含白名单之外字符）时返回可操作的错误文本，由装配根
+/// 以用法错误（退出码 2）上报。
+pub fn prescan_lang(args: &[String]) -> Result<Option<String>, String> {
+    let mut index = 0;
+    while index < args.len() {
+        let arg = args[index].as_str();
+        if let Some(value) = arg.strip_prefix("--lang=") {
+            return validate_lang_value(value);
+        }
+        if arg == "--lang" {
+            return match args.get(index + 1) {
+                Some(value) => validate_lang_value(value),
+                // `--lang` 后无值：不在此处报错，交给 clap 的“需要取值”用法错误。
+                None => Ok(None),
+            };
+        }
+        index += 1;
+    }
+    Ok(None)
+}
+
+/// 校验预扫描到的语言值；非法值直接拒绝（显式配置失效要可见，不静默回落）。
+fn validate_lang_value(value: &str) -> Result<Option<String>, String> {
+    match whcode_domain::i18n::validate_locale(value) {
+        Ok(()) => Ok(Some(value.to_string())),
+        Err(err) => Err(format!(
+            "无效的 --lang 值“{value}”：仅允许 ASCII 字母数字与 -/_，长度 1—32（{err}）"
+        )),
+    }
+}
+
+/// clap 值校验：与预扫描同一白名单，避免“预扫描拒绝、解析放行”的两套口径。
+fn parse_lang_value(value: &str) -> Result<String, String> {
+    validate_lang_value(value).map(|lang| lang.unwrap_or_default())
+}
+
+/// 把文本目录注入 clap 命令树（FR-615：帮助文本双语）。
+///
+/// 键约定：根路径 `cli`；子命令节点键 `<路径>.about`，参数键 `<路径>.<长名>`
+/// （如 `cli.session.new.title`）。键缺失时保留 derive 原文——不注入键名，
+/// 不伪造文本；`--json` 等数据字段语义与值不受影响。
+#[must_use]
+pub fn apply_i18n(mut command: ClapCommand, texts: &I18n) -> ClapCommand {
+    const ROOT: &str = "cli";
+    if let Some(text) = texts.try_resolve(&format!("{ROOT}.about")) {
+        command = command.about(text.to_string()).long_about(text.to_string());
+    }
+    command = command.mut_args(|arg| localize_arg(arg, ROOT, texts));
+    // 先收集名字（结束借用），再逐个取出—替换—放回。
+    let names: Vec<String> = command
+        .get_subcommands()
+        .map(|sub| sub.get_name().to_string())
+        .collect();
+    for name in names {
+        if let Some(sub) = command.find_subcommand_mut(&name) {
+            let taken = std::mem::replace(sub, ClapCommand::new("whcode-i18n-placeholder"));
+            *sub = localize_node(taken, &format!("{ROOT}.{name}"), texts);
+        }
+    }
+    command
+}
+
+/// 递归本地化一个子命令节点。
+fn localize_node(mut command: ClapCommand, path: &str, texts: &I18n) -> ClapCommand {
+    let about_key = format!("{path}.about");
+    if let Some(text) = texts.try_resolve(&about_key).map(str::to_string) {
+        command = command.about(text.clone()).long_about(text);
+    }
+    command = command.mut_args(|arg| localize_arg(arg, path, texts));
+    let names: Vec<String> = command
+        .get_subcommands()
+        .map(|sub| sub.get_name().to_string())
+        .collect();
+    for name in names {
+        if let Some(sub) = command.find_subcommand_mut(&name) {
+            let taken = std::mem::replace(sub, ClapCommand::new("whcode-i18n-placeholder"));
+            *sub = localize_node(taken, &format!("{path}.{name}"), texts);
+        }
+    }
+    command
+}
+
+/// 本地化单个参数：`help` 与 `long_help` 设为同一译文（目录值为完整说明文本）。
+fn localize_arg(arg: clap::Arg, path: &str, texts: &I18n) -> clap::Arg {
+    let Some(long) = arg.get_long() else {
+        return arg; // 位置参数（当前命令树没有）不注入。
+    };
+    let key = format!("{path}.{long}");
+    match texts.try_resolve(&key).map(str::to_string) {
+        Some(text) => arg.help(text.clone()).long_help(text),
+        None => arg,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use whcode_domain::i18n::LocaleSource;
+
+    /// FR-615：根帮助按目录语言渲染——英文目录给出英文说明，不残留中文原文。
+    #[test]
+    fn help_output_follows_the_catalog_locale() {
+        let en = I18n::load("en", LocaleSource::Explicit);
+        let ParseOutcome::Display(text) = parse_outcome(["whcode", "--help"], Some(&en)) else {
+            panic!("--help 应产出帮助文本");
+        };
+        assert!(text.contains("Session lifecycle"), "{text}");
+        assert!(text.contains("Task inspection and control"), "{text}");
+        assert!(!text.contains("会话生命周期"), "英文目录不得残留中文原文");
+        // 键缺失时注入的是译文而不是键名（不伪造文本的反向检查）。
+        assert!(!text.contains("cli.session.about"), "{text}");
+
+        let zh = I18n::load("zh-CN", LocaleSource::Default);
+        let ParseOutcome::Display(text) = parse_outcome(["whcode", "--help"], Some(&zh)) else {
+            panic!("--help 应产出帮助文本");
+        };
+        assert!(text.contains("会话生命周期"), "{text}");
+        assert!(!text.contains("Session lifecycle"), "{text}");
+    }
+
+    /// FR-615：子命令帮助同样本地化（父级列子命令、叶子列参数）。
+    #[test]
+    fn subcommand_help_is_localized() {
+        let en = I18n::load("en", LocaleSource::Explicit);
+        let ParseOutcome::Display(text) = parse_outcome(["whcode", "session", "--help"], Some(&en))
+        else {
+            panic!("子命令帮助应产出文本");
+        };
+        assert!(text.contains("Create a session."), "{text}");
+
+        let ParseOutcome::Display(text) =
+            parse_outcome(["whcode", "session", "archive", "--help"], Some(&en))
+        else {
+            panic!("叶子帮助应产出文本");
+        };
+        assert!(text.contains("Restore an archived session."), "{text}");
+
+        let zh = I18n::load("zh-CN", LocaleSource::Default);
+        let ParseOutcome::Display(text) =
+            parse_outcome(["whcode", "llm", "run", "--help"], Some(&zh))
+        else {
+            panic!("三级帮助应产出文本");
+        };
+        assert!(text.contains("提示词正文"), "{text}");
+    }
+
+    /// 无目录（texts 为 `None`）时帮助保留 derive 原文，不报错也不留空。
+    #[test]
+    fn help_without_catalog_keeps_derived_texts() {
+        let ParseOutcome::Display(text) = parse_outcome(["whcode", "--help"], None) else {
+            panic!("无目录时仍应产出帮助");
+        };
+        assert!(text.contains("旺皇大模型执行框架"), "{text}");
+        assert!(text.contains("会话生命周期"), "{text}");
+    }
+
+    /// localize_arg 的失败路径：键缺失时保留原 help，不注入键名。
+    #[test]
+    fn missing_key_keeps_the_original_arg_help() {
+        let texts = I18n::load("en", LocaleSource::Explicit);
+        let original = clap::Arg::new("probe").long("probe").help("原始说明");
+        let localized = localize_arg(original, "cli.nonexistent", &texts);
+        assert_eq!(
+            localized.get_help().map(|s| s.to_string()).as_deref(),
+            Some("原始说明")
+        );
+    }
+
+    /// 双语目录必须覆盖命令树的每个可译节点（缺覆盖即帮助语言不一致）：
+    /// 断言 `cli.*` 键数不少于命令树节点+参数数，且根/首层子命令均有译文。
+    #[test]
+    fn catalogs_cover_the_command_tree() {
+        for locale in ["zh-CN", "en"] {
+            let texts = I18n::load(locale, LocaleSource::Explicit);
+            for key in [
+                "cli.about",
+                "cli.lang",
+                "cli.json",
+                "cli.session.about",
+                "cli.db.purge.dry-run",
+                "cli.font.install.from",
+                "cli.spec.force-advance.reason",
+            ] {
+                assert!(
+                    texts.try_resolve(key).is_some(),
+                    "目录 {locale} 缺少帮助键 {key}"
+                );
+            }
+        }
+    }
+
+    /// `--lang` 预扫描：两种书写形态、缺值与非法值。
+    #[test]
+    fn prescan_lang_accepts_both_forms_and_rejects_bad_values() {
+        assert_eq!(
+            prescan_lang(&["--lang".to_string(), "en".to_string()]).expect("ok"),
+            Some("en".to_string())
+        );
+        assert_eq!(
+            prescan_lang(&["--lang=pt_BR".to_string()]).expect("ok"),
+            Some("pt_BR".to_string())
+        );
+        assert_eq!(prescan_lang(&["session".to_string()]).expect("ok"), None);
+        // 缺值不在此处报错（由 clap 的“需要取值”统一处理）。
+        assert_eq!(prescan_lang(&["--lang".to_string()]).expect("ok"), None);
+        for bad in ["../evil", "", "zh CN", "zh/CN"] {
+            let err = prescan_lang(&["--lang".to_string(), bad.to_string()])
+                .expect_err("非法语言标识必须拒绝");
+            assert!(err.contains("--lang"), "{err}");
+        }
+    }
+
+    /// 注入帮助文本不得改变解析语义（同构回归：命令/参数仍按 derive 结构构造）。
+    #[test]
+    fn injected_help_does_not_change_parsing() {
+        let en = I18n::load("en", LocaleSource::Explicit);
+        let cli = match parse_outcome(
+            ["whcode", "--lang", "en", "session", "new", "--title", "t1"],
+            Some(&en),
+        ) {
+            ParseOutcome::Command(cli) => cli,
+            other => panic!("应解析成功：{other:?}"),
+        };
+        assert_eq!(cli.lang.as_deref(), Some("en"));
+        assert!(matches!(
+            cli.command,
+            Command::Session {
+                command: SessionCommand::New { .. }
+            }
+        ));
+        assert!(
+            matches!(
+                parse_outcome(["whcode", "--lang", "zh/CN", "db", "stats"], Some(&en)),
+                ParseOutcome::Usage(_)
+            ),
+            "非法 --lang 值由 clap 拒绝"
+        );
+    }
 
     #[test]
     fn command_tree_matches_contract_shape() {

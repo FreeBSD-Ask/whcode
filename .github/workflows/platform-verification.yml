@@ -1,4 +1,4 @@
-# 平台验证：五平台证据车道 + 门禁 + 全量测试 + 短测量（唯一测试入口，ADR-037）。
+# 平台验证：五平台证据通道 + 门禁 + 全量测试 + 短测量（唯一测试入口，ADR-037）。
 #
 # 命名（2026-11-07 用户指令“ci 不能就叫 ci，必须见名知义”）：本文件原名 `ci.yml`，
 # 更名为 `platform-verification.yml` 并同步 `name:`；2026-11-07 之前的提交、run 记录、
@@ -54,7 +54,7 @@ jobs:
     if: github.event_name != 'schedule'
     name: platform-${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
-    # 门禁超时（2026-11-01）：VM 车道（FreeBSD/NetBSD/OpenBSD/DragonFly）含 pkg 安装、
+    # 门禁超时（2026-11-01）：VM 通道（FreeBSD/NetBSD/OpenBSD/DragonFly）含 pkg 安装、
     # DuckDB 源码构建、全量构建/测试/冒烟，任一环节挂死不得无限占用 runner——90 分钟
     # 封顶，超时按失败处理（硬门禁语义，ADR-013 修订 2026-10-31）。
     timeout-minutes: 90
@@ -114,6 +114,10 @@ jobs:
       - name: EOL 与编码门禁（LF / 无 BOM）
         if: matrix.platform == 'windows'
         run: python .github/scripts/check-eol.py
+
+      - name: 文档文风门禁（禁用词 / 表情符号 / 直引号 / 套话）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/check-docs-style.py
 
       - name: 知难行易落点门禁（宪法原则 X）
         if: matrix.platform == 'windows'
@@ -465,7 +469,7 @@ jobs:
             echo "=== Web 服务端冒烟（/api/status、/api/sessions、首页；功能等价证据）==="
             python3 .github/scripts/web-smoke.py --exe target/debug/whcode --json artifacts/web-smoke-freebsd.json
 
-            echo "=== BSD 量化测量记录（ADR-025 证据车道扩展；只记录不判定，脚本恒退出 0）==="
+            echo "=== BSD 量化测量记录（ADR-025 证据通道扩展；只记录不判定，脚本恒退出 0）==="
             sh .github/scripts/platform-matrix/bsd-perf.sh
 
             echo "GATE_RESULT=GO（全量构建＋全量测试＋三门 GO＋TUI/Web 冒烟；2026-10-31 用户指令硬门禁）"
@@ -763,7 +767,7 @@ jobs:
             sh .github/scripts/platform-matrix/bsd-ssh-client.sh
             echo "phase=ssh-script-done" >> "$progress"
 
-            echo "=== BSD 量化测量记录（ADR-025 证据车道扩展；只记录不判定，脚本恒退出 0）==="
+            echo "=== BSD 量化测量记录（ADR-025 证据通道扩展；只记录不判定，脚本恒退出 0）==="
             sh .github/scripts/platform-matrix/bsd-perf.sh
             echo "phase=perf-recorded" >> "$progress"
 
@@ -790,7 +794,7 @@ jobs:
             fi
 
             if [ "$duckdb_ready" -eq 1 ]; then
-              # 禁核心转储（同 FreeBSD 车道：durability abort() 的 core 落 tests/ 会破 layout 门禁）。
+              # 禁核心转储（同 FreeBSD 通道：durability abort() 的 core 落 tests/ 会破 layout 门禁）。
               ulimit -c 0
               if cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
                 && cargo test --locked --workspace --exclude whcode-gui --exclude whcode-bin; then

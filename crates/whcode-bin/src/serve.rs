@@ -1826,7 +1826,11 @@ fn chat_response(
             "content-type".to_string(),
             "text/html; charset=utf-8".to_string(),
         )],
-        body: assets::render_chat(&history_html, &security.default_theme).into_bytes(),
+        body: assets::with_direction(
+            assets::render_chat(&history_html, &security.default_theme),
+            &security.default_locale,
+        )
+        .into_bytes(),
     }
 }
 
@@ -2011,7 +2015,10 @@ fn index_response(
     security: &ServeSecurity,
 ) -> HttpResponse {
     let body = if security.auth_enabled {
-        assets::render_index_auth_required(&security.default_theme)
+        assets::with_direction(
+            assets::render_index_auth_required(&security.default_theme),
+            &security.default_locale,
+        )
     } else {
         let listing = whcode_app::session::list_sessions(
             conn,
@@ -2057,7 +2064,7 @@ fn index_response(
             ),
             ("cache-control".to_string(), "no-store".to_string()),
         ],
-        body: body.into_bytes(),
+        body: assets::with_direction(body, &security.default_locale).into_bytes(),
     }
 }
 
@@ -2089,7 +2096,11 @@ fn settings_response(security: &ServeSecurity) -> HttpResponse {
             ),
             ("cache-control".to_string(), "no-store".to_string()),
         ],
-        body: assets::with_default_theme(html, &security.default_theme).into_bytes(),
+        body: assets::with_direction(
+            assets::with_default_theme(html, &security.default_theme),
+            &security.default_locale,
+        )
+        .into_bytes(),
     }
 }
 

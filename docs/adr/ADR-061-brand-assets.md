@@ -40,7 +40,9 @@
 | `crates/whcode-gui/assets/brand/icon-64.rgba` | GUI 窗口图标 | 64×64 原始 RGBA，`include_bytes!` 直接交给 `window::icon::from_rgba` |
 | `crates/whcode-web/frontend/favicon.ico` | `/favicon.ico` | ICO，16/32/48 三帧 |
 
-- 脚本解 `--check`：重算并与入库字节比对，不一致即非零退出（可接 CI，不需 pillow 之外的依赖）；
+- 脚本解 `--check`：重算并与入库字节比对，不一致即非零退出。**未接入 CI**：Windows 验证
+  job 不安装 pillow（只有 GUI 探针 job 装 `requirements-dev.txt`），接入需在该 job 增装
+  依赖；当前以本文档“复审触发”的绑定命令执行，不声称 CI 已强制；
 - 脚本**按 `<use>` 偏移合成两层**，层缺失或结构不符时显式报错退出，**不回退**到“只取
   第一层”（静默生成缺字的图标比失败更坏）；
 - Web 路由白名单由“六路径”扩为“七路径（含 `/favicon.ico`）”，原“`/favicon.ico` 必须

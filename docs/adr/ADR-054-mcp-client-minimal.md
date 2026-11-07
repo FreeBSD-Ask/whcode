@@ -1,11 +1,11 @@
 # ADR-054：MCP 客户端最小集（P1-7 v1——stdio transport、投影与 fail-closed 权限面）
 
-- **状态**：已批准（2026-11-01，建议书 proposal.md D3 排序 + 用户"继续"指令；transport
+- **状态**：已批准（2026-11-01，建议书 proposal.md D3 排序 + 用户“继续”指令；transport
   范围经意见征询未获表态，按建议项 stdio 先行执行，HTTP/OAuth 留后续批次复审）
 - **来源**：`research/zcode-comparison/domain-I-mcp.md`（ZCode MCP 客户端一手证据：三
   transport、OAuth、进程树/Job Object、连接池、工具投影）+ MCP 官方规范 2025-06-18
-  transports 页（一手复核，2026-11-01）+ proposal.md P1-7 行（"最重项最后；超时/并发/
-  缓冲全部有界；CUA fail-closed 原则保留"）
+  transports 页（一手复核，2026-11-01）+ proposal.md P1-7 行（“最重项最后；超时/并发/
+  缓冲全部有界；CUA fail-closed 原则保留“）
 - **责任人**：whcode-mcp 维护者
 - **退出条件**：连续两个批次零 MCP 工具调用（配置存在但模型从未调用 `mcp__*`）或维护
   成本显著超出价值，须另立 ADR 裁剪
@@ -15,7 +15,7 @@
 1. **现行规范只有两个标准 transport**（一手证据，2026-11-01 复核
    `modelcontextprotocol.io/specification/2025-06-18/basic/transports`）：stdio 与
    Streamable HTTP；旧 HTTP+SSE（SSE 独立 transport）**已废弃**，仅保留向后兼容路径；
-   "Clients SHOULD support stdio whenever possible"。ZCode 的"三 transport"含废弃 SSE，
+   “Clients SHOULD support stdio whenever possible”。ZCode 的“三 transport”含废弃 SSE，
    是兼容面而非规范要求。
 2. **官方 Rust SDK（rmcp）强依赖 tokio 异步运行时**：本仓全同步架构（`cargo tree` 无
    tokio；HTTP 栈为 ureq 3.5 + rustls 可选 feature），引入 tokio 违反资源优先序
@@ -95,7 +95,7 @@
 
 - `cargo test -p whcode-mcp` 随批提交；fixture 覆盖 initialize/list/call/超时/
   进程终止零残留（`platform::process_exists` 断言）。
-- **stderr 丢弃**：出现需要服务器日志排障的真实事故 → 评估"有界 drain 线程"
+- **stderr 丢弃**：出现需要服务器日志排障的真实事故 → 评估“有界 drain 线程”
   （随连接存亡，非会话常驻）。
 - **per-turn 重启**：真实会话中启动延迟成为可测量痛点（turn 均值显著上升）→ 评估
   连接池（带 30 s idle grace 与有界表），须附并发档案。

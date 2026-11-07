@@ -1,0 +1,1246 @@
+# ko translation catalog for WHCode (FR-615).
+# Generated from i18n/ko.properties by .github/scripts/i18n-po.py; do not edit by hand.
+# Edit the properties file instead, then regenerate — a contract test fails on drift.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: whcode 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/FreeBSD-Ask/whcode/issues\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "app.title"
+msgstr "WHCode 코딩 하네스"
+
+msgid "cli.about"
+msgstr "WHCode 코딩 하네스"
+
+msgid "cli.context.about"
+msgstr "컨텍스트 예산 보기(FR-105/108; contracts/cui-cli.md §1)."
+
+msgid "cli.context.budget.about"
+msgstr "예산 보기: 현재 예산, 적재된 원본, 잘림 사유와 커서(`whcode_app::load_context` 경유)."
+
+msgid "cli.context.budget.budget"
+msgstr "토큰 단위 예산. 기본값은 표시 기준값(4096, TUI 컨텍스트 보기와 동일)."
+
+msgid "cli.context.budget.session"
+msgstr "세션 ID."
+
+msgid "cli.db.about"
+msgstr "데이터베이스 유지보수와 정리(FR-507—510)."
+
+msgid "cli.db.archive.about"
+msgstr "워크스페이스를 내보냅니다."
+
+msgid "cli.db.archive.export"
+msgstr "출력 경로."
+
+msgid "cli.db.check.about"
+msgstr "필수 인덱스를 점검합니다."
+
+msgid "cli.db.checkpoint.about"
+msgstr "명시적 체크포인트(FR-510; 선택적으로 WAL 정책 재정의를 함께 적용, disaster-recovery §5)."
+
+msgid "cli.db.checkpoint.autocheckpoint"
+msgstr "wal_autocheckpoint를 재정의합니다(예: 1MB, 생략하면 그대로 둡니다)."
+
+msgid "cli.db.checkpoint.threshold"
+msgstr "WAL 자동 체크포인트 임계값을 재정의합니다(예: 16MB, 생략하면 그대로 둡니다)."
+
+msgid "cli.db.compact.about"
+msgstr "디스크의 데이터베이스를 압축합니다(복사—검증—교체, FR-510; 기본 dry-run)."
+
+msgid "cli.db.compact.dry-run"
+msgstr "미리보기만 수행합니다(기본)."
+
+msgid "cli.db.compact.yes"
+msgstr "실행을 확인합니다."
+
+msgid "cli.db.explain.about"
+msgstr "쿼리 계획 분석(읽기 전용 쿼리, 계약 §2-2)."
+
+msgid "cli.db.explain.query"
+msgstr "읽기 전용 SQL(SELECT/WITH로 시작)."
+
+msgid "cli.db.purge.about"
+msgstr "기간 기준 정리(FR-508/509; 기본 dry-run)."
+
+msgid "cli.db.purge.before"
+msgstr "기준 시각(Unix 밀리초)."
+
+msgid "cli.db.purge.dry-run"
+msgstr "미리보기만 수행합니다(기본)."
+
+msgid "cli.db.purge.yes"
+msgstr "실행을 확인합니다."
+
+msgid "cli.db.restore.about"
+msgstr "내보낸 파일을 빈 워크스페이스로 복원합니다(`db archive`의 역방향, 명시적 확인, 미리보기 없음)."
+
+msgid "cli.db.restore.from"
+msgstr "내보내기 파일 경로(whcode-export 형식)."
+
+msgid "cli.db.restore.yes"
+msgstr "실행을 확인합니다(복원은 쓰기 작업이며 대상 데이터베이스는 비어 있어야 합니다)."
+
+msgid "cli.db.stats.about"
+msgstr "데이터베이스 통계(FR-507)."
+
+msgid "cli.doctor.about"
+msgstr "환경과 설정 자체 점검(M0)."
+
+msgid "cli.doctor.json"
+msgstr "JSON 출력."
+
+msgid "cli.events.about"
+msgstr "이벤트 조회와 내보내기(FR-202/205)."
+
+msgid "cli.events.export.about"
+msgstr "내보내기(마스킹 정책은 내보낼 때 함께 밝힙니다, FR-205)."
+
+msgid "cli.events.export.after"
+msgstr "시작 커서."
+
+msgid "cli.events.export.format"
+msgstr "출력 형식(json/jsonl)."
+
+msgid "cli.events.export.session"
+msgstr "세션 ID."
+
+msgid "cli.events.list.about"
+msgstr "이벤트를 나열합니다(커서 기준 증분)."
+
+msgid "cli.events.list.after"
+msgstr "시작 커서(배타적)."
+
+msgid "cli.events.list.session"
+msgstr "세션 ID."
+
+msgid "cli.events.show.about"
+msgstr "이벤트 하나의 상세."
+
+msgid "cli.events.show.event"
+msgstr "이벤트 ID."
+
+msgid "cli.font.about"
+msgstr "내장 글꼴 설치와 터미널 선언 점검(FR-717; 로컬 리소스 명령으로 데이터베이스와 워크스페이스를 쓰지 않습니다)."
+
+msgid "cli.font.install.about"
+msgstr "내장 글꼴 네 가지를 사용자 글꼴 디렉터리에 설치하고 HKCU 등록을 기록합니다(덮어쓰기 복사 방식, 다시 실행해도 안전)."
+
+msgid "cli.font.install.dry-run"
+msgstr "시스템을 바꾸지 않고 실행할 작업만 보고합니다."
+
+msgid "cli.font.install.from"
+msgstr "글꼴 원본 디렉터리(평면 배치 또는 저장소의 `source/<family>/` 배치). 생략하면 실행 파일 옆, 그다음 현재 디렉터리의 `assets/fonts/source`를 차례로 탐색합니다(ADR-028 개정 1)."
+
+msgid "cli.font.status.about"
+msgstr "글꼴 설치 상태와 터미널 선언을 보고합니다(읽기 전용)."
+
+msgid "cli.font.uninstall.about"
+msgstr "내장 글꼴을 제거합니다: 등록을 지우고 사용자 글꼴 디렉터리의 파일을 삭제합니다(최선 노력, 항목별 보고)."
+
+msgid "cli.font.uninstall.dry-run"
+msgstr "시스템을 바꾸지 않고 실행할 작업만 보고합니다."
+
+msgid "cli.hint.no_console"
+msgstr "whcode {version} — 사용 가능한 대화형 콘솔이 없어 인터페이스를 시작하지 않았습니다"
+
+msgid "cli.hint.options"
+msgstr "사용 가능: --tui(터미널 UI), --cli <하위 명령>, --lang <로캘>, --help"
+
+msgid "cli.json"
+msgstr "JSON 출력(schema_version 봉투, FR-602). 어떤 하위 명령 앞뒤에도 올 수 있습니다."
+
+msgid "cli.lang"
+msgstr "인터페이스 텍스트 언어(예: zh-CN, en; LANG/LC_ALL보다 우선, FR-615)."
+
+msgid "cli.llm.about"
+msgstr "모델 호출(FR-201; `llm run`과 `llm cancel`, contracts/cui-cli.md §1)."
+
+msgid "cli.llm.cancel.about"
+msgstr "이 컴퓨터에서 실행 중인 호출을 취소합니다(다음 청크 전에 적용)."
+
+msgid "cli.llm.cancel.request"
+msgstr "요청 ID(`llm run`이 출력하거나 `--request-id`로 지정)."
+
+msgid "cli.llm.run.about"
+msgstr "실제 호출을 한 번 수행합니다(동기, 스트리밍 증분은 종료 시 유한한 순서로 출력)."
+
+msgid "cli.llm.run.max-tokens"
+msgstr "프로파일의 `max_tokens`를 재정의합니다."
+
+msgid "cli.llm.run.model"
+msgstr "프로파일의 모델 식별자를 재정의합니다."
+
+msgid "cli.llm.run.prompt"
+msgstr "프롬프트 텍스트(이벤트와 로그에 기록하지 않습니다)."
+
+msgid "cli.llm.run.provider"
+msgstr "프로파일 이름(명시적 선택, ADR-031 결정 4)."
+
+msgid "cli.llm.run.request-id"
+msgstr "요청 ID를 미리 지정합니다(`llm cancel`의 키이며, 지정하지 않으면 호출에서 생성합니다)."
+
+msgid "cli.llm.run.session"
+msgstr "세션 ID."
+
+msgid "cli.llm.run.trace-level"
+msgstr "추적 수준(off/metadata/redacted/full)."
+
+msgid "cli.runtime.about"
+msgstr "런타임 관리(FR-701—710; M8)."
+
+msgid "cli.runtime.disable.about"
+msgstr "런타임을 비활성화합니다."
+
+msgid "cli.runtime.disable.name"
+msgstr "런타임 이름."
+
+msgid "cli.runtime.enable.about"
+msgstr "런타임을 활성화합니다."
+
+msgid "cli.runtime.enable.name"
+msgstr "런타임 이름."
+
+msgid "cli.runtime.install.about"
+msgstr "페이로드를 설치합니다."
+
+msgid "cli.runtime.install.name"
+msgstr "런타임 이름."
+
+msgid "cli.runtime.list.about"
+msgstr "런타임을 나열합니다."
+
+msgid "cli.runtime.status.about"
+msgstr "런타임 상태."
+
+msgid "cli.runtime.status.name"
+msgstr "런타임 이름."
+
+msgid "cli.serve.about"
+msgstr "전송 진입점(M6/M7)."
+
+msgid "cli.serve.bind"
+msgstr "바인드 주소(기본은 루프백만, FR-606)."
+
+msgid "cli.serve.ssh"
+msgstr "SSH 진입점(M7, 연기)."
+
+msgid "cli.serve.web"
+msgstr "Web 진입점(M6)."
+
+msgid "cli.session.about"
+msgstr "세션 수명 주기(FR-101)."
+
+msgid "cli.session.archive.about"
+msgstr "보관 또는 복원(계약 §2-1의 파괴적 계열: 기본 dry-run, `--yes`로 실행)."
+
+msgid "cli.session.archive.dry-run"
+msgstr "미리보기만 수행합니다(기본)."
+
+msgid "cli.session.archive.session"
+msgstr "세션 ID."
+
+msgid "cli.session.archive.unarchive"
+msgstr "보관된 세션을 복원합니다."
+
+msgid "cli.session.archive.yes"
+msgstr "실행을 확인합니다(--dry-run과 함께 쓸 수 없습니다, §8.1)."
+
+msgid "cli.session.delete.about"
+msgstr "세션을 삭제합니다(파괴적, 기본 dry-run, FR-509)."
+
+msgid "cli.session.delete.dry-run"
+msgstr "미리보기만 수행합니다(기본)."
+
+msgid "cli.session.delete.session"
+msgstr "세션 ID."
+
+msgid "cli.session.delete.yes"
+msgstr "실행을 확인합니다(--dry-run과 함께 쓸 수 없습니다, §8.1)."
+
+msgid "cli.session.list.about"
+msgstr "세션을 나열합니다."
+
+msgid "cli.session.list.all"
+msgstr "보관된 세션을 포함합니다."
+
+msgid "cli.session.new.about"
+msgstr "세션을 만듭니다."
+
+msgid "cli.session.new.model"
+msgstr "모델(선택)."
+
+msgid "cli.session.new.title"
+msgstr "제목."
+
+msgid "cli.session.rename.about"
+msgstr "세션 이름을 변경합니다."
+
+msgid "cli.session.rename.session"
+msgstr "세션 ID."
+
+msgid "cli.session.rename.title"
+msgstr "새 제목."
+
+msgid "cli.session.show.about"
+msgstr "세션 하나를 표시합니다."
+
+msgid "cli.session.show.session"
+msgstr "세션 ID."
+
+msgid "cli.spec.about"
+msgstr "SDD 단계와 게이트(FR-307—312)."
+
+msgid "cli.spec.analyze.about"
+msgstr "Analyze 검사(FR-306)."
+
+msgid "cli.spec.analyze.session"
+msgstr "세션 ID."
+
+msgid "cli.spec.converge.about"
+msgstr "Converge 검사(FR-310/311)."
+
+msgid "cli.spec.converge.session"
+msgstr "세션 ID."
+
+msgid "cli.spec.force-advance.about"
+msgstr "게이트를 직접 통과합니다(FR-312; 사유 필수, 계약 §2-3)."
+
+msgid "cli.spec.force-advance.reason"
+msgstr "게이트를 강제로 통과하는 사유(필수, FR-312)."
+
+msgid "cli.spec.force-advance.session"
+msgstr "세션 ID."
+
+msgid "cli.spec.force-advance.to"
+msgstr "대상 단계."
+
+msgid "cli.spec.next.about"
+msgstr "다음 단계."
+
+msgid "cli.spec.next.session"
+msgstr "세션 ID."
+
+msgid "cli.spec.status.about"
+msgstr "현재 단계 상태(FR-314)."
+
+msgid "cli.spec.status.session"
+msgstr "세션 ID."
+
+msgid "cli.spec.validate.about"
+msgstr "산출물을 검증합니다."
+
+msgid "cli.spec.validate.session"
+msgstr "세션 ID."
+
+msgid "cli.status.about"
+msgstr "상태 스냅숏(FR-314)."
+
+msgid "cli.status.session"
+msgstr "세션 ID."
+
+msgid "cli.task.abort.about"
+msgstr "작업을 중단합니다(FR-408)."
+
+msgid "cli.task.abort.task"
+msgstr "작업 ID."
+
+msgid "cli.task.about"
+msgstr "작업 조회와 제어(FR-401/408)."
+
+msgid "cli.task.list.about"
+msgstr "작업을 나열합니다."
+
+msgid "cli.task.list.session"
+msgstr "세션 ID."
+
+msgid "cli.task.retry.about"
+msgstr "작업을 재시도합니다(FR-401)."
+
+msgid "cli.task.retry.task"
+msgstr "작업 ID."
+
+msgid "cli.task.show.about"
+msgstr "작업 상세(FR-104의 다섯 가지 정보 분류)."
+
+msgid "cli.task.show.task"
+msgstr "작업 ID."
+
+msgid "cli.workspace"
+msgstr "워크스페이스 디렉터리(설정된 워크스페이스, 없으면 cwd; `<workspace>/whcode.duckdb` 위치를 찾습니다)."
+
+msgid "cui.archive_dry_run"
+msgstr "dry-run: 세션 {session}을 보관합니다 — 실행하려면 --yes를 추가하십시오(되돌리려면 --unarchive)"
+
+msgid "cui.archived"
+msgstr "세션 {session} 보관 완료"
+
+msgid "cui.checkpoint_done"
+msgstr "checkpoint 완료: WAL {before} → {after}"
+
+msgid "cui.compact_done"
+msgstr "compact 완료（switched={switched}）"
+
+msgid "cui.compact_dry_run"
+msgstr "dry-run: 파일 {file} B, WAL {wal} B — compact를 실행하려면 --yes를 추가하십시오(파일 축소는 보장하지 않습니다)"
+
+msgid "cui.created"
+msgstr "세션 {session} 생성 완료"
+
+msgid "cui.delete_dry_run"
+msgstr "dry-run: 세션 {session}을 삭제합니다(이벤트 {events}건, 작업 {tasks}건, 보호로 건너뜀 {skipped}건) — 실행하려면 --yes를 추가하십시오"
+
+msgid "cui.deleted"
+msgstr "세션 {session} 삭제 완료"
+
+msgid "cui.empty"
+msgstr "(기록 없음)"
+
+msgid "cui.exported"
+msgstr "{path}에 내보냈습니다(hash {hash})"
+
+msgid "cui.font.deleted"
+msgstr "삭제됨"
+
+msgid "cui.font.dry_run"
+msgstr "[dry-run]"
+
+msgid "cui.font.install.header"
+msgstr "{dry_run}내장 글꼴 설치: {source} -> {dir}"
+
+msgid "cui.font.install.line"
+msgstr "{family}: {source} -> {target} 복사, 레지스트리 {reg_state}"
+
+msgid "cui.font.installed"
+msgstr "설치됨"
+
+msgid "cui.font.missing"
+msgstr "없음"
+
+msgid "cui.font.reg_pending"
+msgstr "등록 대기"
+
+msgid "cui.font.registered"
+msgstr "등록됨"
+
+msgid "cui.font.removed"
+msgstr "등록 해제됨"
+
+msgid "cui.font.status.header"
+msgstr "내장 글꼴 상태(사용자 디렉터리: {dir})"
+
+msgid "cui.font.status.line"
+msgstr "{family}({file}): 파일 {file_state}, 레지스트리 {reg_state}"
+
+msgid "cui.font.terminal.found"
+msgstr "터미널 선언: {file}(faces: {faces}; 내장 일치: {hits})"
+
+msgid "cui.font.terminal.none"
+msgstr "터미널 선언: Windows Terminal 설정을 찾지 못했습니다(오류로 보지 않음)"
+
+msgid "cui.font.uninstall.header"
+msgstr "{dry_run}내장 글꼴 제거"
+
+msgid "cui.font.uninstall.line"
+msgstr "{family}: 레지스트리 {unreg_state}, 파일 {file_state}"
+
+msgid "cui.font.unregistered"
+msgstr "등록 안 됨"
+
+msgid "cui.indexes_ok"
+msgstr "인덱스 정상"
+
+msgid "cui.plan_rows"
+msgstr "계획 행 {rows}개(analyze=false, 쿼리 미실행)"
+
+msgid "cui.purge_dry_run"
+msgstr "dry-run: 세션 {sessions}개 · 이벤트 {events}건을 정리합니다(보호로 건너뜀 {skipped}건) — 실행하려면 --yes를 추가하십시오"
+
+msgid "cui.purged"
+msgstr "이벤트 {events}건 정리 완료"
+
+msgid "cui.record.archived"
+msgstr "보관됨"
+
+msgid "cui.record.artifacts"
+msgstr "산출물"
+
+msgid "cui.record.budget"
+msgstr "예산"
+
+msgid "cui.record.checkpoints"
+msgstr "체크포인트"
+
+msgid "cui.record.cursor"
+msgstr "커서"
+
+msgid "cui.record.failure"
+msgstr "실패"
+
+msgid "cui.record.items"
+msgstr "항목"
+
+msgid "cui.record.model"
+msgstr "모델"
+
+msgid "cui.record.no"
+msgstr "아니오"
+
+msgid "cui.record.session"
+msgstr "세션 {session}"
+
+msgid "cui.record.task"
+msgstr "작업 {task}"
+
+msgid "cui.record.truncated"
+msgstr "잘림"
+
+msgid "cui.record.used"
+msgstr "사용"
+
+msgid "cui.record.yes"
+msgstr "예"
+
+msgid "cui.renamed"
+msgstr "세션 {session} 이름 변경 완료"
+
+msgid "cui.restore_done"
+msgstr "복원 완료: 원본 {source}"
+
+msgid "cui.spec_status"
+msgstr "세션 {session}: 단계 {stage} · 커서 {cursor}"
+
+msgid "cui.status_line"
+msgstr "{session} {title} [{stage}] status={status} cursor={cursor}"
+
+msgid "cui.task_aborted"
+msgstr "{task} 중단됨 → {status}"
+
+msgid "cui.task_retried"
+msgstr "{task} 재시도됨(retry={retry}) → {status}"
+
+msgid "cui.tasks_summary"
+msgstr "세션 {session}: 전체 {total} · 완료 {done} · 차단 {blocked} · 진행 중 {active}"
+
+msgid "cui.unarchive_dry_run"
+msgstr "dry-run: 세션 {session}의 보관을 해제합니다 — 실행하려면 --yes를 추가하십시오"
+
+msgid "cui.unarchived"
+msgstr "세션 {session} 보관 해제 완료"
+
+msgid "error.datasource"
+msgstr "데이터 원본 오류: {error}"
+
+msgid "error.permission_denied"
+msgstr "권한이 없습니다"
+
+msgid "gui.chat.cancel"
+msgstr "취소"
+
+msgid "gui.chat.empty"
+msgstr "프롬프트가 비어 있습니다"
+
+msgid "gui.chat.error"
+msgstr "대화에 실패했습니다"
+
+msgid "gui.chat.hint"
+msgstr "세션을 선택하고 프롬프트를 입력하십시오. 전송하면 완료될 때까지 기다립니다(TUI와 동일)."
+
+msgid "gui.chat.history.hint"
+msgstr "대화 이벤트는 저장됩니다. 전체 기록은 이벤트 보기에서 확인하십시오."
+
+msgid "gui.chat.last"
+msgstr "최근 결과: {summary}"
+
+msgid "gui.chat.no_request"
+msgstr "취소할 요청 ID가 없습니다(먼저 한 턴을 보내십시오)"
+
+msgid "gui.chat.none"
+msgstr "선택한 세션이 없습니다. 세션 보기에서 선택하십시오(j/k)."
+
+msgid "gui.chat.not_supported"
+msgstr "LLM 실행기가 연결되지 않았습니다(not_supported)"
+
+msgid "gui.chat.progress"
+msgstr "생성 중: {chunks}개 청크…"
+
+msgid "gui.chat.prompt.placeholder"
+msgstr "프롬프트를 입력하고 Enter로 전송합니다"
+
+msgid "gui.chat.provider"
+msgstr "LLM 프로파일: {provider}"
+
+msgid "gui.chat.provider.placeholder"
+msgstr "프로파일 이름"
+
+msgid "gui.chat.send"
+msgstr "전송"
+
+msgid "gui.checkpoints.degraded"
+msgstr "롤백 미구현(조회만 가능)"
+
+msgid "gui.checkpoints.empty"
+msgstr "이 작업에는 체크포인트가 없습니다"
+
+msgid "gui.checkpoints.hint"
+msgstr "작업 행에서 체크포인트를 누르십시오"
+
+msgid "gui.checkpoints.open"
+msgstr "체크포인트"
+
+msgid "gui.checkpoints.title"
+msgstr "체크포인트"
+
+msgid "gui.kpi.count"
+msgstr "세션 {sessions} · 보기 행 {rows}"
+
+msgid "gui.op.archive"
+msgstr "보관"
+
+msgid "gui.op.cancel"
+msgstr "취소"
+
+msgid "gui.op.confirm"
+msgstr "확인"
+
+msgid "gui.op.delete"
+msgstr "삭제"
+
+msgid "gui.op.error"
+msgstr "작업에 실패했습니다"
+
+msgid "gui.op.input.days"
+msgstr "정리 기준 일수"
+
+msgid "gui.op.input.title"
+msgstr "제목"
+
+msgid "gui.op.new"
+msgstr "새로 만들기"
+
+msgid "gui.op.not_supported"
+msgstr "명령 실행기가 연결되지 않았습니다(not_supported)"
+
+msgid "gui.op.preview"
+msgstr "미리보기"
+
+msgid "gui.op.purge"
+msgstr "정리(30일 이전)"
+
+msgid "gui.op.rename"
+msgstr "이름 변경"
+
+msgid "gui.op.restore"
+msgstr "복원"
+
+msgid "gui.session.archived"
+msgstr "보관"
+
+msgid "gui.session.group.active"
+msgstr "— 진행 중 —"
+
+msgid "gui.session.group.archived"
+msgstr "— 보관됨 —"
+
+msgid "gui.session.none"
+msgstr "선택한 세션 없음"
+
+msgid "gui.session.off"
+msgstr "숨김"
+
+msgid "gui.session.on"
+msgstr "표시"
+
+msgid "gui.session.search"
+msgstr "제목 또는 ID 검색"
+
+msgid "gui.session.sort.created"
+msgstr "생성"
+
+msgid "gui.session.sort.recent"
+msgstr "최근"
+
+msgid "gui.session.sort.title"
+msgstr "제목"
+
+msgid "gui.status.theme"
+msgstr "테마: {theme}"
+
+msgid "gui.task.abort"
+msgstr "중단"
+
+msgid "gui.task.retries"
+msgstr "재시도 {count}회"
+
+msgid "gui.task.retry"
+msgstr "재시도"
+
+msgid "menu.context"
+msgstr "컨텍스트"
+
+msgid "menu.diff"
+msgstr "차이"
+
+msgid "menu.events"
+msgstr "이벤트"
+
+msgid "menu.sessions"
+msgstr "세션"
+
+msgid "menu.spec"
+msgstr "명세"
+
+msgid "menu.tasks"
+msgstr "작업"
+
+msgid "settings.action.done"
+msgstr "완료: {label}"
+
+msgid "settings.action.failed"
+msgstr "작업 실패({label}): {code} {message}"
+
+msgid "settings.action.running"
+msgstr "실행 중: {label}"
+
+msgid "settings.back"
+msgstr "홈으로 돌아가기"
+
+msgid "settings.confirm.builtin_empty"
+msgstr "내장 루트 사본을 비웁니다(아웃바운드 신뢰에서 내장 기준선이 빠집니다). 계속하시겠습니까?"
+
+msgid "settings.confirm.external_key"
+msgstr "외부 서버 인증서와 개인 키를 저장하고 인바운드 모드를 external로 전환합니다. 계속하시겠습니까?"
+
+msgid "settings.confirm.inbound_off"
+msgstr "인바운드 TLS를 끄고 평문 HTTP로 돌아갑니다. serve --web를 다시 시작하면 적용됩니다. 계속하시겠습니까?"
+
+msgid "settings.confirm.regenerate"
+msgstr "자체 서명 서버 인증서를 다시 생성합니다(현재 지문은 무효가 됩니다). 계속하시겠습니까?"
+
+msgid "settings.confirm.reset_builtin"
+msgstr "내장 루트 사본을 배포 자산으로 복원합니다. 계속하시겠습니까?"
+
+msgid "settings.confirm.reset_extra"
+msgstr "추가 루트를 비웁니다. 계속하시겠습니까?"
+
+msgid "settings.error.bad_port"
+msgstr "포트는 1..=65535 범위의 정수여야 합니다"
+
+msgid "settings.error.generic"
+msgstr "작업에 실패했습니다"
+
+msgid "settings.error.load"
+msgstr "인증서 상태를 읽을 수 없습니다: {code} {message}"
+
+msgid "settings.error.missing_host"
+msgstr "먼저 호스트 이름이나 IP 리터럴을 입력하십시오"
+
+msgid "settings.error.missing_pem"
+msgstr "먼저 인증서 체인과 개인 키(PEM)를 입력하십시오"
+
+msgid "settings.field.count"
+msgstr "개수: {value}"
+
+msgid "settings.field.modified"
+msgstr "수정 시각: {value}"
+
+msgid "settings.field.newer"
+msgstr "내장 버전이 더 최신: {value}"
+
+msgid "settings.field.path"
+msgstr "경로: {value}"
+
+msgid "settings.field.sha256"
+msgstr "SHA-256: {value}"
+
+msgid "settings.inbound.builtin"
+msgstr "내장 자체 서명 인증서(builtin)"
+
+msgid "settings.inbound.builtin_hint"
+msgstr "워크스페이스마다 ECDSA P-256 자체 서명 인증서를 생성합니다(397일). SAN에는 localhost, 127.0.0.1, ::1과 호스트 이름이 포함됩니다."
+
+msgid "settings.inbound.cert_pem_label"
+msgstr "인증서 체인 업로드(PEM)"
+
+msgid "settings.inbound.days_remaining"
+msgstr "남은 일수: {value}"
+
+msgid "settings.inbound.download"
+msgstr "공개 인증서 다운로드(PEM)"
+
+msgid "settings.inbound.external"
+msgstr "외부 인증서(external)"
+
+msgid "settings.inbound.external_hint"
+msgstr "업로드한 PEM 인증서 체인과 암호화되지 않은 개인 키를 사용합니다. 개인 키는 쓰기 전용입니다."
+
+msgid "settings.inbound.key_pem_label"
+msgstr "개인 키 업로드(암호화되지 않은 PEM, 제출 후 지워짐)"
+
+msgid "settings.inbound.key_saved"
+msgstr "개인 키를 저장했습니다. 더 이상 표시하지 않습니다(입력란이 지워졌습니다)."
+
+msgid "settings.inbound.legend"
+msgstr "모드"
+
+msgid "settings.inbound.material"
+msgstr "인증서 있음: {cert} · 개인 키 있음: {key}"
+
+msgid "settings.inbound.no_material"
+msgstr "아직 서버 인증서 자료가 없습니다(체인을 업로드하거나 자체 서명 인증서를 다시 생성하십시오)"
+
+msgid "settings.inbound.not_after"
+msgstr "만료: {value}"
+
+msgid "settings.inbound.off"
+msgstr "TLS 끄기(off)"
+
+msgid "settings.inbound.off_hint"
+msgstr "평문 HTTP로 돌아갑니다(ADR-023). 명시적 확인이 필요하며, 자동으로 되돌리지 않습니다."
+
+msgid "settings.inbound.regenerate"
+msgstr "자체 서명 인증서 다시 생성"
+
+msgid "settings.inbound.sans"
+msgstr "SAN: {value}"
+
+msgid "settings.inbound.sha256"
+msgstr "지문 SHA-256: {value}"
+
+msgid "settings.inbound.subject"
+msgstr "주체: {value}"
+
+msgid "settings.inbound.title"
+msgstr "인바운드 TLS(serve --web)"
+
+msgid "settings.inbound.upload"
+msgstr "업로드하고 external로 전환"
+
+msgid "settings.link"
+msgstr "인증서 설정"
+
+msgid "settings.local_mode"
+msgstr "로컬 설정 페이지"
+
+msgid "settings.modes.save"
+msgstr "모드 저장"
+
+msgid "settings.notes.none"
+msgstr "추가 안내 없음"
+
+msgid "settings.notes.title"
+msgstr "안내"
+
+msgid "settings.outbound.builtin"
+msgstr "내장 사본(builtin)"
+
+msgid "settings.outbound.builtin_hint"
+msgstr "워크스페이스 내장 루트 사본을 기준선으로 삼고, 추가 루트를 뒤에 덧붙입니다."
+
+msgid "settings.outbound.builtin_pem_label"
+msgstr "내장 루트 사본(PEM, 편집 가능)"
+
+msgid "settings.outbound.effective_line"
+msgstr "실제 적용 루트 인증서: {value}"
+
+msgid "settings.outbound.empty_extra"
+msgstr "추가 루트가 설정되지 않았습니다(올바른 빈 상태: 파일에 인증서가 없습니다)"
+
+msgid "settings.outbound.extra_pem_label"
+msgstr "추가 루트(PEM, 두 모드 모두 적용)"
+
+msgid "settings.outbound.hint"
+msgstr "어떤 모드에서도 인증서 체인과 호스트 이름 검증을 끄지 않으며, 검증을 건너뛰는 스위치는 없습니다."
+
+msgid "settings.outbound.legend"
+msgstr "신뢰 저장소 모드"
+
+msgid "settings.outbound.missing_builtin"
+msgstr "내장 사본이 없습니다: 상태에서 해당 파일을 보고하지 않았습니다"
+
+msgid "settings.outbound.reset_builtin"
+msgstr "내장 사본 복원"
+
+msgid "settings.outbound.reset_extra"
+msgstr "추가 루트 비우기"
+
+msgid "settings.outbound.save_builtin"
+msgstr "내장 사본 저장"
+
+msgid "settings.outbound.save_extra"
+msgstr "추가 루트 저장"
+
+msgid "settings.outbound.system"
+msgstr "운영체제 저장소(system)"
+
+msgid "settings.outbound.system_hint"
+msgstr "운영체제 루트 저장소를 기준선으로 삼고, 추가 루트도 함께 덧붙입니다. 시스템 저장소가 비어 있으면 오류이며 내장 사본으로 대체하지 않습니다."
+
+msgid "settings.outbound.system_na"
+msgstr "해당 없음(현재 모드는 시스템 저장소를 읽지 않습니다)"
+
+msgid "settings.outbound.system_roots_line"
+msgstr "시스템 루트 인증서: {value}"
+
+msgid "settings.outbound.title"
+msgstr "아웃바운드 HTTPS 신뢰"
+
+msgid "settings.restart_banner"
+msgstr "인바운드 인증서 또는 모드가 바뀌었습니다. serve --web를 다시 시작해야 적용됩니다."
+
+msgid "settings.status.no"
+msgstr "아니오"
+
+msgid "settings.status.unknown"
+msgstr "알 수 없음"
+
+msgid "settings.status.yes"
+msgstr "예"
+
+msgid "settings.title"
+msgstr "인증서 설정"
+
+msgid "settings.verify.button"
+msgstr "확인"
+
+msgid "settings.verify.failed"
+msgstr "확인 실패: {error}"
+
+msgid "settings.verify.host"
+msgstr "호스트"
+
+msgid "settings.verify.ok"
+msgstr "확인 성공: 주체 {subject} · 만료 {not_after} · 지문 {sha256} · {tls_version}"
+
+msgid "settings.verify.port"
+msgstr "포트"
+
+msgid "settings.verify.title"
+msgstr "아웃바운드 연결 확인"
+
+msgid "status.idle"
+msgstr "대기"
+
+msgid "status.running"
+msgstr "실행 중"
+
+msgid "summary.context"
+msgstr "세션 {session} · 예산 {budget} · 사용 {used} · 항목 {items}{truncated}"
+
+msgid "summary.context_truncated"
+msgstr "· 잘림 사유: {reason}"
+
+msgid "summary.diff"
+msgstr "세션 {session} · 작업 {total} · 통과 {pass} / 실패 {fail} / 미검증 {untested}{truncated}"
+
+msgid "summary.diff.truncated"
+msgstr "· 차이 목록이 잘렸습니다"
+
+msgid "summary.events"
+msgstr "세션 {session} · 커서 {from}..{to}(끝 {limit}개 이내)"
+
+msgid "summary.none"
+msgstr "없음"
+
+msgid "summary.spec"
+msgstr "세션 {session} · 단계 {stage} · 커서 {cursor} · 진행 중 작업 {task}"
+
+msgid "summary.tasks"
+msgstr "세션 {session} · 전체 {total} · 완료 {done} · 차단 {blocked}"
+
+msgid "tui.col.id"
+msgstr "ID"
+
+msgid "tui.col.kind"
+msgstr "종류"
+
+msgid "tui.col.retry"
+msgstr "재시도"
+
+msgid "tui.col.seq"
+msgstr "순번"
+
+msgid "tui.col.stage"
+msgstr "단계"
+
+msgid "tui.col.status"
+msgstr "상태"
+
+msgid "tui.col.summary"
+msgstr "요약"
+
+msgid "tui.col.title"
+msgstr "제목"
+
+msgid "tui.diff_unwired"
+msgstr "(차이 원본이 아직 연결되지 않았습니다: converge 차이는 후속 연결 대상이며, 현재 임의 내용을 표시하지 않습니다)"
+
+msgid "tui.empty"
+msgstr "(데이터 없음)"
+
+msgid "tui.footer"
+msgstr "1-7 보기  j/k 이동  r 새로 고침  t 테마  q 종료  |  {cols}x{rows}"
+
+msgid "tui.header.none"
+msgstr "선택한 세션 없음"
+
+msgid "tui.no_session"
+msgstr "(선택한 세션 없음 — j/k로 선택)"
+
+msgid "tui.runtimes"
+msgstr "런타임: {list}"
+
+msgid "tui.title"
+msgstr "{app}  |  {view} ({index}/{count})"
+
+msgid "view.chat"
+msgstr "대화"
+
+msgid "view.context"
+msgstr "컨텍스트"
+
+msgid "view.diff"
+msgstr "차이 미리보기"
+
+msgid "view.events"
+msgstr "이벤트"
+
+msgid "view.sessions"
+msgstr "세션"
+
+msgid "view.spec"
+msgstr "명세 상태"
+
+msgid "view.tasks"
+msgstr "작업"
+
+msgid "web.action.failed"
+msgstr "작업 실패({label}): {error}"
+
+msgid "web.checkpoints.degraded"
+msgstr "롤백 실행은 구현되지 않았습니다(명시적 제한): 이 페이지는 조회와 델타 요약만 제공합니다"
+
+msgid "web.checkpoints.empty"
+msgstr "이 작업에는 체크포인트가 없습니다"
+
+msgid "web.checkpoints.failed"
+msgstr "체크포인트를 불러오지 못했습니다: {error}"
+
+msgid "web.checkpoints.hint"
+msgstr "작업을 선택하면 체크포인트와 델타 요약을 볼 수 있습니다"
+
+msgid "web.checkpoints.ready"
+msgstr "롤백 사용 가능"
+
+msgid "web.checkpoints.refs"
+msgstr "산출물 참조 {count}개"
+
+msgid "web.checkpoints.title"
+msgstr "체크포인트"
+
+msgid "web.checkpoints.truncated"
+msgstr "체크포인트가 한도를 넘어 목록이 잘렸습니다"
+
+msgid "web.cleanup.bad_days"
+msgstr "보존 일수는 1 이상이어야 합니다"
+
+msgid "web.cleanup.confirm"
+msgstr "정리 확인"
+
+msgid "web.cleanup.days"
+msgstr "보존 일수"
+
+msgid "web.cleanup.done"
+msgstr "세션 {sessions}개 정리 완료"
+
+msgid "web.cleanup.preview"
+msgstr "미리보기"
+
+msgid "web.cleanup.preview_required"
+msgstr "정리를 확인하기 전에 먼저 미리보십시오"
+
+msgid "web.cleanup.preview_result"
+msgstr "세션 {sessions}개를 정리합니다"
+
+msgid "web.conn.connected"
+msgstr "연결됨"
+
+msgid "web.conn.disconnected"
+msgstr "연결 끊김"
+
+msgid "web.context.empty"
+msgstr "(올바른 빈 상태: 예산 안에 들어갈 항목이 없습니다)"
+
+msgid "web.context.no_session"
+msgstr "선택한 세션이 없습니다"
+
+msgid "web.context.summary"
+msgstr "예산 {consumed}/{budget} · 원본 {sources} · 잘림 {truncated}"
+
+msgid "web.cursor"
+msgstr "커서 {n}"
+
+msgid "web.diff.empty"
+msgstr "(차이 없음: 모든 인수 조건을 통과했습니다)"
+
+msgid "web.diff.no_session"
+msgstr "선택한 세션이 없습니다"
+
+msgid "web.diff.summary"
+msgstr "작업 {total} · 통과 {pass} / 실패 {fail} / 미검증 {untested}{truncated}"
+
+msgid "web.diff.truncated"
+msgstr "(잘림)"
+
+msgid "web.export.done"
+msgstr "내보내기 완료"
+
+msgid "web.export.json"
+msgstr "JSON 내보내기"
+
+msgid "web.export.jsonl"
+msgstr "JSONL 내보내기"
+
+msgid "web.recovering"
+msgstr "복구 중…"
+
+msgid "web.runtimes"
+msgstr "런타임"
+
+msgid "web.runtimes.available"
+msgstr "사용 가능"
+
+msgid "web.runtimes.unavailable"
+msgstr "사용 불가"
+
+msgid "web.runtimes.unknown"
+msgstr "미탐지"
+
+msgid "web.runtimes.unwired"
+msgstr "런타임 목록이 연결되지 않았습니다"
+
+msgid "web.session.archive_confirm"
+msgstr "보관 확인"
+
+msgid "web.session.archive_preview"
+msgstr "보관 미리보기"
+
+msgid "web.session.archive_preview_required"
+msgstr "보관을 확인하기 전에 먼저 미리보십시오"
+
+msgid "web.session.archive_preview_result"
+msgstr "세션 {session}을 보관합니다 — 확인하면 실행됩니다"
+
+msgid "web.session.archived"
+msgstr "세션 {session} 보관 완료"
+
+msgid "web.session.create"
+msgstr "만들기"
+
+msgid "web.session.delete_confirm"
+msgstr "삭제 확인"
+
+msgid "web.session.delete_preview"
+msgstr "삭제 미리보기"
+
+msgid "web.session.delete_preview_result"
+msgstr "삭제 예정: 이벤트 {events} · 작업 {tasks}"
+
+msgid "web.session.deleted"
+msgstr "세션 {n}개 삭제 완료"
+
+msgid "web.session.group_active"
+msgstr "진행 중"
+
+msgid "web.session.group_archived"
+msgstr "보관됨"
+
+msgid "web.session.none"
+msgstr "선택한 세션이 없습니다"
+
+msgid "web.session.preview_required"
+msgstr "삭제를 확인하기 전에 먼저 미리보십시오"
+
+msgid "web.session.rename"
+msgstr "이름 변경"
+
+msgid "web.session.rename_placeholder"
+msgstr "새 제목"
+
+msgid "web.session.search"
+msgstr "제목 또는 ID 검색"
+
+msgid "web.session.show_archived"
+msgstr "보관 포함"
+
+msgid "web.session.sort"
+msgstr "정렬"
+
+msgid "web.session.sort.created"
+msgstr "생성순"
+
+msgid "web.session.sort.last_active"
+msgstr "최근 활동순"
+
+msgid "web.session.sort.title"
+msgstr "제목순"
+
+msgid "web.session.title"
+msgstr "세션 제목"
+
+msgid "web.session.title_required"
+msgstr "먼저 세션 제목을 입력하십시오"
+
+msgid "web.tab.context"
+msgstr "컨텍스트"
+
+msgid "web.tab.diff"
+msgstr "diff"
+
+msgid "web.tab.history"
+msgstr "기록"
+
+msgid "web.tab.maintenance"
+msgstr "유지보수"
+
+msgid "web.tab.sessions"
+msgstr "세션"
+
+msgid "web.tab.spec"
+msgstr "SDD"
+
+msgid "web.tab.tasks"
+msgstr "작업"
+
+msgid "web.task.abort"
+msgstr "중단"
+
+msgid "web.task.depends"
+msgstr "선행 작업 {depends}"
+
+msgid "web.task.progress"
+msgstr "완료 {done}/{total} · 차단 {blocked}"
+
+msgid "web.task.retries"
+msgstr "재시도 {count}회"
+
+msgid "web.task.retry"
+msgstr "재시도"
+
+msgid "web.task.truncated"
+msgstr "작업 카드가 한도를 넘어 잘렸습니다(요약 집계는 전체 기준입니다)"
+
+msgid "web.tasks_summary"
+msgstr "전체 {total} · 완료 {done} · 차단 {blocked}"
+
+msgid "web.theme.default"
+msgstr "기본"
+
+msgid "web.theme.label"
+msgstr "테마"
+

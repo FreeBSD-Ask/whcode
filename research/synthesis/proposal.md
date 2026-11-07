@@ -8,7 +8,7 @@
 
 ## 1. 摘要（一页决策视图）
 
-**战略判断**：WHCode 的差距不在"再造一个 ZCode"，而在把治理先手升级为
+**战略判断**：WHCode 的差距不在“再造一个 ZCode”，而在把治理先手升级为
 **门禁 + 评审双层质量系统**，同时按最小必需集补齐执行层。三层拼图：
 
 ```text
@@ -28,7 +28,7 @@
 
 ## 2. 总目标与正负和解
 
-**目标**：让 WHCode 成为"执行—评审—门禁"闭环完整的本地优先 Harness：代理能多轮干活
+**目标**：让 WHCode 成为“执行—评审—门禁”闭环完整的本地优先 Harness：代理能多轮干活
 （执行层），干完有证据约束的评审（评审层），评审结论能程序化落地为任务与 Check（门禁层）。
 
 **正面**：系统性盲区可见（BH 诊断的五类失效：模糊目标/即兴路径/无证明/速度压倒保障/教训
@@ -44,8 +44,8 @@
 | 新命令面（harness-evidence）维护成本 | 维护者 | 确定性、有界、离线、零新增线程，与 doctor/bench 同类 |
 
 **失效条件**（三重时间之将来项）：若 sensenova 实测不支持 tool calling 且 JSON 模拟代价
-过高，执行层路线退化为"人驱动命令 + 评审层为主"；复审条件机制化若发现可执行检查维护
-成本高于收益，退回"写日期 + 人工复审"并在 ADR 记录。
+过高，执行层路线退化为“人驱动命令 + 评审层为主”；复审条件机制化若发现可执行检查维护
+成本高于收益，退回“写日期 + 人工复审”并在 ADR 记录。
 
 ## 3. 统一路线图（阶段与依赖）
 
@@ -77,9 +77,9 @@
 | # | 能力 | 来源证据 | WHCode 现状 | 落点与 ADR | 和解要点 |
 |---|---|---|---|---|---|
 | P0-1 | Agent turn 循环 | zcode-comparison 域 A（`runRegularTurnLoop` 结构、状态机为事件流投影） | 进行中 | ADR-044 已立（FR-718—724/T204—T212/Check 300—308） | 状态机照 BH/ZCode 双证做投影而非事实源，事件流保持权威 |
-| P0-2 | 工具系统接线 | 域 B（调度并发 10、输入校验三层）；BH 评审子代理"恰好 3"硬上限为纪律样例 | `store/tool_exec` 三步登记已建模未接线（先手协议） | `whcode-app` 编排 + `whcode-tools` 实现；另立 ADR 挂 ADR-044 决策 6 | 复用自有登记协议（比 ZCode 事件流更严），调度并发上限取 ZCode 值并加有界测试 |
+| P0-2 | 工具系统接线 | 域 B（调度并发 10、输入校验三层）；BH 评审子代理“恰好 3”硬上限为纪律样例 | `store/tool_exec` 三步登记已建模未接线（先手协议） | `whcode-app` 编排 + `whcode-tools` 实现；另立 ADR 挂 ADR-044 决策 6 | 复用自有登记协议（比 ZCode 事件流更严），调度并发上限取 ZCode 值并加有界测试 |
 | P0-3 | **Check 证据五态** | BH `agent-work-loop.md:93-108` | Check 二值（通过/缺口） | checklist 语义升级 + traceability.py/check_counts.py 同步；**需 ADR** | 采纳五态、拒绝分数；LLM 不得改变态级，升级须可复现证据（README.md §3 发现 6） |
-| P0-4 | **复审条件机制化** | BH stale-or-conflicting-asset 模式 | ADR/文档写复审日期 | ADR 模板与 AGENTS.md §9 增补"复审条款优先绑定命令 + 判定规则"；随 P0-3 同 ADR | 可执行检查失效即触发复审；维护成本过高则退回日期制（§2 失效条件） |
+| P0-4 | **复审条件机制化** | BH stale-or-conflicting-asset 模式 | ADR/文档写复审日期 | ADR 模板与 AGENTS.md §9 增补“复审条款优先绑定命令 + 判定规则”；随 P0-3 同 ADR | 可执行检查失效即触发复审；维护成本过高则退回日期制（§2 失效条件） |
 | P0-5 | **里程碑评审协议入库** | BH 三域独立收集/调和冻结/八道质量门/代理硬上限（`SKILL.md:69-176`、`findings-review.md`） | 无成文评审协议 | `docs/guides/` 里程碑评审指南：证据包命令 → 并行独立收集（硬上限）→ 调和冻结 → 发现登记为任务/Check 候选；含 finding 登记模板（被检视缺口+有界影响+最小 owner 修复+验证路线） | **LLM 判定仅 advisory** 铁律写入协议；评审为用户显式触发的里程碑操作 |
 
 ### P1（核心增强）
@@ -88,9 +88,9 @@
 |---|---|---|---|---|
 | P1-1 | 上下文压缩执行 | 域 E（手动/自动/响应式 + microcompact + 摘要回填 + circuit breaker） | `whcode-app` 接线 `compress_context`；挂 ADR-044 决策 2 | 摘要回填走 events 表；压缩预算有界 |
 | P1-2 | 流式生成重试（策略+契约合并） | 域 K（10 次退避/jitter/Retry-After）+ BH friendly-cli（retryable/safe_to_retry 分离） | `whcode-llm` 重试策略；**需 ADR** | 策略与契约缺一不可（交叉发现 5）；幂等语义按 BH 四元绑定 |
-| P1-3 | harness-evidence 证据包命令 | BH evidence-bundle（冻结 topology/window/authority）、收集器"不启动代理" | `whcode-bin` 子命令；**需 ADR**（输出契约） | 读自有 DuckDB 事件表（后发优势，交叉发现 8）；零 unsafe/有界/离线 |
+| P1-3 | harness-evidence 证据包命令 | BH evidence-bundle（冻结 topology/window/authority）、收集器“不启动代理” | `whcode-bin` 子命令；**需 ADR**（输出契约） | 读自有 DuckDB 事件表（后发优势，交叉发现 8）；零 unsafe/有界/离线 |
 | P1-4 | CUI 信封语义升级 | BH `effects`=实际变更、`verification.passed: null` 显式 not_run、retryable/safe_to_retry | `whcode-cui` 契约增补；**需 ADR** | 对外契约变更，契约测试同步；正确的空与错误的空强制区分 |
-| P1-5 | 子代理 | 域 F（进程内子 runtime + 事件镜像 + **无硬上限教训**） | `whcode-app/subagent.rs`；**需 ADR** | 硬并发上限 + registry 有界（BH"恰好 3"样例 + 资源铁律）；watchdog=超时终止，后台化独立开关 |
+| P1-5 | 子代理 | 域 F（进程内子 runtime + 事件镜像 + **无硬上限教训**） | `whcode-app/subagent.rs`；**需 ADR** | 硬并发上限 + registry 有界（BH“恰好 3”样例 + 资源铁律）；watchdog=超时终止，后台化独立开关 |
 | P1-6 | 技能系统最小集 | 域 H（格式/注入；skills-lock 无消费者教训）+ BH（router 模式、doc-link-graph 可达性测试、创建门槛） | `.zcode/skills` 或 references 结构；**需 ADR**（对照域 J/H 教训） | BH 治理为骨、ZCode 格式为皮；锁文件必须有消费者；先试已有再创建（Loop Discovery 阶梯） |
 | P1-7 | MCP 客户端 | 域 I（三 transport + OAuth + Job Object + 连接池） | `whcode-mcp` 新 crate；**需 ADR** | 最重项最后；超时/并发/缓冲全部有界；CUA fail-closed 原则保留 |
 
@@ -102,7 +102,7 @@
 | P2-2 | Hooks 最小集 | BH Stop 发现信封 + test-mapping pass/remind/block 分级门 | 先 BH 语义（分级门），默认源离线/确定性/非阻断；ZCode trust 审批流后置 |
 | P2-3 | 备份/恢复 | ZCode 域 L（SHA-256 + 自动预迁移备份 + restore） | `whcode-app` 运维命令；补运维闭环缺口 |
 | P2-4 | 会话回滚双路径 | ZCode 域 D（对话剪枝 + 文件前像恢复） | 文件快照表须有上限（快照膨胀威胁模型）；对话剪枝基于 events 表 branchGeneration |
-| P2-5 | 干预台账/学习捕获 | BH interventionLedger + 复发检测模式（负面控制/覆盖原因码） | 台账落 events 表（幂等+审计）；"同窗修复不勾 Check"规则入评审指南 |
+| P2-5 | 干预台账/学习捕获 | BH interventionLedger + 复发检测模式（负面控制/覆盖原因码） | 台账落 events 表（幂等+审计）；“同窗修复不勾 Check”规则入评审指南 |
 | P2-6 | 远程协作 | ZCode 域 O（R3/Relay/daemon/分享） | M7+；平台/安全类须用户逐项批准 |
 
 ### P3（仅记录不排期）
@@ -142,7 +142,7 @@ LLM 判定进入验收语义（BH verified 复评）；可移动 action 引用�
    calling vs JSON 协议模拟 vs 换 provider）——建议作为 P0-2 立项第一个任务，实测结果
    更新 `docs/guides/test-model-sensenova.md`。【阻塞 P0-2】
 2. **Check 五态迁移成本未测**：先用 check_counts.py 复核 299 条 Check 的证据类别分布，
-   估计"机制存在级"占比后再定迁移批次。【阻塞 P0-3 ADR】
+   估计“机制存在级”占比后再定迁移批次。【阻塞 P0-3 ADR】
 3. **上游时效**：两份研究的上游结论均基于 2026-10-20 commit 快照；实施每项前重读对应
    上游文件（0 信任口径）。
 4. **CI 验收**：本机无远端仓库时，各项验收按 ADR-037 登记缺口，不得以本地全绿冒充。

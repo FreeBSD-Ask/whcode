@@ -1,10 +1,10 @@
 # ADR-053：技能最小集（P1-6 v1——SKILL.md 格式、加载器与 turn 注入）
 
-- **状态**：已批准（2026-10-31，建议书 proposal.md D3 排序 + 用户"继续"指令）
+- **状态**：已批准（2026-10-31，建议书 proposal.md D3 排序 + 用户“继续”指令）
 - **来源**：`research/zcode-comparison/` 域 H（ZCode 技能系统证据：SKILL.md 格式/加载/
   注入；**skills-lock 无消费者**为反例）+ `research/better-harness/`（BH 治理：SKILL.md
   =路由器 + 一跳 references + doc-link-graph 可达性测试 + 创建门槛）+
-  `research/synthesis/README.md` §3 交叉发现 3（"BH 治理为骨、ZCode 格式为皮"）
+  `research/synthesis/README.md` §3 交叉发现 3（“BH 治理为骨、ZCode 格式为皮”）
 - **责任人**：whcode-app 维护者
 - **退出条件**：技能系统连续两个批次零使用（模型从未调用匹配技能）或维护成本
   显著超出价值（须另立 ADR 裁剪）
@@ -15,10 +15,10 @@
    AGENTS.md 静态规则，无可复用程序性知识的结构化承载。
 2. ZCode 域 H：SKILL.md 格式成熟（frontmatter name/description + 目录发现 +
    `${ZCODE_SKILL_DIR}` 替换）；但 **skills-lock.json 无代码消费者**、两份锁文件内容
-   不一致——"有格式无治理"的反面教材。
+   不一致——“有格式无治理”的反面教材。
 3. BH 域 H/S：SKILL.md = 路由器（frontmatter 触发 + 短 body + 一跳 references）；
    **doc-link-graph 测试强制每个 reference 从 SKILL.md 可达**；skill-review 执行契约
-   审计；Loop Discovery 覆盖阶梯"先试已有再创建"——治理完备。
+   审计；Loop Discovery 覆盖阶梯“先试已有再创建”——治理完备。
 4. 本仓 turn 循环的 `LlmRequest.messages` 已支持 system/user/assistant/tool 四角色
    （FR-720），技能注入的技术底座已备。
 

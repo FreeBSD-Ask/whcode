@@ -87,7 +87,7 @@ FR／任务／Check 编号接续主账本（现 FR-738／T248／Check 343）。
 - **每批验收（全项必过）**：`cargo fmt/clippy/test` 全绿；双端行为测试＋契约测试
   （`test_frontend_parity` 同步更新）；`check-frontend-budget`（Web：JS ≤ 50 KB gzip、
   CSS ≤ 20 KB、DOM ≤ 2000 节点）；desktop 探针（GUI 空闲 RSS ≤ 96 MB、线程 ≤ 24、
-  句柄 ≤ 256、CPU ≤ 0.2%）；`traceability`／`check_counts` 一致；CI 六车道全绿；
+  句柄 ≤ 256、CPU ≤ 0.2%）；`traceability`／`check_counts` 一致；CI 六通道全绿；
   文档同步（feature-parity 矩阵经登记表再生成、CHANGELOG）。
 - **并行性**：B2 与 B3a 可并行；B4 可与 B3b 并行；批内 GUI／Web 工作可分派但同批合入。
 
@@ -175,7 +175,7 @@ ADR-014 沿用），不逐条重复立项。
 - **过去来源**：`research/zcode-comparison/`（16 域，2026-10-28）；ADR-056 交互化实测；
   ADR-027 GUI 选型与预算；ADR-014／032 前端与对等纪律。
 - **现在证据**：主账本任务 247/248、Check 343/343（本文写作时，`check_counts` 一致）；
-  main CI 六平台车道全绿（run `41923433553`）；GUI Phase 2 已交付（T248／Check 343）。
+  main CI 六平台通道全绿（run `41923433553`）；GUI Phase 2 已交付（T248／Check 343）。
 - **将来失效条件与复审触发**：
   - `python .github/scripts/check-frontend-budget.py` 任一批超线 → 复审该批渲染方案；
   - desktop 预算探针（weekly schedule）任一项失守 → 复审 GUI 渲染选型与 ADR-027 预算；

@@ -1,0 +1,1246 @@
+# zh-CN translation catalog for WHCode (FR-615).
+# Generated from i18n/zh-CN.properties by .github/scripts/i18n-po.py; do not edit by hand.
+# Edit the properties file instead, then regenerate — a contract test fails on drift.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: whcode 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/FreeBSD-Ask/whcode/issues\n"
+"Language: zh-CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "app.title"
+msgstr "旺皇大模型执行框架"
+
+msgid "cli.about"
+msgstr "旺皇大模型执行框架"
+
+msgid "cli.context.about"
+msgstr "上下文预算视图（FR-105/108；contracts/cui-cli.md §1）。"
+
+msgid "cli.context.budget.about"
+msgstr "预算视图：当前预算、装入来源、截断原因与游标（经 `whcode_app::load_context`）。"
+
+msgid "cli.context.budget.budget"
+msgstr "预算 token 数；缺省用展示默认口径（4096，与 TUI 上下文视图一致）。"
+
+msgid "cli.context.budget.session"
+msgstr "会话 ID。"
+
+msgid "cli.db.about"
+msgstr "数据库维护与清理（FR-507—510）。"
+
+msgid "cli.db.archive.about"
+msgstr "导出工作区。"
+
+msgid "cli.db.archive.export"
+msgstr "输出路径。"
+
+msgid "cli.db.check.about"
+msgstr "必需索引检查。"
+
+msgid "cli.db.checkpoint.about"
+msgstr "显式 checkpoint（FR-510；可顺带应用 WAL 策略覆盖，disaster-recovery §5）。"
+
+msgid "cli.db.checkpoint.autocheckpoint"
+msgstr "覆盖 wal_autocheckpoint（如 1MB；缺省保持现状）。"
+
+msgid "cli.db.checkpoint.threshold"
+msgstr "覆盖 WAL 自动 checkpoint 阈值（如 16MB；缺省保持现状）。"
+
+msgid "cli.db.compact.about"
+msgstr "磁盘压缩（复制—校验—切换，FR-510；默认 dry-run）。"
+
+msgid "cli.db.compact.dry-run"
+msgstr "只预览不执行（默认）。"
+
+msgid "cli.db.compact.yes"
+msgstr "显式确认执行。"
+
+msgid "cli.db.explain.about"
+msgstr "查询计划分析（只读查询，契约 §2-2）。"
+
+msgid "cli.db.explain.query"
+msgstr "只读 SQL（SELECT/WITH 开头）。"
+
+msgid "cli.db.purge.about"
+msgstr "按时间清理（FR-508/509；默认 dry-run）。"
+
+msgid "cli.db.purge.before"
+msgstr "截止时间（Unix 毫秒）。"
+
+msgid "cli.db.purge.dry-run"
+msgstr "只预览不执行（默认）。"
+
+msgid "cli.db.purge.yes"
+msgstr "显式确认执行。"
+
+msgid "cli.db.restore.about"
+msgstr "从导出文件恢复到空工作区（`db archive` 的逆操作；显式确认，无预览）。"
+
+msgid "cli.db.restore.from"
+msgstr "导出文件路径（whcode-export 格式）。"
+
+msgid "cli.db.restore.yes"
+msgstr "显式确认执行（恢复是写操作；目标库必须为空）。"
+
+msgid "cli.db.stats.about"
+msgstr "数据库统计（FR-507）。"
+
+msgid "cli.doctor.about"
+msgstr "环境与配置自检（M0）。"
+
+msgid "cli.doctor.json"
+msgstr "输出 JSON。"
+
+msgid "cli.events.about"
+msgstr "事件查询与导出（FR-202/205）。"
+
+msgid "cli.events.export.about"
+msgstr "导出（脱敏策略随导出注明，FR-205）。"
+
+msgid "cli.events.export.after"
+msgstr "起始游标。"
+
+msgid "cli.events.export.format"
+msgstr "输出格式（json/jsonl）。"
+
+msgid "cli.events.export.session"
+msgstr "会话 ID。"
+
+msgid "cli.events.list.about"
+msgstr "事件列表（按游标增量）。"
+
+msgid "cli.events.list.after"
+msgstr "起始游标（排他）。"
+
+msgid "cli.events.list.session"
+msgstr "会话 ID。"
+
+msgid "cli.events.show.about"
+msgstr "单事件详情。"
+
+msgid "cli.events.show.event"
+msgstr "事件 ID。"
+
+msgid "cli.font.about"
+msgstr "内置字体安装与终端声明检测（FR-717；本机资源命令，不触库、无工作区）。"
+
+msgid "cli.font.install.about"
+msgstr "安装四份内置字体到用户字体目录并写 HKCU 注册（复制为覆盖语义，可重跑）。"
+
+msgid "cli.font.install.dry-run"
+msgstr "只报告将执行的动作，不改系统。"
+
+msgid "cli.font.install.from"
+msgstr "字体来源目录（平铺或仓库 source/<family>/ 布局）；缺省按序探测可执行文件旁与当前目录的 `assets/fonts/source`（ADR-028 修订 1）。"
+
+msgid "cli.font.status.about"
+msgstr "检测字体安装状态与终端声明（只读）。"
+
+msgid "cli.font.uninstall.about"
+msgstr "卸载内置字体：注销注册并删除用户字体目录中的文件（尽力而为，逐项报告）。"
+
+msgid "cli.font.uninstall.dry-run"
+msgstr "只报告将执行的动作，不改系统。"
+
+msgid "cli.hint.no_console"
+msgstr "whcode {version} —— 当前没有可用的交互控制台，未启动界面"
+
+msgid "cli.hint.options"
+msgstr "可用：--tui（终端界面）、--cli <子命令>、--lang <语言>、--help"
+
+msgid "cli.json"
+msgstr "输出 JSON（schema_version 信封，FR-602）；可放在子命令前后任意位置。"
+
+msgid "cli.lang"
+msgstr "界面文本语言（如 zh-CN、en；显式覆盖 LANG/LC_ALL，FR-615）。"
+
+msgid "cli.llm.about"
+msgstr "模型调用（FR-201；`llm run`／`llm cancel`，contracts/cui-cli.md §1）。"
+
+msgid "cli.llm.cancel.about"
+msgstr "取消同机正在运行的调用（在下一个 chunk 之前生效）。"
+
+msgid "cli.llm.cancel.request"
+msgstr "请求 ID（`llm run` 输出或 `--request-id` 预置）。"
+
+msgid "cli.llm.run.about"
+msgstr "发起一次真实调用（同步；流式增量在结束时以有界序列输出）。"
+
+msgid "cli.llm.run.max-tokens"
+msgstr "覆盖剖面 `max_tokens`。"
+
+msgid "cli.llm.run.model"
+msgstr "覆盖剖面模型标识。"
+
+msgid "cli.llm.run.prompt"
+msgstr "提示词正文（不写入事件与日志）。"
+
+msgid "cli.llm.run.provider"
+msgstr "剖面名（显式选择，ADR-031 决策 4）。"
+
+msgid "cli.llm.run.request-id"
+msgstr "预置请求 ID（`llm cancel` 的键；缺省按参数生成）。"
+
+msgid "cli.llm.run.session"
+msgstr "会话 ID。"
+
+msgid "cli.llm.run.trace-level"
+msgstr "追踪级别（off/metadata/redacted/full）。"
+
+msgid "cli.runtime.about"
+msgstr "运行时管理（FR-701—710；M8）。"
+
+msgid "cli.runtime.disable.about"
+msgstr "禁用运行时。"
+
+msgid "cli.runtime.disable.name"
+msgstr "运行时名。"
+
+msgid "cli.runtime.enable.about"
+msgstr "启用运行时。"
+
+msgid "cli.runtime.enable.name"
+msgstr "运行时名。"
+
+msgid "cli.runtime.install.about"
+msgstr "安装 payload。"
+
+msgid "cli.runtime.install.name"
+msgstr "运行时名。"
+
+msgid "cli.runtime.list.about"
+msgstr "运行时清单。"
+
+msgid "cli.runtime.status.about"
+msgstr "运行时状态。"
+
+msgid "cli.runtime.status.name"
+msgstr "运行时名。"
+
+msgid "cli.serve.about"
+msgstr "传输入口（M6/M7）。"
+
+msgid "cli.serve.bind"
+msgstr "绑定地址（默认仅回环，FR-606）。"
+
+msgid "cli.serve.ssh"
+msgstr "SSH 入口（M7，延后）。"
+
+msgid "cli.serve.web"
+msgstr "Web 入口（M6）。"
+
+msgid "cli.session.about"
+msgstr "会话生命周期（FR-101）。"
+
+msgid "cli.session.archive.about"
+msgstr "归档/取消归档（契约 §2-1 破坏族：默认 dry-run，`--yes` 执行）。"
+
+msgid "cli.session.archive.dry-run"
+msgstr "只预览不执行（默认）。"
+
+msgid "cli.session.archive.session"
+msgstr "会话 ID。"
+
+msgid "cli.session.archive.unarchive"
+msgstr "取消归档。"
+
+msgid "cli.session.archive.yes"
+msgstr "显式确认执行（与 --dry-run 互斥语义，§8.1）。"
+
+msgid "cli.session.delete.about"
+msgstr "删除会话（破坏性；默认 dry-run，FR-509）。"
+
+msgid "cli.session.delete.dry-run"
+msgstr "只预览不执行（默认）。"
+
+msgid "cli.session.delete.session"
+msgstr "会话 ID。"
+
+msgid "cli.session.delete.yes"
+msgstr "显式确认执行（与 --dry-run 互斥语义，§8.1）。"
+
+msgid "cli.session.list.about"
+msgstr "列出会话。"
+
+msgid "cli.session.list.all"
+msgstr "含归档会话。"
+
+msgid "cli.session.new.about"
+msgstr "创建会话。"
+
+msgid "cli.session.new.model"
+msgstr "模型（可空）。"
+
+msgid "cli.session.new.title"
+msgstr "标题。"
+
+msgid "cli.session.rename.about"
+msgstr "重命名会话。"
+
+msgid "cli.session.rename.session"
+msgstr "会话 ID。"
+
+msgid "cli.session.rename.title"
+msgstr "新标题。"
+
+msgid "cli.session.show.about"
+msgstr "查看会话。"
+
+msgid "cli.session.show.session"
+msgstr "会话 ID。"
+
+msgid "cli.spec.about"
+msgstr "SDD 阶段与门禁（FR-307—312）。"
+
+msgid "cli.spec.analyze.about"
+msgstr "Analyze 检查（FR-306）。"
+
+msgid "cli.spec.analyze.session"
+msgstr "会话 ID。"
+
+msgid "cli.spec.converge.about"
+msgstr "Converge 核对（FR-310/311）。"
+
+msgid "cli.spec.converge.session"
+msgstr "会话 ID。"
+
+msgid "cli.spec.force-advance.about"
+msgstr "人工越过门禁（FR-312；reason 必填，契约 §2-3）。"
+
+msgid "cli.spec.force-advance.reason"
+msgstr "强制放行理由（必填，FR-312）。"
+
+msgid "cli.spec.force-advance.session"
+msgstr "会话 ID。"
+
+msgid "cli.spec.force-advance.to"
+msgstr "目标阶段。"
+
+msgid "cli.spec.next.about"
+msgstr "下一阶段。"
+
+msgid "cli.spec.next.session"
+msgstr "会话 ID。"
+
+msgid "cli.spec.status.about"
+msgstr "当前阶段状态（FR-314）。"
+
+msgid "cli.spec.status.session"
+msgstr "会话 ID。"
+
+msgid "cli.spec.validate.about"
+msgstr "校验产物。"
+
+msgid "cli.spec.validate.session"
+msgstr "会话 ID。"
+
+msgid "cli.status.about"
+msgstr "状态快照（FR-314）。"
+
+msgid "cli.status.session"
+msgstr "会话 ID。"
+
+msgid "cli.task.abort.about"
+msgstr "中止任务（FR-408）。"
+
+msgid "cli.task.abort.task"
+msgstr "任务 ID。"
+
+msgid "cli.task.about"
+msgstr "任务查询与控制（FR-401/408）。"
+
+msgid "cli.task.list.about"
+msgstr "任务列表。"
+
+msgid "cli.task.list.session"
+msgstr "会话 ID。"
+
+msgid "cli.task.retry.about"
+msgstr "重试任务（FR-401）。"
+
+msgid "cli.task.retry.task"
+msgstr "任务 ID。"
+
+msgid "cli.task.show.about"
+msgstr "任务详情（FR-104 五类信息）。"
+
+msgid "cli.task.show.task"
+msgstr "任务 ID。"
+
+msgid "cli.workspace"
+msgstr "工作区目录（默认配置工作区/cwd；装配根用于定位 `<workspace>/whcode.duckdb`）。"
+
+msgid "cui.archive_dry_run"
+msgstr "dry-run：将归档会话 {session}——加 --yes 执行（可用 --unarchive 反向还原）"
+
+msgid "cui.archived"
+msgstr "已归档会话 {session}"
+
+msgid "cui.checkpoint_done"
+msgstr "checkpoint 完成：WAL {before} → {after}"
+
+msgid "cui.compact_done"
+msgstr "compact 完成（switched={switched}）"
+
+msgid "cui.compact_dry_run"
+msgstr "dry-run：文件 {file} B、WAL {wal} B——加 --yes 执行 compact（不承诺缩小文件）"
+
+msgid "cui.created"
+msgstr "已创建会话 {session}"
+
+msgid "cui.delete_dry_run"
+msgstr "dry-run：将删除会话 {session}（事件 {events} 行，任务 {tasks} 行；受保护跳过 {skipped} 个）——加 --yes 执行"
+
+msgid "cui.deleted"
+msgstr "已删除会话 {session}"
+
+msgid "cui.empty"
+msgstr "（无记录）"
+
+msgid "cui.exported"
+msgstr "已导出到 {path}（hash {hash}）"
+
+msgid "cui.font.deleted"
+msgstr "已删除"
+
+msgid "cui.font.dry_run"
+msgstr "[dry-run 预览]"
+
+msgid "cui.font.install.header"
+msgstr "{dry_run}安装内置字体：{source} → {dir}"
+
+msgid "cui.font.install.line"
+msgstr "{family}：复制 {source} → {target}，注册{reg_state}"
+
+msgid "cui.font.installed"
+msgstr "已安装"
+
+msgid "cui.font.missing"
+msgstr "未安装"
+
+msgid "cui.font.reg_pending"
+msgstr "待注册"
+
+msgid "cui.font.registered"
+msgstr "已注册"
+
+msgid "cui.font.removed"
+msgstr "已注销"
+
+msgid "cui.font.status.header"
+msgstr "内置字体状态（用户级目录：{dir}）"
+
+msgid "cui.font.status.line"
+msgstr "{family}（{file}）：文件{file_state}，注册{reg_state}"
+
+msgid "cui.font.terminal.found"
+msgstr "终端声明：{file}（faces：{faces}；内置命中：{hits}）"
+
+msgid "cui.font.terminal.none"
+msgstr "终端声明：未找到 Windows Terminal 配置（不视为错误）"
+
+msgid "cui.font.uninstall.header"
+msgstr "{dry_run}卸载内置字体"
+
+msgid "cui.font.uninstall.line"
+msgstr "{family}：注册{unreg_state}，文件{file_state}"
+
+msgid "cui.font.unregistered"
+msgstr "未注册"
+
+msgid "cui.indexes_ok"
+msgstr "索引完整"
+
+msgid "cui.plan_rows"
+msgstr "计划行 {rows} 条（analyze=false，不执行查询）"
+
+msgid "cui.purge_dry_run"
+msgstr "dry-run：{sessions} 个会话、{events} 条事件将被清理（受保护跳过 {skipped} 个）——加 --yes 执行"
+
+msgid "cui.purged"
+msgstr "已清理 {events} 条事件"
+
+msgid "cui.record.archived"
+msgstr "归档"
+
+msgid "cui.record.artifacts"
+msgstr "产物"
+
+msgid "cui.record.budget"
+msgstr "预算"
+
+msgid "cui.record.checkpoints"
+msgstr "检查点"
+
+msgid "cui.record.cursor"
+msgstr "事件游标"
+
+msgid "cui.record.failure"
+msgstr "失败原因"
+
+msgid "cui.record.items"
+msgstr "条目"
+
+msgid "cui.record.model"
+msgstr "模型"
+
+msgid "cui.record.no"
+msgstr "否"
+
+msgid "cui.record.session"
+msgstr "会话 {session}"
+
+msgid "cui.record.task"
+msgstr "任务 {task}"
+
+msgid "cui.record.truncated"
+msgstr "截断"
+
+msgid "cui.record.used"
+msgstr "已用"
+
+msgid "cui.record.yes"
+msgstr "是"
+
+msgid "cui.renamed"
+msgstr "已重命名会话 {session}"
+
+msgid "cui.restore_done"
+msgstr "恢复完成：来自 {source}"
+
+msgid "cui.spec_status"
+msgstr "会话 {session}：阶段 {stage} · 事件游标 {cursor}"
+
+msgid "cui.status_line"
+msgstr "{session} {title} [{stage}] status={status} cursor={cursor}"
+
+msgid "cui.task_aborted"
+msgstr "{task} 已中止 → {status}"
+
+msgid "cui.task_retried"
+msgstr "{task} 已重试（retry={retry}）→ {status}"
+
+msgid "cui.tasks_summary"
+msgstr "会话 {session}：总计 {total} · 完成 {done} · 阻塞 {blocked} · 活跃 {active}"
+
+msgid "cui.unarchive_dry_run"
+msgstr "dry-run：将取消归档会话 {session}——加 --yes 执行"
+
+msgid "cui.unarchived"
+msgstr "已取消归档会话 {session}"
+
+msgid "error.datasource"
+msgstr "数据源错误：{error}"
+
+msgid "error.permission_denied"
+msgstr "权限不足"
+
+msgid "gui.chat.cancel"
+msgstr "取消"
+
+msgid "gui.chat.empty"
+msgstr "提示词为空"
+
+msgid "gui.chat.error"
+msgstr "对话失败"
+
+msgid "gui.chat.hint"
+msgstr "选择会话并输入提示词；发送后等待完成（同步，与 TUI 一致）"
+
+msgid "gui.chat.history.hint"
+msgstr "对话事件已入库——完整历史见「事件」视图（按会话过滤）"
+
+msgid "gui.chat.last"
+msgstr "上次结果：{summary}"
+
+msgid "gui.chat.no_request"
+msgstr "没有可取消的请求 ID（先发送一轮对话）"
+
+msgid "gui.chat.none"
+msgstr "未选择会话——先在会话视图选择（j/k）"
+
+msgid "gui.chat.not_supported"
+msgstr "LLM 执行器未接入（not_supported）"
+
+msgid "gui.chat.progress"
+msgstr "生成中：{chunks} 块…"
+
+msgid "gui.chat.prompt.placeholder"
+msgstr "输入提示词，Enter 发送"
+
+msgid "gui.chat.provider"
+msgstr "对话剖面：{provider}"
+
+msgid "gui.chat.provider.placeholder"
+msgstr "剖面名"
+
+msgid "gui.chat.send"
+msgstr "发送"
+
+msgid "gui.checkpoints.degraded"
+msgstr "回滚未实现（仅浏览）"
+
+msgid "gui.checkpoints.empty"
+msgstr "该任务暂无检查点"
+
+msgid "gui.checkpoints.hint"
+msgstr "在任务行点「检查点」查看"
+
+msgid "gui.checkpoints.open"
+msgstr "检查点"
+
+msgid "gui.checkpoints.title"
+msgstr "检查点"
+
+msgid "gui.kpi.count"
+msgstr "会话 {sessions} · 当前视图 {rows} 条"
+
+msgid "gui.op.archive"
+msgstr "归档"
+
+msgid "gui.op.cancel"
+msgstr "取消"
+
+msgid "gui.op.confirm"
+msgstr "确认执行"
+
+msgid "gui.op.delete"
+msgstr "删除"
+
+msgid "gui.op.error"
+msgstr "操作失败"
+
+msgid "gui.op.input.days"
+msgstr "清理截止天数"
+
+msgid "gui.op.input.title"
+msgstr "标题"
+
+msgid "gui.op.new"
+msgstr "新建"
+
+msgid "gui.op.not_supported"
+msgstr "写执行器未接入（not_supported）"
+
+msgid "gui.op.preview"
+msgstr "预览"
+
+msgid "gui.op.purge"
+msgstr "清理(30天前)"
+
+msgid "gui.op.rename"
+msgstr "重命名"
+
+msgid "gui.op.restore"
+msgstr "恢复"
+
+msgid "gui.session.archived"
+msgstr "归档"
+
+msgid "gui.session.group.active"
+msgstr "— 活跃 —"
+
+msgid "gui.session.group.archived"
+msgstr "— 归档 —"
+
+msgid "gui.session.none"
+msgstr "未选择会话"
+
+msgid "gui.session.off"
+msgstr "隐藏"
+
+msgid "gui.session.on"
+msgstr "显示"
+
+msgid "gui.session.search"
+msgstr "搜索标题或 ID"
+
+msgid "gui.session.sort.created"
+msgstr "创建"
+
+msgid "gui.session.sort.recent"
+msgstr "最近"
+
+msgid "gui.session.sort.title"
+msgstr "标题"
+
+msgid "gui.status.theme"
+msgstr "主题：{theme}"
+
+msgid "gui.task.abort"
+msgstr "中止"
+
+msgid "gui.task.retries"
+msgstr "重试 {count} 次"
+
+msgid "gui.task.retry"
+msgstr "重试"
+
+msgid "menu.context"
+msgstr "上下文"
+
+msgid "menu.diff"
+msgstr "差异"
+
+msgid "menu.events"
+msgstr "事件"
+
+msgid "menu.sessions"
+msgstr "会话"
+
+msgid "menu.spec"
+msgstr "规格"
+
+msgid "menu.tasks"
+msgstr "任务"
+
+msgid "settings.action.done"
+msgstr "完成：{label}"
+
+msgid "settings.action.failed"
+msgstr "操作失败（{label}）：{code} {message}"
+
+msgid "settings.action.running"
+msgstr "正在执行：{label}"
+
+msgid "settings.back"
+msgstr "返回首页"
+
+msgid "settings.confirm.builtin_empty"
+msgstr "将清空内置根证书副本（出站信任不再含内置基线）。继续？"
+
+msgid "settings.confirm.external_key"
+msgstr "将保存外部服务端证书与私钥，并把入站档位切换为 external。继续？"
+
+msgid "settings.confirm.inbound_off"
+msgstr "将关闭入站 TLS（回到明文 HTTP），重启 serve --web 后生效。继续？"
+
+msgid "settings.confirm.regenerate"
+msgstr "将重新生成自签服务端证书（现有指纹失效）。继续？"
+
+msgid "settings.confirm.reset_builtin"
+msgstr "将把内置根证书副本恢复为随包资产。继续？"
+
+msgid "settings.confirm.reset_extra"
+msgstr "将清空追加根证书。继续？"
+
+msgid "settings.error.bad_port"
+msgstr "端口必须是 1..=65535 的整数"
+
+msgid "settings.error.generic"
+msgstr "操作失败"
+
+msgid "settings.error.load"
+msgstr "无法读取证书状态：{code} {message}"
+
+msgid "settings.error.missing_host"
+msgstr "请先填写主机名或 IP 字面量"
+
+msgid "settings.error.missing_pem"
+msgstr "请先填写证书链与私钥（PEM）"
+
+msgid "settings.field.count"
+msgstr "份数：{value}"
+
+msgid "settings.field.modified"
+msgstr "已修改：{value}"
+
+msgid "settings.field.newer"
+msgstr "内置版本较新：{value}"
+
+msgid "settings.field.path"
+msgstr "路径：{value}"
+
+msgid "settings.field.sha256"
+msgstr "SHA-256：{value}"
+
+msgid "settings.inbound.builtin"
+msgstr "内置自签证书（builtin）"
+
+msgid "settings.inbound.builtin_hint"
+msgstr "每工作区生成 ECDSA P-256 自签证书（397 天），SAN 覆盖 localhost、127.0.0.1、::1 与本机名。"
+
+msgid "settings.inbound.cert_pem_label"
+msgstr "上传证书链（PEM）"
+
+msgid "settings.inbound.days_remaining"
+msgstr "剩余天数：{value}"
+
+msgid "settings.inbound.download"
+msgstr "下载公开证书（PEM）"
+
+msgid "settings.inbound.external"
+msgstr "外部证书（external）"
+
+msgid "settings.inbound.external_hint"
+msgstr "使用你上传的 PEM 证书链与未加密私钥；私钥只进不出。"
+
+msgid "settings.inbound.key_pem_label"
+msgstr "上传私钥（未加密 PEM，提交后清空）"
+
+msgid "settings.inbound.key_saved"
+msgstr "私钥已保存，页面不再显示（输入框已清空）。"
+
+msgid "settings.inbound.legend"
+msgstr "档位"
+
+msgid "settings.inbound.material"
+msgstr "证书存在：{cert} · 私钥存在：{key}"
+
+msgid "settings.inbound.no_material"
+msgstr "尚无服务端证书材料（可上传证书链或重新生成自签证书）"
+
+msgid "settings.inbound.not_after"
+msgstr "到期：{value}"
+
+msgid "settings.inbound.off"
+msgstr "关闭 TLS（off）"
+
+msgid "settings.inbound.off_hint"
+msgstr "回到明文 HTTP（ADR-023），需要显式确认；不会被静默改回。"
+
+msgid "settings.inbound.regenerate"
+msgstr "重新生成自签证书"
+
+msgid "settings.inbound.sans"
+msgstr "SAN：{value}"
+
+msgid "settings.inbound.sha256"
+msgstr "指纹 SHA-256：{value}"
+
+msgid "settings.inbound.subject"
+msgstr "主题：{value}"
+
+msgid "settings.inbound.title"
+msgstr "入站 TLS（serve --web）"
+
+msgid "settings.inbound.upload"
+msgstr "上传并切换为 external"
+
+msgid "settings.link"
+msgstr "证书设置"
+
+msgid "settings.local_mode"
+msgstr "本机设置页"
+
+msgid "settings.modes.save"
+msgstr "保存档位"
+
+msgid "settings.notes.none"
+msgstr "无附加提示"
+
+msgid "settings.notes.title"
+msgstr "提示"
+
+msgid "settings.outbound.builtin"
+msgstr "内置副本（builtin）"
+
+msgid "settings.outbound.builtin_hint"
+msgstr "以工作区内置根证书副本为基线，追加证书叠加生效。"
+
+msgid "settings.outbound.builtin_pem_label"
+msgstr "内置根证书副本（PEM，可编辑）"
+
+msgid "settings.outbound.effective_line"
+msgstr "生效根证书总数：{value}"
+
+msgid "settings.outbound.empty_extra"
+msgstr "未配置追加根证书（正确的空：文件中没有证书）"
+
+msgid "settings.outbound.extra_pem_label"
+msgstr "追加根证书（PEM，两档位都生效）"
+
+msgid "settings.outbound.hint"
+msgstr "任何档位都不关闭证书链与主机名校验；不存在跳过校验的开关。"
+
+msgid "settings.outbound.legend"
+msgstr "信任库档位"
+
+msgid "settings.outbound.missing_builtin"
+msgstr "内置副本缺失：状态未报告该文件"
+
+msgid "settings.outbound.reset_builtin"
+msgstr "恢复内置副本"
+
+msgid "settings.outbound.reset_extra"
+msgstr "清空追加证书"
+
+msgid "settings.outbound.save_builtin"
+msgstr "保存内置副本"
+
+msgid "settings.outbound.save_extra"
+msgstr "保存追加证书"
+
+msgid "settings.outbound.system"
+msgstr "操作系统证书库（system）"
+
+msgid "settings.outbound.system_hint"
+msgstr "以操作系统根证书库为基线，追加证书同样叠加生效；系统库为空时报错，不回落内置库。"
+
+msgid "settings.outbound.system_na"
+msgstr "未涉及（当前档位不读取系统库）"
+
+msgid "settings.outbound.system_roots_line"
+msgstr "系统库根证书数：{value}"
+
+msgid "settings.outbound.title"
+msgstr "出站 HTTPS 信任"
+
+msgid "settings.restart_banner"
+msgstr "入站证书或档位已变更，需重启 serve --web 后生效。"
+
+msgid "settings.status.no"
+msgstr "否"
+
+msgid "settings.status.unknown"
+msgstr "未知"
+
+msgid "settings.status.yes"
+msgstr "是"
+
+msgid "settings.title"
+msgstr "证书设置"
+
+msgid "settings.verify.button"
+msgstr "校验"
+
+msgid "settings.verify.failed"
+msgstr "校验失败：{error}"
+
+msgid "settings.verify.host"
+msgstr "主机"
+
+msgid "settings.verify.ok"
+msgstr "校验成功：主题 {subject} · 到期 {not_after} · 指纹 {sha256} · {tls_version}"
+
+msgid "settings.verify.port"
+msgstr "端口"
+
+msgid "settings.verify.title"
+msgstr "出站连通性校验"
+
+msgid "status.idle"
+msgstr "空闲"
+
+msgid "status.running"
+msgstr "运行中"
+
+msgid "summary.context"
+msgstr "会话 {session} · 预算 {budget} · 已用 {used} · 条目 {items}{truncated}"
+
+msgid "summary.context_truncated"
+msgstr "· 截断原因 {reason}"
+
+msgid "summary.diff"
+msgstr "会话 {session} · 任务 {total} · 通过 {pass} / 失败 {fail} / 未测 {untested}{truncated}"
+
+msgid "summary.diff.truncated"
+msgstr "· 差异超限截断"
+
+msgid "summary.events"
+msgstr "会话 {session} · 游标 {from}..{to}（尾部最 {limit} 条）"
+
+msgid "summary.none"
+msgstr "无"
+
+msgid "summary.spec"
+msgstr "会话 {session} · 阶段 {stage} · 事件游标 {cursor} · 活跃任务 {task}"
+
+msgid "summary.tasks"
+msgstr "会话 {session} · 总计 {total} · 完成 {done} · 阻塞 {blocked}"
+
+msgid "tui.col.id"
+msgstr "ID"
+
+msgid "tui.col.kind"
+msgstr "类型"
+
+msgid "tui.col.retry"
+msgstr "重试"
+
+msgid "tui.col.seq"
+msgstr "序号"
+
+msgid "tui.col.stage"
+msgstr "阶段"
+
+msgid "tui.col.status"
+msgstr "状态"
+
+msgid "tui.col.summary"
+msgstr "摘要"
+
+msgid "tui.col.title"
+msgstr "标题"
+
+msgid "tui.diff_unwired"
+msgstr "（diff 数据源未接入：converge 差异属后续接线，当前不显示伪造内容）"
+
+msgid "tui.empty"
+msgstr "（暂无数据）"
+
+msgid "tui.footer"
+msgstr "1-7 视图  j/k 移动  r 刷新  t 主题  q 退出  |  {cols}x{rows}"
+
+msgid "tui.header.none"
+msgstr "未选择会话"
+
+msgid "tui.no_session"
+msgstr "（未选择会话——按 j/k 选择会话）"
+
+msgid "tui.runtimes"
+msgstr "运行时：{list}"
+
+msgid "tui.title"
+msgstr "{app}  |  {view} ({index}/{count})"
+
+msgid "view.chat"
+msgstr "对话"
+
+msgid "view.context"
+msgstr "上下文"
+
+msgid "view.diff"
+msgstr "diff 预览"
+
+msgid "view.events"
+msgstr "事件"
+
+msgid "view.sessions"
+msgstr "会话"
+
+msgid "view.spec"
+msgstr "Spec 状态"
+
+msgid "view.tasks"
+msgstr "任务"
+
+msgid "web.action.failed"
+msgstr "操作失败（{label}）：{error}"
+
+msgid "web.checkpoints.degraded"
+msgstr "回滚执行未实现（显式降级）：本页仅提供浏览与差分摘要"
+
+msgid "web.checkpoints.empty"
+msgstr "该任务暂无检查点"
+
+msgid "web.checkpoints.failed"
+msgstr "读取检查点失败：{error}"
+
+msgid "web.checkpoints.hint"
+msgstr "点选任务查看检查点与差分摘要"
+
+msgid "web.checkpoints.ready"
+msgstr "回滚可用"
+
+msgid "web.checkpoints.refs"
+msgstr "产物引用 {count}"
+
+msgid "web.checkpoints.title"
+msgstr "检查点"
+
+msgid "web.checkpoints.truncated"
+msgstr "检查点超过上限，清单已截断"
+
+msgid "web.cleanup.bad_days"
+msgstr "保留天数必须 ≥ 1"
+
+msgid "web.cleanup.confirm"
+msgstr "确认清理"
+
+msgid "web.cleanup.days"
+msgstr "保留天数"
+
+msgid "web.cleanup.done"
+msgstr "已清理 {sessions} 个会话"
+
+msgid "web.cleanup.preview"
+msgstr "预览"
+
+msgid "web.cleanup.preview_required"
+msgstr "须先预览再确认清理"
+
+msgid "web.cleanup.preview_result"
+msgstr "将清理 {sessions} 个会话"
+
+msgid "web.conn.connected"
+msgstr "已连接"
+
+msgid "web.conn.disconnected"
+msgstr "未连接"
+
+msgid "web.context.empty"
+msgstr "（正确的空：预算内无可装入条目）"
+
+msgid "web.context.no_session"
+msgstr "未选择会话"
+
+msgid "web.context.summary"
+msgstr "预算 {consumed}/{budget} · 来源 {sources} · 截断 {truncated}"
+
+msgid "web.cursor"
+msgstr "游标 {n}"
+
+msgid "web.diff.empty"
+msgstr "（无差异：全部验收条件通过）"
+
+msgid "web.diff.no_session"
+msgstr "未选择会话"
+
+msgid "web.diff.summary"
+msgstr "任务 {total} · 通过 {pass} / 失败 {fail} / 未测 {untested}{truncated}"
+
+msgid "web.diff.truncated"
+msgstr "（超限截断）"
+
+msgid "web.export.done"
+msgstr "导出完成"
+
+msgid "web.export.json"
+msgstr "导出 JSON"
+
+msgid "web.export.jsonl"
+msgstr "导出 JSONL"
+
+msgid "web.recovering"
+msgstr "恢复中…"
+
+msgid "web.runtimes"
+msgstr "运行时"
+
+msgid "web.runtimes.available"
+msgstr "可用"
+
+msgid "web.runtimes.unavailable"
+msgstr "不可用"
+
+msgid "web.runtimes.unknown"
+msgstr "未探测"
+
+msgid "web.runtimes.unwired"
+msgstr "运行时清单未接线"
+
+msgid "web.session.archive_confirm"
+msgstr "确认归档"
+
+msgid "web.session.archive_preview"
+msgstr "归档预览"
+
+msgid "web.session.archive_preview_required"
+msgstr "须先预览再确认归档"
+
+msgid "web.session.archive_preview_result"
+msgstr "将归档会话 {session}——确认后执行"
+
+msgid "web.session.archived"
+msgstr "已归档会话 {session}"
+
+msgid "web.session.create"
+msgstr "新建"
+
+msgid "web.session.delete_confirm"
+msgstr "确认删除"
+
+msgid "web.session.delete_preview"
+msgstr "删除预览"
+
+msgid "web.session.delete_preview_result"
+msgstr "将删除：事件 {events} · 任务 {tasks}"
+
+msgid "web.session.deleted"
+msgstr "已删除 {n} 个会话"
+
+msgid "web.session.group_active"
+msgstr "活跃"
+
+msgid "web.session.group_archived"
+msgstr "归档"
+
+msgid "web.session.none"
+msgstr "未选择会话"
+
+msgid "web.session.preview_required"
+msgstr "须先预览再确认删除"
+
+msgid "web.session.rename"
+msgstr "重命名"
+
+msgid "web.session.rename_placeholder"
+msgstr "新标题"
+
+msgid "web.session.search"
+msgstr "搜索标题或 ID"
+
+msgid "web.session.show_archived"
+msgstr "含归档"
+
+msgid "web.session.sort"
+msgstr "排序"
+
+msgid "web.session.sort.created"
+msgstr "创建时间"
+
+msgid "web.session.sort.last_active"
+msgstr "最近活跃"
+
+msgid "web.session.sort.title"
+msgstr "标题"
+
+msgid "web.session.title"
+msgstr "会话标题"
+
+msgid "web.session.title_required"
+msgstr "请输入会话标题"
+
+msgid "web.tab.context"
+msgstr "上下文"
+
+msgid "web.tab.diff"
+msgstr "diff"
+
+msgid "web.tab.history"
+msgstr "历史"
+
+msgid "web.tab.maintenance"
+msgstr "维护"
+
+msgid "web.tab.sessions"
+msgstr "会话"
+
+msgid "web.tab.spec"
+msgstr "SDD"
+
+msgid "web.tab.tasks"
+msgstr "任务"
+
+msgid "web.task.abort"
+msgstr "中止"
+
+msgid "web.task.depends"
+msgstr "依赖 {depends}"
+
+msgid "web.task.progress"
+msgstr "完成 {done}/{total} · 阻塞 {blocked}"
+
+msgid "web.task.retries"
+msgstr "重试 {count} 次"
+
+msgid "web.task.retry"
+msgstr "重试"
+
+msgid "web.task.truncated"
+msgstr "任务卡片超过上限，已截断（总览计数仍为全量）"
+
+msgid "web.tasks_summary"
+msgstr "总计 {total} · 完成 {done} · 阻塞 {blocked}"
+
+msgid "web.theme.default"
+msgstr "默认"
+
+msgid "web.theme.label"
+msgstr "主题"
+

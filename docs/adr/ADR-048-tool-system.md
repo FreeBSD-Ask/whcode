@@ -14,18 +14,18 @@
 
 1. `crates/whcode-store/src/tool_exec.rs`（424 行）已交付**三步登记协议**（`record_intent`
    →`mark_running`→`record_result` 终态 + `recover_uncertain` 崩溃恢复为 unknown、不重放
-   副作用），**未被任何 app 层 crate 引用**——域 B 判定修正：WHCode 非"空白"，是"已建模
-   待接线"（`research/zcode-comparison/domain-B-tool-system.md`）。
+   副作用），**未被任何 app 层 crate 引用**——域 B 判定修正：WHCode 非“空白”，是“已建模
+   待接线“（`research/zcode-comparison/domain-B-tool-system.md`）。
 2. ZCode 参照（域 B）：注册表 `tool/registry.ts`（Map + 别名冲突拒绝）、调度器
    `DEFAULT_MAX_CONCURRENCY=10`（拓扑排序/分组并行/环检测）、输入校验三层、内建工具全家桶
    （Read/Write/Edit/Bash/Glob/Grep/WebFetch/…约 25 个）；ApplyPatch/Workflow 有 handler
-   但注释关闭。**调度并行是优化不是成立要件**（FR-406 并行调度在本仓已有"未通过一致性
-   测试前不启用"的延后判据，Check 172）。
+   但注释关闭。**调度并行是优化不是成立要件**（FR-406 并行调度在本仓已有“未通过一致性
+   测试前不启用“的延后判据，Check 172）。
 3. sensena-6.8 实测（2026-10-29）：OpenAI 兼容 `tools`/`tool_call_id`/`role:"tool"` 全链路
    可用——P0-2 无需 JSON 协议模拟或换供应商（建议书 D4 已解除的硬前置）。
 4. ADR-044/FR-724：P0-1 中模型返回工具调用时以 `tool_not_wired` 显式终止——**过渡行为**，
    本 ADR 兑现其替换承诺（ADR-044 复审触发 1）。
-5. 资源铁律（NFR-215/216）：容器有界、禁止 `mem::forget`、不随会话加线程；BH"恰好 3"式
+5. 资源铁律（NFR-215/216）：容器有界、禁止 `mem::forget`、不随会话加线程；BH“恰好 3”式
    硬上限为正面样例（`research/synthesis/README.md` §3 发现 2）；ZCode 无硬上限是反例。
 
 ## 2. 决策
@@ -56,13 +56,13 @@
    目标（BH finding-bound 拓扑绑定 fail-closed 教训）；执行前经 `authz` 权限面；输入
    校验一层（参数白名单 + 必填 + 类型 + 拒绝未知字段），ZCode 三层校验裁剪（v1 参数
    空间小，三层无真实矛盾）。
-8. **turn 集成**：T207 落地后，FR-724 的 `tool_not_wired` 分支替换为"登记→执行→回填→
-   continue"，终止原因枚举保留 `tool_not_wired` 仅供登记缺失场景兜底；替换完成后
+8. **turn 集成**：T207 落地后，FR-724 的 `tool_not_wired` 分支替换为“登记→执行→回填→
+   continue“，终止原因枚举保留 `tool_not_wired` 仅供登记缺失场景兜底；替换完成后
    ADR-044 复审触发 1 收口。
 
 ## 3. 正负和解
 
-- **正面**：agent turn 从"只会说"变"会做事"；三步登记协议兑现既有先手；sensenova
+- **正面**：agent turn 从“只会说”变“会做事”；三步登记协议兑现既有先手；sensenova
   function calling 直接可用；六件套覆盖编码任务主要文件操作面。
 - **负面**：新增工具维护面（六工具 × 校验 × 测试）；写路径引入工作区文件变更风险
   （缓冲：相对路径绑定 + 权限面 + diff 摘要留痕）；串行执行在大批量调用时慢（v1 接受，
@@ -102,7 +102,7 @@
   `record_result`，exec_id `TX-<request_id>-<iteration>-<n>`）、`execute_tool_call`
   （权限面→校验→登记→执行→role:tool 回填，任何失败结构化回填不中断循环）、
   workspace 全链路贯通（CUI/TUI/Web：`TurnRequest.workspace_root`）。
-- **登记边界**：登记覆盖"已受理执行"；受理前拒绝（权限/参数/绑定）不产生登记行。
+- **登记边界**：登记覆盖“已受理执行”；受理前拒绝（权限/参数/绑定）不产生登记行。
 - **权限面 v1 和解**：读工具 SessionRead／写工具 SessionCreate；专用 WorkspaceWrite
   归 P2-1 动态权限 broker（§2.7 注记兑现）。web 端 workspace 经
   `handle_request_with_llm` 线程化贯通。

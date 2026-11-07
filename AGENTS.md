@@ -119,6 +119,8 @@ python .github/scripts/check_counts.py                        # 任务/Check/FR 
 python .github/scripts/check-knowing-first.py     # 知难行易落点门禁（宪法原则 X）
 python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑；--target aarch64-pc-windows-msvc 只打包，ARM64 安装验证由 CI 原生 runner 执行，ADR-043）
 python .github/scripts/check-eol.py                   # LF + 无 BOM 审计
+python .github/scripts/check-docs-style.py            # 文档文风验收（禁用词/表情符号/直引号/套话）
+python .github/scripts/i18n-po.py --check             # i18n PO 源文件与内建目录同步
 python .github/scripts/check-workflows.py       # CI workflow 语义门禁（与 CI 同源）
 python .github/scripts/check-code-scanning.py   # Code Scanning 零 open 告警门禁（推送后复核；需 GitHub 凭据与网络）
 python .github/scripts/benchmarks/measure-resources.py               # 资源铁律 M1/C4：测试进程 RSS/CPU 达标
@@ -273,7 +275,12 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
   与渐变，中间灰判据按真灰口径（R=G=B）。TUI/GUI/Web 六套齐备。
 - 减少无效动效；能交给 GPU 的交给 GPU，不能的关闭；不得为每个会话增加固定资源占用。
 - 窗口最小化/不可见时停止绘制与动画：恢复去抖 ≥250 ms，单次全量重绘，事件游标连续（FR-617）。
-- i18n：简体中文与英语必须同时可用；其他语言经 gettext PO 接口；阿拉伯语等 RTL 需逻辑属性与 BiDi 处理。
+- i18n：十三套语言目录必须同时可用（`zh-CN`／`zh-TW`／`en`／`ja`／`ko`／`ru`／`fr`／`es`／
+  `de`／`ar`／`hi`／`ur`／`bn`，2026-11-08 用户指令），全部随二进制内嵌；新增或修改文案必须在
+  同一次提交里改齐全部目录，否则 `all_catalogs_define_the_same_keys` 失败；
+  `python .github/scripts/i18n-po.py` 同步 PO 源文件（`i18n/po/<locale>.po`），
+  `--check` 为漂移门禁；阿拉伯语与乌尔都语为 RTL，文档语言与方向已由 Web 注入，
+  镜像布局的未实现部分在 `docs/guides/ui-design.md` 登记，不得以 `dir="rtl"` 冒充已完成镜像。
 - **原生 GUI 铁律**（ADR-026）：桌面界面必须原生渲染或原生控件；禁止任何内嵌浏览器引擎的
   壳层（WebView／WebView2、CEF、Tauri／wry、Electron、NW.js）。GUI 需求已立（FR-711—FR-715，
   只读 v1），选型与预算见 ADR-027（iced + `tiny-skia` 软件光栅，默认不建 GPU 上下文）：
@@ -283,6 +290,10 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 ## 7. 编码与文档规范
 
 - 源码标识符、类型名、命令名用英文；文档正文用中文；中英混排按上下文判断，不硬拆术语。
+- 文风（2026-11-08 用户指令，由 `.github/scripts/check-docs-style.py` 判定）：禁用词表
+  （当前含表示“平台流水线”的黑话词，一律改说“通道”；完整词表见脚本 `BANNED_WORDS`）；文档禁表情符号与勾叉符号；中文正文引号用“”或‘’；
+  禁套话与欧化句式（清单见脚本 `AI_CLICHES`）。翻译稿须地道、准确、去 AI 味，
+  交付前经三审三校（术语一致、语句自然、与原意等值）。
 - 中文正文（含注释）引号用“”或‘’，不用英文直引号；禁止使用“”‘’。
 - 所有文本文件 **UTF-8 无 BOM**，换行 **LF**（`.gitattributes` + `.editorconfig` + rustfmt 三重保证）。
 - 不得篡改代码块与非注释代码；注释只在逻辑不自明处添加。

@@ -10,7 +10,7 @@
 
 为 WHCode——Rust 原生 LLM 编码 Harness——建立可追踪、可验证、可恢复、指标可复现的全量需求基线与实施设计。基线源文本为《WHCode 技术任务书 v3.0》（`source-whcode-taskbook-v3.md`）。本计划覆盖任务书 M0—M9 全部里程碑：M0 平台可行性与基线冻结（建议 MVP）、M1 存储与事件基座、M2 会话/任务应用服务、M3 LLM 与上下文、M4 SDD 门禁状态机、M5 TUI/CUI、M6 Web UI、M7 BSD SSH、M8 可选执行运行时、M9 优化与发布。
 
-技术路线：Cargo 多 crate workspace（`whcode-domain`/`app`/`llm`/`store`/`speckit`/`tools`/`runtime`/`tui`/`cui`/`web`/`ssh`/`gui`/`platform`/`bin`），DuckDB 作为唯一默认持久化后端（每工作区一个数据库文件、应用层单写者服务串行化写入），TUI/CUI/Web/SSH 四端共享同一应用服务层，外部工具执行采用"意图记录—执行—结果登记"协议，运行时（JavaScript/Python/Shell）一律在受控子进程中执行。
+技术路线：Cargo 多 crate workspace（`whcode-domain`/`app`/`llm`/`store`/`speckit`/`tools`/`runtime`/`tui`/`cui`/`web`/`ssh`/`gui`/`platform`/`bin`），DuckDB 作为唯一默认持久化后端（每工作区一个数据库文件、应用层单写者服务串行化写入），TUI/CUI/Web/SSH 四端共享同一应用服务层，外部工具执行采用“意图记录—执行—结果登记”协议，运行时（JavaScript/Python/Shell）一律在受控子进程中执行。
 
 ## Technical Context
 
@@ -22,7 +22,7 @@
 
 **Testing**: cargo test（单元/集成/属性测试）、Nextest（并行选择）、Criterion 或等价基准夹具（NFR 测量）、CUI JSON 契约测试、平台 CI 矩阵（FreeBSD/OpenBSD/NetBSD/DragonFly/Windows）
 
-**Target Platform**: Windows 11 amd64（`x86_64-pc-windows-msvc`，ADR-013 唯一验收目标）；FreeBSD 为完整平台证据车道（硬门禁，不作验收结论）；NetBSD 随 CI 自动运行（仅证据）；OpenBSD/DragonFly 延后（代码与文档保留，恢复须新 ADR 并补齐证据链）
+**Target Platform**: Windows 11 amd64（`x86_64-pc-windows-msvc`，ADR-013 唯一验收目标）；FreeBSD 为完整平台证据通道（硬门禁，不作验收结论）；NetBSD 随 CI 自动运行（仅证据）；OpenBSD/DragonFly 延后（代码与文档保留，恢复须新 ADR 并补齐证据链）
 
 **Project Type**: 多 crate workspace——本地 TUI + 自动化 CUI + Web 服务 + SSH 入口的单仓库项目（非库/非单一 CLI）
 
@@ -112,7 +112,7 @@ docs/
 └── guides/                   # CUI 手册、TUI 键位、Web 部署与安全、灾难恢复
 ```
 
-**Structure Decision**: 采用任务书 §6.2 的 13-crate Cargo workspace，`crates/` 下按 domain→app→service→store→adapter 单向依赖；`tests/` 分为 unit/contract/integration/crash/stability/fixtures 六类；CI 与基准脚本、ADR 与矩阵文档独立成目录以承载 §12.2 交付物。crate 名允许在实现前调整，但依赖方向与"前端不直接触库"（ADR-003）不变；两个尚无稳定接口的模块优先在同一 crate 内以模块边界表达，避免过度拆分（§6.2）。
+**Structure Decision**: 采用任务书 §6.2 的 13-crate Cargo workspace，`crates/` 下按 domain→app→service→store→adapter 单向依赖；`tests/` 分为 unit/contract/integration/crash/stability/fixtures 六类；CI 与基准脚本、ADR 与矩阵文档独立成目录以承载 §12.2 交付物。crate 名允许在实现前调整，但依赖方向与“前端不直接触库”（ADR-003）不变；两个尚无稳定接口的模块优先在同一 crate 内以模块边界表达，避免过度拆分（§6.2）。
 
 ## Complexity Tracking
 
@@ -125,4 +125,4 @@ docs/
 | 观察 | 说明 | 处置 |
 |---|---|---|
 | O-01 依赖面较宽 | Web/SSH 服务端 crate 选型未定（`[待验证]`），触及 C-06 边界 | 不表述为已交付；M0/M6/M7 依平台验证证据定案（research.md R-05/R-06）。复核 2026-10-25：选型已定案并关闭——Web 为自研“单线程非阻塞多路复用”服务器（`crates/whcode-bin/src/serve.rs`，无 axum）；SSH 服务端为 russh 0.64.1（ADR-030，T096—T098），BSD 平台验收按 ADR-013 延后，恢复须新 ADR |
-| O-02 范围大（M0—M9 单 feature） | 与"一个 feature 一个 spec"的常规粒度相比偏大 | 属用户明确决定的范围（全量基线 + M0 起步）；tasks.md 以里程碑为阶段边界，M0 为建议 MVP |
+| O-02 范围大（M0—M9 单 feature） | 与“一个 feature 一个 spec”的常规粒度相比偏大 | 属用户明确决定的范围（全量基线 + M0 起步）；tasks.md 以里程碑为阶段边界，M0 为建议 MVP |

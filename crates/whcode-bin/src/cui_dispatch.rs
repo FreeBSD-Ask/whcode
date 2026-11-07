@@ -50,8 +50,20 @@ pub fn dispatch(args: &[String]) -> ExitCode {
 
 /// 调度实现（返回 i32 退出码，供测试直接断言稳定码表）。
 fn dispatch_code(args: &[String]) -> i32 {
+    // 显式语言必须先于解析确定：`--help` 的渲染发生在 clap 内部（FR-615）。
+    let explicit_lang = match whcode_cui::cli::prescan_lang(args) {
+        Ok(lang) => lang,
+        Err(message) => {
+            eprintln!("{message}");
+            return EXIT_USAGE;
+        }
+    };
+    // 文本层（FR-615）：显式 --lang → 环境检测（LANG/LC_ALL）→ 默认 zh-CN；
+    // PO 覆盖内建；数据字段不翻译。
+    let (locale, locale_source) = detect_locale(explicit_lang.as_deref());
+    let texts = crate::load_texts(&locale, locale_source);
     let argv = std::iter::once("whcode".to_string()).chain(args.iter().cloned());
-    let cli = match parse_outcome(argv) {
+    let cli = match parse_outcome(argv, Some(&texts)) {
         ParseOutcome::Command(cli) => cli,
         ParseOutcome::Display(text) => {
             print!("{text}");
@@ -67,9 +79,6 @@ fn dispatch_code(args: &[String]) -> i32 {
         .workspace
         .as_deref()
         .map_or_else(default_workspace, PathBuf::from);
-    // 文本层（FR-615）：环境检测（LANG/LC_ALL）→ 默认 zh-CN；PO 覆盖内建；数据字段不翻译。
-    let (locale, locale_source) = detect_locale(None);
-    let texts = crate::load_texts(&locale, locale_source);
     // 出站信任库（ADR-040 决策 2、T191）：与 TUI／GUI 同一装配口径——失败只告警、不阻断
     // 命令执行；真正的失败会在 LLM 调用时以“无信任根”报出，不在装配阶段伪装成功。
     crate::ensure_outbound_trust(&workspace, "CUI");

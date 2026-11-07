@@ -9,11 +9,11 @@
 //! 登记内容以 `.trae/specs/ensure-frontend-parity/spec.md` 的“对等基线”表为权威，
 //! 状态记号映射如下：
 //!
-//! - ✅ 已实现 → [`Support::Implemented`]，锚点为真实函数名或路由（去源码核对）；
-//! - ◐ 已登记排除 → [`Support::Excluded`]，理由码见 [`ExclusionReason`]（ADR-032 全表）；
-//! - ⏳ 预留 → [`Support::Reserved`]，带里程碑（`M8`、`M3-llm`）；
-//! - ➕ 本变更新增 → 交付时已同 PR 翻转为已实现（T181 收口，2026-10-24）；
-//! - — 不适用 → [`Support::NotApplicable`]（判定依据写入条目注释）。
+//! - 已实现 → [`Support::Implemented`]，锚点为真实函数名或路由（去源码核对）；
+//! - 已登记排除 → [`Support::Excluded`]，理由码见 [`ExclusionReason`]（ADR-032 全表）；
+//! - 预留 → [`Support::Reserved`]，带里程碑（`M8`、`M3-llm`）；
+//! - 本变更新增 → 交付时已同 PR 翻转为已实现（T181 收口，2026-10-24）；
+//! - 不适用 → [`Support::NotApplicable`]（判定依据写入条目注释）。
 //!
 //! 字段约定（登记税的最小化与诚实性）：
 //!
@@ -1878,7 +1878,7 @@ mod tests {
     /// 对等基线抽查（T181 收口）：本变更交付的格已翻转为已实现；未交付者仍在预留队列。
     #[test]
     fn delivered_surfaces_are_implemented_and_pending_keep_milestones() {
-        // 原 ➕（本变更新增）格：交付后同 PR 翻转为已实现并带前端锚点（ADR-032 判定表）。
+        // 原“本变更新增”格：交付后同 PR 翻转为已实现并带前端锚点（ADR-032 判定表）。
         for (id, frontend) in [
             ("context.budget", FrontendId::Cui),
             ("runtime.list", FrontendId::Cui),

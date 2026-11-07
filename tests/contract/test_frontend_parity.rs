@@ -182,8 +182,12 @@ fn feature_parity_matrix_rows_match_registry() {
         !matrix
             .lines()
             .filter(|line| line.starts_with("| `"))
-            .any(|line| line.contains('⛔')),
-        "矩阵数据行不得再使用旧手工符号（四态符号：✅／◐／⏳／—）"
+            .any(
+                |line| ["\u{2705}", "\u{274c}", "\u{26d4}", "\u{23f3}", "\u{25d0}"]
+                    .iter()
+                    .any(|symbol| line.contains(symbol))
+            ),
+        "矩阵数据行不得使用表情符号：四态一律写文字（已实现／部分／预留／不提供）"
     );
     let problems = matrix_problems(matrix);
     assert!(
@@ -199,8 +203,8 @@ fn feature_parity_matrix_rows_match_registry() {
 fn tampered_matrix_is_rejected() {
     let matrix = include_str!("../../docs/matrices/feature-parity.md");
     let flipped = matrix.replacen(
-        "| `session.new` | Command | Write | ✅ | ✅ | ✅ | ✅ |",
-        "| `session.new` | Command | Write | ⏳ | ✅ | ✅ | ✅ |",
+        "| `session.new` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 |",
+        "| `session.new` | Command | Write | 预留 | 已实现 | 已实现 | 已实现 |",
         1,
     );
     assert_ne!(flipped, matrix, "篡改锚点必须命中矩阵（防止测试空转）");
@@ -252,10 +256,10 @@ fn parse_matrix_rows(matrix: &str) -> Vec<MatrixRow> {
 /// 期望符号（四态判定表；ADR-032）。
 fn expected_symbol(support: &Support) -> &'static str {
     match support {
-        Support::Implemented { .. } => "✅",
-        Support::Excluded { .. } => "◐",
-        Support::Reserved { .. } => "⏳",
-        Support::NotApplicable => "—",
+        Support::Implemented { .. } => "已实现",
+        Support::Excluded { .. } => "部分",
+        Support::Reserved { .. } => "预留",
+        Support::NotApplicable => "不提供",
     }
 }
 

@@ -1,0 +1,1246 @@
+# es translation catalog for WHCode (FR-615).
+# Generated from i18n/es.properties by .github/scripts/i18n-po.py; do not edit by hand.
+# Edit the properties file instead, then regenerate — a contract test fails on drift.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: whcode 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/FreeBSD-Ask/whcode/issues\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "app.title"
+msgstr "WHCode, arnés de codificación local"
+
+msgid "cli.about"
+msgstr "WHCode, arnés de codificación local"
+
+msgid "cli.context.about"
+msgstr "Vista del presupuesto de contexto (FR-105/108; contracts/cui-cli.md §1)."
+
+msgid "cli.context.budget.about"
+msgstr "Vista del presupuesto: presupuesto actual, orígenes cargados, motivo del truncado y cursor (mediante `whcode_app::load_context`)."
+
+msgid "cli.context.budget.budget"
+msgstr "Presupuesto en tokens; por omisión se usa la base de visualización (4096, igual que la vista de contexto de la TUI)."
+
+msgid "cli.context.budget.session"
+msgstr "ID de la sesión."
+
+msgid "cli.db.about"
+msgstr "Mantenimiento y limpieza de la base de datos (FR-507—510)."
+
+msgid "cli.db.archive.about"
+msgstr "Exportar el espacio de trabajo."
+
+msgid "cli.db.archive.export"
+msgstr "Ruta de salida."
+
+msgid "cli.db.check.about"
+msgstr "Comprobar los índices necesarios."
+
+msgid "cli.db.checkpoint.about"
+msgstr "Punto de control explícito (FR-510; opcionalmente aplica sustituciones de la política WAL, disaster-recovery §5)."
+
+msgid "cli.db.checkpoint.autocheckpoint"
+msgstr "Sustituir wal_autocheckpoint (por ejemplo, 1MB; se mantiene si se omite)."
+
+msgid "cli.db.checkpoint.threshold"
+msgstr "Sustituir el umbral del punto de control automático del WAL (por ejemplo, 16MB; se mantiene si se omite)."
+
+msgid "cli.db.compact.about"
+msgstr "Compactar la base de datos en disco (copiar, verificar e intercambiar, FR-510; simulación por omisión)."
+
+msgid "cli.db.compact.dry-run"
+msgstr "Solo vista previa (opción predeterminada)."
+
+msgid "cli.db.compact.yes"
+msgstr "Confirmar la ejecución."
+
+msgid "cli.db.explain.about"
+msgstr "Análisis del plan de consulta (consultas de solo lectura, contrato §2-2)."
+
+msgid "cli.db.explain.query"
+msgstr "SQL de solo lectura (que empiece por SELECT/WITH)."
+
+msgid "cli.db.purge.about"
+msgstr "Purgar por antigüedad (FR-508/509; simulación por omisión)."
+
+msgid "cli.db.purge.before"
+msgstr "Fecha límite (milisegundos Unix)."
+
+msgid "cli.db.purge.dry-run"
+msgstr "Solo vista previa (opción predeterminada)."
+
+msgid "cli.db.purge.yes"
+msgstr "Confirmar la ejecución."
+
+msgid "cli.db.restore.about"
+msgstr "Restaurar una exportación en un espacio de trabajo vacío (inversa de `db archive`; confirmación explícita, sin vista previa)."
+
+msgid "cli.db.restore.from"
+msgstr "Ruta del archivo de exportación (formato whcode-export)."
+
+msgid "cli.db.restore.yes"
+msgstr "Confirmar la ejecución (la restauración escribe; la base de datos de destino debe estar vacía)."
+
+msgid "cli.db.stats.about"
+msgstr "Estadísticas de la base de datos (FR-507)."
+
+msgid "cli.doctor.about"
+msgstr "Autocomprobación del entorno y la configuración (M0)."
+
+msgid "cli.doctor.json"
+msgstr "Emitir JSON."
+
+msgid "cli.events.about"
+msgstr "Consultas y exportación de eventos (FR-202/205)."
+
+msgid "cli.events.export.about"
+msgstr "Exportar (la política de redacción se indica en la propia exportación, FR-205)."
+
+msgid "cli.events.export.after"
+msgstr "Cursor inicial."
+
+msgid "cli.events.export.format"
+msgstr "Formato de salida (json/jsonl)."
+
+msgid "cli.events.export.session"
+msgstr "ID de la sesión."
+
+msgid "cli.events.list.about"
+msgstr "Listar los eventos (incremental por cursor)."
+
+msgid "cli.events.list.after"
+msgstr "Cursor inicial (exclusivo)."
+
+msgid "cli.events.list.session"
+msgstr "ID de la sesión."
+
+msgid "cli.events.show.about"
+msgstr "Detalle de un evento."
+
+msgid "cli.events.show.event"
+msgstr "ID del evento."
+
+msgid "cli.font.about"
+msgstr "Instalación de las fuentes integradas y comprobación de la declaración del terminal (FR-717; comando de recursos locales, sin base de datos ni espacio de trabajo)."
+
+msgid "cli.font.install.about"
+msgstr "Instalar las cuatro fuentes integradas en el directorio de fuentes del usuario y escribir el registro en HKCU (semántica de copia con sobrescritura; se puede repetir sin riesgo)."
+
+msgid "cli.font.install.dry-run"
+msgstr "Informar de las acciones que se ejecutarían sin modificar el sistema."
+
+msgid "cli.font.install.from"
+msgstr "Directorio de origen de las fuentes (estructura plana o la estructura `source/<family>/` del repositorio); por omisión se sondea junto al ejecutable y luego `assets/fonts/source` en el directorio actual (ADR-028 revisión 1)."
+
+msgid "cli.font.status.about"
+msgstr "Informar del estado de instalación de las fuentes y de la declaración del terminal (solo lectura)."
+
+msgid "cli.font.uninstall.about"
+msgstr "Desinstalar las fuentes integradas: quitar el registro y borrar los archivos del directorio de fuentes del usuario (mejor esfuerzo, informando elemento por elemento)."
+
+msgid "cli.font.uninstall.dry-run"
+msgstr "Informar de las acciones que se ejecutarían sin modificar el sistema."
+
+msgid "cli.hint.no_console"
+msgstr "whcode {version} — no hay consola interactiva disponible, no se inició ninguna interfaz"
+
+msgid "cli.hint.options"
+msgstr "Disponibles: --tui (interfaz de terminal), --cli <subcomando>, --lang <idioma>, --help"
+
+msgid "cli.json"
+msgstr "Emitir JSON (envoltura schema_version, FR-602); se acepta antes o después de cualquier subcomando."
+
+msgid "cli.lang"
+msgstr "Idioma del texto de la interfaz (por ejemplo, es, zh-CN, en; prevalece sobre LANG/LC_ALL, FR-615)."
+
+msgid "cli.llm.about"
+msgstr "Invocación del modelo (FR-201; `llm run` y `llm cancel`, contracts/cui-cli.md §1)."
+
+msgid "cli.llm.cancel.about"
+msgstr "Cancelar una llamada en curso en esta máquina (surte efecto antes del siguiente fragmento)."
+
+msgid "cli.llm.cancel.request"
+msgstr "ID de solicitud (lo imprime `llm run` o se fija con `--request-id`)."
+
+msgid "cli.llm.run.about"
+msgstr "Realizar una llamada real (sincrónica; los incrementos en streaming se emiten al final como una secuencia acotada)."
+
+msgid "cli.llm.run.max-tokens"
+msgstr "Sustituir `max_tokens` del perfil."
+
+msgid "cli.llm.run.model"
+msgstr "Sustituir el identificador de modelo del perfil."
+
+msgid "cli.llm.run.prompt"
+msgstr "Texto del mensaje (nunca se escribe en eventos ni en registros)."
+
+msgid "cli.llm.run.provider"
+msgstr "Nombre del perfil (elección explícita, ADR-031 decisión 4)."
+
+msgid "cli.llm.run.request-id"
+msgstr "ID de solicitud predefinido (la clave de `llm cancel`; si se omite, se genera a partir de la llamada)."
+
+msgid "cli.llm.run.session"
+msgstr "ID de la sesión."
+
+msgid "cli.llm.run.trace-level"
+msgstr "Nivel de traza (off/metadata/redacted/full)."
+
+msgid "cli.runtime.about"
+msgstr "Gestión de entornos de ejecución (FR-701—710; M8)."
+
+msgid "cli.runtime.disable.about"
+msgstr "Desactivar un entorno de ejecución."
+
+msgid "cli.runtime.disable.name"
+msgstr "Nombre del entorno de ejecución."
+
+msgid "cli.runtime.enable.about"
+msgstr "Activar un entorno de ejecución."
+
+msgid "cli.runtime.enable.name"
+msgstr "Nombre del entorno de ejecución."
+
+msgid "cli.runtime.install.about"
+msgstr "Instalar un payload."
+
+msgid "cli.runtime.install.name"
+msgstr "Nombre del entorno de ejecución."
+
+msgid "cli.runtime.list.about"
+msgstr "Listar los entornos de ejecución."
+
+msgid "cli.runtime.status.about"
+msgstr "Estado del entorno de ejecución."
+
+msgid "cli.runtime.status.name"
+msgstr "Nombre del entorno de ejecución."
+
+msgid "cli.serve.about"
+msgstr "Puntos de entrada de transporte (M6/M7)."
+
+msgid "cli.serve.bind"
+msgstr "Dirección de escucha (solo bucle local por omisión, FR-606)."
+
+msgid "cli.serve.ssh"
+msgstr "Punto de entrada SSH (M7, aplazado)."
+
+msgid "cli.serve.web"
+msgstr "Punto de entrada web (M6)."
+
+msgid "cli.session.about"
+msgstr "Ciclo de vida de las sesiones (FR-101)."
+
+msgid "cli.session.archive.about"
+msgstr "Archivar o restaurar (familia destructiva según el contrato §2-1: simulación por omisión, `--yes` ejecuta)."
+
+msgid "cli.session.archive.dry-run"
+msgstr "Solo vista previa (opción predeterminada)."
+
+msgid "cli.session.archive.session"
+msgstr "ID de la sesión."
+
+msgid "cli.session.archive.unarchive"
+msgstr "Restaurar una sesión archivada."
+
+msgid "cli.session.archive.yes"
+msgstr "Confirmar la ejecución (incompatible con --dry-run, §8.1)."
+
+msgid "cli.session.delete.about"
+msgstr "Eliminar una sesión (destructivo; simulación por omisión, FR-509)."
+
+msgid "cli.session.delete.dry-run"
+msgstr "Solo vista previa (opción predeterminada)."
+
+msgid "cli.session.delete.session"
+msgstr "ID de la sesión."
+
+msgid "cli.session.delete.yes"
+msgstr "Confirmar la ejecución (incompatible con --dry-run, §8.1)."
+
+msgid "cli.session.list.about"
+msgstr "Listar las sesiones."
+
+msgid "cli.session.list.all"
+msgstr "Incluir las sesiones archivadas."
+
+msgid "cli.session.new.about"
+msgstr "Crear una sesión."
+
+msgid "cli.session.new.model"
+msgstr "Modelo (opcional)."
+
+msgid "cli.session.new.title"
+msgstr "Título."
+
+msgid "cli.session.rename.about"
+msgstr "Renombrar una sesión."
+
+msgid "cli.session.rename.session"
+msgstr "ID de la sesión."
+
+msgid "cli.session.rename.title"
+msgstr "Título nuevo."
+
+msgid "cli.session.show.about"
+msgstr "Mostrar una sesión."
+
+msgid "cli.session.show.session"
+msgstr "ID de la sesión."
+
+msgid "cli.spec.about"
+msgstr "Etapas y puertas de SDD (FR-307—312)."
+
+msgid "cli.spec.analyze.about"
+msgstr "Comprobación de analyze (FR-306)."
+
+msgid "cli.spec.analyze.session"
+msgstr "ID de la sesión."
+
+msgid "cli.spec.converge.about"
+msgstr "Comprobación de converge (FR-310/311)."
+
+msgid "cli.spec.converge.session"
+msgstr "ID de la sesión."
+
+msgid "cli.spec.force-advance.about"
+msgstr "Avanzar una puerta manualmente (FR-312; se requiere un motivo, contrato §2-3)."
+
+msgid "cli.spec.force-advance.reason"
+msgstr "Justificación para forzar la puerta (obligatoria, FR-312)."
+
+msgid "cli.spec.force-advance.session"
+msgstr "ID de la sesión."
+
+msgid "cli.spec.force-advance.to"
+msgstr "Etapa de destino."
+
+msgid "cli.spec.next.about"
+msgstr "Etapa siguiente."
+
+msgid "cli.spec.next.session"
+msgstr "ID de la sesión."
+
+msgid "cli.spec.status.about"
+msgstr "Estado de la etapa actual (FR-314)."
+
+msgid "cli.spec.status.session"
+msgstr "ID de la sesión."
+
+msgid "cli.spec.validate.about"
+msgstr "Validar los artefactos."
+
+msgid "cli.spec.validate.session"
+msgstr "ID de la sesión."
+
+msgid "cli.status.about"
+msgstr "Instantánea del estado (FR-314)."
+
+msgid "cli.status.session"
+msgstr "ID de la sesión."
+
+msgid "cli.task.abort.about"
+msgstr "Abortar una tarea (FR-408)."
+
+msgid "cli.task.abort.task"
+msgstr "ID de la tarea."
+
+msgid "cli.task.about"
+msgstr "Consulta y control de tareas (FR-401/408)."
+
+msgid "cli.task.list.about"
+msgstr "Listar las tareas."
+
+msgid "cli.task.list.session"
+msgstr "ID de la sesión."
+
+msgid "cli.task.retry.about"
+msgstr "Reintentar una tarea (FR-401)."
+
+msgid "cli.task.retry.task"
+msgstr "ID de la tarea."
+
+msgid "cli.task.show.about"
+msgstr "Detalle de la tarea (las cinco clases de información de FR-104)."
+
+msgid "cli.task.show.task"
+msgstr "ID de la tarea."
+
+msgid "cli.workspace"
+msgstr "Directorio del espacio de trabajo (el configurado o, en su defecto, el directorio actual; localiza `<workspace>/whcode.duckdb`)."
+
+msgid "cui.archive_dry_run"
+msgstr "dry-run: se archivaría la sesión {session}; añada --yes para ejecutar (use --unarchive para revertir)"
+
+msgid "cui.archived"
+msgstr "Sesión {session} archivada"
+
+msgid "cui.checkpoint_done"
+msgstr "punto de control completado: WAL {before} → {after}"
+
+msgid "cui.compact_done"
+msgstr "compactación terminada (switched={switched})"
+
+msgid "cui.compact_dry_run"
+msgstr "dry-run: archivo {file} B, WAL {wal} B; añada --yes para compactar (no se promete reducir el tamaño)"
+
+msgid "cui.created"
+msgstr "Sesión {session} creada"
+
+msgid "cui.delete_dry_run"
+msgstr "dry-run: se eliminaría la sesión {session} ({events} eventos, {tasks} tareas; {skipped} protegidos omitidos); añada --yes para ejecutar"
+
+msgid "cui.deleted"
+msgstr "Sesión {session} eliminada"
+
+msgid "cui.empty"
+msgstr "(sin registros)"
+
+msgid "cui.exported"
+msgstr "Exportado a {path} (hash {hash})"
+
+msgid "cui.font.deleted"
+msgstr "eliminada"
+
+msgid "cui.font.dry_run"
+msgstr "[simulación]"
+
+msgid "cui.font.install.header"
+msgstr "{dry_run}Instalar las fuentes integradas: {source} -> {dir}"
+
+msgid "cui.font.install.line"
+msgstr "{family}: copiar {source} -> {target}, registro {reg_state}"
+
+msgid "cui.font.installed"
+msgstr "instalada"
+
+msgid "cui.font.missing"
+msgstr "ausente"
+
+msgid "cui.font.reg_pending"
+msgstr "pendiente"
+
+msgid "cui.font.registered"
+msgstr "registrada"
+
+msgid "cui.font.removed"
+msgstr "sin registrar"
+
+msgid "cui.font.status.header"
+msgstr "Estado de las fuentes integradas (directorio de usuario: {dir})"
+
+msgid "cui.font.status.line"
+msgstr "{family} ({file}): archivo {file_state}, registro {reg_state}"
+
+msgid "cui.font.terminal.found"
+msgstr "Declaración de terminal: {file} (caras: {faces}; coincidencias integradas: {hits})"
+
+msgid "cui.font.terminal.none"
+msgstr "Declaración de terminal: no se encontró la configuración de Windows Terminal (no es un error)"
+
+msgid "cui.font.uninstall.header"
+msgstr "{dry_run}Desinstalar las fuentes integradas"
+
+msgid "cui.font.uninstall.line"
+msgstr "{family}: registro {unreg_state}, archivo {file_state}"
+
+msgid "cui.font.unregistered"
+msgstr "sin registrar"
+
+msgid "cui.indexes_ok"
+msgstr "índices completos"
+
+msgid "cui.plan_rows"
+msgstr "{rows} filas de plan (analyze=false, consulta no ejecutada)"
+
+msgid "cui.purge_dry_run"
+msgstr "dry-run: se purgarían {sessions} sesiones y {events} eventos ({skipped} protegidos omitidos); añada --yes para ejecutar"
+
+msgid "cui.purged"
+msgstr "{events} eventos purgados"
+
+msgid "cui.record.archived"
+msgstr "Archivada"
+
+msgid "cui.record.artifacts"
+msgstr "Artefactos"
+
+msgid "cui.record.budget"
+msgstr "Presupuesto"
+
+msgid "cui.record.checkpoints"
+msgstr "Puntos de control"
+
+msgid "cui.record.cursor"
+msgstr "Cursor"
+
+msgid "cui.record.failure"
+msgstr "Fallo"
+
+msgid "cui.record.items"
+msgstr "Elementos"
+
+msgid "cui.record.model"
+msgstr "Modelo"
+
+msgid "cui.record.no"
+msgstr "no"
+
+msgid "cui.record.session"
+msgstr "Sesión {session}"
+
+msgid "cui.record.task"
+msgstr "Tarea {task}"
+
+msgid "cui.record.truncated"
+msgstr "Truncado"
+
+msgid "cui.record.used"
+msgstr "Usado"
+
+msgid "cui.record.yes"
+msgstr "sí"
+
+msgid "cui.renamed"
+msgstr "Sesión {session} renombrada"
+
+msgid "cui.restore_done"
+msgstr "restauración completada: desde {source}"
+
+msgid "cui.spec_status"
+msgstr "Sesión {session}: etapa {stage} · cursor {cursor}"
+
+msgid "cui.status_line"
+msgstr "{session} {title} [{stage}] status={status} cursor={cursor}"
+
+msgid "cui.task_aborted"
+msgstr "{task} abortada → {status}"
+
+msgid "cui.task_retried"
+msgstr "{task} reintentada (retry={retry}) → {status}"
+
+msgid "cui.tasks_summary"
+msgstr "Sesión {session}: total {total} · hechas {done} · bloqueadas {blocked} · activas {active}"
+
+msgid "cui.unarchive_dry_run"
+msgstr "dry-run: se desarchivaría la sesión {session}; añada --yes para ejecutar"
+
+msgid "cui.unarchived"
+msgstr "Sesión {session} desarchivada"
+
+msgid "error.datasource"
+msgstr "Error del origen de datos: {error}"
+
+msgid "error.permission_denied"
+msgstr "Permiso denegado"
+
+msgid "gui.chat.cancel"
+msgstr "Cancelar"
+
+msgid "gui.chat.empty"
+msgstr "El mensaje está vacío"
+
+msgid "gui.chat.error"
+msgstr "Error en la conversación"
+
+msgid "gui.chat.hint"
+msgstr "Seleccione una sesión y escriba un mensaje; el envío bloquea hasta terminar (igual que en la TUI)"
+
+msgid "gui.chat.history.hint"
+msgstr "Los eventos de cada turno se guardan: el historial completo está en la vista Eventos"
+
+msgid "gui.chat.last"
+msgstr "Último resultado: {summary}"
+
+msgid "gui.chat.no_request"
+msgstr "No hay ningún ID de solicitud que cancelar (envíe antes un turno)"
+
+msgid "gui.chat.none"
+msgstr "Ninguna sesión seleccionada: seleccione una en la vista Sesiones (j/k)"
+
+msgid "gui.chat.not_supported"
+msgstr "Ejecutor del LLM no conectado (not_supported)"
+
+msgid "gui.chat.progress"
+msgstr "Generando: {chunks} fragmentos…"
+
+msgid "gui.chat.prompt.placeholder"
+msgstr "Escriba un mensaje y pulse Intro para enviar"
+
+msgid "gui.chat.provider"
+msgstr "Perfil del LLM: {provider}"
+
+msgid "gui.chat.provider.placeholder"
+msgstr "nombre del perfil"
+
+msgid "gui.chat.send"
+msgstr "Enviar"
+
+msgid "gui.checkpoints.degraded"
+msgstr "Reversión no implementada (solo consulta)"
+
+msgid "gui.checkpoints.empty"
+msgstr "Esta tarea no tiene puntos de control"
+
+msgid "gui.checkpoints.hint"
+msgstr "Pulse Puntos de control en una fila de tarea"
+
+msgid "gui.checkpoints.open"
+msgstr "Puntos de control"
+
+msgid "gui.checkpoints.title"
+msgstr "Puntos de control"
+
+msgid "gui.kpi.count"
+msgstr "Sesiones {sessions} · filas en la vista {rows}"
+
+msgid "gui.op.archive"
+msgstr "Archivar"
+
+msgid "gui.op.cancel"
+msgstr "Cancelar"
+
+msgid "gui.op.confirm"
+msgstr "Confirmar"
+
+msgid "gui.op.delete"
+msgstr "Eliminar"
+
+msgid "gui.op.error"
+msgstr "La operación falló"
+
+msgid "gui.op.input.days"
+msgstr "Días de antigüedad para purgar"
+
+msgid "gui.op.input.title"
+msgstr "Título"
+
+msgid "gui.op.new"
+msgstr "Nueva"
+
+msgid "gui.op.not_supported"
+msgstr "Ejecutor de comandos no conectado (not_supported)"
+
+msgid "gui.op.preview"
+msgstr "Vista previa"
+
+msgid "gui.op.purge"
+msgstr "Purgar (más de 30 días)"
+
+msgid "gui.op.rename"
+msgstr "Renombrar"
+
+msgid "gui.op.restore"
+msgstr "Restaurar"
+
+msgid "gui.session.archived"
+msgstr "Archivadas"
+
+msgid "gui.session.group.active"
+msgstr "— Activas —"
+
+msgid "gui.session.group.archived"
+msgstr "— Archivadas —"
+
+msgid "gui.session.none"
+msgstr "sin sesión"
+
+msgid "gui.session.off"
+msgstr "ocultas"
+
+msgid "gui.session.on"
+msgstr "visibles"
+
+msgid "gui.session.search"
+msgstr "Buscar por título o ID"
+
+msgid "gui.session.sort.created"
+msgstr "Creación"
+
+msgid "gui.session.sort.recent"
+msgstr "Recientes"
+
+msgid "gui.session.sort.title"
+msgstr "Título"
+
+msgid "gui.status.theme"
+msgstr "Tema: {theme}"
+
+msgid "gui.task.abort"
+msgstr "Abortar"
+
+msgid "gui.task.retries"
+msgstr "Reintentos {count}"
+
+msgid "gui.task.retry"
+msgstr "Reintentar"
+
+msgid "menu.context"
+msgstr "Contexto"
+
+msgid "menu.diff"
+msgstr "Diferencias"
+
+msgid "menu.events"
+msgstr "Eventos"
+
+msgid "menu.sessions"
+msgstr "Sesiones"
+
+msgid "menu.spec"
+msgstr "Especificación"
+
+msgid "menu.tasks"
+msgstr "Tareas"
+
+msgid "settings.action.done"
+msgstr "hecho: {label}"
+
+msgid "settings.action.failed"
+msgstr "la acción falló ({label}): {code} {message}"
+
+msgid "settings.action.running"
+msgstr "en curso: {label}"
+
+msgid "settings.back"
+msgstr "Volver al inicio"
+
+msgid "settings.confirm.builtin_empty"
+msgstr "Esto borra la copia de raíces integrada (la base integrada deja de participar). ¿Continuar?"
+
+msgid "settings.confirm.external_key"
+msgstr "Esto guarda el certificado externo y la clave privada, y cambia el modo entrante a external. ¿Continuar?"
+
+msgid "settings.confirm.inbound_off"
+msgstr "Esto desactiva el TLS entrante (vuelve a HTTP sin cifrar) y surte efecto tras reiniciar serve --web. ¿Continuar?"
+
+msgid "settings.confirm.regenerate"
+msgstr "Esto regenera el certificado autofirmado del servidor (la huella actual deja de ser válida). ¿Continuar?"
+
+msgid "settings.confirm.reset_builtin"
+msgstr "Esto restaura la copia de raíces integrada al recurso incluido en el paquete. ¿Continuar?"
+
+msgid "settings.confirm.reset_extra"
+msgstr "Esto borra las raíces adicionales. ¿Continuar?"
+
+msgid "settings.error.bad_port"
+msgstr "El puerto debe ser un entero entre 1 y 65535"
+
+msgid "settings.error.generic"
+msgstr "la acción falló"
+
+msgid "settings.error.load"
+msgstr "No se pudo leer el estado del certificado: {code} {message}"
+
+msgid "settings.error.missing_host"
+msgstr "Rellene primero un nombre de host o un literal IP"
+
+msgid "settings.error.missing_pem"
+msgstr "Rellene primero la cadena de certificados y la clave privada (PEM)"
+
+msgid "settings.field.count"
+msgstr "cantidad: {value}"
+
+msgid "settings.field.modified"
+msgstr "modificado: {value}"
+
+msgid "settings.field.newer"
+msgstr "versión integrada más reciente: {value}"
+
+msgid "settings.field.path"
+msgstr "ruta: {value}"
+
+msgid "settings.field.sha256"
+msgstr "SHA-256: {value}"
+
+msgid "settings.inbound.builtin"
+msgstr "Certificado autofirmado integrado (builtin)"
+
+msgid "settings.inbound.builtin_hint"
+msgstr "Genera un certificado autofirmado ECDSA P-256 por espacio de trabajo (397 días); el SAN cubre localhost, 127.0.0.1, ::1 y el nombre del host."
+
+msgid "settings.inbound.cert_pem_label"
+msgstr "Cargar la cadena de certificados (PEM)"
+
+msgid "settings.inbound.days_remaining"
+msgstr "días restantes: {value}"
+
+msgid "settings.inbound.download"
+msgstr "Descargar el certificado público (PEM)"
+
+msgid "settings.inbound.external"
+msgstr "Certificado externo (external)"
+
+msgid "settings.inbound.external_hint"
+msgstr "Usa la cadena de certificados en PEM y la clave privada sin cifrar que cargue; la clave privada solo se escribe, nunca se muestra."
+
+msgid "settings.inbound.key_pem_label"
+msgstr "Cargar la clave privada (PEM sin cifrar, se borra al enviar)"
+
+msgid "settings.inbound.key_saved"
+msgstr "Clave privada guardada; ya no se muestra (el campo se ha vaciado)."
+
+msgid "settings.inbound.legend"
+msgstr "Modo"
+
+msgid "settings.inbound.material"
+msgstr "certificado presente: {cert} · clave privada presente: {key}"
+
+msgid "settings.inbound.no_material"
+msgstr "Aún no hay material de certificado del servidor (cargue una cadena o regenere el certificado autofirmado)"
+
+msgid "settings.inbound.not_after"
+msgstr "válido hasta: {value}"
+
+msgid "settings.inbound.off"
+msgstr "TLS desactivado (off)"
+
+msgid "settings.inbound.off_hint"
+msgstr "Vuelve a HTTP sin cifrar (ADR-023); requiere confirmación explícita y nunca se revierte en silencio."
+
+msgid "settings.inbound.regenerate"
+msgstr "Regenerar el certificado autofirmado"
+
+msgid "settings.inbound.sans"
+msgstr "SAN: {value}"
+
+msgid "settings.inbound.sha256"
+msgstr "huella SHA-256: {value}"
+
+msgid "settings.inbound.subject"
+msgstr "sujeto: {value}"
+
+msgid "settings.inbound.title"
+msgstr "TLS entrante (serve --web)"
+
+msgid "settings.inbound.upload"
+msgstr "Cargar y cambiar a external"
+
+msgid "settings.link"
+msgstr "Ajustes de certificados"
+
+msgid "settings.local_mode"
+msgstr "Página de ajustes local"
+
+msgid "settings.modes.save"
+msgstr "Guardar los modos"
+
+msgid "settings.notes.none"
+msgstr "Sin notas adicionales"
+
+msgid "settings.notes.title"
+msgstr "Notas"
+
+msgid "settings.outbound.builtin"
+msgstr "Copia integrada (builtin)"
+
+msgid "settings.outbound.builtin_hint"
+msgstr "Usa como base la copia de raíces integrada en el espacio de trabajo; las raíces adicionales se añaden a continuación."
+
+msgid "settings.outbound.builtin_pem_label"
+msgstr "Copia de raíces integrada (PEM, editable)"
+
+msgid "settings.outbound.effective_line"
+msgstr "certificados raíz efectivos: {value}"
+
+msgid "settings.outbound.empty_extra"
+msgstr "No hay raíces adicionales configuradas (vacío correcto: el archivo no contiene certificados)"
+
+msgid "settings.outbound.extra_pem_label"
+msgstr "Raíces adicionales (PEM, se aplican en ambos modos)"
+
+msgid "settings.outbound.hint"
+msgstr "Ningún modo desactiva la verificación de la cadena ni del nombre de host; no existe un interruptor para omitir la verificación."
+
+msgid "settings.outbound.legend"
+msgstr "Modo del almacén de confianza"
+
+msgid "settings.outbound.missing_builtin"
+msgstr "Falta la copia integrada: el estado no informó del archivo"
+
+msgid "settings.outbound.reset_builtin"
+msgstr "Restaurar la copia integrada"
+
+msgid "settings.outbound.reset_extra"
+msgstr "Borrar las raíces adicionales"
+
+msgid "settings.outbound.save_builtin"
+msgstr "Guardar la copia integrada"
+
+msgid "settings.outbound.save_extra"
+msgstr "Guardar las raíces adicionales"
+
+msgid "settings.outbound.system"
+msgstr "Almacén del sistema operativo (system)"
+
+msgid "settings.outbound.system_hint"
+msgstr "Usa como base el almacén de raíces del sistema operativo; las raíces adicionales también se añaden. Un almacén del sistema vacío es un error y nunca recurre a la copia integrada."
+
+msgid "settings.outbound.system_na"
+msgstr "no aplicable (el modo actual no lee el almacén del sistema)"
+
+msgid "settings.outbound.system_roots_line"
+msgstr "certificados raíz del sistema: {value}"
+
+msgid "settings.outbound.title"
+msgstr "Confianza HTTPS saliente"
+
+msgid "settings.restart_banner"
+msgstr "El certificado de entrada o el modo cambiaron; reinicie serve --web para aplicarlo."
+
+msgid "settings.status.no"
+msgstr "no"
+
+msgid "settings.status.unknown"
+msgstr "desconocido"
+
+msgid "settings.status.yes"
+msgstr "sí"
+
+msgid "settings.title"
+msgstr "Ajustes de certificados"
+
+msgid "settings.verify.button"
+msgstr "Comprobar"
+
+msgid "settings.verify.failed"
+msgstr "La comprobación falló: {error}"
+
+msgid "settings.verify.host"
+msgstr "Host"
+
+msgid "settings.verify.ok"
+msgstr "Comprobación correcta: sujeto {subject} · válido hasta {not_after} · huella {sha256} · {tls_version}"
+
+msgid "settings.verify.port"
+msgstr "Puerto"
+
+msgid "settings.verify.title"
+msgstr "Comprobación de conectividad saliente"
+
+msgid "status.idle"
+msgstr "Inactivo"
+
+msgid "status.running"
+msgstr "En ejecución"
+
+msgid "summary.context"
+msgstr "Sesión {session} · presupuesto {budget} · usado {used} · elementos {items}{truncated}"
+
+msgid "summary.context_truncated"
+msgstr "· truncado: {reason}"
+
+msgid "summary.diff"
+msgstr "Sesión {session} · tareas {total} · superadas {pass} / fallidas {fail} / sin probar {untested}{truncated}"
+
+msgid "summary.diff.truncated"
+msgstr "· lista de diferencias truncada"
+
+msgid "summary.events"
+msgstr "Sesión {session} · cursor {from}..{to} (cola ≤ {limit})"
+
+msgid "summary.none"
+msgstr "ninguno"
+
+msgid "summary.spec"
+msgstr "Sesión {session} · etapa {stage} · cursor {cursor} · tarea activa {task}"
+
+msgid "summary.tasks"
+msgstr "Sesión {session} · total {total} · hechas {done} · bloqueadas {blocked}"
+
+msgid "tui.col.id"
+msgstr "ID"
+
+msgid "tui.col.kind"
+msgstr "Tipo"
+
+msgid "tui.col.retry"
+msgstr "Reintentos"
+
+msgid "tui.col.seq"
+msgstr "Sec."
+
+msgid "tui.col.stage"
+msgstr "Etapa"
+
+msgid "tui.col.status"
+msgstr "Estado"
+
+msgid "tui.col.summary"
+msgstr "Resumen"
+
+msgid "tui.col.title"
+msgstr "Título"
+
+msgid "tui.diff_unwired"
+msgstr "(origen de diferencias aún no conectado: la comparación de converge está pendiente; no se muestra nada inventado)"
+
+msgid "tui.empty"
+msgstr "(sin datos)"
+
+msgid "tui.footer"
+msgstr "1-7 vistas  j/k mover  r actualizar  t tema  q salir  |  {cols}x{rows}"
+
+msgid "tui.header.none"
+msgstr "sin sesión"
+
+msgid "tui.no_session"
+msgstr "(ninguna sesión seleccionada: pulse j/k)"
+
+msgid "tui.runtimes"
+msgstr "Entornos de ejecución: {list}"
+
+msgid "tui.title"
+msgstr "{app}  |  {view} ({index}/{count})"
+
+msgid "view.chat"
+msgstr "Conversación"
+
+msgid "view.context"
+msgstr "Contexto"
+
+msgid "view.diff"
+msgstr "Vista previa de diferencias"
+
+msgid "view.events"
+msgstr "Eventos"
+
+msgid "view.sessions"
+msgstr "Sesiones"
+
+msgid "view.spec"
+msgstr "Estado de la especificación"
+
+msgid "view.tasks"
+msgstr "Tareas"
+
+msgid "web.action.failed"
+msgstr "La acción falló ({label}): {error}"
+
+msgid "web.checkpoints.degraded"
+msgstr "La reversión no está implementada (degradación explícita): solo consulta y resúmenes de diferencias"
+
+msgid "web.checkpoints.empty"
+msgstr "Esta tarea no tiene puntos de control"
+
+msgid "web.checkpoints.failed"
+msgstr "No se pudieron cargar los puntos de control: {error}"
+
+msgid "web.checkpoints.hint"
+msgstr "Seleccione una tarea para ver sus puntos de control y los resúmenes de diferencias"
+
+msgid "web.checkpoints.ready"
+msgstr "Reversión disponible"
+
+msgid "web.checkpoints.refs"
+msgstr "{count} referencias a artefactos"
+
+msgid "web.checkpoints.title"
+msgstr "Puntos de control"
+
+msgid "web.checkpoints.truncated"
+msgstr "Los puntos de control superan el límite; lista truncada"
+
+msgid "web.cleanup.bad_days"
+msgstr "Los días de retención deben ser al menos 1"
+
+msgid "web.cleanup.confirm"
+msgstr "Confirmar la purga"
+
+msgid "web.cleanup.days"
+msgstr "Días de retención"
+
+msgid "web.cleanup.done"
+msgstr "{sessions} sesiones purgadas"
+
+msgid "web.cleanup.preview"
+msgstr "Vista previa"
+
+msgid "web.cleanup.preview_required"
+msgstr "Previsualice antes de confirmar la purga"
+
+msgid "web.cleanup.preview_result"
+msgstr "Se purgarán {sessions} sesiones"
+
+msgid "web.conn.connected"
+msgstr "Conectado"
+
+msgid "web.conn.disconnected"
+msgstr "Desconectado"
+
+msgid "web.context.empty"
+msgstr "(vacío correcto: nada cabe en el presupuesto)"
+
+msgid "web.context.no_session"
+msgstr "Ninguna sesión seleccionada"
+
+msgid "web.context.summary"
+msgstr "Presupuesto {consumed}/{budget} · orígenes {sources} · truncado {truncated}"
+
+msgid "web.cursor"
+msgstr "Cursor {n}"
+
+msgid "web.diff.empty"
+msgstr "(sin diferencias: se cumplen todos los criterios de aceptación)"
+
+msgid "web.diff.no_session"
+msgstr "Ninguna sesión seleccionada"
+
+msgid "web.diff.summary"
+msgstr "Tareas {total} · superadas {pass} / fallidas {fail} / sin probar {untested}{truncated}"
+
+msgid "web.diff.truncated"
+msgstr "(truncado)"
+
+msgid "web.export.done"
+msgstr "Exportación completada"
+
+msgid "web.export.json"
+msgstr "Exportar JSON"
+
+msgid "web.export.jsonl"
+msgstr "Exportar JSONL"
+
+msgid "web.recovering"
+msgstr "Recuperando…"
+
+msgid "web.runtimes"
+msgstr "Entornos de ejecución"
+
+msgid "web.runtimes.available"
+msgstr "disponible"
+
+msgid "web.runtimes.unavailable"
+msgstr "no disponible"
+
+msgid "web.runtimes.unknown"
+msgstr "sin sondear"
+
+msgid "web.runtimes.unwired"
+msgstr "El inventario de entornos de ejecución no está conectado"
+
+msgid "web.session.archive_confirm"
+msgstr "Confirmar el archivado"
+
+msgid "web.session.archive_preview"
+msgstr "Previsualizar el archivado"
+
+msgid "web.session.archive_preview_required"
+msgstr "Previsualice antes de confirmar el archivado"
+
+msgid "web.session.archive_preview_result"
+msgstr "Se archivaría la sesión {session}; confirme para ejecutar"
+
+msgid "web.session.archived"
+msgstr "Sesión {session} archivada"
+
+msgid "web.session.create"
+msgstr "Crear"
+
+msgid "web.session.delete_confirm"
+msgstr "Confirmar la eliminación"
+
+msgid "web.session.delete_preview"
+msgstr "Previsualizar la eliminación"
+
+msgid "web.session.delete_preview_result"
+msgstr "Se eliminarán: eventos {events} · tareas {tasks}"
+
+msgid "web.session.deleted"
+msgstr "{n} sesiones eliminadas"
+
+msgid "web.session.group_active"
+msgstr "Activas"
+
+msgid "web.session.group_archived"
+msgstr "Archivadas"
+
+msgid "web.session.none"
+msgstr "Ninguna sesión seleccionada"
+
+msgid "web.session.preview_required"
+msgstr "Previsualice antes de confirmar la eliminación"
+
+msgid "web.session.rename"
+msgstr "Renombrar"
+
+msgid "web.session.rename_placeholder"
+msgstr "Título nuevo"
+
+msgid "web.session.search"
+msgstr "Buscar por título o ID"
+
+msgid "web.session.show_archived"
+msgstr "Incluir archivadas"
+
+msgid "web.session.sort"
+msgstr "Ordenar"
+
+msgid "web.session.sort.created"
+msgstr "Creación"
+
+msgid "web.session.sort.last_active"
+msgstr "Actividad reciente"
+
+msgid "web.session.sort.title"
+msgstr "Título"
+
+msgid "web.session.title"
+msgstr "Título de la sesión"
+
+msgid "web.session.title_required"
+msgstr "Escriba primero un título para la sesión"
+
+msgid "web.tab.context"
+msgstr "Contexto"
+
+msgid "web.tab.diff"
+msgstr "Diferencias"
+
+msgid "web.tab.history"
+msgstr "Historial"
+
+msgid "web.tab.maintenance"
+msgstr "Mantenimiento"
+
+msgid "web.tab.sessions"
+msgstr "Sesiones"
+
+msgid "web.tab.spec"
+msgstr "SDD"
+
+msgid "web.tab.tasks"
+msgstr "Tareas"
+
+msgid "web.task.abort"
+msgstr "Abortar"
+
+msgid "web.task.depends"
+msgstr "Depende de {depends}"
+
+msgid "web.task.progress"
+msgstr "Hechas {done}/{total} · bloqueadas {blocked}"
+
+msgid "web.task.retries"
+msgstr "Reintentos {count}"
+
+msgid "web.task.retry"
+msgstr "Reintentar"
+
+msgid "web.task.truncated"
+msgstr "Las tarjetas de tarea superan el límite y se han truncado (los recuentos del resumen son completos)"
+
+msgid "web.tasks_summary"
+msgstr "total {total} · hechas {done} · bloqueadas {blocked}"
+
+msgid "web.theme.default"
+msgstr "Predeterminado"
+
+msgid "web.theme.label"
+msgstr "Tema"
+

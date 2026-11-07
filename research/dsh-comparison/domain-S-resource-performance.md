@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 资源目标 | 无公开的 RSS/线程/句柄预算；有性能基准门槛（时间、堆、伸缩）与内存压力基准（`docs/testing.md`；`benchmarks/`） | 资源占用列为**第一优先序**；NFR-201—211 有具体数值与实测证据（`docs/adr/ADR-025-performance-budget-freeze.md`） | **WHCode 领先**：预算可判定 |
 | 实测数值 | 未见发布级 RSS/CPU 数字 | 主进程空载 RSS ≤ 36 MB（实测中位 35.07 MB）、单会话活跃 ≤ 80 MB（27.33）、切换增量 ≤ 10 MB（3.18）、TUI 空闲 CPU ≤ 0.5%（0.0%）、切换 p99 13.1 ms、概览 p95 6.07 ms、历史页 p95 19.8 ms（ADR-025 表） | **WHCode 独有**：数值+样本+artifact |
-| 基准套件 | `benchmarks/`：`session-open`、`agent-continuation`、`conversation-fold`、`long-session-browser`、`session-corpus`、`terminal-io`、`user-text`、`active-stream-reconnect` 等，PR 必需 Linux 门禁（`docs/testing.md`） | 自研 `measure-resources.py` 与 `bench baseline` 命令；性能分位数当前仅 Windows 车道（AGENTS.md §1） | **DSH 领先**：基准面更广，且进 PR 门禁 |
+| 基准套件 | `benchmarks/`：`session-open`、`agent-continuation`、`conversation-fold`、`long-session-browser`、`session-corpus`、`terminal-io`、`user-text`、`active-stream-reconnect` 等，PR 必需 Linux 门禁（`docs/testing.md`） | 自研 `measure-resources.py` 与 `bench baseline` 命令；性能分位数当前仅 Windows 通道（AGENTS.md §1） | **DSH 领先**：基准面更广，且进 PR 门禁 |
 | 有界性 | 通过配置与实现自律：spill 溢出、`session-query` 有界读、jobs/terminal 资源回收；未见统一“每会话线程数”约束 | 硬约束：队列/缓冲/缓存必须有容量上限与上限测试；每会话不得新增常驻线程；句柄 RAII＋释放测试（NFR-215，AGENTS.md §4.1） | **WHCode 领先**：约束成文且可测 |
 | 空闲行为 | 文档强调“空闲 agent 不唤醒”“任务变更不唤醒 inbox”（域 F/G）；前端未见空闲重绘约束 | 窗口最小化停止绘制、恢复去抖 ≥250 ms、单次全量重绘（FR-617）；GUI 空闲 CPU ≤ 0.2% 单核（ADR-027） | **WHCode 领先**：可判定 |
 | 内存上限 | 无统一进程级上限；Node 堆由运行时管理 | `memory_limit` 192 MB 只是 DuckDB 缓冲管理器基线，**明确不等于进程 RSS**（ADR-012/025） | **WHCode 领先**：口径不混淆 |
@@ -27,7 +27,7 @@
 ### 2.2 内存压力基准独立
 
 `scripts/run-memory-pressure-bench.ts`（`package.json` 的 `test:bench:memory`）单独跑内存压力，
-与常规基准分车道；说明作者把“峰值内存”与“吞吐”当作两类问题。
+与常规基准分通道；说明作者把“峰值内存”与“吞吐”当作两类问题。
 
 ### 2.3 有界性靠机制而非统一预算
 
@@ -50,7 +50,7 @@ session-query 的有界读、jobs 的 owner 授权与回收、terminal 的 owner
   （RSS ≤ 96 MB/线程 ≤ 24/句柄 ≤ 256/CPU ≤ 0.2%，ADR-027）。
 - 已实现：ADR-033 稳定性窗口（5.5 h、300 s 采样、斜率 ≤ 0.5 MB/h）。
 - 不足：NFR-204 斜率当前“待复测”（首末 0.6987／OLS 0.943 MB/h，按组合判据无权判定，
-  ADR-025 表末行）；性能分位数仅 Windows 车道；无前端长会话基准（DSH 有
+  ADR-025 表末行）；性能分位数仅 Windows 通道；无前端长会话基准（DSH 有
   `long-session-browser`）。
 - 缺失：PR 级性能门禁（WHCode 的 benchmark 不进 CI 阻断）、内存压力基准。
 
@@ -60,7 +60,7 @@ session-query 的有界读、jobs 的 owner 授权与回收、terminal 的 owner
    选 2—3 个高频路径（turn 首 token、会话切换、历史页查询）设阈值进 CI，可及早发现退化。
    代价：CI 时间与 runner 噪声（需多轮取中位）。
 2. **内存压力基准**：可采纳。WHCode 只有稳态 RSS，缺“峰值/压力下”的观察；DSH 的独立压力
-   车道值得抄。
+   通道值得抄。
 3. **HMR 安全测试 → 释放测试**：WHCode 已有释放测试要求，可进一步要求“每个注册面必须有
    对称注销测试”（域 J 已指出 `ToolRegistry` 无 `unregister`）。
 4. **分散有界 → 全局不变量**：不采纳 DSH 的分散式做法；WHCode 的“统一铁律＋上限测试”更适合

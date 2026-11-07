@@ -47,12 +47,13 @@ const DEFAULT_BENCH_REPEAT: usize = 3;
 
 /// 第一个非旗标参数（用于区分 CUI 子命令与纯旗标启动）。
 ///
-/// 跳过带值旗标的值（`--workspace DIR`/`--config PATH`）：否则路径会被误认成子命令。
+/// 跳过带值旗标的值（`--workspace DIR`/`--config PATH`/`--lang LOCALE`）：否则路径或
+/// 语言标识会被误认成子命令（`whcode --lang en` 曾因此报“缺少子命令”）。
 fn first_positional(args: &[String]) -> Option<&str> {
     let mut iter = args.iter();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
-            "--workspace" | "--config" => {
+            "--workspace" | "--config" | "--lang" => {
                 let _ = iter.next();
             }
             other if other.starts_with('-') => {}
@@ -139,9 +140,16 @@ const fn default_entry(is_windows: bool) -> EntrySelector {
 ///
 /// CI 与管道调用依赖这条语义（`tui-smoke.py` 第 3 项：stdin 关闭时不得挂起）；
 /// 默认 GUI 在这类环境里打开窗口会失败或挂住，因此先判定再决定是否建窗口。
-fn print_cli_hint() -> ExitCode {
-    println!("whcode {BUILD_STAMP} —— 当前没有可用的交互控制台，未启动界面");
-    println!("可用：--tui（终端界面）、--cli <子命令>、--help");
+/// 文案经文本目录（FR-615），`--lang` 与系统区域同一优先级口径（显式优先）。
+fn print_cli_hint(args: &[String]) -> ExitCode {
+    let explicit_lang = whcode_cui::cli::prescan_lang(args).unwrap_or(None);
+    let (locale, source) = whcode_domain::i18n::detect_locale(explicit_lang.as_deref());
+    let texts = load_texts(&locale, source);
+    println!(
+        "{}",
+        texts.resolve_fmt("cli.hint.no_console", &[("version", BUILD_STAMP)])
+    );
+    println!("{}", texts.resolve("cli.hint.options"));
     ExitCode::SUCCESS
 }
 
@@ -228,7 +236,7 @@ fn launch_selected_entry(selector: Option<EntrySelector>, args: &[String]) -> Ex
                 {
                     gui_command(args)
                 } else {
-                    print_cli_hint()
+                    print_cli_hint(args)
                 }
             }
             _ => launch_interactive(args),
@@ -379,7 +387,7 @@ fn launch_interactive(args: &[String]) -> ExitCode {
     if !(whcode_platform::term::terminal_size().is_some()
         && whcode_platform::term::stdin_is_interactive())
     {
-        return print_cli_hint();
+        return print_cli_hint(args);
     }
 
     let FrontendParts {
@@ -570,6 +578,10 @@ fn doctor(args: &[String]) {
             Err(err) => eprintln!("doctor 输出序列化失败：{err}"),
         }
     } else {
+        // 品牌字标（FR-765、ADR-061）：只在人类可读输出打印；`--json` 分支不打印，
+        // 机器可读信封不得混入装饰行。
+        println!("{}", whcode_domain::brand::ASCII_LOGO);
+        println!();
         println!("whcode doctor（schema v{SCHEMA_VERSION}）");
         println!("whcode_version: {BUILD_STAMP}");
         println!("workspace: {}", config.workspace_path.display());

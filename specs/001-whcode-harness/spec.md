@@ -18,9 +18,9 @@
   运行时与发布（M8—M9，任务书 P1 为主）为 P3。
 -->
 
-### User Story 1 - M0 平台可行性与基线冻结 (Priority: P1) 🎯 MVP
+### User Story 1 - M0 平台可行性与基线冻结 (Priority: P1，MVP)
 
-工程团队在 **Windows 11 amd64**（唯一验收目标，ADR-013）上，用锁定版本的工具链完成 Workspace 骨架、嵌入式单文件数据库（DuckDB，ADR-001）原生构建、TUI 最小闭环、事件写者原型与基线性能测量；产出 ADR-001—ADR-010 的批准记录，冻结平台矩阵与候选性能预算（或经 ADR 修订）。FreeBSD 为完整平台证据车道（硬门禁，2026-10-31 用户指令，不作验收结论）；NetBSD 随 CI 自动运行（仅平台证据）；OpenBSD/DragonFly BSD 仍**延后**（ADR-013），均不进入本轮验收结论。
+工程团队在 **Windows 11 amd64**（唯一验收目标，ADR-013）上，用锁定版本的工具链完成 Workspace 骨架、嵌入式单文件数据库（DuckDB，ADR-001）原生构建、TUI 最小闭环、事件写者原型与基线性能测量；产出 ADR-001—ADR-010 的批准记录，冻结平台矩阵与候选性能预算（或经 ADR 修订）。FreeBSD 为完整平台证据通道（硬门禁，2026-10-31 用户指令，不作验收结论）；NetBSD 随 CI 自动运行（仅平台证据）；OpenBSD/DragonFly BSD 仍**延后**（ADR-013），均不进入本轮验收结论。
 
 **Why this priority**: 任务书 §12.1 规定进入大规模实现前必须先完成 M0；DuckDB 原生依赖在硬目标失败时需要 Go/No-Go 决策，是全部后续工作的前提（ADR-010、R-01）。平台范围已收敛为单一目标，避免因无环境平台长期无法收口（ADR-013）。
 
@@ -258,7 +258,7 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
 - **FR-725**: 工具注册表（whcode-tools）：每个工具登记稳定名、描述、参数 JSON Schema 子集与副作用范围声明；重名/别名冲突拒绝注册；提供 provider 可见清单供模型请求 tools 数组组装（ADR-048）（P0）
 - **FR-726**: 内建工具六件套：read_file、write_file、edit_file（精确串替换+唯一性校验）、list_dir、glob（有界遍历）、grep（字面/单正则，结果有界）；读工具不修改工作区，写工具 产出 diff 摘要而非全文（ADR-048 §2.2）（P0）
 - **FR-727**: 工具执行经 store tool_exec 三步登记（record_intent→mark_running→record_result），终态三值 succeeded/failed/unknown；崩溃恢复经 recover_uncertain 标记 unknown、不重放副作用；事件 ToolCallStarted/ToolCallFinished 落 events 表且 payload 不含正文与工具结果（FR-410、FR-722 口径）（P0）
-- **FR-728**: 模型工具调用解析与回填：openai 兼容族 tool_calls 帧解析（其余协议标 [待验证]）；turn 内按声明顺序串行执行，每轮工具调用数硬上限（默认 8，可配置）；结果以 role:"tool" 消息回填下一轮，超 64 KiB 截断并附 truncated 标记；结果正文不进事件与日志 （ADR-048 §2.3—2.6）（P0）
+- **FR-728**: 模型工具调用解析与回填：openai 兼容族 tool_calls 帧解析（其余协议标 [待验证]）；turn 内按声明顺序串行执行，每轮工具调用数硬上限（默认 8，可配置）；结果以 role:“tool” 消息回填下一轮，超 64 KiB 截断并附 truncated 标记；结果正文不进事件与日志 （ADR-048 §2.3—2.6）（P0）
 - **FR-729**: 工具安全边界：路径参数解析为工作区内相对路径，拒绝绝对路径、.. 越界与工作区外目标；执行前经 authz 权限面；输入校验拒绝未知字段与类型不符（ADR-048 §2.7）（P0）
 - **FR-730**: 流式生成重试（whcode-llm decorator）：失败发生在首个 chunk 之前且错误可重试（WhError.retryable）时按有界策略重放（默认 5 次、基准 1s、×2、单次上限 30s、总预算 60s）；429 的 retry_after_ms 优先于固定退避；退避睡眠取消感知；尝试次数并入传输快照 reconnect_attempts；chunk 已发射后的失败一律上抛（safe_to_retry 判据），重启请求失败不得以流结束伪造成功（ADR-050）（P1）
 - **FR-731**: turn 预算压力下的请求视图折叠（ADR-051）：预算压力触发时将内存消息数组折叠一次——保留最早 user 锚点 + 预算内尾部窗口，中段折叠为带边界说明的摘要消息（确定性、无 LLM）；messages 表历史不删不改，折叠指针经 compress_context 落context_windows 表；折叠成功以 ContextState(compressed=true) 事件落表并继续循环，折叠后仍超或再超则显式终止；每 turn 至多折叠一次（P1）
@@ -360,6 +360,15 @@ taskkill /T /F 口径）（P1）
   ADR-060 项 J）
 - **FR-764**: 真 API 冒烟：sensenova 单条冒烟，凭据缺失自跳过且不得记为通过，结果归档；
   凭据不入日志与事件（P2；ADR-060 项 K）
+- **FR-766**: 界面语言扩展至十三套（简体中文、繁体中文、英语、日语、朝鲜语、俄语、法语、
+  西班牙语、德语、阿拉伯语、印地语、乌尔都语、孟加拉语）：四端文案与 CUI 帮助同源，随二进制
+  内嵌；区域标签归一并按类型回退（非英语回退英语，英语回退简体中文，缺键返回键名）；
+  PO 源文件随源码交付且与内嵌目录同源校验；阿拉伯语与乌尔都语在 Web 直出文档级书写方向
+  （`dir="rtl"`），布局镜像的未完成部分显式登记（P1；ADR-062）
+- **FR-765**: 品牌标识：主标志入 `assets/brand/`（来源、许可与 SHA-256 可考）；GUI 窗口图标
+  与 Web `/favicon.ico` 由生成脚本从母版派生并入库（运行期零图像解码依赖）；CUI 与 TUI 以
+  纯 ASCII 字标标识（`doctor` 顶部、TUI 启动一次与空态视图），放不下时只保留显式空提示，
+  不裁切、不顶掉空态语义（P2；ADR-061）
 
 **Spec Kit / SDD 工作流（§4.3）**
 
@@ -597,10 +606,10 @@ taskkill /T /F 口径）（P1）
 - **TUI 非交互退出（M0）**：TUI 不得在 stdin 非交互（管道／重定向）时进入事件循环，无参数启动必须立即退出且退出码为 0，避免自动化环境挂起；验收判据见 `checklist.md` Check 226，证据由 `local/tui_smoke.py` 的 `graceful_exit_on_closed_stdin` 采集
 - **用户故事↔里程碑映射**为本轮工程决策：US-n ↔ M-(n-1)；任务书里程碑范围未被改动
 - **待决策事项 D-01—D-14** 以任务书建议默认值与后续决策进入对应决策点：首版优先 x86_64（D-01）；单库单工作区（D-02）；Web 为独立 UI（D-03）；SSH 公钥+受限入口（D-04）；追踪默认 redacted（D-05，M1）；性能硬指标 M0 冻结（D-06）；运行时独立 payload（D-07，M8 前）；首版不宣称完整 Node.js（D-08，M8 前）；Python 先验证子进程协议（D-09，M8 前）；独立 db compact（D-10，M1）；默认系统分配器（D-11，M9）；P1 运行时不阻塞首个可用版本（D-12，M0）；平台承诺修订（D-13）；平台范围收敛（D-14）
-- **验收环境**：本轮只需 Windows 11 amd64 的真实构建/测试环境（已取得）；FreeBSD 现为完整平台证据车道（硬门禁，会红，不作验收结论）；NetBSD 随 CI 自动运行（仅证据、不阻断）；OpenBSD/DragonFly 仍按 ADR-013 延后（手工占位）；恢复任一平台时必须具备该平台真实环境并补齐证据，不得以交叉编译代替运行验证（G-01）
+- **验收环境**：本轮只需 Windows 11 amd64 的真实构建/测试环境（已取得）；FreeBSD 现为完整平台证据通道（硬门禁，会红，不作验收结论）；NetBSD 随 CI 自动运行（仅证据、不阻断）；OpenBSD/DragonFly 仍按 ADR-013 延后（手工占位）；恢复任一平台时必须具备该平台真实环境并补齐证据，不得以交叉编译代替运行验证（G-01）
 - **D-01 修订**：Windows 验收使用 `x86_64-pc-windows-msvc`，**不使用任何 GNU 工具链**；实测 rustc 1.99.1、MSVC 14.44.35207、Windows SDK 10.0.26100.0。`rust-toolchain.toml` 仅锁版本号 `1.99.1`；host triple 由各平台 runner 默认值决定，本机用目录级 `rustup override` 选 msvc（不入库）
 - **DuckDB 分发策略**：采用官方预编译动态库，不源码构建；`.github/scripts/fetch-duckdb.py` 校验 SHA256 后解包到 `vendor/duckdb/2.0.0/`，`.cargo/config.toml` 注入 `DUCKDB_LIB_DIR`，Windows 由 `crates/whcode-store/build.rs` 复制 `duckdb.dll`；运行期引擎版本实测 `v2.0.0`，crate 精确锁定 `=1.20000.0`（详见 `docs/adr/ADR-DB-BUILD.md`、`ADR-034`）
-- **平台范围收敛（ADR-013）**：唯一验收目标为 Windows 11 `x86_64`（`x86_64-pc-windows-msvc`）；**不考虑任何 32 位平台**；FreeBSD 为完整平台证据车道（硬门禁，2026-10-31 用户指令，不作验收结论）、NetBSD 随 CI 自动运行（仅平台证据、不阻断）、OpenBSD/DragonFly 仍延后（手工占位）——保留代码、文档与 CI 定义，但不作为验收目标，恢复须新 ADR 并补齐完整证据链（构建、数据库冒烟、依赖记录、性能分位数、客户端/服务端证据）。延后不等同于“已支持”或“已放弃”
+- **平台范围收敛（ADR-013）**：唯一验收目标为 Windows 11 `x86_64`（`x86_64-pc-windows-msvc`）；**不考虑任何 32 位平台**；FreeBSD 为完整平台证据通道（硬门禁，2026-10-31 用户指令，不作验收结论）、NetBSD 随 CI 自动运行（仅平台证据、不阻断）、OpenBSD/DragonFly 仍延后（手工占位）——保留代码、文档与 CI 定义，但不作为验收目标，恢复须新 ADR 并补齐完整证据链（构建、数据库冒烟、依赖记录、性能分位数、客户端/服务端证据）。延后不等同于“已支持”或“已放弃”
 - **平台承诺修订（ADR-011）**：OpenBSD 与 DragonFly BSD 移出原生安装目标，改由内置 SSH 客户端（FR-611）控制；该方向仍有效，但按 ADR-013 延后，不进入本轮验收
 - **自由与安全基线**：不替用户定义善、道德或自由；退出权、完整导出、离线核心能力与默认值可撤销进入验收；安全措施按威胁模型与证据评估，不以“最佳实践/合规”结项（NFR-218/219、Task T146、Check 244—245；详见 `docs/guides/philosophy.md` §10）
 - **一刻哲学基线**：`docs/guides/yike-philosophy.md` 记录来源与工程翻译；不伪造/未知显式、反进步叙事、用户友好与文档时效作为设计与验收判据（NFR-220—222、Task T147、Check 246—248）

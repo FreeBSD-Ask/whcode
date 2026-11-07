@@ -12,13 +12,13 @@
 ## 1. 事实与证据
 
 1. 流式生成路径此前**不重试**：`http/client.rs` 的 `RetryPolicy::none()` 注释明确
-   "流式生成路径的语义"——单次网络抖动即废掉整个 turn（R1 后 turn 是多轮编排，
+   “流式生成路径的语义”——单次网络抖动即废掉整个 turn（R1 后 turn 是多轮编排，
    单步失败代价放大）。
 2. 探测路径（幂等 GET）已有重试（`probe_get`，ADR-031 决策 8），429 的
    `retry_after_ms` 已随错误 details 归一化——供应商口径的等待值可用。
 3. BH 的 `friendly-cli.md` 契约语义：`retryable`（条件可能随重试改善）与
-   `safe_to_retry`（重放不产生重复效果）是两个概念——"远端写后超时可能 retryable
-   但不 safe to retry"。
+   `safe_to_retry`（重放不产生重复效果）是两个概念——“远端写后超时可能 retryable
+   但不 safe to retry“。
 4. ZCode 对照（域 K）：maxRetries=10、baseDelay 2000ms、×2、上限 60s、jitter。
 
 ## 2. 决策
@@ -36,7 +36,7 @@
 5. **可观测**：实际尝试次数并入 `TransportSnapshot.reconnect_attempts`（信封
    `transport` 既有字段，四端可见）。
 6. **不伪造**：重试耗尽/取消/超预算一律上抛最后一次真实错误；重启请求失败不得以
-   "流结束"（返回 None）伪造成功——`RetryStream` 重试环显式上抛（0e84507 批次
+   “流结束”（返回 None）伪造成功——`RetryStream` 重试环显式上抛（0e84507 批次
    回归测试 `restart_failure_is_surfaced_not_silently_dropped` 固化）。
 
 ## 3. 正负和解

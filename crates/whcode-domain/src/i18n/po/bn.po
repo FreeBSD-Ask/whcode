@@ -1,0 +1,1246 @@
+# bn translation catalog for WHCode (FR-615).
+# Generated from i18n/bn.properties by .github/scripts/i18n-po.py; do not edit by hand.
+# Edit the properties file instead, then regenerate — a contract test fails on drift.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: whcode 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/FreeBSD-Ask/whcode/issues\n"
+"Language: bn\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "app.title"
+msgstr "WHCode — লোকাল কোডিং হার্নেস"
+
+msgid "cli.about"
+msgstr "WHCode — লোকাল কোডিং হার্নেস"
+
+msgid "cli.context.about"
+msgstr "প্রসঙ্গ বাজেট ভিউ (FR-105/108; contracts/cui-cli.md §1)।"
+
+msgid "cli.context.budget.about"
+msgstr "বাজেট ভিউ: বর্তমান বাজেট, লোড করা উৎস, কাটার কারণ ও কার্সর (`whcode_app::load_context`-এর মাধ্যমে)।"
+
+msgid "cli.context.budget.budget"
+msgstr "token-এ বাজেট; না দিলে প্রদর্শনের ভিত্তি মান (4096, TUI-র প্রসঙ্গ ভিউ-র মতোই)।"
+
+msgid "cli.context.budget.session"
+msgstr "Session ID।"
+
+msgid "cli.db.about"
+msgstr "database রক্ষণাবেক্ষণ ও পরিষ্কার (FR-507—510)।"
+
+msgid "cli.db.archive.about"
+msgstr "workspace এক্সপোর্ট করে।"
+
+msgid "cli.db.archive.export"
+msgstr "আউটপুট পাথ।"
+
+msgid "cli.db.check.about"
+msgstr "প্রয়োজনীয় ইনডেক্স পরীক্ষা করে।"
+
+msgid "cli.db.checkpoint.about"
+msgstr "স্পষ্ট checkpoint (FR-510; চাইলে WAL নীতির ওভাররাইডও প্রয়োগ করে, disaster-recovery §5)।"
+
+msgid "cli.db.checkpoint.autocheckpoint"
+msgstr "wal_autocheckpoint ওভাররাইড করে (যেমন 1MB; না দিলে অপরিবর্তিত)।"
+
+msgid "cli.db.checkpoint.threshold"
+msgstr "WAL স্বয়ংক্রিয় checkpoint-এর থ্রেশহোল্ড ওভাররাইড করে (যেমন 16MB; না দিলে অপরিবর্তিত)।"
+
+msgid "cli.db.compact.about"
+msgstr "ডিস্কে database কমপ্যাক্ট করে (কপি—যাচাই—বদল, FR-510; ডিফল্ট dry-run)।"
+
+msgid "cli.db.compact.dry-run"
+msgstr "কেবল প্রিভিউ (ডিফল্ট)।"
+
+msgid "cli.db.compact.yes"
+msgstr "চালানো নিশ্চিত করে।"
+
+msgid "cli.db.explain.about"
+msgstr "কোয়েরি প্ল্যান বিশ্লেষণ (কেবল-পাঠ কোয়েরি, contract §2-2)।"
+
+msgid "cli.db.explain.query"
+msgstr "কেবল-পাঠ SQL (SELECT/WITH দিয়ে শুরু)।"
+
+msgid "cli.db.purge.about"
+msgstr "সময় ধরে পার্জ (FR-508/509; ডিফল্ট dry-run)।"
+
+msgid "cli.db.purge.before"
+msgstr "সীমা সময় (Unix মিলিসেকেন্ড)।"
+
+msgid "cli.db.purge.dry-run"
+msgstr "কেবল প্রিভিউ (ডিফল্ট)।"
+
+msgid "cli.db.purge.yes"
+msgstr "চালানো নিশ্চিত করে।"
+
+msgid "cli.db.restore.about"
+msgstr "এক্সপোর্ট থেকে খালি workspace-এ পুনরুদ্ধার করে (`db archive`-এর বিপরীত; স্পষ্ট নিশ্চিতকরণ, কোনো প্রিভিউ নেই)।"
+
+msgid "cli.db.restore.from"
+msgstr "এক্সপোর্ট ফাইলের পাথ (whcode-export ফরম্যাট)।"
+
+msgid "cli.db.restore.yes"
+msgstr "চালানো নিশ্চিত করে (পুনরুদ্ধার লেখে; লক্ষ্য database খালি থাকতে হবে)।"
+
+msgid "cli.db.stats.about"
+msgstr "database পরিসংখ্যান (FR-507)।"
+
+msgid "cli.doctor.about"
+msgstr "পরিবেশ ও কনফিগারেশনের সেলফ-চেক (M0)।"
+
+msgid "cli.doctor.json"
+msgstr "JSON আউটপুট।"
+
+msgid "cli.events.about"
+msgstr "ইভেন্ট কোয়েরি ও এক্সপোর্ট (FR-202/205)।"
+
+msgid "cli.events.export.about"
+msgstr "এক্সপোর্ট (রিড্যাকশন নীতি এক্সপোর্টের সঙ্গেই জানানো হয়, FR-205)।"
+
+msgid "cli.events.export.after"
+msgstr "শুরুর কার্সর।"
+
+msgid "cli.events.export.format"
+msgstr "আউটপুট ফরম্যাট (json/jsonl)।"
+
+msgid "cli.events.export.session"
+msgstr "Session ID।"
+
+msgid "cli.events.list.about"
+msgstr "ইভেন্টের তালিকা (কার্সর ধরে ক্রমবর্ধমান)।"
+
+msgid "cli.events.list.after"
+msgstr "শুরুর কার্সর (এক্সক্লুসিভ)।"
+
+msgid "cli.events.list.session"
+msgstr "Session ID।"
+
+msgid "cli.events.show.about"
+msgstr "একটি ইভেন্টের বিস্তারিত।"
+
+msgid "cli.events.show.event"
+msgstr "Event ID।"
+
+msgid "cli.font.about"
+msgstr "বিল্ট-ইন ফন্ট ইনস্টল ও টার্মিনাল ঘোষণা পরীক্ষা (FR-717; লোকাল রিসোর্স কমান্ড, database স্পর্শ করে না, workspace লাগে না)।"
+
+msgid "cli.font.install.about"
+msgstr "চারটি বিল্ট-ইন ফন্ট ব্যবহারকারীর ফন্ট ডিরেক্টরিতে ইনস্টল করে ও HKCU নিবন্ধন লেখে (কপি-ওভার অর্থে, পুনরায় চালানো নিরাপদ)।"
+
+msgid "cli.font.install.dry-run"
+msgstr "সিস্টেম না বদলে কোন কোন কাজ চলত তা-ই জানায়।"
+
+msgid "cli.font.install.from"
+msgstr "ফন্টের উৎস ডিরেক্টরি (সমতল বিন্যাস বা রিপোজিটরির `source/<family>/` বিন্যাস); না দিলে আগে এক্সিকিউটেবলের পাশে, তারপর বর্তমান ডিরেক্টরির `assets/fonts/source` খোঁজা হয় (ADR-028 সংশোধন 1)।"
+
+msgid "cli.font.status.about"
+msgstr "ফন্ট ইনস্টলের অবস্থা ও টার্মিনাল ঘোষণা জানায় (কেবল-পাঠ)।"
+
+msgid "cli.font.uninstall.about"
+msgstr "বিল্ট-ইন ফন্ট আনইনস্টল করে: নিবন্ধন তুলে নেয় ও ব্যবহারকারীর ফন্ট ডিরেক্টরি থেকে ফাইল মুছে (যথাসাধ্য চেষ্টা, একটি একটি করে জানায়)।"
+
+msgid "cli.font.uninstall.dry-run"
+msgstr "সিস্টেম না বদলে কোন কোন কাজ চলত তা-ই জানায়।"
+
+msgid "cli.hint.no_console"
+msgstr "whcode {version} — কোনো ইন্টারঅ্যাকটিভ কনসোল পাওয়া যায়নি, ইন্টারফেস চালু হয়নি"
+
+msgid "cli.hint.options"
+msgstr "পাওয়া যায়: --tui (টার্মিনাল UI), --cli <subcommand>, --lang <ভাষা>, --help"
+
+msgid "cli.json"
+msgstr "JSON আউটপুট (schema_version এনভেলপ, FR-602); যেকোনো subcommand-এর আগে বা পরে দেওয়া যায়।"
+
+msgid "cli.lang"
+msgstr "ইন্টারফেস টেক্সটের ভাষা (যেমন zh-CN, en; LANG/LC_ALL-কে ওভাররাইড করে, FR-615)।"
+
+msgid "cli.llm.about"
+msgstr "মডেল ইনভোকেশন (FR-201; `llm run` ও `llm cancel`, contracts/cui-cli.md §1)।"
+
+msgid "cli.llm.cancel.about"
+msgstr "এই মেশিনে চলা কল বাতিল করে (পরবর্তী chunk-এর আগে কার্যকর হয়)।"
+
+msgid "cli.llm.cancel.request"
+msgstr "request ID (`llm run` যা দেখায়, বা `--request-id` দিয়ে আগে দেওয়া)।"
+
+msgid "cli.llm.run.about"
+msgstr "একটি প্রকৃত কল করে (সিংক্রোনাস; স্ট্রিমের ইনক্রিমেন্ট শেষে সসীম অনুক্রম হিসেবে আউটপুট হয়)।"
+
+msgid "cli.llm.run.max-tokens"
+msgstr "profile-এর `max_tokens` ওভাররাইড করে।"
+
+msgid "cli.llm.run.model"
+msgstr "profile-এর মডেল আইডেন্টিফায়ার ওভাররাইড করে।"
+
+msgid "cli.llm.run.prompt"
+msgstr "প্রম্পটের টেক্সট (ইভেন্ট বা লগে কখনো লেখা হয় না)।"
+
+msgid "cli.llm.run.provider"
+msgstr "profile-এর নাম (স্পষ্ট পছন্দ, ADR-031 সিদ্ধান্ত 4)।"
+
+msgid "cli.llm.run.request-id"
+msgstr "আগে থেকে দেওয়া request ID (`llm cancel`-এর কী; না দিলে কল থেকেই তৈরি হয়)।"
+
+msgid "cli.llm.run.session"
+msgstr "Session ID।"
+
+msgid "cli.llm.run.trace-level"
+msgstr "ট্রেস লেভেল (off/metadata/redacted/full)।"
+
+msgid "cli.runtime.about"
+msgstr "runtime ব্যবস্থাপনা (FR-701—710; M8)।"
+
+msgid "cli.runtime.disable.about"
+msgstr "একটি runtime নিষ্ক্রিয় করে।"
+
+msgid "cli.runtime.disable.name"
+msgstr "runtime-এর নাম।"
+
+msgid "cli.runtime.enable.about"
+msgstr "একটি runtime সক্রিয় করে।"
+
+msgid "cli.runtime.enable.name"
+msgstr "runtime-এর নাম।"
+
+msgid "cli.runtime.install.about"
+msgstr "একটি payload ইনস্টল করে।"
+
+msgid "cli.runtime.install.name"
+msgstr "runtime-এর নাম।"
+
+msgid "cli.runtime.list.about"
+msgstr "runtime-এর তালিকা দেখায়।"
+
+msgid "cli.runtime.status.about"
+msgstr "runtime-এর অবস্থা।"
+
+msgid "cli.runtime.status.name"
+msgstr "runtime-এর নাম।"
+
+msgid "cli.serve.about"
+msgstr "ট্রান্সপোর্ট এন্ট্রি পয়েন্ট (M6/M7)।"
+
+msgid "cli.serve.bind"
+msgstr "বাইন্ড অ্যাড্রেস (ডিফল্টে কেবল লুপব্যাক, FR-606)।"
+
+msgid "cli.serve.ssh"
+msgstr "SSH এন্ট্রি পয়েন্ট (M7, স্থগিত)।"
+
+msgid "cli.serve.web"
+msgstr "Web এন্ট্রি পয়েন্ট (M6)।"
+
+msgid "cli.session.about"
+msgstr "Session lifecycle (FR-101)।"
+
+msgid "cli.session.archive.about"
+msgstr "আর্কাইভ বা পুনরুদ্ধার (contract §2-1 অনুযায়ী destructive পরিবার: ডিফল্ট dry-run, `--yes` দিলে চালায়)।"
+
+msgid "cli.session.archive.dry-run"
+msgstr "কেবল প্রিভিউ (ডিফল্ট)।"
+
+msgid "cli.session.archive.session"
+msgstr "Session ID।"
+
+msgid "cli.session.archive.unarchive"
+msgstr "আর্কাইভকৃত session পুনরুদ্ধার করে।"
+
+msgid "cli.session.archive.yes"
+msgstr "চালানো নিশ্চিত করে (--dry-run থাকলে পরস্পরবিরোধী, §8.1)।"
+
+msgid "cli.session.delete.about"
+msgstr "একটি session মুছে ফেলে (destructive; ডিফল্ট dry-run, FR-509)।"
+
+msgid "cli.session.delete.dry-run"
+msgstr "কেবল প্রিভিউ (ডিফল্ট)।"
+
+msgid "cli.session.delete.session"
+msgstr "Session ID।"
+
+msgid "cli.session.delete.yes"
+msgstr "চালানো নিশ্চিত করে (--dry-run থাকলে পরস্পরবিরোধী, §8.1)।"
+
+msgid "cli.session.list.about"
+msgstr "Session-এর তালিকা দেখায়।"
+
+msgid "cli.session.list.all"
+msgstr "আর্কাইভকৃত session সহ।"
+
+msgid "cli.session.new.about"
+msgstr "একটি session তৈরি করে।"
+
+msgid "cli.session.new.model"
+msgstr "মডেল (ঐচ্ছিক)।"
+
+msgid "cli.session.new.title"
+msgstr "শিরোনাম।"
+
+msgid "cli.session.rename.about"
+msgstr "একটি session-এর নাম পরিবর্তন করে।"
+
+msgid "cli.session.rename.session"
+msgstr "Session ID।"
+
+msgid "cli.session.rename.title"
+msgstr "নতুন শিরোনাম।"
+
+msgid "cli.session.show.about"
+msgstr "একটি session দেখায়।"
+
+msgid "cli.session.show.session"
+msgstr "Session ID।"
+
+msgid "cli.spec.about"
+msgstr "SDD ধাপ ও গেট (FR-307—312)।"
+
+msgid "cli.spec.analyze.about"
+msgstr "Analyze যাচাই (FR-306)।"
+
+msgid "cli.spec.analyze.session"
+msgstr "Session ID।"
+
+msgid "cli.spec.converge.about"
+msgstr "Converge যাচাই (FR-310/311)।"
+
+msgid "cli.spec.converge.session"
+msgstr "Session ID।"
+
+msgid "cli.spec.force-advance.about"
+msgstr "হাতে করে গেট পার হওয়া (FR-312; reason আবশ্যক, contract §2-3)।"
+
+msgid "cli.spec.force-advance.reason"
+msgstr "গেট জোর করে পার হওয়ার যুক্তি (আবশ্যক, FR-312)।"
+
+msgid "cli.spec.force-advance.session"
+msgstr "Session ID।"
+
+msgid "cli.spec.force-advance.to"
+msgstr "লক্ষ্য ধাপ।"
+
+msgid "cli.spec.next.about"
+msgstr "পরবর্তী ধাপ।"
+
+msgid "cli.spec.next.session"
+msgstr "Session ID।"
+
+msgid "cli.spec.status.about"
+msgstr "বর্তমান ধাপের অবস্থা (FR-314)।"
+
+msgid "cli.spec.status.session"
+msgstr "Session ID।"
+
+msgid "cli.spec.validate.about"
+msgstr "আর্টিফ্যাক্ট যাচাই করে।"
+
+msgid "cli.spec.validate.session"
+msgstr "Session ID।"
+
+msgid "cli.status.about"
+msgstr "অবস্থার স্ন্যাপশট (FR-314)।"
+
+msgid "cli.status.session"
+msgstr "Session ID।"
+
+msgid "cli.task.abort.about"
+msgstr "একটি task থামায় (FR-408)।"
+
+msgid "cli.task.abort.task"
+msgstr "Task ID।"
+
+msgid "cli.task.about"
+msgstr "task পরিদর্শন ও নিয়ন্ত্রণ (FR-401/408)।"
+
+msgid "cli.task.list.about"
+msgstr "task-এর তালিকা দেখায়।"
+
+msgid "cli.task.list.session"
+msgstr "Session ID।"
+
+msgid "cli.task.retry.about"
+msgstr "একটি task পুনরায় চালায় (FR-401)।"
+
+msgid "cli.task.retry.task"
+msgstr "Task ID।"
+
+msgid "cli.task.show.about"
+msgstr "task-এর বিস্তারিত (পাঁচ শ্রেণির তথ্য, FR-104)।"
+
+msgid "cli.task.show.task"
+msgstr "Task ID।"
+
+msgid "cli.workspace"
+msgstr "workspace ডিরেক্টরি (কনফিগার করা workspace, না থাকলে cwd; `<workspace>/whcode.duckdb` খুঁজে বের করে)।"
+
+msgid "cui.archive_dry_run"
+msgstr "dry-run: Session {session} আর্কাইভ হবে — চালাতে --yes দিন (ফিরিয়ে আনতে --unarchive)"
+
+msgid "cui.archived"
+msgstr "Session {session} আর্কাইভ করা হয়েছে"
+
+msgid "cui.checkpoint_done"
+msgstr "checkpoint সম্পন্ন: WAL {before} → {after}"
+
+msgid "cui.compact_done"
+msgstr "compact সম্পন্ন (switched={switched})"
+
+msgid "cui.compact_dry_run"
+msgstr "dry-run: ফাইল {file} B, WAL {wal} B — compact চালাতে --yes দিন (ফাইল ছোট হবেই এমন নিশ্চয়তা নেই)"
+
+msgid "cui.created"
+msgstr "Session {session} তৈরি হয়েছে"
+
+msgid "cui.delete_dry_run"
+msgstr "dry-run: Session {session} মুছে ফেলা হবে ({events} ইভেন্ট, {tasks} task; সুরক্ষিত {skipped}টি এড়িয়ে যাওয়া হবে) — চালাতে --yes দিন"
+
+msgid "cui.deleted"
+msgstr "Session {session} মুছে ফেলা হয়েছে"
+
+msgid "cui.empty"
+msgstr "(কোনো রেকর্ড নেই)"
+
+msgid "cui.exported"
+msgstr "{path}-এ এক্সপোর্ট হয়েছে (hash {hash})"
+
+msgid "cui.font.deleted"
+msgstr "মুছে ফেলা হয়েছে"
+
+msgid "cui.font.dry_run"
+msgstr "[dry-run]"
+
+msgid "cui.font.install.header"
+msgstr "{dry_run}বিল্ট-ইন ফন্ট ইনস্টল: {source} -> {dir}"
+
+msgid "cui.font.install.line"
+msgstr "{family}: কপি {source} -> {target}, রেজিস্ট্রি {reg_state}"
+
+msgid "cui.font.installed"
+msgstr "ইনস্টল করা আছে"
+
+msgid "cui.font.missing"
+msgstr "ইনস্টল নেই"
+
+msgid "cui.font.reg_pending"
+msgstr "অপেক্ষমাণ"
+
+msgid "cui.font.registered"
+msgstr "নিবন্ধিত"
+
+msgid "cui.font.removed"
+msgstr "নিবন্ধন তুলে নেওয়া হয়েছে"
+
+msgid "cui.font.status.header"
+msgstr "বিল্ট-ইন ফন্টের অবস্থা (ব্যবহারকারীর ডিরেক্টরি: {dir})"
+
+msgid "cui.font.status.line"
+msgstr "{family} ({file}): ফাইল {file_state}, রেজিস্ট্রি {reg_state}"
+
+msgid "cui.font.terminal.found"
+msgstr "টার্মিনাল ঘোষণা: {file} (faces: {faces}; বিল্ট-ইন মিল: {hits})"
+
+msgid "cui.font.terminal.none"
+msgstr "টার্মিনাল ঘোষণা: Windows Terminal-এর কোনো সেটিংস পাওয়া যায়নি (এটি ত্রুটি নয়)"
+
+msgid "cui.font.uninstall.header"
+msgstr "{dry_run}বিল্ট-ইন ফন্ট আনইনস্টল"
+
+msgid "cui.font.uninstall.line"
+msgstr "{family}: রেজিস্ট্রি {unreg_state}, ফাইল {file_state}"
+
+msgid "cui.font.unregistered"
+msgstr "নিবন্ধিত নয়"
+
+msgid "cui.indexes_ok"
+msgstr "ইনডেক্স সম্পূর্ণ"
+
+msgid "cui.plan_rows"
+msgstr "প্ল্যান সারি {rows}টি (analyze=false, কোয়েরি চালানো হয়নি)"
+
+msgid "cui.purge_dry_run"
+msgstr "dry-run: {sessions} session ও {events} ইভেন্ট পার্জ হবে (সুরক্ষিত {skipped}টি এড়িয়ে যাওয়া হবে) — চালাতে --yes দিন"
+
+msgid "cui.purged"
+msgstr "{events} ইভেন্ট পার্জ করা হয়েছে"
+
+msgid "cui.record.archived"
+msgstr "আর্কাইভকৃত"
+
+msgid "cui.record.artifacts"
+msgstr "আর্টিফ্যাক্ট"
+
+msgid "cui.record.budget"
+msgstr "বাজেট"
+
+msgid "cui.record.checkpoints"
+msgstr "Checkpoints"
+
+msgid "cui.record.cursor"
+msgstr "কার্সর"
+
+msgid "cui.record.failure"
+msgstr "ব্যর্থতা"
+
+msgid "cui.record.items"
+msgstr "আইটেম"
+
+msgid "cui.record.model"
+msgstr "মডেল"
+
+msgid "cui.record.no"
+msgstr "না"
+
+msgid "cui.record.session"
+msgstr "Session {session}"
+
+msgid "cui.record.task"
+msgstr "Task {task}"
+
+msgid "cui.record.truncated"
+msgstr "কাটা হয়েছে"
+
+msgid "cui.record.used"
+msgstr "ব্যবহৃত"
+
+msgid "cui.record.yes"
+msgstr "হ্যাঁ"
+
+msgid "cui.renamed"
+msgstr "Session {session}-এর নাম পরিবর্তন হয়েছে"
+
+msgid "cui.restore_done"
+msgstr "পুনরুদ্ধার সম্পন্ন: {source} থেকে"
+
+msgid "cui.spec_status"
+msgstr "Session {session}: ধাপ {stage} · কার্সর {cursor}"
+
+msgid "cui.status_line"
+msgstr "{session} {title} [{stage}] status={status} cursor={cursor}"
+
+msgid "cui.task_aborted"
+msgstr "{task} থামানো হয়েছে → {status}"
+
+msgid "cui.task_retried"
+msgstr "{task} পুনরায় চালানো হয়েছে (retry={retry}) → {status}"
+
+msgid "cui.tasks_summary"
+msgstr "Session {session}: মোট {total} · সম্পন্ন {done} · আটকে আছে {blocked} · সক্রিয় {active}"
+
+msgid "cui.unarchive_dry_run"
+msgstr "dry-run: Session {session}-এর আর্কাইভ তুলে নেওয়া হবে — চালাতে --yes দিন"
+
+msgid "cui.unarchived"
+msgstr "Session {session}-এর আর্কাইভ তুলে নেওয়া হয়েছে"
+
+msgid "error.datasource"
+msgstr "ডেটা সোর্সে ত্রুটি: {error}"
+
+msgid "error.permission_denied"
+msgstr "অনুমতি নেই"
+
+msgid "gui.chat.cancel"
+msgstr "বাতিল"
+
+msgid "gui.chat.empty"
+msgstr "প্রম্পট খালি"
+
+msgid "gui.chat.error"
+msgstr "চ্যাট ব্যর্থ হয়েছে"
+
+msgid "gui.chat.hint"
+msgstr "একটি session বেছে নিয়ে প্রম্পট লিখুন; পাঠানোর পর কাজ শেষ না হওয়া পর্যন্ত অপেক্ষা করতে হয় (TUI-র মতোই)"
+
+msgid "gui.chat.history.hint"
+msgstr "প্রতিটি turn-এর ইভেন্ট সংরক্ষিত হয় — পূর্ণ ইতিহাস দেখতে ইভেন্ট ভিউ দেখুন"
+
+msgid "gui.chat.last"
+msgstr "শেষ ফলাফল: {summary}"
+
+msgid "gui.chat.no_request"
+msgstr "বাতিল করার মতো কোনো request ID নেই (আগে একটি turn পাঠান)"
+
+msgid "gui.chat.none"
+msgstr "কোনো session নির্বাচিত নেই — Sessions ভিউ থেকে বেছে নিন (j/k)"
+
+msgid "gui.chat.not_supported"
+msgstr "LLM executor সংযুক্ত নয় (not_supported)"
+
+msgid "gui.chat.progress"
+msgstr "তৈরি হচ্ছে: {chunks} chunk…"
+
+msgid "gui.chat.prompt.placeholder"
+msgstr "প্রম্পট লিখুন, Enter দিলে পাঠানো হবে"
+
+msgid "gui.chat.provider"
+msgstr "LLM profile: {provider}"
+
+msgid "gui.chat.provider.placeholder"
+msgstr "profile-এর নাম"
+
+msgid "gui.chat.send"
+msgstr "পাঠান"
+
+msgid "gui.checkpoints.degraded"
+msgstr "rollback তৈরি হয়নি (কেবল দেখা যায়)"
+
+msgid "gui.checkpoints.empty"
+msgstr "এই task-এর কোনো checkpoint নেই"
+
+msgid "gui.checkpoints.hint"
+msgstr "task-এর সারিতে Checkpoints চাপুন"
+
+msgid "gui.checkpoints.open"
+msgstr "Checkpoints"
+
+msgid "gui.checkpoints.title"
+msgstr "Checkpoints"
+
+msgid "gui.kpi.count"
+msgstr "Sessions {sessions} · ভিউতে {rows} সারি"
+
+msgid "gui.op.archive"
+msgstr "আর্কাইভ"
+
+msgid "gui.op.cancel"
+msgstr "বাতিল"
+
+msgid "gui.op.confirm"
+msgstr "নিশ্চিত করুন"
+
+msgid "gui.op.delete"
+msgstr "মুছুন"
+
+msgid "gui.op.error"
+msgstr "অপারেশন ব্যর্থ হয়েছে"
+
+msgid "gui.op.input.days"
+msgstr "পার্জের সময়সীমা (দিন)"
+
+msgid "gui.op.input.title"
+msgstr "শিরোনাম"
+
+msgid "gui.op.new"
+msgstr "নতুন"
+
+msgid "gui.op.not_supported"
+msgstr "Command executor সংযুক্ত নয় (not_supported)"
+
+msgid "gui.op.preview"
+msgstr "প্রিভিউ"
+
+msgid "gui.op.purge"
+msgstr "পার্জ (30 দিনের বেশি পুরোনো)"
+
+msgid "gui.op.rename"
+msgstr "নাম পরিবর্তন"
+
+msgid "gui.op.restore"
+msgstr "পুনরুদ্ধার"
+
+msgid "gui.session.archived"
+msgstr "আর্কাইভকৃত"
+
+msgid "gui.session.group.active"
+msgstr "— সক্রিয় —"
+
+msgid "gui.session.group.archived"
+msgstr "— আর্কাইভকৃত —"
+
+msgid "gui.session.none"
+msgstr "session নেই"
+
+msgid "gui.session.off"
+msgstr "লুকানো"
+
+msgid "gui.session.on"
+msgstr "দেখানো হচ্ছে"
+
+msgid "gui.session.search"
+msgstr "শিরোনাম বা ID খুঁজুন"
+
+msgid "gui.session.sort.created"
+msgstr "তৈরির সময়"
+
+msgid "gui.session.sort.recent"
+msgstr "সাম্প্রতিক"
+
+msgid "gui.session.sort.title"
+msgstr "শিরোনাম"
+
+msgid "gui.status.theme"
+msgstr "থিম: {theme}"
+
+msgid "gui.task.abort"
+msgstr "থামান"
+
+msgid "gui.task.retries"
+msgstr "পুনরায় চেষ্টা {count} বার"
+
+msgid "gui.task.retry"
+msgstr "পুনরায় চেষ্টা"
+
+msgid "menu.context"
+msgstr "প্রসঙ্গ"
+
+msgid "menu.diff"
+msgstr "Diff"
+
+msgid "menu.events"
+msgstr "ইভেন্ট"
+
+msgid "menu.sessions"
+msgstr "Sessions"
+
+msgid "menu.spec"
+msgstr "Spec"
+
+msgid "menu.tasks"
+msgstr "Tasks"
+
+msgid "settings.action.done"
+msgstr "সম্পন্ন: {label}"
+
+msgid "settings.action.failed"
+msgstr "কাজ ব্যর্থ ({label}): {code} {message}"
+
+msgid "settings.action.running"
+msgstr "চলছে: {label}"
+
+msgid "settings.back"
+msgstr "হোমে ফিরুন"
+
+msgid "settings.confirm.builtin_empty"
+msgstr "এতে বিল্ট-ইন রুট কপি খালি হবে (বিল্ট-ইন ভিত্তি আর কাজে যোগ দেবে না)। এগোবেন?"
+
+msgid "settings.confirm.external_key"
+msgstr "এতে বাহ্যিক সার্টিফিকেট ও প্রাইভেট কী সংরক্ষিত হবে এবং ইনবাউন্ড মোড external হবে। এগোবেন?"
+
+msgid "settings.confirm.inbound_off"
+msgstr "এতে ইনবাউন্ড TLS বন্ধ হবে (প্লেইন HTTP-তে ফিরবে) এবং serve --web পুনরায় চালুর পর কার্যকর হবে। এগোবেন?"
+
+msgid "settings.confirm.regenerate"
+msgstr "এতে সেলফ-সাইনড সার্ভার সার্টিফিকেট পুনরায় তৈরি হবে (বর্তমান ফিঙ্গারপ্রিন্ট অকার্যকর হয়ে যাবে)। এগোবেন?"
+
+msgid "settings.confirm.reset_builtin"
+msgstr "এতে বিল্ট-ইন রুট কপি প্যাকেজের সঙ্গে আসা মূল ফাইলে ফিরে যাবে। এগোবেন?"
+
+msgid "settings.confirm.reset_extra"
+msgstr "এতে অতিরিক্ত রুট খালি হবে। এগোবেন?"
+
+msgid "settings.error.bad_port"
+msgstr "পোর্ট 1..=65535-এর মধ্যে পূর্ণসংখ্যা হতে হবে"
+
+msgid "settings.error.generic"
+msgstr "কাজ ব্যর্থ"
+
+msgid "settings.error.load"
+msgstr "সার্টিফিকেটের অবস্থা পড়া যায়নি: {code} {message}"
+
+msgid "settings.error.missing_host"
+msgstr "আগে একটি হোস্টনেম বা IP লিখুন"
+
+msgid "settings.error.missing_pem"
+msgstr "আগে সার্টিফিকেট চেইন ও প্রাইভেট কী (PEM) পূরণ করুন"
+
+msgid "settings.field.count"
+msgstr "সংখ্যা: {value}"
+
+msgid "settings.field.modified"
+msgstr "পরিবর্তিত: {value}"
+
+msgid "settings.field.newer"
+msgstr "বিল্ট-ইন সংস্করণ নতুন: {value}"
+
+msgid "settings.field.path"
+msgstr "পাথ: {value}"
+
+msgid "settings.field.sha256"
+msgstr "SHA-256: {value}"
+
+msgid "settings.inbound.builtin"
+msgstr "বিল্ট-ইন সেলফ-সাইনড সার্টিফিকেট (builtin)"
+
+msgid "settings.inbound.builtin_hint"
+msgstr "প্রতি workspace-এ একটি ECDSA P-256 সেলফ-সাইনড সার্টিফিকেট তৈরি করে (397 দিন); SAN-এ localhost, 127.0.0.1, ::1 ও হোস্টনেম থাকে।"
+
+msgid "settings.inbound.cert_pem_label"
+msgstr "সার্টিফিকেট চেইন আপলোড করুন (PEM)"
+
+msgid "settings.inbound.days_remaining"
+msgstr "বাকি দিন: {value}"
+
+msgid "settings.inbound.download"
+msgstr "পাবলিক সার্টিফিকেট ডাউনলোড করুন (PEM)"
+
+msgid "settings.inbound.external"
+msgstr "বাহ্যিক সার্টিফিকেট (external)"
+
+msgid "settings.inbound.external_hint"
+msgstr "আপনি যে PEM সার্টিফিকেট চেইন ও এনক্রিপশনহীন প্রাইভেট কী আপলোড করেন তা ব্যবহার করে; প্রাইভেট কী কেবল লেখা যায়, পড়া যায় না।"
+
+msgid "settings.inbound.key_pem_label"
+msgstr "প্রাইভেট কী আপলোড করুন (এনক্রিপশনহীন PEM, জমা দেওয়ার পর ক্ষেত্রটি খালি হয়)"
+
+msgid "settings.inbound.key_saved"
+msgstr "প্রাইভেট কী সংরক্ষিত হয়েছে; আর দেখানো হয় না (ক্ষেত্রটি খালি করা হয়েছে)।"
+
+msgid "settings.inbound.legend"
+msgstr "মোড"
+
+msgid "settings.inbound.material"
+msgstr "সার্টিফিকেট আছে: {cert} · প্রাইভেট কী আছে: {key}"
+
+msgid "settings.inbound.no_material"
+msgstr "এখনো সার্ভারের কোনো সার্টিফিকেট উপাদান নেই (চেইন আপলোড করুন বা সেলফ-সাইনড সার্টিফিকেট পুনরায় তৈরি করুন)"
+
+msgid "settings.inbound.not_after"
+msgstr "বৈধতার শেষ: {value}"
+
+msgid "settings.inbound.off"
+msgstr "TLS বন্ধ (off)"
+
+msgid "settings.inbound.off_hint"
+msgstr "প্লেইন HTTP-তে ফিরে যায় (ADR-023); স্পষ্ট নিশ্চিতকরণ লাগে এবং কখনো নিঃশব্দে ফিরিয়ে নেওয়া হয় না।"
+
+msgid "settings.inbound.regenerate"
+msgstr "সেলফ-সাইনড সার্টিফিকেট পুনরায় তৈরি করুন"
+
+msgid "settings.inbound.sans"
+msgstr "SAN: {value}"
+
+msgid "settings.inbound.sha256"
+msgstr "ফিঙ্গারপ্রিন্ট SHA-256: {value}"
+
+msgid "settings.inbound.subject"
+msgstr "সাবজেক্ট: {value}"
+
+msgid "settings.inbound.title"
+msgstr "ইনবাউন্ড TLS (serve --web)"
+
+msgid "settings.inbound.upload"
+msgstr "আপলোড করে external-এ যান"
+
+msgid "settings.link"
+msgstr "সার্টিফিকেট সেটিংস"
+
+msgid "settings.local_mode"
+msgstr "লোকাল সেটিংস পেজ"
+
+msgid "settings.modes.save"
+msgstr "মোড সংরক্ষণ করুন"
+
+msgid "settings.notes.none"
+msgstr "কোনো অতিরিক্ত নোট নেই"
+
+msgid "settings.notes.title"
+msgstr "নোট"
+
+msgid "settings.outbound.builtin"
+msgstr "বিল্ট-ইন কপি (builtin)"
+
+msgid "settings.outbound.builtin_hint"
+msgstr "workspace-এ থাকা বিল্ট-ইন রুট কপিকে ভিত্তি ধরে; অতিরিক্ত রুট এর সঙ্গে যোগ হয়।"
+
+msgid "settings.outbound.builtin_pem_label"
+msgstr "বিল্ট-ইন রুট কপি (PEM, সম্পাদনযোগ্য)"
+
+msgid "settings.outbound.effective_line"
+msgstr "কার্যকর রুট সার্টিফিকেট: {value}"
+
+msgid "settings.outbound.empty_extra"
+msgstr "কোনো অতিরিক্ত রুট কনফিগার করা নেই (সঠিক খালি: ফাইলে কোনো সার্টিফিকেট নেই)"
+
+msgid "settings.outbound.extra_pem_label"
+msgstr "অতিরিক্ত রুট (PEM, দুই মোডেই প্রযোজ্য)"
+
+msgid "settings.outbound.hint"
+msgstr "কোনো মোডেই চেইন বা হোস্টনেম যাচাই বন্ধ হয় না; যাচাই এড়িয়ে যাওয়ার কোনো সুইচ নেই।"
+
+msgid "settings.outbound.legend"
+msgstr "ট্রাস্ট স্টোরের মোড"
+
+msgid "settings.outbound.missing_builtin"
+msgstr "বিল্ট-ইন কপি পাওয়া যায়নি: অবস্থার প্রতিবেদনে ফাইলটির উল্লেখ নেই"
+
+msgid "settings.outbound.reset_builtin"
+msgstr "বিল্ট-ইন কপি পুনরুদ্ধার করুন"
+
+msgid "settings.outbound.reset_extra"
+msgstr "অতিরিক্ত রুট খালি করুন"
+
+msgid "settings.outbound.save_builtin"
+msgstr "বিল্ট-ইন কপি সংরক্ষণ করুন"
+
+msgid "settings.outbound.save_extra"
+msgstr "অতিরিক্ত রুট সংরক্ষণ করুন"
+
+msgid "settings.outbound.system"
+msgstr "অপারেটিং সিস্টেমের স্টোর (system)"
+
+msgid "settings.outbound.system_hint"
+msgstr "অপারেটিং সিস্টেমের রুট স্টোরকে ভিত্তি ধরে; অতিরিক্ত রুটও একইভাবে যোগ হয়। সিস্টেম স্টোর খালি হলে তা ত্রুটি, কখনো বিল্ট-ইন কপিতে ফিরে যায় না।"
+
+msgid "settings.outbound.system_na"
+msgstr "প্রযোজ্য নয় (বর্তমান মোড সিস্টেম স্টোর পড়ে না)"
+
+msgid "settings.outbound.system_roots_line"
+msgstr "সিস্টেম রুট সার্টিফিকেট: {value}"
+
+msgid "settings.outbound.title"
+msgstr "আউটবাউন্ড HTTPS ট্রাস্ট"
+
+msgid "settings.restart_banner"
+msgstr "ইনবাউন্ড সার্টিফিকেট বা মোড বদলেছে; প্রয়োগ করতে serve --web পুনরায় চালু করুন।"
+
+msgid "settings.status.no"
+msgstr "না"
+
+msgid "settings.status.unknown"
+msgstr "অজানা"
+
+msgid "settings.status.yes"
+msgstr "হ্যাঁ"
+
+msgid "settings.title"
+msgstr "সার্টিফিকেট সেটিংস"
+
+msgid "settings.verify.button"
+msgstr "যাচাই"
+
+msgid "settings.verify.failed"
+msgstr "যাচাই ব্যর্থ: {error}"
+
+msgid "settings.verify.host"
+msgstr "হোস্ট"
+
+msgid "settings.verify.ok"
+msgstr "যাচাই সফল: সাবজেক্ট {subject} · বৈধতার শেষ {not_after} · ফিঙ্গারপ্রিন্ট {sha256} · {tls_version}"
+
+msgid "settings.verify.port"
+msgstr "পোর্ট"
+
+msgid "settings.verify.title"
+msgstr "আউটবাউন্ড সংযোগ যাচাই"
+
+msgid "status.idle"
+msgstr "নিষ্ক্রিয়"
+
+msgid "status.running"
+msgstr "চলছে"
+
+msgid "summary.context"
+msgstr "Session {session} · বাজেট {budget} · ব্যবহৃত {used} · আইটেম {items}{truncated}"
+
+msgid "summary.context_truncated"
+msgstr "· কাটা হয়েছে: {reason}"
+
+msgid "summary.diff"
+msgstr "Session {session} · task {total} · পাস {pass} / ব্যর্থ {fail} / পরীক্ষিত নয় {untested}{truncated}"
+
+msgid "summary.diff.truncated"
+msgstr "· পার্থক্যের তালিকা কাটা হয়েছে"
+
+msgid "summary.events"
+msgstr "Session {session} · কার্সর {from}..{to} (শেষে সর্বোচ্চ {limit})"
+
+msgid "summary.none"
+msgstr "নেই"
+
+msgid "summary.spec"
+msgstr "Session {session} · ধাপ {stage} · কার্সর {cursor} · সক্রিয় task {task}"
+
+msgid "summary.tasks"
+msgstr "Session {session} · মোট {total} · সম্পন্ন {done} · আটকে আছে {blocked}"
+
+msgid "tui.col.id"
+msgstr "ID"
+
+msgid "tui.col.kind"
+msgstr "ধরন"
+
+msgid "tui.col.retry"
+msgstr "পুনরায় চেষ্টা"
+
+msgid "tui.col.seq"
+msgstr "ক্রম"
+
+msgid "tui.col.stage"
+msgstr "ধাপ"
+
+msgid "tui.col.status"
+msgstr "অবস্থা"
+
+msgid "tui.col.summary"
+msgstr "সারসংক্ষেপ"
+
+msgid "tui.col.title"
+msgstr "শিরোনাম"
+
+msgid "tui.diff_unwired"
+msgstr "(diff উৎস এখনো সংযুক্ত নয়: converge পার্থক্য পরের ধাপে যুক্ত হবে; কোনো কৃত্রিম তথ্য দেখানো হচ্ছে না)"
+
+msgid "tui.empty"
+msgstr "(কোনো তথ্য নেই)"
+
+msgid "tui.footer"
+msgstr "1-7 ভিউ  j/k সরান  r রিফ্রেশ  t থিম  q প্রস্থান  |  {cols}x{rows}"
+
+msgid "tui.header.none"
+msgstr "session নেই"
+
+msgid "tui.no_session"
+msgstr "(কোনো session নির্বাচিত নেই — j/k চাপুন)"
+
+msgid "tui.runtimes"
+msgstr "Runtimes: {list}"
+
+msgid "tui.title"
+msgstr "{app}  |  {view} ({index}/{count})"
+
+msgid "view.chat"
+msgstr "চ্যাট"
+
+msgid "view.context"
+msgstr "প্রসঙ্গ"
+
+msgid "view.diff"
+msgstr "Diff প্রিভিউ"
+
+msgid "view.events"
+msgstr "ইভেন্ট"
+
+msgid "view.sessions"
+msgstr "Sessions"
+
+msgid "view.spec"
+msgstr "Spec অবস্থা"
+
+msgid "view.tasks"
+msgstr "Tasks"
+
+msgid "web.action.failed"
+msgstr "অ্যাকশন ব্যর্থ ({label}): {error}"
+
+msgid "web.checkpoints.degraded"
+msgstr "rollback এখনো তৈরি হয়নি (স্পষ্ট হ্রাস): কেবল দেখা ও ডেল্টা সারসংক্ষেপ"
+
+msgid "web.checkpoints.empty"
+msgstr "এই task-এর কোনো checkpoint নেই"
+
+msgid "web.checkpoints.failed"
+msgstr "checkpoint লোড করা যায়নি: {error}"
+
+msgid "web.checkpoints.hint"
+msgstr "checkpoint ও ডেল্টা সারসংক্ষেপ দেখতে একটি task বেছে নিন"
+
+msgid "web.checkpoints.ready"
+msgstr "rollback সম্ভব"
+
+msgid "web.checkpoints.refs"
+msgstr "{count}টি আর্টিফ্যাক্ট রেফারেন্স"
+
+msgid "web.checkpoints.title"
+msgstr "Checkpoints"
+
+msgid "web.checkpoints.truncated"
+msgstr "checkpoint সীমা ছাড়িয়েছে; তালিকা কাটা হয়েছে"
+
+msgid "web.cleanup.bad_days"
+msgstr "সংরক্ষণের দিন অন্তত 1 হতে হবে"
+
+msgid "web.cleanup.confirm"
+msgstr "পার্জ নিশ্চিত করুন"
+
+msgid "web.cleanup.days"
+msgstr "সংরক্ষণের দিন"
+
+msgid "web.cleanup.done"
+msgstr "{sessions}টি session পার্জ করা হয়েছে"
+
+msgid "web.cleanup.preview"
+msgstr "প্রিভিউ"
+
+msgid "web.cleanup.preview_required"
+msgstr "পার্জ নিশ্চিত করার আগে প্রিভিউ দরকার"
+
+msgid "web.cleanup.preview_result"
+msgstr "{sessions}টি session পার্জ হবে"
+
+msgid "web.conn.connected"
+msgstr "সংযুক্ত"
+
+msgid "web.conn.disconnected"
+msgstr "সংযোগ বিচ্ছিন্ন"
+
+msgid "web.context.empty"
+msgstr "(সঠিক খালি: বাজেটে কোনো আইটেম আসে না)"
+
+msgid "web.context.no_session"
+msgstr "কোনো session নির্বাচিত নেই"
+
+msgid "web.context.summary"
+msgstr "বাজেট {consumed}/{budget} · উৎস {sources} · কাটা {truncated}"
+
+msgid "web.cursor"
+msgstr "কার্সর {n}"
+
+msgid "web.diff.empty"
+msgstr "(কোনো পার্থক্য নেই: সব গ্রহণযোগ্যতার শর্ত পাস করেছে)"
+
+msgid "web.diff.no_session"
+msgstr "কোনো session নির্বাচিত নেই"
+
+msgid "web.diff.summary"
+msgstr "Task {total} · পাস {pass} / ব্যর্থ {fail} / পরীক্ষিত নয় {untested}{truncated}"
+
+msgid "web.diff.truncated"
+msgstr "(কাটা হয়েছে)"
+
+msgid "web.export.done"
+msgstr "এক্সপোর্ট সম্পন্ন"
+
+msgid "web.export.json"
+msgstr "JSON এক্সপোর্ট"
+
+msgid "web.export.jsonl"
+msgstr "JSONL এক্সপোর্ট"
+
+msgid "web.recovering"
+msgstr "পুনরুদ্ধার চলছে…"
+
+msgid "web.runtimes"
+msgstr "Runtimes"
+
+msgid "web.runtimes.available"
+msgstr "উপলব্ধ"
+
+msgid "web.runtimes.unavailable"
+msgstr "অনুপলব্ধ"
+
+msgid "web.runtimes.unknown"
+msgstr "পরীক্ষা করা হয়নি"
+
+msgid "web.runtimes.unwired"
+msgstr "Runtime-এর তালিকা এখনো সংযুক্ত নয়"
+
+msgid "web.session.archive_confirm"
+msgstr "আর্কাইভ নিশ্চিত করুন"
+
+msgid "web.session.archive_preview"
+msgstr "আর্কাইভ প্রিভিউ"
+
+msgid "web.session.archive_preview_required"
+msgstr "আর্কাইভ নিশ্চিত করার আগে প্রিভিউ দরকার"
+
+msgid "web.session.archive_preview_result"
+msgstr "Session {session} আর্কাইভ হবে — চালাতে নিশ্চিত করুন"
+
+msgid "web.session.archived"
+msgstr "Session {session} আর্কাইভ করা হয়েছে"
+
+msgid "web.session.create"
+msgstr "তৈরি করুন"
+
+msgid "web.session.delete_confirm"
+msgstr "মুছে ফেলা নিশ্চিত করুন"
+
+msgid "web.session.delete_preview"
+msgstr "মুছে ফেলার প্রিভিউ"
+
+msgid "web.session.delete_preview_result"
+msgstr "মুছে ফেলা হবে: ইভেন্ট {events} · task {tasks}"
+
+msgid "web.session.deleted"
+msgstr "{n}টি session মুছে ফেলা হয়েছে"
+
+msgid "web.session.group_active"
+msgstr "সক্রিয়"
+
+msgid "web.session.group_archived"
+msgstr "আর্কাইভকৃত"
+
+msgid "web.session.none"
+msgstr "কোনো session নির্বাচিত নেই"
+
+msgid "web.session.preview_required"
+msgstr "মুছে ফেলা নিশ্চিত করার আগে প্রিভিউ দরকার"
+
+msgid "web.session.rename"
+msgstr "নাম পরিবর্তন"
+
+msgid "web.session.rename_placeholder"
+msgstr "নতুন শিরোনাম"
+
+msgid "web.session.search"
+msgstr "শিরোনাম বা ID খুঁজুন"
+
+msgid "web.session.show_archived"
+msgstr "আর্কাইভকৃত সহ"
+
+msgid "web.session.sort"
+msgstr "সাজান"
+
+msgid "web.session.sort.created"
+msgstr "তৈরির সময়"
+
+msgid "web.session.sort.last_active"
+msgstr "সাম্প্রতিক সক্রিয়"
+
+msgid "web.session.sort.title"
+msgstr "শিরোনাম"
+
+msgid "web.session.title"
+msgstr "Session-এর শিরোনাম"
+
+msgid "web.session.title_required"
+msgstr "আগে session-এর শিরোনাম লিখুন"
+
+msgid "web.tab.context"
+msgstr "প্রসঙ্গ"
+
+msgid "web.tab.diff"
+msgstr "diff"
+
+msgid "web.tab.history"
+msgstr "ইতিহাস"
+
+msgid "web.tab.maintenance"
+msgstr "রক্ষণাবেক্ষণ"
+
+msgid "web.tab.sessions"
+msgstr "Sessions"
+
+msgid "web.tab.spec"
+msgstr "SDD"
+
+msgid "web.tab.tasks"
+msgstr "Tasks"
+
+msgid "web.task.abort"
+msgstr "থামান"
+
+msgid "web.task.depends"
+msgstr "{depends}-এর ওপর নির্ভরশীল"
+
+msgid "web.task.progress"
+msgstr "সম্পন্ন {done}/{total} · আটকে আছে {blocked}"
+
+msgid "web.task.retries"
+msgstr "পুনরায় চেষ্টা {count} বার"
+
+msgid "web.task.retry"
+msgstr "পুনরায় চেষ্টা"
+
+msgid "web.task.truncated"
+msgstr "task কার্ড সীমা ছাড়িয়েছে, তাই কাটা হয়েছে (সারসংক্ষেপের গণনা পূর্ণ)"
+
+msgid "web.tasks_summary"
+msgstr "মোট {total} · সম্পন্ন {done} · আটকে আছে {blocked}"
+
+msgid "web.theme.default"
+msgstr "ডিফল্ট"
+
+msgid "web.theme.label"
+msgstr "থিম"
+

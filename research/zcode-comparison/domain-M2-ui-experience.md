@@ -137,7 +137,7 @@ bg-surface px-4 py-3`，624px 以上最大宽 xl——`v4/ConversationUserInputB
 
 **状态机——两套命名体系并存（本次关键发现）**：
 
-1. **v4 协议 row 状态**（权威）：`toolCall.status = "inputStreaming" | "pendingApproval" |
+1. **v4 协议 row 状态**（权威）：`toolCall.status = “inputStreaming” | “pendingApproval” |
    "running" | "success" | "error" | "cancelled"`（`packages/shared/src/zcode-protocol-v4/
    rows.ts:212`）；`subagent.status = "running" | "success" | "failed" | "cancelled"`
    （rows.ts:272）。`pendingApproval` 时 `approvalInteractionId` 指向 pendingInteractions
@@ -235,7 +235,7 @@ running → success／error／cancelled。
    （`zcode-protocol-legacy-types.ts:53`）。
 
 **选项策略（防“记住规则”失效）**：`PermissionOptionsPolicy =
-"no-always-allow" | "session-always-allow"`（permission.port.ts 第 45—52 行）——每次
+“no-always-allow” | “session-always-allow”`（permission.port.ts 第 45—52 行）——每次
 代码都不同的工具（CreateWorkflow 脚本）禁用永久 always-allow，或降为仅存活于运行时内存的
 session 级授权。
 
@@ -360,7 +360,7 @@ TaskList.tsx`）分层承担：todo＝turn 内执行清单，task＝会话容器
 - 单文件编辑卡：`renderers/edit.tsx`——可折叠展开内联 diff（
   `renderers/EditInlineDiffContent.tsx`：**首帧只渲染轻量 hunk 文本**（无 token 化，防大
   diff 展开掉帧），effect 里异步补 Shiki 高亮 token，第 66—77 行注释）；完整 diff 经
-  `buildEditCodeViewerSource` 送侧栏 CodeViewer（type: "patch"）。
+  `buildEditCodeViewerSource` 送侧栏 CodeViewer（type: “patch”）。
 - 多文件编辑聚合：`renderers/changes-group.tsx`——单卡响应式文件 chip 列表：逐 chip
   测宽，放不下折为“+N”（`resolveResponsiveFileChipCount` 第 29—57 行；零可用宽度返回 0
   保留完整 +N 提示）。

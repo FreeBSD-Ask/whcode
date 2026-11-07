@@ -1,0 +1,1246 @@
+# ja translation catalog for WHCode (FR-615).
+# Generated from i18n/ja.properties by .github/scripts/i18n-po.py; do not edit by hand.
+# Edit the properties file instead, then regenerate — a contract test fails on drift.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: whcode 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/FreeBSD-Ask/whcode/issues\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "app.title"
+msgstr "WHCode コーディングハーネス"
+
+msgid "cli.about"
+msgstr "WHCode コーディングハーネス"
+
+msgid "cli.context.about"
+msgstr "コンテキスト予算の表示（FR-105/108、contracts/cui-cli.md §1）。"
+
+msgid "cli.context.budget.about"
+msgstr "予算ビュー：現在の予算、読み込んだソース、打ち切り理由、カーソル（`whcode_app::load_context` 経由）。"
+
+msgid "cli.context.budget.budget"
+msgstr "トークン単位の予算。省略時は表示用の既定値（4096、TUI のコンテキストビューと同じ）を使います。"
+
+msgid "cli.context.budget.session"
+msgstr "セッション ID。"
+
+msgid "cli.db.about"
+msgstr "データベースの保守と削除（FR-507—510）。"
+
+msgid "cli.db.archive.about"
+msgstr "ワークスペースをエクスポートします。"
+
+msgid "cli.db.archive.export"
+msgstr "出力パス。"
+
+msgid "cli.db.check.about"
+msgstr "必須のインデックスを確認します。"
+
+msgid "cli.db.checkpoint.about"
+msgstr "明示的な checkpoint を行います（FR-510。WAL ポリシーの上書きも同時に適用できます、disaster-recovery §5）。"
+
+msgid "cli.db.checkpoint.autocheckpoint"
+msgstr "wal_autocheckpoint を上書きします（例：1MB。省略時は現状のまま）。"
+
+msgid "cli.db.checkpoint.threshold"
+msgstr "WAL の自動 checkpoint しきい値を上書きします（例：16MB。省略時は現状のまま）。"
+
+msgid "cli.db.compact.about"
+msgstr "ディスク上のデータベースをコンパクト化します（コピー・検証・切り替え、FR-510。既定は dry-run）。"
+
+msgid "cli.db.compact.dry-run"
+msgstr "プレビューのみ（既定）。"
+
+msgid "cli.db.compact.yes"
+msgstr "実行を確定します。"
+
+msgid "cli.db.explain.about"
+msgstr "クエリプランの分析（読み取り専用クエリ、契約 §2-2）。"
+
+msgid "cli.db.explain.query"
+msgstr "読み取り専用の SQL（SELECT/WITH で始まるもの）。"
+
+msgid "cli.db.purge.about"
+msgstr "期間によるパージ（FR-508/509。既定は dry-run）。"
+
+msgid "cli.db.purge.before"
+msgstr "基準時刻（Unix ミリ秒）。"
+
+msgid "cli.db.purge.dry-run"
+msgstr "プレビューのみ（既定）。"
+
+msgid "cli.db.purge.yes"
+msgstr "実行を確定します。"
+
+msgid "cli.db.restore.about"
+msgstr "エクスポートから空のワークスペースへ復元します（`db archive` の逆操作。明示的な確認が必要で、プレビューはありません）。"
+
+msgid "cli.db.restore.from"
+msgstr "エクスポートファイルのパス（whcode-export 形式）。"
+
+msgid "cli.db.restore.yes"
+msgstr "実行を確定します（復元は書き込み操作。対象のデータベースは空である必要があります）。"
+
+msgid "cli.db.stats.about"
+msgstr "データベースの統計（FR-507）。"
+
+msgid "cli.doctor.about"
+msgstr "環境と設定のセルフチェック（M0）。"
+
+msgid "cli.doctor.json"
+msgstr "JSON を出力します。"
+
+msgid "cli.events.about"
+msgstr "イベントの照会とエクスポート（FR-202/205）。"
+
+msgid "cli.events.export.about"
+msgstr "エクスポートします（秘匿化の方針は出力側に明記されます、FR-205）。"
+
+msgid "cli.events.export.after"
+msgstr "開始カーソル。"
+
+msgid "cli.events.export.format"
+msgstr "出力形式（json/jsonl）。"
+
+msgid "cli.events.export.session"
+msgstr "セッション ID。"
+
+msgid "cli.events.list.about"
+msgstr "イベントを一覧表示します（カーソルによる差分取得）。"
+
+msgid "cli.events.list.after"
+msgstr "開始カーソル（この値は含みません）。"
+
+msgid "cli.events.list.session"
+msgstr "セッション ID。"
+
+msgid "cli.events.show.about"
+msgstr "イベント 1 件の詳細。"
+
+msgid "cli.events.show.event"
+msgstr "イベント ID。"
+
+msgid "cli.font.about"
+msgstr "組み込みフォントのインストールとターミナル宣言の確認（FR-717。ローカル資源向けのコマンドで、データベースにもワークスペースにも触れません）。"
+
+msgid "cli.font.install.about"
+msgstr "同梱の 4 種類のフォントをユーザーフォントディレクトリへインストールし、HKCU に登録します（コピーで上書きする方式。再実行しても安全です）。"
+
+msgid "cli.font.install.dry-run"
+msgstr "実行される操作を報告するだけで、システムは変更しません。"
+
+msgid "cli.font.install.from"
+msgstr "フォントの取得元ディレクトリ（フラット配置、またはリポジトリの `source/<family>/` 配置）。省略時は実行ファイルの隣、次にカレントディレクトリの `assets/fonts/source` を順に探します（ADR-028 改訂 1）。"
+
+msgid "cli.font.status.about"
+msgstr "フォントのインストール状態とターミナル宣言を確認します（読み取り専用）。"
+
+msgid "cli.font.uninstall.about"
+msgstr "組み込みフォントをアンインストールします。登録を解除し、ユーザーフォントディレクトリのファイルを削除します（ベストエフォート。項目ごとに結果を報告）。"
+
+msgid "cli.font.uninstall.dry-run"
+msgstr "実行される操作を報告するだけで、システムは変更しません。"
+
+msgid "cli.hint.no_console"
+msgstr "whcode {version} — 操作できるコンソールがないため、インターフェースは起動していません"
+
+msgid "cli.hint.options"
+msgstr "利用できる指定：--tui（ターミナル UI）、--cli <サブコマンド>、--lang <ロケール>、--help"
+
+msgid "cli.json"
+msgstr "JSON を出力します（schema_version エンベロープ、FR-602）。サブコマンドの前後どちらに置いても構いません。"
+
+msgid "cli.lang"
+msgstr "インターフェース文言の言語（例：zh-CN、en。LANG/LC_ALL より優先、FR-615）。"
+
+msgid "cli.llm.about"
+msgstr "モデルの呼び出し（FR-201。`llm run` と `llm cancel`、contracts/cui-cli.md §1）。"
+
+msgid "cli.llm.cancel.about"
+msgstr "このマシンで実行中の呼び出しをキャンセルします（次のチャンクの前に反映されます）。"
+
+msgid "cli.llm.cancel.request"
+msgstr "リクエスト ID（`llm run` が出力したもの、または `--request-id` で指定したもの）。"
+
+msgid "cli.llm.run.about"
+msgstr "実際の呼び出しを 1 回行います（同期。ストリームの増分は最後に上限付きの並びとして出力します）。"
+
+msgid "cli.llm.run.max-tokens"
+msgstr "プロファイルの `max_tokens` を上書きします。"
+
+msgid "cli.llm.run.model"
+msgstr "プロファイルのモデル識別子を上書きします。"
+
+msgid "cli.llm.run.prompt"
+msgstr "プロンプト本文（イベントにもログにも書き込みません）。"
+
+msgid "cli.llm.run.provider"
+msgstr "プロファイル名（明示的に指定、ADR-031 決定 4）。"
+
+msgid "cli.llm.run.request-id"
+msgstr "リクエスト ID を指定します（`llm cancel` のキー。省略時は呼び出しの引数から生成）。"
+
+msgid "cli.llm.run.session"
+msgstr "セッション ID。"
+
+msgid "cli.llm.run.trace-level"
+msgstr "トレースレベル（off/metadata/redacted/full）。"
+
+msgid "cli.runtime.about"
+msgstr "ランタイムの管理（FR-701—710、M8）。"
+
+msgid "cli.runtime.disable.about"
+msgstr "ランタイムを無効にします。"
+
+msgid "cli.runtime.disable.name"
+msgstr "ランタイム名。"
+
+msgid "cli.runtime.enable.about"
+msgstr "ランタイムを有効にします。"
+
+msgid "cli.runtime.enable.name"
+msgstr "ランタイム名。"
+
+msgid "cli.runtime.install.about"
+msgstr "ペイロードをインストールします。"
+
+msgid "cli.runtime.install.name"
+msgstr "ランタイム名。"
+
+msgid "cli.runtime.list.about"
+msgstr "ランタイムを一覧表示します。"
+
+msgid "cli.runtime.status.about"
+msgstr "ランタイムの状態。"
+
+msgid "cli.runtime.status.name"
+msgstr "ランタイム名。"
+
+msgid "cli.serve.about"
+msgstr "伝送の入り口（M6/M7）。"
+
+msgid "cli.serve.bind"
+msgstr "バインドアドレス（既定はループバックのみ、FR-606）。"
+
+msgid "cli.serve.ssh"
+msgstr "SSH の入り口（M7、延期）。"
+
+msgid "cli.serve.web"
+msgstr "Web の入り口（M6）。"
+
+msgid "cli.session.about"
+msgstr "セッションのライフサイクル（FR-101）。"
+
+msgid "cli.session.archive.about"
+msgstr "アーカイブまたは復元を行います（契約 §2-1 の破壊的系：既定は dry-run、`--yes` で実行）。"
+
+msgid "cli.session.archive.dry-run"
+msgstr "プレビューのみ（既定）。"
+
+msgid "cli.session.archive.session"
+msgstr "セッション ID。"
+
+msgid "cli.session.archive.unarchive"
+msgstr "アーカイブ済みのセッションを復元します。"
+
+msgid "cli.session.archive.yes"
+msgstr "実行を確定します（`--dry-run` とは同時に指定できません、§8.1）。"
+
+msgid "cli.session.delete.about"
+msgstr "セッションを削除します（破壊的。既定は dry-run、FR-509）。"
+
+msgid "cli.session.delete.dry-run"
+msgstr "プレビューのみ（既定）。"
+
+msgid "cli.session.delete.session"
+msgstr "セッション ID。"
+
+msgid "cli.session.delete.yes"
+msgstr "実行を確定します（`--dry-run` とは同時に指定できません、§8.1）。"
+
+msgid "cli.session.list.about"
+msgstr "セッションを一覧表示します。"
+
+msgid "cli.session.list.all"
+msgstr "アーカイブ済みのセッションも含めます。"
+
+msgid "cli.session.new.about"
+msgstr "セッションを作成します。"
+
+msgid "cli.session.new.model"
+msgstr "モデル（省略可）。"
+
+msgid "cli.session.new.title"
+msgstr "タイトル。"
+
+msgid "cli.session.rename.about"
+msgstr "セッションの名前を変更します。"
+
+msgid "cli.session.rename.session"
+msgstr "セッション ID。"
+
+msgid "cli.session.rename.title"
+msgstr "新しいタイトル。"
+
+msgid "cli.session.show.about"
+msgstr "セッションを 1 件表示します。"
+
+msgid "cli.session.show.session"
+msgstr "セッション ID。"
+
+msgid "cli.spec.about"
+msgstr "SDD のステージとゲート（FR-307—312）。"
+
+msgid "cli.spec.analyze.about"
+msgstr "Analyze チェック（FR-306）。"
+
+msgid "cli.spec.analyze.session"
+msgstr "セッション ID。"
+
+msgid "cli.spec.converge.about"
+msgstr "Converge チェック（FR-310/311）。"
+
+msgid "cli.spec.converge.session"
+msgstr "セッション ID。"
+
+msgid "cli.spec.force-advance.about"
+msgstr "ゲートを手動で通過します（FR-312。reason は必須、契約 §2-3）。"
+
+msgid "cli.spec.force-advance.reason"
+msgstr "ゲートを強制通過する理由（必須、FR-312）。"
+
+msgid "cli.spec.force-advance.session"
+msgstr "セッション ID。"
+
+msgid "cli.spec.force-advance.to"
+msgstr "移動先のステージ。"
+
+msgid "cli.spec.next.about"
+msgstr "次のステージ。"
+
+msgid "cli.spec.next.session"
+msgstr "セッション ID。"
+
+msgid "cli.spec.status.about"
+msgstr "現在のステージ状態（FR-314）。"
+
+msgid "cli.spec.status.session"
+msgstr "セッション ID。"
+
+msgid "cli.spec.validate.about"
+msgstr "成果物を検証します。"
+
+msgid "cli.spec.validate.session"
+msgstr "セッション ID。"
+
+msgid "cli.status.about"
+msgstr "状態のスナップショット（FR-314）。"
+
+msgid "cli.status.session"
+msgstr "セッション ID。"
+
+msgid "cli.task.abort.about"
+msgstr "タスクを中止します（FR-408）。"
+
+msgid "cli.task.abort.task"
+msgstr "タスク ID。"
+
+msgid "cli.task.about"
+msgstr "タスクの参照と操作（FR-401/408）。"
+
+msgid "cli.task.list.about"
+msgstr "タスクを一覧表示します。"
+
+msgid "cli.task.list.session"
+msgstr "セッション ID。"
+
+msgid "cli.task.retry.about"
+msgstr "タスクを再試行します（FR-401）。"
+
+msgid "cli.task.retry.task"
+msgstr "タスク ID。"
+
+msgid "cli.task.show.about"
+msgstr "タスクの詳細（FR-104 の 5 種類の情報）。"
+
+msgid "cli.task.show.task"
+msgstr "タスク ID。"
+
+msgid "cli.workspace"
+msgstr "ワークスペースのディレクトリ（設定済みのワークスペース、なければ cwd。`<workspace>/whcode.duckdb` の位置を決めます）。"
+
+msgid "cui.archive_dry_run"
+msgstr "dry-run：セッション {session} をアーカイブします。実行するには --yes を指定してください（--unarchive で元に戻せます）"
+
+msgid "cui.archived"
+msgstr "セッション {session} をアーカイブしました"
+
+msgid "cui.checkpoint_done"
+msgstr "checkpoint が完了しました：WAL {before} → {after}"
+
+msgid "cui.compact_done"
+msgstr "compact が完了しました（switched={switched}）"
+
+msgid "cui.compact_dry_run"
+msgstr "dry-run：ファイル {file} B、WAL {wal} B。compact を実行するには --yes を指定してください（サイズの縮小は保証しません）"
+
+msgid "cui.created"
+msgstr "セッション {session} を作成しました"
+
+msgid "cui.delete_dry_run"
+msgstr "dry-run：セッション {session} を削除します（イベント {events} 件、タスク {tasks} 件、保護対象のスキップ {skipped} 件）。実行するには --yes を指定してください"
+
+msgid "cui.deleted"
+msgstr "セッション {session} を削除しました"
+
+msgid "cui.empty"
+msgstr "（レコードなし）"
+
+msgid "cui.exported"
+msgstr "{path} にエクスポートしました（hash {hash}）"
+
+msgid "cui.font.deleted"
+msgstr "削除しました"
+
+msgid "cui.font.dry_run"
+msgstr "[dry-run]"
+
+msgid "cui.font.install.header"
+msgstr "{dry_run}組み込みフォントをインストール：{source} → {dir}"
+
+msgid "cui.font.install.line"
+msgstr "{family}：{source} を {target} にコピー、レジストリは{reg_state}"
+
+msgid "cui.font.installed"
+msgstr "インストール済み"
+
+msgid "cui.font.missing"
+msgstr "未インストール"
+
+msgid "cui.font.reg_pending"
+msgstr "登録待ち"
+
+msgid "cui.font.registered"
+msgstr "登録済み"
+
+msgid "cui.font.removed"
+msgstr "登録を解除しました"
+
+msgid "cui.font.status.header"
+msgstr "組み込みフォントの状態（ユーザーディレクトリ：{dir}）"
+
+msgid "cui.font.status.line"
+msgstr "{family}（{file}）：ファイルは{file_state}、レジストリは{reg_state}"
+
+msgid "cui.font.terminal.found"
+msgstr "ターミナル宣言：{file}（faces：{faces}、組み込みとの一致：{hits}）"
+
+msgid "cui.font.terminal.none"
+msgstr "ターミナル宣言：Windows Terminal の設定が見つかりません（エラーではありません）"
+
+msgid "cui.font.uninstall.header"
+msgstr "{dry_run}組み込みフォントをアンインストール"
+
+msgid "cui.font.uninstall.line"
+msgstr "{family}：レジストリは{unreg_state}、ファイルは{file_state}"
+
+msgid "cui.font.unregistered"
+msgstr "未登録"
+
+msgid "cui.indexes_ok"
+msgstr "インデックスは揃っています"
+
+msgid "cui.plan_rows"
+msgstr "クエリプラン {rows} 行（analyze=false、クエリは実行していません）"
+
+msgid "cui.purge_dry_run"
+msgstr "dry-run：セッション {sessions} 件、イベント {events} 件をパージします（保護対象のスキップ {skipped} 件）。実行するには --yes を指定してください"
+
+msgid "cui.purged"
+msgstr "イベント {events} 件をパージしました"
+
+msgid "cui.record.archived"
+msgstr "アーカイブ済み"
+
+msgid "cui.record.artifacts"
+msgstr "成果物"
+
+msgid "cui.record.budget"
+msgstr "予算"
+
+msgid "cui.record.checkpoints"
+msgstr "チェックポイント"
+
+msgid "cui.record.cursor"
+msgstr "カーソル"
+
+msgid "cui.record.failure"
+msgstr "失敗理由"
+
+msgid "cui.record.items"
+msgstr "項目"
+
+msgid "cui.record.model"
+msgstr "モデル"
+
+msgid "cui.record.no"
+msgstr "いいえ"
+
+msgid "cui.record.session"
+msgstr "セッション {session}"
+
+msgid "cui.record.task"
+msgstr "タスク {task}"
+
+msgid "cui.record.truncated"
+msgstr "打ち切り"
+
+msgid "cui.record.used"
+msgstr "使用済み"
+
+msgid "cui.record.yes"
+msgstr "はい"
+
+msgid "cui.renamed"
+msgstr "セッション {session} の名前を変更しました"
+
+msgid "cui.restore_done"
+msgstr "復元が完了しました：{source} から"
+
+msgid "cui.spec_status"
+msgstr "セッション {session}：ステージ {stage} · カーソル {cursor}"
+
+msgid "cui.status_line"
+msgstr "{session} {title} [{stage}] status={status} cursor={cursor}"
+
+msgid "cui.task_aborted"
+msgstr "{task} を中止しました → {status}"
+
+msgid "cui.task_retried"
+msgstr "{task} を再試行しました（retry={retry}）→ {status}"
+
+msgid "cui.tasks_summary"
+msgstr "セッション {session}：合計 {total} · 完了 {done} · ブロック {blocked} · アクティブ {active}"
+
+msgid "cui.unarchive_dry_run"
+msgstr "dry-run：セッション {session} のアーカイブを解除します。実行するには --yes を指定してください"
+
+msgid "cui.unarchived"
+msgstr "セッション {session} のアーカイブを解除しました"
+
+msgid "error.datasource"
+msgstr "データソースエラー：{error}"
+
+msgid "error.permission_denied"
+msgstr "権限がありません"
+
+msgid "gui.chat.cancel"
+msgstr "キャンセル"
+
+msgid "gui.chat.empty"
+msgstr "プロンプトが空です"
+
+msgid "gui.chat.error"
+msgstr "チャットに失敗しました"
+
+msgid "gui.chat.hint"
+msgstr "セッションを選んでプロンプトを入力してください。送信後は完了まで待機します（TUI と同じ同期動作）"
+
+msgid "gui.chat.history.hint"
+msgstr "ターンのイベントは保存済みです。全履歴は「イベント」ビューで確認できます"
+
+msgid "gui.chat.last"
+msgstr "前回の結果：{summary}"
+
+msgid "gui.chat.no_request"
+msgstr "キャンセルできるリクエスト ID がありません（先にターンを送信してください）"
+
+msgid "gui.chat.none"
+msgstr "セッションが未選択です。セッションビューで選択してください（j/k）"
+
+msgid "gui.chat.not_supported"
+msgstr "LLM 実行器が未接続です（not_supported）"
+
+msgid "gui.chat.progress"
+msgstr "生成中：{chunks} チャンク…"
+
+msgid "gui.chat.prompt.placeholder"
+msgstr "プロンプトを入力し、Enter で送信"
+
+msgid "gui.chat.provider"
+msgstr "LLM プロファイル：{provider}"
+
+msgid "gui.chat.provider.placeholder"
+msgstr "プロファイル名"
+
+msgid "gui.chat.send"
+msgstr "送信"
+
+msgid "gui.checkpoints.degraded"
+msgstr "ロールバックは未実装です（参照のみ）"
+
+msgid "gui.checkpoints.empty"
+msgstr "このタスクにチェックポイントはありません"
+
+msgid "gui.checkpoints.hint"
+msgstr "タスク行の「チェックポイント」を押してください"
+
+msgid "gui.checkpoints.open"
+msgstr "チェックポイント"
+
+msgid "gui.checkpoints.title"
+msgstr "チェックポイント"
+
+msgid "gui.kpi.count"
+msgstr "セッション {sessions} · 表示行 {rows}"
+
+msgid "gui.op.archive"
+msgstr "アーカイブ"
+
+msgid "gui.op.cancel"
+msgstr "キャンセル"
+
+msgid "gui.op.confirm"
+msgstr "確定"
+
+msgid "gui.op.delete"
+msgstr "削除"
+
+msgid "gui.op.error"
+msgstr "操作に失敗しました"
+
+msgid "gui.op.input.days"
+msgstr "パージ対象の日数"
+
+msgid "gui.op.input.title"
+msgstr "タイトル"
+
+msgid "gui.op.new"
+msgstr "新規"
+
+msgid "gui.op.not_supported"
+msgstr "コマンド実行器が未接続です（not_supported）"
+
+msgid "gui.op.preview"
+msgstr "プレビュー"
+
+msgid "gui.op.purge"
+msgstr "パージ（30 日より古いもの）"
+
+msgid "gui.op.rename"
+msgstr "名前変更"
+
+msgid "gui.op.restore"
+msgstr "復元"
+
+msgid "gui.session.archived"
+msgstr "アーカイブ"
+
+msgid "gui.session.group.active"
+msgstr "— アクティブ —"
+
+msgid "gui.session.group.archived"
+msgstr "— アーカイブ —"
+
+msgid "gui.session.none"
+msgstr "セッション未選択"
+
+msgid "gui.session.off"
+msgstr "非表示"
+
+msgid "gui.session.on"
+msgstr "表示"
+
+msgid "gui.session.search"
+msgstr "タイトルまたは ID で検索"
+
+msgid "gui.session.sort.created"
+msgstr "作成"
+
+msgid "gui.session.sort.recent"
+msgstr "最近"
+
+msgid "gui.session.sort.title"
+msgstr "タイトル"
+
+msgid "gui.status.theme"
+msgstr "テーマ：{theme}"
+
+msgid "gui.task.abort"
+msgstr "中止"
+
+msgid "gui.task.retries"
+msgstr "再試行 {count} 回"
+
+msgid "gui.task.retry"
+msgstr "再試行"
+
+msgid "menu.context"
+msgstr "コンテキスト"
+
+msgid "menu.diff"
+msgstr "差分"
+
+msgid "menu.events"
+msgstr "イベント"
+
+msgid "menu.sessions"
+msgstr "セッション"
+
+msgid "menu.spec"
+msgstr "仕様"
+
+msgid "menu.tasks"
+msgstr "タスク"
+
+msgid "settings.action.done"
+msgstr "完了：{label}"
+
+msgid "settings.action.failed"
+msgstr "操作に失敗しました（{label}）：{code} {message}"
+
+msgid "settings.action.running"
+msgstr "実行中：{label}"
+
+msgid "settings.back"
+msgstr "ホームに戻る"
+
+msgid "settings.confirm.builtin_empty"
+msgstr "同梱ルート証明書コピーを空にします（送信側の信頼基準から同梱分が外れます）。続行しますか？"
+
+msgid "settings.confirm.external_key"
+msgstr "外部のサーバー証明書と秘密鍵を保存し、受信側モードを external に切り替えます。続行しますか？"
+
+msgid "settings.confirm.inbound_off"
+msgstr "受信側 TLS を無効にして平文 HTTP に戻します。serve --web の再起動後に反映されます。続行しますか？"
+
+msgid "settings.confirm.regenerate"
+msgstr "自己署名のサーバー証明書を再生成します（現在のフィンガープリントは無効になります）。続行しますか？"
+
+msgid "settings.confirm.reset_builtin"
+msgstr "同梱ルート証明書コピーを出荷時の内容に戻します。続行しますか？"
+
+msgid "settings.confirm.reset_extra"
+msgstr "追加ルート証明書を削除します。続行しますか？"
+
+msgid "settings.error.bad_port"
+msgstr "ポートは 1..=65535 の整数で指定してください"
+
+msgid "settings.error.generic"
+msgstr "操作に失敗しました"
+
+msgid "settings.error.load"
+msgstr "証明書の状態を読み取れません：{code} {message}"
+
+msgid "settings.error.missing_host"
+msgstr "先にホスト名または IP アドレスを入力してください"
+
+msgid "settings.error.missing_pem"
+msgstr "先に証明書チェーンと秘密鍵（PEM）を入力してください"
+
+msgid "settings.field.count"
+msgstr "件数：{value}"
+
+msgid "settings.field.modified"
+msgstr "更新日時：{value}"
+
+msgid "settings.field.newer"
+msgstr "同梱版の方が新しい：{value}"
+
+msgid "settings.field.path"
+msgstr "パス：{value}"
+
+msgid "settings.field.sha256"
+msgstr "SHA-256：{value}"
+
+msgid "settings.inbound.builtin"
+msgstr "組み込みの自己署名証明書（builtin）"
+
+msgid "settings.inbound.builtin_hint"
+msgstr "ワークスペースごとに ECDSA P-256 の自己署名証明書を生成します（397 日）。SAN には localhost、127.0.0.1、::1 とホスト名が含まれます。"
+
+msgid "settings.inbound.cert_pem_label"
+msgstr "証明書チェーンをアップロード（PEM）"
+
+msgid "settings.inbound.days_remaining"
+msgstr "残り日数：{value}"
+
+msgid "settings.inbound.download"
+msgstr "公開証明書をダウンロード（PEM）"
+
+msgid "settings.inbound.external"
+msgstr "外部証明書（external）"
+
+msgid "settings.inbound.external_hint"
+msgstr "アップロードした PEM 証明書チェーンと暗号化なしの秘密鍵を使用します。秘密鍵は書き込み専用です。"
+
+msgid "settings.inbound.key_pem_label"
+msgstr "秘密鍵をアップロード（暗号化なし PEM、送信後に消去）"
+
+msgid "settings.inbound.key_saved"
+msgstr "秘密鍵を保存しました。画面には表示されません（入力欄はクリア済みです）。"
+
+msgid "settings.inbound.legend"
+msgstr "モード"
+
+msgid "settings.inbound.material"
+msgstr "証明書あり：{cert} · 秘密鍵あり：{key}"
+
+msgid "settings.inbound.no_material"
+msgstr "サーバー証明書がまだありません（チェーンをアップロードするか、自己署名証明書を再生成してください）"
+
+msgid "settings.inbound.not_after"
+msgstr "有効期限：{value}"
+
+msgid "settings.inbound.off"
+msgstr "TLS オフ（off）"
+
+msgid "settings.inbound.off_hint"
+msgstr "平文 HTTP に戻ります（ADR-023）。明示的な確認が必要で、暗黙に戻されることはありません。"
+
+msgid "settings.inbound.regenerate"
+msgstr "自己署名証明書を再生成"
+
+msgid "settings.inbound.sans"
+msgstr "SAN：{value}"
+
+msgid "settings.inbound.sha256"
+msgstr "フィンガープリント SHA-256：{value}"
+
+msgid "settings.inbound.subject"
+msgstr "サブジェクト：{value}"
+
+msgid "settings.inbound.title"
+msgstr "受信側 TLS（serve --web）"
+
+msgid "settings.inbound.upload"
+msgstr "アップロードして external に切り替え"
+
+msgid "settings.link"
+msgstr "証明書設定"
+
+msgid "settings.local_mode"
+msgstr "ローカル設定ページ"
+
+msgid "settings.modes.save"
+msgstr "モードを保存"
+
+msgid "settings.notes.none"
+msgstr "補足はありません"
+
+msgid "settings.notes.title"
+msgstr "補足"
+
+msgid "settings.outbound.builtin"
+msgstr "同梱コピー（builtin）"
+
+msgid "settings.outbound.builtin_hint"
+msgstr "ワークスペースの同梱ルート証明書コピーを基準とし、追加したルートも加えて使用します。"
+
+msgid "settings.outbound.builtin_pem_label"
+msgstr "同梱ルート証明書コピー（PEM、編集可能）"
+
+msgid "settings.outbound.effective_line"
+msgstr "有効なルート証明書：{value}"
+
+msgid "settings.outbound.empty_extra"
+msgstr "追加ルートは未設定です（正しい空状態：ファイルに証明書がありません）"
+
+msgid "settings.outbound.extra_pem_label"
+msgstr "追加ルート証明書（PEM、どちらのモードでも有効）"
+
+msgid "settings.outbound.hint"
+msgstr "どのモードでも証明書チェーンとホスト名の検証は無効にできません。検証をスキップする設定はありません。"
+
+msgid "settings.outbound.legend"
+msgstr "トラストストアのモード"
+
+msgid "settings.outbound.missing_builtin"
+msgstr "同梱コピーが見つかりません：状態にファイルが報告されていません"
+
+msgid "settings.outbound.reset_builtin"
+msgstr "同梱コピーを元に戻す"
+
+msgid "settings.outbound.reset_extra"
+msgstr "追加ルートを削除"
+
+msgid "settings.outbound.save_builtin"
+msgstr "同梱コピーを保存"
+
+msgid "settings.outbound.save_extra"
+msgstr "追加ルートを保存"
+
+msgid "settings.outbound.system"
+msgstr "OS の証明書ストア（system）"
+
+msgid "settings.outbound.system_hint"
+msgstr "OS のルート証明書ストアを基準とし、追加したルートも同様に加えて使用します。システムストアが空のときはエラーとなり、同梱コピーへは切り替わりません。"
+
+msgid "settings.outbound.system_na"
+msgstr "対象外（現在のモードではシステムストアを読みません）"
+
+msgid "settings.outbound.system_roots_line"
+msgstr "システムのルート証明書：{value}"
+
+msgid "settings.outbound.title"
+msgstr "送信側 HTTPS の信頼設定"
+
+msgid "settings.restart_banner"
+msgstr "受信側の証明書またはモードを変更しました。反映するには serve --web を再起動してください。"
+
+msgid "settings.status.no"
+msgstr "いいえ"
+
+msgid "settings.status.unknown"
+msgstr "不明"
+
+msgid "settings.status.yes"
+msgstr "はい"
+
+msgid "settings.title"
+msgstr "証明書設定"
+
+msgid "settings.verify.button"
+msgstr "確認"
+
+msgid "settings.verify.failed"
+msgstr "確認に失敗しました：{error}"
+
+msgid "settings.verify.host"
+msgstr "ホスト"
+
+msgid "settings.verify.ok"
+msgstr "確認に成功しました：サブジェクト {subject} · 有効期限 {not_after} · フィンガープリント {sha256} · {tls_version}"
+
+msgid "settings.verify.port"
+msgstr "ポート"
+
+msgid "settings.verify.title"
+msgstr "送信側の接続確認"
+
+msgid "status.idle"
+msgstr "待機中"
+
+msgid "status.running"
+msgstr "実行中"
+
+msgid "summary.context"
+msgstr "セッション {session} · 予算 {budget} · 使用済み {used} · 項目 {items}{truncated}"
+
+msgid "summary.context_truncated"
+msgstr "· 打ち切り理由 {reason}"
+
+msgid "summary.diff"
+msgstr "セッション {session} · タスク {total} · 合格 {pass} / 不合格 {fail} / 未検証 {untested}{truncated}"
+
+msgid "summary.diff.truncated"
+msgstr "· 差分が多いため打ち切りました"
+
+msgid "summary.events"
+msgstr "セッション {session} · カーソル {from}..{to}（末尾 {limit} 件まで）"
+
+msgid "summary.none"
+msgstr "なし"
+
+msgid "summary.spec"
+msgstr "セッション {session} · ステージ {stage} · カーソル {cursor} · アクティブタスク {task}"
+
+msgid "summary.tasks"
+msgstr "セッション {session} · 合計 {total} · 完了 {done} · ブロック {blocked}"
+
+msgid "tui.col.id"
+msgstr "ID"
+
+msgid "tui.col.kind"
+msgstr "種別"
+
+msgid "tui.col.retry"
+msgstr "再試行"
+
+msgid "tui.col.seq"
+msgstr "連番"
+
+msgid "tui.col.stage"
+msgstr "ステージ"
+
+msgid "tui.col.status"
+msgstr "ステータス"
+
+msgid "tui.col.summary"
+msgstr "概要"
+
+msgid "tui.col.title"
+msgstr "タイトル"
+
+msgid "tui.diff_unwired"
+msgstr "（diff の取得元が未接続：converge の差分は接続待ちのため、推測の表示は行いません）"
+
+msgid "tui.empty"
+msgstr "（データなし）"
+
+msgid "tui.footer"
+msgstr "1-7 ビュー  j/k 移動  r 更新  t テーマ  q 終了  |  {cols}x{rows}"
+
+msgid "tui.header.none"
+msgstr "セッション未選択"
+
+msgid "tui.no_session"
+msgstr "（セッション未選択 — j/k で選択）"
+
+msgid "tui.runtimes"
+msgstr "ランタイム：{list}"
+
+msgid "tui.title"
+msgstr "{app}  |  {view} ({index}/{count})"
+
+msgid "view.chat"
+msgstr "チャット"
+
+msgid "view.context"
+msgstr "コンテキスト"
+
+msgid "view.diff"
+msgstr "差分プレビュー"
+
+msgid "view.events"
+msgstr "イベント"
+
+msgid "view.sessions"
+msgstr "セッション"
+
+msgid "view.spec"
+msgstr "Spec ステータス"
+
+msgid "view.tasks"
+msgstr "タスク"
+
+msgid "web.action.failed"
+msgstr "操作に失敗しました（{label}）：{error}"
+
+msgid "web.checkpoints.degraded"
+msgstr "ロールバックは未実装です（明示的な制限）：参照と差分の要約のみ利用できます"
+
+msgid "web.checkpoints.empty"
+msgstr "このタスクにチェックポイントはありません"
+
+msgid "web.checkpoints.failed"
+msgstr "チェックポイントの読み込みに失敗しました：{error}"
+
+msgid "web.checkpoints.hint"
+msgstr "タスクを選ぶと、チェックポイントと差分の要約を表示します"
+
+msgid "web.checkpoints.ready"
+msgstr "ロールバック可能"
+
+msgid "web.checkpoints.refs"
+msgstr "成果物参照 {count} 件"
+
+msgid "web.checkpoints.title"
+msgstr "チェックポイント"
+
+msgid "web.checkpoints.truncated"
+msgstr "チェックポイントが上限を超えたため、一覧を打ち切りました"
+
+msgid "web.cleanup.bad_days"
+msgstr "保持日数は 1 以上にしてください"
+
+msgid "web.cleanup.confirm"
+msgstr "パージを確定"
+
+msgid "web.cleanup.days"
+msgstr "保持日数"
+
+msgid "web.cleanup.done"
+msgstr "セッションを {sessions} 件パージしました"
+
+msgid "web.cleanup.preview"
+msgstr "プレビュー"
+
+msgid "web.cleanup.preview_required"
+msgstr "パージを確定する前にプレビューしてください"
+
+msgid "web.cleanup.preview_result"
+msgstr "セッションを {sessions} 件パージします"
+
+msgid "web.conn.connected"
+msgstr "接続済み"
+
+msgid "web.conn.disconnected"
+msgstr "未接続"
+
+msgid "web.context.empty"
+msgstr "（正しい空状態：予算に収まる項目がありません）"
+
+msgid "web.context.no_session"
+msgstr "セッションが選択されていません"
+
+msgid "web.context.summary"
+msgstr "予算 {consumed}/{budget} · ソース {sources} · 打ち切り {truncated}"
+
+msgid "web.cursor"
+msgstr "カーソル {n}"
+
+msgid "web.diff.empty"
+msgstr "（差分なし：すべての受け入れ条件を満たしています）"
+
+msgid "web.diff.no_session"
+msgstr "セッションが選択されていません"
+
+msgid "web.diff.summary"
+msgstr "タスク {total} · 合格 {pass} / 不合格 {fail} / 未検証 {untested}{truncated}"
+
+msgid "web.diff.truncated"
+msgstr "（打ち切り）"
+
+msgid "web.export.done"
+msgstr "エクスポートが完了しました"
+
+msgid "web.export.json"
+msgstr "JSON をエクスポート"
+
+msgid "web.export.jsonl"
+msgstr "JSONL をエクスポート"
+
+msgid "web.recovering"
+msgstr "復旧中…"
+
+msgid "web.runtimes"
+msgstr "ランタイム"
+
+msgid "web.runtimes.available"
+msgstr "利用可能"
+
+msgid "web.runtimes.unavailable"
+msgstr "利用不可"
+
+msgid "web.runtimes.unknown"
+msgstr "未確認"
+
+msgid "web.runtimes.unwired"
+msgstr "ランタイム一覧は未接続です"
+
+msgid "web.session.archive_confirm"
+msgstr "アーカイブを確定"
+
+msgid "web.session.archive_preview"
+msgstr "アーカイブのプレビュー"
+
+msgid "web.session.archive_preview_required"
+msgstr "アーカイブを確定する前にプレビューしてください"
+
+msgid "web.session.archive_preview_result"
+msgstr "セッション {session} をアーカイブします。確定すると実行されます"
+
+msgid "web.session.archived"
+msgstr "セッション {session} をアーカイブしました"
+
+msgid "web.session.create"
+msgstr "作成"
+
+msgid "web.session.delete_confirm"
+msgstr "削除を確定"
+
+msgid "web.session.delete_preview"
+msgstr "削除のプレビュー"
+
+msgid "web.session.delete_preview_result"
+msgstr "削除対象：イベント {events} 件 · タスク {tasks} 件"
+
+msgid "web.session.deleted"
+msgstr "セッションを {n} 件削除しました"
+
+msgid "web.session.group_active"
+msgstr "アクティブ"
+
+msgid "web.session.group_archived"
+msgstr "アーカイブ"
+
+msgid "web.session.none"
+msgstr "セッションが選択されていません"
+
+msgid "web.session.preview_required"
+msgstr "削除を確定する前にプレビューしてください"
+
+msgid "web.session.rename"
+msgstr "名前変更"
+
+msgid "web.session.rename_placeholder"
+msgstr "新しいタイトル"
+
+msgid "web.session.search"
+msgstr "タイトルまたは ID で検索"
+
+msgid "web.session.show_archived"
+msgstr "アーカイブを含める"
+
+msgid "web.session.sort"
+msgstr "並び順"
+
+msgid "web.session.sort.created"
+msgstr "作成日時"
+
+msgid "web.session.sort.last_active"
+msgstr "最近の操作順"
+
+msgid "web.session.sort.title"
+msgstr "タイトル"
+
+msgid "web.session.title"
+msgstr "セッションのタイトル"
+
+msgid "web.session.title_required"
+msgstr "先にセッションのタイトルを入力してください"
+
+msgid "web.tab.context"
+msgstr "コンテキスト"
+
+msgid "web.tab.diff"
+msgstr "差分"
+
+msgid "web.tab.history"
+msgstr "履歴"
+
+msgid "web.tab.maintenance"
+msgstr "メンテナンス"
+
+msgid "web.tab.sessions"
+msgstr "セッション"
+
+msgid "web.tab.spec"
+msgstr "SDD"
+
+msgid "web.tab.tasks"
+msgstr "タスク"
+
+msgid "web.task.abort"
+msgstr "中止"
+
+msgid "web.task.depends"
+msgstr "依存先 {depends}"
+
+msgid "web.task.progress"
+msgstr "完了 {done}/{total} · ブロック {blocked}"
+
+msgid "web.task.retries"
+msgstr "再試行 {count} 回"
+
+msgid "web.task.retry"
+msgstr "再試行"
+
+msgid "web.task.truncated"
+msgstr "タスクカードが上限を超えたため打ち切りました（件数の集計は全体を反映しています）"
+
+msgid "web.tasks_summary"
+msgstr "合計 {total} · 完了 {done} · ブロック {blocked}"
+
+msgid "web.theme.default"
+msgstr "既定"
+
+msgid "web.theme.label"
+msgstr "テーマ"
+

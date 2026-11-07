@@ -91,5 +91,5 @@ ADR-027 落地时因系统字体不可再分发，字体走“按族名使用系
 `HKCU\Software\Microsoft\Windows NT\CurrentVersion\Fonts`（`reg.exe` 子进程实现，零
 unsafe、零新依赖，同 ADR-021 的子进程先例）；`status` 只读解析 Windows Terminal
 （Store／Preview／解包安装）settings.json 的 `font.face`，找不到配置不视为错误；
-不做 `WM_FONTCHANGE` 广播，输出注明"终端可能需重启后才能看到新字体"。
+不做 `WM_FONTCHANGE` 广播，输出注明“终端可能需重启后才能看到新字体”。
 复审触发：若用户反馈发布包内安装字体路径不可用，重议随包分发完整字体（+40.8 MiB）。

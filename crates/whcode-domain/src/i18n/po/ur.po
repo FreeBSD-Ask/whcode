@@ -1,0 +1,1246 @@
+# ur translation catalog for WHCode (FR-615).
+# Generated from i18n/ur.properties by .github/scripts/i18n-po.py; do not edit by hand.
+# Edit the properties file instead, then regenerate — a contract test fails on drift.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: whcode 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/FreeBSD-Ask/whcode/issues\n"
+"Language: ur\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "app.title"
+msgstr "WHCode — لوکل کوڈنگ ہارنیس"
+
+msgid "cli.about"
+msgstr "WHCode — لوکل کوڈنگ ہارنیس"
+
+msgid "cli.context.about"
+msgstr "سیاق و سباق کے بجٹ کا ویو (FR-105/108؛ contracts/cui-cli.md §1)۔"
+
+msgid "cli.context.budget.about"
+msgstr "بجٹ ویو: موجودہ بجٹ، لوڈ شدہ ماخذ، کاٹنے کی وجہ اور کرسر (`whcode_app::load_context` کے ذریعے)۔"
+
+msgid "cli.context.budget.budget"
+msgstr "ٹوکنز میں بجٹ؛ ڈیفالٹ نمائشی بنیاد (4096، TUI کے سیاق و سباق ویو کی طرح)۔"
+
+msgid "cli.context.budget.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.db.about"
+msgstr "ڈیٹا بیس کی دیکھ بھال اور صفائی (FR-507—510)۔"
+
+msgid "cli.db.archive.about"
+msgstr "ورک اسپیس ایکسپورٹ کریں۔"
+
+msgid "cli.db.archive.export"
+msgstr "آؤٹ پٹ راستہ۔"
+
+msgid "cli.db.check.about"
+msgstr "لازمی انڈیکسز کی جانچ۔"
+
+msgid "cli.db.checkpoint.about"
+msgstr "واضح چیک پوائنٹ (FR-510؛ اختیاری طور پر WAL پالیسی کی اوور رائیڈز بھی لاگو کرتا ہے، disaster-recovery §5)۔"
+
+msgid "cli.db.checkpoint.autocheckpoint"
+msgstr "wal_autocheckpoint اوور رائیڈ کریں (مثلاً 1MB؛ نہ دیں تو کوئی تبدیلی نہیں)۔"
+
+msgid "cli.db.checkpoint.threshold"
+msgstr "WAL آٹو چیک پوائنٹ کی حد اوور رائیڈ کریں (مثلاً 16MB؛ نہ دیں تو کوئی تبدیلی نہیں)۔"
+
+msgid "cli.db.compact.about"
+msgstr "ڈسک پر ڈیٹا بیس کمپیکٹ کریں (کاپی—توثیق—تبدیل، FR-510؛ بطور ڈیفالٹ ڈرائی رن)۔"
+
+msgid "cli.db.compact.dry-run"
+msgstr "صرف پیش منظر (ڈیفالٹ)۔"
+
+msgid "cli.db.compact.yes"
+msgstr "عمل کی تصدیق۔"
+
+msgid "cli.db.explain.about"
+msgstr "کوئری پلان کا تجزیہ (صرف پڑھنے والی کوئریاں، کنٹریکٹ §2-2)۔"
+
+msgid "cli.db.explain.query"
+msgstr "صرف پڑھنے والی SQL (SELECT/WITH سے شروع)۔"
+
+msgid "cli.db.purge.about"
+msgstr "عمر کے حساب سے صفائی (FR-508/509؛ بطور ڈیفالٹ ڈرائی رن)۔"
+
+msgid "cli.db.purge.before"
+msgstr "آخری حد کا وقت (Unix ملی سیکنڈز)۔"
+
+msgid "cli.db.purge.dry-run"
+msgstr "صرف پیش منظر (ڈیفالٹ)۔"
+
+msgid "cli.db.purge.yes"
+msgstr "عمل کی تصدیق۔"
+
+msgid "cli.db.restore.about"
+msgstr "ایکسپورٹ کو خالی ورک اسپیس میں بحال کریں (`db archive` کا بالعکس؛ واضح تصدیق، کوئی پیش منظر نہیں)۔"
+
+msgid "cli.db.restore.from"
+msgstr "ایکسپورٹ فائل کا راستہ (whcode-export فارمیٹ)۔"
+
+msgid "cli.db.restore.yes"
+msgstr "عمل کی تصدیق (بحالی لکھتی ہے؛ ہدف ڈیٹا بیس خالی ہونا چاہیے)۔"
+
+msgid "cli.db.stats.about"
+msgstr "ڈیٹا بیس کے اعداد و شمار (FR-507)۔"
+
+msgid "cli.doctor.about"
+msgstr "ماحول اور کنفیگریشن کی خود جانچ (M0)۔"
+
+msgid "cli.doctor.json"
+msgstr "JSON آؤٹ پٹ۔"
+
+msgid "cli.events.about"
+msgstr "ایونٹس کی کوئریاں اور ایکسپورٹ (FR-202/205)۔"
+
+msgid "cli.events.export.about"
+msgstr "ایکسپورٹ (ریڈیکشن یعنی حساس مواد چھپانے کی پالیسی ایکسپورٹ میں درج ہوتی ہے، FR-205)۔"
+
+msgid "cli.events.export.after"
+msgstr "آغاز کا کرسر۔"
+
+msgid "cli.events.export.format"
+msgstr "آؤٹ پٹ فارمیٹ (json/jsonl)۔"
+
+msgid "cli.events.export.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.events.list.about"
+msgstr "ایونٹس کی فہرست (کرسر کے حساب سے بتدریج)۔"
+
+msgid "cli.events.list.after"
+msgstr "آغاز کا کرسر (بشمول نہیں)۔"
+
+msgid "cli.events.list.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.events.show.about"
+msgstr "ایک ایونٹ کی تفصیلات۔"
+
+msgid "cli.events.show.event"
+msgstr "ایونٹ ID۔"
+
+msgid "cli.font.about"
+msgstr "بلٹ اِن فونٹس کی تنصیب اور ٹرمینل اعلان کی جانچ (FR-717؛ مقامی وسائل کی کمانڈ، نہ ڈیٹا بیس نہ ورک اسپیس)۔"
+
+msgid "cli.font.install.about"
+msgstr "چاروں بلٹ اِن فونٹس صارف کی فونٹ ڈائریکٹری میں نصب کریں اور HKCU رجسٹریشن لکھیں (کاپی اوور سیمنٹکس، دوبارہ چلانا محفوظ ہے)۔"
+
+msgid "cli.font.install.dry-run"
+msgstr "صرف وہ کارروائیاں بتائیں جو ہوں گی؛ سسٹم میں کوئی تبدیلی نہیں۔"
+
+msgid "cli.font.install.from"
+msgstr "فونٹس کی ماخذ ڈائریکٹری (سادہ ترتیب یا ریپو کی `source/<family>/` ترتیب)؛ ڈیفالٹ: پہلے ایگزیکیوٹیبل کے پاس، پھر موجودہ ڈائریکٹری میں `assets/fonts/source` (ADR-028 نظرثانی 1)۔"
+
+msgid "cli.font.status.about"
+msgstr "فونٹس کی تنصیب کی حالت اور ٹرمینل اعلان کی رپورٹ (صرف پڑھنے کے لیے)۔"
+
+msgid "cli.font.uninstall.about"
+msgstr "بلٹ اِن فونٹس ہٹائیں: رجسٹریشن ختم کریں اور صارف کی فونٹ ڈائریکٹری سے فائلیں حذف کریں (بہترین کوشش، شے بہ شے رپورٹ)۔"
+
+msgid "cli.font.uninstall.dry-run"
+msgstr "صرف وہ کارروائیاں بتائیں جو ہوں گی؛ سسٹم میں کوئی تبدیلی نہیں۔"
+
+msgid "cli.hint.no_console"
+msgstr "whcode {version} — کوئی انٹرایکٹو کنسول دستیاب نہیں، کوئی انٹرفیس شروع نہیں ہوا"
+
+msgid "cli.hint.options"
+msgstr "دستیاب: --tui (ٹرمینل UI)، --cli <subcommand>، --lang <locale>، --help"
+
+msgid "cli.json"
+msgstr "JSON آؤٹ پٹ (schema_version لفافہ، FR-602)؛ کسی بھی ذیلی کمانڈ سے پہلے یا بعد دیا جا سکتا ہے۔"
+
+msgid "cli.lang"
+msgstr "انٹرفیس متن کی زبان (مثلاً zh-CN، en؛ LANG/LC_ALL کو اوور رائیڈ کرتی ہے، FR-615)۔"
+
+msgid "cli.llm.about"
+msgstr "ماڈل کی کال (FR-201؛ `llm run` اور `llm cancel`، contracts/cui-cli.md §1)۔"
+
+msgid "cli.llm.cancel.about"
+msgstr "اسی مشین پر چل رہی کال منسوخ کریں (اگلے حصے سے پہلے اثر کرتی ہے)۔"
+
+msgid "cli.llm.cancel.request"
+msgstr "ریکویسٹ ID (`llm run` دکھاتا ہے یا `--request-id` سے پہلے مقرر کریں)۔"
+
+msgid "cli.llm.run.about"
+msgstr "ایک حقیقی کال کریں (ہم وقت؛ اسٹریمنگ کے اضافے آخر میں محدود ترتیب میں جاری ہوتے ہیں)۔"
+
+msgid "cli.llm.run.max-tokens"
+msgstr "پروفائل کے `max_tokens` کو اوور رائیڈ کریں۔"
+
+msgid "cli.llm.run.model"
+msgstr "پروفائل کے ماڈل شناخت کنندہ کو اوور رائیڈ کریں۔"
+
+msgid "cli.llm.run.prompt"
+msgstr "پرامپٹ کا متن (ایونٹس یا لاگز میں کبھی نہیں لکھا جاتا)۔"
+
+msgid "cli.llm.run.provider"
+msgstr "پروفائل کا نام (واضح انتخاب، ADR-031 فیصلہ 4)۔"
+
+msgid "cli.llm.run.request-id"
+msgstr "پہلے سے مقرر ریکویسٹ ID (`llm cancel` کی کلید؛ ورنہ کال سے خود بنتا ہے)۔"
+
+msgid "cli.llm.run.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.llm.run.trace-level"
+msgstr "ٹریس کی سطح (off/metadata/redacted/full)۔"
+
+msgid "cli.runtime.about"
+msgstr "رن ٹائمز کا انتظام (FR-701—710؛ M8)۔"
+
+msgid "cli.runtime.disable.about"
+msgstr "رن ٹائم غیر فعال کریں۔"
+
+msgid "cli.runtime.disable.name"
+msgstr "رن ٹائم کا نام۔"
+
+msgid "cli.runtime.enable.about"
+msgstr "رن ٹائم فعال کریں۔"
+
+msgid "cli.runtime.enable.name"
+msgstr "رن ٹائم کا نام۔"
+
+msgid "cli.runtime.install.about"
+msgstr "پے لوڈ کی تنصیب۔"
+
+msgid "cli.runtime.install.name"
+msgstr "رن ٹائم کا نام۔"
+
+msgid "cli.runtime.list.about"
+msgstr "رن ٹائمز کی فہرست۔"
+
+msgid "cli.runtime.status.about"
+msgstr "رن ٹائم کی حالت۔"
+
+msgid "cli.runtime.status.name"
+msgstr "رن ٹائم کا نام۔"
+
+msgid "cli.serve.about"
+msgstr "ٹرانسپورٹ کے داخلی راستے (M6/M7)۔"
+
+msgid "cli.serve.bind"
+msgstr "بائنڈ ایڈریس (بطور ڈیفالٹ صرف لوپ بیک، FR-606)۔"
+
+msgid "cli.serve.ssh"
+msgstr "SSH کا داخلی راستہ (M7، التوا میں)۔"
+
+msgid "cli.serve.web"
+msgstr "Web کا داخلی راستہ (M6)۔"
+
+msgid "cli.session.about"
+msgstr "سیشن کا لائف سائیکل (FR-101)۔"
+
+msgid "cli.session.archive.about"
+msgstr "آرکائیو یا بحالی (کنٹریکٹ §2-1 کے مطابق تخریبی خاندان: بطور ڈیفالٹ ڈرائی رن، `--yes` عمل میں لاتا ہے)۔"
+
+msgid "cli.session.archive.dry-run"
+msgstr "صرف پیش منظر (ڈیفالٹ)۔"
+
+msgid "cli.session.archive.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.session.archive.unarchive"
+msgstr "آرکائیو شدہ سیشن بحال کریں۔"
+
+msgid "cli.session.archive.yes"
+msgstr "عمل کی تصدیق (--dry-run سے متصادم، §8.1)۔"
+
+msgid "cli.session.delete.about"
+msgstr "سیشن حذف کریں (تخریبی؛ بطور ڈیفالٹ ڈرائی رن، FR-509)۔"
+
+msgid "cli.session.delete.dry-run"
+msgstr "صرف پیش منظر (ڈیفالٹ)۔"
+
+msgid "cli.session.delete.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.session.delete.yes"
+msgstr "عمل کی تصدیق (--dry-run سے متصادم، §8.1)۔"
+
+msgid "cli.session.list.about"
+msgstr "سیشنز کی فہرست دکھائیں۔"
+
+msgid "cli.session.list.all"
+msgstr "آرکائیو شدہ سیشنز بھی شامل کریں۔"
+
+msgid "cli.session.new.about"
+msgstr "ایک سیشن بنائیں۔"
+
+msgid "cli.session.new.model"
+msgstr "ماڈل (اختیاری)۔"
+
+msgid "cli.session.new.title"
+msgstr "عنوان۔"
+
+msgid "cli.session.rename.about"
+msgstr "سیشن کا نام بدلیں۔"
+
+msgid "cli.session.rename.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.session.rename.title"
+msgstr "نیا عنوان۔"
+
+msgid "cli.session.show.about"
+msgstr "ایک سیشن دکھائیں۔"
+
+msgid "cli.session.show.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.spec.about"
+msgstr "SDD کے مراحل اور گیٹس (FR-307—312)۔"
+
+msgid "cli.spec.analyze.about"
+msgstr "Analyze کی جانچ (FR-306)۔"
+
+msgid "cli.spec.analyze.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.spec.converge.about"
+msgstr "Converge کی جانچ (FR-310/311)۔"
+
+msgid "cli.spec.converge.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.spec.force-advance.about"
+msgstr "گیٹ کو دستی طور پر آگے بڑھائیں (FR-312؛ وجہ لازمی، کنٹریکٹ §2-3)۔"
+
+msgid "cli.spec.force-advance.reason"
+msgstr "گیٹ زبردستی کھولنے کی دلیل (لازمی، FR-312)۔"
+
+msgid "cli.spec.force-advance.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.spec.force-advance.to"
+msgstr "ہدف مرحلہ۔"
+
+msgid "cli.spec.next.about"
+msgstr "اگلا مرحلہ۔"
+
+msgid "cli.spec.next.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.spec.status.about"
+msgstr "موجودہ مرحلے کی حالت (FR-314)۔"
+
+msgid "cli.spec.status.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.spec.validate.about"
+msgstr "آرٹیفیکٹس کی توثیق۔"
+
+msgid "cli.spec.validate.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.status.about"
+msgstr "حالت کا سنیپ شاٹ (FR-314)۔"
+
+msgid "cli.status.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.task.abort.about"
+msgstr "ٹاسک روکیں (FR-408)۔"
+
+msgid "cli.task.abort.task"
+msgstr "ٹاسک ID۔"
+
+msgid "cli.task.about"
+msgstr "ٹاسکس کی جانچ اور کنٹرول (FR-401/408)۔"
+
+msgid "cli.task.list.about"
+msgstr "ٹاسکس کی فہرست۔"
+
+msgid "cli.task.list.session"
+msgstr "سیشن ID۔"
+
+msgid "cli.task.retry.about"
+msgstr "ٹاسک کی دوبارہ کوشش (FR-401)۔"
+
+msgid "cli.task.retry.task"
+msgstr "ٹاسک ID۔"
+
+msgid "cli.task.show.about"
+msgstr "ٹاسک کی تفصیلات (FR-104 کی پانچ معلوماتی اقسام)۔"
+
+msgid "cli.task.show.task"
+msgstr "ٹاسک ID۔"
+
+msgid "cli.workspace"
+msgstr "ورک اسپیس ڈائریکٹری (مقررہ ورک اسپیس، ورنہ cwd؛ `<workspace>/whcode.duckdb` کی جگہ متعین کرتی ہے)۔"
+
+msgid "cui.archive_dry_run"
+msgstr "ڈرائی رن: سیشن {session} آرکائیو ہوگا — عمل کے لیے --yes شامل کریں (واپس کرنے کے لیے --unarchive)"
+
+msgid "cui.archived"
+msgstr "سیشن {session} آرکائیو ہو گیا"
+
+msgid "cui.checkpoint_done"
+msgstr "checkpoint مکمل: WAL {before} → {after}"
+
+msgid "cui.compact_done"
+msgstr "compact مکمل ہوا (switched={switched})"
+
+msgid "cui.compact_dry_run"
+msgstr "ڈرائی رن: فائل {file} B، WAL {wal} B — compact کے لیے --yes شامل کریں (حجم گھٹنے کی کوئی ضمانت نہیں)"
+
+msgid "cui.created"
+msgstr "سیشن {session} بنا دیا گیا"
+
+msgid "cui.delete_dry_run"
+msgstr "ڈرائی رن: سیشن {session} حذف ہوگا ({events} ایونٹس، {tasks} ٹاسکس؛ {skipped} محفوظ نظرانداز) — عمل کے لیے --yes شامل کریں"
+
+msgid "cui.deleted"
+msgstr "سیشن {session} حذف ہو گیا"
+
+msgid "cui.empty"
+msgstr "(کوئی ریکارڈ نہیں)"
+
+msgid "cui.exported"
+msgstr "{path} پر ایکسپورٹ ہو گیا (hash {hash})"
+
+msgid "cui.font.deleted"
+msgstr "حذف ہو گیا"
+
+msgid "cui.font.dry_run"
+msgstr "[ڈرائی رن]"
+
+msgid "cui.font.install.header"
+msgstr "{dry_run}بلٹ اِن فونٹس کی تنصیب: {source} -> {dir}"
+
+msgid "cui.font.install.line"
+msgstr "{family}: {source} -> {target} کاپی کریں، رجسٹری {reg_state}"
+
+msgid "cui.font.installed"
+msgstr "نصب شدہ"
+
+msgid "cui.font.missing"
+msgstr "موجود نہیں"
+
+msgid "cui.font.reg_pending"
+msgstr "رجسٹریشن زیر التوا"
+
+msgid "cui.font.registered"
+msgstr "رجسٹرڈ"
+
+msgid "cui.font.removed"
+msgstr "رجسٹری سے ہٹا دیا گیا"
+
+msgid "cui.font.status.header"
+msgstr "بلٹ اِن فونٹس کی حالت (صارف کی ڈائریکٹری: {dir})"
+
+msgid "cui.font.status.line"
+msgstr "{family} ({file}): فائل {file_state}، رجسٹری {reg_state}"
+
+msgid "cui.font.terminal.found"
+msgstr "ٹرمینل کا اعلان: {file} (faces: {faces}؛ بلٹ اِن میں میچ: {hits})"
+
+msgid "cui.font.terminal.none"
+msgstr "ٹرمینل کا اعلان: Windows Terminal کی سیٹنگز نہیں ملیں (اسے خرابی نہ سمجھیں)"
+
+msgid "cui.font.uninstall.header"
+msgstr "{dry_run}بلٹ اِن فونٹس کو ہٹانا"
+
+msgid "cui.font.uninstall.line"
+msgstr "{family}: رجسٹری {unreg_state}، فائل {file_state}"
+
+msgid "cui.font.unregistered"
+msgstr "رجسٹرڈ نہیں"
+
+msgid "cui.indexes_ok"
+msgstr "انڈیکسز مکمل ہیں"
+
+msgid "cui.plan_rows"
+msgstr "{rows} پلان کی قطاریں (analyze=false، کوئری چلائی نہیں گئی)"
+
+msgid "cui.purge_dry_run"
+msgstr "ڈرائی رن: {sessions} سیشنز / {events} ایونٹس صاف ہوں گے ({skipped} محفوظ نظرانداز) — عمل کے لیے --yes شامل کریں"
+
+msgid "cui.purged"
+msgstr "{events} ایونٹس صاف ہو گئے"
+
+msgid "cui.record.archived"
+msgstr "آرکائیو شدہ"
+
+msgid "cui.record.artifacts"
+msgstr "آرٹیفیکٹس"
+
+msgid "cui.record.budget"
+msgstr "بجٹ"
+
+msgid "cui.record.checkpoints"
+msgstr "چیک پوائنٹس"
+
+msgid "cui.record.cursor"
+msgstr "کرسر"
+
+msgid "cui.record.failure"
+msgstr "ناکامی"
+
+msgid "cui.record.items"
+msgstr "آئٹمز"
+
+msgid "cui.record.model"
+msgstr "ماڈل"
+
+msgid "cui.record.no"
+msgstr "نہیں"
+
+msgid "cui.record.session"
+msgstr "سیشن {session}"
+
+msgid "cui.record.task"
+msgstr "ٹاسک {task}"
+
+msgid "cui.record.truncated"
+msgstr "کٹا ہوا"
+
+msgid "cui.record.used"
+msgstr "استعمال شدہ"
+
+msgid "cui.record.yes"
+msgstr "ہاں"
+
+msgid "cui.renamed"
+msgstr "سیشن {session} کا نام بدل دیا گیا"
+
+msgid "cui.restore_done"
+msgstr "بحالی مکمل: ماخذ {source}"
+
+msgid "cui.spec_status"
+msgstr "سیشن {session}: مرحلہ {stage} · کرسر {cursor}"
+
+msgid "cui.status_line"
+msgstr "{session} {title} [{stage}] status={status} cursor={cursor}"
+
+msgid "cui.task_aborted"
+msgstr "{task} روک دیا گیا → {status}"
+
+msgid "cui.task_retried"
+msgstr "{task} کی دوبارہ کوشش ہوئی (retry={retry}) → {status}"
+
+msgid "cui.tasks_summary"
+msgstr "سیشن {session}: کل {total} · مکمل {done} · مسدود {blocked} · فعال {active}"
+
+msgid "cui.unarchive_dry_run"
+msgstr "ڈرائی رن: سیشن {session} آرکائیو سے بحال ہوگا — عمل کے لیے --yes شامل کریں"
+
+msgid "cui.unarchived"
+msgstr "سیشن {session} آرکائیو سے بحال ہو گیا"
+
+msgid "error.datasource"
+msgstr "ڈیٹا ماخذ میں خرابی: {error}"
+
+msgid "error.permission_denied"
+msgstr "اجازت نہیں ہے"
+
+msgid "gui.chat.cancel"
+msgstr "منسوخ کریں"
+
+msgid "gui.chat.empty"
+msgstr "پرامپٹ خالی ہے"
+
+msgid "gui.chat.error"
+msgstr "گفتگو ناکام رہی"
+
+msgid "gui.chat.hint"
+msgstr "سیشن منتخب کریں اور پرامپٹ لکھیں؛ بھیجنے کے بعد کام مکمل ہونے تک انتظار رہے گا (TUI کی طرح)"
+
+msgid "gui.chat.history.hint"
+msgstr "گفتگو کے ایونٹس محفوظ ہو جاتے ہیں — مکمل تاریخ «ایونٹس» ویو میں دیکھیں"
+
+msgid "gui.chat.last"
+msgstr "پچھلا نتیجہ: {summary}"
+
+msgid "gui.chat.no_request"
+msgstr "منسوخ کرنے کے لیے کوئی ریکویسٹ ID نہیں (پہلے ایک ٹرن بھیجیں)"
+
+msgid "gui.chat.none"
+msgstr "کوئی سیشن منتخب نہیں — پہلے سیشنز ویو میں منتخب کریں (j/k)"
+
+msgid "gui.chat.not_supported"
+msgstr "LLM ایگزیکیوٹر منسلک نہیں (not_supported)"
+
+msgid "gui.chat.progress"
+msgstr "تیار ہو رہا ہے: {chunks} حصے…"
+
+msgid "gui.chat.prompt.placeholder"
+msgstr "پرامپٹ لکھیں، بھیجنے کے لیے Enter دبائیں"
+
+msgid "gui.chat.provider"
+msgstr "LLM پروفائل: {provider}"
+
+msgid "gui.chat.provider.placeholder"
+msgstr "پروفائل کا نام"
+
+msgid "gui.chat.send"
+msgstr "بھیجیں"
+
+msgid "gui.checkpoints.degraded"
+msgstr "رول بیک ابھی نہیں بنایا گیا (صرف براؤزنگ)"
+
+msgid "gui.checkpoints.empty"
+msgstr "اس ٹاسک کے لیے کوئی چیک پوائنٹ نہیں"
+
+msgid "gui.checkpoints.hint"
+msgstr "ٹاسک کی قطار میں «چیک پوائنٹس» دبائیں"
+
+msgid "gui.checkpoints.open"
+msgstr "چیک پوائنٹس"
+
+msgid "gui.checkpoints.title"
+msgstr "چیک پوائنٹس"
+
+msgid "gui.kpi.count"
+msgstr "سیشنز {sessions} · ویو کی قطاریں {rows}"
+
+msgid "gui.op.archive"
+msgstr "آرکائیو"
+
+msgid "gui.op.cancel"
+msgstr "منسوخ کریں"
+
+msgid "gui.op.confirm"
+msgstr "تصدیق کریں"
+
+msgid "gui.op.delete"
+msgstr "حذف کریں"
+
+msgid "gui.op.error"
+msgstr "کارروائی ناکام رہی"
+
+msgid "gui.op.input.days"
+msgstr "صفائی کی آخری حد (دنوں میں)"
+
+msgid "gui.op.input.title"
+msgstr "عنوان"
+
+msgid "gui.op.new"
+msgstr "نیا"
+
+msgid "gui.op.not_supported"
+msgstr "کمانڈ ایگزیکیوٹر منسلک نہیں (not_supported)"
+
+msgid "gui.op.preview"
+msgstr "پیش منظر"
+
+msgid "gui.op.purge"
+msgstr "صفائی (30 دن سے پرانی)"
+
+msgid "gui.op.rename"
+msgstr "نام بدلیں"
+
+msgid "gui.op.restore"
+msgstr "بحال کریں"
+
+msgid "gui.session.archived"
+msgstr "آرکائیو شدہ"
+
+msgid "gui.session.group.active"
+msgstr "— فعال —"
+
+msgid "gui.session.group.archived"
+msgstr "— آرکائیو شدہ —"
+
+msgid "gui.session.none"
+msgstr "کوئی سیشن نہیں"
+
+msgid "gui.session.off"
+msgstr "چھپایا گیا"
+
+msgid "gui.session.on"
+msgstr "دکھایا گیا"
+
+msgid "gui.session.search"
+msgstr "عنوان یا ID سے تلاش کریں"
+
+msgid "gui.session.sort.created"
+msgstr "تخلیق"
+
+msgid "gui.session.sort.recent"
+msgstr "حالیہ"
+
+msgid "gui.session.sort.title"
+msgstr "عنوان"
+
+msgid "gui.status.theme"
+msgstr "تھیم: {theme}"
+
+msgid "gui.task.abort"
+msgstr "روکیں"
+
+msgid "gui.task.retries"
+msgstr "دوبارہ کوششیں {count}"
+
+msgid "gui.task.retry"
+msgstr "دوبارہ کوشش"
+
+msgid "menu.context"
+msgstr "سیاق و سباق"
+
+msgid "menu.diff"
+msgstr "ڈف"
+
+msgid "menu.events"
+msgstr "ایونٹس"
+
+msgid "menu.sessions"
+msgstr "سیشنز"
+
+msgid "menu.spec"
+msgstr "اسپیک"
+
+msgid "menu.tasks"
+msgstr "ٹاسکس"
+
+msgid "settings.action.done"
+msgstr "مکمل: {label}"
+
+msgid "settings.action.failed"
+msgstr "کارروائی ناکام ({label}): {code} {message}"
+
+msgid "settings.action.running"
+msgstr "جاری: {label}"
+
+msgid "settings.back"
+msgstr "مرکزی صفحے پر واپس"
+
+msgid "settings.confirm.builtin_empty"
+msgstr "اس سے بنڈل شدہ روٹ نقل خالی ہو جائے گی (بلٹ اِن بنیاد شامل نہیں رہے گی)۔ جاری رکھیں؟"
+
+msgid "settings.confirm.external_key"
+msgstr "اس سے بیرونی سرٹیفکیٹ اور پرائیویٹ کی محفوظ ہوں گے اور اِن بانڈ موڈ external ہو جائے گا۔ جاری رکھیں؟"
+
+msgid "settings.confirm.inbound_off"
+msgstr "اس سے اِن بانڈ TLS بند ہو جائے گا (سادہ HTTP پر واپسی) اور serve --web دوبارہ شروع کرنے کے بعد لاگو ہوگا۔ جاری رکھیں؟"
+
+msgid "settings.confirm.regenerate"
+msgstr "اس سے خود دستخط شدہ سرور سرٹیفکیٹ دوبارہ بنے گا (موجودہ فنگر پرنٹ بے کار ہو جائے گا)۔ جاری رکھیں؟"
+
+msgid "settings.confirm.reset_builtin"
+msgstr "اس سے بنڈل شدہ روٹ نقل اصل پیکیجنگ اثاثے پر بحال ہو جائے گی۔ جاری رکھیں؟"
+
+msgid "settings.confirm.reset_extra"
+msgstr "اس سے اضافی روٹس صاف ہو جائیں گے۔ جاری رکھیں؟"
+
+msgid "settings.error.bad_port"
+msgstr "پورٹ 1..=65535 کے درمیان عدد ہونا چاہیے"
+
+msgid "settings.error.generic"
+msgstr "کارروائی ناکام رہی"
+
+msgid "settings.error.load"
+msgstr "سرٹیفکیٹ کی حالت پڑھی نہیں جا سکی: {code} {message}"
+
+msgid "settings.error.missing_host"
+msgstr "پہلے ہوسٹ کا نام یا IP لکھیں"
+
+msgid "settings.error.missing_pem"
+msgstr "پہلے سرٹیفکیٹ چین اور پرائیویٹ کی (PEM) بھریں"
+
+msgid "settings.field.count"
+msgstr "تعداد: {value}"
+
+msgid "settings.field.modified"
+msgstr "تبدیلی کا وقت: {value}"
+
+msgid "settings.field.newer"
+msgstr "بنڈل شدہ ورژن نیا ہے: {value}"
+
+msgid "settings.field.path"
+msgstr "راستہ: {value}"
+
+msgid "settings.field.sha256"
+msgstr "SHA-256: {value}"
+
+msgid "settings.inbound.builtin"
+msgstr "بلٹ اِن خود دستخط شدہ سرٹیفکیٹ (builtin)"
+
+msgid "settings.inbound.builtin_hint"
+msgstr "ہر ورک اسپیس کے لیے ECDSA P-256 خود دستخط شدہ سرٹیفکیٹ بناتا ہے (397 دن)؛ SAN میں localhost، 127.0.0.1، ::1 اور میزبان کا نام شامل ہیں۔"
+
+msgid "settings.inbound.cert_pem_label"
+msgstr "سرٹیفکیٹ چین اپ لوڈ کریں (PEM)"
+
+msgid "settings.inbound.days_remaining"
+msgstr "باقی دن: {value}"
+
+msgid "settings.inbound.download"
+msgstr "عوامی سرٹیفکیٹ ڈاؤن لوڈ کریں (PEM)"
+
+msgid "settings.inbound.external"
+msgstr "بیرونی سرٹیفکیٹ (external)"
+
+msgid "settings.inbound.external_hint"
+msgstr "آپ کا اپ لوڈ کردہ PEM سرٹیفکیٹ چین اور غیر خفیہ شدہ پرائیویٹ کی استعمال کرتا ہے؛ پرائیویٹ کی صرف لکھی جا سکتی ہے۔"
+
+msgid "settings.inbound.key_pem_label"
+msgstr "پرائیویٹ کی اپ لوڈ کریں (غیر خفیہ PEM، جمع کرانے کے بعد خالی ہو جاتی ہے)"
+
+msgid "settings.inbound.key_saved"
+msgstr "پرائیویٹ کی محفوظ ہو گئی؛ اب یہ دکھائی نہیں جاتی (فیلڈ خالی کر دی گئی)۔"
+
+msgid "settings.inbound.legend"
+msgstr "موڈ"
+
+msgid "settings.inbound.material"
+msgstr "سرٹیفکیٹ موجود: {cert} · پرائیویٹ کی موجود: {key}"
+
+msgid "settings.inbound.no_material"
+msgstr "ابھی سرور سرٹیفکیٹ کا مواد موجود نہیں (چین اپ لوڈ کریں یا خود دستخط شدہ سرٹیفکیٹ دوبارہ بنائیں)"
+
+msgid "settings.inbound.not_after"
+msgstr "تک کارآمد: {value}"
+
+msgid "settings.inbound.off"
+msgstr "TLS بند (off)"
+
+msgid "settings.inbound.off_hint"
+msgstr "سادہ HTTP پر واپسی (ADR-023)؛ واضح تصدیق ضروری ہے اور یہ خاموشی سے واپس نہیں ہوتا۔"
+
+msgid "settings.inbound.regenerate"
+msgstr "خود دستخط شدہ سرٹیفکیٹ دوبارہ بنائیں"
+
+msgid "settings.inbound.sans"
+msgstr "SAN: {value}"
+
+msgid "settings.inbound.sha256"
+msgstr "فنگر پرنٹ SHA-256: {value}"
+
+msgid "settings.inbound.subject"
+msgstr "سبجیکٹ: {value}"
+
+msgid "settings.inbound.title"
+msgstr "اِن بانڈ TLS (serve --web)"
+
+msgid "settings.inbound.upload"
+msgstr "اپ لوڈ کریں اور external پر منتقل ہوں"
+
+msgid "settings.link"
+msgstr "سرٹیفکیٹ سیٹنگز"
+
+msgid "settings.local_mode"
+msgstr "مقامی سیٹنگز کا صفحہ"
+
+msgid "settings.modes.save"
+msgstr "موڈز محفوظ کریں"
+
+msgid "settings.notes.none"
+msgstr "کوئی اضافی نوٹ نہیں"
+
+msgid "settings.notes.title"
+msgstr "نوٹس"
+
+msgid "settings.outbound.builtin"
+msgstr "بنڈل شدہ نقل (builtin)"
+
+msgid "settings.outbound.builtin_hint"
+msgstr "بنیاد کے طور پر ورک اسپیس میں شامل بنڈل شدہ روٹ نقل استعمال ہوتی ہے؛ اضافی روٹس اس کے اوپر شامل کیے جاتے ہیں۔"
+
+msgid "settings.outbound.builtin_pem_label"
+msgstr "بنڈل شدہ روٹ نقل (PEM، قابلِ ترمیم)"
+
+msgid "settings.outbound.effective_line"
+msgstr "مؤثر روٹ سرٹیفکیٹس: {value}"
+
+msgid "settings.outbound.empty_extra"
+msgstr "کوئی اضافی روٹ مقرر نہیں (بجا طور پر خالی: فائل میں کوئی سرٹیفکیٹ نہیں)"
+
+msgid "settings.outbound.extra_pem_label"
+msgstr "اضافی روٹس (PEM، دونوں موڈز میں لاگو)"
+
+msgid "settings.outbound.hint"
+msgstr "کوئی موڈ چین یا ہوسٹ نیم کی تصدیق بند نہیں کرتا؛ تصدیق چھوڑنے کا کوئی سوئچ موجود نہیں۔"
+
+msgid "settings.outbound.legend"
+msgstr "ٹرسٹ اسٹور کا موڈ"
+
+msgid "settings.outbound.missing_builtin"
+msgstr "بنڈل شدہ نقل موجود نہیں: حالت نے اس فائل کی اطلاع نہیں دی"
+
+msgid "settings.outbound.reset_builtin"
+msgstr "بنڈل شدہ نقل بحال کریں"
+
+msgid "settings.outbound.reset_extra"
+msgstr "اضافی روٹس صاف کریں"
+
+msgid "settings.outbound.save_builtin"
+msgstr "بنڈل شدہ نقل محفوظ کریں"
+
+msgid "settings.outbound.save_extra"
+msgstr "اضافی روٹس محفوظ کریں"
+
+msgid "settings.outbound.system"
+msgstr "آپریٹنگ سسٹم کا سرٹیفکیٹ اسٹور (system)"
+
+msgid "settings.outbound.system_hint"
+msgstr "بنیاد کے طور پر آپریٹنگ سسٹم کا روٹ اسٹور استعمال ہوتا ہے؛ اضافی روٹس بھی شامل کیے جاتے ہیں۔ خالی سسٹم اسٹور خرابی ہے اور کبھی بنڈل شدہ نقل پر واپس نہیں جاتا۔"
+
+msgid "settings.outbound.system_na"
+msgstr "لاگو نہیں (موجودہ موڈ سسٹم اسٹور نہیں پڑھتا)"
+
+msgid "settings.outbound.system_roots_line"
+msgstr "سسٹم کے روٹ سرٹیفکیٹس: {value}"
+
+msgid "settings.outbound.title"
+msgstr "آؤٹ بانڈ HTTPS اعتماد"
+
+msgid "settings.restart_banner"
+msgstr "اِن بانڈ سرٹیفکیٹ یا موڈ بدل گیا ہے؛ لاگو کرنے کے لیے serve --web دوبارہ شروع کریں۔"
+
+msgid "settings.status.no"
+msgstr "نہیں"
+
+msgid "settings.status.unknown"
+msgstr "نامعلوم"
+
+msgid "settings.status.yes"
+msgstr "ہاں"
+
+msgid "settings.title"
+msgstr "سرٹیفکیٹ سیٹنگز"
+
+msgid "settings.verify.button"
+msgstr "جانچیں"
+
+msgid "settings.verify.failed"
+msgstr "جانچ ناکام: {error}"
+
+msgid "settings.verify.host"
+msgstr "ہوسٹ"
+
+msgid "settings.verify.ok"
+msgstr "جانچ کامیاب: سبجیکٹ {subject} · تک کارآمد {not_after} · فنگر پرنٹ {sha256} · {tls_version}"
+
+msgid "settings.verify.port"
+msgstr "پورٹ"
+
+msgid "settings.verify.title"
+msgstr "آؤٹ بانڈ کنیکٹیویٹی کی جانچ"
+
+msgid "status.idle"
+msgstr "بیکار"
+
+msgid "status.running"
+msgstr "چل رہا ہے"
+
+msgid "summary.context"
+msgstr "سیشن {session} · بجٹ {budget} · استعمال شدہ {used} · آئٹمز {items}{truncated}"
+
+msgid "summary.context_truncated"
+msgstr "· کاٹنے کی وجہ: {reason}"
+
+msgid "summary.diff"
+msgstr "سیشن {session} · ٹاسکس {total} · کامیاب {pass} / ناکام {fail} / غیر آزمودہ {untested}{truncated}"
+
+msgid "summary.diff.truncated"
+msgstr "· فرق کی فہرست حد سے بڑھ کر کاٹ دی گئی"
+
+msgid "summary.events"
+msgstr "سیشن {session} · کرسر {from}..{to} (آخر میں زیادہ سے زیادہ {limit})"
+
+msgid "summary.none"
+msgstr "کوئی نہیں"
+
+msgid "summary.spec"
+msgstr "سیشن {session} · مرحلہ {stage} · کرسر {cursor} · فعال ٹاسک {task}"
+
+msgid "summary.tasks"
+msgstr "سیشن {session} · کل {total} · مکمل {done} · مسدود {blocked}"
+
+msgid "tui.col.id"
+msgstr "ID"
+
+msgid "tui.col.kind"
+msgstr "قسم"
+
+msgid "tui.col.retry"
+msgstr "دوبارہ کوشش"
+
+msgid "tui.col.seq"
+msgstr "ترتیب"
+
+msgid "tui.col.stage"
+msgstr "مرحلہ"
+
+msgid "tui.col.status"
+msgstr "حالت"
+
+msgid "tui.col.summary"
+msgstr "خلاصہ"
+
+msgid "tui.col.title"
+msgstr "عنوان"
+
+msgid "tui.diff_unwired"
+msgstr "(ڈف کا ماخذ ابھی منسلک نہیں ہے: converge ڈف زیر التوا ہے؛ کوئی جعلی مواد نہیں دکھایا جاتا)"
+
+msgid "tui.empty"
+msgstr "(کوئی ڈیٹا نہیں)"
+
+msgid "tui.footer"
+msgstr "1-7 ویوز  j/k حرکت  r تازہ کریں  t تھیم  q اختتام  |  {cols}x{rows}"
+
+msgid "tui.header.none"
+msgstr "کوئی سیشن نہیں"
+
+msgid "tui.no_session"
+msgstr "(کوئی سیشن منتخب نہیں — j/k دبائیں)"
+
+msgid "tui.runtimes"
+msgstr "رن ٹائمز: {list}"
+
+msgid "tui.title"
+msgstr "{app}  |  {view} ({index}/{count})"
+
+msgid "view.chat"
+msgstr "گفتگو"
+
+msgid "view.context"
+msgstr "سیاق و سباق"
+
+msgid "view.diff"
+msgstr "ڈف کا پیش منظر"
+
+msgid "view.events"
+msgstr "ایونٹس"
+
+msgid "view.sessions"
+msgstr "سیشنز"
+
+msgid "view.spec"
+msgstr "اسپیک کی حالت"
+
+msgid "view.tasks"
+msgstr "ٹاسکس"
+
+msgid "web.action.failed"
+msgstr "کارروائی ناکام ({label}): {error}"
+
+msgid "web.checkpoints.degraded"
+msgstr "رول بیک ابھی نہیں بنایا گیا (جان بوجھ کر کمی): صرف براؤزنگ اور ڈیلٹا خلاصے"
+
+msgid "web.checkpoints.empty"
+msgstr "اس ٹاسک کے لیے کوئی چیک پوائنٹ نہیں"
+
+msgid "web.checkpoints.failed"
+msgstr "چیک پوائنٹس لوڈ نہیں ہو سکے: {error}"
+
+msgid "web.checkpoints.hint"
+msgstr "چیک پوائنٹس اور ڈیلٹا خلاصے دیکھنے کے لیے کوئی ٹاسک منتخب کریں"
+
+msgid "web.checkpoints.ready"
+msgstr "رول بیک دستیاب ہے"
+
+msgid "web.checkpoints.refs"
+msgstr "{count} آرٹیفیکٹ حوالہ جات"
+
+msgid "web.checkpoints.title"
+msgstr "چیک پوائنٹس"
+
+msgid "web.checkpoints.truncated"
+msgstr "چیک پوائنٹس حد سے بڑھ گئے؛ فہرست کاٹ دی گئی"
+
+msgid "web.cleanup.bad_days"
+msgstr "برقرار رکھنے کے دن کم از کم 1 ہونے چاہئیں"
+
+msgid "web.cleanup.confirm"
+msgstr "صفائی کی تصدیق"
+
+msgid "web.cleanup.days"
+msgstr "برقرار رکھنے کے دن"
+
+msgid "web.cleanup.done"
+msgstr "{sessions} سیشن صاف ہو گئے"
+
+msgid "web.cleanup.preview"
+msgstr "پیش منظر"
+
+msgid "web.cleanup.preview_required"
+msgstr "صفائی کی تصدیق سے پہلے پیش منظر دیکھیں"
+
+msgid "web.cleanup.preview_result"
+msgstr "{sessions} سیشن صاف ہوں گے"
+
+msgid "web.conn.connected"
+msgstr "منسلک"
+
+msgid "web.conn.disconnected"
+msgstr "غیر منسلک"
+
+msgid "web.context.empty"
+msgstr "(بجا طور پر خالی: بجٹ میں کچھ نہیں آتا)"
+
+msgid "web.context.no_session"
+msgstr "کوئی سیشن منتخب نہیں"
+
+msgid "web.context.summary"
+msgstr "بجٹ {consumed}/{budget} · ماخذ {sources} · کٹا ہوا {truncated}"
+
+msgid "web.cursor"
+msgstr "کرسر {n}"
+
+msgid "web.diff.empty"
+msgstr "(کوئی فرق نہیں: تمام قبولیت کے معیار پورے ہیں)"
+
+msgid "web.diff.no_session"
+msgstr "کوئی سیشن منتخب نہیں"
+
+msgid "web.diff.summary"
+msgstr "ٹاسکس {total} · کامیاب {pass} / ناکام {fail} / غیر آزمودہ {untested}{truncated}"
+
+msgid "web.diff.truncated"
+msgstr "(حد سے بڑھ کر کاٹا گیا)"
+
+msgid "web.export.done"
+msgstr "ایکسپورٹ مکمل"
+
+msgid "web.export.json"
+msgstr "JSON ایکسپورٹ کریں"
+
+msgid "web.export.jsonl"
+msgstr "JSONL ایکسپورٹ کریں"
+
+msgid "web.recovering"
+msgstr "بحالی جاری ہے…"
+
+msgid "web.runtimes"
+msgstr "رن ٹائمز"
+
+msgid "web.runtimes.available"
+msgstr "دستیاب"
+
+msgid "web.runtimes.unavailable"
+msgstr "دستیاب نہیں"
+
+msgid "web.runtimes.unknown"
+msgstr "جانچا نہیں گیا"
+
+msgid "web.runtimes.unwired"
+msgstr "رن ٹائمز کی فہرست منسلک نہیں ہے"
+
+msgid "web.session.archive_confirm"
+msgstr "آرکائیو کی تصدیق"
+
+msgid "web.session.archive_preview"
+msgstr "آرکائیو کا پیش منظر"
+
+msgid "web.session.archive_preview_required"
+msgstr "تصدیق سے پہلے پیش منظر دیکھیں"
+
+msgid "web.session.archive_preview_result"
+msgstr "سیشن {session} آرکائیو ہوگا — عمل کے لیے تصدیق کریں"
+
+msgid "web.session.archived"
+msgstr "سیشن {session} آرکائیو ہو گیا"
+
+msgid "web.session.create"
+msgstr "بنائیں"
+
+msgid "web.session.delete_confirm"
+msgstr "حذف کی تصدیق"
+
+msgid "web.session.delete_preview"
+msgstr "حذف کا پیش منظر"
+
+msgid "web.session.delete_preview_result"
+msgstr "حذف ہوگا: ایونٹس {events} · ٹاسکس {tasks}"
+
+msgid "web.session.deleted"
+msgstr "{n} سیشن حذف ہو گئے"
+
+msgid "web.session.group_active"
+msgstr "فعال"
+
+msgid "web.session.group_archived"
+msgstr "آرکائیو شدہ"
+
+msgid "web.session.none"
+msgstr "کوئی سیشن منتخب نہیں"
+
+msgid "web.session.preview_required"
+msgstr "حذف کی تصدیق سے پہلے پیش منظر دیکھیں"
+
+msgid "web.session.rename"
+msgstr "نام بدلیں"
+
+msgid "web.session.rename_placeholder"
+msgstr "نیا عنوان"
+
+msgid "web.session.search"
+msgstr "عنوان یا ID سے تلاش کریں"
+
+msgid "web.session.show_archived"
+msgstr "آرکائیو شدہ شامل کریں"
+
+msgid "web.session.sort"
+msgstr "ترتیب"
+
+msgid "web.session.sort.created"
+msgstr "تخلیق کا وقت"
+
+msgid "web.session.sort.last_active"
+msgstr "حال ہی میں فعال"
+
+msgid "web.session.sort.title"
+msgstr "عنوان"
+
+msgid "web.session.title"
+msgstr "سیشن کا عنوان"
+
+msgid "web.session.title_required"
+msgstr "پہلے سیشن کا عنوان لکھیں"
+
+msgid "web.tab.context"
+msgstr "سیاق و سباق"
+
+msgid "web.tab.diff"
+msgstr "ڈف"
+
+msgid "web.tab.history"
+msgstr "تاریخ"
+
+msgid "web.tab.maintenance"
+msgstr "دیکھ بھال"
+
+msgid "web.tab.sessions"
+msgstr "سیشنز"
+
+msgid "web.tab.spec"
+msgstr "SDD"
+
+msgid "web.tab.tasks"
+msgstr "ٹاسکس"
+
+msgid "web.task.abort"
+msgstr "روکیں"
+
+msgid "web.task.depends"
+msgstr "{depends} پر منحصر ہے"
+
+msgid "web.task.progress"
+msgstr "مکمل {done}/{total} · مسدود {blocked}"
+
+msgid "web.task.retries"
+msgstr "دوبارہ کوششیں {count}"
+
+msgid "web.task.retry"
+msgstr "دوبارہ کوشش"
+
+msgid "web.task.truncated"
+msgstr "ٹاسک کارڈز حد سے بڑھ گئے اور کاٹ دیے گئے (خلاصے کی گنتی مکمل ہے)"
+
+msgid "web.tasks_summary"
+msgstr "کل {total} · مکمل {done} · مسدود {blocked}"
+
+msgid "web.theme.default"
+msgstr "طے شدہ"
+
+msgid "web.theme.label"
+msgstr "تھیم"
+

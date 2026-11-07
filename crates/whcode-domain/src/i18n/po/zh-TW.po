@@ -1,0 +1,1246 @@
+# zh-TW translation catalog for WHCode (FR-615).
+# Generated from i18n/zh-TW.properties by .github/scripts/i18n-po.py; do not edit by hand.
+# Edit the properties file instead, then regenerate — a contract test fails on drift.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: whcode 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/FreeBSD-Ask/whcode/issues\n"
+"Language: zh-TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "app.title"
+msgstr "WHCode 編碼代理框架"
+
+msgid "cli.about"
+msgstr "WHCode 編碼代理框架"
+
+msgid "cli.context.about"
+msgstr "上下文預算檢視（FR-105/108；contracts/cui-cli.md §1）。"
+
+msgid "cli.context.budget.about"
+msgstr "預算檢視：目前預算、已載入來源、截斷原因與游標（經由 `whcode_app::load_context`）。"
+
+msgid "cli.context.budget.budget"
+msgstr "預算 token 數；預設採顯示基準（4096，與 TUI 上下文檢視一致）。"
+
+msgid "cli.context.budget.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.db.about"
+msgstr "資料庫維護與清理（FR-507—510）。"
+
+msgid "cli.db.archive.about"
+msgstr "匯出工作區。"
+
+msgid "cli.db.archive.export"
+msgstr "輸出路徑。"
+
+msgid "cli.db.check.about"
+msgstr "檢查必要索引。"
+
+msgid "cli.db.checkpoint.about"
+msgstr "明確建立檢查點（FR-510；可一併套用 WAL 策略覆寫，disaster-recovery §5）。"
+
+msgid "cli.db.checkpoint.autocheckpoint"
+msgstr "覆寫 wal_autocheckpoint（例如 1MB；省略時維持現狀）。"
+
+msgid "cli.db.checkpoint.threshold"
+msgstr "覆寫 WAL 自動檢查點門檻（例如 16MB；省略時維持現狀）。"
+
+msgid "cli.db.compact.about"
+msgstr "壓縮磁碟上的資料庫（複製—驗證—切換，FR-510；預設試執行）。"
+
+msgid "cli.db.compact.dry-run"
+msgstr "僅預覽（預設）。"
+
+msgid "cli.db.compact.yes"
+msgstr "確認執行。"
+
+msgid "cli.db.explain.about"
+msgstr "查詢計畫分析（唯讀查詢，契約 §2-2）。"
+
+msgid "cli.db.explain.query"
+msgstr "唯讀 SQL（以 SELECT/WITH 開頭）。"
+
+msgid "cli.db.purge.about"
+msgstr "依時間清除（FR-508/509；預設試執行）。"
+
+msgid "cli.db.purge.before"
+msgstr "截止時間（Unix 毫秒）。"
+
+msgid "cli.db.purge.dry-run"
+msgstr "僅預覽（預設）。"
+
+msgid "cli.db.purge.yes"
+msgstr "確認執行。"
+
+msgid "cli.db.restore.about"
+msgstr "將匯出檔還原到空的工作區（`db archive` 的相反操作；須明確確認，不提供預覽）。"
+
+msgid "cli.db.restore.from"
+msgstr "匯出檔路徑（whcode-export 格式）。"
+
+msgid "cli.db.restore.yes"
+msgstr "確認執行（還原會寫入；目標資料庫必須為空）。"
+
+msgid "cli.db.stats.about"
+msgstr "資料庫統計（FR-507）。"
+
+msgid "cli.doctor.about"
+msgstr "環境與設定自我檢查（M0）。"
+
+msgid "cli.doctor.json"
+msgstr "輸出 JSON。"
+
+msgid "cli.events.about"
+msgstr "事件查詢與匯出（FR-202/205）。"
+
+msgid "cli.events.export.about"
+msgstr "匯出（遮蔽策略會隨匯出內容說明，FR-205）。"
+
+msgid "cli.events.export.after"
+msgstr "起始游標。"
+
+msgid "cli.events.export.format"
+msgstr "輸出格式（json/jsonl）。"
+
+msgid "cli.events.export.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.events.list.about"
+msgstr "列出事件（依游標增量）。"
+
+msgid "cli.events.list.after"
+msgstr "起始游標（不含）。"
+
+msgid "cli.events.list.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.events.show.about"
+msgstr "單一事件詳細資料。"
+
+msgid "cli.events.show.event"
+msgstr "事件 ID。"
+
+msgid "cli.font.about"
+msgstr "內建字型安裝與終端機宣告檢查（FR-717；本機資源指令，不存取資料庫，也不需要工作區）。"
+
+msgid "cli.font.install.about"
+msgstr "將四套內建字型安裝到使用者字型目錄並寫入 HKCU 登錄（複製覆寫語意，可重複執行）。"
+
+msgid "cli.font.install.dry-run"
+msgstr "只回報將執行的動作，不變更系統。"
+
+msgid "cli.font.install.from"
+msgstr "字型來源目錄（平鋪配置，或存放庫的 `source/<family>/` 結構）；預設依序探測執行檔旁與目前目錄下的 `assets/fonts/source`（ADR-028 修訂 1）。"
+
+msgid "cli.font.status.about"
+msgstr "回報字型安裝狀態與終端機宣告（唯讀）。"
+
+msgid "cli.font.uninstall.about"
+msgstr "解除安裝內建字型：移除登錄並刪除使用者字型目錄中的檔案（盡力而為，逐項回報）。"
+
+msgid "cli.font.uninstall.dry-run"
+msgstr "只回報將執行的動作，不變更系統。"
+
+msgid "cli.hint.no_console"
+msgstr "whcode {version} —— 沒有可用的互動式主控台，因此未啟動任何介面"
+
+msgid "cli.hint.options"
+msgstr "可用：--tui（終端機介面）、--cli <子命令>、--lang <地區設定>、--help"
+
+msgid "cli.json"
+msgstr "輸出 JSON（schema_version 信封，FR-602）；可置於任何子命令前或後。"
+
+msgid "cli.lang"
+msgstr "介面文字語言（例如 zh-TW、en；覆寫 LANG/LC_ALL，FR-615）。"
+
+msgid "cli.llm.about"
+msgstr "模型呼叫（FR-201；`llm run` 與 `llm cancel`，contracts/cui-cli.md §1）。"
+
+msgid "cli.llm.cancel.about"
+msgstr "取消本機正在執行的呼叫（在下一個片段之前生效）。"
+
+msgid "cli.llm.cancel.request"
+msgstr "請求 ID（由 `llm run` 印出，或以 `--request-id` 預設）。"
+
+msgid "cli.llm.run.about"
+msgstr "發出一次實際呼叫（同步；串流增量於結束時以有界序列輸出）。"
+
+msgid "cli.llm.run.max-tokens"
+msgstr "覆寫設定檔的 `max_tokens`。"
+
+msgid "cli.llm.run.model"
+msgstr "覆寫設定檔的模型識別碼。"
+
+msgid "cli.llm.run.prompt"
+msgstr "提示詞內容（不會寫入事件或日誌）。"
+
+msgid "cli.llm.run.provider"
+msgstr "設定檔名稱（明確選擇，ADR-031 決策 4）。"
+
+msgid "cli.llm.run.request-id"
+msgstr "預設請求 ID（`llm cancel` 的鍵；未指定時由本次呼叫產生）。"
+
+msgid "cli.llm.run.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.llm.run.trace-level"
+msgstr "追蹤等級（off/metadata/redacted/full）。"
+
+msgid "cli.runtime.about"
+msgstr "執行時管理（FR-701—710；M8）。"
+
+msgid "cli.runtime.disable.about"
+msgstr "停用執行時。"
+
+msgid "cli.runtime.disable.name"
+msgstr "執行時名稱。"
+
+msgid "cli.runtime.enable.about"
+msgstr "啟用執行時。"
+
+msgid "cli.runtime.enable.name"
+msgstr "執行時名稱。"
+
+msgid "cli.runtime.install.about"
+msgstr "安裝承載內容（payload）。"
+
+msgid "cli.runtime.install.name"
+msgstr "執行時名稱。"
+
+msgid "cli.runtime.list.about"
+msgstr "列出執行時。"
+
+msgid "cli.runtime.status.about"
+msgstr "執行時狀態。"
+
+msgid "cli.runtime.status.name"
+msgstr "執行時名稱。"
+
+msgid "cli.serve.about"
+msgstr "傳輸入口（M6/M7）。"
+
+msgid "cli.serve.bind"
+msgstr "繫結位址（預設僅回送位址，FR-606）。"
+
+msgid "cli.serve.ssh"
+msgstr "SSH 入口（M7，延後）。"
+
+msgid "cli.serve.web"
+msgstr "Web 入口（M6）。"
+
+msgid "cli.session.about"
+msgstr "工作階段生命週期（FR-101）。"
+
+msgid "cli.session.archive.about"
+msgstr "封存或還原（依契約 §2-1 屬破壞性指令族：預設試執行，加上 `--yes` 才會實際執行）。"
+
+msgid "cli.session.archive.dry-run"
+msgstr "僅預覽（預設）。"
+
+msgid "cli.session.archive.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.session.archive.unarchive"
+msgstr "還原已封存的工作階段。"
+
+msgid "cli.session.archive.yes"
+msgstr "確認執行（與 --dry-run 互斥，§8.1）。"
+
+msgid "cli.session.delete.about"
+msgstr "刪除工作階段（破壞性；預設試執行，FR-509）。"
+
+msgid "cli.session.delete.dry-run"
+msgstr "僅預覽（預設）。"
+
+msgid "cli.session.delete.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.session.delete.yes"
+msgstr "確認執行（與 --dry-run 互斥，§8.1）。"
+
+msgid "cli.session.list.about"
+msgstr "列出工作階段。"
+
+msgid "cli.session.list.all"
+msgstr "包含已封存的工作階段。"
+
+msgid "cli.session.new.about"
+msgstr "建立工作階段。"
+
+msgid "cli.session.new.model"
+msgstr "模型（可省略）。"
+
+msgid "cli.session.new.title"
+msgstr "標題。"
+
+msgid "cli.session.rename.about"
+msgstr "重新命名工作階段。"
+
+msgid "cli.session.rename.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.session.rename.title"
+msgstr "新標題。"
+
+msgid "cli.session.show.about"
+msgstr "檢視單一工作階段。"
+
+msgid "cli.session.show.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.spec.about"
+msgstr "SDD 階段與關卡（FR-307—312）。"
+
+msgid "cli.spec.analyze.about"
+msgstr "分析檢查（FR-306）。"
+
+msgid "cli.spec.analyze.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.spec.converge.about"
+msgstr "收斂檢查（FR-310/311）。"
+
+msgid "cli.spec.converge.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.spec.force-advance.about"
+msgstr "手動越過關卡（FR-312；須填理由，契約 §2-3）。"
+
+msgid "cli.spec.force-advance.reason"
+msgstr "強制放行的理由（必填，FR-312）。"
+
+msgid "cli.spec.force-advance.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.spec.force-advance.to"
+msgstr "目標階段。"
+
+msgid "cli.spec.next.about"
+msgstr "下一個階段。"
+
+msgid "cli.spec.next.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.spec.status.about"
+msgstr "目前階段狀態（FR-314）。"
+
+msgid "cli.spec.status.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.spec.validate.about"
+msgstr "驗證產出物。"
+
+msgid "cli.spec.validate.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.status.about"
+msgstr "狀態快照（FR-314）。"
+
+msgid "cli.status.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.task.abort.about"
+msgstr "中止任務（FR-408）。"
+
+msgid "cli.task.abort.task"
+msgstr "任務 ID。"
+
+msgid "cli.task.about"
+msgstr "任務查詢與控制（FR-401/408）。"
+
+msgid "cli.task.list.about"
+msgstr "列出任務。"
+
+msgid "cli.task.list.session"
+msgstr "工作階段 ID。"
+
+msgid "cli.task.retry.about"
+msgstr "重試任務（FR-401）。"
+
+msgid "cli.task.retry.task"
+msgstr "任務 ID。"
+
+msgid "cli.task.show.about"
+msgstr "任務詳細資料（FR-104 的五類資訊）。"
+
+msgid "cli.task.show.task"
+msgstr "任務 ID。"
+
+msgid "cli.workspace"
+msgstr "工作區目錄（已設定的工作區，否則為目前目錄；用於定位 `<workspace>/whcode.duckdb`）。"
+
+msgid "cui.archive_dry_run"
+msgstr "試執行：將封存工作階段 {session}——加上 --yes 才會實際執行（可用 --unarchive 還原）"
+
+msgid "cui.archived"
+msgstr "已封存工作階段 {session}"
+
+msgid "cui.checkpoint_done"
+msgstr "檢查點完成：WAL {before} → {after}"
+
+msgid "cui.compact_done"
+msgstr "壓縮完成（switched={switched}）"
+
+msgid "cui.compact_dry_run"
+msgstr "試執行：檔案 {file} B、WAL {wal} B——加上 --yes 才會壓縮（不保證檔案縮小）"
+
+msgid "cui.created"
+msgstr "已新增工作階段 {session}"
+
+msgid "cui.delete_dry_run"
+msgstr "試執行：將刪除工作階段 {session}（事件 {events} 筆、任務 {tasks} 筆；受保護而略過 {skipped} 筆）——加上 --yes 才會實際執行"
+
+msgid "cui.deleted"
+msgstr "已刪除工作階段 {session}"
+
+msgid "cui.empty"
+msgstr "（無記錄）"
+
+msgid "cui.exported"
+msgstr "已匯出至 {path}（雜湊 {hash}）"
+
+msgid "cui.font.deleted"
+msgstr "已刪除"
+
+msgid "cui.font.dry_run"
+msgstr "[試執行]"
+
+msgid "cui.font.install.header"
+msgstr "{dry_run}安裝內建字型：{source} → {dir}"
+
+msgid "cui.font.install.line"
+msgstr "{family}：複製 {source} → {target}，登錄{reg_state}"
+
+msgid "cui.font.installed"
+msgstr "已安裝"
+
+msgid "cui.font.missing"
+msgstr "未安裝"
+
+msgid "cui.font.reg_pending"
+msgstr "待登錄"
+
+msgid "cui.font.registered"
+msgstr "已登錄"
+
+msgid "cui.font.removed"
+msgstr "已取消登錄"
+
+msgid "cui.font.status.header"
+msgstr "內建字型狀態（使用者目錄：{dir}）"
+
+msgid "cui.font.status.line"
+msgstr "{family}（{file}）：檔案{file_state}，登錄{reg_state}"
+
+msgid "cui.font.terminal.found"
+msgstr "終端機宣告：{file}（字型面：{faces}；內建命中：{hits}）"
+
+msgid "cui.font.terminal.none"
+msgstr "終端機宣告：找不到 Windows Terminal 設定檔（不算錯誤）"
+
+msgid "cui.font.uninstall.header"
+msgstr "{dry_run}解除安裝內建字型"
+
+msgid "cui.font.uninstall.line"
+msgstr "{family}：登錄{unreg_state}，檔案{file_state}"
+
+msgid "cui.font.unregistered"
+msgstr "未登錄"
+
+msgid "cui.indexes_ok"
+msgstr "索引完整"
+
+msgid "cui.plan_rows"
+msgstr "計畫資料列 {rows} 列（analyze=false，未實際執行查詢）"
+
+msgid "cui.purge_dry_run"
+msgstr "試執行：將清除 {sessions} 個工作階段、{events} 筆事件（受保護而略過 {skipped} 筆）——加上 --yes 才會實際執行"
+
+msgid "cui.purged"
+msgstr "已清除 {events} 筆事件"
+
+msgid "cui.record.archived"
+msgstr "封存狀態"
+
+msgid "cui.record.artifacts"
+msgstr "產出物"
+
+msgid "cui.record.budget"
+msgstr "預算"
+
+msgid "cui.record.checkpoints"
+msgstr "檢查點"
+
+msgid "cui.record.cursor"
+msgstr "游標"
+
+msgid "cui.record.failure"
+msgstr "失敗原因"
+
+msgid "cui.record.items"
+msgstr "項目"
+
+msgid "cui.record.model"
+msgstr "模型"
+
+msgid "cui.record.no"
+msgstr "否"
+
+msgid "cui.record.session"
+msgstr "工作階段 {session}"
+
+msgid "cui.record.task"
+msgstr "任務 {task}"
+
+msgid "cui.record.truncated"
+msgstr "已截斷"
+
+msgid "cui.record.used"
+msgstr "已用"
+
+msgid "cui.record.yes"
+msgstr "是"
+
+msgid "cui.renamed"
+msgstr "已重新命名工作階段 {session}"
+
+msgid "cui.restore_done"
+msgstr "還原完成：來源 {source}"
+
+msgid "cui.spec_status"
+msgstr "工作階段 {session}：階段 {stage} · 游標 {cursor}"
+
+msgid "cui.status_line"
+msgstr "{session} {title} [{stage}] status={status} cursor={cursor}"
+
+msgid "cui.task_aborted"
+msgstr "{task} 已中止 → {status}"
+
+msgid "cui.task_retried"
+msgstr "{task} 已重試（retry={retry}）→ {status}"
+
+msgid "cui.tasks_summary"
+msgstr "工作階段 {session}：總計 {total} · 完成 {done} · 受阻 {blocked} · 作用中 {active}"
+
+msgid "cui.unarchive_dry_run"
+msgstr "試執行：將取消封存工作階段 {session}——加上 --yes 才會實際執行"
+
+msgid "cui.unarchived"
+msgstr "已取消封存工作階段 {session}"
+
+msgid "error.datasource"
+msgstr "資料來源錯誤：{error}"
+
+msgid "error.permission_denied"
+msgstr "權限不足"
+
+msgid "gui.chat.cancel"
+msgstr "取消"
+
+msgid "gui.chat.empty"
+msgstr "提示詞為空"
+
+msgid "gui.chat.error"
+msgstr "對話失敗"
+
+msgid "gui.chat.hint"
+msgstr "先選取工作階段再輸入提示詞；送出後須等待完成（同步，與 TUI 相同）"
+
+msgid "gui.chat.history.hint"
+msgstr "對話事件已寫入資料庫，完整歷程請見「事件」檢視"
+
+msgid "gui.chat.last"
+msgstr "上次結果：{summary}"
+
+msgid "gui.chat.no_request"
+msgstr "沒有可取消的請求 ID（請先送出一輪對話）"
+
+msgid "gui.chat.none"
+msgstr "未選取工作階段——請先在「工作階段」檢視以 j/k 選取"
+
+msgid "gui.chat.not_supported"
+msgstr "LLM 執行器尚未接線（not_supported）"
+
+msgid "gui.chat.progress"
+msgstr "產生中：{chunks} 個片段…"
+
+msgid "gui.chat.prompt.placeholder"
+msgstr "輸入提示詞，按 Enter 送出"
+
+msgid "gui.chat.provider"
+msgstr "模型設定檔：{provider}"
+
+msgid "gui.chat.provider.placeholder"
+msgstr "設定檔名稱"
+
+msgid "gui.chat.send"
+msgstr "送出"
+
+msgid "gui.checkpoints.degraded"
+msgstr "尚未實作復原（僅可瀏覽）"
+
+msgid "gui.checkpoints.empty"
+msgstr "此任務尚無檢查點"
+
+msgid "gui.checkpoints.hint"
+msgstr "在任務列按「檢查點」查看"
+
+msgid "gui.checkpoints.open"
+msgstr "檢查點"
+
+msgid "gui.checkpoints.title"
+msgstr "檢查點"
+
+msgid "gui.kpi.count"
+msgstr "工作階段 {sessions} · 目前檢視 {rows} 列"
+
+msgid "gui.op.archive"
+msgstr "封存"
+
+msgid "gui.op.cancel"
+msgstr "取消"
+
+msgid "gui.op.confirm"
+msgstr "確認"
+
+msgid "gui.op.delete"
+msgstr "刪除"
+
+msgid "gui.op.error"
+msgstr "操作失敗"
+
+msgid "gui.op.input.days"
+msgstr "清除截止天數"
+
+msgid "gui.op.input.title"
+msgstr "標題"
+
+msgid "gui.op.new"
+msgstr "新增"
+
+msgid "gui.op.not_supported"
+msgstr "指令執行器尚未接線（not_supported）"
+
+msgid "gui.op.preview"
+msgstr "預覽"
+
+msgid "gui.op.purge"
+msgstr "清除（30 天前）"
+
+msgid "gui.op.rename"
+msgstr "重新命名"
+
+msgid "gui.op.restore"
+msgstr "還原"
+
+msgid "gui.session.archived"
+msgstr "封存"
+
+msgid "gui.session.group.active"
+msgstr "— 作用中 —"
+
+msgid "gui.session.group.archived"
+msgstr "— 已封存 —"
+
+msgid "gui.session.none"
+msgstr "未選取工作階段"
+
+msgid "gui.session.off"
+msgstr "隱藏"
+
+msgid "gui.session.on"
+msgstr "顯示"
+
+msgid "gui.session.search"
+msgstr "搜尋標題或 ID"
+
+msgid "gui.session.sort.created"
+msgstr "建立"
+
+msgid "gui.session.sort.recent"
+msgstr "最近"
+
+msgid "gui.session.sort.title"
+msgstr "標題"
+
+msgid "gui.status.theme"
+msgstr "主題：{theme}"
+
+msgid "gui.task.abort"
+msgstr "中止"
+
+msgid "gui.task.retries"
+msgstr "已重試 {count} 次"
+
+msgid "gui.task.retry"
+msgstr "重試"
+
+msgid "menu.context"
+msgstr "上下文"
+
+msgid "menu.diff"
+msgstr "差異"
+
+msgid "menu.events"
+msgstr "事件"
+
+msgid "menu.sessions"
+msgstr "工作階段"
+
+msgid "menu.spec"
+msgstr "規格"
+
+msgid "menu.tasks"
+msgstr "任務"
+
+msgid "settings.action.done"
+msgstr "完成：{label}"
+
+msgid "settings.action.failed"
+msgstr "操作失敗（{label}）：{code} {message}"
+
+msgid "settings.action.running"
+msgstr "執行中：{label}"
+
+msgid "settings.back"
+msgstr "回到首頁"
+
+msgid "settings.confirm.builtin_empty"
+msgstr "這會清空內建根憑證副本（對外信任不再包含內建基準）。要繼續嗎？"
+
+msgid "settings.confirm.external_key"
+msgstr "這會儲存外部伺服器憑證與私密金鑰，並把接收端模式切換為 external。要繼續嗎？"
+
+msgid "settings.confirm.inbound_off"
+msgstr "這會停用接收端 TLS（回到明文 HTTP），重新啟動 serve --web 後生效。要繼續嗎？"
+
+msgid "settings.confirm.regenerate"
+msgstr "這會重新產生自簽伺服器憑證（目前指紋將失效）。要繼續嗎？"
+
+msgid "settings.confirm.reset_builtin"
+msgstr "這會把內建根憑證副本還原為隨附資產。要繼續嗎？"
+
+msgid "settings.confirm.reset_extra"
+msgstr "這會清除額外根憑證。要繼續嗎？"
+
+msgid "settings.error.bad_port"
+msgstr "連接埠必須是 1..=65535 的整數"
+
+msgid "settings.error.generic"
+msgstr "操作失敗"
+
+msgid "settings.error.load"
+msgstr "無法讀取憑證狀態：{code} {message}"
+
+msgid "settings.error.missing_host"
+msgstr "請先填寫主機名稱或 IP 位址"
+
+msgid "settings.error.missing_pem"
+msgstr "請先填寫憑證鏈與私密金鑰（PEM）"
+
+msgid "settings.field.count"
+msgstr "數量：{value}"
+
+msgid "settings.field.modified"
+msgstr "修改時間：{value}"
+
+msgid "settings.field.newer"
+msgstr "內建版本較新：{value}"
+
+msgid "settings.field.path"
+msgstr "路徑：{value}"
+
+msgid "settings.field.sha256"
+msgstr "SHA-256：{value}"
+
+msgid "settings.inbound.builtin"
+msgstr "內建自簽憑證（builtin）"
+
+msgid "settings.inbound.builtin_hint"
+msgstr "每個工作區產生 ECDSA P-256 自簽憑證（397 天）；SAN 涵蓋 localhost、127.0.0.1、::1 與主機名稱。"
+
+msgid "settings.inbound.cert_pem_label"
+msgstr "上傳憑證鏈（PEM）"
+
+msgid "settings.inbound.days_remaining"
+msgstr "剩餘天數：{value}"
+
+msgid "settings.inbound.download"
+msgstr "下載公開憑證（PEM）"
+
+msgid "settings.inbound.external"
+msgstr "外部憑證（external）"
+
+msgid "settings.inbound.external_hint"
+msgstr "使用你上傳的 PEM 憑證鏈與未加密私密金鑰；私密金鑰只寫不讀。"
+
+msgid "settings.inbound.key_pem_label"
+msgstr "上傳私密金鑰（未加密 PEM，送出後清除）"
+
+msgid "settings.inbound.key_saved"
+msgstr "私密金鑰已儲存，不再顯示（欄位已清除）。"
+
+msgid "settings.inbound.legend"
+msgstr "模式"
+
+msgid "settings.inbound.material"
+msgstr "憑證存在：{cert} · 私密金鑰存在：{key}"
+
+msgid "settings.inbound.no_material"
+msgstr "尚無伺服器憑證材料（可上傳憑證鏈，或重新產生自簽憑證）"
+
+msgid "settings.inbound.not_after"
+msgstr "有效期限：{value}"
+
+msgid "settings.inbound.off"
+msgstr "關閉 TLS（off）"
+
+msgid "settings.inbound.off_hint"
+msgstr "回到明文 HTTP（ADR-023）；須明確確認，且不會被默默改回。"
+
+msgid "settings.inbound.regenerate"
+msgstr "重新產生自簽憑證"
+
+msgid "settings.inbound.sans"
+msgstr "SAN：{value}"
+
+msgid "settings.inbound.sha256"
+msgstr "指紋 SHA-256：{value}"
+
+msgid "settings.inbound.subject"
+msgstr "主體：{value}"
+
+msgid "settings.inbound.title"
+msgstr "接收端 TLS（serve --web）"
+
+msgid "settings.inbound.upload"
+msgstr "上傳並切換為 external"
+
+msgid "settings.link"
+msgstr "憑證設定"
+
+msgid "settings.local_mode"
+msgstr "本機設定頁"
+
+msgid "settings.modes.save"
+msgstr "儲存模式"
+
+msgid "settings.notes.none"
+msgstr "沒有其他備註"
+
+msgid "settings.notes.title"
+msgstr "備註"
+
+msgid "settings.outbound.builtin"
+msgstr "內建副本（builtin）"
+
+msgid "settings.outbound.builtin_hint"
+msgstr "以工作區內建的根憑證副本為基準，額外根憑證會附加於後。"
+
+msgid "settings.outbound.builtin_pem_label"
+msgstr "內建根憑證副本（PEM，可編輯）"
+
+msgid "settings.outbound.effective_line"
+msgstr "生效根憑證數量：{value}"
+
+msgid "settings.outbound.empty_extra"
+msgstr "未設定額外根憑證（正確的空：檔案中沒有憑證）"
+
+msgid "settings.outbound.extra_pem_label"
+msgstr "額外根憑證（PEM，兩種模式皆生效）"
+
+msgid "settings.outbound.hint"
+msgstr "任何模式都不會停用憑證鏈與主機名稱驗證；沒有略過驗證的開關。"
+
+msgid "settings.outbound.legend"
+msgstr "信任存放區模式"
+
+msgid "settings.outbound.missing_builtin"
+msgstr "內建副本不存在：狀態未回報該檔案"
+
+msgid "settings.outbound.reset_builtin"
+msgstr "還原內建副本"
+
+msgid "settings.outbound.reset_extra"
+msgstr "清除額外根憑證"
+
+msgid "settings.outbound.save_builtin"
+msgstr "儲存內建副本"
+
+msgid "settings.outbound.save_extra"
+msgstr "儲存額外根憑證"
+
+msgid "settings.outbound.system"
+msgstr "作業系統憑證存放區（system）"
+
+msgid "settings.outbound.system_hint"
+msgstr "以作業系統的根憑證存放區為基準，額外根憑證同樣附加於後。系統存放區為空時視為錯誤，不會退回內建副本。"
+
+msgid "settings.outbound.system_na"
+msgstr "不適用（目前模式不讀取系統存放區）"
+
+msgid "settings.outbound.system_roots_line"
+msgstr "系統根憑證數量：{value}"
+
+msgid "settings.outbound.title"
+msgstr "對外 HTTPS 信任"
+
+msgid "settings.restart_banner"
+msgstr "接收端憑證或模式已變更，請重新啟動 serve --web 後才會生效。"
+
+msgid "settings.status.no"
+msgstr "否"
+
+msgid "settings.status.unknown"
+msgstr "未知"
+
+msgid "settings.status.yes"
+msgstr "是"
+
+msgid "settings.title"
+msgstr "憑證設定"
+
+msgid "settings.verify.button"
+msgstr "檢查"
+
+msgid "settings.verify.failed"
+msgstr "檢查失敗：{error}"
+
+msgid "settings.verify.host"
+msgstr "主機"
+
+msgid "settings.verify.ok"
+msgstr "檢查成功：主體 {subject} · 有效期限 {not_after} · 指紋 {sha256} · {tls_version}"
+
+msgid "settings.verify.port"
+msgstr "連接埠"
+
+msgid "settings.verify.title"
+msgstr "對外連線檢查"
+
+msgid "status.idle"
+msgstr "閒置"
+
+msgid "status.running"
+msgstr "執行中"
+
+msgid "summary.context"
+msgstr "工作階段 {session} · 預算 {budget} · 已用 {used} · 項目 {items}{truncated}"
+
+msgid "summary.context_truncated"
+msgstr "· 截斷原因：{reason}"
+
+msgid "summary.diff"
+msgstr "工作階段 {session} · 任務 {total} · 通過 {pass} / 失敗 {fail} / 未測 {untested}{truncated}"
+
+msgid "summary.diff.truncated"
+msgstr "· 差異清單已截斷"
+
+msgid "summary.events"
+msgstr "工作階段 {session} · 游標 {from}..{to}（僅取尾端 ≤ {limit} 筆）"
+
+msgid "summary.none"
+msgstr "無"
+
+msgid "summary.spec"
+msgstr "工作階段 {session} · 階段 {stage} · 游標 {cursor} · 作用中任務 {task}"
+
+msgid "summary.tasks"
+msgstr "工作階段 {session} · 總計 {total} · 完成 {done} · 受阻 {blocked}"
+
+msgid "tui.col.id"
+msgstr "ID"
+
+msgid "tui.col.kind"
+msgstr "類型"
+
+msgid "tui.col.retry"
+msgstr "重試"
+
+msgid "tui.col.seq"
+msgstr "序號"
+
+msgid "tui.col.stage"
+msgstr "階段"
+
+msgid "tui.col.status"
+msgstr "狀態"
+
+msgid "tui.col.summary"
+msgstr "摘要"
+
+msgid "tui.col.title"
+msgstr "標題"
+
+msgid "tui.diff_unwired"
+msgstr "（差異來源尚未接線：converge 差異待後續接線，不顯示捏造內容）"
+
+msgid "tui.empty"
+msgstr "（尚無資料）"
+
+msgid "tui.footer"
+msgstr "1-7 切換檢視  j/k 移動  r 重新整理  t 主題  q 結束  |  {cols}x{rows}"
+
+msgid "tui.header.none"
+msgstr "未選取工作階段"
+
+msgid "tui.no_session"
+msgstr "（未選取工作階段——請按 j/k）"
+
+msgid "tui.runtimes"
+msgstr "執行時：{list}"
+
+msgid "tui.title"
+msgstr "{app}  |  {view}（{index}/{count}）"
+
+msgid "view.chat"
+msgstr "對話"
+
+msgid "view.context"
+msgstr "上下文"
+
+msgid "view.diff"
+msgstr "差異預覽"
+
+msgid "view.events"
+msgstr "事件"
+
+msgid "view.sessions"
+msgstr "工作階段"
+
+msgid "view.spec"
+msgstr "規格狀態"
+
+msgid "view.tasks"
+msgstr "任務"
+
+msgid "web.action.failed"
+msgstr "操作失敗（{label}）：{error}"
+
+msgid "web.checkpoints.degraded"
+msgstr "尚未實作復原（明確降級）：僅提供瀏覽與差異摘要"
+
+msgid "web.checkpoints.empty"
+msgstr "此任務尚無檢查點"
+
+msgid "web.checkpoints.failed"
+msgstr "載入檢查點失敗：{error}"
+
+msgid "web.checkpoints.hint"
+msgstr "選取任務即可檢視檢查點與差異摘要"
+
+msgid "web.checkpoints.ready"
+msgstr "可復原"
+
+msgid "web.checkpoints.refs"
+msgstr "產出物參照 {count} 筆"
+
+msgid "web.checkpoints.title"
+msgstr "檢查點"
+
+msgid "web.checkpoints.truncated"
+msgstr "檢查點超過上限，清單已截斷"
+
+msgid "web.cleanup.bad_days"
+msgstr "保留天數至少須為 1"
+
+msgid "web.cleanup.confirm"
+msgstr "確認清除"
+
+msgid "web.cleanup.days"
+msgstr "保留天數"
+
+msgid "web.cleanup.done"
+msgstr "已清除 {sessions} 個工作階段"
+
+msgid "web.cleanup.preview"
+msgstr "預覽"
+
+msgid "web.cleanup.preview_required"
+msgstr "請先預覽再確認清除"
+
+msgid "web.cleanup.preview_result"
+msgstr "將清除 {sessions} 個工作階段"
+
+msgid "web.conn.connected"
+msgstr "已連線"
+
+msgid "web.conn.disconnected"
+msgstr "未連線"
+
+msgid "web.context.empty"
+msgstr "（正確的空：預算內沒有可放入的項目）"
+
+msgid "web.context.no_session"
+msgstr "未選取工作階段"
+
+msgid "web.context.summary"
+msgstr "預算 {consumed}/{budget} · 來源 {sources} · 截斷 {truncated}"
+
+msgid "web.cursor"
+msgstr "游標 {n}"
+
+msgid "web.diff.empty"
+msgstr "（沒有差異：所有驗收條件均通過）"
+
+msgid "web.diff.no_session"
+msgstr "未選取工作階段"
+
+msgid "web.diff.summary"
+msgstr "任務 {total} · 通過 {pass} / 失敗 {fail} / 未測 {untested}{truncated}"
+
+msgid "web.diff.truncated"
+msgstr "（已截斷）"
+
+msgid "web.export.done"
+msgstr "匯出完成"
+
+msgid "web.export.json"
+msgstr "匯出 JSON"
+
+msgid "web.export.jsonl"
+msgstr "匯出 JSONL"
+
+msgid "web.recovering"
+msgstr "回復中…"
+
+msgid "web.runtimes"
+msgstr "執行時"
+
+msgid "web.runtimes.available"
+msgstr "可用"
+
+msgid "web.runtimes.unavailable"
+msgstr "不可用"
+
+msgid "web.runtimes.unknown"
+msgstr "未探測"
+
+msgid "web.runtimes.unwired"
+msgstr "執行時清單尚未接線"
+
+msgid "web.session.archive_confirm"
+msgstr "確認封存"
+
+msgid "web.session.archive_preview"
+msgstr "預覽封存"
+
+msgid "web.session.archive_preview_required"
+msgstr "請先預覽再確認封存"
+
+msgid "web.session.archive_preview_result"
+msgstr "將封存工作階段 {session}——確認後執行"
+
+msgid "web.session.archived"
+msgstr "已封存工作階段 {session}"
+
+msgid "web.session.create"
+msgstr "新增"
+
+msgid "web.session.delete_confirm"
+msgstr "確認刪除"
+
+msgid "web.session.delete_preview"
+msgstr "預覽刪除"
+
+msgid "web.session.delete_preview_result"
+msgstr "將刪除：事件 {events} · 任務 {tasks}"
+
+msgid "web.session.deleted"
+msgstr "已刪除 {n} 個工作階段"
+
+msgid "web.session.group_active"
+msgstr "作用中"
+
+msgid "web.session.group_archived"
+msgstr "已封存"
+
+msgid "web.session.none"
+msgstr "未選取工作階段"
+
+msgid "web.session.preview_required"
+msgstr "請先預覽再確認刪除"
+
+msgid "web.session.rename"
+msgstr "重新命名"
+
+msgid "web.session.rename_placeholder"
+msgstr "新標題"
+
+msgid "web.session.search"
+msgstr "搜尋標題或 ID"
+
+msgid "web.session.show_archived"
+msgstr "包含封存"
+
+msgid "web.session.sort"
+msgstr "排序"
+
+msgid "web.session.sort.created"
+msgstr "建立時間"
+
+msgid "web.session.sort.last_active"
+msgstr "最近使用"
+
+msgid "web.session.sort.title"
+msgstr "標題"
+
+msgid "web.session.title"
+msgstr "工作階段標題"
+
+msgid "web.session.title_required"
+msgstr "請先輸入工作階段標題"
+
+msgid "web.tab.context"
+msgstr "上下文"
+
+msgid "web.tab.diff"
+msgstr "差異"
+
+msgid "web.tab.history"
+msgstr "歷程"
+
+msgid "web.tab.maintenance"
+msgstr "維護"
+
+msgid "web.tab.sessions"
+msgstr "工作階段"
+
+msgid "web.tab.spec"
+msgstr "SDD"
+
+msgid "web.tab.tasks"
+msgstr "任務"
+
+msgid "web.task.abort"
+msgstr "中止"
+
+msgid "web.task.depends"
+msgstr "相依於 {depends}"
+
+msgid "web.task.progress"
+msgstr "完成 {done}/{total} · 受阻 {blocked}"
+
+msgid "web.task.retries"
+msgstr "已重試 {count} 次"
+
+msgid "web.task.retry"
+msgstr "重試"
+
+msgid "web.task.truncated"
+msgstr "任務卡片超過上限，已截斷（彙總計數仍為完整）"
+
+msgid "web.tasks_summary"
+msgstr "總計 {total} · 完成 {done} · 受阻 {blocked}"
+
+msgid "web.theme.default"
+msgstr "預設"
+
+msgid "web.theme.label"
+msgstr "主題"
+

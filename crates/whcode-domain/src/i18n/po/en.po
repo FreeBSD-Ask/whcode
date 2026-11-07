@@ -1,0 +1,1246 @@
+# en translation catalog for WHCode (FR-615).
+# Generated from i18n/en.properties by .github/scripts/i18n-po.py; do not edit by hand.
+# Edit the properties file instead, then regenerate — a contract test fails on drift.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: whcode 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/FreeBSD-Ask/whcode/issues\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "app.title"
+msgstr "WHCode Coding Harness"
+
+msgid "cli.about"
+msgstr "WHCode Coding Harness"
+
+msgid "cli.context.about"
+msgstr "Context budget view (FR-105/108; contracts/cui-cli.md §1)."
+
+msgid "cli.context.budget.about"
+msgstr "Budget view: current budget, loaded sources, truncation reason and cursor (via `whcode_app::load_context`)."
+
+msgid "cli.context.budget.budget"
+msgstr "Budget in tokens; defaults to the display baseline (4096, same as the TUI context view)."
+
+msgid "cli.context.budget.session"
+msgstr "Session ID."
+
+msgid "cli.db.about"
+msgstr "Database maintenance and cleanup (FR-507—510)."
+
+msgid "cli.db.archive.about"
+msgstr "Export the workspace."
+
+msgid "cli.db.archive.export"
+msgstr "Output path."
+
+msgid "cli.db.check.about"
+msgstr "Check required indexes."
+
+msgid "cli.db.checkpoint.about"
+msgstr "Explicit checkpoint (FR-510; optionally applies WAL policy overrides, disaster-recovery §5)."
+
+msgid "cli.db.checkpoint.autocheckpoint"
+msgstr "Override wal_autocheckpoint (e.g. 1MB; unchanged when omitted)."
+
+msgid "cli.db.checkpoint.threshold"
+msgstr "Override the WAL auto-checkpoint threshold (e.g. 16MB; unchanged when omitted)."
+
+msgid "cli.db.compact.about"
+msgstr "Compact the database on disk (copy—verify—swap, FR-510; dry-run by default)."
+
+msgid "cli.db.compact.dry-run"
+msgstr "Preview only (default)."
+
+msgid "cli.db.compact.yes"
+msgstr "Confirm execution."
+
+msgid "cli.db.explain.about"
+msgstr "Query plan analysis (read-only queries, contract §2-2)."
+
+msgid "cli.db.explain.query"
+msgstr "Read-only SQL (starting with SELECT/WITH)."
+
+msgid "cli.db.purge.about"
+msgstr "Purge by age (FR-508/509; dry-run by default)."
+
+msgid "cli.db.purge.before"
+msgstr "Cutoff time (Unix milliseconds)."
+
+msgid "cli.db.purge.dry-run"
+msgstr "Preview only (default)."
+
+msgid "cli.db.purge.yes"
+msgstr "Confirm execution."
+
+msgid "cli.db.restore.about"
+msgstr "Restore an export into an empty workspace (inverse of `db archive`; explicit confirmation, no preview)."
+
+msgid "cli.db.restore.from"
+msgstr "Export file path (whcode-export format)."
+
+msgid "cli.db.restore.yes"
+msgstr "Confirm execution (restore writes; the target database must be empty)."
+
+msgid "cli.db.stats.about"
+msgstr "Database statistics (FR-507)."
+
+msgid "cli.doctor.about"
+msgstr "Environment and configuration self-check (M0)."
+
+msgid "cli.doctor.json"
+msgstr "Emit JSON."
+
+msgid "cli.events.about"
+msgstr "Event queries and export (FR-202/205)."
+
+msgid "cli.events.export.about"
+msgstr "Export (the redaction policy is stated in the export, FR-205)."
+
+msgid "cli.events.export.after"
+msgstr "Start cursor."
+
+msgid "cli.events.export.format"
+msgstr "Output format (json/jsonl)."
+
+msgid "cli.events.export.session"
+msgstr "Session ID."
+
+msgid "cli.events.list.about"
+msgstr "List events (incremental by cursor)."
+
+msgid "cli.events.list.after"
+msgstr "Start cursor (exclusive)."
+
+msgid "cli.events.list.session"
+msgstr "Session ID."
+
+msgid "cli.events.show.about"
+msgstr "Details of one event."
+
+msgid "cli.events.show.event"
+msgstr "Event ID."
+
+msgid "cli.font.about"
+msgstr "Bundled font installation and terminal declaration checks (FR-717; local resource command, no database and no workspace)."
+
+msgid "cli.font.install.about"
+msgstr "Install the four bundled fonts into the user font directory and write the HKCU registration (copy-over semantics, safe to re-run)."
+
+msgid "cli.font.install.dry-run"
+msgstr "Report the actions that would run without changing the system."
+
+msgid "cli.font.install.from"
+msgstr "Font source directory (flat layout or the repository `source/<family>/` layout); defaults to probing next to the executable, then `assets/fonts/source` in the current directory (ADR-028 revision 1)."
+
+msgid "cli.font.status.about"
+msgstr "Report font installation state and terminal declaration (read-only)."
+
+msgid "cli.font.uninstall.about"
+msgstr "Uninstall the bundled fonts: remove the registration and delete files from the user font directory (best effort, reported item by item)."
+
+msgid "cli.font.uninstall.dry-run"
+msgstr "Report the actions that would run without changing the system."
+
+msgid "cli.hint.no_console"
+msgstr "whcode {version} — no interactive console available, no interface started"
+
+msgid "cli.hint.options"
+msgstr "Available: --tui (terminal UI), --cli <subcommand>, --lang <locale>, --help"
+
+msgid "cli.json"
+msgstr "Emit JSON (schema_version envelope, FR-602); accepted before or after any subcommand."
+
+msgid "cli.lang"
+msgstr "Language for interface text (e.g. zh-CN, en; overrides LANG/LC_ALL, FR-615)."
+
+msgid "cli.llm.about"
+msgstr "Model invocation (FR-201; `llm run` and `llm cancel`, contracts/cui-cli.md §1)."
+
+msgid "cli.llm.cancel.about"
+msgstr "Cancel a call running on this machine (takes effect before the next chunk)."
+
+msgid "cli.llm.cancel.request"
+msgstr "Request ID (printed by `llm run` or preset via `--request-id`)."
+
+msgid "cli.llm.run.about"
+msgstr "Make one real call (synchronous; streamed increments are emitted as a bounded sequence at the end)."
+
+msgid "cli.llm.run.max-tokens"
+msgstr "Override the profile `max_tokens`."
+
+msgid "cli.llm.run.model"
+msgstr "Override the profile model identifier."
+
+msgid "cli.llm.run.prompt"
+msgstr "Prompt text (never written to events or logs)."
+
+msgid "cli.llm.run.provider"
+msgstr "Profile name (explicit choice, ADR-031 decision 4)."
+
+msgid "cli.llm.run.request-id"
+msgstr "Preset request ID (the key for `llm cancel`; generated from the call otherwise)."
+
+msgid "cli.llm.run.session"
+msgstr "Session ID."
+
+msgid "cli.llm.run.trace-level"
+msgstr "Trace level (off/metadata/redacted/full)."
+
+msgid "cli.runtime.about"
+msgstr "Runtime management (FR-701—710; M8)."
+
+msgid "cli.runtime.disable.about"
+msgstr "Disable a runtime."
+
+msgid "cli.runtime.disable.name"
+msgstr "Runtime name."
+
+msgid "cli.runtime.enable.about"
+msgstr "Enable a runtime."
+
+msgid "cli.runtime.enable.name"
+msgstr "Runtime name."
+
+msgid "cli.runtime.install.about"
+msgstr "Install a payload."
+
+msgid "cli.runtime.install.name"
+msgstr "Runtime name."
+
+msgid "cli.runtime.list.about"
+msgstr "List runtimes."
+
+msgid "cli.runtime.status.about"
+msgstr "Runtime state."
+
+msgid "cli.runtime.status.name"
+msgstr "Runtime name."
+
+msgid "cli.serve.about"
+msgstr "Transport entry points (M6/M7)."
+
+msgid "cli.serve.bind"
+msgstr "Bind address (loopback only by default, FR-606)."
+
+msgid "cli.serve.ssh"
+msgstr "SSH entry point (M7, deferred)."
+
+msgid "cli.serve.web"
+msgstr "Web entry point (M6)."
+
+msgid "cli.session.about"
+msgstr "Session lifecycle (FR-101)."
+
+msgid "cli.session.archive.about"
+msgstr "Archive or restore (destructive family per contract §2-1: dry-run by default, `--yes` executes)."
+
+msgid "cli.session.archive.dry-run"
+msgstr "Preview only (default)."
+
+msgid "cli.session.archive.session"
+msgstr "Session ID."
+
+msgid "cli.session.archive.unarchive"
+msgstr "Restore an archived session."
+
+msgid "cli.session.archive.yes"
+msgstr "Confirm execution (conflicts with --dry-run, §8.1)."
+
+msgid "cli.session.delete.about"
+msgstr "Delete a session (destructive; dry-run by default, FR-509)."
+
+msgid "cli.session.delete.dry-run"
+msgstr "Preview only (default)."
+
+msgid "cli.session.delete.session"
+msgstr "Session ID."
+
+msgid "cli.session.delete.yes"
+msgstr "Confirm execution (conflicts with --dry-run, §8.1)."
+
+msgid "cli.session.list.about"
+msgstr "List sessions."
+
+msgid "cli.session.list.all"
+msgstr "Include archived sessions."
+
+msgid "cli.session.new.about"
+msgstr "Create a session."
+
+msgid "cli.session.new.model"
+msgstr "Model (optional)."
+
+msgid "cli.session.new.title"
+msgstr "Title."
+
+msgid "cli.session.rename.about"
+msgstr "Rename a session."
+
+msgid "cli.session.rename.session"
+msgstr "Session ID."
+
+msgid "cli.session.rename.title"
+msgstr "New title."
+
+msgid "cli.session.show.about"
+msgstr "Show one session."
+
+msgid "cli.session.show.session"
+msgstr "Session ID."
+
+msgid "cli.spec.about"
+msgstr "SDD stages and gates (FR-307—312)."
+
+msgid "cli.spec.analyze.about"
+msgstr "Analyze check (FR-306)."
+
+msgid "cli.spec.analyze.session"
+msgstr "Session ID."
+
+msgid "cli.spec.converge.about"
+msgstr "Converge check (FR-310/311)."
+
+msgid "cli.spec.converge.session"
+msgstr "Session ID."
+
+msgid "cli.spec.force-advance.about"
+msgstr "Advance past a gate by hand (FR-312; reason required, contract §2-3)."
+
+msgid "cli.spec.force-advance.reason"
+msgstr "Justification for forcing the gate (required, FR-312)."
+
+msgid "cli.spec.force-advance.session"
+msgstr "Session ID."
+
+msgid "cli.spec.force-advance.to"
+msgstr "Target stage."
+
+msgid "cli.spec.next.about"
+msgstr "Next stage."
+
+msgid "cli.spec.next.session"
+msgstr "Session ID."
+
+msgid "cli.spec.status.about"
+msgstr "Current stage state (FR-314)."
+
+msgid "cli.spec.status.session"
+msgstr "Session ID."
+
+msgid "cli.spec.validate.about"
+msgstr "Validate artifacts."
+
+msgid "cli.spec.validate.session"
+msgstr "Session ID."
+
+msgid "cli.status.about"
+msgstr "State snapshot (FR-314)."
+
+msgid "cli.status.session"
+msgstr "Session ID."
+
+msgid "cli.task.abort.about"
+msgstr "Abort a task (FR-408)."
+
+msgid "cli.task.abort.task"
+msgstr "Task ID."
+
+msgid "cli.task.about"
+msgstr "Task inspection and control (FR-401/408)."
+
+msgid "cli.task.list.about"
+msgstr "List tasks."
+
+msgid "cli.task.list.session"
+msgstr "Session ID."
+
+msgid "cli.task.retry.about"
+msgstr "Retry a task (FR-401)."
+
+msgid "cli.task.retry.task"
+msgstr "Task ID."
+
+msgid "cli.task.show.about"
+msgstr "Task details (the five information classes of FR-104)."
+
+msgid "cli.task.show.task"
+msgstr "Task ID."
+
+msgid "cli.workspace"
+msgstr "Workspace directory (configured workspace, else cwd; locates `<workspace>/whcode.duckdb`)."
+
+msgid "cui.archive_dry_run"
+msgstr "dry-run: would archive session {session} — pass --yes to execute (use --unarchive to reverse)"
+
+msgid "cui.archived"
+msgstr "Archived session {session}"
+
+msgid "cui.checkpoint_done"
+msgstr "checkpoint done: WAL {before} → {after}"
+
+msgid "cui.compact_done"
+msgstr "compact finished (switched={switched})"
+
+msgid "cui.compact_dry_run"
+msgstr "dry-run: file {file} B, WAL {wal} B — pass --yes to compact (no size shrink promised)"
+
+msgid "cui.created"
+msgstr "Created session {session}"
+
+msgid "cui.delete_dry_run"
+msgstr "dry-run: would delete session {session} ({events} events, {tasks} tasks; {skipped} protected skipped) — pass --yes to execute"
+
+msgid "cui.deleted"
+msgstr "Deleted session {session}"
+
+msgid "cui.empty"
+msgstr "(no records)"
+
+msgid "cui.exported"
+msgstr "Exported to {path} (hash {hash})"
+
+msgid "cui.font.deleted"
+msgstr "deleted"
+
+msgid "cui.font.dry_run"
+msgstr "[dry-run]"
+
+msgid "cui.font.install.header"
+msgstr "{dry_run}Install built-in fonts: {source} -> {dir}"
+
+msgid "cui.font.install.line"
+msgstr "{family}: copy {source} -> {target}, registry {reg_state}"
+
+msgid "cui.font.installed"
+msgstr "installed"
+
+msgid "cui.font.missing"
+msgstr "missing"
+
+msgid "cui.font.reg_pending"
+msgstr "pending"
+
+msgid "cui.font.registered"
+msgstr "registered"
+
+msgid "cui.font.removed"
+msgstr "unregistered"
+
+msgid "cui.font.status.header"
+msgstr "Built-in fonts status (user dir: {dir})"
+
+msgid "cui.font.status.line"
+msgstr "{family} ({file}): file {file_state}, registry {reg_state}"
+
+msgid "cui.font.terminal.found"
+msgstr "Terminal declaration: {file} (faces: {faces}; built-in hits: {hits})"
+
+msgid "cui.font.terminal.none"
+msgstr "Terminal declaration: no Windows Terminal settings found (not an error)"
+
+msgid "cui.font.uninstall.header"
+msgstr "{dry_run}Uninstall built-in fonts"
+
+msgid "cui.font.uninstall.line"
+msgstr "{family}: registry {unreg_state}, file {file_state}"
+
+msgid "cui.font.unregistered"
+msgstr "not registered"
+
+msgid "cui.indexes_ok"
+msgstr "indexes complete"
+
+msgid "cui.plan_rows"
+msgstr "{rows} plan rows (analyze=false, query not executed)"
+
+msgid "cui.purge_dry_run"
+msgstr "dry-run: {sessions} sessions / {events} events would be purged ({skipped} protected skipped) — pass --yes to execute"
+
+msgid "cui.purged"
+msgstr "Purged {events} events"
+
+msgid "cui.record.archived"
+msgstr "Archived"
+
+msgid "cui.record.artifacts"
+msgstr "Artifacts"
+
+msgid "cui.record.budget"
+msgstr "Budget"
+
+msgid "cui.record.checkpoints"
+msgstr "Checkpoints"
+
+msgid "cui.record.cursor"
+msgstr "Cursor"
+
+msgid "cui.record.failure"
+msgstr "Failure"
+
+msgid "cui.record.items"
+msgstr "Items"
+
+msgid "cui.record.model"
+msgstr "Model"
+
+msgid "cui.record.no"
+msgstr "no"
+
+msgid "cui.record.session"
+msgstr "Session {session}"
+
+msgid "cui.record.task"
+msgstr "Task {task}"
+
+msgid "cui.record.truncated"
+msgstr "Truncated"
+
+msgid "cui.record.used"
+msgstr "Used"
+
+msgid "cui.record.yes"
+msgstr "yes"
+
+msgid "cui.renamed"
+msgstr "Renamed session {session}"
+
+msgid "cui.restore_done"
+msgstr "restore done: from {source}"
+
+msgid "cui.spec_status"
+msgstr "Session {session}: stage {stage} · cursor {cursor}"
+
+msgid "cui.status_line"
+msgstr "{session} {title} [{stage}] status={status} cursor={cursor}"
+
+msgid "cui.task_aborted"
+msgstr "{task} aborted → {status}"
+
+msgid "cui.task_retried"
+msgstr "{task} retried (retry={retry}) → {status}"
+
+msgid "cui.tasks_summary"
+msgstr "Session {session}: total {total} · done {done} · blocked {blocked} · active {active}"
+
+msgid "cui.unarchive_dry_run"
+msgstr "dry-run: would unarchive session {session} — pass --yes to execute"
+
+msgid "cui.unarchived"
+msgstr "Unarchived session {session}"
+
+msgid "error.datasource"
+msgstr "Data source error: {error}"
+
+msgid "error.permission_denied"
+msgstr "Permission denied"
+
+msgid "gui.chat.cancel"
+msgstr "Cancel"
+
+msgid "gui.chat.empty"
+msgstr "Prompt is empty"
+
+msgid "gui.chat.error"
+msgstr "Chat failed"
+
+msgid "gui.chat.hint"
+msgstr "Select a session and type a prompt; sending blocks until done (same as TUI)"
+
+msgid "gui.chat.history.hint"
+msgstr "Turn events are persisted - see the Events view for full history"
+
+msgid "gui.chat.last"
+msgstr "Last result: {summary}"
+
+msgid "gui.chat.no_request"
+msgstr "No request ID to cancel (send a turn first)"
+
+msgid "gui.chat.none"
+msgstr "No session selected - select one in the Sessions view (j/k)"
+
+msgid "gui.chat.not_supported"
+msgstr "LLM executor not wired (not_supported)"
+
+msgid "gui.chat.progress"
+msgstr "Generating: {chunks} chunks…"
+
+msgid "gui.chat.prompt.placeholder"
+msgstr "Type prompt, Enter to send"
+
+msgid "gui.chat.provider"
+msgstr "LLM profile: {provider}"
+
+msgid "gui.chat.provider.placeholder"
+msgstr "profile name"
+
+msgid "gui.chat.send"
+msgstr "Send"
+
+msgid "gui.checkpoints.degraded"
+msgstr "Rollback not implemented (browse only)"
+
+msgid "gui.checkpoints.empty"
+msgstr "No checkpoints for this task"
+
+msgid "gui.checkpoints.hint"
+msgstr "Press Checkpoints on a task row"
+
+msgid "gui.checkpoints.open"
+msgstr "Checkpoints"
+
+msgid "gui.checkpoints.title"
+msgstr "Checkpoints"
+
+msgid "gui.kpi.count"
+msgstr "Sessions {sessions} · view rows {rows}"
+
+msgid "gui.op.archive"
+msgstr "Archive"
+
+msgid "gui.op.cancel"
+msgstr "Cancel"
+
+msgid "gui.op.confirm"
+msgstr "Confirm"
+
+msgid "gui.op.delete"
+msgstr "Delete"
+
+msgid "gui.op.error"
+msgstr "Operation failed"
+
+msgid "gui.op.input.days"
+msgstr "Purge cutoff days"
+
+msgid "gui.op.input.title"
+msgstr "Title"
+
+msgid "gui.op.new"
+msgstr "New"
+
+msgid "gui.op.not_supported"
+msgstr "Command executor not wired (not_supported)"
+
+msgid "gui.op.preview"
+msgstr "Preview"
+
+msgid "gui.op.purge"
+msgstr "Purge (older than 30d)"
+
+msgid "gui.op.rename"
+msgstr "Rename"
+
+msgid "gui.op.restore"
+msgstr "Restore"
+
+msgid "gui.session.archived"
+msgstr "Archived"
+
+msgid "gui.session.group.active"
+msgstr "— Active —"
+
+msgid "gui.session.group.archived"
+msgstr "— Archived —"
+
+msgid "gui.session.none"
+msgstr "no session"
+
+msgid "gui.session.off"
+msgstr "hidden"
+
+msgid "gui.session.on"
+msgstr "shown"
+
+msgid "gui.session.search"
+msgstr "Search title or ID"
+
+msgid "gui.session.sort.created"
+msgstr "Created"
+
+msgid "gui.session.sort.recent"
+msgstr "Recent"
+
+msgid "gui.session.sort.title"
+msgstr "Title"
+
+msgid "gui.status.theme"
+msgstr "Theme: {theme}"
+
+msgid "gui.task.abort"
+msgstr "Abort"
+
+msgid "gui.task.retries"
+msgstr "Retries {count}"
+
+msgid "gui.task.retry"
+msgstr "Retry"
+
+msgid "menu.context"
+msgstr "Context"
+
+msgid "menu.diff"
+msgstr "Diff"
+
+msgid "menu.events"
+msgstr "Events"
+
+msgid "menu.sessions"
+msgstr "Sessions"
+
+msgid "menu.spec"
+msgstr "Spec"
+
+msgid "menu.tasks"
+msgstr "Tasks"
+
+msgid "settings.action.done"
+msgstr "done: {label}"
+
+msgid "settings.action.failed"
+msgstr "action failed ({label}): {code} {message}"
+
+msgid "settings.action.running"
+msgstr "running: {label}"
+
+msgid "settings.back"
+msgstr "Back to home"
+
+msgid "settings.confirm.builtin_empty"
+msgstr "This clears the bundled root copy (the built-in baseline no longer participates). Continue?"
+
+msgid "settings.confirm.external_key"
+msgstr "This saves the external certificate and private key and switches the inbound mode to external. Continue?"
+
+msgid "settings.confirm.inbound_off"
+msgstr "This disables inbound TLS (back to plain HTTP) and takes effect after restarting serve --web. Continue?"
+
+msgid "settings.confirm.regenerate"
+msgstr "This regenerates the self-signed server certificate (the current fingerprint becomes invalid). Continue?"
+
+msgid "settings.confirm.reset_builtin"
+msgstr "This restores the bundled root copy to the shipped asset. Continue?"
+
+msgid "settings.confirm.reset_extra"
+msgstr "This clears the extra roots. Continue?"
+
+msgid "settings.error.bad_port"
+msgstr "Port must be an integer in 1..=65535"
+
+msgid "settings.error.generic"
+msgstr "action failed"
+
+msgid "settings.error.load"
+msgstr "Unable to read certificate status: {code} {message}"
+
+msgid "settings.error.missing_host"
+msgstr "Fill in a host name or IP literal first"
+
+msgid "settings.error.missing_pem"
+msgstr "Fill in the certificate chain and private key (PEM) first"
+
+msgid "settings.field.count"
+msgstr "count: {value}"
+
+msgid "settings.field.modified"
+msgstr "modified: {value}"
+
+msgid "settings.field.newer"
+msgstr "newer bundled version: {value}"
+
+msgid "settings.field.path"
+msgstr "path: {value}"
+
+msgid "settings.field.sha256"
+msgstr "SHA-256: {value}"
+
+msgid "settings.inbound.builtin"
+msgstr "Built-in self-signed certificate (builtin)"
+
+msgid "settings.inbound.builtin_hint"
+msgstr "Generates an ECDSA P-256 self-signed certificate per workspace (397 days); SAN covers localhost, 127.0.0.1, ::1 and the host name."
+
+msgid "settings.inbound.cert_pem_label"
+msgstr "Upload certificate chain (PEM)"
+
+msgid "settings.inbound.days_remaining"
+msgstr "days remaining: {value}"
+
+msgid "settings.inbound.download"
+msgstr "Download public certificate (PEM)"
+
+msgid "settings.inbound.external"
+msgstr "External certificate (external)"
+
+msgid "settings.inbound.external_hint"
+msgstr "Uses the PEM certificate chain and unencrypted private key you upload; the private key is write-only."
+
+msgid "settings.inbound.key_pem_label"
+msgstr "Upload private key (unencrypted PEM, cleared after submit)"
+
+msgid "settings.inbound.key_saved"
+msgstr "Private key saved; it is no longer displayed (the field was cleared)."
+
+msgid "settings.inbound.legend"
+msgstr "Mode"
+
+msgid "settings.inbound.material"
+msgstr "certificate present: {cert} · private key present: {key}"
+
+msgid "settings.inbound.no_material"
+msgstr "No server certificate material yet (upload a chain or regenerate the self-signed certificate)"
+
+msgid "settings.inbound.not_after"
+msgstr "valid until: {value}"
+
+msgid "settings.inbound.off"
+msgstr "TLS off (off)"
+
+msgid "settings.inbound.off_hint"
+msgstr "Returns to plain HTTP (ADR-023); requires explicit confirmation and is never silently reverted."
+
+msgid "settings.inbound.regenerate"
+msgstr "Regenerate self-signed certificate"
+
+msgid "settings.inbound.sans"
+msgstr "SAN: {value}"
+
+msgid "settings.inbound.sha256"
+msgstr "fingerprint SHA-256: {value}"
+
+msgid "settings.inbound.subject"
+msgstr "subject: {value}"
+
+msgid "settings.inbound.title"
+msgstr "Inbound TLS (serve --web)"
+
+msgid "settings.inbound.upload"
+msgstr "Upload and switch to external"
+
+msgid "settings.link"
+msgstr "Certificate settings"
+
+msgid "settings.local_mode"
+msgstr "Local settings page"
+
+msgid "settings.modes.save"
+msgstr "Save modes"
+
+msgid "settings.notes.none"
+msgstr "No additional notes"
+
+msgid "settings.notes.title"
+msgstr "Notes"
+
+msgid "settings.outbound.builtin"
+msgstr "Bundled copy (builtin)"
+
+msgid "settings.outbound.builtin_hint"
+msgstr "Uses the workspace bundled root copy as the baseline; extra roots are appended."
+
+msgid "settings.outbound.builtin_pem_label"
+msgstr "Bundled root copy (PEM, editable)"
+
+msgid "settings.outbound.effective_line"
+msgstr "effective root certificates: {value}"
+
+msgid "settings.outbound.empty_extra"
+msgstr "No extra roots configured (correctly empty: no certificates in the file)"
+
+msgid "settings.outbound.extra_pem_label"
+msgstr "Extra roots (PEM, applied in both modes)"
+
+msgid "settings.outbound.hint"
+msgstr "No mode disables chain or hostname verification; there is no skip-verification switch."
+
+msgid "settings.outbound.legend"
+msgstr "Trust store mode"
+
+msgid "settings.outbound.missing_builtin"
+msgstr "Bundled copy missing: status did not report the file"
+
+msgid "settings.outbound.reset_builtin"
+msgstr "Restore bundled copy"
+
+msgid "settings.outbound.reset_extra"
+msgstr "Clear extra roots"
+
+msgid "settings.outbound.save_builtin"
+msgstr "Save bundled copy"
+
+msgid "settings.outbound.save_extra"
+msgstr "Save extra roots"
+
+msgid "settings.outbound.system"
+msgstr "Operating system store (system)"
+
+msgid "settings.outbound.system_hint"
+msgstr "Uses the operating system root store as the baseline; extra roots are appended too. An empty system store is an error and never falls back to the bundled copy."
+
+msgid "settings.outbound.system_na"
+msgstr "not applicable (current mode does not read the system store)"
+
+msgid "settings.outbound.system_roots_line"
+msgstr "system root certificates: {value}"
+
+msgid "settings.outbound.title"
+msgstr "Outbound HTTPS trust"
+
+msgid "settings.restart_banner"
+msgstr "Inbound certificate or mode changed; restart serve --web to apply."
+
+msgid "settings.status.no"
+msgstr "no"
+
+msgid "settings.status.unknown"
+msgstr "unknown"
+
+msgid "settings.status.yes"
+msgstr "yes"
+
+msgid "settings.title"
+msgstr "Certificate settings"
+
+msgid "settings.verify.button"
+msgstr "Check"
+
+msgid "settings.verify.failed"
+msgstr "Check failed: {error}"
+
+msgid "settings.verify.host"
+msgstr "Host"
+
+msgid "settings.verify.ok"
+msgstr "Check succeeded: subject {subject} · valid until {not_after} · fingerprint {sha256} · {tls_version}"
+
+msgid "settings.verify.port"
+msgstr "Port"
+
+msgid "settings.verify.title"
+msgstr "Outbound connectivity check"
+
+msgid "status.idle"
+msgstr "Idle"
+
+msgid "status.running"
+msgstr "Running"
+
+msgid "summary.context"
+msgstr "Session {session} · budget {budget} · used {used} · items {items}{truncated}"
+
+msgid "summary.context_truncated"
+msgstr "· truncated: {reason}"
+
+msgid "summary.diff"
+msgstr "Session {session} · tasks {total} · pass {pass} / fail {fail} / untested {untested}{truncated}"
+
+msgid "summary.diff.truncated"
+msgstr "· difference list truncated"
+
+msgid "summary.events"
+msgstr "Session {session} · cursor {from}..{to} (tail ≤ {limit})"
+
+msgid "summary.none"
+msgstr "none"
+
+msgid "summary.spec"
+msgstr "Session {session} · stage {stage} · cursor {cursor} · active task {task}"
+
+msgid "summary.tasks"
+msgstr "Session {session} · total {total} · done {done} · blocked {blocked}"
+
+msgid "tui.col.id"
+msgstr "ID"
+
+msgid "tui.col.kind"
+msgstr "Kind"
+
+msgid "tui.col.retry"
+msgstr "Retry"
+
+msgid "tui.col.seq"
+msgstr "Seq"
+
+msgid "tui.col.stage"
+msgstr "Stage"
+
+msgid "tui.col.status"
+msgstr "Status"
+
+msgid "tui.col.summary"
+msgstr "Summary"
+
+msgid "tui.col.title"
+msgstr "Title"
+
+msgid "tui.diff_unwired"
+msgstr "(diff source not wired yet: converge diff pending; nothing fabricated)"
+
+msgid "tui.empty"
+msgstr "(no data)"
+
+msgid "tui.footer"
+msgstr "1-7 views  j/k move  r refresh  t theme  q quit  |  {cols}x{rows}"
+
+msgid "tui.header.none"
+msgstr "no session"
+
+msgid "tui.no_session"
+msgstr "(no session selected — press j/k)"
+
+msgid "tui.runtimes"
+msgstr "Runtimes: {list}"
+
+msgid "tui.title"
+msgstr "{app}  |  {view} ({index}/{count})"
+
+msgid "view.chat"
+msgstr "Chat"
+
+msgid "view.context"
+msgstr "Context"
+
+msgid "view.diff"
+msgstr "Diff preview"
+
+msgid "view.events"
+msgstr "Events"
+
+msgid "view.sessions"
+msgstr "Sessions"
+
+msgid "view.spec"
+msgstr "Spec status"
+
+msgid "view.tasks"
+msgstr "Tasks"
+
+msgid "web.action.failed"
+msgstr "Action failed ({label}): {error}"
+
+msgid "web.checkpoints.degraded"
+msgstr "Rollback is not implemented (explicit degradation): browsing and delta summaries only"
+
+msgid "web.checkpoints.empty"
+msgstr "No checkpoints for this task"
+
+msgid "web.checkpoints.failed"
+msgstr "Failed to load checkpoints: {error}"
+
+msgid "web.checkpoints.hint"
+msgstr "Select a task to view checkpoints and delta summaries"
+
+msgid "web.checkpoints.ready"
+msgstr "Rollback available"
+
+msgid "web.checkpoints.refs"
+msgstr "{count} artifact refs"
+
+msgid "web.checkpoints.title"
+msgstr "Checkpoints"
+
+msgid "web.checkpoints.truncated"
+msgstr "Checkpoints exceed the limit; list truncated"
+
+msgid "web.cleanup.bad_days"
+msgstr "Retention days must be at least 1"
+
+msgid "web.cleanup.confirm"
+msgstr "Confirm purge"
+
+msgid "web.cleanup.days"
+msgstr "Retention days"
+
+msgid "web.cleanup.done"
+msgstr "Purged {sessions} session(s)"
+
+msgid "web.cleanup.preview"
+msgstr "Preview"
+
+msgid "web.cleanup.preview_required"
+msgstr "Preview before confirming the purge"
+
+msgid "web.cleanup.preview_result"
+msgstr "Will purge {sessions} session(s)"
+
+msgid "web.conn.connected"
+msgstr "Connected"
+
+msgid "web.conn.disconnected"
+msgstr "Disconnected"
+
+msgid "web.context.empty"
+msgstr "(correctly empty: nothing fits the budget)"
+
+msgid "web.context.no_session"
+msgstr "No session selected"
+
+msgid "web.context.summary"
+msgstr "Budget {consumed}/{budget} · sources {sources} · truncated {truncated}"
+
+msgid "web.cursor"
+msgstr "Cursor {n}"
+
+msgid "web.diff.empty"
+msgstr "(no differences: all acceptance criteria pass)"
+
+msgid "web.diff.no_session"
+msgstr "No session selected"
+
+msgid "web.diff.summary"
+msgstr "Tasks {total} · pass {pass} / fail {fail} / untested {untested}{truncated}"
+
+msgid "web.diff.truncated"
+msgstr "(truncated)"
+
+msgid "web.export.done"
+msgstr "Export complete"
+
+msgid "web.export.json"
+msgstr "Export JSON"
+
+msgid "web.export.jsonl"
+msgstr "Export JSONL"
+
+msgid "web.recovering"
+msgstr "Recovering…"
+
+msgid "web.runtimes"
+msgstr "Runtimes"
+
+msgid "web.runtimes.available"
+msgstr "available"
+
+msgid "web.runtimes.unavailable"
+msgstr "unavailable"
+
+msgid "web.runtimes.unknown"
+msgstr "not probed"
+
+msgid "web.runtimes.unwired"
+msgstr "Runtime inventory is not wired"
+
+msgid "web.session.archive_confirm"
+msgstr "Confirm archive"
+
+msgid "web.session.archive_preview"
+msgstr "Preview archive"
+
+msgid "web.session.archive_preview_required"
+msgstr "Preview before confirming archive"
+
+msgid "web.session.archive_preview_result"
+msgstr "Would archive session {session} — confirm to execute"
+
+msgid "web.session.archived"
+msgstr "Archived session {session}"
+
+msgid "web.session.create"
+msgstr "Create"
+
+msgid "web.session.delete_confirm"
+msgstr "Confirm delete"
+
+msgid "web.session.delete_preview"
+msgstr "Preview delete"
+
+msgid "web.session.delete_preview_result"
+msgstr "Will delete: events {events} · tasks {tasks}"
+
+msgid "web.session.deleted"
+msgstr "Deleted {n} session(s)"
+
+msgid "web.session.group_active"
+msgstr "Active"
+
+msgid "web.session.group_archived"
+msgstr "Archived"
+
+msgid "web.session.none"
+msgstr "No session selected"
+
+msgid "web.session.preview_required"
+msgstr "Preview before confirming the delete"
+
+msgid "web.session.rename"
+msgstr "Rename"
+
+msgid "web.session.rename_placeholder"
+msgstr "New title"
+
+msgid "web.session.search"
+msgstr "Search title or ID"
+
+msgid "web.session.show_archived"
+msgstr "Include archived"
+
+msgid "web.session.sort"
+msgstr "Sort"
+
+msgid "web.session.sort.created"
+msgstr "Created"
+
+msgid "web.session.sort.last_active"
+msgstr "Recently active"
+
+msgid "web.session.sort.title"
+msgstr "Title"
+
+msgid "web.session.title"
+msgstr "Session title"
+
+msgid "web.session.title_required"
+msgstr "Enter a session title first"
+
+msgid "web.tab.context"
+msgstr "Context"
+
+msgid "web.tab.diff"
+msgstr "diff"
+
+msgid "web.tab.history"
+msgstr "History"
+
+msgid "web.tab.maintenance"
+msgstr "Maintenance"
+
+msgid "web.tab.sessions"
+msgstr "Sessions"
+
+msgid "web.tab.spec"
+msgstr "SDD"
+
+msgid "web.tab.tasks"
+msgstr "Tasks"
+
+msgid "web.task.abort"
+msgstr "Abort"
+
+msgid "web.task.depends"
+msgstr "Depends on {depends}"
+
+msgid "web.task.progress"
+msgstr "Done {done}/{total} · blocked {blocked}"
+
+msgid "web.task.retries"
+msgstr "Retries {count}"
+
+msgid "web.task.retry"
+msgstr "Retry"
+
+msgid "web.task.truncated"
+msgstr "Task cards exceed the limit and were truncated (summary counts are complete)"
+
+msgid "web.tasks_summary"
+msgstr "total {total} · done {done} · blocked {blocked}"
+
+msgid "web.theme.default"
+msgstr "Default"
+
+msgid "web.theme.label"
+msgstr "Theme"
+

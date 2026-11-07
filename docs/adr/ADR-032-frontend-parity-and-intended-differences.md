@@ -81,7 +81,7 @@
 - **过去（来源）**：FR-604（三端命令校验、权限、门禁与业务结果一致）、FR-610（共用
   能力矩阵、新能力同 PR 定义）与 ADR-009（对等按业务能力定义）早已把对等定为要求；
   但矩阵为手工维护且已发生可复现的自相矛盾——同一文件头部称 Web 写命令已接入
-  `POST /api/sessions/delete`，表格行仍把 Web 标为 ⛔；同一“未交付”在 CUI
+  `POST /api/sessions/delete`，表格行仍把 Web 标为 禁止；同一“未交付”在 CUI
   （`invalid_state`）、Web（纯文本 404）与 TUI／GUI（无入口）语义互不相同。人工承诺
   已被证伪为不可执行。
 - **现在（证据）**：登记表与契约门禁设计见 `.trae/specs/ensure-frontend-parity/spec.md`

@@ -13,6 +13,48 @@
 
 ### 变更
 
+- **界面语言扩展至十三套＋RTL 文档方向（T278／FR-766／ADR-062）**（2026-11-08）：
+  ①新增 `zh-TW`／`ja`／`ko`／`ru`／`fr`／`es`／`de`／`ar`／`hi`／`ur`／`bn` 十一套目录，连同
+  既有 `zh-CN`／`en` 全部经 `include_str!` 内嵌；②区域标签归一（`zh-HK`／`zh-Hant`→`zh-TW`、
+  `ja-JP`→`ja`、未知→`en`）与统一回退链（非英语→英语，英语→简体中文，缺键→键名）；
+  ③`is_rtl_locale` 改为按主语言子标签判定，覆盖 `ar-*`／`ur-*`；④Web 直出注入
+  `<html lang dir>`（阿拉伯语／乌尔都语 `dir="rtl"`），不含布局镜像；⑤`i18n/po/<locale>.po`
+  十三份由 `.github/scripts/i18n-po.py` 派生，契约测试校验双向全等；⑥`cui.status_line` 与
+  `cui.compact_done` 的字段名（`status=`／`cursor=`／`switched=`）跨语言固定，脚本消费者不受
+  界面语言影响。测试：domain 16 项、web 1 项。译文未经母语者校对，见 ADR-062 已知限制；
+  TUI／GUI 镜像单列 T279（未实现，Check 374 未取证）。
+
+- **文档文风门禁与全库治理（T276 附带，用户指令 2026-11-08）**：①新增
+  `.github/scripts/check-docs-style.py`，判定禁用词、表情符号与勾叉符号、中文直引号与套话
+  （`.yml` 与 `.rs` 注释只查前两项），接入 CI 与本地验证链；②全库清理：禁用词 78 处改
+  “通道”、表情符号 181 行改文字、中文直引号 299 处改“”，套话零残留；③
+  `docs/matrices/feature-parity.md` 四态由符号改为文字（已实现／部分／预留／不提供），
+  `tests/contract/test_frontend_parity.rs` 同步解析与断言。
+
+- **品牌标识四端落位（T277/FR-765，ADR-061）**（2026-11-07，用户指令“把 logo.svg 按规则
+  放置，并作为 WHCode 的图标，cli tui 下用 ASCII 图”）：①主标志移到 `assets/brand/logo.svg`
+  （仓库根不再保留；`SOURCES.md` 记来源、BSD-2-Clause、SHA-256 与**位图封装结构**：两层
+  内嵌 PNG 经两个 `<use>` 偏移叠合）；②新增 `.github/scripts/make-brand-assets.py`，按
+  `<use>` 偏移合成后派生 GUI 窗口图标（`crates/whcode-gui/assets/brand/icon-64.rgba`，
+  64×64 原始 RGBA，运行期零图像解码依赖）与 Web favicon（`frontend/favicon.ico`，16/32/48
+  三帧），`--check` 校验产物与母版一致；③GUI `window::Settings.icon` 接入母版派生图标；
+  ④Web 资产白名单由六路径扩为七路径（`/favicon.ico`，原“必须 404”断言同批翻转），
+  `index.html` 增 `<link rel="icon">`，`/logo.svg` 等未登记路径仍 404；⑤终端形态：
+  `whcode-domain::brand::ASCII_LOGO`（纯 ASCII，47 列×8 行，手工字形而非位图降采样——
+  1080×1080 古籍版面降采样后认不出品牌），`whcode doctor` 人类可读输出顶部打印（`--json`
+  不打印），TUI 进入全屏前打印一次（stdout 非终端时不打印）并在空态视图显示，放不下时
+  只保留显式空提示（不裁切、不顶掉空态语义）；⑥既有四套主题色值、帧渲染与空闲零重绘
+  纪律不变。测试：domain 3 项字标契约、TUI 2 项空态字标（既有降级断言不变）、Web 白名单
+  断言更新；独立 worktree 中 domain/tui/web 全绿、GUI `cargo check` 通过。
+
+- **工作流改名：`ci.yml` → `platform-verification.yml`**（2026-11-07，用户指令“ci 不能就叫
+  ci，必须见名知义”）：文件与 `name:` 同步改名，`measurements` 上传的 artifact 名由
+  `ci-measurements` 改为 `platform-verification-measurements`；README 徽章、AGENTS、指南、
+  矩阵、工作流注释、`.specify` 宪法与 ADR-013 的复审绑定命令（`gh run list
+  --workflow=platform-verification.yml`）等活动引用同批更新；ADR-037 追加改名修订
+  记录与映射口径（**历史不回写**：2026-11-07 之前的提交、run 记录、CHANGELOG 与各 ADR
+  修订记录中的 `ci.yml` 按新文件名解读）。行为不变，仅命名与文档同步。
+
 - **README 重写为标准开源入口**（2026-11-07）：按社区惯例重排结构（简介、当前状态、
   平台支持、构建与运行、界面入口、文档、参与、安全、许可证），新增 CI 徽章；原第二段
   的平台验收细节收拢为平台支持表，细节链接至 ADR-013/ADR-043 与 compatibility.md；
@@ -123,13 +165,13 @@
   DuckDB 2.0.0＋`store_gate = GO`，NetBSD 上游 `features.h` 缺口经 ADR-013 修订豁免；
   ③ADR-012（`memory_limit` 基线）转正——大载荷实验量化边界（1 MiB 载荷 @192MB 第 312 条
   失败、1024MB 全过），长时由 NFR-204 收口。台账：**missing 0／unobserved 0**
-  （exercised 291＋outcome-supported 48＝339）、任务 240/243。②另新增 BSD 量化记录车道
+  （exercised 291＋outcome-supported 48＝339）、任务 240/243。②另新增 BSD 量化记录通道
   （`bsd-perf.sh`：FreeBSD 写入 p95 7875 µs、吞吐 3287 条/秒、概览 p95 7930 µs、NFR-207
   p95 9.7 ms，VM/debug 记录口径不参与预算判定）与 CI 证据保全修复（VM 失败时先行保全
-  copyback 再由宿主判红，避免"失败即丢证据"）。③NetBSD 本轮红＝runner 磁盘耗尽
+  copyback 再由宿主判红，避免“失败即丢证据”）。③NetBSD 本轮红＝runner 磁盘耗尽
   （`No space left on device`）属基础设施，非代码回归。
 - **四项平台证据缺口转 GitHub CI（V-004 升级／ADR-012 大载荷／BSD 量化／GUI 探针）**
-  （2026-11-03，用户指令"4.1—4.4 全部转 GitHub CI"）：①真实 sshd 互操作验收
+  （2026-11-03，用户指令“4.1—4.4 全部转 GitHub CI”）：①真实 sshd 互操作验收
   `real_sshd_acceptance_loopback`（`#[ignore]`，bsd-ssh-client.sh 在 BSD VM 显式驱动）——
   对系统自带 OpenSSH sshd（真实进程、独立密钥对、最小配置回退）验证公钥认证/通道执行/
   退出码映射/stderr 捕获/TOFU/显式授权内容回传/超时终止，单独记 `real_sshd_gate`
@@ -138,7 +180,7 @@
   p95＋NFR-207，**记录口径**（VM 共享、debug 构建、不参与 ADR-025 预算判定），NetBSD 无
   libduckdb 时 SKIPPED 如实登记。③`memory_limit` 新增大载荷实验（1 MiB payload × 512 条
   @192MB/1024MB，批次行数 8 防止进程内待写缓冲随 payload 放大）——measurements job 自动
-  执行，补 ADR-012"大载荷未测"缺口。④GUI 探针与 Windows 性能预算走既有 dispatch 车道
+  执行，补 ADR-012“大载荷未测”缺口。④GUI 探针与 Windows 性能预算走既有 dispatch 通道
   （desktop/perf 输入），随本轮代码 dispatch 收证。Gate 纪律：real_sshd 与 BSD 量化均为
   记录型证据，不改变既有硬门禁判定条件。
 - **平台定位修订：NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发**（2026-11-03，用户指令
@@ -149,7 +191,7 @@
   OpenBSD/DragonFly 节点证据走真实连入取证（V-004 口径，不再等上游 rust）。台账：
   Check 22 转勾（unobserved 1→0），文档同步（AGENTS.md、platform-matrix、
   compatibility、project-status、ssh-acceptance README）。
-- **FreeBSD 车道技术债偿还：验收证据落库与四项 Check 回填**（2026-11-03，run
+- **FreeBSD 通道技术债偿还：验收证据落库与四项 Check 回填**（2026-11-03，run
   `41481740766` 硬门禁口径下首次全绿）：ci.yml platform-freebsd 全量构建（含 GUI/bin）＋
   全量测试＋三门（进程组零残留／store 引擎 2.0.0／SSH 回环）＋TUI/Web 冒烟全 GO。
   六平台 SSH 回环验收记录（FreeBSD/NetBSD 双向四项 GO、Windows amd64/ARM64 真实
@@ -165,8 +207,8 @@
   预算）、最小可辨斜率 0.0834（24h 窗口成功分辨，5.5h 窗口为 1.129 无分辨力）、线程/
   句柄无持续增长（基线 9/165、末值 9/165，清理周期瞬态回退）；首末斜率 2.8353 判定为
   预热伪影（头 2h 74→144 MB 爬升后平台，稳态后 12h OLS −1.24 与主估计一致）。配套
-  ADR-025 修订记录增补（2026-11-02 用户批准）：线程/句柄前置由"全程恒定"改为"无持续
-  增长（泄漏信号）"，b_fl 冲突经稳态（后 50%）一致解析为预热伪影时不阻断——冻结值
+  ADR-025 修订记录增补（2026-11-02 用户批准）：线程/句柄前置由“全程恒定”改为“无持续
+  增长（泄漏信号）“，b_fl 冲突经稳态（后 50%）一致解析为预热伪影时不阻断——冻结值
   0.5 MB/h 与三态阈值不变。脚本新增稳态 OLS 与伪影解析分支，合成序列五态验证全绿
   （单元 5 项 + 通过/前置不满足/违反/冲突保持/伪影解析）。证据：
   `artifacts/nfr204-verdict-24h-2026-11-02.md`（登记）、
@@ -180,7 +222,7 @@
   inputSchema 4 KiB、总预算 64 KiB 三重上限）；工具调用走与内置工具同一条三步登记
   与 `role:tool` 回填，权限面 fail-closed 一律按 SessionCreate 判定；连接失败以
   system 消息显式告示（不静默）。范围：v1 仅 stdio transport（官方规范 2025-06-18
-  现行双 transport 之一，"Clients SHOULD support stdio whenever possible"）；
+  现行双 transport 之一，“Clients SHOULD support stdio whenever possible”）；
   Streamable HTTP/OAuth 留 P1-7 后续批次。
 - **MCP 客户端第二传输：Streamable HTTP 请求-响应**（2026-11-01，FR-738、ADR-055、
   T241—T243）：传输抽象 `trait Transport` 解耦协议层与 I/O（stdio 子进程逻辑迁入
@@ -196,8 +238,8 @@
   执行内建六件套（read/write/edit/list/glob/grep），结果以 `role:"tool"` 消息回填并
   继续循环；权限面 v1（读工具 SessionRead／写工具 SessionCreate，专用 WorkspaceWrite
   归 P2-1 broker）；工作区路径绑定 fail-closed；FR-724 的 `tool_not_wired` 过渡行为
-  已替换（ADR-044 复审触发 1 兑现），Web 端工作区绑定已贯通，`llm run` 从"会说话"
-  升级为"会做事"。
+  已替换（ADR-044 复审触发 1 兑现），Web 端工作区绑定已贯通，`llm run` 从“会说话”
+  升级为“会做事”。
 - **`llm run` 语义升级为 agent turn 循环**（2026-10-30，FR-718—724、ADR-044、T207—T212）：
   一次 `llm run` 现编排完整 turn（中止/预算检查→消息组装→模型 step→终止判定），迭代
   上限 16；终止原因稳定名（model_finished/iteration_limit/cancelled/budget_exceeded/
@@ -208,7 +250,7 @@
   `llm.request_started` 等废弃，契约 app-service.md 已同步）——四端 JSON 信封新增
   `turn_id`/`iterations`/`termination_reason` 字段（0.1.0 未发布窗口内破坏性变更，
   无兼容承诺）。
-- **FreeBSD 完整平台证据车道（硬门禁）**（2026-10-31，用户指令；ADR-013 修订）：ci.yml
+- **FreeBSD 完整平台证据通道（硬门禁）**（2026-10-31，用户指令；ADR-013 修订）：ci.yml
   FreeBSD lane 移除 `continue-on-error`——pkg 切 latest 仓库并安装 iced/winit 编译期
   X11/字体栈系统依赖（此前 25 个编译错误的根因），全量 `cargo build/test --workspace`
   不再排除 whcode-gui／whcode-bin，三门（进程组／store 2.0.0／SSH 回环）任一 NO-GO 即
@@ -219,7 +261,7 @@
   `default-features = false` 会把 `iced_tiny_skia` 的 x11/wayland 一并关掉，Unix（含
   FreeBSD）上 softbuffer 0.4.8 无任何后端可用，宏展开报 E0392 未用类型参数编译错误
   （Windows 走内建后端不受影响）；修复为 `whcode-gui` 的 iced 特性显式启用 `"x11"`
-  （commit e949459），FreeBSD 车道随此恢复构建。**2026-11-01 补记二（run 41238694183
+  （commit e949459），FreeBSD 通道随此恢复构建。**2026-11-01 补记二（run 41238694183
   实测）**：`iced_winit-0.14.1` 的 `conversion.rs` 对 BSD 目标（freebsd/netbsd/
   openbsd/dragonfly）无条件导入 `winit::platform::wayland::WindowAttributesExtWayland`
   并调用 `.with_name()`——只开 `x11` 时该模块不存在，报 E0432/E0599；启用
@@ -289,8 +331,8 @@
   `package-windows.py` 由 `SOURCE_DATE_EPOCH` 驱动 `generated_utc` 与 zip 条目时间戳（条目
   属性与顺序固定）；`.cargo/config.toml` 为两个 windows 目标加 `link-arg=/Brepro`（消除
   MSVC 链接器嵌入 PE 头与调试元数据的链接墙钟——第四产物时间源，v0.1.0-m0.2 同提交两次
-  CI 运行实测发现并修复）。发布物版本戳语义改为"源码对应的提交时刻"（2026-10-23
-  "版本号 = 构建墙钟"的发布路径修订，本地开发仍为墙钟）。范围：跨环境（不同机器/镜像）
+  CI 运行实测发现并修复）。发布物版本戳语义改为“源码对应的提交时刻”（2026-10-23
+  “版本号 = 构建墙钟”的发布路径修订，本地开发仍为墙钟）。范围：跨环境（不同机器/镜像）
   字节一致明确不支持（Python zlib 压缩流与 MSVC 工具链差异，已在 ADR-047 §1 实测归因）；
   发布页 `.sha256` 仍是权威校验和。
 - Windows ARM64 构建交付目标（2026-10-28，ADR-043，用户指令）：新增
@@ -301,14 +343,14 @@
   release/arm64 三档。预编译 DuckDB 改为 `vendor/duckdb/<版本>/<三元组>/` 多架构布局，
   `fetch-duckdb.py --target`、`package-windows.py --target`、`check-release.py --arch`
   随之扩展。**验收口径不变**：Windows 11 amd64 仍是唯一验收目标，ARM64 结论只作平台证据。
-- ⚠ **BREAKING**：Windows 下无子命令启动默认进入 **GUI**（`whcode` 等价 `whcode gui`），
+- 注意 **BREAKING**：Windows 下无子命令启动默认进入 **GUI**（`whcode` 等价 `whcode gui`），
   不再默认进入 TUI（2026-10-25，T203）。显式入口：`--tui` 终端界面、`--cli` 命令行、
   `--gui` 与 `gui` 子命令等价；其他平台无参数仍进 TUI。选择器可放在子命令前后，两个不同
   选择器同现按用法错误退出 2；没有可用控制台（CI／管道）时不启动界面，打印提示后退出 0。
 - 版本标记修正（2026-10-25，用户批准）：删除不符合约定的正式 Release `v0.1.0`
   （0.1.0 属 M0 工程基线、非发布版本，且 M0 仅按 ADR-016 有条件通过），改为预发布标签
   `v0.1.0-m0` 指向当前提交；预发布标识在 M0 强制验收全部通过后移除。
-- ⚠ **BREAKING**：`serve --web` 默认启用入站 TLS 与工作区证书库（2026-10-25，
+- 注意 **BREAKING**：`serve --web` 默认启用入站 TLS 与工作区证书库（2026-10-25，
   add-tls-certificate-store，ADR-040／D-20）。默认协议由明文 `http` 改为 `https`
   （每工作区 ECDSA P-256 自签证书，SAN 含 `localhost`／`127.0.0.1`／`::1`／本机名／
   绑定 IP，397 天，到期前 30 天告警），Origin 允许集 scheme 同步改为 `https`。
@@ -377,7 +419,7 @@
   tag 发布路径未实跑。
   迁移：`deps-windows`、`whcode-windows-amd64`、`install-verify-windows-amd64`、`smoke-evidence`
   改从 build-release 工作流获取，名称不变。
-- ⚠ BREAKING：CUI 保留命令（`run`、`events show`、`spec next/validate/analyze/converge/force-advance`、
+- 注意 BREAKING：CUI 保留命令（`run`、`events show`、`spec next/validate/analyze/converge/force-advance`、
   `runtime status/enable/disable/install`）退出码由 50（invalid_state）改为 **55（not_supported）**；
   依赖退出码的脚本按 55 判“端未提供”，按 404 判“路由不存在”（FR-620，ensure-frontend-parity）。
 - 四端对等与差异登记（2026-10-24，ensure-frontend-parity，ADR-032/D-17）：
@@ -402,7 +444,7 @@
   `--yes` 执行；TUI `A` 两段确认；Web 缺 `confirm` 只预览；GUI 只读排除），
   `whcode-store::set_archived` 在同一事务写 `session_archive` 审计（`detail_json` 含方向、
   更新数与会话清单，100 条截断）。TUI 暂无反归档键，已在 ADR-038 登记为已知不对称。
-  ⚠ BREAKING：`whcode session archive` 由“直接执行”改为“默认预览、`--yes` 执行”
+  注意 BREAKING：`whcode session archive` 由“直接执行”改为“默认预览、`--yes` 执行”
   （与 `session delete` 同构）；依赖旧行为的脚本须显式加 `--yes`。证据：
   `ADR-038-session-archive-confirmation-and-audit.md`、Check 272、`cargo test` 相关用例。
 - 收口（2026-10-25，ADR-031 补录）：`add-real-llm-provider` 的网络依赖与凭据边界入库
@@ -431,7 +473,7 @@
   - 项目处于开发期，**不承诺读取 1.5.6 旧库，不提供降级或格式转换**；旧库删除或重建即可。
   - 审计证据见 `artifacts/duckdb-2.0-audit-2026-10-24.md`；BSD 平台结论不变（继续阻塞/延后）。
 
-- ⚠ BREAKING：测试统一入口与 CI 合并（2026-10-25，ADR-037）：
+- 注意 BREAKING：测试统一入口与 CI 合并（2026-10-25，ADR-037）：
   - `platform-matrix.yml`、`stability.yml`、`action-version-audit.yml` 合并为
     `.github/workflows/ci.yml`：门禁、五平台矩阵、全部功能测试、短测量、TUI/Web 冒烟、
     `workflow_dispatch` 桌面入口与每周 action 审计集中在一份工作流；
@@ -458,7 +500,7 @@
     补遗提交 `eaced3f` 自身由 run 40129632158 覆盖（页面状态 Success）。
     该 run 的 NFR 读数标为二手（匿名读取 job 日志受限），不作为本机复核结论。
 
-- ⚠ BREAKING：JSON 语义列全面 VARIANT 化（2026-10-24，ADR-036，schema v7）：
+- 注意 BREAKING：JSON 语义列全面 VARIANT 化（2026-10-24，ADR-036，schema v7）：
   - `tasks.acceptance_json`、`stage_artifacts.refs_json`、`session_overview.by_stage_json`、
     `checkpoints.delta_json`、`checkpoints.artifact_refs_json`、`audit.detail_json` 由 `TEXT`
     改为 `VARIANT`；`stage_artifacts.content` 与原型表 `m0_events` 仍为 `TEXT`。
@@ -910,7 +952,7 @@
   compact/archive/explain），`--json` 统一信封、错误四字段、稳定退出码（新增用法错误
   `2`）；`--workspace`/`--json` 为全局旗标；未接线命令（run/events show/spec 门禁/
   runtime/db checkpoint）显式失败。新增写入并修复：显式删除不套 TTL 活跃窗口保护
-  （避免"删除刚创建的会话"被静默跳过）。同命令一致性用例（CUI vs Web 读命令）落地。
+  （避免“删除刚创建的会话”被静默跳过）。同命令一致性用例（CUI vs Web 读命令）落地。
 - 批次 1：前端数据接入（2026-10-22）：TUI 新增 `StoreViewSource`（装配根实现）——六视图
   经 `whcode-app` 只读命令供给（会话/任务/事件/上下文/Spec 真实数据；`j`/`k` 选择会话、
   `r` 刷新、`> ` 选中标记；数据源错误显式写入摘要行，打开失败回退空数据源并告警）。
@@ -975,7 +1017,7 @@
   `artifacts/overview-perf-m2.json`（p95 7.6 ms，候选预算 50 ms，预算未冻结——
   V-102/SC-002，D-06）。
 - T045/T043/T044 集成测试（`tests/integration/`）：`space_report` 覆盖清理/压缩前后
-  文件大小、WAL、已用块、可用块四项统计并显式排除任何"VACUUM 释放空间"承诺；
+  文件大小、WAL、已用块、可用块四项统计并显式排除任何“VACUUM 释放空间”承诺；
   `durability` 以子进程 `abort`（0xC0000409 fail-fast，不运行析构）模拟进程终止，
   重开后 WAL 重放还原全部已确认事务、`seq` 唯一、按幂等键重放返回既有 seq（V-104/V-106）；
   `idempotency` 覆盖跨写者重启去重、同键不同载荷确定性返回既有结果、缓冲中同键
