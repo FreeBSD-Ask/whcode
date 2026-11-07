@@ -70,27 +70,6 @@ impl StoreViewSource {
         whcode_store::latest_seq(&self.conn.lock().expect("store 连接锁中毒")).ok()
     }
 
-    fn checkpoints(&self, task: &str) -> Vec<CheckpointItem> {
-        let view = whcode_app::checkpoint_view(
-            &self.conn.lock().expect("store 连接锁中毒"),
-            &self.policy,
-            &self.actor,
-            task,
-        );
-        match view {
-            Ok(view) => view
-                .checkpoints
-                .into_iter()
-                .map(|entry| CheckpointItem {
-                    id: entry.id,
-                    step: entry.step,
-                    summary: entry.delta_summary,
-                })
-                .collect(),
-            Err(_) => Vec::new(),
-        }
-    }
-
     fn build_sessions(&self) -> Result<ViewSnapshot, WhError> {
         let rows = whcode_app::list_sessions(
             &self.conn.lock().expect("store 连接锁中毒"),
@@ -339,6 +318,29 @@ impl ViewSource for StoreViewSource {
         })
         .unwrap_or_default()
     }
+
+    fn checkpoints(&self, task: &str) -> Vec<CheckpointItem> {
+        // FR-748：检查点浏览。读取失败返回空（与 cursor／conversation_tail 同口径的
+        // “尽力而为”契约）；回滚能力不在此接口——后端未实现，由命令面显式降级。
+        let view = whcode_app::checkpoint_view(
+            &self.conn.lock().expect("store 连接锁中毒"),
+            &self.policy,
+            &self.actor,
+            task,
+        );
+        match view {
+            Ok(view) => view
+                .checkpoints
+                .into_iter()
+                .map(|entry| CheckpointItem {
+                    id: entry.id,
+                    step: entry.step,
+                    summary: entry.delta_summary,
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        }
+    }
 }
 
 /// TUI/GUI 写命令执行器（T177/FR-623、ADR-056 Phase 2）：与视图数据源共享同一条
@@ -428,6 +430,54 @@ mod tests {
         );
         let tasks = english.snapshot(ViewId::Tasks, None);
         assert_eq!(tasks.summary, "(no session selected — press j/k)");
+    }
+
+    #[test]
+    fn checkpoints_are_reachable_through_the_view_source_trait() {
+        // 回归（2026-11-07）：`checkpoints` 曾落在固有 impl 上，GUI 经 `dyn ViewSource`
+        // 派发只拿到默认空向量——“能编译”不等于“信号可达”（信号链完备原则）。
+        let conn = migrated_conn();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, model, archived, status, stage)
+             VALUES ('S-K', '检查点数据源', epoch_ms(1000), epoch_ms(1000), NULL, FALSE, 'active', 'implement')",
+            [],
+        )
+        .expect("插入会话");
+        conn.execute(
+            "INSERT INTO tasks (id, session_id, title, stage, status, parent_id, acceptance_json,
+                                retry_count, updated_at)
+             VALUES ('T-K', 'S-K', '检查点任务', 'implement', 'running', NULL,
+                     CAST('[]' AS JSON)::VARIANT, 0, current_timestamp)",
+            [],
+        )
+        .expect("插入任务");
+        conn.execute(
+            "INSERT INTO checkpoints (id, task_id, step, delta_json, message_cursor,
+                                      artifact_refs_json, ts)
+             VALUES ('C-K', 'T-K', 1, CAST('{\"from\":\"ready\",\"to\":\"running\"}' AS JSON)::VARIANT,
+                     'M-1', CAST('[]' AS JSON)::VARIANT, current_timestamp)",
+            [],
+        )
+        .expect("插入检查点");
+        let source = StoreViewSource::new(
+            std::sync::Arc::new(std::sync::Mutex::new(conn)),
+            I18n::default(),
+        );
+
+        // 关键：经 trait 对象调用（GUI 的实际路径），而非具体类型。
+        let view: &dyn ViewSource = &source;
+        let points = view.checkpoints("T-K");
+        assert_eq!(points.len(), 1, "trait 派发必须命中装配根实现");
+        assert_eq!(points[0].id, "C-K");
+        assert_eq!(points[0].step, 1);
+        assert!(
+            points[0].summary.contains("to=running"),
+            "{}",
+            points[0].summary
+        );
+
+        // 不存在的任务：trait 契约是空向量（不得 panic，也不伪造条目）。
+        assert!(view.checkpoints("T-none").is_empty());
     }
 
     #[test]

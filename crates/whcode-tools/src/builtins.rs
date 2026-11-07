@@ -54,7 +54,8 @@ impl ScanDeadline {
 
     fn check(&mut self) -> Result<(), WhError> {
         self.ticks = self.ticks.wrapping_add(1);
-        if self.ticks % DEADLINE_CHECK_STRIDE == 0 && self.at.is_some_and(|at| Instant::now() >= at)
+        if self.ticks.is_multiple_of(DEADLINE_CHECK_STRIDE)
+            && self.at.is_some_and(|at| Instant::now() >= at)
         {
             return Err(WhError::new(
                 whcode_domain::ErrorCode::ToolTimeout,

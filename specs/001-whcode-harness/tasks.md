@@ -880,9 +880,22 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   （测试断言 assistant 消息 0）；`provider_failure_records_attempt_without_polluting_history`
   覆盖请求未发出路径，turn 边界仍成对；`cargo test -p whcode-app` 163/163、clippy、fmt 绿；
   CI 待运行（ADR-037）。
-- [ ] T267 [P] 单工具超时（FR-757；ADR-060 项 D）：`timeout_ms` 声明＋到期结构化结果
+- [x] T267 [P] 单工具超时（FR-757；ADR-060 项 D）：`timeout_ms` 声明＋到期结构化结果
   ——**任务认知卡**：方向=工具预算；目标=超时可判定且不强杀进程；判据=超时/正常/上限
   三路径测试；非目标=线程级强杀
+  ——**取证（2026-11-07）**：`ToolDescriptor.timeout_ms`（声明即承诺：实现者在自有循环检查
+  截止时间并主动返回，执行器不强杀同进程代码）；常量 `DEFAULT_TOOL_TIMEOUT_MS`=30 s／
+  `MAX_TOOL_TIMEOUT_MS`=600 s（越界截断）；`effective_deadline()` 统一收口（未声明→无预算、
+  超上限→按上限截断）；`ErrorCode::ToolTimeout`（稳定码 `tool_timeout`、`retryable=false`，
+  CUI 退出码复用 90 不动契约表）；glob/grep 扫描循环 `ScanDeadline` 每 64 条目查一次时钟；
+  `execute_tool_call` 到期登记**终态 `TimedOut`**（store 恢复语义既有终态，即 `timed_out=true`
+  的结构化载体），输出/副作用引用均 `None`，回填文案显式“不得重试同一调用”。测试三项：
+  `registry::tests::effective_deadline_is_absent_without_declaration_and_capped`（正常/无预算/
+  上限）、`builtins::tests::scan_deadline_fires_on_stride_and_stays_silent_without_budget`
+  （步进触发/未到期不触发/无预算永不触发）、
+  `builtins::tests::glob_and_grep_stop_with_tool_timeout_when_deadline_expired`（正常命中＋
+  glob/grep 双工具过期→不可重试）。本机：whcode-tools 14/14、全 workspace 64 组全绿、fmt 绿、
+  clippy `-D warnings` 绿（修复 `is_multiple_of` lint）；CI 待运行（ADR-037）。
 - [ ] T268 [P] usage 锚点计量（FR-758；ADR-060 项 E）：最近成功 usage 单条锚点＋增量估算
   ——**任务认知卡**：方向=计量准确化；目标=锚点缺失时行为不变；判据=锚点命中/缺失回退
   测试；非目标=多供应商矩阵
