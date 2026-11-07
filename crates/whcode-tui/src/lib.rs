@@ -1439,8 +1439,10 @@ fn push_empty_state<'a>(
     content_width: usize,
     texts: &'a I18n,
 ) {
+    // `body_rows > ASCII_LOGO_LINES` 即“字标 + 一行空提示”都放得下（clippy
+    // `int_plus_one` 拒绝写成 `>= ASCII_LOGO_LINES + 1`）。
     let logo_fits = content_width >= whcode_domain::brand::ASCII_LOGO_WIDTH
-        && body_rows >= whcode_domain::brand::ASCII_LOGO_LINES + 1;
+        && body_rows > whcode_domain::brand::ASCII_LOGO_LINES;
     if logo_fits {
         lines.extend(whcode_domain::brand::ASCII_LOGO.lines().map(Line::from));
     }
