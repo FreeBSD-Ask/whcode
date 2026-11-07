@@ -88,6 +88,17 @@
 
 - 2026-11-07：G1 入账（FR-754—764、T264—275、Check 359—370）；代码按 §2 顺序实施，
   A 先落地。逐项验收后在本节追加“项—提交—证据”。
+- **项 D（P1.4／FR-757，T267）—`bb24e51`**：`ToolDescriptor.timeout_ms`＋`effective_deadline`
+  （上限 600 s 截断、未声明＝无预算）＋`ErrorCode::ToolTimeout`（`retryable=false`，CUI 退出码
+  复用 90）＋glob/grep 扫描循环协作式时钟检查；到期登记终态 `TimedOut`（`timed_out=true`
+  的结构化载体），不建线程、不强杀。测试三路径（正常/超时/上限）；Check 362＝exercised；
+  CI run 42365370076 全绿。同一提交含检查点浏览的 trait 派发修复（T254：`checkpoints` 移入
+  `impl ViewSource`，消除“GUI 恒空”的错误空）。
+- **项 E（P1.5／FR-758，T268）**：schema v8 新增 `usage_anchor` 单行表（`scope='last'` 主键＋
+  CHECK；导出排除：本地校准值）；store `save_anchor/load_anchor` **只收供应商实测**；turn 预算
+  门禁按 provider/model 身份匹配后用实测字符/token 比校准（合理区间 [0.5, 16]），缺失/不匹配/
+  读取失败一律回退 4 字符启发式（行为与现行一致），压力事件带 `estimate_basis`／
+  `chars_per_token`。测试：store 3＋app 4＋迁移集成 1（v7→v8）。
 
 ## 修订记录
 

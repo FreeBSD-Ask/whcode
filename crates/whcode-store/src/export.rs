@@ -9,6 +9,7 @@
 //!
 //! - `audit`：安全审计随原库保留，不随导出文件扩散（§10.3）；
 //! - `runtime_state`：机器本地运行时配置，不属于工作区数据；
+//! - `usage_anchor`：本地实测校准值（FR-758），一次成功请求即可重建，不属工作区数据；
 //! - `schema_migrations`：由目标库自身的迁移管理，导入方不得照搬。
 //!
 //! ## 校验（Check 40、V-106）
@@ -67,7 +68,12 @@ pub const EXPORT_TABLES: &[&str] = &[
 ];
 
 /// 明确排除的表及理由见模块文档。
-pub const EXCLUDED_TABLES: &[&str] = &["audit", "runtime_state", "schema_migrations"];
+pub const EXCLUDED_TABLES: &[&str] = &[
+    "audit",
+    "runtime_state",
+    "usage_anchor",
+    "schema_migrations",
+];
 
 /// 分块校验和的块大小（行数）。
 pub const ROWS_PER_CHUNK: usize = 1000;

@@ -268,6 +268,56 @@ pub(crate) fn estimate_tokens(content: &str) -> usize {
     (content.chars().count() / 4).max(1)
 }
 
+/// 启发式的每 token 字符数（锚点缺失时的回退基线，FR-207／FR-758）。
+pub const HEURISTIC_CHARS_PER_TOKEN: f64 = 4.0;
+/// 校准比例的合理下限（低于此值视为锚点异常 → 回退启发式）。
+pub const MIN_CALIBRATED_CHARS_PER_TOKEN: f64 = 0.5;
+/// 校准比例的合理上限（高于此值视为锚点异常 → 回退启发式）。
+pub const MAX_CALIBRATED_CHARS_PER_TOKEN: f64 = 16.0;
+
+/// 由实测锚点导出预算判断用的字符/token 比（FR-758／T268／ADR-060 项 E）。
+///
+/// 返回 `None` 的三种情形，均回退启发式（行为与引入锚点前一致）：
+/// ① 从未有成功请求（无锚点）；② 锚点来自别的供应商或模型（不做多供应商混用，
+/// ADR-060 §2.4）；③ 比例越出 [0.5, 16] 的合理区间（单次异常测量不扭曲预算）。
+#[must_use]
+pub fn calibrated_chars_per_token(
+    provider: &str,
+    model: &str,
+    anchor: Option<&whcode_store::UsageAnchor>,
+) -> Option<f64> {
+    let anchor = anchor?;
+    if anchor.provider != provider || anchor.model != model {
+        return None;
+    }
+    let ratio = anchor.chars_per_token()?;
+    if !ratio.is_finite()
+        || !(MIN_CALIBRATED_CHARS_PER_TOKEN..=MAX_CALIBRATED_CHARS_PER_TOKEN).contains(&ratio)
+    {
+        return None;
+    }
+    Some(ratio)
+}
+
+/// 单条消息的 token 估算：校准比例优先，缺失回退 4 字符启发式（至少 1）。
+#[must_use]
+pub(crate) fn estimate_tokens_with(content: &str, chars_per_token: Option<f64>) -> usize {
+    let chars = content.chars().count();
+    match chars_per_token {
+        Some(ratio) if ratio.is_finite() && ratio > 0.0 => {
+            let estimated = (chars as f64 / ratio).ceil();
+            if estimated < 1.0 {
+                1
+            } else if estimated > usize::MAX as f64 {
+                usize::MAX
+            } else {
+                estimated as usize
+            }
+        }
+        _ => (chars / 4).max(1),
+    }
+}
+
 /// 折叠的预算下限：摘要自身开销（头部 + ≤5 行样例）约 75 token，低于此值折叠
 /// 无法构造出 ≤ 预算的结果（直接终止比无效折叠诚实）。
 pub(crate) const FOLD_MIN_BUDGET_TOKENS: usize = 256;
@@ -499,7 +549,6 @@ mod tests {
 mod fold_tests {
     use super::fold_messages_for_budget;
     use whcode_llm::provider::{LlmMessage, Role};
-
     fn user(text: &str) -> LlmMessage {
         LlmMessage {
             role: Role::User,
@@ -570,5 +619,89 @@ mod fold_tests {
         // 锚点缺失（首条即 assistant）：fold_start=0、无中段 → 不折叠。
         let messages = vec![assistant(&"x".repeat(1200)), user("后续")];
         assert!(fold_messages_for_budget(&messages, 300).is_none());
+    }
+}
+
+#[cfg(test)]
+mod calibration_tests {
+    use super::{MAX_CALIBRATED_CHARS_PER_TOKEN, calibrated_chars_per_token, estimate_tokens_with};
+    use whcode_store::UsageAnchor;
+
+    fn anchor(provider: &str, model: &str, tokens: u64, chars: u64) -> UsageAnchor {
+        UsageAnchor {
+            provider: provider.to_string(),
+            model: model.to_string(),
+            prompt_tokens: tokens,
+            completion_tokens: 1,
+            prompt_chars: chars,
+            ts_ms: 1_700_000_000_000,
+        }
+    }
+
+    #[test]
+    fn anchor_hit_calibrates_estimate() {
+        // 实测 2.5 字符/token（中文较多）：250 字符 → 100 token，而非启发式的 62。
+        let anchor = anchor("p", "m", 100, 250);
+        let ratio = calibrated_chars_per_token("p", "m", Some(&anchor)).expect("锚点命中");
+        assert_eq!(ratio, 2.5);
+        assert_eq!(estimate_tokens_with(&"字".repeat(250), Some(ratio)), 100);
+        assert_eq!(
+            estimate_tokens_with(&"字".repeat(250), None),
+            62,
+            "同一内容在启发式下是 62（250/4）——校准确实改变了判断依据"
+        );
+    }
+
+    #[test]
+    fn missing_anchor_keeps_heuristic_behavior() {
+        assert!(
+            calibrated_chars_per_token("p", "m", None).is_none(),
+            "无锚点 → 回退"
+        );
+        assert_eq!(
+            estimate_tokens_with("abcdefgh", None),
+            estimate_tokens_with("abcdefgh", calibrated_chars_per_token("p", "m", None)),
+            "锚点缺失时行为与现行完全一致"
+        );
+    }
+
+    #[test]
+    fn anchor_from_other_provider_or_out_of_range_is_ignored() {
+        let base = anchor("p", "m", 100, 250);
+        assert!(
+            calibrated_chars_per_token("p2", "m", Some(&base)).is_none(),
+            "换供应商不混用"
+        );
+        assert!(
+            calibrated_chars_per_token("p", "m2", Some(&base)).is_none(),
+            "换模型不混用"
+        );
+        let absurd_dense = anchor("p", "m", 1000, 100);
+        assert!(
+            calibrated_chars_per_token("p", "m", Some(&absurd_dense)).is_none(),
+            "低于下限（0.5）= 异常测量，回退"
+        );
+        let absurd_sparse = anchor("p", "m", 10, 5000);
+        assert!(
+            calibrated_chars_per_token("p", "m", Some(&absurd_sparse)).is_none(),
+            "高于上限（{}）= 异常测量，回退",
+            MAX_CALIBRATED_CHARS_PER_TOKEN
+        );
+        let zero_tokens = anchor("p", "m", 0, 250);
+        assert!(
+            calibrated_chars_per_token("p", "m", Some(&zero_tokens)).is_none(),
+            "token 数 0 无法导出比例"
+        );
+    }
+
+    #[test]
+    fn calibration_never_returns_zero_tokens() {
+        assert_eq!(estimate_tokens_with("", Some(2.5)), 1, "空内容至少 1");
+        assert_eq!(estimate_tokens_with("a", Some(1.0)), 1);
+        assert_eq!(
+            estimate_tokens_with("abc", Some(16.0)),
+            1,
+            "稀疏比例向上取整"
+        );
     }
 }

@@ -46,6 +46,7 @@ pub mod smoke;
 pub mod tasks;
 pub mod tool_exec;
 pub mod turn;
+pub mod usage_anchor;
 pub mod wal;
 pub mod writer;
 
@@ -103,6 +104,7 @@ pub use tool_exec::{
     mark_running, record_intent, record_result, recover_uncertain,
 };
 pub use turn::{AppendTurnReport, TurnEventDraft, TurnMessageDraft, append_turn};
+pub use usage_anchor::{ANCHOR_SCOPE, MAX_IDENTIFIER_CHARS, UsageAnchor, load_anchor, save_anchor};
 
 pub use wal::{
     CheckpointReason, CheckpointReport, EffectiveWalSettings, WalPolicy, apply_wal_policy,

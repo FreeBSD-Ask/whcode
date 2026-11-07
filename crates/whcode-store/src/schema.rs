@@ -1,6 +1,6 @@
 //! # 存储 schema 与版本化迁移（T032、T033）
 //!
-//! 14 张表与 `data-model.md` §1 一一对应。迁移是**唯一**建表入口；其他模块不得自行
+//! 15 张表与 `data-model.md` §1 一一对应。迁移是**唯一**建表入口；其他模块不得自行
 //! `CREATE TABLE` 正式表。迁移在一个事务内执行：SQL 失败时不写入 `schema_migrations`，
 //! 数据库不会被标记为新版本（NFR-103、§7.4）。
 //!
@@ -19,11 +19,13 @@ use whcode_domain::{ErrorCode, WhError};
 /// v6 把 `events.payload_json` 由 TEXT 改为 VARIANT（ADR-034，JSON 文本显式转换后复制）；
 /// v7 把其余 6 个 JSON 语义列改为 VARIANT（ADR-036：`tasks.acceptance_json`、
 /// `stage_artifacts.refs_json`、`session_overview.by_stage_json`、`checkpoints.delta_json`、
-/// `checkpoints.artifact_refs_json`、`audit.detail_json`）。
-pub const STORE_SCHEMA_VERSION: u32 = 7;
+/// `checkpoints.artifact_refs_json`、`audit.detail_json`）；
+/// v8 增加 usage 锚点单行表（FR-758／T268／ADR-060 项 E：最近一次成功请求的实测 usage，
+/// 供预算判断校准；只存一条）。
+pub const STORE_SCHEMA_VERSION: u32 = 8;
 
 /// 正式表数量（含 `schema_migrations`）。
-pub const TABLE_COUNT: usize = 14;
+pub const TABLE_COUNT: usize = 15;
 
 const MIGRATION_0001: &str = include_str!("../migrations/0001_initial.sql");
 const MIGRATION_0002: &str = include_str!("../migrations/0002_event_trace_indexes.sql");
@@ -32,6 +34,7 @@ const MIGRATION_0004: &str = include_str!("../migrations/0004_session_id_sequenc
 const MIGRATION_0005: &str = include_str!("../migrations/0005_session_stage.sql");
 const MIGRATION_0006: &str = include_str!("../migrations/0006_events_variant.sql");
 const MIGRATION_0007: &str = include_str!("../migrations/0007_json_variant.sql");
+const MIGRATION_0008: &str = include_str!("../migrations/0008_usage_anchor.sql");
 
 /// 版本化迁移清单；新增版本时追加，不修改历史 SQL。
 const MIGRATIONS: &[(u32, &str)] = &[
@@ -42,6 +45,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (5, MIGRATION_0005),
     (6, MIGRATION_0006),
     (7, MIGRATION_0007),
+    (8, MIGRATION_0008),
 ];
 
 fn store_err(context: &str, err: duckdb::Error) -> WhError {

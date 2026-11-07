@@ -323,6 +323,17 @@ pub fn run_turn_with_progress(
         ));
     }
     let budget_tokens = request.budget_tokens.unwrap_or(DEFAULT_TURN_BUDGET_TOKENS);
+    // ── usage 锚点（T268／FR-758／ADR-060 项 E）──────────────────────────
+    // 最近一次成功请求的实测 usage 只存一条；按供应商/模型身份匹配后用于校准预算估算。
+    // 读取失败按“缺失”处理（回退启发式）：校准是判断依据的优化，不是 turn 正确性的前提。
+    let usage_anchor = whcode_store::load_anchor(conn).unwrap_or(None);
+    let estimate_ratio =
+        crate::context::calibrated_chars_per_token(&profile.name, &model, usage_anchor.as_ref());
+    let estimate_basis = if estimate_ratio.is_some() {
+        "anchor"
+    } else {
+        "heuristic"
+    };
 
     // turn ID：从库内状态派生（本会话当前最大事件 seq + 1）——会话内单调、可复现、不依赖时钟。
     let base_seq: i64 = conn
@@ -473,7 +484,7 @@ pub fn run_turn_with_progress(
         // 表口径（load_context）截断降为观察事件（ADR-051 修订 FR-721 语义）。
         let in_memory_est: usize = messages
             .iter()
-            .map(|m| crate::context::estimate_tokens(&m.content))
+            .map(|m| crate::context::estimate_tokens_with(&m.content, estimate_ratio))
             .sum();
         if in_memory_est > budget_tokens {
             if compressed_once {
@@ -483,6 +494,8 @@ pub fn run_turn_with_progress(
                     "budget_tokens": budget_tokens,
                     "in_memory_est": in_memory_est,
                     "compressed_once": true,
+                    "estimate_basis": estimate_basis,
+                    "chars_per_token": estimate_ratio,
                 );
                 break TerminationReason::BudgetExceeded;
             }
@@ -517,6 +530,8 @@ pub fn run_turn_with_progress(
                         "compressed": true,
                         "folded_count": report.folded_count,
                         "in_memory_before": in_memory_est,
+                        "estimate_basis": estimate_basis,
+                        "chars_per_token": estimate_ratio,
                     );
                     messages = report.messages;
                     // 折叠后的数组 = [已落表前缀..., 摘要]：持久化游标对齐为
@@ -532,6 +547,8 @@ pub fn run_turn_with_progress(
                         "budget_tokens": budget_tokens,
                         "in_memory_est": in_memory_est,
                         "foldable": false,
+                        "estimate_basis": estimate_basis,
+                        "chars_per_token": estimate_ratio,
                     );
                     break TerminationReason::BudgetExceeded;
                 }
@@ -569,6 +586,12 @@ pub fn run_turn_with_progress(
             max_tokens,
             timeout: Some(total),
         };
+        // 锚点比例的分母：本次请求实际发送的字符数（与供应商 prompt_tokens 配对测量）。
+        let request_chars: u64 = llm_request
+            .messages
+            .iter()
+            .map(|m| u64::try_from(m.content.chars().count()).unwrap_or(u64::MAX))
+            .fold(0u64, u64::saturating_add);
         emit!(
             EventKind::RequestStarted,
             "iteration": iteration,
@@ -705,6 +728,8 @@ pub fn run_turn_with_progress(
             break TerminationReason::Cancelled;
         }
         let latency_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        // 供应商是否真的返回了 usage（决定能否写锚点：估算值不得当作观测值）。
+        let usage_reported = step_usage.is_some();
         let step_usage_value = match step_usage {
             Some(u) if u.latency_ms > 0 => u,
             Some(u) => u.with_latency(latency_ms),
@@ -766,6 +791,21 @@ pub fn run_turn_with_progress(
         truncated = step_truncated;
         usage = Some(step_usage_value);
         transport = provider.transport_snapshot();
+        // ── usage 锚点（T268／FR-758／ADR-060 项 E）─────────────────────
+        // 只保存**供应商实测**：估算 usage（`Usage::estimate`）不写锚点，否则会把启发式
+        // 自身当成观测值。写失败不阻断 turn——校准是判断依据的优化，失败仅意味着下次仍
+        // 走启发式（不伪造成功，也不静默改变本次判定依据）。
+        if usage_reported && step_usage_value.prompt_tokens > 0 && request_chars > 0 {
+            let anchor = whcode_store::UsageAnchor {
+                provider: profile.name.clone(),
+                model: model.clone(),
+                prompt_tokens: step_usage_value.prompt_tokens,
+                completion_tokens: step_usage_value.completion_tokens,
+                prompt_chars: request_chars,
+                ts_ms: i64::try_from(now_ms).unwrap_or(i64::MAX),
+            };
+            let _ = whcode_store::save_anchor(conn, &anchor);
+        }
 
         // ── 终止判定：无工具调用即完成（对齐 ZCode turn-model-step）────────
         if step_tool_calls.is_empty() {

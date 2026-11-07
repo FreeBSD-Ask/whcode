@@ -1,6 +1,6 @@
 //! 迁移集成测试（T033、T036）。
 //!
-//! 覆盖七条路径：
+//! 覆盖八条路径：
 //! 1. v0（空库）→ 当前版本：一次应用全部迁移，表数、版本记录与索引齐备；
 //! 2. v1 → 当前版本：用真实 v1 SQL 构造历史工作区，跨版升级后数据保留、全部新索引生效；
 //! 3. v2 → 当前版本：上一受支持版本升级，消息与事件数据保留；
@@ -10,7 +10,9 @@
 //!    旧消息索引必须随回滚恢复，新索引不得残留（NFR-103、§7.4）；
 //! 6. v5 → 当前版本：事件载荷由 TEXT 副本转换为原生 VARIANT，既有行可读回；
 //! 7. v6 → v7：其余 6 个 JSON 语义列由 TEXT 副本转换为原生 VARIANT，既有行可读回，
-//!    重建的二级索引齐全。
+//!    重建的二级索引齐全；
+//! 8. v7 → v8：新增 usage 锚点单行表（FR-758／T268），既有数据保留，主键约束保证
+//!    “只存一条”。
 //!
 //! 新增 schema 版本时必须在同一文件追加对应升级路径与中断回滚用例，不得删除既有断言。
 
@@ -100,11 +102,19 @@ fn fresh_workspace_migrates_to_current_and_reruns_idempotently() {
     let first = whcode_store::apply_migrations(&conn).expect("首次迁移");
     assert_eq!(first, whcode_store::STORE_SCHEMA_VERSION);
     assert_eq!(table_count(&conn) as usize, whcode_store::TABLE_COUNT);
-    assert_eq!(migration_rows(&conn), 7, "每个 schema 版本恰一行记录");
+    assert_eq!(
+        migration_rows(&conn),
+        i64::from(whcode_store::STORE_SCHEMA_VERSION),
+        "每个 schema 版本恰一行记录"
+    );
 
     let duplicate = whcode_store::apply_migrations(&conn).expect("重复迁移");
     assert_eq!(duplicate, first);
-    assert_eq!(migration_rows(&conn), 7, "重复应用不得重复写入迁移记录");
+    assert_eq!(
+        migration_rows(&conn),
+        i64::from(whcode_store::STORE_SCHEMA_VERSION),
+        "重复应用不得重复写入迁移记录"
+    );
 
     for (version, sql) in [
         (1, V1_SQL),
@@ -164,7 +174,11 @@ fn v1_workspace_upgrades_to_current_and_preserves_data() {
 
     let version = whcode_store::apply_migrations(&conn).expect("v1 → 当前版本升级");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 7, "跨版本升级应补齐全部迁移记录");
+    assert_eq!(
+        migration_rows(&conn),
+        i64::from(whcode_store::STORE_SCHEMA_VERSION),
+        "跨版本升级应补齐全部迁移记录"
+    );
     assert_eq!(event_count(&conn), 1, "升级不得丢失既有数据");
     assert!(index_exists(&conn, "events", "idx_events_request"));
     assert!(index_exists(&conn, "events", "idx_events_tool_call"));
@@ -353,7 +367,10 @@ fn v3_workspace_upgrades_to_v4_and_sequence_is_ready() {
 
     let version = whcode_store::apply_migrations(&conn).expect("v3 → v4 升级");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 7);
+    assert_eq!(
+        migration_rows(&conn),
+        i64::from(whcode_store::STORE_SCHEMA_VERSION)
+    );
 
     // v4 的产出：会话 ID 序列可用且单调；旧数据不受影响。
     let first: String = conn
@@ -394,7 +411,10 @@ fn v4_migration_is_idempotent_against_existing_sequence() {
 
     let version = whcode_store::apply_migrations(&conn).expect("幂等通过");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 7);
+    assert_eq!(
+        migration_rows(&conn),
+        i64::from(whcode_store::STORE_SCHEMA_VERSION)
+    );
 
     let after: i64 = conn
         .query_row("SELECT nextval('whcode_session_id_seq')", [], |row| {
@@ -446,7 +466,10 @@ fn v4_workspace_upgrades_to_v5_and_stage_column_is_backfilled() {
 
     let version = whcode_store::apply_migrations(&conn).expect("v4 → v5 升级");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 7);
+    assert_eq!(
+        migration_rows(&conn),
+        i64::from(whcode_store::STORE_SCHEMA_VERSION)
+    );
 
     // v5 产出：stage 列存在且既有行回填默认值（DuckDB ALTER 限制：可空列 + UPDATE）。
     let stage: String = conn
@@ -503,7 +526,11 @@ fn v5_workspace_upgrades_to_v6_and_payload_becomes_native_variant() {
 
     let version = whcode_store::apply_migrations(&conn).expect("v5 → v6 升级");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 7, "v7 迁移记录必须写入");
+    assert_eq!(
+        migration_rows(&conn),
+        i64::from(whcode_store::STORE_SCHEMA_VERSION),
+        "全量迁移记录必须写入"
+    );
     assert_eq!(event_count(&conn), 1, "升级不得丢失既有事件");
     for index in [
         "idx_events_session_seq",
@@ -615,7 +642,11 @@ fn v6_workspace_upgrades_to_v7_and_json_columns_become_native_variant() {
 
     let version = whcode_store::apply_migrations(&conn).expect("v6 → v7 升级");
     assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
-    assert_eq!(migration_rows(&conn), 7, "v7 迁移记录必须写入");
+    assert_eq!(
+        migration_rows(&conn),
+        i64::from(whcode_store::STORE_SCHEMA_VERSION),
+        "全量迁移记录必须写入"
+    );
 
     for (table, column) in json_columns {
         assert_eq!(
@@ -759,4 +790,61 @@ fn v6_workspace_upgrades_to_v7_and_json_columns_become_native_variant() {
         )
         .expect("variant_keys / variant_extract 必须可查");
     assert_eq!((keys, plan), (1, 1), "概览的阶段分布键与值应可查询");
+}
+
+/// v7 → v8：新增 usage 锚点单行表（FR-758／T268／ADR-060 项 E）。
+///
+/// 判据：①既有数据在升级后完好；②表存在且 `scope` 主键 + `CHECK (scope='last')` 保证
+/// 只存一条——第二个 scope 必须被数据库拒绝，不能靠调用方自律。
+#[test]
+fn v7_workspace_gains_usage_anchor_table() {
+    let conn = Connection::open_in_memory().expect("内存数据库");
+    // 用真实的 v1—v7 SQL 构造 v7 工作区（与历史版本部署同形）。
+    let chain = [V1_SQL, V2_SQL, V3_SQL, V4_SQL, V5_SQL, V6_SQL, V7_SQL];
+    for (index, sql) in chain.iter().enumerate() {
+        conn.execute_batch(sql).expect("应用历史迁移");
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at, checksum)
+             VALUES (?, current_timestamp, ?)",
+            params![(index + 1) as i64, whcode_store::checksum(sql)],
+        )
+        .expect("登记历史迁移");
+    }
+    assert_eq!(migration_rows(&conn), 7, "构造出的工作区应为 v7");
+    conn.execute(
+        "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+         VALUES ('S-1', 'v7 会话', current_timestamp, current_timestamp, 'active')",
+        [],
+    )
+    .expect("写入 v7 既有数据");
+
+    let version = whcode_store::apply_migrations(&conn).expect("v7 → v8 升级");
+    assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
+    assert_eq!(
+        migration_rows(&conn),
+        i64::from(whcode_store::STORE_SCHEMA_VERSION)
+    );
+    let sessions: i64 = conn
+        .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
+        .expect("统计会话");
+    assert_eq!(sessions, 1, "升级不得丢失既有数据");
+
+    conn.execute(
+        "INSERT INTO usage_anchor
+             (scope, provider, model, prompt_tokens, completion_tokens, prompt_chars, ts)
+         VALUES ('last', 'p', 'm', 10, 2, 40, current_timestamp)",
+        [],
+    )
+    .expect("首条锚点");
+    let second = conn.execute(
+        "INSERT INTO usage_anchor
+             (scope, provider, model, prompt_tokens, completion_tokens, prompt_chars, ts)
+         VALUES ('another', 'p', 'm', 10, 2, 40, current_timestamp)",
+        [],
+    );
+    assert!(second.is_err(), "CHECK(scope='last') 必须拒绝第二个 scope");
+    let rows: i64 = conn
+        .query_row("SELECT COUNT(*) FROM usage_anchor", [], |row| row.get(0))
+        .expect("统计锚点");
+    assert_eq!(rows, 1, "只存一条");
 }
