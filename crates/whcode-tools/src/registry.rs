@@ -325,8 +325,7 @@ mod tests {
         let normal =
             effective_deadline(Some(DEFAULT_TOOL_TIMEOUT_MS), now).expect("声明后必有截止时间");
         assert!(normal > now, "正常路径：截止时间在未来");
-        let capped =
-            effective_deadline(Some(u64::MAX), now).expect("越界声明仍收口为有截止时间");
+        let capped = effective_deadline(Some(u64::MAX), now).expect("越界声明仍收口为有截止时间");
         assert!(
             capped <= now + std::time::Duration::from_millis(MAX_TOOL_TIMEOUT_MS),
             "上限路径：越界声明按 MAX_TOOL_TIMEOUT_MS 截断"

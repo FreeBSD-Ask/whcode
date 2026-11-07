@@ -122,9 +122,22 @@ fn turn_persists_monotonic_events_threaded_by_turn_id_and_rebuildable_messages()
         kinds.push(kind);
     }
     drop(stmt);
-    assert_eq!(kinds.first().map(String::as_str), Some("RequestStarted"));
-    assert_eq!(kinds.last().map(String::as_str), Some("RuntimeTerminated"));
-    for expected in ["RequestStarted", "StreamingChunk", "RequestCompleted"] {
+    // T270/FR-760：TurnStarted 在首次模型调用前**单独**提交，故为全会话首事件；
+    // 正常终止路径 RuntimeTerminated 之后补 TurnFinished 闭合（无 TurnFinished 即未闭合）。
+    assert_eq!(
+        kinds.first().map(String::as_str),
+        Some("TurnStarted"),
+        "turn 边界先落（T270/FR-760）"
+    );
+    assert_eq!(kinds.last().map(String::as_str), Some("TurnFinished"));
+    for expected in [
+        "TurnStarted",
+        "RequestStarted",
+        "StreamingChunk",
+        "RequestCompleted",
+        "RuntimeTerminated",
+        "TurnFinished",
+    ] {
         assert!(kinds.iter().any(|k| k == expected), "缺少 {expected}");
     }
 

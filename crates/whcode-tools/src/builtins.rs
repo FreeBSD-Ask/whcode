@@ -834,14 +834,12 @@ mod tests {
         for (name, err) in [
             (
                 "glob",
-                Glob
-                    .execute_with_deadline(&ws, &json_args(r#"{"pattern": "*.txt"}"#), Some(past))
+                Glob.execute_with_deadline(&ws, &json_args(r#"{"pattern": "*.txt"}"#), Some(past))
                     .expect_err("过期必须超时"),
             ),
             (
                 "grep",
-                Grep
-                    .execute_with_deadline(&ws, &json_args(r#"{"pattern": "needle"}"#), Some(past))
+                Grep.execute_with_deadline(&ws, &json_args(r#"{"pattern": "needle"}"#), Some(past))
                     .expect_err("过期必须超时"),
             ),
         ] {
