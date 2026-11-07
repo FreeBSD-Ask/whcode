@@ -17,11 +17,10 @@ use std::time::Instant;
 use serde_json::Value;
 use whcode_domain::WhError;
 
-use crate::MAX_TOOL_OUTPUT_BYTES;
 use crate::paths::resolve_in_workspace;
 use crate::registry::{
     DEFAULT_TOOL_TIMEOUT_MS, ParamType, SideEffectScope, Tool, ToolDescriptor, ToolOutput,
-    ToolParameter, validate_arguments,
+    ToolParameter, bound_output, validate_arguments,
 };
 
 /// 单次读取上限（1 MiB；超限截断并标记，FR-726）。
@@ -68,29 +67,6 @@ impl ScanDeadline {
 
 fn invalid(message: String) -> WhError {
     WhError::invalid_state(message)
-}
-
-fn bound_output(content: String) -> ToolOutput {
-    let byte_len = content.len();
-    if byte_len <= MAX_TOOL_OUTPUT_BYTES {
-        return ToolOutput {
-            content,
-            truncated: false,
-        };
-    }
-    let mut cut = MAX_TOOL_OUTPUT_BYTES;
-    while cut > 0 && !content.is_char_boundary(cut) {
-        cut -= 1;
-    }
-    ToolOutput {
-        content: format!(
-            "{}\n[truncated: 原 {} 字节超过 {} 字节上限，R-05 对策显式截断]",
-            &content[..cut],
-            byte_len,
-            MAX_TOOL_OUTPUT_BYTES
-        ),
-        truncated: true,
-    }
 }
 
 fn read_bounded(path: &Path) -> Result<(String, bool), WhError> {
@@ -187,6 +163,7 @@ impl Tool for ReadFile {
             }],
             side_effect_scope: SideEffectScope::ReadOnly,
             timeout_ms: None,
+            output_schema: None,
         }
     }
 
@@ -226,6 +203,7 @@ impl Tool for WriteFile {
             ],
             side_effect_scope: SideEffectScope::WorkspaceWrite,
             timeout_ms: None,
+            output_schema: None,
         }
     }
 
@@ -294,6 +272,7 @@ impl Tool for EditFile {
             ],
             side_effect_scope: SideEffectScope::WorkspaceWrite,
             timeout_ms: None,
+            output_schema: None,
         }
     }
 
@@ -342,6 +321,7 @@ impl Tool for ListDir {
             }],
             side_effect_scope: SideEffectScope::ReadOnly,
             timeout_ms: None,
+            output_schema: None,
         }
     }
 
@@ -388,6 +368,7 @@ impl Tool for Glob {
             }],
             side_effect_scope: SideEffectScope::ReadOnly,
             timeout_ms: Some(SCAN_TIMEOUT_MS),
+            output_schema: None,
         }
     }
 
@@ -547,6 +528,7 @@ impl Tool for Grep {
             ],
             side_effect_scope: SideEffectScope::ReadOnly,
             timeout_ms: Some(SCAN_TIMEOUT_MS),
+            output_schema: None,
         }
     }
 
@@ -668,6 +650,7 @@ pub fn default_registry() -> Result<crate::registry::ToolRegistry, WhError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::MAX_TOOL_OUTPUT_BYTES;
     use whcode_domain::ErrorCode;
 
     fn workspace() -> PathBuf {

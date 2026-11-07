@@ -836,9 +836,10 @@ pub fn run_turn_with_progress(
                 continue;
             }
             let exec_id = format!("TX-{request_id}-{iteration}-{tool_index}");
-            let (status, result_text, side_effect): (
+            let (status, result_text, side_effect, output_value): (
                 RuntimeExecutionStatus,
                 String,
+                Option<String>,
                 Option<String>,
             ) = execute_tool_call(
                 conn,
@@ -871,6 +872,7 @@ pub fn run_turn_with_progress(
                 "tool_call_id": tool_call.id,
                 "state": status.as_str(),
                 "side_effect": side_effect,
+                "output_value": output_value,
             );
         }
         persister.flush(conn, &mut pending_events, &messages)?;
@@ -1212,14 +1214,20 @@ fn execute_tool_call(
     exec_id: &str,
     tool_call: &LlmToolCall,
     now_ms: u64,
-) -> (RuntimeExecutionStatus, String, Option<String>) {
+) -> (
+    RuntimeExecutionStatus,
+    String,
+    Option<String>,
+    Option<String>,
+) {
     // 权限面（T217 v1 和解）：读工具 SessionRead、写工具 SessionCreate——
     // 专用 WorkspaceWrite 能力归 P2-1 动态权限 broker（ADR-048 §2.7 注记）。
     let capability_for = |scope| match scope {
         whcode_tools::SideEffectScope::ReadOnly => Capability::SessionRead,
         whcode_tools::SideEffectScope::WorkspaceWrite => Capability::SessionCreate,
     };
-    let fail = |status, text: String, side_effect: Option<String>| (status, text, side_effect);
+    let fail =
+        |status, text: String, side_effect: Option<String>| (status, text, side_effect, None);
 
     // FR-737：MCP 投影工具——动态名不进内置注册表，命名空间前缀分派。
     if let Some((server, tool_name)) = whcode_mcp::parse_tool_name(&tool_call.name) {
@@ -1291,6 +1299,39 @@ fn execute_tool_call(
         whcode_tools::effective_deadline(descriptor.timeout_ms, std::time::Instant::now());
     match tool.execute_with_deadline(workspace, &arguments, deadline) {
         Ok(output) => {
+            // 输出契约（T269／FR-759）：schema 校验 → 模型面投影 → 统一截断。
+            // 纯文本工具（无结构值）原样通过；校验失败按**结构化错误**失败，不当作成功。
+            let output = match tool.finalize(&arguments, output) {
+                Ok(output) => output,
+                Err(err) => {
+                    if let Err(record_err) = record_result(
+                        conn,
+                        exec_id,
+                        RuntimeExecutionStatus::Failed,
+                        None,
+                        None,
+                        now_ms,
+                    ) {
+                        return fail(
+                            RuntimeExecutionStatus::Failed,
+                            format!(
+                                "工具 {} 输出违约且结果登记失败：{err}；{record_err}",
+                                tool_call.name
+                            ),
+                            None,
+                        );
+                    }
+                    return fail(
+                        RuntimeExecutionStatus::Failed,
+                        format!(
+                            "工具 {} 输出不符合声明契约（output_schema）：{err}",
+                            tool_call.name
+                        ),
+                        None,
+                    );
+                }
+            };
+            let display_value = output.display_value();
             if let Err(err) = record_result(
                 conn,
                 exec_id,
@@ -1313,6 +1354,7 @@ fn execute_tool_call(
                     tool_call.name, marker, output.content
                 ),
                 None,
+                display_value,
             )
         }
         Err(err) => {
@@ -1342,11 +1384,13 @@ fn execute_tool_call(
                         tool_call.name
                     ),
                     None,
+                    None,
                 )
             } else {
                 (
                     RuntimeExecutionStatus::Failed,
                     format!("工具 {} 执行失败：{err}", tool_call.name),
+                    None,
                     None,
                 )
             }
@@ -1370,8 +1414,13 @@ fn execute_mcp_tool_call(
     exec_id: &str,
     tool_call: &LlmToolCall,
     now_ms: u64,
-) -> (RuntimeExecutionStatus, String, Option<String>) {
-    let fail = |status, text: String| (status, text, Some("mcp:external".to_string()));
+) -> (
+    RuntimeExecutionStatus,
+    String,
+    Option<String>,
+    Option<String>,
+) {
+    let fail = |status, text: String| (status, text, Some("mcp:external".to_string()), None);
     // 权限面 fail-closed（ADR-054 §2.8）：MCP 工具不区分读写，统一按写权限。
     if let Err(err) = require(policy, actor, Capability::SessionCreate) {
         return fail(
@@ -1453,6 +1502,7 @@ fn execute_mcp_tool_call(
                     non_text
                 ),
                 Some("mcp:external".to_string()),
+                None,
             )
         }
         Err(err) => {
