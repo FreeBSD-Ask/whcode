@@ -861,9 +861,15 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 - [ ] T265 [P] 模型生成摘要压缩（FR-755；ADR-060 项 B）：超预算先摘要、三事件＋孤儿锁、
   失败回退结构折叠——**任务认知卡**：方向=压缩语义化；目标=摘要可查且可回退；判据=
   摘要成功/失败/锁孤儿/上限四路径测试；非目标=多级摘要/跨会话记忆
-- [ ] T266 [P] 失败模型尝试持久化（FR-756；ADR-060 项 C）：`assistant_attempt` 事件＋容量上限
+- [x] T266 [P] 失败模型尝试持久化（FR-756；ADR-060 项 C）：`assistant_attempt` 事件＋容量上限
   ——**任务认知卡**：方向=失败可审计；目标=失败尝试不污染模型历史但可查；判据=事件内容
   断言＋上限测试；非目标=失败重放
+  ——**取证（2026-11-07）**：`EventKind::AssistantAttempt`（Critical）；`run_turn` 三处失败路径
+  （请求未发出 emit=false、流中错误 emit=true、截断/无终止原因 integrity）落事件，载荷只含
+  `reason/failure_code/failure_message(≤200 字符)/emitted/chunks/bytes`；失败尝试不进模型历史
+  （测试断言 assistant 消息 0）；`provider_failure_records_attempt_without_polluting_history`
+  覆盖请求未发出路径，turn 边界仍成对；`cargo test -p whcode-app` 163/163、clippy、fmt 绿；
+  CI 待运行（ADR-037）。
 - [ ] T267 [P] 单工具超时（FR-757；ADR-060 项 D）：`timeout_ms` 声明＋到期结构化结果
   ——**任务认知卡**：方向=工具预算；目标=超时可判定且不强杀进程；判据=超时/正常/上限
   三路径测试；非目标=线程级强杀

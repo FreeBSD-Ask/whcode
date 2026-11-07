@@ -684,7 +684,7 @@
 
 - [x] Check 359: [exercised] 审批四态与 fail-closed：封闭枚举 `allowed_once/rejected/cancelled/unavailable`；无应答者/应答异常/超时→`unavailable`；仅 `allowed_once` 放行；请求只带 `exec_id`；`approval_asked`/`approval_decided` 成对审计且失败阻断（来源：spec FR-754／Task T264／ADR-060 项 A）——**取证（2026-11-07，T264）**：domain 四态矩阵与 `allowed_once` 唯一放行断言 4 项；app broker 7 项（无应答→`unavailable` 且不等于拒绝、allow/deny 免应答、容量 64 超限背压、审计失败不入表/不删表、expire→`cancelled`、审计成对且不含 `arguments`）；`cargo test` 11/11、clippy `-D warnings`、fmt 绿；执行接线冻结至 T255（ADR-060 §2.2）；CI 待运行。
 - [ ] Check 360: [missing] 模型生成摘要：超预算先摘要（独立 request_id、purpose=compaction、显式 max_tokens）；三事件先开后关、崩溃留孤儿锁；失败回退结构折叠不阻塞 turn；provider/model/usage 入 summary（来源：spec FR-755／Task T265／ADR-060 项 B）
-- [ ] Check 361: [missing] 失败尝试持久化：`assistant_attempt` 事件含失败 code/message、块数、字节数、是否已发出 chunk；不进模型历史；容量上限与截断标记可测（来源：spec FR-756／Task T266／ADR-060 项 C）
+- [x] Check 361: [exercised] 失败尝试持久化：`assistant_attempt` 事件含失败 code/message、块数、字节数、是否已发出 chunk；不进模型历史；容量上限与截断标记可测（来源：spec FR-756／Task T266／ADR-060 项 C）——**取证（2026-11-07，T266）**：三路径事件（provider_error/stream_error/truncated|incomplete_stream）＋载荷上限 200 字符；失败尝试不入模型历史（assistant 消息 0 断言）；app 测试 163/163、clippy、fmt 绿；CI 待运行。
 - [ ] Check 362: [missing] 单工具超时：`timeout_ms` 到期返回 `tool_timeout`（`retryable=false`、`timed_out=true`）；不强杀同进程；正常/超时/上限三路径测试（来源：spec FR-757／Task T267／ADR-060 项 D）
 - [ ] Check 363: [missing] usage 锚点：最近成功请求 usage 单条保存并参与预算判断；锚点缺失回退字符启发式且行为与现行一致（来源：spec FR-758／Task T268／ADR-060 项 E）
 - [ ] Check 364: [missing] 工具输出契约：输出 schema 校验与渲染投影分离；非法输出结构化错误；超限仍按统一上限截断（来源：spec FR-759／Task T269／ADR-060 项 F）

@@ -42,6 +42,8 @@ pub enum EventKind {
     TurnStarted,
     /// turn 结束（与 `TurnStarted` 成对；缺失即“未闭合 turn”，按 `interrupted` 判定）。
     TurnFinished,
+    /// 失败的模型尝试（T266／FR-756；不进入模型历史，只留审计事实）。
+    AssistantAttempt,
 }
 
 impl EventKind {
@@ -60,6 +62,7 @@ impl EventKind {
             Self::PersistenceError => "PersistenceError",
             Self::TurnStarted => "TurnStarted",
             Self::TurnFinished => "TurnFinished",
+            Self::AssistantAttempt => "AssistantAttempt",
         }
     }
 
@@ -74,7 +77,8 @@ impl EventKind {
             | Self::RuntimeTerminated
             | Self::PersistenceError
             | Self::TurnStarted
-            | Self::TurnFinished => EventCriticality::Critical,
+            | Self::TurnFinished
+            | Self::AssistantAttempt => EventCriticality::Critical,
             Self::StreamingChunk | Self::ContextState => EventCriticality::Content,
             Self::ProgressChanged => EventCriticality::DisplaySnapshot,
         }

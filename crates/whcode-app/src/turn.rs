@@ -588,6 +588,16 @@ pub fn run_turn_with_progress(
                     "error_code": err.code.as_str(),
                 );
                 emit!(
+                    EventKind::AssistantAttempt,
+                    "iteration": iteration,
+                    "reason": "provider_error",
+                    "failure_code": err.code.as_str(),
+                    "failure_message": bounded_attempt_message(&err.message),
+                    "emitted": false,
+                    "chunks": 0u64,
+                    "bytes": 0u64,
+                );
+                emit!(
                     EventKind::TurnFinished,
                     "request_id": request_id,
                     "termination_reason": "error",
@@ -625,6 +635,16 @@ pub fn run_turn_with_progress(
                         "iteration": iteration,
                         "request_id": request_id,
                         "error_code": err.code.as_str(),
+                    );
+                    emit!(
+                        EventKind::AssistantAttempt,
+                        "iteration": iteration,
+                        "reason": "stream_error",
+                        "failure_code": err.code.as_str(),
+                        "failure_message": bounded_attempt_message(&err.message),
+                        "emitted": true,
+                        "chunks": step_chunks.len() as u64,
+                        "bytes": step_bytes as u64,
                     );
                     emit!(
                         EventKind::TurnFinished,
@@ -699,6 +719,16 @@ pub fn run_turn_with_progress(
                 "request_id": request_id,
                 "truncated": step_truncated,
                 "integrity_gaps": integrity_gaps,
+            );
+            emit!(
+                EventKind::AssistantAttempt,
+                "iteration": iteration,
+                "reason": if step_truncated { "truncated" } else { "incomplete_stream" },
+                "failure_code": "integrity",
+                "failure_message": "流式输出被截断或未给出终止原因",
+                "emitted": true,
+                "chunks": step_chunks.len() as u64,
+                "bytes": step_bytes as u64,
             );
             if !step_text.is_empty() {
                 messages.push(LlmMessage {
@@ -842,6 +872,19 @@ pub fn run_turn_with_progress(
         events: envelope,
         transport,
     })
+}
+
+/// 失败尝试事件里错误消息的字符上限（T266／FR-756；事件只留可判定事实，不留整段错误文本）。
+pub const MAX_ATTEMPT_MESSAGE_CHARS: usize = 200;
+
+/// 把失败消息截断到 [`MAX_ATTEMPT_MESSAGE_CHARS`]（字符边界安全，截断即标 `…`）。
+fn bounded_attempt_message(message: &str) -> String {
+    if message.chars().count() <= MAX_ATTEMPT_MESSAGE_CHARS {
+        return message.to_string();
+    }
+    let mut out: String = message.chars().take(MAX_ATTEMPT_MESSAGE_CHARS).collect();
+    out.push('…');
+    out
 }
 
 /// spawn_subagent 结果回填的正文上限（64 KiB，与工具输出上限同源）。
@@ -1401,6 +1444,49 @@ mod tests {
         }
     }
 
+    /// 失败桩：`execute` 直接返回错误（T266 的“请求未发出”路径）。
+    struct FailingProvider;
+
+    impl whcode_llm::Provider for FailingProvider {
+        fn name(&self) -> &str {
+            "failing"
+        }
+
+        fn capabilities(&self) -> whcode_llm::ProviderCapabilities {
+            whcode_llm::ProviderCapabilities {
+                streaming: true,
+                cancel: true,
+                usage_reporting: false,
+            }
+        }
+
+        fn is_available(&self) -> bool {
+            true
+        }
+
+        fn execute(
+            &self,
+            _request: &whcode_llm::LlmRequest,
+            _cancel: &whcode_llm::CancelToken,
+        ) -> Result<whcode_llm::ChunkStream, WhError> {
+            Err(WhError::new(
+                whcode_domain::ErrorCode::RuntimeUnavailable,
+                "上游不可用（测试桩）",
+            ))
+        }
+    }
+
+    struct FailingFactory;
+
+    impl ProviderFactory for FailingFactory {
+        fn create(
+            &self,
+            _profile: &ProviderProfile,
+        ) -> Result<Box<dyn whcode_llm::Provider>, WhError> {
+            Ok(Box::new(FailingProvider))
+        }
+    }
+
     fn migrated() -> duckdb::Connection {
         let conn = duckdb::Connection::open_in_memory().expect("内存库");
         apply_migrations(&conn).expect("迁移");
@@ -1464,7 +1550,7 @@ mod tests {
 
     fn context<'a>(
         registry: &'a crate::llm::ProviderRegistry,
-        factory: &'a StubFactory,
+        factory: &'a dyn ProviderFactory,
         dir: &'a std::path::Path,
     ) -> LlmContext<'a> {
         LlmContext {
@@ -1485,6 +1571,54 @@ mod tests {
                 arguments: r#"{"path":"src/lib.rs"}"#.to_string(),
             }],
         }
+    }
+
+    #[test]
+    fn provider_failure_records_attempt_without_polluting_history() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = FailingFactory;
+        let dir = temp_dir("attempt");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let err = run_turn(&mut conn, &policy, &actor, &ctx, &request(&id, "你好"), 42)
+            .expect_err("供应商错误必须上抛");
+        assert_eq!(err.code, whcode_domain::ErrorCode::RuntimeUnavailable);
+
+        // 失败尝试 = 一条 AssistantAttempt，且 emitted=false（请求未发出）。
+        let (attempts, emitted, reason, code): (i64, bool, String, String) = conn
+            .query_row(
+                "SELECT (SELECT COUNT(*) FROM events WHERE session_id=? AND kind='AssistantAttempt'),
+                        CAST((SELECT CAST(CAST(payload_json AS JSON)->>'$.emitted' AS BOOLEAN)
+                              FROM events WHERE session_id=? AND kind='AssistantAttempt' LIMIT 1) AS BOOLEAN),
+                        (SELECT CAST(CAST(payload_json AS JSON)->>'$.reason' AS VARCHAR)
+                         FROM events WHERE session_id=? AND kind='AssistantAttempt' LIMIT 1),
+                        (SELECT CAST(CAST(payload_json AS JSON)->>'$.failure_code' AS VARCHAR)
+                         FROM events WHERE session_id=? AND kind='AssistantAttempt' LIMIT 1)",
+                [&id, &id, &id, &id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .expect("失败尝试事件");
+        assert_eq!(attempts, 1);
+        assert!(!emitted, "请求未发出时 emitted 必须为 false");
+        assert_eq!(reason, "provider_error");
+        assert_eq!(code, "runtime_unavailable");
+
+        // 失败尝试不进入模型历史：assistant 消息为 0，且边界仍成对闭合。
+        let (assistant_msgs, started, finished): (i64, i64, i64) = conn
+            .query_row(
+                "SELECT (SELECT COUNT(*) FROM messages WHERE session_id=? AND role='assistant'),
+                        (SELECT COUNT(*) FROM events WHERE session_id=? AND kind='TurnStarted'),
+                        (SELECT COUNT(*) FROM events WHERE session_id=? AND kind='TurnFinished')",
+                [&id, &id, &id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("计数");
+        assert_eq!(assistant_msgs, 0, "失败尝试不得进入模型历史");
+        assert_eq!((started, finished), (1, 1), "边界仍须成对");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
