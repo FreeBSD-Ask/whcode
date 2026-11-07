@@ -51,11 +51,13 @@ def check_task_check_consistency(checklist: str, tasks_text: str) -> list[str]:
     只校验强不一致方向：检查点已取证通过（`[x]`），而组织行映射的对应任务仍未
     勾选——取证以任务交付为前提，该状态即登记漏勾（实测两例：T124、T158）。
     反向（任务已勾、检查点待取证）是合法中间态，不校验。
-    映射来自 checklist 组织行（第一层实现完整性与第六层事务语义的区间声明）；
-    区间不等长或无 "Task" 前缀的条目按截断/跳过处理——只少校验、不误报。
+    映射来自 checklist 组织行（整段，不限第一层——2026-11-06 修复：旧实现只截到
+    “→ 第二层”，第十七层之后的 Check↔Task 对（如 Check 336↔T240）从不校验，导致
+    “Check 已勾、任务未勾”长期漏检）；区间不等长或无 "Task" 前缀的条目按截断/跳过
+    处理——只少校验、不误报。
     """
     failures: list[str] = []
-    org = re.search(r"\*\*组织\*\*：(.+?)→ 第二层", checklist, re.S)
+    org = re.search(r"\*\*组织\*\*：(.+)", checklist)
     if not org:
         return ["未找到组织行，无法做任务↔Check 映射校验"]
     mapping: dict[int, int] = {}

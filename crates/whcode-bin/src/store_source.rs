@@ -15,7 +15,9 @@
 use std::sync::{Arc, Mutex};
 
 use duckdb::Connection;
-use whcode_app::view_source::{EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource};
+use whcode_app::view_source::{
+    CheckpointItem, EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource,
+};
 use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
 use whcode_domain::i18n::I18n;
 use whcode_domain::{TraceLevel, WhError};
@@ -68,12 +70,33 @@ impl StoreViewSource {
         whcode_store::latest_seq(&self.conn.lock().expect("store 连接锁中毒")).ok()
     }
 
+    fn checkpoints(&self, task: &str) -> Vec<CheckpointItem> {
+        let view = whcode_app::checkpoint_view(
+            &self.conn.lock().expect("store 连接锁中毒"),
+            &self.policy,
+            &self.actor,
+            task,
+        );
+        match view {
+            Ok(view) => view
+                .checkpoints
+                .into_iter()
+                .map(|entry| CheckpointItem {
+                    id: entry.id,
+                    step: entry.step,
+                    summary: entry.delta_summary,
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
     fn build_sessions(&self) -> Result<ViewSnapshot, WhError> {
         let rows = whcode_app::list_sessions(
             &self.conn.lock().expect("store 连接锁中毒"),
             &self.policy,
             &self.actor,
-            false,
+            true,
             SESSION_LIMIT,
         )?;
         let mut snapshot = ViewSnapshot::empty(ViewId::Sessions);
@@ -84,6 +107,9 @@ impl StoreViewSource {
                 title: row.title,
                 stage: row.stage,
                 status: row.status,
+                archived: row.archived,
+                created_at_ms: row.created_at_ms,
+                last_active_at_ms: row.last_active_at_ms,
             })
             .collect();
         Ok(snapshot)
@@ -93,12 +119,15 @@ impl StoreViewSource {
         let Some(session) = session else {
             return Ok(no_session(ViewId::Tasks, &self.texts));
         };
-        let overview = whcode_app::task_overview(
+        // 任务面板（FR-747）：全状态卡片＋父链依赖，而非只看 running。
+        let panel = whcode_app::task_panel(
             &self.conn.lock().expect("store 连接锁中毒"),
             &self.policy,
             &self.actor,
             Some(session),
+            100,
         )?;
+        let overview = &panel.overview;
         let mut snapshot = ViewSnapshot::empty(ViewId::Tasks);
         snapshot.summary = self.texts.resolve_fmt(
             "summary.tasks",
@@ -109,14 +138,15 @@ impl StoreViewSource {
                 ("blocked", &overview.blocked.to_string()),
             ],
         );
-        snapshot.tasks = overview
-            .active
+        snapshot.tasks = panel
+            .tasks
             .into_iter()
-            .map(|row| TaskRow {
-                id: row.id,
-                title: row.title,
-                status: row.status.as_str().to_string(),
-                retry_count: row.retry_count,
+            .map(|card| TaskRow {
+                id: card.id,
+                title: card.title,
+                status: card.status.as_str().to_string(),
+                retry_count: card.retry_count,
+                parent_id: card.parent_id,
             })
             .collect();
         Ok(snapshot)

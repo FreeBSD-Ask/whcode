@@ -1,10 +1,12 @@
 # TUI 人工冒烟协议（V-003）
 
-**日期**：2026-10-21（2026-10-22 随六视图接线更新）| **适用**：Windows 11 amd64 真实控制台
+**日期**：2026-10-21（2026-10-22 随六视图接线更新；2026-11-06 增补七视图口径——ADR-056 新增
+`view.chat`，历史产物仍为六视图记录）| **适用**：Windows 11 amd64 真实控制台
 | **关联**：T024、T082、V-003、ADR-016
 
 自动冒烟已覆盖：启动首帧、键盘计数、`q` 退出、强杀后可读（`local/tui_manual_smoke.py`）；
-六视图切换与固定帧取证（`local/tui_views_smoke.py`，产物 `artifacts/tui-views-smoke/`）。
+七视图切换与固定帧取证（`local/tui_views_smoke.py`，产物 `artifacts/tui-views-smoke/`；
+2026-10-22 归档产物覆盖前六视图，第七视图 `view.chat` 见 ADR-056）。
 本协议只补齐自动化无法可靠完成的两项：**终端 resize 重绘**与 **Ctrl-C 退出**。
 
 ## 1. 前置
@@ -48,9 +50,9 @@ cargo run -p whcode-bin --release
 证据写入 `artifacts/tui-manual-<日期>.txt`，并在 `checklist.md` 对应 Check 勾选前复核。
 未取得记录时，V-003 保持“未通过”；不得以自动冒烟代替人工项。
 桌面自动化记录见 `artifacts/tui-manual-2026-10-21.txt`；用户 2026-10-21 复核接受为 V-003 关闭依据。
-六视图自动化取证见 `artifacts/tui-views-2026-10-22.txt`（同法可重跑）。
+七视图自动化取证见 `artifacts/tui-views-2026-10-22.txt`（同法可重跑；该归档为六视图时点记录）。
 桌面控制（computer-use）实测见 `artifacts/tui-computeruse-2026-10-22.txt`
-（六视图按键、最大化/还原、最小化/还原、Ctrl-C、eink-day/amoled-night 双主题截图）。
+（六视图按键、最大化/还原、最小化/还原、Ctrl-C、eink-day/amoled-night 双主题截图；六视图时点）。
 
 ## 4. 已知限制
 

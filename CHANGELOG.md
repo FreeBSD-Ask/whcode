@@ -13,6 +13,67 @@
 
 ### 变更
 
+- **检查点浏览（T254/FR-748，ADR-057 批次 B2）**（2026-11-07）：①新增能力面
+  `view.checkpoints`（SURFACES＋对等矩阵同批；CUI／TUI 按登记理由排除，GUI／Web 实现）；
+  ②app `task::checkpoint_view`：有界列表＋差分摘要三态（空对象／键值对前 4 项＋总数／
+  数组项数／损坏显式标注），产物引用数按 `artifact_refs_json`，**回滚能力显式降级**
+  （`rollback_supported=false`＋结构化 reason，不伪造可回滚）；③Web `GET /api/checkpoints`
+  ＋任务行点选加载（缺参 400／不存在 404）；④GUI 任务行「检查点」按钮＋内嵌面板；
+  ⑤修复 web 测试迁移夹具停在 0006 的缺口（补 `0007_json_variant.sql`，测试 schema 与
+  生产同构）。测试 2 条（app／web）；Check 353 转勾。
+
+- **B2 后端＋Web：会话目录与任务面板（T253 部分，FR-746/747）**（2026-11-07，ADR-057
+  批次 B2）：①app 层新增 `session::session_directory`（标题/ID 子串搜索、最近活跃/
+  创建/标题三种排序、活跃在前归档在后的分组；搜索词 ≤128 字符显式拒绝，不静默截断）
+  与 `overview::task_panel`（`task_overview` 总览＋有界任务卡片：父链依赖 `depends_on`、
+  重试计数原行值、超限 `truncated` 显式标记；store 层新增 `tasks_of_scope` 支持工作区/
+  会话两作用域）；②Web `/api/sessions` 接受 `q`/`sort`/`group`（非法值回落默认）并输出
+  `group` 字段，`/api/tasks` 增 `tasks` 卡片数组；③前端侧栏增搜索（去抖 200 ms）/排序/
+  含归档控件与分组标题，任务面板增依赖缩进、重试计数、`完成 done/total` 进度与截断
+  提示；④GUI 侧栏同规则（`apply_session_view` 本地过滤/排序/分组，`session_ids` 同步
+  保证选中不漂）＋任务面板按父缩进、重试计数与总览摘要；`ViewSnapshot` 行类型扩
+  `archived`/时间戳/`parent_id`（TUI 不消费，渲染不变）；⑤i18n zh-CN/en 同批 22 键。
+  测试：app 2 条、web 2 条、GUI 1 条；前端预算达标（app.js gzip 9917 B、DOM index 86）。
+  Check 351/352 同批转勾。
+- **ADR-059：终态功能路线全量采纳**（2026-11-07，用户指令“批准所有不计成本的，最佳建议方案”）：
+  proposal-v3 的 W1—W7 共 45 提案与 D10—D15 全部批准（含默认建议）；裁定口径＝开发 effort 不作
+  过滤、产品硬边界零例外（零 unsafe/原生 GUI/本地优先/平台范围不放宽）；D13 批准 NFR-211 修订
+  方向（“常驻资源有上限常量＋空闲可回收＋释放测试”），修订落地前 P5.4/P5.5 冻结；批次化入账
+  ＝逐批 G1（本 ADR 为路线层 G0 载体）；P1.8/P5.4/P5.5/P6.1 实施前须交 ADR-015 并发档案；
+  单条目超预算 1.5× 触发复审。
+- **终态功能建议书 v3（research/synthesis/proposal-v3.md，不计实现成本口径）**（2026-11-07）：
+  综合四份研究（zcode/better-harness/dsh/synthesis）产出决策菜单——7 主线 45 提案（W1 执行 10/
+  W2 评审 5/W3 会话 6/W4 体验 8/W5 平台 6/W6 生态 4/W7 治理 6）＋9 反建议＋D10—D15 决策请求；
+  成本总账 230—330 人日（知情不作过滤）；硬边界零例外，PTY/jobs 与 NFR-211 冲突显式升级为
+  D13 而非默许。性质＝研究指引，采纳须走 G0—G5；FR-760+ 为提案号段未入册。
+  同步：synthesis/README.md 索引指向 v3。
+- **DeepSeek Harness × WHCode 功能比较书（research/dsh-comparison/，19 域）**（2026-11-07）：
+  DSH 0.2.2-rc.1（commit `fcc0ad4`，2026-11-04，MIT，Node ≥ 24.9，Cordis 全插件框架）源码浅克隆
+  `local/dsh-src`（不入库，ADR-045 口径）；产出 19 域报告（A 核心循环—S 资源性能）＋overview＋
+  actionable-gaps＋README。核心判定：两种组合哲学——DSH 运行期 Cordis 插件树（profile/bundle/
+  patch/HMR）vs WHCode 编译期分层（ADR-045 门禁口径）；40 行能力矩阵＝DSH 领先 20／WHCode
+  领先 11／同构 9；当前最大能力差＝压缩的模型生成摘要（DSH `compaction/start|summary|end`＋锁
+  vs WHCode 结构折叠仅指针，域 E）。P1 建议：四态审批类型（allowed-once/rejected/cancelled/
+  unavailable）、真实摘要生成、失败尝试持久化、单工具超时、usage 锚点计量；反例不采纳：always
+  无限重试、运行期插件加载、Electron/SPA 前端、分散式无全局上限。修正既有判定：MCP/技能/
+  子代理/压缩折叠/流式重试已从“缺失”转为“已实现”（域 I/H/F/E/K）。证据口径：源码给
+  `file:line`（经检索核对），Markdown 引用只给文件路径；未决项逐条留取证方式（各域 §5）。
+  文档同步：`docs/guides/repository-layout.md` 示例增补 `research/dsh-comparison/`。
+
+- **ADR-058 条件闭环：turn 拦截安全与并发修正（M2—M5／M9—M11）**（2026-11-06）：
+  ①**认证绕过修复（P0）**——`POST /api/llm/run` 的 turn 拦截原先早于
+  `api::handle_request_with_llm` 的 `check_auth`/`check_origin`，启用认证时无 Bearer 也能
+  触发 turn；现以 `check_request_guards` 前置，失败返回同一错误信封且不 spawn（回归测试
+  `llm_run_requires_auth_before_turn_intercept`）。②**并发上限原子化**——`AtomicUsize`
+  的 `try_update` 读-判-加不可分割，worker 退出（含 panic）由 `SlotGuard` 归还槽位，关闭
+  同 tick 超发（真实上界曾退化为 `MAX_CLIENTS`）。③**busy 语义**——turn 期间触库请求返回
+  503＋标准信封（`code=backpressure`、`retryable=true`、`Retry-After`）；`/api/llm/cancel`
+  与 `/ws` 握手移到锁判定之前（均不触库），turn 期间取消与订阅可达。④**增量通道有损化**——
+  回调改 `try_send`（满即丢并计数），不再在工作线程内阻塞持锁；丢帧以 `llm.loss` 帧公开。
+  ⑤**帧归属**——`llm.chunk` 增 `session`/`request_id`。⑥**构造器收敛**——
+  `api::turn_request_from_body` 成为 `/api/llm/run` 与拦截器的唯一 `TurnRequest` 构造。
+  ⑦`error_response` 增 `Backpressure → 503` 映射。测试 6 条（用例 1—6）；M7 用例 7—11 与
+  三指标归档未取得，T251/Check 347 维持未勾。
 - **对话流式渲染与历史（T250/FR-741）＋Web 对话页（T251/FR-742）**（2026-11-06，
   ADR-057 批次 B1）：①`TurnProgress` 回调扩展为（累计块数，增量正文）——GUI 对话
   增量呈现、流式缓冲有界（1 MiB 字符边界截断）；②GUI markdown 最小集投影（标题/

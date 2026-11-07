@@ -16,7 +16,7 @@
 
 use duckdb::Connection;
 use serde_json::Value;
-use whcode_domain::{EventKind, MAX_PAYLOAD_BYTES, PersistenceLevel, WhError};
+use whcode_domain::{ErrorCode, EventKind, MAX_PAYLOAD_BYTES, PersistenceLevel, WhError};
 
 /// 单条 turn 消息的正文上限（字节；plan-p0-1 §6.6 的直存上限）。
 pub const MAX_TURN_MESSAGE_BYTES: usize = 1 << 20;
@@ -32,6 +32,60 @@ pub struct TurnEventDraft {
     pub tool_call_id: Option<String>,
     /// 载荷（标识与计数，不含正文）。
     pub payload: Value,
+}
+
+/// 未闭合 turn 的扫描上限（有界；超出只报前 N 条，不无界累积）。
+pub const MAX_UNCLOSED_TURNS: usize = 64;
+
+/// 列出某会话中“有 `TurnStarted` 但无 `TurnFinished`”的 turn（T270／FR-760／ADR-060 项 G）。
+///
+/// 判定口径：成对事件缺失即视为未闭合——崩溃、进程被杀或非预期错误逃逸都会留下这种状态，
+/// 调用方据此按 `interrupted` 语义呈现，**不得**静默当作正常完成。
+///
+/// # Errors
+///
+/// 查询失败返回 `io_error`（消息含会话标识，不含事件正文）。
+pub fn unclosed_turns(conn: &Connection, session: &str) -> Result<Vec<String>, WhError> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT DISTINCT CAST(CAST(e.payload_json AS JSON)->>'$.turn_id' AS VARCHAR)
+             FROM events e
+             WHERE e.session_id = ? AND e.kind = 'TurnStarted'
+               AND NOT EXISTS (
+                 SELECT 1 FROM events f
+                 WHERE f.session_id = e.session_id AND f.kind = 'TurnFinished'
+                   AND CAST(CAST(f.payload_json AS JSON)->>'$.turn_id' AS VARCHAR)
+                     = CAST(CAST(e.payload_json AS JSON)->>'$.turn_id' AS VARCHAR)
+               )
+             ORDER BY 1
+             LIMIT ?",
+        )
+        .map_err(|err| {
+            WhError::new(
+                ErrorCode::IoError,
+                format!("准备未闭合 turn 查询失败（会话 {session}）：{err}"),
+            )
+        })?;
+    let rows = stmt
+        .query_map(duckdb::params![session, MAX_UNCLOSED_TURNS as i64], |row| {
+            row.get::<_, String>(0)
+        })
+        .map_err(|err| {
+            WhError::new(
+                ErrorCode::IoError,
+                format!("查询未闭合 turn 失败（会话 {session}）：{err}"),
+            )
+        })?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|err| {
+            WhError::new(
+                ErrorCode::IoError,
+                format!("读取未闭合 turn 行失败（会话 {session}）：{err}"),
+            )
+        })?);
+    }
+    Ok(out)
 }
 
 /// 待落表消息轮次。
@@ -182,6 +236,35 @@ mod tests {
         let conn = Connection::open_in_memory().expect("内存库");
         crate::apply_migrations(&conn).expect("迁移");
         conn
+    }
+
+    #[test]
+    fn unclosed_turns_detects_started_without_finished() {
+        let mut conn = migrated();
+        append_turn(
+            &mut conn,
+            "S-open",
+            &[
+                TurnEventDraft {
+                    kind: EventKind::TurnStarted,
+                    request_id: None,
+                    tool_call_id: None,
+                    payload: json!({ "turn_id": "turn-S-open-1" }),
+                },
+                TurnEventDraft {
+                    kind: EventKind::TurnFinished,
+                    request_id: None,
+                    tool_call_id: None,
+                    payload: json!({ "turn_id": "turn-S-open-2", "termination_reason": "model_finished" }),
+                },
+            ],
+            &[],
+        )
+        .expect("落表");
+        let open = unclosed_turns(&conn, "S-open").expect("扫描");
+        assert_eq!(open, vec!["turn-S-open-1".to_string()]);
+        // 另一会话不受影响（按会话过滤）。
+        assert!(unclosed_turns(&conn, "S-other").expect("扫描").is_empty());
     }
 
     #[test]

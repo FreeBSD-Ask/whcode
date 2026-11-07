@@ -1,19 +1,39 @@
-# 项目状态快照（2026-11-03）
+# 项目状态快照（2026-11-06）
 
 本页是**带日期的状态快照**，供了解进度用。权威账本始终是
 [`tasks.md`](../../specs/001-whcode-harness/tasks.md)（任务勾选）与
 [`checklist.md`](../../specs/001-whcode-harness/checklist.md)（验收检查点）。
 两者与 `spec.md` 的 FR 三方追溯由 `python .github/scripts/traceability.py` 与
-`check_counts.py` 在 CI 中强制；本页数字来自这两个文件的实测统计，过期即失效，
-不得引用为验收结论。
+`check_counts.py` 在 CI 中强制；本页数字来自这两个文件在 2026-11-06 的实测统计，
+过期即失效，不得引用为验收结论。CI 结论以最新 run 为准，本页不写“当前红／绿”。
 
 ## 总量
 
 | 项 | 数量 |
 |---|---|
-| 功能需求 FR | 116 |
-| 任务 | 248（已完成 248，未完成 0） |
-| 验收检查点 | 343（已通过 343，未通过 0） |
+| 功能需求 FR | 142 |
+| 任务 | 275（已完成 256，未完成 19） |
+| 验收检查点 | 370（已有复核记录 352，missing 18） |
+
+证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 303、
+outcome-supported 49、missing 18。missing 集中在 Phase 24（B1 余项与 B3—B5）与 ADR-059
+逐批入账新增的检查点；B2（T253/Check 351—352）与检查点浏览（T254/Check 353）已于 2026-11-07 转勾。
+并行会话在途（截至本快照）：T251 的 WS 逐块实现已提交 `fc3a0c0`／`942dd14`，ADR-058
+于 2026-11-06 经用户「批准开发」转**已批准（附条件）**，条件 M2—M5／M9—M11 已落地、
+M7 的用例 1—6 已落地；T251 勾选与 Check 347 取证**仍未回填**（缺三指标归档与新一轮
+CI 取证）。回填后须重跑上述脚本并更新本表，不得沿用旧数字。
+
+## 四端能力面
+
+`docs/matrices/feature-parity.md` 为受校验产物（来源 `whcode-app::surface::SURFACES`），
+共 **57 条**能力面；✅ 已实现、◐ 已排除、⏳ 预留（每端另有 1—2 行不适用）：
+
+| 端 | ✅ | ◐ | ⏳ |
+|---|---|---|---|
+| CUI | 33 | 11 | 11 |
+| TUI | 27 | 18 | 11 |
+| GUI | 26 | 29 | 1 |
+| Web | 30 | 14 | 11 |
 
 ## 里程碑
 
@@ -25,29 +45,44 @@
 | M8 可选执行运行时 | 实现完成，feature 默认关闭 |
 | M9 优化与发布 | 已交付：兼容矩阵、运行时清单、热点优化（T115）、发布包与指南；稳定性（NFR-204）以 24h 深检收口通过（T116/Check 116/195，2026-11-02） |
 | Phase 13 跨里程碑收尾 | 已完成（安全复查、quickstart 全流程、追溯审计） |
-| 四端对等（FR-619—625） | 已完成（ADR-032）；54 条能力登记表为单一事实源 |
+| 四端对等（FR-619—625） | 已完成（ADR-032）；57 条能力登记表（2026-11-06 实测）为单一事实源 |
+| Phase 24 ZCode 全量体验对齐（ADR-057） | 进行中：Phase 24 及其后追加任务共 20 项、完成 9 项（T244—T250、T252、T253）；余项为 T251（WS 逐块，ADR-058 已批准附条件，缺三指标归档）与 B3—B5（T254—T263） |
 
 ## 未完成项与原因
 
-- **BSD 验收（2026-11-03 已收口一批）**：Check 22/25/96/99/195/336 与 T099/T240 已转勾（run `41481740766` 硬门禁首次全绿，证据落库 `artifacts/ssh-acceptance/` 与 `artifacts/store-acceptance/`）。ADR-013 修订（2026-10-31）设 FreeBSD 为完整平台证据车道（硬门禁）；修订（2026-11-03，用户指令）定 **NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发**（被 Windows/FreeBSD 内置 SSH 客户端连入的目标，不要求原生工具链/引擎；NetBSD 原生 SSH GO 维持为证据，NetBSD 原生 store 豁免——上游 DuckDB 2.0.0 依赖 glibc `features.h`；OpenBSD/DragonFly 节点证据走真实连入取证，DragonFly 同日追加同待遇）。**仍开放**：V-004 外部节点连通性（M7）；性能分位数未取得（perf 车道仅 Windows）。
+- **BSD 验收（2026-11-03 已收口一批）**：Check 22/25/96/99/195/336 与 T099/T240 已转勾（run `41481740766` 硬门禁首次全绿，证据落库 `artifacts/ssh-acceptance/` 与 `artifacts/store-acceptance/`）。ADR-013 修订（2026-10-31）设 FreeBSD 为完整平台证据车道（硬门禁）；修订（2026-11-03，用户指令）定 **NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发**（被 Windows/FreeBSD 内置 SSH 客户端连入的目标，不要求原生工具链/引擎；NetBSD 原生 SSH GO 维持为证据，NetBSD 原生 store 豁免——上游 DuckDB 2.0.0 依赖 glibc `features.h`；OpenBSD/DragonFly 节点证据走真实连入取证，DragonFly 同日追加同待遇）。**仍开放**：V-004 外部节点连通性（M7）；性能分位数未取得（perf 车道仅 Windows）。**2026-11-06 观察**：FreeBSD 车道在 run `42143683382` 出现 `store_gate = NO-GO`（DuckDB 源码构建报 `platform.hpp:22 'features.h' file not found`），与 2026-11-03 run `41481740766` 的 GO 不一致，**根因未归因**，不得读作代码回归；CI 结论以最新 run 为准，细节见 `docs/matrices/compatibility.md`。
 - **稳定性（NFR-204，已收口）**：T116/Check 116/195。5.5h CI 窗口对 0.5 MB/h 无分辨力（run 40529349945 无权判定）后按 ADR-025 升级 24h 本机深检——287 样本、多口径一致负斜率（warmup_ols −0.3551、phase_aligned −0.2681、稳态 −1.24）、线程/句柄无持续增长，**verdict=通过**（2026-11-02）；判据增补见 ADR-025 修订记录；证据 `artifacts/nfr204-verdict-24h-2026-11-02.md`。
-- **真实 LLM 供应商**：T162—T167。T162—T166 已落地并通过 77 项 `http` 测试与本地回环端到端
-  （`artifacts/llm-e2e-2026-10-25.md`）；T167 仅 CUI／Web 接线，TUI／GUI 仍为 `Reserved`
-  （ADR-032），四端全翻转未完成。
-- **内置 TLS 证书库与 Web 证书设置面**：T184—T192 与 Check 274—288。T184—T191 已复核通过，
-  Check 274—283／285—288 有证据（CI run 40225169689 success）；284 已补部分写续传、
-  明文读取上限、TLS 第 97 条连接直接关闭与 HTTP 超限测试，并修复密文暂存跨 tick 清空的
-  真实缺陷，待本次推送的 CI 回填；T192 的浏览器实机信任/设置页交互仍未取得。
-- **GUI 线程预算**：DuckDB 2.0.0 单连接打开约 80 线程，GUI 空闲实测 88 线程／297—330 句柄，
-  超过 ADR-027 的 24／256；处置见 `docs/adr/ADR-042-duckdb-connection-thread-budget.md`
-  （提议，待用户批准）。
+- **真实 LLM 供应商（已接四端）**：T162—T167 完成。T162—T166 通过 77 项 `http` 测试与
+  本地回环端到端（`artifacts/llm-e2e-2026-10-25.md`）；T167 于 2026-10-26 收口——CUI／Web／
+  TUI 接线后，GUI 经 ADR-056（2026-11-03 用户批准“所有界面功能对等”）翻转，`llm.run`／
+  `llm.cancel` 四端均登记 `Implemented`（`docs/matrices/feature-parity.md`）。
+- **内置 TLS 证书库与 Web 证书设置面（已收口）**：T184—T192 与 Check 274—288 全部
+  [exercised]。T184—T191 复核通过；Check 284 补齐部分写续传（400 KiB）、明文读取上限、
+  TLS 第 97 条连接直接关闭与 HTTP 超限测试，并修复密文暂存跨 tick 清空的缺陷
+  （2026-10-26，CI run `40273055639`）；T192 浏览器实机证据（Chrome 信任自签、页面指纹
+  三方一致、设置页预览与重新生成、`restart_required`）见
+  `artifacts/tls-browser-2026-10-26/tls-browser-evidence.md`。
+- **GUI 线程预算**：DuckDB 2.0.0 单连接打开约 80 线程（`async_threads` 默认 64 所致），
+  GUI 空闲首批实测 88 线程／297—330 句柄，超过 ADR-027 的 24／256。ADR-042 已于
+  2026-10-26 批准方案 A 并实施（`SET async_threads = db.threads`，与 `db.threads` 同预算），
+  同夹具复测 88→28 线程、句柄 233、RSS／私有内存与写入吞吐同时改善；**FR-712 线程判据
+  仍未通过（28 > 24）**，A′（全局 `threads=1`，须另立修订并复测吞吐）与 P1（DuckDB 移出
+  GUI 进程，须新 ADR）均未实施，预算不静默放宽。
 - **GUI 空闲线程待查（2026-11-03 观察）**：本机 release 构建、DPI 2.0、客户区 1100×900 下
   空闲线程实测 **28**（CI 托管 runner 同条件实测 17），高于 ADR-027 的「线程 ≤ 24」。
-  尚未定位：可能是高 DPI 渲染路径或本机 16 核的运行时线程池规模差异，**不作为结论**、
-  也不据此改预算。复查方式：`python .github/scripts/gui-probe.py --exe target/release/whcode.exe
-  --out artifacts/gui-run-<date>`，比较 `resources.threads` 与 `dpi_scale`／核数；需要
-  ADR-042 的 `async_threads` 口径复测后再定。
-- **ADR 未决项**：无。Check 134 于 2026-11-03 转勾——ADR-005、ADR-010、ADR-012 三份"部分批准"经证据收口转正（SSH 回环＋real-sshd 互操作、FreeBSD 源码构建 DuckDB 2.0.0、大载荷边界量化＋24h 深检），ADR-001—014 无未决条件；M1 基准校准仍按 ADR-012 原退出条件执行（属里程碑工作，非 ADR 未决项）。
+  该数值与 ADR-042 方案 A 实施后的同夹具复测一致（28）；尚未定位残余 4 线程的具体来源
+  （可能为高 DPI 渲染路径或本机 16 核的运行时线程池规模差异），**不作为结论**、也不据此
+  改预算。复查方式：`python .github/scripts/gui-probe.py --exe target/release/whcode.exe
+  --out artifacts/gui-run-<date>`，比较 `resources.threads` 与 `dpi_scale`／核数。
+- **ADR 未决项**：无。ADR-058（turn 执行移出 serve 循环线程，WS 逐块增量转发）于
+  2026-11-06 经用户「批准开发」转**已批准（附条件）**；条件 M1 复绿（`942dd14`）、
+  M2 鉴权前置、M3 计数原子化、M4 busy 语义、M5 有损通道、M9 帧字段、M11 构造器收敛已
+  落地并有 6 条测试；**未闭环**：M7 用例 7—11 与三指标归档（`artifacts/turn-ws-relay-*`）。
+  ADR-042 已批准（2026-10-26 方案 A），残余缺口是 FR-712 线程判据
+  28 > 24（见上）。Check 134 于 2026-11-03 转勾——ADR-005、ADR-010、ADR-012 三份
+  “部分批准”经证据收口转正（SSH 回环＋real-sshd 互操作、FreeBSD 源码构建 DuckDB 2.0.0、
+  大载荷边界量化＋24h 深检），ADR-001—014 无未决条件；M1 基准校准仍按 ADR-012 原退出
+  条件执行（属里程碑工作，非 ADR 未决项）。
 
 ## 能力快照
 
@@ -55,9 +90,12 @@
   与可重复迁移、单写者有界队列、稳定游标分页、归档/压缩/导入导出/监控。
 - 应用服务：命令统一经 `whcode-app`，错误信封与快照四端同源，三级事件背压。
 - SDD 门禁：Constitution、spec/tasks 解析与纠偏、门禁强制与 force-advance 审计、双向追溯。
-- LLM：Provider 语义、四级追踪与脱敏、传输层事件；真实 HTTP 客户端与 CUI／Web 调用已接通，
-  TUI／GUI 仍为预留（见上）。
-- GUI：七视图（含对话）接真实数据、四主题、脏标记零重绘、最小化挂起与恢复；对话与写命令已接线（ADR-056 四端功能对等）；turn 后台执行（界面不冻结，Phase 2）。
+- LLM：Provider 语义、四级追踪与脱敏、传输层事件；真实 HTTP 客户端与 CUI／TUI／GUI／Web
+  四端调用均已接通（T167＋ADR-056）。
+- GUI：七视图（含对话）接真实数据、六套主题（amoled-night／eink-day／eink-night／
+  terminal-green／zcode-day／zcode-night，zcode 系 2026-11-06 冻结，默认 `zcode-night`）、
+  脏标记零重绘、最小化挂起与恢复；对话与写命令已接线（ADR-056 四端功能对等）；
+  turn 后台执行（界面不冻结，Phase 2）。
 - CUI：clap 命令树、`--json` 信封、稳定退出码；未接线命令显式失败。
 - Web：编译期嵌入前端，默认仅回环且入站 TLS 默认启用（ADR-040，`--tls off` 可显式关闭）；
   证书设置页 `/settings/certs`。

@@ -129,14 +129,39 @@ async function runAction(label, action) {
   }
 }
 
-// 会话清单（FR-101）：条目可点击选择（批次 1）；渲染按签名去重（避免每秒重建 DOM）。
+// 会话清单（FR-101／FR-746）：搜索/排序/归档分组经同一应用服务
+// （`session_directory`），GUI 与 Web 语义同源；渲染按签名去重（避免每秒重建 DOM）。
 let lastSessionsSignature = "";
 
+// 侧栏查询状态（初始值取 URL，便于深链；空值即默认）。
+const initialParams = new URLSearchParams(location.search);
+const sessionQuery = {
+  q: initialParams.get("q") ?? "",
+  sort: initialParams.get("sort") ?? "last_active",
+  group: initialParams.get("group") === "all" ? "all" : "active",
+};
+
+/** 有界输入去抖：侧栏搜索不按键触发请求风暴。 */
+function debounce(fn, wait) {
+  let timer = null;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), wait);
+  };
+}
+
 async function loadSessions() {
-  const data = await fetchJson("/api/sessions");
+  const params = new URLSearchParams({
+    sort: sessionQuery.sort,
+    group: sessionQuery.group,
+  });
+  if (sessionQuery.q.trim() !== "") {
+    params.set("q", sessionQuery.q.trim());
+  }
+  const data = await fetchJson(`/api/sessions?${params.toString()}`);
   const sessions = data.sessions ?? [];
   const signature = JSON.stringify(
-    sessions.map((s) => [s.id, s.title, s.stage, s.status, s.archived]),
+    sessions.map((s) => [s.id, s.title, s.stage, s.status, s.archived, s.group]),
   );
   if (signature === lastSessionsSignature) {
     updateSessionHighlight();
@@ -144,7 +169,20 @@ async function loadSessions() {
     lastSessionsSignature = signature;
     const list = el("session-list");
     list.textContent = "";
+    let currentGroup = null;
     for (const session of sessions) {
+      const group = session.group ?? "active";
+      if (group !== currentGroup) {
+        currentGroup = group;
+        const heading = document.createElement("li");
+        heading.className = "group-title";
+        heading.dataset.group = group;
+        heading.textContent =
+          group === "archived"
+            ? t("web.session.group_archived", "归档")
+            : t("web.session.group_active", "活跃");
+        list.append(heading);
+      }
       const item = document.createElement("li");
       item.textContent = `${session.id} ${session.title} [${session.stage}]`;
       item.dataset.session = session.id;
@@ -164,6 +202,35 @@ async function loadSessions() {
   if (state.session === null && sessions.length > 0) {
     selectSession(sessions[0].id); // 无 ?session= 参数时自动选中首个会话
   }
+}
+
+/** 侧栏控件：搜索（去抖）/排序/含归档；渐进增强（无 JS 时服务端直出默认列表）。 */
+function wireSessionControls() {
+  const search = el("session-search");
+  const sort = el("session-sort");
+  const archived = el("session-show-archived");
+  if (!search || !sort || !archived) {
+    return;
+  }
+  search.value = sessionQuery.q;
+  sort.value = sessionQuery.sort;
+  archived.checked = sessionQuery.group === "all";
+  search.addEventListener(
+    "input",
+    debounce(() => {
+      sessionQuery.q = search.value;
+      wireSessionControls();
+loadSessions().catch(() => {});
+    }, 200),
+  );
+  sort.addEventListener("change", () => {
+    sessionQuery.sort = sort.value;
+    loadSessions().catch(() => {});
+  });
+  archived.addEventListener("change", () => {
+    sessionQuery.group = archived.checked ? "all" : "active";
+    loadSessions().catch(() => {});
+  });
 }
 
 /** 切换当前会话：重置游标与事件日志，立即拉取任务/状态/事件，并同步 URL。 */
@@ -195,6 +262,45 @@ function updateSessionHighlight() {
   }
 }
 
+// 检查点浏览（FR-748）：列表＋差分摘要；回滚能力由服务端显式降级，不伪造可回滚。
+async function loadCheckpoints(taskId) {
+  const list = el("checkpoint-list");
+  const hint = el("checkpoint-hint");
+  list.textContent = "";
+  try {
+    const data = await fetchJson(`/api/checkpoints?task=${encodeURIComponent(taskId)}`);
+    hint.textContent =
+      data.rollback?.supported === false
+        ? t("web.checkpoints.degraded", "回滚执行未实现（显式降级）：本页仅提供浏览与差分摘要")
+        : t("web.checkpoints.ready", "回滚可用");
+    if ((data.checkpoints ?? []).length === 0) {
+      const empty = document.createElement("li");
+      empty.textContent = t("web.checkpoints.empty", "该任务暂无检查点");
+      list.append(empty);
+      return;
+    }
+    for (const point of data.checkpoints) {
+      const item = document.createElement("li");
+      const bits = [`#${point.step}`, point.id, point.delta_summary];
+      if (point.artifact_refs > 0) {
+        bits.push(t("web.checkpoints.refs", "产物引用 {count}", { count: point.artifact_refs }));
+      }
+      item.textContent = bits.join(" · ");
+      list.append(item);
+    }
+    if (data.truncated) {
+      const truncated = document.createElement("li");
+      truncated.className = "meta-line";
+      truncated.textContent = t("web.checkpoints.truncated", "检查点超过上限，清单已截断");
+      list.append(truncated);
+    }
+  } catch (error) {
+    hint.textContent = t("web.checkpoints.failed", "读取检查点失败：{error}", {
+      error: error.message,
+    });
+  }
+}
+
 // 任务视图（FR-103，批次 1）：会话范围的任务总览 + 活跃任务（有界）。
 async function loadTasks() {
   const session = state.session;
@@ -209,19 +315,56 @@ async function loadTasks() {
   list.textContent = "";
   const summary = document.createElement("li");
   summary.textContent = t(
-    "web.tasks_summary",
-    "总计 {total} · 完成 {done} · 阻塞 {blocked}",
+    "web.task.progress",
+    "完成 {done}/{total} · 阻塞 {blocked}",
     { total: data.total, done: data.done, blocked: data.blocked },
   );
   list.append(summary);
-  for (const task of data.active ?? []) {
+  if (data.truncated) {
+    const truncated = document.createElement("li");
+    truncated.className = "meta-line";
+    truncated.textContent = t(
+      "web.task.truncated",
+      "任务卡片超过上限，已截断（总览计数仍为全量）",
+    );
+    list.append(truncated);
+  }
+  // 任务卡片（FR-747）：父链依赖做缩进呈现；重试计数原样展示（不推断）。
+  for (const task of data.tasks ?? data.active ?? []) {
     const item = document.createElement("li");
-    item.textContent = `${task.id} ${task.title} [${task.status}] retry=${task.retry_count}`;
-    // 写命令（FR-609）：重试/中止与 CUI `task retry|abort` 同一应用服务。
-    for (const [labelKey, fallback, handler] of [
-      ["web.task.retry", "重试", retryTask],
-      ["web.task.abort", "中止", abortTask],
-    ]) {
+    const depth = Math.min((task.depends_on ?? []).length, 3);
+    item.style.paddingInlineStart = `${depth * 16}px`;
+    const parts = [`${task.id} ${task.title} [${task.status}]`];
+    if (task.retry_count > 0) {
+      parts.push(t("web.task.retries", "重试 {count} 次", { count: task.retry_count }));
+    }
+    if ((task.depends_on ?? []).length > 0) {
+      parts.push(
+        t("web.task.depends", "依赖 {depends}", {
+          depends: task.depends_on.join(" → "),
+        }),
+      );
+    }
+    item.textContent = parts.join(" · ");
+    item.tabIndex = 0;
+    item.setAttribute("role", "button");
+    const openCheckpoints = () => loadCheckpoints(task.id);
+    item.addEventListener("click", openCheckpoints);
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openCheckpoints();
+      }
+    });
+    // 写命令（FR-609）：重试/中止与 CUI `task retry|abort` 同一应用服务（仅运行中）。
+    const actions =
+      task.status === "running"
+        ? [
+            ["web.task.retry", "重试", retryTask],
+            ["web.task.abort", "中止", abortTask],
+          ]
+        : [];
+    for (const [labelKey, fallback, handler] of actions) {
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = t(labelKey, fallback);

@@ -63,7 +63,7 @@
   浏览器本地存储，页面内 `#theme-select` 提供运行时切换（`frontend/app.js:628-651`）；
 - 默认主题取配置 `ui.theme`（现默认 `zcode-night`），`WHCODE_UI_THEME` 可覆盖；服务端对非法值回落 `zcode-night` 并
   在页面标注，不拒绝启动（`crates/whcode-web/src/assets.rs`）；
-- 保持无框架、无第三方字体、无 WebGL／视频；四套主题下仍须通过首屏 JS／CSS／DOM
+- 保持无框架、无第三方字体、无 WebGL／视频；六套主题下仍须通过首屏 JS／CSS／DOM
   预算（`.github/scripts/benchmarks/check-frontend-budget.py`，FR-618）。
 
 ## 4. 排版与尺寸

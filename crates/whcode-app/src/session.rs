@@ -31,6 +31,123 @@ pub const LIST_SESSIONS_LIMIT: usize = 200;
 /// 会话切换返回的活跃尾部条数上限（FR-102"有限活跃尾部"）。
 pub const SWITCH_TAIL_LIMIT: usize = 50;
 
+/// 侧栏搜索词上限（字符数；超限返回 `invalid_state`，不静默截断）。
+pub const MAX_SESSION_SEARCH_CHARS: usize = 128;
+
+/// 会话目录排序（FR-746）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SessionSort {
+    /// 最近活跃优先（默认，与既有列表顺序一致）。
+    #[default]
+    LastActive,
+    /// 创建时间新者优先。
+    Created,
+    /// 标题字典序（大小写不敏感），同序按 ID。
+    Title,
+}
+
+/// 会话分组（侧栏分段，FR-746）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionGroup {
+    /// 未归档。
+    Active,
+    /// 已归档。
+    Archived,
+}
+
+/// 目录条目：会话行 + 所属分组。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionEntry {
+    /// 会话元数据。
+    pub session: SessionRow,
+    /// 分组（归档分段）。
+    pub group: SessionGroup,
+}
+
+/// 目录查询（GUI 与 Web 共用；FR-610 同批纪律）。
+///
+/// `search` 匹配标题或 ID（大小写不敏感，去首尾空白）；`include_archived`
+/// 为 `false` 时归档条目被过滤，为 `true` 时归档排在活跃之后（组内再按
+/// `sort` 排序）。`limit` 由调用方给出并封顶于 [`LIST_SESSIONS_LIMIT`]。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SessionDirectoryQuery {
+    /// 搜索词（空＝不过滤）。
+    pub search: String,
+    /// 排序键。
+    pub sort: SessionSort,
+    /// 是否包含归档会话。
+    pub include_archived: bool,
+    /// 条数上限（0 视为 1）。
+    pub limit: usize,
+}
+
+/// 生成会话目录（FR-746）：过滤 → 排序 → 分组，全部有界。
+///
+/// # Errors
+///
+/// 权限拒绝、搜索词超长（[`MAX_SESSION_SEARCH_CHARS`]）或存储失败时返回
+/// [`WhError`]。
+pub fn session_directory(
+    conn: &Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    query: &SessionDirectoryQuery,
+) -> Result<Vec<SessionEntry>, WhError> {
+    require(policy, actor, Capability::SessionRead)?;
+    let search = query.search.trim();
+    if search.chars().count() > MAX_SESSION_SEARCH_CHARS {
+        return Err(WhError::invalid_state(format!(
+            "搜索词超过 {MAX_SESSION_SEARCH_CHARS} 字符"
+        )));
+    }
+    let needle = search.to_lowercase();
+    let limit = query.limit.clamp(1, LIST_SESSIONS_LIMIT);
+    // 归档过滤在应用层完成：一次读取两类分组，避免两条 SQL 与两次权限判定。
+    let rows = directory::list_sessions(conn, true, limit)?;
+    let mut entries: Vec<SessionEntry> = rows
+        .into_iter()
+        .filter(|row| query.include_archived || !row.archived)
+        .filter(|row| {
+            needle.is_empty()
+                || row.title.to_lowercase().contains(&needle)
+                || row.id.to_lowercase().contains(&needle)
+        })
+        .map(|session| SessionEntry {
+            group: if session.archived {
+                SessionGroup::Archived
+            } else {
+                SessionGroup::Active
+            },
+            session,
+        })
+        .collect();
+    entries.sort_by(|left, right| {
+        let group_rank = |group: SessionGroup| match group {
+            SessionGroup::Active => 0,
+            SessionGroup::Archived => 1,
+        };
+        group_rank(left.group)
+            .cmp(&group_rank(right.group))
+            .then_with(|| match query.sort {
+                SessionSort::LastActive => right
+                    .session
+                    .last_active_at_ms
+                    .cmp(&left.session.last_active_at_ms),
+                SessionSort::Created => {
+                    right.session.created_at_ms.cmp(&left.session.created_at_ms)
+                }
+                SessionSort::Title => left
+                    .session
+                    .title
+                    .to_lowercase()
+                    .cmp(&right.session.title.to_lowercase()),
+            })
+            .then_with(|| left.session.id.cmp(&right.session.id))
+    });
+    entries.truncate(limit);
+    Ok(entries)
+}
+
 /// 创建会话请求。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewSession {
@@ -251,6 +368,76 @@ mod tests {
             )
             .expect("插入事件");
         }
+    }
+
+    #[test]
+    fn session_directory_filters_sorts_and_groups_archived() {
+        let mut conn = migrated();
+        let policy = DefaultPolicy;
+        let actor = actor_with_all_capabilities("tester");
+        for (title, now) in [("Alpha", 1_000u64), ("beta", 2_000), ("Gamma", 3_000)] {
+            new_session(
+                &conn,
+                &policy,
+                &actor,
+                NewSession {
+                    title: title.to_string(),
+                    model: None,
+                },
+                now,
+            )
+            .expect("创建会话");
+        }
+        let all = list_sessions(&conn, &policy, &actor, false, 10).expect("列表");
+        let beta = all.iter().find(|row| row.title == "beta").expect("beta");
+        set_session_archived(&mut conn, &policy, &actor, &[beta.id.as_str()], true).expect("归档");
+
+        let active = SessionDirectoryQuery {
+            search: String::new(),
+            sort: SessionSort::Title,
+            include_archived: false,
+            limit: 10,
+        };
+        let entries = session_directory(&conn, &policy, &actor, &active).expect("目录");
+        assert_eq!(entries.len(), 2, "默认不含归档");
+        assert!(
+            entries
+                .iter()
+                .all(|entry| entry.group == SessionGroup::Active)
+        );
+        assert_eq!(
+            entries[0].session.title, "Alpha",
+            "标题字典序（大小写不敏感）"
+        );
+        assert_eq!(entries[1].session.title, "Gamma");
+
+        let with_archived = SessionDirectoryQuery {
+            include_archived: true,
+            ..active.clone()
+        };
+        let entries = session_directory(&conn, &policy, &actor, &with_archived).expect("含归档");
+        assert_eq!(entries.len(), 3);
+        assert_eq!(
+            entries.last().expect("尾项").group,
+            SessionGroup::Archived,
+            "归档排在活跃之后"
+        );
+
+        let searched = SessionDirectoryQuery {
+            search: "gam".to_string(),
+            ..with_archived
+        };
+        let entries = session_directory(&conn, &policy, &actor, &searched).expect("搜索");
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].session.title, "Gamma");
+
+        let oversized = SessionDirectoryQuery {
+            search: "x".repeat(MAX_SESSION_SEARCH_CHARS + 1),
+            ..SessionDirectoryQuery::default()
+        };
+        let err = session_directory(&conn, &policy, &actor, &oversized).expect_err("超长搜索词");
+        assert_eq!(err.code, whcode_domain::ErrorCode::InvalidState);
+        assert!(!err.retryable);
     }
 
     #[test]

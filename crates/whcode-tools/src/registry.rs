@@ -69,6 +69,11 @@ pub struct ToolDescriptor {
     pub parameters: Vec<ToolParameter>,
     /// 副作用范围。
     pub side_effect_scope: SideEffectScope,
+    /// 协作式执行预算（毫秒；`None` 表示不声明上限）。
+    ///
+    /// 声明即承诺：实现会在自有循环里检查截止时间并**主动返回** `ErrorCode::ToolTimeout`；
+    /// 执行器不会强杀同进程代码（T267／FR-757）。
+    pub timeout_ms: Option<u64>,
 }
 
 impl ToolDescriptor {
@@ -98,6 +103,23 @@ impl ToolDescriptor {
     }
 }
 
+/// 声明了预算的工具的默认上限（30 s；与 MCP 默认同口径）。
+pub const DEFAULT_TOOL_TIMEOUT_MS: u64 = 30_000;
+/// 声明预算的允许上限（600 s；越界按上限截断，不拒绝工具调用）。
+pub const MAX_TOOL_TIMEOUT_MS: u64 = 600_000;
+
+/// 由声明的预算计算执行截止时间（T267／FR-757）。
+///
+/// 未声明（`None`）返回 `None`（无预算）；声明值先按 [`MAX_TOOL_TIMEOUT_MS`] 截断再换算——
+/// 越界按上限收口而非拒绝（声明由代码给出，截断是防御性收口，不改变“声明即承诺”契约）。
+#[must_use]
+pub fn effective_deadline(
+    timeout_ms: Option<u64>,
+    now: std::time::Instant,
+) -> Option<std::time::Instant> {
+    timeout_ms.map(|ms| now + std::time::Duration::from_millis(ms.min(MAX_TOOL_TIMEOUT_MS)))
+}
+
 /// 工具输出（回填 `role:"tool"` 消息的正文；FR-728）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ToolOutput {
@@ -119,6 +141,25 @@ pub trait Tool: Send + Sync {
     ///
     /// 参数语义非法、路径越界或 IO 失败时返回归一化错误。
     fn execute(&self, workspace: &Path, arguments: &Value) -> Result<ToolOutput, WhError>;
+
+    /// 带截止时间的执行（默认忽略截止时间，委托 [`Tool::execute`]）。
+    ///
+    /// 只有声明 `timeout_ms` 且自身有可中断循环的工具才覆盖本方法；覆盖者必须在循环内
+    /// 周期检查 `deadline`，过期即返回 `WhError`（`ErrorCode::ToolTimeout`），
+    /// 使“停止等待并标记”成为可判定事实（T267／FR-757）。
+    ///
+    /// # Errors
+    ///
+    /// 同 [`Tool::execute`]；另加截止时间到期。
+    fn execute_with_deadline(
+        &self,
+        workspace: &Path,
+        arguments: &Value,
+        deadline: Option<std::time::Instant>,
+    ) -> Result<ToolOutput, WhError> {
+        let _ = deadline;
+        self.execute(workspace, arguments)
+    }
 }
 
 /// 工具注册表：稳定名 → 实现（重名拒绝；BTreeMap 保证清单输出稳定有序）。
@@ -269,8 +310,26 @@ mod tests {
                     description: "路径",
                 }],
                 side_effect_scope: SideEffectScope::ReadOnly,
+                timeout_ms: None,
             },
         })
+    }
+
+    #[test]
+    fn effective_deadline_is_absent_without_declaration_and_capped() {
+        let now = std::time::Instant::now();
+        assert!(
+            effective_deadline(None, now).is_none(),
+            "未声明预算＝无截止时间（执行器不得自行设限）"
+        );
+        let normal =
+            effective_deadline(Some(DEFAULT_TOOL_TIMEOUT_MS), now).expect("声明后必有截止时间");
+        assert!(normal > now, "正常路径：截止时间在未来");
+        let capped = effective_deadline(Some(u64::MAX), now).expect("越界声明仍收口为有截止时间");
+        assert!(
+            capped <= now + std::time::Duration::from_millis(MAX_TOOL_TIMEOUT_MS),
+            "上限路径：越界声明按 MAX_TOOL_TIMEOUT_MS 截断"
+        );
     }
 
     #[test]

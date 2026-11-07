@@ -27,6 +27,7 @@
 //!
 //! 待交付：SDD 门禁编排（M4，T068+）。
 
+pub mod approval;
 pub mod authz;
 pub mod cert;
 pub mod commands;
@@ -67,18 +68,22 @@ pub use maintenance::{
     PurgeCounts, PurgeCriteria, PurgePreview, PurgeProtection, PurgeResult, purge_execute,
     purge_preview,
 };
-pub use overview::{TaskOverview, task_overview};
+pub use overview::{TaskCard, TaskOverview, TaskPanel, task_overview, task_panel};
 pub use queue::BoundedQueue;
 pub use replay::{REPLAY_PAGE_LIMIT, ReplayPage, replay_since};
 pub use residency::{ResidencyManager, ResidencyState, UnloadedSession, idle_unload_due};
 pub use session::{
-    LIST_SESSIONS_LIMIT, NewSession, SWITCH_TAIL_LIMIT, SessionView, delete_session, list_sessions,
-    new_session, preview_delete_session, rename_session, set_session_archived, show_session,
-    switch_session,
+    LIST_SESSIONS_LIMIT, MAX_SESSION_SEARCH_CHARS, NewSession, SWITCH_TAIL_LIMIT,
+    SessionDirectoryQuery, SessionEntry, SessionGroup, SessionSort, SessionView, delete_session,
+    list_sessions, new_session, preview_delete_session, rename_session, session_directory,
+    set_session_archived, show_session, switch_session,
 };
 pub use snapshot::{StateSnapshot, build_snapshot};
 pub use stage_role::{StageRole, role_for};
-pub use task::{TaskDetail, abort_task, retry_task, task_detail};
+pub use task::{
+    CheckpointEntry, CheckpointView, TaskDetail, abort_task, checkpoint_view, retry_task,
+    task_detail,
+};
 pub use views::{purge_counts_value, session_value, task_value};
 // 会话行类型（门面 `CommandOutcome::Session` 的载荷；前端据此渲染，无需依赖 store）。
 pub use whcode_store::SessionRow;

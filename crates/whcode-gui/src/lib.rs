@@ -27,8 +27,11 @@ use iced::{
     Background, Border, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme,
     window,
 };
+use whcode_app::SessionSort;
 use whcode_app::commands::{CommandExecutor, FrontendCommand};
-use whcode_app::view_source::{VIEW_COUNT, ViewId, ViewSnapshot, ViewSource};
+use whcode_app::view_source::{
+    CheckpointItem, SessionRow as ViewSessionRow, VIEW_COUNT, ViewId, ViewSnapshot, ViewSource,
+};
 use whcode_domain::WhError;
 use whcode_domain::i18n::I18n;
 
@@ -256,6 +259,15 @@ enum Message {
     TaskRetry(usize),
     /// 任务中止（按下标索引）。
     TaskAbort(usize),
+    /// 查看任务检查点（按下标索引 `snapshot.tasks`；FR-748）。
+    TaskCheckpoints(usize),
+    // —— 侧栏（B2，FR-746）——
+    /// 侧栏搜索词（标题/ID/阶段子串，本地过滤，不触库）。
+    SessionFilterChanged(String),
+    /// 侧栏排序键（最近活跃/创建/标题）。
+    SessionSortChanged(SessionSort),
+    /// 是否展示归档分段（含归档时活跃在前、归档在后）。
+    SessionArchivedToggled(bool),
     /// Esc：有面板时取消面板，否则退出。
     EscapeKey,
     /// 字符键（门控在 update：对话视图／操作面板打开时忽略全局快捷键）。
@@ -305,6 +317,18 @@ struct State {
     op_input: String,
     /// 操作面板反馈行（预览结果或错误）。
     op_feedback: Option<String>,
+    /// 侧栏搜索词（FR-746；本地过滤，不触库）。
+    session_filter: String,
+    /// 侧栏排序键。
+    session_sort: SessionSort,
+    /// 是否展示归档分段。
+    session_show_archived: bool,
+    /// 未过滤的会话行（目录视图的原始集合；过滤/排序只作用于快照副本）。
+    all_sessions: Vec<ViewSessionRow>,
+    /// 最近一次查看的检查点（FR-748；空＝尚未查看）。
+    checkpoints: Vec<CheckpointItem>,
+    /// 检查点所属任务。
+    checkpoint_task: Option<String>,
 }
 
 impl State {
@@ -346,6 +370,58 @@ impl State {
             op_mode: None,
             op_input: String::new(),
             op_feedback: None,
+            session_filter: String::new(),
+            session_sort: SessionSort::LastActive,
+            session_show_archived: false,
+            all_sessions: Vec::new(),
+            checkpoints: Vec::new(),
+            checkpoint_task: None,
+        }
+    }
+
+    /// 目录视图重建（FR-746）：过滤 → 排序 → 分组序，并同步 `session_ids`
+    /// （选中下标与 `NextSession`/`PrevSession` 依赖该顺序）。
+    fn apply_session_view(&mut self) {
+        let needle = self.session_filter.trim().to_lowercase();
+        let mut rows: Vec<ViewSessionRow> = self
+            .all_sessions
+            .iter()
+            .filter(|row| self.session_show_archived || !row.archived)
+            .filter(|row| {
+                needle.is_empty()
+                    || row.title.to_lowercase().contains(&needle)
+                    || row.id.to_lowercase().contains(&needle)
+                    || row.stage.to_lowercase().contains(&needle)
+            })
+            .cloned()
+            .collect();
+        rows.sort_by(|left, right| {
+            let group_rank = |row: &ViewSessionRow| u8::from(row.archived);
+            group_rank(left)
+                .cmp(&group_rank(right))
+                .then_with(|| match self.session_sort {
+                    SessionSort::LastActive => right.last_active_at_ms.cmp(&left.last_active_at_ms),
+                    SessionSort::Created => right.created_at_ms.cmp(&left.created_at_ms),
+                    SessionSort::Title => {
+                        left.title.to_lowercase().cmp(&right.title.to_lowercase())
+                    }
+                })
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        self.snapshot.sessions = rows;
+        self.session_ids = self
+            .snapshot
+            .sessions
+            .iter()
+            .map(|row| row.id.clone())
+            .collect();
+        if self.session_ids.is_empty() {
+            self.selected = None;
+        } else if self
+            .selected
+            .is_some_and(|index| index >= self.session_ids.len())
+        {
+            self.selected = Some(self.session_ids.len() - 1);
         }
     }
 
@@ -354,6 +430,10 @@ impl State {
         self.snapshot = self
             .source
             .snapshot(self.view, self.selected_session().as_deref());
+        if self.view == ViewId::Sessions {
+            self.all_sessions = self.snapshot.sessions.clone();
+            self.apply_session_view();
+        }
         if self.view == ViewId::Chat {
             self.refresh_chat_history();
         }
@@ -567,6 +647,21 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         return Task::none();
     }
     match message {
+        Message::SessionFilterChanged(text) => {
+            state.session_filter = text;
+            state.apply_session_view();
+            return Task::none();
+        }
+        Message::SessionSortChanged(sort) => {
+            state.session_sort = sort;
+            state.apply_session_view();
+            return Task::none();
+        }
+        Message::SessionArchivedToggled(on) => {
+            state.session_show_archived = on;
+            state.apply_session_view();
+            return Task::none();
+        }
         Message::ChatProgress(_, _) | Message::ChatDone(_) => {
             // turn 未在运行（完成后送达的尾消息），无状态可更新。
         }
@@ -668,6 +763,15 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::TaskRetry(index) => task_action(state, index, false),
         Message::TaskAbort(index) => task_action(state, index, true),
+        Message::TaskCheckpoints(index) => {
+            let task = state.snapshot.tasks.get(index).map(|row| row.id.clone());
+            state.checkpoints = task
+                .as_deref()
+                .map(|task| state.source.checkpoints(task))
+                .unwrap_or_default();
+            state.checkpoint_task = task;
+            return Task::none();
+        }
     }
     Task::none()
 }
@@ -1365,6 +1469,184 @@ fn op_panel(state: &State) -> Element<'_, Message> {
     panel.spacing(6).into()
 }
 
+/// 检查点面板（FR-748）：列表＋差分摘要；回滚未实现时显式标注“仅浏览”。
+fn checkpoint_panel(state: &State) -> Element<'_, Message> {
+    let mut body = column![].spacing(2);
+    body = body.push(rich_line(
+        state.texts.resolve("gui.checkpoints.title"),
+        false,
+        14.0,
+    ));
+    if state.checkpoint_task.is_none() {
+        body = body.push(rich_line(
+            state.texts.resolve("gui.checkpoints.hint"),
+            false,
+            12.0,
+        ));
+        return body.into();
+    }
+    body = body.push(rich_line(
+        state.texts.resolve("gui.checkpoints.degraded"),
+        false,
+        12.0,
+    ));
+    if state.checkpoints.is_empty() {
+        body = body.push(rich_line(
+            state.texts.resolve("gui.checkpoints.empty"),
+            false,
+            12.0,
+        ));
+    }
+    for point in state.checkpoints.iter().take(50) {
+        body = body.push(rich_line(
+            &format!("#{} {} {}", point.step, point.id, point.summary),
+            true,
+            12.0,
+        ));
+    }
+    scrollable(body).height(Length::Fixed(160.0)).into()
+}
+
+/// 侧栏控件（FR-746）：搜索、排序三键、归档分段开关。全部本地作用于已准备的
+/// 快照（不触库）；无控件时（窄窗口以外的场景）仍可用既有键盘导航。
+fn session_controls(state: &State) -> Element<'_, Message> {
+    let search = text_input(
+        state.texts.resolve("gui.session.search"),
+        state.session_filter.as_str(),
+    )
+    .on_input(Message::SessionFilterChanged)
+    .padding(4)
+    .width(Length::Fill);
+    let sort_button = |sort: SessionSort, key: &'static str| {
+        let label = if state.session_sort == sort {
+            "• "
+        } else {
+            ""
+        };
+        button(rich_line(
+            &format!("{label}{}", state.texts.resolve(key)),
+            false,
+            12.0,
+        ))
+        .on_press(Message::SessionSortChanged(sort))
+        .padding([2, 6])
+    };
+    let archived = button(rich_line(
+        &format!(
+            "{}: {}",
+            state.texts.resolve("gui.session.archived"),
+            if state.session_show_archived {
+                state.texts.resolve("gui.session.on")
+            } else {
+                state.texts.resolve("gui.session.off")
+            }
+        ),
+        false,
+        12.0,
+    ))
+    .on_press(Message::SessionArchivedToggled(
+        !state.session_show_archived,
+    ))
+    .padding([2, 6]);
+    row![
+        search,
+        sort_button(SessionSort::LastActive, "gui.session.sort.recent"),
+        sort_button(SessionSort::Created, "gui.session.sort.created"),
+        sort_button(SessionSort::Title, "gui.session.sort.title"),
+        archived
+    ]
+    .spacing(4)
+    .into()
+}
+
+/// 会话目录体（FR-746）：分组标题 + 行（选中标记与既有键盘导航一致）。
+fn session_body(state: &State) -> Element<'_, Message> {
+    let mut lines: Vec<String> = Vec::new();
+    let mut group: Option<bool> = None;
+    for (index, session) in state.snapshot.sessions.iter().enumerate() {
+        if state.session_show_archived && group != Some(session.archived) {
+            group = Some(session.archived);
+            lines.push(if session.archived {
+                state
+                    .texts
+                    .resolve("gui.session.group.archived")
+                    .to_string()
+            } else {
+                state.texts.resolve("gui.session.group.active").to_string()
+            });
+        }
+        let marker = if state.selected == Some(index) {
+            "> "
+        } else {
+            "  "
+        };
+        lines.push(format!(
+            "{marker}{} {} [{}]",
+            session.id, session.title, session.stage
+        ));
+    }
+    if lines.is_empty() {
+        return rich_line(state.texts.resolve("tui.empty"), false, 16.0);
+    }
+    scrollable(
+        column(
+            lines
+                .into_iter()
+                .map(|line| rich_line(&line, false, 15.0))
+                .collect::<Vec<_>>(),
+        )
+        .spacing(2),
+    )
+    .style(move |_, _| state.theme.scrollbar())
+    .height(Length::Fill)
+    .into()
+}
+
+/// 任务面板体（FR-747）：依赖缩进、重试计数、状态；卡片已在准备层按面板口径取全状态。
+fn task_body(state: &State) -> Element<'_, Message> {
+    let mut lines: Vec<String> = Vec::new();
+    if !state.snapshot.summary.is_empty() {
+        lines.push(state.snapshot.summary.clone());
+    }
+    for task in state.snapshot.tasks.iter().take(50) {
+        let indent = if task.parent_id.is_some() {
+            "  ↳ "
+        } else {
+            ""
+        };
+        let retries = if task.retry_count > 0 {
+            format!(
+                " · {}",
+                state.texts.resolve_fmt(
+                    "gui.task.retries",
+                    &[("count", &task.retry_count.to_string())]
+                )
+            )
+        } else {
+            String::new()
+        };
+        lines.push(format!(
+            "{indent}{} {} [{}]{}",
+            task.id, task.title, task.status, retries
+        ));
+    }
+    if state.snapshot.tasks.is_empty() {
+        return rich_line(state.texts.resolve("tui.empty"), false, 16.0);
+    }
+    scrollable(
+        column(
+            lines
+                .into_iter()
+                .map(|line| rich_line(&line, true, 14.0))
+                .collect::<Vec<_>>(),
+        )
+        .spacing(2),
+    )
+    .style(move |_, _| state.theme.scrollbar())
+    .height(Length::Fill)
+    .into()
+}
+
 /// 任务行按钮（Tasks 视图）：每行 retry/abort（与 TUI 的 R/X 同语义，ADR-056）。
 fn task_buttons(state: &State) -> Element<'_, Message> {
     let mut rows = column![].spacing(2);
@@ -1384,7 +1666,15 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
         ))
         .on_press(Message::TaskAbort(index))
         .padding([2, 6]);
-        rows = rows.push(row![rich_line(label.as_str(), false, 13.0), retry, abort,].spacing(6));
+        let points = button(rich_line(
+            state.texts.resolve("gui.checkpoints.open"),
+            false,
+            12.0,
+        ))
+        .on_press(Message::TaskCheckpoints(index))
+        .padding([2, 6]);
+        rows = rows
+            .push(row![rich_line(label.as_str(), false, 13.0), retry, abort, points,].spacing(6));
     }
     if state.snapshot.tasks.is_empty() {
         rows = rows.push(rich_line(state.texts.resolve("tui.empty"), false, 13.0));
@@ -1408,12 +1698,20 @@ fn view(state: &State) -> Element<'_, Message> {
                 .spacing(8)
                 .into()
         }
-        ViewId::Sessions => column![op_buttons(state), read_body(state, false)]
-            .spacing(8)
-            .into(),
-        ViewId::Tasks => column![task_buttons(state), read_body(state, true)]
-            .spacing(8)
-            .into(),
+        ViewId::Sessions => column![
+            op_buttons(state),
+            session_controls(state),
+            session_body(state)
+        ]
+        .spacing(8)
+        .into(),
+        ViewId::Tasks => column![
+            task_buttons(state),
+            task_body(state),
+            checkpoint_panel(state)
+        ]
+        .spacing(8)
+        .into(),
         _ => read_body(state, state.view == ViewId::Diff),
     };
 
@@ -1561,6 +1859,55 @@ mod tests {
     fn empty_state() -> State {
         let source: Rc<dyn ViewSource> = Rc::new(whcode_app::view_source::EmptyViewSource);
         State::new(source, I18n::default(), GuiTheme::EinkDay, None, None)
+    }
+
+    /// B2（FR-746）：目录视图过滤/排序/归档分组——与 Web `session_directory`
+    /// 同规则（含归档时活跃在前、归档在后；标题序大小写不敏感）。
+    #[test]
+    fn session_directory_filters_sorts_and_groups_archived() {
+        let mut state = empty_state();
+        let row = |id: &str, title: &str, archived: bool, stamp: i64| ViewSessionRow {
+            id: id.to_string(),
+            title: title.to_string(),
+            stage: "plan".to_string(),
+            status: "active".to_string(),
+            archived,
+            created_at_ms: stamp,
+            last_active_at_ms: stamp,
+        };
+        state.all_sessions = vec![
+            row("S-1", "Alpha", false, 10),
+            row("S-2", "beta", true, 30),
+            row("S-3", "Gamma", false, 20),
+        ];
+        state.session_sort = SessionSort::Title;
+        state.apply_session_view();
+        assert_eq!(
+            state.session_ids,
+            vec!["S-1", "S-3"],
+            "默认不含归档，标题序"
+        );
+
+        state.session_show_archived = true;
+        state.apply_session_view();
+        assert_eq!(
+            state.session_ids,
+            vec!["S-1", "S-3", "S-2"],
+            "归档排在活跃之后"
+        );
+
+        state.session_filter = "gam".to_string();
+        state.apply_session_view();
+        assert_eq!(state.session_ids, vec!["S-3"], "标题子串过滤");
+
+        state.session_filter = String::new();
+        state.session_sort = SessionSort::LastActive;
+        state.apply_session_view();
+        assert_eq!(
+            state.session_ids,
+            vec!["S-3", "S-1", "S-2"],
+            "最近活跃降序，归档仍排后"
+        );
     }
 
     /// T199：窗口标题与网络层同源词条（应用名 + 视图序号），状态栏含主题名。

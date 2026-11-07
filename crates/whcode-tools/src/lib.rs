@@ -20,6 +20,6 @@ pub const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1024;
 
 pub use builtins::default_registry;
 pub use registry::{
-    ParamType, SideEffectScope, Tool, ToolDescriptor, ToolOutput, ToolParameter, ToolRegistry,
-    validate_arguments,
+    DEFAULT_TOOL_TIMEOUT_MS, MAX_TOOL_TIMEOUT_MS, ParamType, SideEffectScope, Tool, ToolDescriptor,
+    ToolOutput, ToolParameter, ToolRegistry, effective_deadline, validate_arguments,
 };

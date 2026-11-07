@@ -329,6 +329,38 @@ taskkill /T /F 口径）（P1）
 - **FR-753**: 预览机制（CDP＋Playwright）评估结论登记：做或不做及理由；未评估前不得
   引入（P3）
 
+**Phase 1 执行层契约（ADR-060，2026-11-07 用户批准；proposal-v3 §4 W1/W2/W7）**
+
+- **FR-754**: 工具审批结果封闭四态（`allowed_once`／`rejected`／`cancelled`／`unavailable`），
+  仅 `allowed_once` 放行；无应答者、应答异常与超时一律 `unavailable`（不得降为允许或拒绝）；
+  请求只携 `exec_id`（不复制参数）；`approval_asked`／`approval_decided` 成对审计，审计失败
+  阻断执行（P0；ADR-060 项 A）
+- **FR-755**: 上下文超预算时先以模型生成摘要：独立 `request_id`、`purpose=compaction`、
+  显式 `max_tokens`；落 `CompactionStarted`／`CompactionSummary`／`CompactionFinished` 三事件
+  （先开后关，崩溃留可检测孤儿锁）；摘要失败回退结构折叠且不阻塞 turn；provider／model／usage
+  入 summary（P0；ADR-060 项 B）
+- **FR-756**: 失败的模型尝试持久化为 `assistant_attempt` 事件（不进入模型历史）：失败
+  `code`／`message`、已收块数、字节数、是否已发出 chunk；事件有容量上限与截断标记（P1；
+  ADR-060 项 C）
+- **FR-757**: 工具可声明 `timeout_ms`；到期返回结构化超时结果（`tool_timeout`、
+  `retryable=false`、`timed_out=true`），不得强杀同进程代码，只停止等待并标记；上限为常量
+  （P1；ADR-060 项 D）
+- **FR-758**: 保存最近一次成功请求的 usage 作为预算锚点（输入/输出 token、provider/model），
+  预算判断＝锚点＋增量估算，锚点缺失回退字符启发式；只存一条（有界）（P1；ADR-060 项 E）
+- **FR-759**: 工具可声明输出 schema 与渲染投影（模型面正文与展示面分离）；schema 校验失败
+  返回结构化错误；输出仍受统一截断上限（P1；ADR-060 项 F）
+- **FR-760**: `turn/start` 在首次模型调用前单独提交（不与迭代事件同批）；未闭合的 turn 在下次
+  打开时可判定（`interrupted` 语义）（P1；ADR-060 项 G）
+- **FR-761**: Check 证据态与外部评审五态命名对齐（`present`／`wired`／`exercised`／
+  `outcome-supported`＋`not-applicable`，缺失为 `missing`）；状态升级必须由可复现证据驱动；
+  明确拒绝评分制（P1；ADR-060 项 H）
+- **FR-762**: 覆盖率试点：`whcode-app`／`whcode-store` 行覆盖 ≥90%（`cargo-llvm-cov` 可复现），
+  阈值与豁免清单成文；CI 先登记非阻断（P2；ADR-060 项 I）
+- **FR-763**: 新 ADR 必须含“已知限制／失效条件”节，脚本校验（存量白名单豁免）（P2；
+  ADR-060 项 J）
+- **FR-764**: 真 API 冒烟：sensenova 单条冒烟，凭据缺失自跳过且不得记为通过，结果归档；
+  凭据不入日志与事件（P2；ADR-060 项 K）
+
 **Spec Kit / SDD 工作流（§4.3）**
 
 - **FR-301**: 初始化工作区时创建或导入 Constitution，并记录版本与变更审计（P0）

@@ -446,6 +446,14 @@ pub fn run_turn_with_progress(
         }};
     }
 
+    // ── turn 边界先落（T270／FR-760／ADR-060 项 G）──────────────────────
+    // 先于任何模型调用与消息落表单独提交：崩溃时 turn 边界可见，未成对即按 interrupted 判定。
+    // 单独一次事务（不含消息草稿），不与后续迭代事件同批——这是本条的判据。
+    emit!(EventKind::TurnStarted, "depth": request.depth);
+    append_turn(conn, session, &pending_events, &[])?;
+    // append_turn 不清空草稿（清空由 flush 负责）：这里显式清空，避免后续批次重放边界事件。
+    pending_events.clear();
+
     // user 提示词先行落表（FR-722：turn 内 user 轮次落表；预算检查据此可见本轮输入）。
     persister.flush(conn, &mut pending_events, &messages)?;
 
@@ -579,6 +587,22 @@ pub fn run_turn_with_progress(
                     "request_id": request_id,
                     "error_code": err.code.as_str(),
                 );
+                emit!(
+                    EventKind::AssistantAttempt,
+                    "iteration": iteration,
+                    "reason": "provider_error",
+                    "failure_code": err.code.as_str(),
+                    "failure_message": bounded_attempt_message(&err.message),
+                    "emitted": false,
+                    "chunks": 0u64,
+                    "bytes": 0u64,
+                );
+                emit!(
+                    EventKind::TurnFinished,
+                    "request_id": request_id,
+                    "termination_reason": "error",
+                    "iterations": iterations,
+                );
                 persister.flush(conn, &mut pending_events, &messages)?;
                 return Err(err);
             }
@@ -611,6 +635,22 @@ pub fn run_turn_with_progress(
                         "iteration": iteration,
                         "request_id": request_id,
                         "error_code": err.code.as_str(),
+                    );
+                    emit!(
+                        EventKind::AssistantAttempt,
+                        "iteration": iteration,
+                        "reason": "stream_error",
+                        "failure_code": err.code.as_str(),
+                        "failure_message": bounded_attempt_message(&err.message),
+                        "emitted": true,
+                        "chunks": step_chunks.len() as u64,
+                        "bytes": step_bytes as u64,
+                    );
+                    emit!(
+                        EventKind::TurnFinished,
+                        "request_id": request_id,
+                        "termination_reason": "error",
+                        "iterations": iterations,
                     );
                     persister.flush(conn, &mut pending_events, &messages)?;
                     return Err(err);
@@ -679,6 +719,16 @@ pub fn run_turn_with_progress(
                 "request_id": request_id,
                 "truncated": step_truncated,
                 "integrity_gaps": integrity_gaps,
+            );
+            emit!(
+                EventKind::AssistantAttempt,
+                "iteration": iteration,
+                "reason": if step_truncated { "truncated" } else { "incomplete_stream" },
+                "failure_code": "integrity",
+                "failure_message": "流式输出被截断或未给出终止原因",
+                "emitted": true,
+                "chunks": step_chunks.len() as u64,
+                "bytes": step_bytes as u64,
             );
             if !step_text.is_empty() {
                 messages.push(LlmMessage {
@@ -793,6 +843,12 @@ pub fn run_turn_with_progress(
         "termination_reason": termination.as_str(),
         "iterations": iterations,
     );
+    emit!(
+        EventKind::TurnFinished,
+        "request_id": request_id,
+        "termination_reason": termination.as_str(),
+        "iterations": iterations,
+    );
     persister.flush(conn, &mut pending_events, &messages)?;
     drop(marker);
     drop(turn_marker);
@@ -816,6 +872,19 @@ pub fn run_turn_with_progress(
         events: envelope,
         transport,
     })
+}
+
+/// 失败尝试事件里错误消息的字符上限（T266／FR-756；事件只留可判定事实，不留整段错误文本）。
+pub const MAX_ATTEMPT_MESSAGE_CHARS: usize = 200;
+
+/// 把失败消息截断到 [`MAX_ATTEMPT_MESSAGE_CHARS`]（字符边界安全，截断即标 `…`）。
+fn bounded_attempt_message(message: &str) -> String {
+    if message.chars().count() <= MAX_ATTEMPT_MESSAGE_CHARS {
+        return message.to_string();
+    }
+    let mut out: String = message.chars().take(MAX_ATTEMPT_MESSAGE_CHARS).collect();
+    out.push('…');
+    out
 }
 
 /// spawn_subagent 结果回填的正文上限（64 KiB，与工具输出上限同源）。
@@ -1175,7 +1244,12 @@ fn execute_tool_call(
             None,
         );
     }
-    match tool.execute(workspace, &arguments) {
+    // 协作式预算（T267／FR-757）：只对声明 `timeout_ms` 的工具生效；执行器不强杀代码，
+    // 由工具在自有循环里检查截止时间并主动返回 `ToolTimeout`。声明值按
+    // `MAX_TOOL_TIMEOUT_MS` 截断（effective_deadline 统一收口）。
+    let deadline =
+        whcode_tools::effective_deadline(descriptor.timeout_ms, std::time::Instant::now());
+    match tool.execute_with_deadline(workspace, &arguments, deadline) {
         Ok(output) => {
             if let Err(err) = record_result(
                 conn,
@@ -1202,14 +1276,15 @@ fn execute_tool_call(
             )
         }
         Err(err) => {
-            if let Err(record_err) = record_result(
-                conn,
-                exec_id,
-                RuntimeExecutionStatus::Failed,
-                None,
-                None,
-                now_ms,
-            ) {
+            let timed_out = err.code == whcode_domain::ErrorCode::ToolTimeout;
+            // timed_out=true 的结构化载体是 `TimedOut` 终态（store 恢复语义早已接受）；
+            // 超时无输出也无副作用，两个引用槽位都保持 None（不塞魔法字符串）。
+            let status = if timed_out {
+                RuntimeExecutionStatus::TimedOut
+            } else {
+                RuntimeExecutionStatus::Failed
+            };
+            if let Err(record_err) = record_result(conn, exec_id, status, None, None, now_ms) {
                 return fail(
                     RuntimeExecutionStatus::Failed,
                     format!(
@@ -1219,11 +1294,22 @@ fn execute_tool_call(
                     None,
                 );
             }
-            (
-                RuntimeExecutionStatus::Failed,
-                format!("工具 {} 执行失败：{err}", tool_call.name),
-                None,
-            )
+            if timed_out {
+                (
+                    RuntimeExecutionStatus::TimedOut,
+                    format!(
+                        "工具 {} 执行超时（tool_timeout：已停止等待，本次结果作废，不得重试同一调用）",
+                        tool_call.name
+                    ),
+                    None,
+                )
+            } else {
+                (
+                    RuntimeExecutionStatus::Failed,
+                    format!("工具 {} 执行失败：{err}", tool_call.name),
+                    None,
+                )
+            }
         }
     }
 }
@@ -1375,6 +1461,49 @@ mod tests {
         }
     }
 
+    /// 失败桩：`execute` 直接返回错误（T266 的“请求未发出”路径）。
+    struct FailingProvider;
+
+    impl whcode_llm::Provider for FailingProvider {
+        fn name(&self) -> &str {
+            "failing"
+        }
+
+        fn capabilities(&self) -> whcode_llm::ProviderCapabilities {
+            whcode_llm::ProviderCapabilities {
+                streaming: true,
+                cancel: true,
+                usage_reporting: false,
+            }
+        }
+
+        fn is_available(&self) -> bool {
+            true
+        }
+
+        fn execute(
+            &self,
+            _request: &whcode_llm::LlmRequest,
+            _cancel: &whcode_llm::CancelToken,
+        ) -> Result<whcode_llm::ChunkStream, WhError> {
+            Err(WhError::new(
+                whcode_domain::ErrorCode::RuntimeUnavailable,
+                "上游不可用（测试桩）",
+            ))
+        }
+    }
+
+    struct FailingFactory;
+
+    impl ProviderFactory for FailingFactory {
+        fn create(
+            &self,
+            _profile: &ProviderProfile,
+        ) -> Result<Box<dyn whcode_llm::Provider>, WhError> {
+            Ok(Box::new(FailingProvider))
+        }
+    }
+
     fn migrated() -> duckdb::Connection {
         let conn = duckdb::Connection::open_in_memory().expect("内存库");
         apply_migrations(&conn).expect("迁移");
@@ -1438,7 +1567,7 @@ mod tests {
 
     fn context<'a>(
         registry: &'a crate::llm::ProviderRegistry,
-        factory: &'a StubFactory,
+        factory: &'a dyn ProviderFactory,
         dir: &'a std::path::Path,
     ) -> LlmContext<'a> {
         LlmContext {
@@ -1459,6 +1588,54 @@ mod tests {
                 arguments: r#"{"path":"src/lib.rs"}"#.to_string(),
             }],
         }
+    }
+
+    #[test]
+    fn provider_failure_records_attempt_without_polluting_history() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = FailingFactory;
+        let dir = temp_dir("attempt");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let err = run_turn(&mut conn, &policy, &actor, &ctx, &request(&id, "你好"), 42)
+            .expect_err("供应商错误必须上抛");
+        assert_eq!(err.code, whcode_domain::ErrorCode::RuntimeUnavailable);
+
+        // 失败尝试 = 一条 AssistantAttempt，且 emitted=false（请求未发出）。
+        let (attempts, emitted, reason, code): (i64, bool, String, String) = conn
+            .query_row(
+                "SELECT (SELECT COUNT(*) FROM events WHERE session_id=? AND kind='AssistantAttempt'),
+                        CAST((SELECT CAST(CAST(payload_json AS JSON)->>'$.emitted' AS BOOLEAN)
+                              FROM events WHERE session_id=? AND kind='AssistantAttempt' LIMIT 1) AS BOOLEAN),
+                        (SELECT CAST(CAST(payload_json AS JSON)->>'$.reason' AS VARCHAR)
+                         FROM events WHERE session_id=? AND kind='AssistantAttempt' LIMIT 1),
+                        (SELECT CAST(CAST(payload_json AS JSON)->>'$.failure_code' AS VARCHAR)
+                         FROM events WHERE session_id=? AND kind='AssistantAttempt' LIMIT 1)",
+                [&id, &id, &id, &id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .expect("失败尝试事件");
+        assert_eq!(attempts, 1);
+        assert!(!emitted, "请求未发出时 emitted 必须为 false");
+        assert_eq!(reason, "provider_error");
+        assert_eq!(code, "runtime_unavailable");
+
+        // 失败尝试不进入模型历史：assistant 消息为 0，且边界仍成对闭合。
+        let (assistant_msgs, started, finished): (i64, i64, i64) = conn
+            .query_row(
+                "SELECT (SELECT COUNT(*) FROM messages WHERE session_id=? AND role='assistant'),
+                        (SELECT COUNT(*) FROM events WHERE session_id=? AND kind='TurnStarted'),
+                        (SELECT COUNT(*) FROM events WHERE session_id=? AND kind='TurnFinished')",
+                [&id, &id, &id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("计数");
+        assert_eq!(assistant_msgs, 0, "失败尝试不得进入模型历史");
+        assert_eq!((started, finished), (1, 1), "边界仍须成对");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -1501,6 +1678,22 @@ mod tests {
             )
             .expect("终止事件");
         assert_eq!(reason, "model_finished");
+        // T270／FR-760：turn 边界成对落表；成对缺失即未闭合（interrupted 判定依据）。
+        let (started, finished): (i64, i64) = conn
+            .query_row(
+                "SELECT (SELECT COUNT(*) FROM events WHERE session_id=? AND kind='TurnStarted'),
+                        (SELECT COUNT(*) FROM events WHERE session_id=? AND kind='TurnFinished')",
+                [&id, &id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("边界事件计数");
+        assert_eq!((started, finished), (1, 1), "turn 边界必须成对");
+        assert!(
+            whcode_store::turn::unclosed_turns(&conn, &id)
+                .expect("未闭合扫描")
+                .is_empty(),
+            "正常结束的 turn 不得被判为未闭合"
+        );
         // FR-203：事件载荷不含提示词正文。
         let payload_all: String = conn
             .query_row(

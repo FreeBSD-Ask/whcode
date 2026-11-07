@@ -186,10 +186,14 @@ fn preferred_locale(request: &HttpRequest) -> Option<String> {
     (!first.is_empty()).then(|| first.to_string())
 }
 
-fn error_response(error: &WhError) -> HttpResponse {
+pub fn error_response(error: &WhError) -> HttpResponse {
     let status = match error.code {
         ErrorCode::PermissionDenied => 403,
         ErrorCode::InvalidState => 400,
+        // 可重试的资源繁忙（turn 占满并发槽、写者队列饱和）：503 + Retry-After 由
+        // 调用方补充。不能落到 `_ => 500`——繁忙不是服务端故障，重试语义也不同
+        // （ADR-058 §2.3）。
+        ErrorCode::Backpressure => 503,
         // 已登记但该端不提供（FR-620）；当前统一守卫直接返回 501，此处兜底同码。
         ErrorCode::NotSupported => 501,
         ErrorCode::NotFound => 404,
@@ -420,7 +424,7 @@ fn not_supported_response(surface_id: &str, support: &Support) -> HttpResponse {
 }
 
 /// 写命令的请求体：必须是 JSON 对象（§8.1：写操作只走 POST + JSON）。
-fn json_body(request: &HttpRequest) -> Result<serde_json::Value, WhError> {
+pub fn json_body(request: &HttpRequest) -> Result<serde_json::Value, WhError> {
     let value: serde_json::Value = serde_json::from_slice(&request.body)
         .map_err(|err| WhError::parse_error(format!("请求体不是合法 JSON：{err}")))?;
     if !value.is_object() {
@@ -430,7 +434,7 @@ fn json_body(request: &HttpRequest) -> Result<serde_json::Value, WhError> {
 }
 
 /// 取非空字符串字段；缺失/空白按“缺参数”处理（错误可操作）。
-fn body_str<'a>(body: &'a serde_json::Value, field: &str) -> Result<&'a str, WhError> {
+pub fn body_str<'a>(body: &'a serde_json::Value, field: &str) -> Result<&'a str, WhError> {
     body.get(field)
         .and_then(serde_json::Value::as_str)
         .filter(|value| !value.trim().is_empty())
@@ -610,14 +614,45 @@ pub fn handle_request_with_llm(
             }
         }
         (Method::Get, "/api/sessions") => {
-            match whcode_app::list_sessions(conn, &policy, actor, false, 200) {
-                Ok(sessions) => HttpResponse::json(
-                    200,
-                    &serde_json::json!({
-                        "schema_version": whcode_domain::SCHEMA_VERSION,
-                        "sessions": sessions,
-                    }),
-                ),
+            // 侧栏目录（FR-746）：搜索/排序/归档分组与 GUI 同一应用服务（session_directory）。
+            // 参数非法值回落默认（不报错）：`sort` 未知→最近活跃，`group` 未知→仅活跃。
+            let directory_query = whcode_app::SessionDirectoryQuery {
+                search: query_value("q").unwrap_or("").to_string(),
+                sort: match query_value("sort") {
+                    Some("created") => whcode_app::SessionSort::Created,
+                    Some("title") => whcode_app::SessionSort::Title,
+                    _ => whcode_app::SessionSort::LastActive,
+                },
+                include_archived: matches!(query_value("group"), Some("all" | "archived")),
+                limit: whcode_app::LIST_SESSIONS_LIMIT,
+            };
+            match whcode_app::session_directory(conn, &policy, actor, &directory_query) {
+                Ok(entries) => {
+                    let sessions: Vec<serde_json::Value> = entries
+                        .iter()
+                        .map(|entry| {
+                            let mut value =
+                                serde_json::to_value(&entry.session).unwrap_or_default();
+                            if let Some(object) = value.as_object_mut() {
+                                object.insert(
+                                    "group".to_string(),
+                                    serde_json::json!(match entry.group {
+                                        whcode_app::SessionGroup::Active => "active",
+                                        whcode_app::SessionGroup::Archived => "archived",
+                                    }),
+                                );
+                            }
+                            value
+                        })
+                        .collect();
+                    HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "sessions": sessions,
+                        }),
+                    )
+                }
                 Err(error) => error_response(&error),
             }
         }
@@ -644,26 +679,84 @@ pub fn handle_request_with_llm(
             }
         }
         (Method::Get, "/api/tasks") => {
-            // 任务视图（FR-103）：session 可选——缺省为工作区级总览。
+            // 任务面板（FR-747）：总览（阶段/完成/阻塞/活跃）＋有界任务卡片
+            // （父链依赖、重试计数）；`session` 可选——缺省为工作区级。
             let session = query_value("session");
-            match whcode_app::task_overview(conn, &policy, actor, session) {
-                Ok(overview) => HttpResponse::json(
-                    200,
-                    &serde_json::json!({
-                        "schema_version": whcode_domain::SCHEMA_VERSION,
-                        "session_id": overview.session_id,
-                        "total": overview.total,
-                        "done": overview.done,
-                        "blocked": overview.blocked,
-                        "by_stage": overview.by_stage,
-                        "active": overview.active.iter().map(|row| serde_json::json!({
-                            "id": row.id,
-                            "title": row.title,
-                            "status": row.status.as_str(),
-                            "retry_count": row.retry_count,
-                        })).collect::<Vec<_>>(),
-                    }),
-                ),
+            match whcode_app::task_panel(conn, &policy, actor, session, 100) {
+                Ok(panel) => {
+                    let tasks: Vec<serde_json::Value> = panel
+                        .tasks
+                        .iter()
+                        .map(|card| {
+                            serde_json::json!({
+                                "id": card.id,
+                                "title": card.title,
+                                "stage": card.stage,
+                                "status": card.status.as_str(),
+                                "retry_count": card.retry_count,
+                                "parent_id": card.parent_id,
+                                "depends_on": card.depends_on,
+                            })
+                        })
+                        .collect();
+                    HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "session_id": panel.overview.session_id,
+                            "total": panel.overview.total,
+                            "done": panel.overview.done,
+                            "blocked": panel.overview.blocked,
+                            "by_stage": panel.overview.by_stage,
+                            "active": panel.overview.active.iter().map(|row| serde_json::json!({
+                                "id": row.id,
+                                "title": row.title,
+                                "status": row.status.as_str(),
+                                "retry_count": row.retry_count,
+                            })).collect::<Vec<_>>(),
+                            "tasks": tasks,
+                            "truncated": panel.truncated,
+                        }),
+                    )
+                }
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Get, "/api/checkpoints") => {
+            // 检查点浏览（FR-748）：列表＋差分摘要；回滚能力显式降级，不伪造可回滚。
+            let Some(task) = query_value("task") else {
+                return error_response(&WhError::invalid_state("缺 task 参数"));
+            };
+            match whcode_app::checkpoint_view(conn, &policy, actor, task) {
+                Ok(view) => {
+                    let checkpoints: Vec<serde_json::Value> = view
+                        .checkpoints
+                        .iter()
+                        .map(|entry| {
+                            serde_json::json!({
+                                "id": entry.id,
+                                "step": entry.step,
+                                "delta_summary": entry.delta_summary,
+                                "message_cursor": entry.message_cursor,
+                                "artifact_refs": entry.artifact_refs,
+                                "ts_ms": entry.ts_ms,
+                            })
+                        })
+                        .collect();
+                    HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "task_id": view.task_id,
+                            "checkpoints": checkpoints,
+                            "truncated": view.truncated,
+                            "rollback": {
+                                "supported": view.rollback_supported,
+                                "reason": view.rollback_reason,
+                            },
+                        }),
+                    )
+                }
                 Err(error) => error_response(&error),
             }
         }
@@ -1550,29 +1643,13 @@ pub fn handle_request_with_llm(
                     return Err(llm_not_wired());
                 };
                 let body = json_body(request)?;
-                let session = body_str(&body, "session")?;
-                let provider = body_str(&body, "provider")?;
-                let prompt = body_str(&body, "prompt")?;
-                let model = optional_body_str(&body, "model");
-                let request_id = optional_body_str(&body, "request_id");
-                let max_tokens = body.get("max_tokens").and_then(serde_json::Value::as_u64);
+                let turn_request = turn_request_from_body(&body, workspace_root)?;
                 let outcome = whcode_app::turn::run_turn(
                     conn,
                     &policy,
                     actor,
                     llm,
-                    &whcode_app::turn::TurnRequest {
-                        session_id: session.to_string(),
-                        provider: provider.to_string(),
-                        prompt: prompt.to_string(),
-                        model: model.map(str::to_string),
-                        max_tokens,
-                        request_id: request_id.map(str::to_string),
-                        iterations_limit: None,
-                        budget_tokens: None,
-                        workspace_root: workspace_root.map(std::path::Path::to_path_buf),
-                        depth: 0,
-                    },
+                    &turn_request,
                     now_ms()?,
                 )?;
                 serde_json::to_value(&outcome)
@@ -1605,11 +1682,35 @@ pub fn handle_request_with_llm(
 }
 
 /// 取可选的非空字符串字段（缺失／空白返回 `None`，不把空串当有效覆盖）。
-fn optional_body_str<'a>(body: &'a serde_json::Value, field: &str) -> Option<&'a str> {
+pub fn optional_body_str<'a>(body: &'a serde_json::Value, field: &str) -> Option<&'a str> {
     body.get(field)
         .and_then(serde_json::Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
+}
+
+/// 从请求体构造 turn 请求（`/api/llm/run` 与 serve 工作线程拦截共用，ADR-058 §2.7）。
+///
+/// 单一构造器的目的：两条入口（同步路由与工作线程拦截）字段完全同形，分开各写一份
+/// 会在后续加字段时漂移。三必填（session/provider/prompt）缺失或空白即
+/// `invalid_state`；可选项缺省保持 `None`；`iterations_limit`/`budget_tokens` 在请求
+/// 面固定为 `None`（只可调低，默认值取引擎常量）。
+pub fn turn_request_from_body(
+    body: &serde_json::Value,
+    workspace_root: Option<&std::path::Path>,
+) -> Result<whcode_app::turn::TurnRequest, WhError> {
+    Ok(whcode_app::turn::TurnRequest {
+        session_id: body_str(body, "session")?.to_string(),
+        provider: body_str(body, "provider")?.to_string(),
+        prompt: body_str(body, "prompt")?.to_string(),
+        model: optional_body_str(body, "model").map(str::to_string),
+        max_tokens: body.get("max_tokens").and_then(serde_json::Value::as_u64),
+        request_id: optional_body_str(body, "request_id").map(str::to_string),
+        iterations_limit: None,
+        budget_tokens: None,
+        workspace_root: workspace_root.map(std::path::Path::to_path_buf),
+        depth: 0,
+    })
 }
 
 /// 装配根未注入 LLM 上下文时的结构化错误（不伪装成功，也不以 404 掩盖已登记能力）。
@@ -1634,6 +1735,10 @@ mod tests {
         include_str!("../../whcode-store/migrations/0004_session_id_sequence.sql"),
         include_str!("../../whcode-store/migrations/0005_session_stage.sql"),
         include_str!("../../whcode-store/migrations/0006_events_variant.sql"),
+        // 0007：JSON 语义列转 VARIANT（ADR-036）。测试 schema 必须与生产同构，
+        // 否则 checkpoints.delta_json 仍是文本列、CAST(... AS JSON)::VARIANT 退化为
+        // 结构体文本（2026-11-07 实测）。
+        include_str!("../../whcode-store/migrations/0007_json_variant.sql"),
     );
 
     fn migrated() -> Connection {
@@ -1796,6 +1901,185 @@ mod tests {
         assert_eq!(response.status, 200);
         let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
         assert!(body["session_id"].is_null());
+    }
+
+    #[test]
+    fn sessions_route_applies_search_sort_and_archive_group() {
+        let mut conn = migrated();
+        for (id, title) in [("S-1", "Alpha"), ("S-2", "beta"), ("S-3", "Gamma")] {
+            conn.execute(
+                "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+                 VALUES (?, ?, current_timestamp, current_timestamp, 'active')",
+                duckdb::params![id, title],
+            )
+            .expect("创建会话");
+        }
+        conn.execute("UPDATE sessions SET archived = true WHERE id = 'S-2'", [])
+            .expect("归档 beta");
+        let actor = actor_with_all_capabilities("tester");
+
+        let mut fetch = |route: &str| {
+            let req = request(Method::Get, route, false);
+            let response = handle_request(
+                &mut conn,
+                false,
+                None,
+                &security::ALLOWED_ORIGINS,
+                &req,
+                &actor,
+            );
+            assert_eq!(response.status, 200, "{route}");
+            serde_json::from_slice::<serde_json::Value>(&response.body).expect("JSON")
+        };
+
+        // 默认：仅活跃，最近活跃排序（同秒 → ID 兜底），归档不出现。
+        let body = fetch("/api/sessions");
+        let sessions = body["sessions"].as_array().expect("数组");
+        assert_eq!(sessions.len(), 2);
+        assert!(sessions.iter().all(|row| row["group"] == "active"));
+
+        // 标题排序 + 含归档：活跃在前、归档在后。
+        let body = fetch("/api/sessions?sort=title&group=all");
+        let sessions = body["sessions"].as_array().expect("数组");
+        assert_eq!(sessions.len(), 3);
+        assert_eq!(sessions[0]["title"], "Alpha");
+        assert_eq!(sessions[1]["title"], "Gamma");
+        assert_eq!(sessions[2]["title"], "beta");
+        assert_eq!(sessions[2]["group"], "archived", "归档排在活跃之后");
+
+        // 搜索：标题子串匹配（大小写不敏感）。
+        let body = fetch("/api/sessions?q=gam&group=all");
+        let sessions = body["sessions"].as_array().expect("数组");
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0]["id"], "S-3");
+
+        // 非法 sort 回落默认、不报错（参数容错口径）。
+        let body = fetch("/api/sessions?sort=unknown");
+        assert_eq!(body["sessions"].as_array().expect("数组").len(), 2);
+    }
+
+    #[test]
+    fn tasks_route_reports_cards_with_dependencies_and_retries() {
+        let mut conn = migrated();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-T', '任务面板', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("创建会话");
+        conn.execute(
+            "INSERT INTO tasks (id, session_id, title, stage, status, parent_id,
+                                acceptance_json, retry_count, updated_at)
+             VALUES ('T-1', 'S-T', '父任务', 'plan', 'completed', NULL,
+                     CAST('[]' AS JSON)::VARIANT, 0, current_timestamp),
+                    ('T-2', 'S-T', '子任务', 'implement', 'running', 'T-1',
+                     CAST('[]' AS JSON)::VARIANT, 2, current_timestamp)",
+            [],
+        )
+        .expect("插入任务");
+        let actor = actor_with_all_capabilities("tester");
+        let req = request(Method::Get, "/api/tasks?session=S-T", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["total"], 2);
+        assert_eq!(body["done"], 1);
+        assert_eq!(body["truncated"], false);
+        let cards = body["tasks"].as_array().expect("卡片数组");
+        assert_eq!(cards.len(), 2);
+        let child = cards
+            .iter()
+            .find(|card| card["id"] == "T-2")
+            .expect("子任务卡片");
+        assert_eq!(child["retry_count"], 2, "重试计数取原行值");
+        assert_eq!(child["depends_on"], serde_json::json!(["T-1"]));
+        assert_eq!(child["parent_id"], "T-1");
+    }
+
+    #[test]
+    fn checkpoints_route_reports_summary_and_rollback_degradation() {
+        let mut conn = migrated();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-C', '检查点', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("创建会话");
+        conn.execute(
+            "INSERT INTO tasks (id, session_id, title, stage, status, parent_id,
+                                acceptance_json, retry_count, updated_at)
+             VALUES ('T-C', 'S-C', '检查点任务', 'implement', 'running', NULL,
+                     CAST('[]' AS JSON)::VARIANT, 0, current_timestamp)",
+            [],
+        )
+        .expect("插入任务");
+        // ADR-036 写入口径：CAST(? AS JSON)::VARIANT（不经内联字符串转义）。
+        conn.execute(
+            "INSERT INTO checkpoints (id, task_id, step, delta_json, message_cursor,
+                                      artifact_refs_json, ts)
+             VALUES ('C-1', 'T-C', 1, CAST(? AS JSON)::VARIANT,
+                     NULL, CAST('[]' AS JSON)::VARIANT, current_timestamp)",
+            duckdb::params![r#"{"from":"pending","to":"running"}"#],
+        )
+        .expect("检查点");
+        let actor = actor_with_all_capabilities("tester");
+
+        let req = request(Method::Get, "/api/checkpoints?task=T-C", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(
+            response.status,
+            200,
+            "body={}",
+            String::from_utf8_lossy(&response.body)
+        );
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["task_id"], "T-C");
+        assert_eq!(body["truncated"], false);
+        assert_eq!(body["rollback"]["supported"], false, "回滚能力显式降级");
+        let entries = body["checkpoints"].as_array().expect("数组");
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0]["step"], 1);
+        assert!(
+            entries[0]["delta_summary"]
+                .as_str()
+                .expect("摘要")
+                .contains("to=running")
+        );
+
+        let req = request(Method::Get, "/api/checkpoints", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 400, "缺 task 参数");
+        let req = request(Method::Get, "/api/checkpoints?task=T-none", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 404, "任务不存在");
     }
 
     #[test]

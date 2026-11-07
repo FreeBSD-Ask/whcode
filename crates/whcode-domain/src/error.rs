@@ -35,6 +35,8 @@ pub enum ErrorCode {
     ParseError,
     /// 超时。
     Timeout,
+    /// 工具执行超时（T267／FR-757：结果作废且不可重试；与通用 `timeout` 区分）。
+    ToolTimeout,
     /// 未分类内部错误。
     Internal,
 }
@@ -53,6 +55,7 @@ impl ErrorCode {
             Self::IoError => "io_error",
             Self::ParseError => "parse_error",
             Self::Timeout => "timeout",
+            Self::ToolTimeout => "tool_timeout",
             Self::Internal => "internal",
         }
     }

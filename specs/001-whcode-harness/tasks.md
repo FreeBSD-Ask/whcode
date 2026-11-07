@@ -681,7 +681,7 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   计数与门禁一致；判据=Check 335；非目标=跨平台 CI 矩阵扩展。——**复核（2026-11-01，
   P1-7 批次一）**：测试/文档/计数五处声明同步完成（run 41230318736 六车道 success，
   同 T236 复核口径）。
-- [ ] T240 [P] FreeBSD 完整平台证据车道（ADR-013 修订，2026-10-31 用户指令）：ci.yml
+- [x] T240 [P] FreeBSD 完整平台证据车道（ADR-013 修订，2026-10-31 用户指令）：ci.yml
   FreeBSD job 移除 continue-on-error——latest pkg 安装 iced/winit 编译期 X11/字体栈依赖
   （pkgconf/libX11/libXcursor/libXrandr/libXi/libxkbcommon/fontconfig/freetype2/wayland；
   vmactions slirp DNS 不支持 SRV，pkg 仓库用直连 https）；全量 `cargo build/test --locked
@@ -697,6 +697,11 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   DuckDB 2.0.0、全量构建／测试、三门硬判定全 GO、TUI/Web 冒烟、`GATE_RESULT=GO`；
   代码级等价项（`child_pids` 列序判据、真两层树、iced x11）随全量测试在 FreeBSD 原生
   执行。证据与根因链见 Check 336 注记；三门与冒烟记录落库 `artifacts/store-acceptance/`。
+  ——**复核（2026-11-06，台账一致性核对）**：本项与 Check 336 同为 [exercised]，依据
+  2026-11-03 run `41481740766`（platform-freebsd **success**，`GATE_RESULT=GO`：全量构建
+  ＋全量测试＋三门 GO＋TUI/Web 冒烟）；2026-11-06 观察 run `42143683382` 出现
+  `store_gate = NO-GO`（根因未归因，记录见 `docs/matrices/compatibility.md`），不改变
+  本项历史收口结论。
 - [x] T241 [P] MCP 传输抽象与 Streamable HTTP 传输（ADR-055 §2.1—2.2）：trait
   Transport 六原语（write_message/read_message/abort_handle/eof_kind/shutdown/pid）
   解耦协议层与 I/O——stdio 子进程逻辑（spawn 环境净化/进程组/看门狗 terminate_tree/
@@ -779,6 +784,13 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 - [ ] T251 [P] 批次 B1 Web：对话页——WS 逐块推送、服务端直出无 JS 降级、预算审计
   （FR-742；ADR-057 决策 4）——**任务认知卡**：方向=对话流核心 Web 侧；目标=WS 增量
   呈现＋无 JS 降级等价；判据=check-frontend-budget 达标＋行为测试；非目标=审批交互（B3）
+  ——**复核（2026-11-06，部分完成，维持未勾）**：页面/tail API/同步发送（`56e40b9`）＋
+  服务端 turn 工作线程与 `llm.chunk`/`llm.loss` 帧（`fc3a0c0`＋本批 M2—M5/M9/M11）＋
+  前端消费（`chat.js` 订阅 `/ws`、按 session 过滤、有界实时尾、丢帧提示）已落地；前端
+  预算达标（chat.js gzip 2213 B／CSS 2346 B／DOM 20）；ADR-058 已转「已批准（附条件）」。
+  **未闭环**（Check 347 四条件之第 4 条）：三指标端到端归档 `artifacts/turn-ws-relay-*`
+  与新一轮 CI 取证（ADR-058 §2.8.8 用例 7—11）。条件齐备前不得勾选，也不得宣称 FR-742
+  完成。
 - [x] T252 [P] 批次 B1 视觉层：视觉 token 单一事实源＋zcode-day/night 双端落地＋四套
   主题 hex 断言升级六套全覆盖（FR-739/740；ADR-057 决策 2/3）——**任务认知卡**：
   方向=视觉对齐的单一事实源；目标=token 一处定义双端派生、六套主题断言全绿；
@@ -789,12 +801,31 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   styles.css 受校验产物契约测试逐值对照六套 bg/fg；本地定向 335 例＋layering/layout/
   frontend_parity＋clippy `-D warnings` 绿；CI run `42078616293`（12c9d27）success；
   Code Scanning 0 open。Check 344/345 同批转勾。
-- [ ] T253 [P] 批次 B2：会话侧栏对齐（搜索/排序/归档分组）＋任务/todo 面板，双端同批
+- [x] T253 [P] 批次 B2：会话侧栏对齐（搜索/排序/归档分组）＋任务/todo 面板，双端同批
   （FR-746/747）——**任务认知卡**：方向=会话与任务管理形态对齐；目标=双端同形态
   语义；判据=行为测试＋对等矩阵登记同步；非目标=检查点回滚执行（T254 口径）
-- [ ] T254 [P] 批次 B2：检查点浏览（列表＋差分摘要）；回滚执行后端能力缺则显式降级并
+  ——**完成（2026-11-07）**：后端 app 层 `session_directory`（标题/ID 子串、最近活跃/
+  创建/标题排序、活跃在前归档在后、搜索词 ≤128 字符显式拒绝）与 `task_panel`（总览＋
+  有界卡片：父链 `depends_on` 深度≤8＋环检测、重试计数、`truncated` 显式；store
+  `tasks_of_scope` 支持两作用域）；Web `/api/sessions` 接受 `q`/`sort`/`group` 并输出
+  `group`，`/api/tasks` 增卡片数组与进度；GUI 侧栏增搜索（`apply_session_view` 本地
+  过滤/排序/分组，`session_ids` 同步保证选中不漂）、任务面板按父缩进＋重试＋总览摘要；
+  `ViewSnapshot` 行类型扩 `archived`/时间戳/`parent_id`（TUI 不消费，渲染不变）；
+  i18n zh-CN/en 同批 22 键。测试 4 条（app 2／web 2／GUI 1，其中 app 与 GUI 各覆盖
+  目录规则）；Check 351/352 同批转勾。
+- [x] T254 [P] 批次 B2：检查点浏览（列表＋差分摘要）；回滚执行后端能力缺则显式降级并
   登记缺口（FR-748）——**任务认知卡**：方向=检查点可视化；目标=浏览可判定、不伪造
   可回滚；判据=浏览面行为测试＋（若降级）缺口登记合规；非目标=回滚执行实现
+  ——**完成（2026-11-07）**：新增能力面 `view.checkpoints`（SURFACES＋feature-parity
+  矩阵同批登记；CUI／TUI 按 cui_command_surface／six_view_scope 排除，GUI／Web 实现）；
+  app `checkpoint_view`：列表＋差分摘要三态（空对象→“（无变更）”、对象→键值对前 4 项
+  ＋总数、数组→“N 项”、损坏→显式标注），产物引用数按 `artifact_refs_json` 长度，
+  `rollback_supported=false` 且 `rollback_reason` 结构化（不伪造可回滚）；Web
+  `GET /api/checkpoints?task=`（缺参 400／任务不存在 404）＋任务行点选加载；GUI 任务行
+  增「检查点」按钮与内嵌面板（`ViewSource::checkpoints` 默认空，装配根实现）；
+  测试：app 1 条（三态摘要＋not_found＋权限＋降级字段）、web 1 条（200/400/404＋降级
+  字段）。**顺带修复**：web 测试迁移夹具补 `0007_json_variant.sql`（此前停在 0006，
+  测试 schema 与生产不同构，`CAST(... AS JSON)::VARIANT` 在文本列上退化为结构体文本）。
 - [ ] T255 [P] 批次 B3a（后端前置）：工具级交互审批 broker——权限规则（允许/询问/拒绝）、
   审批请求与决定审计事件、有界队列无常驻线程；开工前须立 ADR（ADR-048 修订或
   ADR-058）（FR-744；ADR-057 决策 6）——**任务认知卡**：方向=审批交互的后端前置；
@@ -825,6 +856,64 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   逐项登记）＋双端预算终测＋ADR-056 后续项移交确认（FR-739—753 全量；ADR-057 复审
   触发）——**任务认知卡**：方向=收口对账；目标=不留未登记差距；判据=
   traceability/check_counts 一致＋预算审计全绿；非目标=新增能力
+
+### Phase 14：Phase 1 执行层契约（ADR-060，2026-11-07 用户批准）
+
+- [x] T264 [P] 审批四态类型与 broker 后端（FR-754；ADR-060 项 A）：`whcode-domain` 新增封闭
+  枚举与 fail-closed 判定；`whcode-app` 新增有界 pending 表与 `ask/decide`；审计动作
+  `approval_asked`/`approval_decided`；**执行接线冻结至 T255**——**任务认知卡**：方向=审批
+  类型先行；目标=四态可判定且失败路径显式；判据=无应答者→`unavailable`、仅 `allowed_once`
+  放行、审计成对且失败阻断（全部行为测试）；非目标=UI 审批卡/在 turn 路径强制 ask
+  ——**取证（2026-11-07）**：`whcode-domain/src/approval.rs`（四态枚举、规则、`outcome_for`、
+  请求构造校验）＋`whcode-app/src/approval.rs`（有界 broker、asked/decided 成对审计、超限背压、
+  审计失败不推进状态）；`cargo test -p whcode-domain approval` 4/4、`-p whcode-app approval` 7/7、
+  clippy `-D warnings`、fmt 全绿；**执行接线按 ADR-060 §2.2 冻结至 T255**；CI 待运行（ADR-037 登记）。
+- [ ] T265 [P] 模型生成摘要压缩（FR-755；ADR-060 项 B）：超预算先摘要、三事件＋孤儿锁、
+  失败回退结构折叠——**任务认知卡**：方向=压缩语义化；目标=摘要可查且可回退；判据=
+  摘要成功/失败/锁孤儿/上限四路径测试；非目标=多级摘要/跨会话记忆
+- [x] T266 [P] 失败模型尝试持久化（FR-756；ADR-060 项 C）：`assistant_attempt` 事件＋容量上限
+  ——**任务认知卡**：方向=失败可审计；目标=失败尝试不污染模型历史但可查；判据=事件内容
+  断言＋上限测试；非目标=失败重放
+  ——**取证（2026-11-07）**：`EventKind::AssistantAttempt`（Critical）；`run_turn` 三处失败路径
+  （请求未发出 emit=false、流中错误 emit=true、截断/无终止原因 integrity）落事件，载荷只含
+  `reason/failure_code/failure_message(≤200 字符)/emitted/chunks/bytes`；失败尝试不进模型历史
+  （测试断言 assistant 消息 0）；`provider_failure_records_attempt_without_polluting_history`
+  覆盖请求未发出路径，turn 边界仍成对；`cargo test -p whcode-app` 163/163、clippy、fmt 绿；
+  CI 待运行（ADR-037）。
+- [ ] T267 [P] 单工具超时（FR-757；ADR-060 项 D）：`timeout_ms` 声明＋到期结构化结果
+  ——**任务认知卡**：方向=工具预算；目标=超时可判定且不强杀进程；判据=超时/正常/上限
+  三路径测试；非目标=线程级强杀
+- [ ] T268 [P] usage 锚点计量（FR-758；ADR-060 项 E）：最近成功 usage 单条锚点＋增量估算
+  ——**任务认知卡**：方向=计量准确化；目标=锚点缺失时行为不变；判据=锚点命中/缺失回退
+  测试；非目标=多供应商矩阵
+- [ ] T269 [P] 工具输出契约（FR-759；ADR-060 项 F）：输出 schema＋渲染投影＋校验失败结构化
+  ——**任务认知卡**：方向=模型面与展示面分离；目标=契约可校验；判据=合法/非法/超限
+  三路径；非目标=GUI 卡片渲染（属 T256）
+- [x] T270 [P] turn 边界先落（FR-760；ADR-060 项 G）：`turn/start` 单独提交＋未闭合可见
+  ——**任务认知卡**：方向=崩溃可判定；目标=边界先于首次模型调用落库；判据=崩溃模拟
+  下 `interrupted` 可见；非目标=改事件批处理语义
+  ——**取证（2026-11-07）**：`EventKind::TurnStarted/TurnFinished`（Critical）；
+  `run_turn` 在首次模型调用与消息落表前单独事务提交 `TurnStarted`，正常终止与两条供应商/流
+  错误路径均补 `TurnFinished`；`whcode_store::turn::unclosed_turns`（成对缺失即未闭合，扫描
+  上限 64）供 `interrupted` 判定；测试 `single_round_without_tools_finishes_with_model_finished`
+  断言 (started, finished)==(1,1) 且 unclosed 为空，store 侧
+  `unclosed_turns_detects_started_without_finished` 断言 started-only 被识别；
+  `cargo check --workspace --all-targets`、clippy `-D warnings`、fmt 绿；CI 待运行（ADR-037）。
+- [ ] T271 [P] 证据态命名对齐（FR-761；ADR-060 项 H）：五态映射表＋升级判据＋拒绝评分制
+  ——**任务认知卡**：方向=证据语言统一；目标=指南与门禁同口径；判据=映射表可判定；
+  非目标=改 Check 编号
+- [ ] T272 [P] 评审协议指南（P2.3；ADR-059）：`docs/guides/review-protocol.md`（三域独立/
+  调和冻结/质量门/硬上限 3）——**任务认知卡**：方向=评审纪律成文；目标=可执行清单；
+  判据=指南含判据与失效条件；非目标=引入评分
+- [ ] T273 [P] 覆盖率试点（FR-762；ADR-060 项 I）：`cargo-llvm-cov` 脚本＋阈值 90%＋豁免清单
+  ——**任务认知卡**：方向=测试强度可证；目标=app/store 覆盖可复现；判据=脚本输出与
+  豁免清单一致；非目标=全仓门禁
+- [ ] T274 [P] ADR 已知限制校验（FR-763；ADR-060 项 J）：脚本校验新 ADR 含“已知限制/失效
+  条件”节——**任务认知卡**：方向=决策文档防腐；目标=校验可判定；判据=缺失即失败；
+  非目标=回写存量 ADR
+- [ ] T275 [P] 真 API 冒烟（FR-764；ADR-060 项 K）：sensenova 单条、无 key 自跳过、结果归档
+  ——**任务认知卡**：方向=真链路证据；目标=跳过不假绿；判据=有/无凭据两路径；
+  非目标=全量 e2e
 
 ---
 

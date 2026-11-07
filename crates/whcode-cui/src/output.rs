@@ -53,7 +53,7 @@ pub const fn exit_code(code: &ErrorCode) -> i32 {
         ErrorCode::NotFound => 60,
         ErrorCode::IoError => 70,
         ErrorCode::ParseError => 80,
-        ErrorCode::Timeout => 90,
+        ErrorCode::Timeout | ErrorCode::ToolTimeout => 90,
         ErrorCode::Internal => 99,
     }
 }

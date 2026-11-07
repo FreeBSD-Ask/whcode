@@ -68,6 +68,98 @@ pub fn task_overview(
     })
 }
 
+/// 任务面板卡片数上限（有界；超出置 `truncated`，不静默丢弃）。
+pub const MAX_TASK_CARDS: usize = 200;
+
+/// 依赖链回溯深度上限（父链环或过深时截断，不无限回溯）。
+pub const MAX_TASK_DEPTH: usize = 8;
+
+/// 任务卡片（FR-747）：状态、重试计数与父链依赖来自 `tasks` 原始行。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TaskCard {
+    /// 任务 ID。
+    pub id: String,
+    /// 标题。
+    pub title: String,
+    /// SDD 阶段。
+    pub stage: String,
+    /// 状态。
+    pub status: TaskStatus,
+    /// 重试计数（原行值，不做推断）。
+    pub retry_count: i64,
+    /// 直接父任务（层级依赖，FR-406）。
+    pub parent_id: Option<String>,
+    /// 从近到远的祖先链（父依赖）；环或超过 [`MAX_TASK_DEPTH`] 时截断。
+    pub depends_on: Vec<String>,
+}
+
+/// 任务面板（FR-747）：总览（阶段/完成/阻塞/活跃）＋ 有界任务卡片。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TaskPanel {
+    /// 与 [`task_overview`] 同源的总览（强一致）。
+    pub overview: TaskOverview,
+    /// 任务卡片，最近更新在前。
+    pub tasks: Vec<TaskCard>,
+    /// `true` 表示任务数超过 `limit`，卡片清单被截断（总览计数仍为全量）。
+    pub truncated: bool,
+}
+
+/// 生成任务面板（FR-747）：`overview` 与卡片同一次权限判定、同一作用域。
+///
+/// `session_id = None` 为工作区级；`limit` 封顶于 [`MAX_TASK_CARDS`]。依赖链只
+/// 在当前结果集内回溯（父任务被截断时链在此断开，但 `parent_id` 仍保留原值），
+/// 不额外查询、不引入环风险（`MAX_TASK_DEPTH` 兜底）。
+///
+/// # Errors
+///
+/// 权限拒绝或存储失败时返回 [`WhError`]。
+pub fn task_panel(
+    conn: &Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    session_id: Option<&str>,
+    limit: usize,
+) -> Result<TaskPanel, WhError> {
+    let overview = task_overview(conn, policy, actor, session_id)?;
+    let effective = limit.clamp(1, MAX_TASK_CARDS);
+    // 多取一条用于判定截断，避免额外 COUNT 查询。
+    let mut rows = tasks::tasks_of_scope(conn, session_id, effective + 1)?;
+    let truncated = rows.len() > effective;
+    rows.truncate(effective);
+    let parents: BTreeMap<String, Option<String>> = rows
+        .iter()
+        .map(|row| (row.id.clone(), row.parent_id.clone()))
+        .collect();
+    let cards = rows
+        .into_iter()
+        .map(|row| {
+            let mut depends_on: Vec<String> = Vec::new();
+            let mut cursor = row.parent_id.clone();
+            while let Some(parent) = cursor {
+                if depends_on.len() >= MAX_TASK_DEPTH || depends_on.contains(&parent) {
+                    break;
+                }
+                cursor = parents.get(&parent).cloned().flatten();
+                depends_on.push(parent);
+            }
+            TaskCard {
+                id: row.id,
+                title: row.title,
+                stage: row.stage,
+                status: row.status,
+                retry_count: row.retry_count,
+                parent_id: row.parent_id,
+                depends_on,
+            }
+        })
+        .collect();
+    Ok(TaskPanel {
+        overview,
+        tasks: cards,
+        truncated,
+    })
+}
+
 /// converge 差异视图的行数上限（有界；超出截断并置 `truncated`，不静默丢弃）。
 pub const MAX_CONVERGE_DIFFERENCES: usize = 200;
 
@@ -315,6 +407,72 @@ mod tests {
         assert_eq!(workspace_view.by_stage.get("plan"), Some(&2));
         assert_eq!(workspace_view.active.len(), 2, "S-1 与 S-2 的活跃任务都在");
         assert!(workspace_view.session_id.is_none());
+    }
+
+    #[test]
+    fn task_panel_reports_dependency_chain_retries_and_truncation() {
+        let conn = migrated();
+        seed(&conn);
+        insert_task(
+            &conn,
+            &NewTask {
+                id: "T-5",
+                session_id: "S-1",
+                title: "子任务",
+                stage: "implement",
+                parent_id: Some("T-3"),
+                acceptance_json: "[]",
+            },
+            3_500,
+        )
+        .expect("T-5");
+        insert_task(
+            &conn,
+            &NewTask {
+                id: "T-6",
+                session_id: "S-1",
+                title: "孙任务",
+                stage: "implement",
+                parent_id: Some("T-5"),
+                acceptance_json: "[]",
+            },
+            3_600,
+        )
+        .expect("T-6");
+        update_task_status(&conn, "T-6", TaskStatus::Running, 2, 3_700).expect("重试计数");
+        let policy = DefaultPolicy;
+        let actor = actor_with_all_capabilities("tester");
+
+        let panel = task_panel(&conn, &policy, &actor, Some("S-1"), 10).expect("面板");
+        assert_eq!(panel.overview.total, 5);
+        assert!(!panel.truncated);
+        let card = panel
+            .tasks
+            .iter()
+            .find(|card| card.id == "T-6")
+            .expect("T-6 卡片");
+        assert_eq!(card.retry_count, 2, "重试计数取原行值");
+        assert_eq!(card.parent_id.as_deref(), Some("T-5"));
+        assert_eq!(
+            card.depends_on,
+            vec!["T-5".to_string(), "T-3".to_string()],
+            "祖先链从近到远"
+        );
+
+        let limited = task_panel(&conn, &policy, &actor, Some("S-1"), 2).expect("截断");
+        assert!(limited.truncated, "超限必须显式标记");
+        assert_eq!(limited.tasks.len(), 2);
+        assert_eq!(limited.overview.total, 5, "总览计数不受卡片截断影响");
+
+        let denied = task_panel(
+            &conn,
+            &policy,
+            &crate::authz::Actor::new("无能力", []),
+            Some("S-1"),
+            10,
+        )
+        .expect_err("无 TaskRead 必须拒绝");
+        assert_eq!(denied.code, whcode_domain::ErrorCode::PermissionDenied);
     }
 
     #[test]
