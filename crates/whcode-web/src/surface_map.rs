@@ -25,6 +25,7 @@ pub fn surface_of(method: &str, path: &str) -> Option<&'static str> {
         ("GET", "/api/status") => Some("spec.status"),
         ("GET", "/api/sessions") => Some("session.list"),
         ("GET", "/api/events") => Some("events.list"),
+        ("GET", "/api/checkpoints") => Some("view.checkpoints"),
         ("GET", "/api/tasks") => Some("task.overview"),
         ("GET", "/api/runtimes") => Some("runtime.list"),
         ("GET", "/api/i18n") => Some("locale"),

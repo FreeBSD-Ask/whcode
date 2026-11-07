@@ -158,6 +158,17 @@ pub struct TaskRow {
     pub parent_id: Option<String>,
 }
 
+/// 检查点条目（FR-748；任务面板内嵌浏览）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CheckpointItem {
+    /// 检查点 ID。
+    pub id: String,
+    /// 步骤序号。
+    pub step: i64,
+    /// 差分摘要（已归纳、有界）。
+    pub summary: String,
+}
+
 /// 事件条目（只读快照；载荷经准备层处理，帧路径不做反序列化）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct EventRow {
@@ -637,6 +648,12 @@ pub trait ViewSource {
     /// 纪律：turn 运行期间**不得调用**（连接锁被后台线程持有——GUI 在提交前取
     /// 快照、完成后刷新）。默认空（空数据源与测试夹具兼容）。
     fn conversation_tail(&self, _session_id: &str, _max: usize) -> Vec<(String, String)> {
+        Vec::new()
+    }
+
+    /// 任务检查点（FR-748）：默认空——不提供该能力的视图源返回空向量。
+    /// 回滚能力不在此接口：后端未实现，GUI/Web 由命令面显式降级。
+    fn checkpoints(&self, _task: &str) -> Vec<CheckpointItem> {
         Vec::new()
     }
 }

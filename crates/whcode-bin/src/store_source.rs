@@ -15,7 +15,9 @@
 use std::sync::{Arc, Mutex};
 
 use duckdb::Connection;
-use whcode_app::view_source::{EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource};
+use whcode_app::view_source::{
+    CheckpointItem, EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource,
+};
 use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
 use whcode_domain::i18n::I18n;
 use whcode_domain::{TraceLevel, WhError};
@@ -66,6 +68,27 @@ impl StoreViewSource {
     /// 持久化事件游标（FR-624/T178）：O(1) 单值查询，供 TUI 低频在线可见检查。
     fn cursor_of(&self) -> Option<i64> {
         whcode_store::latest_seq(&self.conn.lock().expect("store 连接锁中毒")).ok()
+    }
+
+    fn checkpoints(&self, task: &str) -> Vec<CheckpointItem> {
+        let view = whcode_app::checkpoint_view(
+            &self.conn.lock().expect("store 连接锁中毒"),
+            &self.policy,
+            &self.actor,
+            task,
+        );
+        match view {
+            Ok(view) => view
+                .checkpoints
+                .into_iter()
+                .map(|entry| CheckpointItem {
+                    id: entry.id,
+                    step: entry.step,
+                    summary: entry.delta_summary,
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        }
     }
 
     fn build_sessions(&self) -> Result<ViewSnapshot, WhError> {

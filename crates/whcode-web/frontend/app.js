@@ -262,6 +262,45 @@ function updateSessionHighlight() {
   }
 }
 
+// 检查点浏览（FR-748）：列表＋差分摘要；回滚能力由服务端显式降级，不伪造可回滚。
+async function loadCheckpoints(taskId) {
+  const list = el("checkpoint-list");
+  const hint = el("checkpoint-hint");
+  list.textContent = "";
+  try {
+    const data = await fetchJson(`/api/checkpoints?task=${encodeURIComponent(taskId)}`);
+    hint.textContent =
+      data.rollback?.supported === false
+        ? t("web.checkpoints.degraded", "回滚执行未实现（显式降级）：本页仅提供浏览与差分摘要")
+        : t("web.checkpoints.ready", "回滚可用");
+    if ((data.checkpoints ?? []).length === 0) {
+      const empty = document.createElement("li");
+      empty.textContent = t("web.checkpoints.empty", "该任务暂无检查点");
+      list.append(empty);
+      return;
+    }
+    for (const point of data.checkpoints) {
+      const item = document.createElement("li");
+      const bits = [`#${point.step}`, point.id, point.delta_summary];
+      if (point.artifact_refs > 0) {
+        bits.push(t("web.checkpoints.refs", "产物引用 {count}", { count: point.artifact_refs }));
+      }
+      item.textContent = bits.join(" · ");
+      list.append(item);
+    }
+    if (data.truncated) {
+      const truncated = document.createElement("li");
+      truncated.className = "meta-line";
+      truncated.textContent = t("web.checkpoints.truncated", "检查点超过上限，清单已截断");
+      list.append(truncated);
+    }
+  } catch (error) {
+    hint.textContent = t("web.checkpoints.failed", "读取检查点失败：{error}", {
+      error: error.message,
+    });
+  }
+}
+
 // 任务视图（FR-103，批次 1）：会话范围的任务总览 + 活跃任务（有界）。
 async function loadTasks() {
   const session = state.session;
@@ -307,6 +346,16 @@ async function loadTasks() {
       );
     }
     item.textContent = parts.join(" · ");
+    item.tabIndex = 0;
+    item.setAttribute("role", "button");
+    const openCheckpoints = () => loadCheckpoints(task.id);
+    item.addEventListener("click", openCheckpoints);
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openCheckpoints();
+      }
+    });
     // 写命令（FR-609）：重试/中止与 CUI `task retry|abort` 同一应用服务（仅运行中）。
     const actions =
       task.status === "running"

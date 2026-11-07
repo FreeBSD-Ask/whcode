@@ -1511,6 +1511,28 @@ pub const SURFACES: &[SurfaceEntry] = &[
     // 在线可见（其他端更改；FR-605／624）：Web 经 WebSocket 推送；TUI 低频游标检查
     // （T178 已交付）；GUI 显式刷新（FR-711／714）。
     SurfaceEntry {
+        id: "view.checkpoints",
+        kind: SurfaceKind::View,
+        capability: Capability::TaskRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CuiCommandSurface,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::SixViewScope,
+            },
+            Support::Implemented {
+                anchor: "State::open_checkpoints（Tasks 视图内嵌）",
+            },
+            Support::Implemented {
+                anchor: "GET /api/checkpoints?task=",
+            },
+        ],
+    },
+    SurfaceEntry {
         id: "view.changes",
         kind: SurfaceKind::View,
         capability: Capability::SessionRead,
@@ -1729,9 +1751,10 @@ mod tests {
                 "view.spec",
                 "view.diff",
                 "view.chat",
+                "view.checkpoints",
                 "view.changes"
             ],
-            "视图面条目为证书设置页 + 六视图 + 在线可见（FR-601／622／624、ADR-040）"
+            "视图面条目为证书设置页 + 七视图 + 检查点浏览 + 在线可见（FR-601／622／624／748、ADR-040）"
         );
     }
 

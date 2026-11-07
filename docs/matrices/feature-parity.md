@@ -77,6 +77,7 @@ T190：新增证书库设置两行）。
 | `view.spec` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-601／622；◐ cui_command_surface |
 | `view.diff` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-601／622；◐ cui_command_surface |
 | `view.chat` | View | Read | ◐ | ✅ | ✅ | ✅ | FR-711；◐ cui_command_surface（Web 经 llm API） |
+| `view.checkpoints` | View | Read | ◐ | ◐ | ✅ | ✅ | FR-748；◐ cui_command_surface／six_view_scope |
 | `view.changes` | View | Read | ◐ | ✅ | ◐ | ✅ | FR-605／624；◐ cui_request_only、gui_manual_refresh |
 
 **权限**：全部命令经 `whcode-app::authz` 统一判定（拒绝 `permission_denied` 不可重试，

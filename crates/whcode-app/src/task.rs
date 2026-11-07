@@ -99,6 +99,123 @@ pub fn task_detail(
     })
 }
 
+/// 检查点差分摘要的字符上限（超过截断并加省略号，不整体下发原文）。
+pub const MAX_CHECKPOINT_SUMMARY_CHARS: usize = 200;
+
+/// 检查点浏览条目（FR-748）：差分摘要由 `delta_json` 归纳，原文不整体下发。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CheckpointEntry {
+    /// 检查点 ID。
+    pub id: String,
+    /// 步骤序号。
+    pub step: i64,
+    /// 差分摘要（键值对或“N 项”；JSON 损坏时显式标注）。
+    pub delta_summary: String,
+    /// 消息游标（可空）。
+    pub message_cursor: Option<String>,
+    /// 附加的产物引用数（`artifact_refs_json` 的数组长度）。
+    pub artifact_refs: usize,
+    /// 时间（Unix 毫秒）。
+    pub ts_ms: i64,
+}
+
+/// 检查点浏览视图（FR-748）：列表＋差分摘要＋**显式**回滚能力登记。
+///
+/// 回滚执行后端尚未实现——`rollback_supported = false` 且 `rollback_reason` 可判定，
+/// 不把“能看”伪装成“能回滚”（信号链完备原则）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CheckpointView {
+    /// 任务 ID。
+    pub task_id: String,
+    /// 检查点（按 `step` 升序，有界 [`whcode_store::tasks::MAX_DETAIL_CHECKPOINTS`]）。
+    pub checkpoints: Vec<CheckpointEntry>,
+    /// `true` 表示检查点达到上限，清单可能不完整。
+    pub truncated: bool,
+    /// 回滚执行是否可用（当前恒 `false`，后端未实现）。
+    pub rollback_supported: bool,
+    /// 回滚不可用的原因（结构化文案）。
+    pub rollback_reason: String,
+}
+
+/// 检查点浏览（FR-748）：列表＋差分摘要，回滚能力显式降级。
+///
+/// # Errors
+///
+/// 权限拒绝、任务不存在或存储失败时返回 [`WhError`]。
+pub fn checkpoint_view(
+    conn: &Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    task_id: &str,
+) -> Result<CheckpointView, WhError> {
+    require(policy, actor, Capability::TaskRead)?;
+    // 任务不存在按 not_found 失败（与 task_detail 同口径），不返回空清单。
+    let _ = load_task(conn, task_id)?;
+    let rows = tasks::task_checkpoints(conn, task_id)?;
+    let truncated = rows.len() >= tasks::MAX_DETAIL_CHECKPOINTS;
+    let checkpoints = rows
+        .into_iter()
+        .map(|row| CheckpointEntry {
+            id: row.id,
+            step: row.step,
+            delta_summary: summarize_delta(&row.delta_json),
+            message_cursor: row.message_cursor,
+            artifact_refs: serde_json::from_str::<serde_json::Value>(&row.artifact_refs_json)
+                .ok()
+                .and_then(|value| value.as_array().map(Vec::len))
+                .unwrap_or(0),
+            ts_ms: row.ts_ms,
+        })
+        .collect();
+    Ok(CheckpointView {
+        task_id: task_id.to_string(),
+        checkpoints,
+        truncated,
+        rollback_supported: false,
+        rollback_reason: "not_supported：回滚执行后端未实现（FR-748 显式降级，不伪造可回滚）"
+            .to_string(),
+    })
+}
+
+/// 把 `delta_json` 归纳为有界摘要：对象取前若干键值、数组取项数、损坏显式标注。
+fn summarize_delta(raw: &str) -> String {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) else {
+        return "（增量 JSON 损坏）".to_string();
+    };
+    let text = match &value {
+        serde_json::Value::Object(map) if map.is_empty() => "（无变更）".to_string(),
+        serde_json::Value::Object(map) => {
+            let mut parts: Vec<String> = map
+                .iter()
+                .take(4)
+                .map(|(key, value)| format!("{key}={}", scalar(value)))
+                .collect();
+            if map.len() > 4 {
+                parts.push(format!("…（共 {} 项）", map.len()));
+            }
+            parts.join(", ")
+        }
+        serde_json::Value::Array(items) => format!("{} 项", items.len()),
+        other => scalar(other),
+    };
+    if text.chars().count() > MAX_CHECKPOINT_SUMMARY_CHARS {
+        let mut bounded: String = text.chars().take(MAX_CHECKPOINT_SUMMARY_CHARS).collect();
+        bounded.push('…');
+        bounded
+    } else {
+        text
+    }
+}
+
+/// 标量值的紧凑呈现（字符串去引号；容器退回 JSON 字面量）。
+fn scalar(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(text) => text.clone(),
+        serde_json::Value::Null => "null".to_string(),
+        other => other.to_string(),
+    }
+}
+
 /// 重试任务（FR-401）：`failed`/`aborted`/`interrupted` → `ready`，重试计数 +1。
 ///
 /// # Errors
@@ -257,6 +374,52 @@ mod tests {
             params![seq, format!("E-{seq}"), task_id, payload],
         )
         .expect("插入事件");
+    }
+
+    #[test]
+    fn checkpoint_view_summarizes_deltas_and_degrades_rollback() {
+        let conn = migrated();
+        task_with_status(&conn, "T-1", TaskStatus::Running);
+        conn.execute(
+            "INSERT INTO checkpoints (id, task_id, step, delta_json, message_cursor,
+                                      artifact_refs_json, ts)
+             VALUES ('C-1', 'T-1', 1, CAST('{}' AS JSON)::VARIANT, NULL,
+                     CAST('[]' AS JSON)::VARIANT, current_timestamp),
+                    ('C-2', 'T-1', 2, CAST('{\"from\":\"ready\",\"to\":\"running\"}' AS JSON)::VARIANT,
+                     'M-9', CAST('[{},{}]' AS JSON)::VARIANT, current_timestamp),
+                    ('C-3', 'T-1', 3, CAST('[1,2,3]' AS JSON)::VARIANT, NULL,
+                     CAST('[]' AS JSON)::VARIANT, current_timestamp)",
+            [],
+        )
+        .expect("检查点");
+        let policy = DefaultPolicy;
+        let actor = actor_with_all_capabilities("tester");
+
+        let view = checkpoint_view(&conn, &policy, &actor, "T-1").expect("检查点视图");
+        assert_eq!(view.task_id, "T-1");
+        assert!(!view.truncated);
+        assert!(!view.rollback_supported, "回滚执行未实现，必须显式降级");
+        assert!(view.rollback_reason.contains("not_supported"));
+        assert_eq!(
+            view.checkpoints[0].delta_summary, "（无变更）",
+            "空对象摘要"
+        );
+        let second = &view.checkpoints[1];
+        assert!(second.delta_summary.contains("from=ready"), "键值摘要");
+        assert_eq!(second.artifact_refs, 2);
+        assert_eq!(second.message_cursor.as_deref(), Some("M-9"));
+        assert_eq!(view.checkpoints[2].delta_summary, "3 项", "数组摘要");
+
+        let missing = checkpoint_view(&conn, &policy, &actor, "T-none").expect_err("缺任务");
+        assert_eq!(missing.code, whcode_domain::ErrorCode::NotFound);
+        let denied = checkpoint_view(
+            &conn,
+            &policy,
+            &crate::authz::Actor::new("无能力", []),
+            "T-1",
+        )
+        .expect_err("无 TaskRead");
+        assert_eq!(denied.code, whcode_domain::ErrorCode::PermissionDenied);
     }
 
     #[test]

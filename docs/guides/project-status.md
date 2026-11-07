@@ -12,12 +12,12 @@
 | 项 | 数量 |
 |---|---|
 | 功能需求 FR | 142 |
-| 任务 | 275（已完成 253，未完成 22） |
-| 验收检查点 | 370（已有复核记录 349，missing 21） |
+| 任务 | 275（已完成 256，未完成 19） |
+| 验收检查点 | 370（已有复核记录 352，missing 18） |
 
-证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 300、
-outcome-supported 49、missing 21。missing 集中在 Phase 24（B1 余项与 B3—B5）与 ADR-059
-逐批入账新增的检查点；B2（T253/Check 351—352）已于 2026-11-07 转勾。
+证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 303、
+outcome-supported 49、missing 18。missing 集中在 Phase 24（B1 余项与 B3—B5）与 ADR-059
+逐批入账新增的检查点；B2（T253/Check 351—352）与检查点浏览（T254/Check 353）已于 2026-11-07 转勾。
 并行会话在途（截至本快照）：T251 的 WS 逐块实现已提交 `fc3a0c0`／`942dd14`，ADR-058
 于 2026-11-06 经用户「批准开发」转**已批准（附条件）**，条件 M2—M5／M9—M11 已落地、
 M7 的用例 1—6 已落地；T251 勾选与 Check 347 取证**仍未回填**（缺三指标归档与新一轮

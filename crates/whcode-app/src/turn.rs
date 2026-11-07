@@ -1244,7 +1244,12 @@ fn execute_tool_call(
             None,
         );
     }
-    match tool.execute(workspace, &arguments) {
+    // 协作式预算（T267／FR-757）：只对声明 `timeout_ms` 的工具生效；执行器不强杀代码，
+    // 由工具在自有循环里检查截止时间并主动返回 `ToolTimeout`。声明值按
+    // `MAX_TOOL_TIMEOUT_MS` 截断（effective_deadline 统一收口）。
+    let deadline =
+        whcode_tools::effective_deadline(descriptor.timeout_ms, std::time::Instant::now());
+    match tool.execute_with_deadline(workspace, &arguments, deadline) {
         Ok(output) => {
             if let Err(err) = record_result(
                 conn,
@@ -1271,14 +1276,15 @@ fn execute_tool_call(
             )
         }
         Err(err) => {
-            if let Err(record_err) = record_result(
-                conn,
-                exec_id,
-                RuntimeExecutionStatus::Failed,
-                None,
-                None,
-                now_ms,
-            ) {
+            let timed_out = err.code == whcode_domain::ErrorCode::ToolTimeout;
+            // timed_out=true 的结构化载体是 `TimedOut` 终态（store 恢复语义早已接受）；
+            // 超时无输出也无副作用，两个引用槽位都保持 None（不塞魔法字符串）。
+            let status = if timed_out {
+                RuntimeExecutionStatus::TimedOut
+            } else {
+                RuntimeExecutionStatus::Failed
+            };
+            if let Err(record_err) = record_result(conn, exec_id, status, None, None, now_ms) {
                 return fail(
                     RuntimeExecutionStatus::Failed,
                     format!(
@@ -1288,11 +1294,22 @@ fn execute_tool_call(
                     None,
                 );
             }
-            (
-                RuntimeExecutionStatus::Failed,
-                format!("工具 {} 执行失败：{err}", tool_call.name),
-                None,
-            )
+            if timed_out {
+                (
+                    RuntimeExecutionStatus::TimedOut,
+                    format!(
+                        "工具 {} 执行超时（tool_timeout：已停止等待，本次结果作废，不得重试同一调用）",
+                        tool_call.name
+                    ),
+                    None,
+                )
+            } else {
+                (
+                    RuntimeExecutionStatus::Failed,
+                    format!("工具 {} 执行失败：{err}", tool_call.name),
+                    None,
+                )
+            }
         }
     }
 }

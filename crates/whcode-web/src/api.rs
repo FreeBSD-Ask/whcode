@@ -722,6 +722,44 @@ pub fn handle_request_with_llm(
                 Err(error) => error_response(&error),
             }
         }
+        (Method::Get, "/api/checkpoints") => {
+            // 检查点浏览（FR-748）：列表＋差分摘要；回滚能力显式降级，不伪造可回滚。
+            let Some(task) = query_value("task") else {
+                return error_response(&WhError::invalid_state("缺 task 参数"));
+            };
+            match whcode_app::checkpoint_view(conn, &policy, actor, task) {
+                Ok(view) => {
+                    let checkpoints: Vec<serde_json::Value> = view
+                        .checkpoints
+                        .iter()
+                        .map(|entry| {
+                            serde_json::json!({
+                                "id": entry.id,
+                                "step": entry.step,
+                                "delta_summary": entry.delta_summary,
+                                "message_cursor": entry.message_cursor,
+                                "artifact_refs": entry.artifact_refs,
+                                "ts_ms": entry.ts_ms,
+                            })
+                        })
+                        .collect();
+                    HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "task_id": view.task_id,
+                            "checkpoints": checkpoints,
+                            "truncated": view.truncated,
+                            "rollback": {
+                                "supported": view.rollback_supported,
+                                "reason": view.rollback_reason,
+                            },
+                        }),
+                    )
+                }
+                Err(error) => error_response(&error),
+            }
+        }
         (Method::Get, "/api/context") => {
             // 上下文读取面（FR-622／174.1）：与 TUI／GUI 同一 `load_context`，字段同源。
             let Some(session) = query_value("session") else {
@@ -1697,6 +1735,10 @@ mod tests {
         include_str!("../../whcode-store/migrations/0004_session_id_sequence.sql"),
         include_str!("../../whcode-store/migrations/0005_session_stage.sql"),
         include_str!("../../whcode-store/migrations/0006_events_variant.sql"),
+        // 0007：JSON 语义列转 VARIANT（ADR-036）。测试 schema 必须与生产同构，
+        // 否则 checkpoints.delta_json 仍是文本列、CAST(... AS JSON)::VARIANT 退化为
+        // 结构体文本（2026-11-07 实测）。
+        include_str!("../../whcode-store/migrations/0007_json_variant.sql"),
     );
 
     fn migrated() -> Connection {
@@ -1959,6 +2001,85 @@ mod tests {
         assert_eq!(child["retry_count"], 2, "重试计数取原行值");
         assert_eq!(child["depends_on"], serde_json::json!(["T-1"]));
         assert_eq!(child["parent_id"], "T-1");
+    }
+
+    #[test]
+    fn checkpoints_route_reports_summary_and_rollback_degradation() {
+        let mut conn = migrated();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-C', '检查点', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("创建会话");
+        conn.execute(
+            "INSERT INTO tasks (id, session_id, title, stage, status, parent_id,
+                                acceptance_json, retry_count, updated_at)
+             VALUES ('T-C', 'S-C', '检查点任务', 'implement', 'running', NULL,
+                     CAST('[]' AS JSON)::VARIANT, 0, current_timestamp)",
+            [],
+        )
+        .expect("插入任务");
+        // ADR-036 写入口径：CAST(? AS JSON)::VARIANT（不经内联字符串转义）。
+        conn.execute(
+            "INSERT INTO checkpoints (id, task_id, step, delta_json, message_cursor,
+                                      artifact_refs_json, ts)
+             VALUES ('C-1', 'T-C', 1, CAST(? AS JSON)::VARIANT,
+                     NULL, CAST('[]' AS JSON)::VARIANT, current_timestamp)",
+            duckdb::params![r#"{"from":"pending","to":"running"}"#],
+        )
+        .expect("检查点");
+        let actor = actor_with_all_capabilities("tester");
+
+        let req = request(Method::Get, "/api/checkpoints?task=T-C", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(
+            response.status,
+            200,
+            "body={}",
+            String::from_utf8_lossy(&response.body)
+        );
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["task_id"], "T-C");
+        assert_eq!(body["truncated"], false);
+        assert_eq!(body["rollback"]["supported"], false, "回滚能力显式降级");
+        let entries = body["checkpoints"].as_array().expect("数组");
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0]["step"], 1);
+        assert!(
+            entries[0]["delta_summary"]
+                .as_str()
+                .expect("摘要")
+                .contains("to=running")
+        );
+
+        let req = request(Method::Get, "/api/checkpoints", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 400, "缺 task 参数");
+        let req = request(Method::Get, "/api/checkpoints?task=T-none", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 404, "任务不存在");
     }
 
     #[test]

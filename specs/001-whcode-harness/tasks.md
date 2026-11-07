@@ -813,9 +813,19 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   `ViewSnapshot` 行类型扩 `archived`/时间戳/`parent_id`（TUI 不消费，渲染不变）；
   i18n zh-CN/en 同批 22 键。测试 4 条（app 2／web 2／GUI 1，其中 app 与 GUI 各覆盖
   目录规则）；Check 351/352 同批转勾。
-- [ ] T254 [P] 批次 B2：检查点浏览（列表＋差分摘要）；回滚执行后端能力缺则显式降级并
+- [x] T254 [P] 批次 B2：检查点浏览（列表＋差分摘要）；回滚执行后端能力缺则显式降级并
   登记缺口（FR-748）——**任务认知卡**：方向=检查点可视化；目标=浏览可判定、不伪造
   可回滚；判据=浏览面行为测试＋（若降级）缺口登记合规；非目标=回滚执行实现
+  ——**完成（2026-11-07）**：新增能力面 `view.checkpoints`（SURFACES＋feature-parity
+  矩阵同批登记；CUI／TUI 按 cui_command_surface／six_view_scope 排除，GUI／Web 实现）；
+  app `checkpoint_view`：列表＋差分摘要三态（空对象→“（无变更）”、对象→键值对前 4 项
+  ＋总数、数组→“N 项”、损坏→显式标注），产物引用数按 `artifact_refs_json` 长度，
+  `rollback_supported=false` 且 `rollback_reason` 结构化（不伪造可回滚）；Web
+  `GET /api/checkpoints?task=`（缺参 400／任务不存在 404）＋任务行点选加载；GUI 任务行
+  增「检查点」按钮与内嵌面板（`ViewSource::checkpoints` 默认空，装配根实现）；
+  测试：app 1 条（三态摘要＋not_found＋权限＋降级字段）、web 1 条（200/400/404＋降级
+  字段）。**顺带修复**：web 测试迁移夹具补 `0007_json_variant.sql`（此前停在 0006，
+  测试 schema 与生产不同构，`CAST(... AS JSON)::VARIANT` 在文本列上退化为结构体文本）。
 - [ ] T255 [P] 批次 B3a（后端前置）：工具级交互审批 broker——权限规则（允许/询问/拒绝）、
   审批请求与决定审计事件、有界队列无常驻线程；开工前须立 ADR（ADR-048 修订或
   ADR-058）（FR-744；ADR-057 决策 6）——**任务认知卡**：方向=审批交互的后端前置；

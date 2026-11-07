@@ -13,6 +13,15 @@
 
 ### 变更
 
+- **检查点浏览（T254/FR-748，ADR-057 批次 B2）**（2026-11-07）：①新增能力面
+  `view.checkpoints`（SURFACES＋对等矩阵同批；CUI／TUI 按登记理由排除，GUI／Web 实现）；
+  ②app `task::checkpoint_view`：有界列表＋差分摘要三态（空对象／键值对前 4 项＋总数／
+  数组项数／损坏显式标注），产物引用数按 `artifact_refs_json`，**回滚能力显式降级**
+  （`rollback_supported=false`＋结构化 reason，不伪造可回滚）；③Web `GET /api/checkpoints`
+  ＋任务行点选加载（缺参 400／不存在 404）；④GUI 任务行「检查点」按钮＋内嵌面板；
+  ⑤修复 web 测试迁移夹具停在 0006 的缺口（补 `0007_json_variant.sql`，测试 schema 与
+  生产同构）。测试 2 条（app／web）；Check 353 转勾。
+
 - **B2 后端＋Web：会话目录与任务面板（T253 部分，FR-746/747）**（2026-11-07，ADR-057
   批次 B2）：①app 层新增 `session::session_directory`（标题/ID 子串搜索、最近活跃/
   创建/标题三种排序、活跃在前归档在后的分组；搜索词 ≤128 字符显式拒绝，不静默截断）

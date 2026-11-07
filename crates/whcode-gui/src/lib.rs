@@ -30,7 +30,7 @@ use iced::{
 use whcode_app::SessionSort;
 use whcode_app::commands::{CommandExecutor, FrontendCommand};
 use whcode_app::view_source::{
-    SessionRow as ViewSessionRow, VIEW_COUNT, ViewId, ViewSnapshot, ViewSource,
+    CheckpointItem, SessionRow as ViewSessionRow, VIEW_COUNT, ViewId, ViewSnapshot, ViewSource,
 };
 use whcode_domain::WhError;
 use whcode_domain::i18n::I18n;
@@ -259,6 +259,8 @@ enum Message {
     TaskRetry(usize),
     /// 任务中止（按下标索引）。
     TaskAbort(usize),
+    /// 查看任务检查点（按下标索引 `snapshot.tasks`；FR-748）。
+    TaskCheckpoints(usize),
     // —— 侧栏（B2，FR-746）——
     /// 侧栏搜索词（标题/ID/阶段子串，本地过滤，不触库）。
     SessionFilterChanged(String),
@@ -323,6 +325,10 @@ struct State {
     session_show_archived: bool,
     /// 未过滤的会话行（目录视图的原始集合；过滤/排序只作用于快照副本）。
     all_sessions: Vec<ViewSessionRow>,
+    /// 最近一次查看的检查点（FR-748；空＝尚未查看）。
+    checkpoints: Vec<CheckpointItem>,
+    /// 检查点所属任务。
+    checkpoint_task: Option<String>,
 }
 
 impl State {
@@ -368,6 +374,8 @@ impl State {
             session_sort: SessionSort::LastActive,
             session_show_archived: false,
             all_sessions: Vec::new(),
+            checkpoints: Vec::new(),
+            checkpoint_task: None,
         }
     }
 
@@ -755,6 +763,15 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::TaskRetry(index) => task_action(state, index, false),
         Message::TaskAbort(index) => task_action(state, index, true),
+        Message::TaskCheckpoints(index) => {
+            let task = state.snapshot.tasks.get(index).map(|row| row.id.clone());
+            state.checkpoints = task
+                .as_deref()
+                .map(|task| state.source.checkpoints(task))
+                .unwrap_or_default();
+            state.checkpoint_task = task;
+            return Task::none();
+        }
     }
     Task::none()
 }
@@ -1452,6 +1469,44 @@ fn op_panel(state: &State) -> Element<'_, Message> {
     panel.spacing(6).into()
 }
 
+/// 检查点面板（FR-748）：列表＋差分摘要；回滚未实现时显式标注“仅浏览”。
+fn checkpoint_panel(state: &State) -> Element<'_, Message> {
+    let mut body = column![].spacing(2);
+    body = body.push(rich_line(
+        state.texts.resolve("gui.checkpoints.title"),
+        false,
+        14.0,
+    ));
+    if state.checkpoint_task.is_none() {
+        body = body.push(rich_line(
+            state.texts.resolve("gui.checkpoints.hint"),
+            false,
+            12.0,
+        ));
+        return body.into();
+    }
+    body = body.push(rich_line(
+        state.texts.resolve("gui.checkpoints.degraded"),
+        false,
+        12.0,
+    ));
+    if state.checkpoints.is_empty() {
+        body = body.push(rich_line(
+            state.texts.resolve("gui.checkpoints.empty"),
+            false,
+            12.0,
+        ));
+    }
+    for point in state.checkpoints.iter().take(50) {
+        body = body.push(rich_line(
+            &format!("#{} {} {}", point.step, point.id, point.summary),
+            true,
+            12.0,
+        ));
+    }
+    scrollable(body).height(Length::Fixed(160.0)).into()
+}
+
 /// 侧栏控件（FR-746）：搜索、排序三键、归档分段开关。全部本地作用于已准备的
 /// 快照（不触库）；无控件时（窄窗口以外的场景）仍可用既有键盘导航。
 fn session_controls(state: &State) -> Element<'_, Message> {
@@ -1611,7 +1666,15 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
         ))
         .on_press(Message::TaskAbort(index))
         .padding([2, 6]);
-        rows = rows.push(row![rich_line(label.as_str(), false, 13.0), retry, abort,].spacing(6));
+        let points = button(rich_line(
+            state.texts.resolve("gui.checkpoints.open"),
+            false,
+            12.0,
+        ))
+        .on_press(Message::TaskCheckpoints(index))
+        .padding([2, 6]);
+        rows = rows
+            .push(row![rich_line(label.as_str(), false, 13.0), retry, abort, points,].spacing(6));
     }
     if state.snapshot.tasks.is_empty() {
         rows = rows.push(rich_line(state.texts.resolve("tui.empty"), false, 13.0));
@@ -1642,9 +1705,13 @@ fn view(state: &State) -> Element<'_, Message> {
         ]
         .spacing(8)
         .into(),
-        ViewId::Tasks => column![task_buttons(state), task_body(state)]
-            .spacing(8)
-            .into(),
+        ViewId::Tasks => column![
+            task_buttons(state),
+            task_body(state),
+            checkpoint_panel(state)
+        ]
+        .spacing(8)
+        .into(),
         _ => read_body(state, state.view == ViewId::Diff),
     };
 

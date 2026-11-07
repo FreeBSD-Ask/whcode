@@ -12,6 +12,7 @@
 use std::fs;
 use std::io::Read;
 use std::path::Path;
+use std::time::Instant;
 
 use serde_json::Value;
 use whcode_domain::WhError;
@@ -19,7 +20,8 @@ use whcode_domain::WhError;
 use crate::MAX_TOOL_OUTPUT_BYTES;
 use crate::paths::resolve_in_workspace;
 use crate::registry::{
-    ParamType, SideEffectScope, Tool, ToolDescriptor, ToolOutput, ToolParameter, validate_arguments,
+    DEFAULT_TOOL_TIMEOUT_MS, ParamType, SideEffectScope, Tool, ToolDescriptor, ToolOutput,
+    ToolParameter, validate_arguments,
 };
 
 /// 单次读取上限（1 MiB；超限截断并标记，FR-726）。
@@ -29,10 +31,39 @@ pub const MAX_WALK_ENTRIES: usize = 500;
 pub const MAX_WALK_DIRS: usize = 200;
 /// glob/grep 结果条目上限。
 pub const MAX_MATCH_ENTRIES: usize = 200;
+/// 扫描类工具（glob/grep）的默认执行预算（30 s；协作式，见 `Tool::execute_with_deadline`）。
+pub const SCAN_TIMEOUT_MS: u64 = DEFAULT_TOOL_TIMEOUT_MS;
+/// 截止时间检查的条目间隔（每 N 个目录条目查一次时钟，避免每项 syscall 抖动）。
+const DEADLINE_CHECK_STRIDE: usize = 64;
+
 /// diff 摘要样例行数上限。
 const DIFF_SAMPLE_LINES: usize = 5;
 /// 行级 diff 计算的行数上限（超出则退化为字节级摘要，防止 O(n²) 无界）。
 const DIFF_MAX_LINES: usize = 2000;
+
+/// 扫描类工具的协作式截止时间（每 [`DEADLINE_CHECK_STRIDE`] 个条目查一次时钟）。
+struct ScanDeadline {
+    at: Option<Instant>,
+    ticks: usize,
+}
+
+impl ScanDeadline {
+    fn new(at: Option<Instant>) -> Self {
+        Self { at, ticks: 0 }
+    }
+
+    fn check(&mut self) -> Result<(), WhError> {
+        self.ticks = self.ticks.wrapping_add(1);
+        if self.ticks % DEADLINE_CHECK_STRIDE == 0 && self.at.is_some_and(|at| Instant::now() >= at)
+        {
+            return Err(WhError::new(
+                whcode_domain::ErrorCode::ToolTimeout,
+                "工具执行超时：已停止扫描，本次结果作废（不得重试同一调用）",
+            ));
+        }
+        Ok(())
+    }
+}
 
 fn invalid(message: String) -> WhError {
     WhError::invalid_state(message)
@@ -154,6 +185,7 @@ impl Tool for ReadFile {
                 description: "工作区内相对路径",
             }],
             side_effect_scope: SideEffectScope::ReadOnly,
+            timeout_ms: None,
         }
     }
 
@@ -192,6 +224,7 @@ impl Tool for WriteFile {
                 },
             ],
             side_effect_scope: SideEffectScope::WorkspaceWrite,
+            timeout_ms: None,
         }
     }
 
@@ -259,6 +292,7 @@ impl Tool for EditFile {
                 },
             ],
             side_effect_scope: SideEffectScope::WorkspaceWrite,
+            timeout_ms: None,
         }
     }
 
@@ -306,6 +340,7 @@ impl Tool for ListDir {
                 description: "工作区内相对目录（默认根）",
             }],
             side_effect_scope: SideEffectScope::ReadOnly,
+            timeout_ms: None,
         }
     }
 
@@ -351,10 +386,31 @@ impl Tool for Glob {
                 description: "相对工作区根的模式，如 src/**/*.rs",
             }],
             side_effect_scope: SideEffectScope::ReadOnly,
+            timeout_ms: Some(SCAN_TIMEOUT_MS),
         }
     }
 
     fn execute(&self, workspace: &Path, arguments: &Value) -> Result<ToolOutput, WhError> {
+        self.run(workspace, arguments, None)
+    }
+
+    fn execute_with_deadline(
+        &self,
+        workspace: &Path,
+        arguments: &Value,
+        deadline: Option<Instant>,
+    ) -> Result<ToolOutput, WhError> {
+        self.run(workspace, arguments, deadline)
+    }
+}
+
+impl Glob {
+    fn run(
+        &self,
+        workspace: &Path,
+        arguments: &Value,
+        deadline: Option<Instant>,
+    ) -> Result<ToolOutput, WhError> {
         let descriptor = Tool::descriptor(self);
         validate_arguments(&descriptor, arguments)?;
         let pattern = string_argument(arguments, "pattern")?;
@@ -363,13 +419,15 @@ impl Tool for Glob {
         }
         let mut matches: Vec<String> = Vec::new();
         let mut visited_dirs = 0usize;
+        let mut scan = ScanDeadline::new(deadline);
         walk(
             workspace,
             workspace,
             pattern,
             &mut matches,
             &mut visited_dirs,
-        );
+            &mut scan,
+        )?;
         matches.sort();
         let truncated = matches.len() >= MAX_MATCH_ENTRIES;
         let mut content = matches.join("\n");
@@ -387,23 +445,25 @@ fn walk(
     pattern: &str,
     matches: &mut Vec<String>,
     visited_dirs: &mut usize,
-) {
+    scan: &mut ScanDeadline,
+) -> Result<(), WhError> {
     if matches.len() >= MAX_MATCH_ENTRIES || *visited_dirs >= MAX_WALK_DIRS {
-        return;
+        return Ok(());
     }
     *visited_dirs += 1;
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
-        Err(_) => return, // 不可读目录跳过（有界遍历不中断）
+        Err(_) => return Ok(()), // 不可读目录跳过（有界遍历不中断）
     };
     for entry in entries {
         if matches.len() >= MAX_MATCH_ENTRIES {
-            return;
+            return Ok(());
         }
+        scan.check()?;
         let Ok(entry) = entry else { continue };
         let path = entry.path();
         if path.is_dir() {
-            walk(root, &path, pattern, matches, visited_dirs);
+            walk(root, &path, pattern, matches, visited_dirs, scan)?;
         } else {
             let relative = relative_display(root, &path);
             if glob_match(pattern, &relative) {
@@ -411,6 +471,7 @@ fn walk(
             }
         }
     }
+    Ok(())
 }
 
 /// 极简 glob：`**/` 跨任意层目录，段内 `*`/`?`；其余按 `/` 分段字面比对。
@@ -484,16 +545,38 @@ impl Tool for Grep {
                 },
             ],
             side_effect_scope: SideEffectScope::ReadOnly,
+            timeout_ms: Some(SCAN_TIMEOUT_MS),
         }
     }
 
     fn execute(&self, workspace: &Path, arguments: &Value) -> Result<ToolOutput, WhError> {
+        self.run(workspace, arguments, None)
+    }
+
+    fn execute_with_deadline(
+        &self,
+        workspace: &Path,
+        arguments: &Value,
+        deadline: Option<Instant>,
+    ) -> Result<ToolOutput, WhError> {
+        self.run(workspace, arguments, deadline)
+    }
+}
+
+impl Grep {
+    fn run(
+        &self,
+        workspace: &Path,
+        arguments: &Value,
+        deadline: Option<Instant>,
+    ) -> Result<ToolOutput, WhError> {
         let descriptor = Tool::descriptor(self);
         validate_arguments(&descriptor, arguments)?;
         let needle = string_argument(arguments, "pattern")?;
         let filter = arguments.get("glob").and_then(Value::as_str);
         let mut lines: Vec<String> = Vec::new();
         let mut visited_dirs = 0usize;
+        let mut scan = ScanDeadline::new(deadline);
         grep_walk(
             workspace,
             workspace,
@@ -501,7 +584,8 @@ impl Tool for Grep {
             filter,
             &mut lines,
             &mut visited_dirs,
-        );
+            &mut scan,
+        )?;
         let truncated = lines.len() >= MAX_MATCH_ENTRIES;
         let mut content = lines.join("\n");
         if truncated {
@@ -518,23 +602,25 @@ fn grep_walk(
     filter: Option<&str>,
     lines: &mut Vec<String>,
     visited_dirs: &mut usize,
-) {
+    scan: &mut ScanDeadline,
+) -> Result<(), WhError> {
     if lines.len() >= MAX_MATCH_ENTRIES || *visited_dirs >= MAX_WALK_DIRS {
-        return;
+        return Ok(());
     }
     *visited_dirs += 1;
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
-        Err(_) => return,
+        Err(_) => return Ok(()),
     };
     for entry in entries {
         if lines.len() >= MAX_MATCH_ENTRIES {
-            return;
+            return Ok(());
         }
+        scan.check()?;
         let Ok(entry) = entry else { continue };
         let path = entry.path();
         if path.is_dir() {
-            grep_walk(root, &path, needle, filter, lines, visited_dirs);
+            grep_walk(root, &path, needle, filter, lines, visited_dirs, scan)?;
             continue;
         }
         if let Some(pattern) = filter
@@ -544,6 +630,7 @@ fn grep_walk(
         }
         grep_file(root, &path, needle, lines);
     }
+    Ok(())
 }
 
 fn grep_file(root: &Path, path: &Path, needle: &str, lines: &mut Vec<String>) {
@@ -701,6 +788,68 @@ mod tests {
         let output = bound_output("x".repeat(MAX_TOOL_OUTPUT_BYTES + 10));
         assert!(output.truncated);
         assert!(output.content.contains("[truncated:"));
+    }
+
+    #[test]
+    fn scan_deadline_fires_on_stride_and_stays_silent_without_budget() {
+        let past = Instant::now()
+            .checked_sub(std::time::Duration::from_secs(1))
+            .expect("测试时钟支持回退 1 s");
+        let mut expired = ScanDeadline::new(Some(past));
+        for _ in 0..DEADLINE_CHECK_STRIDE - 1 {
+            expired.check().expect("步进间隔内不触发");
+        }
+        let err = expired.check().expect_err("到达步进间隔必须触发超时");
+        assert_eq!(err.code, ErrorCode::ToolTimeout);
+        assert!(!err.retryable, "超时不可重试（同一调用结果作废）");
+        assert_eq!(err.code.as_str(), "tool_timeout", "稳定错误码名");
+
+        let mut future = ScanDeadline::new(Some(Instant::now()));
+        future.check().expect("未到期不触发");
+        let mut none = ScanDeadline::new(None);
+        for _ in 0..(DEADLINE_CHECK_STRIDE * 2) {
+            none.check().expect("无预算永不触发");
+        }
+    }
+
+    #[test]
+    fn glob_and_grep_stop_with_tool_timeout_when_deadline_expired() {
+        let ws = workspace();
+        // 夹具条目数必须 ≥ 步进间隔（64），否则过期截止时间不会到达检查点。
+        for i in 0..DEADLINE_CHECK_STRIDE + 8 {
+            fs::write(ws.join(format!("f{i:03}.txt")), "needle\n").expect("写夹具");
+        }
+        let past = Instant::now()
+            .checked_sub(std::time::Duration::from_secs(1))
+            .expect("测试时钟支持回退 1 s");
+        let future = Instant::now() + std::time::Duration::from_secs(30);
+
+        // 正常路径：预算充裕 → 完整扫描并命中。
+        let ok = Glob
+            .execute_with_deadline(&ws, &json_args(r#"{"pattern": "*.txt"}"#), Some(future))
+            .expect("预算内扫描成功");
+        assert!(ok.content.contains("f000.txt"), "{}", ok.content);
+
+        // 超时路径：截止时间已过 → ToolTimeout、不可重试（不强杀，扫描循环主动返回）。
+        for (name, err) in [
+            (
+                "glob",
+                Glob
+                    .execute_with_deadline(&ws, &json_args(r#"{"pattern": "*.txt"}"#), Some(past))
+                    .expect_err("过期必须超时"),
+            ),
+            (
+                "grep",
+                Grep
+                    .execute_with_deadline(&ws, &json_args(r#"{"pattern": "needle"}"#), Some(past))
+                    .expect_err("过期必须超时"),
+            ),
+        ] {
+            assert_eq!(err.code, ErrorCode::ToolTimeout, "{name} 稳定错误码");
+            assert!(!err.retryable, "{name} 超时不可重试");
+            assert_eq!(err.code.as_str(), "tool_timeout");
+        }
+        let _ = fs::remove_dir_all(&ws);
     }
 
     fn json_args(raw: &str) -> Value {
