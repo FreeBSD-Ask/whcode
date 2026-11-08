@@ -19,7 +19,7 @@ application service.
   default trace level is `redacted`, so credentials never reach logs or events.
 - **Many front ends**: GUI, TUI, CUI, Web and SSH sit on the same service. The desktop
   interface renders natively and embeds no browser engine.
-- **Spec driven**: requirements, tasks and acceptance criteria are traced in three directions,
+- **Spec driven**: requirements, tasks and acceptance criteria are traced three ways,
   and tests and scripts enforce that trace.
 
 ## Status

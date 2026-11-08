@@ -18,7 +18,7 @@ Rust 네이티브, 로컬 우선 LLM 코딩 하네스입니다. 데이터는 Duc
   `redacted`이며, 자격 증명은 로그와 이벤트에 남지 않습니다.
 - **여러 프런트엔드**: GUI／TUI／CUI／Web／SSH가 같은 서비스를 씁니다. 데스크톱 화면은
   네이티브로 그리며 브라우저 엔진을 넣지 않습니다.
-- **명세 주도**: 요구사항, 작업, 수용 기준을 세 방향으로 추적하고, 그 추적을 테스트와
+- **명세 주도**: 요구사항, 작업, 수용 기준을 삼자 간에 추적하고, 그 추적을 테스트와
   스크립트가 강제합니다.
 
 ## 현재 상태
@@ -26,7 +26,7 @@ Rust 네이티브, 로컬 우선 LLM 코딩 하네스입니다. 데이터는 Duc
 버전 `0.1.0`, 아직 배포하지 않았습니다. 변경 내역은 [CHANGELOG.md](./CHANGELOG.md)에 있습니다.
 
 M0—M6, M8과 네 프런트엔드 동등성이 구현되었고 M7의 SSH 서버도 동작합니다. M9의 5.5시간
-안정성 시험은 아직 쓸 만한 데이터가 없고, 실제 LLM 공급자 클라이언트 연결은 제공되지
+안정성 시험은 아직 요건을 충족하는 데이터가 없고, 실제 LLM 공급자 클라이언트 연결은 제공되지
 않았습니다. 항목별 진행 상황, 미완료 사유, 근거 위치는
 [프로젝트 상태 스냅샷](./docs/guides/project-status.md)에 있습니다. 권위 있는 장부는
 [tasks.md](./specs/001-whcode-harness/tasks.md)와
@@ -35,7 +35,7 @@ M0—M6, M8과 네 프런트엔드 동등성이 구현되었고 M7의 SSH 서버
 
 ## 플랫폼 지원
 
-| 플랫폼 | 위치 |
+| 플랫폼 | 역할 |
 |---|---|
 | Windows 11 amd64 | **유일한 수용 대상** (`x86_64-pc-windows-msvc`, ADR-013) |
 | Windows ARM64 | 빌드 배포 대상 (ADR-043). CI 결과는 플랫폼 증거일 뿐 수용에는 넣지 않습니다 |
@@ -43,7 +43,7 @@ M0—M6, M8과 네 프런트엔드 동등성이 구현되었고 M7의 SSH 서버
 | NetBSD | `main`에서 CI가 자동 실행. 플랫폼 증거만 해당 |
 | OpenBSD／DragonFly | 수동 자리만 확보. NetBSD와 함께 SSH 원격 개발 대상(연결을 받는 쪽이며 네이티브 툴체인은 요구하지 않음) |
 
-성능 분위값은 현재 Windows 채널에서만 나옵니다. 플랫폼 방침은
+성능 분위수는 현재 Windows 채널에서만 나옵니다. 플랫폼 방침은
 [ADR-013](./docs/adr/ADR-013-platform-scope-windows-only.md)과
 [compatibility.md](./docs/matrices/compatibility.md)를 보십시오.
 
@@ -97,14 +97,14 @@ cargo run -p whcode-bin --release -- serve --web --tls off
 - [specs/001-whcode-harness/](./specs/001-whcode-harness/): 요구사항 기준선, 작업, 수용
   체크리스트, 인터페이스 계약
 - [docs/adr/](./docs/adr/): 아키텍처 결정 기록
-- [docs/matrices/](./docs/matrices/): 플랫폼 행렬, 결정 장부, 호환성과 기능 동등성 행렬
+- [docs/matrices/](./docs/matrices/): 플랫폼 매트릭스, 결정 장부, 호환성과 기능 동등성 매트릭스
 - [docs/guides/project-status.md](./docs/guides/project-status.md): 프로젝트 상태 스냅샷
 
 ## 참여
 
 이슈와 PR을 받습니다. 기여 절차와 모든 PR이 통과해야 하는 체크리스트는
 [CONTRIBUTING.md](./CONTRIBUTING.md)에 있습니다. 제출하는 시점에 BSD-2-Clause로
-허락한 것으로 봅니다. 이 프로젝트는 FreeBSD 중국어 커뮤니티가 유지하며, BSD 포팅,
+라이선스로 제공하는 데 동의한 것으로 봅니다. 이 프로젝트는 FreeBSD 중국어 커뮤니티가 유지하며, BSD 포팅,
 중국어 현지화, 터미널 사용성 논의를 환영합니다.
 
 ## 보안

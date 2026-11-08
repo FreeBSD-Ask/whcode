@@ -8,7 +8,7 @@
 
 [简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Русский](README.ru.md) | Français | [Español](README.es.md) | [Deutsch](README.de.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [اردو](README.ur.md) | [বাংলা](README.bn.md)
 
-Harnais de codage local pour agents LLM, écrit en Rust. Les données tiennent dans un seul
+Harnais de codage LLM local, écrit en Rust. Les données tiennent dans un seul
 fichier DuckDB, chaque action reste traçable, et les barrières du développement par
 spécification sont appliquées par des programmes plutôt que par la discipline. L'interface
 native, le TUI, le CUI, le Web et le SSH partagent un même service applicatif.
@@ -20,8 +20,8 @@ native, le TUI, le CUI, le Web et le SSH partagent un même service applicatif.
   journaux ni les événements.
 - **Plusieurs interfaces** : GUI, TUI, CUI, Web et SSH s'appuient sur le même service. Le bureau
   est dessiné nativement, sans moteur de navigateur embarqué.
-- **Piloté par la spécification** : exigences, tâches et critères d'acceptation sont reliés dans
-  les trois sens, et des tests comme des scripts vérifient ce lien.
+- **Piloté par la spécification** : exigences, tâches et critères d'acceptation sont reliés par
+  une traçabilité à trois voies, et des tests comme des scripts vérifient ce lien.
 
 ## État actuel
 

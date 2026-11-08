@@ -8,10 +8,10 @@
 
 [简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Русский](README.ru.md) | [Français](README.fr.md) | [Español](README.es.md) | Deutsch | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [اردو](README.ur.md) | [বাংলা](README.bn.md)
 
-Eine lokale Coding-Harness für LLM-Agenten, nativ in Rust. Die Daten liegen in einer einzigen
+Ein lokaler Coding-Harness für LLM, nativ in Rust. Die Daten liegen in einer einzigen
 DuckDB-Datei, jede Aktion bleibt nachvollziehbar, und die Prüfpunkte der
-spezifikationsgetriebenen Entwicklung setzen Programme durch, nicht die Disziplin der
-Beteiligten. Native GUI, TUI, CUI, Web und SSH nutzen denselben Anwendungsdienst.
+spezifikationsgetriebenen Entwicklung werden von Programmen durchgesetzt, nicht von der
+Disziplin der Beteiligten. Native GUI, TUI, CUI, Web und SSH nutzen denselben Anwendungsdienst.
 
 - **Lokal zuerst**: eine DuckDB-Datei, die Sie jederzeit mitnehmen können. Kein Konto, keine
   erzwungene Netzverbindung.
@@ -20,8 +20,8 @@ Beteiligten. Native GUI, TUI, CUI, Web und SSH nutzen denselben Anwendungsdienst
   Protokolle noch in Ereignisse gelangen.
 - **Mehrere Oberflächen**: GUI, TUI, CUI, Web und SSH liegen auf demselben Dienst. Die
   Desktop-Oberfläche zeichnet nativ und bettet keine Browser-Engine ein.
-- **Spezifikationsgetrieben**: Anforderungen, Aufgaben und Abnahmekriterien sind in drei
-  Richtungen verknüpft, und Tests wie Skripte prüfen diese Verknüpfung.
+- **Spezifikationsgetrieben**: Anforderungen, Aufgaben und Abnahmekriterien sind über eine
+  dreiseitige Rückverfolgung verknüpft, und Tests wie Skripte prüfen diese Verknüpfung.
 
 ## Aktueller Stand
 
@@ -29,7 +29,7 @@ Version `0.1.0`, noch nicht veröffentlicht. Änderungen stehen in [CHANGELOG.md
 
 M0 bis M6, M8 und die Gleichheit der vier Oberflächen sind umgesetzt, der SSH-Server aus M7
 läuft ebenfalls. Für den 5,5-Stunden-Stabilitätslauf aus M9 fehlen noch belastbare Daten, und
-die Client-Anbindung an einen echten LLM-Anbieter ist nicht geliefert. Fortschritt je Punkt,
+die Client-Anbindung an einen echten LLM-Anbieter fehlt noch. Fortschritt je Punkt,
 Gründe für Offenes und Fundstellen der Belege stehen in der
 [Projektstand-Momentaufnahme](./docs/guides/project-status.md). Maßgeblich sind
 [tasks.md](./specs/001-whcode-harness/tasks.md) und
@@ -40,7 +40,7 @@ Gründe für Offenes und Fundstellen der Belege stehen in der
 
 | Plattform | Rolle |
 |---|---|
-| Windows 11 amd64 | **Einziges Abnahmesziel** (`x86_64-pc-windows-msvc`, ADR-013) |
+| Windows 11 amd64 | **Einziges Abnahmeziel** (`x86_64-pc-windows-msvc`, ADR-013) |
 | Windows ARM64 | Ziel für Build-Auslieferung (ADR-043): CI-Ergebnisse gelten als Plattformbeleg, nicht als Abnahme |
 | FreeBSD | Vollständiger Plattformbeleg-Kanal (harte Prüfung): Bei jedem `main` baut, testet und prüft die CI vollständig, jeder Fehler färbt sie rot; keine Abnahmeschlussfolgerung |
 | NetBSD | Läuft auf `main` automatisch in der CI; nur Plattformbeleg |

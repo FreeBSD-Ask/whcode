@@ -8,7 +8,7 @@
 
 [简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Русский](README.ru.md) | [Français](README.fr.md) | Español | [Deutsch](README.de.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [اردو](README.ur.md) | [বাংলা](README.bn.md)
 
-Arnés de codificación con modelos LLM, nativo en Rust y local por diseño. Los datos caben en un
+Arnés de codificación con modelos LLM, nativo en Rust y con prioridad local. Los datos caben en un
 solo archivo DuckDB, cada acción queda registrada y las barreras del desarrollo por
 especificación las aplican programas, no la disciplina del equipo. La interfaz nativa, la TUI,
 la CUI, la Web y el SSH comparten un mismo servicio de aplicación.
@@ -20,8 +20,8 @@ la CUI, la Web y el SSH comparten un mismo servicio de aplicación.
   a los eventos.
 - **Varias interfaces**: GUI, TUI, CUI, Web y SSH usan el mismo servicio. El escritorio se dibuja
   de forma nativa, sin motor de navegador incrustado.
-- **Guiado por especificación**: requisitos, tareas y criterios de aceptación se enlazan en tres
-  direcciones, y las pruebas y los scripts comprueban ese enlace.
+- **Guiado por especificación**: requisitos, tareas y criterios de aceptación se enlazan por
+  trazabilidad de tres vías, y las pruebas y los scripts comprueban ese enlace.
 
 ## Estado actual
 
@@ -31,8 +31,8 @@ M0—M6, M8 y la paridad de las cuatro interfaces están implementados, y el ser
 también funciona. La prueba de estabilidad de 5,5 horas de M9 todavía no tiene datos válidos, y
 la conexión del cliente con un proveedor real de LLM no está entregada. El avance por punto, los
 motivos de lo pendiente y la ubicación de las pruebas están en
-[la instantánea del estado del proyecto](./docs/guides/project-status.md). Los registros que
-mandan son [tasks.md](./specs/001-whcode-harness/tasks.md) y
+[la instantánea del estado del proyecto](./docs/guides/project-status.md). Los registros de
+referencia son [tasks.md](./specs/001-whcode-harness/tasks.md) y
 [checklist.md](./specs/001-whcode-harness/checklist.md); las limitaciones conocidas están en
 [compatibility.md](./docs/matrices/compatibility.md).
 
@@ -53,7 +53,7 @@ Los percentiles de rendimiento salen hoy solo del canal de Windows. La política
 ## Compilar y ejecutar
 
 Hacen falta Rust 1.99.1 (fijado en `rust-toolchain.toml`), la cadena MSVC y Python 3. No se usa
-ninguna herramienta GNU.
+ninguna cadena de herramientas GNU.
 
 ```powershell
 # Obtener y verificar la biblioteca compartida de DuckDB antes de la primera compilación (SHA256)

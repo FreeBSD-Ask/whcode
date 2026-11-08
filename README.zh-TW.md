@@ -8,7 +8,7 @@
 
 [简体中文](README.md) | 繁體中文 | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Русский](README.ru.md) | [Français](README.fr.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [اردو](README.ur.md) | [বাংলা](README.bn.md)
 
-以 Rust 原生開發、本地優先的 LLM 編碼代理框架：資料放在單一 DuckDB 檔案裡，每個動作都可
+以 Rust 原生開發、本地優先的 LLM 編碼 Harness：資料放在單一 DuckDB 檔案裡，每個動作都可
 追溯，規格驅動開發的關卡由程式執行，而不是靠自律。原生 GUI、TUI、CUI、Web 與 SSH 共用
 同一套應用服務。
 
