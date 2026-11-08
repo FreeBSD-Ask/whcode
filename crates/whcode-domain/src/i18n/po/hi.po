@@ -474,7 +474,7 @@ msgid "cui.record.budget"
 msgstr "बजट"
 
 msgid "cui.record.checkpoints"
-msgstr "Checkpoints"
+msgstr "चेकपॉइंट"
 
 msgid "cui.record.cursor"
 msgstr "कर्सर"
@@ -588,13 +588,13 @@ msgid "gui.checkpoints.empty"
 msgstr "इस task के लिए कोई checkpoint नहीं"
 
 msgid "gui.checkpoints.hint"
-msgstr "task की पंक्ति पर Checkpoints दबाएँ"
+msgstr "task की पंक्ति पर चेकपॉइंट दबाएँ"
 
 msgid "gui.checkpoints.open"
-msgstr "Checkpoints"
+msgstr "चेकपॉइंट"
 
 msgid "gui.checkpoints.title"
-msgstr "Checkpoints"
+msgstr "चेकपॉइंट"
 
 msgid "gui.kpi.count"
 msgstr "Sessions {sessions} · दृश्य में {rows} पंक्तियाँ"
@@ -1041,7 +1041,7 @@ msgid "web.checkpoints.refs"
 msgstr "{count} आर्टिफैक्ट संदर्भ"
 
 msgid "web.checkpoints.title"
-msgstr "Checkpoints"
+msgstr "चेकपॉइंट"
 
 msgid "web.checkpoints.truncated"
 msgstr "checkpoints सीमा से अधिक हैं; सूची काटी गई"
@@ -1110,7 +1110,7 @@ msgid "web.recovering"
 msgstr "फिर से जुड़ रहा है…"
 
 msgid "web.runtimes"
-msgstr "Runtimes"
+msgstr "रनटाइम"
 
 msgid "web.runtimes.available"
 msgstr "उपलब्ध"
@@ -1209,13 +1209,13 @@ msgid "web.tab.maintenance"
 msgstr "देखभाल"
 
 msgid "web.tab.sessions"
-msgstr "Sessions"
+msgstr "सत्र"
 
 msgid "web.tab.spec"
 msgstr "SDD"
 
 msgid "web.tab.tasks"
-msgstr "Tasks"
+msgstr "कार्य"
 
 msgid "web.task.abort"
 msgstr "रोकें"

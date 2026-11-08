@@ -13,6 +13,17 @@
 
 ### 变更
 
+- **界面词未译泄漏修复（bn／hi 目录审计批）**（2026-11-08）：十三套内建目录机械审计
+  （键集全等 411、占位符跨语言 0 错配、PO 漂移 0）发现 bn／hi 各 8 处界面词与同目录
+  自身译法矛盾——`Checkpoints`／`Sessions`／`Tasks`／`Runtimes` 与
+  `gui.checkpoints.hint` 中的按键名引用保留英文，而同目录 `menu.sessions`＝`সেশন`
+  （bn）／`सत्र`（hi）、`menu.tasks`＝`কাজ`／`कार्य` 已译。按目录内既有术语补齐：
+  bn `চেকপয়েন্ট`／`সেশন`／`কাজ`／`রানটাইম`，hi `चेकपॉइंट`／`सत्र`／`कार्य`／`रनटाइम`；
+  PO 源文件经 `i18n-po.py` 同步（bn／hi 重写，ur 规范化）。审计保留项（非缺陷）：
+  `web.tab.diff` 在 zh-CN／ja／ko／bn／hi 保留 `diff` 技术词（zh-TW／ru／fr／es／ar
+  本地化属既有差异）；`cui.font.dry_run` 各目录按自身借词惯例处理（ja／ko／bn／hi
+  正文通篇用 `dry-run`，标记随之，不改）。母语三审三校（路线待决项）仍开放。
+
 - **RTL 布局镜像（FR-766／T279／Check 374，ADR-062）**（2026-11-08）：阿拉伯语与乌尔都语
   下三端视觉顺序按阅读方向镜像，方向判定统一走 `whcode_domain::i18n::is_rtl_locale`。
   ①CUI：`Styler::with_locale` 按会话语言开镜像——记录行的值在前、标签靠行尾右对齐，
