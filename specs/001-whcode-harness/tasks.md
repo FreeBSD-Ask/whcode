@@ -896,9 +896,17 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   `builtins::tests::glob_and_grep_stop_with_tool_timeout_when_deadline_expired`（正常命中＋
   glob/grep 双工具过期→不可重试）。本机：whcode-tools 14/14、全 workspace 64 组全绿、fmt 绿、
   clippy `-D warnings` 绿（修复 `is_multiple_of` lint）；CI 待运行（ADR-037）。
-- [ ] T268 [P] usage 锚点计量（FR-758；ADR-060 项 E）：最近成功 usage 单条锚点＋增量估算
+- [x] T268 [P] usage 锚点计量（FR-758；ADR-060 项 E）：最近成功 usage 单条锚点＋增量估算
   ——**任务认知卡**：方向=计量准确化；目标=锚点缺失时行为不变；判据=锚点命中/缺失回退
   测试；非目标=多供应商矩阵
+  ——**取证（2026-11-08 补账，代码 `311209d`）**：schema v8 新增 `usage_anchor` 单行表
+  （`scope='last'` 主键＋CHECK 约束；导出排除，属本地校准值）；store `save_anchor`/`load_anchor`
+  只收供应商实测值（零测量不派生比值、非法字段拒绝）；turn 预算门禁按 provider/model 身份匹配
+  后用实测字符/token 比校准（合理区间 [0.5, 16]），缺失/不匹配/读取失败一律回退 4 字符启发式
+  （行为与引入前一致），压力事件带 `estimate_basis`／`chars_per_token`。净树复核（`git worktree`
+  于 `2fd76e6`，避开并行会话 WIP）：`cargo test -p whcode-store usage_anchor` 3/3、
+  `-p whcode-app anchor`（校准/折叠相关 4 项）4/4、`-p whcode-tests --test migration
+  v7_workspace_gains_usage_anchor_table` 1/1；CI 待运行（ADR-037）。
 - [ ] T269 [P] 工具输出契约（FR-759；ADR-060 项 F）：输出 schema＋渲染投影＋校验失败结构化
   ——**任务认知卡**：方向=模型面与展示面分离；目标=契约可校验；判据=合法/非法/超限
   三路径；非目标=GUI 卡片渲染（属 T256）
@@ -912,21 +920,55 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   断言 (started, finished)==(1,1) 且 unclosed 为空，store 侧
   `unclosed_turns_detects_started_without_finished` 断言 started-only 被识别；
   `cargo check --workspace --all-targets`、clippy `-D warnings`、fmt 绿；CI 待运行（ADR-037）。
-- [ ] T271 [P] 证据态命名对齐（FR-761；ADR-060 项 H）：五态映射表＋升级判据＋拒绝评分制
+- [x] T271 [P] 证据态命名对齐（FR-761；ADR-060 项 H）：五态映射表＋升级判据＋拒绝评分制
   ——**任务认知卡**：方向=证据语言统一；目标=指南与门禁同口径；判据=映射表可判定；
   非目标=改 Check 编号
-- [ ] T272 [P] 评审协议指南（P2.3；ADR-059）：`docs/guides/review-protocol.md`（三域独立/
+  ——**取证（2026-11-08）**：新增 `docs/guides/evidence-states.md`——七值枚举与外部五态
+  （Present／Wired／Exercised／Outcome-supported＋Missing／Unobserved／Not applicable）逐条
+  映射，每态给出“唯一判定问题＋最低可复现证据＋不构成证据的例子”；升级判据五条（证据形态
+  决定态级、失败路径未跑不得升 exercised、可比性要求、降级不删叙事）；§4 明确拒绝 BH
+  分数天花板（假精度／诱导补证据／布尔判定已足够），并禁止任何界面展示 Check 分数；
+  门禁落点与 `check_counts.py` 的 `EVIDENCE_STATES` 同源同义。ADR-046 追加修订记录指向本文件；
+  CI 待运行（ADR-037）。
+- [x] T272 [P] 评审协议指南（P2.3；ADR-059）：`docs/guides/review-protocol.md`（三域独立/
   调和冻结/质量门/硬上限 3）——**任务认知卡**：方向=评审纪律成文；目标=可执行清单；
   判据=指南含判据与失效条件；非目标=引入评分
-- [ ] T273 [P] 覆盖率试点（FR-762；ADR-060 项 I）：`cargo-llvm-cov` 脚本＋阈值 90%＋豁免清单
+  ——**取证（2026-11-08）**：新增 `docs/guides/review-protocol.md`——三证据域（运行／仓库／
+  治理）独立取证规则与硬上限 3；调和四纪律（保留全部候选、只按四同合并、弃选留痕、
+  先冻结后支持）；八道可判定质量门与“线索晋升须同标准”；finding 四要件模板与四种处置状态；
+  §6 四条失效条件／复审触发；全文不含任何评分机制。与既有 `milestone-review.md`（代理评审
+  五步执行流程，建议书 D2）分工：条文以本文件为准、流程与记录落点（`artifacts/reviews/`）
+  以流程文件为准，两文件头部互指，避免两套规则并存。
+- [x] T273 [P] 覆盖率试点（FR-762；ADR-060 项 I）：`cargo-llvm-cov` 脚本＋阈值 90%＋豁免清单
   ——**任务认知卡**：方向=测试强度可证；目标=app/store 覆盖可复现；判据=脚本输出与
   豁免清单一致；非目标=全仓门禁
-- [ ] T274 [P] ADR 已知限制校验（FR-763；ADR-060 项 J）：脚本校验新 ADR 含“已知限制/失效
+  ——**取证（2026-11-08）**：新增 `.github/scripts/check-coverage.py`（crate 级行覆盖、
+  阈值 90.0%、豁免清单当前为空且每条须带理由、工具缺失或解析失败一律失败——不假绿）；
+  净树（`local/verify-t268`，`2fd76e6`＋本批测试）实测 **whcode-app 9350/10349＝90.35%**、
+  **whcode-store 6594/7048＝93.56%**，归档 `artifacts/coverage-phase1-2026-11-08.json`；
+  首轮 app 为 89.70% 未达标，补两项契约测试后过线——`views::tests::session_task_and_conversation_shapes_keep_stable_key_sets`
+  （FR-604／610／741 形状键集合）与 `surface::tests::stable_identifiers_do_not_drift`
+  （四枚举稳定标识）；CI 新增 `coverage-pilot` job（schedule／workflow_dispatch，安装
+  llvm-tools＋cargo-llvm-cov，非阻断，ADR-060 项 I）；CI 待运行（ADR-037）。
+- [x] T274 [P] ADR 已知限制校验（FR-763；ADR-060 项 J）：脚本校验新 ADR 含“已知限制/失效
   条件”节——**任务认知卡**：方向=决策文档防腐；目标=校验可判定；判据=缺失即失败；
   非目标=回写存量 ADR
-- [ ] T275 [P] 真 API 冒烟（FR-764；ADR-060 项 K）：sensenova 单条、无 key 自跳过、结果归档
+  ——**取证（2026-11-08）**：新增 `.github/scripts/check-adr-limits.py`——存量豁免
+  `LEGACY_MAX_ADR=62`（2026-11-08 快照）＋`ADR-DB-BUILD.md`；新 ADR 须命中标题或粗体引导
+  且节内有正文；自测三路径：无节→exit 1、有节有正文→exit 0、空节→exit 1（临时 `ADR-063`
+  文件跑完即删，未入库）；当前仓 63 份存量全部豁免、新 ADR 0 份；工作流新增
+  `ADR 已知限制门禁（FR-763）` 步骤；CI 待运行（ADR-037）。
+- [x] T275 [P] 真 API 冒烟（FR-764；ADR-060 项 K）：sensenova 单条、无 key 自跳过、结果归档
   ——**任务认知卡**：方向=真链路证据；目标=跳过不假绿；判据=有/无凭据两路径；
   非目标=全量 e2e
+  ——**取证（2026-11-08）**：新增 `.github/scripts/smoke-sensenova.py`——三态
+  `pass／skip／fail` 写入 artifact；凭据只从 `SENSENOVA_API_KEY` 或 `local/sensenova.env`
+  读取，输出仅含端点主机、模型、耗时与 token 计数（无 key、无正文）；**无凭据路径**实测
+  `SKIP（未执行；本结果不是通过）`＋artifact `status=skip`（exit 0，不得记通过）；
+  **有凭据路径**实测 `PASS`（HTTP 200，1221 ms，prompt=130／completion=4），归档
+  `artifacts/sensenova-smoke-2026-11-08.json`；工作流新增真 API 冒烟步骤
+  （`secrets.SENSENOVA_API_KEY` 注入，`continue-on-error` 便于先收集稳定性证据，
+  跳过语义在脚本内已显式）；CI 待运行（ADR-037）。
 
 ## Tasks（2026-11-07 追加）：CUI 帮助文本 i18n 收口
 

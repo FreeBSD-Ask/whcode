@@ -99,6 +99,22 @@
   门禁按 provider/model 身份匹配后用实测字符/token 比校准（合理区间 [0.5, 16]），缺失/不匹配/
   读取失败一律回退 4 字符启发式（行为与现行一致），压力事件带 `estimate_basis`／
   `chars_per_token`。测试：store 3＋app 4＋迁移集成 1（v7→v8）。
+  **2026-11-08 补账**：净树（`git worktree` 于 `2fd76e6`）复跑 store 3/3、app 校准/折叠 4/4、
+  migration 1/1 全绿；T268 与 Check 363 同批勾选／取证；CI 待运行（ADR-037）。
+- **项 H（P2.1／FR-761，T271）**：`docs/guides/evidence-states.md`——七值与外部五态映射表、
+  五条升级判据（证据形态决定态级、失败路径未执行不得升 `exercised`、可比性、降级不删叙事）、
+  明确拒绝分数天花板并禁止界面展示分数；与 `check_counts.py` 枚举绑定为复审触发。
+- **项 I（P7.1／FR-762，T273）**：`.github/scripts/check-coverage.py`（crate 级行覆盖 ≥90%，
+  豁免清单为空且每条须带理由，工具缺失不假绿）；实测 app 90.35%、store 93.56%（首轮 app
+  89.70%，补两项契约测试后过线），归档 `artifacts/coverage-phase1-2026-11-08.json`；
+  CI `coverage-pilot` 按本 ADR 项 I 的“先登记非阻断”口径只在 schedule／手动触发。
+- **项 J（P7.5／FR-763，T274）**：`.github/scripts/check-adr-limits.py`——存量豁免
+  `LEGACY_MAX_ADR=62`＋`ADR-DB-BUILD.md`；新 ADR 须有“已知限制／失效条件”承载节且有正文；
+  三路径自测（缺失/合规/空节）并接入工作流。
+- **项 K（P7.6／FR-764，T275）**：`.github/scripts/smoke-sensenova.py`——三态
+  `pass/skip/fail` 写 artifact；无凭据 `skip` 不记通过；实测有凭据路径 HTTP 200、1221 ms、
+  usage 130/4，归档 `artifacts/sensenova-smoke-2026-11-08.json`；凭据只从环境变量或
+  `local/sensenova.env` 读取，输出与 artifact 不含 key 与响应正文。
 
 ## 修订记录
 

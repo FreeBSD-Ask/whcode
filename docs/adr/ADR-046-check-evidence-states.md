@@ -94,3 +94,9 @@
 
 - **2026-10-29（首版，已批准）**：用户批准建议书 D1 后起草；证据类别复核数据与语法
   设计（态标注置于冒号后，兼容 `check_counts.py` 现有正则）随文登记。
+- **2026-11-08（命名对齐与拒绝评分制，T271／FR-761／ADR-060 项 H）**：外部评审五态
+  （Present／Wired／Exercised／Outcome-supported＋Missing／Unobserved／Not applicable）
+  与本 ADR 七值枚举的对照、逐态判定问题与最低可复现证据、升级／降级判据，统一落在
+  `docs/guides/evidence-states.md`；本 ADR 的枚举与语法不变。BH 的“分数天花板”明确不采纳，
+  理由（假精度、诱导补证据、布尔判定已足够）与该文件的复审触发一并成文。门禁实现不变：
+  `check_counts.py` 枚举校验仍为唯一程序判定。

@@ -1,0 +1,16 @@
+{
+  "threshold": 90.0,
+  "crates": {
+    "whcode-app": {
+      "count": 10349,
+      "covered": 9350,
+      "percent": 90.34689341965407
+    },
+    "whcode-store": {
+      "count": 7048,
+      "covered": 6594,
+      "percent": 93.55845629965948
+    }
+  },
+  "exempted": []
+}

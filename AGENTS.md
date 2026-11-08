@@ -125,6 +125,9 @@ python .github/scripts/check-workflows.py       # CI workflow 语义门禁（与
 python .github/scripts/check-code-scanning.py   # Code Scanning 零 open 告警门禁（推送后复核；需 GitHub 凭据与网络）
 python .github/scripts/benchmarks/measure-resources.py               # 资源铁律 M1/C4：测试进程 RSS/CPU 达标
 python .github/scripts/benchmarks/check-frontend-budget.py    # 前端预算审计（涉及前端时）
+python .github/scripts/check-adr-limits.py                    # 新 ADR 已知限制/失效条件门禁（FR-763；新增 ADR 必跑）
+python .github/scripts/check-coverage.py                      # 覆盖率试点（FR-762；app/store 行覆盖 ≥90%，CI 非阻断）
+python .github/scripts/smoke-sensenova.py                     # 真 API 冒烟（FR-764；无凭据自跳过，不记通过）
 ```
 
 **测试验收入口唯一（ADR-037）**：测试“通过”结论以 GitHub Actions 日志与 artifact 为准；

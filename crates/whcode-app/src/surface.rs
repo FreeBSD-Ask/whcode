@@ -2051,4 +2051,54 @@ mod tests {
         assert!(find("view.diff").is_some());
         assert!(find("no.such.surface").is_none());
     }
+
+    /// 稳定标识是外部契约（错误详情、矩阵列名、`not_supported` 的 `state`）：
+    /// 四个枚举的取值不得随重构漂移。
+    #[test]
+    fn stable_identifiers_do_not_drift() {
+        assert_eq!(
+            [
+                FrontendId::Cui,
+                FrontendId::Tui,
+                FrontendId::Gui,
+                FrontendId::Web
+            ]
+            .map(FrontendId::as_str),
+            ["cui", "tui", "gui", "web"]
+        );
+        assert_eq!(
+            [SurfaceKind::Command, SurfaceKind::View].map(SurfaceKind::as_str),
+            ["command", "view"]
+        );
+        assert_eq!(
+            [
+                EffectClass::Read,
+                EffectClass::Write,
+                EffectClass::Destructive
+            ]
+            .map(EffectClass::as_str),
+            ["read", "write", "destructive"]
+        );
+        assert_eq!(
+            [
+                Confirmation::None,
+                Confirmation::PreviewConfirm,
+                Confirmation::ReasonRequired,
+            ]
+            .map(Confirmation::as_str),
+            ["none", "preview_confirm", "reason_required"]
+        );
+        assert_eq!(
+            [
+                Support::Implemented { anchor: "a" },
+                Support::Excluded {
+                    reason: ExclusionReason::TransportSpecific,
+                },
+                Support::Reserved { milestone: "M7" },
+                Support::NotApplicable,
+            ]
+            .map(Support::state_code),
+            ["implemented", "excluded", "reserved", "not_applicable"]
+        );
+    }
 }

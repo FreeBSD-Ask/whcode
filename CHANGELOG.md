@@ -13,6 +13,22 @@
 
 ### 变更
 
+- **Phase 1 治理尾批收口（T271—T275／FR-761—764，ADR-060 项 H—K）**（2026-11-08）：
+  ①`docs/guides/evidence-states.md`：七值证据态与外部五态映射、逐态判定问题与最低可复现
+  证据、五条升级／降级判据，明确拒绝分数天花板并禁止任何界面展示 Check 分数；与
+  `docs/guides/review-protocol.md`（评审条文：三证据域独立、硬上限 3、调和冻结、八道质量门、
+  发现四要件）及既有 `milestone-review.md`（执行流程）分工并在文件头互相指向；
+  ②`.github/scripts/check-adr-limits.py`：新 ADR 须含“已知限制／失效条件”承载节，
+  存量（`ADR-001`—`ADR-062` 与 `ADR-DB-BUILD.md`）白名单豁免，缺失即失败；
+  ③`.github/scripts/check-coverage.py`：`whcode-app`／`whcode-store` crate 级行覆盖阈值 90%
+  （实测 90.35%／93.56%，豁免清单为空且每条须带理由），CI `coverage-pilot` 按 ADR-060 项 I
+  只在 schedule／手动触发、非阻断；首轮 app 89.70% 未达标，补 `views` 形状与 `surface`
+  稳定标识两项契约测试后过线；④`.github/scripts/smoke-sensenova.py`：真 API 冒烟三态
+  `pass／skip／fail` 写 artifact，无凭据 `SKIP` 不计通过，实测有凭据路径 HTTP 200／1221 ms；
+  ⑤T268 usage 锚点补账（代码 `311209d`，净树复跑 store 3／app 4／migration 1 全绿）。
+  证据归档：`artifacts/coverage-phase1-2026-11-08.json`、
+  `artifacts/sensenova-smoke-2026-11-08.json`。CI 待运行（ADR-037）。
+
 - **README 十二种译文与术语口径统一**（2026-11-08，用户指令）：①新增 `README.<locale>.md`
   十二份（`zh-TW`／`en`／`ja`／`ko`／`ru`／`fr`／`es`／`de`／`ar`／`hi`／`ur`／`bn`），
   `README.md` 顶部加语言选择行，根文件白名单按前缀放行并在 `repository-layout.md` 登记；

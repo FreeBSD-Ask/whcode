@@ -78,6 +78,7 @@ pub fn conversation_entries_value(entries: &[ConversationEntry]) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use whcode_domain::TaskStatus;
 
     /// 字段集合固定：新增/删除字段必须同步改契约与三端（FR-610）。
     #[test]
@@ -107,5 +108,81 @@ mod tests {
                 "session_overview": 9,
             })
         );
+    }
+
+    /// 会话/任务/对话三种形状的键集合与取值口径固定（FR-604／FR-610／FR-741）。
+    #[test]
+    fn session_task_and_conversation_shapes_keep_stable_key_sets() {
+        let session = SessionRow {
+            id: "S-1".to_string(),
+            title: "会话标题".to_string(),
+            created_at_ms: 1,
+            last_active_at_ms: 2,
+            model: Some("m".to_string()),
+            archived: false,
+            status: "active".to_string(),
+            stage: "specify".to_string(),
+        };
+        let session_value = session_value(&session);
+        let mut session_keys: Vec<&str> = session_value
+            .as_object()
+            .expect("session 形状应为对象")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        session_keys.sort_unstable();
+        assert_eq!(
+            session_keys,
+            vec![
+                "archived",
+                "created_at_ms",
+                "id",
+                "stage",
+                "status",
+                "title"
+            ]
+        );
+        // `model` 与 `last_active_at_ms` 不进三端会话形状（列表排序另有语义源）。
+        assert!(session_value.get("model").is_none());
+
+        let task = TaskRow {
+            id: "T-1".to_string(),
+            session_id: "S-1".to_string(),
+            title: "任务标题".to_string(),
+            stage: "plan".to_string(),
+            status: TaskStatus::Ready,
+            parent_id: None,
+            acceptance_json: "[]".to_string(),
+            retry_count: 2,
+            updated_at_ms: 3,
+        };
+        let task_value = task_value(&task);
+        assert_eq!(task_value["status"], "ready");
+        assert_eq!(task_value["retry_count"], 2);
+        assert_eq!(task_value["stage"], "plan");
+
+        let entries = vec![
+            ConversationEntry {
+                id: "MSG-1".to_string(),
+                role: "user".to_string(),
+                content: "问题".to_string(),
+                ts_us: 10,
+            },
+            ConversationEntry {
+                id: "MSG-2".to_string(),
+                role: "assistant".to_string(),
+                content: "回答".to_string(),
+                ts_us: 20,
+            },
+        ];
+        let conversation = conversation_entries_value(&entries);
+        let items = conversation["items"]
+            .as_array()
+            .expect("items 应为数组")
+            .clone();
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0]["id"], "MSG-1");
+        assert_eq!(items[1]["role"], "assistant");
+        assert_eq!(items[1]["ts_us"], 20);
     }
 }

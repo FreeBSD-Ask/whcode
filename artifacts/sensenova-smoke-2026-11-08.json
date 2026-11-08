@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-11-07T23:50:47Z",
+  "endpoint_host": "token.sensenova.cn",
+  "model": "sensenova-6.8-flash-lite",
+  "status": "pass",
+  "latency_ms": 1221,
+  "http_status": 200,
+  "content_nonempty": true,
+  "usage": {
+    "prompt_tokens": 130,
+    "completion_tokens": 4,
+    "total_tokens": 134
+  }
+}

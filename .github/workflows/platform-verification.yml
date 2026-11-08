@@ -123,6 +123,17 @@ jobs:
         if: matrix.platform == 'windows'
         run: python .github/scripts/check-knowing-first.py
 
+      - name: ADR 已知限制门禁（FR-763：新 ADR 必须含失效条件承载节）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/check-adr-limits.py
+
+      - name: 真 API 冒烟（FR-764：无凭据自跳过，不记通过）
+        if: matrix.platform == 'windows'
+        continue-on-error: true
+        env:
+          SENSENOVA_API_KEY: ${{ secrets.SENSENOVA_API_KEY }}
+        run: python .github/scripts/smoke-sensenova.py --artifact artifacts/sensenova-smoke.json
+
       - name: 测试（含分层与目录分类契约）
         if: matrix.platform == 'windows'
         run: cargo test --locked --workspace
@@ -1305,3 +1316,29 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: python3 .github/scripts/check-code-scanning.py
+
+  # ---------------- 覆盖率试点（FR-762／ADR-060 项 I，2027-05-07 复审） ----------------
+  # 只在 schedule 与手动触发运行：cargo-llvm-cov 需安装并全量重编译，单次约数分钟；
+  # 放 push 通道会拖慢每次合并。阈值 90%（crate 级行覆盖），豁免清单在脚本内。
+  coverage-pilot:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 取 DuckDB 与覆盖率工具
+        run: |
+          python .github/scripts/fetch-duckdb.py
+          rustup component add llvm-tools-preview
+          cargo install cargo-llvm-cov --locked
+
+      - name: 测量 app/store 行覆盖（阈值 90%）
+        run: python .github/scripts/check-coverage.py --json artifacts/coverage.json
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: coverage-pilot
+          path: artifacts/coverage.json
+          if-no-files-found: warn
