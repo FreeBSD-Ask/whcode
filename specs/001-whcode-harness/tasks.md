@@ -868,9 +868,25 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   请求构造校验）＋`whcode-app/src/approval.rs`（有界 broker、asked/decided 成对审计、超限背压、
   审计失败不推进状态）；`cargo test -p whcode-domain approval` 4/4、`-p whcode-app approval` 7/7、
   clippy `-D warnings`、fmt 全绿；**执行接线按 ADR-060 §2.2 冻结至 T255**；CI 待运行（ADR-037 登记）。
-- [ ] T265 [P] 模型生成摘要压缩（FR-755；ADR-060 项 B）：超预算先摘要、三事件＋孤儿锁、
+- [x] T265 [P] 模型生成摘要压缩（FR-755；ADR-060 项 B）：超预算先摘要、三事件＋孤儿锁、
   失败回退结构折叠——**任务认知卡**：方向=压缩语义化；目标=摘要可查且可回退；判据=
   摘要成功/失败/锁孤儿/上限四路径测试；非目标=多级摘要/跨会话记忆
+  ——**取证（2026-11-08）**：`whcode-app/src/compaction.rs`（新模块）＝摘要调用与候选装配：
+  独立 `request_id`（`<turn>-cmp-<iteration>`，`purpose=compaction` 载荷）、显式
+  `COMPACTION_SUMMARY_MAX_TOKENS=1024`、转写有界（头 1/3＋尾 2/3，48k 字符上限，中段留标记）、
+  摘要正文上限 8192 字符（超限截断＋`truncated`）、单次失败即回退不重试、与 turn 共用
+  取消令牌；超限只停止累积**不**取消共享令牌（摘要超限不得终止 turn）。
+  `EventKind::CompactionStarted/CompactionSummary/CompactionFinished`（开/关 Critical、
+  摘要 Content）；`CompactionStarted` 在摘要调用前**单独提交**，`CompactionFinished` 记录
+  `applied`（`model_summary`/`structural_fold`/`none`）、`failure_code`、`summary_skipped`、
+  耗时；`whcode_store::turn::orphan_compactions` 按 `request_id` 配对检测孤儿锁（上限 64），
+  下一个 turn 以 `ContextState(orphan_compactions=N)` 显式呈现。摘要成功但装配后仍超预算
+  →不采用并回退（摘要长度非构造性预算保证），摘要正文仍可查。测试：compaction 8 项
+  （请求身份/预算/截断/输入有界/空摘要失败/过短拒绝/取消/装配）＋turn 4 项
+  （摘要采用、失败回退、超预算跳过、孤儿锁可见）＋store 孤儿锁 1 项＋domain 稳定名 1 项；
+  既有两项折叠用例改由“摘要不可用”入口驱动（意图不变）。本机
+  `cargo test --locked --workspace` 全绿、clippy `-D warnings` 绿、fmt 绿、layout/layering 绿；
+  CI 待运行（ADR-037）。
 - [x] T266 [P] 失败模型尝试持久化（FR-756；ADR-060 项 C）：`assistant_attempt` 事件＋容量上限
   ——**任务认知卡**：方向=失败可审计；目标=失败尝试不污染模型历史但可查；判据=事件内容
   断言＋上限测试；非目标=失败重放

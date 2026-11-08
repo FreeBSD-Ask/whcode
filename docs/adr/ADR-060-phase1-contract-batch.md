@@ -101,6 +101,21 @@
   `chars_per_token`。测试：store 3＋app 4＋迁移集成 1（v7→v8）。
   **2026-11-08 补账**：净树（`git worktree` 于 `2fd76e6`）复跑 store 3/3、app 校准/折叠 4/4、
   migration 1/1 全绿；T268 与 Check 363 同批勾选／取证；CI 待运行（ADR-037）。
+- **项 B（P1.2／FR-755，T265）**：新增 `whcode-app/src/compaction.rs`——`summarize()` 复用现有
+  `Provider::execute` 取摘要（独立 `request_id`＝`<turn>-cmp-<iteration>`、`purpose=compaction`、
+  显式 `COMPACTION_SUMMARY_MAX_TOKENS=1024`、与 turn 共用取消令牌、单次失败即回退**不重试**）；
+  输入转写与输出摘要均有界（48k／8192 字符，超限截断并标 `truncated`；超限只停止累积，
+  不取消共享令牌——摘要超限不得终止 turn）。事件面新增
+  `CompactionStarted/CompactionSummary/CompactionFinished`（开／关 Critical、摘要 Content）：
+  `Started` 在摘要调用前**单独提交**，崩溃留孤儿锁，由
+  `whcode_store::turn::orphan_compactions`（上限 64）按 `request_id` 配对检测，下一个 turn
+  以 `ContextState(orphan_compactions=N)` 呈现；`Finished` 记 `applied`／`failure_code`／
+  `summary_skipped`。摘要成功但装配后仍超预算 → 不采用、回退结构折叠（摘要长度不是构造性
+  预算保证），摘要正文仍可查。§2.3 的三条约束（复用 `Provider` 与 complete 路径、不新增线程、
+  失败不重试）均满足。测试：compaction 8＋turn 4（成功／失败回退／超预算跳过／孤儿锁可见）
+  ＋store 1＋domain 1；既有两项折叠用例改由“摘要不可用”入口驱动（意图不变）。
+  Check 360＝exercised；ADR-051 同步修订（v1 的“LLM 摘要显式排除”被取代，并补
+  “已知限制与失效条件”节）；CI 待运行（ADR-037）。
 - **项 H（P2.1／FR-761，T271）**：`docs/guides/evidence-states.md`——七值与外部五态映射表、
   五条升级判据（证据形态决定态级、失败路径未执行不得升 `exercised`、可比性、降级不删叙事）、
   明确拒绝分数天花板并禁止界面展示分数；与 `check_counts.py` 枚举绑定为复审触发。

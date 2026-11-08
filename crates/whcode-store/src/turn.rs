@@ -88,6 +88,63 @@ pub fn unclosed_turns(conn: &Connection, session: &str) -> Result<Vec<String>, W
     Ok(out)
 }
 
+/// 未闭合压缩的扫描上限（有界；超限只报前 N 条）。
+pub const MAX_ORPHAN_COMPACTIONS: usize = 64;
+
+/// 列出某会话中“有 `CompactionStarted` 但无 `CompactionFinished`”的压缩请求
+/// （T265／FR-755／ADR-060 项 B）。
+///
+/// 判定口径：按 `request_id` 配对——崩溃或进程被杀时 `CompactionStarted` 已单独提交
+/// （先开），`CompactionFinished` 未落（后关），即留下可检测的孤儿锁。调用方据此
+/// 在下次打开会话时显式呈现（观察事件），**不得**把它当作正常完成或静默忽略。
+///
+/// # Errors
+///
+/// 查询失败返回 `io_error`（消息含会话标识，不含事件正文）。
+pub fn orphan_compactions(conn: &Connection, session: &str) -> Result<Vec<String>, WhError> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT DISTINCT CAST(CAST(e.payload_json AS JSON)->>'$.request_id' AS VARCHAR)
+             FROM events e
+             WHERE e.session_id = ? AND e.kind = 'CompactionStarted'
+               AND NOT EXISTS (
+                 SELECT 1 FROM events f
+                 WHERE f.session_id = e.session_id AND f.kind = 'CompactionFinished'
+                   AND CAST(CAST(f.payload_json AS JSON)->>'$.request_id' AS VARCHAR)
+                     = CAST(CAST(e.payload_json AS JSON)->>'$.request_id' AS VARCHAR)
+               )
+             ORDER BY 1
+             LIMIT ?",
+        )
+        .map_err(|err| {
+            WhError::new(
+                ErrorCode::IoError,
+                format!("准备孤儿压缩查询失败（会话 {session}）：{err}"),
+            )
+        })?;
+    let rows = stmt
+        .query_map(
+            duckdb::params![session, MAX_ORPHAN_COMPACTIONS as i64],
+            |row| row.get::<_, String>(0),
+        )
+        .map_err(|err| {
+            WhError::new(
+                ErrorCode::IoError,
+                format!("查询孤儿压缩失败（会话 {session}）：{err}"),
+            )
+        })?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|err| {
+            WhError::new(
+                ErrorCode::IoError,
+                format!("读取孤儿压缩行失败（会话 {session}）：{err}"),
+            )
+        })?);
+    }
+    Ok(out)
+}
+
 /// 待落表消息轮次。
 #[derive(Debug, Clone)]
 pub struct TurnMessageDraft {
@@ -265,6 +322,47 @@ mod tests {
         assert_eq!(open, vec!["turn-S-open-1".to_string()]);
         // 另一会话不受影响（按会话过滤）。
         assert!(unclosed_turns(&conn, "S-other").expect("扫描").is_empty());
+    }
+
+    #[test]
+    fn orphan_compactions_pair_started_with_finished_by_request_id() {
+        let mut conn = migrated();
+        append_turn(
+            &mut conn,
+            "S-cmp",
+            &[
+                TurnEventDraft {
+                    kind: EventKind::CompactionStarted,
+                    request_id: Some("R-1-cmp-0".to_string()),
+                    tool_call_id: None,
+                    payload: json!({ "request_id": "R-1-cmp-0", "purpose": "compaction" }),
+                },
+                TurnEventDraft {
+                    kind: EventKind::CompactionFinished,
+                    request_id: Some("R-1-cmp-0".to_string()),
+                    tool_call_id: None,
+                    payload: json!({ "request_id": "R-1-cmp-0", "applied": "structural_fold" }),
+                },
+                TurnEventDraft {
+                    kind: EventKind::CompactionStarted,
+                    request_id: Some("R-1-cmp-1".to_string()),
+                    tool_call_id: None,
+                    payload: json!({ "request_id": "R-1-cmp-1", "purpose": "compaction" }),
+                },
+            ],
+            &[],
+        )
+        .expect("落表");
+        // 成对的压缩关闭即不再报；未关闭的按孤儿锁报出（按 request_id 配对）。
+        assert_eq!(
+            orphan_compactions(&conn, "S-cmp").expect("扫描"),
+            vec!["R-1-cmp-1".to_string()]
+        );
+        assert!(
+            orphan_compactions(&conn, "S-other")
+                .expect("扫描")
+                .is_empty()
+        );
     }
 
     #[test]

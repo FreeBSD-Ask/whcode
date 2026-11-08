@@ -13,6 +13,18 @@
 
 ### 变更
 
+- **上下文压缩升级为模型摘要（T265／FR-755，ADR-060 项 B）**（2026-11-08）：超预算时先做一次
+  模型摘要再回退结构折叠。①新模块 `whcode-app/src/compaction.rs`：独立 `request_id`
+  （`<turn>-cmp-<iteration>`）与 `purpose=compaction`、显式 `max_tokens=1024`、与 turn 共用
+  取消令牌、单次失败即回退（不重试）；②有界：转写 48k 字符（头 1/3＋尾 2/3＋中段标记）、
+  摘要 8192 字符（超限截断并标 `truncated`），超限只停止累积、不取消共享令牌；③三事件
+  `CompactionStarted`／`CompactionSummary`／`CompactionFinished`：start 在摘要调用前单独提交
+  （崩溃留孤儿锁），store 新增 `orphan_compactions` 按 `request_id` 配对检测，下一个 turn 以
+  `ContextState(orphan_compactions=N)` 呈现；finished 记 `applied`／`failure_code`／
+  `summary_skipped`；④摘要成功但装配后仍超预算 → 不采用并回退结构折叠，摘要正文仍可查；
+  ⑤ADR-051 同步修订（v1 的“LLM 摘要显式排除”被取代）并补“已知限制与失效条件”节。测试：
+  compaction 8＋turn 4＋store 1＋domain 1。CI 待运行（ADR-037）。
+
 - **Phase 1 治理尾批收口（T271—T275／FR-761—764，ADR-060 项 H—K）**（2026-11-08）：
   ①`docs/guides/evidence-states.md`：七值证据态与外部五态映射、逐态判定问题与最低可复现
   证据、五条升级／降级判据，明确拒绝分数天花板并禁止任何界面展示 Check 分数；与

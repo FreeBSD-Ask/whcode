@@ -31,6 +31,7 @@ pub mod approval;
 pub mod authz;
 pub mod cert;
 pub mod commands;
+pub mod compaction;
 pub mod context;
 pub mod events;
 pub mod fonts;

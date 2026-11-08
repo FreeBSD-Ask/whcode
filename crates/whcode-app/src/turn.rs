@@ -465,6 +465,18 @@ pub fn run_turn_with_progress(
     // append_turn 不清空草稿（清空由 flush 负责）：这里显式清空，避免后续批次重放边界事件。
     pending_events.clear();
 
+    // ── 孤儿压缩锁（T265／FR-755）：上次崩溃留下的未闭合压缩在本次打开时可见 ──
+    // 只观察不阻断：孤儿锁说明"上次压缩被中断"，当前 turn 仍可正常开始。
+    let orphan_compactions = whcode_store::turn::orphan_compactions(conn, session)?;
+    if !orphan_compactions.is_empty() {
+        emit!(
+            EventKind::ContextState,
+            "orphan_compactions": orphan_compactions.len(),
+            "recovery": "previous_compaction_interrupted",
+            "observed_only": true,
+        );
+    }
+
     // user 提示词先行落表（FR-722：turn 内 user 轮次落表；预算检查据此可见本轮输入）。
     persister.flush(conn, &mut pending_events, &messages)?;
 
@@ -509,50 +521,170 @@ pub fn run_turn_with_progress(
                 .map_err(|err| {
                     WhError::new(ErrorCode::IoError, format!("读取会话事件序号失败：{err}"))
                 })?;
-            match fold_messages_for_budget(&messages, budget_tokens) {
-                Some(report) => {
-                    let _ = crate::context::compress_context(
-                        conn,
-                        policy,
-                        actor,
-                        &crate::context::ContextCompression {
-                            session_id: session,
-                            window_start_seq: base_seq + 1,
-                            window_end_seq: end_seq,
-                            total_tokens: i64::try_from(report.folded_count * 4)
-                                .unwrap_or(i64::MAX),
-                            summary_ref: &format!("in-memory:{turn_id}:iteration-{iterations}"),
-                        },
-                    )?;
+            // ── 压缩三事件：先开（单独提交）→ 模型摘要 → 再关 ────────────────
+            // （T265／FR-755／ADR-060 项 B）`CompactionStarted` 独立提交，崩溃时留下
+            // 可检测的孤儿锁（`whcode_store::turn::orphan_compactions`）；摘要失败或装配
+            // 后仍超预算 → 回退结构折叠；两种路径都不阻塞 turn。
+            let compaction_request_id =
+                crate::compaction::compaction_request_id(&request_id, iterations);
+            emit!(
+                EventKind::CompactionStarted,
+                "iteration": iterations,
+                "request_id": &compaction_request_id,
+                "purpose": crate::compaction::COMPACTION_PURPOSE,
+                "budget_tokens": budget_tokens,
+                "in_memory_est": in_memory_est,
+                "max_tokens": crate::compaction::COMPACTION_SUMMARY_MAX_TOKENS,
+            );
+            append_turn(conn, session, &pending_events, &[])?;
+            // 同 TurnStarted：不清空草稿就会在后续批次重放"开锁"事件。
+            pending_events.clear();
+            let compaction_clock = Instant::now();
+            let summary_attempt = crate::compaction::summarize(
+                provider.as_ref(),
+                &cancel,
+                &compaction_request_id,
+                session,
+                &model,
+                &messages,
+                Some(total),
+            );
+            let mut applied = "none";
+            let mut failure_code: Option<&'static str> = None;
+            let mut summary_skipped: Option<&'static str> = None;
+            let mut summary_applied = false;
+            match &summary_attempt {
+                Ok(summary) => {
                     emit!(
-                        EventKind::ContextState,
+                        EventKind::CompactionSummary,
                         "iteration": iterations,
-                        "compressed": true,
-                        "folded_count": report.folded_count,
-                        "in_memory_before": in_memory_est,
-                        "estimate_basis": estimate_basis,
-                        "chars_per_token": estimate_ratio,
+                        "request_id": &compaction_request_id,
+                        "purpose": crate::compaction::COMPACTION_PURPOSE,
+                        "provider": profile.name,
+                        "protocol": profile.protocol.as_str(),
+                        "model": &model,
+                        "chars": summary.text.chars().count(),
+                        "truncated": summary.truncated,
+                        "input_truncated": summary.input_truncated,
+                        "usage": summary.usage.completion_payload(),
+                        "summary": &summary.text,
                     );
-                    messages = report.messages;
-                    // 折叠后的数组 = [已落表前缀..., 摘要]：持久化游标对齐为
-                    // "仅摘要未落表"（被折叠原文已在表中，不重放）。
-                    persister.persisted = messages.len().saturating_sub(1);
-                    persister.flush(conn, &mut pending_events, &messages)?;
-                    continue;
+                    if let Some((candidate, folded_count)) =
+                        crate::compaction::messages_with_summary(&messages, &summary.text)
+                    {
+                        let candidate_est: usize = candidate
+                            .iter()
+                            .map(|m| {
+                                crate::context::estimate_tokens_with(&m.content, estimate_ratio)
+                            })
+                            .sum();
+                        // 摘要长度由模型决定，不构造性保证 ≤ 预算：超预算即不采用，
+                        // 回退结构折叠（折叠的预算保证是构造性的，摘要不是）。
+                        if candidate_est > budget_tokens {
+                            summary_skipped = Some("summary_over_budget");
+                        } else {
+                            let _ = crate::context::compress_context(
+                                conn,
+                                policy,
+                                actor,
+                                &crate::context::ContextCompression {
+                                    session_id: session,
+                                    window_start_seq: base_seq + 1,
+                                    window_end_seq: end_seq,
+                                    total_tokens: i64::try_from(folded_count * 4)
+                                        .unwrap_or(i64::MAX),
+                                    summary_ref: &format!(
+                                        "in-memory:{turn_id}:summary-{iterations}"
+                                    ),
+                                },
+                            )?;
+                            messages = candidate;
+                            // 摘要数组 = [已落表前缀..., 摘要]：只有摘要未落表。
+                            persister.persisted = messages.len().saturating_sub(1);
+                            applied = "model_summary";
+                            summary_applied = true;
+                            emit!(
+                                EventKind::ContextState,
+                                "iteration": iterations,
+                                "compressed": true,
+                                "strategy": "model_summary",
+                                "folded_count": folded_count,
+                                "in_memory_before": in_memory_est,
+                                "in_memory_after": candidate_est,
+                                "estimate_basis": estimate_basis,
+                                "chars_per_token": estimate_ratio,
+                            );
+                        }
+                    } else {
+                        summary_skipped = Some("no_foldable_middle");
+                    }
                 }
-                None => {
-                    emit!(
-                        EventKind::ContextState,
-                        "iteration": iterations,
-                        "budget_tokens": budget_tokens,
-                        "in_memory_est": in_memory_est,
-                        "foldable": false,
-                        "estimate_basis": estimate_basis,
-                        "chars_per_token": estimate_ratio,
-                    );
-                    break TerminationReason::BudgetExceeded;
+                Err(err) => failure_code = Some(err.code.as_str()),
+            }
+            let mut budget_exhausted = false;
+            if !summary_applied {
+                match fold_messages_for_budget(&messages, budget_tokens) {
+                    Some(report) => {
+                        let _ = crate::context::compress_context(
+                            conn,
+                            policy,
+                            actor,
+                            &crate::context::ContextCompression {
+                                session_id: session,
+                                window_start_seq: base_seq + 1,
+                                window_end_seq: end_seq,
+                                total_tokens: i64::try_from(report.folded_count * 4)
+                                    .unwrap_or(i64::MAX),
+                                summary_ref: &format!("in-memory:{turn_id}:iteration-{iterations}"),
+                            },
+                        )?;
+                        emit!(
+                            EventKind::ContextState,
+                            "iteration": iterations,
+                            "compressed": true,
+                            "strategy": "structural_fold",
+                            "folded_count": report.folded_count,
+                            "in_memory_before": in_memory_est,
+                            "estimate_basis": estimate_basis,
+                            "chars_per_token": estimate_ratio,
+                        );
+                        messages = report.messages;
+                        // 折叠后的数组 = [已落表前缀..., 摘要]：持久化游标对齐为
+                        // "仅摘要未落表"（被折叠原文已在表中，不重放）。
+                        persister.persisted = messages.len().saturating_sub(1);
+                        applied = "structural_fold";
+                    }
+                    None => {
+                        emit!(
+                            EventKind::ContextState,
+                            "iteration": iterations,
+                            "budget_tokens": budget_tokens,
+                            "in_memory_est": in_memory_est,
+                            "foldable": false,
+                            "estimate_basis": estimate_basis,
+                            "chars_per_token": estimate_ratio,
+                        );
+                        budget_exhausted = true;
+                    }
                 }
             }
+            emit!(
+                EventKind::CompactionFinished,
+                "iteration": iterations,
+                "request_id": &compaction_request_id,
+                "purpose": crate::compaction::COMPACTION_PURPOSE,
+                "applied": applied,
+                "failure_code": failure_code,
+                "summary_skipped": summary_skipped,
+                "duration_ms": u64::try_from(compaction_clock.elapsed().as_millis())
+                    .unwrap_or(u64::MAX),
+                "in_memory_before": in_memory_est,
+            );
+            persister.flush(conn, &mut pending_events, &messages)?;
+            if budget_exhausted {
+                break TerminationReason::BudgetExceeded;
+            }
+            continue;
         }
         if let Some(reason) = window.truncated_reason {
             // 表口径截断仅观察（每 turn 首次），不终止（ADR-051 修订 FR-721）。
@@ -1985,16 +2117,65 @@ mod tests {
         }
     }
 
+    /// 空剧本步：流里没有终结块 → 摘要调用失败（回退结构折叠的确定入口）。
+    fn empty_step() -> StubStep {
+        StubStep {
+            chunks: Vec::new(),
+            finish_reason: "stop".to_string(),
+            tool_calls: Vec::new(),
+        }
+    }
+
+    /// 读取某类事件最近一条载荷的文本字段（JSON 路径；测试只为可判定的字段）。
+    fn last_payload_text(
+        conn: &duckdb::Connection,
+        session: &str,
+        kind: &str,
+        field: &str,
+    ) -> Option<String> {
+        let sql = format!(
+            "SELECT CAST(CAST(payload_json AS JSON)->>'$.{field}' AS VARCHAR)
+             FROM events WHERE session_id = ? AND kind = ?
+             ORDER BY seq DESC LIMIT 1"
+        );
+        conn.query_row(&sql, duckdb::params![session, kind], |row| {
+            row.get::<_, Option<String>>(0)
+        })
+        .ok()
+        .flatten()
+    }
+
+    fn event_count(conn: &duckdb::Connection, session: &str, kind: &str) -> i64 {
+        conn.query_row(
+            "SELECT COUNT(*) FROM events WHERE session_id = ? AND kind = ?",
+            duckdb::params![session, kind],
+            |row| row.get(0),
+        )
+        .expect("事件计数")
+    }
+
+    /// 按 `strategy` 统计压缩观察事件（区分摘要路径与结构折叠路径）。
+    fn context_state_count(conn: &duckdb::Connection, session: &str, strategy: &str) -> i64 {
+        conn.query_row(
+            "SELECT COUNT(*) FROM events WHERE session_id = ? AND kind = 'ContextState'
+               AND CAST(CAST(payload_json AS JSON)->>'$.strategy' AS VARCHAR) = ?",
+            duckdb::params![session, strategy],
+            |row| row.get(0),
+        )
+        .expect("上下文事件计数")
+    }
+
     #[test]
     fn request_growth_over_budget_folds_once_then_terminates() {
-        // 内存请求增长超预算 → 折叠一次（compressed 事件 + 指针落表）→ 再超 →
-        // 显式 budget_exceeded（每 turn 至多折叠一次，ADR-051 §2.5）。
+        // 内存请求增长超预算 → 摘要不可用即回退结构折叠（compressed 事件 + 指针落表）→
+        // 再超 → 显式 budget_exceeded（每 turn 至多压缩一次，ADR-051 §2.5）。
         let mut conn = migrated();
         let actor = actor_with_all_capabilities("turn-test");
         let policy = DefaultPolicy;
         let registry = registry();
         let factory = StubFactory(StubProvider::with_script(vec![
             huge_tool_call_step(1200), // 300 token：首轮后即超预算
+            empty_step(),              // 摘要调用拿不到终结块 → 回退结构折叠
             huge_tool_call_step(1200),
         ]));
         let dir = temp_dir("fold");
@@ -2033,7 +2214,8 @@ mod tests {
         let policy = DefaultPolicy;
         let registry = registry();
         let factory = StubFactory(StubProvider::with_script(vec![
-            huge_tool_call_step(1200), // 首轮即超预算 → 折叠
+            huge_tool_call_step(1200), // 首轮即超预算
+            empty_step(),              // 摘要不可用 → 回退结构折叠
             huge_tool_call_step(4),    // 之后小步 → 折叠后可继续多轮
             huge_tool_call_step(4),
         ]));
@@ -2050,6 +2232,203 @@ mod tests {
             "折叠后至少再执行两轮：{}",
             outcome.iterations
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn budget_pressure_uses_model_summary_before_folding() {
+        // 超预算 → 先模型摘要（三事件成对、载荷可查）→ 摘要装配后进预算 → turn 存活。
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            huge_tool_call_step(1200), // 首轮后即超预算
+            StubStep::simple("摘要：依赖缺失已定位，下一步修复清单", "stop"),
+            huge_tool_call_step(4),
+        ]));
+        let dir = temp_dir("summary");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "折叠锚点");
+        req.budget_tokens = Some(300);
+        req.iterations_limit = Some(3);
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 11).expect("turn 完成");
+
+        // 压缩后 turn 仍存活：不是以 budget_exceeded 收场。
+        assert_eq!(outcome.termination_reason, "iteration_limit");
+        assert_eq!(event_count(&conn, &id, "CompactionStarted"), 1);
+        assert_eq!(event_count(&conn, &id, "CompactionSummary"), 1);
+        assert_eq!(event_count(&conn, &id, "CompactionFinished"), 1);
+        assert_eq!(
+            last_payload_text(&conn, &id, "CompactionStarted", "purpose").as_deref(),
+            Some("compaction")
+        );
+        assert_eq!(
+            last_payload_text(&conn, &id, "CompactionStarted", "max_tokens").as_deref(),
+            Some("1024"),
+            "摘要调用必须有显式 max_tokens"
+        );
+        let compaction_id =
+            last_payload_text(&conn, &id, "CompactionStarted", "request_id").expect("摘要请求 ID");
+        assert!(
+            compaction_id.contains("-cmp-"),
+            "摘要请求 ID 必须独立：{compaction_id}"
+        );
+        assert_ne!(
+            compaction_id, outcome.request_id,
+            "摘要请求身份不得复用 turn 的 request_id"
+        );
+        assert_eq!(
+            last_payload_text(&conn, &id, "CompactionFinished", "request_id").as_deref(),
+            Some(compaction_id.as_str()),
+            "开/关必须按同一 request_id 成对"
+        );
+        assert_eq!(
+            last_payload_text(&conn, &id, "CompactionSummary", "provider").as_deref(),
+            Some("p")
+        );
+        assert_eq!(
+            last_payload_text(&conn, &id, "CompactionSummary", "model").as_deref(),
+            Some("test-model")
+        );
+        assert!(
+            last_payload_text(&conn, &id, "CompactionSummary", "usage.completion_tokens").is_some(),
+            "summary 必须带 usage（FR-755）"
+        );
+        let summary_text =
+            last_payload_text(&conn, &id, "CompactionSummary", "summary").expect("摘要正文可查");
+        assert!(summary_text.contains("依赖缺失已定位"));
+        assert_eq!(
+            last_payload_text(&conn, &id, "CompactionFinished", "applied").as_deref(),
+            Some("model_summary")
+        );
+        assert_eq!(context_state_count(&conn, &id, "model_summary"), 1);
+        assert_eq!(context_state_count(&conn, &id, "structural_fold"), 0);
+        // 摘要进入模型历史（后续请求可见），且只有一条。
+        let summarized_messages: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM messages WHERE session_id = ?
+                   AND content_ref LIKE '%上下文摘要｜模型生成%'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("消息计数");
+        assert_eq!(summarized_messages, 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn summary_failure_falls_back_to_structural_fold() {
+        // 摘要拿不到终结块 → 回退结构折叠（不阻塞 turn，三事件仍成对关闭）。
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            huge_tool_call_step(1200),
+            empty_step(),
+            huge_tool_call_step(4),
+        ]));
+        let dir = temp_dir("summary-fallback");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "折叠锚点");
+        req.budget_tokens = Some(300);
+        req.iterations_limit = Some(3);
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 13).expect("turn 完成");
+
+        assert_eq!(outcome.termination_reason, "iteration_limit");
+        assert_eq!(event_count(&conn, &id, "CompactionStarted"), 1);
+        assert_eq!(
+            event_count(&conn, &id, "CompactionSummary"),
+            0,
+            "失败路径不得伪造摘要事件"
+        );
+        assert_eq!(event_count(&conn, &id, "CompactionFinished"), 1);
+        assert_eq!(
+            last_payload_text(&conn, &id, "CompactionFinished", "applied").as_deref(),
+            Some("structural_fold")
+        );
+        assert_eq!(
+            last_payload_text(&conn, &id, "CompactionFinished", "failure_code").as_deref(),
+            Some("internal"),
+            "失败码必须可查（不得静默吞掉）"
+        );
+        assert_eq!(context_state_count(&conn, &id, "structural_fold"), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn summary_over_budget_is_skipped_and_folded() {
+        // 摘要成功但装配后仍超预算 → 不采用（摘要长度不是构造性保证），回退结构折叠，
+        // 摘要正文仍可查（检查点 360 的“摘要内容可查”不与“被采用”混为一谈）。
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            huge_tool_call_step(1200),
+            StubStep::simple("摘要".repeat(2000), "stop"),
+            huge_tool_call_step(4),
+        ]));
+        let dir = temp_dir("summary-too-big");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "折叠锚点");
+        req.budget_tokens = Some(300);
+        req.iterations_limit = Some(3);
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 17).expect("turn 完成");
+
+        assert_eq!(outcome.termination_reason, "iteration_limit");
+        assert_eq!(event_count(&conn, &id, "CompactionSummary"), 1);
+        assert_eq!(
+            last_payload_text(&conn, &id, "CompactionFinished", "applied").as_deref(),
+            Some("structural_fold")
+        );
+        assert_eq!(
+            last_payload_text(&conn, &id, "CompactionFinished", "summary_skipped").as_deref(),
+            Some("summary_over_budget")
+        );
+        assert_eq!(context_state_count(&conn, &id, "structural_fold"), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn interrupted_compaction_is_visible_on_next_turn() {
+        // 上次崩溃留下的孤儿锁（只有 CompactionStarted）在下次打开会话时可见。
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::new());
+        let dir = temp_dir("orphan");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        append_turn(
+            &mut conn,
+            &id,
+            &[TurnEventDraft {
+                kind: EventKind::CompactionStarted,
+                request_id: Some("R-prev-cmp-0".to_string()),
+                tool_call_id: None,
+                payload: json!({ "request_id": "R-prev-cmp-0", "purpose": "compaction" }),
+            }],
+            &[],
+        )
+        .expect("预置孤儿锁");
+        let req = request(&id, "孤儿锁可见性");
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 19).expect("turn 完成");
+        assert_eq!(outcome.termination_reason, "model_finished");
+        let observed: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE session_id = ? AND kind = 'ContextState'
+                   AND CAST(CAST(payload_json AS JSON)->>'$.orphan_compactions' AS VARCHAR) = '1'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("观察事件");
+        assert_eq!(observed, 1, "孤儿压缩必须在下一个 turn 显式可见");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

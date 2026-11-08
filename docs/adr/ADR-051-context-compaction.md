@@ -73,3 +73,37 @@
 ## 7. 修订记录
 
 - **2026-10-31（首版，已批准）**：D3 排序执行；编号 051（050 已被流式重试占用）。
+
+## 8. 修订（2026-11-08）：LLM 摘要接线（T265／FR-755／ADR-060 项 B）
+
+**决策 6 被取代**：v1 的“LLM 摘要显式排除”是成本和解，不是终态判定；ADR-059 全量采纳
+proposal-v3 P1.2、ADR-060 项 B 批准后，摘要升级由退出条件转为正式契约。
+
+1. **先摘要后折叠**：预算压力下**先**做一次模型摘要调用（`whcode-app::compaction::summarize`）：
+   - 独立 `request_id`（`<turn request_id>-cmp-<iteration>`）与 `purpose=compaction` 载荷；
+   - 显式 `max_tokens`（`COMPACTION_SUMMARY_MAX_TOKENS = 1024`），不借用 turn 的生成预算；
+   - 与 turn 共用取消令牌；单次失败即回退，**不重试**（避免与 ADR-050 叠加）。
+2. **三事件先开后关**：`CompactionStarted` 在摘要调用前**单独提交**（崩溃即留孤儿锁），
+   `CompactionSummary`（正文、provider/model/usage、截断标记）与 `CompactionFinished`
+   （实际采用的策略、失败码、跳过原因、耗时）随后落表。孤儿锁由
+   `whcode_store::turn::orphan_compactions` 按 `request_id` 配对检测，下一个 turn 以
+   `ContextState(orphan_compactions=N)` 显式呈现。
+3. **摘要不是构造性预算保证**：模型输出长度不可预知，装配后仍超预算 → 记录
+   `summary_skipped=summary_over_budget` 并回退结构折叠；摘要正文仍可查（“可查”与
+   “被采用”分开记账）。
+4. **有界**：送入摘要的转写（头部 1/3 + 尾部 2/3，中段留标记）与取回的摘要正文各有字符
+   上限，超限截断并标 `truncated`；超限只停止累积、不取消共享令牌（摘要超限不得终止 turn）。
+5. **尚未实现**：`skill` 工具式按需摘要、跨 turn 摘要复用、多级摘要——均不在本修订范围。
+
+## 9. 已知限制与失效条件
+
+- **限制**：摘要质量由模型决定，本仓不校验摘要是否忠实（只校验非空、长度、上限）——
+  摘要失真属“模型输出不可信”的一般风险，回退路径存在但不是自动判定。
+- **限制**：每次压缩多一次模型调用（费用与延迟）；`MAX_COMPACTION_INPUT_CHARS` 的子集
+  取舍（头部 1/3 + 尾部 2/3）对超长会话可能丢弃关键中段信息。
+- **失效条件**（可复现判定）：
+  1. `cargo test -p whcode-app compaction` / `turn::tests` 失败 → 本修订的契约已漂移；
+  2. 真实会话中摘要调用失败率 > 20%（`CompactionFinished.failure_code` 计数）→ 回退策略
+     与模型/剖面选择复审；
+  3. `events` 表中 `CompactionSummary` 体积占比 > 事件总量 30% → 摘要上限与保留策略复审；
+  4. 摘要被采用后仍以 `budget_exceeded` 终止的比例 > 30% → 摘要预算或装配口径复审。

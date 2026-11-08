@@ -44,6 +44,12 @@ pub enum EventKind {
     TurnFinished,
     /// 失败的模型尝试（T266／FR-756；不进入模型历史，只留审计事实）。
     AssistantAttempt,
+    /// 压缩开始（T265／FR-755／ADR-060 项 B；**单独提交**，崩溃时留可检测孤儿锁）。
+    CompactionStarted,
+    /// 压缩摘要（模型生成的摘要正文；有界，超限标 `truncated`）。
+    CompactionSummary,
+    /// 压缩结束（与 `CompactionStarted` 成对；记录实际采用的策略与失败回退原因）。
+    CompactionFinished,
 }
 
 impl EventKind {
@@ -63,6 +69,9 @@ impl EventKind {
             Self::TurnStarted => "TurnStarted",
             Self::TurnFinished => "TurnFinished",
             Self::AssistantAttempt => "AssistantAttempt",
+            Self::CompactionStarted => "CompactionStarted",
+            Self::CompactionSummary => "CompactionSummary",
+            Self::CompactionFinished => "CompactionFinished",
         }
     }
 
@@ -78,8 +87,12 @@ impl EventKind {
             | Self::PersistenceError
             | Self::TurnStarted
             | Self::TurnFinished
-            | Self::AssistantAttempt => EventCriticality::Critical,
-            Self::StreamingChunk | Self::ContextState => EventCriticality::Content,
+            | Self::AssistantAttempt
+            | Self::CompactionStarted
+            | Self::CompactionFinished => EventCriticality::Critical,
+            Self::StreamingChunk | Self::ContextState | Self::CompactionSummary => {
+                EventCriticality::Content
+            }
             Self::ProgressChanged => EventCriticality::DisplaySnapshot,
         }
     }
@@ -326,6 +339,27 @@ mod tests {
         // 任务书 §8.3 示例：{"kind":"RequestStarted",...}；数据库与导出共用同一取值。
         let json = serde_json::to_string(&EventKind::StreamingChunk).expect("serialize");
         assert_eq!(json, "\"StreamingChunk\"");
+    }
+
+    /// 压缩三事件是外部契约（导出、GUI/Web 投影、孤儿锁判定都按稳定名匹配）。
+    #[test]
+    fn compaction_events_keep_stable_names_and_grading() {
+        assert_eq!(EventKind::CompactionStarted.as_str(), "CompactionStarted");
+        assert_eq!(EventKind::CompactionSummary.as_str(), "CompactionSummary");
+        assert_eq!(EventKind::CompactionFinished.as_str(), "CompactionFinished");
+        // 开/关是状态事实（关键事件）；摘要正文按内容事件分级。
+        assert_eq!(
+            EventKind::CompactionStarted.criticality(),
+            EventCriticality::Critical
+        );
+        assert_eq!(
+            EventKind::CompactionFinished.criticality(),
+            EventCriticality::Critical
+        );
+        assert_eq!(
+            EventKind::CompactionSummary.criticality(),
+            EventCriticality::Content
+        );
     }
 
     #[test]
