@@ -499,6 +499,19 @@ mod tests {
         RowBackend::with_size(Vec::new(), width, height)
     }
 
+    /// 强制启用 crossterm 的 ANSI 颜色输出（仅测试二进制内一次性生效）。
+    ///
+    /// crossterm 按进程环境变量 `NO_COLOR` 决定是否写出颜色序列（非空即整段抑制）。
+    /// 若测试不固定这个开关，断言会随宿主环境变化：CI/普通终端通常无 `NO_COLOR`，
+    /// 而设置了 `NO_COLOR=1` 的开发环境里所有 SGR 都被吞掉，测试变红——这属于
+    /// “测试结论依赖环境”，违反仓库的验证纪律（AGENTS §5）。产品行为仍尊重
+    /// `NO_COLOR`（用户的退出权与可撤销默认值，AGENTS §1.3），本函数只作用于测试。
+    fn force_ansi_colors_enabled() {
+        use std::sync::Once;
+        static ONCE: Once = Once::new();
+        ONCE.call_once(|| crossterm::style::Colored::set_ansi_color_disabled(false));
+    }
+
     /// 按 ratatui 自身的布局口径写入一行（`Buffer::set_string` 会为双宽字符重置尾格），
     /// 与生产路径传入的 `(x, y, &Cell)` 完全一致。
     fn put(backend: &mut RowBackend<Vec<u8>>, row: u16, text: &str, style: Style) {
@@ -655,13 +668,18 @@ mod tests {
     /// 主题色经行内 SGR 输出（前景/背景），且同一行只在首格设置一次。
     #[test]
     fn style_is_emitted_once_per_run() {
+        force_ansi_colors_enabled();
         let mut backend = backend(20, 2);
         let style = Style::default()
             .fg(Color::Rgb(0, 0, 0))
             .bg(Color::Rgb(255, 255, 255));
         put(&mut backend, 0, "abc", style);
         let output = String::from_utf8(backend.writer.clone()).expect("UTF-8");
-        assert_eq!(output.matches("\u{1b}[38;2;0;0;0m").count(), 1);
+        assert_eq!(
+            output.matches("\u{1b}[38;2;0;0;0m").count(),
+            1,
+            "诊断输出：{output:?}"
+        );
         assert_eq!(output.matches("\u{1b}[48;2;255;255;255m").count(), 1);
     }
 

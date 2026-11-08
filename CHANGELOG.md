@@ -13,6 +13,13 @@
 
 ### 变更
 
+- **TUI 行后端测试环境无关化（2026-11-09）**：`rowbackend::tests::style_is_emitted_once_per_run`
+  断言 SGR 颜色序列，而 crossterm 按环境变量 `NO_COLOR`（非空即整段抑制颜色输出）决定是否
+  写颜色序列，导致该断言在 `NO_COLOR=1` 的环境里必然伪失败（本机复核即命中，left 0 ≠ 1）。
+  测试二进制内以 `Once` 固定启用 ANSI 颜色（`force_ansi_colors_enabled`），产品行为继续尊重
+  `NO_COLOR`（用户的退出权与可撤销默认值）。修复后 `cargo test -p whcode-tui --lib` 在
+  `NO_COLOR` 有/无两种环境下均 75/75 通过；属测试保真度修复，产品输出零变化。
+
 - **README 十二语译文三审三校（代理审校批）**（2026-11-09）：对 README.en／zh-TW／ja／ko／
   ru／fr／es／de／ar／hi／ur／bn 逐份对照源文审校，约 55 处修正：ru 语义反向（“项目由
   社区维护”被译作“项目支持社区”）与门禁句主客颠倒；de 冠词性别错误（“Eine
