@@ -13,6 +13,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use duckdb::Connection;
 use whcode_domain::{ErrorCode, WhError};
@@ -56,6 +57,20 @@ pub fn open_workspace_db(workspace: &Path, config: &Config) -> Result<Connection
     let temp_directory = whcode_platform::paths::workspace_temp_dir(workspace);
     fs::create_dir_all(&temp_directory)
         .map_err(|err| WhError::new(ErrorCode::IoError, format!("创建工作区目录失败：{err}")))?;
+    // 迁移前备份（P3.4／FR-767／ADR-063）：库文件已存在且版本落后时先复制到
+    // `<workspace>/backups/` 并核对 SHA-256；备份失败即返回错误，**不继续迁移**
+    // （data-model §5、NFR-103：不得出现“无备份却已升版”的状态）。
+    // 必须在主连接之前执行：Windows 上 DuckDB 独占持有库文件，连接期间无法做文件级复制。
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX)
+        });
+    if let Some(record) =
+        whcode_store::pre_migration_backup(&db_path, whcode_store::STORE_SCHEMA_VERSION, now_ms)?
+    {
+        eprintln!("{}", record.notice());
+    }
     let conn = Connection::open(&db_path).map_err(|err| {
         WhError::new(
             ErrorCode::IoError,
@@ -188,6 +203,54 @@ mod tests {
             "打开工作区必须把中断遗留的执行标为 unknown（不重放副作用）"
         );
         drop(conn);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// 迁移前自动备份（P3.4／FR-767／ADR-063）：旧库打开时先落一份备份，再完成迁移；
+    /// 同版本重开不再新增副本（不随启动次数增长）。
+    #[test]
+    fn opening_workspace_backs_up_before_migration_and_only_once() {
+        let dir = std::env::temp_dir().join(format!("whcode-ws-backup-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let config = Config::for_workspace(dir.clone());
+
+        let conn = open_workspace_db(&dir, &config).expect("首次打开");
+        // 模拟待迁移旧库：只回退版本记录（v8 迁移是 IF NOT EXISTS，可重复应用）。
+        conn.execute("DELETE FROM schema_migrations WHERE version = 8", [])
+            .expect("回退版本记录");
+        drop(conn);
+
+        let conn = open_workspace_db(&dir, &config).expect("再次打开");
+        let version = whcode_store::schema_version(&conn).expect("读版本");
+        drop(conn);
+        assert_eq!(
+            version,
+            whcode_store::STORE_SCHEMA_VERSION,
+            "备份后迁移必须完成"
+        );
+
+        let backups = dir.join(whcode_store::BACKUP_DIR_NAME);
+        let names: Vec<String> = fs::read_dir(&backups)
+            .expect("备份目录必须存在")
+            .filter_map(|entry| {
+                let entry = entry.ok()?;
+                Some(entry.file_name().to_string_lossy().to_string())
+            })
+            .collect();
+        assert_eq!(
+            names.len(),
+            1,
+            "落后版本必须产生且只产生一份备份：{names:?}"
+        );
+        assert!(
+            names[0].contains(".v0007-"),
+            "备份文件名须含迁移前版本：{names:?}"
+        );
+
+        let conn = open_workspace_db(&dir, &config).expect("第三次打开");
+        drop(conn);
+        let count = fs::read_dir(&backups).expect("备份目录").count();
+        assert_eq!(count, 1, "同版本重开不得新增备份");
         let _ = fs::remove_dir_all(&dir);
     }
 }

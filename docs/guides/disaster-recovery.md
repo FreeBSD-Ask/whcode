@@ -10,9 +10,10 @@
 |---|---|---|
 | 库文件 | `<workspace>/whcode.duckdb`（WAL 为同名 `.wal`） | `crates/whcode-bin/src/workspace.rs:23`、`45-47`；`crates/whcode-store/src/compact.rs:86-88` |
 | 工作区解析 | `--workspace DIR` ＞ 配置 `workspace_path` ＞ 当前目录 | `workspace.rs:30-41`；`crates/whcode-bin/src/main.rs:393-412` |
-| 临时目录 | `<workspace>/tmp`（启动时创建） | `workspace.rs:56-58` |
-| 进程独占 | 同一工作区同一时刻只允许一个进程打开库（跨进程锁冲突走 `io_error`） | `workspace.rs:9-12`、`59-64` |
-| 启动动作 | 幂等迁移 + 工具执行不确定态恢复 | `workspace.rs:81-102` |
+| 临时目录 | `<workspace>/tmp`（启动时创建） | `workspace.rs` 的 `open_workspace_db` |
+| 备份目录 | `<workspace>/backups/`（迁移前自动备份，最多 5 份） | `crates/whcode-store/src/backup.rs`（FR-767／ADR-063） |
+| 进程独占 | 同一工作区同一时刻只允许一个进程打开库（跨进程锁冲突走 `io_error`） | `workspace.rs` 模块文档；DuckDB 文件锁 |
+| 启动动作 | 预迁移备份 → 幂等迁移 → 工具执行不确定态恢复 | `workspace.rs` 的 `open_workspace_db`（顺序即契约） |
 
 **恢复的第一步永远是停掉所有 `whcode` 进程**（TUI、`serve --web`、`bench`）。
 
@@ -40,19 +41,42 @@ whcode events export --session S-001 --after 9900 --format json
 事件导出的 JSONL 首行是头（`trace_level`/`redacted`/`integrity`），秘密字段不出现
 （`crates/whcode-cui/src/events_cmd.rs:33-68`、`116-120`）。
 
-## 3. 恢复：当前只有“文件级还原”
+### 2.1 迁移前自动副本（库文件级，已实现；P3.4／FR-767／ADR-063）
 
-`import_workspace` 库函数存在（含六道校验，任一失败整体拒绝），但**未接入任何
-CLI/HTTP 入口**（`export.rs:555-698`；调用点仅在测试中）。
+启动时若库文件已存在且 `schema_migrations` 的最大版本**落后**于
+`STORE_SCHEMA_VERSION`，装配根在打开主连接**之前**自动复制一份库文件：
 
-因此当前的恢复流程是**文件级**：
+```text
+<workspace>/backups/whcode.duckdb.v<四位迁移前版本>-<十三位毫秒>.bak
+```
+
+| 事实 | 说明 | 证据 |
+|---|---|---|
+| 触发 | 仅在版本落后时复制一次；新库、同版本重开、版本更高（降级）都不复制 | `crates/whcode-store/src/backup.rs` 的 `pre_migration_backup` |
+| 时机 | 主连接之前；函数自带短连接先 `CHECKPOINT` 再释放句柄（Windows 上 DuckDB 独占库文件，连接期间无法复制） | 同上；`crates/whcode-bin/src/workspace.rs` 的 `open_workspace_db` |
+| 完整性 | 复制同时流式计算 SHA-256（64 KiB 缓冲），落盘后核对字节数；`verify_backup` 可复算，不符返 `invalid_state` | `backup.rs` 的 `backup_database`／`verify_backup` |
+| 有界 | `backups/` 只保留最近 5 份（`MAX_BACKUPS`），超出按文件名时间序裁剪；扫描上限 256 条 | `backup.rs` 的 `prune_backups` |
+| 失败语义 | `CHECKPOINT` 或复制失败即**阻断启动/迁移**（不出现“无备份却已升版”） | `workspace.rs` 的 `?` 传播 |
+| 提示 | 启动时一行 `eprintln!`：路径、迁移前版本、字节数、SHA-256 | `BackupRecord::notice` |
+
+备份是**库文件副本**，只能走文件级还原（见 §3 第 3 步选用 `.bak`）；它不是导出 JSON，
+不能经 `db restore --from` 回灌。跨版本带离与留档仍用 `db archive --export`。
+
+## 3. 恢复：导出回灌与文件级还原
+
+`db restore --from <导出文件> --yes` 已接入（导入到**空库**，非空目标拒绝且零写入），
+用于导出文件的回灌；`import_workspace` 的六道校验与单事务由 store 承担
+（`export.rs`；应用层入口 `whcode_app::maintenance::restore_workspace`）。
+
+文件级还原用于“库文件本身不可用”或“迁移失败回退”：
 
 ```text
 1. 停止所有 whcode 进程
 2. 备份“当前”库文件（即使已损坏，保留现场用于取证）：
      copy whcode.duckdb  whcode.duckdb.broken-YYYYMMDD-HHMM
 3. 用可信副本覆盖：
-     copy <可信副本>.duckdb  whcode.duckdb
+     copy whcode.duckdb.v0007-<时间戳>.bak  whcode.duckdb     # 迁移前自动副本
+   # 或 copy <可信副本>.duckdb  whcode.duckdb
 4. 删除同名 WAL（避免旧 WAL 叠加到新副本）：
      del whcode.duckdb.wal
 5. 启动并核对：
@@ -60,9 +84,8 @@ CLI/HTTP 入口**（`export.rs:555-698`；调用点仅在测试中）。
      whcode db check             # 必需索引是否齐全
 ```
 
-导出文件（whcode-export v1）用于**迁移与留档**，当前不能一键回灌；需要回灌时必须
-先补齐导入入口（见 §8）。这一点在 `specs/001-whcode-harness/quickstart.md` 中同样按
-“接口草案”处理，不构成已交付能力。
+导出文件（whcode-export v1）用于**迁移与留档**；`audit`、`runtime_state`、
+`schema_migrations` 不在导出内（审计不随导出扩散），回灌后由启动迁移重建版本记录。
 
 ## 4. compact（唯一会替换库文件的维护动作）
 
@@ -148,8 +171,9 @@ whcode session delete --session S-001 --dry-run
 1. 空闲窗口自动 checkpoint（`should_checkpoint_on_idle`）仍无事件循环调用方——空闲
    维护属调用方职责，显式命令已覆盖实际需要；如需自动空闲维护须先立并发设计档案
    （ADR-015）再接入。
-2. 无启动期完整性校验、无自动备份、无快照保留策略（检查点策略 `CheckpointPolicy`
-   仅存在于配置与领域类型，未接入写路径）。
+2. 无启动期完整性校验（`db check` 是显式命令，不在启动路径）；无定期快照策略
+   （检查点策略 `CheckpointPolicy` 仅存在于配置与领域类型，未接入写路径）。
+   **迁移前自动备份已实现**（§2.1，最多 5 份），但只覆盖“版本落后”这一刻，不是定期备份。
 3. 无“删除整库/卸载自身”命令；数据带离出口是 `db archive --export`，恢复入口是
    `db restore --from`。
 
@@ -163,3 +187,4 @@ whcode session delete --session S-001 --dry-run
 | 4 | 停进程 → 文件级还原 → 重启 | `db stats` 与还原前一致，工具执行清单不重放副作用 |
 | 5 | `whcode db compact --yes` | 副本校验通过才切换；失败时原库不受影响 |
 | 6 | `whcode db purge --before <未来时间> --dry-run` | 只读预览，报满 9 张表名，活跃会话被跳过 |
+| 7 | 在**测试工作区**把 `schema_migrations` 回退一版后启动 | `backups/` 新增一份 `.v<旧版本>-<时间戳>.bak`，启动提示含路径／字节数／SHA-256；同版本重开不再新增 |

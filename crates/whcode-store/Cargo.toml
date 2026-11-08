@@ -12,6 +12,9 @@ whcode-domain = { path = "../whcode-domain" }
 serde.workspace = true
 serde_json.workspace = true
 duckdb = { version = "=1.20000.0", default-features = false }
+# 备份完整性（FR-767／ADR-063）：复制库文件时流式计算 SHA-256。
+# 与 `whcode-app`（ADR-040 证书工具）同源同版本，不新增第三个 sha2 实现。
+sha2 = "0.11.1"
 
 [lints]
 workspace = true

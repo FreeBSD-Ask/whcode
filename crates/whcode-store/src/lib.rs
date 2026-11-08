@@ -22,7 +22,8 @@
 //! - [`directory`] / [`tasks`]：会话目录与任务投影存储原语（M2/T046—T052 支撑、ADR-018）；
 //! - [`tool_exec`]：工具执行“意图—执行—登记”与不确定恢复（T114、FR-409/410、ADR-007）；
 //! - [`checkpoints`]：检查点写入、任务状态转移原子事务与恢复读取（G-01、FR-402/403/404）；
-//! - [`audit`]：审计记录写入（`CAST(? AS JSON)::VARIANT`；T187、ADR-040 决策 4）。
+//! - [`audit`]：审计记录写入（`CAST(? AS JSON)::VARIANT`；T187、ADR-040 决策 4）；
+//! - [`backup`]：迁移前文件级备份、SHA-256 校验与有界保留（P3.4／FR-767／ADR-063）。
 //!
 //! M1 存储基座（T032—T042）已在本 crate 交付；跨进程/跨连接的验收集成测试
 //! （T043—T045）位于仓库 `tests/integration/`（whcode-tests）。
@@ -31,6 +32,7 @@
 //! SQL 只在本 crate 内出现（ADR-018）；`whcode-app` 经本 crate 公共 API 编排命令。
 
 pub mod audit;
+pub mod backup;
 pub mod checkpoints;
 pub mod compact;
 pub mod directory;
@@ -55,6 +57,10 @@ pub mod writer;
 mod test_util;
 
 pub use audit::insert_record;
+pub use backup::{
+    BACKUP_BUFFER_BYTES, BACKUP_DIR_NAME, BackupRecord, MAX_BACKUPS, backup_database,
+    backup_directory, backup_file_name, pre_migration_backup, prune_backups, verify_backup,
+};
 pub use checkpoints::{
     CheckpointInsert, CheckpointRecovery, EventInsertInfo, MAX_ARTIFACT_REFS, MAX_DELTA_JSON_BYTES,
     TaskTransition, TaskTransitionReport, insert_checkpoint, recover_from_checkpoint,
