@@ -28,6 +28,12 @@
 | `doctrine-application.md` | 工程准则应用记录（审计/改动/缺口） |
 | `yike-philosophy.md` | 一刻哲学源流与工程翻译 |
 | `knowing-before-doing.md` | 知难行易（宪法原则 X）：任务认知卡、门禁落点、反例与复审触发 |
+| `evidence-states.md` | Check 证据五态命名与升级判据（ADR-046 项 H；T271） |
+| `review-protocol.md` | 评审协议：三证据域独立、调和纪律、质量门与硬上限（T272） |
+| `milestone-review.md` | 里程碑评审协议（Agent Work Loop 评审层） |
+| `long-line-plan.md` | 长线计划：阶段 A—C 工作序列与门禁的权威索引（非验收结论） |
+| `parallel-session-protocol.md` | 双会话并行协作协议：共享索引与账本争用纪律 |
+| `tool-catalogue.md` | 工具目录（受校验产物，`whcode-tools::catalogue` 生成，禁止手工编辑；T281/FR-768） |
 
 ## T119 交付记录（2026-10-23）
 

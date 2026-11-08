@@ -64,7 +64,7 @@ TLS 的依赖落点是这条边界的特例（ADR-031／ADR-040）：**出站**�
   `BoundedQueue`、字体本机命令的 `fonts::BUILTIN_FONTS`/`FontRegistry`/`FontEnv`/
   `install`/`status`/`uninstall`（FR-717：本机资源命令，不触库、不经会话授权；
   注册表副作用经 trait 注入，应用层零平台分支）、四端能力登记表
-  `surface::SurfaceEntry`/`SURFACES`/`validate`/`find`（FR-619 SSOT：54 条命令/视图
+  `surface::SurfaceEntry`/`SURFACES`/`validate`/`find`（FR-619 SSOT：58 条命令/视图
   × CUI/TUI/GUI/Web 四态，理由码见 ADR-032）与写命令门面
   `commands::FrontendCommand`/`CommandOutcome`/`CommandExecutor`/`execute_command`
   （FR-623：CUI/TUI/Web 七条写命令唯一执行入口，破坏性命令预览/确认语义单点化）。

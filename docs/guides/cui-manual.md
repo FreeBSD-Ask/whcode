@@ -117,7 +117,7 @@ whcode doctor [--json]              # 环境与配置自检
 TUI／GUI 仍为 `Reserved`，不得据本节宣称四端可用）。
 
 未接线（显式失败，退出码 `55` + `not_supported` 信封，不静默成功）：
-`run`（Provider 流式装配）、`events show`（按 ID 查询接口未提供）、
+`session switch`（会话切换，FR-102 预留未排期）、`events show`（按 ID 查询接口未提供）、
 `spec next/validate/analyze/converge/force-advance`（需 SDD 产物工作区上下文）、
 `runtime status/enable/disable/install`（运行时装配开关属 M8）、
 `db checkpoint`（压缩内部步骤，不单独公开）。

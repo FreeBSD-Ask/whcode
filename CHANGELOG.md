@@ -13,6 +13,25 @@
 
 ### 变更
 
+- **治理文档一致性批次（全量扫描，2026-11-08）**：对 `docs/`、`engineering-doctrine/`、
+  `specs/`、`AGENTS.md`、README 共 154 份 md 做机械扫描（Markdown 相对链接 0 失效；
+  反引号路径引用 21 处失效项逐条查证）。落盘修复：①`docs/guides/project-status.md`
+  快照刷到 2026-11-08 实测（FR 146／任务 281（完成 270）／Check 376（missing 10）、
+  证据态 exercised 317；能力面 58 条与四端分布重计）；②`docs/matrices/compatibility.md`
+  检查点计数 358/346/12 → 376/366/10；③`docs/guides/module-design.md` 能力面 54 → 58 条；
+  ④`docs/guides/long-line-plan.md` 计数注记同步；⑤`docs/guides/README.md` 索引补
+  `tool-catalogue`／`evidence-states`／`review-protocol`／`milestone-review`／
+  `long-line-plan`／`parallel-session-protocol` 六行；⑥`docs/guides/cui-manual.md`
+  未接线清单剔除已由 `llm run` 取代的陈旧 `run` 项、补 `session switch`；⑦`AGENTS.md`
+  头部日期 2026-11-03 → 2026-11-08；⑧账本与基线：T113（bsdshell 实际落
+  `providers.rs::BsdShellProvider`）、T117（实际落 `ADR-020-allocator.md`）、T189（纯类型
+  在 `whcode-domain/src/tls.rs`、握手在 `whcode-bin/src/tls.rs`）追加“落点修订”注记，
+  `spec.md` FR-626／FR-627 证据路径纠正为实际文件（`whcode-web/src/tls.rs` 从未存在，
+  依据 ADR-040 代码归属；`settings.html` 实际在 `frontend/` 直下）。历史名 `ci.yml`／
+  `platform-windows.yml` 等保留原路径不篡改（ADR-037 全局解读与带日期复核记录口径）。
+  验证：check-eol／docs-style／check_counts／traceability／knowing-first／i18n-po 全绿，
+  `frontend_parity` 10/10（矩阵与 `SURFACES` 同源）。
+
 - **工具目录成为受校验产物（FR-768／T281／Check 376，ADR-045 修订）**（2026-11-08）：
   `docs/guides/tool-catalogue.md` 由 `whcode-tools::catalogue::render_catalogue()` 从
   `provider_manifest()` 与工具元数据生成（名、说明、参数表、副作用、执行预算、输出契约），
