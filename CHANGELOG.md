@@ -13,6 +13,29 @@
 
 ### 变更
 
+- **迁移前自动备份（FR-767／T280／Check 375，ADR-063）**（2026-11-08）：库文件已存在且 schema
+  版本落后时，装配根在打开主连接**之前**自动复制一份库文件到 `<workspace>/backups/`。
+  ①时点：只在新旧版本落差时备份一次，新库、同版本重开、版本更高（降级）都不复制；
+  ②完整性：复制同时以 64 KiB 缓冲流式计算 SHA-256 并核对字节数，`verify_backup` 可复算，
+  不符返 `invalid_state`；③有界：`MAX_BACKUPS=5`，文件名十三位零填充时间戳使字典序即时间序，
+  裁剪按该序删最旧，目录扫描上限 256 条，遗留 `.partial` 每次备份前清理；④fail-closed：
+  `CHECKPOINT`、复制或裁剪任一步失败即以 `?` 阻断迁移，不出现“无备份却已升版”；
+  ⑤Windows 时序：DuckDB 独占库文件（连接期间复制得 `os error 32`），故实现为“短连接读版本
+  →`CHECKPOINT`→释放句柄→复制”；⑥提示只打一行 `eprintln!`（路径、迁移前版本、字节数、
+  SHA-256，不含库内容）。测试：store 6＋bin 1 端到端；`whcode-store` 新增 `sha2` 依赖
+  （与 `whcode-app` 同版本 0.11.1，不新增第三份实现）。`docs/guides/disaster-recovery.md`
+  的恢复流程同步为“导出回灌／迁移前副本”双路径。CI 待运行（ADR-037）。
+
+- **工具输出契约与渲染投影（T269／FR-759，ADR-060 项 F）**（2026-11-08 补账）：工具可声明
+  输出 schema 与模型面渲染，展示面与模型面分离。①`ToolDescriptor.output_schema`（可选 JSON
+  Schema 子集：`type`／`required`／`properties`／`additionalProperties:false`）；
+  ②`ToolOutput.value` 承载结构值，`Tool::render(args, value)` 为模型面投影（默认紧凑 JSON），
+  `Tool::finalize` 固定“校验 → 投影 → 统一截断”顺序；③校验失败是结构化错误
+  （`invalid_state`、`retryable=false`、`details.violations` 逐条列缺字段／类型不符／未声明
+  字段），不当作成功、不静默裁字段；④展示面上限 `MAX_OUTPUT_VALUE_BYTES`（2 KiB），模型面
+  仍受 `MAX_TOOL_OUTPUT_BYTES`（64 KiB），两侧各自带截断标记；`ToolCallFinished` 增
+  `output_value` 键（纯文本工具为 null），既有六件套行为不变。测试：registry 4 项。CI 待运行。
+
 - **上下文压缩升级为模型摘要（T265／FR-755，ADR-060 项 B）**（2026-11-08）：超预算时先做一次
   模型摘要再回退结构折叠。①新模块 `whcode-app/src/compaction.rs`：独立 `request_id`
   （`<turn>-cmp-<iteration>`）与 `purpose=compaction`、显式 `max_tokens=1024`、与 turn 共用

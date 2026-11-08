@@ -923,9 +923,26 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   于 `2fd76e6`，避开并行会话 WIP）：`cargo test -p whcode-store usage_anchor` 3/3、
   `-p whcode-app anchor`（校准/折叠相关 4 项）4/4、`-p whcode-tests --test migration
   v7_workspace_gains_usage_anchor_table` 1/1；CI 待运行（ADR-037）。
-- [ ] T269 [P] 工具输出契约（FR-759；ADR-060 项 F）：输出 schema＋渲染投影＋校验失败结构化
+- [x] T269 [P] 工具输出契约（FR-759；ADR-060 项 F）：输出 schema＋渲染投影＋校验失败结构化
   ——**任务认知卡**：方向=模型面与展示面分离；目标=契约可校验；判据=合法/非法/超限
   三路径；非目标=GUI 卡片渲染（属 T256）
+  ——**取证（2026-11-08 补账，代码 `44ea4bf`）**：`ToolDescriptor.output_schema`
+  （JSON Schema 子集：`type`／`required`／`properties`／`additionalProperties:false`）；
+  `ToolOutput.value` 承载结构值，`Tool::render(args, value)` 为**模型面投影**（默认紧凑 JSON，
+  工具可覆盖为省 token 呈现），`Tool::finalize` 收口顺序＝schema 校验 → 投影 → 统一截断；
+  校验失败是**结构化错误**（`invalid_state`、`retryable=false`、`details.violations` 逐条列
+  缺字段／类型不符／未声明字段），不当作成功、不静默裁字段；展示面 `display_value()`
+  上限 `MAX_OUTPUT_VALUE_BYTES = 2 KiB`，模型面仍受 `MAX_TOOL_OUTPUT_BYTES`（64 KiB）
+  统一截断，两侧各自带截断标记；`ToolCallFinished` 增 `output_value` 键
+  （`whcode-app/src/turn.rs`，纯文本工具为 null）。纯文本六件套无结构值，`finalize`
+  原样通过，行为与引入前一致。测试（`cargo test -p whcode-tools registry` 4 项，本机实跑
+  通过）：`structured_output_is_validated_and_rendered_separately_from_display_value`
+  （投影与展示分离）、`invalid_structured_output_is_a_structured_error_with_violations`
+  （缺字段／类型不符／未声明字段三态）、
+  `oversized_structured_output_is_truncated_with_marker_on_both_faces`（64 KiB 与 2 KiB
+  两面上限）、`text_only_tools_pass_through_finalize_unchanged`（既有工具零行为变化）。
+  本机 `cargo test --locked --workspace` 全绿、clippy `-D warnings` 与 fmt 绿；
+  CI 待运行（ADR-037）。
 - [x] T270 [P] turn 边界先落（FR-760；ADR-060 项 G）：`turn/start` 单独提交＋未闭合可见
   ——**任务认知卡**：方向=崩溃可判定；目标=边界先于首次模型调用落库；判据=崩溃模拟
   下 `interrupted` 可见；非目标=改事件批处理语义
@@ -1666,3 +1683,28 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   位置、图标在零图像解码依赖下进入 GUI／Web、终端有 ASCII 标识；判据=`--check` 一致、
   图标路由可达而 `/logo.svg` 仍 404、字标尺寸契约测试、空态放不下时只留空提示；
   非目标=改主题色值、重新设计标志、给 TUI 加动画或新依赖、翻译字标（语言中立）
+
+## Tasks（2026-11-08 追加）：Phase 2 会话与运维——迁移前自动备份（ADR-063）
+
+- [x] T280 [P] 迁移前自动备份（FR-767／ADR-063；proposal-v3 P3.4）：打开主连接前，若库文件
+  存在且 schema 版本落后，则复制到 `<workspace>/backups/`（先写 `.partial` 再改名）、流式
+  SHA-256（64 KiB 缓冲）＋字节数核对、`verify_backup` 可复算；保留 5 份按时间序裁剪（扫描
+  上限 256，遗留 `.partial` 每次备份前清理）；`CHECKPOINT`／复制／裁剪失败阻断迁移
+  ——**任务认知卡**：方向=把 data-model §5 与 NFR-103 的“迁移前可恢复备份”从外部约定落成
+  程序行为；目标=升级失败可回退且备份有完整性证据；判据=备份/校验/篡改/保留上限/新库与
+  同版本跳过/半截清理/恢复演练（备份可打开且行数一致）＋端到端（旧库打开产生一份备份、
+  同版本重开不新增）；非目标=定期快照、手动备份命令、加密、跨盘容灾
+  ——**取证（2026-11-08）**：`whcode-store/src/backup.rs` 六项测试
+  （`backup_matches_known_sha256_and_detects_tampering`：内容 `abc` 对应标准向量
+  `ba7816bf…0015ad`、篡改一字节即 `invalid_state`；`retention_keeps_bounded_number_of_backups`
+  超过 5 份裁剪最旧；`stale_partial_files_are_cleaned_before_backup`；
+  `pre_migration_backup_only_runs_when_version_lags` 覆盖同版本/落后/新库三态；
+  `backup_can_be_opened_after_copying_live_database` 恢复演练核对 schema 版本与 3 行一致；
+  `missing_or_directory_source_is_rejected` 两条失败路径）＋
+  `whcode-bin/src/workspace.rs::tests::opening_workspace_backs_up_before_migration_and_only_once`
+  （端到端：回退版本记录后打开产生 1 份 `.v0007-*` 备份并完成迁移，第三次打开不新增）。
+  本机（隔离 worktree，`bf456b0`＋并集改动）：store 129／bin 97 全绿，clippy
+  `-D warnings`、fmt 绿，layout 6／layering 6 绿；并集全量 `cargo test --locked --workspace`
+  64 个测试二进制全绿；`check-adr-limits.py` 报新 ADR 1 份合规。环境事实：Windows 上
+  DuckDB 独占库文件，连接期间复制得 `os error 32`，故实现为“短连接 CHECKPOINT→释放→复制”。
+  CI 待运行（ADR-037）。
