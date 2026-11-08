@@ -13,6 +13,14 @@
 
 ### 变更
 
+- **工具目录成为受校验产物（FR-768／T281／Check 376，ADR-045 修订）**（2026-11-08）：
+  `docs/guides/tool-catalogue.md` 由 `whcode-tools::catalogue::render_catalogue()` 从
+  `provider_manifest()` 与工具元数据生成（名、说明、参数表、副作用、执行预算、输出契约），
+  契约测试逐字节比对、漂移即红；重新生成：
+  `WHCODE_UPDATE_TOOL_CATALOGUE=1 cargo test -p whcode-tools catalogue`。目录头部记
+  `manifest-fingerprint`（FNV-1a 64），用于复核“文档与代码同源”。当前覆盖 6 个内置工具；
+  MCP 运行期工具不计入（模块文档声明该局限）。
+
 - **迁移前自动备份（FR-767／T280／Check 375，ADR-063）**（2026-11-08）：库文件已存在且 schema
   版本落后时，装配根在打开主连接**之前**自动复制一份库文件到 `<workspace>/backups/`。
   ①时点：只在新旧版本落差时备份一次，新库、同版本重开、版本更高（降级）都不复制；

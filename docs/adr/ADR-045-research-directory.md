@@ -89,3 +89,34 @@
   ADR-044、`plan-p0-1-turn-loop.md`、`tasks.md` 中指向 `local/diff-zcode-vs-whcode.md`
   的引用全部迁移至 `research/zcode-comparison/` 对应条目；原差异书保留 `local/` 源稿留档。
   门禁待 CI 实跑取证（ADR-037：以 GitHub Actions 日志为准）。
+
+## 8. 修订（2026-11-08）：工具目录作为受校验产物（P7.4／FR-768／T281）
+
+**决策**：`docs/guides/tool-catalogue.md` 由程序生成并受门禁校验，不得手工编辑。
+
+1. **生成源**：`whcode-tools::catalogue::render_catalogue()` 读
+   `ToolRegistry::provider_manifest()`（模型可见契约）与工具元数据（副作用范围、执行预算、
+   输出 schema 存在性）；工具按稳定名升序、字段顺序固定，渲染确定性。
+2. **同源证明**：目录头部记 `manifest-fingerprint: fnv1a64:…`（清单规范化 JSON 的 FNV-1a 64）。
+   指纹只证明“文档与清单由同一份数据生成”，不证明文档内容正确。
+3. **门禁**：`catalogue_matches_committed_doc` 逐字节比对仓库文件；不一致即失败并给出重新
+   生成命令。重新生成：`WHCODE_UPDATE_TOOL_CATALOGUE=1 cargo test -p whcode-tools catalogue`
+   （写盘后返回，不静默跳过比对）。
+4. **范围**：只覆盖内置工具（`default_registry()`）。MCP 服务器工具在运行期按配置装配，
+   其可见性由 `tool_manifest` 事件与运行时清单承载，不进本目录。
+5. **分层**：指纹算法与 `whcode-store::schema::checksum` 同源但**不跨 crate 复用**
+   （`whcode-tools` 不得依赖 `whcode-store`，ADR-003），重复实现与理由写在模块文档。
+
+## 9. 已知限制与失效条件
+
+- **限制**：目录描述的是**声明**（参数 schema、副作用、预算、输出契约），不是实现质量的证据；
+  工具行为是否正确仍由各自测试与 Check 判定。
+- **限制**：指纹为 FNV-1a 64，只能检测意外漂移，不防蓄意篡改（与 `whcode-store` 校验和同口径）。
+- **限制**：MCP 工具不在目录内；若用户以为目录等于“完整可调用集”，会得到错误的完整性印象
+  （目录正文已声明该边界）。
+- **失效条件**（可复现判定）：
+  1. `cargo test -p whcode-tools catalogue` 失败 → 目录与代码漂移（重新生成并复核 diff）；
+  2. 内置工具数变化但目录未变更 → 同一门禁即红（无需额外判据）；
+  3. 目录被人工编辑后仍通过门禁 → 说明门禁实现漂移，按 P7.5 的口径先修门禁再改文档；
+  4. MCP 工具数量成为主要使用面（例如超过内置工具数）→ 复审是否登记运行期清单快照。
+

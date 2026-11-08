@@ -1708,3 +1708,26 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   64 个测试二进制全绿；`check-adr-limits.py` 报新 ADR 1 份合规。环境事实：Windows 上
   DuckDB 独占库文件，连接期间复制得 `os error 32`，故实现为“短连接 CHECKPOINT→释放→复制”。
   CI 待运行（ADR-037）。
+
+## Tasks（2026-11-08 追加）：Phase 2 治理——工具目录生成与新鲜度校验（ADR-045 修订）
+
+- [x] T281 [P] 工具目录生成与新鲜度校验（FR-768；proposal-v3 P7.4）：从 `provider_manifest()`
+  与工具元数据渲染 `docs/guides/tool-catalogue.md`（名／说明／参数／副作用／执行预算／
+  输出契约）＋清单指纹；契约测试逐字节比对，漂移即红；`WHCODE_UPDATE_TOOL_CATALOGUE=1`
+  重新生成
+  ——**任务认知卡**：方向=把“模型能调用什么、副作用多大、有没有预算与输出契约”从只在
+  运行期存在的事实变成可 diff 的文档；目标=文档与代码同源且漂移可判定；判据=匹配／漂移／
+  确定性三路径＋指纹可区分不同清单；非目标=把 MCP 运行期工具纳入目录、生成站点或 HTML、
+  把目录当宣传页
+  ——**取证（2026-11-08）**：`whcode-tools/src/catalogue.rs`——`render_catalogue()` 由
+  `ToolRegistry::descriptors()`（新增，按稳定名升序）渲染，头部写
+  `manifest-fingerprint: fnv1a64:…`（对 `provider_manifest()` 规范化 JSON 求和；与
+  `whcode-store::schema::checksum` 同算法，但分层规则不允许 `whcode-tools` 依赖
+  `whcode-store`，故保留 6 行独立实现并在模块文档说明）。三路径测试：
+  `catalogue_matches_committed_doc`（逐字节比对，缺失或不一致即失败并给出重新生成命令；
+  环境变量置 1 时写盘）、`fingerprint_distinguishes_manifests_and_is_stable`（空表与默认表
+  不同、重复求值稳定）、`rendering_is_deterministic_and_covers_every_tool_once`（两次渲染
+  相等、每工具恰好一节）。产物：6 个内置工具（`edit_file`／`glob`／`grep`／`list_dir`／
+  `read_file`／`write_file`），`glob`／`grep` 标注“声明 30000 ms”，全部标注输出契约未声明。
+  本机：`cargo test -p whcode-tools` 21/21、clippy `-D warnings`、fmt、
+  `check-docs-style.py`、`check-eol.py` 全绿；CI 待运行（ADR-037）。

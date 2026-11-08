@@ -403,6 +403,12 @@ impl ToolRegistry {
         self.tools.is_empty()
     }
 
+    /// 全部工具描述（按稳定名升序；工具目录生成与自查用，P7.4／FR-768）。
+    #[must_use]
+    pub fn descriptors(&self) -> Vec<ToolDescriptor> {
+        self.tools.values().map(|tool| tool.descriptor()).collect()
+    }
+
     /// provider 侧工具清单（`tools` 数组元素：type=function + function 元数据，FR-725；
     /// 与 sensenova 实测口径一致，见 `docs/guides/test-model-sensenova.md` §6.1）。
     #[must_use]

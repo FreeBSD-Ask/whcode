@@ -12,6 +12,7 @@
 //! （[`builtins::MAX_READ_BYTES`]）、遍历目录数与结果条目上限；全部同步执行，不新增线程。
 
 pub mod builtins;
+pub mod catalogue;
 pub mod paths;
 pub mod registry;
 
