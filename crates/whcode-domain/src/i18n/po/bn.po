@@ -690,13 +690,13 @@ msgid "menu.events"
 msgstr "ইভেন্ট"
 
 msgid "menu.sessions"
-msgstr "Sessions"
+msgstr "সেশন"
 
 msgid "menu.spec"
-msgstr "Spec"
+msgstr "স্পেক"
 
 msgid "menu.tasks"
-msgstr "Tasks"
+msgstr "কাজ"
 
 msgid "settings.action.done"
 msgstr "সম্পন্ন: {label}"
@@ -1011,13 +1011,13 @@ msgid "view.events"
 msgstr "ইভেন্ট"
 
 msgid "view.sessions"
-msgstr "Sessions"
+msgstr "সেশন"
 
 msgid "view.spec"
-msgstr "Spec অবস্থা"
+msgstr "স্পেক অবস্থা"
 
 msgid "view.tasks"
-msgstr "Tasks"
+msgstr "কাজ"
 
 msgid "web.action.failed"
 msgstr "অ্যাকশন ব্যর্থ ({label}): {error}"

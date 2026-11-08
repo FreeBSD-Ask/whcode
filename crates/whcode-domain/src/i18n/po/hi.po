@@ -690,13 +690,13 @@ msgid "menu.events"
 msgstr "इवेंट"
 
 msgid "menu.sessions"
-msgstr "Sessions"
+msgstr "सत्र"
 
 msgid "menu.spec"
-msgstr "Spec"
+msgstr "स्पेक"
 
 msgid "menu.tasks"
-msgstr "Tasks"
+msgstr "कार्य"
 
 msgid "settings.action.done"
 msgstr "पूरा हुआ: {label}"
@@ -1011,13 +1011,13 @@ msgid "view.events"
 msgstr "इवेंट"
 
 msgid "view.sessions"
-msgstr "Sessions"
+msgstr "सत्र"
 
 msgid "view.spec"
 msgstr "Spec की स्थिति"
 
 msgid "view.tasks"
-msgstr "Tasks"
+msgstr "कार्य"
 
 msgid "web.action.failed"
 msgstr "क्रिया विफल ({label}): {error}"
