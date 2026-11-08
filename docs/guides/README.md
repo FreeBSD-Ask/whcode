@@ -34,6 +34,7 @@
 | `long-line-plan.md` | 长线计划：阶段 A—C 工作序列与门禁的权威索引（非验收结论） |
 | `parallel-session-protocol.md` | 双会话并行协作协议：共享索引与账本争用纪律 |
 | `tool-catalogue.md` | 工具目录（受校验产物，`whcode-tools::catalogue` 生成，禁止手工编辑；T281/FR-768） |
+| `preview-evaluation.md` | 预览机制（CDP＋Playwright）评估结论：产品侧不做、测试侧验收工具边界与复审触发（T262/FR-753） |
 
 ## T119 交付记录（2026-10-23）
 

@@ -678,7 +678,7 @@
 - [ ] Check 355: [missing] 技能库与 MCP 状态面板：连接状态、工具清单、超时配置展示双端可判定（来源：spec FR-750／Task T258、T259）
 - [ ] Check 356: [missing] 权限模式设置页：审批规则查看/撤销、工具权限规则管理双端可判定（来源：spec FR-751／Task T258、T259）
 - [ ] Check 357: [missing] 会话分享脱敏导出：导出包不含凭据/追踪原文/`redacted` 之外敏感项（内容断言）；纯本地落盘、无上传无联网（来源：spec FR-752／Task T261）
-- [ ] Check 358: [missing] 预览机制评估结论登记：做/不做结论含理由与代价入档；未评估前仓库无 CDP/Playwright 依赖（来源：spec FR-753／Task T262）
+- [x] Check 358: [exercised] 预览机制评估结论登记：做/不做结论含理由与代价入档；未评估前仓库无 CDP/Playwright 依赖（来源：spec FR-753／Task T262）——**取证（2026-11-09，T262）**：`docs/guides/preview-evaluation.md`——结论为产品侧不做（形式审查：不增加可判定证据；引入浏览器驱动与本地优先/零运行时依赖冲突；与 ADR-014 前端和解不一致；上游研究自标开发态低优先级），代价、已知限制与四条“命令＋判定”复审触发齐备；产品依赖树核验：`crates/**/Cargo.toml` 检索 `playwright|chromium|cdp|devtools` 零命中，仓库根无 `package.json`；测试侧 `.github/scripts/web-ui-check.py`（Check 294）与 CI 的 Playwright 安装属验收工具，成文划清界限。`check-docs-style.py`／`check-eol.py` 全绿。
 
 ## 第二十层：Phase 1 执行层契约（2026-11-07 批准，Task T264—T275，FR-754—764，ADR-060）
 

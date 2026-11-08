@@ -13,6 +13,15 @@
 
 ### 变更
 
+- **预览机制评估结论（T262／FR-753／Check 358，2026-11-09）**：`docs/guides/preview-evaluation.md`
+  登记结论——**产品侧不做** CDP＋Playwright 浏览器预览，理由是它不增加可判定证据（页面的
+  验收答案已在直出契约测试、`web-ui-check.py` 与 `gui-probe` 中）、引入浏览器驱动与本地优先
+  及零运行时依赖冲突、与 ADR-014 的前端和解不一致、上游研究自标开发态低优先级；同时写明
+  不做的代价、已知限制与四条“命令＋判定”复查触发（含 2027-05-09 或下次 UI 批次结题的时限
+  复查）。事实核验：`crates/**/Cargo.toml` 检索 `playwright|chromium|cdp|devtools` 零命中，
+  产品依赖树无预览依赖；“测试侧 Playwright 仅作验收（Check 294）”与“产品侧预览能力”的界限
+  成文，避免把 CI 的浏览器验收误读为已引入预览。`docs/guides/README.md` 索引同步。
+
 - **TUI 行后端测试环境无关化（2026-11-09）**：`rowbackend::tests::style_is_emitted_once_per_run`
   断言 SGR 颜色序列，而 crossterm 按环境变量 `NO_COLOR`（非空即整段抑制颜色输出）决定是否
   写颜色序列，导致该断言在 `NO_COLOR=1` 的环境里必然伪失败（本机复核即命中，left 0 ≠ 1）。

@@ -849,9 +849,14 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 - [ ] T261 [P] 批次 B5：会话分享脱敏导出（本地文件、无上传；威胁模型入 ADR-057 安全
   小节）（FR-752）——**任务认知卡**：方向=协作先手的最小落地；目标=脱敏导出可判定；
   判据=导出内容断言（无凭据/追踪原文）＋行为测试；非目标=上传/联网/扫码 OAuth
-- [ ] T262 [P] 批次 B5：预览机制（CDP＋Playwright）评估结论登记（FR-753）
+- [x] T262 [P] 批次 B5：预览机制（CDP＋Playwright）评估结论登记（FR-753）
   ——**任务认知卡**：方向=评估而非实现；目标=做/不做结论入档；判据=结论含理由与
-  代价；非目标=引入预览依赖
+  代价；非目标=引入预览依赖——**完成（2026-11-09）**：`docs/guides/preview-evaluation.md`
+  成文（结论：产品侧不做；理由按形式审查四条；代价、已知限制、四条复审触发绑定命令；
+  “测试侧 Playwright 只作验收（Check 294）”与“产品侧预览能力”的界限写明）。
+  事实核验：`crates/**/Cargo.toml` 检索 `playwright|chromium|cdp|devtools` 零命中，
+  产品依赖树无预览依赖；`.github/scripts/web-ui-check.py` 与 `platform-verification.yml`
+  的 Playwright 步骤属验收工具，不入产品依赖。Check 358 同批取证。
 - [ ] T263 [P] 批次 B5 结题：体验清单逐项对账（domain-M2 对照：实现/有意差异/预留
   逐项登记）＋双端预算终测＋ADR-056 后续项移交确认（FR-739—753 全量；ADR-057 复审
   触发）——**任务认知卡**：方向=收口对账；目标=不留未登记差距；判据=
