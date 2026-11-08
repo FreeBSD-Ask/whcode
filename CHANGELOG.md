@@ -13,6 +13,18 @@
 
 ### 变更
 
+- **RTL 布局镜像（FR-766／T279／Check 374，ADR-062）**（2026-11-08）：阿拉伯语与乌尔都语
+  下三端视觉顺序按阅读方向镜像，方向判定统一走 `whcode_domain::i18n::is_rtl_locale`。
+  ①CUI：`Styler::with_locale` 按会话语言开镜像——记录行的值在前、标签靠行尾右对齐，
+  表格反转列序，`--json` 信封不受影响（`crates/whcode-bin/src/cui_dispatch.rs` 的
+  `human_styler` 统一接线）；②TUI：`layout_columns` 反转逻辑列序并取反列内对齐，导航栏
+  移到右缘，选中标记 `>` 镜像为 `<`，滚动位置标注改挂左缘；③GUI：`mirrored_order` 反转
+  六处行容器子项顺序（会话操作按钮、聊天控制行、会话筛选行、任务行、操作面板、侧栏与
+  主区），界面不使用方向性字形故不涉及箭头翻转。Web 仍只有文档级 `dir="rtl"`，元素级
+  镜像按 FR-766 登记为缺口，不冒充完成（`docs/guides/ui-design.md` §7）。
+  验证：`cargo test -p whcode-cui --lib format` 8 项、`cargo test -p whcode-tui --lib`
+  75 项、`cargo test -p whcode-gui --lib` 29 项通过；LTR 语言布局由既有回归测试保证不变。
+
 - **治理文档一致性批次（全量扫描，2026-11-08）**：对 `docs/`、`engineering-doctrine/`、
   `specs/`、`AGENTS.md`、README 共 154 份 md 做机械扫描（Markdown 相对链接 0 失效；
   反引号路径引用 21 处失效项逐条查证）。落盘修复：①`docs/guides/project-status.md`

@@ -43,6 +43,14 @@ const EVENTS_PAGE_LIMIT: usize = 1000;
 /// 同口径 4096——`context budget` 缺省 `--budget` 时使用）。
 const CONTEXT_DISPLAY_BUDGET: usize = 4096;
 
+/// 人类可读输出的排版风格：强调按终端检测，方向随会话语言（FR-766／T279）。
+///
+/// 阿拉伯语／乌尔都语等 RTL 语言的记录与表格按镜像排版；`--json` 信封路径不经过
+/// 本函数，不受影响。
+fn human_styler(texts: &I18n) -> Styler {
+    Styler::detect().with_locale(&texts.locale)
+}
+
 /// `whcode <command>` 入口：解析 → 执行 → 输出（返回进程退出码）。
 pub fn dispatch(args: &[String]) -> ExitCode {
     exit_code(dispatch_code(args))
@@ -387,7 +395,7 @@ fn context_command(
     // 不把“会话不存在”伪装成空的预算窗口。
     whcode_app::show_session(&conn, policy, actor, session)?;
     let value = whcode_cui::context_cmd::budget_view(&conn, policy, actor, session, budget)?;
-    let styler = Styler::detect();
+    let styler = human_styler(texts);
     let title = texts.resolve_fmt("cui.record.session", &[("session", session)]);
     let none = texts.resolve("summary.none");
     let budget_tokens = value["budget_tokens"].to_string();
@@ -927,7 +935,7 @@ fn spec_command(
                     "refreshed_at_ms": overview.refreshed_at_ms,
                 })),
             });
-            let styler = Styler::detect();
+            let styler = human_styler(texts);
             let title = texts.resolve_fmt("cui.record.session", &[("session", session)]);
             let human = styler.record(
                 Some(&title),
@@ -1281,7 +1289,7 @@ fn sessions_table(rows: &[whcode_store::SessionRow], texts: &I18n) -> String {
     if rows.is_empty() {
         return texts.resolve("cui.empty").to_string();
     }
-    let styler = Styler::detect();
+    let styler = human_styler(texts);
     let headers = [
         texts.resolve("tui.col.id"),
         texts.resolve("tui.col.title"),
@@ -1304,7 +1312,7 @@ fn sessions_table(rows: &[whcode_store::SessionRow], texts: &I18n) -> String {
 
 /// 单个会话 → 对齐记录（T196／ADR-041）：标题行 + 标签列/值列。
 fn session_record(row: &whcode_store::SessionRow, texts: &I18n) -> String {
-    let styler = Styler::detect();
+    let styler = human_styler(texts);
     let title = texts.resolve_fmt("cui.record.session", &[("session", &row.id)]);
     let archived = if row.archived {
         texts.resolve("cui.record.yes")
@@ -1325,7 +1333,7 @@ fn session_record(row: &whcode_store::SessionRow, texts: &I18n) -> String {
 
 /// 任务详情 → 对齐记录（T196／ADR-041）。
 fn task_record(detail: &whcode_app::TaskDetail, texts: &I18n) -> String {
-    let styler = Styler::detect();
+    let styler = human_styler(texts);
     let title = texts.resolve_fmt("cui.record.task", &[("task", &detail.task.id)]);
     let retry = detail.task.retry_count.to_string();
     let checkpoints = detail.checkpoints.len().to_string();

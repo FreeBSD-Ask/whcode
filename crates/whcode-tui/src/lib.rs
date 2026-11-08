@@ -47,7 +47,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph};
 use whcode_app::commands::{CommandExecutor, FrontendCommand};
-use whcode_domain::i18n::I18n;
+use whcode_domain::i18n::{I18n, is_rtl_locale};
 use whcode_domain::{ErrorCode, WhError};
 
 use crate::rowbackend::RowBackend;
@@ -1154,52 +1154,63 @@ fn view_total(view: ViewId, snapshot: &ViewSnapshot) -> usize {
 /// 单元格由闭包按索引取用（借用快照字段，不复制长文本）；`cell` 越界返回空串，
 /// 不 panic——投影与列定义不一致时退化为空列，而不是让帧路径崩溃。
 /// 全行只分配一个输出缓冲（帧内每单元格一次分配会抬高一帧成本）。
-fn layout_columns<'a, F: Fn(usize) -> &'a str>(view: ViewId, width: usize, cell: F) -> String {
-    let mut out = String::with_capacity(width + 4);
+///
+/// 方向（FR-766／T279）：RTL 时逻辑列序反转（视觉镜像），列内对齐随方向取反——
+/// 每列文本贴住的视觉边缘与 LTR 一致（如右对齐的重试计数在镜像后贴住镜像行的右缘）。
+fn layout_columns<'a, F: Fn(usize) -> &'a str>(
+    view: ViewId,
+    width: usize,
+    cell: F,
+    rtl: bool,
+) -> String {
+    // 先按逻辑列序产出各列（互不依赖），再按方向决定拼接顺序。
+    // 列间各 1 空格；`push_cell` 的对齐旗标在 RTL 下取反。
+    let mut segments: Vec<String> = Vec::new();
+    macro_rules! column {
+        ($index:expr, $col_width:expr, $right:expr) => {{
+            let mut text = String::new();
+            push_cell(&mut text, cell($index), $col_width, $right != rtl);
+            segments.push(text);
+        }};
+    }
     match view {
         // 标记(1) + ID(8) + 标题(剩余) + 阶段(10) + 状态(10)，列间各 1 空格。
         ViewId::Sessions => {
             let flex = width.saturating_sub(33);
-            push_cell(&mut out, cell(0), 1, false);
-            out.push(' ');
-            push_cell(&mut out, cell(1), 8, false);
-            out.push(' ');
-            push_cell(&mut out, cell(2), flex, false);
-            out.push(' ');
-            push_cell(&mut out, cell(3), 10, false);
-            out.push(' ');
-            push_cell(&mut out, cell(4), 10, false);
+            column!(0, 1, false);
+            column!(1, 8, false);
+            column!(2, flex, false);
+            column!(3, 10, false);
+            column!(4, 10, false);
         }
         // 标记(1) + ID(8) + 标题(剩余) + 状态(10) + 重试(5，右对齐)。
         ViewId::Tasks => {
             let flex = width.saturating_sub(28);
-            push_cell(&mut out, cell(0), 1, false);
-            out.push(' ');
-            push_cell(&mut out, cell(1), 8, false);
-            out.push(' ');
-            push_cell(&mut out, cell(2), flex, false);
-            out.push(' ');
-            push_cell(&mut out, cell(3), 10, false);
-            out.push(' ');
-            push_cell(&mut out, cell(4), 5, true);
+            column!(0, 1, false);
+            column!(1, 8, false);
+            column!(2, flex, false);
+            column!(3, 10, false);
+            column!(4, 5, true);
         }
         // 序号(8，右对齐) + 类型(18) + 摘要(剩余)。
         ViewId::Events => {
             let flex = width.saturating_sub(28);
-            push_cell(&mut out, cell(0), 8, true);
-            out.push(' ');
-            push_cell(&mut out, cell(1), 18, false);
-            out.push(' ');
-            push_cell(&mut out, cell(2), flex, false);
+            column!(0, 8, true);
+            column!(1, 18, false);
+            column!(2, flex, false);
         }
         ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat => {}
     }
+    if rtl {
+        segments.reverse();
+    }
+    let mut out = segments.join(" ");
     clamp_line(&mut out, width);
     out
 }
 
 /// 列标题行（与数据行列宽一致；标签来自文本层）。
-fn column_header(view: ViewId, texts: &I18n, width: usize) -> String {
+fn column_header(view: ViewId, texts: &I18n, width: usize, rtl: bool) -> String {
     let keys: &[&str] = match view {
         ViewId::Sessions => &[
             "",
@@ -1218,15 +1229,20 @@ fn column_header(view: ViewId, texts: &I18n, width: usize) -> String {
         ViewId::Events => &["tui.col.seq", "tui.col.kind", "tui.col.summary"],
         ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat => &[],
     };
-    layout_columns(view, width, |index| {
-        keys.get(index).map_or("", |key| {
-            if key.is_empty() {
-                ""
-            } else {
-                texts.resolve(key)
-            }
-        })
-    })
+    layout_columns(
+        view,
+        width,
+        |index| {
+            keys.get(index).map_or("", |key| {
+                if key.is_empty() {
+                    ""
+                } else {
+                    texts.resolve(key)
+                }
+            })
+        },
+        rtl,
+    )
 }
 
 /// 画一帧（T195／ADR-041）：顶栏（应用名、视图序号、当前会话）／左导航栏 + 主面板／
@@ -1319,19 +1335,35 @@ fn draw_content(
     base: Style,
     texts: &I18n,
 ) {
+    let rtl = is_rtl_locale(&texts.locale);
     let rail = RAIL_WIDTH.min(area.width.saturating_sub(BODY_MIN_WIDTH));
-    let body_x = area.x.saturating_add(rail);
     let body_width = area.width.saturating_sub(rail);
+    // 导航栏侧向（FR-766／T279）：LTR 在左，RTL 镜像到右。
+    let rail_x = if rtl {
+        area.x.saturating_add(body_width)
+    } else {
+        area.x
+    };
+    let body_x = if rtl {
+        area.x
+    } else {
+        area.x.saturating_add(rail)
+    };
 
     if rail > 0 {
-        let rail_area = Rect::new(area.x, area.y, rail, area.height);
-        // 导航栏右侧留 1 列空白，与主面板左边框形成分隔（不叠加第二条竖线）。
+        let rail_area = Rect::new(rail_x, area.y, rail, area.height);
+        // 导航栏朝向主面板的一侧留 1 列空白，与主面板边框形成分隔（不叠加第二条竖线）。
         let inner_width = usize::from(rail.saturating_sub(1));
         let lines: Vec<Line<'_>> = ViewId::ALL
             .iter()
             .map(|item| {
                 let selected = *item == view;
-                let marker = if selected { ">" } else { " " };
+                // 选中标记是方向性字形：RTL 镜像为 `<`（指向阅读起点一侧的面板）。
+                let marker = match (selected, rtl) {
+                    (true, false) => ">",
+                    (true, true) => "<",
+                    (false, _) => " ",
+                };
                 let text = fit_cell(
                     &format!(
                         "{marker}{} {}",
@@ -1386,15 +1418,18 @@ fn draw_content(
     if empty {
         push_empty_state(&mut lines, body_rows, content_width, texts);
     } else if column_view {
-        lines.push(Line::from(column_header(view, texts, content_width)));
+        lines.push(Line::from(column_header(view, texts, content_width, rtl)));
         for (index, row) in snapshot
             .render_columns_limited(body_rows)
             .iter()
             .enumerate()
         {
-            let text = layout_columns(view, content_width, |cell| {
-                row.cells.get(cell).map_or("", |value| value.as_ref())
-            });
+            let text = layout_columns(
+                view,
+                content_width,
+                |cell| row.cells.get(cell).map_or("", |value| value.as_ref()),
+                rtl,
+            );
             let style = if snapshot.selected_index == Some(index) {
                 base.add_modifier(Modifier::REVERSED)
             } else {
@@ -1422,7 +1457,13 @@ fn draw_content(
         .borders(Borders::ALL)
         .title(texts.resolve(view.title_key()));
     if column_view {
-        block = block.title(Line::from(format!("{shown}/{total}")).right_aligned());
+        // 滚动位置标注镜像到另一侧（FR-766／T279）：RTL 时从右缘改挂左缘。
+        let counter = Line::from(format!("{shown}/{total}"));
+        block = if rtl {
+            block.title(counter)
+        } else {
+            block.title(counter.right_aligned())
+        };
     }
     // 边框块已把主题样式铺满整个区域（含正文单元），正文不再重复上色。
     frame.render_widget(Paragraph::new(lines).block(block), body_area);
@@ -2128,6 +2169,111 @@ mod tests {
         assert!(text.contains("70x12"), "英文键位栏窗口尺寸：{text}");
         assert!(text.contains("(no data)"), "英文空提示：{text}");
         // 数据字段（会话 ID/事件类型）不翻译——由准备层原样提供。
+    }
+
+    /// RTL 列镜像（FR-766／T279）：逻辑列序反转、列内对齐取反——状态列在镜像行
+    /// 最左侧且右对齐（LTR 下它在最右侧且左对齐），每列文本贴住的视觉边缘不变。
+    #[test]
+    fn session_columns_mirror_in_rtl() {
+        let cells = ["*", "S-1", "标题", "plan", "active"];
+        let cell = |index: usize| cells[index];
+        let ltr = super::layout_columns(ViewId::Sessions, 60, cell, false);
+        let rtl = super::layout_columns(ViewId::Sessions, 60, cell, true);
+        assert!(
+            ltr.find("S-1").expect("LTR 行含 ID") < ltr.find("active").expect("LTR 行含状态"),
+            "LTR 保持登记列序：{ltr:?}"
+        );
+        assert!(
+            rtl.find("active").expect("RTL 行含状态") < rtl.find("S-1").expect("RTL 行含 ID"),
+            "RTL 反转列序：{rtl:?}"
+        );
+        let before_status = &rtl[..rtl.find("active").expect("RTL 行含状态")];
+        assert!(
+            !before_status.is_empty() && before_status.chars().all(|ch| ch == ' '),
+            "RTL 下状态列右对齐（自身盒内贴右缘）：{rtl:?}"
+        );
+    }
+
+    /// RTL 帧镜像（FR-766／T279）：导航栏移到右缘，选中标记由 `>` 镜像为 `<`。
+    #[test]
+    fn rtl_frame_places_rail_on_the_right_and_flips_marker() {
+        use crate::tests_support::draw_snapshot_with;
+
+        let snapshot = crate::tests_support::fixture_snapshot(ViewId::Sessions);
+        let ltr = draw_snapshot_with(
+            &snapshot,
+            100,
+            24,
+            crate::Theme::EinkDay,
+            &whcode_domain::i18n::I18n::default(),
+        );
+        let rtl = draw_snapshot_with(
+            &snapshot,
+            100,
+            24,
+            crate::Theme::EinkDay,
+            &whcode_domain::i18n::I18n::load("ar", whcode_domain::i18n::LocaleSource::Explicit),
+        );
+        let first_marker_column = |buffer: &ratatui::buffer::Buffer, symbol: &str| {
+            let width = usize::from(buffer.area.width);
+            buffer
+                .content()
+                .chunks(width)
+                .find_map(|row| {
+                    row.iter()
+                        .position(|cell| cell.symbol() == symbol)
+                        .map(|x| u16::try_from(x).expect("列号不超出 u16"))
+                })
+                .unwrap_or_else(|| panic!("帧中必须出现标记 {symbol}"))
+        };
+        let ltr_x = first_marker_column(&ltr, ">");
+        let rtl_x = first_marker_column(&rtl, "<");
+        assert!(
+            super::RAIL_WIDTH > ltr_x,
+            "LTR 导航栏在左缘：标记列 {ltr_x}"
+        );
+        assert!(
+            rtl_x >= 100 - super::RAIL_WIDTH,
+            "RTL 导航栏在右缘：标记列 {rtl_x}"
+        );
+    }
+
+    /// RTL 渲染行镜像（FR-766／T279）：真实帧路径下会话行的状态列出现在 ID 左侧。
+    #[test]
+    fn rtl_session_rows_show_status_left_of_id() {
+        use crate::tests_support::{buffer_text, draw_snapshot_with};
+
+        let snapshot = crate::tests_support::fixture_snapshot(ViewId::Sessions);
+        let ltr = buffer_text(&draw_snapshot_with(
+            &snapshot,
+            100,
+            24,
+            crate::Theme::EinkDay,
+            &whcode_domain::i18n::I18n::default(),
+        ));
+        let rtl = buffer_text(&draw_snapshot_with(
+            &snapshot,
+            100,
+            24,
+            crate::Theme::EinkDay,
+            &whcode_domain::i18n::I18n::load("ar", whcode_domain::i18n::LocaleSource::Explicit),
+        ));
+        let ltr_row = ltr
+            .lines()
+            .find(|line| line.contains("S-1") && line.contains("active"))
+            .expect("LTR 帧含会话数据行");
+        let rtl_row = rtl
+            .lines()
+            .find(|line| line.contains("S-1") && line.contains("active"))
+            .expect("RTL 帧含会话数据行");
+        assert!(
+            ltr_row.find("S-1").expect("ID") < ltr_row.find("active").expect("状态"),
+            "LTR 行列序不变：{ltr_row:?}"
+        );
+        assert!(
+            rtl_row.find("active").expect("状态") < rtl_row.find("S-1").expect("ID"),
+            "RTL 行列序镜像：{rtl_row:?}"
+        );
     }
 
     /// 会话选择与刷新（批次 1）：`j`/`k` 移动并重新准备；`r` 重新准备；导航键不计入按键。

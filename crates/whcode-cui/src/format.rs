@@ -19,19 +19,42 @@ pub const LABEL_WIDTH: usize = 12;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Styler {
     emphasis: bool,
+    rtl: bool,
 }
 
 impl Styler {
     /// 纯文本风格（无任何转义序列）。
     #[must_use]
     pub const fn plain() -> Self {
-        Self { emphasis: false }
+        Self {
+            emphasis: false,
+            rtl: false,
+        }
     }
 
     /// 按显式开关构造（测试与嵌入方用）。
     #[must_use]
     pub const fn with_emphasis(emphasis: bool) -> Self {
-        Self { emphasis }
+        Self {
+            emphasis,
+            rtl: false,
+        }
+    }
+
+    /// 设为从右到左排版（阿拉伯语、乌尔都语等，FR-766／ADR-062）。
+    ///
+    /// 终端不做双向重排，镜像只能由本模块完成：记录行把标签放到行尾并对齐到右缘，
+    /// 表格把列序反转，使逻辑上的第一列出现在最右侧。
+    #[must_use]
+    pub const fn with_rtl(mut self, rtl: bool) -> Self {
+        self.rtl = rtl;
+        self
+    }
+
+    /// 按语言标识设置方向（`zh-CN`／`ja` 等为 LTR，`ar`／`ur` 为 RTL）。
+    #[must_use]
+    pub fn with_locale(self, locale: &str) -> Self {
+        self.with_rtl(whcode_domain::i18n::is_rtl_locale(locale))
     }
 
     /// 从环境检测：stdout 是交互终端、未设置 `NO_COLOR`、`TERM` 不为 `dumb`。
@@ -49,6 +72,12 @@ impl Styler {
     #[must_use]
     pub const fn emphasis(self) -> bool {
         self.emphasis
+    }
+
+    /// 是否为从右到左排版。
+    #[must_use]
+    pub const fn is_rtl(self) -> bool {
+        self.rtl
     }
 
     /// 粗体（仅强调开启时加转义；文本原样返回）。
@@ -78,7 +107,12 @@ impl Styler {
                 lines.push(label.to_string());
                 continue;
             }
-            lines.push(format!("{}{}", pad_right(label, LABEL_WIDTH), value));
+            lines.push(if self.rtl {
+                // RTL：值在前，标签贴右缘，保持列宽对齐。
+                format!("{}{}", value, pad_left(label, LABEL_WIDTH))
+            } else {
+                format!("{}{}", pad_right(label, LABEL_WIDTH), value)
+            });
         }
         lines.join("\n")
     }
@@ -101,14 +135,22 @@ impl Styler {
             }
         }
 
+        // 列序：LTR 保持登记顺序；RTL 反转，使逻辑第一列落在最右侧（镜像）。
+        let order: Vec<usize> = if self.rtl {
+            (0..columns).rev().collect()
+        } else {
+            (0..columns).collect()
+        };
+        let widths_ordered: Vec<usize> = order.iter().map(|index| widths[*index]).collect();
         let mut lines: Vec<String> = Vec::with_capacity(rows.len() + 1);
-        let header_cells: Vec<&str> = headers.to_vec();
-        lines.push(self.bold(&join_row(&header_cells, &widths)));
+        let header_cells: Vec<&str> = order.iter().map(|index| headers[*index]).collect();
+        lines.push(self.bold(&join_row(&header_cells, &widths_ordered)));
         for row in rows {
-            let cells: Vec<&str> = (0..columns)
-                .map(|index| row.get(index).map_or("", String::as_str))
+            let cells: Vec<&str> = order
+                .iter()
+                .map(|index| row.get(*index).map_or("", String::as_str))
                 .collect();
-            lines.push(join_row(&cells, &widths));
+            lines.push(join_row(&cells, &widths_ordered));
         }
         lines.join("\n")
     }
@@ -123,6 +165,15 @@ fn emphasis_allowed(interactive: bool, no_color: bool, dumb_terminal: bool) -> b
 }
 
 /// 拼接一行单元格：除最后一列外按列宽右补空格，列间两个空格。
+/// 右对齐填充：把 `text` 放到 `width` 列宽的右侧（不足补前导空格）。
+fn pad_left(text: &str, width: usize) -> String {
+    let used = display_width(text);
+    if used >= width {
+        return text.to_string();
+    }
+    format!("{}{}", " ".repeat(width - used), text)
+}
+
 fn join_row(cells: &[&str], widths: &[usize]) -> String {
     let mut out = String::new();
     for (index, cell) in cells.iter().enumerate() {
@@ -258,6 +309,55 @@ mod tests {
     fn empty_table_keeps_header_only() {
         let text = Styler::plain().table(&["ID", "标题"], &[]);
         assert_eq!(text, "ID  标题");
+    }
+
+    /// RTL 记录镜像：值在前、标签按显示列右对齐贴行尾（FR-766／T279）。
+    #[test]
+    fn record_mirrors_label_to_right_edge_in_rtl() {
+        let text = Styler::plain()
+            .with_rtl(true)
+            .record(Some("标题"), &[("键", "值")]);
+        let line = text.lines().nth(1).expect("记录行存在");
+        assert_eq!(
+            line,
+            format!("值{}键", " ".repeat(LABEL_WIDTH - 2)),
+            "RTL 下值在行首、标签占据行尾 {LABEL_WIDTH} 列并右对齐：{line:?}"
+        );
+        // LTR 基线不变：标签在行首、按显示列补齐。
+        let ltr = Styler::plain().record(Some("标题"), &[("键", "值")]);
+        assert_eq!(
+            ltr.lines().nth(1).expect("记录行存在"),
+            format!("键{}值", " ".repeat(LABEL_WIDTH - 2)),
+            "LTR 记录行不受 RTL 开关影响"
+        );
+    }
+
+    /// RTL 表格镜像：逻辑第一列出现在最右侧，列内对齐规则保持（FR-766／T279）。
+    #[test]
+    fn table_reverses_column_order_in_rtl() {
+        let rows = vec![vec!["S-1".to_string(), "active".to_string()]];
+        let text = Styler::plain().with_rtl(true).table(&["ID", "状态"], &rows);
+        let header = text.lines().next().expect("表头存在");
+        let id = header.find("ID").expect("表头含 ID 列");
+        let status = header.find("状态").expect("表头含状态列");
+        assert!(
+            id > status,
+            "RTL 下逻辑第一列（ID）必须出现在状态列右侧：{header:?}"
+        );
+        // 数据行同序镜像，且与表头列对齐。
+        let row = text.lines().nth(1).expect("数据行存在");
+        let row_id = row.find("S-1").expect("数据行含 ID");
+        let row_status = row.find("active").expect("数据行含状态");
+        assert!(row_id > row_status, "数据行列序必须与表头一致：{row:?}");
+    }
+
+    /// `with_locale`：阿拉伯语／乌尔都语开镜像，其余语言保持 LTR（FR-766／ADR-062）。
+    #[test]
+    fn locale_selects_direction() {
+        assert!(Styler::plain().with_locale("ar").is_rtl());
+        assert!(Styler::plain().with_locale("ur-PK").is_rtl());
+        assert!(!Styler::plain().with_locale("zh-CN").is_rtl());
+        assert!(!Styler::plain().with_locale("en").is_rtl());
     }
 
     /// Check 292：管道、`NO_COLOR`、`TERM=dumb` 任一成立都关闭强调；

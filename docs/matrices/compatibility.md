@@ -35,10 +35,10 @@
    （ADR-013 修订 2026-11-03：OpenBSD／DragonFly 仅作被连入目标）。
    内置客户端已含 known_hosts 风格 TOFU 校验（ADR-005 未决条件③结清）；客户端默认只放行远端
    `whcode` 命令，任意系统 Shell 需显式 `allow_shell` 并留审计（Check 97）。
-5. **验收检查点：376 项中 366 项有复核记录，10 项 missing（Check 347—350、354—358、374）**
-   （`python .github/scripts/check_counts.py`，2026-11-08 实测；证据态 exercised 317、
+5. **验收检查点：376 项中 367 项有复核记录，9 项 missing（Check 347—350、354—358）**
+   （`python .github/scripts/check_counts.py`，2026-11-08 实测；证据态 exercised 318、
    outcome-supported 49）。未通过项集中在 Phase 24（ADR-057 ZCode 对齐）：B1 余项与
-   B3—B5，及 ADR-062 的 RTL 镜像（Check 374）；逐条以 `checklist.md` 为准，本节不复述其判据。
+   B3—B5；逐条以 `checklist.md` 为准，本节不复述其判据。
    历史 CI 记录：run 40126145778（2026-10-25）全绿（五平台与 `measurements`）、
    run 41481740766（2026-11-03）平台通道 success；**CI 结论以最新 run 为准**。
    NFR-207/209 与测试进程 RSS 属 `perf-budget` 受控测量（`workflow_dispatch` + `perf`），

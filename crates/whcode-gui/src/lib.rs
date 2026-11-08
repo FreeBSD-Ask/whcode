@@ -33,7 +33,7 @@ use whcode_app::view_source::{
     CheckpointItem, SessionRow as ViewSessionRow, VIEW_COUNT, ViewId, ViewSnapshot, ViewSource,
 };
 use whcode_domain::WhError;
-use whcode_domain::i18n::I18n;
+use whcode_domain::i18n::{I18n, is_rtl_locale};
 
 /// 窗口初始逻辑尺寸（与 FR-712 的预算口径一致）。
 const WINDOW_SIZE: Size = Size::new(1200.0, 800.0);
@@ -630,6 +630,20 @@ fn rich_line(line: &str, mono: bool, size: f32) -> Element<'static, Message> {
         .map(|(cjk, run)| span(run.to_string()).font(font_for(cjk, mono)).size(size))
         .collect();
     rich_text(spans).into()
+}
+
+/// RTL 行序镜像（FR-766／T279）：LTR 保持登记序，RTL 反转使逻辑首项出现在最右。
+///
+/// 只重排容器的子项顺序，不改元素自身样式与文本内容（字形走向与 BiDi 由系统
+/// 文本栈处理）；GUI 界面不使用方向性字形，箭头翻转因此不涉及。
+fn mirrored_order<T>(rtl: bool, children: Vec<T>) -> Vec<T> {
+    if rtl {
+        let mut ordered = children;
+        ordered.reverse();
+        ordered
+    } else {
+        children
+    }
 }
 
 fn update(state: &mut State, message: Message) -> Task<Message> {
@@ -1340,7 +1354,11 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     column![
         rich_line(provider_label, false, 14.0),
         provider_input,
-        row![input, send, cancel].spacing(8),
+        row(mirrored_order(
+            is_rtl_locale(&state.texts.locale),
+            vec![input.into(), send.into(), cancel.into()],
+        ))
+        .spacing(8),
         scrollable(column(body)).height(Length::Fill),
     ]
     .spacing(8)
@@ -1378,34 +1396,37 @@ fn op_buttons(state: &State) -> Element<'_, Message> {
         }
         .into()
     };
-    row![
-        item(
-            state.texts.resolve("gui.op.new"),
-            Message::OpStart(OpMode::SessionNew)
-        ),
-        item(
-            state.texts.resolve("gui.op.rename"),
-            Message::OpStart(OpMode::SessionRename)
-        ),
-        item(
-            state.texts.resolve("gui.op.archive"),
-            Message::OpStart(OpMode::SessionArchive { archived: true })
-        ),
-        item(
-            state.texts.resolve("gui.op.restore"),
-            Message::OpStart(OpMode::SessionArchive { archived: false })
-        ),
-        item(
-            state.texts.resolve("gui.op.delete"),
-            Message::OpStart(OpMode::SessionDelete)
-        ),
-        item(
-            state.texts.resolve("gui.op.purge"),
-            Message::OpStart(OpMode::Purge {
-                before_ms: purge_cutoff_ms()
-            })
-        ),
-    ]
+    row(mirrored_order(
+        is_rtl_locale(&state.texts.locale),
+        vec![
+            item(
+                state.texts.resolve("gui.op.new"),
+                Message::OpStart(OpMode::SessionNew),
+            ),
+            item(
+                state.texts.resolve("gui.op.rename"),
+                Message::OpStart(OpMode::SessionRename),
+            ),
+            item(
+                state.texts.resolve("gui.op.archive"),
+                Message::OpStart(OpMode::SessionArchive { archived: true }),
+            ),
+            item(
+                state.texts.resolve("gui.op.restore"),
+                Message::OpStart(OpMode::SessionArchive { archived: false }),
+            ),
+            item(
+                state.texts.resolve("gui.op.delete"),
+                Message::OpStart(OpMode::SessionDelete),
+            ),
+            item(
+                state.texts.resolve("gui.op.purge"),
+                Message::OpStart(OpMode::Purge {
+                    before_ms: purge_cutoff_ms(),
+                }),
+            ),
+        ],
+    ))
     .spacing(6)
     .into()
 }
@@ -1441,43 +1462,47 @@ fn op_panel(state: &State) -> Element<'_, Message> {
                 .width(Length::Fill),
         );
     }
-    let mut actions = row![].spacing(6);
+    let mut actions: Vec<Element<'_, Message>> = Vec::new();
     if destructive {
-        actions = actions.push(
+        actions.push(
             button(rich_line(
                 state.texts.resolve("gui.op.preview"),
                 false,
                 13.0,
             ))
             .on_press(Message::OpPreview)
-            .padding([4, 8]),
+            .padding([4, 8])
+            .into(),
         );
-        actions = actions.push(
+        actions.push(
             button(rich_line(
                 state.texts.resolve("gui.op.confirm"),
                 false,
                 13.0,
             ))
             .on_press(Message::OpConfirm)
-            .padding([4, 8]),
+            .padding([4, 8])
+            .into(),
         );
     } else {
-        actions = actions.push(
+        actions.push(
             button(rich_line(
                 state.texts.resolve("gui.op.confirm"),
                 false,
                 13.0,
             ))
             .on_press(Message::OpConfirm)
-            .padding([4, 8]),
+            .padding([4, 8])
+            .into(),
         );
     }
-    actions = actions.push(
+    actions.push(
         button(rich_line(state.texts.resolve("gui.op.cancel"), false, 13.0))
             .on_press(Message::OpCancel)
-            .padding([4, 8]),
+            .padding([4, 8])
+            .into(),
     );
-    panel = panel.push(actions);
+    panel = panel.push(row(mirrored_order(is_rtl_locale(&state.texts.locale), actions)).spacing(6));
     if let Some(feedback) = state.op_feedback.as_deref() {
         panel = panel.push(rich_line(feedback, false, 13.0));
     }
@@ -1563,13 +1588,16 @@ fn session_controls(state: &State) -> Element<'_, Message> {
         !state.session_show_archived,
     ))
     .padding([2, 6]);
-    row![
-        search,
-        sort_button(SessionSort::LastActive, "gui.session.sort.recent"),
-        sort_button(SessionSort::Created, "gui.session.sort.created"),
-        sort_button(SessionSort::Title, "gui.session.sort.title"),
-        archived
-    ]
+    row(mirrored_order(
+        is_rtl_locale(&state.texts.locale),
+        vec![
+            search.into(),
+            sort_button(SessionSort::LastActive, "gui.session.sort.recent").into(),
+            sort_button(SessionSort::Created, "gui.session.sort.created").into(),
+            sort_button(SessionSort::Title, "gui.session.sort.title").into(),
+            archived.into(),
+        ],
+    ))
     .spacing(4)
     .into()
 }
@@ -1664,6 +1692,7 @@ fn task_body(state: &State) -> Element<'_, Message> {
 
 /// 任务行按钮（Tasks 视图）：每行 retry/abort（与 TUI 的 R/X 同语义，ADR-056）。
 fn task_buttons(state: &State) -> Element<'_, Message> {
+    let rtl = is_rtl_locale(&state.texts.locale);
     let mut rows = column![].spacing(2);
     for (index, task) in state.snapshot.tasks.iter().take(50).enumerate() {
         let label = format!("{} {} {}", task.id, task.status.as_str(), task.title);
@@ -1688,8 +1717,18 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
         ))
         .on_press(Message::TaskCheckpoints(index))
         .padding([2, 6]);
-        rows = rows
-            .push(row![rich_line(label.as_str(), false, 13.0), retry, abort, points,].spacing(6));
+        rows = rows.push(
+            row(mirrored_order(
+                rtl,
+                vec![
+                    rich_line(label.as_str(), false, 13.0),
+                    retry.into(),
+                    abort.into(),
+                    points.into(),
+                ],
+            ))
+            .spacing(6),
+        );
     }
     if state.snapshot.tasks.is_empty() {
         rows = rows.push(rich_line(state.texts.resolve("tui.empty"), false, 13.0));
@@ -1746,7 +1785,13 @@ fn view(state: &State) -> Element<'_, Message> {
     .spacing(12)
     .width(Length::Fill);
 
-    container(row![sidebar, main].spacing(16))
+    // 外壳行序镜像（FR-766／T279）：RTL 时导航栏在右、主面板在左。
+    let shell = if is_rtl_locale(&state.texts.locale) {
+        row![main, sidebar].spacing(16)
+    } else {
+        row![sidebar, main].spacing(16)
+    };
+    container(shell)
         .padding(12)
         .width(Length::Fill)
         .height(Length::Fill)
@@ -1756,6 +1801,25 @@ fn view(state: &State) -> Element<'_, Message> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// RTL 行序镜像（FR-766／T279）：LTR 保持登记序；RTL 反转；空行序恒空。
+    #[test]
+    fn mirrored_order_reverses_children_only_in_rtl() {
+        assert_eq!(mirrored_order(false, vec![1, 2, 3]), vec![1, 2, 3]);
+        assert_eq!(mirrored_order(true, vec![1, 2, 3]), vec![3, 2, 1]);
+        assert_eq!(mirrored_order(false, Vec::<u8>::new()), Vec::<u8>::new());
+        assert_eq!(mirrored_order(true, Vec::<u8>::new()), Vec::<u8>::new());
+        assert_eq!(mirrored_order(true, vec!["唯一"]), vec!["唯一"]);
+    }
+
+    /// 方向判定随会话语言（FR-766／ADR-062）：阿拉伯语／乌尔都语开镜像，其余保持。
+    #[test]
+    fn gui_direction_follows_locale() {
+        assert!(is_rtl_locale("ar"));
+        assert!(is_rtl_locale("ur-PK"));
+        assert!(!is_rtl_locale("zh-CN"));
+        assert!(!is_rtl_locale("en"));
+    }
 
     #[test]
     fn theme_names_round_trip_and_unknown_is_rejected() {

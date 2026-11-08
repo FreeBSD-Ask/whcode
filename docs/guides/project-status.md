@@ -12,12 +12,12 @@
 | 项 | 数量 |
 |---|---|
 | 功能需求 FR | 146 |
-| 任务 | 281（已完成 270，未完成 11） |
-| 验收检查点 | 376（已有复核记录 366，missing 10） |
+| 任务 | 281（已完成 271，未完成 10） |
+| 验收检查点 | 376（已有复核记录 367，missing 9） |
 
-证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 317、
-outcome-supported 49、missing 10。missing 集中在 Phase 24 的 B1 余项与 B3—B5
-（Check 347—350、354—358）与 ADR-062 的 TUI/GUI RTL 镜像（Check 374）。
+证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 318、
+outcome-supported 49、missing 9。missing 集中在 Phase 24 的 B1 余项与 B3—B5
+（Check 347—350、354—358）。
 并行会话在途（截至本快照）：ADR-058 于 2026-11-06 转已批准（附条件），条件 M2—M5／
 M9—M11 已落地、M7 用例 1—6 已落地；T251 勾选与 Check 347 取证**仍未回填**（缺三指标
 归档与新一轮 CI 取证）。ADR-060 Phase 1（T264—T275）已全收口；proposal-v3 Phase 2 的
