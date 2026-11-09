@@ -826,11 +826,22 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   测试：app 1 条（三态摘要＋not_found＋权限＋降级字段）、web 1 条（200/400/404＋降级
   字段）。**顺带修复**：web 测试迁移夹具补 `0007_json_variant.sql`（此前停在 0006，
   测试 schema 与生产不同构，`CAST(... AS JSON)::VARIANT` 在文本列上退化为结构体文本）。
-- [ ] T255 [P] 批次 B3a（后端前置）：工具级交互审批 broker——权限规则（允许/询问/拒绝）、
+- [x] T255 [P] 批次 B3a（后端前置）：工具级交互审批 broker——权限规则（允许/询问/拒绝）、
   审批请求与决定审计事件、有界队列无常驻线程；开工前须立 ADR（ADR-048 修订或
   ADR-058）（FR-744；ADR-057 决策 6）——**任务认知卡**：方向=审批交互的后端前置；
   目标=broker 可判定且审计落表；判据=权限正反路径测试＋审计事件断言；非目标=双端
   UI（T256/T257）
+  ——**取证（2026-11-09，ADR-064）**：`ApprovalGate` 接入 `execute_tool_call`（参数校验后、
+  三步登记前）与 MCP 同位置路径；规则解析 per-tool 覆盖＞副作用范围默认（`[approval]`
+  配置段，加载期校验）；`deny`／明确拒绝→`rejected`（`permission_denied` 不可重试）、
+  `ask` 无应答者→`unavailable`（fail-closed）、审计失败→`approval_audit_failed` 阻断；
+  `ask` 写 `approval_asked`／`approval_decided` 成对审计（只带 `exec_id`／工具名／规则）；
+  待审批表上限 64（满即 backpressure）、应答者同步调用无新线程、等待预算默认 120 s 上限
+  600 s；`run_turn_with_approval` 新入口（既有入口行为不变）；`ToolCallFinished` 新增
+  `error_code`。测试：app `--lib` 197/0（闸门 12＋turn 级 4）、domain 69/0、
+  bin `config` 12/0；clippy app／domain／bin 三 crate 零告警（`serve.rs` 并行在途改动
+  另批复跑）；装配根 `[approval]` 消费方未接线（缺口已在 ADR-064 登记，
+  归装配批次）；CI 待运行（ADR-037 登记）。
 - [ ] T256 [P] 批次 B3b GUI：工具调用卡（状态/参数脱敏/输出/时长）＋四态审批交互
   （FR-743/745；依赖 T255）——**任务认知卡**：方向=代理循环可视化的 GUI 收口；
   目标=工具卡与审批可运行；判据=whcode-gui 测试＋脱敏管线断言；非目标=Web 侧（T257）

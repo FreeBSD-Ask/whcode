@@ -3,9 +3,14 @@
 //! 默认值来源：任务书 §5.4（数据库配置基线）与 D-05（追踪默认 `redacted`）。这些数值是
 //! **可配置基线**，须由 M0/M1 基准校准，不得写死为架构定理（§0.3-6）。
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use whcode_app::approval::{
+    ApprovalPolicy, DEFAULT_APPROVAL_WAIT_MS, MAX_APPROVAL_TOOL_RULES, MAX_APPROVAL_WAIT_MS,
+};
+use whcode_domain::approval::{ApprovalRule, MAX_APPROVAL_ID_LEN};
 use whcode_domain::{CheckpointPolicy, TraceLevel, WhError};
 use whcode_platform::{paths, resources};
 use whcode_tui::Theme;
@@ -51,6 +56,109 @@ pub struct TraceConfig {
     pub default_level: TraceLevel,
 }
 
+/// 工具审批配置（T255／FR-744、ADR-064 决策 2）。
+///
+/// 解析顺序：`tools` 里的 per-tool 覆盖优先，否则按副作用范围取默认值。
+/// **默认全 `allow`**（行为兼容：无 UI 时既有工具不得全部变 `unavailable`，ADR-060 §2.2）。
+/// `ask`／`deny` 只能由显式配置生效；破坏性工具的 `ask` 默认切换留给 B3b（ADR-064）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalConfig {
+    /// 只读工具的默认规则。
+    #[serde(default = "ApprovalConfig::allow")]
+    pub default_read_only: ApprovalRule,
+    /// 工作区写工具的默认规则。
+    #[serde(default = "ApprovalConfig::allow")]
+    pub default_workspace_write: ApprovalRule,
+    /// per-tool 覆盖（工具稳定名 → 规则）。
+    #[serde(default)]
+    pub tools: BTreeMap<String, ApprovalRule>,
+    /// 一次 `ask` 的等待预算（毫秒；上限 [`MAX_APPROVAL_WAIT_MS`]）。
+    #[serde(default = "ApprovalConfig::default_wait_ms")]
+    pub wait_ms: u64,
+}
+
+impl Default for ApprovalConfig {
+    fn default() -> Self {
+        Self {
+            default_read_only: ApprovalRule::Allow,
+            default_workspace_write: ApprovalRule::Allow,
+            tools: BTreeMap::new(),
+            wait_ms: DEFAULT_APPROVAL_WAIT_MS,
+        }
+    }
+}
+
+impl ApprovalConfig {
+    /// 默认规则（`allow`）：接线前的行为就是默认值，默认值可见可改可撤销。
+    #[must_use]
+    pub const fn allow() -> ApprovalRule {
+        ApprovalRule::Allow
+    }
+
+    /// 默认等待预算。
+    #[must_use]
+    pub const fn default_wait_ms() -> u64 {
+        DEFAULT_APPROVAL_WAIT_MS
+    }
+
+    /// 加载期校验：越界配置不得进入运行期（配置错误由人修正，自动重试无意义）。
+    ///
+    /// # Errors
+    ///
+    /// - `wait_ms` 为 0 或超 [`MAX_APPROVAL_WAIT_MS`]：`parse_error`；
+    /// - 工具名为空或超 [`MAX_APPROVAL_ID_LEN`]：`parse_error`；
+    /// - 覆盖数量超 [`MAX_APPROVAL_TOOL_RULES`]：`parse_error`（有界）。
+    pub fn validate(&self) -> Result<(), WhError> {
+        if self.wait_ms == 0 || self.wait_ms > MAX_APPROVAL_WAIT_MS {
+            return Err(WhError::parse_error(format!(
+                "审批等待预算非法（{} ms）：取值须在 1—{MAX_APPROVAL_WAIT_MS} ms 之间",
+                self.wait_ms
+            )));
+        }
+        if self.tools.len() > MAX_APPROVAL_TOOL_RULES {
+            return Err(WhError::parse_error(format!(
+                "工具级审批规则过多（{}）：上限 {MAX_APPROVAL_TOOL_RULES}",
+                self.tools.len()
+            )));
+        }
+        for tool in self.tools.keys() {
+            let trimmed = tool.trim();
+            if trimmed.is_empty() {
+                return Err(WhError::parse_error("审批规则的工具名不得为空"));
+            }
+            if trimmed.chars().count() > MAX_APPROVAL_ID_LEN {
+                return Err(WhError::parse_error(format!(
+                    "审批规则的工具名超过长度上限 {MAX_APPROVAL_ID_LEN}"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// 转换为运行期规则表（先校验；非法配置不得构造出策略）。
+    ///
+    /// # Errors
+    ///
+    /// 同 [`Self::validate`]。
+    // 装配根的调用点是 B3b 的 `run_turn_with_approval` 接线（本批只交付后端语义）；
+    // 语义由 `config` 的单元测试覆盖，不留未校验的构造路径。
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "B3b 装配根接线前的唯一调用方；语义已由 config 单测覆盖"
+        )
+    )]
+    pub fn to_policy(&self) -> Result<ApprovalPolicy, WhError> {
+        self.validate()?;
+        let mut policy = ApprovalPolicy::new(self.default_read_only, self.default_workspace_write);
+        for (tool, rule) in &self.tools {
+            policy = policy.with_tool_rule(tool.trim(), *rule)?;
+        }
+        Ok(policy)
+    }
+}
+
 /// 顶层配置。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
@@ -66,6 +174,9 @@ pub struct Config {
     /// 检查点触发策略（FR-405：定时 / 按步骤 / 危险操作前的间隔与保留数）。
     #[serde(default)]
     pub checkpoint: CheckpointPolicy,
+    /// 工具审批规则（FR-744／ADR-064；缺省全 `allow`，与接线前行为一致）。
+    #[serde(default)]
+    pub approval: ApprovalConfig,
 }
 
 impl Config {
@@ -85,6 +196,7 @@ impl Config {
             trace: TraceConfig::default(),
             ui: UiConfig::default(),
             checkpoint: CheckpointPolicy::default(),
+            approval: ApprovalConfig::default(),
             workspace_path,
         }
     }
@@ -103,6 +215,11 @@ impl Config {
             .checkpoint
             .validate()
             .map_err(|err| WhError::parse_error(format!("检查点策略非法：{err}")))?;
+        // FR-744／ADR-064：审批规则同样在加载期校验（非法值拒绝，不静默回落）。
+        config
+            .approval
+            .validate()
+            .map_err(|err| WhError::parse_error(format!("审批配置非法：{err}")))?;
         Ok(config)
     }
 
@@ -185,6 +302,7 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use whcode_app::approval::SideEffectScope;
 
     #[test]
     fn defaults_match_task_book_baseline() {
@@ -351,5 +469,120 @@ mod tests {
         let err = Config::from_json(&bad).expect_err("越界保留数必须拒绝");
         assert_eq!(err.code, whcode_domain::ErrorCode::ParseError);
         assert!(err.message.contains("检查点策略"), "{err}");
+    }
+
+    /// 最小合法配置（审批段按需拼接）。
+    const BASE_JSON: &str = r#"{
+        "workspace_path": "/tmp/ws",
+        "db": {
+            "memory_limit_mb": 96,
+            "max_memory_limit_mb": 384,
+            "threads": 2,
+            "temp_directory": "/tmp/ws/tmp",
+            "max_temp_directory_size_mb": null
+        },
+        "trace": { "default_level": "redacted" }
+    }"#;
+
+    /// T255／FR-744（Check 349）：默认审批策略全 `allow`，与接线前行为一致。
+    #[test]
+    fn approval_defaults_are_all_allow_and_behavior_compatible() {
+        let config = Config::for_workspace("/tmp/ws");
+        assert_eq!(config.approval, ApprovalConfig::default());
+        assert_eq!(
+            config.approval.default_read_only,
+            ApprovalRule::Allow,
+            "只读默认 allow：无 UI 时既有工具不得全部变 unavailable（ADR-060 §2.2）"
+        );
+        assert_eq!(config.approval.default_workspace_write, ApprovalRule::Allow);
+        assert_eq!(config.approval.wait_ms, DEFAULT_APPROVAL_WAIT_MS);
+        assert!(config.approval.tools.is_empty(), "默认无 per-tool 覆盖");
+
+        // 缺 `approval` 键同样取默认（旧配置零迁移）。
+        let parsed = Config::from_json(BASE_JSON).expect("缺审批段取默认");
+        assert_eq!(parsed.approval, ApprovalConfig::default());
+
+        let policy = parsed.approval.to_policy().expect("默认策略合法");
+        assert_eq!(
+            policy.range_defaults(),
+            (ApprovalRule::Allow, ApprovalRule::Allow)
+        );
+        assert_eq!(policy.tool_rule_count(), 0);
+    }
+
+    /// 显式配置生效：per-tool 覆盖优先于副作用范围默认。
+    #[test]
+    fn approval_rules_parse_and_resolve_per_tool() {
+        let json = BASE_JSON.replace(
+            "\"trace\"",
+            "\"approval\": {
+                \"default_workspace_write\": \"ask\",
+                \"tools\": { \"shell\": \"deny\", \"read_file\": \"allow\" },
+                \"wait_ms\": 5000
+            }, \"trace\"",
+        );
+        let config = Config::from_json(&json).expect("合法审批配置");
+        assert_eq!(
+            config.approval.default_workspace_write,
+            ApprovalRule::Ask,
+            "写范围默认可显式设为 ask"
+        );
+        assert_eq!(config.approval.default_read_only, ApprovalRule::Allow);
+        assert_eq!(config.approval.tools.len(), 2);
+        assert_eq!(config.approval.wait_ms, 5_000);
+
+        let policy = config.approval.to_policy().expect("规则表可构造");
+        assert_eq!(
+            policy.rule_for("shell", SideEffectScope::WorkspaceWrite),
+            ApprovalRule::Deny,
+            "per-tool 覆盖优先"
+        );
+        assert_eq!(
+            policy.rule_for("read_file", SideEffectScope::ReadOnly),
+            ApprovalRule::Allow
+        );
+        assert_eq!(
+            policy.rule_for("grep", SideEffectScope::WorkspaceWrite),
+            ApprovalRule::Ask,
+            "未覆盖的写工具取写默认"
+        );
+        assert_eq!(
+            policy.rule_for("grep", SideEffectScope::ReadOnly),
+            ApprovalRule::Allow,
+            "只读默认不受写默认影响"
+        );
+    }
+
+    /// 非法值在加载期拒绝（不静默回落，不进入运行期）。
+    #[test]
+    fn approval_invalid_values_are_rejected_at_load() {
+        // 未知规则名（"prompt" 不是封闭三值之一）。
+        let bad_rule = BASE_JSON.replace(
+            "\"trace\"",
+            "\"approval\": { \"tools\": { \"shell\": \"prompt\" } }, \"trace\"",
+        );
+        let err = Config::from_json(&bad_rule).expect_err("未知规则名必须拒绝");
+        assert_eq!(err.code, whcode_domain::ErrorCode::ParseError);
+        assert!(!err.retryable, "配置错误不可重试");
+
+        // 等待预算越界（0 与超上限都拒绝）。
+        for wait in ["0", &(MAX_APPROVAL_WAIT_MS + 1).to_string()] {
+            let json = BASE_JSON.replace(
+                "\"trace\"",
+                &format!("\"approval\": {{ \"wait_ms\": {wait} }}, \"trace\""),
+            );
+            let err = Config::from_json(&json).expect_err("等待预算越界必须拒绝");
+            assert_eq!(err.code, whcode_domain::ErrorCode::ParseError);
+            assert!(err.message.contains("审批"), "{err}");
+        }
+
+        // 工具名空白：加载期拒绝（错误可操作）。
+        let bad_name = BASE_JSON.replace(
+            "\"trace\"",
+            "\"approval\": { \"tools\": { \"  \": \"ask\" } }, \"trace\"",
+        );
+        let err = Config::from_json(&bad_name).expect_err("空工具名必须拒绝");
+        assert_eq!(err.code, whcode_domain::ErrorCode::ParseError);
+        assert!(err.message.contains("工具名"), "{err}");
     }
 }

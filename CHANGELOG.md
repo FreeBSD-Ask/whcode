@@ -13,6 +13,21 @@
 
 ### 变更
 
+- **工具级交互审批接线（T255／FR-744／Check 349，ADR-064，2026-11-09）**：审批闸门接入
+  `execute_tool_call`（参数校验后、三步登记前），FR-744 从类型证据变为行为证据。规则解析
+  per-tool 覆盖＞副作用范围默认（`[approval]` 配置段，加载期校验、非法值拒绝）；默认全
+  `allow` 行为兼容，`ask`／`deny` 仅显式配置生效；`deny`／明确拒绝→`rejected`
+  （`permission_denied` 不可重试），`ask` 无应答者→`unavailable`（fail-closed 不含糊）；
+  `ask` 写 `approval_asked`／`approval_decided` 成对审计（只带 `exec_id`／工具名／规则，
+  不带参数正文），`allow` 不写审批审计；审计写入失败阻断执行；待审批表有界 64 条
+  （满即 backpressure），应答者同步调用不建线程，等待预算默认 120 s 硬上限 600 s；
+  MCP 投影工具同位置接入；新增 `run_turn_with_approval`（既有 `run_turn`／
+  `run_turn_with_progress` 签名与行为不变）；`ToolCallFinished` 事件新增 `error_code`。
+  已知缺口（ADR-064 已登记）：装配根 `[approval]` 消费方未接线（配置当前只有解析与校验
+  消费者，无生效路径），归装配批次；子代理内部调用不走二次审批；审批 UI 属 B3b
+  （T256／T257）。验证：`whcode-app` 197／`whcode-domain` 69／`whcode-bin config` 12
+  全绿，clippy app／domain／bin 三 crate 零告警（`serve.rs` 的并行在途改动另批复跑）。
+
 - **预览机制评估结论（T262／FR-753／Check 358，2026-11-09）**：`docs/guides/preview-evaluation.md`
   登记结论——**产品侧不做** CDP＋Playwright 浏览器预览，理由是它不增加可判定证据（页面的
   验收答案已在直出契约测试、`web-ui-check.py` 与 `gui-probe` 中）、引入浏览器驱动与本地优先

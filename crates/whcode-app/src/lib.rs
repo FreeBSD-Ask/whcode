@@ -52,6 +52,10 @@ pub mod turn;
 pub mod view_source;
 pub mod views;
 
+pub use approval::{
+    ApprovalAnswerer, ApprovalDecision, ApprovalGate, ApprovalPolicy, DEFAULT_APPROVAL_WAIT_MS,
+    MAX_APPROVAL_TOOL_RULES, MAX_APPROVAL_WAIT_MS,
+};
 pub use authz::{Actor, Capability, DefaultPolicy, Policy, actor_with_all_capabilities, require};
 pub use commands::{CommandExecutor, CommandOutcome, FrontendCommand, execute_command};
 pub use context::{

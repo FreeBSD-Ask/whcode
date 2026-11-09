@@ -23,12 +23,14 @@ use std::time::Instant;
 use serde::Serialize;
 use serde_json::{Value, json};
 use whcode_domain::RuntimeExecutionStatus;
+use whcode_domain::approval::ApprovalOutcome;
 use whcode_domain::{ErrorCode, EventKind, WhError};
 use whcode_llm::provider::{LlmMessage, LlmToolCall, Role};
 use whcode_llm::{CancelToken, LlmRequest, Usage};
 use whcode_store::tool_exec::{mark_running, record_intent, record_result};
 use whcode_store::{TurnEventDraft, TurnMessageDraft, append_turn};
 
+use crate::approval::ApprovalGate;
 use crate::authz::{Actor, Capability, Policy, require};
 use crate::context::{fold_messages_for_budget, load_context};
 use crate::llm::{
@@ -267,6 +269,56 @@ pub fn run_turn_with_progress(
     context: &LlmContext<'_>,
     request: &TurnRequest,
     progress: Option<TurnProgress<'_>>,
+    now_ms: u64,
+) -> Result<TurnOutcome, WhError> {
+    run_turn_inner(
+        conn, policy, actor, context, request, progress, None, now_ms,
+    )
+}
+
+/// [`run_turn_with_progress`] 的审批接线版（T255／FR-744、ADR-064）：工具调用在
+/// **参数校验之后、三步登记之前**经 [`ApprovalGate`] 判定。
+///
+/// - `allow`：与接线前一致（默认策略是 `allow`，既有调用方零行为变化）；
+/// - `deny` → `permission_denied`（不可重试）；`ask` 无应答者/异常/超预算 → `unavailable`；
+/// - 任何审批失败都只让**本次工具调用**结构化失败，turn 继续（FR-718/ADR-048 §2.7）。
+///
+/// # Errors
+///
+/// 与 [`run_turn`] 相同；审批结论本身不构成 turn 级错误。
+#[allow(clippy::too_many_arguments)]
+pub fn run_turn_with_approval(
+    conn: &mut duckdb::Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    context: &LlmContext<'_>,
+    request: &TurnRequest,
+    progress: Option<TurnProgress<'_>>,
+    approval: &mut ApprovalGate<'_>,
+    now_ms: u64,
+) -> Result<TurnOutcome, WhError> {
+    run_turn_inner(
+        conn,
+        policy,
+        actor,
+        context,
+        request,
+        progress,
+        Some(approval),
+        now_ms,
+    )
+}
+
+/// 带可选审批闸门的 turn 主体（入口函数的共享实现）。
+#[allow(clippy::too_many_arguments)]
+fn run_turn_inner(
+    conn: &mut duckdb::Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    context: &LlmContext<'_>,
+    request: &TurnRequest,
+    progress: Option<TurnProgress<'_>>,
+    mut approval: Option<&mut ApprovalGate<'_>>,
     now_ms: u64,
 ) -> Result<TurnOutcome, WhError> {
     require(policy, actor, Capability::SessionCreate)?;
@@ -968,9 +1020,10 @@ pub fn run_turn_with_progress(
                 continue;
             }
             let exec_id = format!("TX-{request_id}-{iteration}-{tool_index}");
-            let (status, result_text, side_effect, output_value): (
+            let (status, result_text, side_effect, output_value, error_code): (
                 RuntimeExecutionStatus,
                 String,
+                Option<String>,
                 Option<String>,
                 Option<String>,
             ) = execute_tool_call(
@@ -983,6 +1036,7 @@ pub fn run_turn_with_progress(
                 request.workspace_root.as_deref(),
                 &exec_id,
                 tool_call,
+                approval.as_deref_mut(),
                 now_ms,
             );
             emit!(
@@ -1005,6 +1059,7 @@ pub fn run_turn_with_progress(
                 "state": status.as_str(),
                 "side_effect": side_effect,
                 "output_value": output_value,
+                "error_code": error_code,
             );
         }
         persister.flush(conn, &mut pending_events, &messages)?;
@@ -1329,9 +1384,13 @@ fn tool_input_hash(name: &str, arguments: &str) -> String {
     format!("{:016x}", hasher.finish())
 }
 
-/// 执行单个工具调用：权限面 → 校验 → 三步登记（prepared→running→终态）→ 执行 →
-/// role:tool 结果文本。任何失败都转为**结构化失败结果**回填给模型（turn 继续），
+/// 执行单个工具调用：权限面 → 校验 → **审批闸门** → 三步登记（prepared→running→终态）→
+/// 执行 → role:tool 结果文本。任何失败都转为**结构化失败结果**回填给模型（turn 继续），
 /// 不中断循环、不伪造成功（FR-718/ADR-048 §2.4—2.7）。
+///
+/// 第五个返回值是结构化错误码（`permission_denied`／`approval_unavailable`／
+/// `approval_cancelled`／`approval_audit_failed` 等，进 `ToolCallFinished` 事件；
+/// ADR-064）。`allow` 规则与未注入闸门时错误码恒为 `None`。
 ///
 /// `mcp__` 前缀的调用走 MCP 投影路径（FR-737、ADR-054 §2.8/2.10）。
 #[allow(clippy::too_many_arguments)]
@@ -1345,10 +1404,12 @@ fn execute_tool_call(
     workspace_root: Option<&Path>,
     exec_id: &str,
     tool_call: &LlmToolCall,
+    approval: Option<&mut ApprovalGate<'_>>,
     now_ms: u64,
 ) -> (
     RuntimeExecutionStatus,
     String,
+    Option<String>,
     Option<String>,
     Option<String>,
 ) {
@@ -1359,12 +1420,15 @@ fn execute_tool_call(
         whcode_tools::SideEffectScope::WorkspaceWrite => Capability::SessionCreate,
     };
     let fail =
-        |status, text: String, side_effect: Option<String>| (status, text, side_effect, None);
+        |status, text: String, side_effect: Option<String>| (status, text, side_effect, None, None);
+    let fail_code =
+        |status, text: String, code: &str| (status, text, None, None, Some(code.to_string()));
 
     // FR-737：MCP 投影工具——动态名不进内置注册表，命名空间前缀分派。
     if let Some((server, tool_name)) = whcode_mcp::parse_tool_name(&tool_call.name) {
         return execute_mcp_tool_call(
-            conn, policy, actor, mcp, cancel, &server, &tool_name, exec_id, tool_call, now_ms,
+            conn, policy, actor, mcp, cancel, &server, &tool_name, exec_id, tool_call, approval,
+            now_ms,
         );
     }
 
@@ -1407,6 +1471,54 @@ fn execute_tool_call(
             None,
         );
     };
+
+    // ── 审批闸门（T255／FR-744／ADR-064）──────────────────────────────
+    // 位置固定在“参数校验之后、三步登记之前”：受理前拒绝不产生登记行（ADR-048 §2.4），
+    // 且被拒绝的调用不进入执行面。审计失败同样阻断执行（沿用 T264 口径）。
+    if let Some(gate) = approval {
+        let decision = match gate.authorize(
+            exec_id,
+            &tool_call.name,
+            descriptor.side_effect_scope,
+            now_ms,
+        ) {
+            Ok(decision) => decision,
+            Err(err) => {
+                return fail_code(
+                    RuntimeExecutionStatus::Failed,
+                    format!(
+                        "工具 {} 审批登记失败：{err}；本次调用未执行（审计失败阻断执行）",
+                        tool_call.name
+                    ),
+                    "approval_audit_failed",
+                );
+            }
+        };
+        if !decision.is_allowed() {
+            let (code, reason) = match decision.outcome {
+                ApprovalOutcome::Rejected => (
+                    "permission_denied",
+                    "被审批规则拒绝（不可重试：不要重复调用同一工具）",
+                ),
+                ApprovalOutcome::Cancelled => {
+                    ("approval_cancelled", "审批被撤回（本次调用未执行）")
+                }
+                _ => (
+                    "approval_unavailable",
+                    "需要人工审批但当前无可用应答者（本次调用未执行，不得视为已允许）",
+                ),
+            };
+            return fail_code(
+                RuntimeExecutionStatus::Failed,
+                format!(
+                    "工具 {} {reason}；命中规则 {}",
+                    tool_call.name,
+                    decision.rule.as_str()
+                ),
+                code,
+            );
+        }
+    }
 
     // 三步登记（T215）：prepared → running → 终态；登记失败转为执行失败（不伪造）。
     let input_hash = tool_input_hash(&tool_call.name, &tool_call.arguments);
@@ -1487,6 +1599,7 @@ fn execute_tool_call(
                 ),
                 None,
                 display_value,
+                None,
             )
         }
         Err(err) => {
@@ -1517,6 +1630,7 @@ fn execute_tool_call(
                     ),
                     None,
                     None,
+                    Some("tool_timeout".to_string()),
                 )
             } else {
                 (
@@ -1524,6 +1638,7 @@ fn execute_tool_call(
                     format!("工具 {} 执行失败：{err}", tool_call.name),
                     None,
                     None,
+                    Some(err.code.as_str().to_string()),
                 )
             }
         }
@@ -1532,8 +1647,10 @@ fn execute_tool_call(
 
 /// MCP 投影工具执行（FR-737、ADR-054 §2.8/2.10）：权限面 **fail-closed**（外部服务
 /// 器代码不可信，一律按 SessionCreate 写权限判定）→ 参数只验 JSON 对象形态
-/// （inputSchema 契约由服务器侧执行）→ 三步登记与内置工具同一条管线 → tools/call
-/// （超时看门狗 + 取消感知）→ `role:tool` 回填。isError 按失败回填，不伪造成功。
+/// （inputSchema 契约由服务器侧执行）→ **审批闸门**（ADR-064：MCP 工具按
+/// `WorkspaceWrite` 范围解析规则，规则面对外部工具同样生效，不留审批绕过口）→
+/// 三步登记与内置工具同一条管线 → tools/call（超时看门狗 + 取消感知）→ `role:tool`
+/// 回填。isError 按失败回填，不伪造成功。
 #[allow(clippy::too_many_arguments)]
 fn execute_mcp_tool_call(
     conn: &mut duckdb::Connection,
@@ -1545,14 +1662,25 @@ fn execute_mcp_tool_call(
     tool_name: &str,
     exec_id: &str,
     tool_call: &LlmToolCall,
+    approval: Option<&mut ApprovalGate<'_>>,
     now_ms: u64,
 ) -> (
     RuntimeExecutionStatus,
     String,
     Option<String>,
     Option<String>,
+    Option<String>,
 ) {
-    let fail = |status, text: String| (status, text, Some("mcp:external".to_string()), None);
+    let fail = |status, text: String| (status, text, Some("mcp:external".to_string()), None, None);
+    let fail_code = |status, text: String| {
+        (
+            status,
+            text,
+            Some("mcp:external".to_string()),
+            None,
+            Some("permission_denied".to_string()),
+        )
+    };
     // 权限面 fail-closed（ADR-054 §2.8）：MCP 工具不区分读写，统一按写权限。
     if let Err(err) = require(policy, actor, Capability::SessionCreate) {
         return fail(
@@ -1576,6 +1704,37 @@ fn execute_mcp_tool_call(
                 );
             }
         };
+    // 审批闸门（ADR-064）：外部工具按写范围解析规则（fail-closed），受理前拒绝不登记。
+    if let Some(gate) = approval {
+        let decision = match gate.authorize(
+            exec_id,
+            &tool_call.name,
+            whcode_tools::SideEffectScope::WorkspaceWrite,
+            now_ms,
+        ) {
+            Ok(decision) => decision,
+            Err(err) => {
+                return fail(
+                    RuntimeExecutionStatus::Failed,
+                    format!(
+                        "MCP 工具 {} 审批登记失败：{err}；本次调用未执行（审计失败阻断执行）",
+                        tool_call.name
+                    ),
+                );
+            }
+        };
+        if !decision.is_allowed() {
+            return fail_code(
+                RuntimeExecutionStatus::Failed,
+                format!(
+                    "MCP 工具 {} 需要人工审批但未获批准（outcome={}；命中规则 {}；本次调用未执行）",
+                    tool_call.name,
+                    decision.outcome.as_str(),
+                    decision.rule.as_str()
+                ),
+            );
+        }
+    }
     // 三步登记：prepared → running → 终态（与内置工具同一条管线，FR-737）。
     let input_hash = tool_input_hash(&tool_call.name, &tool_call.arguments);
     if let Err(err) = record_intent(conn, exec_id, &tool_call.id, &input_hash) {
@@ -1622,6 +1781,11 @@ fn execute_mcp_tool_call(
             } else {
                 String::new()
             };
+            let error_code = if output.is_error {
+                Some("mcp_tool_error".to_string())
+            } else {
+                None
+            };
             (
                 status,
                 format!(
@@ -1635,6 +1799,7 @@ fn execute_mcp_tool_call(
                 ),
                 Some("mcp:external".to_string()),
                 None,
+                error_code,
             )
         }
         Err(err) => {
@@ -2484,6 +2649,234 @@ mod tests {
             !serialized.contains(prompt),
             "FR-203：事件不得复制提示词正文"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ── 工具审批接线（T255／FR-744、ADR-064）────────────────────────────
+
+    use crate::approval::{
+        ApprovalAnswerer, ApprovalGate, ApprovalPolicy, DEFAULT_APPROVAL_WAIT_MS,
+    };
+    use whcode_domain::CollectingAuditSink;
+    use whcode_domain::approval::{ApprovalAnswer, ApprovalRequest, ApprovalRule};
+
+    /// 固定应答者（turn 级：由调用线程同步驱动，无内建线程）。
+    struct FixedAnswerer(ApprovalAnswer);
+
+    impl ApprovalAnswerer for FixedAnswerer {
+        fn answer(
+            &self,
+            _request: &ApprovalRequest,
+            _budget_ms: u64,
+        ) -> Result<Option<ApprovalAnswer>, WhError> {
+            Ok(Some(self.0))
+        }
+    }
+
+    /// 准备一个含 `src/lib.rs` 的工作区（read_file 可成功读取）。
+    fn workspace_with_file(tag: &str) -> std::path::PathBuf {
+        let dir = temp_dir(tag);
+        std::fs::create_dir_all(dir.join("src")).expect("子目录");
+        std::fs::write(dir.join("src/lib.rs"), "pub fn hello() {}\n").expect("写文件");
+        dir
+    }
+
+    fn policy_for(tool: &str, rule: ApprovalRule) -> ApprovalPolicy {
+        ApprovalPolicy::default()
+            .with_tool_rule(tool, rule)
+            .expect("规则合法")
+    }
+
+    #[test]
+    fn approval_deny_fails_tool_with_permission_denied_and_turn_continues() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            tool_call_step(),
+            StubStep::simple("拒绝已回填", "stop"),
+        ]));
+        let dir = workspace_with_file("approve-deny");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "读文件");
+        req.workspace_root = Some(dir.clone());
+
+        let sink = CollectingAuditSink::new();
+        let mut gate = ApprovalGate::new(
+            "turn-test",
+            policy_for("read_file", ApprovalRule::Deny),
+            &sink,
+            None,
+            DEFAULT_APPROVAL_WAIT_MS,
+        );
+        let outcome =
+            run_turn_with_approval(&mut conn, &policy, &actor, &ctx, &req, None, &mut gate, 17)
+                .expect("审批拒绝不得中断 turn");
+
+        assert_eq!(outcome.termination_reason, "model_finished");
+        assert_eq!(outcome.iterations, 2, "工具失败后必须继续下一轮");
+        let tool_msg: String = conn
+            .query_row(
+                "SELECT content_ref FROM messages WHERE session_id=? AND role='tool'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("tool 消息");
+        assert!(tool_msg.contains("被审批规则拒绝"), "{tool_msg}");
+        assert!(tool_msg.contains("不可重试"), "{tool_msg}");
+        assert_eq!(
+            last_payload_text(&conn, &id, "ToolCallFinished", "error_code").as_deref(),
+            Some("permission_denied"),
+            "结构化错误码必须进事件（不给模型留‘重试’歧义）"
+        );
+        // 受理前拒绝不登记（ADR-048 §2.4）：无执行行、无输出。
+        let registered: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tool_executions", [], |row| row.get(0))
+            .expect("登记计数");
+        assert_eq!(registered, 0, "审批拒绝不得产生登记行");
+        // asked/decided 成对留痕，且审计不含工具参数正文。
+        let records = sink.records();
+        assert_eq!(records.len(), 2, "approve 拒绝也须 asked+decided 成对");
+        assert!(!records[1].detail.to_string().contains("src/lib.rs"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn approval_ask_without_answerer_is_unavailable_and_turn_continues() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            tool_call_step(),
+            StubStep::simple("继续", "stop"),
+        ]));
+        let dir = workspace_with_file("approve-unavailable");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "读文件");
+        req.workspace_root = Some(dir.clone());
+
+        let sink = CollectingAuditSink::new();
+        // 无应答者：不得降级为 allow 或 deny。
+        let mut gate = ApprovalGate::new(
+            "turn-test",
+            policy_for("read_file", ApprovalRule::Ask),
+            &sink,
+            None,
+            DEFAULT_APPROVAL_WAIT_MS,
+        );
+        let outcome =
+            run_turn_with_approval(&mut conn, &policy, &actor, &ctx, &req, None, &mut gate, 19)
+                .expect("unavailable 不得中断 turn");
+        assert_eq!(outcome.termination_reason, "model_finished");
+        assert_eq!(
+            last_payload_text(&conn, &id, "ToolCallFinished", "error_code").as_deref(),
+            Some("approval_unavailable")
+        );
+        let tool_msg: String = conn
+            .query_row(
+                "SELECT content_ref FROM messages WHERE session_id=? AND role='tool'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("tool 消息");
+        assert!(tool_msg.contains("无可用应答者"), "{tool_msg}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn approval_ask_with_approve_executes_tool() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            tool_call_step(),
+            StubStep::simple("已批准", "stop"),
+        ]));
+        let dir = workspace_with_file("approve-ok");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "读文件");
+        req.workspace_root = Some(dir.clone());
+
+        let sink = CollectingAuditSink::new();
+        let answerer = FixedAnswerer(ApprovalAnswer::Approve);
+        let mut gate = ApprovalGate::new(
+            "turn-test",
+            policy_for("read_file", ApprovalRule::Ask),
+            &sink,
+            Some(&answerer),
+            DEFAULT_APPROVAL_WAIT_MS,
+        );
+        let outcome =
+            run_turn_with_approval(&mut conn, &policy, &actor, &ctx, &req, None, &mut gate, 23)
+                .expect("批准后执行");
+        assert_eq!(outcome.termination_reason, "model_finished");
+        let (status, finished_code): (String, Option<String>) = conn
+            .query_row(
+                "SELECT CAST(CAST(payload_json AS JSON)->>'$.state' AS VARCHAR),
+                        CAST(CAST(payload_json AS JSON)->>'$.error_code' AS VARCHAR)
+                 FROM events WHERE session_id=? AND kind='ToolCallFinished' LIMIT 1",
+                [&id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("工具终态事件");
+        assert_eq!(status, "completed");
+        assert_eq!(finished_code, None, "成功调用不得带错误码");
+        let registered: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM tool_executions WHERE state='completed'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("登记计数");
+        assert_eq!(registered, 1, "批准后必须走完三步登记");
+        assert_eq!(gate.pending_len(), 0, "判定后不得残留待审批");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn approval_default_policy_keeps_existing_tool_behavior() {
+        // 中性性断言：默认策略（全 allow）下工具照常执行——无 UI 时不得全部变不可用。
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            tool_call_step(),
+            StubStep::simple("读到了", "stop"),
+        ]));
+        let dir = workspace_with_file("approve-default");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "读文件");
+        req.workspace_root = Some(dir.clone());
+
+        let sink = CollectingAuditSink::new();
+        let mut gate = ApprovalGate::new(
+            "turn-test",
+            ApprovalPolicy::default(),
+            &sink,
+            None,
+            DEFAULT_APPROVAL_WAIT_MS,
+        );
+        let outcome =
+            run_turn_with_approval(&mut conn, &policy, &actor, &ctx, &req, None, &mut gate, 29)
+                .expect("默认策略放行");
+        assert_eq!(outcome.termination_reason, "model_finished");
+        let tool_msg: String = conn
+            .query_row(
+                "SELECT content_ref FROM messages WHERE session_id=? AND role='tool'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("tool 消息");
+        assert!(tool_msg.contains("执行成功"), "{tool_msg}");
+        assert!(sink.is_empty(), "allow 不产生审批审计噪声");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
