@@ -71,6 +71,11 @@
 # Phase 1 治理尾批证据（2026-11-08）：覆盖率试点测量与真 API 冒烟结果（T273／T275）。
 !/artifacts/coverage-phase1-2026-11-08.json
 !/artifacts/sensenova-smoke-2026-11-08.json
+# T251 收口证据（2026-11-09）：WS 中继三指标端到端测量、资源实验与差分回退缺口登记
+# （ADR-058 §2.8.8 用例 8／10／11；Check 347 可闭条件 4）。
+!/artifacts/turn-ws-relay-2026-11-09/
+# 执行前复核记录（2026-11-09）：ADR-059 路线执行态审计、F1—F5 发现与并行写域划分。
+!/artifacts/progress-review-2026-11-09.md
 # M0 退出报告是治理交付物（tasks.md T031、§12.2），必须随仓库版本化。
 
 # 工作区数据库与 WAL（运行时产物，不进版本库）
