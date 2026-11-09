@@ -215,8 +215,8 @@ mod tests {
         let config = Config::for_workspace(dir.clone());
 
         let conn = open_workspace_db(&dir, &config).expect("首次打开");
-        // 模拟待迁移旧库：只回退版本记录（v8 迁移是 IF NOT EXISTS，可重复应用）。
-        conn.execute("DELETE FROM schema_migrations WHERE version = 8", [])
+        // 模拟待迁移旧库：只回退最后一版版本记录（v9 迁移是 IF NOT EXISTS，可重复应用）。
+        conn.execute("DELETE FROM schema_migrations WHERE version = 9", [])
             .expect("回退版本记录");
         drop(conn);
 
@@ -243,7 +243,7 @@ mod tests {
             "落后版本必须产生且只产生一份备份：{names:?}"
         );
         assert!(
-            names[0].contains(".v0007-"),
+            names[0].contains(".v0008-"),
             "备份文件名须含迁移前版本：{names:?}"
         );
 

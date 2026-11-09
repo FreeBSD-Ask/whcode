@@ -12,7 +12,7 @@
 //! - **不新增线程**：应答者 [`ApprovalAnswerer`] 由调用线程同步驱动；本模块不建线程，
 //!   等待预算有硬上限（[`MAX_APPROVAL_WAIT_MS`]），超预算的应答按 `unavailable` 丢弃。
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 
 use whcode_domain::approval::{
@@ -154,11 +154,7 @@ impl ApprovalBroker {
                 "exec_id": request.exec_id,
                 "tool": request.tool,
                 "rule": request.rule.as_str(),
-                "answer": answer.map(|value| match value {
-                    ApprovalAnswer::Approve => "approve",
-                    ApprovalAnswer::Reject => "reject",
-                    ApprovalAnswer::Cancel => "cancel",
-                }),
+                "answer": answer.map(ApprovalAnswer::as_str),
                 "outcome": outcome.as_str(),
                 "note": note,
             }),
@@ -229,6 +225,58 @@ pub trait ApprovalAnswerer: Send + Sync {
     ) -> Result<Option<ApprovalAnswer>, WhError>;
 }
 
+/// 记住规则的持久化端口（T256／T257／FR-745，ADR-064 修订）。
+///
+/// UI 侧选择“记住规则”或“拒绝并记住”时，闸门在**执行线程**上（尚未登记、尚未执行）
+/// 调用本端口把规则写入本地规则存储；写入失败阻断执行（无法留痕的授权不得发生）。
+/// 实现属 `whcode-store`，装配根注入；本模块不做 SQL。
+pub trait ApprovalRuleWriter {
+    /// 写入一条工具级规则（`allow`／`deny`；`ask` 不进入持久化存储）。
+    ///
+    /// # Errors
+    ///
+    /// 存储不可用或规则非法时返回错误；调用方不得继续执行工具。
+    fn remember(&self, tool: &str, rule: ApprovalRule, now_ms: u64) -> Result<(), WhError>;
+}
+
+/// 生产审计 sink：把审批审计写入工作区 `audit` 表（ADR-064 决策 5；T255 登记的 F4 缺口）。
+pub struct StoreAuditSink<'a> {
+    conn: &'a duckdb::Connection,
+}
+
+impl<'a> StoreAuditSink<'a> {
+    /// 以工作区连接构造；连接生命周期由调用方（装配根／turn 线程）持有。
+    #[must_use]
+    pub fn new(conn: &'a duckdb::Connection) -> Self {
+        Self { conn }
+    }
+}
+
+impl AuditSink for StoreAuditSink<'_> {
+    fn record(&self, record: &AuditRecord) -> Result<(), WhError> {
+        whcode_store::audit::insert_record(self.conn, record)
+    }
+}
+
+/// 生产规则写入器：把“记住规则”落到 `approval_rules` 表（T256／T257／FR-745）。
+pub struct StoreRuleWriter<'a> {
+    conn: &'a duckdb::Connection,
+}
+
+impl<'a> StoreRuleWriter<'a> {
+    /// 以工作区连接构造。
+    #[must_use]
+    pub fn new(conn: &'a duckdb::Connection) -> Self {
+        Self { conn }
+    }
+}
+
+impl ApprovalRuleWriter for StoreRuleWriter<'_> {
+    fn remember(&self, tool: &str, rule: ApprovalRule, now_ms: u64) -> Result<(), WhError> {
+        whcode_store::approval_rules::upsert_rule(self.conn, tool, rule, now_ms)
+    }
+}
+
 /// 工具级审批规则解析（per-tool 覆盖 + 按副作用范围默认；ADR-064 决策 2）。
 ///
 /// 解析顺序：per-tool 覆盖 > 副作用范围默认。默认值 [`Default`] 为**全部 `allow`**，
@@ -292,6 +340,31 @@ impl ApprovalPolicy {
         Ok(self)
     }
 
+    /// 给破坏性工具 `shell` 加默认 `ask`（T256／T257／FR-745；“破坏性工具默认确认”）。
+    ///
+    /// 只在**启用交互面**的装配里调用；配置的 per-tool 覆盖与本地已存规则在之后叠加，
+    /// 因此用户显式设置（含 `allow`）始终优先于该默认值。
+    #[must_use]
+    pub fn with_builtin_destructive_ask(mut self) -> Self {
+        self.per_tool.insert("shell".to_string(), ApprovalRule::Ask);
+        self
+    }
+
+    /// 叠加本地已存规则（`approval_rules` 表；后加者优先于配置与内置默认）。
+    ///
+    /// # Errors
+    ///
+    /// 任一规则名非法或条数超限时返回错误（存储损坏不得静默忽略）。
+    pub fn with_stored_rules(
+        mut self,
+        rows: impl IntoIterator<Item = (String, ApprovalRule)>,
+    ) -> Result<Self, WhError> {
+        for (tool, rule) in rows {
+            self = self.with_tool_rule(tool, rule)?;
+        }
+        Ok(self)
+    }
+
     /// 解析某工具某次调用的规则：per-tool 覆盖优先，否则取副作用范围默认。
     #[must_use]
     pub fn rule_for(&self, tool: &str, scope: SideEffectScope) -> ApprovalRule {
@@ -341,8 +414,11 @@ pub struct ApprovalGate<'a> {
     policy: ApprovalPolicy,
     sink: &'a dyn AuditSink,
     answerer: Option<&'a dyn ApprovalAnswerer>,
+    rule_writer: Option<&'a dyn ApprovalRuleWriter>,
     broker: ApprovalBroker,
     wait_ms: u64,
+    /// 本回合已被“批准（回合）”放行的工具：不再询问，也不重复落审批审计。
+    turn_allowed: BTreeSet<String>,
 }
 
 impl<'a> ApprovalGate<'a> {
@@ -361,9 +437,18 @@ impl<'a> ApprovalGate<'a> {
             policy,
             sink,
             answerer,
+            rule_writer: None,
             broker: ApprovalBroker::new(actor),
             wait_ms: wait_ms.clamp(1, MAX_APPROVAL_WAIT_MS),
+            turn_allowed: BTreeSet::new(),
         }
+    }
+
+    /// 注入“记住规则”的持久化端口（T256／T257）；未注入时记住类应答按不可用处理。
+    #[must_use]
+    pub fn with_rule_writer(mut self, writer: &'a dyn ApprovalRuleWriter) -> Self {
+        self.rule_writer = Some(writer);
+        self
     }
 
     /// 生效规则表（回显/断言用）。
@@ -404,7 +489,11 @@ impl<'a> ApprovalGate<'a> {
         now_ms: u64,
     ) -> Result<ApprovalDecision, WhError> {
         let rule = self.policy.rule_for(tool, scope);
-        if rule == ApprovalRule::Allow {
+        // “回合批准”只影响本回合的同一工具：不再询问，也不重复落审批审计
+        // （真正的人工决定已在第一次请求里成对留痕）。
+        if rule == ApprovalRule::Allow
+            || (rule == ApprovalRule::Ask && self.turn_allowed.contains(tool))
+        {
             return Ok(ApprovalDecision {
                 rule,
                 outcome: ApprovalOutcome::AllowedOnce,
@@ -422,9 +511,22 @@ impl<'a> ApprovalGate<'a> {
             ApprovalRule::Deny => (None, Some("rule_deny".to_string())),
             _ => self.ask(&request),
         };
+        // 记住规则：在**执行线程**、登记与执行之前落库；失败阻断执行（无法留痕的授权
+        // 不得发生，ADR-064 审计口径）。未注入存储端口时，记住类应答按不可用处理。
+        if let Some(remembered) = answer.and_then(ApprovalAnswer::remembered_rule) {
+            let writer = self.rule_writer.ok_or_else(|| {
+                WhError::invalid_state(
+                    "规则存储未接线：记住规则不可用（本次调用未执行，不得视为已允许）",
+                )
+            })?;
+            writer.remember(tool, remembered, now_ms)?;
+        }
         let outcome = self
             .broker
             .decide(self.sink, &request.id, answer, note, now_ms)?;
+        if outcome.is_allowed() && answer.is_some_and(ApprovalAnswer::is_turn_scope) {
+            self.turn_allowed.insert(tool.to_string());
+        }
         Ok(ApprovalDecision {
             rule,
             outcome,
@@ -968,6 +1070,115 @@ mod tests {
         );
         assert_eq!(gate.wait_ms(), MAX_APPROVAL_WAIT_MS, "超上限按上限收口");
         assert_eq!(DEFAULT_APPROVAL_WAIT_MS, 120_000);
+    }
+
+    #[test]
+    fn turn_scope_approval_skips_reasking_and_remember_persists_rule() {
+        use std::sync::Mutex;
+
+        #[derive(Default)]
+        struct RecordingWriter {
+            calls: Mutex<Vec<(String, ApprovalRule)>>,
+        }
+
+        impl ApprovalRuleWriter for RecordingWriter {
+            fn remember(
+                &self,
+                tool: &str,
+                rule: ApprovalRule,
+                _now_ms: u64,
+            ) -> Result<(), WhError> {
+                self.calls
+                    .lock()
+                    .map(|mut calls| calls.push((tool.to_string(), rule)))
+                    .map_err(|_| WhError::internal("测试写入器锁中毒"))
+            }
+        }
+
+        // 回合批准：第一次询问并留痕，同回合第二次直接放行且不再问。
+        let sink = CollectingAuditSink::new();
+        let writer = RecordingWriter::default();
+        let answerer = FixedAnswerer(Some(ApprovalAnswer::ApproveTurn));
+        let mut gate = ApprovalGate::new(
+            "S-1",
+            policy_with("shell", ApprovalRule::Ask),
+            &sink,
+            Some(&answerer),
+            1_000,
+        )
+        .with_rule_writer(&writer);
+        let first = gate
+            .authorize("TX-1", "shell", SideEffectScope::WorkspaceWrite, 1)
+            .expect("首次判定");
+        assert!(first.is_allowed());
+        assert_eq!(sink.records().len(), 2, "首次询问须 asked+decided 成对");
+        let second = gate
+            .authorize("TX-2", "shell", SideEffectScope::WorkspaceWrite, 2)
+            .expect("再次判定");
+        assert!(second.is_allowed());
+        assert!(second.request_id.is_none(), "回合批准后不再发起请求");
+        assert_eq!(sink.records().len(), 2, "重复放行不得刷出新的审批审计");
+
+        // 记住规则：批准写 allow、拒绝写 deny；存储端口收到工具与规则。
+        let sink = CollectingAuditSink::new();
+        let writer = RecordingWriter::default();
+        let answerer = FixedAnswerer(Some(ApprovalAnswer::ApproveRemember));
+        let mut gate = ApprovalGate::new(
+            "S-1",
+            policy_with("shell", ApprovalRule::Ask),
+            &sink,
+            Some(&answerer),
+            1_000,
+        )
+        .with_rule_writer(&writer);
+        assert!(
+            gate.authorize("TX-3", "shell", SideEffectScope::WorkspaceWrite, 3)
+                .expect("记住批准")
+                .is_allowed()
+        );
+        let calls = writer
+            .calls
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_default();
+        assert_eq!(calls, vec![("shell".to_string(), ApprovalRule::Allow)]);
+
+        let sink = CollectingAuditSink::new();
+        let writer = RecordingWriter::default();
+        let answerer = FixedAnswerer(Some(ApprovalAnswer::RejectRemember));
+        let mut gate = ApprovalGate::new(
+            "S-1",
+            policy_with("shell", ApprovalRule::Ask),
+            &sink,
+            Some(&answerer),
+            1_000,
+        )
+        .with_rule_writer(&writer);
+        let decision = gate
+            .authorize("TX-4", "shell", SideEffectScope::WorkspaceWrite, 4)
+            .expect("记住拒绝");
+        assert!(!decision.is_allowed());
+        let calls = writer
+            .calls
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_default();
+        assert_eq!(calls, vec![("shell".to_string(), ApprovalRule::Deny)]);
+
+        // 未注入存储端口：记住类应答 fail-closed，不得静默降级为一次性放行。
+        let sink = CollectingAuditSink::new();
+        let answerer = FixedAnswerer(Some(ApprovalAnswer::ApproveRemember));
+        let mut gate = ApprovalGate::new(
+            "S-1",
+            policy_with("shell", ApprovalRule::Ask),
+            &sink,
+            Some(&answerer),
+            1_000,
+        );
+        let err = gate
+            .authorize("TX-5", "shell", SideEffectScope::WorkspaceWrite, 5)
+            .expect_err("无规则存储时记住规则必须阻断");
+        assert_eq!(err.code, ErrorCode::InvalidState);
     }
 
     #[test]

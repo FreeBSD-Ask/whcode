@@ -469,7 +469,7 @@ mod tests {
             .expect("预迁移检查");
         assert!(record.is_none(), "同版本不得制造副本");
 
-        // 落一条数据，然后把版本表回退到 v7，模拟待迁移的旧库。
+        // 落一条数据，然后把版本表回退一版，模拟待迁移的旧库。
         let conn = Connection::open(&db).expect("打开库");
         conn.execute(
             "INSERT INTO sessions (id, title, created_at, last_active_at, status)
@@ -479,14 +479,18 @@ mod tests {
         .expect("插入会话");
         conn.execute(
             "DELETE FROM schema_migrations WHERE version = ?",
-            params![8_i64],
+            params![i64::from(crate::STORE_SCHEMA_VERSION)],
         )
         .expect("回退版本记录");
         drop(conn);
         let record = pre_migration_backup(&db, crate::STORE_SCHEMA_VERSION, 1_700_000_000_001)
             .expect("预迁移检查")
             .expect("落后版本必须备份");
-        assert_eq!(record.schema_version, 7, "记录迁移前版本");
+        assert_eq!(
+            record.schema_version,
+            crate::STORE_SCHEMA_VERSION - 1,
+            "记录迁移前版本"
+        );
         assert!(Path::new(&record.path).is_file());
 
         // 新库（文件存在但迁移表未创建）：不备份——这是首次启动的真实时点。

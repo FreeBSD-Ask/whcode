@@ -92,7 +92,11 @@ pub struct AuditRecord {
 ///
 /// 具体存储实现属 `whcode-store`（M1）；本 trait 让 domain/app 不依赖存储实现，同时使
 /// "必须审计"成为可测试的接口约束——实现方返回错误时调用方**不得**把操作标记为成功。
-pub trait AuditSink: Send + Sync {
+///
+/// 调用是**同步、单线程**的：实现可以持有非 `Sync` 的工作区连接（DuckDB 连接不得跨线程
+/// 共享），由调用线程（turn 工作线程／serve 循环线程）直接使用。需要跨线程共享的钩子
+/// （如人机应答面）另用带 `Send + Sync` 的 trait 表达。
+pub trait AuditSink {
     /// 写入一条审计记录。
     fn record(&self, record: &AuditRecord) -> Result<(), WhError>;
 }

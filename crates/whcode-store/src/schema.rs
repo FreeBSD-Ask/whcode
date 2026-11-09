@@ -21,11 +21,12 @@ use whcode_domain::{ErrorCode, WhError};
 /// `stage_artifacts.refs_json`、`session_overview.by_stage_json`、`checkpoints.delta_json`、
 /// `checkpoints.artifact_refs_json`、`audit.detail_json`）；
 /// v8 增加 usage 锚点单行表（FR-758／T268／ADR-060 项 E：最近一次成功请求的实测 usage，
-/// 供预算判断校准；只存一条）。
-pub const STORE_SCHEMA_VERSION: u32 = 8;
+/// 供预算判断校准；只存一条）；
+/// v9 增加工具级审批规则表（T256／T257／FR-745：只存 allow／deny，撤销即删除）。
+pub const STORE_SCHEMA_VERSION: u32 = 9;
 
 /// 正式表数量（含 `schema_migrations`）。
-pub const TABLE_COUNT: usize = 15;
+pub const TABLE_COUNT: usize = 16;
 
 const MIGRATION_0001: &str = include_str!("../migrations/0001_initial.sql");
 const MIGRATION_0002: &str = include_str!("../migrations/0002_event_trace_indexes.sql");
@@ -35,6 +36,7 @@ const MIGRATION_0005: &str = include_str!("../migrations/0005_session_stage.sql"
 const MIGRATION_0006: &str = include_str!("../migrations/0006_events_variant.sql");
 const MIGRATION_0007: &str = include_str!("../migrations/0007_json_variant.sql");
 const MIGRATION_0008: &str = include_str!("../migrations/0008_usage_anchor.sql");
+const MIGRATION_0009: &str = include_str!("../migrations/0009_approval_rules.sql");
 
 /// 版本化迁移清单；新增版本时追加，不修改历史 SQL。
 const MIGRATIONS: &[(u32, &str)] = &[
@@ -46,6 +48,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (6, MIGRATION_0006),
     (7, MIGRATION_0007),
     (8, MIGRATION_0008),
+    (9, MIGRATION_0009),
 ];
 
 fn store_err(context: &str, err: duckdb::Error) -> WhError {

@@ -141,14 +141,9 @@ impl ApprovalConfig {
     ///
     /// 同 [`Self::validate`]。
     // 装配根的调用点是 B3b 的 `run_turn_with_approval` 接线（本批只交付后端语义）；
-    // 语义由 `config` 的单元测试覆盖，不留未校验的构造路径。
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "B3b 装配根接线前的唯一调用方；语义已由 config 单测覆盖"
-        )
-    )]
+    // 语义由 `config` 的单元测试覆盖，不留未校验的构造路径。生产接线属于 B3b UI 批次，
+    // 接线完成后删除本属性（`cfg_attr` 属平台分支，禁止出现在 `whcode-bin`）。
+    #[allow(dead_code)]
     pub fn to_policy(&self) -> Result<ApprovalPolicy, WhError> {
         self.validate()?;
         let mut policy = ApprovalPolicy::new(self.default_read_only, self.default_workspace_write);

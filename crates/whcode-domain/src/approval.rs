@@ -103,8 +103,11 @@ impl ApprovalRule {
     }
 }
 
-/// 应答者能表达的三态。
+/// 应答者能表达的语义。
 ///
+/// 三个旧态（`Approve`／`Reject`／`Cancel`）保持原样，供 CUI／TUI 与既有测试使用；
+/// B3b 的四态审批在此基础上扩展：`ApproveTurn`（本回合内该工具不再询问）、
+/// `ApproveRemember`（写 allow 规则）、`RejectRemember`（写 deny 规则）。
 /// “无人作答”不是一种应答——它由 `None` 表达并映射为
 /// [`ApprovalOutcome::Unavailable`]，避免把“没人可问”落成“拒绝”。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -112,10 +115,67 @@ impl ApprovalRule {
 pub enum ApprovalAnswer {
     /// 批准这一次。
     Approve,
+    /// 批准并在本回合内不再询问同一工具。
+    ApproveTurn,
+    /// 批准并把 `allow` 规则写入本地规则存储（可在设置页撤销）。
+    ApproveRemember,
     /// 拒绝。
     Reject,
+    /// 拒绝并把 `deny` 规则写入本地规则存储（可在设置页撤销）。
+    RejectRemember,
     /// 撤回（人主动取消该请求）。
     Cancel,
+}
+
+impl ApprovalAnswer {
+    /// 稳定序列化名（审计与四端协议共用）。
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Approve => "approve",
+            Self::ApproveTurn => "approve_turn",
+            Self::ApproveRemember => "approve_remember",
+            Self::Reject => "reject",
+            Self::RejectRemember => "reject_remember",
+            Self::Cancel => "cancel",
+        }
+    }
+
+    /// 解析稳定名；未知值返回 `None`（调用方不得把未知值当允许）。
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "approve" => Some(Self::Approve),
+            "approve_turn" => Some(Self::ApproveTurn),
+            "approve_remember" => Some(Self::ApproveRemember),
+            "reject" => Some(Self::Reject),
+            "reject_remember" => Some(Self::RejectRemember),
+            "cancel" => Some(Self::Cancel),
+            _ => None,
+        }
+    }
+
+    /// 是否要求把规则写入本地存储。
+    #[must_use]
+    pub const fn is_remember(self) -> bool {
+        matches!(self, Self::ApproveRemember | Self::RejectRemember)
+    }
+
+    /// 记住时写入的规则；不记住返回 `None`。
+    #[must_use]
+    pub const fn remembered_rule(self) -> Option<ApprovalRule> {
+        match self {
+            Self::ApproveRemember => Some(ApprovalRule::Allow),
+            Self::RejectRemember => Some(ApprovalRule::Deny),
+            _ => None,
+        }
+    }
+
+    /// 是否为本回合生效（同一工具后续调用不再询问）。
+    #[must_use]
+    pub const fn is_turn_scope(self) -> bool {
+        matches!(self, Self::ApproveTurn)
+    }
 }
 
 /// 一次审批请求（不含工具参数，只带 `exec_id`）。
@@ -192,7 +252,10 @@ pub fn outcome_for(rule: ApprovalRule, answer: Option<ApprovalAnswer>) -> Approv
         (ApprovalRule::Allow, _) => ApprovalOutcome::AllowedOnce,
         (ApprovalRule::Deny, _) => ApprovalOutcome::Rejected,
         (ApprovalRule::Ask, Some(ApprovalAnswer::Approve)) => ApprovalOutcome::AllowedOnce,
+        (ApprovalRule::Ask, Some(ApprovalAnswer::ApproveTurn)) => ApprovalOutcome::AllowedOnce,
+        (ApprovalRule::Ask, Some(ApprovalAnswer::ApproveRemember)) => ApprovalOutcome::AllowedOnce,
         (ApprovalRule::Ask, Some(ApprovalAnswer::Reject)) => ApprovalOutcome::Rejected,
+        (ApprovalRule::Ask, Some(ApprovalAnswer::RejectRemember)) => ApprovalOutcome::Rejected,
         (ApprovalRule::Ask, Some(ApprovalAnswer::Cancel)) => ApprovalOutcome::Cancelled,
         (ApprovalRule::Ask, None) => ApprovalOutcome::Unavailable,
     }
@@ -263,6 +326,44 @@ mod tests {
             outcome_for(ApprovalRule::Ask, None),
             ApprovalOutcome::Unavailable
         );
+    }
+
+    #[test]
+    fn four_state_answers_map_and_carry_remember_semantics() {
+        // 三种批准都放行；只有 ApproveRemember／RejectRemember 携带持久化意图。
+        for answer in [
+            ApprovalAnswer::Approve,
+            ApprovalAnswer::ApproveTurn,
+            ApprovalAnswer::ApproveRemember,
+        ] {
+            assert_eq!(
+                outcome_for(ApprovalRule::Ask, Some(answer)),
+                ApprovalOutcome::AllowedOnce,
+                "{} 应放行",
+                answer.as_str()
+            );
+        }
+        assert_eq!(
+            outcome_for(ApprovalRule::Ask, Some(ApprovalAnswer::RejectRemember)),
+            ApprovalOutcome::Rejected
+        );
+        assert_eq!(
+            ApprovalAnswer::ApproveRemember.remembered_rule(),
+            Some(ApprovalRule::Allow)
+        );
+        assert_eq!(
+            ApprovalAnswer::RejectRemember.remembered_rule(),
+            Some(ApprovalRule::Deny)
+        );
+        assert!(ApprovalAnswer::ApproveTurn.is_turn_scope());
+        assert!(!ApprovalAnswer::Approve.is_turn_scope());
+        assert!(ApprovalAnswer::RejectRemember.is_remember());
+        assert!(!ApprovalAnswer::Reject.is_remember());
+        assert_eq!(
+            ApprovalAnswer::parse("approve_remember"),
+            Some(ApprovalAnswer::ApproveRemember)
+        );
+        assert_eq!(ApprovalAnswer::parse("unknown"), None);
     }
 
     #[test]

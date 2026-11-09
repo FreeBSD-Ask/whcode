@@ -226,3 +226,20 @@ ADR-060 §2.2 的“A 的接线冻结”**只在本 ADR 决策 1—6 的范围�
   明确解除 ADR-060 §2.2 冻结的范围，并把“破坏性工具默认 ask”留待 B3b。
 - 2026-11-09（补记）：登记“装配根尚未接线前 `[approval]` 不生效”的缺口与失效条件；
   写明装配批次接线后须在本节追加修订并移除该限制。
+- 2026-11-10（B3b 后端前置，四态与规则存储）：按用户决定落地——四态＝
+  「批准（本回合内该工具不再问）／仅本次／拒绝（写 deny 规则）／记住规则（写 allow 规则）」；
+  破坏性默认确认只落 `shell`，且仅在启用交互面的装配中生效。
+  - `ApprovalAnswer` 扩展 `ApproveTurn`／`ApproveRemember`／`RejectRemember`（旧三态保留，
+    CUI／TUI 行为不变）；`ApprovalGate` 增加回合放行集合与 `ApprovalRuleWriter` 端口；
+    记住类应答在**执行线程、登记前**落库，存储未接线或写失败一律阻断执行。
+  - schema v9 新增 `approval_rules`（只存 `allow`／`deny`，一条工具一行，上限 256，
+    `CHECK` 拒绝 `ask`）；`whcode-store::approval_rules` 提供 list／upsert／delete。
+  - 生产 `AuditSink`（`StoreAuditSink`）与规则写入器（`StoreRuleWriter`）落地，闭合
+    T255 登记的 F4“生产无 AuditSink”缺口；`AuditSink` 的 `Send + Sync` 约束删除并写明
+    “同步、单线程、可持有非 Sync 连接”（DuckDB 连接不得跨线程共享）。
+  - `ApprovalPolicy::with_builtin_destructive_ask`／`with_stored_rules`：装配顺序为
+    范围默认 → 内置 shell=ask（可选） → 配置覆盖 → 本地已存规则（后者优先）。
+  - 新增能力 `approval.rule.read`／`approval.rule.write` 与 `app::approval_rules`
+    门面（设置页用），变更写 `permission_change` 审计。
+  - 未闭环（B3b UI 批次）：GUI／Web 工具卡与四态按钮、`[approval]` 配置与交互应答面的
+    装配接线、设置页入口；T256／T257 与 Check 348／350 保持未勾。

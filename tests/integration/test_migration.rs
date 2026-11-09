@@ -28,6 +28,7 @@ const V4_SQL: &str =
 const V5_SQL: &str = include_str!("../../crates/whcode-store/migrations/0005_session_stage.sql");
 const V6_SQL: &str = include_str!("../../crates/whcode-store/migrations/0006_events_variant.sql");
 const V7_SQL: &str = include_str!("../../crates/whcode-store/migrations/0007_json_variant.sql");
+const V8_SQL: &str = include_str!("../../crates/whcode-store/migrations/0008_usage_anchor.sql");
 
 /// 构造一个处于 v1 的工作区：执行真实 v1 SQL 并登记迁移记录（校验和与生产代码同算法）。
 fn create_v1_workspace(conn: &Connection) {
@@ -847,4 +848,71 @@ fn v7_workspace_gains_usage_anchor_table() {
         .query_row("SELECT COUNT(*) FROM usage_anchor", [], |row| row.get(0))
         .expect("统计锚点");
     assert_eq!(rows, 1, "只存一条");
+}
+
+/// v8 → v9：新增工具级审批规则表（T256／T257／FR-745）。
+///
+/// 判据：①既有数据在升级后完好；②表存在且 `rule` 只能是 allow／deny（ask 不得持久化）；
+/// ③同一工具 UPSERT 不新增行。
+#[test]
+fn v8_workspace_gains_approval_rules_table() {
+    let conn = Connection::open_in_memory().expect("内存数据库");
+    let chain = [
+        V1_SQL, V2_SQL, V3_SQL, V4_SQL, V5_SQL, V6_SQL, V7_SQL, V8_SQL,
+    ];
+    for (index, sql) in chain.iter().enumerate() {
+        conn.execute_batch(sql).expect("应用历史迁移");
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at, checksum)
+             VALUES (?, current_timestamp, ?)",
+            params![(index + 1) as i64, whcode_store::checksum(sql)],
+        )
+        .expect("登记历史迁移");
+    }
+    assert_eq!(migration_rows(&conn), 8, "构造出的工作区应为 v8");
+    conn.execute(
+        "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+         VALUES ('S-1', 'v8 会话', current_timestamp, current_timestamp, 'active')",
+        [],
+    )
+    .expect("写入 v8 既有数据");
+
+    let version = whcode_store::apply_migrations(&conn).expect("v8 → v9 升级");
+    assert_eq!(version, whcode_store::STORE_SCHEMA_VERSION);
+    let sessions: i64 = conn
+        .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
+        .expect("统计会话");
+    assert_eq!(sessions, 1, "升级不得丢失既有数据");
+
+    conn.execute(
+        "INSERT INTO approval_rules (tool, rule, created_at_ms, updated_at_ms)
+         VALUES ('shell', 'deny', 1, 1)",
+        [],
+    )
+    .expect("写入合法规则");
+    let bad = conn.execute(
+        "INSERT INTO approval_rules (tool, rule, created_at_ms, updated_at_ms)
+         VALUES ('edit_file', 'ask', 1, 1)",
+        [],
+    );
+    assert!(bad.is_err(), "CHECK 必须拒绝持久化 ask");
+    conn.execute(
+        "INSERT INTO approval_rules (tool, rule, created_at_ms, updated_at_ms)
+         VALUES ('shell', 'allow', 2, 2)
+         ON CONFLICT (tool) DO UPDATE SET rule = excluded.rule",
+        [],
+    )
+    .expect("UPSERT 覆盖");
+    let rows: i64 = conn
+        .query_row("SELECT COUNT(*) FROM approval_rules", [], |row| row.get(0))
+        .expect("统计规则");
+    assert_eq!(rows, 1, "同一工具只留一行");
+    let rule: String = conn
+        .query_row(
+            "SELECT rule FROM approval_rules WHERE tool = 'shell'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("读取规则");
+    assert_eq!(rule, "allow");
 }

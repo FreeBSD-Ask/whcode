@@ -39,6 +39,10 @@ pub enum Capability {
     SettingsCertRead,
     /// 写入证书库设置与证书（ADR-040 决策 4；档位、根证书与服务端证书变更）。
     SettingsCertWrite,
+    /// 读取本地审批规则（FR-745／FR-751；设置页展示）。
+    ApprovalRuleRead,
+    /// 修改本地审批规则（FR-745／FR-751；撤销即删除）。
+    ApprovalRuleWrite,
 }
 
 impl Capability {
@@ -57,6 +61,8 @@ impl Capability {
             Self::SpecAdvance => "spec.advance",
             Self::SettingsCertRead => "settings.cert.read",
             Self::SettingsCertWrite => "settings.cert.write",
+            Self::ApprovalRuleRead => "approval.rule.read",
+            Self::ApprovalRuleWrite => "approval.rule.write",
         }
     }
 }
@@ -142,6 +148,8 @@ pub fn actor_with_all_capabilities(id: &str) -> Actor {
             Capability::SpecAdvance,
             Capability::SettingsCertRead,
             Capability::SettingsCertWrite,
+            Capability::ApprovalRuleRead,
+            Capability::ApprovalRuleWrite,
         ],
     )
 }

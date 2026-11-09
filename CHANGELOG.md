@@ -13,6 +13,18 @@
 
 ### 变更
 
+- **B3b 后端前置：四态审批语义与本地规则存储（T256／T257 部分，FR-745，ADR-064 修订，
+  2026-11-10）**：四态按用户决定落为「批准（本回合内该工具不再问）／仅本次／拒绝（写
+  deny 规则）／记住规则（写 allow 规则）」；`ApprovalAnswer` 增加三态（旧三态保留，
+  CUI／TUI 不变），闸门增加回合放行集合与规则写入端口，记住类应答在执行线程、登记前
+  落库，存储未接线或写失败一律阻断。schema v9 新增 `approval_rules`（只存 allow／deny，
+  上限 256，`CHECK` 拒绝 ask）；生产 `StoreAuditSink`／`StoreRuleWriter` 闭合 F4 缺口；
+  `AuditSink` 去掉 `Send + Sync` 约束（同步单线程，可持 DuckDB 连接）。新增
+  `approval.rule.read|write` 能力与设置页门面，变更写 `permission_change` 审计；
+  `with_builtin_destructive_ask` 提供“仅 shell 默认 ask”，待交互面装配启用。
+  未闭环：GUI／Web 工具卡与四态按钮、`[approval]` 装配接线、设置页入口（T256／T257
+  与 Check 348／350 保持未勾）。
+
 - **界面文案代理审校第二批（hi／bn 术语对齐，2026-11-09）**：机械扫描发现 hi／bn
   目录大量界面词仍以英文概念词出现（`session`／`task`／`database`／`runtime`／
   `profile`／`executor`／`checkpoint`／`indexes`／`workspace`），与同目录既有译法

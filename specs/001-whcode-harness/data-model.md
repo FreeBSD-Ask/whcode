@@ -97,6 +97,15 @@
   供应商/模型不匹配或比例越出合理区间时调用方回退 4 字符启发式（FR-207）
 - 导出：不在 `EXPORT_TABLES`（本地校准值，一次成功请求即可重建，不属工作区数据）
 
+### approval_rules
+- 字段：`tool, rule, created_at_ms, updated_at_ms`
+- 约束：工具级审批规则的**本地**存储（T256／T257／FR-745；schema v9）：一条工具一行，
+  规则变更 UPSERT，撤销即删除；只存 `allow`／`deny`——`ask` 是缺省询问行为，不持久化
+  （表级 `CHECK (rule IN ('allow','deny'))`）
+- 校验：条数上限 256（超限拒绝写入，不静默淘汰用户规则）；工具名非空且不超过 96 字符；
+  设置页撤销要求 `approval.rule.write`，变更写 `permission_change` 审计（只带工具名与规则）
+- 导出：不在 `EXPORT_TABLES`（本地偏好，跨工作区不随导出迁移）
+
 ### schema_migrations
 - 字段：`version, applied_at, checksum`
 - 约束：迁移可审计且不可重复误执行（§7.1）
