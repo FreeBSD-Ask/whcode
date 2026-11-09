@@ -4223,6 +4223,53 @@ mod tests {
         }
     }
 
+    /// 发起第二个 turn，并在**确认受理**后返回连接。
+    ///
+    /// 并发槽位只有 `MAX_ACTIVE_TURNS` 个：前一个 turn 已流完正文但尚未释放槽位时，
+    /// 紧接着的 POST 会被 503 拒绝——这不是产品缺陷，而是“窗口内恰好满了”。测试若把
+    /// 被拒的请求当作“正在持锁”，随后探测 `GET /api/sessions` 会一直 200（没有 turn 在跑），
+    /// 在慢机器（CI 的 arm64 runner）上表现为假失败。故这里：503 重试；无响应＝已受理
+    /// （拦截路径在 turn 结束时才回信封）；其他响应视为真实错误。
+    fn post_turn_until_accepted(addr: SocketAddr, body: &str, deadline: Instant) -> TcpStream {
+        loop {
+            assert!(
+                Instant::now() < deadline,
+                "第二个 turn 在预算内未被受理（并发槽位始终未释放？）"
+            );
+            let mut stream = TcpStream::connect(addr).expect("连接测试服务器");
+            stream
+                .set_read_timeout(Some(Duration::from_millis(150)))
+                .expect("读超时");
+            stream
+                .write_all(&llm_run_request(body))
+                .expect("写第二个 turn 请求");
+            let mut probe = [0u8; 32];
+            match stream.read(&mut probe) {
+                Ok(0) => {}
+                Ok(read) => {
+                    let line = String::from_utf8_lossy(&probe[..read]);
+                    if line.starts_with("HTTP/1.1 503") {
+                        // 槽位未释放：关闭本次连接，稍后重试。
+                    } else if line.starts_with("HTTP/1.1 200") {
+                        return stream;
+                    } else {
+                        panic!("第二个 turn 被拒绝：{line}");
+                    }
+                }
+                Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
+                    // 无响应＝请求已被受理，turn 正在运行（信封在结束时才返回）。
+                    stream
+                        .set_read_timeout(Some(Duration::from_secs(20)))
+                        .expect("读超时");
+                    return stream;
+                }
+                Err(err) => panic!("读取第二个 turn 响应失败：{err}"),
+            }
+            drop(stream);
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+
     /// 清理本用例用到的 turn/取消标记（显式取消目录；避免上次异常退出的残留把下一次
     /// 运行判成“已有活跃 turn”——残留本身就是测试基建的噪声，不是产品行为）。
     fn clear_relay_markers(sessions: &[&str], request_ids: &[&str]) {
@@ -4458,13 +4505,11 @@ mod tests {
         // ── 指标 (b) 第三项：turn 进行中取消可达（第二个 turn 的睡眠窗口内探测）──
         let body_b =
             r#"{"session":"S-REL-8B","provider":"p","prompt":"取消可达","request_id":"R-REL-8B"}"#;
-        let mut poster_b = TcpStream::connect(server.addr).expect("连接测试服务器");
-        poster_b
-            .set_read_timeout(Some(Duration::from_secs(20)))
-            .expect("读超时");
-        poster_b
-            .write_all(&llm_run_request(body_b))
-            .expect("写第二个 turn 请求");
+        let _poster_b = post_turn_until_accepted(
+            server.addr,
+            body_b,
+            Instant::now() + Duration::from_secs(15),
+        );
         std::thread::sleep(Duration::from_millis(200));
         let diag_body = r#"{"request_id":"R-REL-8B"}"#;
         let diag_req = format!(
