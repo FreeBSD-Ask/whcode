@@ -585,7 +585,7 @@ msgid "gui.checkpoints.degraded"
 msgstr "التراجع غير منفَّذ (التصفح فقط)"
 
 msgid "gui.checkpoints.empty"
-msgstr "لا نقاط تحقق لهذه المهمة"
+msgstr "لا توجد نقاط تحقق لهذه المهمة"
 
 msgid "gui.checkpoints.hint"
 msgstr "اضغط نقاط التحقق على صف المهمة"
@@ -1026,7 +1026,7 @@ msgid "web.checkpoints.degraded"
 msgstr "التراجع غير منفَّذ (تدهور صريح): التصفح وملخصات الفروق فقط"
 
 msgid "web.checkpoints.empty"
-msgstr "لا نقاط تحقق لهذه المهمة"
+msgstr "لا توجد نقاط تحقق لهذه المهمة"
 
 msgid "web.checkpoints.failed"
 msgstr "فشل تحميل نقاط التحقق: {error}"

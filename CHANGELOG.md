@@ -13,6 +13,15 @@
 
 ### 变更
 
+- **界面文案代理审校第二批（hi／bn 术语对齐，2026-11-09）**：机械扫描发现 hi／bn
+  目录大量界面词仍以英文概念词出现（`session`／`task`／`database`／`runtime`／
+  `profile`／`executor`／`checkpoint`／`indexes`／`workspace`），与同目录既有译法
+  （`सत्र`／`कार्य`／`সেশন`／`কাজ`）自相矛盾。本批按目录内既有术语逐条对齐：hi 113 行、
+  bn 108 行；另修 de `gui.chat.cancel`（Stoppen→Abbrechen，与 `gui.op.cancel` 统一）、
+  ar 两处 `لا نقاط` → `لا توجد نقاط`、ur `checkpoint` → `چیک پوائنٹ`。键集合与占位符
+  不变，PO 源文件同批重生成；`dry-run`、命令名与协议缩写按各语言既有惯例保留。
+  母语者逐条确认仍开放（ADR-062 已知限制不变）。
+
 - **Web 元素级 RTL 镜像收口（T279 后续／FR-766／Check 374，ADR-062 修订，2026-11-09）**：
   Web 侧原先只到文档级 `dir="rtl"`，现确认元素级镜像由逻辑方向属性与 `dir` 共同承担：
   `styles.css` 不含物理 `left`／`right`、`text-align: left|right`（`assets.rs` 单测为

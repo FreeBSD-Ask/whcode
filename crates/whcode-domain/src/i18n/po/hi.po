@@ -24,34 +24,34 @@ msgid "cli.context.budget.about"
 msgstr "बजट दृश्य: मौजूदा बजट, भरे गए स्रोत, काटने का कारण और कर्सर (`whcode_app::load_context` से)।"
 
 msgid "cli.context.budget.budget"
-msgstr "बजट token में; डिफ़ॉल्ट दिखाने का आधार (4096, TUI के संदर्भ दृश्य जैसा)।"
+msgstr "बजट टोकन में; डिफ़ॉल्ट दिखाने का आधार (4096, TUI के संदर्भ दृश्य जैसा)।"
 
 msgid "cli.context.budget.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.db.about"
-msgstr "database की देखभाल और सफ़ाई (FR-507—510)।"
+msgstr "डेटाबेस की देखभाल और सफ़ाई (FR-507—510)।"
 
 msgid "cli.db.archive.about"
-msgstr "workspace का निर्यात।"
+msgstr "वर्कस्पेस का निर्यात।"
 
 msgid "cli.db.archive.export"
 msgstr "आउटपुट पथ।"
 
 msgid "cli.db.check.about"
-msgstr "ज़रूरी indexes की जाँच।"
+msgstr "ज़रूरी इंडेक्स की जाँच।"
 
 msgid "cli.db.checkpoint.about"
-msgstr "स्पष्ट checkpoint (FR-510; चाहें तो WAL नीति के ओवरराइड भी लागू होंगे, disaster-recovery §5)।"
+msgstr "स्पष्ट चेकपॉइंट (FR-510; चाहें तो WAL नीति के ओवरराइड भी लागू होंगे, disaster-recovery §5)।"
 
 msgid "cli.db.checkpoint.autocheckpoint"
-msgstr "wal_autocheckpoint ओवरराइड करें (जैसे 1MB; न दें तो वैसा ही रहेगा)।"
+msgstr "wal_autoचेकपॉइंट ओवरराइड करें (जैसे 1MB; न दें तो वैसा ही रहेगा)।"
 
 msgid "cli.db.checkpoint.threshold"
-msgstr "WAL ऑटो-checkpoint की सीमा ओवरराइड करें (जैसे 16MB; न दें तो वैसी ही रहेगी)।"
+msgstr "WAL ऑटो-चेकपॉइंट की सीमा ओवरराइड करें (जैसे 16MB; न दें तो वैसी ही रहेगी)।"
 
 msgid "cli.db.compact.about"
-msgstr "डिस्क पर database को सिकोड़ें (कॉपी—जाँच—बदलें, FR-510; डिफ़ॉल्ट dry-run)।"
+msgstr "डिस्क पर डेटाबेस को सिकोड़ें (कॉपी—जाँच—बदलें, FR-510; डिफ़ॉल्ट dry-run)।"
 
 msgid "cli.db.compact.dry-run"
 msgstr "सिर्फ़ पूर्वावलोकन (डिफ़ॉल्ट)।"
@@ -66,7 +66,7 @@ msgid "cli.db.explain.query"
 msgstr "सिर्फ़ पढ़ने वाला SQL (SELECT/WITH से शुरू)।"
 
 msgid "cli.db.purge.about"
-msgstr "उम्र के हिसाब से purge (FR-508/509; डिफ़ॉल्ट dry-run)।"
+msgstr "उम्र के हिसाब से सफ़ाई (FR-508/509; डिफ़ॉल्ट dry-run)।"
 
 msgid "cli.db.purge.before"
 msgstr "कट-ऑफ़ समय (Unix मिलीसेकंड)।"
@@ -78,16 +78,16 @@ msgid "cli.db.purge.yes"
 msgstr "चलाने की पुष्टि।"
 
 msgid "cli.db.restore.about"
-msgstr "खाली workspace में निर्यात से बहाली (`db archive` का उलटा; स्पष्ट पुष्टि, कोई पूर्वावलोकन नहीं)।"
+msgstr "खाली वर्कस्पेस में निर्यात से बहाली (`db archive` का उलटा; स्पष्ट पुष्टि, कोई पूर्वावलोकन नहीं)।"
 
 msgid "cli.db.restore.from"
 msgstr "निर्यात फ़ाइल का पथ (whcode-export फ़ॉर्मैट)।"
 
 msgid "cli.db.restore.yes"
-msgstr "चलाने की पुष्टि (बहाली लिखती है; लक्ष्य database खाली होना चाहिए)।"
+msgstr "चलाने की पुष्टि (बहाली लिखती है; लक्ष्य डेटाबेस खाली होना चाहिए)।"
 
 msgid "cli.db.stats.about"
-msgstr "database के आँकड़े (FR-507)।"
+msgstr "डेटाबेस के आँकड़े (FR-507)।"
 
 msgid "cli.doctor.about"
 msgstr "वातावरण और कॉन्फ़िगरेशन की स्व-जाँच (M0)।"
@@ -108,7 +108,7 @@ msgid "cli.events.export.format"
 msgstr "आउटपुट फ़ॉर्मैट (json/jsonl)।"
 
 msgid "cli.events.export.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.events.list.about"
 msgstr "इवेंट की सूची (कर्सर से बढ़ते हुए)।"
@@ -117,7 +117,7 @@ msgid "cli.events.list.after"
 msgstr "शुरू का कर्सर (exclusive)।"
 
 msgid "cli.events.list.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.events.show.about"
 msgstr "एक इवेंट का विवरण।"
@@ -126,7 +126,7 @@ msgid "cli.events.show.event"
 msgstr "इवेंट ID।"
 
 msgid "cli.font.about"
-msgstr "बिल्ट-इन फ़ॉन्ट का इंस्टॉलेशन और टर्मिनल घोषणा की जाँच (FR-717; स्थानीय संसाधन कमांड, database नहीं छूता और workspace नहीं चाहता)।"
+msgstr "बिल्ट-इन फ़ॉन्ट का इंस्टॉलेशन और टर्मिनल घोषणा की जाँच (FR-717; स्थानीय संसाधन कमांड, डेटाबेस नहीं छूता और वर्कस्पेस नहीं चाहता)।"
 
 msgid "cli.font.install.about"
 msgstr "चारों बिल्ट-इन फ़ॉन्ट उपयोगकर्ता फ़ॉन्ट डायरेक्टरी में इंस्टॉल करें और HKCU रजिस्ट्री लिखें (कॉपी-ओवर अर्थ, दोबारा चलाना सुरक्षित)।"
@@ -171,55 +171,55 @@ msgid "cli.llm.run.about"
 msgstr "एक असली कॉल करें (सिंक्रोनस; स्ट्रीम के टुकड़े अंत में एक सीमित क्रम में जारी होते हैं)।"
 
 msgid "cli.llm.run.max-tokens"
-msgstr "profile के `max_tokens` को ओवरराइड करें।"
+msgstr "प्रोफ़ाइल के `max_tokens` को ओवरराइड करें।"
 
 msgid "cli.llm.run.model"
-msgstr "profile के मॉडल पहचानकर्ता को ओवरराइड करें।"
+msgstr "प्रोफ़ाइल के मॉडल पहचानकर्ता को ओवरराइड करें।"
 
 msgid "cli.llm.run.prompt"
 msgstr "प्रॉम्प्ट का पाठ (कभी इवेंट या लॉग में नहीं लिखा जाता)।"
 
 msgid "cli.llm.run.provider"
-msgstr "profile का नाम (स्पष्ट चयन, ADR-031 निर्णय 4)।"
+msgstr "प्रोफ़ाइल का नाम (स्पष्ट चयन, ADR-031 निर्णय 4)।"
 
 msgid "cli.llm.run.request-id"
 msgstr "पहले से तय request ID (`llm cancel` की कुंजी; वरना कॉल से बनाई जाती है)।"
 
 msgid "cli.llm.run.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.llm.run.trace-level"
 msgstr "ट्रेस स्तर (off/metadata/redacted/full)।"
 
 msgid "cli.runtime.about"
-msgstr "runtime का प्रबंधन (FR-701—710; M8)।"
+msgstr "रनटाइम का प्रबंधन (FR-701—710; M8)।"
 
 msgid "cli.runtime.disable.about"
-msgstr "runtime अक्षम करें।"
+msgstr "रनटाइम अक्षम करें।"
 
 msgid "cli.runtime.disable.name"
-msgstr "runtime का नाम।"
+msgstr "रनटाइम का नाम।"
 
 msgid "cli.runtime.enable.about"
-msgstr "runtime सक्षम करें।"
+msgstr "रनटाइम सक्षम करें।"
 
 msgid "cli.runtime.enable.name"
-msgstr "runtime का नाम।"
+msgstr "रनटाइम का नाम।"
 
 msgid "cli.runtime.install.about"
 msgstr "payload इंस्टॉल करें।"
 
 msgid "cli.runtime.install.name"
-msgstr "runtime का नाम।"
+msgstr "रनटाइम का नाम।"
 
 msgid "cli.runtime.list.about"
-msgstr "runtimes की सूची।"
+msgstr "रनटाइम की सूची।"
 
 msgid "cli.runtime.status.about"
-msgstr "runtime की स्थिति।"
+msgstr "रनटाइम की स्थिति।"
 
 msgid "cli.runtime.status.name"
-msgstr "runtime का नाम।"
+msgstr "रनटाइम का नाम।"
 
 msgid "cli.serve.about"
 msgstr "ट्रांसपोर्ट के प्रवेश बिंदु (M6/M7)।"
@@ -234,7 +234,7 @@ msgid "cli.serve.web"
 msgstr "Web का प्रवेश बिंदु (M6)।"
 
 msgid "cli.session.about"
-msgstr "session का जीवन-चक्र (FR-101)।"
+msgstr "सत्र का जीवन-चक्र (FR-101)।"
 
 msgid "cli.session.archive.about"
 msgstr "आर्काइव या बहाली (contract §2-1 का विनाशी समूह: डिफ़ॉल्ट dry-run, `--yes` से चलता है)।"
@@ -243,34 +243,34 @@ msgid "cli.session.archive.dry-run"
 msgstr "सिर्फ़ पूर्वावलोकन (डिफ़ॉल्ट)।"
 
 msgid "cli.session.archive.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.session.archive.unarchive"
-msgstr "आर्काइव किया session बहाल करें।"
+msgstr "आर्काइव किया सत्र बहाल करें।"
 
 msgid "cli.session.archive.yes"
 msgstr "चलाने की पुष्टि (--dry-run से टकराता है, §8.1)।"
 
 msgid "cli.session.delete.about"
-msgstr "session हटाएँ (विनाशी; डिफ़ॉल्ट dry-run, FR-509)।"
+msgstr "सत्र हटाएँ (विनाशी; डिफ़ॉल्ट dry-run, FR-509)।"
 
 msgid "cli.session.delete.dry-run"
 msgstr "सिर्फ़ पूर्वावलोकन (डिफ़ॉल्ट)।"
 
 msgid "cli.session.delete.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.session.delete.yes"
 msgstr "चलाने की पुष्टि (--dry-run से टकराता है, §8.1)।"
 
 msgid "cli.session.list.about"
-msgstr "sessions की सूची दिखाएँ।"
+msgstr "सत्रों की सूची दिखाएँ।"
 
 msgid "cli.session.list.all"
-msgstr "आर्काइव किए गए sessions भी शामिल करें।"
+msgstr "आर्काइव किए गए सत्र भी शामिल करें।"
 
 msgid "cli.session.new.about"
-msgstr "नया session बनाएँ।"
+msgstr "नया सत्र बनाएँ।"
 
 msgid "cli.session.new.model"
 msgstr "मॉडल (वैकल्पिक)।"
@@ -279,19 +279,19 @@ msgid "cli.session.new.title"
 msgstr "शीर्षक।"
 
 msgid "cli.session.rename.about"
-msgstr "session का नाम बदलें।"
+msgstr "सत्र का नाम बदलें।"
 
 msgid "cli.session.rename.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.session.rename.title"
 msgstr "नया शीर्षक।"
 
 msgid "cli.session.show.about"
-msgstr "एक session दिखाएँ।"
+msgstr "एक सत्र दिखाएँ।"
 
 msgid "cli.session.show.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.spec.about"
 msgstr "SDD के चरण और गेट (FR-307—312)।"
@@ -300,13 +300,13 @@ msgid "cli.spec.analyze.about"
 msgstr "Analyze जाँच (FR-306)।"
 
 msgid "cli.spec.analyze.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.spec.converge.about"
 msgstr "Converge जाँच (FR-310/311)।"
 
 msgid "cli.spec.converge.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.spec.force-advance.about"
 msgstr "गेट को हाथ से पार करें (FR-312; कारण ज़रूरी, contract §2-3)।"
@@ -315,7 +315,7 @@ msgid "cli.spec.force-advance.reason"
 msgstr "गेट जबरदस्ती पार करने का औचित्य (ज़रूरी, FR-312)।"
 
 msgid "cli.spec.force-advance.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.spec.force-advance.to"
 msgstr "लक्ष्य चरण।"
@@ -324,64 +324,64 @@ msgid "cli.spec.next.about"
 msgstr "अगला चरण।"
 
 msgid "cli.spec.next.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.spec.status.about"
 msgstr "मौजूदा चरण की स्थिति (FR-314)।"
 
 msgid "cli.spec.status.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.spec.validate.about"
 msgstr "आर्टिफैक्ट सत्यापित करें।"
 
 msgid "cli.spec.validate.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.status.about"
 msgstr "स्थिति का स्नैपशॉट (FR-314)।"
 
 msgid "cli.status.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.task.abort.about"
-msgstr "task रोकें (FR-408)।"
+msgstr "कार्य रोकें (FR-408)।"
 
 msgid "cli.task.abort.task"
-msgstr "task ID।"
+msgstr "कार्य ID।"
 
 msgid "cli.task.about"
-msgstr "task की जाँच और नियंत्रण (FR-401/408)।"
+msgstr "कार्य की जाँच और नियंत्रण (FR-401/408)।"
 
 msgid "cli.task.list.about"
-msgstr "tasks की सूची।"
+msgstr "कार्यों की सूची।"
 
 msgid "cli.task.list.session"
-msgstr "session ID।"
+msgstr "सत्र ID।"
 
 msgid "cli.task.retry.about"
-msgstr "task पर पुनः प्रयास (FR-401)।"
+msgstr "कार्य पर पुनः प्रयास (FR-401)।"
 
 msgid "cli.task.retry.task"
-msgstr "task ID।"
+msgstr "कार्य ID।"
 
 msgid "cli.task.show.about"
-msgstr "task का विवरण (FR-104 के पाँच सूचना वर्ग)।"
+msgstr "कार्य का विवरण (FR-104 के पाँच सूचना वर्ग)।"
 
 msgid "cli.task.show.task"
-msgstr "task ID।"
+msgstr "कार्य ID।"
 
 msgid "cli.workspace"
-msgstr "workspace डायरेक्टरी (कॉन्फ़िगर किया गया workspace, वरना cwd; इससे `<workspace>/whcode.duckdb` ढूँढा जाता है)।"
+msgstr "वर्कस्पेस डायरेक्टरी (कॉन्फ़िगर किया गया वर्कस्पेस, वरना cwd; इससे `<वर्कस्पेस>/whcode.duckdb` ढूँढा जाता है)।"
 
 msgid "cui.archive_dry_run"
-msgstr "dry-run: session {session} आर्काइव किया जाएगा - चलाने के लिए --yes दें (उलटने के लिए --unarchive दें)"
+msgstr "dry-run: सत्र {session} आर्काइव किया जाएगा - चलाने के लिए --yes दें (उलटने के लिए --unarchive दें)"
 
 msgid "cui.archived"
-msgstr "session आर्काइव किया गया {session}"
+msgstr "सत्र आर्काइव किया गया {session}"
 
 msgid "cui.checkpoint_done"
-msgstr "checkpoint पूरा हुआ: WAL {before} → {after}"
+msgstr "चेकपॉइंट पूरा हुआ: WAL {before} → {after}"
 
 msgid "cui.compact_done"
 msgstr "compact पूरा हुआ (switched={switched})"
@@ -390,13 +390,13 @@ msgid "cui.compact_dry_run"
 msgstr "dry-run: फ़ाइल {file} B, WAL {wal} B - compact चलाने के लिए --yes दें (फ़ाइल छोटी होने की गारंटी नहीं)"
 
 msgid "cui.created"
-msgstr "session बनाया गया {session}"
+msgstr "सत्र बनाया गया {session}"
 
 msgid "cui.delete_dry_run"
-msgstr "dry-run: session {session} हटाया जाएगा ({events} इवेंट, {tasks} task; {skipped} सुरक्षित छोड़े गए) - चलाने के लिए --yes दें"
+msgstr "dry-run: सत्र {session} हटाया जाएगा ({events} इवेंट, {tasks} कार्य; {skipped} सुरक्षित छोड़े गए) - चलाने के लिए --yes दें"
 
 msgid "cui.deleted"
-msgstr "session हटाया गया {session}"
+msgstr "सत्र हटाया गया {session}"
 
 msgid "cui.empty"
 msgstr "(कोई रिकॉर्ड नहीं)"
@@ -453,16 +453,16 @@ msgid "cui.font.unregistered"
 msgstr "रजिस्टर नहीं"
 
 msgid "cui.indexes_ok"
-msgstr "indexes पूरे हैं"
+msgstr "इंडेक्स पूरे हैं"
 
 msgid "cui.plan_rows"
 msgstr "{rows} प्लैन पंक्तियाँ (analyze=false, क्वेरी नहीं चलाई गई)"
 
 msgid "cui.purge_dry_run"
-msgstr "dry-run: {sessions} session / {events} इवेंट purge होंगे ({skipped} सुरक्षित छोड़े गए) - चलाने के लिए --yes दें"
+msgstr "dry-run: {sessions} सत्र / {events} इवेंट हटाए जाएँगे ({skipped} सुरक्षित छोड़े गए) - चलाने के लिए --yes दें"
 
 msgid "cui.purged"
-msgstr "{events} इवेंट purge किए गए"
+msgstr "{events} इवेंट हटाए गए"
 
 msgid "cui.record.archived"
 msgstr "आर्काइव किया गया"
@@ -492,10 +492,10 @@ msgid "cui.record.no"
 msgstr "नहीं"
 
 msgid "cui.record.session"
-msgstr "session {session}"
+msgstr "सत्र {session}"
 
 msgid "cui.record.task"
-msgstr "task {task}"
+msgstr "कार्य {task}"
 
 msgid "cui.record.truncated"
 msgstr "काटा गया"
@@ -507,13 +507,13 @@ msgid "cui.record.yes"
 msgstr "हाँ"
 
 msgid "cui.renamed"
-msgstr "session का नाम बदला गया {session}"
+msgstr "सत्र का नाम बदला गया {session}"
 
 msgid "cui.restore_done"
 msgstr "बहाली पूरी हुई: {source} से"
 
 msgid "cui.spec_status"
-msgstr "session {session}: चरण {stage} · कर्सर {cursor}"
+msgstr "सत्र {session}: चरण {stage} · कर्सर {cursor}"
 
 msgid "cui.status_line"
 msgstr "{session} {title} [{stage}] status={status} cursor={cursor}"
@@ -525,13 +525,13 @@ msgid "cui.task_retried"
 msgstr "{task} पर पुनः प्रयास हुआ (retry={retry}) → {status}"
 
 msgid "cui.tasks_summary"
-msgstr "session {session}: कुल {total} · पूर्ण {done} · अवरुद्ध {blocked} · सक्रिय {active}"
+msgstr "सत्र {session}: कुल {total} · पूर्ण {done} · अवरुद्ध {blocked} · सक्रिय {active}"
 
 msgid "cui.unarchive_dry_run"
-msgstr "dry-run: session {session} का आर्काइव हटाया जाएगा - चलाने के लिए --yes दें"
+msgstr "dry-run: सत्र {session} का आर्काइव हटाया जाएगा - चलाने के लिए --yes दें"
 
 msgid "cui.unarchived"
-msgstr "session का आर्काइव हटाया गया {session}"
+msgstr "सत्र का आर्काइव हटाया गया {session}"
 
 msgid "error.datasource"
 msgstr "डेटा स्रोत की त्रुटि: {error}"
@@ -549,10 +549,10 @@ msgid "gui.chat.error"
 msgstr "चैट विफल रही"
 
 msgid "gui.chat.hint"
-msgstr "session चुनें और प्रॉम्प्ट लिखें; भेजने के बाद काम पूरा होने तक इंतज़ार रहता है (TUI जैसा ही)"
+msgstr "सत्र चुनें और प्रॉम्प्ट लिखें; भेजने के बाद काम पूरा होने तक इंतज़ार रहता है (TUI जैसा ही)"
 
 msgid "gui.chat.history.hint"
-msgstr "हर दौर के इवेंट database में सहेजे जाते हैं - पूरा इतिहास इवेंट दृश्य में देखें"
+msgstr "हर दौर के इवेंट डेटाबेस में सहेजे जाते हैं - पूरा इतिहास इवेंट दृश्य में देखें"
 
 msgid "gui.chat.last"
 msgstr "पिछला परिणाम: {summary}"
@@ -561,10 +561,10 @@ msgid "gui.chat.no_request"
 msgstr "रद्द करने के लिए कोई request ID नहीं (पहले एक दौर भेजें)"
 
 msgid "gui.chat.none"
-msgstr "कोई session नहीं चुना गया - पहले Sessions दृश्य में एक चुनें (j/k)"
+msgstr "कोई सत्र नहीं चुना गया - पहले सत्र दृश्य में एक चुनें (j/k)"
 
 msgid "gui.chat.not_supported"
-msgstr "LLM executor जोड़ा नहीं गया (not_supported)"
+msgstr "LLM निष्पादक जोड़ा नहीं गया (not_supported)"
 
 msgid "gui.chat.progress"
 msgstr "बन रहा है: {chunks} chunks…"
@@ -573,10 +573,10 @@ msgid "gui.chat.prompt.placeholder"
 msgstr "प्रॉम्प्ट लिखें, भेजने के लिए Enter दबाएँ"
 
 msgid "gui.chat.provider"
-msgstr "LLM profile: {provider}"
+msgstr "LLM प्रोफ़ाइल: {provider}"
 
 msgid "gui.chat.provider.placeholder"
-msgstr "profile का नाम"
+msgstr "प्रोफ़ाइल का नाम"
 
 msgid "gui.chat.send"
 msgstr "भेजें"
@@ -585,10 +585,10 @@ msgid "gui.checkpoints.degraded"
 msgstr "रोलबैक बनाया नहीं गया (सिर्फ़ ब्राउज़िंग)"
 
 msgid "gui.checkpoints.empty"
-msgstr "इस task के लिए कोई checkpoint नहीं"
+msgstr "इस कार्य के लिए कोई चेकपॉइंट नहीं"
 
 msgid "gui.checkpoints.hint"
-msgstr "task की पंक्ति पर चेकपॉइंट दबाएँ"
+msgstr "कार्य की पंक्ति पर चेकपॉइंट दबाएँ"
 
 msgid "gui.checkpoints.open"
 msgstr "चेकपॉइंट"
@@ -597,7 +597,7 @@ msgid "gui.checkpoints.title"
 msgstr "चेकपॉइंट"
 
 msgid "gui.kpi.count"
-msgstr "Sessions {sessions} · दृश्य में {rows} पंक्तियाँ"
+msgstr "सत्र {sessions} · दृश्य में {rows} पंक्तियाँ"
 
 msgid "gui.op.archive"
 msgstr "आर्काइव करें"
@@ -615,7 +615,7 @@ msgid "gui.op.error"
 msgstr "ऑपरेशन विफल रहा"
 
 msgid "gui.op.input.days"
-msgstr "Purge की दिन-सीमा"
+msgstr "सफ़ाई की दिन-सीमा"
 
 msgid "gui.op.input.title"
 msgstr "शीर्षक"
@@ -624,13 +624,13 @@ msgid "gui.op.new"
 msgstr "नया"
 
 msgid "gui.op.not_supported"
-msgstr "कमांड executor जोड़ा नहीं गया (not_supported)"
+msgstr "कमांड निष्पादक जोड़ा नहीं गया (not_supported)"
 
 msgid "gui.op.preview"
 msgstr "पूर्वावलोकन"
 
 msgid "gui.op.purge"
-msgstr "Purge (30 दिन से पुराने)"
+msgstr "सफ़ाई (30 दिन से पुराने)"
 
 msgid "gui.op.rename"
 msgstr "नाम बदलें"
@@ -648,7 +648,7 @@ msgid "gui.session.group.archived"
 msgstr "— आर्काइव किए गए —"
 
 msgid "gui.session.none"
-msgstr "कोई session नहीं"
+msgstr "कोई सत्र नहीं"
 
 msgid "gui.session.off"
 msgstr "छिपे हुए हैं"
@@ -762,7 +762,7 @@ msgid "settings.inbound.builtin"
 msgstr "बिल्ट-इन स्व-हस्ताक्षरित प्रमाण-पत्र (builtin)"
 
 msgid "settings.inbound.builtin_hint"
-msgstr "हर workspace के लिए ECDSA P-256 स्व-हस्ताक्षरित प्रमाण-पत्र बनाता है (397 दिन); SAN में localhost, 127.0.0.1, ::1 और होस्ट नाम शामिल हैं।"
+msgstr "हर वर्कस्पेस के लिए ECDSA P-256 स्व-हस्ताक्षरित प्रमाण-पत्र बनाता है (397 दिन); SAN में localhost, 127.0.0.1, ::1 और होस्ट नाम शामिल हैं।"
 
 msgid "settings.inbound.cert_pem_label"
 msgstr "प्रमाण-पत्र समूह अपलोड करें (PEM)"
@@ -840,7 +840,7 @@ msgid "settings.outbound.builtin"
 msgstr "साथ दी गई कॉपी (builtin)"
 
 msgid "settings.outbound.builtin_hint"
-msgstr "workspace के साथ दी गई रूट कॉपी को आधार बनाता है; अतिरिक्त रूट उसके ऊपर जोड़े जाते हैं।"
+msgstr "वर्कस्पेस के साथ दी गई रूट कॉपी को आधार बनाता है; अतिरिक्त रूट उसके ऊपर जोड़े जाते हैं।"
 
 msgid "settings.outbound.builtin_pem_label"
 msgstr "साथ दी गई रूट कॉपी (PEM, संपादन योग्य)"
@@ -930,28 +930,28 @@ msgid "status.running"
 msgstr "चल रहा है"
 
 msgid "summary.context"
-msgstr "session {session} · बजट {budget} · प्रयुक्त {used} · आइटम {items}{truncated}"
+msgstr "सत्र {session} · बजट {budget} · प्रयुक्त {used} · आइटम {items}{truncated}"
 
 msgid "summary.context_truncated"
 msgstr "· काटा गया: {reason}"
 
 msgid "summary.diff"
-msgstr "session {session} · task {total} · सफल {pass} / विफल {fail} / बिना जाँच {untested}{truncated}"
+msgstr "सत्र {session} · कार्य {total} · सफल {pass} / विफल {fail} / बिना जाँच {untested}{truncated}"
 
 msgid "summary.diff.truncated"
 msgstr "· अंतर की सूची काटी गई"
 
 msgid "summary.events"
-msgstr "session {session} · कर्सर {from}..{to} (अंत ≤ {limit})"
+msgstr "सत्र {session} · कर्सर {from}..{to} (अंत ≤ {limit})"
 
 msgid "summary.none"
 msgstr "कुछ नहीं"
 
 msgid "summary.spec"
-msgstr "session {session} · चरण {stage} · कर्सर {cursor} · सक्रिय task {task}"
+msgstr "सत्र {session} · चरण {stage} · कर्सर {cursor} · सक्रिय कार्य {task}"
 
 msgid "summary.tasks"
-msgstr "session {session} · कुल {total} · पूर्ण {done} · अवरुद्ध {blocked}"
+msgstr "सत्र {session} · कुल {total} · पूर्ण {done} · अवरुद्ध {blocked}"
 
 msgid "tui.col.id"
 msgstr "ID"
@@ -987,13 +987,13 @@ msgid "tui.footer"
 msgstr "1-7 दृश्य  j/k चलें  r ताज़ा करें  t थीम  q बाहर निकलें  |  {cols}x{rows}"
 
 msgid "tui.header.none"
-msgstr "कोई session नहीं"
+msgstr "कोई सत्र नहीं"
 
 msgid "tui.no_session"
-msgstr "(कोई session नहीं चुना गया - j/k दबाएँ)"
+msgstr "(कोई सत्र नहीं चुना गया - j/k दबाएँ)"
 
 msgid "tui.runtimes"
-msgstr "Runtimes: {list}"
+msgstr "रनटाइम: {list}"
 
 msgid "tui.title"
 msgstr "{app}  |  {view} ({index}/{count})"
@@ -1026,13 +1026,13 @@ msgid "web.checkpoints.degraded"
 msgstr "रोलबैक बनाया नहीं गया (स्पष्ट रूप से कम किया गया): सिर्फ़ ब्राउज़िंग और अंतर का सारांश"
 
 msgid "web.checkpoints.empty"
-msgstr "इस task के लिए कोई checkpoint नहीं"
+msgstr "इस कार्य के लिए कोई चेकपॉइंट नहीं"
 
 msgid "web.checkpoints.failed"
-msgstr "checkpoints पढ़े नहीं जा सके: {error}"
+msgstr "चेकपॉइंट पढ़े नहीं जा सके: {error}"
 
 msgid "web.checkpoints.hint"
-msgstr "task चुनकर checkpoints और अंतर का सारांश देखें"
+msgstr "कार्य चुनकर चेकपॉइंट और अंतर का सारांश देखें"
 
 msgid "web.checkpoints.ready"
 msgstr "रोलबैक उपलब्ध है"
@@ -1044,28 +1044,28 @@ msgid "web.checkpoints.title"
 msgstr "चेकपॉइंट"
 
 msgid "web.checkpoints.truncated"
-msgstr "checkpoints सीमा से अधिक हैं; सूची काटी गई"
+msgstr "चेकपॉइंट सीमा से अधिक हैं; सूची काटी गई"
 
 msgid "web.cleanup.bad_days"
 msgstr "रखने के दिन कम से कम 1 होने चाहिए"
 
 msgid "web.cleanup.confirm"
-msgstr "purge की पुष्टि करें"
+msgstr "सफ़ाई की पुष्टि करें"
 
 msgid "web.cleanup.days"
 msgstr "कितने दिन रखें"
 
 msgid "web.cleanup.done"
-msgstr "{sessions} session purge किए गए"
+msgstr "{sessions} सत्र हटाए गए"
 
 msgid "web.cleanup.preview"
 msgstr "पूर्वावलोकन"
 
 msgid "web.cleanup.preview_required"
-msgstr "purge की पुष्टि से पहले पूर्वावलोकन ज़रूरी है"
+msgstr "सफ़ाई की पुष्टि से पहले पूर्वावलोकन ज़रूरी है"
 
 msgid "web.cleanup.preview_result"
-msgstr "{sessions} session purge होंगे"
+msgstr "{sessions} सत्र हटाए जाएँगे"
 
 msgid "web.conn.connected"
 msgstr "कनेक्ट है"
@@ -1077,7 +1077,7 @@ msgid "web.context.empty"
 msgstr "(सही रूप से खाली: बजट में कुछ भी नहीं समाता)"
 
 msgid "web.context.no_session"
-msgstr "कोई session नहीं चुना गया"
+msgstr "कोई सत्र नहीं चुना गया"
 
 msgid "web.context.summary"
 msgstr "बजट {consumed}/{budget} · स्रोत {sources} · काटा गया {truncated}"
@@ -1089,10 +1089,10 @@ msgid "web.diff.empty"
 msgstr "(कोई अंतर नहीं: सभी स्वीकृति मानदंड सफल हैं)"
 
 msgid "web.diff.no_session"
-msgstr "कोई session नहीं चुना गया"
+msgstr "कोई सत्र नहीं चुना गया"
 
 msgid "web.diff.summary"
-msgstr "task {total} · सफल {pass} / विफल {fail} / बिना जाँच {untested}{truncated}"
+msgstr "कार्य {total} · सफल {pass} / विफल {fail} / बिना जाँच {untested}{truncated}"
 
 msgid "web.diff.truncated"
 msgstr "(सूची काटी गई)"
@@ -1122,7 +1122,7 @@ msgid "web.runtimes.unknown"
 msgstr "जाँचा नहीं गया"
 
 msgid "web.runtimes.unwired"
-msgstr "runtime की सूची अभी जोड़ी नहीं गई है"
+msgstr "रनटाइम की सूची अभी जोड़ी नहीं गई है"
 
 msgid "web.session.archive_confirm"
 msgstr "आर्काइव की पुष्टि करें"
@@ -1134,10 +1134,10 @@ msgid "web.session.archive_preview_required"
 msgstr "आर्काइव की पुष्टि से पहले पूर्वावलोकन ज़रूरी है"
 
 msgid "web.session.archive_preview_result"
-msgstr "session {session} आर्काइव किया जाएगा - चलाने के लिए पुष्टि करें"
+msgstr "सत्र {session} आर्काइव किया जाएगा - चलाने के लिए पुष्टि करें"
 
 msgid "web.session.archived"
-msgstr "session आर्काइव किया गया {session}"
+msgstr "सत्र आर्काइव किया गया {session}"
 
 msgid "web.session.create"
 msgstr "बनाएँ"
@@ -1149,10 +1149,10 @@ msgid "web.session.delete_preview"
 msgstr "हटाने का पूर्वावलोकन"
 
 msgid "web.session.delete_preview_result"
-msgstr "हटाया जाएगा: इवेंट {events} · task {tasks}"
+msgstr "हटाया जाएगा: इवेंट {events} · कार्य {tasks}"
 
 msgid "web.session.deleted"
-msgstr "{n} session हटाए गए"
+msgstr "{n} सत्र हटाए गए"
 
 msgid "web.session.group_active"
 msgstr "सक्रिय"
@@ -1161,7 +1161,7 @@ msgid "web.session.group_archived"
 msgstr "आर्काइव किए गए"
 
 msgid "web.session.none"
-msgstr "कोई session नहीं चुना गया"
+msgstr "कोई सत्र नहीं चुना गया"
 
 msgid "web.session.preview_required"
 msgstr "हटाने की पुष्टि से पहले पूर्वावलोकन ज़रूरी है"
@@ -1191,10 +1191,10 @@ msgid "web.session.sort.title"
 msgstr "शीर्षक"
 
 msgid "web.session.title"
-msgstr "session का शीर्षक"
+msgstr "सत्र का शीर्षक"
 
 msgid "web.session.title_required"
-msgstr "पहले session का शीर्षक लिखें"
+msgstr "पहले सत्र का शीर्षक लिखें"
 
 msgid "web.tab.context"
 msgstr "संदर्भ"
@@ -1233,7 +1233,7 @@ msgid "web.task.retry"
 msgstr "पुनः प्रयास करें"
 
 msgid "web.task.truncated"
-msgstr "task कार्ड सीमा से अधिक हैं और काटे गए (सारांश की गिनती पूरी है)"
+msgstr "कार्य कार्ड सीमा से अधिक हैं और काटे गए (सारांश की गिनती पूरी है)"
 
 msgid "web.tasks_summary"
 msgstr "कुल {total} · पूर्ण {done} · अवरुद्ध {blocked}"

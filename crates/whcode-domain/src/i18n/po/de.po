@@ -540,7 +540,7 @@ msgid "error.permission_denied"
 msgstr "Zugriff verweigert"
 
 msgid "gui.chat.cancel"
-msgstr "Stoppen"
+msgstr "Abbrechen"
 
 msgid "gui.chat.empty"
 msgstr "Prompt ist leer"

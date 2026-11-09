@@ -381,7 +381,7 @@ msgid "cui.archived"
 msgstr "سیشن {session} آرکائیو ہو گیا"
 
 msgid "cui.checkpoint_done"
-msgstr "checkpoint مکمل: WAL {before} → {after}"
+msgstr "چیک پوائنٹ مکمل: WAL {before} → {after}"
 
 msgid "cui.compact_done"
 msgstr "compact مکمل ہوا (switched={switched})"

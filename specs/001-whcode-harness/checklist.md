@@ -729,6 +729,10 @@
   `python .github/scripts/i18n-po.py --check` 报告十三份已同步；
   `cargo build --locked --workspace` 与 `cargo test --locked --workspace` 通过（本地）。
   译文未经母语者校对，质量不在此条承诺内（ADR-062 已知限制）。CI 待运行（ADR-037）。
+  **代理审校第二批（2026-11-09）**：hi 113 行、bn 108 行英文概念词按目录内既有译法
+  对齐（`सत्र`／`कार्य`／`সেশন`／`কাজ` 等），de／ar／ur 修三处术语与语法；键集合与
+  占位符不变，`i18n-po.py` 重生成后 16 项 i18n 测试通过、`--check` 同步；母语者确认
+  仍开放。
 
 - [x] Check 374: [exercised] 阿拉伯语／乌尔都语界面镜像：TUI 列序与对齐、GUI 布局翻转、
   图标与箭头翻转有单测或人工核对记录；Web 元素级镜像（侧栏位置、tab 行序）有真实浏览器
