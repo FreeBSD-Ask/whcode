@@ -1051,7 +1051,10 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   CUI `Styler::with_locale`（记录值在前、表格反转列序）＋ bin `human_styler` 接线；
   TUI `layout_columns(…, rtl)` 反转列序并取反对齐、导航栏移右、选中标记 `>`→`<`、
   滚动标注改挂左缘；GUI `mirrored_order` 反转六处行序（操作按钮、聊天控制、筛选行、
-  任务行、操作面板、侧栏与主区）；Web 元素级镜像仍缺，已按 Check 374 登记为缺口。
+  任务行、操作面板、侧栏与主区）；Web 元素级镜像于 2026-11-09 收口：逻辑属性不变量
+  （`assets.rs` 单测）＋ `web-ui-check.py` 真实浏览器几何断言（侧栏位置、tab 行序、
+  LTR 对照），证据 `artifacts/rtl-web-2026-11-09/`；BiDi 重排与字形回退仍按 ADR-062
+  登记为限制。
 
 ## Dependencies & Execution Order
 

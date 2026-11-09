@@ -731,7 +731,8 @@
   译文未经母语者校对，质量不在此条承诺内（ADR-062 已知限制）。CI 待运行（ADR-037）。
 
 - [x] Check 374: [exercised] 阿拉伯语／乌尔都语界面镜像：TUI 列序与对齐、GUI 布局翻转、
-  图标与箭头翻转有单测或人工核对记录；Web 只到文档级 `dir` 的部分必须在文档登记为缺口
+  图标与箭头翻转有单测或人工核对记录；Web 元素级镜像（侧栏位置、tab 行序）有真实浏览器
+  几何断言，未覆盖部分（BiDi 重排、字形回退）在文档登记为限制
   （来源：spec FR-766／Task T279／ADR-062）——**取证（2026-11-08，T279）**：
   `cargo test -p whcode-cui --lib format` 8 项通过（`record_mirrors_label_to_right_edge_in_rtl`、
   `table_reverses_column_order_in_rtl`、`locale_selects_direction`）；`cargo test -p whcode-tui
@@ -740,9 +741,15 @@
   `rtl_session_rows_show_status_left_of_id` 走真实帧路径断言渲染行镜像）；`cargo test
   -p whcode-gui --lib` 29 项通过（`mirrored_order_reverses_children_only_in_rtl`、
   `gui_direction_follows_locale`）；LTR 语言布局有既有回归测试保证不变。GUI 不使用方向性
-  字形，箭头翻转无适用对象（已在 `docs/guides/ui-design.md` §7 写明）。**Web 缺口**：仅
-  文档级 `<html dir>` 注入，元素级镜像未实现，已在同为 §7 的 RTL 条目中登记，不冒充完成。
-  人工截图核对未取得（本地无图形会话）；CI 待运行（ADR-037）。
+  字形，箭头翻转无适用对象（已在 `docs/guides/ui-design.md` §7 写明）。**Web 收口
+  （2026-11-09）**：样式表只允许逻辑方向属性的不变量由
+  `assets::tests::stylesheet_uses_logical_direction_properties_only` 锁定；
+  `web-ui-check.py` 新增几何断言并以本机真实 Chromium 跑通（`dir="rtl"`：侧栏
+  `x=16` 在主区 `x=292` 左侧、tab 首项 `x=1010.4` 在末项 `x=652.6` 右侧；`dir="ltr"`
+  对照 `main x=16 < side x=1004`、`first x=215.6 < last x=573.4`）；阿拉伯语界面证据
+  `artifacts/rtl-web-2026-11-09/`（首页／对话页／设置页截图与 `summary.json`，verdict=GO，
+  `WHCODE_UI_LOCALE=ar` 服务端直出）。人工截图核对仍以本机无图形会话为由未单独取得；
+  CI 待运行（ADR-037）。
 
 ## 第二十四层：迁移前自动备份（2026-11-08，Task T280，FR-767，ADR-063）
 

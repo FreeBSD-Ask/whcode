@@ -76,6 +76,8 @@
 !/artifacts/turn-ws-relay-2026-11-09/
 # 执行前复核记录（2026-11-09）：ADR-059 路线执行态审计、F1—F5 发现与并行写域划分。
 !/artifacts/progress-review-2026-11-09.md
+# Web 元素级 RTL 镜像收口证据（2026-11-09）：阿语三页截图与几何测量（Check 374／ADR-062）。
+!/artifacts/rtl-web-2026-11-09/
 # M0 退出报告是治理交付物（tasks.md T031、§12.2），必须随仓库版本化。
 
 # 工作区数据库与 WAL（运行时产物，不进版本库）

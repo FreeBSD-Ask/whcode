@@ -1,0 +1,136 @@
+{
+  "format_version": 1,
+  "generated_at_utc": "2026-11-09T12:02:26Z",
+  "base_url": "http://127.0.0.1:18767",
+  "locale": "ar",
+  "browser": "chromium (headless)",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "pages": [
+    {
+      "page": "index",
+      "url": "http://127.0.0.1:18767/",
+      "measure": {
+        "lang": "ar",
+        "dir": "rtl",
+        "main": {
+          "x": 292,
+          "y": 64,
+          "w": 972,
+          "right": 1264
+        },
+        "side": {
+          "x": 16,
+          "y": 64,
+          "w": 260,
+          "right": 276
+        },
+        "tab_first": {
+          "x": 838,
+          "y": 8,
+          "w": 75.109375,
+          "right": 913.109375
+        },
+        "tab_last": {
+          "x": 438.015625,
+          "y": 8,
+          "w": 68.09375,
+          "right": 506.109375
+        },
+        "tab_count": 7,
+        "dom_order": [
+          "split__main",
+          "split__side panel stack"
+        ]
+      },
+      "verdict": {
+        "document_rtl_arabic": true,
+        "side_left_of_main": true,
+        "tabs_reversed": true,
+        "ok": true
+      },
+      "screenshot": "index-ar.png"
+    },
+    {
+      "page": "chat",
+      "url": "http://127.0.0.1:18767/chat",
+      "measure": {
+        "lang": "ar",
+        "dir": "rtl",
+        "main": null,
+        "side": null,
+        "tab_first": null,
+        "tab_last": null,
+        "tab_count": 0,
+        "dom_order": []
+      },
+      "verdict": {
+        "document_rtl_arabic": true,
+        "ok": true
+      },
+      "screenshot": "chat-ar.png"
+    },
+    {
+      "page": "settings",
+      "url": "http://127.0.0.1:18767/settings/certs",
+      "measure": {
+        "lang": "ar",
+        "dir": "rtl",
+        "main": null,
+        "side": null,
+        "tab_first": null,
+        "tab_last": null,
+        "tab_count": 0,
+        "dom_order": []
+      },
+      "verdict": {
+        "document_rtl_arabic": true,
+        "ok": true
+      },
+      "screenshot": "settings-ar.png"
+    }
+  ],
+  "ltr_control": {
+    "measure": {
+      "lang": "ar",
+      "dir": "ltr",
+      "main": {
+        "x": 16,
+        "y": 64,
+        "w": 972,
+        "right": 988
+      },
+      "side": {
+        "x": 1004,
+        "y": 64,
+        "w": 260,
+        "right": 1264
+      },
+      "tab_first": {
+        "x": 366.875,
+        "y": 8,
+        "w": 75.109375,
+        "right": 441.984375
+      },
+      "tab_last": {
+        "x": 773.875,
+        "y": 8,
+        "w": 68.09375,
+        "right": 841.96875
+      },
+      "tab_count": 7,
+      "dom_order": [
+        "split__main",
+        "split__side panel stack"
+      ]
+    },
+    "verdict": {
+      "side_right_of_main": true,
+      "tabs_forward": true,
+      "ok": true
+    }
+  },
+  "verdict": "GO"
+}

@@ -13,6 +13,26 @@
 
 ### 变更
 
+- **Web 元素级 RTL 镜像收口（T279 后续／FR-766／Check 374，ADR-062 修订，2026-11-09）**：
+  Web 侧原先只到文档级 `dir="rtl"`，现确认元素级镜像由逻辑方向属性与 `dir` 共同承担：
+  `styles.css` 不含物理 `left`／`right`、`text-align: left|right`（`assets.rs` 单测为
+  不变量），两栏网格与 flex 行序随 `dir` 自动翻折。`web-ui-check.py` 增加真实浏览器几何
+  断言——RTL 下侧栏在主区左侧、tab 首项在末项右侧，LTR 对照相反——并已在本机 Chromium
+  跑通（阿语服务 `WHCODE_UI_LOCALE=ar`：侧栏 `x=16` 对主区 `x=292`，tab 首项
+  `x=1010.4` 对末项 `x=652.6`）。证据 `artifacts/rtl-web-2026-11-09/`（三页截图与
+  `summary.json`，verdict=GO）。BiDi 重排与阿拉伯文／印地文等字形回退仍按 ADR-062
+  登记为限制。
+
+- **WS 逐块中继 M7 用例 7—10 收口（T251／FR-742／ADR-058，2026-11-09）**：以桩 Provider
+  剧本补齐离线证据，修掉两处真实缺陷——①delta 帧此前把裸 JSON 写入 WS 流（浏览器按
+  RFC 6455 解析会帧错位），现于广播前统一 `ws::encode_text_frame`；②turn 期间 `GET /`、
+  `/chat` 实际返回未注入业务数据的外壳 200，与 §2.3 清单不一致，按 §3.1 收口并把触库
+  判据固定为 `/api/sessions`。用例 8 三指标实测：首帧 delta 1006 ms、触库路径 503
+  `backpressure`＋`Retry-After: 1`、`/api/llm/cancel` 200、`/ws` 101、`event_missing` 0；
+  资源实验 turn 期间线程 +1、结束后回基线、句柄不增长；归档
+  `artifacts/turn-ws-relay-2026-11-09/`。用例 11 按缺口登记（回退树无工厂注入缝隙），
+  T251／Check 347 的勾选仍待 CI 绿灯（ADR-037）。
+
 - **工具级交互审批接线（T255／FR-744／Check 349，ADR-064，2026-11-09）**：审批闸门接入
   `execute_tool_call`（参数校验后、三步登记前），FR-744 从类型证据变为行为证据。规则解析
   per-tool 覆盖＞副作用范围默认（`[approval]` 配置段，加载期校验、非法值拒绝）；默认全

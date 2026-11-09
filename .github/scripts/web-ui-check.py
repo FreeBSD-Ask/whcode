@@ -12,6 +12,8 @@
 - 七个 tab 均存在，初始恰有一个 `aria-selected="true"` 且 `tabindex="0"`；
 - ArrowRight/ArrowLeft/ArrowUp/ArrowDown 循环移动，Home/End 到首尾，焦点跟随；
 - RTL 下 ArrowRight/ArrowLeft 方向反转；
+- RTL 元素级镜像（Check 374 Web 段）：`dir="rtl"` 下两栏侧栏在主区左侧、
+  tab 行首项在末项右侧；`dir="ltr"` 对照恢复相反顺序；
 - 键盘导航后 `:focus-visible` 可见（outline 非 none）；
 - 页面加载与交互期间不新增 `setInterval`／`MutationObserver`（既有轮询 `setTimeout`
   不在本判据内，它是挂起机的续拉机制）。
@@ -57,6 +59,33 @@ def tab_state(page: Page) -> list[dict[str, object]]:
             outlineStyle: getComputedStyle(button).outlineStyle,
             outlineWidth: getComputedStyle(button).outlineWidth,
         }))"""
+    )
+
+
+def layout_state(page: Page) -> dict[str, object]:
+    """RTL 元素级镜像的几何量（Check 374 Web 段）。
+
+    只认几何事实：`dir="rtl"` 下两栏主区应在侧栏右侧、tab 行首项应在末项右侧；
+    `dir="ltr"` 下相反。样式表只用逻辑属性是静态不变量（`assets.rs` 单测），
+    本函数是同一不变量的端到端判定。
+    """
+    return page.evaluate(
+        """() => {
+            const rect = (el) => {
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                return { x: r.x, right: r.right, width: r.width };
+            };
+            const main = document.querySelector('#view-sessions .split__main');
+            const side = document.querySelector('#view-sessions .split__side');
+            const tabs = Array.from(document.querySelectorAll('#tabs button'));
+            return {
+                main: rect(main),
+                side: rect(side),
+                first: rect(tabs[0] || null),
+                last: rect(tabs[tabs.length - 1] || null),
+            };
+        }"""
     )
 
 
@@ -184,7 +213,44 @@ def run(base_url: str, evidence: Path) -> int:
         expect_selected(page, checks, count - 1, "RTL ArrowRight 反转")
         page.keyboard.press("ArrowLeft")
         expect_selected(page, checks, 0, "RTL ArrowLeft 反转")
+
+        rtl = layout_state(page)
+        checks.record(
+            "RTL 元素级镜像：侧栏在主区左侧",
+            rtl["main"] is not None
+            and rtl["side"] is not None
+            and rtl["side"]["x"] < rtl["main"]["x"],
+            f"side_x={None if rtl['side'] is None else rtl['side']['x']} "
+            f"main_x={None if rtl['main'] is None else rtl['main']['x']}",
+        )
+        checks.record(
+            "RTL 元素级镜像：tab 行序反转",
+            rtl["first"] is not None
+            and rtl["last"] is not None
+            and rtl["first"]["x"] > rtl["last"]["x"],
+            f"first_x={None if rtl['first'] is None else rtl['first']['x']} "
+            f"last_x={None if rtl['last'] is None else rtl['last']['x']}",
+        )
+        page.screenshot(path=str(evidence.parent / "rtl-layout.png"), full_page=True)
+
         page.evaluate("() => { document.documentElement.dir = 'ltr'; }")
+        ltr = layout_state(page)
+        checks.record(
+            "LTR 对照：主区在侧栏左侧",
+            ltr["main"] is not None
+            and ltr["side"] is not None
+            and ltr["main"]["x"] < ltr["side"]["x"],
+            f"main_x={None if ltr['main'] is None else ltr['main']['x']} "
+            f"side_x={None if ltr['side'] is None else ltr['side']['x']}",
+        )
+        checks.record(
+            "LTR 对照：tab 行序不变",
+            ltr["first"] is not None
+            and ltr["last"] is not None
+            and ltr["first"]["x"] < ltr["last"]["x"],
+            f"first_x={None if ltr['first'] is None else ltr['first']['x']} "
+            f"last_x={None if ltr['last'] is None else ltr['last']['x']}",
+        )
 
         time.sleep(0.5)
         probe = page.evaluate("() => window.__uiProbe")
