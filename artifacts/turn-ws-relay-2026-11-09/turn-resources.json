@@ -1,0 +1,33 @@
+{
+  "adr": "ADR-058 §2.8.8 用例 10（资源：线程与句柄差）",
+  "arch": "x86_64",
+  "build": "debug",
+  "command": "cargo test -p whcode-bin turn_resources -- --ignored --test-threads=1 --nocapture",
+  "derived": {
+    "handle_delta_after": 0,
+    "thread_delta_after": 0,
+    "thread_delta_during": 1
+  },
+  "measurement_note": "口径修正（2026-11-09）：首次测量把 baseline 采在 relay_security／seeded_session 之前，DuckDB 线程池、TLS/HTTP 客户端与套接字的一次性装配被算进 turn 增量（旧读数：基线 2 线程／153 句柄、turn 中 82／236、结束 81／234，差 79—80）。修正后先完成装配并跑一个预热 turn，再采基线，使增量只归因于被测 turn 的 worker 线程与套接字；原始三组采样与判定照旧保留。",
+  "measurement_source": "whcode_platform::process_stats（Windows 经 Get-Process 读线程数/句柄数）",
+  "os": "windows",
+  "raw": {
+    "after_turn": {
+      "handles": 234,
+      "threads": 81
+    },
+    "baseline": {
+      "handles": 234,
+      "threads": 81
+    },
+    "during_turn": {
+      "handles": 236,
+      "threads": 82
+    }
+  },
+  "verdict": {
+    "handles_not_increased": true,
+    "thread_delta_within_2": true,
+    "threads_back_to_baseline": true
+  }
+}

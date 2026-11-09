@@ -85,9 +85,9 @@
 | `POST /api/llm/run`（容量已满） | 503 + `code=backpressure` + `retryable:true` + `Retry-After: 1` | §2.2.5 |
 | `POST /api/llm/cancel` | **可达**（不触库） | FR-723 |
 | `GET /ws`（握手升级） | **可达**（不触库） | 订阅不因 turn 被拒 |
-| `GET /`（首页直出快照） | 503 + 同一 JSON 信封 | 触库 |
-| `GET /chat`（对话页直出历史） | 503 + 同一 JSON 信封 | 触库 |
-| 其他 `/api/*` | 503 + 同一 JSON 信封 | 触库 |
+| `GET /`（首页） | **200 未注入业务数据的外壳**：命中静态模板（`assets::static_asset`），注入标记原样保留，不触库 | §3.1“页面壳与静态资源仍可取”（2026-11-09 按实现收口） |
+| `GET /chat`（对话页） | **200 未注入历史的外壳**（同上） | 同上 |
+| 其他 `/api/*` | 503 + 同一 JSON 信封（判据：`/api/sessions`） | 触库 |
 | `GET /assets/*`（静态资产） | 200，照常 | 不触库 |
 
 **错误码决定**：新增 `ErrorCode::Backpressure => 503` 的映射（`api::error_response`），
@@ -224,11 +224,23 @@
 | 4 | `turn_stream_frames_carry_identity_and_loss`：帧含 session/request_id，丢帧以 `llm.loss` 公开 | 已落地 |
 | 5 | `busy_degrade_keeps_cancel_and_ws_reachable`：turn 期间取消可达、`/ws` 101、其余 503 | 已落地 |
 | 6 | `llm_run_requires_auth_before_turn_intercept`：无 Bearer/坏 Origin → 403 且不 spawn；合法 Bearer 仍走拦截 | 已落地 |
-| 7 | 拦截路径 200 与同步路径逐字段一致（StubProvider 剧本） | 待实施（需 stub provider 装配） |
-| 8 | 三指标端到端（首帧 delta 延迟、turn 期间各路径响应码、`event_missing == 0`）＋归档 `artifacts/turn-ws-relay-<date>/` | 待实施（Check 347 取证前置） |
-| 9 | 慢客户端变体（Check 199 夹具）：delta 与事件争用队列时事件不被静默丢 | 待实施 |
-| 10 | 资源：turn 前后线程差 ≤2 且结束归零，无句柄增长 | 待实施 |
-| 11 | 差分（回退验证）：revert 前后 `messages`/`events`/信封一致 | 待实施 |
+| 7 | `turn_intercept_envelope_matches_sync_path_field_by_field`：拦截路径 200 与同步路径逐字段一致（信封／`messages`／`events`），并验证逐块 relay 帧拼回的正文与信封 `text` 相同 | 已落地（2026-11-09） |
+| 8 | `turn_ws_relay_first_delta_busy_codes_and_event_missing`：三指标端到端＋归档 `artifacts/turn-ws-relay-2026-11-09/turn-ws-relay-e2e.json` | 已落地（2026-11-09 实测：首帧 delta 1006 ms；触库路径 503 `backpressure`＋`Retry-After: 1`；`/api/llm/cancel` 200；`/ws` 101；`event_missing` 0） |
+| 9 | `slow_consumer_loss_is_published_and_events_survive`：通道满丢帧以 `llm.loss` 公开、计数守恒（送达＋丢弃＝产出）、事件表不缺（`StreamingChunk` 条数＝产出块数，事件与消息共用序号池合并后连续） | 已落地（2026-11-09） |
+| 10 | `turn_resources_return_to_baseline`（`#[ignore]` 资源实验）：turn 期间线程增量 1、结束后回基线、句柄不增长；归档 `artifacts/turn-ws-relay-2026-11-09/turn-resources.json` | 已落地（2026-11-09 Windows 实测：基线 81 线程／234 句柄 → turn 中 82／236 → 结束后 81／234） |
+| 11 | 差分（回退验证）：revert 前后 `messages`/`events`/信封一致 | 缺口登记（§3.6）：本机未取得，确切命令与阻塞原因已写明，未伪造 |
+
+**用例 7—9 发现并修复的两处缺陷（2026-11-09）**：
+
+1. **delta 帧未按 WebSocket 编码**：`turn_stream_frames` 产出 JSON 载荷，而广播队列
+   （`BroadcastState::broadcast_frame`）收的是**已编码**帧（事件侧由 `poll_events` 调
+   `ws::encode_text_frame`）。原实现把裸 JSON 直接写进 WS 流，客户端按 RFC 6455 解析必然
+   帧错位（正文会随帧边界撕裂）。修复：`drain_turn_pending` 在广播前统一
+   `ws::encode_text_frame`；用例 7、9 的 socket／队列级断言作回归。
+2. **`GET /`、`/chat` 与 §2.3 清单不一致**：两者命中静态模板（`assets::static_asset`），
+   turn 期间返回**未注入业务数据的外壳 200**，不是 503。外壳不触库，且 §3.1 已写明
+   “页面壳与静态资源仍可取”，故按实现收口 §2.3 两行，并把“触库路径 503”的判据固定在
+   `/api/sessions`（用例 8 断言）。
 
 **不上的验证及理由**：本设计不含自定义无锁结构，同步语义全部由 std `Mutex`/`mpsc` 承担并
 有文档化保证，故不上 Loom/Shuttle；一旦引入自建队列或手写 CAS，本理由失效，必须补模型
@@ -263,15 +275,18 @@
 
 ### 3.1 确定性降级清单
 
-见 §2.3。要点：**turn 期间取消可达、订阅可达；首页与对话页不可达**（触库）。用户刷新会
-看到 503，页面壳与静态资源仍可取。这是已知代价；若要求“刷新仍能看对话页”，改为“锁忙时
-直出无数据外壳 + 客户端补拉”，不改变并发结构。
+见 §2.3。要点：**turn 期间取消可达、订阅可达；触库路径不可达**。用户刷新会看到**未注入
+业务数据的外壳**（首页与对话页命中静态模板，注入标记原样保留）与静态资源；`/api/*` 等
+触库请求返回 503。这是已知代价；若要求“刷新仍能看对话页历史”，改为“锁忙时直出有界尾部
+快照 + 客户端补拉”，不改变并发结构（2026-11-09 按实现收口：外壳已可取，历史仍需 503 或
+补拉）。
 
 ### 3.2 正负和解
 
 - **正面**：FR-742 的服务端与消费端两侧均落地（tick 粒度增量＋前端渲染）；`llm.run` 同步
   契约零变化；curl/脚本行为不变；静态资产、WS 订阅、取消在 turn 期间不受影响。
-- **负面**：①turn 期间触库路径确定性 503（含首页、`/chat`、其他 `/api/*`）；②正文原文进入
+- **负面**：①turn 期间触库路径确定性 503（`/api/*`；首页与 `/chat` 返回未注入数据的外壳，
+  见 §2.3 与 §3.1）；②正文原文进入
   广播面（跨会话可见）；③多一把锁引入毒锁关停面；④每 turn 一个临时线程（≤2）与最长
   4800 s 的占用窗口；⑤客户端断开不中止 turn（计算可能浪费）；⑥有损通道丢帧（以
   `llm.loss` 公开）。
@@ -304,8 +319,16 @@
   `serve.rs` 档案一；FR-722/723/719；domain-M2 §① 双通道对话流。**差异已补**：ADR-056 是
   单进程单用户 GUI（无 HTTP 多客户端、无慢客户端、无 96 连接上限、无毒锁关停），GUI 的
   “有损进度”不能原样搬成 serve 的“有损正文”——serve 的丢弃必须配计数与公开信号。
-- **现在证据**：M2—M5、M9—M11 已由本批次实现并有 6 条测试；CI 待新一轮 run 取证；
-  §2.8.8 用例 7—11 与三指标归档仍未取得——**现在证据不支持“FR-742 已完成”**。
+- **现在证据**（2026-11-09）：M2—M5、M9—M11 已实现；§2.8.8 用例 1—10 有可执行测试并本机
+  全部通过（`cargo test -p whcode-bin`：103 passed／0 failed／2 ignored；两个忽略项分别为
+  Check 199 慢客户端对照与 §2.8.8 用例 10 资源实验，均以显式命令单独运行）；
+  `cargo clippy -p whcode-bin --all-targets -- -D warnings` 与
+  `cargo fmt -p whcode-bin -- --check` 通过；三指标归档见
+  `artifacts/turn-ws-relay-2026-11-09/`（首帧 delta 实测 967—1006 ms、触库路径 503
+  `backpressure`＋`Retry-After: 1`、`/api/llm/cancel` 200、`/ws` 101、`event_missing` 0；
+  资源实验：turn 期间线程 +1、结束后回基线、句柄不增长）。**CI 尚无本批绿灯 run**
+  （ADR-037：本地结果只作复现与排障，不作验收结论）；用例 11 见 §3.6 缺口登记。因此现在
+  证据支持“§2.8.8 用例 1—10 已落地”，不支持据本地结果直接勾选 Check 347。
 - **将来失效条件**：①事件速率持续超过 320 事件/秒；②订阅者接近 `MAX_WS_CLIENTS` 且帧
   增大；③`MAX_CLIENTS`/`MAX_ACTIVE_TURNS` 调整；④provider 改 SSE 契约；⑤多用户或
   `session` 级隔离需求出现；⑥provider 总超时被调高或工具/子 turn 出现不可计算长尾。
@@ -320,15 +343,36 @@
   2. 无 JS 降级仍成立（服务端直出有界尾部快照，HTML 转义、超限写明截断）——已落地；
   3. `check-frontend-budget.py` 达标——本批实测 JS gzip chat 2213 B、CSS 2346 B、
      DOM chat 20；
-  4. 三指标归档 + CI 绿（§2.8.8 第 8 项）——**未取得**。
-- 因此 `tasks.md` 的 T251 与 `checklist.md` 的 Check 347 在条件 4 取得前保持未勾/`[missing]`。
+  4. 三指标归档 + CI 绿（§2.8.8 第 8 项）：端到端归档已取得——
+     `artifacts/turn-ws-relay-2026-11-09/turn-ws-relay-e2e.json`（2026-11-09 实测：首帧
+     delta 1006 ms；触库路径 503 `backpressure`＋`Retry-After: 1`；`/api/llm/cancel` 200；
+     `/ws` 101；`event_missing` 0）；资源实验归档同名目录下 `turn-resources.json`（turn 期间
+     线程 +1、结束后回到基线、句柄不增长）。再生成命令见该目录 `README.md`。CI 绿灯仍以
+     GitHub Actions 日志与 artifact 为准（ADR-037），本地结果只作复现与排障。
+- 因此 `tasks.md` 的 T251 与 `checklist.md` 的 Check 347：条件 1—4 的**本地证据**已齐备；
+  勾选仍以 CI 绿灯为准。用例 11 的缺口（§3.6）不影响条件 4 的三指标口径，但作为回退证据
+  仍属未取得，需在 Check 取证文字里如实写明。
 
 ### 3.6 回退方案与差分验证
 
 - 回退＝`git revert` 本批次（无数据迁移、无 schema、无配置项）。
-- 差分验证（用例 11）：StubProvider 定速剧本 + 真实 WS 客户端，记录（a）首帧 delta 延迟
-  （前＝turn 结束后一次性；后＝tick 粒度）；（b）turn 期间 `/`、`/api/llm/cancel`、`/ws`
-  的响应；（c）`event_missing`（恒 0）。归档 `artifacts/turn-ws-relay-<date>/`。
+- 差分验证（用例 11）**本机未取得**，按缺口登记处理（不伪造）：
+  - 目标：回退前（`8eccad7` 之前的同步路径）与回退后的 `messages`／`events`／信封逐字段一致。
+  - 确切命令：
+    ```text
+    git worktree add local/t251-revert 8eccad7
+    cd local/t251-revert
+    cargo test -p whcode-bin turn_intercept_envelope_matches_sync_path_field_by_field -- --nocapture
+    ```
+  - 阻塞原因（事实）：回退树**没有工厂注入缝隙**——`8eccad7` 及以前 `ServeLlm.factory` 是具体
+    类型 `LocalProviderFactory`，无法注入 `StubProvider` 剧本；该缝隙正是本批改动新增。因此
+    在回退树上运行对应用例无法离线驱动确定性剧本（只能触发真实 provider 或“会话不存在”的
+    快速失败），逐字段比对的被测行为在回退树上不存在。另：净树需重建 DuckDB 链接层与整套
+    crate，超出本批时限。
+  - 已取得的替代证据：本树同步路径与拦截路径逐字段一致（用例 7
+    `turn_intercept_envelope_matches_sync_path_field_by_field`）；同步路径代码
+    （`whcode-web/src/api.rs` 的 `llm.run` 路由 → `run_turn`）在本批次零改动——回退只删除
+    拦截路径，不改变已落库内容与信封的生成逻辑。
 
 ### 3.7 预实现补救与条件闭环
 
@@ -343,7 +387,9 @@
   - **M4 busy 语义**：已落地（503 `backpressure`＋`Retry-After`；取消与 WS 可达），用例 5。
   - **M5 有损通道**：已落地（`try_send`＋`llm.loss`），用例 4。
   - **M6 期限取舍**：以 §2.6 的显式上界取代期限常量（评审允许的另一路径），已成文。
-  - **M7 测试**：用例 1—6 已落地；7—11 与三指标归档待实施。
+  - **M7 测试**：用例 1—10 已落地（7—10 于 2026-11-09 补齐，含两处缺陷修复：delta 帧 WS
+    编码、`GET /`／`/chat` 降级清单收口）；用例 11 按 §3.6 缺口登记（回退树无工厂注入缝隙，
+    净树重建超时限）。
   - **M8 档案**：本文 §2.8/§2.9 完成。
   - **M9 帧字段与威胁模型**：已落地（§2.5、§3.3），用例 4。
   - **M10 文档一致性**：`serve.rs` 档案一改为“档案一零新增线程；档案二临时线程 ≤2”；
@@ -380,3 +426,10 @@
   `whcode-verification-and-gotchas` 规则 26：同文件并发作业须先认领）。
 - 2026-11-06：实现批次（M2—M5、M9—M11）与 6 条测试落地；M7 用例 7—11 与三指标归档
   仍未取得，T251/Check 347 保持未勾。
+- 2026-11-09：M7 用例 7—10 落地并归档（`artifacts/turn-ws-relay-2026-11-09/`：
+  `turn-ws-relay-e2e.json` 与 `turn-resources.json`）。**发现并修复两处缺陷**：①delta 帧未按
+  WebSocket 编码（裸 JSON 写进 WS 流，浏览器会帧错位）；②`GET /`、`/chat` turn 期间返回
+  未注入外壳 200，与 §2.3 清单不一致（按 §3.1“页面壳可取”收口，触库判据固定为
+  `/api/sessions`）。§3.5 条件 4 补齐实测证据；用例 11 按 §3.6 缺口登记（回退树无工厂注入
+  缝隙）。资源实验口径修正：基线须在装配与预热之后采样，否则一次性装配成本被算进 turn 增量
+  （旧读数差 79—80 线程已作废，保留在归档的 `measurement_note` 中）。

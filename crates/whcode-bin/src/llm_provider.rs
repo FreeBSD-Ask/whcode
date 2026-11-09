@@ -17,6 +17,7 @@
 //! 放进错误或事件。
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(not(feature = "http"))]
@@ -110,7 +111,10 @@ pub struct ServeLlm {
     /// 注册表不可用的原因（不含秘密）。
     pub registry_error: Option<String>,
     /// 真实 Provider 工厂。
-    pub factory: LocalProviderFactory,
+    ///
+    /// 以 trait object 持有：生产装配恒为 [`LocalProviderFactory`]，测试可注入
+    /// 桩工厂（ADR-058 §2.8.8 用例 7—11 需要确定性剧本）。工厂本身无状态、不建线程。
+    pub factory: Arc<dyn ProviderFactory + Send + Sync>,
     /// 取消标记目录（`WHCODE_LLM_CANCEL_DIR` 或系统临时目录）。
     pub cancel_dir: PathBuf,
 }
@@ -132,7 +136,7 @@ impl ServeLlm {
         Ok(Self {
             registry,
             registry_error,
-            factory: LocalProviderFactory::for_workspace(workspace)?,
+            factory: Arc::new(LocalProviderFactory::for_workspace(workspace)?),
             cancel_dir: cancel_dir_from_env(),
         })
     }
@@ -143,7 +147,7 @@ impl ServeLlm {
         LlmContext {
             registry: self.registry.as_ref(),
             registry_error: self.registry_error.as_deref(),
-            factory: &self.factory,
+            factory: &*self.factory,
             cancel_dir: &self.cancel_dir,
         }
     }

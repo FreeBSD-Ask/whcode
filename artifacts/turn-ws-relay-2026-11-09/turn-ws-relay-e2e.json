@@ -1,0 +1,38 @@
+{
+  "adr": "ADR-058 §2.8.8 用例 8（三指标端到端）",
+  "arch": "x86_64",
+  "build": "debug",
+  "command": "cargo test -p whcode-bin turn_ws_relay_first_delta_busy_codes_and_event_missing -- --nocapture",
+  "measurements": {
+    "chunk_frames": 3,
+    "envelope_text": "首次末",
+    "event_missing": 0,
+    "events_expected": 8,
+    "events_received": 8,
+    "first_delta_ms": 967,
+    "loss_frames": 0,
+    "probe_cancel_attempts": 1,
+    "probe_cancel_status": "HTTP/1.1 200 OK",
+    "probe_db_touching_code": "backpressure",
+    "probe_db_touching_status": "HTTP/1.1 503 Service Unavailable",
+    "probe_home_injected": false,
+    "probe_home_status": "HTTP/1.1 200 OK",
+    "probe_ws_status": "HTTP/1.1 101（ws_connect 内断言）"
+  },
+  "os": "windows",
+  "scenario": {
+    "factory_hold_ms": 900,
+    "provider": "stub",
+    "script_chunks": [
+      "首",
+      "次",
+      "末"
+    ],
+    "subscriber": "GET /ws（WebSocket 订阅者）"
+  },
+  "verdict": {
+    "busy_codes": "pass",
+    "event_missing_zero": "pass",
+    "first_delta": "pass"
+  }
+}

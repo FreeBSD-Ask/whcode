@@ -296,7 +296,7 @@ impl ServeSecurity {
             llm: Arc::new(ServeLlm {
                 registry: None,
                 registry_error: Some("测试装配未注入 LLM 剖面".to_string()),
-                factory: crate::llm_provider::LocalProviderFactory::default(),
+                factory: Arc::new(crate::llm_provider::LocalProviderFactory::default()),
                 cancel_dir: whcode_app::llm::cancel_dir_from_env(),
             }),
         }
@@ -816,12 +816,14 @@ fn drain_turn_pending(clients: &mut [Client], state: &mut BroadcastState, progre
         let lost = dropped.swap(0, Ordering::AcqRel);
         if !batch.is_empty() || lost > 0 {
             *progressed = true;
-            delta_frames.extend(turn_stream_frames(
-                session.as_str(),
-                request_id.as_deref(),
-                &batch,
-                lost,
-            ));
+            // `turn_stream_frames` 产出 JSON 载荷；广播队列收的是**已编码**的 WS 帧
+            // （与 `poll_events` 同口径）。不在这里编码，delta 会以裸 JSON 写进 WS 流，
+            // 客户端按 RFC 6455 解析必然帧错位（用例 9 的 socket 级回归捕获）。
+            delta_frames.extend(
+                turn_stream_frames(session.as_str(), request_id.as_deref(), &batch, lost)
+                    .into_iter()
+                    .map(|payload| ws::encode_text_frame(&payload)),
+            );
         }
         match done.try_recv() {
             Ok(outcome) => finished.push((index, outcome)),
@@ -2135,6 +2137,7 @@ fn reason(status: u16) -> &'static str {
         403 => "Forbidden",
         404 => "Not Found",
         500 => "Internal Server Error",
+        503 => "Service Unavailable",
         _ => "",
     }
 }
@@ -2152,10 +2155,10 @@ mod tests {
 
     use super::{
         BroadcastState, Client, INITIAL_SESSION_LIMIT, MAX_ACTIVE_TURNS, MAX_CLIENTS, Phase, Reply,
-        ServeCerts, ServeCli, ServeSecurity, TurnIntercept, accept_ready, busy_or_static,
-        drain_turn_pending, find_subsequence, header_content_length, origin_allowlist, prepare_tls,
-        reason, resolve_inbound_mode, respond, serve_loop, serve_ssh, turn_intercept,
-        turn_stream_frames,
+        ServeCerts, ServeCli, ServeSecurity, TURN_PROGRESS_CAPACITY, TurnIntercept, accept_ready,
+        busy_or_static, drain_turn_pending, find_subsequence, header_content_length,
+        origin_allowlist, prepare_tls, reason, resolve_inbound_mode, respond, serve_loop,
+        serve_ssh, turn_intercept, turn_stream_frames,
     };
     use crate::tls;
     use crate::workspace::WORKSPACE_DB_FILE;
@@ -2164,6 +2167,7 @@ mod tests {
     use whcode_app::cert::{CertPaths, load_settings};
     use whcode_app::{Actor, actor_with_all_capabilities};
     use whcode_domain::{ErrorCode, InboundMode, SCHEMA_VERSION};
+    use whcode_llm::StubProvider;
     use whcode_store::apply_migrations;
     use whcode_web::api;
 
@@ -2183,7 +2187,7 @@ mod tests {
                         .expect("注册表"),
                 ),
                 registry_error: None,
-                factory: crate::llm_provider::LocalProviderFactory::default(),
+                factory: Arc::new(crate::llm_provider::LocalProviderFactory::default()),
                 cancel_dir: whcode_app::llm::cancel_dir_from_env(),
             }),
             ..ServeSecurity::loopback()
@@ -3935,5 +3939,1063 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.path);
         }
+    }
+
+    // ── ADR-058 §2.8.8 用例 7—11（桩 Provider 剧本驱动）──────────────────────
+
+    /// 用例 7—11 的桩工厂：返回 [`StubProvider`] 剧本（不触网、不起常驻线程）。
+    ///
+    /// `hold` 在 `create` 内睡眠——工厂由 turn 工作线程在**持有连接锁之后**调用，
+    /// 因此 `hold` 就是确定性的“turn 进行中”窗口（用例 8 的降级探测依赖它）。
+    struct RelayStubFactory {
+        steps: Vec<whcode_llm::provider::StubStep>,
+        hold: Duration,
+    }
+
+    impl whcode_app::llm::ProviderFactory for RelayStubFactory {
+        fn create(
+            &self,
+            _profile: &whcode_llm::http::profile::ProviderProfile,
+        ) -> Result<Box<dyn whcode_llm::Provider>, whcode_domain::WhError> {
+            if !self.hold.is_zero() {
+                std::thread::sleep(self.hold);
+            }
+            Ok(Box::new(StubProvider::with_script(self.steps.clone())))
+        }
+    }
+
+    /// 用例 7—11 的接线安全上下文：剖面名 `p` ＋ 剧本工厂。
+    fn relay_security(steps: Vec<whcode_llm::provider::StubStep>, hold: Duration) -> ServeSecurity {
+        let profile: whcode_llm::http::profile::ProviderProfile = serde_json::from_str(
+            r#"{"name":"p","protocol":"openai","base_url":"https://api.example.com",
+                "model":"test-model","auth":{"type":"none"}}"#,
+        )
+        .expect("剖面");
+        ServeSecurity {
+            llm: Arc::new(crate::llm_provider::ServeLlm {
+                registry: Some(
+                    whcode_app::llm::ProviderRegistry::from_profiles(vec![profile])
+                        .expect("注册表"),
+                ),
+                registry_error: None,
+                factory: Arc::new(RelayStubFactory { steps, hold }),
+                cancel_dir: whcode_app::llm::cancel_dir_from_env(),
+            }),
+            ..ServeSecurity::loopback()
+        }
+    }
+
+    /// 单步剧本：按给定正文逐块流式，终止原因 `stop`。
+    fn chunk_script(chunks: &[&str]) -> Vec<whcode_llm::provider::StubStep> {
+        vec![whcode_llm::provider::StubStep {
+            chunks: chunks.iter().map(|chunk| (*chunk).to_string()).collect(),
+            finish_reason: "stop".to_string(),
+            tool_calls: Vec::new(),
+        }]
+    }
+
+    /// 已建会话的内存工作区（两条路径各用一份，避免互相污染）。
+    fn seeded_session(session: &str, title: &str) -> Connection {
+        let conn = migrated_memory_conn();
+        whcode_store::create_session_with_id(&conn, session, title, "active", 1_000)
+            .expect("创建会话");
+        conn
+    }
+
+    /// `/api/llm/run` 的原始请求字节（`Host` 用回环，Origin 语义同既有用例）。
+    fn llm_run_request(body: &str) -> Vec<u8> {
+        raw_request(&format!(
+            "POST /api/llm/run HTTP/1.1\r\nhost: 127.0.0.1\r\ncontent-type: application/json\r\n\
+             content-length: {}\r\n\r\n{body}",
+            body.len()
+        ))
+    }
+
+    /// 用例 7／11 的忽略项：时间与耗时随运行时刻、调度与机器负载变化，两条路径不共享
+    /// 时钟，不可能同值。除此之外的字段必须逐字段一致（I5：只允许增值在 WS 帧）。
+    const NONDETERMINISTIC_KEYS: [&str; 4] = ["latency_ms", "ts_ms", "duration_ms", "elapsed_ms"];
+
+    /// 递归剔除忽略项（信封、事件 payload 共用）。
+    fn strip_nondeterministic(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Object(map) => {
+                for key in NONDETERMINISTIC_KEYS {
+                    map.remove(key);
+                }
+                for child in map.values_mut() {
+                    strip_nondeterministic(child);
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    strip_nondeterministic(item);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// 读会话消息（读面与 `/chat`、`/api/llm/conversation` 同源：`conversation_tail`）。
+    fn conversation_of(conn: &Connection, session: &str) -> Vec<(String, String)> {
+        let actor = actor_with_all_capabilities("tester");
+        whcode_app::llm::conversation_tail(
+            conn,
+            &whcode_app::DefaultPolicy,
+            &actor,
+            session,
+            whcode_app::llm::MAX_CONVERSATION_TAIL,
+        )
+        .expect("读会话尾部")
+        .into_iter()
+        .map(|entry| (entry.role, entry.content))
+        .collect()
+    }
+
+    /// 读事件表（按 seq 升序；只取与确定性无关的时间列之外的字段，`ts` 列不取）。
+    fn event_rows(conn: &Connection, session: &str) -> Vec<serde_json::Value> {
+        let mut statement = conn
+            .prepare(
+                "SELECT kind, request_id, tool_call_id, CAST(CAST(payload_json AS JSON) AS VARCHAR)
+                   FROM events WHERE session_id = ? ORDER BY seq",
+            )
+            .expect("准备事件查询");
+        let rows = statement
+            .query_map([session], |row| {
+                let payload: String = row.get(3)?;
+                let mut payload: serde_json::Value =
+                    serde_json::from_str(&payload).unwrap_or(serde_json::Value::Null);
+                strip_nondeterministic(&mut payload);
+                Ok(serde_json::json!({
+                    "kind": row.get::<_, String>(0)?,
+                    "request_id": row.get::<_, Option<String>>(1)?,
+                    "tool_call_id": row.get::<_, Option<String>>(2)?,
+                    "payload": payload,
+                }))
+            })
+            .expect("查询事件");
+        rows.collect::<Result<Vec<_>, _>>().expect("逐行读取")
+    }
+
+    /// 某会话的事件 seq 列表（升序）——用例 9 的“不丢事件”判据取数。
+    fn session_seqs(conn: &Connection, session: &str) -> Vec<i64> {
+        let mut statement = conn
+            .prepare("SELECT seq FROM events WHERE session_id = ? ORDER BY seq")
+            .expect("准备 seq 查询");
+        statement
+            .query_map([session], |row| row.get(0))
+            .expect("查询 seq")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("读取 seq")
+    }
+
+    /// 会话的消息序号（`messages.id` 为 `MSG-<seq>`，与事件共用同一序号池）。
+    fn session_message_seqs(conn: &Connection, session: &str) -> Vec<i64> {
+        let mut statement = conn
+            .prepare("SELECT id FROM messages WHERE session_id = ? AND id LIKE 'MSG-%'")
+            .expect("准备消息序号查询");
+        let mut seqs: Vec<i64> = statement
+            .query_map([session], |row| {
+                let id: String = row.get(0)?;
+                Ok(id
+                    .strip_prefix("MSG-")
+                    .and_then(|value| value.parse::<i64>().ok())
+                    .unwrap_or_default())
+            })
+            .expect("查询消息序号")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("读取消息序号");
+        seqs.sort_unstable();
+        seqs
+    }
+
+    /// 拆分 `Phase::Writing` 的原始响应字节（状态行 ＋ 按 `content-length` 截取的体）。
+    fn split_http_response(bytes: &[u8]) -> (String, Vec<u8>) {
+        let end = find_subsequence(bytes, b"\r\n\r\n").expect("响应头不完整");
+        let head = String::from_utf8_lossy(&bytes[..end]).into_owned();
+        let length = header_content_length(&bytes[..end]);
+        let body = bytes[end + 4..(end + 4 + length).min(bytes.len())].to_vec();
+        (head, body)
+    }
+
+    /// 一对已建立的明文连接：（服务端侧连接, 测试侧对端流）。
+    ///
+    /// 与 [`dummy_client`] 的差别只在保留对端：用例 9 需要从测试线程读服务端写出的帧。
+    fn client_pair() -> (Client, TcpStream) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("绑定占位连接");
+        let addr = listener.local_addr().expect("读取占位端口");
+        let peer = TcpStream::connect(addr).expect("连接占位服务端");
+        let (stream, _) = listener.accept().expect("接受占位连接");
+        stream.set_nonblocking(true).expect("占位连接非阻塞");
+        peer.set_read_timeout(Some(Duration::from_millis(100)))
+            .expect("对端读超时");
+        (
+            Client {
+                io: tls::ConnIo::plain(stream),
+                phase: Phase::Reading {
+                    buf: Vec::with_capacity(4096),
+                    header_end: None,
+                    content_length: 0,
+                },
+                last_active: Instant::now(),
+                dead: false,
+            },
+            peer,
+        )
+    }
+
+    /// 起一个真实服务循环，安全上下文由调用方注入（`spawn_loop_server` 的桩版）。
+    fn spawn_loop_server_with(security: ServeSecurity) -> TestServer {
+        let conn = migrated_memory_conn();
+        let server_conn = conn.try_clone().expect("克隆内存库连接");
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("绑定随机端口");
+        let addr = listener.local_addr().expect("读取端口");
+        let actor = actor_with_all_capabilities("test-web");
+        std::thread::Builder::new()
+            .name("serve-loop-test".into())
+            .spawn(move || {
+                let _ = serve_loop(
+                    listener,
+                    Arc::new(Mutex::new(server_conn)),
+                    actor,
+                    security,
+                    None,
+                    None,
+                );
+            })
+            .expect("启动服务器线程");
+        TestServer { addr, conn }
+    }
+
+    /// 一次阻塞式 HTTP 探测：返回（状态行, 体, 头原文）。
+    fn http_probe(addr: SocketAddr, request: &str) -> (String, Vec<u8>, String) {
+        let mut stream = TcpStream::connect(addr).expect("连接测试服务器");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .expect("读超时");
+        stream.write_all(request.as_bytes()).expect("写探测请求");
+        let (head, body) = read_http_response(&mut stream);
+        let status = head.lines().next().unwrap_or("").to_string();
+        (status, body, head)
+    }
+
+    /// 归档目录（工作区根下的 `artifacts/turn-ws-relay-2026-11-09`，见该目录 README）。
+    fn relay_artifact_dir() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(std::path::Path::parent)
+            .expect("工作区根")
+            .join("artifacts/turn-ws-relay-2026-11-09")
+    }
+
+    /// 写一份归档 JSON 并打印路径（只有显式运行的实验用例会走到这里）。
+    fn write_relay_artifact(name: &str, value: &serde_json::Value) {
+        let dir = relay_artifact_dir();
+        std::fs::create_dir_all(&dir).expect("创建归档目录");
+        let path = dir.join(name);
+        std::fs::write(
+            &path,
+            serde_json::to_string_pretty(value).expect("归档 JSON") + "\n",
+        )
+        .expect("写归档文件");
+        println!("归档已写入 {}", path.display());
+    }
+
+    /// 轮询 `GET /api/sessions` 直到触库路径降级为 503（turn 持锁窗口的确定性判据）。
+    ///
+    /// 不能靠固定睡眠：单线程服务循环要先接受并解析 `POST /api/llm/run` 才 spawn 工作
+    /// 线程，固定等待会在“尚未进入 turn”时探测到 200。降级本身就是要断言的信号。
+    fn wait_until_busy(addr: SocketAddr, deadline: Duration) -> (String, Vec<u8>, String) {
+        let end = Instant::now() + deadline;
+        loop {
+            let probe = http_probe(
+                addr,
+                "GET /api/sessions HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n",
+            );
+            if probe.0.split_whitespace().nth(1) == Some("503") {
+                return probe;
+            }
+            assert!(
+                Instant::now() < end,
+                "turn 持锁窗口内触库路径必须降级为 503，实测：{}",
+                probe.0
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    /// 清理本用例用到的 turn/取消标记（显式取消目录；避免上次异常退出的残留把下一次
+    /// 运行判成“已有活跃 turn”——残留本身就是测试基建的噪声，不是产品行为）。
+    fn clear_relay_markers(sessions: &[&str], request_ids: &[&str]) {
+        let dir = whcode_app::llm::cancel_dir_from_env();
+        for session in sessions {
+            let _ = std::fs::remove_file(dir.join(format!("turn-{session}.live")));
+        }
+        for request_id in request_ids {
+            let _ = std::fs::remove_file(dir.join(format!("{request_id}.live")));
+            let _ = std::fs::remove_file(dir.join(format!("{request_id}.cancel")));
+        }
+    }
+
+    /// 用例 7：拦截路径（WS 逐块 relay）与同步路径逐字段一致。
+    ///
+    /// 同一剧本（三块正文）在两条入口各跑一遍，比对（a）HTTP 信封、（b）`messages` 读面
+    /// （与 `/chat` 同源）、（c）`events` 表（`kind`/`request_id`/`tool_call_id`/`payload`，
+    /// 按 `seq` 升序），并验证逐块 relay 帧拼回的正文与信封 `text` 相同。忽略项只有
+    /// [`NONDETERMINISTIC_KEYS`]（时间戳与耗时），理由见该常量文档。
+    #[test]
+    fn turn_intercept_envelope_matches_sync_path_field_by_field() {
+        const SESSION: &str = "S-REL-7";
+        let body =
+            r#"{"session":"S-REL-7","provider":"p","prompt":"逐块一致性","request_id":"R-REL-7"}"#;
+        let raw = llm_run_request(body);
+        let request = api::parse_request(&raw).expect("解析请求");
+        let actor = actor_with_all_capabilities("tester");
+        let security = relay_security(chunk_script(&["甲", "乙", "丙"]), Duration::ZERO);
+
+        // ── 同步路径：api 路由直调 run_turn（serve 未拦截时的口径）──
+        let mut sync_conn = seeded_session(SESSION, "同步路径");
+        let sync_llm = security.llm.context();
+        let no_origins: Vec<&str> = Vec::new();
+        let sync_response = api::handle_request_with_llm(
+            &mut sync_conn,
+            false,
+            None,
+            &no_origins,
+            &request,
+            &actor,
+            None,
+            &security.default_locale,
+            None,
+            Some(&sync_llm),
+            None,
+        );
+        assert_eq!(
+            sync_response.status,
+            200,
+            "同步路径必须 200：{}",
+            String::from_utf8_lossy(&sync_response.body)
+        );
+        let sync_value: serde_json::Value =
+            serde_json::from_slice(&sync_response.body).expect("信封为 JSON");
+
+        // ── 拦截路径：turn_intercept → TurnPending → drain_turn_pending 收敛信封──
+        let turn_conn = Arc::new(Mutex::new(seeded_session(SESSION, "拦截路径")));
+        let slots = turn_slots();
+        let TurnIntercept::Pending(mut reply) =
+            turn_intercept(&turn_conn, &actor, &security, None, &request, &slots)
+        else {
+            panic!("LLM 已接线必须转入工作线程拦截");
+        };
+        let pending = reply.turn_pending.take().expect("通道组");
+        let mut initiator = dummy_client();
+        initiator.phase = Phase::TurnPending {
+            session: pending.session,
+            request_id: pending.request_id,
+            progress: pending.progress,
+            done: pending.done,
+            worker: pending.worker,
+            dropped: pending.dropped,
+        };
+        let mut clients = [initiator];
+        let mut state = BroadcastState::new();
+        // 注册一个“不接 socket”的订阅者：relay 帧留在队列里，供本用例逐帧核对。
+        let subscriber = state.register().expect("订阅者");
+        let mut progressed = false;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while !matches!(&clients[0].phase, Phase::Writing { .. }) {
+            assert!(
+                Instant::now() < deadline,
+                "拦截路径必须在 30 s 内收敛为响应写出"
+            );
+            drain_turn_pending(&mut clients, &mut state, &mut progressed);
+            if !matches!(&clients[0].phase, Phase::Writing { .. }) {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
+        let Phase::Writing { buf, .. } = &clients[0].phase else {
+            unreachable!("上方循环条件已判定为 Writing");
+        };
+        let (head, intercept_body) = split_http_response(buf);
+        assert!(head.starts_with("HTTP/1.1 200"), "拦截路径状态行：{head}");
+        let head_content_type = head
+            .lines()
+            .find_map(|line| line.strip_prefix("content-type: ").map(str::trim));
+        assert_eq!(
+            sync_response.header("content-type"),
+            head_content_type,
+            "两条路径的 content-type 必须一致"
+        );
+        let intercept_value: serde_json::Value =
+            serde_json::from_slice(&intercept_body).expect("信封为 JSON");
+
+        // (a) 信封逐字段一致。
+        let mut sync_envelope = sync_value.clone();
+        let mut intercept_envelope = intercept_value.clone();
+        strip_nondeterministic(&mut sync_envelope);
+        strip_nondeterministic(&mut intercept_envelope);
+        assert_eq!(
+            sync_envelope, intercept_envelope,
+            "拦截路径与同步路径的信封必须同字段同值（I5）"
+        );
+        assert_eq!(intercept_value["text"].as_str(), Some("甲乙丙"));
+
+        // (b) messages 与 (c) events 逐字段一致。
+        let guard = turn_conn.lock().expect("连接锁");
+        let intercept_messages = conversation_of(&guard, SESSION);
+        let intercept_events = event_rows(&guard, SESSION);
+        drop(guard);
+        assert_eq!(
+            conversation_of(&sync_conn, SESSION),
+            intercept_messages,
+            "messages 必须逐字段一致"
+        );
+        assert_eq!(
+            event_rows(&sync_conn, SESSION),
+            intercept_events,
+            "events 必须逐字段一致（时间列 ts 与 *_ms 已按忽略项剔除）"
+        );
+        assert!(
+            !intercept_events.is_empty(),
+            "事件表不得为空（否则一致性断言无意义）"
+        );
+
+        // (d) WS 逐块 relay：帧拼回的正文等于同一信封的 text，且带会话与请求标识。
+        let mut relayed: Vec<serde_json::Value> = Vec::new();
+        while let Some(frame) = state
+            .queue_mut(subscriber)
+            .and_then(whcode_web::broadcast::ClientQueue::pop)
+        {
+            // 广播队列里是已编码的 WS 帧（服务端→客户端，不掩码）：先剥帧头再解析。
+            let (header_len, total, opcode) =
+                try_parse_server_frame(&frame).expect("relay 帧必须是完整的 WS 帧");
+            assert_eq!(opcode, 0x1, "relay 帧必须是文本帧（RFC 6455）");
+            assert_eq!(total, frame.len(), "单条队列项不得夹带多帧或残余字节");
+            relayed
+                .push(serde_json::from_slice(&frame[header_len..total]).expect("relay 帧为 JSON"));
+        }
+        let chunk_frames: Vec<&serde_json::Value> = relayed
+            .iter()
+            .filter(|frame| frame["type"] == "llm.chunk")
+            .collect();
+        assert_eq!(chunk_frames.len(), 3, "三块正文必须逐块下发");
+        let relayed_text: String = chunk_frames
+            .iter()
+            .map(|frame| frame["delta"].as_str().unwrap_or_default())
+            .collect();
+        assert_eq!(
+            Some(relayed_text.as_str()),
+            intercept_value["text"].as_str(),
+            "逐块 relay 必须拼回与信封相同的正文"
+        );
+        for frame in &chunk_frames {
+            assert_eq!(frame["session"], SESSION);
+            assert_eq!(frame["request_id"], "R-REL-7");
+        }
+        assert!(
+            relayed.iter().all(|frame| frame["type"] != "llm.loss"),
+            "本用例无丢帧，不得出现 llm.loss"
+        );
+    }
+
+    /// 用例 8：三指标端到端——首帧 delta 延迟、turn 期间三路径响应码、`event_missing == 0`。
+    ///
+    /// 归档：设 `WHCODE_TURN_WS_RELAY_ARCHIVE=<目录>` 时把原始测量写成
+    /// `turn-ws-relay-e2e.json`（默认不写，测试不依赖环境变量，亦不污染工作树）；
+    /// 命令见 `artifacts/turn-ws-relay-2026-11-09/README.md`。
+    #[test]
+    fn turn_ws_relay_first_delta_busy_codes_and_event_missing() {
+        let steps = chunk_script(&["首", "次", "末"]);
+        // 工厂持锁 900 ms：足够完成 turn 期间的降级探测，又短于测试预算。
+        let security = relay_security(steps, Duration::from_millis(900));
+        clear_relay_markers(&["S-REL-8A", "S-REL-8B"], &["R-REL-8A", "R-REL-8B"]);
+        let server = spawn_loop_server_with(security);
+        whcode_store::create_session_with_id(&server.conn, "S-REL-8A", "指标", "active", 1_000)
+            .expect("创建会话 A");
+        whcode_store::create_session_with_id(&server.conn, "S-REL-8B", "取消", "active", 1_001)
+            .expect("创建会话 B");
+        let mut subscriber = ws_connect(server.addr);
+
+        // ── 指标 (a)：从发起到收到首个 llm.chunk 的毫秒数 ──
+        let body_a =
+            r#"{"session":"S-REL-8A","provider":"p","prompt":"三指标","request_id":"R-REL-8A"}"#;
+        let mut poster = TcpStream::connect(server.addr).expect("连接测试服务器");
+        poster
+            .set_read_timeout(Some(Duration::from_secs(20)))
+            .expect("读超时");
+        let started = Instant::now();
+        poster
+            .write_all(&llm_run_request(body_a))
+            .expect("写 turn 请求");
+
+        // ── 指标 (b)：turn 持锁窗口内的降级清单（ADR-058 §2.3／§3.1）──
+        // 判据：触库路径 503；首页返回**未注入业务数据**的外壳 200（静态模板不触库，
+        // §3.1 已写明“页面壳与静态资源仍可取”）；`/ws` 握手可达。
+        let api = wait_until_busy(server.addr, Duration::from_secs(10));
+        let home = http_probe(server.addr, "GET / HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
+        let ws_probe = ws_connect(server.addr); // 内部断言 101
+        drop(ws_probe);
+
+        // ── 指标 (a) 收数：首个 llm.chunk 到达时刻 ──
+        let mut frame_buf: Vec<u8> = Vec::new();
+        let mut chunk_frames: Vec<serde_json::Value> = Vec::new();
+        let mut first_delta = Duration::ZERO;
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while chunk_frames.len() < 3 {
+            let Some((_opcode, payload)) =
+                read_server_frame(&mut frame_buf, &mut subscriber, deadline)
+            else {
+                panic!("20 s 内未收满 3 个 delta 帧");
+            };
+            let frame: serde_json::Value = serde_json::from_slice(&payload).expect("帧为 JSON");
+            if frame["type"] == "llm.chunk" && frame["session"] == "S-REL-8A" {
+                if chunk_frames.is_empty() {
+                    first_delta = started.elapsed();
+                }
+                chunk_frames.push(frame);
+            }
+        }
+
+        // ── 指标 (b) 第三项：turn 进行中取消可达（第二个 turn 的睡眠窗口内探测）──
+        let body_b =
+            r#"{"session":"S-REL-8B","provider":"p","prompt":"取消可达","request_id":"R-REL-8B"}"#;
+        let mut poster_b = TcpStream::connect(server.addr).expect("连接测试服务器");
+        poster_b
+            .set_read_timeout(Some(Duration::from_secs(20)))
+            .expect("读超时");
+        poster_b
+            .write_all(&llm_run_request(body_b))
+            .expect("写第二个 turn 请求");
+        std::thread::sleep(Duration::from_millis(200));
+        let diag_body = r#"{"request_id":"R-REL-8B"}"#;
+        let diag_req = format!(
+            "POST /api/llm/cancel HTTP/1.1\r\nhost: 127.0.0.1\r\n\
+             content-type: application/json\r\ncontent-length: {}\r\n\r\n{diag_body}",
+            diag_body.len()
+        );
+        let diag_probe = http_probe(server.addr, &diag_req);
+        eprintln!("DIAG cancel-after-post: {}", diag_probe.0);
+        // 第二个 turn 的持锁窗口（同样以首页降级为判据）。
+        let busy_b = wait_until_busy(server.addr, Duration::from_secs(15));
+        assert_eq!(busy_b.0.split_whitespace().nth(1), Some("503"));
+        let cancel_body = r#"{"request_id":"R-REL-8B"}"#;
+        let cancel_request = format!(
+            "POST /api/llm/cancel HTTP/1.1\r\nhost: 127.0.0.1\r\n\
+             content-type: application/json\r\ncontent-length: {}\r\n\r\n{cancel_body}",
+            cancel_body.len()
+        );
+        // 可闭判据是“取消不被 busy 拒绝（不触库）”：app 层对**尚未登记**的调用返回
+        // `not_found`，而占槽与 `CancelMarker::begin` 之间有毫秒级窗口，故重试到受理为止；
+        // 任何一次 503 都记下来作为反证。
+        let cancel_deadline = Instant::now() + Duration::from_secs(5);
+        let mut cancel_attempts = 0u32;
+        let mut cancel_rejected_by_busy = false;
+        let cancel = loop {
+            cancel_attempts += 1;
+            let probe = http_probe(server.addr, &cancel_request);
+            let status = probe.0.split_whitespace().nth(1).unwrap_or("");
+            if status == "503" {
+                cancel_rejected_by_busy = true;
+            }
+            if status == "200" {
+                break probe;
+            }
+            assert!(
+                Instant::now() < cancel_deadline,
+                "turn 期间取消必须最终受理（第 {cancel_attempts} 次响应：{} {}）",
+                probe.0,
+                String::from_utf8_lossy(&probe.1)
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        assert!(
+            !cancel_rejected_by_busy,
+            "取消请求在 turn 期间被 busy 拒绝（判定：取消不触库、恒可达）：第 {cancel_attempts} 次受理"
+        );
+
+        // ── turn A 的完成信封（拦截路径 200 ＋ 同步信封）──
+        let (head_a, body_a) = read_http_response(&mut poster);
+        assert!(
+            head_a.starts_with("HTTP/1.1 200"),
+            "拦截路径必须 200：{head_a}"
+        );
+        let outcome_a: serde_json::Value = serde_json::from_slice(&body_a).expect("信封为 JSON");
+        assert_eq!(outcome_a["text"].as_str(), Some("首次末"));
+
+        // ── 指标 (c)：event_missing == 0（事件表条数 vs 订阅者实收帧数，逐 seq 对齐）──
+        let expected_seqs = {
+            let actor = actor_with_all_capabilities("tester");
+            let export = whcode_app::events_export(
+                &server.conn,
+                &whcode_app::DefaultPolicy,
+                &actor,
+                "S-REL-8A",
+                0,
+                500,
+                whcode_domain::TraceLevel::default(),
+            )
+            .expect("导出事件");
+            export
+                .events
+                .iter()
+                .map(|row| row.seq)
+                .collect::<Vec<i64>>()
+        };
+        let mut received_seqs: Vec<i64> = Vec::new();
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while received_seqs.len() < expected_seqs.len() && Instant::now() < deadline {
+            let Some((_opcode, payload)) =
+                read_server_frame(&mut frame_buf, &mut subscriber, deadline)
+            else {
+                break;
+            };
+            let frame: serde_json::Value = serde_json::from_slice(&payload).expect("帧为 JSON");
+            if frame.get("type").is_some() {
+                continue; // relay 帧不带 seq
+            }
+            if let Some(seq) = frame["seq"].as_i64() {
+                received_seqs.push(seq);
+            }
+        }
+        let event_missing = expected_seqs
+            .iter()
+            .filter(|seq| !received_seqs.contains(seq))
+            .count();
+
+        // ── 判定与归档 ──
+        let api_status = api.0.clone();
+        let home_status = home.0.clone();
+        let cancel_status = cancel.0.clone();
+        assert_eq!(
+            api_status.split_whitespace().nth(1),
+            Some("503"),
+            "turn 期间触库路径必须 503：{}",
+            api.0
+        );
+        let busy_envelope: serde_json::Value =
+            serde_json::from_slice(&api.1).expect("繁忙信封为 JSON");
+        assert_eq!(busy_envelope["code"], "backpressure");
+        assert_eq!(busy_envelope["retryable"], true);
+        assert!(api.2.contains("retry-after: 1"), "繁忙响应须带 Retry-After");
+        assert_eq!(
+            home_status.split_whitespace().nth(1),
+            Some("200"),
+            "首页外壳在 turn 期间仍可取（ADR-058 §3.1：页面壳与静态资源仍可取）：{}",
+            home.0
+        );
+        let home_body = String::from_utf8_lossy(&home.1).into_owned();
+        assert!(
+            home_body.contains("<!-- WHCODE_INITIAL_VIEW -->"),
+            "turn 期间首页不得注入业务数据（注入标记必须原样保留）"
+        );
+        assert!(
+            !home_body.contains("<li><code>"),
+            "turn 期间首页不得直出会话列表"
+        );
+        assert!(
+            !cancel_rejected_by_busy,
+            "turn 期间取消不得被 busy 拒绝（只有触库路径降级）"
+        );
+        assert_ne!(
+            cancel_status.split_whitespace().nth(1),
+            Some("503"),
+            "turn 期间取消必须可达（不触库）：{}",
+            cancel.0
+        );
+        assert_eq!(
+            cancel_status.split_whitespace().nth(1),
+            Some("200"),
+            "取消应正常受理：{} / {}",
+            cancel.0,
+            String::from_utf8_lossy(&cancel.1)
+        );
+        assert_eq!(event_missing, 0, "turn 结束后事件必须全部送达订阅者");
+        assert!(
+            first_delta >= Duration::from_millis(900),
+            "首帧 delta 不应早于工厂睡眠窗口：{first_delta:?}"
+        );
+        assert!(
+            first_delta <= Duration::from_secs(5),
+            "首帧 delta 延迟异常：{first_delta:?}"
+        );
+
+        let archive = serde_json::json!({
+            "adr": "ADR-058 §2.8.8 用例 8（三指标端到端）",
+            "os": std::env::consts::OS,
+            "arch": std::env::consts::ARCH,
+            "build": if cfg!(debug_assertions) { "debug" } else { "release" },
+            "command": "cargo test -p whcode-bin turn_ws_relay_first_delta_busy_codes_and_event_missing -- --nocapture",
+            "scenario": {
+                "provider": "stub",
+                "script_chunks": ["首", "次", "末"],
+                "factory_hold_ms": 900,
+                "subscriber": "GET /ws（WebSocket 订阅者）",
+            },
+            "measurements": {
+                "first_delta_ms": u64::try_from(first_delta.as_millis()).unwrap_or(u64::MAX),
+                "chunk_frames": chunk_frames.len(),
+                "loss_frames": 0,
+                "envelope_text": outcome_a["text"],
+                "probe_db_touching_status": api_status,
+                "probe_db_touching_code": busy_envelope["code"],
+                "probe_home_status": home_status,
+                "probe_home_injected": false,
+                "probe_cancel_status": cancel_status,
+                "probe_cancel_attempts": cancel_attempts,
+                "probe_ws_status": "HTTP/1.1 101（ws_connect 内断言）",
+                "events_expected": expected_seqs.len(),
+                "events_received": received_seqs.len(),
+                "event_missing": event_missing,
+            },
+            "verdict": {
+                "first_delta": "pass",
+                "busy_codes": "pass",
+                "event_missing_zero": "pass",
+            },
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&archive).expect("归档 JSON")
+        );
+        if std::env::var_os("WHCODE_TURN_WS_RELAY_ARCHIVE").is_some() {
+            write_relay_artifact("turn-ws-relay-e2e.json", &archive);
+        }
+    }
+
+    /// 用例 9：慢消费者变体——服务循环不排水导致有界通道满时，丢帧以 `llm.loss` 公开、
+    /// 计数正确，数据库事件表不丢事件（事件数与 seq 连续）。
+    ///
+    /// 生产路径照原样执行：`turn_intercept` spawn 的工作线程在**无排水**的情况下跑完整个
+    /// turn，`sync_channel(TURN_PROGRESS_CAPACITY)` 只能接住前 64 块，其余 `try_send`
+    /// 失败并逐一计数——丢帧数是确定值，不是统计推断。
+    #[test]
+    fn slow_consumer_loss_is_published_and_events_survive() {
+        const SESSION: &str = "S-REL-9";
+        const CHUNKS: usize = 70;
+        let chunks: Vec<String> = (0..CHUNKS).map(|index| format!("块{index}")).collect();
+        let steps = vec![whcode_llm::provider::StubStep {
+            chunks: chunks.clone(),
+            finish_reason: "stop".to_string(),
+            tool_calls: Vec::new(),
+        }];
+        let security = relay_security(steps, Duration::ZERO);
+        let actor = actor_with_all_capabilities("tester");
+        let turn_conn = Arc::new(Mutex::new(seeded_session(SESSION, "慢消费者")));
+        let body = format!(
+            r#"{{"session":"{SESSION}","provider":"p","prompt":"慢消费者","request_id":"R-REL-9"}}"#
+        );
+        let request = api::parse_request(&llm_run_request(&body)).expect("解析请求");
+        let slots = turn_slots();
+        let TurnIntercept::Pending(mut reply) =
+            turn_intercept(&turn_conn, &actor, &security, None, &request, &slots)
+        else {
+            panic!("LLM 已接线必须转入工作线程拦截");
+        };
+        let pending = reply.turn_pending.take().expect("通道组");
+        // 关键：先不排水，等工作线程把整轮块生产完（生产快于消费＝慢消费者）。
+        pending
+            .worker
+            .expect("worker")
+            .join()
+            .expect("工作线程结束");
+        assert_eq!(slots.load(Ordering::Acquire), 0, "worker 退出必须归还槽位");
+        let lost = pending.dropped.load(Ordering::Acquire);
+        assert_eq!(
+            lost,
+            (CHUNKS - TURN_PROGRESS_CAPACITY) as u64,
+            "超出通道容量的每一块都必须被计数（丢帧数确定）"
+        );
+
+        // 慢消费者就位：不读 socket 的订阅者；发起连接转入 TurnPending。
+        let mut state = BroadcastState::new();
+        let subscriber_id = state.register().expect("订阅者");
+        let (mut subscriber, mut peer) = client_pair();
+        subscriber.phase = Phase::Subscriber {
+            id: subscriber_id,
+            input: Vec::new(),
+            out: None,
+        };
+        let mut initiator = dummy_client();
+        initiator.phase = Phase::TurnPending {
+            session: pending.session,
+            request_id: pending.request_id,
+            progress: pending.progress,
+            done: pending.done,
+            worker: None,
+            dropped: pending.dropped,
+        };
+        let mut clients = [initiator, subscriber];
+        let mut progressed = false;
+        let mut relayed: Vec<serde_json::Value> = Vec::new();
+        let mut frame_buf: Vec<u8> = Vec::new();
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            drain_turn_pending(&mut clients, &mut state, &mut progressed);
+            // 正常读尽当前可读帧（不参与丢帧判定；丢帧由通道侧计数）。
+            let quiet = Instant::now() + Duration::from_millis(50);
+            while let Some((opcode, payload)) = read_server_frame(&mut frame_buf, &mut peer, quiet)
+            {
+                if opcode != 0x1 {
+                    continue; // 控制帧（ping/pong/close）不参与断言
+                }
+                match serde_json::from_slice(&payload) {
+                    Ok(frame) => relayed.push(frame),
+                    Err(err) => panic!(
+                        "帧为 JSON：opcode={opcode:#x} len={} bytes={payload:?}：{err}",
+                        payload.len()
+                    ),
+                }
+            }
+            if matches!(&clients[0].phase, Phase::Writing { .. }) {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "发起连接必须在 30 s 内收敛为响应写出"
+            );
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let Phase::Writing { buf, .. } = &clients[0].phase else {
+            unreachable!("上方循环条件已判定为 Writing");
+        };
+        let (head, body) = split_http_response(buf);
+        assert!(head.starts_with("HTTP/1.1 200"), "完成信封必须 200：{head}");
+        let outcome: serde_json::Value = serde_json::from_slice(&body).expect("信封为 JSON");
+
+        let chunk_frames: Vec<&serde_json::Value> = relayed
+            .iter()
+            .filter(|frame| frame["type"] == "llm.chunk")
+            .collect();
+        let loss_frames: Vec<&serde_json::Value> = relayed
+            .iter()
+            .filter(|frame| frame["type"] == "llm.loss")
+            .collect();
+        assert_eq!(
+            chunk_frames.len(),
+            TURN_PROGRESS_CAPACITY,
+            "通道容量内的块必须逐块送达"
+        );
+        assert_eq!(loss_frames.len(), 1, "丢帧必须以单条 llm.loss 公开");
+        assert_eq!(
+            loss_frames[0]["dropped"].as_u64(),
+            Some(lost),
+            "llm.loss 的计数必须等于实际丢弃数"
+        );
+        assert_eq!(loss_frames[0]["session"], SESSION);
+        assert_eq!(loss_frames[0]["request_id"], "R-REL-9");
+        assert_eq!(
+            chunk_frames.len() as u64 + lost,
+            CHUNKS as u64,
+            "守恒：送达帧 ＋ 丢弃数 = 本 turn 产出块数"
+        );
+        assert_eq!(
+            outcome["text"].as_str(),
+            Some(chunks.concat().as_str()),
+            "丢帧只影响 WS 呈现，不改变完成信封（I5）"
+        );
+
+        // 事件表不丢事件：每块一条 StreamingChunk，且 seq 连续无空洞。
+        let guard = turn_conn.lock().expect("连接锁");
+        let seqs = session_seqs(&guard, SESSION);
+        let message_seqs = session_message_seqs(&guard, SESSION);
+        let workspace_total: i64 = guard
+            .query_row("SELECT count(*) FROM events", [], |row| row.get(0))
+            .expect("全库事件计数");
+        let workspace_max: i64 = guard
+            .query_row("SELECT COALESCE(MAX(seq), 0) FROM events", [], |row| {
+                row.get(0)
+            })
+            .expect("全库最大 seq");
+        let streaming: i64 = guard
+            .query_row(
+                "SELECT count(*) FROM events WHERE session_id = ? AND kind = 'StreamingChunk'",
+                [SESSION],
+                |row| row.get(0),
+            )
+            .expect("计数 StreamingChunk");
+        drop(guard);
+        let total = seqs.len() as i64;
+        // 事件与消息共用同一序号池（`MAX(seq)+1` 分配，消息序号编码在 `MSG-<seq>`）：
+        // 两表合并后必须连续无空洞——已分配序号未落到任一表，就是丢行。
+        let mut combined: Vec<i64> = seqs.iter().chain(message_seqs.iter()).copied().collect();
+        combined.sort_unstable();
+        let contiguous = combined
+            .iter()
+            .enumerate()
+            .all(|(offset, seq)| *seq == offset as i64 + 1);
+        println!(
+            "用例 9 事件表：会话 {SESSION} 共 {total} 条事件（首 {:?} 末 {:?}）；消息序号 {message_seqs:?}；全库 {workspace_total} 条事件、最大 seq {workspace_max}；StreamingChunk {streaming} 条（产出块数 {CHUNKS}）",
+            seqs.first(),
+            seqs.last()
+        );
+        assert_eq!(
+            streaming, CHUNKS as i64,
+            "每个流式块必须落一条事件（丢帧不得丢事件）"
+        );
+        assert!(
+            total > streaming,
+            "事件总数必须包含流式块事件与 turn 生命周期事件"
+        );
+        assert_eq!(
+            message_seqs.len(),
+            2,
+            "本 turn 应落两条消息（user ＋ assistant）：{message_seqs:?}"
+        );
+        assert!(
+            contiguous,
+            "事件与消息合并后的序号必须连续无空洞（事件 seq {seqs:?}；消息序号 {message_seqs:?}）"
+        );
+    }
+
+    /// 用例 10：turn 前后线程与句柄差——turn 期间线程增量 ≤ 2，结束后回到基线。
+    ///
+    /// 口径与 `.github/scripts/benchmarks/measure-resources.py` 同源：进程快照取自
+    /// [`whcode_platform::process_stats`]（Windows 经 `Get-Process` 读取线程数/句柄数）。
+    /// 非 Windows 平台该函数返回结构化错误（不返回 0 伪装成功），此时显式打印“未取得”
+    /// 并跳过：验收目标为 Windows 11 amd64（ADR-013），不把未实现平台当作通过。
+    ///
+    /// 为什么单独执行：本二进制其余用例并行跑真实服务循环、客户端线程与套接字，进程级
+    /// 线程/句柄计数会被这些测试基建抬高，严格断言留在常规套件里会变成不稳定门禁。
+    /// 实验按仓库既有口径以显式命令运行并归档，见 `artifacts/turn-ws-relay-2026-11-09/`。
+    #[test]
+    #[ignore = "资源实验：须单独执行（并行用例会污染进程线程/句柄计数）：\
+                cargo test -p whcode-bin turn_resources -- --ignored --test-threads=1 --nocapture"]
+    fn turn_resources_return_to_baseline() {
+        let security = relay_security(chunk_script(&["资源"]), Duration::from_secs(4));
+        let actor = actor_with_all_capabilities("tester");
+        let turn_conn = Arc::new(Mutex::new(seeded_session("S-REL-10", "资源")));
+        clear_relay_markers(&["S-REL-10"], &["R-REL-10", "R-REL-10-WARM"]);
+        let body =
+            r#"{"session":"S-REL-10","provider":"p","prompt":"资源","request_id":"R-REL-10"}"#;
+        let request = api::parse_request(&llm_run_request(body)).expect("解析请求");
+        let slots = turn_slots();
+
+        // 预热：先跑一个不测量的 turn。DuckDB 线程池、工具注册表、取消目录等在首轮惰性
+        // 建立；不预热，基线会把“一次性初始化”记到被测 turn 头上，测到的就不是增量。
+        let warm_security = relay_security(chunk_script(&["预热"]), Duration::ZERO);
+        let warm_body =
+            r#"{"session":"S-REL-10","provider":"p","prompt":"预热","request_id":"R-REL-10-WARM"}"#;
+        let warm_request = api::parse_request(&llm_run_request(warm_body)).expect("解析预热请求");
+        let TurnIntercept::Pending(mut warm) = turn_intercept(
+            &turn_conn,
+            &actor,
+            &warm_security,
+            None,
+            &warm_request,
+            &slots,
+        ) else {
+            panic!("预热 turn 必须转入工作线程拦截");
+        };
+        warm.turn_pending
+            .take()
+            .expect("预热通道组")
+            .worker
+            .expect("预热 worker")
+            .join()
+            .expect("预热工作线程结束");
+        std::thread::sleep(Duration::from_millis(300));
+
+        let baseline = match whcode_platform::process_stats(std::process::id()) {
+            Ok(stats) => stats,
+            Err(err) => {
+                println!(
+                    "用例 10 未取得：进程资源读取不可用（{}）；验收目标 Windows 11 amd64",
+                    err.message
+                );
+                return;
+            }
+        };
+        let TurnIntercept::Pending(mut reply) =
+            turn_intercept(&turn_conn, &actor, &security, None, &request, &slots)
+        else {
+            panic!("LLM 已接线必须转入工作线程拦截");
+        };
+        let pending = reply.turn_pending.take().expect("通道组");
+        // 工作线程在工厂 hold 期间持锁睡眠：此窗口即“turn 进行中”。
+        let worker_deadline = Instant::now() + Duration::from_secs(5);
+        while slots.load(Ordering::Acquire) == 0 {
+            assert!(Instant::now() < worker_deadline, "工作线程未按时占用槽位");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let during = match whcode_platform::process_stats(std::process::id()) {
+            Ok(stats) => stats,
+            Err(err) => {
+                println!("用例 10 未取得（turn 期间采样失败）：{}", err.message);
+                let _ = pending.worker.map(std::thread::JoinHandle::join);
+                return;
+            }
+        };
+        pending
+            .worker
+            .expect("worker")
+            .join()
+            .expect("工作线程结束");
+        assert_eq!(slots.load(Ordering::Acquire), 0, "worker 退出必须归还槽位");
+        // 收敛后再采样：给线程退出与文件句柄释放留出余量。
+        std::thread::sleep(Duration::from_millis(200));
+        let after = match whcode_platform::process_stats(std::process::id()) {
+            Ok(stats) => stats,
+            Err(err) => {
+                println!("用例 10 未取得（结束后采样失败）：{}", err.message);
+                return;
+            }
+        };
+        println!(
+            "用例 10 原始测量：基线 线程 {} 句柄 {}；turn 中 线程 {} 句柄 {}；\
+             结束后 线程 {} 句柄 {}",
+            baseline.threads,
+            baseline.handles,
+            during.threads,
+            during.handles,
+            after.threads,
+            after.handles
+        );
+        let thread_delta = during.threads.saturating_sub(baseline.threads);
+        let archive = serde_json::json!({
+            "adr": "ADR-058 §2.8.8 用例 10（资源：线程与句柄差）",
+            "os": std::env::consts::OS,
+            "arch": std::env::consts::ARCH,
+            "build": if cfg!(debug_assertions) { "debug" } else { "release" },
+            "command": "cargo test -p whcode-bin turn_resources -- --ignored --test-threads=1 --nocapture",
+            "measurement_note": "口径修正（2026-11-09）：首次测量把 baseline 采在 relay_security／seeded_session 之前，DuckDB 线程池、TLS/HTTP 客户端与套接字的一次性装配被算进 turn 增量（旧读数：基线 2 线程／153 句柄、turn 中 82／236、结束 81／234，差 79—80）。修正后先完成装配并跑一个预热 turn，再采基线，使增量只归因于被测 turn 的 worker 线程与套接字；原始三组采样与判定照旧保留。",
+            "measurement_source": "whcode_platform::process_stats（Windows 经 Get-Process 读线程数/句柄数）",
+            "raw": {
+                "baseline": { "threads": baseline.threads, "handles": baseline.handles },
+                "during_turn": { "threads": during.threads, "handles": during.handles },
+                "after_turn": { "threads": after.threads, "handles": after.handles },
+            },
+            "derived": {
+                "thread_delta_during": thread_delta,
+                "thread_delta_after": after.threads as i64 - baseline.threads as i64,
+                "handle_delta_after": after.handles as i64 - baseline.handles as i64,
+            },
+            "verdict": {
+                "thread_delta_within_2": thread_delta <= 2,
+                "threads_back_to_baseline": after.threads <= baseline.threads,
+                "handles_not_increased": after.handles <= baseline.handles,
+            },
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&archive).expect("资源归档 JSON")
+        );
+        write_relay_artifact("turn-resources.json", &archive);
+        assert!(
+            thread_delta <= 2,
+            "turn 期间线程增量必须 ≤2（实际 {thread_delta}：基线 {} → turn 中 {}）",
+            baseline.threads,
+            during.threads
+        );
+        assert!(
+            after.threads <= baseline.threads,
+            "turn 结束后线程必须回到基线（不归零即失败）：基线 {} → 结束后 {}",
+            baseline.threads,
+            after.threads
+        );
+        assert!(
+            after.handles <= baseline.handles,
+            "turn 结束后句柄不得高于基线：基线 {} → 结束后 {}",
+            baseline.handles,
+            after.handles
+        );
     }
 }
