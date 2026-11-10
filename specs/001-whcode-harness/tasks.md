@@ -878,12 +878,30 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   `web_assembly_asks_for_shell_and_lets_stored_rules_win`）、`… config` 13/0；
   `cargo test --locked --workspace` 64 个测试二进制 exit 0；clippy／fmt 全绿。
   **Check 348／350 不勾**：两 Check 以双端为判据，GUI 段（T256）与设置页撤销入口未落地。
-- [ ] T258 [P] 批次 B4 GUI：子代理运行视图＋技能库浏览＋MCP 状态＋权限设置视图
+- [x] T258 [P] 批次 B4 GUI：子代理运行视图＋技能库浏览＋MCP 状态＋权限设置视图
   （FR-749/750/751）——**任务认知卡**：方向=高级能力面板 GUI 侧；目标=四面板可运行；
   判据=whcode-gui 测试＋对等矩阵登记同步；非目标=后端能力扩展
-- [ ] T259 [P] 批次 B4 Web：子代理/技能/MCP/权限设置页（FR-749/750/751）
+  ——**完成（2026-11-11）**：`s` 打开／关闭高级面板（侧栏入口同文案），取数只在准备阶段
+  （`ViewSource::panels`），turn 运行中冻结取数、仅允许关闭；四区＝子代理运行（状态／终止
+  原因／轮数／时长／产出摘要）、技能库（名称／描述／路径／引用缺失）、MCP（传输／配置态与
+  观测态／超时／输出上限／观测工具）、审批规则（列表＋撤销按钮）。文案 30 键随十三套目录
+  同批；状态码到词条的映射与 Web 同口径（`ok` 单列“最近一次调用成功”）。证据：
+  `cargo test -p whcode-gui --lib` 33/0（`panels_open_fetch_and_revoke_rule` 断言打开取数、
+  turn 中不取数、撤销经命令门面、Esc 关闭；`panel_texts_resolve_in_every_catalog` 断言
+  十三套无缺键）；`-p whcode-app --lib` 207/0（panels 5 项）；clippy／fmt 全绿。
+- [x] T259 [P] 批次 B4 Web：子代理/技能/MCP/权限设置页（FR-749/750/751）
   ——**任务认知卡**：方向=高级能力面板 Web 侧；目标=与 T258 同语义；判据=行为测试＋
   预算审计；非目标=后端能力扩展
+  ——**完成（2026-11-11）**：设置页新增四区（审批规则列表／手写／撤销，子代理、技能库、
+  MCP 只读）；端点 `GET /api/approvals/rules`、`POST /api/approvals/rules`、
+  `POST /api/approvals/rules/revoke`、`GET /api/subagents|skills|mcp`——全部先过认证与
+  Origin 守卫，turn 期间走 `busy_or_static` 503；规则写入／撤销走应用门面（能力检查＋
+  `permission_change` 审计，审计失败阻断），`ask` 不持久化。证据：
+  `cargo test -p whcode-bin --bin whcode` 107/0（`approval_rules_routes_list_set_and_revoke`
+  覆盖空列表／写入／`ask` 400／撤销幂等，`panels_routes_report_explicit_empty_and_reject_blank_session`
+  覆盖空态、未配置显式 false、空白会话 400）；`-p whcode-web --lib` 72/0（`settings_page_ships_approval_rule_management`、
+  `settings_page_ships_readonly_panels`）；前端预算 settings JS gzip 7811 B、CSS 2638 B、
+  DOM 134；clippy／fmt 全绿。
 - [ ] T260 [P] 批次 B5：`view.diff` 对齐 ZCode 形态（FR-605/624 增强；视觉口径按
   ADR-057）——**任务认知卡**：方向=diff 呈现对齐；目标=双端 diff 形态与 domain-M2
   勘察一致；判据=行为测试＋形态对照；非目标=diff 数据面扩展

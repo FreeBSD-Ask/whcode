@@ -13,6 +13,21 @@
 
 ### 变更
 
+- **B4 高级面板与审批规则设置（T258／T259，FR-749—751，2026-11-11）**：新增 `whcode-app::panels`
+  只读数据门面（技能库扫描＋可达性、MCP 配置态＋最近事件窗口观测、子代理开始/结束事件配对、
+  审批规则视图；各行有上限常量，缺失配置显式为“正确的空”）。GUI 以 `s` 打开高级面板（取数只在
+  准备阶段；turn 运行中冻结取数、仅允许关闭），四区＝子代理运行／技能库／MCP／审批规则，
+  规则行可撤销（经 `FrontendCommand::ApprovalRuleRevoke` 命令门面）。Web 设置页新增四区与端点
+  `GET /api/approvals/rules`、`POST /api/approvals/rules`、`POST /api/approvals/rules/revoke`、
+  `GET /api/subagents|skills|mcp`——认证与 Origin 前置、turn 期间随 `busy_or_static` 503；本地
+  规则只存 `allow`／`deny`（`ask` 不可持久化），写入/撤销走能力检查＋`permission_change` 审计
+  （审计失败阻断）。子代理事件新增 `exec_id`／`output_summary`／`duration_ms` 字段，GUI 与 Web
+  状态码到词条映射同口径。文案 40 键随十三套目录同批（审批规则 10＋高级面板 30）；PO 同步。
+  能力白名单扩至 13（`approval.rule.read`／`approval.rule.write`），能力面登记 6 行并入
+  `feature-parity.md` 与 Web 路由映射。证据：`whcode-app --lib` 207/0、`whcode-gui --lib` 33/0、
+  `whcode-web --lib` 72/0、`whcode-bin --bin whcode` 107/0（新增规则路由与面板路由测试各 1）、
+  前端预算 settings JS gzip 7811 B／CSS 2638 B／DOM 134；Check 350／354／355／356 取证转勾。
+
 - **临时构建物与缓存清理加强（2026-11-10）**：`clean.py` 的 `target` 范围扩到
   `git worktree list` 登记的每个工作树（原先只清仓库根，单棵验证工作树可达 15 GiB）；
   新增 `cache`（仓库内 `__pycache__`／`*.pyc`）与 `download`（`local/` 下载缓存与旧发布目录：
