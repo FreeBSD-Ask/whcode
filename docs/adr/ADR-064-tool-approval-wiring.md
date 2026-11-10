@@ -241,5 +241,11 @@ ADR-060 §2.2 的“A 的接线冻结”**只在本 ADR 决策 1—6 的范围�
     范围默认 → 内置 shell=ask（可选） → 配置覆盖 → 本地已存规则（后者优先）。
   - 新增能力 `approval.rule.read`／`approval.rule.write` 与 `app::approval_rules`
     门面（设置页用），变更写 `permission_change` 审计。
-  - 未闭环（B3b UI 批次）：GUI／Web 工具卡与四态按钮、`[approval]` 配置与交互应答面的
-    装配接线、设置页入口；T256／T257 与 Check 348／350 保持未勾。
+  - **装配接线（F3 的 Web 段）**：`serve_web` 启动时按“配置 → 本地已存规则”构造策略
+    （内置 `shell = ask` 留待四态按钮落地后启用，避免用户没有可点的应答面）；
+    turn 工作线程改用 `run_turn_with_approval`，闸门经 `authorize_with_conn` 用 turn
+    自身连接写审计与规则（DuckDB 连接不可跨线程共享）；`InteractiveApprovals`
+    （Mutex + Condvar，不建线程）承载人机应答；`GET /api/approvals/pending` 与
+    `POST /api/approvals/decide` 不触库，turn 期间仍可达。
+  - 未闭环（B3b UI 批次）：GUI／Web 工具卡与四态按钮、设置页入口；T256／T257 与
+    Check 348／350 保持未勾。

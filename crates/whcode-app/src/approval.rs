@@ -277,6 +277,137 @@ impl ApprovalRuleWriter for StoreRuleWriter<'_> {
     }
 }
 
+/// 人机应答面：待审批请求表 + 应答投递（T256／T257／FR-745）。
+///
+/// turn 工作线程在 [`ApprovalAnswerer::answer`] 里**阻塞等待**（不新建线程），
+/// GUI 事件循环／serve 循环线程调用 [`Self::decide`] 投递四态答案并唤醒。
+/// 表有界（[`MAX_PENDING_APPROVALS`]）；超预算未答＝`Ok(None)`（映射为 `unavailable`）。
+pub struct InteractiveApprovals {
+    state: std::sync::Mutex<InteractiveState>,
+    ready: std::sync::Condvar,
+    capacity: usize,
+}
+
+#[derive(Debug, Default)]
+struct InteractiveState {
+    pending: BTreeMap<String, ApprovalRequest>,
+    answers: BTreeMap<String, ApprovalAnswer>,
+}
+
+impl InteractiveApprovals {
+    /// 以默认上限（[`MAX_PENDING_APPROVALS`]）构造。
+    #[must_use]
+    pub fn new() -> Self {
+        Self::with_capacity(MAX_PENDING_APPROVALS)
+    }
+
+    /// 以显式上限构造；`0` 按 1 收口（容量为零的应答面没有意义）。
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            state: std::sync::Mutex::new(InteractiveState::default()),
+            ready: std::sync::Condvar::new(),
+            capacity: capacity.max(1),
+        }
+    }
+
+    /// 当前待审批请求快照（按请求 id 升序；UI 展示用）。
+    #[must_use]
+    pub fn pending(&self) -> Vec<ApprovalRequest> {
+        match self.state.lock() {
+            Ok(state) => state.pending.values().cloned().collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    /// 待审批数量。
+    #[must_use]
+    pub fn pending_len(&self) -> usize {
+        self.state
+            .lock()
+            .map(|state| state.pending.len())
+            .unwrap_or(0)
+    }
+
+    /// 投递一个四态答案；请求不存在或已结算返回 `not_found`。
+    ///
+    /// # Errors
+    ///
+    /// 未知请求 id；锁中毒。
+    pub fn decide(&self, request_id: &str, answer: ApprovalAnswer) -> Result<(), WhError> {
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| WhError::internal("审批应答面锁中毒"))?;
+        if !state.pending.contains_key(request_id) {
+            return Err(WhError::new(ErrorCode::NotFound, "审批请求不存在或已结算"));
+        }
+        state.answers.insert(request_id.to_string(), answer);
+        self.ready.notify_all();
+        Ok(())
+    }
+
+    /// 系统侧撤回全部待审批（会话取消／进程收尾）：等待方按 `unavailable` 结算。
+    pub fn cancel_all(&self) {
+        if let Ok(mut state) = self.state.lock() {
+            state.pending.clear();
+            state.answers.clear();
+            self.ready.notify_all();
+        }
+    }
+}
+
+impl Default for InteractiveApprovals {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ApprovalAnswerer for InteractiveApprovals {
+    fn answer(
+        &self,
+        request: &ApprovalRequest,
+        budget_ms: u64,
+    ) -> Result<Option<ApprovalAnswer>, WhError> {
+        let budget = Duration::from_millis(budget_ms.max(1));
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| WhError::internal("审批应答面锁中毒"))?;
+        if state.pending.len() >= self.capacity {
+            return Err(WhError::new(
+                ErrorCode::Backpressure,
+                format!("待审批请求已达上限 {}；请先处理现有请求", self.capacity),
+            ));
+        }
+        if state.pending.contains_key(&request.id) {
+            return Err(WhError::invalid_state("审批请求 id 重复"));
+        }
+        state.pending.insert(request.id.clone(), request.clone());
+        let deadline = Instant::now() + budget;
+        loop {
+            if let Some(answer) = state.answers.remove(&request.id) {
+                state.pending.remove(&request.id);
+                return Ok(Some(answer));
+            }
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                state.pending.remove(&request.id);
+                return Ok(None);
+            }
+            let (next, timeout) = self
+                .ready
+                .wait_timeout(state, remaining)
+                .map_err(|_| WhError::internal("审批应答面锁中毒"))?;
+            state = next;
+            if timeout.timed_out() && !state.answers.contains_key(&request.id) {
+                state.pending.remove(&request.id);
+                return Ok(None);
+            }
+        }
+    }
+}
+
 /// 工具级审批规则解析（per-tool 覆盖 + 按副作用范围默认；ADR-064 决策 2）。
 ///
 /// 解析顺序：per-tool 覆盖 > 副作用范围默认。默认值 [`Default`] 为**全部 `allow`**，
@@ -412,9 +543,11 @@ impl ApprovalDecision {
 /// 审计写入失败时状态不推进（沿用 T264 口径：审计失败阻断执行）。
 pub struct ApprovalGate<'a> {
     policy: ApprovalPolicy,
-    sink: &'a dyn AuditSink,
+    sink: Option<&'a dyn AuditSink>,
     answerer: Option<&'a dyn ApprovalAnswerer>,
     rule_writer: Option<&'a dyn ApprovalRuleWriter>,
+    /// true＝审计与规则写入走调用方传入的工作区连接（生产路径）；false＝走注入的端口（测试）。
+    store_backed: bool,
     broker: ApprovalBroker,
     wait_ms: u64,
     /// 本回合已被“批准（回合）”放行的工具：不再询问，也不重复落审批审计。
@@ -435,9 +568,33 @@ impl<'a> ApprovalGate<'a> {
     ) -> Self {
         Self {
             policy,
-            sink,
+            sink: Some(sink),
             answerer,
             rule_writer: None,
+            store_backed: false,
+            broker: ApprovalBroker::new(actor),
+            wait_ms: wait_ms.clamp(1, MAX_APPROVAL_WAIT_MS),
+            turn_allowed: BTreeSet::new(),
+        }
+    }
+
+    /// 生产装配：审计与规则写入直接用 turn 自身的连接（`authorize_with_conn`）。
+    ///
+    /// 原因：DuckDB 连接不可跨线程共享，而 turn 在整段执行期持有 `&mut Connection`；
+    /// 若另建连接写审计会破坏单写者纪律。故生产路径把连接按次传入，测试路径仍用端口。
+    #[must_use]
+    pub fn for_store(
+        actor: impl Into<String>,
+        policy: ApprovalPolicy,
+        answerer: Option<&'a dyn ApprovalAnswerer>,
+        wait_ms: u64,
+    ) -> Self {
+        Self {
+            policy,
+            sink: None,
+            answerer,
+            rule_writer: None,
+            store_backed: true,
             broker: ApprovalBroker::new(actor),
             wait_ms: wait_ms.clamp(1, MAX_APPROVAL_WAIT_MS),
             turn_allowed: BTreeSet::new(),
@@ -488,6 +645,54 @@ impl<'a> ApprovalGate<'a> {
         scope: SideEffectScope,
         now_ms: u64,
     ) -> Result<ApprovalDecision, WhError> {
+        self.authorize_impl(None, exec_id, tool, scope, now_ms)
+    }
+
+    /// 生产路径：审计与规则写入使用 turn 自身的工作区连接（见 [`Self::for_store`]）。
+    ///
+    /// # Errors
+    ///
+    /// 同 [`Self::authorize`]；`for_store` 闸门未传连接时返回 `invalid_state`。
+    pub fn authorize_with_conn(
+        &mut self,
+        conn: &duckdb::Connection,
+        exec_id: &str,
+        tool: &str,
+        scope: SideEffectScope,
+        now_ms: u64,
+    ) -> Result<ApprovalDecision, WhError> {
+        self.authorize_impl(Some(conn), exec_id, tool, scope, now_ms)
+    }
+
+    fn authorize_impl(
+        &mut self,
+        conn: Option<&duckdb::Connection>,
+        exec_id: &str,
+        tool: &str,
+        scope: SideEffectScope,
+        now_ms: u64,
+    ) -> Result<ApprovalDecision, WhError> {
+        let store_sink = if self.store_backed {
+            Some(StoreAuditSink::new(conn.ok_or_else(|| {
+                WhError::invalid_state("生产审批闸门必须传入工作区连接（审计不得旁路）")
+            })?))
+        } else {
+            None
+        };
+        let sink: &dyn AuditSink = match (&store_sink, self.sink) {
+            (Some(store), _) => store,
+            (None, Some(injected)) => injected,
+            (None, None) => {
+                return Err(WhError::invalid_state(
+                    "审批闸门未注入审计端口（测试路径）也未启用工作区连接（生产路径）",
+                ));
+            }
+        };
+        let store_writer = conn.filter(|_| self.store_backed).map(StoreRuleWriter::new);
+        let writer: Option<&dyn ApprovalRuleWriter> = match (&store_writer, self.rule_writer) {
+            (Some(store), _) => Some(store),
+            (None, injected) => injected,
+        };
         let rule = self.policy.rule_for(tool, scope);
         // “回合批准”只影响本回合的同一工具：不再询问，也不重复落审批审计
         // （真正的人工决定已在第一次请求里成对留痕）。
@@ -504,9 +709,9 @@ impl<'a> ApprovalGate<'a> {
             ApprovalRule::Deny => Some("规则 deny：该工具调用直接拒绝（不询问）".to_string()),
             _ => Some("规则 ask：该工具调用需要人工确认".to_string()),
         };
-        let request =
-            self.broker
-                .request(self.sink, exec_id, tool, rule, display_reason, now_ms)?;
+        let request = self
+            .broker
+            .request(sink, exec_id, tool, rule, display_reason, now_ms)?;
         let (answer, note) = match rule {
             ApprovalRule::Deny => (None, Some("rule_deny".to_string())),
             _ => self.ask(&request),
@@ -514,7 +719,7 @@ impl<'a> ApprovalGate<'a> {
         // 记住规则：在**执行线程**、登记与执行之前落库；失败阻断执行（无法留痕的授权
         // 不得发生，ADR-064 审计口径）。未注入存储端口时，记住类应答按不可用处理。
         if let Some(remembered) = answer.and_then(ApprovalAnswer::remembered_rule) {
-            let writer = self.rule_writer.ok_or_else(|| {
+            let writer = writer.ok_or_else(|| {
                 WhError::invalid_state(
                     "规则存储未接线：记住规则不可用（本次调用未执行，不得视为已允许）",
                 )
@@ -523,7 +728,7 @@ impl<'a> ApprovalGate<'a> {
         }
         let outcome = self
             .broker
-            .decide(self.sink, &request.id, answer, note, now_ms)?;
+            .decide(sink, &request.id, answer, note, now_ms)?;
         if outcome.is_allowed() && answer.is_some_and(ApprovalAnswer::is_turn_scope) {
             self.turn_allowed.insert(tool.to_string());
         }
@@ -1182,6 +1387,62 @@ mod tests {
     }
 
     #[test]
+    fn store_backed_gate_writes_audit_and_remembered_rule_to_workspace() {
+        let conn = duckdb::Connection::open_in_memory().expect("内存数据库");
+        whcode_store::apply_migrations(&conn).expect("迁移");
+        let answerer = FixedAnswerer(Some(ApprovalAnswer::ApproveRemember));
+        let mut gate = ApprovalGate::for_store(
+            "S-1",
+            policy_with("shell", ApprovalRule::Ask),
+            Some(&answerer),
+            1_000,
+        );
+        let decision = gate
+            .authorize_with_conn(
+                &conn,
+                "TX-STORE",
+                "shell",
+                SideEffectScope::WorkspaceWrite,
+                7,
+            )
+            .expect("生产路径判定");
+        assert!(decision.is_allowed());
+        // 审计落表：asked + decided 成对。
+        let asked: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM audit WHERE action = 'approval_asked'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("计数");
+        let decided: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM audit WHERE action = 'approval_decided'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("计数");
+        assert_eq!((asked, decided), (1, 1));
+        // 记住规则落表。
+        let rule: String = conn
+            .query_row(
+                "SELECT rule FROM approval_rules WHERE tool = 'shell'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("规则行");
+        assert_eq!(rule, "allow");
+
+        // 未传连接的 store 闸门必须报错，而不是静默跳过审计。
+        let mut gate =
+            ApprovalGate::for_store("S-1", policy_with("shell", ApprovalRule::Deny), None, 1_000);
+        assert!(
+            gate.authorize("TX-NO-CONN", "shell", SideEffectScope::WorkspaceWrite, 8)
+                .is_err()
+        );
+    }
+
+    #[test]
     fn audit_failure_blocks_authorization() {
         let sink = FailingSink;
         let mut gate = ApprovalGate::new(
@@ -1210,5 +1471,52 @@ mod tests {
             gate.authorize("TX-G", "shell", SideEffectScope::WorkspaceWrite, 1)
                 .is_ok()
         );
+    }
+
+    #[test]
+    fn interactive_approvals_deliver_answer_timeout_and_bound() {
+        use std::sync::Arc;
+
+        let approvals = Arc::new(InteractiveApprovals::with_capacity(1));
+        let request =
+            ApprovalRequest::new("AR-1", "TX-1", "shell", "S-1", ApprovalRule::Ask, None, 1)
+                .expect("请求");
+        let waiter = {
+            let approvals = Arc::clone(&approvals);
+            let request = request.clone();
+            std::thread::spawn(move || approvals.answer(&request, 5_000))
+        };
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while approvals.pending_len() == 0 {
+            assert!(Instant::now() < deadline, "等待方未登记请求");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        // 容量已满：第二个请求被 backpressure（有界，不静默排队）。
+        let second =
+            ApprovalRequest::new("AR-2", "TX-2", "shell", "S-1", ApprovalRule::Ask, None, 2)
+                .expect("请求");
+        assert_eq!(
+            approvals.answer(&second, 100).expect_err("容量已满").code,
+            ErrorCode::Backpressure
+        );
+        approvals
+            .decide("AR-1", ApprovalAnswer::ApproveTurn)
+            .expect("投递");
+        assert_eq!(
+            waiter.join().expect("等待线程").expect("应答结果"),
+            Some(ApprovalAnswer::ApproveTurn)
+        );
+        assert_eq!(approvals.pending_len(), 0);
+        assert_eq!(
+            approvals
+                .decide("AR-404", ApprovalAnswer::Approve)
+                .expect_err("未知请求")
+                .code,
+            ErrorCode::NotFound
+        );
+
+        // 超预算：无人作答返回 None（映射 unavailable），且请求从表中移除。
+        assert_eq!(approvals.answer(&second, 50).expect("超时"), None);
+        assert_eq!(approvals.pending_len(), 0);
     }
 }

@@ -22,8 +22,11 @@
   `AuditSink` 去掉 `Send + Sync` 约束（同步单线程，可持 DuckDB 连接）。新增
   `approval.rule.read|write` 能力与设置页门面，变更写 `permission_change` 审计；
   `with_builtin_destructive_ask` 提供“仅 shell 默认 ask”，待交互面装配启用。
-  未闭环：GUI／Web 工具卡与四态按钮、`[approval]` 装配接线、设置页入口（T256／T257
-  与 Check 348／350 保持未勾）。
+  **Web 装配已接线**：`serve --web` 按“配置 → 本地已存规则”构造策略（内置 shell=ask
+  等四态按钮落地后再启用）；turn 工作线程经 `run_turn_with_approval` +
+  `authorize_with_conn` 用自身连接写审计与规则；`GET /api/approvals/pending`／
+  `POST /api/approvals/decide` 不触库、turn 期间可达。
+  未闭环：GUI／Web 工具卡与四态按钮、设置页入口（T256／T257 与 Check 348／350 保持未勾）。
 
 - **界面文案代理审校第二批（hi／bn 术语对齐，2026-11-09）**：机械扫描发现 hi／bn
   目录大量界面词仍以英文概念词出现（`session`／`task`／`database`／`runtime`／
@@ -51,8 +54,9 @@
   判据固定为 `/api/sessions`。用例 8 三指标实测：首帧 delta 1006 ms、触库路径 503
   `backpressure`＋`Retry-After: 1`、`/api/llm/cancel` 200、`/ws` 101、`event_missing` 0；
   资源实验 turn 期间线程 +1、结束后回基线、句柄不增长；归档
-  `artifacts/turn-ws-relay-2026-11-09/`。用例 11 按缺口登记（回退树无工厂注入缝隙），
-  T251／Check 347 的勾选仍待 CI 绿灯（ADR-037）。
+  `artifacts/turn-ws-relay-2026-11-09/`。用例 11 按缺口登记（回退树无工厂注入缝隙）。
+  **CI run `42680588379`（commit `239eeb6`）全平台 success，T251／Check 347 已转勾**；
+  前两次红是测试时序假设（第二个 turn 被并发槽位 503 拒绝后仍等持锁），已修，非产品缺陷。
 
 - **工具级交互审批接线（T255／FR-744／Check 349，ADR-064，2026-11-09）**：审批闸门接入
   `execute_tool_call`（参数校验后、三步登记前），FR-744 从类型证据变为行为证据。规则解析

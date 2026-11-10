@@ -268,6 +268,16 @@ struct ServeSecurity {
     /// Arc：turn 工作线程（ADR-058）只捕获本字段，避免 `ServeSecurity` 整体跨线程
     /// （证书探针等字段无须满足 Send/Sync）。
     llm: Arc<ServeLlm>,
+    /// 审批面（T257／FR-745）：策略、等待预算与共享应答表。
+    approvals: Arc<ServeApprovals>,
+}
+
+/// Web 审批面装配：策略在启动时解析一次（配置 → 内置 shell=ask → 本地已存规则），
+/// 应答表由 turn 工作线程与循环线程共享（`Mutex` + `Condvar`，不额外建线程）。
+struct ServeApprovals {
+    policy: whcode_app::approval::ApprovalPolicy,
+    wait_ms: u64,
+    answers: whcode_app::approval::InteractiveApprovals,
 }
 
 /// 证书设置面装配（T190、ADR-040 决策 4）：证书库路径、出站探针与本次会话的重启标记。
@@ -299,6 +309,12 @@ impl ServeSecurity {
                 factory: Arc::new(crate::llm_provider::LocalProviderFactory::default()),
                 cancel_dir: whcode_app::llm::cancel_dir_from_env(),
             }),
+            approvals: Arc::new(ServeApprovals {
+                // 测试装配默认全 allow：既有用例行为不变；需要审批的用例显式注入策略。
+                policy: whcode_app::approval::ApprovalPolicy::default(),
+                wait_ms: whcode_app::approval::DEFAULT_APPROVAL_WAIT_MS,
+                answers: whcode_app::approval::InteractiveApprovals::new(),
+            }),
         }
     }
 }
@@ -322,6 +338,20 @@ fn serve_web(
     // 顺序处理请求，不存在并发共享（ADR-002）。
     let conn = workspace::open_workspace_db(workspace, config)?;
     let actor = actor_with_all_capabilities("web-local");
+    // 审批面（T257／FR-745）：配置 → 本地已存规则（后者优先）。
+    // 内置 `shell = ask` 要等 Web 四态按钮落地后再启用（否则用户没有可点的应答面，
+    // shell 会等满预算变 unavailable）；B3b UI 批次切换为 `to_policy_interactive()`。
+    // 已存规则读失败不得静默降级为“无规则”（那等于放宽权限），启动即失败。
+    let stored_rules = whcode_store::approval_rules::list_rules(&conn)?;
+    let approval_policy = config
+        .approval
+        .to_policy()?
+        .with_stored_rules(stored_rules.into_iter().map(|row| (row.tool, row.rule)))?;
+    let approvals = Arc::new(ServeApprovals {
+        policy: approval_policy,
+        wait_ms: config.approval.wait_ms,
+        answers: whcode_app::approval::InteractiveApprovals::new(),
+    });
 
     let addr_text = bind_addr
         .unwrap_or(whcode_web::bind::DEFAULT_BIND)
@@ -446,6 +476,7 @@ fn serve_web(
         // LLM 面（T167）：启动时解析剖面与出站信任（不做网络请求；无剖面即无请求）。
         // Arc：turn 工作线程（ADR-058）跨线程借用，ServeLlm 本体不随安全配置整体跨线程。
         llm: Arc::new(ServeLlm::from_env(workspace)?),
+        approvals,
     };
     serve_loop(
         listener,
@@ -1665,6 +1696,20 @@ fn respond(
         Ok(request) => request,
         Err(_) => return Reply::plain(HttpResponse::text(400, "bad request")),
     };
+    // 审批面（T257／FR-745）：认证与 Origin 先行，随后直接应答（不触库）。
+    let route_path = request
+        .path
+        .split('?')
+        .next()
+        .unwrap_or(request.path.as_str());
+    if route_path == "/api/approvals/pending" || route_path == "/api/approvals/decide" {
+        if let Err(error) = check_request_guards(security, &request) {
+            return Reply::plain(api::error_response(&error));
+        }
+        if let Some(reply) = approval_route(&request, security) {
+            return reply;
+        }
+    }
     // 认证与 Origin 必须先于 turn 拦截（P0 安全修复，ADR-023）：拦截分支会写库并消耗
     // LLM 凭据，而 `api::handle_request_with_llm` 的守卫在其路由内部——不前置就存在
     // “启用认证仍能触发 turn”的绕过。判据与 api 路由同源、错误信封同一（不自造文案），
@@ -1891,6 +1936,7 @@ fn turn_intercept(
     let slot = Arc::clone(active_turns);
     let conn = Arc::clone(turn_conn);
     let llm = Arc::clone(&security.llm);
+    let approvals = Arc::clone(&security.approvals);
     let actor = actor.clone();
     let session = turn_request.session_id.clone();
     let request_id = turn_request.request_id.clone();
@@ -1906,8 +1952,17 @@ fn turn_intercept(
             }
             let _slot = SlotGuard(slot);
             let llm = llm.context();
-            let outcome = whcode_app::turn::run_turn_with_progress(
-                &mut conn.lock().expect("store 连接锁中毒"),
+            let mut connection = conn.lock().expect("store 连接锁中毒");
+            // 审批闸门（T257／FR-745）：审计与“记住规则”直接写 turn 自身的连接
+            // （DuckDB 连接不可跨线程共享）；应答表由循环线程投递。
+            let mut gate = whcode_app::approval::ApprovalGate::for_store(
+                actor.id.clone(),
+                approvals.policy.clone(),
+                Some(&approvals.answers),
+                approvals.wait_ms,
+            );
+            let outcome = whcode_app::turn::run_turn_with_approval(
+                &mut connection,
                 &DefaultPolicy,
                 &actor,
                 &llm,
@@ -1920,6 +1975,7 @@ fn turn_intercept(
                         worker_dropped.fetch_add(1, Ordering::Relaxed);
                     }
                 }),
+                &mut gate,
                 serve_now_ms(),
             );
             let _ = done_tx.send(outcome);
@@ -1942,6 +1998,55 @@ fn turn_intercept(
     })
 }
 
+/// 审批面路由（T257／FR-745）：不触库，turn 期间仍可达（与 `/api/llm/cancel` 同口径）。
+///
+/// 调用方必须先做认证与 Origin 校验（本函数只处理已授权的请求）。
+fn approval_route(request: &api::HttpRequest, security: &ServeSecurity) -> Option<Reply> {
+    let path = request
+        .path
+        .split('?')
+        .next()
+        .unwrap_or(request.path.as_str());
+    if request.method == Method::Get && path == "/api/approvals/pending" {
+        let requests: Vec<serde_json::Value> = security
+            .approvals
+            .answers
+            .pending()
+            .into_iter()
+            .map(|request| {
+                serde_json::json!({
+                    "id": request.id,
+                    "exec_id": request.exec_id,
+                    "tool": request.tool,
+                    "rule": request.rule.as_str(),
+                    "display_reason": request.display_reason,
+                    "created_at_ms": request.created_at_ms,
+                })
+            })
+            .collect();
+        return Some(Reply::plain(HttpResponse::json(
+            200,
+            &serde_json::json!({ "requests": requests }),
+        )));
+    }
+    if request.method == Method::Post && path == "/api/approvals/decide" {
+        let result = (|| -> Result<serde_json::Value, WhError> {
+            let body = api::json_body(request)?;
+            let request_id = api::body_str(&body, "request_id")?;
+            let raw = api::body_str(&body, "answer")?;
+            let answer = whcode_domain::approval::ApprovalAnswer::parse(raw)
+                .ok_or_else(|| WhError::parse_error("未知的审批答案（四态之外的值一律拒绝）"))?;
+            security.approvals.answers.decide(request_id, answer)?;
+            Ok(serde_json::json!({ "status": "ok" }))
+        })();
+        return Some(match result {
+            Ok(value) => Reply::plain(HttpResponse::json(200, &value)),
+            Err(error) => Reply::plain(api::error_response(&error)),
+        });
+    }
+    None
+}
+
 /// turn 工作线程持锁时的降级响应（ADR-058 §2.3 确定性清单）：静态资产照常
 /// （不触库）；`/ws` 握手与 `/api/llm/cancel` 仍可达——两者不触库，且取消必须在
 /// turn 期间可用（FR-723）；其余请求 503 `backpressure`＋`Retry-After`，
@@ -1955,6 +2060,15 @@ fn busy_or_static(raw: &[u8], security: &ServeSecurity, actor: &whcode_app::Acto
         .split('?')
         .next()
         .unwrap_or(request.path.as_str());
+    // 审批面不触库：turn 期间必须可达，否则“需要人确认”会与“忙时不可达”互相死锁。
+    if path == "/api/approvals/pending" || path == "/api/approvals/decide" {
+        if let Err(error) = check_request_guards(security, &request) {
+            return Reply::plain(api::error_response(&error));
+        }
+        if let Some(reply) = approval_route(&request, security) {
+            return reply;
+        }
+    }
     if request.method == Method::Get {
         if let Some((content_type, body)) = assets::static_asset(path) {
             return Reply::plain(HttpResponse {
@@ -2155,8 +2269,8 @@ mod tests {
 
     use super::{
         BroadcastState, Client, INITIAL_SESSION_LIMIT, MAX_ACTIVE_TURNS, MAX_CLIENTS, Phase, Reply,
-        ServeCerts, ServeCli, ServeSecurity, TURN_PROGRESS_CAPACITY, TurnIntercept, accept_ready,
-        busy_or_static, drain_turn_pending, find_subsequence, header_content_length,
+        ServeApprovals, ServeCerts, ServeCli, ServeSecurity, TURN_PROGRESS_CAPACITY, TurnIntercept,
+        accept_ready, busy_or_static, drain_turn_pending, find_subsequence, header_content_length,
         origin_allowlist, prepare_tls, reason, resolve_inbound_mode, respond, serve_loop,
         serve_ssh, turn_intercept, turn_stream_frames,
     };
@@ -5042,5 +5156,82 @@ mod tests {
             baseline.handles,
             after.handles
         );
+    }
+
+    #[test]
+    fn approval_routes_list_and_decide_on_the_busy_path() {
+        use std::sync::Arc;
+        use whcode_app::approval::ApprovalAnswerer;
+
+        let security = ServeSecurity {
+            approvals: Arc::new(ServeApprovals {
+                policy: whcode_app::approval::ApprovalPolicy::default(),
+                wait_ms: 5_000,
+                answers: whcode_app::approval::InteractiveApprovals::new(),
+            }),
+            ..ServeSecurity::loopback()
+        };
+        let answers = Arc::clone(&security.approvals);
+        let request = whcode_domain::approval::ApprovalRequest::new(
+            "AR-ROUTE",
+            "TX-ROUTE",
+            "shell",
+            "S-1",
+            whcode_domain::approval::ApprovalRule::Ask,
+            Some("测试请求".to_string()),
+            9,
+        )
+        .expect("请求");
+        let waiter = {
+            let answers = Arc::clone(&answers);
+            let request = request.clone();
+            std::thread::spawn(move || answers.answers.answer(&request, 5_000))
+        };
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while answers.answers.pending_len() == 0 {
+            assert!(Instant::now() < deadline, "请求未登记");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+
+        // 忙时路径也必须可达（busy_or_static 直接调用，验证路由先于 503 兜底）。
+        let actor = actor_with_all_capabilities("approval-route");
+        let pending = busy_or_static(
+            b"GET /api/approvals/pending HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n",
+            &security,
+            &actor,
+        );
+        let body = String::from_utf8_lossy(&pending.response.body).to_string();
+        assert_eq!(pending.response.status, 200);
+        assert!(body.contains("AR-ROUTE"), "{body}");
+        assert!(body.contains("\"tool\":\"shell\""), "{body}");
+
+        let decide_body = r#"{"request_id":"AR-ROUTE","answer":"approve_turn"}"#;
+        let decide_raw = format!(
+            "POST /api/approvals/decide HTTP/1.1\r\nhost: 127.0.0.1\r\n\
+             content-type: application/json\r\ncontent-length: {}\r\n\r\n{decide_body}",
+            decide_body.len()
+        );
+        let decided = busy_or_static(decide_raw.as_bytes(), &security, &actor);
+        assert_eq!(decided.response.status, 200);
+        assert_eq!(
+            waiter.join().expect("等待线程").expect("应答"),
+            Some(whcode_domain::approval::ApprovalAnswer::ApproveTurn)
+        );
+
+        // 四态之外的值拒绝；未知请求 404。
+        let bad_body = r#"{"request_id":"AR-ROUTE","answer":"yolo"}"#;
+        let bad_raw = format!(
+            "POST /api/approvals/decide HTTP/1.1\r\nhost: 127.0.0.1\r\n\
+             content-type: application/json\r\ncontent-length: {}\r\n\r\n{bad_body}",
+            bad_body.len()
+        );
+        let bad = busy_or_static(bad_raw.as_bytes(), &security, &actor);
+        assert_eq!(bad.response.status, 400);
+        let missing = busy_or_static(
+            decide_raw.replace("AR-ROUTE", "AR-MISSING").as_bytes(),
+            &security,
+            &actor,
+        );
+        assert_eq!(missing.response.status, 404);
     }
 }

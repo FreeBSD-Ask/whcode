@@ -140,13 +140,31 @@ impl ApprovalConfig {
     /// # Errors
     ///
     /// 同 [`Self::validate`]。
-    // 装配根的调用点是 B3b 的 `run_turn_with_approval` 接线（本批只交付后端语义）；
-    // 语义由 `config` 的单元测试覆盖，不留未校验的构造路径。生产接线属于 B3b UI 批次，
-    // 接线完成后删除本属性（`cfg_attr` 属平台分支，禁止出现在 `whcode-bin`）。
-    #[allow(dead_code)]
     pub fn to_policy(&self) -> Result<ApprovalPolicy, WhError> {
         self.validate()?;
         let mut policy = ApprovalPolicy::new(self.default_read_only, self.default_workspace_write);
+        for (tool, rule) in &self.tools {
+            policy = policy.with_tool_rule(tool.trim(), *rule)?;
+        }
+        Ok(policy)
+    }
+
+    /// 转换为交互面规则表：内置 `shell = ask` **先于**配置覆盖。
+    ///
+    /// 仅用于启用交互应答面的装配（Web／GUI）；无人可问的 CUI／TUI 继续用
+    /// [`Self::to_policy`]（默认全 allow，不把既有自动化变成 `unavailable`）。
+    /// 配置里显式写的 `tools.shell = "allow"` 仍优先于内置默认值（默认值可改可撤销）。
+    ///
+    /// # Errors
+    ///
+    /// 同 [`Self::validate`]。
+    // 调用方是 B3b UI 批次的 Web/GUI 交互装配；四态按钮落地前不得启用（否则用户
+    // 没有可点的应答面，shell 会等满预算变 unavailable）。
+    #[allow(dead_code)]
+    pub fn to_policy_interactive(&self) -> Result<ApprovalPolicy, WhError> {
+        self.validate()?;
+        let mut policy = ApprovalPolicy::new(self.default_read_only, self.default_workspace_write)
+            .with_builtin_destructive_ask();
         for (tool, rule) in &self.tools {
             policy = policy.with_tool_rule(tool.trim(), *rule)?;
         }
@@ -545,6 +563,39 @@ mod tests {
             policy.rule_for("grep", SideEffectScope::ReadOnly),
             ApprovalRule::Allow,
             "只读默认不受写默认影响"
+        );
+    }
+
+    /// 交互面策略：内置 `shell = ask` 先于配置，配置显式 allow 仍可覆盖（默认值可撤销）。
+    #[test]
+    fn interactive_policy_defaults_shell_to_ask_and_config_can_override() {
+        let config = Config::from_json(BASE_JSON).expect("默认配置");
+        let policy = config.approval.to_policy_interactive().expect("交互策略");
+        assert_eq!(
+            policy.rule_for("shell", SideEffectScope::WorkspaceWrite),
+            ApprovalRule::Ask,
+            "仅 shell 默认询问"
+        );
+        assert_eq!(
+            policy.rule_for("write_file", SideEffectScope::WorkspaceWrite),
+            ApprovalRule::Allow,
+            "其余写工具保持 allow（避免既有自动化回归）"
+        );
+        assert_eq!(
+            policy.rule_for("read_file", SideEffectScope::ReadOnly),
+            ApprovalRule::Allow
+        );
+
+        let json = BASE_JSON.replace(
+            "\"trace\"",
+            "\"approval\": { \"tools\": { \"shell\": \"allow\" } }, \"trace\"",
+        );
+        let configured = Config::from_json(&json).expect("显式 allow");
+        let policy = configured.approval.to_policy_interactive().expect("策略");
+        assert_eq!(
+            policy.rule_for("shell", SideEffectScope::WorkspaceWrite),
+            ApprovalRule::Allow,
+            "配置覆盖内置默认（可撤销）"
         );
     }
 

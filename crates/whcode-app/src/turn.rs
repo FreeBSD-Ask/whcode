@@ -1476,7 +1476,8 @@ fn execute_tool_call(
     // 位置固定在“参数校验之后、三步登记之前”：受理前拒绝不产生登记行（ADR-048 §2.4），
     // 且被拒绝的调用不进入执行面。审计失败同样阻断执行（沿用 T264 口径）。
     if let Some(gate) = approval {
-        let decision = match gate.authorize(
+        let decision = match gate.authorize_with_conn(
+            conn,
             exec_id,
             &tool_call.name,
             descriptor.side_effect_scope,
@@ -1706,7 +1707,8 @@ fn execute_mcp_tool_call(
         };
     // 审批闸门（ADR-064）：外部工具按写范围解析规则（fail-closed），受理前拒绝不登记。
     if let Some(gate) = approval {
-        let decision = match gate.authorize(
+        let decision = match gate.authorize_with_conn(
+            conn,
             exec_id,
             &tool_call.name,
             whcode_tools::SideEffectScope::WorkspaceWrite,
