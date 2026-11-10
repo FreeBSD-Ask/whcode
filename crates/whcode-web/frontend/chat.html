@@ -15,6 +15,17 @@
   </header>
   <main id="chat-main">
     <!-- WHCODE_CHAT_HISTORY -->
+    <!-- 工具调用卡（FR-743／T257）：JS 动态填充；无 JS 时为空，不影响只读历史。 -->
+    <section id="chat-tools" class="chat-panel" hidden aria-live="polite">
+      <h2 data-i18n="web.tool.title">工具调用</h2>
+      <div id="tool-cards"></div>
+    </section>
+    <!-- 四态审批（FR-745／T257）：仅在有应答者与待审批请求时显示。 -->
+    <section id="chat-approvals" class="chat-panel" hidden aria-live="polite">
+      <h2 data-i18n="web.approval.title">待审批</h2>
+      <div id="approval-list"></div>
+      <output id="approval-status" role="status"></output>
+    </section>
     <noscript><p>当前为无 JavaScript 只读视图：发送需启用脚本（历史仍完整可读）。</p></noscript>
   </main>
   <form id="chat-form" hidden>

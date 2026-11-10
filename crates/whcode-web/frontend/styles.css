@@ -257,3 +257,58 @@ a:focus-visible {
   outline: 2px solid var(--fg);
   outline-offset: 2px;
 }
+
+/* 工具调用卡与四态审批（T257／FR-743／FR-745）：只用逻辑属性，RTL 随 dir 翻折。 */
+.chat-panel {
+  border: 1px solid var(--fg);
+  padding: var(--space-3);
+  margin-block-end: var(--space-3);
+}
+.chat-panel h2 {
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-2);
+}
+.tool-card {
+  border: 1px solid var(--fg);
+  padding: var(--space-2);
+  margin-block-end: var(--space-2);
+}
+.tool-card header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: baseline;
+}
+.tool-card__state {
+  font-size: var(--text-xs);
+  border: 1px solid var(--fg);
+  padding-inline: var(--space-1);
+}
+.tool-card__output {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 12em;
+  overflow-y: auto;
+  margin: var(--space-2) 0 0;
+}
+.approval-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-block-start: var(--space-2);
+}
+.approval-card__actions button {
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--fg);
+  background: none;
+  border: 1px solid var(--fg);
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+}
+.approval-card__actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

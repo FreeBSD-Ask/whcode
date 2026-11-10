@@ -736,6 +736,60 @@ mod tests {
         assert!(!html.contains(INITIAL_VIEW_MARKER), "标记必须被替换");
     }
 
+    /// 对话页的工具卡与四态审批骨架（T257／FR-743／FR-745）：容器、端点、事件源、
+    /// 四态答案与样式类必须同时存在；`data-i18n` 键必须在英文目录里可解析（不显键名）。
+    #[test]
+    fn chat_page_ships_tool_cards_and_four_state_approval() {
+        for id in [
+            "chat-tools",
+            "chat-approvals",
+            "tool-cards",
+            "approval-list",
+        ] {
+            assert!(
+                CHAT_HTML.contains(&format!("id=\"{id}\"")),
+                "对话页缺少容器 {id}"
+            );
+        }
+        for endpoint in ["/api/approvals/pending", "/api/approvals/decide"] {
+            assert!(CHAT_JS.contains(endpoint), "对话页未接线 {endpoint}");
+        }
+        assert!(CHAT_JS.contains("ToolCallStarted") && CHAT_JS.contains("ToolCallFinished"));
+        for answer in [
+            "approve_turn",
+            "approve",
+            "approve_remember",
+            "reject_remember",
+        ] {
+            assert!(
+                CHAT_JS.contains(&format!("\"{answer}\"")),
+                "四态答案 {answer} 未接线"
+            );
+        }
+        assert!(STYLES_CSS.contains(".tool-card"));
+        assert!(STYLES_CSS.contains(".approval-card__actions"));
+
+        let i18n =
+            whcode_domain::i18n::I18n::load("en", whcode_domain::i18n::LocaleSource::Explicit);
+        for key in [
+            "web.tool.title",
+            "web.tool.exec",
+            "web.tool.running",
+            "web.approval.title",
+            "web.approval.tool",
+            "web.approval.exec",
+            "web.approval.reason",
+            "web.approval.approve_turn",
+            "web.approval.approve_once",
+            "web.approval.remember",
+            "web.approval.reject",
+            "web.approval.decided",
+            "web.approval.failed",
+        ] {
+            assert_ne!(i18n.resolve(key), key, "英文目录缺键 {key}");
+        }
+    }
+
     /// RTL 镜像的前提：样式表只用逻辑属性（`margin-inline`／`padding-inline`），
     /// 不含物理 `left`／`right` 与 `text-align: left|right`——否则 `dir="rtl"` 只翻转
     /// 文本顺序而不翻转布局，阿拉伯语界面会出现错位。
