@@ -114,6 +114,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
 cargo test -p whcode-tests --test layering       # 分层/平台分支/前端不触库
 cargo test -p whcode-tests --test layout         # 目录分类门禁
+python .github/scripts/clean.py --scope all                   # 构建物/缓存清理 dry-run（--apply --record 执行，§7.2）
 python .github/scripts/traceability.py                        # FR↔任务↔Check 三方追溯（含缺口登记合规）
 python .github/scripts/check_counts.py                        # 任务/Check/FR 计数声明与实际一致
 python .github/scripts/check-knowing-first.py     # 知难行易落点门禁（宪法原则 X）
@@ -316,6 +317,23 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - **转换口径唯一**：写入 `CAST(? AS JSON)::VARIANT`（禁止 `CAST(? AS VARIANT)`）；
   读取/导出/展示 `CAST(CAST(col AS JSON) AS VARCHAR)`；旧文本列的上限与合法性校验
   必须在文本层保留，不得因类型变化失效。
+
+### 7.2 临时构建物与缓存清理（2026-11-10 用户指令）
+
+- **清理对象**：仓库根 `target/` 与 `git worktree list` 登记的每个工作树的 `target/`；系统 TEMP
+  下 `whcode-*`／`wt-probe-*` 残留（目录与文件）；仓库内 `*.tmp`／`*.bak`／`*.orig`／`*.rej`／
+  `*~`／`*.log` 与根 `whcode.duckdb*`；`local/` 一次性脚本与运行日志；仓库内 `__pycache__/`
+  与 `*.pyc`；`local/` 下载缓存与旧发布目录（`duckdb-cli-*`、`release-*`、`ci-*`、`audit*` 与压缩包）。
+- **触发条件**（任一满足即执行）：`target/` 合计超过 60 GiB；TEMP 下 `whcode-*` 残留超过 200 个；
+  任务收口或发布打包前；连续两次构建出现无法解释的增量差异。
+- **执行方式**：`python .github/scripts/clean.py --scope all` 只报告；`--apply --record` 执行并落
+  `artifacts/clean-run-*.json`。脚本检测到 `cargo.exe`／`rustc.exe` 等活跃构建进程时拒绝执行，
+  最近 30 分钟修改过的对象按活跃保护跳过；输出按 scope 汇总（`--verbose` 列全部对象）。
+- **永久豁免**：`local/` 的凭据（`sensenova.env`）、长期验证工具与考据数据（`KEEP_ALWAYS`）、
+  外部参考源码克隆（`dsh-src`、`zcode-src` 等，研究证据以路径＋commit 指向）、`vendor/`
+  （构建依赖，重新取得需联网）、`artifacts/` 证据。
+- **证据口径**：只有 `--record` 落盘的清单、释放量与失败／阻塞项算清理证据。0 字节对象被系统
+  ACL 拒绝时登记“阻塞”并注明原因，不反复重试，也不得以“已清理”表述。
 
 ## 8. 禁止事项
 

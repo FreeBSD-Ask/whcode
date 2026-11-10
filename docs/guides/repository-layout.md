@@ -24,8 +24,8 @@
 | `artifacts/` | 交付产物 | 依赖记录、基准报告、M0 报告等运行期证据 | **默认忽略**；治理报告（如 `m0-report.md`）经 `.gitignore` 放行后入库 |
 | `assets/` | 交付（资源） | 可再分发的内置资源：`fonts/`（完整 OFL 字体、许可原文、`SOURCES.md`）；`certs/`（内置 Mozilla 根证书包 `ca-bundle.pem`、MPL-2.0 许可原文与 `SOURCES.md`，ADR-040）；`brand/`（品牌母版 `logo.svg` 与 `SOURCES.md`；窗口图标／favicon 由 `.github/scripts/make-brand-assets.py` 派生并入库，ADR-061） | 入库（仅允许 OFL 等可再分发许可；新增资源类型需 ADR） |
 | `vendor/` | 交付（二进制） | 预编译 DuckDB（SHA256 校验后解包，PROVENANCE 留证） | **忽略**（可再生成） |
-| `local/` | 本地 | 临时脚本、探测脚本、运行日志（不出库；一次性脚本与日志由 `.github/scripts/clean.py` 回收） | **忽略** |
-| `target/` | 本地 | Rust 构建产物 | **忽略** |
+| `local/` | 本地 | 临时脚本、探测脚本、运行日志、下载缓存与旧发布目录（不出库；一次性脚本与日志由 `.github/scripts/clean.py --scope script` 回收，下载缓存与旧发布目录由 `--scope download` 回收） | **忽略** |
+| `target/` | 本地 | Rust 构建产物（含 `git worktree list` 登记工作树的 `target/`；由 `clean.py --scope target` 回收） | **忽略** |
 | `state/` | 本地 | 环境工具自动重建的状态目录（内容不可控，视为不存在） | **忽略** |
 | `.github/` | 治理（流程与自动化） | `workflows/`（`platform-verification.yml` 为唯一测试入口：Windows（验收）、FreeBSD（硬门禁证据通道）、NetBSD（自动证据）随 push 运行；OpenBSD/DragonFly 手工触发占位，桌面与性能 job 由 `workflow_dispatch` 输入触发；`build-release.yml` 以 `profile: [debug, release]` 矩阵承担工作区构建（debug）与发布链路（release：打包安装验证、SHA256、TUI/Web 冒烟、artifact 上传），tag `v*` 时创建/更新 GitHub Release；`long-run.yml` 为手动 5.5 小时长跑）；`scripts/`（原 `ci/`：平台矩阵、基准、打包与门禁脚本，含 `check-release.py`）；PR/Issue 模板；`dependabot.yml`（每日依赖与 Actions 更新，仅开 PR、不自动合并） | 入库 |
 | `.specify/` | 治理（工具链） | Spec-Kit 1.0.13 模板、PowerShell 脚本、集成清单与项目宪法（`memory/constitution.md`）；`feature.json` 为当前 feature 指针，切换时产生显式差异 | 入库（2026-10-24 全量纳入） |
@@ -62,7 +62,8 @@ whcode-bin      ← 装配根：配置、日志、feature 组装
   记录上游、版本、许可与 SHA-256；完整字体的运行子集由 `.github/scripts/subset-fonts.py` 生成，不手工改；
 - 运行期证据写 `artifacts/`（不入库），要版本化的治理结论写 `docs/` 或放行清单中的 artifacts 文件；
 - 临时/探测脚本一律放 `local/`（不入库；一次性脚本与运行日志由 `.github/scripts/clean.py` 回收，
-  长期工具、凭据与考据数据在其保留清单中显式豁免——2026-10-24 规则更新）。
+  长期工具、凭据与考据数据在其保留清单中显式豁免——2026-10-24 规则更新）；下载缓存与旧发布
+  目录同属 `local/`，由 `--scope download` 回收，参考源码克隆与凭据永久保留（AGENTS.md §7.2）。
 
 ## 4. 反模式（禁止）
 

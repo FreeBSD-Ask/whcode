@@ -5,13 +5,14 @@
 
 1. **构建可再现性**：`target/` 可由 源码 + `Cargo.lock` + `vendor/` 完全再生
    （`cargo build --locked` 不依赖残留增量）。删除它零信息损失；相反，残留的
-   陈旧增量可能掩盖配置漂移——"清构建"是排障的标准第一步。
+   陈旧增量可能掩盖配置漂移——"清构建"是排障的标准第一步。验证工作树的
+   `target/` 同理：它只是同一套源码的另一份增量缓存，不承载任何证据。
 2. **源码—产物分离**：仓库只保留源码与声明式配置；一切可再生产物不入库、可回收
    （repository-layout 五类分层中"本地产物永不入库"的回收侧）。
 3. **白名单优于黑名单**：只删除"能证明是垃圾"的对象——固定路径（`target/`）、
    已知前缀（系统 TEMP 下的 `whcode-*` 测试残留）、垃圾扩展名（`*.tmp` 等）；
-   不做递归通配猜测。`local/`（用户规则：保留不清理）与 `artifacts/`（运行
-   证据，治理放行文件入库）**永久豁免**。
+   不做递归通配猜测。`local/` 只按显式模式回收，长期工具、凭据、参考源码与
+   `artifacts/`（运行证据，治理放行文件入库）**永久豁免**。
 4. **不可逆操作门禁**：默认 dry-run 只报告；`--apply` 显式执行。执行前复核
    活跃构建进程（cargo/rustc）与最近 30 分钟内活跃的临时目录，避免误删正在
    使用的工作区。
@@ -21,19 +22,22 @@
 
 | scope | 对象 | 再生成方式 |
 |---|---|---|
-| `target` | 仓库 `target/`（cargo 产物与包输出 dist/） | `cargo build --locked -p whcode-bin --release` |
-| `temp` | 系统 TEMP 下 `whcode-*` 测试残留目录 | 测试重跑自然重建 |
+| `target` | 仓库 `target/` 与 `git worktree list` 登记的每个工作树的 `target/` | `cargo build --locked` |
+| `temp` | 系统 TEMP 下 `whcode-*`／`wt-probe-*` 残留（目录与文件） | 测试重跑自然重建 |
 | `stray` | 仓库内 `*.tmp/*.bak/*.orig/*.rej/*~/*.log` 与根 `whcode.duckdb*` | 不应存在（存在即误操作产物） |
 | `script` | `local/` 下匹配 [`SCRIPT_DELETE_PATTERNS`] 的临时脚本与运行日志 | 均为一次性工作产物，不再生（长期工具与凭据在 [`SCRIPT_KEEP_ALWAYS`] 显式保留） |
+| `cache` | 仓库内 `__pycache__/` 与 `*.pyc`（Python 解释器缓存） | 下次运行脚本自动重建 |
+| `download` | `local/` 下匹配 [`DOWNLOAD_DELETE_PATTERNS`] 的下载缓存与旧发布目录 | 需要时重新下载或重打包（参考源码克隆与凭据在 [`DOWNLOAD_KEEP_ALWAYS`] 保留） |
 
 ## 用法
 
     python .github/scripts/clean.py --scope all          # dry-run：只报告清单与释放量
     python .github/scripts/clean.py --scope all --apply  # 执行清理
     python .github/scripts/clean.py --scope all --apply --record  # 执行并留证据到 artifacts/
+    python .github/scripts/clean.py --scope all --verbose        # 列出全部对象（默认每类前 10 大）
 
-`--scope` 取 `target` / `temp` / `stray` / `script` / `all`（默认 `all`）。
-退出码：0 成功（含 dry-run）；1 有对象删除失败（占用等）；2 参数错误。
+`--scope` 取 `target` / `temp` / `stray` / `script` / `cache` / `download` / `all`（默认 `all`）。
+退出码：0 成功（含 dry-run；0 字节对象被权限拒绝时登记阻塞）；1 有对象删除失败（占用且仍有内容）；2 参数错误。
 """
 
 from __future__ import annotations
@@ -116,6 +120,34 @@ SCRIPT_KEEP_ALWAYS = [
     "query_yike_quotes.py",
 ]
 
+#: local/ 下载缓存与旧发布目录（2026-11-10 用户指令：加强缓存清理）。
+#: 仅匹配"可重新取得"的对象：CI 日志与 artifact 下载、旧发布包、DuckDB 命令行包、
+#: 审计中间产物与压缩包。参考源码克隆、凭据与考据数据不在删除模式内。
+DOWNLOAD_DELETE_PATTERNS = [
+    "duckdb-cli-*",
+    "release-*",
+    "ci-*",
+    "audit*",
+    "*.tar.gz",
+    "*.tgz",
+    "*.zip",
+    "*.7z",
+]
+
+#: download 永久豁免：外部参考源码（研究证据以路径＋commit 指向，删掉即失引用）、
+#: 凭据与考据数据（与 SCRIPT_KEEP_ALWAYS 同口径，显式重复以避免两套规则漂移）。
+DOWNLOAD_KEEP_ALWAYS = [
+    "dsh-src",
+    "zcode-src",
+    "better-harness-src",
+    "sacred_sources.duckdb",
+    "sacred_exports",
+    "sensenova.env",
+]
+
+#: cache 扫描跳过的目录：版本库元数据、可再生产物根与构建依赖。
+CACHE_EXEMPT_DIRS = {".git", "target", "vendor", "node_modules"}
+
 #: 活跃保护：最近 N 秒修改过的对象视为“可能正在使用”，跳过。
 ACTIVE_WINDOW_SECONDS = 30 * 60
 
@@ -142,19 +174,43 @@ def git_tracked(rel: str) -> bool:
     return result.returncode == 0
 
 
+def worktree_roots() -> list[pathlib.Path]:
+    """仓库根与 `git worktree list` 登记的其他工作树（目录存在才返回）。
+
+    工作树是并行验证的常用手段，其 `target/` 与主仓库同源同性质，却因为不在
+    固定路径上而被旧版清理遗漏——本机实测单棵工作树可达 15 GiB。
+    """
+    roots = [REPO]
+    result = subprocess.run(["git", "worktree", "list", "--porcelain"],
+                            cwd=REPO, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        return roots
+    for line in result.stdout.splitlines():
+        if not line.startswith("worktree "):
+            continue
+        path = pathlib.Path(line[len("worktree "):].strip())
+        if path == REPO or not path.is_dir():
+            continue
+        roots.append(path)
+    return roots
+
+
 def scan_target() -> list[dict[str, object]]:
-    root = REPO / "target"
-    if not root.is_dir():
-        return []
-    return [{"scope": "target", "path": str(root), "bytes": dir_size(root),
-             "regenerate": "cargo build --locked -p whcode-bin --release"}]
+    items: list[dict[str, object]] = []
+    for root in worktree_roots():
+        target = root / "target"
+        if not target.is_dir():
+            continue
+        items.append({"scope": "target", "path": str(target), "bytes": dir_size(target),
+                      "regenerate": "cargo build --locked"})
+    return items
 
 
 def scan_temp(now: float) -> list[dict[str, object]]:
     items: list[dict[str, object]] = []
     temp = pathlib.Path(os.environ.get("TEMP") or os.environ.get("TMP") or "/tmp")
     for entry in sorted(temp.glob("whcode-*")) + sorted(temp.glob("wt-probe-*")):
-        if not entry.is_dir():
+        if not entry.is_dir() and not entry.is_file():
             continue
         try:
             age = now - entry.stat().st_mtime
@@ -162,7 +218,8 @@ def scan_temp(now: float) -> list[dict[str, object]]:
             continue
         if age < ACTIVE_WINDOW_SECONDS:
             continue  # 活跃保护：可能正被并行测试使用
-        items.append({"scope": "temp", "path": str(entry), "bytes": dir_size(entry),
+        size = dir_size(entry) if entry.is_dir() else entry.stat().st_size
+        items.append({"scope": "temp", "path": str(entry), "bytes": size,
                       "regenerate": "测试重跑自然重建"})
     return items
 
@@ -216,6 +273,68 @@ def scan_script(now: float) -> tuple[list[dict[str, object]], int]:
     return items, skipped_active
 
 
+def scan_cache(now: float) -> tuple[list[dict[str, object]], int]:
+    """仓库内 Python 解释器缓存：`__pycache__/` 目录与散落的 `*.pyc`。
+
+    这类缓存在 `.gitignore` 中已排除，但会在每次运行门禁脚本时重建；堆积本身不
+    占大空间，却会污染目录树、干扰"工作区是否干净"的判断，故单列 scope 定期回收。
+    """
+    items: list[dict[str, object]] = []
+    skipped_active = 0
+    for root, dirs, files in os.walk(REPO):
+        dirs[:] = [d for d in dirs if d not in CACHE_EXEMPT_DIRS]
+        if "__pycache__" in dirs:
+            dirs.remove("__pycache__")
+            path = pathlib.Path(root) / "__pycache__"
+            try:
+                if now - path.stat().st_mtime < ACTIVE_WINDOW_SECONDS:
+                    skipped_active += 1
+                    continue
+                size = dir_size(path)
+            except OSError:
+                continue
+            items.append({"scope": "cache", "path": str(path), "bytes": size,
+                          "regenerate": "下次运行 Python 脚本自动重建"})
+        for name in files:
+            if not name.endswith(".pyc"):
+                continue
+            path = pathlib.Path(root) / name
+            try:
+                if now - path.stat().st_mtime < ACTIVE_WINDOW_SECONDS:
+                    skipped_active += 1
+                    continue
+                size = path.stat().st_size
+            except OSError:
+                continue
+            items.append({"scope": "cache", "path": str(path), "bytes": size,
+                          "regenerate": "下次运行 Python 脚本自动重建"})
+    return items, skipped_active
+
+
+def scan_download(now: float) -> tuple[list[dict[str, object]], int]:
+    """local/ 的下载缓存与旧发布目录（删除模式 + 永久保留清单 + 活跃保护）。"""
+    items: list[dict[str, object]] = []
+    skipped_active = 0
+    root = REPO / "local"
+    if not root.is_dir():
+        return items, 0
+    for path in sorted(root.iterdir()):
+        if path.name in DOWNLOAD_KEEP_ALWAYS:
+            continue
+        if not any(pathlib.PurePath(path.name).match(p) for p in DOWNLOAD_DELETE_PATTERNS):
+            continue
+        try:
+            if now - path.stat().st_mtime < ACTIVE_WINDOW_SECONDS:
+                skipped_active += 1
+                continue
+        except OSError:
+            continue
+        size = dir_size(path) if path.is_dir() else path.stat().st_size
+        items.append({"scope": "download", "path": str(path), "bytes": size,
+                      "regenerate": "需要时重新下载或重打包"})
+    return items, skipped_active
+
+
 def build_processes_running() -> list[str]:
     """列出正在运行的构建进程名（Windows tasklist；其他平台返回空）。"""
     if os.name != "nt":
@@ -246,9 +365,13 @@ def remove(item: dict[str, object]) -> str | None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="临时/中间/垃圾文件清理（T158）")
-    parser.add_argument("--scope", choices=["target", "temp", "stray", "script", "local", "all"], default="all")
+    parser.add_argument("--scope",
+                        choices=["target", "temp", "stray", "script", "local",
+                                 "cache", "download", "all"],
+                        default="all")
     parser.add_argument("--apply", action="store_true", help="执行清理（默认 dry-run）")
     parser.add_argument("--record", action="store_true", help="证据落 artifacts/clean-run-*.json")
+    parser.add_argument("--verbose", action="store_true", help="列出全部对象（默认每个 scope 前 10 大）")
     args = parser.parse_args()
 
     now = time.time()
@@ -264,8 +387,15 @@ def main() -> int:
         script_items, script_skipped = scan_script(now)
         items += script_items
         skipped_active += script_skipped
+    if args.scope in ("cache", "all"):
+        cache_items, cache_skipped = scan_cache(now)
+        items += cache_items
+        skipped_active += cache_skipped
+    if args.scope in ("download", "all"):
+        download_items, download_skipped = scan_download(now)
+        items += download_items
+        skipped_active += download_skipped
 
-    skipped_active = 0
     if args.apply and args.scope in ("target", "all"):
         running = build_processes_running()
         if running:
@@ -276,19 +406,44 @@ def main() -> int:
     mode = "APPLY" if args.apply else "DRY-RUN"
     print(f"[{mode}] scope={args.scope} 对象 {len(items)} 个，合计 {total_bytes / 2**30:.2f} GiB"
           + (f"（活跃保护跳过 {skipped_active} 个）" if skipped_active else ""))
+    by_scope: dict[str, list[dict[str, object]]] = {}
     for item in items:
-        print(f"  {int(item['bytes']) / 2**20:>10.1f} MB  {item['path']}")
+        by_scope.setdefault(str(item["scope"]), []).append(item)
+    for scope in ("target", "temp", "stray", "script", "cache", "download"):
+        entries = by_scope.get(scope)
+        if not entries:
+            continue
+        scope_bytes = sum(int(entry["bytes"]) for entry in entries)
+        print(f"  [{scope}] {len(entries)} 个，{scope_bytes / 2**30:.2f} GiB")
+        shown = entries if args.verbose else sorted(
+            entries, key=lambda entry: int(entry["bytes"]), reverse=True)[:10]
+        for item in shown:
+            print(f"    {int(item['bytes']) / 2**20:>10.1f} MB  {item['path']}")
+        if len(shown) < len(entries):
+            print(f"    …另有 {len(entries) - len(shown)} 个较小对象（--verbose 查看）")
 
-    failures: list[dict[str, str]] = []
+    failures: list[dict[str, object]] = []
+    blocked: list[dict[str, object]] = []
     if args.apply:
         for item in items:
             error = remove(item)
-            if error:
-                failures.append({"path": str(item["path"]), "error": error,
-                                 "bytes": int(item["bytes"])})
-        print(f"已删除 {len(items) - len(failures)}/{len(items)} 个对象；失败 {len(failures)}")
+            if not error:
+                continue
+            entry = {"path": str(item["path"]), "error": error,
+                     "bytes": int(item["bytes"])}
+            # 0 字节对象（多为 ACL 拒绝枚举的空目录）登记为阻塞，不计入删除失败：
+            # 它不占空间，反复重试也不会成功，需要管理员或重启后才能回收。
+            if int(item["bytes"]) == 0:
+                entry["reason"] = "0 字节对象被权限或占用拒绝，登记阻塞"
+                blocked.append(entry)
+            else:
+                failures.append(entry)
+        print(f"已删除 {len(items) - len(failures) - len(blocked)}/{len(items)} 个对象；"
+              f"失败 {len(failures)}；阻塞 {len(blocked)}")
         for failure in failures:
             print(f"  FAIL {failure['path']}：{failure['error']}")
+        for entry in blocked:
+            print(f"  BLOCKED {entry['path']}：{entry['error']}")
 
     if args.record:
         stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -304,6 +459,7 @@ def main() -> int:
                 int(f["bytes"]) for f in failures
             ),
             "failures": failures,
+            "blocked": blocked,
         }
         out = REPO / "artifacts" / f"clean-run-{stamp}.json"
         out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

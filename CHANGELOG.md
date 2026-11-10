@@ -13,6 +13,19 @@
 
 ### 变更
 
+- **临时构建物与缓存清理加强（2026-11-10）**：`clean.py` 的 `target` 范围扩到
+  `git worktree list` 登记的每个工作树（原先只清仓库根，单棵验证工作树可达 15 GiB）；
+  新增 `cache`（仓库内 `__pycache__`／`*.pyc`）与 `download`（`local/` 下载缓存与旧发布目录：
+  `duckdb-cli-*`、`release-*`、`ci-*`、`audit*` 与压缩包）两个 scope；TEMP 残留同时回收文件
+  （原先只清目录，遗留 `whcode-ssh-proto-trust-*.known_hosts` 因此长期堆积）。输出改为按
+  scope 汇总并按体积排序（`--verbose` 列全部）；0 字节对象被系统 ACL 拒绝时登记阻塞，不再让
+  退出码长期为 1。AGENTS.md 新增 §7.2：清理对象、触发阈值（`target/` 合计 > 60 GiB、
+  TEMP 残留 > 200 个、任务收口与发布打包前）与证据口径；`repository-layout.md` 同步。
+  证据：本机 `--apply --record` 从 119.79 GiB 候选中删除 118.30 GiB
+  （`artifacts/clean-run-20261110-222518.json`，本机证据不入库）；阻塞 26 个 0 字节目录
+  （ACL 拒绝，需管理员），`D:\WHCode-wt-rtl\target` 因 2026-11-08 启动的两个遗留 `whcode.exe`
+  仍占 232 MiB。
+
 - **B3b GUI 交互面：工具卡与四态审批（T256，FR-743／FR-745，2026-11-10）**：对话视图
   新增工具卡（`TurnSignal` 观察信号，字段与 `ToolCallStarted`／`ToolCallFinished` 同名；
   上限 20 张，输出截断 200 字符）与四态审批按钮（本回合／仅本次／记住规则／拒绝）。
