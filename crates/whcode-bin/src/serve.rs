@@ -1993,6 +1993,9 @@ fn turn_intercept(
                         worker_dropped.fetch_add(1, Ordering::Relaxed);
                     }
                 }),
+                // Web 的工具卡由 `/ws` 事件帧驱动（事件表是同一事实源），
+                // 不经观察回调（T257 口径）。
+                None,
                 &mut gate,
                 serve_now_ms(),
             );

@@ -160,6 +160,8 @@ pub struct TuiLlmExecutor {
     llm: ServeLlm,
     conn: std::sync::Arc<std::sync::Mutex<duckdb::Connection>>,
     workspace: PathBuf,
+    /// 审批配置（T256／FR-745）：GUI 交互面向口径；TUI 的 `run` 不使用。
+    approval: crate::config::ApprovalConfig,
 }
 
 impl TuiLlmExecutor {
@@ -177,7 +179,15 @@ impl TuiLlmExecutor {
             llm: ServeLlm::from_env(workspace)?,
             conn,
             workspace: workspace.to_path_buf(),
+            approval: crate::config::ApprovalConfig::default(),
         })
+    }
+
+    /// 注入审批配置（T256／FR-745）：GUI 的 turn 走交互口径（内置 `shell = ask`）。
+    #[must_use]
+    pub fn with_approval(mut self, approval: crate::config::ApprovalConfig) -> Self {
+        self.approval = approval;
+        self
     }
 }
 
@@ -249,9 +259,25 @@ impl whcode_gui::GuiLlmExecutor for TuiLlmExecutor {
         provider: &str,
         prompt: &str,
         progress: whcode_app::turn::TurnProgress<'_>,
+        observer: Option<whcode_app::turn::TurnObserver<'_>>,
+        approvals: Option<&dyn whcode_app::approval::ApprovalAnswerer>,
     ) -> Result<String, WhError> {
-        let outcome = whcode_app::turn::run_turn_with_progress(
-            &mut self.conn.lock().expect("store 连接锁中毒"),
+        // 审批闸门（T256／FR-745）：交互口径（内置 shell=ask）→ 配置 → 本地已存规则；
+        // 审计与“记住规则”直接写 turn 自身的连接（DuckDB 连接不可跨线程共享）。
+        let mut guard = self.conn.lock().expect("store 连接锁中毒");
+        let policy = self.approval.to_policy_interactive()?.with_stored_rules(
+            whcode_store::approval_rules::list_rules(&guard)?
+                .into_iter()
+                .map(|row| (row.tool, row.rule)),
+        )?;
+        let mut gate = whcode_app::approval::ApprovalGate::for_store(
+            "gui-local".to_string(),
+            policy,
+            approvals,
+            self.approval.wait_ms,
+        );
+        let outcome = whcode_app::turn::run_turn_with_approval(
+            &mut guard,
             &whcode_app::DefaultPolicy,
             &whcode_app::actor_with_all_capabilities("gui-local"),
             &self.llm.context(),
@@ -268,6 +294,8 @@ impl whcode_gui::GuiLlmExecutor for TuiLlmExecutor {
                 depth: 0,
             },
             Some(progress),
+            observer,
+            &mut gate,
             now_ms(),
         )?;
         Ok(format!(

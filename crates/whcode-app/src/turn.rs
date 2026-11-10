@@ -256,6 +256,48 @@ pub fn run_turn(
 /// （`try_send`，满即丢弃：进度是有损信号；增量缓冲上限由调用方负责）。
 pub type TurnProgress<'a> = &'a (dyn Fn(u64, &str) + Send + Sync);
 
+/// turn 内的工具调用观察信号（T256／FR-743）：字段与落表事件
+/// `ToolCallStarted`／`ToolCallFinished` 同名同义，供前端在 turn 运行期间渲染工具卡
+/// （运行期间连接锁被 turn 占用，前端无法读事件表）。
+///
+/// 与事件源的差异只有时序：`ToolStarted` 在调用**前**送达（事件要等批量 flush 才落
+/// 表，字段在调用前已知）；`ToolFinished` 在调用后送达并带实测 `duration_ms`（该字段
+/// 同时写入事件 payload，四端口径一致）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TurnSignal {
+    /// 工具调用开始（对应 `ToolCallStarted`）。
+    ToolStarted {
+        /// 模型给出的调用 ID。
+        tool_call_id: String,
+        /// 工具稳定名。
+        tool_name: String,
+        /// 执行 ID（审计与事件共用）。
+        exec_id: String,
+        /// 迭代序号（0 基，与事件 payload 的 `iteration` 同值）。
+        iteration: u32,
+    },
+    /// 工具调用结束（对应 `ToolCallFinished`）。
+    ToolFinished {
+        /// 模型给出的调用 ID。
+        tool_call_id: String,
+        /// 执行 ID。
+        exec_id: String,
+        /// 结构化状态（`ok`／`failed` 等稳定名）。
+        state: String,
+        /// 副作用范围（只读／工作区写等）。
+        side_effect: Option<String>,
+        /// 可展示输出（脱敏管线之后的值；无输出为 `None`）。
+        output_value: Option<String>,
+        /// 稳定错误码（失败时）。
+        error_code: Option<String>,
+        /// 实测执行时长（毫秒）。
+        duration_ms: u64,
+    },
+}
+
+/// 观察回调：在 turn 调用线程同步执行（与 [`TurnProgress`] 同纪律：不触库、不阻塞）。
+pub type TurnObserver<'a> = &'a (dyn Fn(TurnSignal) + Send + Sync);
+
 /// [`run_turn`] 的进度版：`progress = Some` 时逐块回调（GUI 后台执行用），`None`
 /// 行为与 [`run_turn`] 完全一致（CUI／TUI／Web 与既有测试零改动）。
 ///
@@ -272,7 +314,7 @@ pub fn run_turn_with_progress(
     now_ms: u64,
 ) -> Result<TurnOutcome, WhError> {
     run_turn_inner(
-        conn, policy, actor, context, request, progress, None, now_ms,
+        conn, policy, actor, context, request, progress, None, None, now_ms,
     )
 }
 
@@ -283,9 +325,12 @@ pub fn run_turn_with_progress(
 /// - `deny` → `permission_denied`（不可重试）；`ask` 无应答者/异常/超预算 → `unavailable`；
 /// - 任何审批失败都只让**本次工具调用**结构化失败，turn 继续（FR-718/ADR-048 §2.7）。
 ///
+/// `observer`（T256／FR-743）为工具调用观察回调，用于 turn 运行期间的前端渲染；
+/// `None` 时行为与接线前完全一致。
+///
 /// # Errors
 ///
-/// 与 [`run_turn`] 相同；审批结论本身不构成 turn 级错误。
+/// 与 [`run_turn`] 相同；审批结论与观察回调本身都不构成 turn 级错误。
 #[allow(clippy::too_many_arguments)]
 pub fn run_turn_with_approval(
     conn: &mut duckdb::Connection,
@@ -294,6 +339,7 @@ pub fn run_turn_with_approval(
     context: &LlmContext<'_>,
     request: &TurnRequest,
     progress: Option<TurnProgress<'_>>,
+    observer: Option<TurnObserver<'_>>,
     approval: &mut ApprovalGate<'_>,
     now_ms: u64,
 ) -> Result<TurnOutcome, WhError> {
@@ -304,6 +350,7 @@ pub fn run_turn_with_approval(
         context,
         request,
         progress,
+        observer,
         Some(approval),
         now_ms,
     )
@@ -318,6 +365,7 @@ fn run_turn_inner(
     context: &LlmContext<'_>,
     request: &TurnRequest,
     progress: Option<TurnProgress<'_>>,
+    observer: Option<TurnObserver<'_>>,
     mut approval: Option<&mut ApprovalGate<'_>>,
     now_ms: u64,
 ) -> Result<TurnOutcome, WhError> {
@@ -1020,6 +1068,17 @@ fn run_turn_inner(
                 continue;
             }
             let exec_id = format!("TX-{request_id}-{iteration}-{tool_index}");
+            // 运行期观察信号（T256／FR-743）：Started 在调用前送达，前端据此显示
+            // “运行中”；落表事件仍按原位置批量 flush（字段相同，时序不同）。
+            if let Some(observer) = observer {
+                observer(TurnSignal::ToolStarted {
+                    tool_call_id: tool_call.id.clone(),
+                    tool_name: tool_call.name.clone(),
+                    exec_id: exec_id.clone(),
+                    iteration,
+                });
+            }
+            let started_at = Instant::now();
             let (status, result_text, side_effect, output_value, error_code): (
                 RuntimeExecutionStatus,
                 String,
@@ -1039,6 +1098,7 @@ fn run_turn_inner(
                 approval.as_deref_mut(),
                 now_ms,
             );
+            let duration_ms = u64::try_from(started_at.elapsed().as_millis()).unwrap_or(u64::MAX);
             emit!(
                 EventKind::ToolCallStarted,
                 "iteration": iteration,
@@ -1060,7 +1120,19 @@ fn run_turn_inner(
                 "side_effect": side_effect,
                 "output_value": output_value,
                 "error_code": error_code,
+                "duration_ms": duration_ms,
             );
+            if let Some(observer) = observer {
+                observer(TurnSignal::ToolFinished {
+                    tool_call_id: tool_call.id.clone(),
+                    exec_id,
+                    state: status.as_str().to_string(),
+                    side_effect,
+                    output_value,
+                    error_code,
+                    duration_ms,
+                });
+            }
         }
         persister.flush(conn, &mut pending_events, &messages)?;
     };
@@ -2713,9 +2785,10 @@ mod tests {
             None,
             DEFAULT_APPROVAL_WAIT_MS,
         );
-        let outcome =
-            run_turn_with_approval(&mut conn, &policy, &actor, &ctx, &req, None, &mut gate, 17)
-                .expect("审批拒绝不得中断 turn");
+        let outcome = run_turn_with_approval(
+            &mut conn, &policy, &actor, &ctx, &req, None, None, &mut gate, 17,
+        )
+        .expect("审批拒绝不得中断 turn");
 
         assert_eq!(outcome.termination_reason, "model_finished");
         assert_eq!(outcome.iterations, 2, "工具失败后必须继续下一轮");
@@ -2770,9 +2843,10 @@ mod tests {
             None,
             DEFAULT_APPROVAL_WAIT_MS,
         );
-        let outcome =
-            run_turn_with_approval(&mut conn, &policy, &actor, &ctx, &req, None, &mut gate, 19)
-                .expect("unavailable 不得中断 turn");
+        let outcome = run_turn_with_approval(
+            &mut conn, &policy, &actor, &ctx, &req, None, None, &mut gate, 19,
+        )
+        .expect("unavailable 不得中断 turn");
         assert_eq!(outcome.termination_reason, "model_finished");
         assert_eq!(
             last_payload_text(&conn, &id, "ToolCallFinished", "error_code").as_deref(),
@@ -2814,9 +2888,10 @@ mod tests {
             Some(&answerer),
             DEFAULT_APPROVAL_WAIT_MS,
         );
-        let outcome =
-            run_turn_with_approval(&mut conn, &policy, &actor, &ctx, &req, None, &mut gate, 23)
-                .expect("批准后执行");
+        let outcome = run_turn_with_approval(
+            &mut conn, &policy, &actor, &ctx, &req, None, None, &mut gate, 23,
+        )
+        .expect("批准后执行");
         assert_eq!(outcome.termination_reason, "model_finished");
         let (status, finished_code): (String, Option<String>) = conn
             .query_row(
@@ -2866,9 +2941,10 @@ mod tests {
             None,
             DEFAULT_APPROVAL_WAIT_MS,
         );
-        let outcome =
-            run_turn_with_approval(&mut conn, &policy, &actor, &ctx, &req, None, &mut gate, 29)
-                .expect("默认策略放行");
+        let outcome = run_turn_with_approval(
+            &mut conn, &policy, &actor, &ctx, &req, None, None, &mut gate, 29,
+        )
+        .expect("默认策略放行");
         assert_eq!(outcome.termination_reason, "model_finished");
         let tool_msg: String = conn
             .query_row(
@@ -2879,6 +2955,100 @@ mod tests {
             .expect("tool 消息");
         assert!(tool_msg.contains("执行成功"), "{tool_msg}");
         assert!(sink.is_empty(), "allow 不产生审批审计噪声");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 观察信号（T256／FR-743）：Started 在调用前、Finished 在后，字段与事件同源；
+    /// `duration_ms` 同时写入 `ToolCallFinished` payload（四端可显示时长）。
+    #[test]
+    fn observer_receives_tool_signals_and_finished_event_carries_duration() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            tool_call_step(),
+            StubStep::simple("读完了", "stop"),
+        ]));
+        let dir = workspace_with_file("observe-signal");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "读文件");
+        req.workspace_root = Some(dir.clone());
+
+        let sink = CollectingAuditSink::new();
+        let captured = std::sync::Mutex::new(Vec::new());
+        let observer = |signal: TurnSignal| {
+            captured.lock().expect("观察锁").push(signal);
+        };
+        let mut gate = ApprovalGate::new(
+            "turn-test",
+            ApprovalPolicy::default(),
+            &sink,
+            None,
+            DEFAULT_APPROVAL_WAIT_MS,
+        );
+        let outcome = run_turn_with_approval(
+            &mut conn,
+            &policy,
+            &actor,
+            &ctx,
+            &req,
+            None,
+            Some(&observer),
+            &mut gate,
+            31,
+        )
+        .expect("turn 完成");
+        assert_eq!(outcome.termination_reason, "model_finished");
+
+        let signals = captured.into_inner().expect("观察锁");
+        assert_eq!(signals.len(), 2, "一次工具调用恰好一对信号：{signals:?}");
+        match &signals[0] {
+            TurnSignal::ToolStarted {
+                tool_call_id,
+                tool_name,
+                exec_id,
+                iteration,
+            } => {
+                assert_eq!(tool_call_id, "call-1");
+                assert_eq!(tool_name, "read_file");
+                assert!(exec_id.starts_with("TX-"), "{exec_id}");
+                assert_eq!(*iteration, 0, "首个工具调用位于第 0 迭代（0 基）");
+            }
+            other => panic!("首个信号必须是 ToolStarted：{other:?}"),
+        }
+        match &signals[1] {
+            TurnSignal::ToolFinished {
+                tool_call_id,
+                state,
+                error_code,
+                output_value,
+                ..
+            } => {
+                assert_eq!(tool_call_id, "call-1");
+                assert_eq!(state, "completed");
+                assert_eq!(error_code, &None);
+                // read_file 是纯文本工具：`display_value()` 为 None（与事件 payload
+                // 的 `output_value` 一致），不得为了卡片好看伪造展示值。
+                assert_eq!(output_value, &None);
+            }
+            other => panic!("第二个信号必须是 ToolFinished：{other:?}"),
+        }
+
+        // 事件与信号同口径：payload 带 duration_ms。
+        let duration: Option<i64> = conn
+            .query_row(
+                "SELECT CAST(CAST(payload_json AS JSON)->>'$.duration_ms' AS BIGINT)
+                 FROM events WHERE session_id=? AND kind='ToolCallFinished' LIMIT 1",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("时长字段");
+        assert!(
+            duration.is_some_and(|value| value >= 0),
+            "ToolCallFinished 必须带 duration_ms：{duration:?}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

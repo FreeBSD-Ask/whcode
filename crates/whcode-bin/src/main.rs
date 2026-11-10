@@ -512,7 +512,9 @@ fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
     let llm_executor = match (&shared, workspace::resolve_workspace(args, &config)) {
         (Some(conn), Ok(ws)) => {
             match crate::llm_provider::TuiLlmExecutor::from_env(&ws, std::sync::Arc::clone(conn)) {
-                Ok(executor) => Some(executor),
+                // 审批口径（T256／FR-745）：GUI 的 turn 有四态应答面，启用交互默认值
+                // （内置 shell=ask）；TUI 的同步入口不使用该字段。
+                Ok(executor) => Some(executor.with_approval(config.approval.clone())),
                 Err(err) => {
                     eprintln!("LLM 装配不可用（llm 动作以 not_supported 提示）：{err}");
                     None

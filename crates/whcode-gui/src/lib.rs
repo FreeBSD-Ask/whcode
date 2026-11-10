@@ -187,6 +187,8 @@ pub trait GuiLlmExecutor: Send + Sync {
         provider: &str,
         prompt: &str,
         progress: whcode_app::turn::TurnProgress<'_>,
+        observer: Option<whcode_app::turn::TurnObserver<'_>>,
+        approvals: Option<&dyn whcode_app::approval::ApprovalAnswerer>,
     ) -> Result<String, WhError>;
 
     /// 取消同机正在运行的调用（取消标记目录跨线程生效；不触库、不需要连接锁）。
@@ -199,6 +201,71 @@ pub trait GuiLlmExecutor: Send + Sync {
     /// 可选剖面名清单（注册表顺序；对话视图显示与默认选择用）。
     fn profiles(&self) -> Vec<String>;
 }
+
+/// GUI 侧审批应答面（T256／FR-745）：把待审批请求推给界面，再同步等待界面决定。
+///
+/// 无轮询、无定时器：请求经与工具信号同一条有界通道送到界面（`try_send`）。通道拥塞
+/// 时**不等待**，按“无可用应答者”返回（闸门判 `unavailable`，fail-closed）——界面收不
+/// 到的问题不得被当成默认允许。
+pub struct GuiApprovals {
+    inner: whcode_app::approval::InteractiveApprovals,
+    tx: mpsc::Sender<Message>,
+}
+
+impl GuiApprovals {
+    /// 待审批请求（界面渲染用；有界，最多 `MAX_PENDING_APPROVALS`）。
+    #[must_use]
+    pub fn pending(&self) -> Vec<whcode_domain::approval::ApprovalRequest> {
+        self.inner.pending()
+    }
+
+    /// 界面决定：把答案交给等待中的 turn 线程。
+    ///
+    /// # Errors
+    ///
+    /// 请求已结算或不存在时返回 `not_found`（界面不得把失败当成功）。
+    pub fn decide(
+        &self,
+        request_id: &str,
+        answer: whcode_domain::approval::ApprovalAnswer,
+    ) -> Result<(), WhError> {
+        self.inner.decide(request_id, answer)
+    }
+}
+
+impl whcode_app::approval::ApprovalAnswerer for GuiApprovals {
+    fn answer(
+        &self,
+        request: &whcode_domain::approval::ApprovalRequest,
+        budget_ms: u64,
+    ) -> Result<Option<whcode_domain::approval::ApprovalAnswer>, WhError> {
+        let mut sender = self.tx.clone();
+        if sender
+            .try_send(Message::ApprovalPending(request.clone()))
+            .is_err()
+        {
+            // 界面通道拥塞：立即判不可用，不占用等待预算。
+            return Ok(None);
+        }
+        self.inner.answer(request, budget_ms)
+    }
+}
+
+/// 工具卡（T256／FR-743）：一次工具调用的可视状态；卡片数有界（`MAX_TOOL_CARDS`）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ToolCard {
+    tool_call_id: String,
+    tool_name: String,
+    exec_id: String,
+    /// 终态稳定名；`None` = 运行中（渲染时取 `gui.tool.running`）。
+    state: Option<String>,
+    output: Option<String>,
+    error_code: Option<String>,
+    duration_ms: Option<u64>,
+}
+
+/// 工具卡上限（视图有界；超出移除最早的一张）。
+const MAX_TOOL_CARDS: usize = 20;
 
 /// 会话操作面板的当前状态（ADR-056；破坏性命令两段式）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -252,6 +319,12 @@ enum Message {
     ChatProgress(u64, String),
     /// 取消正在运行的调用（按请求 ID）。
     ChatCancel,
+    /// 工具调用信号（T256／FR-743）：turn 运行期间经有界通道送达（丢帧可接受）。
+    ToolSignal(whcode_app::turn::TurnSignal),
+    /// 待审批请求（T256／FR-745）：turn 线程阻塞等待，界面给出四态决定。
+    ApprovalPending(whcode_domain::approval::ApprovalRequest),
+    /// 界面决定：四态之一（本回合／仅本次／记住规则／拒绝）。
+    ApprovalDecide(whcode_domain::approval::ApprovalAnswer),
     // —— 会话/任务/清理操作（ADR-056）——
     /// 操作面板输入（标题／任务 ID）。
     OpInputChanged(String),
@@ -337,6 +410,14 @@ struct State {
     checkpoints: Vec<CheckpointItem>,
     /// 检查点所属任务。
     checkpoint_task: Option<String>,
+    /// 工具卡（T256／FR-743）：本次对话期间的调用状态（有界，旧卡先移除）。
+    tool_cards: Vec<ToolCard>,
+    /// 当前待审批请求（T256／FR-745；`None` = 无）。
+    approval: Option<whcode_domain::approval::ApprovalRequest>,
+    /// 审批反馈行（决定结果或错误）。
+    approval_status: Option<String>,
+    /// 本次 turn 的审批应答面（turn 运行期间存在；决定经它交给等待线程）。
+    approvals: Option<std::sync::Arc<GuiApprovals>>,
 }
 
 impl State {
@@ -384,6 +465,10 @@ impl State {
             all_sessions: Vec::new(),
             checkpoints: Vec::new(),
             checkpoint_task: None,
+            tool_cards: Vec::new(),
+            approval: None,
+            approval_status: None,
+            approvals: None,
         }
     }
 
@@ -655,10 +740,19 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                 state.chat_progress = count;
                 append_streaming(&mut state.chat_streaming, &delta);
             }
+            // 工具信号与审批必须照常处理：turn 线程可能正阻塞等待决定。
+            Message::ToolSignal(signal) => apply_tool_signal(state, signal),
+            Message::ApprovalPending(request) => {
+                state.approval = Some(request);
+                state.approval_status = None;
+            }
+            Message::ApprovalDecide(answer) => decide_approval(state, answer),
             Message::ChatDone(result) => {
                 state.turn_running = false;
                 state.chat_progress = 0;
                 state.chat_streaming.clear();
+                state.approval = None;
+                state.approvals = None;
                 match result {
                     Ok(summary) => {
                         state.chat_last = Some(summary);
@@ -694,6 +788,8 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::ChatProgress(_, _) | Message::ChatDone(_) => {
             // turn 未在运行（完成后送达的尾消息），无状态可更新。
         }
+        // 迟到的工具/审批消息：turn 已结束，不留下悬挂对话框。
+        Message::ToolSignal(_) | Message::ApprovalPending(_) | Message::ApprovalDecide(_) => {}
         Message::SelectView(view) => {
             state.view = view;
             state.prepare();
@@ -803,6 +899,79 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         }
     }
     Task::none()
+}
+
+/// 工具信号 → 卡片状态（T256／FR-743）。Started 建卡（“运行中”），Finished 落终态、
+/// 输出、错误码与实测时长。信号有损：丢掉的 Finished 只留下“运行中”的卡，不伪造完成。
+fn apply_tool_signal(state: &mut State, signal: whcode_app::turn::TurnSignal) {
+    use whcode_app::turn::TurnSignal;
+    match signal {
+        TurnSignal::ToolStarted {
+            tool_call_id,
+            tool_name,
+            exec_id,
+            ..
+        } => {
+            if state.tool_cards.len() >= MAX_TOOL_CARDS {
+                state.tool_cards.remove(0);
+            }
+            state.tool_cards.push(ToolCard {
+                tool_call_id,
+                tool_name,
+                exec_id,
+                state: None,
+                output: None,
+                error_code: None,
+                duration_ms: None,
+            });
+        }
+        TurnSignal::ToolFinished {
+            tool_call_id,
+            exec_id,
+            state: term,
+            output_value,
+            error_code,
+            duration_ms,
+            ..
+        } => {
+            let Some(card) = state
+                .tool_cards
+                .iter_mut()
+                .find(|card| card.tool_call_id == tool_call_id)
+            else {
+                // Started 帧丢失：不为孤立的完成事件伪造工具名。
+                return;
+            };
+            if card.exec_id != exec_id {
+                return;
+            }
+            card.state = Some(term);
+            card.output = output_value;
+            card.error_code = error_code;
+            card.duration_ms = Some(duration_ms);
+        }
+    }
+}
+
+/// 四态决定（T256／FR-745）：把答案交给等待中的 turn 线程；失败显式可见。
+fn decide_approval(state: &mut State, answer: whcode_domain::approval::ApprovalAnswer) {
+    let (Some(approvals), Some(request)) = (state.approvals.as_ref(), state.approval.as_ref())
+    else {
+        return;
+    };
+    let id = request.id.clone();
+    match approvals.decide(&id, answer) {
+        Ok(()) => {
+            state.approval = None;
+            state.approval_status = Some(state.texts.resolve("gui.approval.decided").to_string());
+        }
+        Err(err) => {
+            state.approval_status = Some(format!(
+                "{}: {err}",
+                state.texts.resolve("gui.approval.failed")
+            ));
+        }
+    }
 }
 
 /// 对话提交（ADR-056）：同步 `run_turn`——执行期间界面阻塞，与 TUI 同语义。
@@ -968,7 +1137,17 @@ fn chat_submit(state: &mut State) -> Task<Message> {
     state.turn_running = true;
     state.chat_progress = 0;
     state.chat_streaming.clear();
+    state.tool_cards.clear();
+    state.approval = None;
+    state.approval_status = None;
     let (progress_tx, progress_rx) = mpsc::channel::<Message>(8);
+    // 工具信号与审批走同一条有界通道（64）：卡片丢帧可接受；审批发送失败按不可用处理。
+    let (signal_tx, signal_rx) = mpsc::channel::<Message>(64);
+    let approvals = std::sync::Arc::new(GuiApprovals {
+        inner: whcode_app::approval::InteractiveApprovals::new(),
+        tx: signal_tx.clone(),
+    });
+    state.approvals = Some(std::sync::Arc::clone(&approvals));
     let (done_tx, done_rx) = oneshot::channel::<Result<String, WhError>>();
     std::thread::spawn(move || {
         let progress = |count: u64, delta: &str| {
@@ -977,7 +1156,18 @@ fn chat_submit(state: &mut State) -> Task<Message> {
             let mut sender = progress_tx.clone();
             let _ = sender.try_send(Message::ChatProgress(count, delta.to_string()));
         };
-        let result = llm.run_with_progress(&session, &provider, &prompt, &progress);
+        let observer = |signal: whcode_app::turn::TurnSignal| {
+            let mut sender = signal_tx.clone();
+            let _ = sender.try_send(Message::ToolSignal(signal));
+        };
+        let result = llm.run_with_progress(
+            &session,
+            &provider,
+            &prompt,
+            &progress,
+            Some(&observer),
+            Some(approvals.as_ref() as &dyn whcode_app::approval::ApprovalAnswerer),
+        );
         let _ = done_tx.send(result);
     });
     let done_stream = iced::futures::stream::once(async move {
@@ -988,7 +1178,7 @@ fn chat_submit(state: &mut State) -> Task<Message> {
             ))),
         }
     });
-    Task::stream(progress_rx.chain(done_stream))
+    Task::stream(progress_rx.chain(signal_rx).chain(done_stream))
 }
 
 /// 取消正在运行的调用（请求 ID 取上次摘要中的 `request_id=…`，与 TUI 同口径）。
@@ -1345,6 +1535,99 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
                 }
             }
         }
+    }
+    // 工具卡（T256／FR-743）：本次对话的工具调用状态、输出与实测时长。卡片数有界
+    // （`MAX_TOOL_CARDS`），状态文本不依赖颜色（ui-design §3）。
+    if !state.tool_cards.is_empty() {
+        let title = state.texts.resolve("gui.tool.title");
+        body.push(rich_line(title, false, 13.0));
+        for card in &state.tool_cards {
+            let status = card.state.as_deref().map_or_else(
+                || state.texts.resolve("gui.tool.running").to_string(),
+                str::to_string,
+            );
+            let mut line = format!("{} [{status}]", card.tool_name);
+            if let Some(ms) = card.duration_ms {
+                line.push_str(&format!(" · {ms} ms"));
+            }
+            if let Some(code) = card.error_code.as_deref() {
+                line.push_str(&format!(" · {code}"));
+            }
+            body.push(rich_line(&line, true, 12.0));
+            body.push(rich_line(&card.exec_id, true, 11.0));
+            if let Some(output) = card.output.as_deref() {
+                // 输出有界：卡片只呈现前 200 字符（完整结果在事件表与 tool 消息里）。
+                let shown: String = output.chars().take(200).collect();
+                body.push(rich_line(&shown, false, 11.0));
+            }
+        }
+    }
+    // 四态审批（T256／FR-745）：turn 线程阻塞等待，决定经审批面回传。
+    if let Some(request) = state.approval.as_ref() {
+        let heading = state.texts.resolve("gui.approval.title");
+        body.push(rich_line(heading, false, 14.0));
+        body.push(rich_line(
+            &format!(
+                "{}: {}",
+                state.texts.resolve("gui.approval.tool"),
+                request.tool
+            ),
+            false,
+            13.0,
+        ));
+        body.push(rich_line(
+            &format!(
+                "{}: {}",
+                state.texts.resolve("gui.approval.exec"),
+                request.exec_id
+            ),
+            true,
+            12.0,
+        ));
+        if let Some(reason) = request.display_reason.as_deref() {
+            body.push(rich_line(
+                &format!("{}: {reason}", state.texts.resolve("gui.approval.reason")),
+                false,
+                12.0,
+            ));
+        }
+        let answer_button = |key: &'static str, answer| {
+            button(rich_line(state.texts.resolve(key), false, 13.0))
+                .padding([4, 8])
+                .on_press(Message::ApprovalDecide(answer))
+        };
+        body.push(
+            row(mirrored_order(
+                is_rtl_locale(&state.texts.locale),
+                vec![
+                    answer_button(
+                        "gui.approval.approve_turn",
+                        whcode_domain::approval::ApprovalAnswer::ApproveTurn,
+                    )
+                    .into(),
+                    answer_button(
+                        "gui.approval.approve_once",
+                        whcode_domain::approval::ApprovalAnswer::Approve,
+                    )
+                    .into(),
+                    answer_button(
+                        "gui.approval.remember",
+                        whcode_domain::approval::ApprovalAnswer::ApproveRemember,
+                    )
+                    .into(),
+                    answer_button(
+                        "gui.approval.reject",
+                        whcode_domain::approval::ApprovalAnswer::RejectRemember,
+                    )
+                    .into(),
+                ],
+            ))
+            .spacing(8)
+            .into(),
+        );
+    }
+    if let Some(status) = state.approval_status.as_deref() {
+        body.push(rich_line(status, false, 12.0));
     }
     body.push(rich_line(
         state.texts.resolve("gui.chat.history.hint"),
@@ -2065,7 +2348,26 @@ mod tests {
             _provider: &str,
             _prompt: &str,
             progress: whcode_app::turn::TurnProgress<'_>,
+            observer: Option<whcode_app::turn::TurnObserver<'_>>,
+            _approvals: Option<&dyn whcode_app::approval::ApprovalAnswerer>,
         ) -> Result<String, WhError> {
+            if let Some(observer) = observer {
+                observer(whcode_app::turn::TurnSignal::ToolStarted {
+                    tool_call_id: "call-1".to_string(),
+                    tool_name: "read_file".to_string(),
+                    exec_id: "TX-1-0-0".to_string(),
+                    iteration: 0,
+                });
+                observer(whcode_app::turn::TurnSignal::ToolFinished {
+                    tool_call_id: "call-1".to_string(),
+                    exec_id: "TX-1-0-0".to_string(),
+                    state: "completed".to_string(),
+                    side_effect: Some("read_only".to_string()),
+                    output_value: Some("读到 3 行".to_string()),
+                    error_code: None,
+                    duration_ms: 7,
+                });
+            }
             progress(1, "你");
             progress(2, "好");
             if self.fail {
@@ -2301,5 +2603,117 @@ mod tests {
             "无会话必须显式提示：{:?}",
             state.chat_last
         );
+    }
+
+    /// T256／FR-743：工具信号建卡与落终态；卡片数有界（旧卡先移除）。
+    #[test]
+    fn tool_signals_build_and_settle_bounded_cards() {
+        let mut state = interactive_state(false);
+        state.turn_running = true;
+        let _ = update(
+            &mut state,
+            Message::ToolSignal(whcode_app::turn::TurnSignal::ToolStarted {
+                tool_call_id: "call-1".to_string(),
+                tool_name: "read_file".to_string(),
+                exec_id: "TX-1-0-0".to_string(),
+                iteration: 0,
+            }),
+        );
+        assert_eq!(state.tool_cards.len(), 1);
+        assert_eq!(state.tool_cards[0].state, None, "Started 后为运行中");
+        let _ = update(
+            &mut state,
+            Message::ToolSignal(whcode_app::turn::TurnSignal::ToolFinished {
+                tool_call_id: "call-1".to_string(),
+                exec_id: "TX-1-0-0".to_string(),
+                state: "completed".to_string(),
+                side_effect: Some("read_only".to_string()),
+                output_value: Some("正文".to_string()),
+                error_code: None,
+                duration_ms: 42,
+            }),
+        );
+        assert_eq!(state.tool_cards[0].state.as_deref(), Some("completed"));
+        assert_eq!(state.tool_cards[0].duration_ms, Some(42));
+        assert_eq!(state.tool_cards[0].output.as_deref(), Some("正文"));
+
+        for index in 0..(MAX_TOOL_CARDS + 5) {
+            let _ = update(
+                &mut state,
+                Message::ToolSignal(whcode_app::turn::TurnSignal::ToolStarted {
+                    tool_call_id: format!("call-{index}"),
+                    tool_name: "shell".to_string(),
+                    exec_id: format!("TX-{index}"),
+                    iteration: 0,
+                }),
+            );
+        }
+        assert_eq!(
+            state.tool_cards.len(),
+            MAX_TOOL_CARDS,
+            "卡片必须有界（旧卡先移除）"
+        );
+        assert_eq!(
+            state
+                .tool_cards
+                .last()
+                .map(|card| card.tool_call_id.as_str()),
+            Some("call-24"),
+            "最新卡在末尾"
+        );
+    }
+
+    /// T256／FR-745：四态决定经审批面回传等待中的 turn 线程；已结算后不残留对话框。
+    #[test]
+    fn approval_decision_reaches_waiting_turn_thread() {
+        use whcode_app::approval::ApprovalAnswerer;
+
+        let mut state = interactive_state(false);
+        state.turn_running = true;
+        let (tx, _rx) = mpsc::channel::<Message>(8);
+        let approvals = std::sync::Arc::new(GuiApprovals {
+            inner: whcode_app::approval::InteractiveApprovals::new(),
+            tx,
+        });
+        state.approvals = Some(std::sync::Arc::clone(&approvals));
+        let request = whcode_domain::approval::ApprovalRequest::new(
+            "AR-GUI",
+            "TX-1",
+            "shell",
+            "S-1",
+            whcode_domain::approval::ApprovalRule::Ask,
+            Some("测试请求".to_string()),
+            1,
+        )
+        .expect("请求");
+        let _ = update(&mut state, Message::ApprovalPending(request.clone()));
+        assert!(state.approval.is_some(), "待审批必须可见");
+
+        let waiter = {
+            let approvals = std::sync::Arc::clone(&approvals);
+            let request = request.clone();
+            std::thread::spawn(move || approvals.inner.answer(&request, 5_000))
+        };
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while approvals.pending().is_empty() {
+            assert!(std::time::Instant::now() < deadline, "请求未登记");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let _ = update(
+            &mut state,
+            Message::ApprovalDecide(whcode_domain::approval::ApprovalAnswer::ApproveTurn),
+        );
+        assert!(state.approval.is_none(), "决定后对话框必须关闭");
+        assert_eq!(
+            waiter.join().expect("等待线程").expect("应答"),
+            Some(whcode_domain::approval::ApprovalAnswer::ApproveTurn)
+        );
+
+        // 已结算后的重复决定：显式失败可见，不伪装成功。
+        let _ = update(
+            &mut state,
+            Message::ApprovalDecide(whcode_domain::approval::ApprovalAnswer::RejectRemember),
+        );
+        assert!(state.approval.is_none(), "无待审批时不得重新打开对话框");
     }
 }
