@@ -251,7 +251,7 @@ impl SurfaceEntry {
 }
 
 /// 稳定能力白名单（`authz::Capability` 的稳定字符串；新增能力须同 PR 扩展本表）。
-const KNOWN_CAPABILITIES: [&str; 11] = [
+const KNOWN_CAPABILITIES: [&str; 13] = [
     "session.create",
     "session.read",
     "session.rename",
@@ -263,6 +263,8 @@ const KNOWN_CAPABILITIES: [&str; 11] = [
     "spec.advance",
     "settings.cert.read",
     "settings.cert.write",
+    "approval.rule.read",
+    "approval.rule.write",
 ];
 
 /// ADR-032 理由码全表（排除登记只能引用这些码）。
@@ -1552,6 +1554,143 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented { anchor: "GET /ws" },
         ],
     },
+    // ── B4 高级面板（T258／T259、FR-749／750／751） ─────────────────────
+    // 只读面板：子代理运行、技能库、MCP 状态。数据来自准备阶段（事件窗口／文件扫描），
+    // 不 spawn 进程、不联网；CUI 与 TUI 固定六视图之外，不提供。
+    SurfaceEntry {
+        id: "settings.subagents",
+        kind: SurfaceKind::View,
+        capability: Capability::SessionRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CuiCommandSurface,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::SixViewScope,
+            },
+            Support::Implemented {
+                anchor: "whcode_gui::State::open_panels",
+            },
+            Support::Implemented {
+                anchor: "GET /api/subagents",
+            },
+        ],
+    },
+    SurfaceEntry {
+        id: "settings.skills",
+        kind: SurfaceKind::View,
+        capability: Capability::SessionRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CuiCommandSurface,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::SixViewScope,
+            },
+            Support::Implemented {
+                anchor: "whcode_gui::State::open_panels",
+            },
+            Support::Implemented {
+                anchor: "GET /api/skills",
+            },
+        ],
+    },
+    SurfaceEntry {
+        id: "settings.mcp",
+        kind: SurfaceKind::View,
+        capability: Capability::SessionRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CuiCommandSurface,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::SixViewScope,
+            },
+            Support::Implemented {
+                anchor: "whcode_gui::State::open_panels",
+            },
+            Support::Implemented {
+                anchor: "GET /api/mcp",
+            },
+        ],
+    },
+    // 权限规则设置：读面 + 手写/撤销。撤销与写入都写 `permission_change` 审计
+    // （审计失败阻断变更），与 T255／ADR-064 的“记住规则”同门面。
+    SurfaceEntry {
+        id: "settings.rules.read",
+        kind: SurfaceKind::View,
+        capability: Capability::ApprovalRuleRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CuiCommandSurface,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::SixViewScope,
+            },
+            Support::Implemented {
+                anchor: "whcode_gui::State::open_panels",
+            },
+            Support::Implemented {
+                anchor: "GET /api/approvals/rules",
+            },
+        ],
+    },
+    SurfaceEntry {
+        id: "settings.rules.write",
+        kind: SurfaceKind::Command,
+        capability: Capability::ApprovalRuleWrite,
+        effect: EffectClass::Write,
+        confirmation: Confirmation::None,
+        audited: true,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::SixViewScope,
+            },
+            Support::Implemented {
+                anchor: "POST /api/approvals/rules",
+            },
+        ],
+    },
+    SurfaceEntry {
+        id: "settings.rules.revoke",
+        kind: SurfaceKind::Command,
+        capability: Capability::ApprovalRuleWrite,
+        effect: EffectClass::Write,
+        confirmation: Confirmation::None,
+        audited: true,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+            Support::Implemented {
+                anchor: "whcode_gui::State::revoke_rule",
+            },
+            Support::Implemented {
+                anchor: "POST /api/approvals/rules/revoke",
+            },
+        ],
+    },
 ];
 
 /// 按 SurfaceId 查找登记条目。
@@ -1715,6 +1854,8 @@ mod tests {
             Capability::SpecAdvance,
             Capability::SettingsCertRead,
             Capability::SettingsCertWrite,
+            Capability::ApprovalRuleRead,
+            Capability::ApprovalRuleWrite,
         ];
         assert_eq!(
             all.len(),
@@ -1752,9 +1893,14 @@ mod tests {
                 "view.diff",
                 "view.chat",
                 "view.checkpoints",
-                "view.changes"
+                "view.changes",
+                // B4 高级面板与审批规则读面（T258／T259）：仅 GUI／Web 的设置视图。
+                "settings.subagents",
+                "settings.skills",
+                "settings.mcp",
+                "settings.rules.read"
             ],
-            "视图面条目为证书设置页 + 七视图 + 检查点浏览 + 在线可见（FR-601／622／624／748、ADR-040）"
+            "视图面条目为证书设置页 + 七视图 + 检查点浏览 + 在线可见 + B4 面板（FR-601／622／624／748／749—751、ADR-040）"
         );
     }
 

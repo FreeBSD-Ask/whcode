@@ -28,6 +28,10 @@ pub enum GuiAction {
     Refresh,
     /// 主题循环（`t`；FR-713）。
     CycleTheme,
+    /// 打开／关闭高级面板（`s`；T258／FR-749／750／751）。
+    OpenPanels,
+    /// 撤销一条本地审批规则（面板内按钮；FR-751）。
+    RevokeRule,
     /// 退出（`q`／Esc）。
     Quit,
 }
@@ -40,6 +44,8 @@ pub fn surface_of(action: GuiAction) -> &'static str {
         GuiAction::NextSession | GuiAction::PrevSession => "view.sessions",
         GuiAction::Refresh => "view.changes",
         GuiAction::CycleTheme => "theme.switch",
+        GuiAction::OpenPanels => "settings.subagents",
+        GuiAction::RevokeRule => "settings.rules.revoke",
         GuiAction::Quit => "app.quit",
     }
 }
@@ -78,6 +84,8 @@ mod tests {
             GuiAction::PrevSession,
             GuiAction::Refresh,
             GuiAction::CycleTheme,
+            GuiAction::OpenPanels,
+            GuiAction::RevokeRule,
             GuiAction::Quit,
         ];
         for action in actions {
@@ -105,6 +113,7 @@ mod tests {
             GuiAction::PrevSession,
             GuiAction::Refresh,
             GuiAction::CycleTheme,
+            GuiAction::OpenPanels,
             GuiAction::Quit,
         ];
         for action in actions {
@@ -122,7 +131,7 @@ mod tests {
     /// 白名单外的写/破坏性面不得在 GUI 出现已实现（如 `spec.*` 门禁操作、`settings.cert.write`）。
     #[test]
     fn gui_implemented_surfaces_are_reads_or_whitelisted_writes() {
-        const WRITES: [&str; 9] = [
+        const WRITES: [&str; 10] = [
             "session.new",
             "session.rename",
             "session.archive",
@@ -132,6 +141,7 @@ mod tests {
             "db.purge",
             "llm.run",
             "llm.cancel",
+            "settings.rules.revoke",
         ];
         for entry in SURFACES {
             if !matches!(entry.support(FrontendId::Gui), Support::Implemented { .. }) {

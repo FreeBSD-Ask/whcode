@@ -29,8 +29,10 @@ use iced::{
 };
 use whcode_app::SessionSort;
 use whcode_app::commands::{CommandExecutor, FrontendCommand};
+use whcode_app::panels::{McpStatus, SubagentState};
 use whcode_app::view_source::{
-    CheckpointItem, SessionRow as ViewSessionRow, VIEW_COUNT, ViewId, ViewSnapshot, ViewSource,
+    CheckpointItem, PanelsSnapshot, SessionRow as ViewSessionRow, VIEW_COUNT, ViewId, ViewSnapshot,
+    ViewSource,
 };
 use whcode_domain::WhError;
 use whcode_domain::i18n::{I18n, is_rtl_locale};
@@ -342,6 +344,13 @@ enum Message {
     TaskAbort(usize),
     /// 查看任务检查点（按下标索引 `snapshot.tasks`；FR-748）。
     TaskCheckpoints(usize),
+    // —— B4 高级面板（T258、FR-749／750／751）——
+    /// 打开／关闭高级面板（`s` 键；打开时在准备阶段取数）。
+    TogglePanels,
+    /// 重新读取面板数据（面板内刷新；不触库以外的副作用）。
+    RefreshPanels,
+    /// 撤销一条本地审批规则（工具稳定名）。
+    RevokeRule(String),
     // —— 侧栏（B2，FR-746）——
     /// 侧栏搜索词（标题/ID/阶段子串，本地过滤，不触库）。
     SessionFilterChanged(String),
@@ -418,6 +427,12 @@ struct State {
     approval_status: Option<String>,
     /// 本次 turn 的审批应答面（turn 运行期间存在；决定经它交给等待线程）。
     approvals: Option<std::sync::Arc<GuiApprovals>>,
+    /// 高级面板是否打开（T258；`s` 切换）。
+    panels_open: bool,
+    /// 高级面板快照（准备阶段生成；turn 运行期间不刷新）。
+    panels: PanelsSnapshot,
+    /// 面板反馈行（撤销结果或错误）。
+    panel_status: Option<String>,
 }
 
 impl State {
@@ -469,6 +484,9 @@ impl State {
             approval: None,
             approval_status: None,
             approvals: None,
+            panels_open: false,
+            panels: PanelsSnapshot::default(),
+            panel_status: None,
         }
     }
 
@@ -747,6 +765,11 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                 state.approval_status = None;
             }
             Message::ApprovalDecide(answer) => decide_approval(state, answer),
+            // 面板关闭不触库；打开要取数，turn 期间保持冻结（不阻塞界面）。
+            Message::TogglePanels => {
+                state.panels_open = false;
+                state.panel_status = None;
+            }
             Message::ChatDone(result) => {
                 state.turn_running = false;
                 state.chat_progress = 0;
@@ -828,6 +851,13 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             return Task::none();
         }
         Message::Key(key) => {
+            // 面板打开时只接受 `s`（关闭）与 Esc（关闭）；其余键不穿透到视图切换。
+            if state.panels_open {
+                if key == 's' {
+                    let _ = update(state, Message::TogglePanels);
+                }
+                return Task::none();
+            }
             // 全局快捷键仅在「无文本输入场景」生效：对话视图与操作面板打开时，
             // 键盘由文本输入控件接管（数字与 j/k/r/t/q 是内容而非命令）。
             if state.op_mode.is_some() || state.view == ViewId::Chat {
@@ -857,12 +887,19 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                     let _ = update(state, Message::CycleTheme);
                     return Task::none();
                 }
+                's' => {
+                    let _ = update(state, Message::TogglePanels);
+                    return Task::none();
+                }
                 'q' => return iced::exit(),
                 _ => return Task::none(),
             }
         }
         Message::EscapeKey => {
-            if state.op_mode.take().is_some() {
+            if state.panels_open {
+                state.panels_open = false;
+                state.panel_status = None;
+            } else if state.op_mode.take().is_some() {
                 state.op_input.clear();
                 state.op_feedback = None;
             } else {
@@ -897,8 +934,65 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             state.checkpoint_task = task;
             return Task::none();
         }
+        Message::TogglePanels => {
+            if state.panels_open {
+                state.panels_open = false;
+                state.panel_status = None;
+                return Task::none();
+            }
+            state.panels_open = true;
+            state.panel_status = None;
+            refresh_panels(state);
+            return Task::none();
+        }
+        Message::RefreshPanels => {
+            if !state.turn_running {
+                refresh_panels(state);
+            }
+            return Task::none();
+        }
+        Message::RevokeRule(tool) => {
+            let Some(executor) = state.executor.clone() else {
+                state.panel_status = Some(state.texts.resolve("gui.op.not_supported").to_string());
+                return Task::none();
+            };
+            match executor.execute(FrontendCommand::ApprovalRuleRevoke {
+                tool: tool.clone(),
+                now_ms: now_ms(),
+            }) {
+                Ok(whcode_app::CommandOutcome::ApprovalRuleRevoked { removed, .. }) => {
+                    let key = if removed {
+                        "settings.panels.rules.revoked"
+                    } else {
+                        "settings.panels.rules.missing"
+                    };
+                    state.panel_status = Some(state.texts.resolve_fmt(key, &[("tool", &tool)]));
+                }
+                Ok(_) => {
+                    state.panel_status = Some(
+                        state
+                            .texts
+                            .resolve("settings.panels.rules.failed")
+                            .to_string(),
+                    );
+                }
+                Err(err) => {
+                    state.panel_status = Some(format!(
+                        "{}: {err}",
+                        state.texts.resolve("settings.panels.rules.failed")
+                    ));
+                }
+            }
+            refresh_panels(state);
+            return Task::none();
+        }
     }
     Task::none()
+}
+
+/// 高级面板取数（准备阶段；调用方保证连接锁空闲）。
+fn refresh_panels(state: &mut State) {
+    state.panels = state.source.panels(state.selected_session().as_deref());
 }
 
 /// 工具信号 → 卡片状态（T256／FR-743）。Started 建卡（“运行中”），Finished 落终态、
@@ -1364,6 +1458,9 @@ fn op_outcome_text(outcome: &whcode_app::commands::CommandOutcome) -> String {
                 "purged: sessions={} tasks={}",
                 result.deleted.sessions, result.deleted.tasks
             )
+        }
+        whcode_app::commands::CommandOutcome::ApprovalRuleRevoked { tool, removed } => {
+            format!("approval_rule={tool} removed={removed}")
         }
     }
 }
@@ -2020,41 +2117,64 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
 }
 
 fn view(state: &State) -> Element<'_, Message> {
-    let items: Vec<Element<'_, Message>> = ViewId::ALL
+    let mut items: Vec<Element<'_, Message>> = ViewId::ALL
         .iter()
         .map(|item| sidebar_button(state, *item))
         .collect();
+    let panel_selected = state.panels_open;
+    let panel_theme = state.theme;
+    items.push(
+        button(rich_line(
+            state.texts.resolve("settings.panels.open"),
+            false,
+            16.0,
+        ))
+        .on_press(Message::TogglePanels)
+        .width(Length::Fill)
+        .padding([6, 8])
+        .style(move |_theme, _status| sidebar_style(panel_theme, panel_selected))
+        .into(),
+    );
     let sidebar = container(column(items).spacing(4))
         .width(Length::Fixed(200.0))
         .height(Length::Fill);
 
-    let body: Element<'_, Message> = match state.view {
-        ViewId::Chat => chat_panel(state),
-        ViewId::Sessions if state.op_mode.is_some() => {
-            column![op_panel(state), read_body(state, false)]
-                .spacing(8)
-                .into()
+    let body: Element<'_, Message> = if state.panels_open {
+        panels_panel(state)
+    } else {
+        match state.view {
+            ViewId::Chat => chat_panel(state),
+            ViewId::Sessions if state.op_mode.is_some() => {
+                column![op_panel(state), read_body(state, false)]
+                    .spacing(8)
+                    .into()
+            }
+            ViewId::Sessions => column![
+                op_buttons(state),
+                session_controls(state),
+                session_body(state)
+            ]
+            .spacing(8)
+            .into(),
+            ViewId::Tasks => column![
+                task_buttons(state),
+                task_body(state),
+                checkpoint_panel(state)
+            ]
+            .spacing(8)
+            .into(),
+            _ => read_body(state, state.view == ViewId::Diff),
         }
-        ViewId::Sessions => column![
-            op_buttons(state),
-            session_controls(state),
-            session_body(state)
-        ]
-        .spacing(8)
-        .into(),
-        ViewId::Tasks => column![
-            task_buttons(state),
-            task_body(state),
-            checkpoint_panel(state)
-        ]
-        .spacing(8)
-        .into(),
-        _ => read_body(state, state.view == ViewId::Diff),
     };
 
     // 顶栏：视图标题（20）+ 当前会话（13）；其下为 KPI 条与正文；底部状态栏。
+    let title_key = if state.panels_open {
+        "settings.panels.title"
+    } else {
+        state.view.title_key()
+    };
     let header = column![
-        rich_line(state.texts.resolve(state.view.title_key()), false, 20.0),
+        rich_line(state.texts.resolve(title_key), false, 20.0),
         rich_line(state.session_label().as_str(), false, 13.0),
     ]
     .spacing(4);
@@ -2077,6 +2197,194 @@ fn view(state: &State) -> Element<'_, Message> {
     container(shell)
         .padding(12)
         .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
+}
+
+/// 子代理状态词条键（稳定码 → 文本层）。
+fn subagent_state_key(state: SubagentState) -> &'static str {
+    match state {
+        SubagentState::Running => "settings.panels.state.running",
+        SubagentState::Ok => "settings.panels.state.ok",
+        SubagentState::Failed => "settings.panels.state.failed",
+    }
+}
+
+/// MCP 状态词条键（配置态与观测态分开：Ok 表示最近一次调用成功）。
+fn mcp_state_key(status: McpStatus) -> &'static str {
+    match status {
+        McpStatus::Configured => "settings.panels.mcp.configured",
+        McpStatus::Ok => "settings.panels.mcp.observed_ok",
+        McpStatus::Disabled => "settings.panels.mcp.disabled",
+        McpStatus::Running => "settings.panels.state.running",
+        McpStatus::Failed => "settings.panels.state.failed",
+    }
+}
+
+/// 高级面板（T258／FR-749／750／751）：四段只读信息 + 规则撤销。
+///
+/// 帧路径只消费 [`PanelsSnapshot`]（准备阶段生成）；不查询、不序列化、不 spawn。
+fn panels_panel(state: &State) -> Element<'_, Message> {
+    let rtl = is_rtl_locale(&state.texts.locale);
+    let empty = || rich_line(state.texts.resolve("settings.panels.empty"), false, 13.0);
+    let heading = |key: &'static str| rich_line(state.texts.resolve(key), false, 16.0);
+    let mut body = column![].spacing(6);
+
+    body = body.push(
+        button(rich_line(
+            state.texts.resolve("settings.panels.refresh"),
+            false,
+            13.0,
+        ))
+        .padding([2, 8])
+        .on_press(Message::RefreshPanels),
+    );
+    if let Some(status) = state.panel_status.as_deref() {
+        body = body.push(rich_line(status, false, 13.0));
+    }
+
+    // 子代理运行（FR-749）：状态 + 产出摘要 + 终止原因/轮数/时长。
+    body = body.push(heading("settings.panels.subagents.title"));
+    if state.panels.subagents.is_empty() {
+        body = body.push(empty());
+    } else {
+        for run in state.panels.subagents.iter().take(32) {
+            let mut line = format!(
+                "{} · {}",
+                run.exec_id,
+                state.texts.resolve(subagent_state_key(run.state))
+            );
+            if let Some(reason) = run.termination.as_deref() {
+                line.push_str(&format!(" · {reason}"));
+            }
+            if let Some(iterations) = run.iterations {
+                line.push_str(" · ");
+                line.push_str(&state.texts.resolve_fmt(
+                    "settings.panels.subagents.iterations",
+                    &[("n", &iterations.to_string())],
+                ));
+            }
+            if let Some(ms) = run.duration_ms {
+                line.push_str(&format!(" · {ms} ms"));
+            }
+            if let Some(code) = run.error_code.as_deref() {
+                line.push_str(&format!(" · {code}"));
+            }
+            body = body.push(rich_line(&line, true, 12.0));
+            if let Some(summary) = run.output_summary.as_deref() {
+                body = body.push(rich_line(summary, false, 12.0));
+            }
+        }
+    }
+
+    // 技能库（FR-750）：名称 — 描述；可达性问题逐条列出。
+    body = body.push(heading("settings.panels.skills.title"));
+    if state.panels.skills.is_empty() {
+        body = body.push(empty());
+    } else {
+        for skill in state.panels.skills.iter().take(32) {
+            body = body.push(rich_line(
+                &format!("{} — {}", skill.name, skill.description),
+                false,
+                13.0,
+            ));
+            body = body.push(rich_line(&skill.path, true, 11.0));
+            if !skill.issues.is_empty() {
+                body = body.push(rich_line(
+                    &state.texts.resolve_fmt(
+                        "settings.panels.skills.issues",
+                        &[("count", &skill.issues.len().to_string())],
+                    ),
+                    false,
+                    11.0,
+                ));
+            }
+        }
+    }
+    for warning in state.panels.skill_warnings.iter().take(8) {
+        body = body.push(rich_line(warning, false, 11.0));
+    }
+
+    // MCP 服务器（FR-750）：配置态 + 超时/输出上限 + 事件窗口内观测到的工具。
+    body = body.push(heading("settings.panels.mcp.title"));
+    if let Some(error) = state.panels.mcp_error.as_deref() {
+        body = body.push(rich_line(error, false, 12.0));
+    } else if !state.panels.mcp_configured {
+        body = body.push(rich_line(
+            state.texts.resolve("settings.panels.mcp.unconfigured"),
+            false,
+            13.0,
+        ));
+    } else if state.panels.mcp.is_empty() {
+        body = body.push(empty());
+    } else {
+        for server in state.panels.mcp.iter().take(8) {
+            let enabled = if server.enabled { "" } else { " · off" };
+            body = body.push(rich_line(
+                &format!(
+                    "{} · {}{} · {} · {}",
+                    server.name,
+                    server.transport,
+                    enabled,
+                    state.texts.resolve(mcp_state_key(server.status)),
+                    state.texts.resolve_fmt(
+                        "settings.panels.mcp.timeout",
+                        &[
+                            ("ms", &server.timeout_ms.to_string()),
+                            ("bytes", &server.max_output_bytes.to_string()),
+                        ],
+                    ),
+                ),
+                true,
+                12.0,
+            ));
+            if !server.tools.is_empty() {
+                body = body.push(rich_line(
+                    &state.texts.resolve_fmt(
+                        "settings.panels.mcp.tools",
+                        &[("tools", &server.tools.join(", "))],
+                    ),
+                    false,
+                    11.0,
+                ));
+            }
+        }
+    }
+
+    // 审批规则（FR-751）：tokens 来自本地表；撤销即写 `permission_change` 审计。
+    body = body.push(heading("settings.panels.rules.title"));
+    if let Some(error) = state.panels.error.as_deref()
+        && state.panels.rules.is_empty()
+    {
+        body = body.push(rich_line(error, false, 12.0));
+    } else if state.panels.rules.is_empty() {
+        body = body.push(rich_line(
+            state.texts.resolve("settings.approvals.empty"),
+            false,
+            13.0,
+        ));
+    } else {
+        for rule in &state.panels.rules {
+            let label = format!("{} · {}", rule.tool, rule.rule.as_str());
+            let revoke = button(rich_line(
+                state.texts.resolve("settings.approvals.revoke"),
+                false,
+                12.0,
+            ))
+            .padding([2, 6])
+            .on_press(Message::RevokeRule(rule.tool.clone()));
+            body = body.push(
+                row(mirrored_order(
+                    rtl,
+                    vec![rich_line(label.as_str(), true, 13.0), revoke.into()],
+                ))
+                .spacing(8),
+            );
+        }
+    }
+
+    scrollable(body)
+        .style(move |_, _| state.theme.scrollbar())
         .height(Length::Fill)
         .into()
 }
@@ -2715,5 +3023,161 @@ mod tests {
             Message::ApprovalDecide(whcode_domain::approval::ApprovalAnswer::RejectRemember),
         );
         assert!(state.approval.is_none(), "无待审批时不得重新打开对话框");
+    }
+
+    /// B4 面板数据流（T258／FR-749／750／751）：打开时准备阶段取数；turn 运行中
+    /// 拒绝打开（不阻塞界面）；撤销规则经命令门面执行，结果行可见。
+    #[test]
+    fn panels_open_fetch_and_revoke_rule() {
+        struct StubSource;
+        impl ViewSource for StubSource {
+            fn snapshot(&self, view: ViewId, _session: Option<&str>) -> ViewSnapshot {
+                ViewSnapshot::empty(view)
+            }
+            fn panels(&self, _session: Option<&str>) -> PanelsSnapshot {
+                let mut snapshot = PanelsSnapshot::default();
+                snapshot.subagents.push(whcode_app::panels::SubagentRunRow {
+                    exec_id: "TX-1".to_string(),
+                    state: SubagentState::Ok,
+                    output_summary: Some("子任务完成".to_string()),
+                    termination: Some("model_finished".to_string()),
+                    iterations: Some(2),
+                    duration_ms: Some(42),
+                    error_code: None,
+                });
+                snapshot.skills.push(whcode_app::panels::SkillRow {
+                    name: "review".to_string(),
+                    description: "评审".to_string(),
+                    path: "/work/.zcode/skills/review/SKILL.md".to_string(),
+                    issues: Vec::new(),
+                });
+                snapshot.mcp_configured = true;
+                snapshot.mcp.push(whcode_app::panels::McpServerRow {
+                    name: "local".to_string(),
+                    transport: "stdio".to_string(),
+                    enabled: true,
+                    timeout_ms: 5_000,
+                    max_output_bytes: 65_536,
+                    status: McpStatus::Ok,
+                    tools: vec!["search".to_string()],
+                });
+                snapshot
+                    .rules
+                    .push(whcode_app::approval_rules::ApprovalRuleView {
+                        tool: "shell".to_string(),
+                        rule: whcode_domain::approval::ApprovalRule::Deny,
+                    });
+                snapshot
+            }
+        }
+        struct RecordingExecutor {
+            calls: Rc<std::cell::RefCell<usize>>,
+        }
+        impl CommandExecutor for RecordingExecutor {
+            fn execute(
+                &self,
+                command: FrontendCommand,
+            ) -> Result<whcode_app::commands::CommandOutcome, WhError> {
+                *self.calls.borrow_mut() += 1;
+                match command {
+                    FrontendCommand::ApprovalRuleRevoke { tool, .. } => {
+                        Ok(whcode_app::commands::CommandOutcome::ApprovalRuleRevoked {
+                            tool,
+                            removed: true,
+                        })
+                    }
+                    _ => Err(WhError::invalid_state("测试不接受其他命令")),
+                }
+            }
+        }
+        let calls = Rc::new(std::cell::RefCell::new(0_usize));
+        let source: Rc<dyn ViewSource> = Rc::new(StubSource);
+        let executor: Rc<dyn CommandExecutor> = Rc::new(RecordingExecutor {
+            calls: Rc::clone(&calls),
+        });
+        let mut state = State::new(
+            source,
+            I18n::default(),
+            GuiTheme::EinkDay,
+            Some(executor),
+            None,
+        );
+
+        // turn 运行中：取数冻结（连接锁由 turn 线程持有），面板保持关闭、不读数据。
+        state.turn_running = true;
+        let _ = update(&mut state, Message::TogglePanels);
+        assert!(!state.panels_open);
+        assert!(
+            state.panels.subagents.is_empty(),
+            "turn 运行中不得取面板数据"
+        );
+        state.turn_running = false;
+
+        let _ = update(&mut state, Message::TogglePanels);
+        assert!(state.panels_open);
+        assert_eq!(state.panels.subagents.len(), 1);
+        assert_eq!(state.panels.skills.len(), 1);
+        assert_eq!(state.panels.mcp.len(), 1);
+        assert_eq!(state.panels.rules.len(), 1);
+
+        let _ = update(&mut state, Message::RevokeRule("shell".to_string()));
+        assert_eq!(*calls.borrow(), 1, "撤销必须经命令门面");
+        assert!(
+            state
+                .panel_status
+                .as_deref()
+                .is_some_and(|text| text.contains("shell"))
+        );
+
+        // turn 开始后可关闭（不触库），但不得重新打开取数。
+        state.turn_running = true;
+        let _ = update(&mut state, Message::TogglePanels);
+        assert!(!state.panels_open);
+        let _ = update(&mut state, Message::TogglePanels);
+        assert!(!state.panels_open, "turn 运行中不得打开面板");
+        state.turn_running = false;
+
+        let _ = update(&mut state, Message::TogglePanels);
+        assert!(state.panels_open);
+        let _ = update(&mut state, Message::EscapeKey);
+        assert!(!state.panels_open, "Esc 关闭面板");
+    }
+
+    /// B4 面板文案（T258／FR-749／750／751）：GUI 引用的每个键在十三套目录中
+    /// 都必须是译文；回退成键名即失败。
+    #[test]
+    fn panel_texts_resolve_in_every_catalog() {
+        const KEYS: &[&str] = &[
+            "settings.panels.title",
+            "settings.panels.open",
+            "settings.panels.refresh",
+            "settings.panels.empty",
+            "settings.panels.subagents.title",
+            "settings.panels.subagents.iterations",
+            "settings.panels.skills.title",
+            "settings.panels.skills.issues",
+            "settings.panels.mcp.title",
+            "settings.panels.mcp.unconfigured",
+            "settings.panels.mcp.configured",
+            "settings.panels.mcp.disabled",
+            "settings.panels.mcp.observed_ok",
+            "settings.panels.mcp.timeout",
+            "settings.panels.mcp.tools",
+            "settings.panels.rules.title",
+            "settings.panels.rules.revoked",
+            "settings.panels.rules.missing",
+            "settings.panels.rules.failed",
+            "settings.panels.state.running",
+            "settings.panels.state.ok",
+            "settings.panels.state.failed",
+            "settings.approvals.empty",
+            "settings.approvals.revoke",
+        ];
+        for (locale, _) in whcode_domain::i18n::BUILTIN_LOCALES {
+            let texts = I18n::load(locale, whcode_domain::i18n::LocaleSource::Explicit);
+            for key in KEYS {
+                assert_ne!(texts.resolve(key), *key, "{locale} 缺 {key}");
+            }
+        }
     }
 }

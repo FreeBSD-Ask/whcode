@@ -71,6 +71,8 @@ pub enum FrontendCommand {
         confirm: bool,
         now_ms: u64,
     },
+    /// 撤销一条本地审批规则（T258／FR-751；设置页可撤销“记住规则”写下的 allow／deny）。
+    ApprovalRuleRevoke { tool: String, now_ms: u64 },
 }
 
 /// 执行结果（呈现无关；JSON 形状由前端呈现层构造）。
@@ -95,6 +97,13 @@ pub enum CommandOutcome {
     PurgePreview(PurgePreview),
     /// 清理执行结果。
     PurgeExecuted(PurgeResult),
+    /// 审批规则撤销结果（`removed = false` 表示规则本就不存在，不伪造删除）。
+    ApprovalRuleRevoked {
+        /// 工具稳定名。
+        tool: String,
+        /// 是否确有删除。
+        removed: bool,
+    },
 }
 
 /// 执行器抽象（TUI 等“动作 → 门面”注入用；装配根实现持有连接与授权）。
@@ -220,6 +229,13 @@ pub fn execute_command(
                 *now_ms,
             )?;
             Ok(CommandOutcome::PurgeExecuted(result))
+        }
+        FrontendCommand::ApprovalRuleRevoke { tool, now_ms } => {
+            let removed = crate::approval_rules::revoke_rule(conn, policy, actor, tool, *now_ms)?;
+            Ok(CommandOutcome::ApprovalRuleRevoked {
+                tool: tool.clone(),
+                removed,
+            })
         }
     }
 }

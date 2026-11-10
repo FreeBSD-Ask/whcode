@@ -1064,6 +1064,7 @@ fn run_turn_inner(
                     &mut pending_events,
                     &mut envelope,
                     &mut messages,
+                    observer,
                 )?;
                 continue;
             }
@@ -1276,6 +1277,7 @@ fn handle_spawn_subagent(
     pending_events: &mut Vec<TurnEventDraft>,
     envelope: &mut Vec<Value>,
     messages: &mut Vec<LlmMessage>,
+    observer: Option<TurnObserver<'_>>,
 ) -> Result<(), WhError> {
     // 硬上限一：递归深度（ADR-052 §2.3——子代理不得再 spawn）。
     if request.depth >= 1 {
@@ -1351,6 +1353,7 @@ fn handle_spawn_subagent(
         .or(request.iterations_limit);
 
     *subagents_spawned += 1;
+    let exec_id = format!("TX-{parent_request_id}-{iteration}-sub-{subagents_spawned}");
     let sub_request = TurnRequest {
         session_id: request.session_id.clone(),
         provider: request.provider.clone(),
@@ -1363,6 +1366,16 @@ fn handle_spawn_subagent(
         workspace_root: request.workspace_root.clone(),
         depth: request.depth + 1,
     };
+    // 运行期观察信号（T258／FR-749）：GUI 在委派期间与普通工具卡同路径显示“运行中”。
+    if let Some(observer) = observer {
+        observer(TurnSignal::ToolStarted {
+            tool_call_id: tool_call.id.clone(),
+            tool_name: tool_call.name.clone(),
+            exec_id: exec_id.clone(),
+            iteration,
+        });
+    }
+    let started_at = Instant::now();
     let started = json!({
         "kind": EventKind::ToolCallStarted.as_str(),
         "turn_id": turn_id,
@@ -1370,6 +1383,7 @@ fn handle_spawn_subagent(
         "request_id": parent_request_id,
         "tool_call_id": tool_call.id,
         "tool_name": tool_call.name,
+        "exec_id": exec_id,
         "depth": sub_request.depth,
     });
     pending_events.push(TurnEventDraft {
@@ -1395,16 +1409,21 @@ fn handle_spawn_subagent(
             } else {
                 "failed"
             };
+            let duration_ms = u64::try_from(started_at.elapsed().as_millis()).unwrap_or(u64::MAX);
+            let output_summary = crate::panels::summarize(&sub.text);
             let finished = json!({
                 "kind": EventKind::ToolCallFinished.as_str(),
                 "turn_id": turn_id,
                 "iteration": iteration,
                 "request_id": parent_request_id,
                 "tool_call_id": tool_call.id,
+                "exec_id": exec_id,
                 "state": state,
                 "sub_turn_id": sub.turn_id,
                 "sub_termination_reason": sub.termination_reason,
                 "sub_iterations": sub.iterations,
+                "output_summary": output_summary,
+                "duration_ms": duration_ms,
             });
             pending_events.push(TurnEventDraft {
                 kind: EventKind::ToolCallFinished,
@@ -1413,6 +1432,21 @@ fn handle_spawn_subagent(
                 payload: finished.clone(),
             });
             envelope.push(finished);
+            if let Some(observer) = observer {
+                observer(TurnSignal::ToolFinished {
+                    tool_call_id: tool_call.id.clone(),
+                    exec_id: exec_id.clone(),
+                    state: if state == "completed" {
+                        "ok".to_string()
+                    } else {
+                        "failed".to_string()
+                    },
+                    side_effect: None,
+                    output_value: Some(output_summary.clone()),
+                    error_code: None,
+                    duration_ms,
+                });
+            }
             messages.push(LlmMessage {
                 role: Role::Tool,
                 content: bound_result_text(format!(
@@ -1422,14 +1456,18 @@ fn handle_spawn_subagent(
             });
         }
         Err(err) => {
+            let duration_ms = u64::try_from(started_at.elapsed().as_millis()).unwrap_or(u64::MAX);
+            let error_code = err.code.as_str().to_string();
             let finished = json!({
                 "kind": EventKind::ToolCallFinished.as_str(),
                 "turn_id": turn_id,
                 "iteration": iteration,
                 "request_id": request.request_id,
                 "tool_call_id": tool_call.id,
+                "exec_id": exec_id,
                 "state": "failed",
-                "error_code": err.code.as_str(),
+                "error_code": error_code,
+                "duration_ms": duration_ms,
             });
             pending_events.push(TurnEventDraft {
                 kind: EventKind::ToolCallFinished,
@@ -1438,6 +1476,17 @@ fn handle_spawn_subagent(
                 payload: finished.clone(),
             });
             envelope.push(finished);
+            if let Some(observer) = observer {
+                observer(TurnSignal::ToolFinished {
+                    tool_call_id: tool_call.id.clone(),
+                    exec_id: exec_id.clone(),
+                    state: "failed".to_string(),
+                    side_effect: None,
+                    output_value: None,
+                    error_code: Some(error_code),
+                    duration_ms,
+                });
+            }
             messages.push(LlmMessage {
                 role: Role::Tool,
                 content: format!("子代理执行失败：{err}"),

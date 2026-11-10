@@ -656,6 +656,33 @@ pub trait ViewSource {
     fn checkpoints(&self, _task: &str) -> Vec<CheckpointItem> {
         Vec::new()
     }
+
+    /// 高级面板（T258／FR-749／750／751）：子代理运行、技能库、MCP 状态与审批规则。
+    /// 默认空——不提供该能力的视图源（TUI／CUI 与测试夹具）零改动。
+    fn panels(&self, _session: Option<&str>) -> PanelsSnapshot {
+        PanelsSnapshot::default()
+    }
+}
+
+/// 高级面板快照（只读纯数据；准备阶段生成，帧路径不触库）。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PanelsSnapshot {
+    /// 技能库（有界）。
+    pub skills: Vec<crate::panels::SkillRow>,
+    /// 技能扫描 warning。
+    pub skill_warnings: Vec<String>,
+    /// MCP 配置是否存在且解析成功。
+    pub mcp_configured: bool,
+    /// MCP 服务器行（配置 + 最近事件窗口的观测结果）。
+    pub mcp: Vec<crate::panels::McpServerRow>,
+    /// MCP 读取失败说明（解析失败/事件查询失败；不伪装成空）。
+    pub mcp_error: Option<String>,
+    /// 子代理运行（最新在前，有界）。
+    pub subagents: Vec<crate::panels::SubagentRunRow>,
+    /// 本地审批规则（按工具名升序）。
+    pub rules: Vec<crate::approval_rules::ApprovalRuleView>,
+    /// 其他读取失败的显式说明（不伪造空）。
+    pub error: Option<String>,
 }
 
 /// 空数据源：数据源不可用时的回退实现——六视图可切换、可绘制，界面提示“暂无数据”。

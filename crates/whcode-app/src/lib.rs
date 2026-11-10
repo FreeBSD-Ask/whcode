@@ -40,6 +40,7 @@ pub mod gates;
 pub mod llm;
 pub mod maintenance;
 pub mod overview;
+pub mod panels;
 pub mod queue;
 pub mod replay;
 pub mod residency;
