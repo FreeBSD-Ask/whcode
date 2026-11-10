@@ -13,6 +13,21 @@
 
 ### 变更
 
+- **B3b GUI 交互面：工具卡与四态审批（T256，FR-743／FR-745，2026-11-10）**：对话视图
+  新增工具卡（`TurnSignal` 观察信号，字段与 `ToolCallStarted`／`ToolCallFinished` 同名；
+  上限 20 张，输出截断 200 字符）与四态审批按钮（本回合／仅本次／记住规则／拒绝）。
+  审批请求经有界通道（64）推给界面后同步等待决定；通道拥塞时立即按无应答者返回
+  （`unavailable`，fail-closed），不占用等待预算。`run_turn_with_approval` 增加观察回调
+  参数（`None` 行为不变），`ToolCallFinished` payload 新增 `duration_ms`（四端可显示
+  时长）。GUI turn 装配改用交互口径：`with_approval` → `to_policy_interactive` →
+  本地已存规则 → `ApprovalGate::for_store`，`shell` 默认询问；TUI 同步入口仍默认 allow。
+  证据：`whcode-app --lib` 202/0（含新用例
+  `observer_receives_tool_signals_and_finished_event_carries_duration`）、`whcode-gui --lib`
+  31/0（含卡片有界与四态回传两条）、`whcode-bin --bin whcode` 106/0；新文案 12 键随十三套
+  目录同批。
+  未闭环：CUI／TUI 工具卡结构化文本（Check 348 的四端判据）、设置页规则撤销入口
+  （T258／T259，Check 356）。
+
 - **B3b Web 交互面：工具调用卡与四态审批（T257，FR-743／FR-745，2026-11-10）**：对话页
   新增工具卡（事件源 `ToolCallStarted`／`ToolCallFinished`，按 `session_id` 过滤跨会话
   帧；卡片上限 20、输出有界，参数不入事件正文）与四态审批按钮（本回合批准／仅本次／

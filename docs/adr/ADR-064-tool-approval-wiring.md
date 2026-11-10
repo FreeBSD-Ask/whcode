@@ -166,12 +166,14 @@ ADR-060 §2.2 的“A 的接线冻结”**只在本 ADR 决策 1—6 的范围�
 ## 已知限制与失效条件
 
 - **无 UI 时 `ask` 等于不可用**：用户把某工具设为 `ask` 但没有应答者（CUI／TUI／SSH
-  当前未注入 UI 应答者；Web 已注入四态按钮），该工具每次调用都会 `unavailable` 失败。
+  当前未注入 UI 应答者；GUI 与 Web 已注入四态应答面），该工具每次调用都会 `unavailable`
+  失败。
   这是设计选择而非缺陷：不得把“无人可问”静默当作允许；修复方向是补齐应答面，不是
   放宽语义。
-- **装配根接线是分批的**：Web 段已接线（`serve_approval_policy`，内置 `shell = ask` →
-  配置 → 已存规则），其余三端（CUI／TUI／SSH 的 turn 入口）仍走 `run_turn`／
-  `run_turn_with_progress`，因此这些端上配置文件里的 `[approval]` 段仍**只有解析与校验的
+- **装配根接线是分批的**：Web 段（`serve_approval_policy`）与 GUI 段（
+  `TuiLlmExecutor::with_approval` → `to_policy_interactive` → 已存规则）已接线，两端
+  内置 `shell = ask` 生效；CUI／TUI／SSH 的 turn 入口仍走 `run_turn`／
+  `run_turn_with_progress`，因此这三端配置文件里的 `[approval]` 段仍**只有解析与校验的
   消费者，没有生效路径**——显式登记的缺口，不是“已生效但没测到”。补齐后须在此追加
   修订记录并把本条从限制中移除。
 - **子代理不走二次审批**：`spawn_subagent` 内部的工具调用不带闸门，审批只发生在父 turn 的
@@ -255,3 +257,18 @@ ADR-060 §2.2 的“A 的接线冻结”**只在本 ADR 决策 1—6 的范围�
     目录同批落地。
   - 未闭环（B3b UI 批次的 GUI 段）：GUI 工具卡与四态对话框、设置页规则列表与撤销
     入口；T256 与 Check 348／350 保持未勾（两 Check 均以双端为判据）。
+- 2026-11-10（B3b GUI 段，T256）：GUI 交付工具卡与四态审批，装配启用交互口径。
+  - `whcode-app::turn` 新增 `TurnSignal`／`TurnObserver`（字段与 `ToolCallStarted`／
+    `ToolCallFinished` 同名同义）：`ToolStarted` 在调用前送达（事件仍按原位置批量落表），
+    `ToolFinished` 在调用后送达并带实测 `duration_ms`；该字段同时写入事件 payload，
+    四端可显示时长。`run_turn_with_approval` 增加 `observer` 参数，`None` 行为不变。
+  - `whcode-gui`：`GuiApprovals` 包装 `InteractiveApprovals`（Mutex + Condvar，不建线程），
+    以有界通道（64）把 `ApprovalPending` 推给界面再同步等待；通道拥塞时**不等待**，
+    按无应答者返回（fail-closed）。工具卡上限 20、输出展示截断 200 字符；卡片状态不依赖
+    颜色。信号与审批消息在 turn 运行期间照常处理（其余交互仍冻结）。
+  - 装配：`TuiLlmExecutor::with_approval` 注入 `ApprovalConfig`，GUI turn 经
+    `to_policy_interactive()` → 已存规则 → `ApprovalGate::for_store` 用 turn 自身连接写
+    审计与规则；TUI 的同步入口不变（默认 allow）。
+  - 未闭环：CUI／TUI／SSH 应答面与 `[approval]` 生效路径、设置页规则撤销入口
+    （T258／T259，Check 356）、CUI／TUI 工具卡结构化文本（Check 348 的四端判据）。
+

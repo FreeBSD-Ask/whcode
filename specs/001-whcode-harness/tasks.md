@@ -845,9 +845,24 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   bin `config` 12/0；clippy app／domain／bin 三 crate 零告警（`serve.rs` 并行在途改动
   另批复跑）；装配根 `[approval]` 消费方未接线（缺口已在 ADR-064 登记，
   归装配批次）；CI 待运行（ADR-037 登记）。
-- [ ] T256 [P] 批次 B3b GUI：工具调用卡（状态/参数脱敏/输出/时长）＋四态审批交互
+- [x] T256 [P] 批次 B3b GUI：工具调用卡（状态/参数脱敏/输出/时长）＋四态审批交互
   （FR-743/745；依赖 T255）——**任务认知卡**：方向=代理循环可视化的 GUI 收口；
   目标=工具卡与审批可运行；判据=whcode-gui 测试＋脱敏管线断言；非目标=Web 侧（T257）
+  ——**完成（2026-11-10）**：`whcode-app::turn` 新增 `TurnSignal`／`TurnObserver`（字段与
+  `ToolCallStarted`／`ToolCallFinished` 同名；`ToolStarted` 调用前送达、`ToolFinished`
+  带实测 `duration_ms`，该字段同时入事件 payload）；`run_turn_with_approval` 增观察参数
+  （`None` 行为不变）。GUI 对话视图增工具卡（上限 20、输出截断 200 字符、状态不依赖
+  颜色）与四态审批按钮；`GuiApprovals` 包装 `InteractiveApprovals`（无线程），请求经
+  有界通道（64）推给界面后同步等待，拥塞即按无应答者返回（fail-closed）。装配：
+  `TuiLlmExecutor::with_approval` → `to_policy_interactive`（内置 `shell = ask`）→
+  已存规则 → `ApprovalGate::for_store`（审计与规则写 turn 自身连接）。
+  证据：`cargo test -p whcode-app --lib` 202/0（含
+  `observer_receives_tool_signals_and_finished_event_carries_duration`）、
+  `-p whcode-gui --lib` 31/0（含 `tool_signals_build_and_settle_bounded_cards`、
+  `approval_decision_reaches_waiting_turn_thread`）、`-p whcode-bin --bin whcode` 106/0、
+  `cargo test --locked --workspace` 64 个测试二进制 exit 0；clippy／fmt 全绿。
+  **Check 348／350 不勾**：348 还要求 CUI／TUI 结构化文本（未实现），350 还要求设置页
+  撤销入口（归 T258／T259）。
 - [x] T257 [P] 批次 B3b Web：工具调用卡＋四态审批交互（FR-743/745；依赖 T255）
   ——**任务认知卡**：方向=代理循环可视化的 Web 收口；目标=与 T256 同语义；
   判据=行为测试＋预算审计；非目标=GUI 侧（T256）
