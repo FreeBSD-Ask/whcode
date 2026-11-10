@@ -37,6 +37,8 @@ pub struct StoreViewSource {
     policy: DefaultPolicy,
     actor: Actor,
     texts: I18n,
+    /// 工作区根（技能库与 MCP 配置读取用；`None` = 未注入，面板显式为空）。
+    workspace: Option<std::path::PathBuf>,
 }
 
 impl StoreViewSource {
@@ -48,7 +50,15 @@ impl StoreViewSource {
             policy: DefaultPolicy,
             actor: actor_with_all_capabilities("tui-local"),
             texts,
+            workspace: None,
         }
+    }
+
+    /// 追加工作区根（T258：技能库与 MCP 配置读取）。
+    #[must_use]
+    pub fn with_workspace(mut self, workspace: impl Into<std::path::PathBuf>) -> Self {
+        self.workspace = Some(workspace.into());
+        self
     }
 
     fn build(&self, view: ViewId, session: Option<&str>) -> Result<ViewSnapshot, WhError> {
@@ -340,6 +350,41 @@ impl ViewSource for StoreViewSource {
                 .collect(),
             Err(_) => Vec::new(),
         }
+    }
+
+    fn panels(&self, session: Option<&str>) -> whcode_app::view_source::PanelsSnapshot {
+        // T258／FR-749／750／751：准备阶段读取；每一项错误各自显式，不伪造空。
+        let mut snapshot = whcode_app::view_source::PanelsSnapshot::default();
+        let skills = whcode_app::panels::skills_panel(self.workspace.as_deref());
+        snapshot.skills = skills.skills;
+        snapshot.skill_warnings = skills.warnings;
+
+        let conn = self.conn.lock().expect("store 连接锁中毒");
+        match whcode_app::panels::mcp_panel(self.workspace.as_deref(), &conn, session) {
+            Ok(panel) => {
+                snapshot.mcp_configured = panel.configured;
+                snapshot.mcp = panel.servers;
+                snapshot.mcp_error = panel.error;
+            }
+            Err(err) => snapshot.mcp_error = Some(err.to_string()),
+        }
+        match whcode_app::panels::subagent_runs(&conn, session) {
+            Ok(runs) => snapshot.subagents = runs,
+            Err(err) => {
+                if snapshot.error.is_none() {
+                    snapshot.error = Some(err.to_string());
+                }
+            }
+        }
+        match whcode_app::approval_rules::list_rules(&conn, &self.policy, &self.actor) {
+            Ok(rules) => snapshot.rules = rules,
+            Err(err) => {
+                if snapshot.error.is_none() {
+                    snapshot.error = Some(err.to_string());
+                }
+            }
+        }
+        snapshot
     }
 }
 

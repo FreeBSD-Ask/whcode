@@ -1728,6 +1728,24 @@ fn respond(
             return reply;
         }
     }
+    // 审批规则设置面（T259／FR-751）：触库路由，turn 期间由 busy 兜底 503。
+    if route_path.starts_with("/api/approvals/rules") {
+        if let Err(error) = check_request_guards(security, &request) {
+            return Reply::plain(api::error_response(&error));
+        }
+        if let Some(reply) = approval_rules_route(conn, actor, &request) {
+            return reply;
+        }
+    }
+    // B4 高级面板（T258／T259、FR-749／FR-750）：只读、触库路由，turn 期间 503。
+    if matches!(route_path, "/api/skills" | "/api/mcp" | "/api/subagents") {
+        if let Err(error) = check_request_guards(security, &request) {
+            return Reply::plain(api::error_response(&error));
+        }
+        if let Some(reply) = panels_route(conn, actor, workspace_root, &request) {
+            return reply;
+        }
+    }
     // 认证与 Origin 必须先于 turn 拦截（P0 安全修复，ADR-023）：拦截分支会写库并消耗
     // LLM 凭据，而 `api::handle_request_with_llm` 的守卫在其路由内部——不前置就存在
     // “启用认证仍能触发 turn”的绕过。判据与 api 路由同源、错误信封同一（不自造文案），
@@ -2068,6 +2086,217 @@ fn approval_route(request: &api::HttpRequest, security: &ServeSecurity) -> Optio
     None
 }
 
+/// 审批规则的设置面（T259／FR-751）：列出、写入、撤销本地规则。
+///
+/// 与审批面不同，这里**触库**：turn 运行期间由 `busy_or_static` 统一 503（设置页
+/// 不在 turn 内使用，用户看到忙即可重试）。写入与撤销都走应用门面，因而带能力检查
+/// 与 `permission_change` 审计（审计失败阻断变更）。
+fn approval_rules_route(
+    conn: &mut Connection,
+    actor: &whcode_app::Actor,
+    request: &api::HttpRequest,
+) -> Option<Reply> {
+    let path = request
+        .path
+        .split('?')
+        .next()
+        .unwrap_or(request.path.as_str());
+    match (request.method, path) {
+        (Method::Get, "/api/approvals/rules") => {
+            let result = (|| -> Result<serde_json::Value, WhError> {
+                let rows = whcode_app::approval_rules::list_rules(conn, &DefaultPolicy, actor)?;
+                let rules: Vec<serde_json::Value> = rows
+                    .into_iter()
+                    .map(|row| {
+                        serde_json::json!({
+                            "tool": row.tool,
+                            "rule": row.rule.as_str(),
+                        })
+                    })
+                    .collect();
+                Ok(serde_json::json!({ "rules": rules }))
+            })();
+            Some(match result {
+                Ok(value) => Reply::plain(HttpResponse::json(200, &value)),
+                Err(error) => Reply::plain(api::error_response(&error)),
+            })
+        }
+        (Method::Post, "/api/approvals/rules") => {
+            let result = (|| -> Result<serde_json::Value, WhError> {
+                let body = api::json_body(request)?;
+                let tool = api::body_str(&body, "tool")?;
+                let raw = api::body_str(&body, "rule")?;
+                let rule = whcode_domain::approval::ApprovalRule::parse(raw)
+                    .ok_or_else(|| WhError::parse_error("未知的审批规则（只接受 allow／deny）"))?;
+                if rule == whcode_domain::approval::ApprovalRule::Ask {
+                    // `ask` 不是可持久化的规则：它是“配置默认值”的一种，写进本地规则表
+                    // 会让撤销语义含混（撤销后回到什么值？）。
+                    return Err(WhError::parse_error(
+                        "本地规则只存 allow／deny；ask 由配置段的默认值表达",
+                    ));
+                }
+                whcode_app::approval_rules::remember_rule(
+                    conn,
+                    &DefaultPolicy,
+                    actor,
+                    tool,
+                    rule,
+                    now_unix_ms(),
+                )?;
+                Ok(serde_json::json!({
+                    "status": "ok",
+                    "tool": tool.trim(),
+                    "rule": rule.as_str(),
+                }))
+            })();
+            Some(match result {
+                Ok(value) => Reply::plain(HttpResponse::json(200, &value)),
+                Err(error) => Reply::plain(api::error_response(&error)),
+            })
+        }
+        (Method::Post, "/api/approvals/rules/revoke") => {
+            let result = (|| -> Result<serde_json::Value, WhError> {
+                let body = api::json_body(request)?;
+                let tool = api::body_str(&body, "tool")?;
+                let removed = whcode_app::approval_rules::revoke_rule(
+                    conn,
+                    &DefaultPolicy,
+                    actor,
+                    tool,
+                    now_unix_ms(),
+                )?;
+                Ok(serde_json::json!({ "status": "ok", "removed": removed }))
+            })();
+            Some(match result {
+                Ok(value) => Reply::plain(HttpResponse::json(200, &value)),
+                Err(error) => Reply::plain(api::error_response(&error)),
+            })
+        }
+        _ => None,
+    }
+}
+
+/// B4 高级面板只读路由（T258／T259、FR-749／FR-750）：
+/// `/api/skills`、`/api/mcp`、`/api/subagents`。
+///
+/// 三者都在准备阶段读文件或读事件，**不 spawn 进程、不联网**；turn 期间由
+/// `busy_or_static` 统一 503（与设置页其他触库路由同口径）。会话缺省取“最近创建”
+/// 的会话，响应里回显实际使用的 `session`，避免调用方猜测。
+fn panels_route(
+    conn: &mut Connection,
+    actor: &whcode_app::Actor,
+    workspace_root: Option<&Path>,
+    request: &api::HttpRequest,
+) -> Option<Reply> {
+    let path = request
+        .path
+        .split('?')
+        .next()
+        .unwrap_or(request.path.as_str());
+    let session = || -> Result<Option<String>, WhError> {
+        if let Some(explicit) = query_value(&request.path, "session") {
+            let trimmed = explicit.trim();
+            if trimmed.is_empty() {
+                return Err(WhError::invalid_state("session 参数不得为空"));
+            }
+            return Ok(Some(trimmed.to_string()));
+        }
+        let rows = whcode_app::list_sessions(conn, &DefaultPolicy, actor, true, 1)?;
+        Ok(rows.into_iter().next().map(|row| row.id))
+    };
+    match (request.method, path) {
+        (Method::Get, "/api/skills") => {
+            let panel = whcode_app::panels::skills_panel(workspace_root);
+            let skills: Vec<serde_json::Value> = panel
+                .skills
+                .into_iter()
+                .map(|row| {
+                    serde_json::json!({
+                        "name": row.name,
+                        "description": row.description,
+                        "path": row.path,
+                        "issues": row.issues,
+                    })
+                })
+                .collect();
+            let value = serde_json::json!({
+                "skills": skills,
+                "warnings": panel.warnings,
+            });
+            Some(Reply::plain(HttpResponse::json(200, &value)))
+        }
+        (Method::Get, "/api/mcp") => {
+            let result = (|| -> Result<serde_json::Value, WhError> {
+                let session = session()?;
+                let panel =
+                    whcode_app::panels::mcp_panel(workspace_root, conn, session.as_deref())?;
+                let servers: Vec<serde_json::Value> = panel
+                    .servers
+                    .into_iter()
+                    .map(|row| {
+                        serde_json::json!({
+                            "name": row.name,
+                            "transport": row.transport,
+                            "enabled": row.enabled,
+                            "timeout_ms": row.timeout_ms,
+                            "max_output_bytes": row.max_output_bytes,
+                            "status": row.status.as_str(),
+                            "tools": row.tools,
+                        })
+                    })
+                    .collect();
+                Ok(serde_json::json!({
+                    "configured": panel.configured,
+                    "session": session,
+                    "servers": servers,
+                    "error": panel.error,
+                }))
+            })();
+            Some(match result {
+                Ok(value) => Reply::plain(HttpResponse::json(200, &value)),
+                Err(error) => Reply::plain(api::error_response(&error)),
+            })
+        }
+        (Method::Get, "/api/subagents") => {
+            let result = (|| -> Result<serde_json::Value, WhError> {
+                let session = session()?;
+                let runs = whcode_app::panels::subagent_runs(conn, session.as_deref())?;
+                let runs: Vec<serde_json::Value> = runs
+                    .into_iter()
+                    .map(|row| {
+                        serde_json::json!({
+                            "exec_id": row.exec_id,
+                            "state": row.state.as_str(),
+                            "output_summary": row.output_summary,
+                            "termination": row.termination,
+                            "iterations": row.iterations,
+                            "duration_ms": row.duration_ms,
+                            "error_code": row.error_code,
+                        })
+                    })
+                    .collect();
+                Ok(serde_json::json!({ "session": session, "runs": runs }))
+            })();
+            Some(match result {
+                Ok(value) => Reply::plain(HttpResponse::json(200, &value)),
+                Err(error) => Reply::plain(api::error_response(&error)),
+            })
+        }
+        _ => None,
+    }
+}
+
+/// 查询串单值（`?session=...`；同名取首个，与 Web 层既有口径一致）。
+fn query_value(path: &str, name: &str) -> Option<String> {
+    let (_, query) = path.split_once('?')?;
+    query.split('&').find_map(|pair| {
+        let (key, value) = pair
+            .split_once('=')
+            .map_or((pair, ""), |(key, value)| (key, value));
+        (key == name).then(|| value.to_string())
+    })
+}
+
 /// turn 工作线程持锁时的降级响应（ADR-058 §2.3 确定性清单）：静态资产照常
 /// （不触库）；`/ws` 握手与 `/api/llm/cancel` 仍可达——两者不触库，且取消必须在
 /// turn 期间可用（FR-723）；其余请求 503 `backpressure`＋`Retry-After`，
@@ -2291,9 +2520,10 @@ mod tests {
     use super::{
         BroadcastState, Client, INITIAL_SESSION_LIMIT, MAX_ACTIVE_TURNS, MAX_CLIENTS, Phase, Reply,
         ServeApprovals, ServeCerts, ServeCli, ServeSecurity, TURN_PROGRESS_CAPACITY, TurnIntercept,
-        accept_ready, busy_or_static, drain_turn_pending, find_subsequence, header_content_length,
-        origin_allowlist, prepare_tls, reason, resolve_inbound_mode, respond,
-        serve_approval_policy, serve_loop, serve_ssh, turn_intercept, turn_stream_frames,
+        accept_ready, approval_rules_route, busy_or_static, drain_turn_pending, find_subsequence,
+        header_content_length, origin_allowlist, panels_route, prepare_tls, reason,
+        resolve_inbound_mode, respond, serve_approval_policy, serve_loop, serve_ssh,
+        turn_intercept, turn_stream_frames,
     };
     use crate::tls;
     use crate::workspace::WORKSPACE_DB_FILE;
@@ -5254,6 +5484,143 @@ mod tests {
             &actor,
         );
         assert_eq!(missing.response.status, 404);
+    }
+
+    /// 审批规则设置面（T259／FR-751）：列表、写入、撤销；`ask` 不得持久化。
+    #[test]
+    fn approval_rules_routes_list_set_and_revoke() {
+        use api::{HttpRequest, Method};
+
+        let mut conn = Connection::open_in_memory().expect("内存库");
+        apply_migrations(&conn).expect("迁移");
+        let actor = actor_with_all_capabilities("rules-route");
+        let get = |path: &str| HttpRequest {
+            method: Method::Get,
+            path: path.to_string(),
+            headers: Vec::new(),
+            body: Vec::new(),
+        };
+        let post = |path: &str, body: serde_json::Value| HttpRequest {
+            method: Method::Post,
+            path: path.to_string(),
+            headers: vec![("content-type".to_string(), "application/json".to_string())],
+            body: body.to_string().into_bytes(),
+        };
+        let body_of = |reply: &Reply| String::from_utf8_lossy(&reply.response.body).to_string();
+
+        let empty = approval_rules_route(&mut conn, &actor, &get("/api/approvals/rules"))
+            .expect("列表路由");
+        assert_eq!(empty.response.status, 200);
+        assert!(
+            body_of(&empty).contains("\"rules\":[]"),
+            "{}",
+            body_of(&empty)
+        );
+
+        let set = approval_rules_route(
+            &mut conn,
+            &actor,
+            &post(
+                "/api/approvals/rules",
+                serde_json::json!({ "tool": "shell", "rule": "deny" }),
+            ),
+        )
+        .expect("写入路由");
+        assert_eq!(set.response.status, 200);
+
+        let list = approval_rules_route(&mut conn, &actor, &get("/api/approvals/rules"))
+            .expect("列表路由");
+        let body = body_of(&list);
+        assert!(
+            body.contains("\"tool\":\"shell\"") && body.contains("\"rule\":\"deny\""),
+            "{body}"
+        );
+
+        // `ask` 不是可持久化的规则：写进去会让“撤销后回到什么值”含混。
+        let ask = approval_rules_route(
+            &mut conn,
+            &actor,
+            &post(
+                "/api/approvals/rules",
+                serde_json::json!({ "tool": "shell", "rule": "ask" }),
+            ),
+        )
+        .expect("写入路由");
+        assert_eq!(ask.response.status, 400);
+
+        let revoke = approval_rules_route(
+            &mut conn,
+            &actor,
+            &post(
+                "/api/approvals/rules/revoke",
+                serde_json::json!({ "tool": "shell" }),
+            ),
+        )
+        .expect("撤销路由");
+        assert_eq!(revoke.response.status, 200);
+        assert!(body_of(&revoke).contains("\"removed\":true"));
+
+        // 重复撤销：200 但 removed=false（幂等、不伪造删除）。
+        let again = approval_rules_route(
+            &mut conn,
+            &actor,
+            &post(
+                "/api/approvals/rules/revoke",
+                serde_json::json!({ "tool": "shell" }),
+            ),
+        )
+        .expect("撤销路由");
+        assert!(body_of(&again).contains("\"removed\":false"));
+
+        // 非规则路径不归本路由（交由后续路由/503 兜底）。
+        assert!(approval_rules_route(&mut conn, &actor, &get("/api/approvals/pending")).is_none());
+    }
+
+    /// B4 只读面板路由（T259／FR-749／750）：空态显式、空白会话参数拒绝、
+    /// 非面板路径不接管。
+    #[test]
+    fn panels_routes_report_explicit_empty_and_reject_blank_session() {
+        use api::{HttpRequest, Method};
+
+        let mut conn = Connection::open_in_memory().expect("内存库");
+        apply_migrations(&conn).expect("迁移");
+        let actor = actor_with_all_capabilities("panels-route");
+        let get = |path: &str| HttpRequest {
+            method: Method::Get,
+            path: path.to_string(),
+            headers: Vec::new(),
+            body: Vec::new(),
+        };
+        let body_of = |reply: &Reply| String::from_utf8_lossy(&reply.response.body).to_string();
+
+        let runs =
+            panels_route(&mut conn, &actor, None, &get("/api/subagents")).expect("子代理路由");
+        assert_eq!(runs.response.status, 200);
+        assert!(body_of(&runs).contains("\"runs\":[]"), "{}", body_of(&runs));
+
+        let skills = panels_route(&mut conn, &actor, None, &get("/api/skills")).expect("技能路由");
+        assert_eq!(skills.response.status, 200);
+        assert!(
+            body_of(&skills).contains("\"skills\":[]"),
+            "{}",
+            body_of(&skills)
+        );
+
+        let mcp = panels_route(&mut conn, &actor, None, &get("/api/mcp")).expect("MCP 路由");
+        assert_eq!(mcp.response.status, 200);
+        assert!(
+            body_of(&mcp).contains("\"configured\":false"),
+            "未配置必须是显式 false，不是伪装成空列表：{}",
+            body_of(&mcp)
+        );
+
+        // 空白会话参数显式拒绝（不静默回退到最近会话）。
+        let blank =
+            panels_route(&mut conn, &actor, None, &get("/api/mcp?session=")).expect("MCP 路由");
+        assert_eq!(blank.response.status, 400);
+
+        // 非面板路径不归本路由（交由后续路由/503 兜底）。
+        assert!(panels_route(&mut conn, &actor, None, &get("/api/approvals/pending")).is_none());
     }
 
     /// 装配期策略（T257／Check 350 的装配证据）：Web 有四态按钮，因此 `shell` 默认

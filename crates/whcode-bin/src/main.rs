@@ -500,10 +500,10 @@ fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
         }
     };
     let source: Box<dyn whcode_app::view_source::ViewSource> = match &shared {
-        Some(conn) => Box::new(store_source::StoreViewSource::new(
-            std::sync::Arc::clone(conn),
-            texts.clone(),
-        )),
+        Some(conn) => Box::new(
+            store_source::StoreViewSource::new(std::sync::Arc::clone(conn), texts.clone())
+                .with_workspace(workspace.clone()),
+        ),
         None => Box::new(whcode_app::view_source::EmptyViewSource),
     };
     let executor = shared.clone().map(store_source::TuiCommandExecutor::new);
