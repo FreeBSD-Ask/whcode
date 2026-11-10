@@ -60,7 +60,8 @@ pub struct TraceConfig {
 ///
 /// 解析顺序：`tools` 里的 per-tool 覆盖优先，否则按副作用范围取默认值。
 /// **默认全 `allow`**（行为兼容：无 UI 时既有工具不得全部变 `unavailable`，ADR-060 §2.2）。
-/// `ask`／`deny` 只能由显式配置生效；破坏性工具的 `ask` 默认切换留给 B3b（ADR-064）。
+/// `ask`／`deny` 只能由显式配置生效；破坏性工具的 `ask` 默认值只在启用交互应答面的
+/// 装配里叠加（Web 已启用，见 [`Self::to_policy_interactive`]；ADR-064 修订）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApprovalConfig {
     /// 只读工具的默认规则。
@@ -137,9 +138,13 @@ impl ApprovalConfig {
 
     /// 转换为运行期规则表（先校验；非法配置不得构造出策略）。
     ///
+    /// 非交互口径：不叠加内置 `shell = ask`。Web 已改走
+    /// [`Self::to_policy_interactive`]；CUI／TUI／SSH 接线前，本方法只有测试消费者。
+    ///
     /// # Errors
     ///
     /// 同 [`Self::validate`]。
+    #[allow(dead_code)]
     pub fn to_policy(&self) -> Result<ApprovalPolicy, WhError> {
         self.validate()?;
         let mut policy = ApprovalPolicy::new(self.default_read_only, self.default_workspace_write);
@@ -158,9 +163,6 @@ impl ApprovalConfig {
     /// # Errors
     ///
     /// 同 [`Self::validate`]。
-    // 调用方是 B3b UI 批次的 Web/GUI 交互装配；四态按钮落地前不得启用（否则用户
-    // 没有可点的应答面，shell 会等满预算变 unavailable）。
-    #[allow(dead_code)]
     pub fn to_policy_interactive(&self) -> Result<ApprovalPolicy, WhError> {
         self.validate()?;
         let mut policy = ApprovalPolicy::new(self.default_read_only, self.default_workspace_write)

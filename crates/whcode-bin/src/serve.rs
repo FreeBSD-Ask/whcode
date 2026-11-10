@@ -319,6 +319,24 @@ impl ServeSecurity {
     }
 }
 
+/// Web 装配的审批策略：内置 `shell = ask` → 配置 → 本地已存规则（后者优先）。
+///
+/// 单独成函数是为了让“装配期确实启用交互口径”可判定：Web 有四态按钮，因此破坏性
+/// 工具默认询问（用户 2026-11-10 决定）；CUI／TUI 仍走默认全 allow，行为不变。
+///
+/// # Errors
+///
+/// 配置非法或已存规则非法／超限时返回错误（不静默降级为“无规则”）。
+fn serve_approval_policy(
+    config: &Config,
+    stored: impl IntoIterator<Item = (String, whcode_domain::approval::ApprovalRule)>,
+) -> Result<whcode_app::approval::ApprovalPolicy, WhError> {
+    config
+        .approval
+        .to_policy_interactive()?
+        .with_stored_rules(stored)
+}
+
 /// 启动 Web 服务：工作区库 → 入站 TLS 材料 → 监听（回环或 RFC1918）→ 单线程多路复用
 /// 服务循环。
 ///
@@ -338,15 +356,15 @@ fn serve_web(
     // 顺序处理请求，不存在并发共享（ADR-002）。
     let conn = workspace::open_workspace_db(workspace, config)?;
     let actor = actor_with_all_capabilities("web-local");
-    // 审批面（T257／FR-745）：配置 → 本地已存规则（后者优先）。
-    // 内置 `shell = ask` 要等 Web 四态按钮落地后再启用（否则用户没有可点的应答面，
-    // shell 会等满预算变 unavailable）；B3b UI 批次切换为 `to_policy_interactive()`。
-    // 已存规则读失败不得静默降级为“无规则”（那等于放宽权限），启动即失败。
+    // 审批面（T257／FR-745）：内置 `shell = ask` → 配置 → 本地已存规则（后者优先）。
+    // Web 四态按钮已落地，因此这里使用交互口径：破坏性工具默认询问（用户 2026-11-10
+    // 决定“仅 shell 默认询问”）。已存规则读失败不得静默降级为“无规则”（那等于放宽
+    // 权限），启动即失败。
     let stored_rules = whcode_store::approval_rules::list_rules(&conn)?;
-    let approval_policy = config
-        .approval
-        .to_policy()?
-        .with_stored_rules(stored_rules.into_iter().map(|row| (row.tool, row.rule)))?;
+    let approval_policy = serve_approval_policy(
+        config,
+        stored_rules.into_iter().map(|row| (row.tool, row.rule)),
+    )?;
     let approvals = Arc::new(ServeApprovals {
         policy: approval_policy,
         wait_ms: config.approval.wait_ms,
@@ -2271,8 +2289,8 @@ mod tests {
         BroadcastState, Client, INITIAL_SESSION_LIMIT, MAX_ACTIVE_TURNS, MAX_CLIENTS, Phase, Reply,
         ServeApprovals, ServeCerts, ServeCli, ServeSecurity, TURN_PROGRESS_CAPACITY, TurnIntercept,
         accept_ready, busy_or_static, drain_turn_pending, find_subsequence, header_content_length,
-        origin_allowlist, prepare_tls, reason, resolve_inbound_mode, respond, serve_loop,
-        serve_ssh, turn_intercept, turn_stream_frames,
+        origin_allowlist, prepare_tls, reason, resolve_inbound_mode, respond,
+        serve_approval_policy, serve_loop, serve_ssh, turn_intercept, turn_stream_frames,
     };
     use crate::tls;
     use crate::workspace::WORKSPACE_DB_FILE;
@@ -5233,5 +5251,48 @@ mod tests {
             &actor,
         );
         assert_eq!(missing.response.status, 404);
+    }
+
+    /// 装配期策略（T257／Check 350 的装配证据）：Web 有四态按钮，因此 `shell` 默认
+    /// 询问；配置可改回 allow；本地已存规则优先于配置。
+    #[test]
+    fn web_assembly_asks_for_shell_and_lets_stored_rules_win() {
+        use crate::config::Config;
+        use whcode_app::approval::SideEffectScope;
+        use whcode_domain::approval::ApprovalRule;
+
+        let dir = std::env::temp_dir().join(format!("whcode-serve-policy-{}", std::process::id()));
+        let mut config = Config::for_workspace(&dir);
+        let none = std::iter::empty::<(String, ApprovalRule)>();
+
+        let policy = serve_approval_policy(&config, none.clone()).expect("默认策略");
+        assert_eq!(
+            policy.rule_for("shell", SideEffectScope::WorkspaceWrite),
+            ApprovalRule::Ask,
+            "Web 装配必须默认询问破坏性工具"
+        );
+        assert_eq!(
+            policy.rule_for("read_file", SideEffectScope::ReadOnly),
+            ApprovalRule::Allow
+        );
+
+        config
+            .approval
+            .tools
+            .insert("shell".to_string(), ApprovalRule::Allow);
+        let policy = serve_approval_policy(&config, none.clone()).expect("配置策略");
+        assert_eq!(
+            policy.rule_for("shell", SideEffectScope::WorkspaceWrite),
+            ApprovalRule::Allow,
+            "显式配置优先于内置默认"
+        );
+
+        let stored = [("shell".to_string(), ApprovalRule::Deny)];
+        let policy = serve_approval_policy(&config, stored).expect("已存规则");
+        assert_eq!(
+            policy.rule_for("shell", SideEffectScope::WorkspaceWrite),
+            ApprovalRule::Deny,
+            "本地已存规则优先于配置与内置默认"
+        );
     }
 }
