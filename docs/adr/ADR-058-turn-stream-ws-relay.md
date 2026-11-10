@@ -433,3 +433,7 @@
   `/api/sessions`）。§3.5 条件 4 补齐实测证据；用例 11 按 §3.6 缺口登记（回退树无工厂注入
   缝隙）。资源实验口径修正：基线须在装配与预热之后采样，否则一次性装配成本被算进 turn 增量
   （旧读数差 79—80 线程已作废，保留在归档的 `measurement_note` 中）。
+- 2026-11-10：CI run `42680588379`（commit `239eeb6`）**全平台 success**（Windows／
+  wins-arm64／FreeBSD／NetBSD／OpenBSD／DragonFly＋measurements），§3.5 条件 4 满足；
+  T251 与 Check 347 同批转勾。此前两次红是同一测试时序假设（第二个 turn 因并发槽位被
+  503 拒绝后仍等持锁），已由 `post_turn_until_accepted` 修正，不是产品缺陷。

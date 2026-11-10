@@ -781,16 +781,19 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   口径、max≤100）＋缓存（turn 运行期零触库）＋最近 20 条渲染；④desktop 探针在 CI
   weekly 复核（ADR-027 预算未破）；CI run `42097323936` success，Check 346 同批取证。
   有界替代虚拟化为 v1 显式口径。
-- [ ] T251 [P] 批次 B1 Web：对话页——WS 逐块推送、服务端直出无 JS 降级、预算审计
+- [x] T251 [P] 批次 B1 Web：对话页——WS 逐块推送、服务端直出无 JS 降级、预算审计
   （FR-742；ADR-057 决策 4）——**任务认知卡**：方向=对话流核心 Web 侧；目标=WS 增量
   呈现＋无 JS 降级等价；判据=check-frontend-budget 达标＋行为测试；非目标=审批交互（B3）
-  ——**复核（2026-11-06，部分完成，维持未勾）**：页面/tail API/同步发送（`56e40b9`）＋
+  ——**复核（2026-11-06，部分完成）**：页面/tail API/同步发送（`56e40b9`）＋
   服务端 turn 工作线程与 `llm.chunk`/`llm.loss` 帧（`fc3a0c0`＋本批 M2—M5/M9/M11）＋
   前端消费（`chat.js` 订阅 `/ws`、按 session 过滤、有界实时尾、丢帧提示）已落地；前端
   预算达标（chat.js gzip 2213 B／CSS 2346 B／DOM 20）；ADR-058 已转「已批准（附条件）」。
-  **未闭环**（Check 347 四条件之第 4 条）：三指标端到端归档 `artifacts/turn-ws-relay-*`
-  与新一轮 CI 取证（ADR-058 §2.8.8 用例 7—11）。条件齐备前不得勾选，也不得宣称 FR-742
-  完成。
+  ——**完成（2026-11-10，CI run `42680588379`，commit `239eeb6`）**：M7 用例 7—10 落地
+  并归档（首帧 delta 1006 ms、503 `backpressure`＋`Retry-After: 1`、cancel 200、`/ws` 101、
+  `event_missing` 0；资源实验 turn 期间线程 +1 后回基线）；修复 delta 帧未按 WS 编码与
+  `GET /`／`/chat` 降级清单不一致两处缺陷；用例 11 按 ADR-058 §3.6 缺口登记。
+  CI 全平台 success（Windows／arm64／FreeBSD／NetBSD／OpenBSD／DragonFly＋measurements），
+  Check 347 同批转勾。
 - [x] T252 [P] 批次 B1 视觉层：视觉 token 单一事实源＋zcode-day/night 双端落地＋四套
   主题 hex 断言升级六套全覆盖（FR-739/740；ADR-057 决策 2/3）——**任务认知卡**：
   方向=视觉对齐的单一事实源；目标=token 一处定义双端派生、六套主题断言全绿；

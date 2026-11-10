@@ -72,9 +72,9 @@ python .github/scripts/check-adr-limits.py
 - 回填（2026-11-10）：流 A 收尾——T251 的 M7 用例 7—10 已落地并归档
   `artifacts/turn-ws-relay-2026-11-09/`（用例 8 三指标：首帧 delta 1006 ms、503
   `backpressure`＋`Retry-After: 1`、cancel 200、`/ws` 101、`event_missing` 0；用例 10
-  资源实验线程 +1 后回基线）；用例 11 按 ADR-058 §3.6 缺口登记。`58f751d` 已提交，
-  **推送被网络阻断**（`github.com:443` 连接失败），CI 未运行，故 T251／Check 347 仍未勾
-  （ADR-037：以 CI 日志为准）。
+  资源实验线程 +1 后回基线）；用例 11 按 ADR-058 §3.6 缺口登记。`58f751d` 已提交并推送；
+  首两轮 CI 红源于测试时序假设，`239eeb6` 修正后 **CI run `42680588379` 全平台 success**
+  （Windows／arm64／FreeBSD／NetBSD／OpenBSD／DragonFly＋measurements），T251／Check 347 已勾。
 - 后续批次（2026-11-10）：Web 元素级 RTL 镜像收口（`2c7ba05`）、hi/bn 文案术语对齐
   （`33f1468`）、B3b 四态审批后端与规则存储（`54b9496`，schema v9）。
 - 未闭环（登记，不冒充）：F3 的装配接线（`[approval]` 与交互应答面）；B3b 的 GUI／Web
