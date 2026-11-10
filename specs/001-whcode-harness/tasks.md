@@ -848,9 +848,21 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
 - [ ] T256 [P] 批次 B3b GUI：工具调用卡（状态/参数脱敏/输出/时长）＋四态审批交互
   （FR-743/745；依赖 T255）——**任务认知卡**：方向=代理循环可视化的 GUI 收口；
   目标=工具卡与审批可运行；判据=whcode-gui 测试＋脱敏管线断言；非目标=Web 侧（T257）
-- [ ] T257 [P] 批次 B3b Web：工具调用卡＋四态审批交互（FR-743/745；依赖 T255）
+- [x] T257 [P] 批次 B3b Web：工具调用卡＋四态审批交互（FR-743/745；依赖 T255）
   ——**任务认知卡**：方向=代理循环可视化的 Web 收口；目标=与 T256 同语义；
   判据=行为测试＋预算审计；非目标=GUI 侧（T256）
+  ——**完成（2026-11-10）**：对话页新增工具卡（`ToolCallStarted`／`ToolCallFinished`
+  按 `session_id` 过滤，卡片上限 20、输出有界、参数不入事件）与四态审批按钮
+  （本回合／仅本次／记住规则／拒绝）；turn 运行期间 1 s 递归 `setTimeout` 轮询
+  `GET /api/approvals/pending`，提交走 `POST /api/approvals/decide`；文本经
+  `/api/i18n` 加载，13 键随十三套目录同批落地。`serve --web` 经
+  `serve_approval_policy` 启用交互口径（内置 `shell = ask` → 配置 → 已存规则）。
+  证据：`cargo test -p whcode-web --lib` 70/0（含
+  `chat_page_ships_tool_cards_and_four_state_approval`）；前端预算 chat JS gzip 4487 B／
+  CSS 2591 B／DOM 27；`cargo test -p whcode-bin --bin whcode serve` 40/0（含
+  `web_assembly_asks_for_shell_and_lets_stored_rules_win`）、`… config` 13/0；
+  `cargo test --locked --workspace` 64 个测试二进制 exit 0；clippy／fmt 全绿。
+  **Check 348／350 不勾**：两 Check 以双端为判据，GUI 段（T256）与设置页撤销入口未落地。
 - [ ] T258 [P] 批次 B4 GUI：子代理运行视图＋技能库浏览＋MCP 状态＋权限设置视图
   （FR-749/750/751）——**任务认知卡**：方向=高级能力面板 GUI 侧；目标=四面板可运行；
   判据=whcode-gui 测试＋对等矩阵登记同步；非目标=后端能力扩展

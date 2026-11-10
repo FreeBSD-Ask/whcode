@@ -165,16 +165,15 @@ ADR-060 §2.2 的“A 的接线冻结”**只在本 ADR 决策 1—6 的范围�
 
 ## 已知限制与失效条件
 
-- **无 UI 时 `ask` 等于不可用**：用户显式把某工具设为 `ask` 但没有应答者（CUI／TUI／Web／SSH
-  当前均未注入 UI 应答者），该工具每次调用都会 `unavailable` 失败。这是设计选择而非缺陷：
-  不得把“无人可问”静默当作允许；修复方向是 B3b 交付应答面，不是放宽语义。
-- **装配根尚未接线前 `[approval]` 不生效**：本 ADR 交付的是规则解析、闸门与 turn 入口
-  （`run_turn_with_approval`），生产调用方（`crates/whcode-bin` 的四个 turn 入口）仍走
-  `run_turn`／`run_turn_with_progress`，因此配置文件里的 `[approval]` 段当前**只有解析与校验的
-  消费者，没有生效路径**——这是显式登记的缺口（死配置），不是“已生效但没测到”。
-  接线由装配批次（Lead 收口，`serve.rs`／`llm_provider.rs` 归 turn-relay 写域）完成：
-  读 `config.approval` → `ApprovalPolicy` → `ApprovalGate`（无应答者＋默认 allow，故行为中性）。
-  **该节在装配根接线完成后失效**，接线批次须在此追加修订记录并把本条从限制中移除。
+- **无 UI 时 `ask` 等于不可用**：用户把某工具设为 `ask` 但没有应答者（CUI／TUI／SSH
+  当前未注入 UI 应答者；Web 已注入四态按钮），该工具每次调用都会 `unavailable` 失败。
+  这是设计选择而非缺陷：不得把“无人可问”静默当作允许；修复方向是补齐应答面，不是
+  放宽语义。
+- **装配根接线是分批的**：Web 段已接线（`serve_approval_policy`，内置 `shell = ask` →
+  配置 → 已存规则），其余三端（CUI／TUI／SSH 的 turn 入口）仍走 `run_turn`／
+  `run_turn_with_progress`，因此这些端上配置文件里的 `[approval]` 段仍**只有解析与校验的
+  消费者，没有生效路径**——显式登记的缺口，不是“已生效但没测到”。补齐后须在此追加
+  修订记录并把本条从限制中移除。
 - **子代理不走二次审批**：`spawn_subagent` 内部的工具调用不带闸门，审批只发生在父 turn 的
   调用上；若将来允许子代理跨会话执行，必须先补闸门再放开。
 - **默认 `allow` 不产生审批审计**：这是审计噪声与审计完整性的取舍；审计能回答“谁被问过、
@@ -193,6 +192,8 @@ ADR-060 §2.2 的“A 的接线冻结”**只在本 ADR 决策 1—6 的范围�
 2. `cargo test -p whcode-app --lib approval && cargo test -p whcode-bin --bin whcode config`：
    任一失败即触发本 ADR 复审（判定：退出码非 0）；
 3. B3b 交付应答面时，必须同步重审决策 2（破坏性工具默认值）与决策 3（等待与取消语义）。
+   Web 应答面（2026-11-10）已按重审结论启用 `shell = ask`；GUI 应答面落地时须再核一次
+   默认值与超时提示的可达性。
 
 ## 实施记录
 
@@ -241,11 +242,16 @@ ADR-060 §2.2 的“A 的接线冻结”**只在本 ADR 决策 1—6 的范围�
     范围默认 → 内置 shell=ask（可选） → 配置覆盖 → 本地已存规则（后者优先）。
   - 新增能力 `approval.rule.read`／`approval.rule.write` 与 `app::approval_rules`
     门面（设置页用），变更写 `permission_change` 审计。
-  - **装配接线（F3 的 Web 段）**：`serve_web` 启动时按“配置 → 本地已存规则”构造策略
-    （内置 `shell = ask` 留待四态按钮落地后启用，避免用户没有可点的应答面）；
-    turn 工作线程改用 `run_turn_with_approval`，闸门经 `authorize_with_conn` 用 turn
-    自身连接写审计与规则（DuckDB 连接不可跨线程共享）；`InteractiveApprovals`
-    （Mutex + Condvar，不建线程）承载人机应答；`GET /api/approvals/pending` 与
-    `POST /api/approvals/decide` 不触库，turn 期间仍可达。
-  - 未闭环（B3b UI 批次）：GUI／Web 工具卡与四态按钮、设置页入口；T256／T257 与
-    Check 348／350 保持未勾。
+  - **装配接线（F3 的 Web 段）**：`serve_web` 启动时经 `serve_approval_policy`
+    （内置 `shell = ask` → 配置 → 本地已存规则）构造策略；Web 四态按钮已落地，
+    因此启用交互口径，`shell` 默认询问。turn 工作线程改用 `run_turn_with_approval`，
+    闸门经 `authorize_with_conn` 用 turn 自身连接写审计与规则（DuckDB 连接不可跨
+    线程共享）；`InteractiveApprovals`（Mutex + Condvar，不建线程）承载人机应答；
+    `GET /api/approvals/pending` 与 `POST /api/approvals/decide` 不触库，turn 期间
+    仍可达。无人应答时按等待预算超时并判 `unavailable`（fail-closed）。
+  - **Web 交互面（T257）**：对话页新增工具卡（事件源 `ToolCallStarted`／
+    `ToolCallFinished`，卡片上限 20，参数不入事件）与四态审批按钮（本回合／仅本次／
+    记住规则／拒绝）；turn 运行期间按 1 s 轮询待审批表，结束后停止。文案键随十三套
+    目录同批落地。
+  - 未闭环（B3b UI 批次的 GUI 段）：GUI 工具卡与四态对话框、设置页规则列表与撤销
+    入口；T256 与 Check 348／350 保持未勾（两 Check 均以双端为判据）。

@@ -13,6 +13,20 @@
 
 ### 变更
 
+- **B3b Web 交互面：工具调用卡与四态审批（T257，FR-743／FR-745，2026-11-10）**：对话页
+  新增工具卡（事件源 `ToolCallStarted`／`ToolCallFinished`，按 `session_id` 过滤跨会话
+  帧；卡片上限 20、输出有界，参数不入事件正文）与四态审批按钮（本回合批准／仅本次／
+  记住规则／拒绝）；turn 运行期间按 1 s 递归 `setTimeout` 轮询 `GET /api/approvals/pending`，
+  提交走 `POST /api/approvals/decide`，结束后停止轮询并回落一次刷新。页面文本经
+  `/api/i18n` 加载，13 个新键随十三套目录同批落地（缺失即回退中文静态文案）。样式只用
+  逻辑属性，RTL 不新增物理方向。`serve --web` 改走交互口径（`serve_approval_policy`：
+  内置 `shell = ask` → 配置 → 本地已存规则），破坏性工具默认询问；CUI／TUI 仍用默认
+  allow，行为不变。证据：`whcode-web --lib` 70/70（含新契约测试
+  `chat_page_ships_tool_cards_and_four_state_approval`）、前端预算（chat JS gzip 4487 B）、
+  `whcode-bin` 新用例 `web_assembly_asks_for_shell_and_lets_stored_rules_win`。
+  未闭环：GUI 工具卡与四态对话框（T256）、设置页规则撤销入口；Check 348／350 以双端
+  为判据，保持未勾。
+
 - **B3b 后端前置：四态审批语义与本地规则存储（T256／T257 部分，FR-745，ADR-064 修订，
   2026-11-10）**：四态按用户决定落为「批准（本回合内该工具不再问）／仅本次／拒绝（写
   deny 规则）／记住规则（写 allow 规则）」；`ApprovalAnswer` 增加三态（旧三态保留，
@@ -21,12 +35,11 @@
   上限 256，`CHECK` 拒绝 ask）；生产 `StoreAuditSink`／`StoreRuleWriter` 闭合 F4 缺口；
   `AuditSink` 去掉 `Send + Sync` 约束（同步单线程，可持 DuckDB 连接）。新增
   `approval.rule.read|write` 能力与设置页门面，变更写 `permission_change` 审计；
-  `with_builtin_destructive_ask` 提供“仅 shell 默认 ask”，待交互面装配启用。
-  **Web 装配已接线**：`serve --web` 按“配置 → 本地已存规则”构造策略（内置 shell=ask
-  等四态按钮落地后再启用）；turn 工作线程经 `run_turn_with_approval` +
-  `authorize_with_conn` 用自身连接写审计与规则；`GET /api/approvals/pending`／
-  `POST /api/approvals/decide` 不触库、turn 期间可达。
-  未闭环：GUI／Web 工具卡与四态按钮、设置页入口（T256／T257 与 Check 348／350 保持未勾）。
+  `with_builtin_destructive_ask` 提供“仅 shell 默认 ask”，Web 装配已启用。
+  **Web 装配已接线**：`serve --web` 经 `serve_approval_policy` 构造策略；turn 工作线程经
+  `run_turn_with_approval` + `authorize_with_conn` 用自身连接写审计与规则；
+  `GET /api/approvals/pending`／`POST /api/approvals/decide` 不触库、turn 期间可达。
+  未闭环：GUI 工具卡与四态对话框、设置页入口（T256 与 Check 348／350 保持未勾）。
 
 - **界面文案代理审校第二批（hi／bn 术语对齐，2026-11-09）**：机械扫描发现 hi／bn
   目录大量界面词仍以英文概念词出现（`session`／`task`／`database`／`runtime`／
