@@ -583,7 +583,7 @@ jobs:
         if: matrix.platform == 'netbsd' && github.event_name != 'pull_request'
         # 同 FreeBSD：BSD 平台证据不阻断 CI 绿路径（ADR-013）。
         continue-on-error: true
-        uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
+        uses: vmactions/netbsd-vm@5957cf330aef2e6ddc63c604364c99ce2e02b91d # v1.5.3
         with:
           # 只写主版本：action 自动取最新 11.x 点版本；pkgin 仓库路径由 VM 的 uname -r 推导。
           release: "11"
