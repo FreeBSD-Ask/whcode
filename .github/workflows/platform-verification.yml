@@ -323,7 +323,7 @@ jobs:
         # 全量构建（含 whcode-gui／whcode-bin）、全量测试、三门（进程组／store／SSH）
         # 与 TUI/Web 冒烟任一失败即红。唯一验收目标仍是 Windows 11 amd64；FreeBSD
         # 结论继续标注平台证据身份，不进入验收结论。
-        uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
+        uses: vmactions/freebsd-vm@811efaaac0668df8bfb8308c3ec997b5ab50037b # v1.6.0
         with:
           # 只写主版本：action 自动取最新 15.x 点版本。
           release: "15"
@@ -583,7 +583,7 @@ jobs:
         if: matrix.platform == 'netbsd' && github.event_name != 'pull_request'
         # 同 FreeBSD：BSD 平台证据不阻断 CI 绿路径（ADR-013）。
         continue-on-error: true
-        uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
+        uses: vmactions/netbsd-vm@5957cf330aef2e6ddc63c604364c99ce2e02b91d # v1.5.3
         with:
           # 只写主版本：action 自动取最新 11.x 点版本；pkgin 仓库路径由 VM 的 uname -r 推导。
           release: "11"
