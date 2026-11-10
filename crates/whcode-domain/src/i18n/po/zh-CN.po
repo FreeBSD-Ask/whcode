@@ -743,6 +743,36 @@ msgstr "操作失败（{label}）：{code} {message}"
 msgid "settings.action.running"
 msgstr "正在执行：{label}"
 
+msgid "settings.approvals.empty"
+msgstr "当前没有本地规则（正确的空：未记住任何工具）。"
+
+msgid "settings.approvals.failed"
+msgstr "无法读取审批规则：{code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "这里的规则来自对话里的“记住规则／拒绝”，也可以手动设置；撤销后回到配置默认值。"
+
+msgid "settings.approvals.revoke"
+msgstr "撤销"
+
+msgid "settings.approvals.revoked"
+msgstr "已撤销：{tool}"
+
+msgid "settings.approvals.rule"
+msgstr "规则"
+
+msgid "settings.approvals.save"
+msgstr "保存规则"
+
+msgid "settings.approvals.saved"
+msgstr "已保存：{tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "工具审批规则"
+
+msgid "settings.approvals.tool"
+msgstr "工具名"
+
 msgid "settings.back"
 msgstr "返回首页"
 

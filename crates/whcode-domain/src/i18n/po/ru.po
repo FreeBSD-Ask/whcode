@@ -543,7 +543,7 @@ msgid "gui.approval.approve_once"
 msgstr "Только этот раз"
 
 msgid "gui.approval.approve_turn"
-msgstr "Одобрить на ход"
+msgstr "Одобрить на этот ход"
 
 msgid "gui.approval.decided"
 msgstr "Обработано"
@@ -742,6 +742,36 @@ msgstr "действие не выполнено ({label}): {code} {message}"
 
 msgid "settings.action.running"
 msgstr "выполняется: {label}"
+
+msgid "settings.approvals.empty"
+msgstr "Локальных правил нет (корректная пустота: ничего не запомнено)."
+
+msgid "settings.approvals.failed"
+msgstr "Не удалось прочитать правила одобрения: {code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "Правила здесь появляются из «запомнить правило» и «отклонить» в диалоге, их можно задать и вручную; после отзыва действует значение по умолчанию из конфигурации."
+
+msgid "settings.approvals.revoke"
+msgstr "Отозвать"
+
+msgid "settings.approvals.revoked"
+msgstr "Отозвано: {tool}"
+
+msgid "settings.approvals.rule"
+msgstr "Правило"
+
+msgid "settings.approvals.save"
+msgstr "Сохранить правило"
+
+msgid "settings.approvals.saved"
+msgstr "Сохранено: {tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "Правила одобрения инструментов"
+
+msgid "settings.approvals.tool"
+msgstr "Имя инструмента"
 
 msgid "settings.back"
 msgstr "Вернуться на главную"
@@ -1062,7 +1092,7 @@ msgid "web.approval.approve_once"
 msgstr "Только этот раз"
 
 msgid "web.approval.approve_turn"
-msgstr "Одобрить на ход"
+msgstr "Одобрить на этот ход"
 
 msgid "web.approval.decided"
 msgstr "Обработано"

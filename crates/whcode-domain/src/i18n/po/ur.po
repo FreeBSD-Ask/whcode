@@ -351,10 +351,10 @@ msgid "cli.task.abort.task"
 msgstr "ٹاسک ID۔"
 
 msgid "cli.task.about"
-msgstr "ٹاسکس کی جانچ اور کنٹرول (FR-401/408)۔"
+msgstr "ٹاسک کی جانچ اور کنٹرول (FR-401/408)۔"
 
 msgid "cli.task.list.about"
-msgstr "ٹاسکس کی فہرست۔"
+msgstr "ٹاسک کی فہرست۔"
 
 msgid "cli.task.list.session"
 msgstr "سیشن ID۔"
@@ -393,7 +393,7 @@ msgid "cui.created"
 msgstr "سیشن {session} بنا دیا گیا"
 
 msgid "cui.delete_dry_run"
-msgstr "ڈرائی رن: سیشن {session} حذف ہوگا ({events} ایونٹس، {tasks} ٹاسکس؛ {skipped} محفوظ نظرانداز) — عمل کے لیے --yes شامل کریں"
+msgstr "ڈرائی رن: سیشن {session} حذف ہوگا ({events} ایونٹس، {tasks} ٹاسک؛ {skipped} محفوظ نظرانداز) — عمل کے لیے --yes شامل کریں"
 
 msgid "cui.deleted"
 msgstr "سیشن {session} حذف ہو گیا"
@@ -720,7 +720,7 @@ msgid "menu.context"
 msgstr "سیاق و سباق"
 
 msgid "menu.diff"
-msgstr "ڈف"
+msgstr "فرق"
 
 msgid "menu.events"
 msgstr "ایونٹس"
@@ -732,7 +732,7 @@ msgid "menu.spec"
 msgstr "اسپیک"
 
 msgid "menu.tasks"
-msgstr "ٹاسکس"
+msgstr "ٹاسک"
 
 msgid "settings.action.done"
 msgstr "مکمل: {label}"
@@ -743,6 +743,36 @@ msgstr "کارروائی ناکام ({label}): {code} {message}"
 msgid "settings.action.running"
 msgstr "جاری: {label}"
 
+msgid "settings.approvals.empty"
+msgstr "کوئی مقامی قاعدہ نہیں (درست خالی: کچھ یاد نہیں رکھا گیا)۔"
+
+msgid "settings.approvals.failed"
+msgstr "منظوری قواعد پڑھے نہیں جا سکے: {code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "یہاں کے قواعد گفتگو میں قاعدہ یاد رکھنے یا مسترد کرنے سے آتے ہیں اور ہاتھ سے بھی مقرر کیے جا سکتے ہیں؛ منسوخ کرنے پر ترتیب کا طے شدہ اطلاق ہوتا ہے۔"
+
+msgid "settings.approvals.revoke"
+msgstr "منسوخ"
+
+msgid "settings.approvals.revoked"
+msgstr "منسوخ: {tool}"
+
+msgid "settings.approvals.rule"
+msgstr "قاعدہ"
+
+msgid "settings.approvals.save"
+msgstr "قاعدہ محفوظ کریں"
+
+msgid "settings.approvals.saved"
+msgstr "محفوظ: {tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "ٹول منظوری قواعد"
+
+msgid "settings.approvals.tool"
+msgstr "ٹول کا نام"
+
 msgid "settings.back"
 msgstr "مرکزی صفحے پر واپس"
 
@@ -750,10 +780,10 @@ msgid "settings.confirm.builtin_empty"
 msgstr "اس سے بنڈل شدہ روٹ نقل خالی ہو جائے گی (بلٹ اِن بنیاد شامل نہیں رہے گی)۔ جاری رکھیں؟"
 
 msgid "settings.confirm.external_key"
-msgstr "اس سے بیرونی سرٹیفکیٹ اور پرائیویٹ کی محفوظ ہوں گے اور اِن بانڈ موڈ external ہو جائے گا۔ جاری رکھیں؟"
+msgstr "اس سے بیرونی سرٹیفکیٹ اور پرائیویٹ کی محفوظ ہوں گے اور ان باؤنڈ موڈ external ہو جائے گا۔ جاری رکھیں؟"
 
 msgid "settings.confirm.inbound_off"
-msgstr "اس سے اِن بانڈ TLS بند ہو جائے گا (سادہ HTTP پر واپسی) اور serve --web دوبارہ شروع کرنے کے بعد لاگو ہوگا۔ جاری رکھیں؟"
+msgstr "اس سے ان باؤنڈ TLS بند ہو جائے گا (سادہ HTTP پر واپسی) اور serve --web دوبارہ شروع کرنے کے بعد لاگو ہوگا۔ جاری رکھیں؟"
 
 msgid "settings.confirm.regenerate"
 msgstr "اس سے خود دستخط شدہ سرور سرٹیفکیٹ دوبارہ بنے گا (موجودہ فنگر پرنٹ بے کار ہو جائے گا)۔ جاری رکھیں؟"
@@ -852,7 +882,7 @@ msgid "settings.inbound.subject"
 msgstr "سبجیکٹ: {value}"
 
 msgid "settings.inbound.title"
-msgstr "اِن بانڈ TLS (serve --web)"
+msgstr "ان باؤنڈ TLS (serve --web)"
 
 msgid "settings.inbound.upload"
 msgstr "اپ لوڈ کریں اور external پر منتقل ہوں"
@@ -927,7 +957,7 @@ msgid "settings.outbound.title"
 msgstr "آؤٹ بانڈ HTTPS اعتماد"
 
 msgid "settings.restart_banner"
-msgstr "اِن بانڈ سرٹیفکیٹ یا موڈ بدل گیا ہے؛ لاگو کرنے کے لیے serve --web دوبارہ شروع کریں۔"
+msgstr "ان باؤنڈ سرٹیفکیٹ یا موڈ بدل گیا ہے؛ لاگو کرنے کے لیے serve --web دوبارہ شروع کریں۔"
 
 msgid "settings.status.no"
 msgstr "نہیں"
@@ -972,7 +1002,7 @@ msgid "summary.context_truncated"
 msgstr "· کاٹنے کی وجہ: {reason}"
 
 msgid "summary.diff"
-msgstr "سیشن {session} · ٹاسکس {total} · کامیاب {pass} / ناکام {fail} / غیر آزمودہ {untested}{truncated}"
+msgstr "سیشن {session} · ٹاسک {total} · کامیاب {pass} / ناکام {fail} / غیر آزمودہ {untested}{truncated}"
 
 msgid "summary.diff.truncated"
 msgstr "· فرق کی فہرست حد سے بڑھ کر کاٹ دی گئی"
@@ -1014,7 +1044,7 @@ msgid "tui.col.title"
 msgstr "عنوان"
 
 msgid "tui.diff_unwired"
-msgstr "(ڈف کا ماخذ ابھی منسلک نہیں ہے: converge ڈف زیر التوا ہے؛ کوئی جعلی مواد نہیں دکھایا جاتا)"
+msgstr "(فرق کا ماخذ ابھی منسلک نہیں ہے: converge فرق زیر التوا ہے؛ کوئی جعلی مواد نہیں دکھایا جاتا)"
 
 msgid "tui.empty"
 msgstr "(کوئی ڈیٹا نہیں)"
@@ -1041,7 +1071,7 @@ msgid "view.context"
 msgstr "سیاق و سباق"
 
 msgid "view.diff"
-msgstr "ڈف کا پیش منظر"
+msgstr "فرق کا پیش منظر"
 
 msgid "view.events"
 msgstr "ایونٹس"
@@ -1053,7 +1083,7 @@ msgid "view.spec"
 msgstr "اسپیک کی حالت"
 
 msgid "view.tasks"
-msgstr "ٹاسکس"
+msgstr "ٹاسک"
 
 msgid "web.action.failed"
 msgstr "کارروائی ناکام ({label}): {error}"
@@ -1158,7 +1188,7 @@ msgid "web.diff.no_session"
 msgstr "کوئی سیشن منتخب نہیں"
 
 msgid "web.diff.summary"
-msgstr "ٹاسکس {total} · کامیاب {pass} / ناکام {fail} / غیر آزمودہ {untested}{truncated}"
+msgstr "ٹاسک {total} · کامیاب {pass} / ناکام {fail} / غیر آزمودہ {untested}{truncated}"
 
 msgid "web.diff.truncated"
 msgstr "(حد سے بڑھ کر کاٹا گیا)"
@@ -1215,7 +1245,7 @@ msgid "web.session.delete_preview"
 msgstr "حذف کا پیش منظر"
 
 msgid "web.session.delete_preview_result"
-msgstr "حذف ہوگا: ایونٹس {events} · ٹاسکس {tasks}"
+msgstr "حذف ہوگا: ایونٹس {events} · ٹاسک {tasks}"
 
 msgid "web.session.deleted"
 msgstr "{n} سیشن حذف ہو گئے"
@@ -1266,7 +1296,7 @@ msgid "web.tab.context"
 msgstr "سیاق و سباق"
 
 msgid "web.tab.diff"
-msgstr "ڈف"
+msgstr "فرق"
 
 msgid "web.tab.history"
 msgstr "تاریخ"
@@ -1281,7 +1311,7 @@ msgid "web.tab.spec"
 msgstr "SDD"
 
 msgid "web.tab.tasks"
-msgstr "ٹاسکس"
+msgstr "ٹاسک"
 
 msgid "web.task.abort"
 msgstr "روکیں"

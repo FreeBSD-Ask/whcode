@@ -162,10 +162,10 @@ msgid "cli.llm.about"
 msgstr "মডেল ইনভোকেশন (FR-201; `llm run` ও `llm cancel`, contracts/cui-cli.md §1)।"
 
 msgid "cli.llm.cancel.about"
-msgstr "এই মেশিনে চলা কল বাতিল করে (পরবর্তী chunk-এর আগে কার্যকর হয়)।"
+msgstr "এই মেশিনে চলা কল বাতিল করে (পরবর্তী খণ্ডের আগে কার্যকর হয়)।"
 
 msgid "cli.llm.cancel.request"
-msgstr "request ID (`llm run` যা দেখায়, বা `--request-id` দিয়ে আগে দেওয়া)।"
+msgstr "অনুরোধ ID (`llm run` যা দেখায়, বা `--request-id` দিয়ে আগে দেওয়া)।"
 
 msgid "cli.llm.run.about"
 msgstr "একটি প্রকৃত কল করে (সিংক্রোনাস; স্ট্রিমের ইনক্রিমেন্ট শেষে সসীম অনুক্রম হিসেবে আউটপুট হয়)।"
@@ -183,7 +183,7 @@ msgid "cli.llm.run.provider"
 msgstr "প্রোফাইলের নাম (স্পষ্ট পছন্দ, ADR-031 সিদ্ধান্ত 4)।"
 
 msgid "cli.llm.run.request-id"
-msgstr "আগে থেকে দেওয়া request ID (`llm cancel`-এর কী; না দিলে কল থেকেই তৈরি হয়)।"
+msgstr "আগে থেকে দেওয়া অনুরোধ ID (`llm cancel`-এর কী; না দিলে কল থেকেই তৈরি হয়)।"
 
 msgid "cli.llm.run.session"
 msgstr "সেশন ID।"
@@ -582,13 +582,13 @@ msgid "gui.chat.hint"
 msgstr "একটি সেশন বেছে নিয়ে প্রম্পট লিখুন; পাঠানোর পর কাজ শেষ না হওয়া পর্যন্ত অপেক্ষা করতে হয় (TUI-র মতোই)"
 
 msgid "gui.chat.history.hint"
-msgstr "প্রতিটি turn-এর ইভেন্ট সংরক্ষিত হয় — পূর্ণ ইতিহাস দেখতে ইভেন্ট ভিউ দেখুন"
+msgstr "প্রতিটি টার্নের ইভেন্ট সংরক্ষিত হয় — পূর্ণ ইতিহাস দেখতে ইভেন্ট ভিউ দেখুন"
 
 msgid "gui.chat.last"
 msgstr "শেষ ফলাফল: {summary}"
 
 msgid "gui.chat.no_request"
-msgstr "বাতিল করার মতো কোনো request ID নেই (আগে একটি turn পাঠান)"
+msgstr "বাতিল করার মতো কোনো অনুরোধ ID নেই (আগে একটি টার্ন পাঠান)"
 
 msgid "gui.chat.none"
 msgstr "কোনো সেশন নির্বাচিত নেই — সেশন ভিউ থেকে বেছে নিন (j/k)"
@@ -597,7 +597,7 @@ msgid "gui.chat.not_supported"
 msgstr "LLM এক্সিকিউটর সংযুক্ত নয় (not_supported)"
 
 msgid "gui.chat.progress"
-msgstr "তৈরি হচ্ছে: {chunks} chunk…"
+msgstr "তৈরি হচ্ছে: {chunks} খণ্ড…"
 
 msgid "gui.chat.prompt.placeholder"
 msgstr "প্রম্পট লিখুন, Enter দিলে পাঠানো হবে"
@@ -742,6 +742,36 @@ msgstr "কাজ ব্যর্থ ({label}): {code} {message}"
 
 msgid "settings.action.running"
 msgstr "চলছে: {label}"
+
+msgid "settings.approvals.empty"
+msgstr "কোনো স্থানীয় নিয়ম নেই (সঠিক শূন্য: কিছু মনে রাখা হয়নি)।"
+
+msgid "settings.approvals.failed"
+msgstr "অনুমোদন নিয়ম পড়া যায়নি: {code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "এখানে নিয়মগুলি কথোপকথনে নিয়ম মনে রাখা বা প্রত্যাখ্যান থেকে আসে এবং হাতেও সেট করা যায়; প্রত্যাহার করলে কনফিগের ডিফল্ট ফিরে আসে।"
+
+msgid "settings.approvals.revoke"
+msgstr "প্রত্যাহার"
+
+msgid "settings.approvals.revoked"
+msgstr "প্রত্যাহার: {tool}"
+
+msgid "settings.approvals.rule"
+msgstr "নিয়ম"
+
+msgid "settings.approvals.save"
+msgstr "নিয়ম সংরক্ষণ"
+
+msgid "settings.approvals.saved"
+msgstr "সংরক্ষিত: {tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "টুল অনুমোদন নিয়ম"
+
+msgid "settings.approvals.tool"
+msgstr "টুলের নাম"
 
 msgid "settings.back"
 msgstr "হোমে ফিরুন"

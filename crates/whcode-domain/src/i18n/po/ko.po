@@ -743,6 +743,36 @@ msgstr "작업 실패({label}): {code} {message}"
 msgid "settings.action.running"
 msgstr "실행 중: {label}"
 
+msgid "settings.approvals.empty"
+msgstr "로컬 규칙이 없습니다(올바른 빈 상태: 기억한 도구 없음)."
+
+msgid "settings.approvals.failed"
+msgstr "승인 규칙을 읽을 수 없습니다: {code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "여기 규칙은 대화에서 규칙을 기억하거나 거부해 만들어지며 직접 설정할 수도 있습니다. 철회하면 설정 기본값으로 돌아갑니다."
+
+msgid "settings.approvals.revoke"
+msgstr "철회"
+
+msgid "settings.approvals.revoked"
+msgstr "철회됨: {tool}"
+
+msgid "settings.approvals.rule"
+msgstr "규칙"
+
+msgid "settings.approvals.save"
+msgstr "규칙 저장"
+
+msgid "settings.approvals.saved"
+msgstr "저장됨: {tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "도구 승인 규칙"
+
+msgid "settings.approvals.tool"
+msgstr "도구 이름"
+
 msgid "settings.back"
 msgstr "홈으로 돌아가기"
 

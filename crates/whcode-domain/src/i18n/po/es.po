@@ -743,6 +743,36 @@ msgstr "la acción falló ({label}): {code} {message}"
 msgid "settings.action.running"
 msgstr "en curso: {label}"
 
+msgid "settings.approvals.empty"
+msgstr "No hay reglas locales (vacío correcto: no se ha recordado nada)."
+
+msgid "settings.approvals.failed"
+msgstr "No se pudieron leer las reglas de aprobación: {code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "Las reglas de aquí vienen de recordar o rechazar en una conversación y también pueden fijarse a mano; al revocarlas vuelve el valor predeterminado de la configuración."
+
+msgid "settings.approvals.revoke"
+msgstr "Revocar"
+
+msgid "settings.approvals.revoked"
+msgstr "Revocada: {tool}"
+
+msgid "settings.approvals.rule"
+msgstr "Regla"
+
+msgid "settings.approvals.save"
+msgstr "Guardar regla"
+
+msgid "settings.approvals.saved"
+msgstr "Guardada: {tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "Reglas de aprobación de herramientas"
+
+msgid "settings.approvals.tool"
+msgstr "Nombre de la herramienta"
+
 msgid "settings.back"
 msgstr "Volver al inicio"
 

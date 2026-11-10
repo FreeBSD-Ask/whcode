@@ -552,7 +552,7 @@ msgid "gui.approval.exec"
 msgstr "実行"
 
 msgid "gui.approval.failed"
-msgstr "承認に失敗"
+msgstr "承認に失敗しました"
 
 msgid "gui.approval.reason"
 msgstr "理由"
@@ -742,6 +742,36 @@ msgstr "操作に失敗しました（{label}）：{code} {message}"
 
 msgid "settings.action.running"
 msgstr "実行中：{label}"
+
+msgid "settings.approvals.empty"
+msgstr "ローカルルールはありません（正しい空：何も記憶していません）。"
+
+msgid "settings.approvals.failed"
+msgstr "承認ルールを読み込めません：{code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "ここにあるルールは会話の「ルールを記憶／拒否」から作られ、手動でも設定できます。取り消すと設定の既定値に戻ります。"
+
+msgid "settings.approvals.revoke"
+msgstr "取り消す"
+
+msgid "settings.approvals.revoked"
+msgstr "取り消しました：{tool}"
+
+msgid "settings.approvals.rule"
+msgstr "ルール"
+
+msgid "settings.approvals.save"
+msgstr "ルールを保存"
+
+msgid "settings.approvals.saved"
+msgstr "保存しました：{tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "ツール承認ルール"
+
+msgid "settings.approvals.tool"
+msgstr "ツール名"
 
 msgid "settings.back"
 msgstr "ホームに戻る"
@@ -1071,7 +1101,7 @@ msgid "web.approval.exec"
 msgstr "実行"
 
 msgid "web.approval.failed"
-msgstr "承認に失敗"
+msgstr "承認に失敗しました"
 
 msgid "web.approval.reason"
 msgstr "理由"

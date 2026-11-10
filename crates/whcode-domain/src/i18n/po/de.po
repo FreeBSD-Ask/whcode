@@ -743,6 +743,36 @@ msgstr "Vorgang fehlgeschlagen ({label}): {code} {message}"
 msgid "settings.action.running"
 msgstr "Läuft: {label}"
 
+msgid "settings.approvals.empty"
+msgstr "Keine lokalen Regeln (korrekt leer: nichts gemerkt)."
+
+msgid "settings.approvals.failed"
+msgstr "Genehmigungsregeln nicht lesbar: {code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "Die Regeln hier stammen aus „Regel merken“ oder „Ablehnen“ im Dialog und lassen sich auch von Hand setzen; nach dem Widerruf gilt wieder der Standard aus der Konfiguration."
+
+msgid "settings.approvals.revoke"
+msgstr "Widerrufen"
+
+msgid "settings.approvals.revoked"
+msgstr "Widerrufen: {tool}"
+
+msgid "settings.approvals.rule"
+msgstr "Regel"
+
+msgid "settings.approvals.save"
+msgstr "Regel speichern"
+
+msgid "settings.approvals.saved"
+msgstr "Gespeichert: {tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "Werkzeug-Genehmigungsregeln"
+
+msgid "settings.approvals.tool"
+msgstr "Werkzeugname"
+
 msgid "settings.back"
 msgstr "Zurück zur Startseite"
 

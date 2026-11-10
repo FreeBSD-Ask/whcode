@@ -743,6 +743,36 @@ msgstr "فشل الإجراء ({label}): {code} {message}"
 msgid "settings.action.running"
 msgstr "جارٍ: {label}"
 
+msgid "settings.approvals.empty"
+msgstr "لا توجد قواعد محلية (فراغ صحيح: لم يُتذكّر أي شيء)."
+
+msgid "settings.approvals.failed"
+msgstr "تعذّر قراءة قواعد الموافقة: {code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "تأتي القواعد هنا من تذكّر القاعدة أو الرفض في المحادثات، ويمكن ضبطها يدويًا أيضًا؛ بعد السحب يعود الافتراضي من الإعدادات."
+
+msgid "settings.approvals.revoke"
+msgstr "سحب"
+
+msgid "settings.approvals.revoked"
+msgstr "تم السحب: {tool}"
+
+msgid "settings.approvals.rule"
+msgstr "القاعدة"
+
+msgid "settings.approvals.save"
+msgstr "حفظ القاعدة"
+
+msgid "settings.approvals.saved"
+msgstr "تم الحفظ: {tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "قواعد الموافقة على الأدوات"
+
+msgid "settings.approvals.tool"
+msgstr "اسم الأداة"
+
 msgid "settings.back"
 msgstr "العودة إلى الصفحة الرئيسية"
 

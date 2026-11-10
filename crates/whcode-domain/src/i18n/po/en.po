@@ -743,6 +743,36 @@ msgstr "action failed ({label}): {code} {message}"
 msgid "settings.action.running"
 msgstr "running: {label}"
 
+msgid "settings.approvals.empty"
+msgstr "No local rules (a correct empty: nothing remembered yet)."
+
+msgid "settings.approvals.failed"
+msgstr "Cannot read approval rules: {code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "Rules here come from remembering or rejecting in a chat, and can also be set by hand; revoking falls back to the configured default."
+
+msgid "settings.approvals.revoke"
+msgstr "Revoke"
+
+msgid "settings.approvals.revoked"
+msgstr "Revoked: {tool}"
+
+msgid "settings.approvals.rule"
+msgstr "Rule"
+
+msgid "settings.approvals.save"
+msgstr "Save rule"
+
+msgid "settings.approvals.saved"
+msgstr "Saved: {tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "Tool approval rules"
+
+msgid "settings.approvals.tool"
+msgstr "Tool name"
+
 msgid "settings.back"
 msgstr "Back to home"
 

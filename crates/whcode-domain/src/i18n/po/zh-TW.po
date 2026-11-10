@@ -743,6 +743,36 @@ msgstr "操作失敗（{label}）：{code} {message}"
 msgid "settings.action.running"
 msgstr "執行中：{label}"
 
+msgid "settings.approvals.empty"
+msgstr "目前沒有本機規則（正確的空：未記住任何工具）。"
+
+msgid "settings.approvals.failed"
+msgstr "無法讀取審批規則：{code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "這裡的規則來自對話裡的「記住規則／拒絕」，也可以手動設定；撤銷後回到設定預設值。"
+
+msgid "settings.approvals.revoke"
+msgstr "撤銷"
+
+msgid "settings.approvals.revoked"
+msgstr "已撤銷：{tool}"
+
+msgid "settings.approvals.rule"
+msgstr "規則"
+
+msgid "settings.approvals.save"
+msgstr "儲存規則"
+
+msgid "settings.approvals.saved"
+msgstr "已儲存：{tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "工具審批規則"
+
+msgid "settings.approvals.tool"
+msgstr "工具名稱"
+
 msgid "settings.back"
 msgstr "回到首頁"
 

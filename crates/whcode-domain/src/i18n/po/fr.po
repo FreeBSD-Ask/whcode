@@ -743,6 +743,36 @@ msgstr "échec de l'action ({label}) : {code} {message}"
 msgid "settings.action.running"
 msgstr "en cours : {label}"
 
+msgid "settings.approvals.empty"
+msgstr "Aucune règle locale (vide correct : rien de mémorisé)."
+
+msgid "settings.approvals.failed"
+msgstr "Impossible de lire les règles d’approbation : {code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "Les règles ici proviennent de « mémoriser la règle » ou « refuser » dans un échange et peuvent aussi être définies à la main ; après révocation, la valeur par défaut de la configuration s’applique."
+
+msgid "settings.approvals.revoke"
+msgstr "Révoquer"
+
+msgid "settings.approvals.revoked"
+msgstr "Révoquée : {tool}"
+
+msgid "settings.approvals.rule"
+msgstr "Règle"
+
+msgid "settings.approvals.save"
+msgstr "Enregistrer la règle"
+
+msgid "settings.approvals.saved"
+msgstr "Enregistrée : {tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "Règles d’approbation des outils"
+
+msgid "settings.approvals.tool"
+msgstr "Nom de l’outil"
+
 msgid "settings.back"
 msgstr "Retour à l'accueil"
 

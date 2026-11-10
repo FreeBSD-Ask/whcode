@@ -162,10 +162,10 @@ msgid "cli.llm.about"
 msgstr "मॉडल कॉल (FR-201; `llm run` और `llm cancel`, contracts/cui-cli.md §1)।"
 
 msgid "cli.llm.cancel.about"
-msgstr "इस मशीन पर चल रही कॉल रद्द करें (अगले chunk से पहले लागू होती है)।"
+msgstr "इस मशीन पर चल रही कॉल रद्द करें (अगले खंड से पहले लागू होती है)।"
 
 msgid "cli.llm.cancel.request"
-msgstr "request ID (`llm run` दिखाता है या `--request-id` से पहले से तय)।"
+msgstr "अनुरोध ID (`llm run` दिखाता है या `--request-id` से पहले से तय)।"
 
 msgid "cli.llm.run.about"
 msgstr "एक असली कॉल करें (सिंक्रोनस; स्ट्रीम के टुकड़े अंत में एक सीमित क्रम में जारी होते हैं)।"
@@ -183,7 +183,7 @@ msgid "cli.llm.run.provider"
 msgstr "प्रोफ़ाइल का नाम (स्पष्ट चयन, ADR-031 निर्णय 4)।"
 
 msgid "cli.llm.run.request-id"
-msgstr "पहले से तय request ID (`llm cancel` की कुंजी; वरना कॉल से बनाई जाती है)।"
+msgstr "पहले से तय अनुरोध ID (`llm cancel` की कुंजी; वरना कॉल से बनाई जाती है)।"
 
 msgid "cli.llm.run.session"
 msgstr "सत्र ID।"
@@ -588,7 +588,7 @@ msgid "gui.chat.last"
 msgstr "पिछला परिणाम: {summary}"
 
 msgid "gui.chat.no_request"
-msgstr "रद्द करने के लिए कोई request ID नहीं (पहले एक दौर भेजें)"
+msgstr "रद्द करने के लिए कोई अनुरोध ID नहीं (पहले एक दौर भेजें)"
 
 msgid "gui.chat.none"
 msgstr "कोई सत्र नहीं चुना गया - पहले सत्र दृश्य में एक चुनें (j/k)"
@@ -597,7 +597,7 @@ msgid "gui.chat.not_supported"
 msgstr "LLM निष्पादक जोड़ा नहीं गया (not_supported)"
 
 msgid "gui.chat.progress"
-msgstr "बन रहा है: {chunks} chunks…"
+msgstr "बन रहा है: {chunks} खंड…"
 
 msgid "gui.chat.prompt.placeholder"
 msgstr "प्रॉम्प्ट लिखें, भेजने के लिए Enter दबाएँ"
@@ -742,6 +742,36 @@ msgstr "क्रिया विफल ({label}): {code} {message}"
 
 msgid "settings.action.running"
 msgstr "चल रहा है: {label}"
+
+msgid "settings.approvals.empty"
+msgstr "कोई स्थानीय नियम नहीं (सही खाली: कुछ याद नहीं रखा गया)।"
+
+msgid "settings.approvals.failed"
+msgstr "स्वीकृति नियम पढ़े नहीं जा सके: {code} {message}"
+
+msgid "settings.approvals.hint"
+msgstr "यहाँ के नियम बातचीत में नियम याद रखने या अस्वीकार करने से बनते हैं और हाथ से भी सेट किए जा सकते हैं; वापस लेने पर कॉन्फ़िग का डिफ़ॉल्ट लागू होता है।"
+
+msgid "settings.approvals.revoke"
+msgstr "वापस लें"
+
+msgid "settings.approvals.revoked"
+msgstr "वापस लिया: {tool}"
+
+msgid "settings.approvals.rule"
+msgstr "नियम"
+
+msgid "settings.approvals.save"
+msgstr "नियम सहेजें"
+
+msgid "settings.approvals.saved"
+msgstr "सहेजा: {tool} = {rule}"
+
+msgid "settings.approvals.title"
+msgstr "टूल स्वीकृति नियम"
+
+msgid "settings.approvals.tool"
+msgstr "टूल का नाम"
 
 msgid "settings.back"
 msgstr "होम पर वापस जाएँ"
