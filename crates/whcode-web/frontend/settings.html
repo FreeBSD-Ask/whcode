@@ -110,6 +110,50 @@
       </div>
     </section>
 
+    <section id="s-approvals" class="panel stack">
+      <h2 class="section-title" data-i18n="settings.approvals.title">工具审批规则</h2>
+      <p class="meta-line" data-i18n="settings.approvals.hint">这里的规则来自对话里的“记住规则／拒绝”，也可以手动设置；撤销后回到配置默认值。</p>
+      <ul id="approval-rules" class="rows"></ul>
+      <p id="approval-empty" class="meta-line" hidden data-i18n="settings.approvals.empty">当前没有本地规则（正确的空：未记住任何工具）。</p>
+      <form id="approval-rule-form" class="toolbar">
+        <label for="approval-tool" data-i18n="settings.approvals.tool">工具名</label>
+        <input id="approval-tool" required maxlength="128" autocomplete="off">
+        <label for="approval-rule" data-i18n="settings.approvals.rule">规则</label>
+        <select id="approval-rule">
+          <option value="allow">allow</option>
+          <option value="deny">deny</option>
+        </select>
+        <button type="submit" data-i18n="settings.approvals.save">保存规则</button>
+      </form>
+      <output id="approval-status" role="status"></output>
+    </section>
+
+    <section id="s-subagents" class="panel stack">
+      <h2 class="section-title" data-i18n="settings.panels.subagents.title">子代理运行</h2>
+      <p class="meta-line" data-i18n="settings.panels.subagents.hint">来自最近 200 条事件的窗口；运行中表示有开始事件但没有结束事件。</p>
+      <ul id="subagent-runs" class="rows"></ul>
+      <p id="subagent-empty" class="meta-line" hidden data-i18n="settings.panels.subagents.empty">当前会话没有子代理运行记录（正确的空）。</p>
+      <output id="subagent-status" role="status"></output>
+    </section>
+
+    <section id="s-skills" class="panel stack">
+      <h2 class="section-title" data-i18n="settings.panels.skills.title">技能库</h2>
+      <p class="meta-line" data-i18n="settings.panels.skills.hint">扫描工作区 .zcode/skills/；引用缺失会在条目下列出。</p>
+      <ul id="skill-rows" class="rows"></ul>
+      <p id="skill-empty" class="meta-line" hidden data-i18n="settings.panels.skills.empty">工作区没有技能（正确的空）。</p>
+      <ul id="skill-warnings" class="rows"></ul>
+      <output id="skill-status" role="status"></output>
+    </section>
+
+    <section id="s-mcp" class="panel stack">
+      <h2 class="section-title" data-i18n="settings.panels.mcp.title">MCP 服务器</h2>
+      <p class="meta-line" data-i18n="settings.panels.mcp.hint">连接在每次 turn 内建立；这里展示配置与最近窗口内观测到的调用与工具。</p>
+      <ul id="mcp-rows" class="rows"></ul>
+      <p id="mcp-empty" class="meta-line" hidden data-i18n="settings.panels.mcp.empty">当前没有启用的 MCP 服务器（正确的空）。</p>
+      <p id="mcp-unconfigured" class="meta-line" hidden data-i18n="settings.panels.mcp.unconfigured">未找到 .zcode/mcp.json（MCP 功能关闭）。</p>
+      <output id="mcp-status" role="status"></output>
+    </section>
+
     <section id="s-verify" class="panel stack">
       <h2 class="section-title" data-i18n="settings.verify.title">出站连通性校验</h2>
       <form id="verify-form" class="toolbar">

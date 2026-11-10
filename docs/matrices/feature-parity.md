@@ -80,6 +80,12 @@ T190：新增证书库设置两行）。
 | `view.chat` | View | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-711；部分 cui_command_surface（Web 经 llm API） |
 | `view.checkpoints` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-748；部分 cui_command_surface／six_view_scope |
 | `view.changes` | View | Read | 部分 | 已实现 | 部分 | 已实现 | FR-605／624；部分 cui_request_only、gui_manual_refresh |
+| `settings.subagents` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-749；部分 cui_command_surface／six_view_scope |
+| `settings.skills` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-750；部分 cui_command_surface／six_view_scope |
+| `settings.mcp` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-750；部分 cui_command_surface／six_view_scope |
+| `settings.rules.read` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-751；部分 cui_command_surface／six_view_scope |
+| `settings.rules.write` | Command | Write | 部分 | 部分 | 部分 | 已实现 | FR-751；部分 cli_local_admin／six_view_scope |
+| `settings.rules.revoke` | Command | Write | 部分 | 部分 | 已实现 | 已实现 | FR-751；部分 cli_local_admin |
 
 **权限**：全部命令经 `whcode-app::authz` 统一判定（拒绝 `permission_denied` 不可重试，
 FR-604）；四端不得自行推断权限。

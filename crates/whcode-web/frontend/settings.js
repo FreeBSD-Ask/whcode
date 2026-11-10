@@ -414,6 +414,167 @@ async function verifyHost() {
   );
 }
 
+/**
+ * 审批规则设置（T259／FR-751）：列出本地规则、手动写入、撤销。
+ * 规则只存 allow／deny（`ask` 由配置默认值表达）；撤销后回到配置默认值。
+ */
+async function loadApprovalRules() {
+  const data = await fetchJson("/api/approvals/rules");
+  const rules = Array.isArray(data.rules) ? data.rules : [];
+  const list = el("approval-rules");
+  list.textContent = "";
+  el("approval-empty").hidden = rules.length > 0;
+  for (const rule of rules) {
+    const row = document.createElement("li");
+    const label = document.createElement("span");
+    label.textContent = `${rule.tool} · ${rule.rule}`;
+    const revoke = document.createElement("button");
+    revoke.type = "button";
+    revoke.textContent = t("settings.approvals.revoke", "撤销");
+    revoke.addEventListener("click", () => {
+      runAction("settings.approvals.revoke", "撤销", async () => {
+        await postJson("/api/approvals/rules/revoke", { tool: rule.tool });
+        setText(
+          "approval-status",
+          t("settings.approvals.revoked", "已撤销：{tool}", { tool: rule.tool }),
+        );
+        await loadApprovalRules();
+      });
+    });
+    row.append(label, revoke);
+    list.append(row);
+  }
+}
+
+async function saveApprovalRule() {
+  const tool = el("approval-tool").value.trim();
+  const rule = el("approval-rule").value;
+  if (!tool) {
+    throw new ApiError("missing_tool", t("settings.approvals.tool", "工具名"));
+  }
+  await postJson("/api/approvals/rules", { tool, rule });
+  el("approval-tool").value = "";
+  setText(
+    "approval-status",
+    t("settings.approvals.saved", "已保存：{tool} = {rule}", { tool, rule }),
+  );
+  await loadApprovalRules();
+}
+
+/** 子代理运行（T259／FR-749）：状态、终止原因、轮数、时长与产出摘要。 */
+async function loadSubagents() {
+  const data = await fetchJson("/api/subagents");
+  const runs = Array.isArray(data.runs) ? data.runs : [];
+  const list = el("subagent-runs");
+  list.textContent = "";
+  el("subagent-empty").hidden = runs.length > 0;
+  for (const run of runs) {
+    const row = document.createElement("li");
+    const parts = [run.exec_id, stateText(run.state)];
+    if (run.termination) parts.push(run.termination);
+    if (Number.isFinite(run.iterations)) {
+      parts.push(t("settings.panels.subagents.iterations", "{n} 轮", { n: run.iterations }));
+    }
+    if (Number.isFinite(run.duration_ms)) parts.push(`${run.duration_ms} ms`);
+    if (run.error_code) parts.push(run.error_code);
+    const head = document.createElement("span");
+    head.textContent = parts.join(" · ");
+    row.append(head);
+    if (run.output_summary) {
+      const out = document.createElement("p");
+      out.className = "meta-line";
+      out.textContent = run.output_summary;
+      row.append(out);
+    }
+    list.append(row);
+  }
+}
+
+/** 技能库（T259／FR-750）：名称、描述、路径与可达性问题。 */
+async function loadSkills() {
+  const data = await fetchJson("/api/skills");
+  const skills = Array.isArray(data.skills) ? data.skills : [];
+  const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+  const list = el("skill-rows");
+  list.textContent = "";
+  el("skill-empty").hidden = skills.length > 0;
+  for (const skill of skills) {
+    const row = document.createElement("li");
+    const head = document.createElement("span");
+    head.textContent = `${skill.name} — ${skill.description}`;
+    const path = document.createElement("p");
+    path.className = "meta-line";
+    path.textContent = skill.path;
+    row.append(head, path);
+    const issues = Array.isArray(skill.issues) ? skill.issues : [];
+    if (issues.length > 0) {
+      const note = document.createElement("p");
+      note.className = "meta-line";
+      note.textContent = t(
+        "settings.panels.skills.issues",
+        "问题 {count} 项",
+        { count: issues.length },
+      );
+      row.append(note);
+    }
+    list.append(row);
+  }
+  const warningList = el("skill-warnings");
+  warningList.textContent = "";
+  for (const warning of warnings) {
+    const row = document.createElement("li");
+    row.textContent = warning;
+    warningList.append(row);
+  }
+}
+
+/** MCP 状态（T259／FR-750）：配置态、超时/输出上限与最近观测到的工具。 */
+async function loadMcp() {
+  const data = await fetchJson("/api/mcp");
+  const servers = Array.isArray(data.servers) ? data.servers : [];
+  el("mcp-unconfigured").hidden = data.configured === true;
+  el("mcp-empty").hidden = data.configured !== true || servers.length > 0;
+  const list = el("mcp-rows");
+  list.textContent = "";
+  for (const server of servers) {
+    const row = document.createElement("li");
+    const head = document.createElement("span");
+    head.textContent = [
+      server.name,
+      server.transport,
+      mcpStateText(server.status),
+      t("settings.panels.mcp.timeout", "超时 {ms} ms · 输出上限 {bytes} B", {
+        ms: server.timeout_ms,
+        bytes: server.max_output_bytes,
+      }),
+    ].join(" · ");
+    row.append(head);
+    const tools = Array.isArray(server.tools) ? server.tools : [];
+    if (tools.length > 0) {
+      const note = document.createElement("p");
+      note.className = "meta-line";
+      note.textContent = t("settings.panels.mcp.tools", "观测工具：{tools}", {
+        tools: tools.join(", "),
+      });
+      row.append(note);
+    }
+    list.append(row);
+  }
+}
+
+function stateText(code) {
+  return t(`settings.panels.state.${code}`, code);
+}
+
+function mcpStateText(code) {
+  // 运行中/失败与子代理共用状态词条；成功与配置态分开（GUI 同口径）。
+  if (code === "running" || code === "failed") {
+    return stateText(code);
+  }
+  const key = `settings.panels.mcp.${code === "ok" ? "observed_ok" : code}`;
+  return t(key, code);
+}
+
 /** 写操作包装：统一错误呈现（含 code 与 message），失败不清空表单。 */
 async function runAction(labelKey, fallbackLabel, action) {
   const label = t(labelKey, fallbackLabel);
@@ -463,6 +624,38 @@ async function refresh() {
       true,
     );
   }
+  // 审批规则独立加载：证书状态失败不影响规则面（反之亦然），两处的空都各自显式。
+  try {
+    await loadApprovalRules();
+  } catch (error) {
+    const described = describeError(error);
+    setText(
+      "approval-status",
+      t("settings.approvals.failed", "无法读取审批规则：{code} {message}", {
+        code: described.code,
+        message: described.message,
+      }),
+    );
+  }
+  // B4 只读面板各自独立：任一失败只影响本段，空状态各自显式。
+  for (const [statusId, load] of [
+    ["subagent-status", loadSubagents],
+    ["skill-status", loadSkills],
+    ["mcp-status", loadMcp],
+  ]) {
+    try {
+      await load();
+    } catch (error) {
+      const described = describeError(error);
+      setText(
+        statusId,
+        t("settings.panels.failed", "无法读取：{code} {message}", {
+          code: described.code,
+          message: described.message,
+        }),
+      );
+    }
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -501,6 +694,10 @@ document.addEventListener("DOMContentLoaded", () => {
   el("verify-form").addEventListener("submit", (event) => {
     event.preventDefault();
     runVerify();
+  });
+  el("approval-rule-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    runAction("settings.approvals.save", "保存规则", saveApprovalRule);
   });
 
   refresh();

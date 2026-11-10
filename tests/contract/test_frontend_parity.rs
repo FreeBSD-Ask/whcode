@@ -67,6 +67,13 @@ fn web_routes_resolve_to_implemented_surfaces() {
         // LLM 调用（T167）：CUI／Web 已接线（应用层编排 + 装配根工厂）。
         ("POST", "/api/llm/run"),
         ("POST", "/api/llm/cancel"),
+        // B4 高级面板（T258／T259、FR-749／750／751）。
+        ("GET", "/api/subagents"),
+        ("GET", "/api/skills"),
+        ("GET", "/api/mcp"),
+        ("GET", "/api/approvals/rules"),
+        ("POST", "/api/approvals/rules"),
+        ("POST", "/api/approvals/rules/revoke"),
     ];
     for (method, path) in routes {
         let id = whcode_web::surface_map::surface_of(method, path)

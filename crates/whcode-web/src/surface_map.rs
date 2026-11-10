@@ -58,6 +58,13 @@ pub fn surface_of(method: &str, path: &str) -> Option<&'static str> {
         ("POST", "/api/llm/cancel") => Some("llm.cancel"),
         // ── 对话历史（T251/FR-742；view.chat Web 端为已实现） ─────────
         ("GET", "/api/chat/tail") => Some("view.chat"),
+        // ── B4 高级面板（T258／T259、FR-749／750／751） ───────────────
+        ("GET", "/api/subagents") => Some("settings.subagents"),
+        ("GET", "/api/skills") => Some("settings.skills"),
+        ("GET", "/api/mcp") => Some("settings.mcp"),
+        ("GET", "/api/approvals/rules") => Some("settings.rules.read"),
+        ("POST", "/api/approvals/rules") => Some("settings.rules.write"),
+        ("POST", "/api/approvals/rules/revoke") => Some("settings.rules.revoke"),
         // ── 保留守卫路径（预留／排除；Task 172 统一 501 not_supported） ─
         (_, "/api/events/show") => Some("events.show"),
         (_, "/api/spec/next") => Some("spec.next"),

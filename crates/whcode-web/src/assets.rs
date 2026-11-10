@@ -790,6 +790,93 @@ mod tests {
         }
     }
 
+    /// 设置页的审批规则面（T259／FR-751）：容器、端点与文案键齐备。
+    /// 撤销入口存在不等于可撤销：服务端能力检查与审计由 `whcode-bin` 的路由测试覆盖。
+    #[test]
+    fn settings_page_ships_approval_rule_management() {
+        for id in [
+            "s-approvals",
+            "approval-rules",
+            "approval-rule-form",
+            "approval-tool",
+            "approval-rule",
+        ] {
+            assert!(
+                SETTINGS_HTML.contains(&format!("id=\"{id}\"")),
+                "设置页缺少容器 {id}"
+            );
+        }
+        for endpoint in ["/api/approvals/rules", "/api/approvals/rules/revoke"] {
+            assert!(SETTINGS_JS.contains(endpoint), "设置页未接线 {endpoint}");
+        }
+        let i18n =
+            whcode_domain::i18n::I18n::load("en", whcode_domain::i18n::LocaleSource::Explicit);
+        for key in [
+            "settings.approvals.title",
+            "settings.approvals.hint",
+            "settings.approvals.tool",
+            "settings.approvals.rule",
+            "settings.approvals.save",
+            "settings.approvals.empty",
+            "settings.approvals.revoke",
+            "settings.approvals.revoked",
+            "settings.approvals.saved",
+            "settings.approvals.failed",
+        ] {
+            assert_ne!(i18n.resolve(key), key, "英文目录缺键 {key}");
+        }
+    }
+
+    /// 设置页的 B4 只读面板（T259／FR-749／FR-750）：容器、端点与文案键齐备。
+    /// 动态键（`state.*`／`mcp.observed_ok`）由 JS 拼接，故在此显式枚举。
+    #[test]
+    fn settings_page_ships_readonly_panels() {
+        for id in [
+            "s-subagents",
+            "subagent-runs",
+            "s-skills",
+            "skill-rows",
+            "skill-warnings",
+            "s-mcp",
+            "mcp-rows",
+        ] {
+            assert!(
+                SETTINGS_HTML.contains(&format!("id=\"{id}\"")),
+                "设置页缺少容器 {id}"
+            );
+        }
+        for endpoint in ["/api/subagents", "/api/skills", "/api/mcp"] {
+            assert!(SETTINGS_JS.contains(endpoint), "设置页未接线 {endpoint}");
+        }
+        let i18n =
+            whcode_domain::i18n::I18n::load("en", whcode_domain::i18n::LocaleSource::Explicit);
+        for key in [
+            "settings.panels.subagents.title",
+            "settings.panels.subagents.hint",
+            "settings.panels.subagents.empty",
+            "settings.panels.subagents.iterations",
+            "settings.panels.skills.title",
+            "settings.panels.skills.hint",
+            "settings.panels.skills.empty",
+            "settings.panels.skills.issues",
+            "settings.panels.mcp.title",
+            "settings.panels.mcp.hint",
+            "settings.panels.mcp.empty",
+            "settings.panels.mcp.unconfigured",
+            "settings.panels.mcp.configured",
+            "settings.panels.mcp.disabled",
+            "settings.panels.mcp.observed_ok",
+            "settings.panels.mcp.timeout",
+            "settings.panels.mcp.tools",
+            "settings.panels.state.running",
+            "settings.panels.state.ok",
+            "settings.panels.state.failed",
+            "settings.panels.failed",
+        ] {
+            assert_ne!(i18n.resolve(key), key, "英文目录缺键 {key}");
+        }
+    }
+
     /// RTL 镜像的前提：样式表只用逻辑属性（`margin-inline`／`padding-inline`），
     /// 不含物理 `left`／`right` 与 `text-align: left|right`——否则 `dir="rtl"` 只翻转
     /// 文本顺序而不翻转布局，阿拉伯语界面会出现错位。
