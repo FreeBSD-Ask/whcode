@@ -539,6 +539,36 @@ msgstr "Fehler der Datenquelle: {error}"
 msgid "error.permission_denied"
 msgstr "Zugriff verweigert"
 
+msgid "gui.approval.approve_once"
+msgstr "Nur dieses Mal"
+
+msgid "gui.approval.approve_turn"
+msgstr "Für diesen Turn genehmigen"
+
+msgid "gui.approval.decided"
+msgstr "Entschieden"
+
+msgid "gui.approval.exec"
+msgstr "Ausführung"
+
+msgid "gui.approval.failed"
+msgstr "Genehmigung fehlgeschlagen"
+
+msgid "gui.approval.reason"
+msgstr "Grund"
+
+msgid "gui.approval.reject"
+msgstr "Ablehnen"
+
+msgid "gui.approval.remember"
+msgstr "Regel merken"
+
+msgid "gui.approval.title"
+msgstr "Genehmigung ausstehend"
+
+msgid "gui.approval.tool"
+msgstr "Werkzeug"
+
 msgid "gui.chat.cancel"
 msgstr "Abbrechen"
 
@@ -679,6 +709,12 @@ msgstr "Wiederholungen {count}"
 
 msgid "gui.task.retry"
 msgstr "Wiederholen"
+
+msgid "gui.tool.running"
+msgstr "Läuft"
+
+msgid "gui.tool.title"
+msgstr "Werkzeugaufruf"
 
 msgid "menu.context"
 msgstr "Kontext"

@@ -539,6 +539,36 @@ msgstr "Ошибка источника данных: {error}"
 msgid "error.permission_denied"
 msgstr "Доступ запрещён"
 
+msgid "gui.approval.approve_once"
+msgstr "Только этот раз"
+
+msgid "gui.approval.approve_turn"
+msgstr "Одобрить на ход"
+
+msgid "gui.approval.decided"
+msgstr "Обработано"
+
+msgid "gui.approval.exec"
+msgstr "Выполнение"
+
+msgid "gui.approval.failed"
+msgstr "Не удалось одобрить"
+
+msgid "gui.approval.reason"
+msgstr "Причина"
+
+msgid "gui.approval.reject"
+msgstr "Отклонить"
+
+msgid "gui.approval.remember"
+msgstr "Запомнить правило"
+
+msgid "gui.approval.title"
+msgstr "Ожидает одобрения"
+
+msgid "gui.approval.tool"
+msgstr "Инструмент"
+
 msgid "gui.chat.cancel"
 msgstr "Отменить"
 
@@ -679,6 +709,12 @@ msgstr "Повторов: {count}"
 
 msgid "gui.task.retry"
 msgstr "Повторить"
+
+msgid "gui.tool.running"
+msgstr "Выполняется"
+
+msgid "gui.tool.title"
+msgstr "Вызов инструмента"
 
 msgid "menu.context"
 msgstr "Контекст"

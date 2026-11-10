@@ -539,6 +539,36 @@ msgstr "Data source error: {error}"
 msgid "error.permission_denied"
 msgstr "Permission denied"
 
+msgid "gui.approval.approve_once"
+msgstr "Just this once"
+
+msgid "gui.approval.approve_turn"
+msgstr "Approve for this turn"
+
+msgid "gui.approval.decided"
+msgstr "Decided"
+
+msgid "gui.approval.exec"
+msgstr "Execution"
+
+msgid "gui.approval.failed"
+msgstr "Approval failed"
+
+msgid "gui.approval.reason"
+msgstr "Reason"
+
+msgid "gui.approval.reject"
+msgstr "Reject"
+
+msgid "gui.approval.remember"
+msgstr "Remember rule"
+
+msgid "gui.approval.title"
+msgstr "Pending approval"
+
+msgid "gui.approval.tool"
+msgstr "Tool"
+
 msgid "gui.chat.cancel"
 msgstr "Cancel"
 
@@ -679,6 +709,12 @@ msgstr "Retries {count}"
 
 msgid "gui.task.retry"
 msgstr "Retry"
+
+msgid "gui.tool.running"
+msgstr "Running"
+
+msgid "gui.tool.title"
+msgstr "Tool call"
 
 msgid "menu.context"
 msgstr "Context"

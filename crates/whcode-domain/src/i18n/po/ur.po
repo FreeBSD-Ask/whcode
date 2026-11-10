@@ -539,6 +539,36 @@ msgstr "ڈیٹا ماخذ میں خرابی: {error}"
 msgid "error.permission_denied"
 msgstr "اجازت نہیں ہے"
 
+msgid "gui.approval.approve_once"
+msgstr "صرف اس بار"
+
+msgid "gui.approval.approve_turn"
+msgstr "اس ٹرن کے لیے منظوری"
+
+msgid "gui.approval.decided"
+msgstr "طے شدہ"
+
+msgid "gui.approval.exec"
+msgstr "عمل درآمد"
+
+msgid "gui.approval.failed"
+msgstr "منظوری ناکام"
+
+msgid "gui.approval.reason"
+msgstr "وجہ"
+
+msgid "gui.approval.reject"
+msgstr "مسترد"
+
+msgid "gui.approval.remember"
+msgstr "قاعدہ یاد رکھیں"
+
+msgid "gui.approval.title"
+msgstr "منظوری زیر التوا"
+
+msgid "gui.approval.tool"
+msgstr "ٹول"
+
 msgid "gui.chat.cancel"
 msgstr "منسوخ کریں"
 
@@ -679,6 +709,12 @@ msgstr "دوبارہ کوششیں {count}"
 
 msgid "gui.task.retry"
 msgstr "دوبارہ کوشش"
+
+msgid "gui.tool.running"
+msgstr "چل رہا ہے"
+
+msgid "gui.tool.title"
+msgstr "ٹول کال"
 
 msgid "menu.context"
 msgstr "سیاق و سباق"

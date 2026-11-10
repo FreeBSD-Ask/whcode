@@ -539,6 +539,36 @@ msgstr "データソースエラー：{error}"
 msgid "error.permission_denied"
 msgstr "権限がありません"
 
+msgid "gui.approval.approve_once"
+msgstr "今回のみ"
+
+msgid "gui.approval.approve_turn"
+msgstr "このターンで承認"
+
+msgid "gui.approval.decided"
+msgstr "処理済み"
+
+msgid "gui.approval.exec"
+msgstr "実行"
+
+msgid "gui.approval.failed"
+msgstr "承認に失敗"
+
+msgid "gui.approval.reason"
+msgstr "理由"
+
+msgid "gui.approval.reject"
+msgstr "拒否"
+
+msgid "gui.approval.remember"
+msgstr "ルールを記憶"
+
+msgid "gui.approval.title"
+msgstr "承認待ち"
+
+msgid "gui.approval.tool"
+msgstr "ツール"
+
 msgid "gui.chat.cancel"
 msgstr "キャンセル"
 
@@ -679,6 +709,12 @@ msgstr "再試行 {count} 回"
 
 msgid "gui.task.retry"
 msgstr "再試行"
+
+msgid "gui.tool.running"
+msgstr "実行中"
+
+msgid "gui.tool.title"
+msgstr "ツール呼び出し"
 
 msgid "menu.context"
 msgstr "コンテキスト"

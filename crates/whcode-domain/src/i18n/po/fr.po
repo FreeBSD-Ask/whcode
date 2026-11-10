@@ -539,6 +539,36 @@ msgstr "Erreur de source de données : {error}"
 msgid "error.permission_denied"
 msgstr "Permission refusée"
 
+msgid "gui.approval.approve_once"
+msgstr "Seulement cette fois"
+
+msgid "gui.approval.approve_turn"
+msgstr "Approuver pour ce tour"
+
+msgid "gui.approval.decided"
+msgstr "Traité"
+
+msgid "gui.approval.exec"
+msgstr "Exécution"
+
+msgid "gui.approval.failed"
+msgstr "Échec de l’approbation"
+
+msgid "gui.approval.reason"
+msgstr "Raison"
+
+msgid "gui.approval.reject"
+msgstr "Refuser"
+
+msgid "gui.approval.remember"
+msgstr "Mémoriser la règle"
+
+msgid "gui.approval.title"
+msgstr "Approbation en attente"
+
+msgid "gui.approval.tool"
+msgstr "Outil"
+
 msgid "gui.chat.cancel"
 msgstr "Annuler"
 
@@ -679,6 +709,12 @@ msgstr "Tentatives {count}"
 
 msgid "gui.task.retry"
 msgstr "Réessayer"
+
+msgid "gui.tool.running"
+msgstr "En cours"
+
+msgid "gui.tool.title"
+msgstr "Appel d’outil"
 
 msgid "menu.context"
 msgstr "Contexte"

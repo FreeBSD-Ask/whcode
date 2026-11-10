@@ -539,6 +539,36 @@ msgstr "ডেটা সোর্সে ত্রুটি: {error}"
 msgid "error.permission_denied"
 msgstr "অনুমতি নেই"
 
+msgid "gui.approval.approve_once"
+msgstr "শুধু এইবার"
+
+msgid "gui.approval.approve_turn"
+msgstr "এই টার্নের জন্য অনুমোদন"
+
+msgid "gui.approval.decided"
+msgstr "সম্পন্ন"
+
+msgid "gui.approval.exec"
+msgstr "সম্পাদন"
+
+msgid "gui.approval.failed"
+msgstr "অনুমোদন ব্যর্থ"
+
+msgid "gui.approval.reason"
+msgstr "কারণ"
+
+msgid "gui.approval.reject"
+msgstr "প্রত্যাখ্যান"
+
+msgid "gui.approval.remember"
+msgstr "নিয়ম মনে রাখুন"
+
+msgid "gui.approval.title"
+msgstr "অনুমোদন অপেক্ষমাণ"
+
+msgid "gui.approval.tool"
+msgstr "টুল"
+
 msgid "gui.chat.cancel"
 msgstr "বাতিল"
 
@@ -679,6 +709,12 @@ msgstr "পুনরায় চেষ্টা {count} বার"
 
 msgid "gui.task.retry"
 msgstr "পুনরায় চেষ্টা"
+
+msgid "gui.tool.running"
+msgstr "চলছে"
+
+msgid "gui.tool.title"
+msgstr "টুল কল"
 
 msgid "menu.context"
 msgstr "প্রসঙ্গ"

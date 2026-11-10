@@ -539,6 +539,36 @@ msgstr "資料來源錯誤：{error}"
 msgid "error.permission_denied"
 msgstr "權限不足"
 
+msgid "gui.approval.approve_once"
+msgstr "僅本次"
+
+msgid "gui.approval.approve_turn"
+msgstr "本回合批准"
+
+msgid "gui.approval.decided"
+msgstr "已處理"
+
+msgid "gui.approval.exec"
+msgstr "執行"
+
+msgid "gui.approval.failed"
+msgstr "審批失敗"
+
+msgid "gui.approval.reason"
+msgstr "原因"
+
+msgid "gui.approval.reject"
+msgstr "拒絕"
+
+msgid "gui.approval.remember"
+msgstr "記住規則"
+
+msgid "gui.approval.title"
+msgstr "待審批"
+
+msgid "gui.approval.tool"
+msgstr "工具"
+
 msgid "gui.chat.cancel"
 msgstr "取消"
 
@@ -679,6 +709,12 @@ msgstr "已重試 {count} 次"
 
 msgid "gui.task.retry"
 msgstr "重試"
+
+msgid "gui.tool.running"
+msgstr "執行中"
+
+msgid "gui.tool.title"
+msgstr "工具呼叫"
 
 msgid "menu.context"
 msgstr "上下文"

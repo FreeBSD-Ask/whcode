@@ -539,6 +539,36 @@ msgstr "خطأ في مصدر البيانات: {error}"
 msgid "error.permission_denied"
 msgstr "تم رفض الإذن"
 
+msgid "gui.approval.approve_once"
+msgstr "هذه المرة فقط"
+
+msgid "gui.approval.approve_turn"
+msgstr "الموافقة لهذه الجولة"
+
+msgid "gui.approval.decided"
+msgstr "تمت المعالجة"
+
+msgid "gui.approval.exec"
+msgstr "التنفيذ"
+
+msgid "gui.approval.failed"
+msgstr "فشلت الموافقة"
+
+msgid "gui.approval.reason"
+msgstr "السبب"
+
+msgid "gui.approval.reject"
+msgstr "رفض"
+
+msgid "gui.approval.remember"
+msgstr "تذكّر القاعدة"
+
+msgid "gui.approval.title"
+msgstr "بانتظار الموافقة"
+
+msgid "gui.approval.tool"
+msgstr "الأداة"
+
 msgid "gui.chat.cancel"
 msgstr "إلغاء"
 
@@ -679,6 +709,12 @@ msgstr "محاولات {count}"
 
 msgid "gui.task.retry"
 msgstr "إعادة المحاولة"
+
+msgid "gui.tool.running"
+msgstr "قيد التنفيذ"
+
+msgid "gui.tool.title"
+msgstr "استدعاء أداة"
 
 msgid "menu.context"
 msgstr "السياق"

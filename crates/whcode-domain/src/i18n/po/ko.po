@@ -539,6 +539,36 @@ msgstr "데이터 원본 오류: {error}"
 msgid "error.permission_denied"
 msgstr "권한이 없습니다"
 
+msgid "gui.approval.approve_once"
+msgstr "이번만"
+
+msgid "gui.approval.approve_turn"
+msgstr "이번 턴 승인"
+
+msgid "gui.approval.decided"
+msgstr "처리됨"
+
+msgid "gui.approval.exec"
+msgstr "실행"
+
+msgid "gui.approval.failed"
+msgstr "승인 실패"
+
+msgid "gui.approval.reason"
+msgstr "이유"
+
+msgid "gui.approval.reject"
+msgstr "거부"
+
+msgid "gui.approval.remember"
+msgstr "규칙 기억"
+
+msgid "gui.approval.title"
+msgstr "승인 대기"
+
+msgid "gui.approval.tool"
+msgstr "도구"
+
 msgid "gui.chat.cancel"
 msgstr "취소"
 
@@ -679,6 +709,12 @@ msgstr "재시도 {count}회"
 
 msgid "gui.task.retry"
 msgstr "재시도"
+
+msgid "gui.tool.running"
+msgstr "실행 중"
+
+msgid "gui.tool.title"
+msgstr "도구 호출"
 
 msgid "menu.context"
 msgstr "컨텍스트"

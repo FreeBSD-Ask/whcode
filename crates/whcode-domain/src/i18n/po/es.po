@@ -539,6 +539,36 @@ msgstr "Error del origen de datos: {error}"
 msgid "error.permission_denied"
 msgstr "Permiso denegado"
 
+msgid "gui.approval.approve_once"
+msgstr "Solo esta vez"
+
+msgid "gui.approval.approve_turn"
+msgstr "Aprobar este turno"
+
+msgid "gui.approval.decided"
+msgstr "Procesado"
+
+msgid "gui.approval.exec"
+msgstr "Ejecución"
+
+msgid "gui.approval.failed"
+msgstr "Falló la aprobación"
+
+msgid "gui.approval.reason"
+msgstr "Motivo"
+
+msgid "gui.approval.reject"
+msgstr "Rechazar"
+
+msgid "gui.approval.remember"
+msgstr "Recordar regla"
+
+msgid "gui.approval.title"
+msgstr "Aprobación pendiente"
+
+msgid "gui.approval.tool"
+msgstr "Herramienta"
+
 msgid "gui.chat.cancel"
 msgstr "Cancelar"
 
@@ -679,6 +709,12 @@ msgstr "Reintentos {count}"
 
 msgid "gui.task.retry"
 msgstr "Reintentar"
+
+msgid "gui.tool.running"
+msgstr "En ejecución"
+
+msgid "gui.tool.title"
+msgstr "Llamada de herramienta"
 
 msgid "menu.context"
 msgstr "Contexto"
