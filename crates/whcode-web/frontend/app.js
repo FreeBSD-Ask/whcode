@@ -697,6 +697,9 @@ async function loadDiff() {
   }
   for (const line of differences) {
     const row = document.createElement("li");
+    // T260：+ 增 / - 删 / 上下文；颜色只是增强，标记字符始终保留。
+    row.className =
+      line.marker === "+" ? "diff-line add" : line.marker === "-" ? "diff-line del" : "diff-line ctx";
     row.textContent = `${line.marker}${line.text}`;
     list.append(row);
   }

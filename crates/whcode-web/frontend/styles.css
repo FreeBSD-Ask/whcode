@@ -34,10 +34,16 @@
 [data-theme="zcode-day"] {
   --bg: #f8f8f8;
   --fg: #262626;
+  /* diff 行色（T260）：与 whcode_domain::theme_tokens::TERMINAL_DAY 同源。 */
+  --diff-added: #1e8a3e;
+  --diff-removed: #e03131;
 }
 [data-theme="zcode-night"] {
   --bg: #161616;
   --fg: #d4d4d4;
+  /* diff 行色（T260）：与 whcode_domain::theme_tokens::TERMINAL_NIGHT 同源。 */
+  --diff-added: #46bf72;
+  --diff-removed: #ff5c5c;
 }
 * { box-sizing: border-box; }
 body {
@@ -149,6 +155,26 @@ main {
   gap: var(--space-2);
 }
 .rows li:last-child { border-block-end: none; }
+/* diff 预览（T260／FR-622）：+ 绿 / - 红 / 上下文前景；3px 内嵌左条（逻辑属性，
+   RTL 自动镜像）。zcode 系取冻结终端调色板，既有四套回落前景色；标记字符始终保留，
+   状态不只靠颜色（ui-design §3）。数据面已按 200 行截断并显式标注。 */
+.diff-line {
+  display: block;
+  padding-inline-start: var(--space-2);
+  border-inline-start: 3px solid transparent;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, monospace;
+}
+.diff-line.add {
+  color: var(--diff-added, var(--fg));
+  border-inline-start-color: var(--diff-added, var(--fg));
+}
+.diff-line.del {
+  color: var(--diff-removed, var(--fg));
+  border-inline-start-color: var(--diff-removed, var(--fg));
+}
+.diff-line.ctx { color: var(--fg); }
 /* 会话条目：可点击、可聚焦；选中态加粗 + `> ` 前缀（不只靠颜色）。 */
 #session-list li { cursor: pointer; }
 #session-list li[aria-current="true"] { font-weight: 600; }

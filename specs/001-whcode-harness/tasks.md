@@ -902,9 +902,20 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   覆盖空态、未配置显式 false、空白会话 400）；`-p whcode-web --lib` 72/0（`settings_page_ships_approval_rule_management`、
   `settings_page_ships_readonly_panels`）；前端预算 settings JS gzip 7811 B、CSS 2638 B、
   DOM 134；clippy／fmt 全绿。
-- [ ] T260 [P] 批次 B5：`view.diff` 对齐 ZCode 形态（FR-605/624 增强；视觉口径按
+- [x] T260 [P] 批次 B5：`view.diff` 对齐 ZCode 形态（FR-605/624 增强；视觉口径按
   ADR-057）——**任务认知卡**：方向=diff 呈现对齐；目标=双端 diff 形态与 domain-M2
   勘察一致；判据=行为测试＋形态对照；非目标=diff 数据面扩展
+  ——**完成（2026-11-11）**：GUI diff 视图改专用渲染（unified 文本行＋3 px 内嵌色条；
+  `+`／`-`／上下文三态着色，标记字符始终保留；zcode 系取 `theme_tokens` 冻结终端调色板
+  `#1e8a3e`／`#e03131`／`#46bf72`／`#ff5c5c`，既有四套回落前景色不引入主题外颜色；
+  RTL 时色条随行序镜像）；Web 对话页 `diff-list` 行按标记分类 `.diff-line add|del|ctx`，
+  CSS 用逻辑属性与 `var(--diff-*, var(--fg))` 回退，zcode 块内嵌与调色板同源的
+  `--diff-added`／`--diff-removed`。数据面不变（`MAX_CONVERGE_DIFFERENCES=200`＋显式
+  `truncated`）；与 ZCode 1200/180k/800 护栏的差异登记为有意（`ui-design.md` §14：
+  无补丁/token 渲染，200 行上限已更严）。证据：`whcode-gui --lib` 34/0
+  （`diff_colors_follow_theme_tokens_and_legacy_fallback`）、`whcode-web --lib` 73/0
+  （`diff_presentation_uses_frozen_palette_and_markers`）；前端预算 app JS gzip 10704 B／
+  CSS 3009 B／DOM 134；clippy／fmt／check-docs-style／check-eol 全绿。
 - [ ] T261 [P] 批次 B5：会话分享脱敏导出（本地文件、无上传；威胁模型入 ADR-057 安全
   小节）（FR-752）——**任务认知卡**：方向=协作先手的最小落地；目标=脱敏导出可判定；
   判据=导出内容断言（无凭据/追踪原文）＋行为测试；非目标=上传/联网/扫码 OAuth

@@ -129,6 +129,27 @@ impl GuiTheme {
         }
     }
 
+    /// diff 增／删行色（T260／FR-622）：zcode 系取冻结终端调色板（与 ZCode 同源
+    /// `#1e8a3e`／`#e03131`、`#46bf72`／`#ff5c5c`）；既有四套没有冻结终端调色板，
+    /// 两态回落前景色——不引入主题外颜色，状态仍由 `+`／`-` 前缀判定（ui-design §3）。
+    #[must_use]
+    pub fn diff_colors(self) -> (Color, Color) {
+        match self {
+            Self::ZcodeDay => {
+                let palette = whcode_domain::theme_tokens::TERMINAL_DAY;
+                (token_color(palette.green), token_color(palette.red))
+            }
+            Self::ZcodeNight => {
+                let palette = whcode_domain::theme_tokens::TERMINAL_NIGHT;
+                (token_color(palette.green), token_color(palette.red))
+            }
+            _ => {
+                let (_, foreground) = self.colors();
+                (foreground, foreground)
+            }
+        }
+    }
+
     /// iced 主题：调色板全部映射到主题色，避免出现框架默认蓝。
     fn iced(self) -> Theme {
         let (background, foreground) = self.colors();
@@ -733,6 +754,31 @@ fn rich_line(line: &str, mono: bool, size: f32) -> Element<'static, Message> {
         .map(|(cjk, run)| span(run.to_string()).font(font_for(cjk, mono)).size(size))
         .collect();
     rich_text(spans).into()
+}
+
+/// 单色富文本行（diff 着色用；字体选择与 [`rich_line`] 同源，不改字形）。
+fn colored_line(line: &str, mono: bool, size: f32, color: Color) -> Element<'static, Message> {
+    let spans: Vec<text::Span<'static, (), Font>> = split_runs(line)
+        .into_iter()
+        .map(|(cjk, run)| {
+            span(run.to_string())
+                .font(font_for(cjk, mono))
+                .size(size)
+                .color(color)
+        })
+        .collect();
+    rich_text(spans).into()
+}
+
+/// diff 行色（T260）：`+` 增、`-` 删、其余上下文；颜色只作增强，前缀始终保留。
+fn diff_line_color(theme: GuiTheme, marker: char) -> Color {
+    let (added, removed) = theme.diff_colors();
+    let (_, foreground) = theme.colors();
+    match marker {
+        '+' => added,
+        '-' => removed,
+        _ => foreground,
+    }
 }
 
 /// RTL 行序镜像（FR-766／T279）：LTR 保持登记序，RTL 反转使逻辑首项出现在最右。
@@ -1502,13 +1548,18 @@ fn handle_event(
 /// zcode 系色值解析（FR-740 单一事实源）：从 `theme_tokens` 冻结 hex 构建 iced 颜色。
 /// 冻结值合法性由 `whcode-domain::theme_tokens` 测试保证，此处只做不可失败解析的
 /// 显式收口（失败即冻结值被改动，属编译期常量缺陷，panic 信息可定位）。
+/// 冻结色值（`#RRGGBB`）→ iced 颜色；非法值即模块不变量失败。
+fn token_color(hex: &str) -> Color {
+    let (r, g, b) = whcode_domain::theme_tokens::parse_rgb(hex)
+        .expect("theme_tokens 冻结色值必须为合法 #RRGGBB（模块测试保证）");
+    Color::from_rgb8(r, g, b)
+}
+
 fn zcode_colors(tokens: whcode_domain::theme_tokens::ThemeTokens) -> (Color, Color) {
-    let parse = |hex: &str| {
-        let (r, g, b) = whcode_domain::theme_tokens::parse_rgb(hex)
-            .expect("theme_tokens 冻结色值必须为合法 #RRGGBB（模块测试保证）");
-        Color::from_rgb8(r, g, b)
-    };
-    (parse(tokens.background), parse(tokens.foreground))
+    (
+        token_color(tokens.background),
+        token_color(tokens.foreground),
+    )
 }
 
 fn sidebar_style(theme: GuiTheme, selected: bool) -> button::Style {
@@ -1536,6 +1587,42 @@ fn sidebar_button(state: &State, item: ViewId) -> Element<'_, Message> {
         .width(Length::Fill)
         .padding([6, 8])
         .style(move |_theme, _status| sidebar_style(theme, selected))
+        .into()
+}
+
+/// diff 渲染行上限（与数据面 `MAX_CONVERGE_DIFFERENCES=200` 同口径；此处截断只作防御）。
+const MAX_RENDERED_DIFF_ROWS: usize = 200;
+
+/// diff 视图（T260／FR-622）：unified 文本行＋3px 内嵌左色条；`+`／`-`／上下文三态
+/// 着色，`+`／`-` 前缀始终保留（状态不只靠颜色，ui-design §3）。数据面已按 200 行
+/// 截断并显式置 `truncated`，此处不再扩展读取面。
+fn diff_body(state: &State) -> Element<'_, Message> {
+    let rtl = is_rtl_locale(&state.texts.locale);
+    let lines: Vec<Element<'_, Message>> = state
+        .snapshot
+        .diff
+        .iter()
+        .take(MAX_RENDERED_DIFF_ROWS)
+        .map(|line| {
+            let color = diff_line_color(state.theme, line.marker);
+            let bar: Element<'_, Message> = container("")
+                .width(Length::Fixed(3.0))
+                .height(Length::Fixed(20.0))
+                .style(move |_| container::Style {
+                    background: Some(Background::Color(color)),
+                    ..container::Style::default()
+                })
+                .into();
+            let body = colored_line(&format!("{}{}", line.marker, line.text), true, 15.0, color);
+            row(mirrored_order(rtl, vec![bar, body])).spacing(8).into()
+        })
+        .collect();
+    if lines.is_empty() {
+        return rich_line(state.texts.resolve("tui.empty"), true, 16.0);
+    }
+    scrollable(column(lines).spacing(2))
+        .style(move |_, _| state.theme.scrollbar())
+        .height(Length::Fill)
         .into()
 }
 
@@ -2163,7 +2250,8 @@ fn view(state: &State) -> Element<'_, Message> {
             ]
             .spacing(8)
             .into(),
-            _ => read_body(state, state.view == ViewId::Diff),
+            ViewId::Diff => diff_body(state),
+            _ => read_body(state, false),
         }
     };
 
@@ -3023,6 +3111,37 @@ mod tests {
             Message::ApprovalDecide(whcode_domain::approval::ApprovalAnswer::RejectRemember),
         );
         assert!(state.approval.is_none(), "无待审批时不得重新打开对话框");
+    }
+
+    /// T260／FR-622：diff 行色取自冻结终端调色板；既有四套无调色板时回落前景色，
+    /// 不引入主题外颜色。`+`／`-`／上下文三态映射独立于颜色（标记字符保留）。
+    #[test]
+    fn diff_colors_follow_theme_tokens_and_legacy_fallback() {
+        let day = GuiTheme::ZcodeDay.diff_colors();
+        assert_eq!(day.0, token_color("#1e8a3e"));
+        assert_eq!(day.1, token_color("#e03131"));
+        let night = GuiTheme::ZcodeNight.diff_colors();
+        assert_eq!(night.0, token_color("#46bf72"));
+        assert_eq!(night.1, token_color("#ff5c5c"));
+        for theme in [
+            GuiTheme::EinkDay,
+            GuiTheme::EinkNight,
+            GuiTheme::AmoledNight,
+            GuiTheme::TerminalGreen,
+        ] {
+            let (_, foreground) = theme.colors();
+            assert_eq!(
+                theme.diff_colors(),
+                (foreground, foreground),
+                "{theme:?} 不得引入主题外颜色"
+            );
+        }
+        assert_eq!(diff_line_color(GuiTheme::ZcodeNight, '+'), night.0);
+        assert_eq!(diff_line_color(GuiTheme::ZcodeNight, '-'), night.1);
+        assert_eq!(
+            diff_line_color(GuiTheme::ZcodeNight, ' '),
+            GuiTheme::ZcodeNight.colors().1
+        );
     }
 
     /// B4 面板数据流（T258／FR-749／750／751）：打开时准备阶段取数；turn 运行中

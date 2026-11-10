@@ -986,6 +986,46 @@ mod tests {
         }
     }
 
+    /// T260／FR-622：diff 呈现形态——zcode 系行色与终端调色板同源，既有四套回退
+    /// 前景色（不新增主题外颜色）；`+`／`-`／上下文类名与标记字符并存。
+    #[test]
+    fn diff_presentation_uses_frozen_palette_and_markers() {
+        for theme in whcode_domain::theme_tokens::ZCODE {
+            let palette = theme.terminal.expect("zcode 主题已冻结终端调色板");
+            let block = STYLES_CSS
+                .split(&format!("[data-theme=\"{}\"]", theme.name))
+                .nth(1)
+                .expect("styles.css 缺 zcode 主题块");
+            let block = &block[..block.find('}').expect("主题块必须闭合")];
+            assert!(
+                block.contains(&format!("--diff-added: {};", palette.green)),
+                "{} 的 --diff-added 必须与终端调色板同源",
+                theme.name
+            );
+            assert!(
+                block.contains(&format!("--diff-removed: {};", palette.red)),
+                "{} 的 --diff-removed 必须与终端调色板同源",
+                theme.name
+            );
+        }
+        for class in [
+            ".diff-line {",
+            ".diff-line.add",
+            ".diff-line.del",
+            ".diff-line.ctx",
+        ] {
+            assert!(STYLES_CSS.contains(class), "styles.css 缺 {class}");
+        }
+        assert!(
+            STYLES_CSS.contains("var(--diff-added, var(--fg))")
+                && STYLES_CSS.contains("var(--diff-removed, var(--fg))"),
+            "既有四套主题没有 diff 变量，必须回退前景色"
+        );
+        for class in ["diff-line add", "diff-line del", "diff-line ctx"] {
+            assert!(APP_JS.contains(class), "app.js 未按标记分类 {class}");
+        }
+    }
+
     /// T251：对话页路由可达＋render_chat 注入主题与历史（历史 HTML 由调用方转义，
     /// 注入点原文保留）＋认证分支不注入业务数据。
     #[test]
