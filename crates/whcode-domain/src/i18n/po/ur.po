@@ -1022,6 +1022,36 @@ msgstr "ٹاسکس"
 msgid "web.action.failed"
 msgstr "کارروائی ناکام ({label}): {error}"
 
+msgid "web.approval.approve_once"
+msgstr "صرف اس بار"
+
+msgid "web.approval.approve_turn"
+msgstr "اس ٹرن کے لیے منظوری"
+
+msgid "web.approval.decided"
+msgstr "طے شدہ"
+
+msgid "web.approval.exec"
+msgstr "عمل درآمد"
+
+msgid "web.approval.failed"
+msgstr "منظوری ناکام"
+
+msgid "web.approval.reason"
+msgstr "وجہ"
+
+msgid "web.approval.reject"
+msgstr "مسترد"
+
+msgid "web.approval.remember"
+msgstr "قاعدہ یاد رکھیں"
+
+msgid "web.approval.title"
+msgstr "منظوری زیر التوا"
+
+msgid "web.approval.tool"
+msgstr "ٹول"
+
 msgid "web.checkpoints.degraded"
 msgstr "رول بیک ابھی نہیں بنایا گیا (جان بوجھ کر کمی): صرف براؤزنگ اور ڈیلٹا خلاصے"
 
@@ -1243,4 +1273,13 @@ msgstr "طے شدہ"
 
 msgid "web.theme.label"
 msgstr "تھیم"
+
+msgid "web.tool.exec"
+msgstr "عمل درآمد"
+
+msgid "web.tool.running"
+msgstr "چل رہا ہے"
+
+msgid "web.tool.title"
+msgstr "ٹول کال"
 

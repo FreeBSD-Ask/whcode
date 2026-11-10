@@ -1022,6 +1022,36 @@ msgstr "任务"
 msgid "web.action.failed"
 msgstr "操作失败（{label}）：{error}"
 
+msgid "web.approval.approve_once"
+msgstr "仅本次"
+
+msgid "web.approval.approve_turn"
+msgstr "本回合批准"
+
+msgid "web.approval.decided"
+msgstr "已处理"
+
+msgid "web.approval.exec"
+msgstr "执行"
+
+msgid "web.approval.failed"
+msgstr "审批失败"
+
+msgid "web.approval.reason"
+msgstr "原因"
+
+msgid "web.approval.reject"
+msgstr "拒绝"
+
+msgid "web.approval.remember"
+msgstr "记住规则"
+
+msgid "web.approval.title"
+msgstr "待审批"
+
+msgid "web.approval.tool"
+msgstr "工具"
+
 msgid "web.checkpoints.degraded"
 msgstr "回滚执行未实现（显式降级）：本页仅提供浏览与差分摘要"
 
@@ -1243,4 +1273,13 @@ msgstr "默认"
 
 msgid "web.theme.label"
 msgstr "主题"
+
+msgid "web.tool.exec"
+msgstr "执行"
+
+msgid "web.tool.running"
+msgstr "运行中"
+
+msgid "web.tool.title"
+msgstr "工具调用"
 

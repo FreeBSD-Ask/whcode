@@ -1022,6 +1022,36 @@ msgstr "المهام"
 msgid "web.action.failed"
 msgstr "فشل الإجراء ({label}): {error}"
 
+msgid "web.approval.approve_once"
+msgstr "هذه المرة فقط"
+
+msgid "web.approval.approve_turn"
+msgstr "الموافقة لهذه الجولة"
+
+msgid "web.approval.decided"
+msgstr "تمت المعالجة"
+
+msgid "web.approval.exec"
+msgstr "التنفيذ"
+
+msgid "web.approval.failed"
+msgstr "فشلت الموافقة"
+
+msgid "web.approval.reason"
+msgstr "السبب"
+
+msgid "web.approval.reject"
+msgstr "رفض"
+
+msgid "web.approval.remember"
+msgstr "تذكّر القاعدة"
+
+msgid "web.approval.title"
+msgstr "بانتظار الموافقة"
+
+msgid "web.approval.tool"
+msgstr "الأداة"
+
 msgid "web.checkpoints.degraded"
 msgstr "التراجع غير منفَّذ (تدهور صريح): التصفح وملخصات الفروق فقط"
 
@@ -1243,4 +1273,13 @@ msgstr "الافتراضية"
 
 msgid "web.theme.label"
 msgstr "السمة"
+
+msgid "web.tool.exec"
+msgstr "التنفيذ"
+
+msgid "web.tool.running"
+msgstr "قيد التنفيذ"
+
+msgid "web.tool.title"
+msgstr "استدعاء أداة"
 

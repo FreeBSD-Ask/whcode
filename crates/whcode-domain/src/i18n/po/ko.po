@@ -1022,6 +1022,36 @@ msgstr "작업"
 msgid "web.action.failed"
 msgstr "작업 실패({label}): {error}"
 
+msgid "web.approval.approve_once"
+msgstr "이번만"
+
+msgid "web.approval.approve_turn"
+msgstr "이번 턴 승인"
+
+msgid "web.approval.decided"
+msgstr "처리됨"
+
+msgid "web.approval.exec"
+msgstr "실행"
+
+msgid "web.approval.failed"
+msgstr "승인 실패"
+
+msgid "web.approval.reason"
+msgstr "이유"
+
+msgid "web.approval.reject"
+msgstr "거부"
+
+msgid "web.approval.remember"
+msgstr "규칙 기억"
+
+msgid "web.approval.title"
+msgstr "승인 대기"
+
+msgid "web.approval.tool"
+msgstr "도구"
+
 msgid "web.checkpoints.degraded"
 msgstr "롤백 실행은 구현되지 않았습니다(명시적 제한): 이 페이지는 조회와 델타 요약만 제공합니다"
 
@@ -1243,4 +1273,13 @@ msgstr "기본"
 
 msgid "web.theme.label"
 msgstr "테마"
+
+msgid "web.tool.exec"
+msgstr "실행"
+
+msgid "web.tool.running"
+msgstr "실행 중"
+
+msgid "web.tool.title"
+msgstr "도구 호출"
 

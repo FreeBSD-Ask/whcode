@@ -1022,6 +1022,36 @@ msgstr "Aufgaben"
 msgid "web.action.failed"
 msgstr "Vorgang fehlgeschlagen ({label}): {error}"
 
+msgid "web.approval.approve_once"
+msgstr "Nur dieses Mal"
+
+msgid "web.approval.approve_turn"
+msgstr "Für diesen Turn genehmigen"
+
+msgid "web.approval.decided"
+msgstr "Entschieden"
+
+msgid "web.approval.exec"
+msgstr "Ausführung"
+
+msgid "web.approval.failed"
+msgstr "Genehmigung fehlgeschlagen"
+
+msgid "web.approval.reason"
+msgstr "Grund"
+
+msgid "web.approval.reject"
+msgstr "Ablehnen"
+
+msgid "web.approval.remember"
+msgstr "Regel merken"
+
+msgid "web.approval.title"
+msgstr "Genehmigung ausstehend"
+
+msgid "web.approval.tool"
+msgstr "Werkzeug"
+
 msgid "web.checkpoints.degraded"
 msgstr "Rollback ist nicht implementiert (ausdrückliche Einschränkung): nur Ansicht und Delta-Zusammenfassungen"
 
@@ -1243,4 +1273,13 @@ msgstr "Standard"
 
 msgid "web.theme.label"
 msgstr "Design"
+
+msgid "web.tool.exec"
+msgstr "Ausführung"
+
+msgid "web.tool.running"
+msgstr "Läuft"
+
+msgid "web.tool.title"
+msgstr "Werkzeugaufruf"
 

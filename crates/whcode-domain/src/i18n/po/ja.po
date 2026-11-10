@@ -1022,6 +1022,36 @@ msgstr "タスク"
 msgid "web.action.failed"
 msgstr "操作に失敗しました（{label}）：{error}"
 
+msgid "web.approval.approve_once"
+msgstr "今回のみ"
+
+msgid "web.approval.approve_turn"
+msgstr "このターンで承認"
+
+msgid "web.approval.decided"
+msgstr "処理済み"
+
+msgid "web.approval.exec"
+msgstr "実行"
+
+msgid "web.approval.failed"
+msgstr "承認に失敗"
+
+msgid "web.approval.reason"
+msgstr "理由"
+
+msgid "web.approval.reject"
+msgstr "拒否"
+
+msgid "web.approval.remember"
+msgstr "ルールを記憶"
+
+msgid "web.approval.title"
+msgstr "承認待ち"
+
+msgid "web.approval.tool"
+msgstr "ツール"
+
 msgid "web.checkpoints.degraded"
 msgstr "ロールバックは未実装です（明示的な制限）：参照と差分の要約のみ利用できます"
 
@@ -1243,4 +1273,13 @@ msgstr "既定"
 
 msgid "web.theme.label"
 msgstr "テーマ"
+
+msgid "web.tool.exec"
+msgstr "実行"
+
+msgid "web.tool.running"
+msgstr "実行中"
+
+msgid "web.tool.title"
+msgstr "ツール呼び出し"
 

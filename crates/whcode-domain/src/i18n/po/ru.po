@@ -1022,6 +1022,36 @@ msgstr "Задачи"
 msgid "web.action.failed"
 msgstr "Не удалось выполнить действие ({label}): {error}"
 
+msgid "web.approval.approve_once"
+msgstr "Только этот раз"
+
+msgid "web.approval.approve_turn"
+msgstr "Одобрить на ход"
+
+msgid "web.approval.decided"
+msgstr "Обработано"
+
+msgid "web.approval.exec"
+msgstr "Выполнение"
+
+msgid "web.approval.failed"
+msgstr "Не удалось одобрить"
+
+msgid "web.approval.reason"
+msgstr "Причина"
+
+msgid "web.approval.reject"
+msgstr "Отклонить"
+
+msgid "web.approval.remember"
+msgstr "Запомнить правило"
+
+msgid "web.approval.title"
+msgstr "Ожидает одобрения"
+
+msgid "web.approval.tool"
+msgstr "Инструмент"
+
 msgid "web.checkpoints.degraded"
 msgstr "Откат не реализован (явная деградация): доступны только просмотр и сводки изменений"
 
@@ -1243,4 +1273,13 @@ msgstr "По умолчанию"
 
 msgid "web.theme.label"
 msgstr "Тема"
+
+msgid "web.tool.exec"
+msgstr "Выполнение"
+
+msgid "web.tool.running"
+msgstr "Выполняется"
+
+msgid "web.tool.title"
+msgstr "Вызов инструмента"
 

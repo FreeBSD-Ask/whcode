@@ -1022,6 +1022,36 @@ msgstr "कार्य"
 msgid "web.action.failed"
 msgstr "क्रिया विफल ({label}): {error}"
 
+msgid "web.approval.approve_once"
+msgstr "केवल इस बार"
+
+msgid "web.approval.approve_turn"
+msgstr "इस टर्न के लिए स्वीकृति"
+
+msgid "web.approval.decided"
+msgstr "निपटाया गया"
+
+msgid "web.approval.exec"
+msgstr "निष्पादन"
+
+msgid "web.approval.failed"
+msgstr "स्वीकृति विफल"
+
+msgid "web.approval.reason"
+msgstr "कारण"
+
+msgid "web.approval.reject"
+msgstr "अस्वीकार"
+
+msgid "web.approval.remember"
+msgstr "नियम याद रखें"
+
+msgid "web.approval.title"
+msgstr "स्वीकृति लंबित"
+
+msgid "web.approval.tool"
+msgstr "टूल"
+
 msgid "web.checkpoints.degraded"
 msgstr "रोलबैक बनाया नहीं गया (स्पष्ट रूप से कम किया गया): सिर्फ़ ब्राउज़िंग और अंतर का सारांश"
 
@@ -1243,4 +1273,13 @@ msgstr "डिफ़ॉल्ट"
 
 msgid "web.theme.label"
 msgstr "थीम"
+
+msgid "web.tool.exec"
+msgstr "निष्पादन"
+
+msgid "web.tool.running"
+msgstr "चल रहा है"
+
+msgid "web.tool.title"
+msgstr "टूल कॉल"
 

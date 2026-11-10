@@ -1022,6 +1022,36 @@ msgstr "Tâches"
 msgid "web.action.failed"
 msgstr "Échec de l'action ({label}) : {error}"
 
+msgid "web.approval.approve_once"
+msgstr "Seulement cette fois"
+
+msgid "web.approval.approve_turn"
+msgstr "Approuver pour ce tour"
+
+msgid "web.approval.decided"
+msgstr "Traité"
+
+msgid "web.approval.exec"
+msgstr "Exécution"
+
+msgid "web.approval.failed"
+msgstr "Échec de l’approbation"
+
+msgid "web.approval.reason"
+msgstr "Raison"
+
+msgid "web.approval.reject"
+msgstr "Refuser"
+
+msgid "web.approval.remember"
+msgstr "Mémoriser la règle"
+
+msgid "web.approval.title"
+msgstr "Approbation en attente"
+
+msgid "web.approval.tool"
+msgstr "Outil"
+
 msgid "web.checkpoints.degraded"
 msgstr "Le retour arrière n'est pas implémenté (dégradation explicite) : consultation et résumés d'écarts uniquement"
 
@@ -1243,4 +1273,13 @@ msgstr "Par défaut"
 
 msgid "web.theme.label"
 msgstr "Thème"
+
+msgid "web.tool.exec"
+msgstr "Exécution"
+
+msgid "web.tool.running"
+msgstr "En cours"
+
+msgid "web.tool.title"
+msgstr "Appel d’outil"
 

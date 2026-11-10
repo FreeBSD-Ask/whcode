@@ -1022,6 +1022,36 @@ msgstr "কাজ"
 msgid "web.action.failed"
 msgstr "অ্যাকশন ব্যর্থ ({label}): {error}"
 
+msgid "web.approval.approve_once"
+msgstr "শুধু এইবার"
+
+msgid "web.approval.approve_turn"
+msgstr "এই টার্নের জন্য অনুমোদন"
+
+msgid "web.approval.decided"
+msgstr "সম্পন্ন"
+
+msgid "web.approval.exec"
+msgstr "সম্পাদন"
+
+msgid "web.approval.failed"
+msgstr "অনুমোদন ব্যর্থ"
+
+msgid "web.approval.reason"
+msgstr "কারণ"
+
+msgid "web.approval.reject"
+msgstr "প্রত্যাখ্যান"
+
+msgid "web.approval.remember"
+msgstr "নিয়ম মনে রাখুন"
+
+msgid "web.approval.title"
+msgstr "অনুমোদন অপেক্ষমাণ"
+
+msgid "web.approval.tool"
+msgstr "টুল"
+
 msgid "web.checkpoints.degraded"
 msgstr "rollback এখনো তৈরি হয়নি (স্পষ্ট হ্রাস): কেবল দেখা ও ডেল্টা সারসংক্ষেপ"
 
@@ -1243,4 +1273,13 @@ msgstr "ডিফল্ট"
 
 msgid "web.theme.label"
 msgstr "থিম"
+
+msgid "web.tool.exec"
+msgstr "সম্পাদন"
+
+msgid "web.tool.running"
+msgstr "চলছে"
+
+msgid "web.tool.title"
+msgstr "টুল কল"
 

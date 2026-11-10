@@ -1022,6 +1022,36 @@ msgstr "Tasks"
 msgid "web.action.failed"
 msgstr "Action failed ({label}): {error}"
 
+msgid "web.approval.approve_once"
+msgstr "Just this once"
+
+msgid "web.approval.approve_turn"
+msgstr "Approve for this turn"
+
+msgid "web.approval.decided"
+msgstr "Decided"
+
+msgid "web.approval.exec"
+msgstr "Execution"
+
+msgid "web.approval.failed"
+msgstr "Approval failed"
+
+msgid "web.approval.reason"
+msgstr "Reason"
+
+msgid "web.approval.reject"
+msgstr "Reject"
+
+msgid "web.approval.remember"
+msgstr "Remember rule"
+
+msgid "web.approval.title"
+msgstr "Pending approval"
+
+msgid "web.approval.tool"
+msgstr "Tool"
+
 msgid "web.checkpoints.degraded"
 msgstr "Rollback is not implemented (explicit degradation): browsing and delta summaries only"
 
@@ -1243,4 +1273,13 @@ msgstr "Default"
 
 msgid "web.theme.label"
 msgstr "Theme"
+
+msgid "web.tool.exec"
+msgstr "Execution"
+
+msgid "web.tool.running"
+msgstr "Running"
+
+msgid "web.tool.title"
+msgstr "Tool call"
 

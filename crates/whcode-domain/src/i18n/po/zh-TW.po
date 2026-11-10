@@ -1022,6 +1022,36 @@ msgstr "任務"
 msgid "web.action.failed"
 msgstr "操作失敗（{label}）：{error}"
 
+msgid "web.approval.approve_once"
+msgstr "僅本次"
+
+msgid "web.approval.approve_turn"
+msgstr "本回合批准"
+
+msgid "web.approval.decided"
+msgstr "已處理"
+
+msgid "web.approval.exec"
+msgstr "執行"
+
+msgid "web.approval.failed"
+msgstr "審批失敗"
+
+msgid "web.approval.reason"
+msgstr "原因"
+
+msgid "web.approval.reject"
+msgstr "拒絕"
+
+msgid "web.approval.remember"
+msgstr "記住規則"
+
+msgid "web.approval.title"
+msgstr "待審批"
+
+msgid "web.approval.tool"
+msgstr "工具"
+
 msgid "web.checkpoints.degraded"
 msgstr "尚未實作復原（明確降級）：僅提供瀏覽與差異摘要"
 
@@ -1243,4 +1273,13 @@ msgstr "預設"
 
 msgid "web.theme.label"
 msgstr "主題"
+
+msgid "web.tool.exec"
+msgstr "執行"
+
+msgid "web.tool.running"
+msgstr "執行中"
+
+msgid "web.tool.title"
+msgstr "工具呼叫"
 

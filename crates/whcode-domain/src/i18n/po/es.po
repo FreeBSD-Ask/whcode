@@ -1022,6 +1022,36 @@ msgstr "Tareas"
 msgid "web.action.failed"
 msgstr "La acción falló ({label}): {error}"
 
+msgid "web.approval.approve_once"
+msgstr "Solo esta vez"
+
+msgid "web.approval.approve_turn"
+msgstr "Aprobar este turno"
+
+msgid "web.approval.decided"
+msgstr "Procesado"
+
+msgid "web.approval.exec"
+msgstr "Ejecución"
+
+msgid "web.approval.failed"
+msgstr "Falló la aprobación"
+
+msgid "web.approval.reason"
+msgstr "Motivo"
+
+msgid "web.approval.reject"
+msgstr "Rechazar"
+
+msgid "web.approval.remember"
+msgstr "Recordar regla"
+
+msgid "web.approval.title"
+msgstr "Aprobación pendiente"
+
+msgid "web.approval.tool"
+msgstr "Herramienta"
+
 msgid "web.checkpoints.degraded"
 msgstr "La reversión no está implementada (degradación explícita): solo consulta y resúmenes de diferencias"
 
@@ -1243,4 +1273,13 @@ msgstr "Predeterminado"
 
 msgid "web.theme.label"
 msgstr "Tema"
+
+msgid "web.tool.exec"
+msgstr "Ejecución"
+
+msgid "web.tool.running"
+msgstr "En ejecución"
+
+msgid "web.tool.title"
+msgstr "Llamada de herramienta"
 
