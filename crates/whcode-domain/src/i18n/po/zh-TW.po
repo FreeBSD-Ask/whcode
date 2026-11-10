@@ -956,6 +956,93 @@ msgstr "系統根憑證數量：{value}"
 msgid "settings.outbound.title"
 msgstr "對外 HTTPS 信任"
 
+msgid "settings.panels.empty"
+msgstr "尚無項目（正確的空）。"
+
+msgid "settings.panels.failed"
+msgstr "無法讀取：{code} {message}"
+
+msgid "settings.panels.mcp.configured"
+msgstr "已設定，尚未呼叫"
+
+msgid "settings.panels.mcp.disabled"
+msgstr "已停用"
+
+msgid "settings.panels.mcp.empty"
+msgstr "沒有啟用的 MCP 伺服器（正確的空）。"
+
+msgid "settings.panels.mcp.hint"
+msgstr "連線在每個回合內建立；這裡顯示設定與最近視窗內觀察到的呼叫與工具。"
+
+msgid "settings.panels.mcp.observed_ok"
+msgstr "最近一次呼叫成功"
+
+msgid "settings.panels.mcp.timeout"
+msgstr "逾時 {ms} ms，輸出上限 {bytes} B"
+
+msgid "settings.panels.mcp.title"
+msgstr "MCP 伺服器"
+
+msgid "settings.panels.mcp.tools"
+msgstr "觀察工具：{tools}"
+
+msgid "settings.panels.mcp.unconfigured"
+msgstr "找不到 .zcode/mcp.json（MCP 已關閉）。"
+
+msgid "settings.panels.open"
+msgstr "面板"
+
+msgid "settings.panels.refresh"
+msgstr "重新整理"
+
+msgid "settings.panels.rules.failed"
+msgstr "審批規則操作失敗"
+
+msgid "settings.panels.rules.missing"
+msgstr "{tool} 沒有可撤銷的規則"
+
+msgid "settings.panels.rules.revoked"
+msgstr "已撤銷：{tool}"
+
+msgid "settings.panels.rules.title"
+msgstr "審批規則"
+
+msgid "settings.panels.skills.empty"
+msgstr "沒有技能（正確的空）。"
+
+msgid "settings.panels.skills.hint"
+msgstr "掃描工作區的 .zcode/skills/；引用缺失逐項列出。"
+
+msgid "settings.panels.skills.issues"
+msgstr "引用缺失 {count} 項"
+
+msgid "settings.panels.skills.title"
+msgstr "技能庫"
+
+msgid "settings.panels.state.failed"
+msgstr "失敗"
+
+msgid "settings.panels.state.ok"
+msgstr "完成"
+
+msgid "settings.panels.state.running"
+msgstr "執行中"
+
+msgid "settings.panels.subagents.empty"
+msgstr "沒有子代理執行記錄（正確的空）。"
+
+msgid "settings.panels.subagents.hint"
+msgstr "取自最近 200 條事件；執行中＝只有開始事件、沒有結束事件。"
+
+msgid "settings.panels.subagents.iterations"
+msgstr "{n} 輪"
+
+msgid "settings.panels.subagents.title"
+msgstr "子代理執行"
+
+msgid "settings.panels.title"
+msgstr "進階面板"
+
 msgid "settings.restart_banner"
 msgstr "接收端憑證或模式已變更，請重新啟動 serve --web 後才會生效。"
 

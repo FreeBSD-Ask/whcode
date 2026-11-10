@@ -956,6 +956,93 @@ msgstr "システムのルート証明書：{value}"
 msgid "settings.outbound.title"
 msgstr "送信側 HTTPS の信頼設定"
 
+msgid "settings.panels.empty"
+msgstr "項目はありません（正しい空）。"
+
+msgid "settings.panels.failed"
+msgstr "読み込めません：{code} {message}"
+
+msgid "settings.panels.mcp.configured"
+msgstr "設定済み、呼び出しなし"
+
+msgid "settings.panels.mcp.disabled"
+msgstr "無効"
+
+msgid "settings.panels.mcp.empty"
+msgstr "有効な MCP サーバーはありません（正しい空）。"
+
+msgid "settings.panels.mcp.hint"
+msgstr "接続は各ターン内に確立します。設定と、直近のウィンドウで観測した呼び出し・ツールを表示します。"
+
+msgid "settings.panels.mcp.observed_ok"
+msgstr "直近の呼び出しは成功"
+
+msgid "settings.panels.mcp.timeout"
+msgstr "タイムアウト {ms} ms、出力上限 {bytes} B"
+
+msgid "settings.panels.mcp.title"
+msgstr "MCP サーバー"
+
+msgid "settings.panels.mcp.tools"
+msgstr "観測されたツール：{tools}"
+
+msgid "settings.panels.mcp.unconfigured"
+msgstr ".zcode/mcp.json が見つかりません（MCP はオフ）。"
+
+msgid "settings.panels.open"
+msgstr "パネル"
+
+msgid "settings.panels.refresh"
+msgstr "更新"
+
+msgid "settings.panels.rules.failed"
+msgstr "承認ルールを変更できません"
+
+msgid "settings.panels.rules.missing"
+msgstr "{tool} に取り消すルールはありません"
+
+msgid "settings.panels.rules.revoked"
+msgstr "取り消しました：{tool}"
+
+msgid "settings.panels.rules.title"
+msgstr "承認ルール"
+
+msgid "settings.panels.skills.empty"
+msgstr "スキルはありません（正しい空）。"
+
+msgid "settings.panels.skills.hint"
+msgstr "ワークスペースの .zcode/skills/ を走査します。参照切れはスキルごとに表示。"
+
+msgid "settings.panels.skills.issues"
+msgstr "参照切れ {count} 件"
+
+msgid "settings.panels.skills.title"
+msgstr "スキル"
+
+msgid "settings.panels.state.failed"
+msgstr "失敗"
+
+msgid "settings.panels.state.ok"
+msgstr "完了"
+
+msgid "settings.panels.state.running"
+msgstr "実行中"
+
+msgid "settings.panels.subagents.empty"
+msgstr "サブエージェントの実行はありません（正しい空）。"
+
+msgid "settings.panels.subagents.hint"
+msgstr "直近 200 件のイベントから作成。実行中とは開始イベントがあり終了イベントがない状態です。"
+
+msgid "settings.panels.subagents.iterations"
+msgstr "{n} 回"
+
+msgid "settings.panels.subagents.title"
+msgstr "サブエージェント実行"
+
+msgid "settings.panels.title"
+msgstr "詳細パネル"
+
 msgid "settings.restart_banner"
 msgstr "受信側の証明書またはモードを変更しました。反映するには serve --web を再起動してください。"
 

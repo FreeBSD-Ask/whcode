@@ -956,6 +956,93 @@ msgstr "시스템 루트 인증서: {value}"
 msgid "settings.outbound.title"
 msgstr "아웃바운드 HTTPS 신뢰"
 
+msgid "settings.panels.empty"
+msgstr "항목이 없습니다(올바른 빈 상태)."
+
+msgid "settings.panels.failed"
+msgstr "읽을 수 없습니다: {code} {message}"
+
+msgid "settings.panels.mcp.configured"
+msgstr "설정됨, 호출 없음"
+
+msgid "settings.panels.mcp.disabled"
+msgstr "사용 안 함"
+
+msgid "settings.panels.mcp.empty"
+msgstr "활성화된 MCP 서버가 없습니다(올바른 빈 상태)."
+
+msgid "settings.panels.mcp.hint"
+msgstr "연결은 각 턴 안에 열립니다. 설정과 최근 창에서 관측된 호출·도구를 보여 줍니다."
+
+msgid "settings.panels.mcp.observed_ok"
+msgstr "마지막 호출 성공"
+
+msgid "settings.panels.mcp.timeout"
+msgstr "제한 시간 {ms} ms, 출력 한도 {bytes} B"
+
+msgid "settings.panels.mcp.title"
+msgstr "MCP 서버"
+
+msgid "settings.panels.mcp.tools"
+msgstr "관측된 도구: {tools}"
+
+msgid "settings.panels.mcp.unconfigured"
+msgstr ".zcode/mcp.json이 없습니다(MCP 꺼짐)."
+
+msgid "settings.panels.open"
+msgstr "패널"
+
+msgid "settings.panels.refresh"
+msgstr "새로 고침"
+
+msgid "settings.panels.rules.failed"
+msgstr "승인 규칙을 변경할 수 없습니다"
+
+msgid "settings.panels.rules.missing"
+msgstr "{tool}에 철회할 규칙이 없습니다"
+
+msgid "settings.panels.rules.revoked"
+msgstr "철회했습니다: {tool}"
+
+msgid "settings.panels.rules.title"
+msgstr "승인 규칙"
+
+msgid "settings.panels.skills.empty"
+msgstr "스킬이 없습니다(올바른 빈 상태)."
+
+msgid "settings.panels.skills.hint"
+msgstr "작업 공간의 .zcode/skills/를 훑습니다. 끊긴 참조는 스킬마다 표시합니다."
+
+msgid "settings.panels.skills.issues"
+msgstr "끊긴 참조 {count}건"
+
+msgid "settings.panels.skills.title"
+msgstr "스킬"
+
+msgid "settings.panels.state.failed"
+msgstr "실패"
+
+msgid "settings.panels.state.ok"
+msgstr "완료"
+
+msgid "settings.panels.state.running"
+msgstr "실행 중"
+
+msgid "settings.panels.subagents.empty"
+msgstr "하위 에이전트 실행이 없습니다(올바른 빈 상태)."
+
+msgid "settings.panels.subagents.hint"
+msgstr "최근 이벤트 200건에서 만듭니다. 실행 중은 시작 이벤트는 있고 종료 이벤트는 없는 상태입니다."
+
+msgid "settings.panels.subagents.iterations"
+msgstr "{n}회"
+
+msgid "settings.panels.subagents.title"
+msgstr "하위 에이전트 실행"
+
+msgid "settings.panels.title"
+msgstr "고급 패널"
+
 msgid "settings.restart_banner"
 msgstr "인바운드 인증서 또는 모드가 바뀌었습니다. serve --web를 다시 시작해야 적용됩니다."
 

@@ -956,6 +956,93 @@ msgstr "系统库根证书数：{value}"
 msgid "settings.outbound.title"
 msgstr "出站 HTTPS 信任"
 
+msgid "settings.panels.empty"
+msgstr "暂无条目（正确的空）。"
+
+msgid "settings.panels.failed"
+msgstr "无法读取：{code} {message}"
+
+msgid "settings.panels.mcp.configured"
+msgstr "已配置，尚未调用"
+
+msgid "settings.panels.mcp.disabled"
+msgstr "已禁用"
+
+msgid "settings.panels.mcp.empty"
+msgstr "没有启用的 MCP 服务器（正确的空）。"
+
+msgid "settings.panels.mcp.hint"
+msgstr "连接在每次回合内建立；这里展示配置与最近窗口内观测到的调用与工具。"
+
+msgid "settings.panels.mcp.observed_ok"
+msgstr "最近一次调用成功"
+
+msgid "settings.panels.mcp.timeout"
+msgstr "超时 {ms} ms，输出上限 {bytes} B"
+
+msgid "settings.panels.mcp.title"
+msgstr "MCP 服务器"
+
+msgid "settings.panels.mcp.tools"
+msgstr "观测工具：{tools}"
+
+msgid "settings.panels.mcp.unconfigured"
+msgstr "未找到 .zcode/mcp.json（MCP 已关闭）。"
+
+msgid "settings.panels.open"
+msgstr "面板"
+
+msgid "settings.panels.refresh"
+msgstr "刷新"
+
+msgid "settings.panels.rules.failed"
+msgstr "审批规则操作失败"
+
+msgid "settings.panels.rules.missing"
+msgstr "{tool} 没有可撤销的规则"
+
+msgid "settings.panels.rules.revoked"
+msgstr "已撤销：{tool}"
+
+msgid "settings.panels.rules.title"
+msgstr "审批规则"
+
+msgid "settings.panels.skills.empty"
+msgstr "没有技能（正确的空）。"
+
+msgid "settings.panels.skills.hint"
+msgstr "扫描工作区 .zcode/skills/；引用缺失逐条列出。"
+
+msgid "settings.panels.skills.issues"
+msgstr "引用缺失 {count} 项"
+
+msgid "settings.panels.skills.title"
+msgstr "技能库"
+
+msgid "settings.panels.state.failed"
+msgstr "失败"
+
+msgid "settings.panels.state.ok"
+msgstr "完成"
+
+msgid "settings.panels.state.running"
+msgstr "运行中"
+
+msgid "settings.panels.subagents.empty"
+msgstr "没有子代理运行记录（正确的空）。"
+
+msgid "settings.panels.subagents.hint"
+msgstr "取自最近 200 条事件；运行中＝只有开始事件、没有结束事件。"
+
+msgid "settings.panels.subagents.iterations"
+msgstr "{n} 轮"
+
+msgid "settings.panels.subagents.title"
+msgstr "子代理运行"
+
+msgid "settings.panels.title"
+msgstr "高级面板"
+
 msgid "settings.restart_banner"
 msgstr "入站证书或档位已变更，需重启 serve --web 后生效。"
 

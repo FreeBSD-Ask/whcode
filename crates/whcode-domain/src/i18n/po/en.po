@@ -956,6 +956,93 @@ msgstr "system root certificates: {value}"
 msgid "settings.outbound.title"
 msgstr "Outbound HTTPS trust"
 
+msgid "settings.panels.empty"
+msgstr "Nothing here (a correct empty)."
+
+msgid "settings.panels.failed"
+msgstr "Cannot read: {code} {message}"
+
+msgid "settings.panels.mcp.configured"
+msgstr "Configured, no calls yet"
+
+msgid "settings.panels.mcp.disabled"
+msgstr "Disabled"
+
+msgid "settings.panels.mcp.empty"
+msgstr "No enabled MCP servers (a correct empty)."
+
+msgid "settings.panels.mcp.hint"
+msgstr "Connections open inside each turn; this shows configuration plus calls and tools seen in the recent window."
+
+msgid "settings.panels.mcp.observed_ok"
+msgstr "Last call succeeded"
+
+msgid "settings.panels.mcp.timeout"
+msgstr "timeout {ms} ms, output limit {bytes} B"
+
+msgid "settings.panels.mcp.title"
+msgstr "MCP servers"
+
+msgid "settings.panels.mcp.tools"
+msgstr "Observed tools: {tools}"
+
+msgid "settings.panels.mcp.unconfigured"
+msgstr "No .zcode/mcp.json (MCP is off)."
+
+msgid "settings.panels.open"
+msgstr "Panels"
+
+msgid "settings.panels.refresh"
+msgstr "Refresh"
+
+msgid "settings.panels.rules.failed"
+msgstr "Cannot change approval rules"
+
+msgid "settings.panels.rules.missing"
+msgstr "No rule to revoke for {tool}"
+
+msgid "settings.panels.rules.revoked"
+msgstr "Revoked: {tool}"
+
+msgid "settings.panels.rules.title"
+msgstr "Approval rules"
+
+msgid "settings.panels.skills.empty"
+msgstr "No skills found (a correct empty)."
+
+msgid "settings.panels.skills.hint"
+msgstr "Scans .zcode/skills/ in the workspace; missing references are listed per skill."
+
+msgid "settings.panels.skills.issues"
+msgstr "{count} missing references"
+
+msgid "settings.panels.skills.title"
+msgstr "Skills"
+
+msgid "settings.panels.state.failed"
+msgstr "failed"
+
+msgid "settings.panels.state.ok"
+msgstr "completed"
+
+msgid "settings.panels.state.running"
+msgstr "running"
+
+msgid "settings.panels.subagents.empty"
+msgstr "No subagent runs (a correct empty)."
+
+msgid "settings.panels.subagents.hint"
+msgstr "Built from the last 200 events; running means a start event with no finish event."
+
+msgid "settings.panels.subagents.iterations"
+msgstr "{n} iterations"
+
+msgid "settings.panels.subagents.title"
+msgstr "Subagent runs"
+
+msgid "settings.panels.title"
+msgstr "Advanced panels"
+
 msgid "settings.restart_banner"
 msgstr "Inbound certificate or mode changed; restart serve --web to apply."
 

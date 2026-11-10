@@ -956,6 +956,93 @@ msgstr "سسٹم کے روٹ سرٹیفکیٹس: {value}"
 msgid "settings.outbound.title"
 msgstr "آؤٹ بانڈ HTTPS اعتماد"
 
+msgid "settings.panels.empty"
+msgstr "کچھ نہیں (درست خالی)۔"
+
+msgid "settings.panels.failed"
+msgstr "پڑھا نہیں جا سکا: {code} {message}"
+
+msgid "settings.panels.mcp.configured"
+msgstr "مرتب، کوئی کال نہیں"
+
+msgid "settings.panels.mcp.disabled"
+msgstr "غیر فعال"
+
+msgid "settings.panels.mcp.empty"
+msgstr "کوئی فعال MCP سرور نہیں (درست خالی)۔"
+
+msgid "settings.panels.mcp.hint"
+msgstr "کنکشن ہر ٹرن کے اندر کھلتے ہیں؛ یہاں ترتیب اور حال ہی میں دیکھے گئے کال و اوزار ہیں۔"
+
+msgid "settings.panels.mcp.observed_ok"
+msgstr "آخری کال کامیاب"
+
+msgid "settings.panels.mcp.timeout"
+msgstr "ٹائم آؤٹ {ms} ms، آؤٹ پٹ حد {bytes} B"
+
+msgid "settings.panels.mcp.title"
+msgstr "MCP سرورز"
+
+msgid "settings.panels.mcp.tools"
+msgstr "دیکھے گئے اوزار: {tools}"
+
+msgid "settings.panels.mcp.unconfigured"
+msgstr ".zcode/mcp.json نہیں ملا (MCP بند ہے)۔"
+
+msgid "settings.panels.open"
+msgstr "پینل"
+
+msgid "settings.panels.refresh"
+msgstr "تازہ کریں"
+
+msgid "settings.panels.rules.failed"
+msgstr "منظوری کے قواعد تبدیل نہیں ہو سکے"
+
+msgid "settings.panels.rules.missing"
+msgstr "{tool} کے لیے منسوخ کرنے کو کوئی قاعدہ نہیں"
+
+msgid "settings.panels.rules.revoked"
+msgstr "منسوخ: {tool}"
+
+msgid "settings.panels.rules.title"
+msgstr "منظوری کے قواعد"
+
+msgid "settings.panels.skills.empty"
+msgstr "کوئی ہنر نہیں (درست خالی)۔"
+
+msgid "settings.panels.skills.hint"
+msgstr "ورک اسپیس میں .zcode/skills/ دیکھتا ہے؛ گمشدہ حوالے ہر ہنر کے نیچے۔"
+
+msgid "settings.panels.skills.issues"
+msgstr "گمشدہ حوالے: {count}"
+
+msgid "settings.panels.skills.title"
+msgstr "ہنر"
+
+msgid "settings.panels.state.failed"
+msgstr "ناکام"
+
+msgid "settings.panels.state.ok"
+msgstr "مکمل"
+
+msgid "settings.panels.state.running"
+msgstr "چل رہا"
+
+msgid "settings.panels.subagents.empty"
+msgstr "کوئی ذیلی ایجنٹ چلائی نہیں (درست خالی)۔"
+
+msgid "settings.panels.subagents.hint"
+msgstr "آخری 200 واقعات سے بنتا ہے؛ چل رہا = آغاز کا واقعہ ہے، اختتام کا نہیں۔"
+
+msgid "settings.panels.subagents.iterations"
+msgstr "{n} بار"
+
+msgid "settings.panels.subagents.title"
+msgstr "ذیلی ایجنٹ چلائی"
+
+msgid "settings.panels.title"
+msgstr "جدید پینل"
+
 msgid "settings.restart_banner"
 msgstr "ان باؤنڈ سرٹیفکیٹ یا موڈ بدل گیا ہے؛ لاگو کرنے کے لیے serve --web دوبارہ شروع کریں۔"
 

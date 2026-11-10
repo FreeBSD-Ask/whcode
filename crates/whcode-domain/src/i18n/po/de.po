@@ -956,6 +956,93 @@ msgstr "Wurzelzertifikate des Systems: {value}"
 msgid "settings.outbound.title"
 msgstr "Vertrauen für ausgehendes HTTPS"
 
+msgid "settings.panels.empty"
+msgstr "Nichts vorhanden (korrekt leer)."
+
+msgid "settings.panels.failed"
+msgstr "Lesen fehlgeschlagen: {code} {message}"
+
+msgid "settings.panels.mcp.configured"
+msgstr "Konfiguriert, kein Aufruf"
+
+msgid "settings.panels.mcp.disabled"
+msgstr "Deaktiviert"
+
+msgid "settings.panels.mcp.empty"
+msgstr "Keine aktivierten MCP-Server (korrekt leer)."
+
+msgid "settings.panels.mcp.hint"
+msgstr "Verbindungen entstehen innerhalb jedes Turns; hier stehen Konfiguration sowie die zuletzt beobachteten Aufrufe und Tools."
+
+msgid "settings.panels.mcp.observed_ok"
+msgstr "Letzter Aufruf erfolgreich"
+
+msgid "settings.panels.mcp.timeout"
+msgstr "Timeout {ms} ms, Ausgabegrenze {bytes} B"
+
+msgid "settings.panels.mcp.title"
+msgstr "MCP-Server"
+
+msgid "settings.panels.mcp.tools"
+msgstr "Beobachtete Tools: {tools}"
+
+msgid "settings.panels.mcp.unconfigured"
+msgstr "Kein .zcode/mcp.json (MCP aus)."
+
+msgid "settings.panels.open"
+msgstr "Panels"
+
+msgid "settings.panels.refresh"
+msgstr "Aktualisieren"
+
+msgid "settings.panels.rules.failed"
+msgstr "Genehmigungsregeln können nicht geändert werden"
+
+msgid "settings.panels.rules.missing"
+msgstr "Für {tool} gibt es keine Regel zum Widerrufen"
+
+msgid "settings.panels.rules.revoked"
+msgstr "Widerrufen: {tool}"
+
+msgid "settings.panels.rules.title"
+msgstr "Genehmigungsregeln"
+
+msgid "settings.panels.skills.empty"
+msgstr "Keine Skills (korrekt leer)."
+
+msgid "settings.panels.skills.hint"
+msgstr "Durchsucht .zcode/skills/ im Workspace; fehlende Referenzen stehen pro Skill."
+
+msgid "settings.panels.skills.issues"
+msgstr "Fehlende Referenzen: {count}"
+
+msgid "settings.panels.skills.title"
+msgstr "Skills"
+
+msgid "settings.panels.state.failed"
+msgstr "fehlgeschlagen"
+
+msgid "settings.panels.state.ok"
+msgstr "abgeschlossen"
+
+msgid "settings.panels.state.running"
+msgstr "läuft"
+
+msgid "settings.panels.subagents.empty"
+msgstr "Keine Subagent-Läufe (korrekt leer)."
+
+msgid "settings.panels.subagents.hint"
+msgstr "Aus den letzten 200 Ereignissen; „läuft“ heißt: Startereignis ohne Endereignis."
+
+msgid "settings.panels.subagents.iterations"
+msgstr "{n} Iterationen"
+
+msgid "settings.panels.subagents.title"
+msgstr "Subagent-Läufe"
+
+msgid "settings.panels.title"
+msgstr "Erweiterte Panels"
+
 msgid "settings.restart_banner"
 msgstr "Eingehendes Zertifikat oder Modus geändert; zum Anwenden serve --web neu starten."
 

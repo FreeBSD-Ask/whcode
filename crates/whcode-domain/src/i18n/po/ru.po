@@ -956,6 +956,93 @@ msgstr "корневых сертификатов в системном хран
 msgid "settings.outbound.title"
 msgstr "Доверие для исходящего HTTPS"
 
+msgid "settings.panels.empty"
+msgstr "Здесь пусто (корректная пустота)."
+
+msgid "settings.panels.failed"
+msgstr "Не удалось прочитать: {code} {message}"
+
+msgid "settings.panels.mcp.configured"
+msgstr "Настроен, вызовов не было"
+
+msgid "settings.panels.mcp.disabled"
+msgstr "Отключён"
+
+msgid "settings.panels.mcp.empty"
+msgstr "Включённых серверов MCP нет (корректная пустота)."
+
+msgid "settings.panels.mcp.hint"
+msgstr "Соединения открываются внутри хода; здесь показаны настройки и вызовы с инструментами из последнего окна."
+
+msgid "settings.panels.mcp.observed_ok"
+msgstr "Последний вызов успешен"
+
+msgid "settings.panels.mcp.timeout"
+msgstr "тайм-аут {ms} мс, предел вывода {bytes} Б"
+
+msgid "settings.panels.mcp.title"
+msgstr "Серверы MCP"
+
+msgid "settings.panels.mcp.tools"
+msgstr "Наблюдаемые инструменты: {tools}"
+
+msgid "settings.panels.mcp.unconfigured"
+msgstr "Файл .zcode/mcp.json не найден (MCP выключен)."
+
+msgid "settings.panels.open"
+msgstr "Панели"
+
+msgid "settings.panels.refresh"
+msgstr "Обновить"
+
+msgid "settings.panels.rules.failed"
+msgstr "Не удалось изменить правила одобрения"
+
+msgid "settings.panels.rules.missing"
+msgstr "Для {tool} нечего отзывать"
+
+msgid "settings.panels.rules.revoked"
+msgstr "Отозвано: {tool}"
+
+msgid "settings.panels.rules.title"
+msgstr "Правила одобрения"
+
+msgid "settings.panels.skills.empty"
+msgstr "Навыков нет (корректная пустота)."
+
+msgid "settings.panels.skills.hint"
+msgstr "Сканирует .zcode/skills/ в рабочей области; отсутствующие ссылки перечислены для каждого навыка."
+
+msgid "settings.panels.skills.issues"
+msgstr "Отсутствующих ссылок: {count}"
+
+msgid "settings.panels.skills.title"
+msgstr "Навыки"
+
+msgid "settings.panels.state.failed"
+msgstr "сбой"
+
+msgid "settings.panels.state.ok"
+msgstr "завершено"
+
+msgid "settings.panels.state.running"
+msgstr "выполняется"
+
+msgid "settings.panels.subagents.empty"
+msgstr "Запусков субагентов нет (корректная пустота)."
+
+msgid "settings.panels.subagents.hint"
+msgstr "Строится по последним 200 событиям; «выполняется» — есть старт, но нет финала."
+
+msgid "settings.panels.subagents.iterations"
+msgstr "Итераций: {n}"
+
+msgid "settings.panels.subagents.title"
+msgstr "Запуски субагентов"
+
+msgid "settings.panels.title"
+msgstr "Дополнительные панели"
+
 msgid "settings.restart_banner"
 msgstr "Входящий сертификат или режим изменены; для применения перезапустить serve --web."
 

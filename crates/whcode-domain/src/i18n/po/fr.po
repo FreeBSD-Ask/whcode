@@ -956,6 +956,93 @@ msgstr "certificats racines du système : {value}"
 msgid "settings.outbound.title"
 msgstr "Confiance HTTPS sortante"
 
+msgid "settings.panels.empty"
+msgstr "Rien ici (vide correct)."
+
+msgid "settings.panels.failed"
+msgstr "Lecture impossible : {code} {message}"
+
+msgid "settings.panels.mcp.configured"
+msgstr "Configuré, aucun appel"
+
+msgid "settings.panels.mcp.disabled"
+msgstr "Désactivé"
+
+msgid "settings.panels.mcp.empty"
+msgstr "Aucun serveur MCP activé (vide correct)."
+
+msgid "settings.panels.mcp.hint"
+msgstr "Les connexions s’ouvrent pendant chaque tour ; ici la configuration et les appels et outils vus récemment."
+
+msgid "settings.panels.mcp.observed_ok"
+msgstr "Dernier appel réussi"
+
+msgid "settings.panels.mcp.timeout"
+msgstr "expiration {ms} ms, limite de sortie {bytes} o"
+
+msgid "settings.panels.mcp.title"
+msgstr "Serveurs MCP"
+
+msgid "settings.panels.mcp.tools"
+msgstr "Outils observés : {tools}"
+
+msgid "settings.panels.mcp.unconfigured"
+msgstr "Pas de .zcode/mcp.json (MCP désactivé)."
+
+msgid "settings.panels.open"
+msgstr "Panneaux"
+
+msgid "settings.panels.refresh"
+msgstr "Actualiser"
+
+msgid "settings.panels.rules.failed"
+msgstr "Impossible de modifier les règles d’approbation"
+
+msgid "settings.panels.rules.missing"
+msgstr "Aucune règle à révoquer pour {tool}"
+
+msgid "settings.panels.rules.revoked"
+msgstr "Révoquée : {tool}"
+
+msgid "settings.panels.rules.title"
+msgstr "Règles d’approbation"
+
+msgid "settings.panels.skills.empty"
+msgstr "Aucune compétence (vide correct)."
+
+msgid "settings.panels.skills.hint"
+msgstr "Analyse .zcode/skills/ du workspace ; les références manquantes sont listées par compétence."
+
+msgid "settings.panels.skills.issues"
+msgstr "Références manquantes : {count}"
+
+msgid "settings.panels.skills.title"
+msgstr "Compétences"
+
+msgid "settings.panels.state.failed"
+msgstr "échec"
+
+msgid "settings.panels.state.ok"
+msgstr "terminé"
+
+msgid "settings.panels.state.running"
+msgstr "en cours"
+
+msgid "settings.panels.subagents.empty"
+msgstr "Aucune exécution de sous-agent (vide correct)."
+
+msgid "settings.panels.subagents.hint"
+msgstr "Construit sur les 200 derniers événements ; « en cours » signifie un début sans fin."
+
+msgid "settings.panels.subagents.iterations"
+msgstr "{n} itérations"
+
+msgid "settings.panels.subagents.title"
+msgstr "Exécutions de sous-agents"
+
+msgid "settings.panels.title"
+msgstr "Panneaux avancés"
+
 msgid "settings.restart_banner"
 msgstr "Le certificat entrant ou le mode a changé ; redémarrer serve --web pour appliquer."
 

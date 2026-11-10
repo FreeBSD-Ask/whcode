@@ -956,6 +956,93 @@ msgstr "सिस्टम के रूट प्रमाण-पत्र: {va
 msgid "settings.outbound.title"
 msgstr "आउटबाउंड HTTPS का भरोसा"
 
+msgid "settings.panels.empty"
+msgstr "कुछ नहीं (सही खाली)।"
+
+msgid "settings.panels.failed"
+msgstr "पढ़ा नहीं जा सका: {code} {message}"
+
+msgid "settings.panels.mcp.configured"
+msgstr "विन्यस्त, कोई कॉल नहीं"
+
+msgid "settings.panels.mcp.disabled"
+msgstr "निष्क्रिय"
+
+msgid "settings.panels.mcp.empty"
+msgstr "कोई सक्रिय MCP सर्वर नहीं (सही खाली)।"
+
+msgid "settings.panels.mcp.hint"
+msgstr "कनेक्शन हर टर्न के अंदर खुलते हैं; यहाँ विन्यास और हाल में दिखे कॉल व उपकरण हैं।"
+
+msgid "settings.panels.mcp.observed_ok"
+msgstr "आखिरी कॉल सफल"
+
+msgid "settings.panels.mcp.timeout"
+msgstr "टाइमआउट {ms} ms, आउटपुट सीमा {bytes} B"
+
+msgid "settings.panels.mcp.title"
+msgstr "MCP सर्वर"
+
+msgid "settings.panels.mcp.tools"
+msgstr "दिखे उपकरण: {tools}"
+
+msgid "settings.panels.mcp.unconfigured"
+msgstr ".zcode/mcp.json नहीं मिला (MCP बंद)।"
+
+msgid "settings.panels.open"
+msgstr "पैनल"
+
+msgid "settings.panels.refresh"
+msgstr "ताज़ा करें"
+
+msgid "settings.panels.rules.failed"
+msgstr "स्वीकृति नियम बदले नहीं जा सके"
+
+msgid "settings.panels.rules.missing"
+msgstr "{tool} के लिए वापस लेने को कोई नियम नहीं"
+
+msgid "settings.panels.rules.revoked"
+msgstr "वापस लिया: {tool}"
+
+msgid "settings.panels.rules.title"
+msgstr "स्वीकृति नियम"
+
+msgid "settings.panels.skills.empty"
+msgstr "कोई कौशल नहीं (सही खाली)।"
+
+msgid "settings.panels.skills.hint"
+msgstr "कार्यक्षेत्र में .zcode/skills/ देखता है; गुम संदर्भ हर कौशल के नीचे।"
+
+msgid "settings.panels.skills.issues"
+msgstr "गुम संदर्भ: {count}"
+
+msgid "settings.panels.skills.title"
+msgstr "कौशल"
+
+msgid "settings.panels.state.failed"
+msgstr "विफल"
+
+msgid "settings.panels.state.ok"
+msgstr "पूर्ण"
+
+msgid "settings.panels.state.running"
+msgstr "चल रहा"
+
+msgid "settings.panels.subagents.empty"
+msgstr "कोई सबएजेंट रन नहीं (सही खाली)।"
+
+msgid "settings.panels.subagents.hint"
+msgstr "पिछली 200 घटनाओं से बना; चल रहा = शुरू की घटना है, खत्म की नहीं।"
+
+msgid "settings.panels.subagents.iterations"
+msgstr "{n} पुनरावृत्तियाँ"
+
+msgid "settings.panels.subagents.title"
+msgstr "सबएजेंट रन"
+
+msgid "settings.panels.title"
+msgstr "उन्नत पैनल"
+
 msgid "settings.restart_banner"
 msgstr "इनबाउंड प्रमाण-पत्र या मोड बदल गया है; लागू करने के लिए serve --web फिर से चलाएँ।"
 
