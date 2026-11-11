@@ -155,4 +155,8 @@ TUI／CUI 用户不承担其不受益的成本。
   固定 `redacted` 级、自校验 SHA-256、不覆盖/原子写盘、无联网、2000 事件与 16 MiB 上限；
   残余风险（自由文本秘密、SHA-256 非签名）显式登记。实现 `whcode-app::share`＋
   `whcode session share`，能力面 `session.share` 入对等矩阵。
+- 2026-11-11：**B5 结题对账（T263）**——`plan-ui-zcode-alignment.md` §9 逐项登记六面
+  与 token 的实现／有意差异／预留；预算复测 Web 全绿、GUI 线程 28 归 ADR-042 已登记
+  残余；ADR-056 后续三项确认两项移交。唯一未闭判据＝Check 348 CUI／TUI 结构化工具
+  文本（missing 态，下一步收口）。复审触发未变。
 

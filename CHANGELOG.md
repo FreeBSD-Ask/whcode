@@ -13,6 +13,14 @@
 
 ### 变更
 
+- **B5 结题对账（T263，FR-739—753，2026-11-11）**：`plan-ui-zcode-alignment.md` §9 按
+  domain-M2 六个勘察面＋视觉 token 逐项登记实现／部分实现／有意差异／预留，未实现项
+  全部指向 Check 缺口或对账行，无静默差距；双端预算复测 Web 全绿（JS gzip 10704／7811／
+  4595 B、CSS 3009 B、DOM 90／134／27），GUI 本机空闲采样工作集 95.7 MB、私有 59.4 MB、
+  句柄 252、CPU 0.0%，线程 28 归 ADR-042 已登记残余（CI 探针 17）；ADR-056 后续三项
+  确认两项移交（GUI 事件游标推进、TUI 对话输入整合）。Check 348 的 CUI／TUI 结构化
+  工具文本仍为 missing，下一步同批收口。
+
 - **B5 会话分享脱敏导出（T261，FR-752，2026-11-11）**：新增 `whcode-app::share` 与
   `whcode session share --session --out`。导出会话元数据＋任务清单＋事件流为本地 JSON；
   事件载荷固定经 `trace::sanitize` 的 `redacted` 级（不提供 full 选项），包内注明

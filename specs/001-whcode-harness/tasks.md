@@ -939,10 +939,19 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   事实核验：`crates/**/Cargo.toml` 检索 `playwright|chromium|cdp|devtools` 零命中，
   产品依赖树无预览依赖；`.github/scripts/web-ui-check.py` 与 `platform-verification.yml`
   的 Playwright 步骤属验收工具，不入产品依赖。Check 358 同批取证。
-- [ ] T263 [P] 批次 B5 结题：体验清单逐项对账（domain-M2 对照：实现/有意差异/预留
+- [x] T263 [P] 批次 B5 结题：体验清单逐项对账（domain-M2 对照：实现/有意差异/预留
   逐项登记）＋双端预算终测＋ADR-056 后续项移交确认（FR-739—753 全量；ADR-057 复审
   触发）——**任务认知卡**：方向=收口对账；目标=不留未登记差距；判据=
   traceability/check_counts 一致＋预算审计全绿；非目标=新增能力
+  ——**完成（2026-11-11）**：对账表落 `plan-ui-zcode-alignment.md` §9（六个勘察面＋
+  token 七组，逐项四态：已实现／部分实现／有意差异／预留），未实现项全部指向 Check
+  缺口或本节行号，无静默差距；预算终测 Web 全绿（JS gzip 10 704／7 811／4 595 B、
+  CSS 3 009 B、DOM 90／134／27），GUI 本机空闲 10 s 采样工作集 95.7 MB、私有 59.4 MB、
+  句柄 252、CPU 0.0%，线程 28 与 ADR-042 已登记本机残余一致（CI 17），不产生达标声明；
+  ADR-056 三项后续：后台执行＋流式已交付（T248／T250），GUI 事件游标推进与 TUI 对话
+  输入整合确认移交。唯一未闭判据＝Check 348 的 CUI／TUI 结构化工具文本（missing 态
+  已登记，下一步收口，不以双端两段冒充四端）。证据：`traceability.py`／
+  `check_counts.py` 一致、`check-frontend-budget.py` 通过。
 
 ### Phase 14：Phase 1 执行层契约（ADR-060，2026-11-07 用户批准）
 
