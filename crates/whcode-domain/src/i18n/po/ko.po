@@ -287,6 +287,15 @@ msgstr "세션 ID."
 msgid "cli.session.rename.title"
 msgstr "새 제목."
 
+msgid "cli.session.share.about"
+msgstr "세션 공유 번들을 로컬 파일로 내보냅니다(가림 처리, 업로드 없음)."
+
+msgid "cli.session.share.out"
+msgstr "대상 파일 경로(기존 파일 불가)."
+
+msgid "cli.session.share.session"
+msgstr "세션 ID."
+
 msgid "cli.session.show.about"
 msgstr "세션 하나를 표시합니다."
 

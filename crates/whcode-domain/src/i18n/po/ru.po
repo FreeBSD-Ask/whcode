@@ -287,6 +287,15 @@ msgstr "Идентификатор сессии."
 msgid "cli.session.rename.title"
 msgstr "Новый заголовок."
 
+msgid "cli.session.share.about"
+msgstr "Экспорт обезличенного пакета сеанса в локальный файл (без отправки)."
+
+msgid "cli.session.share.out"
+msgstr "Путь к целевому файлу (не должен существовать)."
+
+msgid "cli.session.share.session"
+msgstr "Идентификатор сеанса."
+
 msgid "cli.session.show.about"
 msgstr "Показать сессию."
 

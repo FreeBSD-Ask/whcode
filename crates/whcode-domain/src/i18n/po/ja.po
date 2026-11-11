@@ -287,6 +287,15 @@ msgstr "セッション ID。"
 msgid "cli.session.rename.title"
 msgstr "新しいタイトル。"
 
+msgid "cli.session.share.about"
+msgstr "セッション共有バンドルをローカルファイルへ書き出します（マスク済み、アップロードなし）。"
+
+msgid "cli.session.share.out"
+msgstr "出力先ファイルパス（既存不可）。"
+
+msgid "cli.session.share.session"
+msgstr "セッション ID。"
+
 msgid "cli.session.show.about"
 msgstr "セッションを 1 件表示します。"
 

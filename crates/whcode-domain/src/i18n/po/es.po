@@ -287,6 +287,15 @@ msgstr "ID de la sesión."
 msgid "cli.session.rename.title"
 msgstr "Título nuevo."
 
+msgid "cli.session.share.about"
+msgstr "Exportar un paquete de sesión anonimizado a un archivo local (sin subida)."
+
+msgid "cli.session.share.out"
+msgstr "Ruta del archivo de destino (no debe existir)."
+
+msgid "cli.session.share.session"
+msgstr "ID de sesión."
+
 msgid "cli.session.show.about"
 msgstr "Mostrar una sesión."
 

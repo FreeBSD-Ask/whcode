@@ -22,6 +22,7 @@ pub fn surface_of(command: &Command) -> &'static str {
             SessionCommand::New { .. } => "session.new",
             SessionCommand::List { .. } => "session.list",
             SessionCommand::Show { .. } => "session.show",
+            SessionCommand::Share { .. } => "session.share",
             SessionCommand::Rename { .. } => "session.rename",
             SessionCommand::Archive { .. } => "session.archive",
             SessionCommand::Delete { .. } => "session.delete",
@@ -115,6 +116,12 @@ mod tests {
             Command::Session {
                 command: SessionCommand::Show {
                     session: "S".into(),
+                },
+            },
+            Command::Session {
+                command: SessionCommand::Share {
+                    session: "S".into(),
+                    out: "share.json".into(),
                 },
             },
             Command::Session {

@@ -287,6 +287,15 @@ msgstr "Sitzungs-ID."
 msgid "cli.session.rename.title"
 msgstr "Neuer Titel."
 
+msgid "cli.session.share.about"
+msgstr "Maskiertes Sitzungspaket in eine lokale Datei exportieren (kein Upload)."
+
+msgid "cli.session.share.out"
+msgstr "Zielpfad (darf nicht existieren)."
+
+msgid "cli.session.share.session"
+msgstr "Sitzungs-ID."
+
 msgid "cli.session.show.about"
 msgstr "Eine Sitzung anzeigen."
 

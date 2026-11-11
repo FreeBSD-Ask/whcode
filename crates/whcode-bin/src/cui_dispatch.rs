@@ -638,6 +638,22 @@ fn session_command(
             let row = whcode_app::show_session(&conn, policy, actor, session)?;
             Ok((session_json(&row), session_record(&row, texts)))
         }
+        SessionCommand::Share { session, out } => {
+            let conn = open_db(workspace, config)?;
+            let export = whcode_app::share::export_session(
+                &conn,
+                policy,
+                actor,
+                session,
+                Path::new(out),
+                now,
+            )?;
+            let human = format!(
+                "share path={} sha256={} events={} tasks={} truncated={}",
+                export.path, export.sha256, export.events, export.tasks, export.truncated
+            );
+            Ok((report_value(&export)?, human))
+        }
         SessionCommand::Rename { session, title } => {
             let mut conn = open_db(workspace, config)?;
             let outcome = whcode_app::execute_command(
@@ -1521,6 +1537,53 @@ mod tests {
         assert_eq!(code, 0, "--json 成功退出码 0");
         let usage = dispatch_code(&args(&["--nonsense"]));
         assert_eq!(usage, 2, "未知参数 → 用法错误退出码 2");
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// T261／FR-752：`session share` 导出本地脱敏文件并回报 sha256；重复导出拒绝，
+    /// 不覆盖既有文件。
+    #[test]
+    fn session_share_writes_local_bundle_and_refuses_overwrite() {
+        let workspace = temp_workspace("share");
+        let created = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "分享会话".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("创建会话");
+        let id = created.0["session"]["id"]
+            .as_str()
+            .expect("会话 ID")
+            .to_string();
+        let out = workspace.join("share.json");
+        let command = Command::Session {
+            command: SessionCommand::Share {
+                session: id.clone(),
+                out: out.display().to_string(),
+            },
+        };
+        let (value, human) = execute(&command, &workspace, &whcode_domain::i18n::I18n::default())
+            .expect("导出分享包");
+        assert_eq!(value["redacted"], true);
+        assert_eq!(value["trace_level"], "redacted");
+        assert_eq!(
+            value["sha256"].as_str().map(str::len),
+            Some(64),
+            "sha256 必须是 64 位十六进制"
+        );
+        assert!(human.starts_with("share path="), "{human}");
+        let text = std::fs::read_to_string(&out).expect("分享文件");
+        assert!(text.contains("whcode-session-share"), "{text}");
+        assert!(text.contains("分享会话"), "标题保留");
+
+        let err = execute(&command, &workspace, &whcode_domain::i18n::I18n::default())
+            .expect_err("目标已存在必须拒绝");
+        assert_eq!(err.code, ErrorCode::InvalidState);
         let _ = std::fs::remove_dir_all(&workspace);
     }
 

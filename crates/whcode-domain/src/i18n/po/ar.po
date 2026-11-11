@@ -287,6 +287,15 @@ msgstr "معرّف الجلسة."
 msgid "cli.session.rename.title"
 msgstr "العنوان الجديد."
 
+msgid "cli.session.share.about"
+msgstr "تصدير حزمة جلسة منقّحة إلى ملف محلي (دون رفع)."
+
+msgid "cli.session.share.out"
+msgstr "مسار الملف الهدف (يجب ألا يكون موجوداً)."
+
+msgid "cli.session.share.session"
+msgstr "معرّف الجلسة."
+
 msgid "cli.session.show.about"
 msgstr "عرض جلسة واحدة."
 

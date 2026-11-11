@@ -287,6 +287,15 @@ msgstr "会话 ID。"
 msgid "cli.session.rename.title"
 msgstr "新标题。"
 
+msgid "cli.session.share.about"
+msgstr "导出会话分享包到本地文件（脱敏、无上传）。"
+
+msgid "cli.session.share.out"
+msgstr "目标文件路径（不得已存在）。"
+
+msgid "cli.session.share.session"
+msgstr "会话 ID。"
+
 msgid "cli.session.show.about"
 msgstr "查看会话。"
 

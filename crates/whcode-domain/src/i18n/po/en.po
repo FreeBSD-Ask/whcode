@@ -287,6 +287,15 @@ msgstr "Session ID."
 msgid "cli.session.rename.title"
 msgstr "New title."
 
+msgid "cli.session.share.about"
+msgstr "Export a redacted session bundle to a local file (no upload)."
+
+msgid "cli.session.share.out"
+msgstr "Target file path (must not exist)."
+
+msgid "cli.session.share.session"
+msgstr "Session ID."
+
 msgid "cli.session.show.about"
 msgstr "Show one session."
 

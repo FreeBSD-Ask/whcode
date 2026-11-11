@@ -1691,6 +1691,30 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    // 会话分享（T261／FR-752）：本地脱敏导出文件（只读库＋写盘，无上传/联网）。
+    // 目标路径属本机管理面，其他端不经 GUI/Web 代理。
+    SurfaceEntry {
+        id: "session.share",
+        kind: SurfaceKind::Command,
+        capability: Capability::SessionRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Implemented {
+                anchor: "whcode session share --session --out",
+            },
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+        ],
+    },
 ];
 
 /// 按 SurfaceId 查找登记条目。

@@ -1836,7 +1836,7 @@ fn text_of(bytes: Vec<u8>, path: &Path) -> Result<String, WhError> {
     })
 }
 
-fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), WhError> {
+pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), WhError> {
     let Some(parent) = path.parent() else {
         return Err(WhError::invalid_state(format!(
             "写入路径 {} 没有父目录",
@@ -2099,7 +2099,7 @@ fn is_sha256_hex(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     const HEX: [char; 16] = [
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
     ];

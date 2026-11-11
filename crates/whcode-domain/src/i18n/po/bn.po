@@ -287,6 +287,15 @@ msgstr "সেশন ID।"
 msgid "cli.session.rename.title"
 msgstr "নতুন শিরোনাম।"
 
+msgid "cli.session.share.about"
+msgstr "সেশন ব্যান্ডল স্থানীয় ফাইলে রপ্তানি করুন (মাস্ক করা, কোনো আপলোড নেই)।"
+
+msgid "cli.session.share.out"
+msgstr "লক্ষ্য ফাইলের পথ (আগে থেকে থাকা যাবে না)।"
+
+msgid "cli.session.share.session"
+msgstr "সেশন ID।"
+
 msgid "cli.session.show.about"
 msgstr "একটি সেশন দেখায়।"
 

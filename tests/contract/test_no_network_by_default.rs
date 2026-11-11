@@ -83,3 +83,25 @@ fn frontends_do_not_depend_on_llm() {
         );
     }
 }
+
+/// T261／FR-752：会话分享只做本地文件与只读库查询——源码不得出现网络调用。
+/// 这是静态绊线（不是证明）：依赖树门禁证明没有网络栈，本测试防止未来在分享路径
+/// 里直接引入 `std::net`／HTTP 客户端。
+#[test]
+fn session_share_source_uses_no_network_api() {
+    let path = workspace_root().join("crates/whcode-app/src/share.rs");
+    let source = std::fs::read_to_string(&path).expect("读取 share.rs");
+    for forbidden in [
+        "std::net",
+        "TcpStream",
+        "UdpSocket",
+        "ureq",
+        "rustls",
+        "reqwest",
+    ] {
+        assert!(
+            !source.contains(forbidden),
+            "分享导出不得使用 {forbidden}（FR-752：本地落盘、无上传无联网）"
+        );
+    }
+}

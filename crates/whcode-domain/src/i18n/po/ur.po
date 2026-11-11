@@ -287,6 +287,15 @@ msgstr "سیشن ID۔"
 msgid "cli.session.rename.title"
 msgstr "نیا عنوان۔"
 
+msgid "cli.session.share.about"
+msgstr "سیشن کا ماسک شدہ بنڈل مقامی فائل میں برآمد کریں (کوئی اپ لوڈ نہیں)۔"
+
+msgid "cli.session.share.out"
+msgstr "ہدف فائل کا راستہ (پہلے سے موجود نہ ہو)۔"
+
+msgid "cli.session.share.session"
+msgstr "سیشن ID۔"
+
 msgid "cli.session.show.about"
 msgstr "ایک سیشن دکھائیں۔"
 

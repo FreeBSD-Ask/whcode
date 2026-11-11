@@ -916,9 +916,21 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   （`diff_colors_follow_theme_tokens_and_legacy_fallback`）、`whcode-web --lib` 73/0
   （`diff_presentation_uses_frozen_palette_and_markers`）；前端预算 app JS gzip 10704 B／
   CSS 3009 B／DOM 134；clippy／fmt／check-docs-style／check-eol 全绿。
-- [ ] T261 [P] 批次 B5：会话分享脱敏导出（本地文件、无上传；威胁模型入 ADR-057 安全
+- [x] T261 [P] 批次 B5：会话分享脱敏导出（本地文件、无上传；威胁模型入 ADR-057 安全
   小节）（FR-752）——**任务认知卡**：方向=协作先手的最小落地；目标=脱敏导出可判定；
   判据=导出内容断言（无凭据/追踪原文）＋行为测试；非目标=上传/联网/扫码 OAuth
+  ——**完成（2026-11-11）**：新增 `whcode-app::share`——会话元数据＋任务清单＋事件流
+  导出为本地 JSON；事件载荷固定经 `trace::sanitize` 的 `redacted` 级（不提供 full），
+  自校验 `sha256` 覆盖规范 JSON 主体（键排序＋紧凑编码），原子写盘且不覆盖既有文件；
+  事件 ≤ 2000（超限显式 `truncated`）、主体 ≤ 16 MiB（超限拒绝写盘）。CUI 接入
+  `whcode session share --session --out`（能力面 `session.share`，`SessionRead`；其余端
+  按 `cli_local_admin` 排除）。威胁模型入 ADR-057（资产/威胁/措施/残余风险/复审触发：
+  自由文本秘密不可自动识别、SHA-256 非签名）。文案 3 键随十三套目录同批。证据：
+  app `share` 4/4（`share_bundle_redacts_secrets_and_self_verifies` 断言
+  `sk-secret1`／`Bearer` 不出现、正文保留、校验和自洽、重复导出拒绝；
+  `share_bundle_caps_events_and_marks_truncation`；缺能力→`permission_denied`）、
+  bin `session_share_writes_local_bundle_and_refuses_overwrite`、契约
+  `session_share_source_uses_no_network_api`（源码无网络 API）；clippy／fmt 全绿。
 - [x] T262 [P] 批次 B5：预览机制（CDP＋Playwright）评估结论登记（FR-753）
   ——**任务认知卡**：方向=评估而非实现；目标=做/不做结论入档；判据=结论含理由与
   代价；非目标=引入预览依赖——**完成（2026-11-09）**：`docs/guides/preview-evaluation.md`

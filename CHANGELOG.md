@@ -13,6 +13,15 @@
 
 ### 变更
 
+- **B5 会话分享脱敏导出（T261，FR-752，2026-11-11）**：新增 `whcode-app::share` 与
+  `whcode session share --session --out`。导出会话元数据＋任务清单＋事件流为本地 JSON；
+  事件载荷固定经 `trace::sanitize` 的 `redacted` 级（不提供 full 选项），包内注明
+  `trace_level`／`redacted`；`sha256` 覆盖规范 JSON 主体（键排序＋紧凑编码）供完整性核对；
+  原子写盘且不覆盖既有文件；事件 ≤ 2000（超限显式 `truncated`）、主体 ≤ 16 MiB（超限拒绝）。
+  威胁模型（资产／威胁／措施／残余风险／复审触发）入 ADR-057；能力面 `session.share` 入
+  对等矩阵，其余端按 `cli_local_admin` 排除。文案 3 键随十三套同批。证据：app share 4/4、
+  bin 派发 1/1、契约 `session_share_source_uses_no_network_api`。
+
 - **B5 diff 呈现对齐（T260，FR-605／624，2026-11-11）**：GUI diff 视图改专用渲染——unified
   文本行＋3 px 内嵌色条，`+`／`-`／上下文三态着色且标记字符始终保留；zcode 系取
   `theme_tokens` 冻结终端调色板（`#1e8a3e`／`#e03131` 与 `#46bf72`／`#ff5c5c`），既有四套

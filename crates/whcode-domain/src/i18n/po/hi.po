@@ -287,6 +287,15 @@ msgstr "सत्र ID।"
 msgid "cli.session.rename.title"
 msgstr "नया शीर्षक।"
 
+msgid "cli.session.share.about"
+msgstr "सत्र का निजीकृत बंडल स्थानीय फ़ाइल में निर्यात करें (कोई अपलोड नहीं)।"
+
+msgid "cli.session.share.out"
+msgstr "लक्ष्य फ़ाइल पथ (पहले से मौजूद न हो)।"
+
+msgid "cli.session.share.session"
+msgstr "सत्र ID।"
+
 msgid "cli.session.show.about"
 msgstr "एक सत्र दिखाएँ।"
 
