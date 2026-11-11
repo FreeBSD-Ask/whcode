@@ -157,6 +157,6 @@ TUI／CUI 用户不承担其不受益的成本。
   `whcode session share`，能力面 `session.share` 入对等矩阵。
 - 2026-11-11：**B5 结题对账（T263）**——`plan-ui-zcode-alignment.md` §9 逐项登记六面
   与 token 的实现／有意差异／预留；预算复测 Web 全绿、GUI 线程 28 归 ADR-042 已登记
-  残余；ADR-056 后续三项确认两项移交。唯一未闭判据＝Check 348 CUI／TUI 结构化工具
-  文本（missing 态，下一步收口）。复审触发未变。
+  残余；ADR-056 后续三项确认两项移交。Check 348 的 CUI／TUI 结构化工具文本同日收口
+  （`whcode-app::tool_call`＋`whcode-bin::tool_call_text`，四端语义一致）；复审触发未变。
 

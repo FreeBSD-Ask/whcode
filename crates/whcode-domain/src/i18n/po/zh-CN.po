@@ -291,7 +291,7 @@ msgid "cli.session.share.about"
 msgstr "导出会话分享包到本地文件（脱敏、无上传）。"
 
 msgid "cli.session.share.out"
-msgstr "目标文件路径（不得已存在）。"
+msgstr "目标文件路径（不得预先存在）。"
 
 msgid "cli.session.share.session"
 msgstr "会话 ID。"
@@ -1114,6 +1114,18 @@ msgstr "会话 {session} · 阶段 {stage} · 事件游标 {cursor} · 活跃任
 
 msgid "summary.tasks"
 msgstr "会话 {session} · 总计 {total} · 完成 {done} · 阻塞 {blocked}"
+
+msgid "tool.call.error"
+msgstr "错误={error}"
+
+msgid "tool.call.finished"
+msgstr "{tool} · 调用结束 · state={state} · exec={exec} · call={call} · {duration} 毫秒"
+
+msgid "tool.call.output"
+msgstr "输出={output}"
+
+msgid "tool.call.started"
+msgstr "{tool} · 调用开始 · exec={exec} · call={call} · 迭代 {iteration}"
 
 msgid "tui.col.id"
 msgstr "ID"

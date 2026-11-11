@@ -13,6 +13,22 @@
 
 ### 变更
 
+- **界面文案代理审校第三批（2026-11-11）**：复核第二批之后新增的 71 键（B3 工具卡与审批、
+  B4 面板与规则、B5 分享、CUI／TUI 工具文本）在 ja／ko／ru／fr／es／de／ar／ur／zh-TW 的
+  表现，修订 28 处：bn“সাবএজেন্ট চালা”（চালা＝棚屋）改为“রান”；ur 子代理运行与迭代
+  用词、hi／ur 工具术语统一；es“pasos”改为 llamadas；fr 双重 et 与 mcp.json 句式；ar
+  撤销规则、空态与毫秒拼写；zh 分享路径“不得已存在”改为“不得预先存在”。键集合与占位符
+  不变，PO 同批重生成；ADR-062 修订记录已追加，“待母语审校”限制不变。
+
+- **CUI／TUI 工具调用结构化文本（T256／T257 补遗，FR-743，2026-11-11）**：新增
+  `whcode-app::tool_call::describe`——把 `ToolCallStarted`／`ToolCallFinished` 载荷投影为
+  工具名、调用 ID、执行 ID、状态、耗时、输出摘要（字段有界：名与 ID 64、输出 200、错误 64；
+  参数不入事件 payload 的口径不变；损坏载荷或非工具事件返回 `None`，不伪造）。TUI 事件
+  视图与 CUI `events list/export` 的人类可读输出经 `whcode-bin::tool_call_text` 同源渲染；
+  结束事件按同页开始事件 `tool_call_id` 配对工具名，未配对显式显示 `?`。四键文案随十三套
+  目录同批（`tool.call.started`／`finished`／`output`／`error`）并同步 PO。证据：app 4/4、
+  bin 4/4、CUI 1/1、domain i18n 16/16；Check 348 转 exercised。
+
 - **B5 结题对账（T263，FR-739—753，2026-11-11）**：`plan-ui-zcode-alignment.md` §9 按
   domain-M2 六个勘察面＋视觉 token 逐项登记实现／部分实现／有意差异／预留，未实现项
   全部指向 Check 缺口或对账行，无静默差距；双端预算复测 Web 全绿（JS gzip 10704／7811／

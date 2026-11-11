@@ -288,7 +288,7 @@ msgid "cli.session.rename.title"
 msgstr "नया शीर्षक।"
 
 msgid "cli.session.share.about"
-msgstr "सत्र का निजीकृत बंडल स्थानीय फ़ाइल में निर्यात करें (कोई अपलोड नहीं)।"
+msgstr "सत्र का मास्क किया गया बंडल स्थानीय फ़ाइल में निर्यात करें (कोई अपलोड नहीं)।"
 
 msgid "cli.session.share.out"
 msgstr "लक्ष्य फ़ाइल पथ (पहले से मौजूद न हो)।"
@@ -981,7 +981,7 @@ msgid "settings.panels.mcp.empty"
 msgstr "कोई सक्रिय MCP सर्वर नहीं (सही खाली)।"
 
 msgid "settings.panels.mcp.hint"
-msgstr "कनेक्शन हर टर्न के अंदर खुलते हैं; यहाँ विन्यास और हाल में दिखे कॉल व उपकरण हैं।"
+msgstr "कनेक्शन हर टर्न के अंदर खुलते हैं; यहाँ विन्यास और हाल में दिखे कॉल व टूल हैं।"
 
 msgid "settings.panels.mcp.observed_ok"
 msgstr "आखिरी कॉल सफल"
@@ -993,7 +993,7 @@ msgid "settings.panels.mcp.title"
 msgstr "MCP सर्वर"
 
 msgid "settings.panels.mcp.tools"
-msgstr "दिखे उपकरण: {tools}"
+msgstr "दिखे टूल: {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
 msgstr ".zcode/mcp.json नहीं मिला (MCP बंद)।"
@@ -1020,7 +1020,7 @@ msgid "settings.panels.skills.empty"
 msgstr "कोई कौशल नहीं (सही खाली)।"
 
 msgid "settings.panels.skills.hint"
-msgstr "कार्यक्षेत्र में .zcode/skills/ देखता है; गुम संदर्भ हर कौशल के नीचे।"
+msgstr "कार्यक्षेत्र में .zcode/skills/ देखता है; गुम संदर्भ हर कौशल के नीचे दिखते हैं।"
 
 msgid "settings.panels.skills.issues"
 msgstr "गुम संदर्भ: {count}"
@@ -1041,7 +1041,7 @@ msgid "settings.panels.subagents.empty"
 msgstr "कोई सबएजेंट रन नहीं (सही खाली)।"
 
 msgid "settings.panels.subagents.hint"
-msgstr "पिछली 200 घटनाओं से बना; चल रहा = शुरू की घटना है, खत्म की नहीं।"
+msgstr "पिछली 200 घटनाओं से बना; चल रहा = आरंभ की घटना है, समाप्ति की नहीं।"
 
 msgid "settings.panels.subagents.iterations"
 msgstr "{n} पुनरावृत्तियाँ"
@@ -1114,6 +1114,18 @@ msgstr "सत्र {session} · चरण {stage} · कर्सर {cursor} 
 
 msgid "summary.tasks"
 msgstr "सत्र {session} · कुल {total} · पूर्ण {done} · अवरुद्ध {blocked}"
+
+msgid "tool.call.error"
+msgstr "त्रुटि={error}"
+
+msgid "tool.call.finished"
+msgstr "{tool} · कॉल समाप्त · state={state} · exec={exec} · call={call} · {duration} मि.से."
+
+msgid "tool.call.output"
+msgstr "आउटपुट={output}"
+
+msgid "tool.call.started"
+msgstr "{tool} · कॉल प्रारंभ · exec={exec} · call={call} · पुनरावृत्ति {iteration}"
 
 msgid "tui.col.id"
 msgstr "ID"

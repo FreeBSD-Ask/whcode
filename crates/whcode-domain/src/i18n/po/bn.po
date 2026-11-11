@@ -759,7 +759,7 @@ msgid "settings.approvals.failed"
 msgstr "অনুমোদন নিয়ম পড়া যায়নি: {code} {message}"
 
 msgid "settings.approvals.hint"
-msgstr "এখানে নিয়মগুলি কথোপকথনে নিয়ম মনে রাখা বা প্রত্যাখ্যান থেকে আসে এবং হাতেও সেট করা যায়; প্রত্যাহার করলে কনফিগের ডিফল্ট ফিরে আসে।"
+msgstr "এখানে নিয়মগুলি কথোপকথনে নিয়ম মনে রাখা বা প্রত্যাখ্যান থেকে আসে এবং হাতেও সেট করা যায়; প্রত্যাহার করলে কনফিগারেশনের ডিফল্ট ফিরে আসে।"
 
 msgid "settings.approvals.revoke"
 msgstr "প্রত্যাহার"
@@ -981,7 +981,7 @@ msgid "settings.panels.mcp.empty"
 msgstr "কোনো MCP সার্ভার সক্রিয় নেই (সঠিক শূন্য)।"
 
 msgid "settings.panels.mcp.hint"
-msgstr "সংযোগ প্রতি টার্নের ভেতরে খোলে; এখানে কনফিগ আর সম্প্রতি দেখা কল ও টুল।"
+msgstr "সংযোগ প্রতি টার্নের ভেতরে খোলে; এখানে কনফিগারেশন আর সম্প্রতি দেখা কল ও টুল দেখানো হয়।"
 
 msgid "settings.panels.mcp.observed_ok"
 msgstr "শেষ কল সফল"
@@ -1020,7 +1020,7 @@ msgid "settings.panels.skills.empty"
 msgstr "কোনো স্কিল নেই (সঠিক শূন্য)।"
 
 msgid "settings.panels.skills.hint"
-msgstr "ওয়ার্কস্পেসে .zcode/skills/ দেখে; নিখোঁজ রেফারেন্স স্কিলপ্রতি তালিকাভুক্ত।"
+msgstr "ওয়ার্কস্পেসে .zcode/skills/ দেখে; নিখোঁজ রেফারেন্স স্কিলপ্রতি তালিকাভুক্ত হয়।"
 
 msgid "settings.panels.skills.issues"
 msgstr "নিখোঁজ রেফারেন্স: {count}"
@@ -1038,7 +1038,7 @@ msgid "settings.panels.state.running"
 msgstr "চলমান"
 
 msgid "settings.panels.subagents.empty"
-msgstr "কোনো সাবএজেন্ট চালা নেই (সঠিক শূন্য)।"
+msgstr "কোনো সাবএজেন্ট রান নেই (সঠিক শূন্য)।"
 
 msgid "settings.panels.subagents.hint"
 msgstr "শেষ 200টি ইভেন্ট থেকে তৈরি; চলমান মানে শুরুর ইভেন্ট আছে, শেষের ইভেন্ট নেই।"
@@ -1047,7 +1047,7 @@ msgid "settings.panels.subagents.iterations"
 msgstr "{n} পুনরাবৃত্তি"
 
 msgid "settings.panels.subagents.title"
-msgstr "সাবএজেন্ট চালা"
+msgstr "সাবএজেন্ট রান"
 
 msgid "settings.panels.title"
 msgstr "উন্নত প্যানেল"
@@ -1114,6 +1114,18 @@ msgstr "সেশন {session} · ধাপ {stage} · কার্সর {curso
 
 msgid "summary.tasks"
 msgstr "সেশন {session} · মোট {total} · সম্পন্ন {done} · আটকে আছে {blocked}"
+
+msgid "tool.call.error"
+msgstr "ত্রুটি={error}"
+
+msgid "tool.call.finished"
+msgstr "{tool} · কল শেষ · state={state} · exec={exec} · call={call} · {duration} মি.সে."
+
+msgid "tool.call.output"
+msgstr "আউটপুট={output}"
+
+msgid "tool.call.started"
+msgstr "{tool} · কল শুরু · exec={exec} · call={call} · পুনরাবৃত্তি {iteration}"
 
 msgid "tui.col.id"
 msgstr "ID"

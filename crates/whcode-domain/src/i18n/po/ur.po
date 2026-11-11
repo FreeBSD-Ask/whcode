@@ -981,7 +981,7 @@ msgid "settings.panels.mcp.empty"
 msgstr "کوئی فعال MCP سرور نہیں (درست خالی)۔"
 
 msgid "settings.panels.mcp.hint"
-msgstr "کنکشن ہر ٹرن کے اندر کھلتے ہیں؛ یہاں ترتیب اور حال ہی میں دیکھے گئے کال و اوزار ہیں۔"
+msgstr "کنکشن ہر ٹرن کے اندر کھلتے ہیں؛ یہاں ترتیب اور حال ہی میں دیکھے گئے کال و ٹول ہیں۔"
 
 msgid "settings.panels.mcp.observed_ok"
 msgstr "آخری کال کامیاب"
@@ -993,7 +993,7 @@ msgid "settings.panels.mcp.title"
 msgstr "MCP سرورز"
 
 msgid "settings.panels.mcp.tools"
-msgstr "دیکھے گئے اوزار: {tools}"
+msgstr "دیکھے گئے ٹول: {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
 msgstr ".zcode/mcp.json نہیں ملا (MCP بند ہے)۔"
@@ -1020,7 +1020,7 @@ msgid "settings.panels.skills.empty"
 msgstr "کوئی ہنر نہیں (درست خالی)۔"
 
 msgid "settings.panels.skills.hint"
-msgstr "ورک اسپیس میں .zcode/skills/ دیکھتا ہے؛ گمشدہ حوالے ہر ہنر کے نیچے۔"
+msgstr "ورک اسپیس میں .zcode/skills/ دیکھتا ہے؛ گمشدہ حوالے ہر ہنر کے نیچے دکھائے جاتے ہیں۔"
 
 msgid "settings.panels.skills.issues"
 msgstr "گمشدہ حوالے: {count}"
@@ -1038,16 +1038,16 @@ msgid "settings.panels.state.running"
 msgstr "چل رہا"
 
 msgid "settings.panels.subagents.empty"
-msgstr "کوئی ذیلی ایجنٹ چلائی نہیں (درست خالی)۔"
+msgstr "کوئی ذیلی ایجنٹ اجرا نہیں (درست خالی)۔"
 
 msgid "settings.panels.subagents.hint"
 msgstr "آخری 200 واقعات سے بنتا ہے؛ چل رہا = آغاز کا واقعہ ہے، اختتام کا نہیں۔"
 
 msgid "settings.panels.subagents.iterations"
-msgstr "{n} بار"
+msgstr "{n} تکرار"
 
 msgid "settings.panels.subagents.title"
-msgstr "ذیلی ایجنٹ چلائی"
+msgstr "ذیلی ایجنٹ کے اجرا"
 
 msgid "settings.panels.title"
 msgstr "جدید پینل"
@@ -1114,6 +1114,18 @@ msgstr "سیشن {session} · مرحلہ {stage} · کرسر {cursor} · فعا�
 
 msgid "summary.tasks"
 msgstr "سیشن {session} · کل {total} · مکمل {done} · مسدود {blocked}"
+
+msgid "tool.call.error"
+msgstr "خرابی={error}"
+
+msgid "tool.call.finished"
+msgstr "{tool} · کال مکمل · state={state} · exec={exec} · call={call} · {duration} ملی سیکنڈ"
+
+msgid "tool.call.output"
+msgstr "آؤٹ پٹ={output}"
+
+msgid "tool.call.started"
+msgstr "{tool} · کال شروع · exec={exec} · call={call} · تکرار {iteration}"
 
 msgid "tui.col.id"
 msgstr "ID"

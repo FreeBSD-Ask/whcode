@@ -981,7 +981,7 @@ msgid "settings.panels.mcp.empty"
 msgstr "Sin servidores MCP activados (vacío correcto)."
 
 msgid "settings.panels.mcp.hint"
-msgstr "Las conexiones se abren dentro de cada turno; aquí se ve la configuración y los pasos y herramientas observadas recientemente."
+msgstr "Las conexiones se abren dentro de cada turno; aquí se muestra la configuración y las llamadas y herramientas observadas hace poco."
 
 msgid "settings.panels.mcp.observed_ok"
 msgstr "Última llamada correcta"
@@ -1114,6 +1114,18 @@ msgstr "Sesión {session} · etapa {stage} · cursor {cursor} · tarea activa {t
 
 msgid "summary.tasks"
 msgstr "Sesión {session} · total {total} · hechas {done} · bloqueadas {blocked}"
+
+msgid "tool.call.error"
+msgstr "error={error}"
+
+msgid "tool.call.finished"
+msgstr "{tool} · llamada finalizada · state={state} · exec={exec} · call={call} · {duration} ms"
+
+msgid "tool.call.output"
+msgstr "salida={output}"
+
+msgid "tool.call.started"
+msgstr "{tool} · llamada iniciada · exec={exec} · call={call} · iteración {iteration}"
 
 msgid "tui.col.id"
 msgstr "ID"

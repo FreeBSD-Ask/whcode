@@ -15,6 +15,7 @@
 //! FR-620、ADR-032），details 由登记表（`whcode_app::surface`）驱动——`surface_id`、
 //! 本端状态与里程碑/理由码；不静默成功、不伪装成 404 语义；`serve`/`doctor` 由主入口处理。
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -22,6 +23,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use duckdb::Connection;
 use serde_json::{Value, json};
 use whcode_app::surface::{FrontendId, Support};
+use whcode_app::tool_call::{TOOL_STARTED, describe};
 use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
 use whcode_cui::cli::{
     Command, ContextCommand, DbCommand, EventsCommand, FontCommand, LlmCommand, ParseOutcome,
@@ -216,7 +218,9 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
         Command::Spec { command } => {
             spec_command(command, workspace, &config, &policy, &actor, texts)
         }
-        Command::Events { command } => events_command(command, workspace, &config, &policy, &actor),
+        Command::Events { command } => {
+            events_command(command, workspace, &config, &policy, &actor, texts)
+        }
         Command::Db { command } => {
             db_command(command, workspace, &config, &policy, &actor, now, texts)
         }
@@ -1003,6 +1007,7 @@ fn events_command(
     config: &Config,
     policy: &DefaultPolicy,
     actor: &Actor,
+    texts: &I18n,
 ) -> Result<(Value, String), WhError> {
     match command {
         EventsCommand::List { session, after }
@@ -1036,22 +1041,7 @@ fn events_command(
                     EVENTS_PAGE_LIMIT,
                     TraceLevel::default(),
                 )?;
-                let human = value["events"]
-                    .as_array()
-                    .map(|events| {
-                        events
-                            .iter()
-                            .map(|event| {
-                                format!(
-                                    "{} {}",
-                                    event["seq"].as_i64().unwrap_or_default(),
-                                    event["kind"].as_str().unwrap_or_default()
-                                )
-                            })
-                            .collect::<Vec<_>>()
-                            .join("\n")
-                    })
-                    .unwrap_or_default();
+                let human = human_event_lines(&value, texts);
                 Ok((value, human))
             }
         },
@@ -1060,6 +1050,46 @@ fn events_command(
             &format!("events show {event} 未接线：单事件按 ID 查询的应用服务接口未提供"),
         )),
     }
+}
+
+/// 事件列表的人类可读行（Check 348：工具调用给结构化文本）。
+///
+/// 结束事件通常不带工具名，先用同页开始事件按 `tool_call_id` 配对；未配对时显示 `?`，
+/// 不推断。非工具事件保持既有的 `seq kind` 两列，数据字段不随语言变化。
+fn human_event_lines(value: &Value, texts: &I18n) -> String {
+    let Some(events) = value["events"].as_array() else {
+        return String::new();
+    };
+    let mut tool_names: HashMap<String, String> = HashMap::new();
+    for event in events {
+        if event["kind"].as_str() == Some(TOOL_STARTED)
+            && let Some(payload) = event["payload_json"].as_str()
+            && let Some(parsed) = describe(TOOL_STARTED, payload)
+            && let Some(tool) = parsed.tool
+        {
+            tool_names.insert(parsed.call_id, tool);
+        }
+    }
+    events
+        .iter()
+        .map(|event| {
+            let seq = event["seq"].as_i64().unwrap_or_default();
+            let kind = event["kind"].as_str().unwrap_or_default();
+            let payload = event["payload_json"].as_str().unwrap_or_default();
+            let detail = describe(kind, payload).and_then(|parsed| {
+                let hint = parsed
+                    .tool
+                    .clone()
+                    .or_else(|| tool_names.get(&parsed.call_id).cloned());
+                crate::tool_call_text::event_summary(texts, kind, payload, hint.as_deref())
+            });
+            match detail {
+                Some(text) => format!("{seq} {kind} {text}"),
+                None => format!("{seq} {kind}"),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn db_command(
@@ -1401,7 +1431,10 @@ fn task_json(row: &whcode_store::tasks::TaskRow) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{CONTEXT_DISPLAY_BUDGET, dispatch_code, execute, local_actor, not_supported};
+    use super::{
+        CONTEXT_DISPLAY_BUDGET, dispatch_code, execute, human_event_lines, local_actor,
+        not_supported,
+    };
     use std::path::PathBuf;
     use whcode_app::surface::{self, FrontendId, Support};
     use whcode_cui::cli::{
@@ -1410,6 +1443,7 @@ mod tests {
     };
     use whcode_cui::output::{error_envelope, error_exit_code};
     use whcode_domain::ErrorCode;
+    use whcode_domain::i18n::I18n;
 
     fn temp_workspace(tag: &str) -> PathBuf {
         let dir =
@@ -2334,5 +2368,40 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// Check 348：CUI 事件列表对工具调用给结构化文本，并按同页开始事件配对工具名。
+    #[test]
+    fn events_human_output_structures_tool_calls_and_pairs_names() {
+        let value = serde_json::json!({
+            "events": [
+                {
+                    "seq": 1,
+                    "kind": "ToolCallStarted",
+                    "payload_json": "{\"tool_name\":\"read_file\",\"tool_call_id\":\"call-1\",\"exec_id\":\"exec-9\",\"iteration\":2}"
+                },
+                {
+                    "seq": 2,
+                    "kind": "ToolCallFinished",
+                    "payload_json": "{\"tool_call_id\":\"call-1\",\"exec_id\":\"exec-9\",\"state\":\"completed\",\"duration_ms\":42,\"output_value\":\"done\"}"
+                },
+                { "seq": 3, "kind": "StreamingChunk", "payload_json": "{\"text\":\"正文\"}" }
+            ]
+        });
+        let lines = human_event_lines(&value, &I18n::default());
+        let rows: Vec<&str> = lines.lines().collect();
+        assert_eq!(rows.len(), 3);
+        assert!(
+            rows[0].contains("read_file") && rows[0].contains("exec-9"),
+            "开始行结构化：{}",
+            rows[0]
+        );
+        assert!(
+            rows[1].contains("read_file") && rows[1].contains("state=completed"),
+            "结束行靠配对补工具名：{}",
+            rows[1]
+        );
+        assert!(rows[1].contains("42") && rows[1].contains("输出=done"));
+        assert_eq!(rows[2], "3 StreamingChunk", "非工具事件保持两列");
     }
 }

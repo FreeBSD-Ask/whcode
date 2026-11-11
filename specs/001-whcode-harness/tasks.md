@@ -950,7 +950,7 @@ ADR-040 属 TLS 变更）；变更规格见 `.trae/specs/modernize-ui-visual-lan
   句柄 252、CPU 0.0%，线程 28 与 ADR-042 已登记本机残余一致（CI 17），不产生达标声明；
   ADR-056 三项后续：后台执行＋流式已交付（T248／T250），GUI 事件游标推进与 TUI 对话
   输入整合确认移交。唯一未闭判据＝Check 348 的 CUI／TUI 结构化工具文本（missing 态
-  已登记，下一步收口，不以双端两段冒充四端）。证据：`traceability.py`／
+  已登记，同日后续提交收口，不以双端两段冒充四端）。证据：`traceability.py`／
   `check_counts.py` 一致、`check-frontend-budget.py` 通过。
 
 ### Phase 14：Phase 1 执行层契约（ADR-060，2026-11-07 用户批准）

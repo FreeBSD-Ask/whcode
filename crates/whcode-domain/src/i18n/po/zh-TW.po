@@ -291,7 +291,7 @@ msgid "cli.session.share.about"
 msgstr "匯出工作階段分享包至本機檔案（去識別化、無上傳）。"
 
 msgid "cli.session.share.out"
-msgstr "目標檔案路徑（不得已存在）。"
+msgstr "目標檔案路徑（不得預先存在）。"
 
 msgid "cli.session.share.session"
 msgstr "工作階段 ID。"
@@ -1114,6 +1114,18 @@ msgstr "工作階段 {session} · 階段 {stage} · 游標 {cursor} · 作用中
 
 msgid "summary.tasks"
 msgstr "工作階段 {session} · 總計 {total} · 完成 {done} · 受阻 {blocked}"
+
+msgid "tool.call.error"
+msgstr "錯誤={error}"
+
+msgid "tool.call.finished"
+msgstr "{tool} · 呼叫結束 · state={state} · exec={exec} · call={call} · {duration} 毫秒"
+
+msgid "tool.call.output"
+msgstr "輸出={output}"
+
+msgid "tool.call.started"
+msgstr "{tool} · 呼叫開始 · exec={exec} · call={call} · 迭代 {iteration}"
 
 msgid "tui.col.id"
 msgstr "ID"

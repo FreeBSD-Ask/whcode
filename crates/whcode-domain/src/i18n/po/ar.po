@@ -765,7 +765,7 @@ msgid "settings.approvals.revoke"
 msgstr "سحب"
 
 msgid "settings.approvals.revoked"
-msgstr "تم السحب: {tool}"
+msgstr "تم سحب القاعدة: {tool}"
 
 msgid "settings.approvals.rule"
 msgstr "القاعدة"
@@ -978,7 +978,7 @@ msgid "settings.panels.mcp.disabled"
 msgstr "معطّل"
 
 msgid "settings.panels.mcp.empty"
-msgstr "لا خوادم MCP مفعّلة (فراغ سليم)."
+msgstr "لا توجد خوادم MCP مفعّلة (فراغ سليم)."
 
 msgid "settings.panels.mcp.hint"
 msgstr "تُفتح الاتصالات داخل كل دور؛ تعرض هنا الإعدادات والاستدعاءات والأدوات المرصودة أخيراً."
@@ -1008,16 +1008,16 @@ msgid "settings.panels.rules.failed"
 msgstr "تعذّر تعديل قواعد الموافقة"
 
 msgid "settings.panels.rules.missing"
-msgstr "لا قاعدة للسحب تخص {tool}"
+msgstr "لا توجد قاعدة قابلة للسحب لـ {tool}"
 
 msgid "settings.panels.rules.revoked"
-msgstr "تم السحب: {tool}"
+msgstr "تم سحب القاعدة: {tool}"
 
 msgid "settings.panels.rules.title"
 msgstr "قواعد الموافقة"
 
 msgid "settings.panels.skills.empty"
-msgstr "لا مهارات (فراغ سليم)."
+msgstr "لا توجد مهارات (فراغ سليم)."
 
 msgid "settings.panels.skills.hint"
 msgstr "يمسح .zcode/skills/ في مساحة العمل؛ تُدرج المراجع المفقودة لكل مهارة."
@@ -1038,7 +1038,7 @@ msgid "settings.panels.state.running"
 msgstr "قيد التنفيذ"
 
 msgid "settings.panels.subagents.empty"
-msgstr "لا تشغيلات لوكيل فرعي (فراغ سليم)."
+msgstr "لا توجد تشغيلات لوكلاء فرعيين (فراغ سليم)."
 
 msgid "settings.panels.subagents.hint"
 msgstr "مبنية على آخر 200 حدث؛ «قيد التنفيذ» يعني حدث بداية دون نهاية."
@@ -1114,6 +1114,18 @@ msgstr "الجلسة {session} · المرحلة {stage} · المؤشر {cursor
 
 msgid "summary.tasks"
 msgstr "الجلسة {session} · الإجمالي {total} · المنجز {done} · المحظور {blocked}"
+
+msgid "tool.call.error"
+msgstr "الخطأ={error}"
+
+msgid "tool.call.finished"
+msgstr "{tool} · انتهى الاستدعاء · state={state} · exec={exec} · call={call} · {duration} مللي ثانية"
+
+msgid "tool.call.output"
+msgstr "المخرجات={output}"
+
+msgid "tool.call.started"
+msgstr "{tool} · بدأ الاستدعاء · exec={exec} · call={call} · التكرار {iteration}"
 
 msgid "tui.col.id"
 msgstr "ID"

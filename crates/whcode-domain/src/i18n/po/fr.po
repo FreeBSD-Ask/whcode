@@ -981,7 +981,7 @@ msgid "settings.panels.mcp.empty"
 msgstr "Aucun serveur MCP activé (vide correct)."
 
 msgid "settings.panels.mcp.hint"
-msgstr "Les connexions s’ouvrent pendant chaque tour ; ici la configuration et les appels et outils vus récemment."
+msgstr "Les connexions s’ouvrent pendant chaque tour ; ici, la configuration ainsi que les appels et outils observés récemment."
 
 msgid "settings.panels.mcp.observed_ok"
 msgstr "Dernier appel réussi"
@@ -996,7 +996,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "Outils observés : {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr "Pas de .zcode/mcp.json (MCP désactivé)."
+msgstr "Aucun fichier .zcode/mcp.json (MCP désactivé)."
 
 msgid "settings.panels.open"
 msgstr "Panneaux"
@@ -1114,6 +1114,18 @@ msgstr "Session {session} · phase {stage} · curseur {cursor} · tâche active 
 
 msgid "summary.tasks"
 msgstr "Session {session} · total {total} · terminées {done} · bloquées {blocked}"
+
+msgid "tool.call.error"
+msgstr "erreur={error}"
+
+msgid "tool.call.finished"
+msgstr "{tool} · appel terminé · state={state} · exec={exec} · call={call} · {duration} ms"
+
+msgid "tool.call.output"
+msgstr "sortie={output}"
+
+msgid "tool.call.started"
+msgstr "{tool} · appel démarré · exec={exec} · call={call} · itération {iteration}"
 
 msgid "tui.col.id"
 msgstr "ID"

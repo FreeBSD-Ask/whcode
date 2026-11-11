@@ -23,6 +23,7 @@ mod runtimes;
 mod serve;
 mod store_source;
 mod tls;
+mod tool_call_text;
 mod workspace;
 
 use std::path::{Path, PathBuf};

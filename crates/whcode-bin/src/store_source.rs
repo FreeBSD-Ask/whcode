@@ -12,9 +12,11 @@
 //! （C-03）；Diff 视图经 `whcode_app::overview::converge_differences` 产出 converge
 //! 差异（Check 179），TUI 与原生 GUI 共用本 trait 实现，自动同源。
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use duckdb::Connection;
+use whcode_app::tool_call::{TOOL_STARTED, describe};
 use whcode_app::view_source::{
     CheckpointItem, EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource,
 };
@@ -174,13 +176,39 @@ impl StoreViewSource {
                 ("limit", &EVENT_TAIL.to_string()),
             ],
         );
+        // Check 348：结束事件通常不带工具名，先用同页开始事件按 tool_call_id 配对。
+        // 配对表上限由事件尾部（EVENT_TAIL）自然约束；未配对的结束事件显示 `?`，不猜。
+        let mut tool_names: HashMap<String, String> = HashMap::new();
+        for row in &export.events {
+            if row.kind == TOOL_STARTED
+                && let Some(event) = describe(&row.kind, &row.payload_json)
+                && let Some(tool) = event.tool
+            {
+                tool_names.insert(event.call_id, tool);
+            }
+        }
         snapshot.events = export
             .events
             .into_iter()
-            .map(|row| EventRow {
-                seq: row.seq,
-                kind: row.kind,
-                summary: summarize_payload(&row.payload_json),
+            .map(|row| {
+                let hint = describe(&row.kind, &row.payload_json).and_then(|event| {
+                    event
+                        .tool
+                        .clone()
+                        .or_else(|| tool_names.get(&event.call_id).cloned())
+                });
+                let summary = crate::tool_call_text::event_summary(
+                    &self.texts,
+                    &row.kind,
+                    &row.payload_json,
+                    hint.as_deref(),
+                )
+                .unwrap_or_else(|| summarize_payload(&row.payload_json));
+                EventRow {
+                    seq: row.seq,
+                    kind: row.kind,
+                    summary,
+                }
             })
             .collect();
         Ok(snapshot)
@@ -645,5 +673,70 @@ mod tests {
         let summary = summarize_payload(&long);
         assert_eq!(summary.chars().count(), 97, "96 字符 + 省略号");
         assert!(summary.ends_with('…'));
+    }
+
+    /// Check 348：TUI 事件行对工具调用给结构化文本，结束事件按同页开始事件配对工具名。
+    #[test]
+    fn tool_call_event_rows_are_structured_and_paired() {
+        let conn = migrated_conn();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, model, archived, status, stage)
+             VALUES ('S-TC', '工具卡', epoch_ms(1000), epoch_ms(1000), NULL, FALSE, 'active', 'implement')",
+            [],
+        )
+        .expect("插入会话");
+        for (seq, id, kind, payload) in [
+            (
+                1_i64,
+                "E-TC-1",
+                "ToolCallStarted",
+                r#"{"tool_name":"read_file","tool_call_id":"call-1","exec_id":"exec-9","iteration":2}"#,
+            ),
+            (
+                2,
+                "E-TC-2",
+                "ToolCallFinished",
+                r#"{"tool_call_id":"call-1","exec_id":"exec-9","state":"completed","duration_ms":42,"output_value":"done"}"#,
+            ),
+            (
+                3,
+                "E-TC-3",
+                "ToolCallFinished",
+                r#"{"tool_call_id":"call-2","state":"failed","error_code":"permission_denied","duration_ms":7}"#,
+            ),
+        ] {
+            conn.execute(
+                "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                     kind, payload_json, ts, persistence_level)
+                 VALUES (?, ?, 'S-TC', NULL, NULL, NULL, ?, CAST(? AS JSON)::VARIANT,
+                         current_timestamp, 'redacted')",
+                duckdb::params![seq, id, kind, payload],
+            )
+            .expect("插入事件");
+        }
+        let source = StoreViewSource::new(
+            std::sync::Arc::new(std::sync::Mutex::new(conn)),
+            I18n::default(),
+        );
+        let events = source.snapshot(ViewId::Events, Some("S-TC"));
+        assert_eq!(events.events.len(), 3);
+        let started = &events.events[0].summary;
+        assert!(
+            started.contains("read_file")
+                && started.contains("exec-9")
+                && started.contains("迭代 2"),
+            "开始行含工具、执行与轮次：{started}"
+        );
+        let finished = &events.events[1].summary;
+        assert!(
+            finished.contains("read_file") && finished.contains("state=completed"),
+            "结束行靠配对补工具名：{finished}"
+        );
+        assert!(finished.contains("42") && finished.contains("输出=done"));
+        let unpaired = &events.events[2].summary;
+        assert!(
+            unpaired.contains('?') && unpaired.contains("permission_denied"),
+            "未配对结束事件显式呈现缺失：{unpaired}"
+        );
     }
 }

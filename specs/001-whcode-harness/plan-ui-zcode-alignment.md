@@ -232,7 +232,7 @@ GUI 资源有实测、无未登记差距。
 |---|---|---|
 | 事件源 `ToolCallStarted`／`Finished` | 已实现 | Check 348 GUI／Web 段；`duration_ms` 入事件 |
 | GUI／Web 卡片形态（状态、输出、时长） | 已实现 | T256／T257；上限 20 张、`TurnSignal` 观察 |
-| CUI／TUI 结构化文本 | 缺口已登记 | Check 348（missing）——判据要求四端一致，下一步同批收口 |
+| CUI／TUI 结构化文本 | 已实现（同日补遗） | Check 348；`whcode-app::tool_call`＋`whcode-bin::tool_call_text`，TUI 事件行与 CUI 事件列表同源 |
 | 参数与输出经脱敏管线 | 已实现 | 参数不入事件 payload；输出摘要走 `summarize`（200 字符） |
 | 六态映射（running／success／error／cancelled／pendingApproval） | 部分实现 | 前四态与 `permission_denied` 展示态已落地；`pendingApproval` 由审批卡独立呈现（Check 349／350） |
 | 摘要行＋展开参数／输出两段 | 部分实现 | GUI 摘要＋输出尾部；参数面板不展示（脱敏口径下的有意差异） |
@@ -310,7 +310,7 @@ GUI 资源有实测、无未登记差距。
 ### 9.10 结论
 
 - `traceability.py`／`check_counts.py` 一致；本批 FR-739—753 的未实现项均在上表登记，
-  无静默差距。唯一 outstanding 判据是 **Check 348 的 CUI／TUI 结构化工具文本**，
-  已按 missing 态登记并在下一步收口，不以 GUI／Web 两段冒充四端一致。
+  无静默差距；CUI／TUI 结构化工具文本已于同日收口（Check 348），Check 状态为零
+  missing。
 - B5 结题不改变平台、安全与资源硬边界；分享威胁模型见 ADR-057 安全小节，预算数字见
   §9.8。

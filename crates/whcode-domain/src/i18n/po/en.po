@@ -1115,6 +1115,18 @@ msgstr "Session {session} · stage {stage} · cursor {cursor} · active task {ta
 msgid "summary.tasks"
 msgstr "Session {session} · total {total} · done {done} · blocked {blocked}"
 
+msgid "tool.call.error"
+msgstr "error={error}"
+
+msgid "tool.call.finished"
+msgstr "{tool} · call finished · state={state} · exec={exec} · call={call} · {duration} ms"
+
+msgid "tool.call.output"
+msgstr "output={output}"
+
+msgid "tool.call.started"
+msgstr "{tool} · call started · exec={exec} · call={call} · iteration {iteration}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

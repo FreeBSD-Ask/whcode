@@ -1115,6 +1115,18 @@ msgstr "Сессия {session} · этап {stage} · курсор {cursor} · �
 msgid "summary.tasks"
 msgstr "Сессия {session} · всего {total} · выполнено {done} · заблокировано {blocked}"
 
+msgid "tool.call.error"
+msgstr "ошибка={error}"
+
+msgid "tool.call.finished"
+msgstr "{tool} · вызов завершён · state={state} · exec={exec} · call={call} · {duration} мс"
+
+msgid "tool.call.output"
+msgstr "вывод={output}"
+
+msgid "tool.call.started"
+msgstr "{tool} · вызов начат · exec={exec} · call={call} · итерация {iteration}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

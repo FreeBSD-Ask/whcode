@@ -1115,6 +1115,18 @@ msgstr "セッション {session} · ステージ {stage} · カーソル {curso
 msgid "summary.tasks"
 msgstr "セッション {session} · 合計 {total} · 完了 {done} · ブロック {blocked}"
 
+msgid "tool.call.error"
+msgstr "エラー={error}"
+
+msgid "tool.call.finished"
+msgstr "{tool} · 呼び出し終了 · state={state} · exec={exec} · call={call} · {duration} ミリ秒"
+
+msgid "tool.call.output"
+msgstr "出力={output}"
+
+msgid "tool.call.started"
+msgstr "{tool} · 呼び出し開始 · exec={exec} · call={call} · 反復 {iteration}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

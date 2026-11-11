@@ -1115,6 +1115,18 @@ msgstr "세션 {session} · 단계 {stage} · 커서 {cursor} · 진행 중 작�
 msgid "summary.tasks"
 msgstr "세션 {session} · 전체 {total} · 완료 {done} · 차단 {blocked}"
 
+msgid "tool.call.error"
+msgstr "오류={error}"
+
+msgid "tool.call.finished"
+msgstr "{tool} · 호출 종료 · state={state} · exec={exec} · call={call} · {duration}밀리초"
+
+msgid "tool.call.output"
+msgstr "출력={output}"
+
+msgid "tool.call.started"
+msgstr "{tool} · 호출 시작 · exec={exec} · call={call} · 반복 {iteration}"
+
 msgid "tui.col.id"
 msgstr "ID"
 
