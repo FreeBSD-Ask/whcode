@@ -263,6 +263,18 @@ msgstr "معرّف الجلسة."
 msgid "cli.session.delete.yes"
 msgstr "تأكيد التنفيذ (يتعارض مع --dry-run، §8.1)."
 
+msgid "cli.session.fork.about"
+msgstr "يفصل الجلسة عند حدود انتهاء turn مع نسخ بادئة سجل المحادثة إلى جلسة جديدة."
+
+msgid "cli.session.fork.at-seq"
+msgstr "نقطة الفصل: 0 يعني فصلاً فارغاً؛ والقيمة الأكبر من 0 يجب أن تكون رقم تسلسل حدث TurnFinished."
+
+msgid "cli.session.fork.session"
+msgstr "معرّف الجلسة المصدر."
+
+msgid "cli.session.fork.title"
+msgstr "عنوان الجلسة الجديدة (الافتراضي هو عنوان المصدر مع اللاحقة (fork))."
+
 msgid "cli.session.list.about"
 msgstr "سرد الجلسات."
 

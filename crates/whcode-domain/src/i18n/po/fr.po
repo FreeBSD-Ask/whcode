@@ -263,6 +263,18 @@ msgstr "ID de session."
 msgid "cli.session.delete.yes"
 msgstr "Confirmer l'exécution (incompatible avec --dry-run, §8.1)."
 
+msgid "cli.session.fork.about"
+msgstr "Crée un embranchement de session à une frontière de fin de turn et copie le préfixe de l'historique de conversation dans une nouvelle session."
+
+msgid "cli.session.fork.at-seq"
+msgstr "Point de branchement : 0 pour un branchement vide ; une valeur supérieure à 0 doit être le numéro de séquence d'un événement TurnFinished."
+
+msgid "cli.session.fork.session"
+msgstr "Identifiant de la session source."
+
+msgid "cli.session.fork.title"
+msgstr "Titre de la nouvelle session (par défaut : titre de la source suivi du suffixe (fork))."
+
 msgid "cli.session.list.about"
 msgstr "Lister les sessions."
 

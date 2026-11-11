@@ -39,6 +39,7 @@ pub mod checkpoints;
 pub mod compact;
 pub mod directory;
 pub mod export;
+pub mod fork;
 pub mod indexes;
 pub mod monitor;
 pub mod overview;
@@ -78,6 +79,7 @@ pub use export::{
     ExportManifest, ExportReport, ImportReport, ROWS_PER_CHUNK, export_workspace,
     has_any_workspace_data, import_workspace,
 };
+pub use fork::{ForkOutcome, MAX_FORK_EVENTS, fork_session};
 pub use indexes::{
     REQUIRED_INDEXES, RequiredIndex, installed_indexes, missing_indexes, verify_indexes,
 };

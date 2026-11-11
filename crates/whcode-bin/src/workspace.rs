@@ -215,8 +215,35 @@ mod tests {
         let config = Config::for_workspace(dir.clone());
 
         let conn = open_workspace_db(&dir, &config).expect("首次打开");
-        // 模拟待迁移旧库：只回退最后一版版本记录（v9 迁移是 IF NOT EXISTS，可重复应用）。
-        conn.execute("DELETE FROM schema_migrations WHERE version = 9", [])
+        // 模拟待迁移旧库：手工回退到 v9 形态——0010 的 ALTER 加列不可重复应用，必须
+        // 连列与索引一起撤销；DuckDB 撤列要求先清掉表上的全部索引，其余索引撤销后重建，
+        // 保证重开迁移完成后索引仍然齐全。
+        for index in [
+            "DROP INDEX IF EXISTS idx_events_origin",
+            "DROP INDEX IF EXISTS idx_events_session_seq",
+            "DROP INDEX IF EXISTS idx_events_task",
+            "DROP INDEX IF EXISTS idx_events_request",
+            "DROP INDEX IF EXISTS idx_events_tool_call",
+        ] {
+            conn.execute(index, []).expect("撤销 events 索引");
+        }
+        for column in [
+            "ALTER TABLE events DROP COLUMN origin_event_id",
+            "ALTER TABLE sessions DROP COLUMN parent_id",
+            "ALTER TABLE sessions DROP COLUMN forked_at_seq",
+            "ALTER TABLE sessions DROP COLUMN inherited_event_count",
+        ] {
+            conn.execute(column, []).expect("撤销 v10 加列");
+        }
+        for index in [
+            "CREATE INDEX idx_events_session_seq ON events(session_id, seq)",
+            "CREATE INDEX idx_events_task ON events(task_id)",
+            "CREATE INDEX idx_events_request ON events(request_id)",
+            "CREATE INDEX idx_events_tool_call ON events(tool_call_id)",
+        ] {
+            conn.execute(index, []).expect("重建 v9 索引");
+        }
+        conn.execute("DELETE FROM schema_migrations WHERE version = 10", [])
             .expect("回退版本记录");
         drop(conn);
 
@@ -243,7 +270,7 @@ mod tests {
             "落后版本必须产生且只产生一份备份：{names:?}"
         );
         assert!(
-            names[0].contains(".v0008-"),
+            names[0].contains(".v0009-"),
             "备份文件名须含迁移前版本：{names:?}"
         );
 

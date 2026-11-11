@@ -263,6 +263,18 @@ msgstr "ID de la sesión."
 msgid "cli.session.delete.yes"
 msgstr "Confirmar la ejecución (incompatible con --dry-run, §8.1)."
 
+msgid "cli.session.fork.about"
+msgstr "Bifurca una sesión en un límite de fin de turn y copia el prefijo del historial de conversación en una sesión nueva."
+
+msgid "cli.session.fork.at-seq"
+msgstr "Punto de bifurcación: 0 significa bifurcación vacía; un valor mayor que 0 debe ser el número de secuencia de un evento TurnFinished."
+
+msgid "cli.session.fork.session"
+msgstr "ID de la sesión de origen."
+
+msgid "cli.session.fork.title"
+msgstr "Título de la sesión nueva (por omisión, el título de origen con el sufijo (fork))."
+
 msgid "cli.session.list.about"
 msgstr "Listar las sesiones."
 

@@ -16,6 +16,7 @@
 use duckdb::Connection;
 use whcode_domain::{ErrorCode, WhError};
 use whcode_store::directory::{self, SessionRow};
+use whcode_store::fork::{ForkOutcome, fork_session as fork_session_store};
 use whcode_store::overview as overview_store;
 use whcode_store::query::{self, Direction, EventRow};
 use whcode_store::{
@@ -196,6 +197,37 @@ pub fn new_session(
         "active",
         now_ms,
     )
+}
+
+/// 分叉会话（FR-769／ADR-065）：在源会话 turn 结束边界创建新会话并复制对话历史前缀。
+///
+/// 权限按创建会话判定（分叉产生新会话行）；`title` 缺省取"{源标题} (fork)"，空白标题
+/// 一律走默认值。边界与复制语义见 [`whcode_store::fork_session`]（store 原语是唯一
+/// SQL 落点，ADR-002）。
+///
+/// # Errors
+///
+/// 权限拒绝、源会话不存在（`not_found`）、边界不是 turn 结束或继承量超限
+/// （`invalid_state`）、存储失败（`io_error`）时返回 [`WhError`]。
+pub fn fork_session(
+    conn: &mut Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    source_session_id: &str,
+    at_seq: i64,
+    title: Option<&str>,
+    now_ms: u64,
+) -> Result<ForkOutcome, WhError> {
+    require(policy, actor, Capability::SessionCreate)?;
+    let title = match title.map(str::trim).filter(|t| !t.is_empty()) {
+        Some(title) => title.to_string(),
+        None => {
+            let source = directory::get_session(conn, source_session_id)?
+                .ok_or_else(|| not_found("会话", source_session_id))?;
+            format!("{} (fork)", source.title)
+        }
+    };
+    fork_session_store(conn, source_session_id, at_seq, &title, now_ms)
 }
 
 /// 列出会话（FR-101）；默认不含归档会话。
@@ -725,5 +757,126 @@ mod tests {
             show_session(&conn, &policy, &actor, &target.id).is_ok(),
             "拒绝不得删除"
         );
+    }
+
+    fn seed_boundary_turn(conn: &mut Connection, session_id: &str) {
+        whcode_store::append_turn(
+            conn,
+            session_id,
+            &[
+                whcode_store::TurnEventDraft {
+                    kind: whcode_domain::EventKind::TurnStarted,
+                    request_id: Some("req-1".to_string()),
+                    tool_call_id: None,
+                    payload: serde_json::json!({"kind": "TurnStarted"}),
+                },
+                whcode_store::TurnEventDraft {
+                    kind: whcode_domain::EventKind::TurnFinished,
+                    request_id: Some("req-1".to_string()),
+                    tool_call_id: None,
+                    payload: serde_json::json!({"kind": "TurnFinished"}),
+                },
+            ],
+            &[whcode_store::TurnMessageDraft {
+                role: "assistant",
+                content: "边界轮回复".to_string(),
+                token_count: Some(6),
+                parent_id: None,
+            }],
+        )
+        .expect("边界轮落表");
+    }
+
+    #[test]
+    fn fork_session_creates_child_with_default_title_and_prefix() {
+        let mut conn = migrated();
+        let policy = DefaultPolicy;
+        let actor = actor_with_all_capabilities("tester");
+        let source = new_session(
+            &conn,
+            &policy,
+            &actor,
+            NewSession {
+                title: "源会话".to_string(),
+                model: None,
+            },
+            1_000,
+        )
+        .expect("创建");
+        seed_boundary_turn(&mut conn, &source.id);
+
+        let outcome =
+            fork_session(&mut conn, &policy, &actor, &source.id, 2, None, 2_000).expect("分叉");
+        assert_eq!(outcome.source_session, source.id);
+        assert_eq!(outcome.forked_at_seq, 2);
+        assert_eq!(outcome.inherited_events, 2);
+        assert_eq!(outcome.inherited_messages, 1);
+        assert_eq!(outcome.session.title, "源会话 (fork)", "缺省标题带来源标记");
+
+        let child_events: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE session_id = ?",
+                params![outcome.session.id],
+                |row| row.get(0),
+            )
+            .expect("子会话事件");
+        let child_messages: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM messages WHERE session_id = ?",
+                params![outcome.session.id],
+                |row| row.get(0),
+            )
+            .expect("子会话消息");
+        assert_eq!((child_events, child_messages), (2, 1));
+
+        // 显式标题覆盖默认值；半截 turn 边界透传 store 的 invalid_state。
+        let titled = fork_session(
+            &mut conn,
+            &policy,
+            &actor,
+            &source.id,
+            0,
+            Some("  自定  "),
+            3_000,
+        )
+        .expect("显式标题");
+        assert_eq!(titled.session.title, "自定", "标题去首尾空白");
+        let mid_turn = fork_session(
+            &mut conn,
+            &policy,
+            &actor,
+            &source.id,
+            1,
+            Some("半截"),
+            3_000,
+        )
+        .expect_err("turn 内边界必须拒绝");
+        assert_eq!(mid_turn.code, ErrorCode::InvalidState);
+        let missing =
+            fork_session(&mut conn, &policy, &actor, "S-404", 0, None, 3_000).expect_err("缺失源");
+        assert_eq!(missing.code, ErrorCode::NotFound);
+    }
+
+    #[test]
+    fn fork_session_requires_session_create_capability() {
+        let mut conn = migrated();
+        let policy = DefaultPolicy;
+        let actor = Actor::new("limited", [Capability::SessionRead]);
+        let source = new_session(
+            &conn,
+            &policy,
+            &actor_with_all_capabilities("admin"),
+            NewSession {
+                title: "源".to_string(),
+                model: None,
+            },
+            1_000,
+        )
+        .expect("创建");
+        seed_boundary_turn(&mut conn, &source.id);
+
+        let err = fork_session(&mut conn, &policy, &actor, &source.id, 2, None, 2_000)
+            .expect_err("无 SessionCreate 必须拒绝");
+        assert_eq!(err.code, ErrorCode::PermissionDenied);
     }
 }

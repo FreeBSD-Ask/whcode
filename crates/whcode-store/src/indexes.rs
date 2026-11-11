@@ -24,7 +24,8 @@ pub struct RequiredIndex {
     pub purpose: &'static str,
 }
 
-/// 全部必需索引；与 `0001_initial.sql`—`0003_query_indexes.sql` 的 DDL 一一对应。
+/// 全部必需索引；与 `0001_initial.sql`—`0003_query_indexes.sql`、`0010_session_fork.sql`
+/// 的 DDL 一一对应。
 pub const REQUIRED_INDEXES: &[RequiredIndex] = &[
     RequiredIndex {
         name: "idx_events_session_seq",
@@ -85,6 +86,12 @@ pub const REQUIRED_INDEXES: &[RequiredIndex] = &[
         table: "audit",
         columns: "ts",
         purpose: "审计按时间检索（§10.3）",
+    },
+    RequiredIndex {
+        name: "idx_events_origin",
+        table: "events",
+        columns: "session_id, origin_event_id",
+        purpose: "分叉复制幂等键（FR-769，v10）",
     },
 ];
 

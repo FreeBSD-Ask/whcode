@@ -1715,6 +1715,30 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    // 会话分叉（T282／FR-769／ADR-065）：在 turn 结束边界创建新会话并复制对话历史前缀。
+    // GUI 按只读 v1 排除（写命令，FR-711）；TUI/Web 预留后续批次。
+    SurfaceEntry {
+        id: "session.fork",
+        kind: SurfaceKind::Command,
+        capability: Capability::SessionCreate,
+        effect: EffectClass::Write,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Implemented {
+                anchor: "whcode session fork --session --at-seq",
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Excluded {
+                reason: ExclusionReason::GuiReadOnlyV1,
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+        ],
+    },
 ];
 
 /// 按 SurfaceId 查找登记条目。

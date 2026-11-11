@@ -1834,3 +1834,40 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   `read_file`／`write_file`），`glob`／`grep` 标注“声明 30000 ms”，全部标注输出契约未声明。
   本机：`cargo test -p whcode-tools` 21/21、clippy `-D warnings`、fmt、
   `check-docs-style.py`、`check-eol.py` 全绿；CI 待运行（ADR-037）。
+
+## Tasks（2026-11-12 追加）：Phase 2 会话与历史——会话分叉（ADR-065）
+
+- [x] T282 [P] 会话分叉（FR-769／ADR-065；proposal-v3 P3.1）：store 原语 `fork_session`
+  （边界＝`TurnFinished`、空分叉允许；事件前缀＋边界轮尾随消息复制；序号基线取
+  events/messages 双表最大；事件与消息各 ≤ `MAX_FORK_EVENTS`，超限拒绝不截断；单事务、
+  源不动；`origin_event_id` 幂等键）＋schema v10（`sessions` 谱系三列、`events.origin_event_id`
+  与唯一索引、`idx_events_origin` 入必需索引注册表）＋导出/导入谱系列往返证据＋app 命令
+  （`Capability::SessionCreate` 判定、默认标题“{源标题} (fork)”）＋CUI `session fork`
+  （十三套文案同批）＋对等矩阵登记
+  ——**任务认知卡**：方向＝把 proposal-v3 P3.1 的结构性缺失（检索 `fork` 在 `crates/` 无
+  命中）落成可执行能力；目标＝用户可在 turn 边界把完整对话历史带到新会话、源不动、历史
+  完整（含边界轮最后一条助手回复）；判据＝半截 turn 拒绝、尾随消息随分叉、下一轮用户
+  消息不混入、双表序号基线不变量、双上限拒绝、导出往返无损、权限拒绝路径、十三套目录
+  同步；非目标＝TUI/Web/GUI 分叉入口（后续批次，GUI 按只读 v1 排除）、tasks/checkpoints
+  复制、对话剪枝与文件前像（P3.5 另立）。
+  ——**取证（2026-11-12）**：`whcode-store/src/fork.rs` 四项测试
+  （`fork_copies_events_and_boundary_turn_messages_and_keeps_source_intact`：全局序号跨双表
+  构造两轮对话，分叉继承事件 1—3 与尾随消息 4、不混入下一轮消息 6，源会话行数不变，末尾
+  边界继承全部剩余消息；`fork_rejects_mid_turn_boundary_and_unknown_source`：半截 turn／
+  缺失源 `not_found`／越界／空标题四条失败路径；`fork_at_zero_creates_empty_child_and_
+  enforces_caps`：空分叉零事件零消息、事件 2001 条与消息 2001 条分别超 `MAX_FORK_EVENTS`
+  即拒绝；`fork_allocates_from_shared_counter_and_keeps_global_order_invariant`：尾随消息
+  序号高于全部事件时基线取双表最大，分叉后 `append_turn` 正常落表）；`export.rs::
+  export_import_round_trip_preserves_fork_lineage`（真实分叉路径产生的谱系列经导出/导入
+  逐列无损）；`indexes.rs::required_indexes_exist_after_migration`（`idx_events_origin`
+  入注册表后动态校验）。app：`fork_session_creates_child_with_default_title_and_prefix`
+  （缺省标题“源会话 (fork)”、显式标题去空白、透传 `invalid_state`／`not_found`）＋
+  `fork_session_requires_session_create_capability`（`permission_denied`）。bin：
+  `session_forks_at_turn_boundary_and_refuses_mid_turn`（直开库播种边界轮→CUI `session
+  fork` 端到端：JSON 载荷与 `fork child=` 人类行、半截 turn 拒绝）；
+  `opening_workspace_backs_up_before_migration_and_only_once` 旧库夹具改为手工回退 v9
+  形态（0010 的 ALTER 加列不可重复应用，撤列前须清空表上索引）。本机：全量
+  `cargo test --locked --workspace` 1124 通过／0 失败（64 个测试二进制）、fmt、clippy
+  `-D warnings`、layering 6／layout 6、traceability 无断链、check_counts 一致、
+  check-adr-limits 合规（新 ADR 1 份）、check-docs-style／check-eol／i18n-po `--check`
+  全绿；CI 待运行（ADR-037）。

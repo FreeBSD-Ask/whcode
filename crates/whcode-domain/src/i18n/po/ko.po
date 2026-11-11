@@ -263,6 +263,18 @@ msgstr "세션 ID."
 msgid "cli.session.delete.yes"
 msgstr "실행을 확인합니다(--dry-run과 함께 쓸 수 없습니다, §8.1)."
 
+msgid "cli.session.fork.about"
+msgstr "turn 종료 경계에서 세션을 분기하여 대화 기록 접두사를 새 세션으로 복사합니다."
+
+msgid "cli.session.fork.at-seq"
+msgstr "분기 지점: 0은 빈 분기이며, 0보다 큰 값은 TurnFinished 이벤트의 시퀀스 번호여야 합니다."
+
+msgid "cli.session.fork.session"
+msgstr "원본 세션 ID."
+
+msgid "cli.session.fork.title"
+msgstr "새 세션 제목(기본값: 원본 제목에 (fork) 접미사)."
+
 msgid "cli.session.list.about"
 msgstr "세션을 나열합니다."
 

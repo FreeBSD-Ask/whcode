@@ -263,6 +263,18 @@ msgstr "会话 ID。"
 msgid "cli.session.delete.yes"
 msgstr "显式确认执行（与 --dry-run 互斥语义，§8.1）。"
 
+msgid "cli.session.fork.about"
+msgstr "在 turn 结束边界分叉会话，把对话历史前缀复制到新会话。"
+
+msgid "cli.session.fork.at-seq"
+msgstr "分叉点：0 表示空分叉；大于 0 必须是 TurnFinished 事件的序号。"
+
+msgid "cli.session.fork.session"
+msgstr "源会话 ID。"
+
+msgid "cli.session.fork.title"
+msgstr "新会话标题（缺省为“源标题 (fork)”）。"
+
 msgid "cli.session.list.about"
 msgstr "列出会话。"
 

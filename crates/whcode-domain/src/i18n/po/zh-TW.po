@@ -263,6 +263,18 @@ msgstr "工作階段 ID。"
 msgid "cli.session.delete.yes"
 msgstr "確認執行（與 --dry-run 互斥，§8.1）。"
 
+msgid "cli.session.fork.about"
+msgstr "在 turn 結束邊界分叉工作階段，把對話歷史前綴複製到新工作階段。"
+
+msgid "cli.session.fork.at-seq"
+msgstr "分叉點：0 表示空分叉；大於 0 必須是 TurnFinished 事件的序號。"
+
+msgid "cli.session.fork.session"
+msgstr "來源工作階段 ID。"
+
+msgid "cli.session.fork.title"
+msgstr "新工作階段標題（預設為「來源標題 (fork)」）。"
+
 msgid "cli.session.list.about"
 msgstr "列出工作階段。"
 

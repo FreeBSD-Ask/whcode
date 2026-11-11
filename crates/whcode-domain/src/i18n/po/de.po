@@ -263,6 +263,18 @@ msgstr "Sitzungs-ID."
 msgid "cli.session.delete.yes"
 msgstr "Ausführung bestätigen (schließt --dry-run aus, §8.1)."
 
+msgid "cli.session.fork.about"
+msgstr "Sitzung an einer Turn-Endegrenze abzweigen und das Präfix des Konversationsverlaufs in eine neue Sitzung kopieren."
+
+msgid "cli.session.fork.at-seq"
+msgstr "Verzweigungspunkt: 0 bedeutet leere Verzweigung; ein Wert größer 0 muss die Sequenznummer eines TurnFinished-Ereignisses sein."
+
+msgid "cli.session.fork.session"
+msgstr "ID der Quellsitzung."
+
+msgid "cli.session.fork.title"
+msgstr "Titel der neuen Sitzung (standardmäßig der Quelltitel mit dem Suffix (fork))."
+
 msgid "cli.session.list.about"
 msgstr "Sitzungen auflisten."
 

@@ -263,6 +263,18 @@ msgstr "সেশন ID।"
 msgid "cli.session.delete.yes"
 msgstr "চালানো নিশ্চিত করে (--dry-run থাকলে পরস্পরবিরোধী, §8.1)।"
 
+msgid "cli.session.fork.about"
+msgstr "turn শেষ সীমায় সেশন শাখা তৈরি করে এবং কথোপকথনের ইতিহাসের উপসর্গ নতুন সেশনে অনুলিপি করে।"
+
+msgid "cli.session.fork.at-seq"
+msgstr "শাখা বিন্দু: 0 মানে খালি শাখা; 0-এর বেশি মান TurnFinished ঘটনার ক্রম সংখ্যা হতে হবে।"
+
+msgid "cli.session.fork.session"
+msgstr "উৎস সেশন ID।"
+
+msgid "cli.session.fork.title"
+msgstr "নতুন সেশনের শিরোনাম (ডিফল্ট উৎস শিরোনামের সাথে (fork) প্রত্যয়)।"
+
 msgid "cli.session.list.about"
 msgstr "সেশনের তালিকা দেখায়।"
 

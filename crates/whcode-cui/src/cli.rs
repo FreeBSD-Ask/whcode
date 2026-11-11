@@ -181,6 +181,18 @@ pub enum SessionCommand {
         #[arg(long)]
         out: String,
     },
+    /// 分叉会话（在 turn 结束边界复制对话历史前缀到新会话，FR-769）。
+    Fork {
+        /// 源会话 ID。
+        #[arg(long)]
+        session: String,
+        /// 分叉序号（0＝空分叉；大于 0 必须是 TurnFinished 事件序号）。
+        #[arg(long)]
+        at_seq: i64,
+        /// 新会话标题（缺省取“{源标题} (fork)”）。
+        #[arg(long)]
+        title: Option<String>,
+    },
     /// 重命名会话。
     Rename {
         /// 会话 ID。

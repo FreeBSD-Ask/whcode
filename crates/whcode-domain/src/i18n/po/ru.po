@@ -263,6 +263,18 @@ msgstr "Идентификатор сессии."
 msgid "cli.session.delete.yes"
 msgstr "Подтвердить выполнение (несовместимо с --dry-run, §8.1)."
 
+msgid "cli.session.fork.about"
+msgstr "Разветвляет сеанс на границе завершения turn, копируя префикс истории беседы в новый сеанс."
+
+msgid "cli.session.fork.at-seq"
+msgstr "Точка ветвления: 0 — пустое ветвление; значение больше 0 должно быть номером события TurnFinished."
+
+msgid "cli.session.fork.session"
+msgstr "Идентификатор исходного сеанса."
+
+msgid "cli.session.fork.title"
+msgstr "Заголовок нового сеанса (по умолчанию — заголовок источника с суффиксом (fork))."
+
 msgid "cli.session.list.about"
 msgstr "Список сессий."
 

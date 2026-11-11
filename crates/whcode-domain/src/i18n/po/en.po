@@ -263,6 +263,18 @@ msgstr "Session ID."
 msgid "cli.session.delete.yes"
 msgstr "Confirm execution (conflicts with --dry-run, §8.1)."
 
+msgid "cli.session.fork.about"
+msgstr "Fork a session at a turn boundary, copying the conversation history prefix into a new session."
+
+msgid "cli.session.fork.at-seq"
+msgstr "Fork point: 0 means an empty fork; a value above 0 must be the sequence number of a TurnFinished event."
+
+msgid "cli.session.fork.session"
+msgstr "Source session ID."
+
+msgid "cli.session.fork.title"
+msgstr "Title of the new session (defaults to the source title plus the suffix (fork))."
+
 msgid "cli.session.list.about"
 msgstr "List sessions."
 

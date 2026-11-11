@@ -263,6 +263,18 @@ msgstr "セッション ID。"
 msgid "cli.session.delete.yes"
 msgstr "実行を確定します（`--dry-run` とは同時に指定できません、§8.1）。"
 
+msgid "cli.session.fork.about"
+msgstr "ターン終了境界でセッションを分岐し、会話履歴の接頭辞を新しいセッションへコピーします。"
+
+msgid "cli.session.fork.at-seq"
+msgstr "分岐点：0 は空の分岐、0 より大きい値は TurnFinished イベントのシーケンス番号である必要があります。"
+
+msgid "cli.session.fork.session"
+msgstr "ソースセッション ID。"
+
+msgid "cli.session.fork.title"
+msgstr "新しいセッションのタイトル（省略時は「ソースタイトル (fork)」）。"
+
 msgid "cli.session.list.about"
 msgstr "セッションを一覧表示します。"
 

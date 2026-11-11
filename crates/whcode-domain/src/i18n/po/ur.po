@@ -263,6 +263,18 @@ msgstr "سیشن ID۔"
 msgid "cli.session.delete.yes"
 msgstr "عمل کی تصدیق (--dry-run سے متصادم، §8.1)۔"
 
+msgid "cli.session.fork.about"
+msgstr "turn کی اختتامی حد پر سیشن کی شاخ بناتا ہے اور گفتگو کی تاریخ کا سابقہ نئے سیشن میں نقل کرتا ہے۔"
+
+msgid "cli.session.fork.at-seq"
+msgstr "شاخ کا نقطہ: 0 کا مطلب خالی شاخ ہے؛ 0 سے بڑی قیمت TurnFinished واقعے کا ترتیب نمبر ہونی چاہیے۔"
+
+msgid "cli.session.fork.session"
+msgstr "مصدر سیشن ID۔"
+
+msgid "cli.session.fork.title"
+msgstr "نئے سیشن کا عنوان (بنیادی طور پر مصدر عنوان کے ساتھ (fork) لاحقہ)۔"
+
 msgid "cli.session.list.about"
 msgstr "سیشنز کی فہرست دکھائیں۔"
 

@@ -13,6 +13,21 @@
 
 ### 变更
 
+- **会话分叉（T282，FR-769，2026-11-12）**：新增 `whcode-store::fork_session` 与 CUI
+  `whcode session fork --session --at-seq [--title]`：在源会话 turn 结束边界（`TurnFinished`
+  事件；0＝空分叉）创建新会话，复制事件前缀与边界轮尾随消息（`append_turn` 事件先于消息
+  落表，故“下一事件之前”的消息恰好收进边界轮、不混入下一轮用户消息），源会话不变；
+  序号基线取 events/messages 双表最大（保持“序号即物理先后”不变量）；事件与消息各
+  ≤ 2000、超限拒绝不截断；单事务提交、失败整体回滚。schema v10：`sessions` 增
+  `parent_id`／`forked_at_seq`／`inherited_event_count`，`events` 增 `origin_event_id`
+  与唯一索引 `idx_events_origin`（入必需索引注册表，打开校验）；导出/导入按
+  `duckdb_columns()` 动态覆盖新列并有往返回归测试。app 层按 `SessionCreate` 判定权限、
+  缺省标题“{源标题} (fork)”；`session.fork` 入能力面登记与对等矩阵（CUI 已实现、TUI/Web
+  预留、GUI 按只读 v1 排除）；四键文案随十三套目录同批并同步 PO；决策与已知限制见
+  ADR-065。证据：全量 `cargo test --locked --workspace` 1124 通过／0 失败，store 137
+  （fork 4＋往返 1）、app、bin 端到端、`frontend_parity` 10/10；Check 377 取证详见
+  checklist 第二十六层；CI 待运行（ADR-037）。
+
 - **界面文案代理审校第三批（2026-11-11）**：复核第二批之后新增的 71 键（B3 工具卡与审批、
   B4 面板与规则、B5 分享、CUI／TUI 工具文本）在 ja／ko／ru／fr／es／de／ar／ur／zh-TW 的
   表现，修订 28 处：bn“সাবএজেন্ট চালা”（চালা＝棚屋）改为“রান”；ur 子代理运行与迭代

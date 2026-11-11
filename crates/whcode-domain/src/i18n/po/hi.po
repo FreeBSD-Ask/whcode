@@ -263,6 +263,18 @@ msgstr "सत्र ID।"
 msgid "cli.session.delete.yes"
 msgstr "चलाने की पुष्टि (--dry-run से टकराता है, §8.1)।"
 
+msgid "cli.session.fork.about"
+msgstr "turn समाप्ति सीमा पर सत्र की शाखा बनाता है और बातचीत इतिहास का उपसर्ग नए सत्र में प्रतिलिपित करता है।"
+
+msgid "cli.session.fork.at-seq"
+msgstr "शाखा बिंदु: 0 का अर्थ रिक्त शाखा है; 0 से बड़ा मान TurnFinished घटना की अनुक्रम संख्या होनी चाहिए।"
+
+msgid "cli.session.fork.session"
+msgstr "स्रोत सत्र ID।"
+
+msgid "cli.session.fork.title"
+msgstr "नए सत्र का शीर्षक (डिफ़ॉल्ट रूप से स्रोत शीर्षक के साथ (fork) प्रत्यय)।"
+
 msgid "cli.session.list.about"
 msgstr "सत्रों की सूची दिखाएँ।"
 

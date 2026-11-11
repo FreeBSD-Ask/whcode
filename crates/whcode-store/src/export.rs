@@ -765,6 +765,7 @@ pub fn has_any_workspace_data(conn: &Connection) -> Result<bool, WhError> {
 mod tests {
     use super::*;
     use crate::schema::apply_migrations;
+    use crate::turn::{TurnEventDraft, TurnMessageDraft};
     use duckdb::params;
 
     fn temp_path(tag: &str) -> std::path::PathBuf {
@@ -936,6 +937,90 @@ mod tests {
             )
             .expect("审计行");
         assert_eq!(audit_rows, 1, "导出必须写 data_export 审计");
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn export_import_round_trip_preserves_fork_lineage() {
+        // 真实分叉路径产生谱系数据，导出/导入后必须逐列无损（schema v10 新列随
+        // duckdb_columns 动态进出，本测试是该机制的回归证据）。
+        let mut source = migrated();
+        source
+            .execute(
+                "INSERT INTO workspace_meta (workspace_id, schema_version, created_at)
+                 VALUES ('WS-F', ?, current_timestamp)",
+                params![crate::schema::STORE_SCHEMA_VERSION as i64],
+            )
+            .expect("工作区元数据");
+        let source_row = crate::directory::create_session(&source, "源会话", None, "active", 1_000)
+            .expect("源会话");
+        crate::turn::append_turn(
+            &mut source,
+            &source_row.id,
+            &[
+                TurnEventDraft {
+                    kind: whcode_domain::EventKind::TurnStarted,
+                    request_id: Some("req-1".to_string()),
+                    tool_call_id: None,
+                    payload: serde_json::json!({"kind": "TurnStarted"}),
+                },
+                TurnEventDraft {
+                    kind: whcode_domain::EventKind::TurnFinished,
+                    request_id: Some("req-1".to_string()),
+                    tool_call_id: None,
+                    payload: serde_json::json!({"kind": "TurnFinished"}),
+                },
+            ],
+            &[TurnMessageDraft {
+                role: "assistant",
+                content: "边界轮回复".to_string(),
+                token_count: Some(6),
+                parent_id: None,
+            }],
+        )
+        .expect("源 turn");
+        let outcome = crate::fork::fork_session(&mut source, &source_row.id, 2, "子会话", 2_000)
+            .expect("分叉");
+        assert_eq!(outcome.inherited_events, 2);
+        assert_eq!(outcome.inherited_messages, 1);
+
+        let path = temp_path("forklineage");
+        let report = export_workspace(&source, &path, "tester", 1_700_000_000_000).expect("导出");
+        let mut target = migrated();
+        import_workspace(&mut target, &path, Some(&report.content_hash)).expect("导入");
+
+        let (parent, forked_at, inherited): (Option<String>, Option<i64>, Option<i64>) = target
+            .query_row(
+                "SELECT parent_id, forked_at_seq, inherited_event_count FROM sessions WHERE id = ?",
+                params![outcome.session.id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("子会话谱系");
+        assert_eq!(parent.as_deref(), Some(source_row.id.as_str()));
+        assert_eq!(forked_at, Some(2));
+        assert_eq!(inherited, Some(2));
+
+        let (events, origins): (i64, i64) = target
+            .query_row(
+                "SELECT COUNT(*), COUNT(origin_event_id) FROM events WHERE session_id = ?",
+                params![outcome.session.id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("子会话事件");
+        assert_eq!(
+            (events, origins),
+            (2, 2),
+            "事件及其 origin_event_id 成对往返"
+        );
+        let messages: i64 = target
+            .query_row(
+                "SELECT COUNT(*) FROM messages WHERE session_id = ?",
+                params![outcome.session.id],
+                |row| row.get(0),
+            )
+            .expect("子会话消息");
+        assert_eq!(messages, 1, "边界轮尾随消息随导出往返");
 
         let _ = std::fs::remove_file(&path);
     }

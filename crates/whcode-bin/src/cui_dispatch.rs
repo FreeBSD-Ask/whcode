@@ -658,6 +658,34 @@ fn session_command(
             );
             Ok((report_value(&export)?, human))
         }
+        SessionCommand::Fork {
+            session,
+            at_seq,
+            title,
+        } => {
+            let mut conn = open_db(workspace, config)?;
+            let outcome = whcode_app::session::fork_session(
+                &mut conn,
+                policy,
+                actor,
+                session,
+                *at_seq,
+                title.as_deref(),
+                now,
+            )?;
+            let human = format!(
+                "fork child={} source={} at_seq={} events={} messages={}",
+                outcome.session.id,
+                outcome.source_session,
+                outcome.forked_at_seq,
+                outcome.inherited_events,
+                outcome.inherited_messages
+            );
+            let value = serde_json::to_value(&outcome).map_err(|err| {
+                whcode_domain::WhError::parse_error(format!("分叉结果序列化失败：{err}"))
+            })?;
+            Ok((value, human))
+        }
         SessionCommand::Rename { session, title } => {
             let mut conn = open_db(workspace, config)?;
             let outcome = whcode_app::execute_command(
@@ -1617,6 +1645,85 @@ mod tests {
 
         let err = execute(&command, &workspace, &whcode_domain::i18n::I18n::default())
             .expect_err("目标已存在必须拒绝");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// T282／FR-769：CUI `session fork` 在 turn 结束边界分叉；缺省标题与半截 turn 拒绝。
+    #[test]
+    fn session_forks_at_turn_boundary_and_refuses_mid_turn() {
+        let workspace = temp_workspace("fork");
+        let created = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "源会话".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("创建会话");
+        let id = created.0["session"]["id"]
+            .as_str()
+            .expect("会话 ID")
+            .to_string();
+
+        // 直开库播种一个已闭合 turn（事件 1—2 ＋ 尾随消息 3）；DuckDB 独占库文件，
+        // 播种连接必须在 execute 重开之前释放。
+        {
+            let conn =
+                duckdb::Connection::open(workspace.join("whcode.duckdb")).expect("打开工作区库");
+            conn.execute(
+                "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                     kind, payload_json, ts, persistence_level)
+                 VALUES (?, ?, ?, NULL, 'req-1', NULL, ?, CAST(? AS JSON)::VARIANT,
+                         current_timestamp, 'redacted')",
+                duckdb::params![1, "EV-1", id, "TurnStarted", "{\"kind\":\"TurnStarted\"}"],
+            )
+            .expect("播种 TurnStarted");
+            conn.execute(
+                "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                     kind, payload_json, ts, persistence_level)
+                 VALUES (?, ?, ?, NULL, 'req-1', NULL, ?, CAST(? AS JSON)::VARIANT,
+                         current_timestamp, 'redacted')",
+                duckdb::params![2, "EV-2", id, "TurnFinished", "{\"kind\":\"TurnFinished\"}"],
+            )
+            .expect("播种 TurnFinished");
+            conn.execute(
+                "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
+                 VALUES (?, ?, 'assistant', ?, 6, current_timestamp, NULL)",
+                duckdb::params!["MSG-3", id, "边界轮回复"],
+            )
+            .expect("播种尾随消息");
+        }
+
+        let command = Command::Session {
+            command: SessionCommand::Fork {
+                session: id.clone(),
+                at_seq: 2,
+                title: None,
+            },
+        };
+        let (value, human) =
+            execute(&command, &workspace, &whcode_domain::i18n::I18n::default()).expect("分叉");
+        assert_eq!(value["source_session"], id.as_str());
+        assert_eq!(value["forked_at_seq"], 2);
+        assert_eq!(value["inherited_events"], 2);
+        assert_eq!(value["inherited_messages"], 1);
+        assert_eq!(value["session"]["title"], "源会话 (fork)");
+        assert!(human.starts_with("fork child="), "{human}");
+
+        // 半截 turn 边界拒绝（事件 1 是 TurnStarted）。
+        let mid = Command::Session {
+            command: SessionCommand::Fork {
+                session: id.clone(),
+                at_seq: 1,
+                title: Some("半截".into()),
+            },
+        };
+        let err = execute(&mid, &workspace, &whcode_domain::i18n::I18n::default())
+            .expect_err("turn 内边界必须拒绝");
         assert_eq!(err.code, ErrorCode::InvalidState);
         let _ = std::fs::remove_dir_all(&workspace);
     }
