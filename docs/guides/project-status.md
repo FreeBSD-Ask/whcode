@@ -1,10 +1,10 @@
-# 项目状态快照（2026-11-08）
+# 项目状态快照（2026-11-11）
 
 本页是**带日期的状态快照**，供了解进度用。权威账本始终是
 [`tasks.md`](../../specs/001-whcode-harness/tasks.md)（任务勾选）与
 [`checklist.md`](../../specs/001-whcode-harness/checklist.md)（验收检查点）。
 两者与 `spec.md` 的 FR 三方追溯由 `python .github/scripts/traceability.py` 与
-`check_counts.py` 在 CI 中强制；本页数字来自这两个文件在 2026-11-08 的实测统计，
+`check_counts.py` 在 CI 中强制；本页数字来自这两个文件在 2026-11-11 的实测统计，
 过期即失效，不得引用为验收结论。CI 结论以最新 run 为准，本页不写“当前红／绿”。
 
 ## 总量
@@ -12,31 +12,31 @@
 | 项 | 数量 |
 |---|---|
 | 功能需求 FR | 146 |
-| 任务 | 281（已完成 276，未完成 5） |
-| 验收检查点 | 376（已有复核记录 370，missing 6） |
+| 任务 | 281（已完成 281，未完成 0） |
+| 验收检查点 | 376（已有复核记录 376，missing 0） |
 
-证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 321、
-outcome-supported 49、missing 6。missing 集中在 Phase 24 的 B3b GUI 段与 B4／B5
-（Check 348、350、354—357）。
-并行会话在途（截至本快照）：ADR-058 条件已收口，T251／Check 347 于 2026-11-10 转勾
-（CI run `42680588379` 全平台 success）；ADR-060 Phase 1（T264—T275）已全收口；
-proposal-v3 Phase 2 的 P3.4 迁移前备份（T280，ADR-063）与 P7.4 工具目录（T281，ADR-045
-修订）已交付；B3b 后端（T255）、Web 段（T257）与 GUI 段（T256）已全部交付；余项为 B4／B5、T263
-对账与 T279。
+证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 327、
+outcome-supported 49、missing 0。Phase 24（T244—T263）与 ADR-060 Phase 1（T264—T275）
+全部收口，最近一批 Check 359—376 的取证见 `checklist.md`。
+并行会话在途（截至本快照）：无已入账的未完成任务；工作树存在 P3.1 会话分叉的未入账
+WIP（schema v10 迁移，引用 T282／FR-769／ADR-065，三者均未登记），未过 G1，不计入进度。
+proposal-v3 全部 45 条提案的执行态比对见
+[`artifacts/proposal-v3-execution-audit-2026-11-11.md`](../../artifacts/proposal-v3-execution-audit-2026-11-11.md)：
+已实现 19、部分 2（P3.3／P7.2）、在途 1（P3.1）、未实现 23。
 回填后须重跑上述脚本并更新本表，不得沿用旧数字。
 
 ## 四端能力面
 
 `docs/matrices/feature-parity.md` 为受校验产物（来源 `whcode-app::surface::SURFACES`），
-共 **58 条**能力面（48 Command＋10 View）；状态符号为 已实现、部分、预留，
+共 **65 条**能力面（51 Command＋14 View）；状态符号为 已实现、部分、预留，
 每端另有 1—2 行“不提供”（该端按理由码排除）：
 
 | 端 | 已实现 | 部分 | 预留 | 不提供 |
 |---|---|---|---|---|
-| CUI | 33 | 12 | 11 | 2 |
-| TUI | 27 | 19 | 11 | 1 |
-| GUI | 27 | 29 | 1 | 1 |
-| Web | 31 | 14 | 11 | 2 |
+| CUI | 34 | 18 | 11 | 2 |
+| TUI | 27 | 26 | 11 | 1 |
+| GUI | 32 | 31 | 1 | 1 |
+| Web | 37 | 15 | 11 | 2 |
 
 ## 里程碑
 
@@ -48,10 +48,13 @@ proposal-v3 Phase 2 的 P3.4 迁移前备份（T280，ADR-063）与 P7.4 工具�
 | M8 可选执行运行时 | 实现完成，feature 默认关闭 |
 | M9 优化与发布 | 已交付：兼容矩阵、运行时清单、热点优化（T115）、发布包与指南；稳定性（NFR-204）以 24h 深检收口通过（T116/Check 116/195，2026-11-02） |
 | Phase 13 跨里程碑收尾 | 已完成（安全复查、quickstart 全流程、追溯审计） |
-| 四端对等（FR-619—625） | 已完成（ADR-032）；58 条能力登记表（2026-11-08 实测）为单一事实源 |
-| Phase 24 ZCode 全量体验对齐（ADR-057） | 进行中：立项任务 T244—T263 共 20 项、完成 15 项（T244—T257、T262；T251 于 2026-11-10 转勾）；其后治理与工程批次 T264—T275（ADR-060 Phase 1）、T276—T278、T280—T281（P3.4 备份、P7.4 工具目录）已全部转勾；余项为 T258—T261（B4／B5）与 T263（结题对账）；T279 已勾 |
+| 四端对等（FR-619—625） | 已完成（ADR-032）；65 条能力登记表（2026-11-11 实测）为单一事实源 |
+| Phase 24 ZCode 全量体验对齐（ADR-057） | 已完成：立项任务 T244—T263 共 20 项全部转勾（B5 结题 T263 于 2026-11-11 收口）；治理与工程批次 T264—T275（ADR-060 Phase 1）、T276—T279、T280—T281 亦全部转勾 |
+| ADR-059 路线 Phase 2（proposal-v3） | 部分交付：P3.4 迁移前备份（T280，ADR-063）、P7.4 工具目录（T281）已收口；P3.1 会话分叉在途但未入账；其余按 proposal-v3 §6 排序待开工 |
 
 ## 未完成项与原因
+
+当前账本无未完成任务；以下条目是仍开放的观察项、平台缺口与历史收口记录。
 
 - **BSD 验收（2026-11-03 已收口一批）**：Check 22/25/96/99/195/336 与 T099/T240 已转勾（run `41481740766` 硬门禁首次全绿，证据落库 `artifacts/ssh-acceptance/` 与 `artifacts/store-acceptance/`）。ADR-013 修订（2026-10-31）设 FreeBSD 为完整平台证据通道（硬门禁）；修订（2026-11-03，用户指令）定 **NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发**（被 Windows/FreeBSD 内置 SSH 客户端连入的目标，不要求原生工具链/引擎；NetBSD 原生 SSH GO 维持为证据，NetBSD 原生 store 豁免——上游 DuckDB 2.0.0 依赖 glibc `features.h`；OpenBSD/DragonFly 节点证据走真实连入取证，DragonFly 同日追加同待遇）。**仍开放**：V-004 外部节点连通性（M7）；性能分位数未取得（perf 通道仅 Windows）。**2026-11-06 观察**：FreeBSD 通道在 run `42143683382` 出现 `store_gate = NO-GO`（DuckDB 源码构建报 `platform.hpp:22 'features.h' file not found`），与 2026-11-03 run `41481740766` 的 GO 不一致，**根因未归因**，不得读作代码回归；CI 结论以最新 run 为准，细节见 `docs/matrices/compatibility.md`。
 - **稳定性（NFR-204，已收口）**：T116/Check 116/195。5.5h CI 窗口对 0.5 MB/h 无分辨力（run 40529349945 无权判定）后按 ADR-025 升级 24h 本机深检——287 样本、多口径一致负斜率（warmup_ols −0.3551、phase_aligned −0.2681、稳态 −1.24）、线程/句柄无持续增长，**verdict=通过**（2026-11-02）；判据增补见 ADR-025 修订记录；证据 `artifacts/nfr204-verdict-24h-2026-11-02.md`。
@@ -80,7 +83,9 @@ proposal-v3 Phase 2 的 P3.4 迁移前备份（T280，ADR-063）与 P7.4 工具�
 - **ADR 未决项**：无。ADR-058（turn 执行移出 serve 循环线程，WS 逐块增量转发）于
   2026-11-06 经用户「批准开发」转**已批准（附条件）**；条件 M1 复绿（`942dd14`）、
   M2 鉴权前置、M3 计数原子化、M4 busy 语义、M5 有损通道、M9 帧字段、M11 构造器收敛已
-  落地并有 6 条测试；**未闭环**：M7 用例 7—11 与三指标归档（`artifacts/turn-ws-relay-*`）。
+  落地并有 6 条测试；M7 用例 7—10 与三指标于 2026-11-10 归档
+  （`artifacts/turn-ws-relay-2026-11-09/`，CI run `42680588379` 全平台 success）；
+  用例 11 按 ADR-058 §3.6 登记缺口，不冒充通过。
   ADR-042 已批准（2026-10-26 方案 A），残余缺口是 FR-712 线程判据
   28 > 24（见上）。Check 134 于 2026-11-03 转勾——ADR-005、ADR-010、ADR-012 三份
   “部分批准”经证据收口转正（SSH 回环＋real-sshd 互操作、FreeBSD 源码构建 DuckDB 2.0.0、

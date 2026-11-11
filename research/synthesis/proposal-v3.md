@@ -264,6 +264,11 @@ P3.5 依赖 P3.1。
 
 ## 11. 修订记录
 
+- **2026-11-11（执行态比对回填）**：45 条提案逐条对照当前实现
+  （[`artifacts/proposal-v3-execution-audit-2026-11-11.md`](../../artifacts/proposal-v3-execution-audit-2026-11-11.md)）：
+  已实现 19（P1.1—P1.7、P2.1／P2.3、P3.4／P3.6、P4.1—P4.4、P7.1／P7.4／P7.5／P7.6）、
+  部分 2（P3.3／P7.2）、在途 1（P3.1，schema v10 未入账）、未实现 23。§3 的“进行中”与
+  §6 Phase 0 均已完成；§4 表内已实现条目按历史口径保留，不再作为待办。
 - **2026-11-07（用户批准全量采纳）**：D10—D15 全批（含默认建议），“不计成本”口径获得书面
   裁定（开发 effort 不作过滤、硬边界零例外）；路线层 G0 载体＝
   [`docs/adr/ADR-059-terminal-roadmap-adoption.md`](../../docs/adr/ADR-059-terminal-roadmap-adoption.md)。

@@ -78,6 +78,8 @@
 !/artifacts/progress-review-2026-11-09.md
 # Web 元素级 RTL 镜像收口证据（2026-11-09）：阿语三页截图与几何测量（Check 374／ADR-062）。
 !/artifacts/rtl-web-2026-11-09/
+# proposal-v3 执行态比对（2026-11-11）：45 条提案与磁盘事实逐条对照（ADR-059 复审输入）。
+!/artifacts/proposal-v3-execution-audit-2026-11-11.md
 # M0 退出报告是治理交付物（tasks.md T031、§12.2），必须随仓库版本化。
 
 # 工作区数据库与 WAL（运行时产物，不进版本库）
