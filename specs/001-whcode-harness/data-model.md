@@ -47,6 +47,10 @@
 - 字段：`id, session_id, window_start_seq, window_end_seq, total_tokens, summary_ref, created_at`
 - 约束：记录摘要与原文范围关系（FR-107）
 - 校验：`window_start_seq ≤ window_end_seq`；压缩后原始历史仍可查（FR-107）
+- 口径登记（2026-11-12，ADR-066 决策 7）：现行写入路径把窗口边界写成**压缩发生时本 turn
+  的事件区间**（`turn.rs`：`base_seq + 1 .. end_seq`），不是被折叠原文的消息区间。因此
+  “哪些消息被遮蔽”**不得**由本表推断；事件三态分类改由同源派生（ADR-066），本字段语义修正
+  须另立事项并单独取证。
 
 ### session_overview
 - 字段：`session_id, by_stage_json, total, done, blocked, refreshed_at`

@@ -1871,3 +1871,34 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   `-D warnings`、layering 6／layout 6、traceability 无断链、check_counts 一致、
   check-adr-limits 合规（新 ADR 1 份）、check-docs-style／check-eol／i18n-po `--check`
   全绿；CI 待运行（ADR-037）。
+
+## Tasks（2026-11-12 追加）：Phase 2 会话与历史——事件三态分类视图（ADR-066）
+
+- [x] T283 [P] 事件三态分类视图（FR-770／ADR-066；proposal-v3 P3.2）：store 增
+  `query::message_seqs_in_range`（区间内 `MSG-<n>` 孪生集合，`TRY_CAST` 容错）＋app
+  `events::EventContextState`／`EventState`／`EventStateCounts` 与派生分类（窗口复用
+  `context::load_context`，预算取默认 turn 预算；不新增列、不写库）＋`EventsExport` 携带
+  `states`／`state_counts`＋CUI `events list`／`export` JSON 与 JSONL 头＋人类行 `[state]`
+  标注（数据字段不翻译）＋Web `/api/events` 经同一导出自带
+  ——**任务认知卡**：方向＝把“折叠后原文仍在、但哪些还被模型看见”的空白落成可判定视图
+  （DSH 域 L 已列为可采纳查询视图字段）；目标＝用户与审计能区分“当前上下文内／被遮蔽／
+  纯日志”，且查询口径与模型口径同源；判据＝三态正反例（无孪生→log_only、窗口内→current、
+  预算截断后→shadowed）、标注与事件同序、三值计数之和等于页内事件数、空会话为正确的空、
+  分类零写入（三表行数不变）、人类行有标注显示且无标注不伪造、Web 经同一导出获得；
+  非目标＝全文检索（P3.3）、遮蔽原因细分、`context_windows` 语义修正（另立）、GUI/TUI
+  图形化标注。
+  ——**取证（2026-11-12）**：`whcode-store/src/query.rs::message_seqs_in_range` 与
+  `query::tests::message_seqs_in_range_reports_only_message_twins_within_bounds`（区间内
+  `MSG-<n>` 孪生；区间外、缺失会话为正确的空；外部夹具 `M-1` 不规范 id 经 `TRY_CAST` 排除且
+  不报错）。app：`events::tests::states_classify_current_shadowed_and_log_only_against_the_
+  model_window`（跨双表构造 6 事件 3 消息：无孪生→`log_only`、预算内→`current`、单条超默认
+  预算后→`shadowed`；标注与事件同序、三值计数 (1,2,3) 且之和等于页内事件数、序列化名为
+  `snake_case`）＋`states_on_empty_session_are_empty_and_classification_never_writes`（无事件
+  会话为空的标注与零计数；分类前后事件/消息/context_windows 三表行数不变——派生视图零写入）。
+  bin：`events_human_output_shows_context_state_only_when_present`（有 `states` 时行形如
+  `1 StreamingChunk [current]`，无 `states` 时不加括号、不伪造状态）。Web `/api/events` 与
+  `/api/events/export` 经同一 `events_export` 自动携带（无独立改动，见 ADR-066 决策 4）。
+  本机：全量 `cargo test --locked --workspace` 1128 通过／0 失败（64 个测试二进制）、fmt、
+  clippy `-D warnings`、layering 6／layout 6、traceability 无断链、check_counts 一致（148／
+  283／378，missing 0）、check-adr-limits 合规、check-docs-style／check-eol／i18n-po `--check`
+  全绿；CI 待运行（ADR-037）。

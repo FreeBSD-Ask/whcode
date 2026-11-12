@@ -389,6 +389,10 @@ taskkill /T /F 口径）（P1）
   （`parent_id`／`forked_at_seq`／`inherited_event_count`）与复制幂等键
   （`origin_event_id` 唯一索引）落库；继承事件数与消息数各有常量上限，超限拒绝不截断；
   权限判定与标题默认值在应用层（P1；ADR-065／P3.1）
+- **FR-770**: 事件三态分类视图：导出/查询的事件逐条标注在模型上下文中的状态（`current`／
+  `shadowed`／`log_only`），判定复用模型历史派生函数（同一 fold surface）与消息孪生关系，
+  不在库内新增状态列；分页有界、三值计数与页内事件数相等；Web 与 CUI 经同一导出同源获得
+  （P2；ADR-066／P3.2）
 
 **Spec Kit / SDD 工作流（§4.3）**
 

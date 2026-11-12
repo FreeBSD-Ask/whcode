@@ -1088,6 +1088,19 @@ fn human_event_lines(value: &Value, texts: &I18n) -> String {
     let Some(events) = value["events"].as_array() else {
         return String::new();
     };
+    // 三态标注（T283／FR-770）：`states` 与 `events` 同序；按 seq 索引以容错。
+    let states: HashMap<i64, String> = value["states"]
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    let seq = item["seq"].as_i64()?;
+                    Some((seq, item["state"].as_str()?.to_string()))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     let mut tool_names: HashMap<String, String> = HashMap::new();
     for event in events {
         if event["kind"].as_str() == Some(TOOL_STARTED)
@@ -1111,9 +1124,13 @@ fn human_event_lines(value: &Value, texts: &I18n) -> String {
                     .or_else(|| tool_names.get(&parsed.call_id).cloned());
                 crate::tool_call_text::event_summary(texts, kind, payload, hint.as_deref())
             });
-            match detail {
-                Some(text) => format!("{seq} {kind} {text}"),
-                None => format!("{seq} {kind}"),
+            // 无标注（调用方未提供 states）时不加括号：不伪造状态。
+            let state = states.get(&seq).map(String::as_str);
+            match (state, detail) {
+                (Some(state), Some(text)) => format!("{seq} {kind} [{state}] {text}"),
+                (Some(state), None) => format!("{seq} {kind} [{state}]"),
+                (None, Some(text)) => format!("{seq} {kind} {text}"),
+                (None, None) => format!("{seq} {kind}"),
             }
         })
         .collect::<Vec<_>>()
@@ -2510,5 +2527,30 @@ mod tests {
         );
         assert!(rows[1].contains("42") && rows[1].contains("输出=done"));
         assert_eq!(rows[2], "3 StreamingChunk", "非工具事件保持两列");
+    }
+
+    /// T283／FR-770：事件行在提供三态标注时以 `[state]` 显示；未提供时不伪造标注。
+    #[test]
+    fn events_human_output_shows_context_state_only_when_present() {
+        let with_states = serde_json::json!({
+            "events": [
+                { "seq": 1, "kind": "StreamingChunk", "payload_json": "{}" },
+                { "seq": 2, "kind": "TurnFinished", "payload_json": "{}" }
+            ],
+            "states": [
+                { "seq": 1, "state": "current" },
+                { "seq": 2, "state": "log_only" }
+            ]
+        });
+        let lines = human_event_lines(&with_states, &I18n::default());
+        let rows: Vec<&str> = lines.lines().collect();
+        assert_eq!(rows[0], "1 StreamingChunk [current]");
+        assert_eq!(rows[1], "2 TurnFinished [log_only]");
+
+        let without_states = serde_json::json!({
+            "events": [{ "seq": 1, "kind": "StreamingChunk", "payload_json": "{}" }]
+        });
+        let lines = human_event_lines(&without_states, &I18n::default());
+        assert_eq!(lines, "1 StreamingChunk", "无标注时不加括号");
     }
 }

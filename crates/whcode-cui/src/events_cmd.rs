@@ -37,6 +37,8 @@ pub fn events_json(
         "redacted": export.redacted,
         "integrity": export.integrity.to_json(),
         "count": export.events.len(),
+        "states": export.states,
+        "state_counts": export.state_counts,
         "events": export.events,
     }))
 }
@@ -64,6 +66,7 @@ pub fn events_jsonl(
         "redacted": export.redacted,
         "integrity": export.integrity.to_json(),
         "count": export.events.len(),
+        "state_counts": export.state_counts,
     });
     let mut lines = vec![header.to_string()];
     for event in &export.events {

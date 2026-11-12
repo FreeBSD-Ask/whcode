@@ -36,15 +36,17 @@ rg -n -i "sandbox|webhook" crates                        # P5.2／P6.4 负证据
 
 | 状态 | 条数 | 条目 |
 |---|---|---|
-| 已实现 | 20 | P1.1—P1.7、P2.1、P2.3、P3.1、P3.4、P3.6、P4.1—P4.4、P7.1、P7.4、P7.5、P7.6 |
+| 已实现 | 21 | P1.1—P1.7、P2.1、P2.3、P3.1、P3.2、P3.4、P3.6、P4.1—P4.4、P7.1、P7.4、P7.5、P7.6 |
 | 部分 | 2 | P3.3（仅标题／ID 匹配）、P7.2（夹具与手动 job 在，PR 门禁与三指标中位缺） |
 | 在途 | 0 | （P3.1 已于 2026-11-12 收口，见 W3 表） |
-| 未实现 | 23 | P1.8—P1.10、P2.2、P2.4、P2.5、P3.2、P3.5、P4.5—P4.8、P5.1—P5.6、P6.1—P6.4、P7.3 |
+| 未实现 | 22 | P1.8—P1.10、P2.2、P2.4、P2.5、P3.5、P4.5—P4.8、P5.1—P5.6、P6.1—P6.4、P7.3 |
 
 账本实测（`check_counts.py`，本文件写作时点）：FR=146、任务=281、Check=376；
 exercised=327＋outcome-supported=49＝376，missing=0，计数一致。
 2026-11-12 复核（P3.1 收口后）：FR=147、任务=282、Check=377；exercised=328＋
 outcome-supported=49＝377，missing=0，计数一致。
+2026-11-12 第二次复核（P3.2 收口后）：FR=148、任务=283、Check=378；exercised=329＋
+outcome-supported=49＝378，missing=0，计数一致。
 
 ## 3. 逐线比对
 
@@ -78,7 +80,7 @@ outcome-supported=49＝377，missing=0，计数一致。
 | 编号 | 状态 | 证据 |
 |---|---|---|
 | P3.1 会话分叉 | 已实现（待验收） | 2026-11-12 收口：ADR-065／FR-769／T282／Check 377 入账；`crates/whcode-store/src/fork.rs`（边界＋双表前缀复制＋共用序号基线＋双上限，4 测试）、`migrations/0010_session_fork.sql`（v10）、`export.rs` 谱系列往返、app `session.rs::fork_session`＋surface `session.fork`、CUI `session fork`＋bin 派发端到端、十三套文案同批；全量 1124/0，CI 待运行（ADR-037） |
-| P3.2 事件三态视图 | 未实现 | `rg -n "shadowed|log_only" crates` 无命中 |
+| P3.2 事件三态视图 | 已实现（待验收） | 2026-11-12 收口：ADR-066／FR-770／T283／Check 378 入账；`crates/whcode-store/src/query.rs::message_seqs_in_range`（孪生判定）＋`crates/whcode-app/src/events.rs` 三态与计数（复用 `load_context` 同源派生、零写入）＋CUI JSON/JSONL/人类行标注＋Web `/api/events` 经同一导出自带；载体按复核结果新立 ADR-066（不改 ADR-036，`context_windows` 语义局限已登记） |
 | P3.3 全文检索 | 部分 | 目录级关键词匹配已有（`crates/whcode-app/src/session.rs:69`：匹配标题或 ID、128 字符上限）；正文级关键词与 FTS 无 |
 | P3.4 备份/恢复闭环 | 已实现 | FR-767／T280／Check 375；`crates/whcode-store/src/backup.rs:34,114,196,236,274`（保留 5 份／复制／迁移前挂钩／SHA-256 校验／裁剪） |
 | P3.5 回滚双路径 | 未实现 | 无对话剪枝与文件前像；`rg -n -i "rewind|prune" crates` 仅命中备份裁剪与回退注释 |
@@ -137,7 +139,7 @@ outcome-supported=49＝377，missing=0，计数一致。
 | F3 | P3.1 在途但未入账 | 工作树未提交 `migrations/0010_session_fork.sql`＋schema v10；引用的 T282／FR-769／ADR-065 不存在于账本 | **已清偿（2026-11-12）**：ADR-065／FR-769／T282／Check 377 先于代码提交入账（G1），随后 WIP 落地收口，见 W3 表 P3.1 行 |
 | F4 | project-status.md 快照滞后 | 2026-11-08 页写“任务未完成 5／missing 6／B4／B5 余项”，现均已收口 | 下次快照刷新统一改；本文件只登记不代改 |
 | F5 | W5/W6 全线未动 | 23 条未实现中 10 条属 W5/W6；P5.4/P5.5 仍被 D13 冻结 | 与 proposal §6 依赖序一致，无漂移 |
-| F6 | Phase 2 可开工集明确 | 除在途 P3.1 外，P3.2／P4.5—P4.8／P5.1（前置 P1.1 已满足）／P6.1（依赖 P1.3 已满足）／P7.2 均无未满足前置 | 按 proposal §6 推荐：P3.2（小）→ P4.6／P4.7（中）→ P5.1（先威胁模型）→ P6.1（先并发档案） |
+| F6 | Phase 2 可开工集明确 | 除在途 P3.1 外，P3.2／P4.5—P4.8／P5.1（前置 P1.1 已满足）／P6.1（依赖 P1.3 已满足）／P7.2 均无未满足前置 | **2026-11-12 更新**：P3.1、P3.2 已收口；推荐序改为 P4.6／P4.7（中）→ P5.1（先威胁模型）→ P6.1（先并发档案）→ P4.5／P4.8 |
 
 ## 5. 复审触发（绑定命令＋判定）
 
@@ -147,6 +149,7 @@ outcome-supported=49＝377，missing=0，计数一致。
 | `git status --short` | P3.1 的 WIP 提交且 ADR-065／FR-769／T282 入账 → P3.1 重判为“已实现（待验收）” |
 | `rg -n -i "steer" crates` | 出现命中 → P1.8 状态重判 |
 | `rg -n "models" crates/whcode-llm/src/http/profile.rs` | 出现命中 → P4.8 状态重判 |
+| `rg -n "shadowed\|log_only" crates/whcode-app/src` | 出现命中 → P3.2 状态重判（2026-11-12 已命中：收口） |
 
 ## 6. 修订记录
 
@@ -154,3 +157,6 @@ outcome-supported=49＝377，missing=0，计数一致。
 - 2026-11-12（复核）：复审触发 2 命中——P3.1 收口（ADR-065／FR-769／T282／Check 377
   入账＋代码落地），重判为“已实现（待验收）”；计数复核 147／282／377（exercised 328），
   missing=0；W3 表、F3、§2 已同步。
+- 2026-11-12（第二次复核）：P3.2 收口（ADR-066／FR-770／T283／Check 378），重判为“已实现
+  （待验收）”；已实现 21／未实现 22；计数复核 148／283／378（exercised 329），missing=0；
+  §2、W3 表、F6 与复审触发表已同步。

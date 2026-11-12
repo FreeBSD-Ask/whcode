@@ -16,7 +16,7 @@
 //! 边界：本模块只读，不写库；SQL 中的可变部分只有方向和游标条件，值全部参数化。
 
 use duckdb::types::Value;
-use duckdb::{Connection, params_from_iter};
+use duckdb::{Connection, params, params_from_iter};
 use whcode_domain::{ErrorCode, WhError};
 
 /// 单页最大条数；超过即拒绝，避免调用方用超大 `limit` 绕过有界批次（§7.1）。
@@ -250,6 +250,38 @@ pub fn latest_seq(conn: &Connection) -> Result<i64, WhError> {
         row.get(0)
     })
     .map_err(query_err)
+}
+
+/// 区间 `[lo, hi]` 内**存在对话消息孪生**的事件序号（T283／FR-770）。
+///
+/// 事件与消息共用一条全局序号（`EV-<seq>`／`MSG-<seq>` 同源递增），因此某个事件是否
+/// 有对应对话消息，等价于同序号是否存在 `MSG-<seq>` 行。三态分类用它区分“纯日志事件”
+/// 与“有对话语料孪生的事件”。
+///
+/// 区间由调用方按页给出：返回行数不超过区间内的消息行数，调用方再按页上界收口
+/// （有界读取，不随会话长度增长）。id 不匹配 `MSG-<n>` 形态的行被排除。
+///
+/// # Errors
+///
+/// 数据库查询失败时返回 [`WhError`]。
+pub fn message_seqs_in_range(
+    conn: &Connection,
+    session_id: &str,
+    lo: i64,
+    hi: i64,
+) -> Result<Vec<i64>, WhError> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT TRY_CAST(SUBSTRING(id FROM 5) AS BIGINT) FROM messages
+             WHERE session_id = ? AND id LIKE 'MSG-%'
+               AND TRY_CAST(SUBSTRING(id FROM 5) AS BIGINT) BETWEEN ? AND ?
+             ORDER BY 1 ASC",
+        )
+        .map_err(query_err)?;
+    let rows = stmt
+        .query_map(params![session_id, lo, hi], |row| row.get::<_, i64>(0))
+        .map_err(query_err)?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(query_err)
 }
 
 /// 查询某会话的消息页。
@@ -529,5 +561,42 @@ mod tests {
 
         let err = messages_page(&conn, "S-1", Direction::Forward, None, 0).expect_err("limit 0");
         assert_eq!(err.code, ErrorCode::InvalidState);
+    }
+
+    /// T283／FR-770：三态分类的孪生判定——只返回区间内确实存在消息行的事件序号，
+    /// 区间外与外部夹具的不规范 id 均不命中。
+    #[test]
+    fn message_seqs_in_range_reports_only_message_twins_within_bounds() {
+        let conn = migrated();
+        for seq in 1..=5 {
+            insert_event(&conn, seq, "S-1");
+        }
+        insert_message(&conn, "MSG-2", "S-1", "2026-01-01 00:00:02");
+        insert_message(&conn, "MSG-4", "S-1", "2026-01-01 00:00:04");
+        insert_message(&conn, "MSG-9", "S-1", "2026-01-01 00:00:09");
+        // 外部夹具：id 不符合 MSG-<n> 形态的行必须被排除（TRY_CAST 不得报错）。
+        insert_message(&conn, "M-1", "S-1", "2026-01-01 00:00:01");
+
+        assert_eq!(
+            message_seqs_in_range(&conn, "S-1", 1, 5).expect("区间查询"),
+            vec![2, 4],
+            "只返回区间内的消息孪生"
+        );
+        assert_eq!(
+            message_seqs_in_range(&conn, "S-1", 1, 9).expect("全区间"),
+            vec![2, 4, 9]
+        );
+        assert!(
+            message_seqs_in_range(&conn, "S-1", 5, 8)
+                .expect("空区间")
+                .is_empty(),
+            "区间无孪生时是正确的空"
+        );
+        assert!(
+            message_seqs_in_range(&conn, "S-404", 1, 9)
+                .expect("缺失会话")
+                .is_empty(),
+            "不存在的会话返回空集合，不报错"
+        );
     }
 }

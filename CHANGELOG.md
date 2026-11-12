@@ -13,6 +13,18 @@
 
 ### 变更
 
+- **事件三态分类视图（T283，FR-770，2026-11-12）**：`whcode events list/export` 与 Web
+  `/api/events` 的输出逐条标注事件在模型上下文中的状态：`current`（在上下文窗口内）、
+  `shadowed`（有对话消息孪生但不在窗口内——被压缩摘要代表或预算截断，原文仍可查）、
+  `log_only`（无孪生，纯审计/观测事件）。判定复用模型自己的历史派生函数
+  `context::load_context`（同一 fold surface），孪生由 `store::query::message_seqs_in_range`
+  按 `MSG-<seq>` 判定；纯派生——不新增列、不写库（测试断言事件/消息/context_windows 行数
+  不变），折叠后视图自动跟随。`EventsExport` 增 `states`（与事件同序）与 `state_counts`，
+  CUI JSON/JSONL 头与人类行 `[state]` 标注同批。同时登记既有事实：`context_windows` 的窗口
+  边界是压缩发生时本 turn 的事件区间，不是被折叠原文的消息区间，故三态不据其推断（ADR-066
+  决策 7，`data-model.md` 已注记）。证据：store 1 项＋app 2 项＋bin 1 项新测试全绿，
+  全量 `cargo test --locked --workspace` 见取证记录；CI 待运行（ADR-037）。
+
 - **会话分叉（T282，FR-769，2026-11-12）**：新增 `whcode-store::fork_session` 与 CUI
   `whcode session fork --session --at-seq [--title]`：在源会话 turn 结束边界（`TurnFinished`
   事件；0＝空分叉）创建新会话，复制事件前缀与边界轮尾随消息（`append_turn` 事件先于消息
