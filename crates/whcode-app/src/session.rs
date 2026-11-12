@@ -213,7 +213,7 @@ pub fn fork_session(
     conn: &mut Connection,
     policy: &dyn Policy,
     actor: &Actor,
-    source_session_id: &str,
+    source: &str,
     at_seq: i64,
     title: Option<&str>,
     now_ms: u64,
@@ -222,12 +222,12 @@ pub fn fork_session(
     let title = match title.map(str::trim).filter(|t| !t.is_empty()) {
         Some(title) => title.to_string(),
         None => {
-            let source = directory::get_session(conn, source_session_id)?
-                .ok_or_else(|| not_found("会话", source_session_id))?;
-            format!("{} (fork)", source.title)
+            let source_row = directory::get_session(conn, source)?
+                .ok_or_else(|| not_found("会话", source))?;
+            format!("{} (fork)", source_row.title)
         }
     };
-    fork_session_store(conn, source_session_id, at_seq, &title, now_ms)
+    fork_session_store(conn, source, at_seq, &title, now_ms)
 }
 
 /// 列出会话（FR-101）；默认不含归档会话。
