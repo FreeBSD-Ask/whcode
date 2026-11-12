@@ -36,10 +36,10 @@ rg -n -i "sandbox|webhook" crates                        # P5.2／P6.4 负证据
 
 | 状态 | 条数 | 条目 |
 |---|---|---|
-| 已实现 | 21 | P1.1—P1.7、P2.1、P2.3、P3.1、P3.2、P3.4、P3.6、P4.1—P4.4、P7.1、P7.4、P7.5、P7.6 |
+| 已实现 | 22 | P1.1—P1.7、P2.1、P2.3、P3.1、P3.2、P3.4、P3.6、P4.1—P4.4、P4.6、P7.1、P7.4、P7.5、P7.6 |
 | 部分 | 2 | P3.3（仅标题／ID 匹配）、P7.2（夹具与手动 job 在，PR 门禁与三指标中位缺） |
 | 在途 | 0 | （P3.1 已于 2026-11-12 收口，见 W3 表） |
-| 未实现 | 22 | P1.8—P1.10、P2.2、P2.4、P2.5、P3.5、P4.5—P4.8、P5.1—P5.6、P6.1—P6.4、P7.3 |
+| 未实现 | 21 | P1.8—P1.10、P2.2、P2.4、P2.5、P3.5、P4.5、P4.7、P4.8、P5.1—P5.6、P6.1—P6.4、P7.3 |
 
 账本实测（`check_counts.py`，本文件写作时点）：FR=146、任务=281、Check=376；
 exercised=327＋outcome-supported=49＝376，missing=0，计数一致。
@@ -47,6 +47,8 @@ exercised=327＋outcome-supported=49＝376，missing=0，计数一致。
 outcome-supported=49＝377，missing=0，计数一致。
 2026-11-12 第二次复核（P3.2 收口后）：FR=148、任务=283、Check=378；exercised=329＋
 outcome-supported=49＝378，missing=0，计数一致。
+2026-11-12 第三次复核（P4.6 收口后）：FR=149、任务=284、Check=379；exercised=330＋
+outcome-supported=49＝379，missing=0，计数一致。
 
 ## 3. 逐线比对
 
@@ -95,7 +97,7 @@ outcome-supported=49＝378，missing=0，计数一致。
 | P4.3 B4 收口 | 已实现 | T258／T259（`tasks.md:881,892`） |
 | P4.4 B5 收口 | 已实现 | T260—T263（`tasks.md:905,919,934,942`） |
 | P4.5 计划模式 | 未实现 | `rg -n "PlanMode|plan_mode" crates/whcode-domain/src/event.rs` 无命中 |
-| P4.6 会话 todo 工具 | 未实现 | `docs/guides/tool-catalogue.md` 无 todo 工具 |
+| P4.6 会话 todo 工具 | 已实现（待验收） | 2026-11-12 收口（`c4328d2`）：ADR-048 §7.1／FR-771／T284／Check 379；`whcode-tools/src/todo.rs`（`todo_write` 整表替换、三态、50×200 上限）＋`ParamType::StringArray`＋`SideEffectScope::SessionState`＋`EventKind::TodoUpdated`（log-only、Critical）＋turn 成功调用落快照＋`app::todo::current` 读取面＋工具目录 7 件；与 `tasks` 硬隔离 |
 | P4.7 交付物记录 | 未实现 | `rg -n "Deliverable" crates/whcode-domain/src/event.rs` 无命中 |
 | P4.8 模型目录 | 未实现 | `ProviderProfile` 为单模型字段（`crates/whcode-llm/src/http/profile.rs:411,425`），无 `models[]`、选择器与 badge |
 
@@ -139,7 +141,7 @@ outcome-supported=49＝378，missing=0，计数一致。
 | F3 | P3.1 在途但未入账 | 工作树未提交 `migrations/0010_session_fork.sql`＋schema v10；引用的 T282／FR-769／ADR-065 不存在于账本 | **已清偿（2026-11-12）**：ADR-065／FR-769／T282／Check 377 先于代码提交入账（G1），随后 WIP 落地收口，见 W3 表 P3.1 行 |
 | F4 | project-status.md 快照滞后 | 2026-11-08 页写“任务未完成 5／missing 6／B4／B5 余项”，现均已收口 | 下次快照刷新统一改；本文件只登记不代改 |
 | F5 | W5/W6 全线未动 | 23 条未实现中 10 条属 W5/W6；P5.4/P5.5 仍被 D13 冻结 | 与 proposal §6 依赖序一致，无漂移 |
-| F6 | Phase 2 可开工集明确 | 除在途 P3.1 外，P3.2／P4.5—P4.8／P5.1（前置 P1.1 已满足）／P6.1（依赖 P1.3 已满足）／P7.2 均无未满足前置 | **2026-11-12 更新**：P3.1、P3.2 已收口；推荐序改为 P4.6／P4.7（中）→ P5.1（先威胁模型）→ P6.1（先并发档案）→ P4.5／P4.8 |
+| F6 | Phase 2 可开工集明确 | 除在途 P3.1 外，P3.2／P4.5—P4.8／P5.1（前置 P1.1 已满足）／P6.1（依赖 P1.3 已满足）／P7.2 均无未满足前置 | **2026-11-12 更新**：P3.1、P3.2、P4.6 已收口；推荐序改为 P4.7 交付物记录（中）→ P5.1（先威胁模型）→ P6.1（先并发档案）→ P4.5 计划模式／P4.8 模型目录；CUI／TUI／GUI／Web 的待办视图与 TUI/Web 分叉入口可作小批穿插 |
 
 ## 5. 复审触发（绑定命令＋判定）
 
@@ -160,3 +162,6 @@ outcome-supported=49＝378，missing=0，计数一致。
 - 2026-11-12（第二次复核）：P3.2 收口（ADR-066／FR-770／T283／Check 378），重判为“已实现
   （待验收）”；已实现 21／未实现 22；计数复核 148／283／378（exercised 329），missing=0；
   §2、W3 表、F6 与复审触发表已同步。
+- 2026-11-12（第三次复核）：P4.6 收口（ADR-048 §7.1／FR-771／T284／Check 379，`c4328d2`），
+  重判为“已实现（待验收）”；已实现 22／未实现 21；计数复核 149／284／379（exercised 330），
+  missing=0。
