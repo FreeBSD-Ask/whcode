@@ -1123,6 +1123,38 @@ fn run_turn_inner(
                 "error_code": error_code,
                 "duration_ms": duration_ms,
             );
+            // ── 待办快照（T284／FR-771／ADR-048 修订）──────────────────────
+            // 整表替换要求“每次成功调用都留下完整清单”：事件是清单的唯一持久副本
+            // （工具参数不入事件载荷），故用与工具同一纯函数重新规范化，口径不分叉。
+            // 失败／被拒／超时的调用不落快照——状态未变，写空清单即伪造事实。
+            if tool_call.name == whcode_tools::TODO_WRITE_TOOL
+                && status == RuntimeExecutionStatus::Completed
+            {
+                let snapshot = serde_json::from_str::<serde_json::Value>(&tool_call.arguments)
+                    .map_err(|err| {
+                        whcode_domain::WhError::parse_error(format!("待办参数解析失败：{err}"))
+                    })
+                    .and_then(|arguments| whcode_tools::snapshot_from_arguments(&arguments));
+                match snapshot {
+                    Ok(snapshot) => emit!(
+                        EventKind::TodoUpdated,
+                        "iteration": iteration,
+                        "request_id": request_id,
+                        "tool_call_id": tool_call.id,
+                        "items": snapshot.get("items"),
+                        "pending": snapshot.get("pending"),
+                        "in_progress": snapshot.get("in_progress"),
+                        "completed": snapshot.get("completed"),
+                    ),
+                    Err(err) => emit!(
+                        EventKind::PersistenceError,
+                        "iteration": iteration,
+                        "request_id": request_id,
+                        "tool_call_id": tool_call.id,
+                        "error_code": err.code.as_str(),
+                    ),
+                }
+            }
             if let Some(observer) = observer {
                 observer(TurnSignal::ToolFinished {
                     tool_call_id: tool_call.id.clone(),
@@ -1538,7 +1570,9 @@ fn execute_tool_call(
     // 专用 WorkspaceWrite 能力归 P2-1 动态权限 broker（ADR-048 §2.7 注记）。
     let capability_for = |scope| match scope {
         whcode_tools::SideEffectScope::ReadOnly => Capability::SessionRead,
-        whcode_tools::SideEffectScope::WorkspaceWrite => Capability::SessionCreate,
+        // 会话状态写与工作区写同属写类（v1 和解，ADR-048 §2.7 注记）。
+        whcode_tools::SideEffectScope::WorkspaceWrite
+        | whcode_tools::SideEffectScope::SessionState => Capability::SessionCreate,
     };
     let fail =
         |status, text: String, side_effect: Option<String>| (status, text, side_effect, None, None);
@@ -2272,6 +2306,101 @@ mod tests {
             )
             .expect("登记行");
         assert_eq!(exec_state, "completed");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn todo_write_step(id: &str, arguments: &str) -> StubStep {
+        StubStep {
+            chunks: vec!["更新待办".to_string()],
+            finish_reason: "tool_call".to_string(),
+            tool_calls: vec![LlmToolCall {
+                id: id.to_string(),
+                name: whcode_tools::TODO_WRITE_TOOL.to_string(),
+                arguments: arguments.to_string(),
+            }],
+        }
+    }
+
+    /// T284／FR-771：成功调用把整表快照落为 `TodoUpdated`（log-only）；被拒/失败调用
+    /// 不落快照（状态未变，写空清单即伪造）；读取面看到的是**最新**一次快照。
+    #[test]
+    fn todo_write_persists_whole_table_snapshot_and_never_on_failure() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let dir = temp_dir("todo-write");
+        std::fs::create_dir_all(&dir).expect("工作区");
+        let too_many = serde_json::json!({
+            "pending": (0..=whcode_tools::MAX_TODO_ITEMS).map(|i| format!("项{i}")).collect::<Vec<_>>(),
+        })
+        .to_string();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            todo_write_step(
+                "call-todo-1",
+                r#"{"pending":["写 ADR"],"in_progress":["补测试"]}"#,
+            ),
+            todo_write_step("call-todo-bad", &too_many),
+            StubStep::simple("完成", "stop"),
+        ]));
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "更新待办");
+        req.workspace_root = Some(dir.clone());
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 9).expect("完成");
+        assert_eq!(outcome.termination_reason, "model_finished");
+
+        let snapshots: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='TodoUpdated'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("快照计数");
+        assert_eq!(snapshots, 1, "只有成功调用落快照，失败调用不落");
+        let payload: String = conn
+            .query_row(
+                "SELECT CAST(CAST(payload_json AS JSON) AS VARCHAR) FROM events
+                 WHERE session_id=? AND kind='TodoUpdated' ORDER BY seq DESC LIMIT 1",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("快照载荷");
+        let value: serde_json::Value = serde_json::from_str(&payload).expect("载荷 JSON");
+        assert_eq!(value["pending"], 1);
+        assert_eq!(value["in_progress"], 1);
+        assert_eq!(value["completed"], 0);
+        assert_eq!(
+            value["items"].as_array().map(Vec::len),
+            Some(2),
+            "整表快照含全部条目"
+        );
+        assert_eq!(
+            value["tool_call_id"], "call-todo-1",
+            "快照可追溯到产生它的调用"
+        );
+        let failed_state: String = conn
+            .query_row(
+                "SELECT CAST(CAST(payload_json AS JSON)->>'$.state' AS VARCHAR) FROM events
+                 WHERE session_id=? AND kind='ToolCallFinished'
+                   AND CAST(CAST(payload_json AS JSON)->>'$.tool_call_id' AS VARCHAR)='call-todo-bad'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("失败调用终态");
+        assert_eq!(failed_state, "failed", "超限调用失败且 turn 继续");
+
+        // 整表替换：第二次成功调用覆盖第一次，读取面只看到最新清单。
+        let factory = StubFactory(StubProvider::with_script(vec![
+            todo_write_step("call-todo-2", r#"{"completed":["写 ADR","补测试"]}"#),
+            StubStep::simple("完成", "stop"),
+        ]));
+        let ctx = context(&registry, &factory, &dir);
+        run_turn(&mut conn, &policy, &actor, &ctx, &req, 10).expect("第二轮");
+        let view = crate::todo::current(&conn, &policy, &actor, &id).expect("读取待办");
+        assert_eq!(view.items.len(), 2);
+        assert!(view.items.iter().all(|item| item.status == "completed"));
+        assert!(!view.truncated);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

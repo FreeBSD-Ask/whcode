@@ -13,6 +13,18 @@
 
 ### 变更
 
+- **会话待办工具（T284，FR-771，2026-11-12）**：新增第七件内建工具 `todo_write`——模型
+  可整表替换本会话待办（`pending`／`in_progress`／`completed` 三态，条目无 id 与优先级；
+  省略列表即清空），条目 ≤50、单条 ≤200 字符，超限拒绝不截断。清单以新事件
+  `TodoUpdated` 持久化（log-only、Critical 分级——它是清单的唯一持久副本），turn 在工具
+  **成功**后以同一纯函数 `snapshot_from_arguments` 规范化落快照，失败／被拒不落（不伪造
+  空清单）。与 SDD 任务账本硬隔离：不写 `tasks`、不进入门禁与验收、不参与概览聚合，工具
+  说明与工具目录都写明。配套：`ParamType::StringArray`（JSON Schema 子集加 `array<string>`）、
+  `SideEffectScope::SessionState`（权限按写类判定、审批默认沿用读侧，规则表仍可覆盖）、
+  读取面 `whcode-app::todo::current`（最近快照；无快照＝正确的空、缺失会话 `not_found`、
+  损坏载荷 `parse_error`）、工具目录重生成（7 件）与事件契约枚举补正。证据：tools 70／
+  app todo 2＋turn 端到端 1 等测试全绿，全量结果见 Check 379 取证；CI 待运行（ADR-037）。
+
 - **事件三态分类视图（T283，FR-770，2026-11-12）**：`whcode events list/export` 与 Web
   `/api/events` 的输出逐条标注事件在模型上下文中的状态：`current`（在上下文窗口内）、
   `shadowed`（有对话消息孪生但不在窗口内——被压缩摘要代表或预算截断，原文仍可查）、

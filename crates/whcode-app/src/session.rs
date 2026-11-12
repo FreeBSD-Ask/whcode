@@ -222,8 +222,8 @@ pub fn fork_session(
     let title = match title.map(str::trim).filter(|t| !t.is_empty()) {
         Some(title) => title.to_string(),
         None => {
-            let source_row = directory::get_session(conn, source)?
-                .ok_or_else(|| not_found("会话", source))?;
+            let source_row =
+                directory::get_session(conn, source)?.ok_or_else(|| not_found("会话", source))?;
             format!("{} (fork)", source_row.title)
         }
     };

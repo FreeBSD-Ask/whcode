@@ -22,6 +22,8 @@ pub enum ParamType {
     Integer,
     /// 布尔。
     Boolean,
+    /// 字符串数组（T284／FR-771：待办清单这类“无 id 的字符串列表”参数）。
+    StringArray,
 }
 
 impl ParamType {
@@ -32,6 +34,7 @@ impl ParamType {
             ParamType::String => "string",
             ParamType::Integer => "integer",
             ParamType::Boolean => "boolean",
+            ParamType::StringArray => "array",
         }
     }
 }
@@ -43,6 +46,9 @@ pub enum SideEffectScope {
     ReadOnly,
     /// 工作区写：修改文件内容（产出 diff 摘要留痕）。
     WorkspaceWrite,
+    /// 会话状态写：只改本会话的派生状态（如待办快照），不触碰工作区文件
+    /// （T284／FR-771；权限按写类判定，审批默认沿用读侧口径，见 ADR-048 修订）。
+    SessionState,
 }
 
 /// 单个参数声明。
@@ -88,13 +94,18 @@ impl ToolDescriptor {
         let mut properties = serde_json::Map::new();
         let mut required = Vec::new();
         for parameter in &self.parameters {
-            properties.insert(
-                parameter.name.to_string(),
-                serde_json::json!({
+            let schema = match parameter.kind {
+                ParamType::StringArray => serde_json::json!({
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": parameter.description,
+                }),
+                _ => serde_json::json!({
                     "type": parameter.kind.as_str(),
                     "description": parameter.description,
                 }),
-            );
+            };
+            properties.insert(parameter.name.to_string(), schema);
             if parameter.required {
                 required.push(Value::from(parameter.name));
             }
@@ -455,6 +466,9 @@ pub fn validate_arguments(descriptor: &ToolDescriptor, arguments: &Value) -> Res
                     ParamType::String => value.is_string(),
                     ParamType::Integer => value.is_i64() || value.is_u64(),
                     ParamType::Boolean => value.is_boolean(),
+                    ParamType::StringArray => value
+                        .as_array()
+                        .is_some_and(|items| items.iter().all(Value::is_string)),
                 };
                 if !ok {
                     return Err(WhError::invalid_state(format!(

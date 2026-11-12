@@ -113,3 +113,59 @@
 
 - **2026-10-29（首版，已批准）**：用户批准建议书全部功能建议后起草；编号顺延至 048
   （ADR-047 已占用）；六件套裁剪、串行调度、一层校验为对 ZCode 参照的显式减法。
+
+## 7.1 修订 2026-11-12：会话待办工具（P4.6）
+
+- **来源**：`research/synthesis/proposal-v3.md` P4.6、`research/dsh-comparison/domain-G-plan-goal-todo-schedule.md`
+  §2.3／§4.4；FR-771／T284／Check 379。
+
+### 决策
+
+1. **新内建工具 `todo_write`**（第七件）：**整表替换**语义——调用方给出 `pending`／
+   `in_progress`／`completed` 三个字符串数组，未给出的列表视为空；重复调用覆盖旧清单。
+   条目刻意没有 id 与优先级（与 DSH `todo/write` 同口径：清单是快照，不是可增量操作实体）。
+2. **与 SDD 任务账本硬隔离**：待办**不写 `tasks` 表**、不进入阶段门禁、不满足验收检查点、
+   不参与 `session_overview` 聚合；工具说明与 `docs/guides/tool-catalogue.md` 都写明这一点，
+   避免模型把待办当可交付任务提交。
+3. **参数类型扩展** `ParamType::StringArray`：JSON Schema 子集的 `array of string`
+   （provider 清单渲染 `"type":"array","items":{"type":"string"}`；校验只到“数组且元素皆为
+   字符串”，不校验嵌套对象——与 v1 一层校验口径一致）。
+4. **副作用范围扩展** `SideEffectScope::SessionState`：只改本会话派生状态，不触碰工作区。
+   权限按**写类**判定（`SessionCreate`，与工作区写同档）；**审批默认沿用读侧口径**——
+   待办不落文件、载荷有界、全量入事件，若每次清单刷新都弹审批，代价高于风险；
+   用户仍可用按工具规则把它设为 `ask`／`deny`（`approval_rules` 表优先于该默认）。
+5. **事件 `TodoUpdated`**（`whcode-domain::EventKind`）：log-only（不进模型历史），可靠性分级
+   **Critical**——它是清单的唯一持久副本（工具参数不入事件载荷），队列饱和时不得丢弃。
+   落点：turn 在工具调用**成功**后，用与工具相同的纯函数
+   `whcode_tools::snapshot_from_arguments` 重新规范化并落快照，口径不分叉；
+   失败／被拒／超时的调用**不落**（状态未变，写空清单即伪造事实）。
+6. **读取面** `whcode-app::todo::current`：取最近一条 `TodoUpdated`（`LIMIT 1` 主键倒序，有界），
+   缺失会话 `not_found`、无快照为正确的空、载荷损坏为 `parse_error`（不伪装空清单）。
+7. **有界**：条目总数 ≤ 50、单条内容 ≤ 200 字符；超限返回 `invalid_state` 而**不截断**
+   ——待办是模型声明的意图，静默裁剪会让清单与意图不一致。
+
+### 正负和解
+
+- **正面**：模型有了轻量计划面而不污染工程账本；参数类型与副作用范围各扩一种，仍在
+  v1 一层校验与四态审批的口径内；快照是纯事件、可重放、可审计。
+- **负面**：清单只能整表替换、无 id 无法做“改一条”；没有独立 UI 视图（前端待后续批次）；
+  `SessionState` 沿用读侧审批默认（对极端多租户部署偏宽，本地优先场景可接受）。
+- **承担者**：工具维护者（与事件口径不得分叉）、前端维护者（视图待做）、用户（整表语义
+  要求每次给出完整清单）。
+
+### 复审触发（绑定命令＋判定）
+
+1. `cargo test -p whcode-tools todo` 或 `cargo test -p whcode-app todo_write` 不再全绿 → 复核语义；
+2. `rg -n "todo_write" crates/whcode-app/src/turn.rs` 不再命中 → 落点被改动，复核 §7.1-5；
+3. 引入待办增量操作或 id 化 → 本修订失效，另立 ADR；
+4. 待办需要进入模型上下文（跨压缩回填）→ 与 `EventKind::TodoUpdated` 的 log-only 口径冲突，
+   须重新设计并复审；
+5. 2027-05-07（与 D15 覆盖率复审同批）→ 复查上限（50／200）与审批默认是否匹配真实用法。
+
+### 已知限制
+
+- 只做整表替换：无法按条目 id 修改、删除或重排（重排只能重给全表）。
+- 无独立视图：CUI／TUI／GUI／Web 尚无待办卡片，当前可从 `events list` 看到 `TodoUpdated` 事件，
+  读取 API `whcode-app::todo::current` 已就绪供前端接入。
+- 快照只保留“最近一次”：历史快照可按 `seq` 回溯，但不提供“某次 turn 结束时清单”的专用查询。
+- `SessionState` 的审批默认沿用读侧口径（见决策 4 的代价说明）。

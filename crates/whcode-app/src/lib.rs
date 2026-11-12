@@ -51,6 +51,7 @@ pub mod snapshot;
 pub mod stage_role;
 pub mod surface;
 pub mod task;
+pub mod todo;
 pub mod tool_call;
 pub mod turn;
 pub mod view_source;
@@ -93,6 +94,7 @@ pub use task::{
     CheckpointEntry, CheckpointView, TaskDetail, abort_task, checkpoint_view, retry_task,
     task_detail,
 };
+pub use todo::{TodoEntry, TodoView, counts_by_status, current as current_todos};
 pub use views::{purge_counts_value, session_value, task_value};
 // 会话行类型（门面 `CommandOutcome::Session` 的载荷；前端据此渲染，无需依赖 store）。
 pub use whcode_store::SessionRow;

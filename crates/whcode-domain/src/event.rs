@@ -50,6 +50,8 @@ pub enum EventKind {
     CompactionSummary,
     /// 压缩结束（与 `CompactionStarted` 成对；记录实际采用的策略与失败回退原因）。
     CompactionFinished,
+    /// 会话待办整表快照（T284／FR-771／ADR-048 修订；log-only：只承载清单，不进模型历史）。
+    TodoUpdated,
 }
 
 impl EventKind {
@@ -72,6 +74,7 @@ impl EventKind {
             Self::CompactionStarted => "CompactionStarted",
             Self::CompactionSummary => "CompactionSummary",
             Self::CompactionFinished => "CompactionFinished",
+            Self::TodoUpdated => "TodoUpdated",
         }
     }
 
@@ -89,7 +92,9 @@ impl EventKind {
             | Self::TurnFinished
             | Self::AssistantAttempt
             | Self::CompactionStarted
-            | Self::CompactionFinished => EventCriticality::Critical,
+            | Self::CompactionFinished
+            // 待办快照是本会话清单的唯一持久副本（工具参数不入事件载荷），丢弃即丢状态。
+            | Self::TodoUpdated => EventCriticality::Critical,
             Self::StreamingChunk | Self::ContextState | Self::CompactionSummary => {
                 EventCriticality::Content
             }

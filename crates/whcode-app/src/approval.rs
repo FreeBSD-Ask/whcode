@@ -502,6 +502,9 @@ impl ApprovalPolicy {
         self.per_tool.get(tool).copied().unwrap_or(match scope {
             SideEffectScope::ReadOnly => self.default_read_only,
             SideEffectScope::WorkspaceWrite => self.default_workspace_write,
+            // 会话状态写（待办快照）不触碰文件系统、载荷有界且全量入事件：
+            // 审批默认沿用读侧口径，避免为每次清单刷新弹审批（ADR-048 修订）。
+            SideEffectScope::SessionState => self.default_read_only,
         })
     }
 

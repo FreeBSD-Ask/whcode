@@ -252,6 +252,37 @@ pub fn latest_seq(conn: &Connection) -> Result<i64, WhError> {
     .map_err(query_err)
 }
 
+/// 某会话最近一条指定类型的事件（`seq` + 载荷文本）；无匹配返回 `Ok(None)`。
+///
+/// 用于“当前状态快照”类事件（如待办整表替换，T284／FR-771）：最新一条即当前状态，
+/// 读取有界（`LIMIT 1` + 主键倒序），不随会话长度增长。
+///
+/// # Errors
+///
+/// 数据库查询失败时返回 [`WhError`]。
+pub fn latest_event_of_kind(
+    conn: &Connection,
+    session_id: &str,
+    kind: &str,
+) -> Result<Option<(i64, String)>, WhError> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT seq, CAST(CAST(payload_json AS JSON) AS VARCHAR) FROM events
+             WHERE session_id = ? AND kind = ?
+             ORDER BY seq DESC LIMIT 1",
+        )
+        .map_err(query_err)?;
+    let mut rows = stmt
+        .query_map(params![session_id, kind], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(query_err)?;
+    match rows.next() {
+        Some(row) => Ok(Some(row.map_err(query_err)?)),
+        None => Ok(None),
+    }
+}
+
 /// 区间 `[lo, hi]` 内**存在对话消息孪生**的事件序号（T283／FR-770）。
 ///
 /// 事件与消息共用一条全局序号（`EV-<seq>`／`MSG-<seq>` 同源递增），因此某个事件是否

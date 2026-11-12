@@ -4,9 +4,9 @@
 > 重新生成：`WHCODE_UPDATE_TOOL_CATALOGUE=1 cargo test -p whcode-tools catalogue`。
 > 门禁：`cargo test -p whcode-tools catalogue`（渲染结果与文件逐字节比对）。
 
-manifest-fingerprint: fnv1a64:8908fe7ed19388e8
+manifest-fingerprint: fnv1a64:2f7c880bb091eb5f
 
-内置工具数：6（MCP 服务器工具在运行时装配，不计入本目录）。
+内置工具数：7（MCP 服务器工具在运行时装配，不计入本目录）。
 
 ## edit_file
 
@@ -71,6 +71,20 @@ manifest-fingerprint: fnv1a64:8908fe7ed19388e8
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | `path` | string | 是 | 工作区内相对路径 |
+
+## todo_write
+
+- 说明：整表替换本会话的轻量待办清单（三态 pending/in_progress/completed）。清单是快照：未给出的状态列表视为空，重复调用覆盖旧清单。它不是 SDD 任务账本——不创建任务、不满足阶段门禁与验收检查点；需要可交付任务请走任务命令。
+- 副作用：会话状态写（只改会话派生状态，不触碰工作区）
+- 执行预算：未声明（不设上限）
+- 输出契约：已声明 `output_schema`（校验失败即结构化错误）
+- 参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `pending` | array | 否 | 待办条目（字符串数组；省略＝空） |
+| `in_progress` | array | 否 | 进行中条目（字符串数组；省略＝空） |
+| `completed` | array | 否 | 已完成条目（字符串数组；省略＝空） |
 
 ## write_file
 

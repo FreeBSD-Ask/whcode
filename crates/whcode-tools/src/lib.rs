@@ -15,6 +15,7 @@ pub mod builtins;
 pub mod catalogue;
 pub mod paths;
 pub mod registry;
+pub mod todo;
 
 /// 工具输出正文上限（64 KiB；超限截断并显式标记，FR-728/R-05 对策）。
 pub const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1024;
@@ -24,3 +25,4 @@ pub use registry::{
     DEFAULT_TOOL_TIMEOUT_MS, MAX_TOOL_TIMEOUT_MS, ParamType, SideEffectScope, Tool, ToolDescriptor,
     ToolOutput, ToolParameter, ToolRegistry, effective_deadline, validate_arguments,
 };
+pub use todo::{MAX_TODO_CONTENT_CHARS, MAX_TODO_ITEMS, TODO_WRITE_TOOL, snapshot_from_arguments};

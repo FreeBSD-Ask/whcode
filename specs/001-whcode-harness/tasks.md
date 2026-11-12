@@ -1902,3 +1902,39 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   clippy `-D warnings`、layering 6／layout 6、traceability 无断链、check_counts 一致（148／
   283／378，missing 0）、check-adr-limits 合规、check-docs-style／check-eol／i18n-po `--check`
   全绿；CI 待运行（ADR-037）。
+
+## Tasks（2026-11-12 追加）：Phase 2 体验——会话待办工具（ADR-048 修订）
+
+- [x] T284 [P] 会话待办工具（FR-771／ADR-048 §7.1；proposal-v3 P4.6）：`whcode-tools::todo`
+  新增 `todo_write`（整表替换、三态、无 id／优先级；条目 ≤50、单条 ≤200 字符，超限拒绝
+  不截断；`snapshot_from_arguments` 为唯一规范化口径）＋`ParamType::StringArray`＋
+  `SideEffectScope::SessionState`（权限按写类、审批默认沿用读侧）＋域名
+  `EventKind::TodoUpdated`（log-only、Critical）＋turn 成功调用后落快照（失败不落）＋
+  `store::query::latest_event_of_kind`／`app::todo::current` 读取面＋`events list` 人类行
+  状态标注沿用＋工具目录重生成（7 件）＋事件契约枚举补正
+  ——**任务认知卡**：方向＝给模型一个轻量计划面（DSH 域 G 的 todo 语义），同时不污染
+  工程交付账本；目标＝模型能整表声明待办、用户与审计能看到当前清单、与 `tasks` 清晰隔离；
+  判据＝整表替换覆盖旧清单、省略列表＝清空、三态与顺序保留、条目与字数上限拒绝、未知
+  参数与错误类型拒绝、成功调用落 `TodoUpdated` 且失败／被拒不落、快照可追溯到
+  `tool_call_id`、读取面“无快照＝正确的空／缺失会话 not_found／损坏载荷 parse_error”、
+  工具目录与代码逐字节一致、与 `tasks` 零写入；非目标＝待办 UI 卡片、按 id 增量操作、
+  待办进入模型上下文（跨压缩回填）、与 SDD 任务互转。
+  ——**取证（2026-11-12）**：`whcode-tools/src/todo.rs` 四项测试
+  （`whole_table_replace_names_items_and_counts`：三态入 items、顺序与计数、模型面投影只给
+  摘要不含逐条内容；`omitted_lists_mean_empty_and_clear_the_board`：空参数＝清空；
+  `rejects_empty_long_oversized_and_mistyped_entries`：空条目／超长／超条目上限／非字符串
+  元素／非数组／未知参数六条失败路径；`boundary_values_are_accepted_and_content_is_trimmed`：
+  200 字符与 50 条边界本身可用、首尾空白裁剪）。`registry` 侧：`ParamType::StringArray`
+  校验与 provider 清单 `array/items` 渲染、`SideEffectScope::SessionState` 在
+  `catalogue.rs` 渲染为“会话状态写”、默认注册表 7 件（`default_registry_registers_seven_
+  tools_without_conflict`），`catalogue_matches_committed_doc` 逐字节通过（目录已重生成）。
+  app：`todo::current_reads_latest_snapshot_and_distinguishes_empty`（整表替换取最新、
+  其他类型事件不被误取、从未写过＝seq None 正确的空、缺失会话 not_found）＋
+  `corrupted_snapshot_is_a_parse_error_not_an_empty_view`；
+  `turn::tests::todo_write_persists_whole_table_snapshot_and_never_on_failure`（端到端：
+  成功调用落 1 条 `TodoUpdated` 且载荷含 items／三态计数／`tool_call_id`；超限调用终态
+  `failed` 且不落快照；第二轮成功调用覆盖后读取面只见最新清单）。隔离：全链无 `tasks` 写入。
+  本机：全量 `cargo test --locked --workspace` 1135 通过／0 失败（64 个测试二进制）、fmt、
+  clippy `-D warnings`、layering 6／layout 6、traceability 无断链、check_counts 一致
+  （149／284／379，missing 0）、check-adr-limits 合规、check-docs-style／check-eol／
+  i18n-po `--check` 全绿；CI 待运行（ADR-037）。

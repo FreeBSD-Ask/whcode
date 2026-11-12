@@ -76,6 +76,7 @@ fn render_tool(descriptor: &ToolDescriptor) -> String {
         match descriptor.side_effect_scope {
             SideEffectScope::ReadOnly => "只读（不修改工作区）",
             SideEffectScope::WorkspaceWrite => "工作区写（修改文件内容）",
+            SideEffectScope::SessionState => "会话状态写（只改会话派生状态，不触碰工作区）",
         }
     ));
     out.push_str(&format!(
