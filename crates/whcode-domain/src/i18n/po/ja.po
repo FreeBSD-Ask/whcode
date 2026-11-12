@@ -1301,6 +1301,12 @@ msgstr "予算 {consumed}/{budget} · ソース {sources} · 打ち切り {trunc
 msgid "web.cursor"
 msgstr "カーソル {n}"
 
+msgid "web.deliverables.title"
+msgstr "成果物"
+
+msgid "web.deliverables.truncated"
+msgstr "一覧は切り詰められています（先頭 200 件のみ表示）。"
+
 msgid "web.diff.empty"
 msgstr "（差分なし：すべての受け入れ条件を満たしています）"
 

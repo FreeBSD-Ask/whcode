@@ -26,6 +26,13 @@
       <div id="approval-list"></div>
       <output id="approval-status" role="status"></output>
     </section>
+    <!-- 交付物（FR-772／T285）：模型经 present_deliverables 登记的已存在文件；JS 填充，
+         无登记时保持隐藏（不显示空清单冒充"没有交付物"）。 -->
+    <section id="chat-deliverables" class="chat-panel" hidden aria-live="polite">
+      <h2 data-i18n="web.deliverables.title">交付物</h2>
+      <ul id="deliverable-list"></ul>
+      <p id="deliverable-note" data-i18n="web.deliverables.truncated" hidden>列表已截断（只显示前 200 项）</p>
+    </section>
     <noscript><p>当前为无 JavaScript 只读视图：发送需启用脚本（历史仍完整可读）。</p></noscript>
   </main>
   <form id="chat-form" hidden>

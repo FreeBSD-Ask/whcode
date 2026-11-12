@@ -169,3 +169,54 @@
   读取 API `whcode-app::todo::current` 已就绪供前端接入。
 - 快照只保留“最近一次”：历史快照可按 `seq` 回溯，但不提供“某次 turn 结束时清单”的专用查询。
 - `SessionState` 的审批默认沿用读侧口径（见决策 4 的代价说明）。
+
+## 7.2 修订 2026-11-12：交付物登记（P4.7）
+
+- **来源**：`research/synthesis/proposal-v3.md` P4.7、`research/dsh-comparison/domain-B-tool-system.md`
+  §2.4／§4（`present` 工具与 `deliverables/presented` 事件）；FR-772／T285／Check 380。
+
+### 决策
+
+1. **新内建工具 `present_deliverables`**（第八件）：把工作区内**已存在**的文件登记为本会话
+   交付物。参数 `paths`（`StringArray`，必填）1—4 个（对齐 DSH `present` 的 4 个上限），
+   路径须为工作区内相对路径（沿用绝对路径与 `..` 拒绝口径），且必须是**常规文件**——
+   登记不存在的路径等于声明未发生的事实，一律拒绝；目录同样拒绝（交付物是可直接打开的
+   文件，不是目录树）。
+2. **不改文件、不改工具结果**：本工具只读元数据；登记属产品语义层（与 DSH 同定位）。
+   副作用范围沿用 7.1 引入的 `SessionState`（权限按写类、审批默认沿用读侧）。
+3. **事件 `DeliverablePresented`**（log-only、Critical）：只在调用**成功**后落，
+   载荷含 `paths`（已规范化）、`count` 与 `tool_call_id`；失败／被拒不落。
+4. **读取面** `whcode_app::deliverables::list`：累加型事实的聚合视图——按**首次登记顺序**
+   去重（同一路径重复登记只出现一次，保留首次 `seq` 与 `tool_call_id`）；事件读取
+   ≤ 200 条、条目 ≤ 200 条，达到上限显式 `truncated`；缺失会话 `not_found`、载荷损坏
+   `parse_error`（不伪装空清单）。
+5. **展示面**：Web 对话页新增交付物卡片（无登记时隐藏；请求失败保持隐藏，不用空清单冒充
+   “没有交付物”），数据源 `GET /api/deliverables?session=`；能力面登记
+   `view.deliverables`（CUI 无视图面按 ADR-032 排除、TUI／GUI 未排期、Web 已实现）。
+6. **有界**：单次 ≤4 个、单路径 ≤400 字符、读取有界见决策 4；全部同步只读元数据，
+   不新增线程。
+
+### 正负和解
+
+- **正面**：交付物第一次成为可检索的事实（此前只有工具有 `side_effect` 标记）；模型可显式
+  声明“我交付了哪些文件”，用户与审计可在 Web 直接核对；失败路径不产生虚假交付记录。
+- **负面**：只验证“存在且是文件”，不验证“由本次 turn 产出”（模型声明优先）；不复制文件、
+  不算哈希，文件后续被改动或删除时清单只反映登记时刻；TUI／GUI 视图未做。
+- **承担者**：使用者（核对清单与工作区实际状态）、工具维护者（登记口径不得分叉）、
+  前端维护者（TUI／GUI 视图待排期）。
+
+### 复审触发（绑定命令＋判定）
+
+1. `cargo test -p whcode-tools present` 或 `cargo test -p whcode-app present_deliverables`
+   不再全绿 → 语义复核；
+2. `rg -n "DeliverablePresented" crates/whcode-app/src/turn.rs` 不再命中 → 落点被改动；
+3. 引入“本次 turn 产出归属”判定（git 差异或写工具回执）→ 本修订的口径需要收紧，另立 ADR；
+4. TUI／GUI 交付物视图交付或 Web 视图改版 → 更新 `view.deliverables` 与矩阵；
+5. 2027-05-07（与 D15 覆盖率复审同批）→ 复查单次上限（4）与条目上限（200）是否匹配真实用法。
+
+### 已知限制
+
+- 不判定产出归属：任一工作区已存在文件都可被登记，清单不代表“本轮新建/修改”。
+- 不复制、不哈希：交付物是路径引用；文件被改动或删除后清单仍显示登记事实（不追溯一致性）。
+- TUI／GUI 无视图；CUI 按命令面无视图（可用 `events list` 看到 `DeliverablePresented`）。
+- 只做登记，不做“导出交付物包”（打包/压缩属另一能力，未立项）。

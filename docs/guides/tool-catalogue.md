@@ -4,9 +4,9 @@
 > 重新生成：`WHCODE_UPDATE_TOOL_CATALOGUE=1 cargo test -p whcode-tools catalogue`。
 > 门禁：`cargo test -p whcode-tools catalogue`（渲染结果与文件逐字节比对）。
 
-manifest-fingerprint: fnv1a64:2f7c880bb091eb5f
+manifest-fingerprint: fnv1a64:c86bebf0c66a5cb5
 
-内置工具数：7（MCP 服务器工具在运行时装配，不计入本目录）。
+内置工具数：8（MCP 服务器工具在运行时装配，不计入本目录）。
 
 ## edit_file
 
@@ -59,6 +59,18 @@ manifest-fingerprint: fnv1a64:2f7c880bb091eb5f
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | `path` | string | 否 | 工作区内相对目录（默认根） |
+
+## present_deliverables
+
+- 说明：把工作区内已存在的文件登记为本会话交付物（每次至多 4 个，须为常规文件）。登记只记录事实、不改文件；交付物清单可在 Web 对话页查看。
+- 副作用：会话状态写（只改会话派生状态，不触碰工作区）
+- 执行预算：未声明（不设上限）
+- 输出契约：已声明 `output_schema`（校验失败即结构化错误）
+- 参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `paths` | array | 是 | 工作区内相对路径（字符串数组，1—4 个，必须已存在且是文件） |
 
 ## read_file
 

@@ -1301,6 +1301,12 @@ msgstr "Budget {consumed}/{budget} · sources {sources} · truncated {truncated}
 msgid "web.cursor"
 msgstr "Cursor {n}"
 
+msgid "web.deliverables.title"
+msgstr "Deliverables"
+
+msgid "web.deliverables.truncated"
+msgstr "List truncated (showing the first 200 entries only)."
+
 msgid "web.diff.empty"
 msgstr "(no differences: all acceptance criteria pass)"
 

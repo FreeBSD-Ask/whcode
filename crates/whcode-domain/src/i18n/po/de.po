@@ -1301,6 +1301,12 @@ msgstr "Budget {consumed}/{budget} · Quellen {sources} · gekürzt {truncated}"
 msgid "web.cursor"
 msgstr "Cursor {n}"
 
+msgid "web.deliverables.title"
+msgstr "Ergebnisse"
+
+msgid "web.deliverables.truncated"
+msgstr "Liste gekürzt (nur die ersten 200 Einträge werden angezeigt)."
+
 msgid "web.diff.empty"
 msgstr "(keine Abweichungen: alle Abnahmekriterien bestanden)"
 

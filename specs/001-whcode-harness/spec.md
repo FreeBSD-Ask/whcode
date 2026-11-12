@@ -389,6 +389,11 @@ taskkill /T /F 口径）（P1）
   （`parent_id`／`forked_at_seq`／`inherited_event_count`）与复制幂等键
   （`origin_event_id` 唯一索引）落库；继承事件数与消息数各有常量上限，超限拒绝不截断；
   权限判定与标题默认值在应用层（P1；ADR-065／P3.1）
+- **FR-772**: 交付物登记：模型可把工作区内**已存在**的常规文件登记为本会话交付物（每次
+  ≤4 个、路径须在工作区内），登记以 `DeliverablePresented` 事件持久化（log-only；仅成功
+  调用落、失败不落）；读取面按首次登记顺序去重、有界（≤200 事件／≤200 条）并显式标记
+  截断；Web 对话页提供交付物卡，能力面登记 `view.deliverables`（P2；ADR-048 §7.2／P4.7）
+
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，
   成功调用才落、失败不落），条目数与单条长度有常量上限且超限拒绝不截断；待办与 SDD 任务

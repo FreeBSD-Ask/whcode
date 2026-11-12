@@ -13,6 +13,17 @@
 
 ### 变更
 
+- **交付物登记（T285，FR-772，2026-11-12）**：新增第八件内建工具 `present_deliverables`——
+  模型可把工作区内**已存在**的常规文件登记为本会话交付物（每次 ≤4 个，去重；绝对路径、
+  `..`、目录与不存在的文件一律拒绝）。登记落新事件 `DeliverablePresented`（log-only、
+  Critical），只在调用成功后落、失败不落，载荷含规范化路径、计数与 `tool_call_id`。
+  读取面 `whcode-app::deliverables::list` 按首次登记顺序去重、有界（≤200 事件／≤200 条）
+  并显式标记截断；Web 新增 `GET /api/deliverables` 与对话页交付物卡（无登记隐藏、请求失败
+  不伪装空清单），能力面登记 `view.deliverables`（CUI 按命令面排除、TUI／GUI 未排期、
+  Web 已实现）。工具目录重生成（8 件）、事件契约枚举补正。证据：tools 3 项交付物测试、
+  app 读取面 2 项＋turn 端到端 1 项、frontend_parity 10/10、前端预算 chat JS 4869 B／
+  DOM 31 全绿；全量结果见 Check 380 取证；CI 待运行（ADR-037）。
+
 - **会话待办工具（T284，FR-771，2026-11-12）**：新增第七件内建工具 `todo_write`——模型
   可整表替换本会话待办（`pending`／`in_progress`／`completed` 三态，条目无 id 与优先级；
   省略列表即清空），条目 ≤50、单条 ≤200 字符，超限拒绝不截断。清单以新事件

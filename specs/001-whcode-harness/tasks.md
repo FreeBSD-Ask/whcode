@@ -1938,3 +1938,42 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   clippy `-D warnings`、layering 6／layout 6、traceability 无断链、check_counts 一致
   （149／284／379，missing 0）、check-adr-limits 合规、check-docs-style／check-eol／
   i18n-po `--check` 全绿；CI 待运行（ADR-037）。
+
+## Tasks（2026-11-12 追加）：Phase 2 体验——交付物登记（ADR-048 §7.2）
+
+- [x] T285 [P] 交付物登记（FR-772／ADR-048 §7.2；proposal-v3 P4.7）：`whcode-tools::present`
+  新增 `present_deliverables`（每次 ≤4、路径须为工作区内已存在常规文件、重复路径去重；
+  `entries_from_arguments` 为唯一规范化口径）＋`EventKind::DeliverablePresented`（log-only、
+  Critical）＋turn 成功调用后落事件（失败不落）＋`store::query::events_of_kind`＋
+  `app::deliverables::list`（按首次登记顺序去重、≤200 事件／≤200 条、truncated 显式）＋
+  Web `GET /api/deliverables` 与对话页交付物卡（无登记隐藏、失败不伪装空）＋能力面
+  `view.deliverables` 与对等矩阵＋工具目录重生成（8 件）＋事件契约枚举补正
+  ——**任务认知卡**：方向＝补上“已交付什么文件”这一产品语义层（DSH 域 B 的 `present`），
+  让模型声明可被用户与审计核对；目标＝成功登记落事实、失败不伪造、读取面有界且可追溯；
+  判据＝存在性/常规文件/工作区边界/单次上限/去重五类校验、成功落事件且失败不落、
+  载荷含 paths/count/tool_call_id、读取面累加去重与 truncated、缺失会话 not_found、
+  损坏载荷 parse_error、Web 端点与卡片（无登记隐藏）、四端矩阵一致、工具目录逐字节一致；
+  非目标＝产出归属判定（git 差异）、文件复制与内容哈希、交付物打包导出、TUI／GUI 视图。
+  ——**取证（2026-11-13）**：`whcode-tools/src/present.rs` 三项测试
+  （`registers_existing_files_in_order_and_dedups_repeats`：存在文件按调用方顺序登记、重复
+  路径去重、模型面投影给计数与路径；`rejects_missing_absolute_escaping_directory_and_
+  oversized_calls`：缺失／绝对路径／`..` 逃逸／目录／空数组／缺参数／未知参数／超单次上限
+  八条失败路径；`boundary_of_four_deliverables_is_accepted`：4 个上限本身可用）。
+  `EventKind::DeliverablePresented` 归 Critical 且无消息孪生（三态视图按派生规则判为
+  log_only）；`store::query::events_of_kind`（seq 升序、limit 复用 `fetch_limit` 有界）。
+  app 读取面两项（累加去重按首次登记顺序并保留首登 `seq`／`tool_call_id`、其他类型事件
+  不被误读；缺失会话 not_found；载荷结构不符 invalid_state 与 JSON 损坏 parse_error 两
+  分支显式区分、达事件上限显式 truncated）。turn 端到端一项
+  （`present_deliverables_records_facts_only_on_success`：成功落 1 条且载荷含规范化
+  paths／count／`tool_call_id`，指向缺失文件的调用终态失败且不落事件；工作区复核与工具
+  共用 `entries_from_arguments` 同一口径）。默认注册表 8 件
+  （`default_registry_registers_eight_tools_without_conflict`），`catalogue_matches_
+  committed_doc` 逐字节通过（目录已重生成）。Web：
+  `deliverables_route_reports_registered_files_and_empty_state`（未登记＝正确的空、登记后
+  返回路径与 `tool_call_id`、缺 session 参数 400、缺失会话 404）；frontend_parity 10/10；
+  前端预算 chat JS 4869 B／DOM 31 全绿；能力面 `view.deliverables` 入 SURFACES 与对等
+  矩阵（CUI 按命令面排除、TUI／GUI 未排期、Web 已实现）。本机：全量
+  `cargo test --locked --workspace` 1142 通过／0 失败（64 个测试二进制）、fmt、
+  clippy `-D warnings`、layering 6／layout 6、traceability 无断链、check_counts 一致
+  （150／285／380，missing 0）、check-adr-limits 合规、check-docs-style／check-eol／
+  i18n-po `--check` 全绿；CI 待运行（ADR-037）。

@@ -16,6 +16,9 @@ const tools = document.getElementById("tool-cards");
 const approvals = document.getElementById("approval-list");
 const approvalStatus = document.getElementById("approval-status");
 const session = new URLSearchParams(location.search).get("session") ?? "";
+const deliverableSection = document.getElementById("chat-deliverables");
+const deliverableList = document.getElementById("deliverable-list");
+const deliverableNote = document.getElementById("deliverable-note");
 
 // 文本层（FR-615）：与首页共用 `/api/i18n`；缺失键回退中文静态文案（不显示键名）。
 const texts = {};
@@ -219,6 +222,29 @@ const renderApprovals = (requests) => {
   }
 };
 
+// 交付物（FR-772）：累加登记、按首次登记顺序；失败保持隐藏，不用空清单冒充事实。
+const loadDeliverables = async () => {
+  if (!session) return;
+  try {
+    const response = await fetch(
+      `/api/deliverables?session=${encodeURIComponent(session)}`,
+    );
+    if (!response.ok) return;
+    const payload = await response.json();
+    const items = payload.deliverables ?? [];
+    deliverableList.textContent = "";
+    for (const item of items) {
+      const node = document.createElement("li");
+      node.textContent = item.path;
+      deliverableList.appendChild(node);
+    }
+    deliverableNote.hidden = !payload.truncated;
+    deliverableSection.hidden = items.length === 0;
+  } catch {
+    // 网络失败保持原状：不伪造“没有交付物”。
+  }
+};
+
 const refreshApprovals = async () => {
   try {
     const response = await fetch("/api/approvals/pending");
@@ -324,6 +350,7 @@ form.addEventListener("submit", async (event) => {
     document.getElementById("chat-prompt").value = "";
     resetLive();
     await loadTail();
+    await loadDeliverables();
   } catch (error) {
     status.textContent = `失败：${error}`;
   } finally {
@@ -336,6 +363,7 @@ if (session) {
   void loadTexts();
   void loadTail();
   void refreshApprovals();
+  void loadDeliverables();
 } else {
   status.textContent = "缺 session 参数（示例：/chat?session=S-1）";
 }

@@ -52,6 +52,8 @@ pub enum EventKind {
     CompactionFinished,
     /// 会话待办整表快照（T284／FR-771／ADR-048 修订；log-only：只承载清单，不进模型历史）。
     TodoUpdated,
+    /// 交付物登记（T285／FR-772／ADR-048 §7.2；log-only：只承载已登记路径）。
+    DeliverablePresented,
 }
 
 impl EventKind {
@@ -75,6 +77,7 @@ impl EventKind {
             Self::CompactionSummary => "CompactionSummary",
             Self::CompactionFinished => "CompactionFinished",
             Self::TodoUpdated => "TodoUpdated",
+            Self::DeliverablePresented => "DeliverablePresented",
         }
     }
 
@@ -94,7 +97,9 @@ impl EventKind {
             | Self::CompactionStarted
             | Self::CompactionFinished
             // 待办快照是本会话清单的唯一持久副本（工具参数不入事件载荷），丢弃即丢状态。
-            | Self::TodoUpdated => EventCriticality::Critical,
+            | Self::TodoUpdated
+            // 交付物登记是“已交付什么”的唯一持久副本，丢弃即丢事实。
+            | Self::DeliverablePresented => EventCriticality::Critical,
             Self::StreamingChunk | Self::ContextState | Self::CompactionSummary => {
                 EventCriticality::Content
             }

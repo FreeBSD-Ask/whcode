@@ -1739,6 +1739,30 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    // 交付物清单（T285／FR-772／ADR-048 §7.2）：Web 对话页卡片 ＋ 读取端点；
+    // TUI／GUI 未排期，CUI 无视图面（命令面按 ADR-032 排除）。
+    SurfaceEntry {
+        id: "view.deliverables",
+        kind: SurfaceKind::View,
+        capability: Capability::SessionRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CuiCommandSurface,
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Implemented {
+                anchor: "GET /api/deliverables",
+            },
+        ],
+    },
 ];
 
 /// 按 SurfaceId 查找登记条目。
@@ -1946,9 +1970,11 @@ mod tests {
                 "settings.subagents",
                 "settings.skills",
                 "settings.mcp",
-                "settings.rules.read"
+                "settings.rules.read",
+                // 交付物清单（T285／FR-772）：Web 实现，TUI／GUI 未排期。
+                "view.deliverables"
             ],
-            "视图面条目为证书设置页 + 七视图 + 检查点浏览 + 在线可见 + B4 面板（FR-601／622／624／748／749—751、ADR-040）"
+            "视图面条目为证书设置页 + 七视图 + 检查点浏览 + 在线可见 + B4 面板 + 交付物（FR-601／622／624／748／749—751／772、ADR-040）"
         );
     }
 

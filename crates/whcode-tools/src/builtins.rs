@@ -645,6 +645,7 @@ pub fn default_registry() -> Result<crate::registry::ToolRegistry, WhError> {
     registry.register(std::sync::Arc::new(Glob))?;
     registry.register(std::sync::Arc::new(Grep))?;
     registry.register(std::sync::Arc::new(crate::todo::TodoWrite))?;
+    registry.register(std::sync::Arc::new(crate::present::PresentDeliverables))?;
     Ok(registry)
 }
 
@@ -752,9 +753,9 @@ mod tests {
     }
 
     #[test]
-    fn default_registry_registers_seven_tools_without_conflict() {
+    fn default_registry_registers_eight_tools_without_conflict() {
         let registry = default_registry().expect("默认注册表");
-        assert_eq!(registry.len(), 7);
+        assert_eq!(registry.len(), 8);
         for name in [
             "read_file",
             "write_file",
@@ -763,10 +764,11 @@ mod tests {
             "glob",
             "grep",
             "todo_write",
+            "present_deliverables",
         ] {
             assert!(registry.get(name).is_some(), "{name} 应已注册");
         }
-        assert_eq!(registry.provider_manifest().len(), 7);
+        assert_eq!(registry.provider_manifest().len(), 8);
     }
 
     #[test]

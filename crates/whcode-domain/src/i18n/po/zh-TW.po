@@ -1301,6 +1301,12 @@ msgstr "預算 {consumed}/{budget} · 來源 {sources} · 截斷 {truncated}"
 msgid "web.cursor"
 msgstr "游標 {n}"
 
+msgid "web.deliverables.title"
+msgstr "交付物"
+
+msgid "web.deliverables.truncated"
+msgstr "清單已截斷（只顯示前 200 項）"
+
 msgid "web.diff.empty"
 msgstr "（沒有差異：所有驗收條件均通過）"
 

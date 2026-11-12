@@ -678,6 +678,39 @@ pub fn handle_request_with_llm(
                 Err(error) => error_response(&error),
             }
         }
+        (Method::Get, "/api/deliverables") => {
+            // 交付物清单（FR-772／T285）：累加去重、有界（≤200 事件 / ≤200 条），
+            // 与 CUI/TUI/GUI 共用 `whcode_app::list_deliverables` 一个口径。
+            let Some(session) = query_value("session") else {
+                return error_response(&WhError::invalid_state("缺 session 参数"));
+            };
+            match whcode_app::list_deliverables(conn, &policy, actor, session) {
+                Ok(view) => {
+                    let items: Vec<serde_json::Value> = view
+                        .items
+                        .iter()
+                        .map(|item| {
+                            serde_json::json!({
+                                "path": item.path,
+                                "seq": item.seq,
+                                "tool_call_id": item.tool_call_id,
+                            })
+                        })
+                        .collect();
+                    HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "session_id": session,
+                            "count": items.len(),
+                            "truncated": view.truncated,
+                            "deliverables": items,
+                        }),
+                    )
+                }
+                Err(error) => error_response(&error),
+            }
+        }
         (Method::Get, "/api/tasks") => {
             // 任务面板（FR-747）：总览（阶段/完成/阻塞/活跃）＋有界任务卡片
             // （父链依赖、重试计数）；`session` 可选——缺省为工作区级。
@@ -1859,6 +1892,78 @@ mod tests {
         let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
         assert_eq!(body["wired"], false);
         assert_eq!(body["runtimes"].as_array().expect("数组").len(), 0);
+    }
+
+    /// 交付物路由（T285／FR-772）：空清单是可区分的正确空；登记后返回路径；
+    /// 缺失 session 参数与不存在的会话分别 400／404。
+    #[test]
+    fn deliverables_route_reports_registered_files_and_empty_state() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("tester");
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-D', '交付物', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("创建");
+
+        let req = request(Method::Get, "/api/deliverables?session=S-D", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["count"], 0, "未登记是正确的空");
+        assert_eq!(body["truncated"], false);
+        assert_eq!(body["deliverables"].as_array().map(Vec::len), Some(0));
+
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                 kind, payload_json, ts, persistence_level)
+             VALUES (1, 'EV-D1', 'S-D', NULL, NULL, 'call-1', 'DeliverablePresented',
+                     CAST(? AS JSON)::VARIANT, current_timestamp, 'redacted')",
+            [r#"{"paths":["out/report.md"],"count":1,"tool_call_id":"call-1"}"#],
+        )
+        .expect("登记事件");
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["count"], 1);
+        assert_eq!(body["deliverables"][0]["path"], "out/report.md");
+        assert_eq!(body["deliverables"][0]["tool_call_id"], "call-1");
+
+        let missing_param = request(Method::Get, "/api/deliverables", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &missing_param,
+            &actor,
+        );
+        assert_eq!(response.status, 400, "缺 session 参数");
+
+        let missing_session = request(Method::Get, "/api/deliverables?session=S-404", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &missing_session,
+            &actor,
+        );
+        assert_eq!(response.status, 404, "不存在的会话");
     }
 
     #[test]

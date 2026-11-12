@@ -1301,6 +1301,12 @@ msgstr "বাজেট {consumed}/{budget} · উৎস {sources} · কাট�
 msgid "web.cursor"
 msgstr "কার্সর {n}"
 
+msgid "web.deliverables.title"
+msgstr "ডেলিভারেবল"
+
+msgid "web.deliverables.truncated"
+msgstr "তালিকা কাটা হয়েছে (শুধু প্রথম 200টি এন্ট্রি দেখানো হচ্ছে)।"
+
 msgid "web.diff.empty"
 msgstr "(কোনো পার্থক্য নেই: সব গ্রহণযোগ্যতার শর্ত পাস করেছে)"
 

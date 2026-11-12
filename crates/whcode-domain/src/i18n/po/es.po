@@ -1301,6 +1301,12 @@ msgstr "Presupuesto {consumed}/{budget} · orígenes {sources} · truncado {trun
 msgid "web.cursor"
 msgstr "Cursor {n}"
 
+msgid "web.deliverables.title"
+msgstr "Entregables"
+
+msgid "web.deliverables.truncated"
+msgstr "Lista truncada (solo se muestran las primeras 200 entradas)."
+
 msgid "web.diff.empty"
 msgstr "(sin diferencias: se cumplen todos los criterios de aceptación)"
 

@@ -1301,6 +1301,12 @@ msgstr "الميزانية {consumed}/{budget} · المصادر {sources} · م
 msgid "web.cursor"
 msgstr "المؤشر {n}"
 
+msgid "web.deliverables.title"
+msgstr "المخرجات"
+
+msgid "web.deliverables.truncated"
+msgstr "تم اقتطاع القائمة (تُعرض أول 200 إدخال فقط)."
+
 msgid "web.diff.empty"
 msgstr "(لا فروق: كل معايير القبول ناجحة)"
 

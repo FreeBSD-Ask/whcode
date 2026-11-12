@@ -88,6 +88,7 @@ T190：新增证书库设置两行）。
 | `settings.rules.revoke` | Command | Write | 部分 | 部分 | 已实现 | 已实现 | FR-751；部分 cli_local_admin |
 | `session.share` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-752；本机脱敏导出，其余端按 cli_local_admin 排除 |
 | `session.fork` | Command | Write | 已实现 | 预留 | 部分 | 预留 | FR-769／ADR-065；会话分叉，TUI/Web 未排期，GUI 按只读 v1 排除（gui_read_only_v1） |
+| `view.deliverables` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-772／ADR-048 §7.2；CUI 无视图面（cui_command_surface），TUI／GUI 未排期 |
 
 **权限**：全部命令经 `whcode-app::authz` 统一判定（拒绝 `permission_denied` 不可重试，
 FR-604）；四端不得自行推断权限。

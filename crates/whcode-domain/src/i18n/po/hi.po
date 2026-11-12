@@ -1301,6 +1301,12 @@ msgstr "बजट {consumed}/{budget} · स्रोत {sources} · काट�
 msgid "web.cursor"
 msgstr "कर्सर {n}"
 
+msgid "web.deliverables.title"
+msgstr "डिलीवरेबल्स"
+
+msgid "web.deliverables.truncated"
+msgstr "सूची काट दी गई है (केवल पहली 200 प्रविष्टियाँ दिखाई गई हैं)।"
+
 msgid "web.diff.empty"
 msgstr "(कोई अंतर नहीं: सभी स्वीकृति मानदंड सफल हैं)"
 

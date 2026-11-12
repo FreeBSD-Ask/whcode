@@ -1301,6 +1301,12 @@ msgstr "بجٹ {consumed}/{budget} · ماخذ {sources} · کٹا ہوا {trunc
 msgid "web.cursor"
 msgstr "کرسر {n}"
 
+msgid "web.deliverables.title"
+msgstr "ڈیلیوریبلز"
+
+msgid "web.deliverables.truncated"
+msgstr "فہرست کاٹ دی گئی ہے (صرف پہلی 200 اندراجات دکھائی گئی ہیں)۔"
+
 msgid "web.diff.empty"
 msgstr "(کوئی فرق نہیں: تمام قبولیت کے معیار پورے ہیں)"
 

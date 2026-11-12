@@ -1301,6 +1301,12 @@ msgstr "Бюджет {consumed}/{budget} · источников {sources} · у
 msgid "web.cursor"
 msgstr "Курсор {n}"
 
+msgid "web.deliverables.title"
+msgstr "Результаты"
+
+msgid "web.deliverables.truncated"
+msgstr "Список усечён (показаны только первые 200 записей)."
+
 msgid "web.diff.empty"
 msgstr "(различий нет: все критерии приёмки выполнены)"
 

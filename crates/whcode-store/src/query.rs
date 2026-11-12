@@ -252,6 +252,34 @@ pub fn latest_seq(conn: &Connection) -> Result<i64, WhError> {
     .map_err(query_err)
 }
 
+/// 某会话指定类型的事件页（`seq` 升序、`limit` 有界）；用于累加型状态视图
+/// （如交付物登记，T285／FR-772）。
+///
+/// # Errors
+///
+/// `limit` 为 0 或超过 [`MAX_PAGE_SIZE`]、数据库查询失败时返回 [`WhError`]。
+pub fn events_of_kind(
+    conn: &Connection,
+    session_id: &str,
+    kind: &str,
+    limit: usize,
+) -> Result<Vec<(i64, String)>, WhError> {
+    let fetch = fetch_limit(limit)?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT seq, CAST(CAST(payload_json AS JSON) AS VARCHAR) FROM events
+             WHERE session_id = ? AND kind = ?
+             ORDER BY seq ASC LIMIT ?",
+        )
+        .map_err(query_err)?;
+    let rows = stmt
+        .query_map(params![session_id, kind, fetch], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(query_err)?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(query_err)
+}
+
 /// 某会话最近一条指定类型的事件（`seq` + 载荷文本）；无匹配返回 `Ok(None)`。
 ///
 /// 用于“当前状态快照”类事件（如待办整表替换，T284／FR-771）：最新一条即当前状态，

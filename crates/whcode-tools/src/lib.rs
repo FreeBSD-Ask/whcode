@@ -14,6 +14,7 @@
 pub mod builtins;
 pub mod catalogue;
 pub mod paths;
+pub mod present;
 pub mod registry;
 pub mod todo;
 
@@ -21,6 +22,10 @@ pub mod todo;
 pub const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1024;
 
 pub use builtins::default_registry;
+pub use present::{
+    MAX_DELIVERABLE_PATH_CHARS, MAX_DELIVERABLES_PER_CALL, PRESENT_DELIVERABLES_TOOL,
+    entries_from_arguments as deliverable_entries_from_arguments,
+};
 pub use registry::{
     DEFAULT_TOOL_TIMEOUT_MS, MAX_TOOL_TIMEOUT_MS, ParamType, SideEffectScope, Tool, ToolDescriptor,
     ToolOutput, ToolParameter, ToolRegistry, effective_deadline, validate_arguments,

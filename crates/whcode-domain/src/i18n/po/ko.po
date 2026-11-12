@@ -1301,6 +1301,12 @@ msgstr "예산 {consumed}/{budget} · 원본 {sources} · 잘림 {truncated}"
 msgid "web.cursor"
 msgstr "커서 {n}"
 
+msgid "web.deliverables.title"
+msgstr "산출물"
+
+msgid "web.deliverables.truncated"
+msgstr "목록이 잘렸습니다(처음 200개만 표시)."
+
 msgid "web.diff.empty"
 msgstr "(차이 없음: 모든 인수 조건을 통과했습니다)"
 

@@ -1155,6 +1155,42 @@ fn run_turn_inner(
                     ),
                 }
             }
+            // ── 交付物登记（T285／FR-772／ADR-048 §7.2）────────────────────
+            // 与待办同口径：成功调用才落事实；路径经同一纯函数在**工作区内**复核
+            // （存在且为常规文件），失败／被拒不落——登记不存在的路径即伪造交付。
+            if tool_call.name == whcode_tools::PRESENT_DELIVERABLES_TOOL
+                && status == RuntimeExecutionStatus::Completed
+            {
+                let entries = serde_json::from_str::<serde_json::Value>(&tool_call.arguments)
+                    .map_err(|err| {
+                        whcode_domain::WhError::parse_error(format!("交付物参数解析失败：{err}"))
+                    })
+                    .and_then(|arguments| match request.workspace_root.as_deref() {
+                        Some(root) => {
+                            whcode_tools::deliverable_entries_from_arguments(root, &arguments)
+                        }
+                        None => Err(whcode_domain::WhError::invalid_state(
+                            "交付物登记缺少工作区绑定",
+                        )),
+                    });
+                match entries {
+                    Ok(paths) => emit!(
+                        EventKind::DeliverablePresented,
+                        "iteration": iteration,
+                        "request_id": request_id,
+                        "tool_call_id": tool_call.id,
+                        "paths": paths,
+                        "count": paths.len(),
+                    ),
+                    Err(err) => emit!(
+                        EventKind::PersistenceError,
+                        "iteration": iteration,
+                        "request_id": request_id,
+                        "tool_call_id": tool_call.id,
+                        "error_code": err.code.as_str(),
+                    ),
+                }
+            }
             if let Some(observer) = observer {
                 observer(TurnSignal::ToolFinished {
                     tool_call_id: tool_call.id.clone(),
@@ -2400,6 +2436,70 @@ mod tests {
         let view = crate::todo::current(&conn, &policy, &actor, &id).expect("读取待办");
         assert_eq!(view.items.len(), 2);
         assert!(view.items.iter().all(|item| item.status == "completed"));
+        assert!(!view.truncated);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// T285／FR-772：成功登记落 `DeliverablePresented`（含规范化路径与 `tool_call_id`）；
+    /// 指向不存在文件的调用失败且不落事件（登记即事实，无文件不得登记）。
+    #[test]
+    fn present_deliverables_records_facts_only_on_success() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let dir = temp_dir("present");
+        std::fs::create_dir_all(dir.join("out")).expect("工作区");
+        std::fs::write(
+            dir.join("out/report.md"),
+            "报告
+",
+        )
+        .expect("交付物文件");
+        let ok_step = |id: &str, paths: &str| StubStep {
+            chunks: vec!["登记交付物".to_string()],
+            finish_reason: "tool_call".to_string(),
+            tool_calls: vec![LlmToolCall {
+                id: id.to_string(),
+                name: whcode_tools::PRESENT_DELIVERABLES_TOOL.to_string(),
+                arguments: format!(r#"{{"paths":{paths}}}"#),
+            }],
+        };
+        let factory = StubFactory(StubProvider::with_script(vec![
+            ok_step("call-p-1", r#"["out/report.md"]"#),
+            ok_step("call-p-bad", r#"["out/missing.md"]"#),
+            StubStep::simple("完成", "stop"),
+        ]));
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "登记交付物");
+        req.workspace_root = Some(dir.clone());
+        run_turn(&mut conn, &policy, &actor, &ctx, &req, 11).expect("完成");
+
+        let events: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='DeliverablePresented'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("事件计数");
+        assert_eq!(events, 1, "只有成功登记落事件");
+        let payload: String = conn
+            .query_row(
+                "SELECT CAST(CAST(payload_json AS JSON) AS VARCHAR) FROM events
+                 WHERE session_id=? AND kind='DeliverablePresented' ORDER BY seq DESC LIMIT 1",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("载荷");
+        let value: serde_json::Value = serde_json::from_str(&payload).expect("JSON");
+        assert_eq!(value["paths"], serde_json::json!(["out/report.md"]));
+        assert_eq!(value["count"], 1);
+        assert_eq!(value["tool_call_id"], "call-p-1");
+
+        let view = crate::deliverables::list(&conn, &policy, &actor, &id).expect("读取交付物");
+        assert_eq!(view.items.len(), 1);
+        assert_eq!(view.items[0].path, "out/report.md");
         assert!(!view.truncated);
         let _ = std::fs::remove_dir_all(&dir);
     }

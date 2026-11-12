@@ -1301,6 +1301,12 @@ msgstr "Budget {consumed}/{budget} · sources {sources} · tronqué {truncated}"
 msgid "web.cursor"
 msgstr "Curseur {n}"
 
+msgid "web.deliverables.title"
+msgstr "Livrables"
+
+msgid "web.deliverables.truncated"
+msgstr "Liste tronquée (seules les 200 premières entrées sont affichées)."
+
 msgid "web.diff.empty"
 msgstr "(aucune différence : tous les critères d'acceptation passent)"
 
