@@ -179,6 +179,12 @@ impl Tool for ReadFile {
 
 // ---------- write_file ----------
 
+/// 写文件工具稳定名（T289／FR-776：前像抓取按名分派）。
+pub const WRITE_FILE_TOOL: &str = "write_file";
+
+/// 编辑文件工具稳定名（T289／FR-776）。
+pub const EDIT_FILE_TOOL: &str = "edit_file";
+
 /// 写工作区内文件（创建或覆盖；输出 diff 摘要，不回传全文；FR-726）。
 pub struct WriteFile;
 

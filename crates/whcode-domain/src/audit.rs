@@ -39,6 +39,8 @@ pub enum AuditAction {
     ApprovalAsked,
     /// 工具审批决定（与 `ApprovalAsked` 成对；审计失败时审批不得生效）。
     ApprovalDecided,
+    /// 文件前像恢复（T289／FR-776／ADR-068；破坏族，审计失败即不执行）。
+    PreimageRestore,
 }
 
 impl AuditAction {
@@ -58,6 +60,7 @@ impl AuditAction {
             Self::TlsConfigChange => "tls_config_change",
             Self::ApprovalAsked => "approval_asked",
             Self::ApprovalDecided => "approval_decided",
+            Self::PreimageRestore => "preimage_restore",
         }
     }
 }

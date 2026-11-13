@@ -2009,3 +2009,30 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   落状态、用户切换不经审批且来源为 user、损坏状态不被静默按关闭、Web 读面区分“从未切换”
   与缺失会话、工具目录逐字节一致、十三套目录同键；非目标＝工具白名单式强制、计划正文
   单独持久化、目标实体（GoalRef）与宿主定时、TUI／GUI 视图。
+
+## Tasks（2026-11-13 追加）：Phase 2 体验——回滚双路径（ADR-068）
+
+- [x] T288 [P] 对话剪枝（FR-775／ADR-068 决策 1—4；proposal-v3 P3.5）：
+  `EventKind::SessionRewound`（log-only、Critical；`{target_seq, requested_by}`）＋
+  `store::rewind`（边界必须 `0`／`TurnFinished`、不得回退到末尾、最新一条为当前边界）＋
+  `app::rewind`（`current`／`rewind`／`active_boundary`／`seq_is_active`／`message_seq`）＋
+  `context::load_context` 与 `llm::conversation_tail` 按有效区过滤（`s <= target || s > rewind_seq`；
+  被剪消息不消耗预算、尾回扫有界）＋能力 `session.rewind`＋CUI `session rewind`／
+  Web `GET/POST /api/rewind`＋surface 与矩阵＋十三套 CUI 文案
+  ——**任务认知卡**：方向＝清掉最近错误对话但保留全部事实（事件只增不改），与分叉互补；
+  目标＝回退可重放、边界合法、派生一致且预算不被已剪内容占用；判据＝半截 turn／越界／末尾
+  回退显式拒绝、回退后上下文与对话尾只含有效区、回退后新增消息重新可见、损坏边界不静默、
+  Web 读面区分“从未回退”与缺失会话；非目标＝删除事件、按事件逐条回退、跨会话合并回滚。
+- [x] T289 [P] 文件前像与恢复（FR-776／ADR-068 决策 5—8；proposal-v3 P3.5）：schema v11
+  `file_preimages`（content 与 skipped_reason 恰一非空）＋`store::preimage`（每会话 ≤50 条／
+  内容合计 ≤8 MiB／单文件 ≤256 KiB，插入后裁剪最旧；`list`／`by_exec`）＋`app::preimage`
+  （`capture` 分类 Content／Absent／Skipped、`record_after_success`、`list`、`preview`、
+  `restore` 预览→确认→审计）＋turn 在写工具执行**前**抓取、**成功**才登记（抓取失败与登记
+  失败都落 Failed 终态，不留运行中孤儿）＋`AuditAction::PreimageRestore`＋能力
+  `session.restore`＋CUI `session restore --exec-id`（默认 dry-run）／Web `GET /api/preimages`
+  ＋surface（`session.restore` 破坏族、`view.preimages`）与矩阵＋导出纳入＋data-model
+  ——**任务认知卡**：方向＝被写坏的文件有可核对的改前内容（不是工作区镜像）；
+  目标＝成功才登记、有界保留、恢复可预览可审计；判据＝新建／超限／非 UTF-8 分类正确、
+  失败调用不登记、裁剪保留最新、恢复写回与删除 absent、审计失败即不执行、
+  逃逸路径拒绝、导出含前像表；非目标＝回滚对话（另一路径）、外部进程副作用、二进制内容、
+  Web／GUI 写面恢复。

@@ -25,6 +25,8 @@ pub fn surface_of(command: &Command) -> &'static str {
             SessionCommand::Share { .. } => "session.share",
             SessionCommand::Fork { .. } => "session.fork",
             SessionCommand::Plan { .. } => "session.plan",
+            SessionCommand::Rewind { .. } => "session.rewind",
+            SessionCommand::Restore { .. } => "session.restore",
             SessionCommand::Rename { .. } => "session.rename",
             SessionCommand::Archive { .. } => "session.archive",
             SessionCommand::Delete { .. } => "session.delete",

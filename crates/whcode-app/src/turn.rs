@@ -1126,6 +1126,7 @@ fn run_turn_inner(
                 &tool_registry,
                 &mut mcp_manager,
                 &cancel,
+                session,
                 request.workspace_root.as_deref(),
                 &exec_id,
                 tool_call,
@@ -1652,6 +1653,7 @@ fn execute_tool_call(
     registry: &whcode_tools::ToolRegistry,
     mcp: &mut whcode_mcp::McpManager,
     cancel: &CancelToken,
+    session: &str,
     workspace_root: Option<&Path>,
     exec_id: &str,
     tool_call: &LlmToolCall,
@@ -1859,6 +1861,42 @@ fn execute_tool_call(
     // `MAX_TOOL_TIMEOUT_MS` 截断（effective_deadline 统一收口）。
     let deadline =
         whcode_tools::effective_deadline(descriptor.timeout_ms, std::time::Instant::now());
+    // ── 文件前像抓取（T289／FR-776／ADR-068 决策 5）────────────────────
+    // 抓取在执行**之前**（前像 = 改前内容）；登记在执行**成功之后**（见 Ok 分支）。
+    // 抓取失败＝装配缺口，显式失败；新建文件 Absent、超限／非 UTF-8 显式跳过登记。
+    let preimage = if matches!(
+        tool_call.name.as_str(),
+        whcode_tools::WRITE_FILE_TOOL | whcode_tools::EDIT_FILE_TOOL
+    ) {
+        let raw = arguments
+            .get("path")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        match crate::preimage::capture(workspace, raw) {
+            Ok(capture) => Some((raw.trim().to_string(), capture)),
+            Err(err) => {
+                // 已 mark_running：必须落终态，否则留“运行中”孤儿（信号链完备）。
+                let _ = record_result(
+                    conn,
+                    exec_id,
+                    RuntimeExecutionStatus::Failed,
+                    None,
+                    None,
+                    now_ms,
+                );
+                return fail(
+                    RuntimeExecutionStatus::Failed,
+                    format!(
+                        "工具 {} 前像抓取失败：{err}；本次调用未执行",
+                        tool_call.name
+                    ),
+                    None,
+                );
+            }
+        }
+    } else {
+        None
+    };
     match tool.execute_with_deadline(workspace, &arguments, deadline) {
         Ok(output) => {
             // 输出契约（T269／FR-759）：schema 校验 → 模型面投影 → 统一截断。
@@ -1894,6 +1932,29 @@ fn execute_tool_call(
                 }
             };
             let display_value = output.display_value();
+            // 前像登记（T289／FR-776）：只在执行成功后落，且先于 Completed 终态——
+            // 登记失败时该调用以 Failed 收口（文件改动已发生，不得伪装成“没写过”）。
+            if let Some((path, capture)) = preimage
+                && let Err(err) =
+                    crate::preimage::record_after_success(conn, session, exec_id, &path, capture)
+            {
+                let _ = record_result(
+                    conn,
+                    exec_id,
+                    RuntimeExecutionStatus::Failed,
+                    None,
+                    None,
+                    now_ms,
+                );
+                return fail_code(
+                    RuntimeExecutionStatus::Failed,
+                    format!(
+                        "工具 {} 已执行，但前像登记失败：{err}；文件改动已保留，该次调用不可恢复",
+                        tool_call.name
+                    ),
+                    "preimage_record_failed",
+                );
+            }
             if let Err(err) = record_result(
                 conn,
                 exec_id,
@@ -3254,6 +3315,78 @@ mod tests {
                 arguments: format!(r#"{{"active":{active}}}"#),
             }],
         }
+    }
+
+    /// T289／FR-776／ADR-068：写工具执行前抓前像、成功才登记；非法调用不登记且不留
+    /// “运行中”孤儿；恢复后文件回到改前内容。
+    #[test]
+    fn write_tool_captures_preimage_only_on_success_and_restores() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let dir = temp_dir("preimage");
+        std::fs::write(dir.join("notes.md"), "v1").expect("初始文件");
+        let write_step = |id: &str, path: &str, content: &str| StubStep {
+            chunks: vec!["写文件".to_string()],
+            finish_reason: "tool_call".to_string(),
+            tool_calls: vec![LlmToolCall {
+                id: id.to_string(),
+                name: whcode_tools::WRITE_FILE_TOOL.to_string(),
+                arguments: format!(r#"{{"path":"{path}","content":"{content}"}}"#),
+            }],
+        };
+        let factory = StubFactory(StubProvider::with_script(vec![
+            write_step("call-w-1", "notes.md", "v2"),
+            write_step("call-w-2", "../escape.md", "x"),
+            StubStep::simple("完成", "stop"),
+        ]));
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "写两次");
+        req.workspace_root = Some(dir.clone());
+        run_turn(&mut conn, &policy, &actor, &ctx, &req, 41).expect("完成");
+
+        let rows = whcode_store::preimage::list(&conn, &id, 10).expect("前像清单");
+        assert_eq!(rows.len(), 1, "只有成功调用登记前像（逃逸路径不登记）");
+        assert_eq!(rows[0].path, "notes.md");
+        assert_eq!(rows[0].content.as_deref(), Some("v1"));
+        assert_eq!(
+            std::fs::read_to_string(dir.join("notes.md")).expect("当前内容"),
+            "v2",
+            "成功写入已生效"
+        );
+        let states: String = conn
+            .query_row(
+                "SELECT COALESCE(STRING_AGG(state, ','), '') FROM tool_executions",
+                [],
+                |row| row.get(0),
+            )
+            .expect("终态");
+        assert!(
+            !states.contains("running"),
+            "失败路径必须落终态，不得留运行中孤儿：{states}"
+        );
+
+        // 用前像恢复：文件回到 v1（执行 ID 取该次成功调用）。
+        let exec_id: String = conn
+            .query_row(
+                "SELECT id FROM tool_executions WHERE state='completed' LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .expect("执行 ID");
+        let results =
+            crate::preimage::restore(&conn, &policy, &actor, &id, &dir, &exec_id).expect("恢复");
+        assert_eq!(
+            results,
+            vec![("notes.md".to_string(), "restored".to_string())]
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.join("notes.md")).expect("已恢复"),
+            "v1"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// T287／FR-774：模型进入计划模式 → 落一条 `PlanModeChanged`（source=model）；

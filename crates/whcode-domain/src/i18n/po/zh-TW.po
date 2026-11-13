@@ -536,8 +536,17 @@ msgstr "是"
 msgid "cui.renamed"
 msgstr "已重新命名工作階段 {session}"
 
+msgid "cui.restore.done"
+msgstr "已按前像恢復 {count} 項（寫入稽核）"
+
+msgid "cui.restore.preview"
+msgstr "恢復預覽（未執行）：將按登記逐項動作；確認請加 --yes"
+
 msgid "cui.restore_done"
 msgstr "還原完成：來源 {source}"
+
+msgid "cui.rewind.done"
+msgstr "對話已回退到 turn 邊界 {seq}（事件與訊息仍保留，只是不再進入模型上下文）"
 
 msgid "cui.spec_status"
 msgstr "工作階段 {session}：階段 {stage} · 游標 {cursor}"

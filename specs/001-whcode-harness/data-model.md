@@ -110,6 +110,15 @@
   设置页撤销要求 `approval.rule.write`，变更写 `permission_change` 审计（只带工具名与规则）
 - 导出：不在 `EXPORT_TABLES`（本地偏好，跨工作区不随导出迁移）
 
+### file_preimages
+- 字段：`id, session_id, exec_id, path, size_bytes, content, skipped_reason, created_at`
+- 约束：每次**成功**的 `write_file`／`edit_file` 调用一条（T289／FR-776／ADR-068；schema v11）；
+  `content` 与 `skipped_reason` 恰有一个非空；每会话 ≤50 条、内容合计 ≤8 MiB，插入后按创建
+  顺序裁剪最旧（资源铁律：不是工作区镜像）
+- 校验：`path` 为工作区内相对路径；`content` ≤256 KiB；跳过原因取 `too_large`／`not_utf8`／
+  `absent`（新建文件）；恢复必须预览→确认→审计（`preimage_restore`），审计失败即不执行
+- 导出：在 `EXPORT_TABLES`（有界的会话派生数据，导出后仍可恢复）
+
 ### schema_migrations
 - 字段：`version, applied_at, checksum`
 - 约束：迁移可审计且不可重复误执行（§7.1）

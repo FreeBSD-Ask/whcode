@@ -536,8 +536,17 @@ msgstr "হ্যাঁ"
 msgid "cui.renamed"
 msgstr "সেশন {session}-এর নাম পরিবর্তন হয়েছে"
 
+msgid "cui.restore.done"
+msgstr "পূর্ব প্রতিচ্ছবি থেকে {count} এন্ট্রি পুনরুদ্ধার (অডিট সহ)।"
+
+msgid "cui.restore.preview"
+msgstr "পুনরুদ্ধার প্রিভিউ (সম্পাদিত নয়): এন্ট্রিগুলো প্রয়োগ হবে; নিশ্চিত করতে --yes দিন।"
+
 msgid "cui.restore_done"
 msgstr "পুনরুদ্ধার সম্পন্ন: {source} থেকে"
+
+msgid "cui.rewind.done"
+msgstr "কথোপকথন turn সীমা {seq} পর্যন্ত ফিরিয়ে নেওয়া হয়েছে (ইভেন্ট ও বার্তা সংরক্ষিত থাকে, শুধু মডেল প্রসঙ্গ থেকে বাদ পড়ে)।"
 
 msgid "cui.spec_status"
 msgstr "সেশন {session}: ধাপ {stage} · কার্সর {cursor}"

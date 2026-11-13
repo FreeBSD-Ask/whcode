@@ -536,8 +536,17 @@ msgstr "نعم"
 msgid "cui.renamed"
 msgstr "أُعيدت تسمية الجلسة {session}"
 
+msgid "cui.restore.done"
+msgstr "تمت استعادة {count} إدخالات من الصور السابقة (مع تدقيق)."
+
+msgid "cui.restore.preview"
+msgstr "معاينة الاستعادة (غير منفذة): ستُطبَّق الإدخالات؛ للتأكيد استخدم --yes."
+
 msgid "cui.restore_done"
 msgstr "تمت الاستعادة: من {source}"
+
+msgid "cui.rewind.done"
+msgstr "أُعيدت المحادثة إلى حدّ الدور {seq} (تبقى الأحداث والرسائل محفوظة، لكنها تخرج من سياق النموذج فقط)."
 
 msgid "cui.spec_status"
 msgstr "الجلسة {session}: المرحلة {stage} · المؤشر {cursor}"

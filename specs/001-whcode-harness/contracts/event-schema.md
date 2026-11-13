@@ -9,8 +9,9 @@
 请求开始、流式增量、请求完成/失败、上下文状态、进度变化、工具调用开始/结束、运行时终止、
 持久化异常。**完整枚举以实现为准**：`whcode_domain::EventKind`（另含 turn 边界 `TurnStarted`／
 `TurnFinished`、失败尝试 `AssistantAttempt`、压缩三事件 `Compaction*`、会话待办快照
-`TodoUpdated`（T284／FR-771）、交付物登记 `DeliverablePresented`（T285／FR-772）与计划模式
-状态 `PlanModeChanged`（T287／FR-774））；新增类型必须同时更新该枚举与本节口径。
+`TodoUpdated`（T284／FR-771）、交付物登记 `DeliverablePresented`（T285／FR-772）、计划模式
+状态 `PlanModeChanged`（T287／FR-774）与对话剪枝边界 `SessionRewound`（T288／FR-775））；
+新增类型必须同时更新该枚举与本节口径。
 
 示例（字段与语义必须与实现一致；`schema_version` 必备）：
 

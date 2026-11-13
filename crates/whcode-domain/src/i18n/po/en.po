@@ -536,8 +536,17 @@ msgstr "yes"
 msgid "cui.renamed"
 msgstr "Renamed session {session}"
 
+msgid "cui.restore.done"
+msgstr "Restored {count} entries from preimages (audited)."
+
+msgid "cui.restore.preview"
+msgstr "Restore preview (not executed): entries will be applied; confirm with --yes."
+
 msgid "cui.restore_done"
 msgstr "restore done: from {source}"
+
+msgid "cui.rewind.done"
+msgstr "Conversation rewound to turn boundary {seq} (events and messages are kept; they are simply no longer in the model context)."
 
 msgid "cui.spec_status"
 msgstr "Session {session}: stage {stage} · cursor {cursor}"

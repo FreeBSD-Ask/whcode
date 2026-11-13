@@ -536,8 +536,17 @@ msgstr "ہاں"
 msgid "cui.renamed"
 msgstr "سیشن {session} کا نام بدل دیا گیا"
 
+msgid "cui.restore.done"
+msgstr "پچھلی تصویروں سے {count} اندراجات بحال کیے (آڈٹ کے ساتھ)۔"
+
+msgid "cui.restore.preview"
+msgstr "بحالی پیش نظارہ (نامکمل): اندراجات لاگو ہوں گے؛ تصدیق کے لیے --yes دیں۔"
+
 msgid "cui.restore_done"
 msgstr "بحالی مکمل: ماخذ {source}"
+
+msgid "cui.rewind.done"
+msgstr "گفتگو کو turn حد {seq} تک واپس کیا گیا (ایونٹس اور پیغامات محفوظ رہتے ہیں، صرف ماڈل سیاق سے باہر ہوتے ہیں)۔"
 
 msgid "cui.spec_status"
 msgstr "سیشن {session}: مرحلہ {stage} · کرسر {cursor}"

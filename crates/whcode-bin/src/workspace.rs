@@ -215,15 +215,16 @@ mod tests {
         let config = Config::for_workspace(dir.clone());
 
         let conn = open_workspace_db(&dir, &config).expect("首次打开");
-        // 模拟待迁移旧库：手工回退到 v9 形态——0010 的 ALTER 加列不可重复应用，必须
-        // 连列与索引一起撤销；DuckDB 撤列要求先清掉表上的全部索引，其余索引撤销后重建，
-        // 保证重开迁移完成后索引仍然齐全。
+        // 模拟待迁移旧库：手工回退到 v9 形态——0010 的 ALTER 加列与 0011 的建表不可重复
+        // 应用，必须连列、索引与表一起撤销；DuckDB 撤列要求先清掉表上的全部索引，其余索引
+        // 撤销后重建，保证重开迁移完成后索引仍然齐全。
         for index in [
             "DROP INDEX IF EXISTS idx_events_origin",
             "DROP INDEX IF EXISTS idx_events_session_seq",
             "DROP INDEX IF EXISTS idx_events_task",
             "DROP INDEX IF EXISTS idx_events_request",
             "DROP INDEX IF EXISTS idx_events_tool_call",
+            "DROP INDEX IF EXISTS idx_file_preimages_session",
         ] {
             conn.execute(index, []).expect("撤销 events 索引");
         }
@@ -235,6 +236,8 @@ mod tests {
         ] {
             conn.execute(column, []).expect("撤销 v10 加列");
         }
+        conn.execute("DROP TABLE IF EXISTS file_preimages", [])
+            .expect("撤销 v11 建表");
         for index in [
             "CREATE INDEX idx_events_session_seq ON events(session_id, seq)",
             "CREATE INDEX idx_events_task ON events(task_id)",
@@ -243,8 +246,11 @@ mod tests {
         ] {
             conn.execute(index, []).expect("重建 v9 索引");
         }
-        conn.execute("DELETE FROM schema_migrations WHERE version = 10", [])
-            .expect("回退版本记录");
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE version IN (10, 11)",
+            [],
+        )
+        .expect("回退版本记录");
         drop(conn);
 
         let conn = open_workspace_db(&dir, &config).expect("再次打开");

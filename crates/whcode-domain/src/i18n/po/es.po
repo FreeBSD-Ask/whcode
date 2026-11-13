@@ -536,8 +536,17 @@ msgstr "sí"
 msgid "cui.renamed"
 msgstr "Sesión {session} renombrada"
 
+msgid "cui.restore.done"
+msgstr "Se restauraron {count} entradas desde las imágenes previas (auditado)."
+
+msgid "cui.restore.preview"
+msgstr "Vista previa de restauración (sin ejecutar): se aplicarán las entradas; confirme con --yes."
+
 msgid "cui.restore_done"
 msgstr "restauración completada: desde {source}"
+
+msgid "cui.rewind.done"
+msgstr "Conversación retrocedida al límite de turno {seq} (los eventos y mensajes se conservan; solo salen del contexto del modelo)."
 
 msgid "cui.spec_status"
 msgstr "Sesión {session}: etapa {stage} · cursor {cursor}"

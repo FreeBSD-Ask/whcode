@@ -536,8 +536,17 @@ msgstr "да"
 msgid "cui.renamed"
 msgstr "Сессия {session} переименована"
 
+msgid "cui.restore.done"
+msgstr "Восстановлено записей: {count} (с аудитом)."
+
+msgid "cui.restore.preview"
+msgstr "Предпросмотр восстановления (не выполнено): записи будут применены; подтвердите ключом --yes."
+
 msgid "cui.restore_done"
 msgstr "восстановление завершено: из {source}"
+
+msgid "cui.rewind.done"
+msgstr "Диалог откатан к границе хода {seq} (события и сообщения сохранены, просто исключены из контекста модели)."
 
 msgid "cui.spec_status"
 msgstr "Сессия {session}: этап {stage} · курсор {cursor}"

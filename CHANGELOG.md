@@ -13,6 +13,21 @@
 
 ### 变更
 
+- **回滚双路径（T288／T289，FR-775／FR-776，2026-11-13）**：新增两条互补的回滚通道，
+  都不删除事实。**对话剪枝**：`session rewind --session --to-seq`（Web `GET/POST /api/rewind`）
+  落 `SessionRewound` 边界事件，目标必须是 `0` 或 `TurnFinished` 的 `seq`（半截 turn 拒绝），
+  模型上下文与对话尾按 `s <= target || s > rewind_seq` 派生——事件与消息全部保留、可审计、
+  可重放；被剪消息不消耗上下文预算，回退后新增的消息重新可见。**文件前像**：每次成功的
+  `write_file`／`edit_file` 在执行前抓取改前内容（`file_preimages`，schema v11），成功才登记；
+  每会话 ≤50 条、内容合计 ≤8 MiB、单文件 ≤256 KiB，超限裁剪最旧；超限／非 UTF-8／新建文件
+  显式登记跳过原因（不静默）。恢复 `session restore --session --exec-id` 默认 dry-run，
+  `--yes` 执行前写 `preimage_restore` 审计（审计失败即不执行），只恢复工作区内路径；
+  Web 提供只读 `GET /api/preimages`。能力面新增 `session.rewind`／`session.restore`／
+  `view.preimages`，导出纳入前像表，`data-model.md` 补表。同时修正：前像抓取与登记失败
+  都落 Failed 终态，不再留下“运行中”孤儿。证据：store 裁剪、app 剪枝与恢复、上下文与对话尾
+  过滤、turn 端到端、Web 路由、CUI 命令测试；全量结果见 Check 383／384 取证；CI 待运行
+  （ADR-037）。
+
 - **计划模式（T287，FR-774，2026-11-13）**：会话新增计划模式状态——`PlanModeChanged` 事件
   （log-only、Critical，最新一条即当前值，分叉与恢复自动继承）。模型经 `plan_mode` 工具进入，
   turn 开头注入计划引导段；**软引导、不阻止任何工具**（引导段与工具投影都明写不强制，限制由

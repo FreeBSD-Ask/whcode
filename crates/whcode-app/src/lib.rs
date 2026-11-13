@@ -43,9 +43,11 @@ pub mod maintenance;
 pub mod overview;
 pub mod panels;
 pub mod plan;
+pub mod preimage;
 pub mod queue;
 pub mod replay;
 pub mod residency;
+pub mod rewind;
 pub mod session;
 pub mod share;
 pub mod skills;
@@ -84,9 +86,14 @@ pub use maintenance::{
 };
 pub use overview::{TaskCard, TaskOverview, TaskPanel, task_overview, task_panel};
 pub use plan::{PlanView, current as current_plan, is_active as plan_is_active, set as set_plan};
+pub use preimage::{
+    MAX_PREIMAGE_LIST, PreimageCapture, capture as capture_preimage, list as list_preimages,
+    preview as preview_preimage, restore as restore_preimage,
+};
 pub use queue::BoundedQueue;
 pub use replay::{REPLAY_PAGE_LIMIT, ReplayPage, replay_since};
 pub use residency::{ResidencyManager, ResidencyState, UnloadedSession, idle_unload_due};
+pub use rewind::{RewindView, current as current_rewind, rewind as rewind_session};
 pub use session::{
     LIST_SESSIONS_LIMIT, MAX_SESSION_SEARCH_CHARS, NewSession, SWITCH_TAIL_LIMIT,
     SessionDirectoryQuery, SessionEntry, SessionGroup, SessionSort, SessionView, delete_session,

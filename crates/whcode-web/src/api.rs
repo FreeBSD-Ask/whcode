@@ -752,6 +752,82 @@ pub fn handle_request_with_llm(
                 Err(error) => error_response(&error),
             }
         }
+        (Method::Get, "/api/preimages") => {
+            // 前像清单（T289／FR-776／ADR-068）：新→旧、有界；跳过行只带原因不带内容。
+            let Some(session) = query_value("session") else {
+                return error_response(&WhError::invalid_state("缺 session 参数"));
+            };
+            let limit = query_value("limit")
+                .and_then(|value| value.parse::<usize>().ok())
+                .unwrap_or(whcode_app::MAX_PREIMAGE_LIST);
+            match whcode_app::list_preimages(conn, &policy, actor, session, limit) {
+                Ok(rows) => {
+                    let items: Vec<serde_json::Value> = rows
+                        .iter()
+                        .map(|row| {
+                            serde_json::json!({
+                                "id": row.id,
+                                "exec_id": row.exec_id,
+                                "path": row.path,
+                                "size_bytes": row.size_bytes,
+                                "has_content": row.content.is_some(),
+                                "skipped_reason": row.skipped_reason,
+                            })
+                        })
+                        .collect();
+                    HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "session_id": session,
+                            "count": items.len(),
+                            "preimages": items,
+                        }),
+                    )
+                }
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Get, "/api/rewind") => {
+            // 对话剪枝状态（T288／FR-775／ADR-068）：从未回退时两个字段均为 null。
+            let Some(session) = query_value("session") else {
+                return error_response(&WhError::invalid_state("缺 session 参数"));
+            };
+            match whcode_app::current_rewind(conn, &policy, actor, session) {
+                Ok(view) => HttpResponse::json(
+                    200,
+                    &serde_json::json!({
+                        "schema_version": whcode_domain::SCHEMA_VERSION,
+                        "session_id": session,
+                        "target_seq": view.target_seq,
+                        "rewind_seq": view.rewind_seq,
+                    }),
+                ),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/rewind") => {
+            // 回退只落边界（不删事件）；目标必须是 TurnFinished 或 0，非法即拒绝。
+            let result = (|| -> Result<serde_json::Value, WhError> {
+                let body = json_body(request)?;
+                let session = body_str(&body, "session")?.to_string();
+                let to_seq = body
+                    .get("to_seq")
+                    .and_then(serde_json::Value::as_i64)
+                    .ok_or_else(|| WhError::invalid_state("对话剪枝请求体需要整数字段 to_seq"))?;
+                let view = whcode_app::rewind_session(conn, &policy, actor, &session, to_seq)?;
+                Ok(serde_json::json!({
+                    "schema_version": whcode_domain::SCHEMA_VERSION,
+                    "session_id": session,
+                    "target_seq": view.target_seq,
+                    "rewind_seq": view.rewind_seq,
+                }))
+            })();
+            match result {
+                Ok(value) => HttpResponse::json(200, &value),
+                Err(error) => error_response(&error),
+            }
+        }
         (Method::Get, "/api/tasks") => {
             // 任务面板（FR-747）：总览（阶段/完成/阻塞/活跃）＋有界任务卡片
             // （父链依赖、重试计数）；`session` 可选——缺省为工作区级。
@@ -1845,6 +1921,12 @@ mod tests {
         // 否则 checkpoints.delta_json 仍是文本列、CAST(... AS JSON)::VARIANT 退化为
         // 结构体文本（2026-11-07 实测）。
         include_str!("../../whcode-store/migrations/0007_json_variant.sql"),
+        // v8—v11：usage 锚点、审批规则、会话分叉、文件前像（与生产 schema 同构，
+        // 否则新路由在测试里读不到对应表）。
+        include_str!("../../whcode-store/migrations/0008_usage_anchor.sql"),
+        include_str!("../../whcode-store/migrations/0009_approval_rules.sql"),
+        include_str!("../../whcode-store/migrations/0010_session_fork.sql"),
+        include_str!("../../whcode-store/migrations/0011_file_preimages.sql"),
     );
 
     fn migrated() -> Connection {
@@ -2169,6 +2251,175 @@ mod tests {
             &actor,
         );
         assert_eq!(response.status, 400, "缺 active 字段");
+    }
+
+    /// 对话剪枝路由（T288／FR-775／ADR-068）：从未回退＝两字段 null；非法边界 400；
+    /// 缺失会话 404；回退后状态可读回。
+    #[test]
+    fn rewind_route_reports_boundary_and_rejects_invalid_targets() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("tester");
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-W', '剪枝', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("创建");
+        for (seq, kind) in [(1, "TurnStarted"), (2, "TurnFinished"), (3, "TurnStarted")] {
+            conn.execute(
+                "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                     kind, payload_json, ts, persistence_level)
+                 VALUES (?, ?, 'S-W', NULL, NULL, NULL, ?, CAST('{}' AS JSON)::VARIANT,
+                         current_timestamp, 'redacted')",
+                duckdb::params![seq, format!("EV-{seq}"), kind],
+            )
+            .expect("事件");
+        }
+
+        let req = request(Method::Get, "/api/rewind?session=S-W", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["target_seq"], serde_json::Value::Null, "从未回退");
+        assert_eq!(body["rewind_seq"], serde_json::Value::Null);
+
+        let rewind = method_with_json(
+            Method::Post,
+            "/api/rewind",
+            &serde_json::json!({ "session": "S-W", "to_seq": 2 }),
+        );
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &rewind,
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["target_seq"], 2);
+        assert_eq!(body["rewind_seq"], 4, "回退事件自身占用全局序号 4");
+
+        let invalid = method_with_json(
+            Method::Post,
+            "/api/rewind",
+            &serde_json::json!({ "session": "S-W", "to_seq": 1 }),
+        );
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &invalid,
+            &actor,
+        );
+        assert_eq!(response.status, 400, "半截 turn 不是合法边界");
+
+        let missing_param = request(Method::Get, "/api/rewind", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &missing_param,
+            &actor,
+        );
+        assert_eq!(response.status, 400, "缺 session 参数");
+
+        let missing_session = request(Method::Get, "/api/rewind?session=S-404", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &missing_session,
+            &actor,
+        );
+        assert_eq!(response.status, 404, "不存在的会话");
+    }
+
+    /// 前像清单路由（T289／FR-776／ADR-068）：有界清单带 has_content 与跳过原因；
+    /// limit=0 越界 400；缺失会话 404。
+    #[test]
+    fn preimages_route_reports_bounded_list() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("tester");
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-PI', '前像', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("创建");
+        conn.execute(
+            "INSERT INTO file_preimages (id, session_id, exec_id, path, size_bytes, content,
+                                        skipped_reason)
+             VALUES ('PI-1', 'S-PI', 'TX-1', 'doc.md', 3, 'v1', NULL)",
+            [],
+        )
+        .expect("前像");
+        conn.execute(
+            "INSERT INTO file_preimages (id, session_id, exec_id, path, size_bytes, content,
+                                        skipped_reason)
+             VALUES ('PI-2', 'S-PI', 'TX-2', 'big.bin', 400000, NULL, 'too_large')",
+            [],
+        )
+        .expect("跳过行");
+
+        let req = request(Method::Get, "/api/preimages?session=S-PI", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["count"], 2);
+        let items = body["preimages"].as_array().expect("数组");
+        assert!(
+            items
+                .iter()
+                .any(|item| item["path"] == "doc.md" && item["has_content"] == true),
+            "{body}"
+        );
+        assert!(
+            items
+                .iter()
+                .any(|item| item["path"] == "big.bin" && item["skipped_reason"] == "too_large"),
+            "跳过行必须带原因：{body}"
+        );
+
+        let bad_limit = request(Method::Get, "/api/preimages?session=S-PI&limit=0", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &bad_limit,
+            &actor,
+        );
+        assert_eq!(response.status, 400, "limit=0 越界");
+
+        let missing = request(Method::Get, "/api/preimages?session=S-404", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &missing,
+            &actor,
+        );
+        assert_eq!(response.status, 404, "缺失会话");
     }
 
     #[test]

@@ -536,8 +536,17 @@ msgstr "はい"
 msgid "cui.renamed"
 msgstr "セッション {session} の名前を変更しました"
 
+msgid "cui.restore.done"
+msgstr "前像から {count} 件を復元しました（監査済み）。"
+
+msgid "cui.restore.preview"
+msgstr "復元プレビュー（未実行）：登録どおりに適用します。確定は --yes。"
+
 msgid "cui.restore_done"
 msgstr "復元が完了しました：{source} から"
+
+msgid "cui.rewind.done"
+msgstr "会話を turn 境界 {seq} まで巻き戻しました（イベントとメッセージは保持され、モデルの文脈から外れるだけです）。"
 
 msgid "cui.spec_status"
 msgstr "セッション {session}：ステージ {stage} · カーソル {cursor}"

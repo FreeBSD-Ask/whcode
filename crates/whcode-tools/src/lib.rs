@@ -22,7 +22,8 @@ pub mod todo;
 /// 工具输出正文上限（64 KiB；超限截断并显式标记，FR-728/R-05 对策）。
 pub const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1024;
 
-pub use builtins::default_registry;
+pub use builtins::{EDIT_FILE_TOOL, WRITE_FILE_TOOL, default_registry};
+pub use paths::resolve_in_workspace;
 pub use plan::{
     MAX_PLAN_GUIDANCE_CHARS, PLAN_GUIDANCE, PLAN_MODE_EXIT_RULE, PLAN_MODE_TOOL,
     plan_active_from_arguments,

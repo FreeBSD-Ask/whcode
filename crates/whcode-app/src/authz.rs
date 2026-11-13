@@ -27,6 +27,10 @@ pub enum Capability {
     SessionArchive,
     /// 切换会话计划模式（T287／FR-774／ADR-067；只改引导状态，不产生门禁效力）。
     SessionPlan,
+    /// 回退对话到 turn 边界（T288／FR-775／ADR-068；只落边界，不删历史）。
+    SessionRewind,
+    /// 恢复文件前像（T289／FR-776／ADR-068；破坏族：预览→确认→审计）。
+    SessionRestore,
     /// 删除会话（破坏性）。
     SessionDelete,
     /// 任务读取（列表/详情/总览）。
@@ -57,6 +61,8 @@ impl Capability {
             Self::SessionRename => "session.rename",
             Self::SessionArchive => "session.archive",
             Self::SessionPlan => "session.plan",
+            Self::SessionRewind => "session.rewind",
+            Self::SessionRestore => "session.restore",
             Self::SessionDelete => "session.delete",
             Self::TaskRead => "task.read",
             Self::TaskRetry => "task.retry",
@@ -145,6 +151,8 @@ pub fn actor_with_all_capabilities(id: &str) -> Actor {
             Capability::SessionRename,
             Capability::SessionArchive,
             Capability::SessionPlan,
+            Capability::SessionRewind,
+            Capability::SessionRestore,
             Capability::SessionDelete,
             Capability::TaskRead,
             Capability::TaskRetry,

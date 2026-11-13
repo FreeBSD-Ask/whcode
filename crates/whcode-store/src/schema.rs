@@ -25,11 +25,13 @@ use whcode_domain::{ErrorCode, WhError};
 /// v9 增加工具级审批规则表（T256／T257／FR-745：只存 allow／deny，撤销即删除）；
 /// v10 增加会话分叉谱系与事件复制幂等键（T282／FR-769／ADR-065：
 /// `sessions.parent_id`／`forked_at_seq`／`inherited_event_count`，
-/// `events.origin_event_id` 与 `(session_id, origin_event_id)` 唯一索引）。
-pub const STORE_SCHEMA_VERSION: u32 = 10;
+/// `events.origin_event_id` 与 `(session_id, origin_event_id)` 唯一索引）；
+/// v11 增加文件前像表（T289／FR-776／ADR-068：每次成功的写调用登记改前内容或跳过原因，
+/// 有界保留）。
+pub const STORE_SCHEMA_VERSION: u32 = 11;
 
 /// 正式表数量（含 `schema_migrations`）。
-pub const TABLE_COUNT: usize = 16;
+pub const TABLE_COUNT: usize = 17;
 
 const MIGRATION_0001: &str = include_str!("../migrations/0001_initial.sql");
 const MIGRATION_0002: &str = include_str!("../migrations/0002_event_trace_indexes.sql");
@@ -41,6 +43,7 @@ const MIGRATION_0007: &str = include_str!("../migrations/0007_json_variant.sql")
 const MIGRATION_0008: &str = include_str!("../migrations/0008_usage_anchor.sql");
 const MIGRATION_0009: &str = include_str!("../migrations/0009_approval_rules.sql");
 const MIGRATION_0010: &str = include_str!("../migrations/0010_session_fork.sql");
+const MIGRATION_0011: &str = include_str!("../migrations/0011_file_preimages.sql");
 
 /// 版本化迁移清单；新增版本时追加，不修改历史 SQL。
 const MIGRATIONS: &[(u32, &str)] = &[
@@ -54,6 +57,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (8, MIGRATION_0008),
     (9, MIGRATION_0009),
     (10, MIGRATION_0010),
+    (11, MIGRATION_0011),
 ];
 
 fn store_err(context: &str, err: duckdb::Error) -> WhError {

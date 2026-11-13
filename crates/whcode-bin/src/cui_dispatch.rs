@@ -686,6 +686,61 @@ fn session_command(
             })?;
             Ok((value, human))
         }
+        SessionCommand::Restore {
+            session,
+            exec_id,
+            yes,
+        } => {
+            // 文件前像恢复（T289／FR-776／ADR-068）：破坏族——默认 dry-run，--yes 执行。
+            let conn = open_db(workspace, config)?;
+            if !*yes {
+                let rows = whcode_app::preview_preimage(&conn, policy, actor, session, exec_id)?;
+                let items: Vec<Value> = rows
+                    .iter()
+                    .map(|row| {
+                        json!({
+                            "path": row.path,
+                            "size_bytes": row.size_bytes,
+                            "content": row.content.is_some(),
+                            "skipped_reason": row.skipped_reason,
+                        })
+                    })
+                    .collect();
+                let line = texts.resolve("cui.restore.preview");
+                return Ok((
+                    json!({ "session": session, "exec_id": exec_id, "dry_run": true, "items": items }),
+                    line.to_string(),
+                ));
+            }
+            let results =
+                whcode_app::restore_preimage(&conn, policy, actor, session, workspace, exec_id)?;
+            let line = texts.resolve("cui.restore.done");
+            Ok((
+                json!({
+                    "session": session,
+                    "exec_id": exec_id,
+                    "restored": results.iter().map(|(path, outcome)| json!({
+                        "path": path,
+                        "outcome": outcome,
+                    })).collect::<Vec<_>>(),
+                }),
+                line.to_string(),
+            ))
+        }
+        SessionCommand::Rewind { session, to_seq } => {
+            // 对话剪枝（T288／FR-775／ADR-068）：只落边界，事件与消息全部保留。
+            let conn = open_db(workspace, config)?;
+            let view = whcode_app::rewind_session(&conn, policy, actor, session, *to_seq)?;
+            let line = texts.resolve_fmt("cui.rewind.done", &[("seq", &to_seq.to_string())]);
+            Ok((
+                json!({
+                    "session": session,
+                    "target_seq": view.target_seq,
+                    "rewind_seq": view.rewind_seq,
+                }),
+                line.to_string(),
+            ))
+        }
         SessionCommand::Plan { session, off } => {
             // 计划模式（T287／FR-774／ADR-067）：用户即决策者，不经审批；仍落事件。
             let conn = open_db(workspace, config)?;
@@ -1518,6 +1573,146 @@ mod tests {
 
     fn args(list: &[&str]) -> Vec<String> {
         list.iter().map(|item| (*item).to_string()).collect()
+    }
+
+    /// 文件前像恢复（T289／FR-776／ADR-068）：默认 dry-run；--yes 恢复并写审计。
+    #[test]
+    fn session_restore_previews_then_applies_preimage() {
+        let workspace = temp_workspace("restore");
+        let create = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "恢复会话".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("创建会话");
+        let id = create.0["session"]["id"]
+            .as_str()
+            .expect("会话 ID")
+            .to_string();
+
+        std::fs::write(workspace.join("doc.md"), "改后").expect("当前文件");
+        let config = crate::config::Config::for_workspace(&workspace);
+        let conn = super::open_db(&workspace, &config).expect("打开库");
+        whcode_store::preimage::record(&conn, &id, "TX-demo", "doc.md", 6, Some("改前"), None)
+            .expect("登记前像");
+        drop(conn);
+
+        let preview = execute(
+            &Command::Session {
+                command: SessionCommand::Restore {
+                    session: id.clone(),
+                    exec_id: "TX-demo".into(),
+                    yes: false,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("预览");
+        assert_eq!(preview.0["dry_run"], true);
+        assert_eq!(preview.0["items"].as_array().map(Vec::len), Some(1));
+        assert_eq!(
+            std::fs::read_to_string(workspace.join("doc.md")).expect("未动"),
+            "改后",
+            "预览不得写工作区"
+        );
+
+        let applied = execute(
+            &Command::Session {
+                command: SessionCommand::Restore {
+                    session: id,
+                    exec_id: "TX-demo".into(),
+                    yes: true,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("恢复");
+        assert_eq!(applied.0["restored"].as_array().map(Vec::len), Some(1));
+        assert_eq!(
+            std::fs::read_to_string(workspace.join("doc.md")).expect("已恢复"),
+            "改前"
+        );
+    }
+
+    /// 对话剪枝（T288／FR-775／ADR-068）：CUI 回退只落边界；非法目标显式失败。
+    #[test]
+    fn session_rewind_records_boundary_and_rejects_invalid_targets() {
+        let workspace = temp_workspace("rewind");
+        let create = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "剪枝会话".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("创建会话");
+        let id = create.0["session"]["id"]
+            .as_str()
+            .expect("会话 ID")
+            .to_string();
+
+        let err = execute(
+            &Command::Session {
+                command: SessionCommand::Rewind {
+                    session: id.clone(),
+                    to_seq: 0,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect_err("无事件时无可回退历史");
+        assert_eq!(err.code, whcode_domain::ErrorCode::NotFound);
+
+        // 用计划模式开关制造一条事件（seq 1），使 0 成为合法边界。
+        execute(
+            &Command::Session {
+                command: SessionCommand::Plan {
+                    session: id.clone(),
+                    off: false,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("开启计划模式");
+        let out = execute(
+            &Command::Session {
+                command: SessionCommand::Rewind {
+                    session: id.clone(),
+                    to_seq: 0,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("回退到起点");
+        assert_eq!(out.0["target_seq"], 0);
+        assert_eq!(out.0["rewind_seq"], 2);
+        assert!(out.1.contains("回退"), "人类行说明边界：{}", out.1);
+
+        let err = execute(
+            &Command::Session {
+                command: SessionCommand::Rewind {
+                    session: id,
+                    to_seq: 2,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect_err("回退到末尾是空操作");
+        assert_eq!(err.code, whcode_domain::ErrorCode::InvalidState);
     }
 
     /// 计划模式（T287／FR-774／ADR-067）：CUI 直接切换、不受审批；两次切换各自落事件。

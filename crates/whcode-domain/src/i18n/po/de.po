@@ -536,8 +536,17 @@ msgstr "ja"
 msgid "cui.renamed"
 msgstr "Sitzung {session} umbenannt"
 
+msgid "cui.restore.done"
+msgstr "{count} Einträge aus Vorbildern wiederhergestellt (auditiert)."
+
+msgid "cui.restore.preview"
+msgstr "Wiederherstellungsvorschau (nicht ausgeführt): Einträge werden angewendet; mit --yes bestätigen."
+
 msgid "cui.restore_done"
 msgstr "Wiederherstellung abgeschlossen: Quelle {source}"
+
+msgid "cui.rewind.done"
+msgstr "Unterhaltung auf die Turn-Grenze {seq} zurückgesetzt (Ereignisse und Nachrichten bleiben erhalten, nur nicht mehr im Modellkontext)."
 
 msgid "cui.spec_status"
 msgstr "Sitzung {session}: Phase {stage} · Cursor {cursor}"

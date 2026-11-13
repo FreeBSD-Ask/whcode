@@ -89,6 +89,9 @@ T190：新增证书库设置两行）。
 | `settings.rules.revoke` | Command | Write | 部分 | 部分 | 已实现 | 已实现 | FR-751；部分 cli_local_admin |
 | `session.share` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-752；本机脱敏导出，其余端按 cli_local_admin 排除 |
 | `session.fork` | Command | Write | 已实现 | 预留 | 部分 | 预留 | FR-769／ADR-065；会话分叉，TUI/Web 未排期，GUI 按只读 v1 排除（gui_read_only_v1） |
+| `session.rewind` | Command | Write | 已实现 | 预留 | 预留 | 已实现 | FR-775／ADR-068；对话剪枝（只落边界不删事件），TUI／GUI 未排期 |
+| `session.restore` | Command | Destructive | 已实现 | 预留 | 预留 | 预留 | FR-776／ADR-068；前像恢复（预览＋确认＋审计），Web／TUI／GUI 写面未排期 |
+| `view.preimages` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-776／ADR-068；CUI 无视图面（cui_command_surface），前像清单只读，TUI／GUI 未排期 |
 | `session.plan` | Command | Write | 已实现 | 预留 | 预留 | 已实现 | FR-774／ADR-067；计划模式切换（软引导、不经审批、落 `PlanModeChanged`），TUI／GUI 未排期 |
 | `view.deliverables` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-772／ADR-048 §7.2；CUI 无视图面（cui_command_surface），TUI／GUI 未排期 |
 

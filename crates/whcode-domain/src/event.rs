@@ -56,6 +56,8 @@ pub enum EventKind {
     DeliverablePresented,
     /// 计划模式状态变更（T287／FR-774／ADR-067；log-only：只承载开关与来源）。
     PlanModeChanged,
+    /// 对话剪枝边界（T288／FR-775／ADR-068；log-only：只承载回退目标与来源）。
+    SessionRewound,
 }
 
 impl EventKind {
@@ -81,6 +83,7 @@ impl EventKind {
             Self::TodoUpdated => "TodoUpdated",
             Self::DeliverablePresented => "DeliverablePresented",
             Self::PlanModeChanged => "PlanModeChanged",
+            Self::SessionRewound => "SessionRewound",
         }
     }
 
@@ -104,7 +107,9 @@ impl EventKind {
             // 交付物登记是“已交付什么”的唯一持久副本，丢弃即丢事实。
             | Self::DeliverablePresented
             // 计划模式状态以最新一条为当前值（ADR-067 决策 1），丢弃即丢状态。
-            | Self::PlanModeChanged => EventCriticality::Critical,
+            | Self::PlanModeChanged
+            // 剪枝边界决定历史派生范围（ADR-068 决策 2），丢弃即改变可见历史。
+            | Self::SessionRewound => EventCriticality::Critical,
             Self::StreamingChunk | Self::ContextState | Self::CompactionSummary => {
                 EventCriticality::Content
             }

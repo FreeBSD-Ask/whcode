@@ -405,6 +405,16 @@ taskkill /T /F 口径）（P1）
   `plan_mode_exit`；无应答面时 fail-closed）；用户经 CUI `session plan --on|--off` 与 Web
   `POST /api/plan` 直接切换（不经审批，来源记 `user`），读面 `whcode_app::plan::current` 与
   `GET /api/plan`；不产生 SDD 任务、不参与门禁与验收（P2；ADR-067／P4.5）
+- **FR-775**: 对话剪枝：可把会话回退到某个 turn 边界（`SessionRewound` 事件，log-only、
+  Critical；目标必须是 `0` 或 `TurnFinished` 的 `seq`，半截 turn 拒绝），事件与消息**全部
+  保留**，派生历史按 `s <= target || s > rewind_seq` 过滤（上下文与对话尾同一口径）；
+  能力 `session.rewind`，CUI `session rewind`、Web `GET/POST /api/rewind`
+  （P2；ADR-068 决策 1—4／P3.5）
+- **FR-776**: 文件前像：每次成功的 `write_file`／`edit_file` 调用登记改前内容
+  （`file_preimages`，schema v11；每会话 ≤50 条、内容合计 ≤8 MiB、单文件 ≤256 KiB；
+  超限／非 UTF-8／新建文件显式登记跳过原因），失败调用不登记；恢复为破坏族——预览→确认→
+  审计（`preimage_restore`，审计失败即不执行），只恢复工作区内路径；Web 提供只读
+  `/api/preimages`，写面 v1 限 CUI（P2；ADR-068 决策 5—8／P3.5）
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

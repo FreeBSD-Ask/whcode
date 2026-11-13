@@ -78,6 +78,8 @@ pub fn load_context(
     let mut truncated = false;
     let mut cursor: Option<MessageCursor> = None;
     let mut last_cursor: Option<MessageCursor> = None;
+    // ADR-068 决策 2：剪枝边界决定有效区（被剪掉的消息不进入历史，也不消耗预算）。
+    let boundary = crate::rewind::active_boundary(conn, session_id)?;
 
     loop {
         let page = query::messages_page(
@@ -88,6 +90,11 @@ pub fn load_context(
             CONTEXT_PAGE_SIZE,
         )?;
         for message in &page.items {
+            if let Some(seq) = crate::rewind::message_seq(&message.id)
+                && !crate::rewind::seq_is_active(seq, boundary)
+            {
+                continue;
+            }
             let tokens = message.token_count.unwrap_or(0).max(0) as usize;
             if consumed + tokens > budget_tokens {
                 truncated = true;
@@ -450,6 +457,61 @@ mod tests {
 
         // items 引用化：不携带正文。
         assert_eq!(remaining.items[0].content_ref, "ref-0");
+    }
+
+    /// T288／FR-775／ADR-068：剪枝边界决定派生历史——被剪消息不进入上下文、不消耗预算；
+    /// 回退事件之后新增的消息重新属于有效区。
+    #[test]
+    fn rewind_boundary_filters_context_and_releases_budget() {
+        let conn = migrated();
+        create_session_with_id(&conn, "S-R", "剪枝", "active", 1_000).expect("创建");
+        for seq in 1..=4i64 {
+            conn.execute(
+                "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
+                 VALUES (?, 'S-R', 'user', ?, 100, current_timestamp, NULL)",
+                params![format!("MSG-{seq}"), format!("ref-{seq}")],
+            )
+            .expect("消息");
+        }
+        for (seq, kind) in [
+            (1, "TurnStarted"),
+            (2, "TurnFinished"),
+            (3, "TurnStarted"),
+            (4, "TurnFinished"),
+        ] {
+            conn.execute(
+                "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                     kind, payload_json, ts, persistence_level)
+                 VALUES (?, ?, 'S-R', NULL, NULL, NULL, ?, CAST('{}' AS JSON)::VARIANT,
+                         current_timestamp, 'redacted')",
+                params![seq, format!("EV-{seq}"), kind],
+            )
+            .expect("事件");
+        }
+        whcode_store::rewind::record_rewind(&conn, "S-R", 2, "user").expect("回退到 turn 边界 2");
+
+        let policy = DefaultPolicy;
+        let actor = actor_with_all_capabilities("tester");
+        let window = load_context(&conn, &policy, &actor, "S-R", 1_000_000).expect("加载");
+        let ids: Vec<&str> = window.items.iter().map(|item| item.id.as_str()).collect();
+        assert_eq!(ids, vec!["MSG-1", "MSG-2"], "只保留回退边界内的消息");
+        assert_eq!(window.consumed_budget, 200, "被剪消息不消耗预算");
+        assert!(window.next_cursor.is_none());
+
+        // 回退事件本身是 seq 5；新增 MSG-6 属于有效区（s > rewind_seq）。
+        conn.execute(
+            "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
+             VALUES ('MSG-6', 'S-R', 'user', 'ref-6', 100, current_timestamp, NULL)",
+            [],
+        )
+        .expect("新消息");
+        let window = load_context(&conn, &policy, &actor, "S-R", 1_000_000).expect("再加载");
+        let ids: Vec<&str> = window.items.iter().map(|item| item.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec!["MSG-1", "MSG-2", "MSG-6"],
+            "回退后的新消息重新可见"
+        );
     }
 
     #[test]

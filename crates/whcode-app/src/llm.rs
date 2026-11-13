@@ -739,6 +739,9 @@ impl Drop for CancelMarker {
 /// 对话尾部条数上限（历史查询必须有界；渲染侧另有行数封顶）。
 pub const MAX_CONVERSATION_TAIL: usize = 100;
 
+/// 对话尾回扫的消息条数上限（ADR-068：剪枝后按页补齐，但扫描量有界）。
+pub const MAX_TAIL_SCAN: usize = 4 * MAX_CONVERSATION_TAIL;
+
 /// 对话尾部条目（FR-741／742：`view.chat` 历史视图数据）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConversationEntry {
@@ -785,24 +788,48 @@ pub fn conversation_tail(
             format!("会话 {session} 不存在"),
         ));
     }
-    let page = whcode_store::query::messages_page(
-        conn,
-        session,
-        whcode_store::query::Direction::Backward,
-        None,
-        max,
-    )?;
-    Ok(page
-        .items
-        .into_iter()
-        .rev()
-        .map(|row| ConversationEntry {
-            id: row.id,
-            role: row.role,
-            content: row.content_ref,
-            ts_us: row.ts_us,
-        })
-        .collect())
+    // ADR-068 决策 2：剪枝后有效区可能稀疏，因此按页回扫直到凑够 max 条有效消息；
+    // 扫描总量以 MAX_TAIL_SCAN 为界（不因剪枝把一次读变成全表扫）。
+    let boundary = crate::rewind::active_boundary(conn, session)?;
+    let mut cursor = None;
+    let mut collected: Vec<ConversationEntry> = Vec::with_capacity(max);
+    let mut scanned = 0usize;
+    while collected.len() < max && scanned < MAX_TAIL_SCAN {
+        let want = (max - collected.len()).min(MAX_TAIL_SCAN - scanned).max(1);
+        let page = whcode_store::query::messages_page(
+            conn,
+            session,
+            whcode_store::query::Direction::Backward,
+            cursor,
+            want,
+        )?;
+        if page.items.is_empty() {
+            break;
+        }
+        for row in page.items {
+            scanned += 1;
+            if let Some(seq) = crate::rewind::message_seq(&row.id)
+                && !crate::rewind::seq_is_active(seq, boundary)
+            {
+                continue;
+            }
+            collected.push(ConversationEntry {
+                id: row.id,
+                role: row.role,
+                content: row.content_ref,
+                ts_us: row.ts_us,
+            });
+            if collected.len() == max {
+                break;
+            }
+        }
+        match page.next {
+            Some(next) => cursor = Some(next),
+            None => break,
+        }
+    }
+    collected.reverse();
+    Ok(collected)
 }
 
 #[cfg(test)]
@@ -1190,6 +1217,52 @@ mod tests {
             cancel(&DefaultPolicy, &weak, &context, "req").expect_err("取消同样受权限约束");
         assert_eq!(cancel_err.code, ErrorCode::PermissionDenied);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// T288／FR-775／ADR-068：对话尾按剪枝边界过滤，且回扫量有界。
+    #[test]
+    fn conversation_tail_respects_rewind_boundary() {
+        let conn = migrated();
+        whcode_store::create_session_with_id(&conn, "S-R", "剪枝", "active", 1_000).expect("创建");
+        for seq in 1..=4i64 {
+            conn.execute(
+                "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
+                 VALUES (?, 'S-R', 'user', ?, 10, current_timestamp, NULL)",
+                duckdb::params![format!("MSG-{seq}"), format!("ref-{seq}")],
+            )
+            .expect("消息");
+        }
+        for (seq, kind) in [
+            (1, "TurnStarted"),
+            (2, "TurnFinished"),
+            (3, "TurnStarted"),
+            (4, "TurnFinished"),
+        ] {
+            conn.execute(
+                "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                     kind, payload_json, ts, persistence_level)
+                 VALUES (?, ?, 'S-R', NULL, NULL, NULL, ?, CAST('{}' AS JSON)::VARIANT,
+                         current_timestamp, 'redacted')",
+                duckdb::params![seq, format!("EV-{seq}"), kind],
+            )
+            .expect("事件");
+        }
+        whcode_store::rewind::record_rewind(&conn, "S-R", 2, "user").expect("回退");
+
+        let actor = actor_with_all_capabilities("tester");
+        let tail = conversation_tail(&conn, &DefaultPolicy, &actor, "S-R", 10).expect("尾部");
+        let ids: Vec<&str> = tail.iter().map(|entry| entry.id.as_str()).collect();
+        assert_eq!(ids, vec!["MSG-1", "MSG-2"], "被剪消息不进入对话尾");
+
+        conn.execute(
+            "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
+             VALUES ('MSG-6', 'S-R', 'user', 'ref-6', 10, current_timestamp, NULL)",
+            [],
+        )
+        .expect("新消息");
+        let tail = conversation_tail(&conn, &DefaultPolicy, &actor, "S-R", 10).expect("尾部");
+        let ids: Vec<&str> = tail.iter().map(|entry| entry.id.as_str()).collect();
+        assert_eq!(ids, vec!["MSG-1", "MSG-2", "MSG-6"]);
     }
 
     /// T286／FR-773：目录视图按注册表顺序给出选项与 badge（标签空回退 id）。

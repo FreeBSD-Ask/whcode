@@ -193,6 +193,27 @@ pub enum SessionCommand {
         #[arg(long)]
         title: Option<String>,
     },
+    /// 恢复文件前像（破坏族：默认 dry-run，--yes 执行；FR-776）。
+    Restore {
+        /// 会话 ID。
+        #[arg(long)]
+        session: String,
+        /// 源工具执行 ID（`TX-...`；`/api/preimages` 或 `events list` 可查）。
+        #[arg(long)]
+        exec_id: String,
+        /// 执行恢复（缺省只预览）。
+        #[arg(long)]
+        yes: bool,
+    },
+    /// 回退对话到 turn 边界（只落边界、不删事件；FR-775）。
+    Rewind {
+        /// 会话 ID。
+        #[arg(long)]
+        session: String,
+        /// 目标序号（0＝回退到会话起点；大于 0 必须是 TurnFinished 事件序号）。
+        #[arg(long)]
+        to_seq: i64,
+    },
     /// 切换计划模式（软引导：只影响引导段，不阻止工具调用；FR-774）。
     Plan {
         /// 会话 ID。

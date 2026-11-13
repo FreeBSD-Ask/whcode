@@ -5,7 +5,7 @@
 //!
 //! ## 范围
 //!
-//! 导出 11 张业务表（[`EXPORT_TABLES`]）；**不含** [`EXCLUDED_TABLES`]：
+//! 导出 12 张业务表（[`EXPORT_TABLES`]）；**不含** [`EXCLUDED_TABLES`]：
 //!
 //! - `audit`：安全审计随原库保留，不随导出文件扩散（§10.3）；
 //! - `runtime_state`：机器本地运行时配置，不属于工作区数据；
@@ -65,6 +65,8 @@ pub const EXPORT_TABLES: &[&str] = &[
     "messages",
     "context_windows",
     "session_overview",
+    // 文件前像（T289／FR-776／ADR-068）：有界的改前内容，随会话数据导出以保留恢复能力。
+    "file_preimages",
 ];
 
 /// 明确排除的表及理由见模块文档。

@@ -536,8 +536,17 @@ msgstr "是"
 msgid "cui.renamed"
 msgstr "已重命名会话 {session}"
 
+msgid "cui.restore.done"
+msgstr "已按前像恢复 {count} 项（写入审计）"
+
+msgid "cui.restore.preview"
+msgstr "恢复预览（未执行）：将按登记逐项动作；确认请加 --yes"
+
 msgid "cui.restore_done"
 msgstr "恢复完成：来自 {source}"
+
+msgid "cui.rewind.done"
+msgstr "对话已回退到 turn 边界 {seq}（事件与消息仍保留，只是不再进入模型上下文）"
 
 msgid "cui.spec_status"
 msgstr "会话 {session}：阶段 {stage} · 事件游标 {cursor}"

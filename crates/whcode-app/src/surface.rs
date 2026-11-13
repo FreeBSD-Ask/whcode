@@ -251,12 +251,14 @@ impl SurfaceEntry {
 }
 
 /// 稳定能力白名单（`authz::Capability` 的稳定字符串；新增能力须同 PR 扩展本表）。
-const KNOWN_CAPABILITIES: [&str; 14] = [
+const KNOWN_CAPABILITIES: [&str; 16] = [
     "session.create",
     "session.read",
     "session.rename",
     "session.archive",
     "session.plan",
+    "session.rewind",
+    "session.restore",
     "session.delete",
     "task.read",
     "task.retry",
@@ -1764,6 +1766,76 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    // 对话剪枝（T288／FR-775／ADR-068）：只落边界、不删事件；用户即决策者。
+    SurfaceEntry {
+        id: "session.rewind",
+        kind: SurfaceKind::Command,
+        capability: Capability::SessionRewind,
+        effect: EffectClass::Write,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Implemented {
+                anchor: "whcode session rewind --session --to-seq",
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Implemented {
+                anchor: "GET/POST /api/rewind（app::current_rewind／rewind_session）",
+            },
+        ],
+    },
+    // 文件前像恢复（T289／FR-776／ADR-068）：破坏族——预览→确认→审计；
+    // v1 只有 CUI 写面，Web 提供只读前像清单（view.preimages）。
+    SurfaceEntry {
+        id: "session.restore",
+        kind: SurfaceKind::Command,
+        capability: Capability::SessionRestore,
+        effect: EffectClass::Destructive,
+        confirmation: Confirmation::PreviewConfirm,
+        audited: true,
+        frontends: [
+            Support::Implemented {
+                anchor: "whcode session restore --session --exec-id（默认 dry-run，--yes 执行）",
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+        ],
+    },
+    // 前像清单（T289／FR-776）：Web 只读视图；CUI 命令面排除，TUI／GUI 未排期。
+    SurfaceEntry {
+        id: "view.preimages",
+        kind: SurfaceKind::View,
+        capability: Capability::SessionRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CuiCommandSurface,
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Implemented {
+                anchor: "GET /api/preimages",
+            },
+        ],
+    },
     // 计划模式切换（T287／FR-774／ADR-067）：软引导状态，不产生门禁效力；
     // 用户即决策者（不经审批），仍落 `PlanModeChanged`（source=user）。
     SurfaceEntry {
@@ -1969,6 +2041,8 @@ mod tests {
             Capability::SessionRename,
             Capability::SessionArchive,
             Capability::SessionPlan,
+            Capability::SessionRewind,
+            Capability::SessionRestore,
             Capability::SessionDelete,
             Capability::TaskRead,
             Capability::TaskRetry,
@@ -2023,10 +2097,12 @@ mod tests {
                 "settings.skills",
                 "settings.mcp",
                 "settings.rules.read",
+                // 前像清单（T289／FR-776）：Web 只读，TUI／GUI 未排期。
+                "view.preimages",
                 // 交付物清单（T285／FR-772）：Web 实现，TUI／GUI 未排期。
                 "view.deliverables"
             ],
-            "视图面条目为模型目录 + 证书设置页 + 七视图 + 检查点浏览 + 在线可见 + B4 面板 + 交付物（FR-601／622／624／748／749—751／772／773、ADR-040）"
+            "视图面条目为模型目录 + 证书设置页 + 七视图 + 检查点浏览 + 在线可见 + B4 面板 + 前像 + 交付物（FR-601／622／624／748／749—751／772／773／776、ADR-040）"
         );
     }
 
