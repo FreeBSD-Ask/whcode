@@ -8,7 +8,14 @@
 |---|---|---|
 | Windows 11 amd64（`x86_64-pc-windows-msvc`） | **唯一验收目标**，已验收（M0—M9 测试在本机通过；2026-10-23 进度复核后 `fmt`/`clippy`/`test`/契约/布局门禁全绿） | ADR-013 |
 | Windows 11 arm64（`aarch64-pc-windows-msvc`） | **构建交付目标**（ADR-043）：产出 arm64 发布包，在原生 `windows-11-arm` runner 取得平台证据；不进入验收 | ADR-043 |
-| FreeBSD | **完整平台证据通道（硬门禁）**（2026-10-31 用户指令解除延后）：platform-verification.yml 随 `main` 全量构建（含 GUI／bin）、全量测试、三门与 TUI/Web 冒烟，失败即红；2026-11-03 起 run `41481740766` 全绿（三门 GO＋冒烟，证据 `artifacts/store-acceptance/`）；**2026-11-06 观察**：run `42143683382` 出现 `store_gate = NO-GO`（DuckDB 源码构建报 `platform.hpp:22 'features.h' file not found`，与 2026-11-03 GO 不一致，**根因未归因**，不得读作代码回归；本行为 2026-11-06 观察记录，未经本地复现 `[待验证]`）；**2026-11-12 第二次观察**：run `43133995969`（提交 `1a630a3`）同一形态复现——`platform.hpp:22 'features.h' file not found`，DuckDB 2.0.0 源码构建失败，同一提交的 Windows 通道仅因文档文风失败（已修），说明不是本批代码回归；前一次 green 为 run `43047655597`（`66f66ba`），两次结论均在数小时内翻转，**倾向 VM 侧环境漂移或并行构建偶发**，仍属 `[待验证]`；**同日反证**：run `43158082645`（提交 `1486515`）同通道全绿（三门 GO，54m34s）；**第三样本**：run `43164301061`（提交 `ee88445`，仅一个参数改名）再度同形态失败。三样本交替（红—绿—红）且失败提交的代码与 DuckDB 构建无关，据此按“偶发/环境漂移”登记，不构成代码回归证据；处置（上游补丁／构建参数／ADR 豁免）待用户决；**不作验收结论**，性能分位数未取得 | ADR-013 修订（2026-10-31） |
+| FreeBSD | **完整平台证据通道（硬门禁）**（2026-10-31 用户指令解除延后）：platform-verification.yml 随 `main` 全量构建（含 GUI／bin）、全量测试、三门与 TUI/Web 冒烟，失败即红；2026-11-03 起 run `41481740766` 全绿（三门 GO＋冒烟，证据 `artifacts/store-acceptance/`）；**2026-11-06 观察**：run `42143683382` 出现 `store_gate = NO-GO`（DuckDB 源码构建报 `platform.hpp:22 'features.h' file not found`，与 2026-11-03 GO 不一致，**根因未归因**，不得读作代码回归；本行为 2026-11-06 观察记录，未经本地复现 `[待验证]`）；**2026-11-12 第二次观察**：run `43133995969`（提交 `1a630a3`）同一形态复现——`platform.hpp:22 'features.h' file not found`，DuckDB 2.0.0 源码构建失败，同一提交的 Windows 通道仅因文档文风失败（已修），说明不是本批代码回归；前一次 green 为 run `43047655597`（`66f66ba`），两次结论均在数小时内翻转，**倾向 VM 侧环境漂移或并行构建偶发**，仍属 `[待验证]`；**同日反证**：run `43158082645`（提交 `1486515`）同通道全绿（三门 GO，54m34s）；**第三样本**：run `43164301061`（提交 `ee88445`，仅一个参数改名）再度同形态失败。三样本交替（红—绿—红）且失败提交的代码与 DuckDB 构建无关，据此按“偶发/环境漂移”登记，不构成代码回归证据；处置（上游补丁／构建参数／ADR 豁免）待用户决；**2026-11-13 第五样本（不同根因）**：run `43327197256`（提交 `31ffcf2`）三门全部 GO
+  （store／SSH 回环／进程组），红因是 workspace 测试里
+  `serve::tests::turn_ws_relay_first_delta_busy_codes_and_event_missing` 读取第二个 turn
+  响应时收到 `Interrupted system call (os error 4)`（EINTR）——与 DuckDB `features.h` 无关，
+  是测试助手把信号中断当成真实错误的缺陷；已在同一批修复（EINTR 按重试处理，覆盖该助手与
+  `wait_for_close`／`connection_closed`），修复后 Windows 本机复跑通过，FreeBSD 结论待下一轮
+  通道取得；
+**不作验收结论**，性能分位数未取得 | ADR-013 修订（2026-10-31） |
 | NetBSD | **仅支持 SSH 远程开发（被连入目标）＋随 CI 自动运行（仅平台证据）**（ADR-013 修订 2026-11-03）：SSH 回环验收 GO（客户端＋服务端四项，`artifacts/ssh-acceptance/netbsd-client.txt`）、进程组零残留 GO（Check 201）；原生 store/DuckDB 豁免（上游 2.0.0 依赖 glibc `features.h`） | ADR-013、T020/T021 |
 | OpenBSD | **仅支持 SSH 远程开发（被连入目标）**（ADR-013 修订 2026-11-03）：节点证据从 Windows/FreeBSD 以内置 SSH 客户端连入取得（V-004 口径，M7 或具备主机时）；工具链阻塞记录（ports rust 1.98.1 < MSRV）已入库 | ADR-011/013 |
 | DragonFly BSD | **仅支持 SSH 远程开发（被连入目标）**（ADR-013 修订 2026-11-03，同日追加同待遇）：节点证据从 Windows/FreeBSD 以内置 SSH 客户端连入取得（V-004 口径，M7 或具备主机时）；工具链阻塞记录（dports rust 1.85.1 < MSRV）已入库 | ADR-011/013 |

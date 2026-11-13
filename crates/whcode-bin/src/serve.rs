@@ -3695,6 +3695,8 @@ mod tests {
                         return false;
                     }
                 }
+                // EINTR 是信号中断，不代表连接已关闭（FreeBSD 实测）。
+                Err(err) if err.kind() == ErrorKind::Interrupted => {}
                 Err(_) => return true,
             }
         }
@@ -3716,6 +3718,8 @@ mod tests {
                         return false;
                     }
                 }
+                // EINTR 是信号中断，不代表连接已关闭（FreeBSD 实测）。
+                Err(err) if err.kind() == ErrorKind::Interrupted => {}
                 Err(_) => return true,
             }
         }
@@ -4628,6 +4632,9 @@ mod tests {
                         .expect("读超时");
                     return stream;
                 }
+                // EINTR：信号中断读不是失败（FreeBSD 上实测出现，run 43327197256）。
+                // 关闭本次探测连接、按预算重试，不把中断当成真实错误。
+                Err(err) if err.kind() == ErrorKind::Interrupted => {}
                 Err(err) => panic!("读取第二个 turn 响应失败：{err}"),
             }
             drop(stream);
