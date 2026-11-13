@@ -330,6 +330,8 @@ impl HttpClient {
         tls: Option<ureq::tls::TlsConfig>,
     ) -> Result<Self, WhError> {
         profile.validate_endpoint()?;
+        // T286／FR-773：目录结构与“默认模型必须是目录成员”在装配期 fail-fast 校验。
+        profile.validate_models()?;
         if profile.model.trim().is_empty() {
             return Err(WhError::invalid_state(
                 "非法剖面：model 不得为空（请求体与请求路径都使用它）",
@@ -1411,6 +1413,7 @@ mod tests {
             path: "/v1".to_string(),
             query: Vec::new(),
             model: "m".to_string(),
+            models: Vec::new(),
             auth: AuthScheme::None,
             extra_headers: Vec::new(),
             extra_body: serde_json::Value::Null,

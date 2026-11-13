@@ -476,6 +476,12 @@ msgstr "रजिस्टर नहीं"
 msgid "cui.indexes_ok"
 msgstr "इंडेक्स पूरे हैं"
 
+msgid "cui.plan.off"
+msgstr "योजना मोड बंद है।"
+
+msgid "cui.plan.on"
+msgstr "योजना मोड चालू है (सौम्य मार्गदर्शन: टूल कॉल नहीं रोके जाते)।"
+
 msgid "cui.plan_rows"
 msgstr "{rows} प्लैन पंक्तियाँ (analyze=false, क्वेरी नहीं चलाई गई)"
 
@@ -1327,6 +1333,15 @@ msgstr "JSON निर्यात करें"
 
 msgid "web.export.jsonl"
 msgstr "JSONL निर्यात करें"
+
+msgid "web.models.empty"
+msgstr "यह प्रोफ़ाइल कोई मॉडल सूची घोषित नहीं करती; प्रोफ़ाइल का डिफ़ॉल्ट मॉडल उपयोग होता है।"
+
+msgid "web.models.model"
+msgstr "मॉडल"
+
+msgid "web.models.profile"
+msgstr "प्रोफ़ाइल"
 
 msgid "web.recovering"
 msgstr "फिर से जुड़ रहा है…"

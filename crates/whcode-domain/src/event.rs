@@ -54,6 +54,8 @@ pub enum EventKind {
     TodoUpdated,
     /// 交付物登记（T285／FR-772／ADR-048 §7.2；log-only：只承载已登记路径）。
     DeliverablePresented,
+    /// 计划模式状态变更（T287／FR-774／ADR-067；log-only：只承载开关与来源）。
+    PlanModeChanged,
 }
 
 impl EventKind {
@@ -78,6 +80,7 @@ impl EventKind {
             Self::CompactionFinished => "CompactionFinished",
             Self::TodoUpdated => "TodoUpdated",
             Self::DeliverablePresented => "DeliverablePresented",
+            Self::PlanModeChanged => "PlanModeChanged",
         }
     }
 
@@ -99,7 +102,9 @@ impl EventKind {
             // 待办快照是本会话清单的唯一持久副本（工具参数不入事件载荷），丢弃即丢状态。
             | Self::TodoUpdated
             // 交付物登记是“已交付什么”的唯一持久副本，丢弃即丢事实。
-            | Self::DeliverablePresented => EventCriticality::Critical,
+            | Self::DeliverablePresented
+            // 计划模式状态以最新一条为当前值（ADR-067 决策 1），丢弃即丢状态。
+            | Self::PlanModeChanged => EventCriticality::Critical,
             Self::StreamingChunk | Self::ContextState | Self::CompactionSummary => {
                 EventCriticality::Content
             }

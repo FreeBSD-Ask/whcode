@@ -59,6 +59,7 @@ T190：新增证书库设置两行）。
 | `runtime.install` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-701—710；预留 M8；部分 six_view_scope |
 | `llm.run` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-201—208；T167 接线（CUI／Web／TUI 三端，TUI 剖面→提示词两步输入）；ADR-056 |
 | `llm.cancel` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-201—208；T167 接线（CUI／Web／TUI 三端）；ADR-056 |
+| `llm.models` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-773／ADR-031 修订 2026-11-13；CUI 无视图面（cui_command_surface），TUI／GUI 未排期 |
 | `theme.switch` | Command | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-612／713／625；部分 cui_no_theme |
 | `locale` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-615／625 |
 | `settings.cert.read` | View | Read | 部分 | 部分 | 部分 | 已实现 | FR-626／627、ADR-040 决策 4；部分 web_settings_only、six_view_scope |
@@ -88,6 +89,7 @@ T190：新增证书库设置两行）。
 | `settings.rules.revoke` | Command | Write | 部分 | 部分 | 已实现 | 已实现 | FR-751；部分 cli_local_admin |
 | `session.share` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-752；本机脱敏导出，其余端按 cli_local_admin 排除 |
 | `session.fork` | Command | Write | 已实现 | 预留 | 部分 | 预留 | FR-769／ADR-065；会话分叉，TUI/Web 未排期，GUI 按只读 v1 排除（gui_read_only_v1） |
+| `session.plan` | Command | Write | 已实现 | 预留 | 预留 | 已实现 | FR-774／ADR-067；计划模式切换（软引导、不经审批、落 `PlanModeChanged`），TUI／GUI 未排期 |
 | `view.deliverables` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-772／ADR-048 §7.2；CUI 无视图面（cui_command_surface），TUI／GUI 未排期 |
 
 **权限**：全部命令经 `whcode-app::authz` 统一判定（拒绝 `permission_denied` 不可重试，

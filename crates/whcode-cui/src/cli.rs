@@ -193,6 +193,15 @@ pub enum SessionCommand {
         #[arg(long)]
         title: Option<String>,
     },
+    /// 切换计划模式（软引导：只影响引导段，不阻止工具调用；FR-774）。
+    Plan {
+        /// 会话 ID。
+        #[arg(long)]
+        session: String,
+        /// 关闭计划模式（缺省为开启）。
+        #[arg(long)]
+        off: bool,
+    },
     /// 重命名会话。
     Rename {
         /// 会话 ID。

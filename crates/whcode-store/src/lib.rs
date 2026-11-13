@@ -43,6 +43,7 @@ pub mod fork;
 pub mod indexes;
 pub mod monitor;
 pub mod overview;
+pub mod plan;
 pub mod purge;
 pub mod query;
 pub mod schema;

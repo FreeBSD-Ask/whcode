@@ -476,6 +476,12 @@ msgstr "未登録"
 msgid "cui.indexes_ok"
 msgstr "インデックスは揃っています"
 
+msgid "cui.plan.off"
+msgstr "プランモードを無効にしました。"
+
+msgid "cui.plan.on"
+msgstr "プランモードを有効にしました（ソフトガイド：ツール呼び出しは阻止されません）。"
+
 msgid "cui.plan_rows"
 msgstr "クエリプラン {rows} 行（analyze=false、クエリは実行していません）"
 
@@ -1327,6 +1333,15 @@ msgstr "JSON をエクスポート"
 
 msgid "web.export.jsonl"
 msgstr "JSONL をエクスポート"
+
+msgid "web.models.empty"
+msgstr "このプロファイルにはモデル一覧の宣言がありません。プロファイル既定のモデルを使用します。"
+
+msgid "web.models.model"
+msgstr "モデル"
+
+msgid "web.models.profile"
+msgstr "プロファイル"
 
 msgid "web.recovering"
 msgstr "復旧中…"

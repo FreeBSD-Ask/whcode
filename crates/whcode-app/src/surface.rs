@@ -251,11 +251,12 @@ impl SurfaceEntry {
 }
 
 /// 稳定能力白名单（`authz::Capability` 的稳定字符串；新增能力须同 PR 扩展本表）。
-const KNOWN_CAPABILITIES: [&str; 13] = [
+const KNOWN_CAPABILITIES: [&str; 14] = [
     "session.create",
     "session.read",
     "session.rename",
     "session.archive",
+    "session.plan",
     "session.delete",
     "task.read",
     "task.retry",
@@ -1091,6 +1092,30 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    // 模型目录（T286／FR-773／ADR-031 修订）：Web 对话页选择器与 badge 的只读数据源；
+    // CUI 无视图面（命令面按 ADR-032 排除），TUI／GUI 未排期。
+    SurfaceEntry {
+        id: "llm.models",
+        kind: SurfaceKind::View,
+        capability: Capability::SessionRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CuiCommandSurface,
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Implemented {
+                anchor: "GET /api/llm/models",
+            },
+        ],
+    },
     // ── 显示配置（FR-612／615／618／713；仅改呈现状态，不改业务数据） ─────
     SurfaceEntry {
         id: "theme.switch",
@@ -1739,6 +1764,30 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    // 计划模式切换（T287／FR-774／ADR-067）：软引导状态，不产生门禁效力；
+    // 用户即决策者（不经审批），仍落 `PlanModeChanged`（source=user）。
+    SurfaceEntry {
+        id: "session.plan",
+        kind: SurfaceKind::Command,
+        capability: Capability::SessionPlan,
+        effect: EffectClass::Write,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Implemented {
+                anchor: "whcode session plan --session --off",
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Implemented {
+                anchor: "GET/POST /api/plan（app::current_plan／set_plan）",
+            },
+        ],
+    },
     // 交付物清单（T285／FR-772／ADR-048 §7.2）：Web 对话页卡片 ＋ 读取端点；
     // TUI／GUI 未排期，CUI 无视图面（命令面按 ADR-032 排除）。
     SurfaceEntry {
@@ -1919,6 +1968,7 @@ mod tests {
             Capability::SessionRead,
             Capability::SessionRename,
             Capability::SessionArchive,
+            Capability::SessionPlan,
             Capability::SessionDelete,
             Capability::TaskRead,
             Capability::TaskRetry,
@@ -1955,6 +2005,8 @@ mod tests {
         assert_eq!(
             views,
             [
+                // 模型目录（T286／FR-773）：Web 选择器数据源，登记在 llm 面之后。
+                "llm.models",
                 // 证书设置页（T190）：仅在 Web 提供的视图面，不在六视图内；按登记顺序居前。
                 "settings.cert.read",
                 "view.sessions",
@@ -1974,7 +2026,7 @@ mod tests {
                 // 交付物清单（T285／FR-772）：Web 实现，TUI／GUI 未排期。
                 "view.deliverables"
             ],
-            "视图面条目为证书设置页 + 七视图 + 检查点浏览 + 在线可见 + B4 面板 + 交付物（FR-601／622／624／748／749—751／772、ADR-040）"
+            "视图面条目为模型目录 + 证书设置页 + 七视图 + 检查点浏览 + 在线可见 + B4 面板 + 交付物（FR-601／622／624／748／749—751／772／773、ADR-040）"
         );
     }
 

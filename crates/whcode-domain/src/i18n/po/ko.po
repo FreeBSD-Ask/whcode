@@ -476,6 +476,12 @@ msgstr "등록 안 됨"
 msgid "cui.indexes_ok"
 msgstr "인덱스 정상"
 
+msgid "cui.plan.off"
+msgstr "계획 모드를 껐습니다."
+
+msgid "cui.plan.on"
+msgstr "계획 모드를 켰습니다(소프트 안내: 도구 호출을 차단하지 않습니다)."
+
 msgid "cui.plan_rows"
 msgstr "계획 행 {rows}개(analyze=false, 쿼리 미실행)"
 
@@ -1327,6 +1333,15 @@ msgstr "JSON 내보내기"
 
 msgid "web.export.jsonl"
 msgstr "JSONL 내보내기"
+
+msgid "web.models.empty"
+msgstr "이 프로필에는 모델 목록이 선언되어 있지 않아 프로필 기본 모델을 사용합니다."
+
+msgid "web.models.model"
+msgstr "모델"
+
+msgid "web.models.profile"
+msgstr "프로필"
 
 msgid "web.recovering"
 msgstr "복구 중…"

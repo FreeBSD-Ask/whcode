@@ -696,6 +696,7 @@ mod tests {
             path: "/v1".to_string(),
             query: Vec::new(),
             model: "m".to_string(),
+            models: Vec::new(),
             auth: crate::http::profile::AuthScheme::None,
             extra_headers: Vec::new(),
             extra_body: Value::Null,

@@ -393,6 +393,18 @@ taskkill /T /F 口径）（P1）
   ≤4 个、路径须在工作区内），登记以 `DeliverablePresented` 事件持久化（log-only；仅成功
   调用落、失败不落）；读取面按首次登记顺序去重、有界（≤200 事件／≤200 条）并显式标记
   截断；Web 对话页提供交付物卡，能力面登记 `view.deliverables`（P2；ADR-048 §7.2／P4.7）
+- **FR-773**: 模型目录：剖面可声明可选模型目录（`models[]`：标识＋展示文案，≤32 条，
+  标识唯一且不含空白），目录非空时剖面默认模型与 `--model` 覆盖都必须是目录成员，非法选择
+  在请求发出前拒绝并列出可用标识；目录未声明时选择保持自由。读取面
+  `whcode_app::llm::model_catalogue` 与 Web `GET /api/llm/models` 提供选型数据（只读、无网络、
+  不含凭据），Web 对话页以选择器与实际模型标识 badge 呈现，能力面登记 `llm.models`
+  （P2；ADR-031 修订 2026-11-13／P4.8）
+- **FR-774**: 计划模式：会话可处于计划模式（软引导——只注入计划引导段，**不阻止**任何工具调用；
+  限制由审批与沙箱独立执行），状态以 `PlanModeChanged` 事件持久化（log-only、Critical；
+  最新一条即当前值），模型经 `plan_mode` 工具进入，**退出必须经人复核**（审批伪工具名
+  `plan_mode_exit`；无应答面时 fail-closed）；用户经 CUI `session plan --on|--off` 与 Web
+  `POST /api/plan` 直接切换（不经审批，来源记 `user`），读面 `whcode_app::plan::current` 与
+  `GET /api/plan`；不产生 SDD 任务、不参与门禁与验收（P2；ADR-067／P4.5）
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

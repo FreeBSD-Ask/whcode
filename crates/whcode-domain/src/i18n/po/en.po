@@ -476,6 +476,12 @@ msgstr "not registered"
 msgid "cui.indexes_ok"
 msgstr "indexes complete"
 
+msgid "cui.plan.off"
+msgstr "Plan mode is off."
+
+msgid "cui.plan.on"
+msgstr "Plan mode is on (soft guidance: tool calls are not blocked)."
+
 msgid "cui.plan_rows"
 msgstr "{rows} plan rows (analyze=false, query not executed)"
 
@@ -1327,6 +1333,15 @@ msgstr "Export JSON"
 
 msgid "web.export.jsonl"
 msgstr "Export JSONL"
+
+msgid "web.models.empty"
+msgstr "This profile declares no model catalogue; the profile default is used."
+
+msgid "web.models.model"
+msgstr "Model"
+
+msgid "web.models.profile"
+msgstr "Profile"
 
 msgid "web.recovering"
 msgstr "Recovering…"

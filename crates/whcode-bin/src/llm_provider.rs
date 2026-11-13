@@ -342,6 +342,7 @@ mod tests {
             path: "/v1/chat/completions".to_string(),
             query: Vec::new(),
             model: "m".to_string(),
+            models: Vec::new(),
             auth: AuthScheme::None,
             extra_headers: Vec::new(),
             extra_body: serde_json::Value::Null,

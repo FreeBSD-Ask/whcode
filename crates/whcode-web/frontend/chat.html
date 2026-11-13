@@ -36,7 +36,14 @@
     <noscript><p>当前为无 JavaScript 只读视图：发送需启用脚本（历史仍完整可读）。</p></noscript>
   </main>
   <form id="chat-form" hidden>
-    <input id="chat-provider" type="text" required placeholder="剖面名（必填，与 CUI/Web 同一口径）">
+    <!-- 模型目录（FR-773／T286）：剖面与模型选择以 /api/llm/models 为准；
+         目录不可用时回退自由输入（默认值可见、可改、可撤销）。 -->
+    <label for="chat-provider" data-i18n="web.models.profile">剖面</label>
+    <select id="chat-provider" hidden></select>
+    <input id="chat-provider-free" type="text" placeholder="剖面名（必填，与 CUI/Web 同一口径）">
+    <label for="chat-model" data-i18n="web.models.model">模型</label>
+    <select id="chat-model" hidden></select>
+    <output id="chat-model-badge" role="status"></output>
     <input id="chat-prompt" type="text" required placeholder="提示词">
     <button type="submit">发送</button>
     <output id="chat-status" role="status"></output>

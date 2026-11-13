@@ -476,6 +476,12 @@ msgstr "غير مسجَّل"
 msgid "cui.indexes_ok"
 msgstr "الفهارس مكتملة"
 
+msgid "cui.plan.off"
+msgstr "وضع التخطيط متوقف."
+
+msgid "cui.plan.on"
+msgstr "وضع التخطيط مفعّل (توجيه لطيف: لا يمنع استدعاء الأدوات)."
+
 msgid "cui.plan_rows"
 msgstr "{rows} صف خطة (analyze=false، لم يُنفَّذ الاستعلام)"
 
@@ -1327,6 +1333,15 @@ msgstr "تصدير JSON"
 
 msgid "web.export.jsonl"
 msgstr "تصدير JSONL"
+
+msgid "web.models.empty"
+msgstr "لا يعلن هذا الملف التعريفي أي كتالوج نماذج؛ يُستخدم النموذج الافتراضي للملف."
+
+msgid "web.models.model"
+msgstr "النموذج"
+
+msgid "web.models.profile"
+msgstr "الملف التعريفي"
 
 msgid "web.recovering"
 msgstr "جارٍ الاستعادة…"

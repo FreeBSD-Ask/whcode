@@ -476,6 +476,12 @@ msgstr "не зарегистрирована"
 msgid "cui.indexes_ok"
 msgstr "все индексы на месте"
 
+msgid "cui.plan.off"
+msgstr "Режим планирования выключен."
+
+msgid "cui.plan.on"
+msgstr "Режим планирования включён (мягкая подсказка: вызовы инструментов не блокируются)."
+
 msgid "cui.plan_rows"
 msgstr "строк плана: {rows} (analyze=false, запрос не выполняется)"
 
@@ -1327,6 +1333,15 @@ msgstr "Экспорт JSON"
 
 msgid "web.export.jsonl"
 msgstr "Экспорт JSONL"
+
+msgid "web.models.empty"
+msgstr "В профиле не объявлен каталог моделей; используется модель по умолчанию."
+
+msgid "web.models.model"
+msgstr "Модель"
+
+msgid "web.models.profile"
+msgstr "Профиль"
 
 msgid "web.recovering"
 msgstr "Восстановление…"

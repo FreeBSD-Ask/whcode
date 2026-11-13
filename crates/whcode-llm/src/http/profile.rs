@@ -406,6 +406,28 @@ pub enum FrameFormat {
     JsonArray,
 }
 
+/// 剖面模型目录条目（T286／FR-773／ADR-031 修订；域 K 轻量版）。
+///
+/// 声明式目录（无动态 `listModels`）：部署者在剖面文件里声明可选模型与展示文案，
+/// 选择器只从目录取值；目录为空表示未声明（选择器回退剖面 `model`，不拒绝）。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+pub struct ProfileModel {
+    /// 模型标识（发请求时的实际取值，与 `model` 同口径）。
+    pub id: String,
+    /// 展示文案（badge；选择器显示用。空串按 `id` 展示）。
+    #[serde(default)]
+    pub label: String,
+}
+
+/// 模型目录条目上限（声明式目录随剖面文件加载，必须有界防无界增长）。
+pub const MAX_PROFILE_MODELS: usize = 32;
+
+/// 单个模型标识字符上限。
+pub const MAX_MODEL_ID_CHARS: usize = 128;
+
+/// 单个展示文案字符上限。
+pub const MAX_MODEL_LABEL_CHARS: usize = 64;
+
 /// 一个真实供应商接入点（ADR-031）。
 #[derive(Debug, Clone, PartialEq, serde::Deserialize)]
 pub struct ProviderProfile {
@@ -421,8 +443,11 @@ pub struct ProviderProfile {
     /// 附加查询参数（Azure `api-version` 等）。
     #[serde(default)]
     pub query: Vec<(String, String)>,
-    /// 模型标识。
+    /// 模型标识（默认取值；目录非空时必须是目录成员）。
     pub model: String,
+    /// 可用模型目录（声明式；空 = 未声明目录，覆盖与默认值不校验成员关系）。
+    #[serde(default)]
+    pub models: Vec<ProfileModel>,
     /// 鉴权方案。
     pub auth: AuthScheme,
     /// 附加请求头（托管变体）。
@@ -502,6 +527,80 @@ impl ProviderProfile {
             )));
         }
         Ok(())
+    }
+
+    /// 校验模型目录（T286／FR-773）：条目数与字符长度有界、`id` 非空且唯一、
+    /// `id` 与 `label` 不含空白／控制字符（标识跨行会破坏请求体与选择器渲染）；
+    /// 目录非空时剖面 `model` 必须是目录成员（选择必须以目录为准，域 K）。
+    ///
+    /// # Errors
+    ///
+    /// 任一结构约束不满足或 `model` 不在目录内时返回 [`ErrorCode::InvalidState`]。
+    pub fn validate_models(&self) -> Result<(), WhError> {
+        if self.models.len() > MAX_PROFILE_MODELS {
+            return Err(WhError::invalid_state(format!(
+                "非法剖面：模型目录 {} 条，上限 {MAX_PROFILE_MODELS}；请精简目录",
+                self.models.len()
+            )));
+        }
+        for entry in &self.models {
+            let id = entry.id.trim();
+            if id.is_empty() {
+                return Err(WhError::invalid_state(
+                    "非法剖面：模型目录条目 id 不得为空；请删除空条目或补齐标识",
+                ));
+            }
+            if id.chars().count() > MAX_MODEL_ID_CHARS {
+                return Err(WhError::invalid_state(format!(
+                    "非法剖面：模型标识超过 {MAX_MODEL_ID_CHARS} 字符：{}",
+                    id.chars().take(64).collect::<String>()
+                )));
+            }
+            if entry
+                .id
+                .chars()
+                .any(|ch| ch.is_control() || ch.is_whitespace())
+            {
+                return Err(WhError::invalid_state(format!(
+                    "非法剖面：模型标识 {id} 含空白或控制字符；模型标识不得跨行或带空格"
+                )));
+            }
+            if entry.label.chars().count() > MAX_MODEL_LABEL_CHARS {
+                return Err(WhError::invalid_state(format!(
+                    "非法剖面：模型 {id} 的展示文案超过 {MAX_MODEL_LABEL_CHARS} 字符；请精简文案"
+                )));
+            }
+        }
+        let mut seen: Vec<&str> = Vec::with_capacity(self.models.len());
+        for entry in &self.models {
+            if seen.contains(&entry.id.as_str()) {
+                return Err(WhError::invalid_state(format!(
+                    "非法剖面：模型目录存在重复标识 {}；选择器无法区分同名条目，请去重",
+                    entry.id
+                )));
+            }
+            seen.push(entry.id.as_str());
+        }
+        if !self.models.is_empty() && self.models.iter().all(|entry| entry.id != self.model) {
+            return Err(WhError::invalid_state(format!(
+                "非法剖面：model {} 不在模型目录内；目录非空时默认模型必须是目录成员",
+                self.model
+            )));
+        }
+        Ok(())
+    }
+
+    /// 目录条目的展示文案（badge；`label` 为空回退 `id`）。
+    #[must_use]
+    pub fn model_label<'a>(&'a self, id: &'a str) -> &'a str {
+        self.models
+            .iter()
+            .find(|entry| entry.id == id)
+            .map(|entry| match entry.label.as_str() {
+                "" => entry.id.as_str(),
+                label => label,
+            })
+            .unwrap_or(id)
     }
 
     /// 完整时限三元组（FR-201／FR-616：连接/读取/总时限显式）。
@@ -659,6 +758,7 @@ mod tests {
             path: "/v1/chat/completions".to_string(),
             query: Vec::new(),
             model: "m".to_string(),
+            models: Vec::new(),
             auth: AuthScheme::None,
             extra_headers: Vec::new(),
             extra_body: serde_json::Value::Null,
@@ -929,5 +1029,100 @@ mod tests {
                 .is_ok(),
             "路径与查询必须接受"
         );
+    }
+
+    /// T286／FR-773：未声明目录时校验通过、选择自由（既有用法不受影响）。
+    #[test]
+    fn empty_model_catalogue_keeps_free_selection() {
+        let catalogue = profile("https://api.example.com");
+        assert!(catalogue.models.is_empty());
+        assert!(catalogue.validate_models().is_ok());
+        assert_eq!(catalogue.model_label("anything"), "anything");
+    }
+
+    /// T286／FR-773：目录非空时默认模型必须是成员，标签缺省回退 id。
+    #[test]
+    fn declared_catalogue_requires_membership_and_labels_fall_back_to_id() {
+        let mut declared = profile("https://api.example.com");
+        declared.model = "m-large".to_string();
+        declared.models = vec![
+            ProfileModel {
+                id: "m-large".to_string(),
+                label: "大模型".to_string(),
+            },
+            ProfileModel {
+                id: "m-fast".to_string(),
+                label: String::new(),
+            },
+        ];
+        assert!(
+            declared.validate_models().is_ok(),
+            "默认模型在目录内必须接受"
+        );
+        assert_eq!(declared.model_label("m-large"), "大模型");
+        assert_eq!(declared.model_label("m-fast"), "m-fast", "空标签回退 id");
+
+        let mut outside = profile("https://api.example.com");
+        outside.model = "other".to_string();
+        outside.models = vec![ProfileModel {
+            id: "m-large".to_string(),
+            label: String::new(),
+        }];
+        let err = outside.validate_models().expect_err("默认模型不在目录内");
+        assert_eq!(err.code, whcode_domain::ErrorCode::InvalidState);
+        assert!(err.message.contains("目录"), "{err}");
+    }
+
+    /// T286／FR-773：重复标识、空白／控制字符、超长与超条数必须拒绝。
+    #[test]
+    fn malformed_catalogues_are_rejected() {
+        let mut duplicate = profile("https://api.example.com");
+        duplicate.models = vec![
+            ProfileModel {
+                id: "m".to_string(),
+                label: String::new(),
+            },
+            ProfileModel {
+                id: "m".to_string(),
+                label: String::new(),
+            },
+        ];
+        let err = duplicate.validate_models().expect_err("重复标识");
+        assert!(err.message.contains("重复"), "{err}");
+
+        let mut blank = profile("https://api.example.com");
+        blank.models = vec![ProfileModel {
+            id: "  ".to_string(),
+            label: String::new(),
+        }];
+        let err = blank.validate_models().expect_err("空白标识");
+        assert!(err.message.contains("空"), "{err}");
+
+        let mut spaced = profile("https://api.example.com");
+        spaced.models = vec![ProfileModel {
+            id: "m large".to_string(),
+            label: String::new(),
+        }];
+        let err = spaced.validate_models().expect_err("含空白标识");
+        assert!(err.message.contains("空白"), "{err}");
+
+        let mut long_label = profile("https://api.example.com");
+        long_label.models = vec![ProfileModel {
+            id: "m".to_string(),
+            label: "长".repeat(MAX_MODEL_LABEL_CHARS + 1),
+        }];
+        let err = long_label.validate_models().expect_err("超长标签");
+        assert!(err.message.contains("展示文案"), "{err}");
+
+        let mut too_many = profile("https://api.example.com");
+        too_many.models = (0..=MAX_PROFILE_MODELS)
+            .map(|index| ProfileModel {
+                id: format!("m{index}"),
+                label: String::new(),
+            })
+            .collect();
+        too_many.model = "m0".to_string();
+        let err = too_many.validate_models().expect_err("超条数");
+        assert!(err.message.contains("上限"), "{err}");
     }
 }

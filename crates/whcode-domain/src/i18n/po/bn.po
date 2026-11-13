@@ -476,6 +476,12 @@ msgstr "নিবন্ধিত নয়"
 msgid "cui.indexes_ok"
 msgstr "ইনডেক্স সম্পূর্ণ"
 
+msgid "cui.plan.off"
+msgstr "পরিকল্পনা মোড বন্ধ।"
+
+msgid "cui.plan.on"
+msgstr "পরিকল্পনা মোড চালু (কোমল নির্দেশনা: টুল কল বাধা পায় না)।"
+
 msgid "cui.plan_rows"
 msgstr "প্ল্যান সারি {rows}টি (analyze=false, কোয়েরি চালানো হয়নি)"
 
@@ -1327,6 +1333,15 @@ msgstr "JSON এক্সপোর্ট"
 
 msgid "web.export.jsonl"
 msgstr "JSONL এক্সপোর্ট"
+
+msgid "web.models.empty"
+msgstr "এই প্রোফাইলে কোনো মডেল তালিকা ঘোষিত নেই; প্রোফাইলের ডিফল্ট মডেল ব্যবহৃত হয়।"
+
+msgid "web.models.model"
+msgstr "মডেল"
+
+msgid "web.models.profile"
+msgstr "প্রোফাইল"
 
 msgid "web.recovering"
 msgstr "পুনরুদ্ধার চলছে…"

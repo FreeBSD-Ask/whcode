@@ -19,6 +19,10 @@ const session = new URLSearchParams(location.search).get("session") ?? "";
 const deliverableSection = document.getElementById("chat-deliverables");
 const deliverableList = document.getElementById("deliverable-list");
 const deliverableNote = document.getElementById("deliverable-note");
+const providerSelect = document.getElementById("chat-provider");
+const providerFree = document.getElementById("chat-provider-free");
+const modelSelect = document.getElementById("chat-model");
+const modelBadge = document.getElementById("chat-model-badge");
 
 // 文本层（FR-615）：与首页共用 `/api/i18n`；缺失键回退中文静态文案（不显示键名）。
 const texts = {};
@@ -326,9 +330,66 @@ const connectStream = () => {
 };
 
 form.hidden = false;
+
+// 模型目录（FR-773／T286）：剖面与模型选择以剖面文件声明的目录为准。
+// 目录不可用（未接线／默认离线／请求失败）时保持自由输入——不伪造空目录。
+let catalogue = [];
+
+const renderModels = () => {
+  const profile = catalogue.find((item) => item.name === providerSelect.value);
+  const models = profile?.models ?? [];
+  modelSelect.textContent = "";
+  for (const model of models) {
+    const option = document.createElement("option");
+    option.value = model.id;
+    option.textContent = model.label || model.id;
+    modelSelect.appendChild(option);
+  }
+  if (models.length > 0) {
+    modelSelect.value = profile.default_model;
+    modelSelect.hidden = false;
+    // badge 显示实际发送的模型标识（下拉显示的是文案，二者可能不同）。
+    modelBadge.textContent = modelSelect.value;
+  } else {
+    modelSelect.hidden = true;
+    modelBadge.textContent = t("web.models.empty", "该剖面未声明模型目录，使用剖面默认模型");
+  }
+};
+
+const loadModels = async () => {
+  try {
+    const response = await fetch("/api/llm/models");
+    if (!response.ok) return; // 未接线／离线：保持自由输入，不伪造目录
+    const payload = await response.json();
+    const profiles = payload.profiles ?? [];
+    if (profiles.length === 0) return;
+    catalogue = profiles;
+    providerSelect.textContent = "";
+    for (const profile of profiles) {
+      const option = document.createElement("option");
+      option.value = profile.name;
+      option.textContent = profile.name;
+      providerSelect.appendChild(option);
+    }
+    providerSelect.hidden = false;
+    providerFree.hidden = true;
+    renderModels();
+  } catch {
+    // 网络失败同上：回退自由输入。
+  }
+};
+
+providerSelect.addEventListener("change", renderModels);
+modelSelect.addEventListener("change", () => {
+  modelBadge.textContent = modelSelect.value;
+});
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const provider = document.getElementById("chat-provider").value.trim();
+  const provider = providerSelect.hidden
+    ? providerFree.value.trim()
+    : providerSelect.value;
+  const model = modelSelect.hidden ? "" : modelSelect.value;
   const prompt = document.getElementById("chat-prompt").value.trim();
   if (!provider || !prompt || !session) return;
   status.textContent = "生成中…";
@@ -338,7 +399,7 @@ form.addEventListener("submit", async (event) => {
     const response = await fetch("/api/llm/run", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ session, provider, prompt }),
+      body: JSON.stringify(model ? { session, provider, prompt, model } : { session, provider, prompt }),
     });
     const payload = await response.json();
     if (!response.ok) {
@@ -364,6 +425,7 @@ if (session) {
   void loadTail();
   void refreshApprovals();
   void loadDeliverables();
+  void loadModels();
 } else {
   status.textContent = "缺 session 参数（示例：/chat?session=S-1）";
 }

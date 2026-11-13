@@ -1977,3 +1977,35 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   clippy `-D warnings`、layering 6／layout 6、traceability 无断链、check_counts 一致
   （150／285／380，missing 0）、check-adr-limits 合规、check-docs-style／check-eol／
   i18n-po `--check` 全绿；CI 待运行（ADR-037）。
+
+## Tasks（2026-11-13 追加）：Phase 2 体验——模型目录（ADR-031 修订 2026-11-13）
+
+- [x] T286 [P] 模型目录（FR-773／ADR-031 修订／proposal-v3 P4.8）：`ProviderProfile.models[]`
+  （`{id,label}`、≤32 条、id 唯一且非空、无空白；`label` ≤64 字符；`id` ≤128 字符）＋
+  `ProviderProfile::validate_models`／`model_label`（空标签回退 id）＋剖面加载与 `HttpClient`
+  装配期校验＋turn 模型覆盖以目录为准（目录外在任何请求前 `invalid_state` 并列出可用）＋
+  `app::llm::model_catalogue`（只读、无网络、无凭据）＋Web `GET /api/llm/models` 与对话页
+  选择器／badge（目录不可用回退自由输入）＋能力面 `llm.models` 与对等矩阵＋十三套 i18n
+  ——**任务认知卡**：方向＝把“用哪个模型”从手填字符串变成可核对的选择事实（域 K 的
+  listModels＋badge）；目标＝选择与请求同源、目录外选择在请求前失败、既有剖面文件不破；
+  判据＝目录结构校验（重复／空白／超长／超条数）、默认模型与覆盖值都须为成员、目录空时保持
+  自由、读取面无网络且不含凭据、未接线显式报错而非空目录、Web 选择器与 badge、四端矩阵一致、
+  十三套目录同键；非目标＝动态 listModels 探测与缓存、按能力分组（上下文窗口／价格／思考档）、
+  上游真实可用性校验、TUI／GUI 选择视图。
+
+## Tasks（2026-11-13 追加）：Phase 2 体验——计划模式（ADR-067）
+
+- [x] T287 [P] 计划模式（FR-774／ADR-067／proposal-v3 P4.5）：`EventKind::PlanModeChanged`
+  （log-only、Critical；`{active, source, tool_call_id?}`，最新一条即当前值）＋
+  `store::plan::record_mode`／`current_mode`＋`app::plan::current`／`set`／`is_active`＋
+  `whcode-tools::plan`（`plan_mode` 工具、`plan_active_from_arguments`、`PLAN_GUIDANCE` 常量、
+  伪工具名 `PLAN_MODE_EXIT_RULE`）＋turn 引导注入（激活时 system 消息；读取失败显式告示）＋
+  turn 退出复核（审批伪工具名；无应答面 fail-closed）＋成功调用落状态事件＋装配期内置
+  `plan_mode_exit = ask`（交互面）＋CUI `session plan --off`／Web `GET/POST /api/plan`＋
+  能力 `session.plan` 与四端矩阵＋CUI 文案十三套＋工具目录重生成（9 件）
+  ——**任务认知卡**：方向＝给“先讨论计划、再动手”一个可重放、可复核的会话状态（DSH 域 G），
+  同时不把计划模式变成强制门禁；目标＝状态可重放、软引导显式不强制、退出必须经人；
+  判据＝激活落事件且下一 turn 注入引导段、退出无应答面 fail-closed 且状态不变、退出经批准后
+  落状态、用户切换不经审批且来源为 user、损坏状态不被静默按关闭、Web 读面区分“从未切换”
+  与缺失会话、工具目录逐字节一致、十三套目录同键；非目标＝工具白名单式强制、计划正文
+  单独持久化、目标实体（GoalRef）与宿主定时、TUI／GUI 视图。

@@ -73,6 +73,12 @@ impl ProviderRegistry {
             .map(|profile| profile.name.clone())
             .collect()
     }
+
+    /// 剖面只读清单（模型目录视图用，T286／FR-773；剖面不含密钥值）。
+    #[must_use]
+    pub fn profiles(&self) -> &[ProviderProfile] {
+        &self.profiles
+    }
 }
 
 impl ProviderRegistry {
@@ -126,6 +132,9 @@ impl ProviderRegistry {
                 )));
             }
             profile.validate_endpoint()?;
+            // T286／FR-773：目录结构与“默认模型必须是目录成员”随剖面加载一并校验，
+            // 装配期失败好过运行期被供应商 400 发现。
+            profile.validate_models()?;
         }
         Ok(Self { profiles })
     }
@@ -313,6 +322,69 @@ pub fn cancel_dir_from_env() -> PathBuf {
         .map(PathBuf::from)
         .filter(|path| !path.as_os_str().is_empty())
         .unwrap_or_else(|| std::env::temp_dir().join("whcode-llm-cancel"))
+}
+
+/// 一个剖面目录里的模型选项（T286／FR-773／ADR-031 修订）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModelOption {
+    /// 模型标识（`llm run --model` 与 Web 选择器的取值）。
+    pub id: String,
+    /// 展示文案（badge；`label` 为空时等于 `id`）。
+    pub label: String,
+}
+
+/// 一个剖面的模型目录视图（无密钥、无端点凭据）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProfileCatalogue {
+    /// 剖面名。
+    pub name: String,
+    /// 线协议稳定名。
+    pub protocol: String,
+    /// 默认模型（剖面 `model`）。
+    pub default_model: String,
+    /// 目录选项（空 = 未声明目录，选择器回退自由输入）。
+    pub models: Vec<ModelOption>,
+}
+
+/// 读取剖面模型目录（T286／FR-773；只读、无网络、不含任何密钥或端点）。
+///
+/// 选择器与 badge 以本视图为准；目录未声明时 `models` 为空，前端回退自由输入，
+/// 不拒绝既有用法（默认值可见、可改、可撤销）。
+///
+/// # Errors
+///
+/// 权限不足（`permission_denied`）或装配根未接线剖面（`invalid_state`，带可操作原因）。
+pub fn model_catalogue(
+    policy: &dyn Policy,
+    actor: &Actor,
+    context: &LlmContext<'_>,
+) -> Result<Vec<ProfileCatalogue>, WhError> {
+    require(policy, actor, Capability::SessionRead)?;
+    let registry = context
+        .registry
+        .ok_or_else(|| match context.registry_error {
+            Some(message) => WhError::invalid_state(format!("LLM 剖面不可用：{message}")),
+            None => WhError::invalid_state(
+                "LLM 剖面不可用：装配根未注入剖面（ADR-031：无剖面即无请求，默认离线）",
+            ),
+        })?;
+    Ok(registry
+        .profiles()
+        .iter()
+        .map(|profile| ProfileCatalogue {
+            name: profile.name.clone(),
+            protocol: profile.protocol.as_str().to_string(),
+            default_model: profile.model.clone(),
+            models: profile
+                .models
+                .iter()
+                .map(|entry| ModelOption {
+                    id: entry.id.clone(),
+                    label: profile.model_label(&entry.id).to_string(),
+                })
+                .collect(),
+        })
+        .collect())
 }
 
 /// 执行一次 `llm run`（同步；权限、会话、剖面、凭据、流式收集与取消全在本函数内）。
@@ -777,6 +849,7 @@ mod tests {
             path: "/v1/chat/completions".to_string(),
             query: Vec::new(),
             model: "test-model".to_string(),
+            models: Vec::new(),
             auth: AuthScheme::None,
             extra_headers: Vec::new(),
             extra_body: serde_json::Value::Null,
@@ -1116,6 +1189,84 @@ mod tests {
         let cancel_err =
             cancel(&DefaultPolicy, &weak, &context, "req").expect_err("取消同样受权限约束");
         assert_eq!(cancel_err.code, ErrorCode::PermissionDenied);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// T286／FR-773：目录视图按注册表顺序给出选项与 badge（标签空回退 id）。
+    #[test]
+    fn model_catalogue_lists_declared_options_with_badges() {
+        let actor = actor_with_all_capabilities("llm-test");
+        let mut with_catalogue = profile("with-catalogue");
+        with_catalogue.model = "m-large".to_string();
+        with_catalogue.models = vec![
+            whcode_llm::http::profile::ProfileModel {
+                id: "m-large".to_string(),
+                label: "大模型".to_string(),
+            },
+            whcode_llm::http::profile::ProfileModel {
+                id: "m-fast".to_string(),
+                label: String::new(),
+            },
+        ];
+        let mut plain = profile("plain");
+        plain.model = String::new();
+        let registry =
+            ProviderRegistry::from_profiles(vec![with_catalogue, plain]).expect("注册表");
+        let factory = StubFactory;
+        let dir = temp_dir("catalogue");
+        let context = LlmContext {
+            registry: Some(&registry),
+            registry_error: None,
+            factory: &factory,
+            cancel_dir: &dir,
+        };
+        let catalogue = model_catalogue(&DefaultPolicy, &actor, &context).expect("目录可读");
+        assert_eq!(catalogue.len(), 2, "按注册表顺序");
+        assert_eq!(catalogue[0].name, "with-catalogue");
+        assert_eq!(catalogue[0].default_model, "m-large");
+        assert_eq!(
+            catalogue[0]
+                .models
+                .iter()
+                .map(|option| (option.id.as_str(), option.label.as_str()))
+                .collect::<Vec<_>>(),
+            vec![("m-large", "大模型"), ("m-fast", "m-fast")],
+            "badge：显式文案优先，空标签回退 id"
+        );
+        assert!(
+            catalogue[1].models.is_empty(),
+            "未声明目录＝空列表（前端回退自由输入）"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// T286／FR-773：装配根未接线与权限不足都必须显式失败，不返回空清单冒充可用。
+    #[test]
+    fn model_catalogue_reports_missing_assembly_and_permission() {
+        let actor = actor_with_all_capabilities("llm-test");
+        let factory = StubFactory;
+        let dir = temp_dir("catalogue-absent");
+        let unconfigured = LlmContext {
+            registry: None,
+            registry_error: Some("未设置 WHCODE_LLM_PROFILES"),
+            factory: &factory,
+            cancel_dir: &dir,
+        };
+        let err =
+            model_catalogue(&DefaultPolicy, &actor, &unconfigured).expect_err("未接线必须报错");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        assert!(err.message.contains("WHCODE_LLM_PROFILES"), "{err}");
+
+        let registry = registry("p");
+        let context = LlmContext {
+            registry: Some(&registry),
+            registry_error: None,
+            factory: &factory,
+            cancel_dir: &dir,
+        };
+        let weak = Actor::new("weak", []);
+        let err = model_catalogue(&DefaultPolicy, &weak, &context).expect_err("读目录需读能力");
+        assert_eq!(err.code, ErrorCode::PermissionDenied);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

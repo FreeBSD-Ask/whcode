@@ -14,6 +14,7 @@
 pub mod builtins;
 pub mod catalogue;
 pub mod paths;
+pub mod plan;
 pub mod present;
 pub mod registry;
 pub mod todo;
@@ -22,6 +23,10 @@ pub mod todo;
 pub const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1024;
 
 pub use builtins::default_registry;
+pub use plan::{
+    MAX_PLAN_GUIDANCE_CHARS, PLAN_GUIDANCE, PLAN_MODE_EXIT_RULE, PLAN_MODE_TOOL,
+    plan_active_from_arguments,
+};
 pub use present::{
     MAX_DELIVERABLE_PATH_CHARS, MAX_DELIVERABLES_PER_CALL, PRESENT_DELIVERABLES_TOOL,
     entries_from_arguments as deliverable_entries_from_arguments,

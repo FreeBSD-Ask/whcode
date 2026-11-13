@@ -476,6 +476,12 @@ msgstr "nicht registriert"
 msgid "cui.indexes_ok"
 msgstr "Indizes vollständig"
 
+msgid "cui.plan.off"
+msgstr "Planmodus ist aus."
+
+msgid "cui.plan.on"
+msgstr "Planmodus ist aktiv (sanfte Führung: Werkzeugaufrufe werden nicht blockiert)."
+
 msgid "cui.plan_rows"
 msgstr "{rows} Planzeilen (analyze=false, Abfrage nicht ausgeführt)"
 
@@ -1327,6 +1333,15 @@ msgstr "JSON exportieren"
 
 msgid "web.export.jsonl"
 msgstr "JSONL exportieren"
+
+msgid "web.models.empty"
+msgstr "Dieses Profil deklariert keinen Modellkatalog; es wird das Standardmodell des Profils verwendet."
+
+msgid "web.models.model"
+msgstr "Modell"
+
+msgid "web.models.profile"
+msgstr "Profil"
 
 msgid "web.recovering"
 msgstr "Wird wiederhergestellt…"

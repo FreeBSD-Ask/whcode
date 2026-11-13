@@ -476,6 +476,12 @@ msgstr "未登錄"
 msgid "cui.indexes_ok"
 msgstr "索引完整"
 
+msgid "cui.plan.off"
+msgstr "已關閉計畫模式"
+
+msgid "cui.plan.on"
+msgstr "已開啟計畫模式（軟引導：不阻止工具呼叫）"
+
 msgid "cui.plan_rows"
 msgstr "計畫資料列 {rows} 列（analyze=false，未實際執行查詢）"
 
@@ -1327,6 +1333,15 @@ msgstr "匯出 JSON"
 
 msgid "web.export.jsonl"
 msgstr "匯出 JSONL"
+
+msgid "web.models.empty"
+msgstr "此剖面未宣告模型目錄，使用剖面預設模型"
+
+msgid "web.models.model"
+msgstr "模型"
+
+msgid "web.models.profile"
+msgstr "剖面"
 
 msgid "web.recovering"
 msgstr "回復中…"

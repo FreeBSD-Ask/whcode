@@ -207,8 +207,11 @@ impl TurnPersister {
         pending_events: &mut Vec<TurnEventDraft>,
         messages: &[LlmMessage],
     ) -> Result<(), WhError> {
+        // 系统消息是**每轮派生**的上下文（技能描述／MCP 告示／计划引导），不是对话历史：
+        // 不落 `messages`（FR-722 只接受 user／assistant／tool），下轮重新派生。
         let message_drafts: Vec<TurnMessageDraft> = messages[self.persisted..]
             .iter()
+            .filter(|m| m.role != Role::System)
             .map(|m| TurnMessageDraft {
                 role: match m.role {
                     Role::Tool => "tool",
@@ -395,6 +398,7 @@ fn run_turn_inner(
         ))
     })?;
     profile.validate_endpoint()?;
+    profile.validate_models()?;
     let model = request
         .model
         .as_deref()
@@ -404,6 +408,20 @@ fn run_turn_inner(
         .to_string();
     if model.is_empty() {
         return Err(WhError::invalid_state("模型标识为空"));
+    }
+    // T286／FR-773：目录非空时模型选择必须以目录为准——未登记的模型名不静默发送
+    // （否则选择器与请求会分叉，且拼错的模型名只会以供应商 400 的形式浮现）。
+    if !profile.models.is_empty() && profile.models.iter().all(|entry| entry.id != model) {
+        let available: Vec<&str> = profile
+            .models
+            .iter()
+            .map(|entry| entry.id.as_str())
+            .collect();
+        return Err(WhError::invalid_state(format!(
+            "模型 {model} 不在剖面 {} 的模型目录内；可用：{}（FR-773：目录非空时选择以目录为准）",
+            profile.name,
+            available.join(", ")
+        )));
     }
     let max_tokens = request.max_tokens.unwrap_or(profile.max_tokens);
     let request_id = request
@@ -516,6 +534,21 @@ fn run_turn_inner(
                 mcp_notices.join("\n")
             ),
         });
+    }
+    // ADR-067 决策 2：计划模式是**软引导**——激活时注入固定引导段，不拦截任何工具。
+    // 读取失败按“无法判定”显式告示（不是关闭），模型与用户都能看到状态缺口。
+    match crate::plan::is_active(conn, session) {
+        Ok(true) => messages.push(LlmMessage {
+            role: Role::System,
+            content: whcode_tools::PLAN_GUIDANCE.to_string(),
+        }),
+        Ok(false) => {}
+        Err(err) => messages.push(LlmMessage {
+            role: Role::System,
+            content: format!(
+                "计划模式状态读取失败：{err}；本轮按未激活处理（这不是关闭，而是无法判定）"
+            ),
+        }),
     }
     messages.push(LlmMessage {
         role: Role::User,
@@ -1191,6 +1224,35 @@ fn run_turn_inner(
                     ),
                 }
             }
+            // ── 计划模式状态（T287／FR-774／ADR-067）────────────────────────
+            // 成功调用才落状态；退出已在此前的审批面经人复核（`plan_mode_exit`），
+            // 这里只记录结果，不重复判定。载荷只有开关与来源，log-only 不进模型历史。
+            if tool_call.name == whcode_tools::PLAN_MODE_TOOL
+                && status == RuntimeExecutionStatus::Completed
+            {
+                let parsed = serde_json::from_str::<serde_json::Value>(&tool_call.arguments)
+                    .map_err(|err| {
+                        whcode_domain::WhError::parse_error(format!("计划模式参数解析失败：{err}"))
+                    })
+                    .and_then(|arguments| whcode_tools::plan_active_from_arguments(&arguments));
+                match parsed {
+                    Ok(active) => emit!(
+                        EventKind::PlanModeChanged,
+                        "iteration": iteration,
+                        "request_id": request_id,
+                        "tool_call_id": tool_call.id,
+                        "active": active,
+                        "source": "model",
+                    ),
+                    Err(err) => emit!(
+                        EventKind::PersistenceError,
+                        "iteration": iteration,
+                        "request_id": request_id,
+                        "tool_call_id": tool_call.id,
+                        "error_code": err.code.as_str(),
+                    ),
+                }
+            }
             if let Some(observer) = observer {
                 observer(TurnSignal::ToolFinished {
                     tool_call_id: tool_call.id.clone(),
@@ -1593,7 +1655,7 @@ fn execute_tool_call(
     workspace_root: Option<&Path>,
     exec_id: &str,
     tool_call: &LlmToolCall,
-    approval: Option<&mut ApprovalGate<'_>>,
+    mut approval: Option<&mut ApprovalGate<'_>>,
     now_ms: u64,
 ) -> (
     RuntimeExecutionStatus,
@@ -1662,6 +1724,70 @@ fn execute_tool_call(
             None,
         );
     };
+
+    // ── 计划模式退出复核（T287／FR-774／ADR-067 决策 3）─────────────────
+    // 进入计划模式不需审批；**退出**必须经人复核：伪工具名 `plan_mode_exit` 在交互装配
+    // 登记为内置 `ask`。无应答者（CUI／TUI 非交互）一律 fail-closed 并指明用户通道，
+    // 不得把“没人可问”当成“已允许”。该判定在通用审批闸门之前，避免被默认规则放过。
+    if tool_call.name == whcode_tools::PLAN_MODE_TOOL {
+        match whcode_tools::plan_active_from_arguments(&arguments) {
+            Ok(true) => {}
+            Ok(false) => {
+                let Some(gate) = approval.as_deref_mut() else {
+                    return fail_code(
+                        RuntimeExecutionStatus::Failed,
+                        "计划模式退出需要人工确认：当前前端没有审批应答面；请由用户执行 \
+                         `whcode session plan --session <ID> --off` 或经 Web `POST /api/plan` 关闭"
+                            .to_string(),
+                        "approval_unavailable",
+                    );
+                };
+                let decision = match gate.authorize_with_conn(
+                    conn,
+                    exec_id,
+                    whcode_tools::PLAN_MODE_EXIT_RULE,
+                    descriptor.side_effect_scope,
+                    now_ms,
+                ) {
+                    Ok(decision) => decision,
+                    Err(err) => {
+                        return fail_code(
+                            RuntimeExecutionStatus::Failed,
+                            format!("计划模式退出审批登记失败：{err}；本次调用未执行"),
+                            "approval_audit_failed",
+                        );
+                    }
+                };
+                if !decision.is_allowed() {
+                    let (code, reason) = match decision.outcome {
+                        ApprovalOutcome::Rejected => (
+                            "permission_denied",
+                            "退出计划模式被用户拒绝（不要重复调用；请按用户反馈修订计划）",
+                        ),
+                        ApprovalOutcome::Cancelled => {
+                            ("approval_cancelled", "退出审批被撤回（本次调用未执行）")
+                        }
+                        _ => (
+                            "approval_unavailable",
+                            "退出计划模式需要人工审批但当前无可用应答者（本次调用未执行）",
+                        ),
+                    };
+                    return fail_code(
+                        RuntimeExecutionStatus::Failed,
+                        format!("{reason}；命中规则 {}", decision.rule.as_str()),
+                        code,
+                    );
+                }
+            }
+            Err(err) => {
+                return fail_code(
+                    RuntimeExecutionStatus::Failed,
+                    format!("计划模式参数校验失败：{err}"),
+                    "invalid_state",
+                );
+            }
+        }
+    }
 
     // ── 审批闸门（T255／FR-744／ADR-064）──────────────────────────────
     // 位置固定在“参数校验之后、三步登记之前”：受理前拒绝不产生登记行（ADR-048 §2.4），
@@ -2168,6 +2294,39 @@ mod tests {
                 arguments: r#"{"path":"src/lib.rs"}"#.to_string(),
             }],
         }
+    }
+
+    /// T286／FR-773：目录非空时模型覆盖必须以目录为准——目录外模型在任何请求发出之前被拒，
+    /// 目录内模型正常使用（选择器与请求不得分叉）。
+    #[test]
+    fn model_outside_declared_catalogue_is_rejected_before_any_request() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let profile: ProviderProfile = serde_json::from_str(
+            r#"{"name":"p","protocol":"openai","base_url":"https://api.example.com",
+                "model":"m-large","models":[{"id":"m-large","label":"大模型"},
+                {"id":"m-fast"}],"auth":{"type":"none"}}"#,
+        )
+        .expect("剖面夹具");
+        let registry = crate::llm::ProviderRegistry::from_profiles(vec![profile]).expect("注册表");
+        let factory = StubFactory(StubProvider::new());
+        let dir = temp_dir("model-catalogue");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+
+        let mut outside = request(&id, "你好");
+        outside.model = Some("m-unknown".to_string());
+        let err = run_turn(&mut conn, &policy, &actor, &ctx, &outside, 7)
+            .expect_err("目录外模型必须拒绝");
+        assert_eq!(err.code, whcode_domain::ErrorCode::InvalidState);
+        assert!(err.message.contains("模型目录"), "错误须可操作：{err}");
+
+        let mut inside = request(&id, "你好");
+        inside.model = Some("m-fast".to_string());
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &inside, 8).expect("目录内可用");
+        assert_eq!(outcome.model, "m-fast", "实际请求使用的模型即所选目录项");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -3037,6 +3196,217 @@ mod tests {
         ApprovalPolicy::default()
             .with_tool_rule(tool, rule)
             .expect("规则合法")
+    }
+
+    /// 计划模式（T287／FR-774／ADR-067）测试用的记录型 Provider：把“本轮是否收到计划引导段”
+    /// 记到共享标志，然后委托给桩 Provider 执行（不改变剧本语义）。
+    #[derive(Clone)]
+    struct GuidanceProbe {
+        inner: StubProvider,
+        saw_guidance: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    impl whcode_llm::Provider for GuidanceProbe {
+        fn name(&self) -> &str {
+            self.inner.name()
+        }
+
+        fn capabilities(&self) -> whcode_llm::ProviderCapabilities {
+            self.inner.capabilities()
+        }
+
+        fn is_available(&self) -> bool {
+            self.inner.is_available()
+        }
+
+        fn execute(
+            &self,
+            request: &whcode_llm::LlmRequest,
+            cancel: &whcode_llm::CancelToken,
+        ) -> Result<whcode_llm::ChunkStream, whcode_domain::WhError> {
+            let saw = request.messages.iter().any(|message| {
+                message.role == Role::System && message.content.contains("计划模式")
+            });
+            self.saw_guidance
+                .store(saw, std::sync::atomic::Ordering::SeqCst);
+            self.inner.execute(request, cancel)
+        }
+    }
+
+    struct GuidanceFactory(GuidanceProbe);
+
+    impl ProviderFactory for GuidanceFactory {
+        fn create(
+            &self,
+            _profile: &ProviderProfile,
+        ) -> Result<Box<dyn whcode_llm::Provider>, whcode_domain::WhError> {
+            Ok(Box::new(self.0.clone()))
+        }
+    }
+
+    fn plan_tool_step(id: &str, active: bool) -> StubStep {
+        StubStep {
+            chunks: vec!["切换计划模式".to_string()],
+            finish_reason: "tool_call".to_string(),
+            tool_calls: vec![LlmToolCall {
+                id: id.to_string(),
+                name: whcode_tools::PLAN_MODE_TOOL.to_string(),
+                arguments: format!(r#"{{"active":{active}}}"#),
+            }],
+        }
+    }
+
+    /// T287／FR-774：模型进入计划模式 → 落一条 `PlanModeChanged`（source=model）；
+    /// 下一 turn 收到引导段（软引导，不阻止工具）。
+    #[test]
+    fn plan_mode_activation_records_state_and_injects_guidance_next_turn() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let dir = temp_dir("plan-on");
+        let saw = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let probe = GuidanceProbe {
+            inner: StubProvider::with_script(vec![
+                plan_tool_step("call-plan-1", true),
+                StubStep::simple("已进入计划模式", "stop"),
+            ]),
+            saw_guidance: saw.clone(),
+        };
+        let factory = GuidanceFactory(probe);
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "先出计划");
+        req.workspace_root = Some(dir.clone());
+        run_turn(&mut conn, &policy, &actor, &ctx, &req, 31).expect("第一轮");
+        assert!(
+            !saw.load(std::sync::atomic::Ordering::SeqCst),
+            "激活前不应有引导段"
+        );
+
+        let (active, source): (bool, String) = conn
+            .query_row(
+                "SELECT CAST(CAST(payload_json AS JSON)->>'$.active' AS BOOLEAN),
+                        CAST(CAST(payload_json AS JSON)->>'$.source' AS VARCHAR)
+                 FROM events WHERE session_id=? AND kind='PlanModeChanged' LIMIT 1",
+                [&id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("状态事件");
+        assert!(active);
+        assert_eq!(source, "model");
+        assert!(crate::plan::is_active(&conn, &id).expect("状态可读"));
+
+        // 第二轮：同一会话，纯文本步；引导段必须随消息装配注入。
+        let probe2 = GuidanceProbe {
+            inner: StubProvider::new(),
+            saw_guidance: saw.clone(),
+        };
+        let factory2 = GuidanceFactory(probe2);
+        let ctx2 = context(&registry, &factory2, &dir);
+        run_turn(&mut conn, &policy, &actor, &ctx2, &req, 32).expect("第二轮");
+        assert!(
+            saw.load(std::sync::atomic::Ordering::SeqCst),
+            "激活后下一 turn 必须注入计划引导段"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// T287／FR-774：非交互装配（无审批应答面）下模型退出计划模式必须 fail-closed，
+    /// 状态不变（不得把“没人可问”当成“已允许”）。
+    #[test]
+    fn plan_mode_exit_without_answerer_fails_closed_and_keeps_state() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let dir = temp_dir("plan-exit-none");
+        let factory = StubFactory(StubProvider::with_script(vec![
+            plan_tool_step("call-plan-exit", false),
+            StubStep::simple("无法退出", "stop"),
+        ]));
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        whcode_store::plan::record_mode(&conn, &id, true, "user", None).expect("先进入计划模式");
+        let mut req = request(&id, "退出计划模式");
+        req.workspace_root = Some(dir.clone());
+        run_turn(&mut conn, &policy, &actor, &ctx, &req, 33).expect("turn 继续（工具失败不中断）");
+
+        let code: String = conn
+            .query_row(
+                "SELECT CAST(CAST(payload_json AS JSON)->>'$.error_code' AS VARCHAR)
+                 FROM events WHERE session_id=? AND kind='ToolCallFinished' LIMIT 1",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("工具终态");
+        assert_eq!(code, "approval_unavailable", "无应答者必须 fail-closed");
+        let states: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='PlanModeChanged'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("状态计数");
+        assert_eq!(states, 1, "被拒不落新状态");
+        assert!(crate::plan::is_active(&conn, &id).expect("状态可读"));
+        let tool_msg: String = conn
+            .query_row(
+                "SELECT content_ref FROM messages WHERE session_id=? AND role='tool' LIMIT 1",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("tool 消息");
+        assert!(tool_msg.contains("需要人工确认"), "{tool_msg}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// T287／FR-774：交互装配下退出计划模式走 `plan_mode_exit` 审批；批准后落状态事件。
+    #[test]
+    fn plan_mode_exit_requires_approval_and_records_state_when_approved() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let dir = temp_dir("plan-exit-ok");
+        let factory = StubFactory(StubProvider::with_script(vec![
+            plan_tool_step("call-plan-exit-ok", false),
+            StubStep::simple("已退出", "stop"),
+        ]));
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        whcode_store::plan::record_mode(&conn, &id, true, "user", None).expect("先进入计划模式");
+        let mut req = request(&id, "退出计划模式");
+        req.workspace_root = Some(dir.clone());
+
+        let sink = CollectingAuditSink::new();
+        let answerer = FixedAnswerer(ApprovalAnswer::Approve);
+        let mut gate = ApprovalGate::new(
+            "turn-test",
+            policy_for(whcode_tools::PLAN_MODE_EXIT_RULE, ApprovalRule::Ask),
+            &sink,
+            Some(&answerer),
+            DEFAULT_APPROVAL_WAIT_MS,
+        );
+        run_turn_with_approval(
+            &mut conn, &policy, &actor, &ctx, &req, None, None, &mut gate, 34,
+        )
+        .expect("批准后退出");
+        assert!(!crate::plan::is_active(&conn, &id).expect("状态可读"));
+        let (active, source): (bool, String) = conn
+            .query_row(
+                "SELECT CAST(CAST(payload_json AS JSON)->>'$.active' AS BOOLEAN),
+                        CAST(CAST(payload_json AS JSON)->>'$.source' AS VARCHAR)
+                 FROM events WHERE session_id=? AND kind='PlanModeChanged'
+                 ORDER BY seq DESC LIMIT 1",
+                [&id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("最新状态");
+        assert!(!active);
+        assert_eq!(source, "model");
+        assert_eq!(gate.pending_len(), 0, "判定后不得残留待审批");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -476,6 +476,12 @@ msgstr "non inscrit"
 msgid "cui.indexes_ok"
 msgstr "index complets"
 
+msgid "cui.plan.off"
+msgstr "Le mode plan est désactivé."
+
+msgid "cui.plan.on"
+msgstr "Le mode plan est activé (guidage souple : les appels d'outils ne sont pas bloqués)."
+
 msgid "cui.plan_rows"
 msgstr "{rows} lignes de plan (analyze=false, requête non exécutée)"
 
@@ -1327,6 +1333,15 @@ msgstr "Exporter en JSON"
 
 msgid "web.export.jsonl"
 msgstr "Exporter en JSONL"
+
+msgid "web.models.empty"
+msgstr "Ce profil ne déclare aucun catalogue de modèles ; le modèle par défaut du profil est utilisé."
+
+msgid "web.models.model"
+msgstr "Modèle"
+
+msgid "web.models.profile"
+msgstr "Profil"
 
 msgid "web.recovering"
 msgstr "Récupération…"

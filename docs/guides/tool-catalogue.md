@@ -4,9 +4,9 @@
 > 重新生成：`WHCODE_UPDATE_TOOL_CATALOGUE=1 cargo test -p whcode-tools catalogue`。
 > 门禁：`cargo test -p whcode-tools catalogue`（渲染结果与文件逐字节比对）。
 
-manifest-fingerprint: fnv1a64:c86bebf0c66a5cb5
+manifest-fingerprint: fnv1a64:01568835a2e516e0
 
-内置工具数：8（MCP 服务器工具在运行时装配，不计入本目录）。
+内置工具数：9（MCP 服务器工具在运行时装配，不计入本目录）。
 
 ## edit_file
 
@@ -59,6 +59,18 @@ manifest-fingerprint: fnv1a64:c86bebf0c66a5cb5
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | `path` | string | 否 | 工作区内相对目录（默认根） |
+
+## plan_mode
+
+- 说明：进入或退出计划模式（软引导：只影响引导段，不阻止工具调用；退出需要用户在审批面确认）。
+- 副作用：会话状态写（只改会话派生状态，不触碰工作区）
+- 执行预算：未声明（不设上限）
+- 输出契约：已声明 `output_schema`（校验失败即结构化错误）
+- 参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `active` | boolean | 是 | true＝进入计划模式；false＝退出（需人工复核） |
 
 ## present_deliverables
 

@@ -686,6 +686,24 @@ fn session_command(
             })?;
             Ok((value, human))
         }
+        SessionCommand::Plan { session, off } => {
+            // 计划模式（T287／FR-774／ADR-067）：用户即决策者，不经审批；仍落事件。
+            let conn = open_db(workspace, config)?;
+            let view = whcode_app::set_plan(&conn, policy, actor, session, !*off)?;
+            let line = texts.resolve(if view.active {
+                "cui.plan.on"
+            } else {
+                "cui.plan.off"
+            });
+            Ok((
+                json!({
+                    "session": session,
+                    "plan_mode": view.active,
+                    "seq": view.seq,
+                }),
+                line.to_string(),
+            ))
+        }
         SessionCommand::Rename { session, title } => {
             let mut conn = open_db(workspace, config)?;
             let outcome = whcode_app::execute_command(
@@ -1500,6 +1518,56 @@ mod tests {
 
     fn args(list: &[&str]) -> Vec<String> {
         list.iter().map(|item| (*item).to_string()).collect()
+    }
+
+    /// 计划模式（T287／FR-774／ADR-067）：CUI 直接切换、不受审批；两次切换各自落事件。
+    #[test]
+    fn session_plan_toggles_state_without_approval() {
+        let workspace = temp_workspace("plan");
+        let create = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "计划会话".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("创建会话");
+        let id = create.0["session"]["id"]
+            .as_str()
+            .expect("会话 ID")
+            .to_string();
+
+        let on = execute(
+            &Command::Session {
+                command: SessionCommand::Plan {
+                    session: id.clone(),
+                    off: false,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("开启计划模式");
+        assert_eq!(on.0["plan_mode"], true);
+        assert_eq!(on.0["seq"], 1);
+        assert!(on.1.contains("计划模式"), "人类行明写状态：{}", on.1);
+
+        let off = execute(
+            &Command::Session {
+                command: SessionCommand::Plan {
+                    session: id.clone(),
+                    off: true,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("关闭计划模式");
+        assert_eq!(off.0["plan_mode"], false);
+        assert_eq!(off.0["seq"], 2, "整值替换：每次切换一条状态事件");
     }
 
     /// 会话生命周期：new → list → rename → archive → delete（dry-run → yes）。

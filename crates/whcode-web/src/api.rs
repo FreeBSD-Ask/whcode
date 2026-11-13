@@ -711,6 +711,47 @@ pub fn handle_request_with_llm(
                 Err(error) => error_response(&error),
             }
         }
+        (Method::Get, "/api/plan") => {
+            // 计划模式状态（T287／FR-774／ADR-067）：最新一条 `PlanModeChanged` 即当前值；
+            // 从未切换＝关闭且 `seq` 为 null（正确的空，不用 404 冒充不存在）。
+            let Some(session) = query_value("session") else {
+                return error_response(&WhError::invalid_state("缺 session 参数"));
+            };
+            match whcode_app::current_plan(conn, &policy, actor, session) {
+                Ok(view) => HttpResponse::json(
+                    200,
+                    &serde_json::json!({
+                        "schema_version": whcode_domain::SCHEMA_VERSION,
+                        "session_id": session,
+                        "active": view.active,
+                        "seq": view.seq,
+                    }),
+                ),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/plan") => {
+            // 用户侧切换（ADR-067 决策 4）：用户即决策者、不经审批，但仍落事件（source=user）。
+            let result = (|| -> Result<serde_json::Value, WhError> {
+                let body = json_body(request)?;
+                let session = body_str(&body, "session")?.to_string();
+                let active = body
+                    .get("active")
+                    .and_then(serde_json::Value::as_bool)
+                    .ok_or_else(|| WhError::invalid_state("计划模式请求体需要布尔字段 active"))?;
+                let view = whcode_app::set_plan(conn, &policy, actor, &session, active)?;
+                Ok(serde_json::json!({
+                    "schema_version": whcode_domain::SCHEMA_VERSION,
+                    "session_id": session,
+                    "active": view.active,
+                    "seq": view.seq,
+                }))
+            })();
+            match result {
+                Ok(value) => HttpResponse::json(200, &value),
+                Err(error) => error_response(&error),
+            }
+        }
         (Method::Get, "/api/tasks") => {
             // 任务面板（FR-747）：总览（阶段/完成/阻塞/活跃）＋有界任务卡片
             // （父链依赖、重试计数）；`session` 可选——缺省为工作区级。
@@ -1668,6 +1709,38 @@ pub fn handle_request_with_llm(
                 Err(error) => error_response(&error),
             }
         }
+        (Method::Get, "/api/llm/models") => {
+            // 模型目录（T286／FR-773）：只读、无网络、不含凭据与端点；选择器与 badge 的数据源。
+            // 未接线／未配置剖面走结构化错误（不返回空清单冒充“没有可用模型”）。
+            let Some(llm) = llm else {
+                return error_response(&llm_not_wired());
+            };
+            match whcode_app::llm::model_catalogue(&policy, actor, llm) {
+                Ok(profiles) => {
+                    let profiles: Vec<serde_json::Value> = profiles
+                        .iter()
+                        .map(|profile| {
+                            serde_json::json!({
+                                "name": profile.name,
+                                "protocol": profile.protocol,
+                                "default_model": profile.default_model,
+                                "models": profile.models.iter().map(|option| {
+                                    serde_json::json!({ "id": option.id, "label": option.label })
+                                }).collect::<Vec<_>>(),
+                            })
+                        })
+                        .collect();
+                    HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "profiles": profiles,
+                        }),
+                    )
+                }
+                Err(error) => error_response(&error),
+            }
+        }
         (Method::Post, "/api/llm/run") => {
             // 真实调用（T167）：权限、会话、剖面、凭据与流式收集都在应用层；
             // Web 只做请求体解析与信封输出。剖面注册表来自装配根（ADR-031 决策 1）。
@@ -1791,6 +1864,15 @@ mod tests {
             headers,
             body: Vec::new(),
         }
+    }
+
+    fn method_with_json(method: Method, path: &str, body: &serde_json::Value) -> HttpRequest {
+        let mut request = request(method, path, false);
+        request.body = serde_json::to_vec(body).expect("JSON 请求体");
+        request
+            .headers
+            .push(("content-type".to_string(), "application/json".to_string()));
+        request
     }
 
     /// 任务视图路由（批次 1）：会话范围与工作区级总览均可用（FR-103）。
@@ -1964,6 +2046,129 @@ mod tests {
             &actor,
         );
         assert_eq!(response.status, 404, "不存在的会话");
+    }
+
+    /// 模型目录路由（T286／FR-773）：装配根未接线时显式报错（不退化为空清单或 404），
+    /// 让前端能区分“没有模型目录”与“默认离线”。
+    #[test]
+    fn llm_models_route_reports_unwired_explicitly() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("tester");
+        let req = request(Method::Get, "/api/llm/models", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(
+            response.status, 400,
+            "未接线剖面＝invalid_state；不得 404，也不得返回空 profiles"
+        );
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["code"], "invalid_state");
+        assert!(
+            body["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("LLM")),
+            "错误须可操作：{body}"
+        );
+    }
+
+    /// 计划模式路由（T287／FR-774／ADR-067）：从未切换＝关闭且 seq 为 null；
+    /// 用户切换落事件并可读回；缺 session 参数 400、缺失会话 404、缺 active 400。
+    #[test]
+    fn plan_route_reports_state_and_user_toggle() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("tester");
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-P', '计划', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("创建");
+
+        let req = request(Method::Get, "/api/plan?session=S-P", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["active"], false, "从未切换＝关闭");
+        assert_eq!(body["seq"], serde_json::Value::Null, "正确的空：无状态事件");
+
+        let toggle = method_with_json(
+            Method::Post,
+            "/api/plan",
+            &serde_json::json!({ "session": "S-P", "active": true }),
+        );
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &toggle,
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["active"], true);
+        assert_eq!(body["seq"], 1);
+
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["active"], true, "状态可读回");
+
+        let missing_param = request(Method::Get, "/api/plan", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &missing_param,
+            &actor,
+        );
+        assert_eq!(response.status, 400, "缺 session 参数");
+
+        let missing_session = request(Method::Get, "/api/plan?session=S-404", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &missing_session,
+            &actor,
+        );
+        assert_eq!(response.status, 404, "不存在的会话");
+
+        let missing_active = method_with_json(
+            Method::Post,
+            "/api/plan",
+            &serde_json::json!({ "session": "S-P" }),
+        );
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &missing_active,
+            &actor,
+        );
+        assert_eq!(response.status, 400, "缺 active 字段");
     }
 
     #[test]

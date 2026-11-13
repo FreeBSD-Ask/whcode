@@ -473,11 +473,19 @@ impl ApprovalPolicy {
 
     /// 给破坏性工具 `shell` 加默认 `ask`（T256／T257／FR-745；“破坏性工具默认确认”）。
     ///
+    /// 同时给**计划模式退出**的伪工具名 `plan_mode_exit` 加默认 `ask`（T287／FR-774／
+    /// ADR-067 决策 3）：退出计划模式是“开始动手”的决策点，必须经人复核；该名字不对应
+    /// 任何真实工具，只由 turn 的退出分支查询。
+    ///
     /// 只在**启用交互面**的装配里调用；配置的 per-tool 覆盖与本地已存规则在之后叠加，
     /// 因此用户显式设置（含 `allow`）始终优先于该默认值。
     #[must_use]
     pub fn with_builtin_destructive_ask(mut self) -> Self {
         self.per_tool.insert("shell".to_string(), ApprovalRule::Ask);
+        self.per_tool.insert(
+            whcode_tools::PLAN_MODE_EXIT_RULE.to_string(),
+            ApprovalRule::Ask,
+        );
         self
     }
 

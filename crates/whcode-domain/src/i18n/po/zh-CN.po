@@ -476,6 +476,12 @@ msgstr "未注册"
 msgid "cui.indexes_ok"
 msgstr "索引完整"
 
+msgid "cui.plan.off"
+msgstr "已关闭计划模式"
+
+msgid "cui.plan.on"
+msgstr "已开启计划模式（软引导：不阻止工具调用）"
+
 msgid "cui.plan_rows"
 msgstr "计划行 {rows} 条（analyze=false，不执行查询）"
 
@@ -1327,6 +1333,15 @@ msgstr "导出 JSON"
 
 msgid "web.export.jsonl"
 msgstr "导出 JSONL"
+
+msgid "web.models.empty"
+msgstr "该剖面未声明模型目录，使用剖面默认模型"
+
+msgid "web.models.model"
+msgstr "模型"
+
+msgid "web.models.profile"
+msgstr "剖面"
 
 msgid "web.recovering"
 msgstr "恢复中…"

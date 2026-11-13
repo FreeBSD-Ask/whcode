@@ -476,6 +476,12 @@ msgstr "sin registrar"
 msgid "cui.indexes_ok"
 msgstr "índices completos"
 
+msgid "cui.plan.off"
+msgstr "El modo plan está desactivado."
+
+msgid "cui.plan.on"
+msgstr "El modo plan está activado (guía suave: no bloquea llamadas a herramientas)."
+
 msgid "cui.plan_rows"
 msgstr "{rows} filas de plan (analyze=false, consulta no ejecutada)"
 
@@ -1327,6 +1333,15 @@ msgstr "Exportar JSON"
 
 msgid "web.export.jsonl"
 msgstr "Exportar JSONL"
+
+msgid "web.models.empty"
+msgstr "Este perfil no declara un catálogo de modelos; se usa el modelo predeterminado del perfil."
+
+msgid "web.models.model"
+msgstr "Modelo"
+
+msgid "web.models.profile"
+msgstr "Perfil"
 
 msgid "web.recovering"
 msgstr "Recuperando…"

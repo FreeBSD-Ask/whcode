@@ -476,6 +476,12 @@ msgstr "رجسٹرڈ نہیں"
 msgid "cui.indexes_ok"
 msgstr "انڈیکسز مکمل ہیں"
 
+msgid "cui.plan.off"
+msgstr "پلان موڈ بند ہے۔"
+
+msgid "cui.plan.on"
+msgstr "پلان موڈ فعال ہے (نرم رہنمائی: ٹول کالز نہیں روکی جاتیں)۔"
+
 msgid "cui.plan_rows"
 msgstr "{rows} پلان کی قطاریں (analyze=false، کوئری چلائی نہیں گئی)"
 
@@ -1327,6 +1333,15 @@ msgstr "JSON ایکسپورٹ کریں"
 
 msgid "web.export.jsonl"
 msgstr "JSONL ایکسپورٹ کریں"
+
+msgid "web.models.empty"
+msgstr "یہ پروفائل کوئی ماڈل فہرست ظاہر نہیں کرتا؛ پروفائل کا طے شدہ ماڈل استعمال ہوتا ہے۔"
+
+msgid "web.models.model"
+msgstr "ماڈل"
+
+msgid "web.models.profile"
+msgstr "پروفائل"
 
 msgid "web.recovering"
 msgstr "بحالی جاری ہے…"

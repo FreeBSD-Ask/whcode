@@ -42,6 +42,7 @@ pub mod llm;
 pub mod maintenance;
 pub mod overview;
 pub mod panels;
+pub mod plan;
 pub mod queue;
 pub mod replay;
 pub mod residency;
@@ -73,14 +74,16 @@ pub use deliverables::{Deliverable, DeliverableView, list as list_deliverables};
 pub use events::{EventsExport, events_export};
 pub use gates::{ForceAdvance, TransitionContext, force_advance, request_transition};
 pub use llm::{
-    LlmCancelOutcome, LlmChunkView, LlmContext, LlmRunOutcome, LlmRunRequest, ProviderFactory,
-    ProviderRegistry, cancel_dir_from_env, profiles_path_from_env,
+    LlmCancelOutcome, LlmChunkView, LlmContext, LlmRunOutcome, LlmRunRequest, ModelOption,
+    ProfileCatalogue, ProviderFactory, ProviderRegistry, cancel_dir_from_env, model_catalogue,
+    profiles_path_from_env,
 };
 pub use maintenance::{
     PurgeCounts, PurgeCriteria, PurgePreview, PurgeProtection, PurgeResult, purge_execute,
     purge_preview,
 };
 pub use overview::{TaskCard, TaskOverview, TaskPanel, task_overview, task_panel};
+pub use plan::{PlanView, current as current_plan, is_active as plan_is_active, set as set_plan};
 pub use queue::BoundedQueue;
 pub use replay::{REPLAY_PAGE_LIMIT, ReplayPage, replay_since};
 pub use residency::{ResidencyManager, ResidencyState, UnloadedSession, idle_unload_due};
