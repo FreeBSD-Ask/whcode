@@ -14,7 +14,8 @@
   响应时收到 `Interrupted system call (os error 4)`（EINTR）——与 DuckDB `features.h` 无关，
   是测试助手把信号中断当成真实错误的缺陷；已在同一批修复（EINTR 按重试处理，覆盖该助手与
   `wait_for_close`／`connection_closed`），修复后 Windows 本机复跑通过，FreeBSD 结论待下一轮
-  通道取得；
+  通道取得；**修复后转绿**：run `43366102610`（提交 `0cc0e0f`）platform-verification 全绿，
+  FreeBSD job success（三门 GO、全量测试与冒烟通过），EINTR 归因成立；
 **不作验收结论**，性能分位数未取得 | ADR-013 修订（2026-10-31） |
 | NetBSD | **仅支持 SSH 远程开发（被连入目标）＋随 CI 自动运行（仅平台证据）**（ADR-013 修订 2026-11-03）：SSH 回环验收 GO（客户端＋服务端四项，`artifacts/ssh-acceptance/netbsd-client.txt`）、进程组零残留 GO（Check 201）；原生 store/DuckDB 豁免（上游 2.0.0 依赖 glibc `features.h`） | ADR-013、T020/T021 |
 | OpenBSD | **仅支持 SSH 远程开发（被连入目标）**（ADR-013 修订 2026-11-03）：节点证据从 Windows/FreeBSD 以内置 SSH 客户端连入取得（V-004 口径，M7 或具备主机时）；工具链阻塞记录（ports rust 1.98.1 < MSRV）已入库 | ADR-011/013 |

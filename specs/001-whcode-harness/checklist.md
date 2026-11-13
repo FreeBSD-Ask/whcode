@@ -889,7 +889,9 @@
   `cargo test --locked --workspace` 1160 通过／0 失败（64 个测试二进制）；fmt、clippy
   `-D warnings`、layering 6／layout 6、frontend_parity 10/10、traceability 无断链、
   check_counts 一致（152／287／382，missing 0）、check-adr-limits／check-docs-style／
-  check-eol／i18n-po `--check` 全绿；CI 待运行（ADR-037）。
+  check-eol／i18n-po `--check` 全绿；CI（ADR-037）：run `43366102610`（提交 `0cc0e0f`）
+  platform-verification 全绿（platform-windows／windows-arm64／freebsd／netbsd／openbsd／
+  dragonfly 均 success，FreeBSD 三门 GO），Code Scanning 0 open。
 
 ## 第三十一层：计划模式（2026-11-13，Task T287／FR-774，ADR-067）
 
@@ -918,4 +920,6 @@
   全量 `cargo test --locked --workspace` 1160 通过／0 失败（64 个测试二进制）；fmt、clippy
   `-D warnings`、layering 6／layout 6、frontend_parity 10/10、traceability 无断链、
   check_counts 一致（152／287／382，missing 0）、check-adr-limits／check-docs-style／
-  check-eol／i18n-po `--check` 全绿；CI 待运行（ADR-037）。
+  check-eol／i18n-po `--check` 全绿；CI（ADR-037）：run `43366102610`（提交 `0cc0e0f`）
+  platform-verification 全绿（platform-windows／windows-arm64／freebsd／netbsd／openbsd／
+  dragonfly 均 success，FreeBSD 三门 GO），Code Scanning 0 open。
