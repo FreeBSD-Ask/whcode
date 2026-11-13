@@ -52,7 +52,7 @@ steht in [ADR-013](./docs/adr/ADR-013-platform-scope-windows-only.md) und
 
 ## Bauen und starten
 
-Nötig sind Rust 1.99.1 (in `rust-toolchain.toml` festgelegt), die MSVC-Werkzeugkette und
+Nötig sind Rust 1.100.0 (in `rust-toolchain.toml` festgelegt), die MSVC-Werkzeugkette und
 Python 3. Eine GNU-Werkzeugkette wird nirgends verwendet.
 
 ```powershell

@@ -271,6 +271,9 @@ pub fn execute_with_cancel(
     // 进程组（FR-409）：平台差异集中在 whcode-platform——Unix 让子进程自成进程组，
     // 终止时可按组回收子孙进程；Windows 为空操作（子进程树由 taskkill /T 处理）。
     whcode_platform::process::configure_child_process_group(command);
+    // 窗口抑制（Windows）：GUI 主进程 spawn shell/解释器时不闪控制台窗口；
+    // 非 Windows 为空操作（平台差异收敛于 whcode-platform，NFR-101）。
+    whcode_platform::process::configure_child_window(command);
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child: Child = command
         .spawn()

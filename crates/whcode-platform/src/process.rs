@@ -30,7 +30,7 @@ impl fmt::Display for TerminationPolicy {
 /// 返回当前 `cfg(target_os)` 对应的终止策略。
 ///
 /// 观测事实（本轮实测）：本项目 Windows 验收环境为 `x86_64-pc-windows-msvc`
-/// （rustc 1.99.1、MSVC 14.44.35207、Windows SDK 10.0.26100.0），按 D-01 修订
+/// （rustc 1.100.0、MSVC 14.44.35207、Windows SDK 10.0.26100.0），按 D-01 修订
 /// **不使用任何 GNU 工具链**。四大 BSD 的策略声明在对应平台编译时生效；其运行验证属
 /// M0/M7（V-004），未验证前 `note` 只描述计划语义，不构成能力承诺。
 #[must_use]
@@ -90,6 +90,7 @@ pub fn shell_command(script: &str) -> std::process::Command {
     {
         let mut command = std::process::Command::new("cmd");
         command.args(["/C", script]);
+        configure_child_window(&mut command);
         command
     }
     #[cfg(not(target_os = "windows"))]
@@ -137,6 +138,36 @@ pub fn configure_child_process_group(command: &mut std::process::Command) {
     {
         use std::os::unix::process::CommandExt;
         command.process_group(0);
+    }
+}
+
+/// 抑制即将启动的子进程的窗口（Windows 控制台闪窗问题；1.100 起 std 收敛）。
+///
+/// 背景：验收宿主上 GUI（windows 子系统）主进程 spawn 控制台子进程
+/// （`cmd`／`taskkill`／`tasklist`／`powershell`／运行时 shell 与解释器）时，
+/// 每次调用都会短暂弹出控制台窗口。本函数按 Win32 口径双保险：
+/// `CommandExt::show_window(SW_HIDE)` 设置 STARTUPINFO.wShowWindow（Rust 1.100
+/// 稳定，覆盖 GUI 子进程的首窗），并叠加 `CREATE_NO_WINDOW` 创建标志（控制台
+/// 子进程不创建控制台窗口，stdio 经管道不受影响）。非 Windows 为空操作，
+/// 调用点无需 cfg（平台差异只在此 crate，NFR-101）。
+///
+/// 调用点：本 crate 内的无头命令与 `whcode-runtime`／`whcode-mcp` 的子进程
+/// spawn 之前；交互式前端（TUI/CUI）子进程继承父控制台，不需要调用。
+/// 视觉效果（GUI 宿主下无闪窗）属 GUI 验收人工项，见 ADR-069 复审条件。
+pub fn configure_child_window(command: &mut std::process::Command) {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        // Win32 ShowWindow 的 SW_HIDE；`show_window` 于 Rust 1.100 稳定（ADR-069）。
+        const SW_HIDE: u16 = 0;
+        // CREATE_NO_WINDOW：控制台子进程不创建控制台窗口（0x08000000）。
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.show_window(SW_HIDE);
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = command;
     }
 }
 
@@ -292,7 +323,9 @@ pub fn term_process_group(pid: u32) -> Result<(), whcode_domain::WhError> {
 pub fn terminate_tree(pid: u32) -> Result<(), whcode_domain::WhError> {
     #[cfg(target_os = "windows")]
     {
-        let output = std::process::Command::new("taskkill")
+        let mut command = std::process::Command::new("taskkill");
+        configure_child_window(&mut command);
+        let output = command
             .args(["/T", "/F", "/PID", &pid.to_string()])
             .output()
             .map_err(|err| {
@@ -332,7 +365,9 @@ pub fn terminate_tree(pid: u32) -> Result<(), whcode_domain::WhError> {
 pub fn process_exists(pid: u32) -> Result<bool, whcode_domain::WhError> {
     #[cfg(target_os = "windows")]
     {
-        let output = std::process::Command::new("tasklist")
+        let mut command = std::process::Command::new("tasklist");
+        configure_child_window(&mut command);
+        let output = command
             .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
             .output()
             .map_err(|err| {
@@ -404,7 +439,9 @@ pub fn child_pids(pid: u32) -> Result<Vec<u32>, whcode_domain::WhError> {
         let script = format!(
             "Get-CimInstance Win32_Process -Filter 'ParentProcessId={pid}' | Select-Object -ExpandProperty ProcessId"
         );
-        let output = std::process::Command::new("powershell")
+        let mut command = std::process::Command::new("powershell");
+        configure_child_window(&mut command);
+        let output = command
             .args(["-NoProfile", "-NonInteractive", "-Command", &script])
             .output()
             .map_err(|err| {
@@ -526,6 +563,29 @@ mod tests {
             Ok(exists) => assert!(exists, "本进程必须存在"),
             Err(err) => assert!(err.message.contains("延后"), "非实现错误须写明延后：{err}"),
         }
+    }
+
+    /// 窗口抑制（ADR-069）：SW_HIDE + CREATE_NO_WINDOW 双保险不得破坏 stdio 管道——
+    /// spawn 成功、退出码为零、stdout 仍可完整收集。仅 Windows 编译（其余平台为
+    /// 空操作，spawn 路径由进程组与存在性用例覆盖）。
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn configure_child_window_spawn_keeps_piped_output() {
+        use std::process::Stdio;
+
+        let mut command = shell_command("echo WHCODE_WINDOW_OK");
+        configure_child_window(&mut command);
+        command.stdout(Stdio::piped()).stderr(Stdio::piped());
+        let output = command
+            .spawn()
+            .expect("窗口抑制后启动")
+            .wait_with_output()
+            .expect("收集输出");
+        assert!(output.status.success(), "退出码非零");
+        assert!(
+            String::from_utf8_lossy(&output.stdout).contains("WHCODE_WINDOW_OK"),
+            "stdout 未经管道返回"
+        );
     }
 
     /// 命令构造：`--` 必须排在负 PID 之前，否则 `-4321` 会被 `kill` 当作信号编号或选项。

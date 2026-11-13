@@ -363,7 +363,7 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             if [ ! -x "$HOME/.cargo/bin/cargo" ]; then
               curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-                | sh -s -- -y --profile minimal --default-toolchain 1.99.1
+                | sh -s -- -y --profile minimal --default-toolchain 1.100.0
             fi
             rustc -vV
             cargo -V
@@ -646,7 +646,7 @@ jobs:
             # 由下面的 MSRV 闸门显式 SKIP，不得用旧工具链冒充通过。
             export HOME=${HOME:-/root}
             if [ ! -x "$HOME/.cargo/bin/cargo" ]; then
-              echo "=== 尝试 rustup 安装锁定工具链 1.99.1（x86_64-unknown-netbsd）==="
+              echo "=== 尝试 rustup 安装锁定工具链 1.100.0（x86_64-unknown-netbsd）==="
               rustup_url=https://static.rust-lang.org/rustup/dist/x86_64-unknown-netbsd/rustup-init
               if command -v curl >/dev/null 2>&1; then
                 curl -fsSL --retry 2 --connect-timeout 30 -o /tmp/rustup-init "$rustup_url" \
@@ -656,7 +656,7 @@ jobs:
               fi
               if [ -s /tmp/rustup-init ]; then
                 chmod +x /tmp/rustup-init
-                if /tmp/rustup-init -y --profile minimal --default-toolchain 1.99.1 \
+                if /tmp/rustup-init -y --profile minimal --default-toolchain 1.100.0 \
                   >/tmp/rustup-init.log 2>&1; then
                   echo "rustup 安装完成"
                 else
@@ -680,7 +680,8 @@ jobs:
             cargo -V
             echo "rustc_version=$(rustc --version)" >> "$progress"
 
-            # MSRV 从 Cargo.toml 读取：工作流手写版本会与清单漂移（2026-10-24 已升至 1.99），
+            # MSRV 从 Cargo.toml 读取：工作流手写版本会与清单漂移（2026-10-24 升至 1.99，
+            # 2026-11-14 经 ADR-069 升至 1.100），
             # 手写值一旦落后，pkgsrc rust 低于 MSRV 时不会跳过而是直接编译失败。
             msrv=$(sed -n 's/^rust-version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -n1)
             if [ -z "$msrv" ]; then

@@ -70,7 +70,7 @@
 - 二进制：`whcode`（`whcode-bin`，MSVC 构建，Windows 11 amd64）；
 - DuckDB 动态库：`vendor/duckdb/2.0.0/duckdb.dll`（SHA256 校验，`.github/scripts/fetch-duckdb.py`）；
 - 许可证：BSD-2-Clause（版权主体 FreeBSD 中文社区）；
-- 工具链锁定：Rust 1.99.1（`rust-toolchain.toml`），MSVC 14.44（不使用 GNU 工具链）。
+- 工具链锁定：Rust 1.100.0（`rust-toolchain.toml`，ADR-069），MSVC 14.44（不使用 GNU 工具链）。
 
 **发布判据**：强制验收（V-001—V-307 中已实现部分）全通过 + 本限制清单随包发布；
 预算冻结（ADR-025，2026-10-23）与长时稳定性（NFR-204，2026-11-02）已达成，

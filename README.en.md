@@ -50,7 +50,7 @@ Performance percentiles currently come from the Windows channel only. See
 
 ## Build and run
 
-You need Rust 1.99.1 (pinned in `rust-toolchain.toml`), the MSVC toolchain and Python 3. No
+You need Rust 1.100.0 (pinned in `rust-toolchain.toml`), the MSVC toolchain and Python 3. No
 GNU toolchain is used anywhere.
 
 ```powershell

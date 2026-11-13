@@ -173,6 +173,9 @@ impl StdioTransport {
         let _ = whcode_runtime::worker::apply_minimal_env(&mut command);
         // 进程组（FR-409 口径）：Unix 自成进程组供按组终止；Windows 空操作。
         whcode_platform::process::configure_child_process_group(&mut command);
+        // 窗口抑制（Windows）：GUI 宿主 spawn 服务器进程不闪控制台窗；被配置为
+        // GUI 程序的服务器其首窗按 SW_HIDE 初始隐藏。非 Windows 空操作。
+        whcode_platform::process::configure_child_window(&mut command);
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

@@ -52,7 +52,7 @@ Los percentiles de rendimiento salen hoy solo del canal de Windows. La política
 
 ## Compilar y ejecutar
 
-Hacen falta Rust 1.99.1 (fijado en `rust-toolchain.toml`), la cadena MSVC y Python 3. No se usa
+Hacen falta Rust 1.100.0 (fijado en `rust-toolchain.toml`), la cadena MSVC y Python 3. No se usa
 ninguna cadena de herramientas GNU.
 
 ```powershell

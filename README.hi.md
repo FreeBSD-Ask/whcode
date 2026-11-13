@@ -48,7 +48,7 @@ M0 से M6, M8 और चारों फ़्रंटएंड की स�
 
 ## बिल्ड और रन
 
-Rust 1.99.1 (`rust-toolchain.toml` में तय), MSVC टूलचेन और Python 3 चाहिए। GNU टूलचेन कहीं
+Rust 1.100.0 (`rust-toolchain.toml` में तय), MSVC टूलचेन और Python 3 चाहिए। GNU टूलचेन कहीं
 इस्तेमाल नहीं होता।
 
 ```powershell

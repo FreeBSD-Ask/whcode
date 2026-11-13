@@ -81,9 +81,10 @@ mod gate {
 #[cfg(test)]
 use gate::Gate;
 
-/// 非测试构建的闸门占位：`Infallible` 不可构造，`Option<Arc<Gate>>` 恒为 `None`。
+/// 非测试构建的闸门占位：never type `!` 不可构造（Rust 1.100 起可直接命名，
+/// 此前的 `Infallible` 现为其别名），`Option<Arc<Gate>>` 恒为 `None`。
 #[cfg(not(test))]
-type Gate = std::convert::Infallible;
+type Gate = !;
 
 /// 有界写者服务。`Drop` 会关闭通道并等待写线程退出；需要错误详情时调用
 /// [`WriterService::shutdown`]。

@@ -134,7 +134,7 @@ fn next_sse_frame(reader: &mut dyn BufRead, budget: &mut Budget) -> Result<Optio
         if let Some(name) = line.strip_prefix("event:") {
             event_name = Some(name.trim_start().to_string());
         } else if let Some(payload) = line.strip_prefix("data:") {
-            data.push(payload.strip_prefix(' ').unwrap_or(payload).to_string());
+            data.push(payload.trim_prefix(' ').to_string());
         }
         // 注释行（`:...`）与其他字段（`id:`/`retry:`）按 SSE 规范忽略。
     }

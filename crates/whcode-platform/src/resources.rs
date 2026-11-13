@@ -62,7 +62,9 @@ pub fn available_physical_cores() -> u32 {
 pub fn process_rss_bytes(pid: u32) -> Result<u64, whcode_domain::WhError> {
     #[cfg(target_os = "windows")]
     {
-        let output = std::process::Command::new("tasklist")
+        let mut command = std::process::Command::new("tasklist");
+        crate::process::configure_child_window(&mut command);
+        let output = command
             .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
             .output()
             .map_err(|err| whcode_domain::WhError::io("查询进程工作集", &err))?;
@@ -132,7 +134,9 @@ pub fn process_stats(pid: u32) -> Result<ProcessStats, whcode_domain::WhError> {
             "$p = Get-Process -Id {pid} -ErrorAction Stop; \
              \"$($p.CPU)|$($p.Threads.Count)|$($p.HandleCount)\""
         );
-        let output = std::process::Command::new("powershell")
+        let mut command = std::process::Command::new("powershell");
+        crate::process::configure_child_window(&mut command);
+        let output = command
             .args(["-NoProfile", "-NonInteractive", "-Command", &script])
             .output()
             .map_err(|err| whcode_domain::WhError::io("查询进程资源", &err))?;

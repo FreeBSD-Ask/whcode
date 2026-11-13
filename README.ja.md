@@ -50,7 +50,7 @@ M0—M6、M8 と 4 フロントエンドの同等性は実装済みで、M7 の 
 
 ## ビルドと実行
 
-Rust 1.99.1（`rust-toolchain.toml` で固定）、MSVC ツールチェーン、Python 3 が必要です。
+Rust 1.100.0（`rust-toolchain.toml` で固定）、MSVC ツールチェーン、Python 3 が必要です。
 GNU ツールチェーンは一切使いません。
 
 ```powershell

@@ -6,7 +6,7 @@
 
 ## 1. 环境前置
 
-- Rust：版本由 `rust-toolchain.toml` 锁定（1.99.1，rustup 自动配给）。
+- Rust：版本由 `rust-toolchain.toml` 锁定（1.100.0，rustup 自动配给）。
   Windows 验收使用 `x86_64-pc-windows-msvc`，**不使用任何 GNU 工具链**（D-01）；
 - Python 3：仅用于 `.github/scripts/fetch-duckdb.py`（拉取并校验预编译 DuckDB）与 CI 脚本；
 - DuckDB：官方预编译动态库，任何构建前先执行 `python .github/scripts/fetch-duckdb.py`（SHA256 校验）；

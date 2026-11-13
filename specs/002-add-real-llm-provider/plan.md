@@ -17,7 +17,7 @@
 
 ## Technical Context
 
-**Language/Version**：Rust 1.99.1（`rust-toolchain.toml`；MSRV 声明 1.99）
+**Language/Version**：Rust（`rust-toolchain.toml` 锁定，现 1.100.0；MSRV 声明 1.100）
 
 **Primary Dependencies**（以 `Cargo.lock` 为准）：
 

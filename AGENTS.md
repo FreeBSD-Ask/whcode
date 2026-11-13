@@ -4,7 +4,7 @@
 > 作用等价于 `AGENTS.md` / `CLAUDE.md`。它是**入口与摘要**，不复制规范正文；
 > 与 `docs/guides/`、`specs/`、ADR 冲突时，以那些文档为准。
 
-**最后更新**：2026-11-08 | **适用版本**：`0.1.0`（M0 基线，未发布）
+**最后更新**：2026-11-14 | **适用版本**：`0.1.0`（M0 基线，未发布）
 
 ## 1. 项目定位与硬边界
 
@@ -25,7 +25,7 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
   DragonFly 仅支持 SSH 远程开发**（作为被 Windows/FreeBSD 内置 SSH 客户端连入的目标，
   不要求原生工具链/引擎——ADR-013 修订 2026-11-03 用户指令，DragonFly 同日追加同待遇）；
   三者代码与文档保留，不作验收结论；
-- 不使用任何 GNU 工具链；Rust 锁定 1.99.1（`rust-toolchain.toml`），MSRV 声明为 1.99；
+- 不使用任何 GNU 工具链；Rust 锁定 1.100.0（`rust-toolchain.toml`，2026-11-14 用户指令，ADR-069），MSRV 声明为 1.100；
 - 许可证 BSD-2-Clause，版权主体 FreeBSD 中文社区；
 - **GUI 必须原生**：禁止以内嵌浏览器引擎（WebView／WebView2、CEF、Tauri／wry、Electron、
   NW.js 等）作为桌面界面外壳；Web UI 只作独立浏览器前端（FR-603），不得充当桌面 GUI

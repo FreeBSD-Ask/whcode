@@ -27,14 +27,15 @@ members = [
 version = "0.1.0"
 edition = "2024"
 # 分工（重要，勿混用两个概念）：
-#   - 本字段 = **MSRV**（最低可用 rustc 下限）：2026-10-24 经用户指令升至 1.99
-#     （跟随锁定工具链）。原值 1.88 的理由是保护 FreeBSD/NetBSD 的 pkg/pkgsrc rust——
-#     该理由已被 ADR-013（BSD 移出验收范围）实质削弱：BSD 延后期间 MSRV 跟随
-#     锁定工具链，解锁 MSRV 受限依赖的新版本（uuid ≥1.29 等）。复审触发：ADR-013
-#     范围恢复时，按当时 pkg/pkgsrc rust 版本重新评估下限。
-#   - 可复现构建 = `rust-toolchain.toml` 锁定的 1.99.1（rustup 自动配给）。
+#   - 本字段 = **MSRV**（最低可用 rustc 下限）：2026-11-14 经用户指令升至 1.100
+#     （跟随锁定工具链，ADR-069）。前值 1.99（2026-10-24 用户指令，跟随锁定工具链）；
+#     原值 1.88 的理由是保护 FreeBSD/NetBSD 的 pkg/pkgsrc rust——该理由已被 ADR-013
+#     （BSD 移出验收范围）实质削弱：BSD 延后期间 MSRV 跟随锁定工具链，解锁 MSRV
+#     受限依赖的新版本（uuid ≥1.29 等）。复审触发：ADR-013 范围恢复时，按当时
+#     pkg/pkgsrc rust 版本重新评估下限。
+#   - 可复现构建 = `rust-toolchain.toml` 锁定的 1.100.0（rustup 自动配给）。
 # MSRV 与锁定工具链一致；构建与验收一律以锁定工具链为准。
-rust-version = "1.99"
+rust-version = "1.100"
 publish = false
 # 开源许可：BSD-2-Clause，版权主体 FreeBSD 中文社区（见根目录 LICENSE）。
 license = "BSD-2-Clause"
@@ -60,3 +61,9 @@ dbg_macro = "warn"
 todo = "warn"
 # 内存安全（NFR-215）：禁止以 mem::forget 主动泄漏；restriction 组需显式登记。
 mem_forget = "deny"
+
+# Cargo 1.100 内建 lint 系统（ADR-069）：未使用依赖告警。仅 warn 不 deny：
+# 该 lint 只在全 target 构建时可靠、不覆盖 dev-dependencies，防误报破坏门禁；
+# 复审条件登记于 ADR-069（连续两轮 CI 零告警后评估升 deny）。
+[workspace.lints.cargo]
+unused_dependencies = "warn"

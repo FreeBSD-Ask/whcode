@@ -49,7 +49,7 @@ M0 سے M6، M8 اور چاروں فرنٹ اینڈ کی برابری مکمل �
 
 ## بلڈ اور چلانا
 
-Rust 1.99.1 (`rust-toolchain.toml` میں مقفل)، MSVC ٹول چین اور Python 3 درکار ہیں۔ GNU
+Rust 1.100.0 (`rust-toolchain.toml` میں مقفل)، MSVC ٹول چین اور Python 3 درکار ہیں۔ GNU
 ٹول چین کہیں استعمال نہیں ہوتا۔
 
 ```powershell

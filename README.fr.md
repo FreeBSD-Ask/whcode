@@ -52,7 +52,7 @@ Les quantiles de performance proviennent pour l'instant du seul canal Windows. V
 
 ## Compilation et exécution
 
-Il faut Rust 1.99.1 (épinglé dans `rust-toolchain.toml`), la chaîne MSVC et Python 3. Aucun
+Il faut Rust 1.100.0 (épinglé dans `rust-toolchain.toml`), la chaîne MSVC et Python 3. Aucun
 outillage GNU n'est utilisé.
 
 ```powershell

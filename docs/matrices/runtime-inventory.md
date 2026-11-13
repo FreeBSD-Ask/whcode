@@ -26,7 +26,7 @@
 |---|---|
 | WHCode | BSD-2-Clause（FreeBSD 中文社区） |
 | DuckDB 2.0.0（动态库） | MIT（上游预编译包，`.github/scripts/fetch-duckdb.py` 校验 SHA256） |
-| Rust 1.99.1 工具链 | Apache-2.0/MIT |
+| Rust 1.100.0 工具链 | Apache-2.0/MIT |
 | clap / serde / thiserror / ratatui / crossterm | Apache-2.0/MIT（Cargo.lock 版本锁定） |
 | duckdb 1.20000.0 / libduckdb-sys 1.20000.0 | MIT（`cargo metadata` 核实） |
 | arrow 60.0.0 | Apache-2.0（`duckdb` 传递依赖，静态链入 `whcode.exe`） |

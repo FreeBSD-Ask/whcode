@@ -48,7 +48,7 @@
 
 ## البناء والتشغيل
 
-تحتاج إلى Rust 1.99.1 (مثبّت في `rust-toolchain.toml`) وسلسلة أدوات MSVC وPython 3. لا تُستخدم
+تحتاج إلى Rust 1.100.0 (مثبّت في `rust-toolchain.toml`) وسلسلة أدوات MSVC وPython 3. لا تُستخدم
 أدوات GNU في أي موضع.
 
 ```powershell

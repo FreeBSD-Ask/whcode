@@ -49,7 +49,7 @@ M0—M6, M8과 네 프런트엔드 동등성이 구현되었고 M7의 SSH 서버
 
 ## 빌드와 실행
 
-Rust 1.99.1(`rust-toolchain.toml`에 고정), MSVC 툴체인, Python 3이 필요합니다. GNU
+Rust 1.100.0(`rust-toolchain.toml`에 고정), MSVC 툴체인, Python 3이 필요합니다. GNU
 툴체인은 어디에도 쓰지 않습니다.
 
 ```powershell

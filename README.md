@@ -43,7 +43,7 @@ M0—M6、M8 与四端对等收口已实现，M7 SSH 服务端已实现。M9 的
 
 ## 构建与运行
 
-需要 Rust 1.99.1（`rust-toolchain.toml` 已锁定）、MSVC 工具链与 Python 3；
+需要 Rust 1.100.0（`rust-toolchain.toml` 已锁定）、MSVC 工具链与 Python 3；
 不使用任何 GNU 工具链。
 
 ```powershell

@@ -13,6 +13,22 @@
 
 ### 变更
 
+- **工具链升级 Rust 1.100.0 并采用新功能（ADR-069，2026-11-14）**：`rust-toolchain.toml`
+  锁定值 1.99.1 → 1.100.0（上游 2026-11-12 发布；本机实测 rustc `0ef1bc386 2026-11-09`、
+  cargo 1.100.0、LLVM 23.1.5），workspace `rust-version` 同步 1.100；AGENTS/宪法/README
+  十三语种/CONTRIBUTING/决策与平台矩阵/依赖清单/spec 复核记录同步。采用 1.100 新功能：
+  `CommandExt::show_window`——新增 `whcode-platform::process::configure_child_window`
+  （SW_HIDE + CREATE_NO_WINDOW 双保险，含管道输出回归测试），落点 platform 无头命令
+  （cmd/taskkill/tasklist/powershell）、resources 查询、runtime worker 与 MCP 服务器
+  spawn，GUI 宿主子进程窗口按 SW_HIDE 与 CREATE_NO_WINDOW 抑制（视觉验收待 GUI 冒烟
+  人工确认）；`str::trim_prefix`（SSE `data:` 解析）；never type `!`（store 非测试闸门
+  占位）；Cargo `[lints.cargo] unused_dependencies = "warn"`（首轮零告警）。评估后不采用
+  并登记理由：Allocator API（暂缓，需独立 ADR + 测量）、`main_thread_handle`（taskkill /T
+  已有零残留门禁）、`DropGuard`／`bool::toggle` 等等价改写、依赖冷却（publish = false）。
+  CI FreeBSD/NetBSD rustup 默认工具链同步 1.100.0；本机验证链全绿（fmt／clippy
+  -D warnings／全量测试／资源铁律 session_switch RSS 98.1 MB 达标），CI 结论待运行回填
+  （ADR-037）。覆盖率试点：whcode-app 89.94%（非阻断缺口，本批次未触碰 app 层，待补测）、
+  whcode-store 90.02% 达标。
 - **回滚双路径（T288／T289，FR-775／FR-776，2026-11-13）**：新增两条互补的回滚通道，
   都不删除事实。**对话剪枝**：`session rewind --session --to-seq`（Web `GET/POST /api/rewind`）
   落 `SessionRewound` 边界事件，目标必须是 `0` 或 `TurnFinished` 的 `seq`（半截 turn 拒绝），

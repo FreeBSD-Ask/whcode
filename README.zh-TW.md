@@ -45,7 +45,7 @@ M0—M6、M8 與四端對等已完成，M7 的 SSH 服務端也已完成。M9 �
 
 ## 建置與執行
 
-需要 Rust 1.99.1（已由 `rust-toolchain.toml` 鎖定）、MSVC 工具鏈與 Python 3；全程不使用
+需要 Rust 1.100.0（已由 `rust-toolchain.toml` 鎖定）、MSVC 工具鏈與 Python 3；全程不使用
 任何 GNU 工具鏈。
 
 ```powershell

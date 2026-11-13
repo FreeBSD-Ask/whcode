@@ -18,8 +18,9 @@ pub mod term;
 pub use host::{hostname, restrict_private_file};
 pub use paths::{default_temp_dir, workspace_certs_dir, workspace_config_dir, workspace_temp_dir};
 pub use process::{
-    TerminationPolicy, child_pids, configure_child_process_group, is_windows, process_exists,
-    shell_command, sleep_command, terminate_tree, termination_policy_for,
+    TerminationPolicy, child_pids, configure_child_process_group, configure_child_window,
+    is_windows, process_exists, shell_command, sleep_command, terminate_tree,
+    termination_policy_for,
 };
 pub use resources::{
     ProcessStats, ResourceLimits, available_physical_cores, current_rss_bytes,

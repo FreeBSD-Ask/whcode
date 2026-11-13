@@ -49,7 +49,7 @@ M0 থেকে M6, M8 এবং চার ফ্রন্টএন্ডের 
 
 ## বিল্ড ও চালানো
 
-Rust 1.99.1 (`rust-toolchain.toml`-এ আটকানো), MSVC টুলচেইন ও Python 3 দরকার। GNU টুলচেইন
+Rust 1.100.0 (`rust-toolchain.toml`-এ আটকানো), MSVC টুলচেইন ও Python 3 দরকার। GNU টুলচেইন
 কোথাও ব্যবহার হয় না।
 
 ```powershell

@@ -1245,10 +1245,11 @@ Task: "实现 SSH 客户端原型 in crates/whcode-ssh/src/proto.rs"           #
 
 验证证据与边界（只记录已取得者，未取得者单列）：
 
-1. **工具链（T002/T021，D-01 修订）**：`rust-toolchain.toml` 仅锁 `channel = "1.99.1"`，不写 host
+1. **工具链（T002/T021，D-01 修订）**：`rust-toolchain.toml` 仅锁 `channel`，不写 host
    triple；本机用目录级 `rustup override` 选择 `x86_64-pc-windows-msvc`（机器本地状态，不入库）。
-   实测 rustc 1.99.1（`58cf8f9c3`，2026-10-13）、MSVC 14.44.35207、Windows SDK 10.0.26100.0；
-   **不使用任何 GNU 工具链**。
+   M0 实测 rustc 1.99.1（`58cf8f9c3`，2026-10-13）、MSVC 14.44.35207、Windows SDK 10.0.26100.0；
+   **不使用任何 GNU 工具链**。——**更新（2026-11-14，ADR-069）**：锁定值升至 `1.100.0`
+   （`0ef1bc386`，2026-11-09），MSVC/SDK 环境不变。
 2. **DuckDB（T022/T023）**：改用官方预编译动态库（不源码构建）。`ci/fetch-duckdb.py` 按固定 URL
    校验归档 SHA256 `44cf5958…3fe96a`（13 408 787 字节）后解包到 `vendor/duckdb/1.5.6/`；
    `duckdb.dll` 载荷 SHA256 `7e90bdef…c84ed0`（36 697 896 字节）；`.cargo/config.toml` 注入
