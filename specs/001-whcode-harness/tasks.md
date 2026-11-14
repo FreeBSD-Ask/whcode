@@ -2237,10 +2237,15 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 - [x] T314 CI 接线（ADR-075）：`platform-verification.yml` 的 windows lane 增加 PR 门禁步
   与报告上传（`pull_request` 才跑）；`perf-budget` 增加基线导出步并纳入 artifact
   ——**取证（2026-11-15）**：`check-workflows.py` 通过。
-- [ ] T315 托管 runner 基线取得与 PR 门禁首判回填：dispatch `perf-budget`（`perf=true`）→
+- [x] T315 托管 runner 基线取得与 PR 门禁首判回填：dispatch `perf-budget`（`perf=true`）→
   下载 `perf-baseline-pr.json` artifact → 复核后提交到 `docs/matrices/perf-baseline-pr.json`
   → 下一次 PR（或临时以 push 分支验证）确认门禁由 SKIP 转为 PASS/FAIL 判定
   ——**任务认知卡**：方向＝门禁只在同类 runner 内判定，基线必须由该 runner 产出；目标＝
   仓库内基线文件与 runner 类别一致、门禁可判定；判据＝artifact 中的 `runner_class` 与
   CI 日志一致、门禁输出 PASS 或按 limit 报 FAIL；非目标＝不以本机基线冒充 runner 基线、
   不把 SKIP 记作通过。
+  ——**取证（2026-11-15）**：dispatch run `43640990876` 的 perf-budget 基线步 success，
+  artifact `perf-baseline-pr.json`（`runner_class = Windows-2025Server-10.0.26100-SP0`，3 轮）
+  已复核并提交到 `docs/matrices/perf-baseline-pr.json`：turn 85.5 ms／switch 8.1 ms／
+  history 30.8 ms。PR 级的端到端判定需首个 PR 触发（显式缺口：仓库当前无 PR 流程，
+  判定逻辑由 `--self-test` 五探针与本机同剖面一轮实测覆盖，不冒充 PR 结论）。

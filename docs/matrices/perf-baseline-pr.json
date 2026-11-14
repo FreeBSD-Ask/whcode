@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "metric_scope": "p7.2-pr-gate",
+  "runner_class": "Windows-2025Server-10.0.26100-SP0",
+  "profile": "debug",
+  "rounds": 3,
+  "tolerance": 0.3,
+  "slack_ms": 10.0,
+  "measured_utc": "2026-11-14T21:28:36Z",
+  "metrics": {
+    "history_page_p95_ms": 30.8,
+    "session_switch_p95_ms": 8.1,
+    "turn_first_token_p95_ms": 85.5
+  },
+  "notes": "PR 门禁只在 runner_class 与 profile 都相同的环境下判定（ADR-075）；绝对冻结预算见 ADR-025 与 perf-budget 通道"
+}
