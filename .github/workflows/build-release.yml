@@ -144,9 +144,12 @@ jobs:
         if: matrix.profile == 'release' && matrix.arch == 'amd64'
         run: python .github/scripts/tui-smoke.py --json artifacts/tui-smoke-ci.json
 
+      # ADR-074：arm64 lane 是交叉构建，产物落 `target/<三元组>/release/`（不再是
+      # `target/release/`）；冒烟脚本必须显式指该路径，否则 run 43627842215 那样在
+      # “找不到 exe”处红——而构建、打包与安装验证此前已经通过。
       - name: TUI 可自动化冒烟（V-003；arm64 原生，ADR-043 平台证据）
         if: matrix.profile == 'release' && matrix.arch == 'arm64'
-        run: python .github/scripts/tui-smoke.py --exe target/release/whcode.exe --json artifacts/tui-smoke-ci-arm64.json
+        run: python .github/scripts/tui-smoke.py --exe target/aarch64-pc-windows-gnullvm/release/whcode.exe --json artifacts/tui-smoke-ci-arm64.json
 
       - name: Web 服务端冒烟（/api/status、/api/sessions、首页；amd64）
         if: matrix.profile == 'release' && matrix.arch == 'amd64'
@@ -154,7 +157,7 @@ jobs:
 
       - name: Web 服务端冒烟（arm64 原生，ADR-043 平台证据）
         if: matrix.profile == 'release' && matrix.arch == 'arm64'
-        run: python .github/scripts/web-smoke.py --exe target/release/whcode.exe --json artifacts/web-smoke-ci-arm64.json
+        run: python .github/scripts/web-smoke.py --exe target/aarch64-pc-windows-gnullvm/release/whcode.exe --json artifacts/web-smoke-ci-arm64.json
 
       - name: 上传发布包（zip + sha256）
         if: matrix.profile == 'release'
