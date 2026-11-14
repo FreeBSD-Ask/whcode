@@ -221,6 +221,9 @@ msgstr "런타임 상태."
 msgid "cli.runtime.status.name"
 msgstr "런타임 이름."
 
+msgid "cli.sdk.about"
+msgstr "SDK（stdio 기반 JSON-RPC; 계약 contracts/sdk-jsonrpc.md, ADR-071）."
+
 msgid "cli.serve.about"
 msgstr "전송 진입점(M6/M7)."
 

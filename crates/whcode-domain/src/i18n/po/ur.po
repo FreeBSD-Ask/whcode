@@ -221,6 +221,9 @@ msgstr "رن ٹائم کی حالت۔"
 msgid "cli.runtime.status.name"
 msgstr "رن ٹائم کا نام۔"
 
+msgid "cli.sdk.about"
+msgstr "‏SDK (stdio پر JSON-RPC؛ معاہدہ contracts/sdk-jsonrpc.md، ADR-071)۔"
+
 msgid "cli.serve.about"
 msgstr "ٹرانسپورٹ کے داخلی راستے (M6/M7)۔"
 

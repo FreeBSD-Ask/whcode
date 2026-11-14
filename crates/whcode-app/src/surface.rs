@@ -1072,6 +1072,23 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    // ── sdk（FR-778／T294／ADR-071：出进程 stdio JSON-RPC；机器面，非四端交互面） ──
+    SurfaceEntry {
+        id: "sdk.serve",
+        kind: SurfaceKind::Command,
+        capability: Capability::SessionCreate,
+        effect: EffectClass::Write,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Implemented {
+                anchor: "cui_dispatch::sdk_exit（Command::Sdk → crate::sdk::run_sdk_server，ADR-071）",
+            },
+            Support::NotApplicable,
+            Support::NotApplicable,
+            Support::NotApplicable,
+        ],
+    },
     SurfaceEntry {
         id: "llm.cancel",
         kind: SurfaceKind::Command,

@@ -48,6 +48,8 @@ pub enum Command {
         #[command(subcommand)]
         command: LlmCommand,
     },
+    /// 出进程 SDK（FR-778；stdio 上的 JSON-RPC；契约 contracts/sdk-jsonrpc.md，ADR-071）。
+    Sdk,
     /// 状态快照（FR-314）。
     Status {
         /// 会话 ID。

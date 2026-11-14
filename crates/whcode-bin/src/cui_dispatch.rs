@@ -58,6 +58,51 @@ pub fn dispatch(args: &[String]) -> ExitCode {
     exit_code(dispatch_code(args))
 }
 
+/// `whcode sdk`（T294／FR-778／ADR-071）：装配网关并进入 stdio 服务循环。
+fn sdk_exit(workspace: &Path) -> i32 {
+    use std::sync::{Arc, Mutex};
+    use whcode_cui::output::{EXIT_SUCCESS, error_exit_code};
+    let config = config_for(workspace);
+    let conn = match open_db(workspace, &config) {
+        Ok(conn) => Arc::new(Mutex::new(conn)),
+        Err(err) => {
+            eprintln!("SDK 装配失败（工作区连接）：{err}");
+            return error_exit_code(&err);
+        }
+    };
+    let llm = match crate::llm_provider::ServeLlm::from_env(workspace) {
+        Ok(llm) => Arc::new(llm),
+        Err(err) => {
+            eprintln!("SDK 装配失败（LLM 剖面）：{err}");
+            return error_exit_code(&err);
+        }
+    };
+    let gateway = crate::sdk::AppSdkGateway {
+        conn,
+        llm,
+        policy: Arc::new(policy()),
+        actor: local_actor(),
+        workspace: workspace.to_path_buf(),
+    };
+    let mut source = crate::sdk::StdioSource::default();
+    let sink = Box::new(crate::sdk::StdioSink);
+    match crate::sdk::run_sdk_server(
+        Arc::new(gateway),
+        crate::sdk::OUT_CHANNEL_CAPACITY,
+        &mut source,
+        sink,
+    ) {
+        Ok(()) => {
+            eprintln!("SDK 会话结束（stdin EOF）");
+            EXIT_SUCCESS
+        }
+        Err(err) => {
+            eprintln!("SDK 服务异常退出：{err}");
+            error_exit_code(&err)
+        }
+    }
+}
+
 /// 调度实现（返回 i32 退出码，供测试直接断言稳定码表）。
 fn dispatch_code(args: &[String]) -> i32 {
     // 显式语言必须先于解析确定：`--help` 的渲染发生在 clap 内部（FR-615）。
@@ -92,6 +137,11 @@ fn dispatch_code(args: &[String]) -> i32 {
     // 出站信任库（ADR-040 决策 2、T191）：与 TUI／GUI 同一装配口径——失败只告警、不阻断
     // 命令执行；真正的失败会在 LLM 调用时以“无信任根”报出，不在装配阶段伪装成功。
     crate::ensure_outbound_trust(&workspace, "CUI");
+    // SDK（T294／FR-778／ADR-071）：长驻 stdio 服务，不走 (Value, human) 形状——
+    // 帧由服务端直写 stdout，人读摘要走 stderr；退出码 0＝优雅关闭。
+    if let Command::Sdk = cli.command {
+        return sdk_exit(&workspace);
+    }
     match execute(&cli.command, &workspace, &texts) {
         Ok((data, human)) => {
             if json_mode {
@@ -173,6 +223,11 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
         Command::Session { command } => {
             session_command(command, workspace, &config, &policy, &actor, now, texts)
         }
+        // SDK（T294／ADR-071）在 dispatch_code 拦截直跑（长驻 stdio 服务，不走
+        // (Value, human) 形状）；本臂仅为穷尽性兜底，正常流程不可达。
+        Command::Sdk => Err(WhError::invalid_state(
+            "sdk 由调度层拦截直跑（长驻 stdio 服务），不经命令形状".to_string(),
+        )),
         Command::Status { session } => {
             let conn = open_db(workspace, &config)?;
             let snapshot = whcode_app::build_snapshot(&conn, &policy, &actor, session)?;

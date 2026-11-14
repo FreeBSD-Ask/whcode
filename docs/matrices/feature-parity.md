@@ -12,7 +12,7 @@
 （理由码见“依据／理由”列）；预留＝未排期（里程碑见“依据／理由”列）；不提供＝本端不适用
 （依据见登记表条目注释）。
 
-**最后更新**：2026-11-06（T252：主题层扩展为六套——zcode-day/zcode-night 新增并冻结，
+**最后更新**：2026-11-14（T294：新增 `sdk.serve`——出进程 stdio JSON-RPC 机器面，CUI 已实现、其余三端不适用；ADR-071/FR-778）。历史：2026-11-06（T252：主题层扩展为六套——zcode-day/zcode-night 新增并冻结，
 默认主题切 `zcode-night`，用户批准；ADR-057/FR-739/FR-740）。历史：2026-10-26（T167 收口：
 `llm.run`／`llm.cancel` 的 TUI 翻转为已实现——`L`／`C` 键位，剖面名→提示词两步输入，
 经 `llm_provider::TuiLlmExecutor` 真实编排；三端 CUI／TUI／Web 均 `Implemented`；
@@ -58,6 +58,7 @@ T190：新增证书库设置两行）。
 | `runtime.disable` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-701—710；预留 M8；部分 six_view_scope |
 | `runtime.install` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-701—710；预留 M8；部分 six_view_scope |
 | `llm.run` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-201—208；T167 接线（CUI／Web／TUI 三端，TUI 剖面→提示词两步输入）；ADR-056 |
+| `sdk.serve` | Command | Write | 已实现 | 不提供 | 不提供 | 不提供 | FR-778；T294（出进程 stdio JSON-RPC，机器面——TUI/GUI/Web 交互面不承载）；ADR-071 |
 | `llm.cancel` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-201—208；T167 接线（CUI／Web／TUI 三端）；ADR-056 |
 | `llm.models` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-773／ADR-031 修订 2026-11-13；CUI 无视图面（cui_command_surface），TUI／GUI 未排期 |
 | `theme.switch` | Command | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-612／713／625；部分 cui_no_theme |

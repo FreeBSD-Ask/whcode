@@ -20,6 +20,7 @@ mod cui_dispatch;
 mod llm_provider;
 mod logging;
 mod runtimes;
+mod sdk;
 mod serve;
 mod shell_tool;
 mod store_source;

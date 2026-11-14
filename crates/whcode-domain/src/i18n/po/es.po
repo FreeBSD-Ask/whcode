@@ -221,6 +221,9 @@ msgstr "Estado del entorno de ejecución."
 msgid "cli.runtime.status.name"
 msgstr "Nombre del entorno de ejecución."
 
+msgid "cli.sdk.about"
+msgstr "SDK (JSON-RPC sobre stdio; contrato contracts/sdk-jsonrpc.md, ADR-071)."
+
 msgid "cli.serve.about"
 msgstr "Puntos de entrada de transporte (M6/M7)."
 

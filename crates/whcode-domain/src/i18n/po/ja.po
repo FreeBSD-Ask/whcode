@@ -221,6 +221,9 @@ msgstr "ランタイムの状態。"
 msgid "cli.runtime.status.name"
 msgstr "ランタイム名。"
 
+msgid "cli.sdk.about"
+msgstr "SDK（stdio 上の JSON-RPC；契約 contracts/sdk-jsonrpc.md、ADR-071）。"
+
 msgid "cli.serve.about"
 msgstr "伝送の入り口（M6/M7）。"
 

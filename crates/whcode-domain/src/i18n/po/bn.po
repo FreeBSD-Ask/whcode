@@ -221,6 +221,9 @@ msgstr "রানটাইম-এর অবস্থা।"
 msgid "cli.runtime.status.name"
 msgstr "রানটাইম-এর নাম।"
 
+msgid "cli.sdk.about"
+msgstr "SDK (stdio-এ JSON-RPC; চুক্তি contracts/sdk-jsonrpc.md, ADR-071)।"
+
 msgid "cli.serve.about"
 msgstr "ট্রান্সপোর্ট এন্ট্রি পয়েন্ট (M6/M7)।"
 

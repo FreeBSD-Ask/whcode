@@ -221,6 +221,9 @@ msgstr "Runtime state."
 msgid "cli.runtime.status.name"
 msgstr "Runtime name."
 
+msgid "cli.sdk.about"
+msgstr "Out-of-process SDK (JSON-RPC over stdio; contract contracts/sdk-jsonrpc.md, ADR-071)."
+
 msgid "cli.serve.about"
 msgstr "Transport entry points (M6/M7)."
 

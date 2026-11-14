@@ -36,6 +36,8 @@ pub fn surface_of(command: &Command) -> &'static str {
             LlmCommand::Run { .. } => "llm.run",
             LlmCommand::Cancel { .. } => "llm.cancel",
         },
+        // sdk serve（T294／FR-778／ADR-071）：出进程 stdio JSON-RPC 服务。
+        Command::Sdk => "sdk.serve",
         Command::Status { .. } => "spec.status",
         Command::Task { command } => match command {
             TaskCommand::List { .. } => "task.list",

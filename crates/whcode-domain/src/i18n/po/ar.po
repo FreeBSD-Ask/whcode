@@ -221,6 +221,9 @@ msgstr "حالة بيئة التشغيل."
 msgid "cli.runtime.status.name"
 msgstr "اسم بيئة التشغيل."
 
+msgid "cli.sdk.about"
+msgstr "‏SDK (JSON-RPC عبر stdio؛ العقد contracts/sdk-jsonrpc.md، ADR-071)."
+
 msgid "cli.serve.about"
 msgstr "نقاط دخول النقل (M6/M7)."
 

@@ -53,9 +53,9 @@ fn main() {
         if dest == dll {
             continue;
         }
-        let parent = dest.parent().unwrap_or_else(|| {
-            panic!("duckdb.dll 目标路径无父目录：{}", dest.display())
-        });
+        let parent = dest
+            .parent()
+            .unwrap_or_else(|| panic!("duckdb.dll 目标路径无父目录：{}", dest.display()));
         std::fs::create_dir_all(parent)
             .unwrap_or_else(|err| panic!("创建目录 {} 失败：{err}", parent.display()));
         std::fs::copy(&dll, &dest).unwrap_or_else(|err| {

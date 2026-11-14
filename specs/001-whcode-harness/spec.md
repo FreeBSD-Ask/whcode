@@ -424,6 +424,20 @@ taskkill /T /F 口径）（P1）
   三条件缺一不注册：`.zcode/shell.json` 显式 opt-in＋bash 可用探测＋**审批闸门在场**
   （默认构建零 shell，FR-704；非交互装配模型面不可见）；配置写错显式失败；shell 副作用
   不进前像恢复（P2；ADR-070／proposal-v3 P5.1）
+- **FR-778**: 出进程 SDK：`whcode sdk` 以行分帧 JSON-RPC 2.0（stdio，单连接，单行 64 KiB
+  上限）暴露最小协议——`initialize`（`protocol_version` 协商：主版本兼容、minor 只增、
+  破坏性升主版本，D14 不可逆承诺）／`session.create`／`session.open`（焦点会话＋世代＋
+  游标快照）／`turn.run`（阻塞至终态，活跃槽上限 1，槽满 busy）／`turn.cancel`／
+  `events.follow`（seq 严格递增游标＋generation＝`SessionRewound` 累计世代提示，派生口径
+  变化时客户端重算派生视图）；错误复用 CUI JSON 信封（error.data 四字段）；事件出站经
+  既有脱敏管线；并发档案＝ADR-071（单写者 stdout、有界出站通道 256、慢消费者关连重放、
+  全线程 join 无常驻泄漏、Loom 豁免理由在案）；审批口径与 CUI `llm run` 同装配（无人值守
+  决策面属 P6.3）；多语言客户端不交付——契约文档 `contracts/sdk-jsonrpc.md` 为承诺载体
+  （P2；ADR-071／proposal-v3 P6.1）
+- **FR-779**: 标准基线治理：`docs/guides/standards-baseline.md` 为本仓承认的标准／框架及其现行版本、停用状态与五类判定结论的唯一事实源，并由结构门禁保护——登记行六字段齐全、「本仓判定」取值合法（已覆盖／部分覆盖／缺口／有意偏离／不适用／停用引用锚点）、「已停用与负向事实登记」在场；已停用对象（IEEE 1016-2009、IEEE 730-2014、IEEE 828-2012、ISO/IEC/IEEE 12207:2017、“MISRA Rust”、GB/T 25000.51-2019）在本仓文档中的引用同行带状态注记；门禁默认模式接入 CI，`--strict` 裸引用检查在其覆盖面落账后评估接入（P1；ADR-072／用户指令 2026-11-14 标准全景研读）
+  - 判据：Given 仓库任意工作副本，When 运行 `python .github/scripts/check-standards-baseline.py`，Then 退出码 0 且输出含「标准基线门禁通过」；When 以 `--strict` 运行，Then 停用对象裸引用（无同行注记）退出码非 0
+  - 证据：`.github/scripts/check-standards-baseline.py`；`docs/guides/standards-baseline.md`；`research/standards-alignment/`
+  - 依据：用户指令 2026-11-14（标准全景研读，范围“全景含安全关键”、落地“文档＋门禁”）；ADR-072
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

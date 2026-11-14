@@ -221,6 +221,9 @@ msgstr "Состояние среды выполнения."
 msgid "cli.runtime.status.name"
 msgstr "Имя среды выполнения."
 
+msgid "cli.sdk.about"
+msgstr "SDK (JSON-RPC через stdio; контракт contracts/sdk-jsonrpc.md, ADR-071)."
+
 msgid "cli.serve.about"
 msgstr "Точки входа транспорта (M6/M7)."
 

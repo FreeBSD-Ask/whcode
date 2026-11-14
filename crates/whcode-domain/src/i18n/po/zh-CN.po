@@ -221,6 +221,9 @@ msgstr "运行时状态。"
 msgid "cli.runtime.status.name"
 msgstr "运行时名。"
 
+msgid "cli.sdk.about"
+msgstr "出进程 SDK（stdio 上的 JSON-RPC；契约 contracts/sdk-jsonrpc.md，ADR-071）。"
+
 msgid "cli.serve.about"
 msgstr "传输入口（M6/M7）。"
 

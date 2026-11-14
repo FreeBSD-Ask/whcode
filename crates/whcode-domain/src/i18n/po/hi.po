@@ -221,6 +221,9 @@ msgstr "रनटाइम की स्थिति।"
 msgid "cli.runtime.status.name"
 msgstr "रनटाइम का नाम।"
 
+msgid "cli.sdk.about"
+msgstr "SDK (stdio पर JSON-RPC; अनुबंध contracts/sdk-jsonrpc.md, ADR-071)।"
+
 msgid "cli.serve.about"
 msgstr "ट्रांसपोर्ट के प्रवेश बिंदु (M6/M7)।"
 

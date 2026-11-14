@@ -221,6 +221,9 @@ msgstr "Zustand der Laufzeitumgebung."
 msgid "cli.runtime.status.name"
 msgstr "Name der Laufzeitumgebung."
 
+msgid "cli.sdk.about"
+msgstr "SDK (JSON-RPC über stdio; Vertrag contracts/sdk-jsonrpc.md, ADR-071)."
+
 msgid "cli.serve.about"
 msgstr "Einstiegspunkte der Transporte (M6/M7)."
 

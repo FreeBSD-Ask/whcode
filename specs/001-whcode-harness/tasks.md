@@ -2068,3 +2068,85 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   ——**任务认知卡**：方向＝默认关闭、显式启用、fail-safe（看不见即不可调用）；
   目标＝治理与能力分层清晰；判据＝默认构建/无闸门装配无 shell、坏配置失败、bash 不可用
   不注册、白名单降级矩阵；非目标＝配置热更新、Web/GUI 写面。
+
+
+## Tasks（2026-11-14 追加）：Phase 2 生态——出进程 SDK（ADR-071）
+
+- [x] T293 [P] SDK 协议决策与并发档案（FR-778／proposal-v3 P6.1／D14）：ADR-071 承载
+  版本承诺（`protocol_version` 协商、主版本兼容、破坏性升主版本）＋ADR-015 全字段并发
+  档案（单写者 stdout／有界通道 256／活跃槽 1／RAII 释放／Loom 豁免理由）＋契约文档
+  `contracts/sdk-jsonrpc.md`（v1.0 方法面：initialize／session.create／session.open／
+  turn.run／turn.cancel／events.follow；通知 event／generation／closed；错误 error.data
+  承载 CUI 信封四字段）
+  ——**任务认知卡**：方向＝补齐“对外面不可编程驱动”的结构性缺失（域 I），最小协议即 D14
+  批准范围；目标＝外部进程可确定性驱动会话与事件流、游标＋世代使重放可判定；判据＝
+  档案不变量逐条可判定、验证计划可执行（Loom 豁免理由在案）、回退方案可操作（单工模式
+  协议不变）；非目标＝多语言客户端、MCP resource（P6.2）、ACP 机器审批（P6.3）、
+  loopback TCP、并发多 turn。
+- [x] T294 [P] SDK 服务端实现（FR-778／ADR-071 决策 2）：`whcode-bin::sdk`——帧编解码
+  （parse_frame／encode_result／encode_error／encode_notification）＋`SdkGateway` 注入
+  （create/open/events_after/run_turn/cancel_turn，生产实现 `AppSdkGateway` 走
+  `execute_command` 门面＋`run_turn`＋`llm::cancel`）＋主循环（initialize 协商／焦点
+  会话／活跃槽 AtomicUsize RAII）＋事件泵线程（100 ms 有界轮询、seq 游标＋generation
+  递增）＋stdout 单写者线程（sync_channel 256、慢消费者 closed 帧关连）＋优雅关闭
+  （EOF 停泵排空 join）＋CUI `whcode sdk` 子命令接线（十三套帮助文案同步）
+  ——**任务认知卡**：方向＝复用 serve 单线程多路复用与原子槽先例、执行骨干全复用
+  （turn 编排/取消/游标查询）；目标＝ADR-071 §3 七条不变量逐条兑现；判据＝帧往返/
+  版本协商矩阵/槽互斥 busy/世代递增/慢消费者关连均有测试；非目标＝多消费者 follow、
+  配置热更新、异步运行时。
+- [x] T295 [P] SDK 集成验证与文档（FR-778／ADR-071 §8）：内存双工驱动服务器——
+  create→open→run→事件帧序列（seq 连续＋generation 正确）／游标重放不重不漏／世代
+  推进（注入 SessionRewound）/取消竞态（run 中 cancel→cancelled 终态）/槽互斥 busy/
+  背压（通道压满→closed 帧）／未 initialize 先调用拒绝；feature-parity 登记（SDK 为
+  第五出进程面，四端对等口径不含 GUI 写面）
+  ——**任务认知卡**：方向＝ADR-071 §8 验证计划逐项兑现（Loom 豁免已登记）；目标＝
+  不变量在集成层可判定；判据＝全部竞态与背压用例绿；非目标＝性能分位数（新增能力
+  无基线，资源铁律走既有空闲基线）。
+
+
+## Tasks（2026-11-14 追加）：标准基线与对标结论落地（ADR-072）
+
+- [x] T296 [P] 标准全景研读与对标审计（FR-779／用户指令 2026-11-14）：10 域约 45 份
+  标准／框架版本核验（〔官〕官方页〔检〕双源交叉〔识〕训练知识三级标注）＋五类判定
+  矩阵＋九份域笔记，落 `research/standards-alignment/`（README／matrix／notes×9）；
+  版本事实纠偏 8 项（25010:2023 九特性、IEEE 1016/730/828 停用、12207:2026 取代 2017、
+  MISRA Rust 不存在、GB/T 25000.51 现行 2016、14764 现行 2022 等）
+  ——**任务认知卡**：方向＝把现行过程/文档/门禁/工具链与全景标准逐域对标，取代
+  “仅 3 份文档零散引用标准”；目标＝研读报告＋矩阵经用户批准后落地文档＋门禁；判据＝
+  每域五类判定有证据链接、版本事实官方页或双源核验；非目标＝不宣称合规/认证、
+  安全关键类只取思想、不动 SDK WIP、不以主流采用率为证据。
+- [x] T297 [P] 标准基线单一事实源（FR-779／ADR-072 决策 1）：`docs/guides/standards-baseline.md`
+  （基线登记表 40 行六字段＋已停用与负向事实登记 6 条＋引用规则）；`AGENTS.md` §2
+  必读表加第 18 行
+  ——**任务认知卡**：方向＝标准版本与判定结论只在一处登记，其他文档链接不复制；
+  目标＝引用标准先看基线、停用对象有防讹传登记；判据＝基线行六字段齐全、判定取值
+  合法、停用登记在场（门禁判定）；非目标＝不逐条翻译标准条款、不做合规宣称。
+- [x] T298 [P] 标准基线结构门禁（FR-779／ADR-072 决策 5）：`.github/scripts/check-standards-baseline.py`
+  （默认模式：结构检查；`--strict`：停用对象裸引用同行须带注记，含负向探针测试）；
+  接入 `platform-verification.yml` windows 步骤（与 check-adr-limits 同位）；裸引用
+  修整 6 处（process×4＋module-design×1＋基线自检×1）
+  ——**任务认知卡**：方向＝版本事实漂移靠程序拦截，不靠人工记忆；目标＝门禁双模式
+  绿且证伪路径可用；判据＝默认模式接 CI、strict 对探针行 FAIL、摘除后复绿；非目标＝
+  不验证版本真伪（官方页年度复核承担）、strict 暂不接 CI（SDK 批次落账后评估）。
+- [x] T299 [P] 过程文档版本事实修订（FR-779／ADR-072 决策 2）：规范依据补 12207:2026
+  （2017 已撤销注记）／42010:2022 锚点／IEEE 1016-2009 停用注记；§5 质量模型行改
+  9 特性并新增 §5.1 逐特性映射表（9 行）
+  ——**任务认知卡**：方向＝已停用与过时的版本事实落进引用它的文档，不留双源分叉；
+  目标＝process 的规范依据与产物映射与基线文件一致；判据＝基线门禁 strict 绿、
+  文风/EOL 门禁绿；非目标＝不重写过程正文、不改门禁语义。
+
+
+## Tasks（2026-11-14 追加）：开工前标准文献研读——知难行易知识面（宪法原则 X）
+
+- [x] T300 开工前标准文献研读规则（宪法原则 X 知识面；2026-11-14 用户指令）：
+  `software-engineering-process.md` 新增 §1.6（启发式选读四步／吃透判据／落地判据／
+  裁剪规则／正负和解／复审触发）并接入 G0 活动与退出判据第 8 项、G1/G2 活动、§8 自检
+  第 8 项、§9 缺口行；`knowing-before-doing.md` 命题 6、认知卡“现有证据”字段承载
+  研读记录、判定规则 5、门禁落点行；`AGENTS.md`（§1.2 第 7 条、§5 G0 行、§9 第 12 项、
+  §10 条目）；`philosophy.md` §11 与 engineering-doctrine（00-philosophy §11、
+  01-process G0 与 §7）镜像；计数声明同步（T001—T300、Check 1—394）
+  ——**任务认知卡**：方向＝开工前必须启发式研读相关标准化文献（ISO／IEEE／国标／
+  官方文档／规范／建议）并吃透落地，不得凭经验自造判定；目标＝规则作为知难行易
+  知识面体现落入过程规范与唯一正文，落点可定位、门禁绿；判据＝Check 394；
+  非目标＝不新增门禁脚本（结构检查由 check-knowing-first 承担、基线门禁已随 T298
+  落地）、不宣称合规、不动 SDK WIP。
