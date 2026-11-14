@@ -34,25 +34,34 @@ P7.2 要求“turn 首 token／会话切换／历史页”三个指标进 PR 门
 
 | 指标 | 夹具 | 判据量 | 边界说明 |
 |---|---|---|---|
-| `turn_first_token_p95_ms` | `p72_turn_first_token_latency`（新增） | p95 | 桩 Provider 立即产 8 chunk：测 harness 就绪延迟，**不含网络与模型思考**；真实 Provider 接入后须真实流另测 |
-| `session_switch_p95_ms` | `nfr207_switch_latency_within_frozen_budget` | p95 | 10 万事件切换（复用 ADR-025 夹具） |
-| `history_page_p95_ms` | `nfr209_history_single_page_query_p95_within_frozen_budget` | p95 | 尾页单页查询（复用 ADR-025 夹具） |
+| `turn_first_token_p50_ms` | `p72_turn_first_token_latency`（新增） | p50 | 桩 Provider 立即产 8 chunk：测 harness 就绪延迟，**不含网络与模型思考**；真实 Provider 接入后须真实流另测 |
+| `session_switch_p50_ms` | `nfr207_switch_latency_within_frozen_budget` | p50 | 10 万事件切换（复用 ADR-025 夹具） |
+| `history_page_p50_ms` | `nfr209_history_single_page_query_p95_within_frozen_budget` | p50 | 尾页单页查询（复用 ADR-025 夹具） |
 
-5. **基线未取得 ≠ 通过**：runner 类别或剖面不匹配时脚本显式输出 `SKIP`（含两边的
+5. **判据量取 p50，不取 p95**（2026-11-15 实测后修订）：同机同剖面双跑的分位数抖动
+   为历史页 p95 28.9 → 44.6 ms（+54%，尾部离群 50—53 ms 由页缓存与磁盘主导），而 p50
+   24.5 → 26.5 ms（+8%）。尾部是环境噪声，中心趋势才反映“这次改动是否让路径变慢”；
+   首轮以 p95 判定时因此产生过一次误报（同一基线、同一机器，minutes 级间隔）。p95 的
+   判据仍留在 ADR-025 的绝对预算通道，两者分工不变；
+6. **基线未取得 ≠ 通过**：runner 类别或剖面不匹配时脚本显式输出 `SKIP`（含两边的
    `runner_class` 原文），退出码 0 但**不声称通过**——信号链完备的“正确的空”；基线文件
    缺失同理。只有基线匹配且三指标全部在限内才打印 PASS；
-6. **CI 接线**：
+7. **CI 接线**：
    - `platform-verification.yml` 的 windows lane：`github.event_name == 'pull_request'` 时
      运行门禁（`--json artifacts/pr-bench-report.json`，artifact 随 run 上传）；
    - `perf-budget`：测量完成后以 `--write-baseline` 产出基线 artifact；
    - `push main` 不跑门禁（避免每推必测的配额消耗，测量责任归 dispatch 通道）；
-7. **自证伪**：`--self-test` 含五条纯函数探针——抖动放行、成倍回归拦截、绝对兜底生效、
-   n=0 拒绝、跨轮中位——判定逻辑可被证伪，不靠口头保证。
+8. **自证伪**：`--self-test` 含六条纯函数探针——抖动放行、成倍回归拦截、基线缺指标拒绝、
+   绝对兜底生效、n=0 拒绝、跨轮中位——判定逻辑可被证伪，不靠口头保证。
 
 ## 3. 正负和解
 
 **正面**：PR 可以拦“成倍数”的性能回归（T115 那类两阶段分页级别的劣化会在 PR 红掉），
 且不需要维护每 PR 的绝对预算；三个指标覆盖“交互响应／切换成本／翻页成本”。
+
+**首轮实测暴露的误报（已修）**：最初以 p95 作判据量，同机双跑把 44.6 ms 判成回归
+（限 39.7 ms），而 p50 只动 8%——判据量取错会把噪声当回归；改为 p50 后判定稳定。
+这条也说明：`--self-test` 之外必须真跑一次判定路径（用同类环境的基线）。
 
 **负面与承担者**：
 

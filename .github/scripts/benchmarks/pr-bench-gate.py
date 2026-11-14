@@ -19,9 +19,14 @@
 
 | 指标 | 夹具 | 判据量 | 说明 |
 |---|---|---|---|
-| turn 首 token | `p72_turn_first_token_latency` | p95 | harness 就绪延迟（桩 Provider，不含网络与模型思考） |
-| 会话切换 | `nfr207_switch_latency_within_frozen_budget` | p95 | 10 万事件会话切换 |
-| 历史页 | `nfr209_history_single_page_query_p95_within_frozen_budget` | p95 | 单页查询（尾页形状） |
+| turn 首 token | `p72_turn_first_token_latency` | **p50** | harness 就绪延迟（桩 Provider，不含网络与模型思考） |
+| 会话切换 | `nfr207_switch_latency_within_frozen_budget` | **p50** | 10 万事件会话切换 |
+| 历史页 | `nfr209_history_single_page_query_p95_within_frozen_budget` | **p50** | 单页查询（尾页形状） |
+
+为什么判 p50 而不是 p95（2026-11-15 实测，ADR-075 §2.3）：同机同剖面双跑的抖动是
+历史页 p95 28.9 → 44.6 ms（+54%，尾部离群 50—53 ms 由页缓存与磁盘主导），而 p50
+24.5 → 26.5 ms（+8%）。尾部是环境噪声，中心趋势才反映“这次改动有没有让路径变慢”；
+尾部（p95）的判据仍留在 ADR-025 的绝对预算通道。
 
 用法：
     python .github/scripts/benchmarks/pr-bench-gate.py                 # PR 判定（默认基线路径）
@@ -64,9 +69,9 @@ DEFAULT_SLACK_MS = 10.0
 
 #: 指标定义：名称 -> (cargo test 过滤器, 输出行标签, 期望键)。
 METRICS: dict[str, tuple[str, str, str]] = {
-    "turn_first_token_p95_ms": ("p72", "P7.2 turn 首 token", "p95"),
-    "session_switch_p95_ms": ("nfr207", "NFR-207 会话切换", "p95"),
-    "history_page_p95_ms": ("nfr209", "NFR-209 历史单页查询", "p95"),
+    "turn_first_token_p50_ms": ("p72", "P7.2 turn 首 token", "p50"),
+    "session_switch_p50_ms": ("nfr207", "NFR-207 会话切换", "p50"),
+    "history_page_p50_ms": ("nfr209", "NFR-209 历史单页查询", "p50"),
 }
 
 #: 分位数行：`<label>: n=20 p50=7.1ms p95=12.9ms p99=13.1ms min=7.0ms max=14.0ms`
@@ -216,7 +221,9 @@ def judge(
     allowed = limits({k: float(v) for k, v in base_metrics.items()}, tolerance, slack_ms)
     for name, value in current.items():
         if name not in allowed:
-            notes.append(f"{name}：基线无此项，跳过判定（需重抓基线）")
+            # 基线缺指标 ≠ 通过：无法判定就报失败，要求重抓基线（避免键名变更后静默放行）。
+            notes.append(f"{name}：基线无此项 → 无法判定（需重抓基线）")
+            failures.append(f"{name}（基线缺指标）")
             continue
         limit = allowed[name]
         verdict = "OK" if value <= limit else "REGRESSED"
@@ -265,12 +272,17 @@ def self_test() -> int:
     if fails != ["a"]:
         failures.append(f"回归未拦：{fails}")
 
-    # 3) 绝对兜底生效：基线 2 ms、slack 10 ms 时，10 ms 不应红（比率已 400%，绝对差仅 8 ms）。
+    # 3) 基线缺指标不能算通过（键名变更后必须重抓基线）。
+    fails, _ = judge({"a": 10.0, "zz_missing": 1.0}, base, 0.30, 10.0)
+    if fails != ["zz_missing（基线缺指标）"]:
+        failures.append(f"基线缺指标未判失败：{fails}")
+
+    # 4) 绝对兜底生效：基线 2 ms、slack 10 ms 时，10 ms 不应红（比率已 400%，绝对差仅 8 ms）。
     fails, _ = judge({"a": 10.0}, {"metrics": {"a": 2.0}}, 0.30, 10.0)
     if fails:
         failures.append(f"小基线抖动被误判：{fails}")
 
-    # 4) 分位数行解析：正常行可取 p95；n=0 视为不可用的空。
+    # 5) 分位数行解析：正常行可取 p95；n=0 视为不可用的空。
     good = "NFR-207 会话切换: n=20 p50=7.1ms p95=12.9ms p99=13.1ms min=7.0ms max=14.0ms"
     if parse_metric(good, "NFR-207 会话切换", "p95") != 12.9:
         failures.append("分位数行解析失败")
@@ -278,7 +290,7 @@ def self_test() -> int:
     if parse_metric(zero, "NFR-207 会话切换", "p95") is not None:
         failures.append("n=0 未被判为不可用的空")
 
-    # 5) 中位：偶数样本取两中值均值（3 轮中位即第 2 轮，若为偶数轮次则取均值）。
+    # 6) 中位：偶数样本取两中值均值（3 轮中位即第 2 轮，若为偶数轮次则取均值）。
     if median_of_rounds([{"a": 1.0}, {"a": 9.0}]).get("a") != 5.0:
         failures.append("跨轮中位计算失败")
 
@@ -286,7 +298,7 @@ def self_test() -> int:
         for item in failures:
             print(f"FAIL: self-test: {item}")
         return 1
-    print("self-test: 5 项探针全部通过（抖动放行／回归拦截／绝对兜底／空样本拒绝／中位）")
+    print("self-test: 6 项探针全部通过（抖动放行／回归拦截／缺指标拒绝／绝对兜底／空样本拒绝／中位）")
     return 0
 
 
