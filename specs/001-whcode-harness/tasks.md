@@ -2037,3 +2037,34 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   失败调用不登记、裁剪保留最新、恢复写回与删除 absent、审计失败即不执行、
   逃逸路径拒绝、导出含前像表；非目标＝回滚对话（另一路径）、外部进程副作用、二进制内容、
   Web／GUI 写面恢复。
+
+
+## Tasks（2026-11-14 追加）：Phase 2 执行环境——shell 工具（ADR-070）
+
+- [x] T290 [P] shell 工具威胁模型与 ADR（FR-777／proposal-v3 P5.1；D12 先威胁模型后代码）：
+  ADR-070 承载 T1—T10 威胁清单（模型诱导执行／审批疲劳／凭据外泄／PATH 劫持／资源耗尽／
+  工作区逃逸／拼接注入／闪窗残留／审计失真／payload 冒充）与残余风险登记
+  ——**任务认知卡**：方向＝模型获得构建/测试/git 执行能力而治理全部复用已验证基建；
+  目标＝审批为唯一人机闸门、白名单只约束免审批通道、资源界不新增承诺；判据＝威胁模型
+  覆盖“模型诱导执行”且每项威胁有对策与残余登记、默认构建零 shell（FR-704）、非交互
+  装配模型面不可见；非目标＝OS 沙箱（P5.2）、PTY（P5.4）、jobs（P5.5）、用户取消打断
+  子进程、前像恢复覆盖 shell 副作用。
+- [x] T291 [P] shell 工具核心（FR-777／ADR-070 决策 1—2）：`SideEffectScope::ProcessSpawn`
+  （穷尽匹配同步 `rule_for`／capability_for／catalogue 渲染）＋`whcode-tools::shell`
+  （`ShellExecutor` trait、`ShellRequest`／`ShellOutcome`、`ShellGovernance`、白名单纯函数
+  ＝单命令首词精确匹配）＋`Shell` 工具（`script`＋可选 `timeout_ms`，缺省 30 s／上限
+  600 s、超时映射 `ToolTimeout`、截断标记取并集）＋`registry_with_shell`＋worker 输出
+  截断标志（R-05）＋gitbash `execute_in`（`workdir_policy="workspace"`，temp 策略不动）
+  ＋tools 零新依赖（执行器注入，分层不变）
+  ——**任务认知卡**：方向＝执行骨干注入而非 crate 间新依赖；目标＝tools 层可独立测试
+  （mock executor）；判据＝白名单矩阵（复合脚本永不免审批）、超时/截断/越界显式、
+  默认注册表九件不含 shell；非目标＝多 shell 后端、异步执行。
+- [x] T292 [P] shell 装配与治理接线（FR-777／ADR-070 决策 3—6）：`.zcode/shell.json`
+  显式 opt-in（16 KiB 上限、白名单 ≤32 条且不含空白/控制结构、坏配置显式失败不静默降级）
+  ＋bin `GitBashShellExecutor` 适配（`execute_in` 透传 FR-706 检查点四要素）＋`ServeLlm`/
+  CUI 装配注入 `LlmContext.shell`＋turn 三条件注册（opt-in＋bash 探测＋**审批闸门在场**，
+  非交互装配模型面不可见）＋审批 `shell_rule` 白名单降级（`Allow` 仅单命令命中生效）＋
+  `authorize_shell(_with_conn)` 显式规则授权＋事件留痕走既有 ToolCall 通道
+  ——**任务认知卡**：方向＝默认关闭、显式启用、fail-safe（看不见即不可调用）；
+  目标＝治理与能力分层清晰；判据＝默认构建/无闸门装配无 shell、坏配置失败、bash 不可用
+  不注册、白名单降级矩阵；非目标＝配置热更新、Web/GUI 写面。

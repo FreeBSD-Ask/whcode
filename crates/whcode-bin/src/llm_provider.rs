@@ -117,6 +117,9 @@ pub struct ServeLlm {
     pub factory: Arc<dyn ProviderFactory + Send + Sync>,
     /// 取消标记目录（`WHCODE_LLM_CANCEL_DIR` 或系统临时目录）。
     pub cancel_dir: PathBuf,
+    /// shell 工具治理束（T290／FR-777／ADR-070）：`None`＝未 opt-in 或 bash 不可用
+    /// （FR-704 默认关闭）；注册还需审批闸门在场（turn 装配判定）。
+    pub shell: Option<Arc<whcode_tools::ShellGovernance>>,
 }
 
 impl ServeLlm {
@@ -138,6 +141,8 @@ impl ServeLlm {
             registry_error,
             factory: Arc::new(LocalProviderFactory::for_workspace(workspace)?),
             cancel_dir: cancel_dir_from_env(),
+            // 配置写错时显式失败（不静默降级）；未 opt-in 或 bash 不可用为 None。
+            shell: crate::shell_tool::build_governance(workspace)?,
         })
     }
 
@@ -149,6 +154,7 @@ impl ServeLlm {
             registry_error: self.registry_error.as_deref(),
             factory: &*self.factory,
             cancel_dir: &self.cancel_dir,
+            shell: self.shell.clone(),
         }
     }
 }

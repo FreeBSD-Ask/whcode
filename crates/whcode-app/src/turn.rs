@@ -481,8 +481,19 @@ fn run_turn_inner(
         )));
     }
 
-    let tool_registry = whcode_tools::default_registry()
-        .map_err(|err| WhError::internal(format!("工具注册表构造失败：{err}")))?;
+    // FR-704／ADR-070：shell 工具只在 opt-in＋bash 探测通过＋**有审批闸门**的装配注册
+    // （三条件缺一不注册）；非交互装配（无闸门）模型面不出现该工具——fail-safe：
+    // 看不见即不可调用，不依赖事后拒绝。
+    let shell_governance = if approval.is_some() {
+        context.shell.as_ref()
+    } else {
+        None
+    };
+    let tool_registry = match shell_governance {
+        Some(governance) => whcode_tools::registry_with_shell(std::sync::Arc::clone(governance)),
+        None => whcode_tools::default_registry(),
+    }
+    .map_err(|err| WhError::internal(format!("工具注册表构造失败：{err}")))?;
     // FR-736/737、ADR-054：MCP 服务器 per-turn 连接（无配置 = 空管理器，功能关闭）；
     // 连接失败逐服务器记录，以 system 消息显式告示（不静默，区分正确的空与错误的空）。
     let mut mcp_manager =
@@ -1131,6 +1142,7 @@ fn run_turn_inner(
                 &exec_id,
                 tool_call,
                 approval.as_deref_mut(),
+                context.shell.as_deref(),
                 now_ms,
             );
             let duration_ms = u64::try_from(started_at.elapsed().as_millis()).unwrap_or(u64::MAX);
@@ -1658,6 +1670,7 @@ fn execute_tool_call(
     exec_id: &str,
     tool_call: &LlmToolCall,
     mut approval: Option<&mut ApprovalGate<'_>>,
+    shell: Option<&whcode_tools::ShellGovernance>,
     now_ms: u64,
 ) -> (
     RuntimeExecutionStatus,
@@ -1673,6 +1686,9 @@ fn execute_tool_call(
         // 会话状态写与工作区写同属写类（v1 和解，ADR-048 §2.7 注记）。
         whcode_tools::SideEffectScope::WorkspaceWrite
         | whcode_tools::SideEffectScope::SessionState => Capability::SessionCreate,
+        // 进程执行（shell 工具，T290／ADR-070）按写类授权——真正的闸门是审批层
+        // （per-tool Ask 种子＋白名单降级），能力面只回答"会话内可执行"。
+        whcode_tools::SideEffectScope::ProcessSpawn => Capability::SessionCreate,
     };
     let fail =
         |status, text: String, side_effect: Option<String>| (status, text, side_effect, None, None);
@@ -1795,13 +1811,27 @@ fn execute_tool_call(
     // 位置固定在“参数校验之后、三步登记之前”：受理前拒绝不产生登记行（ADR-048 §2.4），
     // 且被拒绝的调用不进入执行面。审计失败同样阻断执行（沿用 T264 口径）。
     if let Some(gate) = approval {
-        let decision = match gate.authorize_with_conn(
-            conn,
-            exec_id,
-            &tool_call.name,
-            descriptor.side_effect_scope,
-            now_ms,
-        ) {
+        // shell（T290／ADR-070）：白名单降级在规则层预解析——Allow 仅对白名单命中的
+        // 单命令生效，其余一律 Ask；闸门只负责请求、应答与成对审计。
+        let authorized = if tool_call.name == whcode_tools::SHELL_TOOL {
+            // arguments 是 JSON 字符串：解析失败按不命中处理（工具层随后会显式拒绝）。
+            let whitelist_ok = shell.is_some_and(|governance| {
+                serde_json::from_str::<serde_json::Value>(&tool_call.arguments)
+                    .ok()
+                    .is_some_and(|arguments| governance.allows(&arguments))
+            });
+            let rule = gate.shell_rule(whitelist_ok);
+            gate.authorize_shell_with_conn(conn, exec_id, rule, now_ms)
+        } else {
+            gate.authorize_with_conn(
+                conn,
+                exec_id,
+                &tool_call.name,
+                descriptor.side_effect_scope,
+                now_ms,
+            )
+        };
+        let decision = match authorized {
             Ok(decision) => decision,
             Err(err) => {
                 return fail_code(
@@ -2342,6 +2372,7 @@ mod tests {
             registry_error: None,
             factory,
             cancel_dir: dir,
+            shell: None,
         }
     }
 
@@ -3900,6 +3931,7 @@ mod subagent_tests {
             registry_error: None,
             factory,
             cancel_dir: dir,
+            shell: None,
         };
         (conn, id, dir, context)
     }

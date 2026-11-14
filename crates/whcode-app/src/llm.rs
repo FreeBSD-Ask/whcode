@@ -296,6 +296,10 @@ pub struct LlmContext<'a> {
     pub factory: &'a dyn ProviderFactory,
     /// 取消标记目录（仓库外；见模块文档）。
     pub cancel_dir: &'a Path,
+    /// shell 工具治理束（T290／FR-777／ADR-070）：`None`＝本装配不启用 shell 工具
+    /// （默认构建恒为 `None`，FR-704）。注册还需审批闸门在场（turn 装配三条件之一）；
+    /// 白名单（免审批通道约束）随治理束注入。
+    pub shell: Option<std::sync::Arc<whcode_tools::ShellGovernance>>,
 }
 
 /// 环境变量 [`PROFILES_ENV`] 指向的剖面路径。
@@ -977,6 +981,7 @@ mod tests {
             registry_error: None,
             factory: &factory,
             cancel_dir: &dir,
+            shell: None,
         };
         let id = session(&mut conn, 1_700_000_000_000);
 
@@ -1017,6 +1022,7 @@ mod tests {
             registry_error: None,
             factory: &factory,
             cancel_dir: &dir,
+            shell: None,
         };
         let id = session(&mut conn, 1_700_000_000_000);
         let prompt = "a".repeat(100);
@@ -1055,6 +1061,7 @@ mod tests {
             registry_error: None,
             factory: &factory,
             cancel_dir: &dir,
+            shell: None,
         };
         let id = session(&mut conn, 1_700_000_000_000);
         // 40 000 字符 → 1250 chunk，超过 1024 上限。
@@ -1087,6 +1094,7 @@ mod tests {
             registry_error: None,
             factory: &factory,
             cancel_dir: &dir,
+            shell: None,
         };
         let id = session(&mut conn, 1_700_000_000_000);
         let err = run(&conn, &policy, &actor, &context, &request(&id, "hello"), 1)
@@ -1108,6 +1116,7 @@ mod tests {
             registry_error: None,
             factory: &factory,
             cancel_dir: &dir,
+            shell: None,
         };
 
         let missing =
@@ -1141,6 +1150,7 @@ mod tests {
             registry_error: None,
             factory: &factory,
             cancel_dir: &dir,
+            shell: None,
         };
         let id = session(&mut conn, 1_700_000_000_000);
         // 预先放置取消标记：调用在第一个 chunk 之前停止。
@@ -1175,6 +1185,7 @@ mod tests {
             registry_error: None,
             factory: &factory,
             cancel_dir: &dir,
+            shell: None,
         };
         let id = session(&mut conn, 1_700_000_000_000);
         let outcome =
@@ -1199,6 +1210,7 @@ mod tests {
             registry_error: None,
             factory: &factory,
             cancel_dir: &dir,
+            shell: None,
         };
         let id = session(&mut conn, 1_700_000_000_000);
         let weak = Actor::new("weak", []);
@@ -1292,6 +1304,7 @@ mod tests {
             registry_error: None,
             factory: &factory,
             cancel_dir: &dir,
+            shell: None,
         };
         let catalogue = model_catalogue(&DefaultPolicy, &actor, &context).expect("目录可读");
         assert_eq!(catalogue.len(), 2, "按注册表顺序");
@@ -1324,6 +1337,7 @@ mod tests {
             registry_error: Some("未设置 WHCODE_LLM_PROFILES"),
             factory: &factory,
             cancel_dir: &dir,
+            shell: None,
         };
         let err =
             model_catalogue(&DefaultPolicy, &actor, &unconfigured).expect_err("未接线必须报错");
@@ -1336,6 +1350,7 @@ mod tests {
             registry_error: None,
             factory: &factory,
             cancel_dir: &dir,
+            shell: None,
         };
         let weak = Actor::new("weak", []);
         let err = model_catalogue(&DefaultPolicy, &weak, &context).expect_err("读目录需读能力");

@@ -77,6 +77,9 @@ fn render_tool(descriptor: &ToolDescriptor) -> String {
             SideEffectScope::ReadOnly => "只读（不修改工作区）",
             SideEffectScope::WorkspaceWrite => "工作区写（修改文件内容）",
             SideEffectScope::SessionState => "会话状态写（只改会话派生状态，不触碰工作区）",
+            SideEffectScope::ProcessSpawn => {
+                "进程执行（受控子进程；命令经审批与资源界，副作用不进前像恢复）"
+            }
         }
     ));
     out.push_str(&format!(

@@ -28,6 +28,9 @@ whcode-runtime = { path = "../whcode-runtime" }
 whcode-store = { path = "../whcode-store" }
 # `serve --ssh` 装配（T096—T098、ADR-030）：SSH 服务端为独立传输入口，复用应用服务。
 whcode-ssh = { path = "../whcode-ssh" }
+# shell 工具装配（T290／FR-777／ADR-070）：装配根适配 ShellExecutor（执行器注入，
+# tools 不依赖 runtime）；注册与否由 `.zcode/shell.json` opt-in ＋ bash 探测决定。
+whcode-tools = { path = "../whcode-tools" }
 whcode-tui = { path = "../whcode-tui" }
 # `serve --web` 装配（contracts/cui-cli.md §1）：静态前端 + `/api/*` 路由与安全判定。
 whcode-web = { path = "../whcode-web" }

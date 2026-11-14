@@ -221,6 +221,10 @@ pub struct WorkerResult {
     pub stdout_tail: String,
     /// stderr 尾部（截断至上限，FR-705 保留）。
     pub stderr_tail: String,
+    /// stdout 是否因超出上限被截断（R-05：截断必须显式标记；shell 工具消费）。
+    pub stdout_truncated: bool,
+    /// stderr 是否因超出上限被截断（R-05）。
+    pub stderr_truncated: bool,
     /// 是否超时被终止。
     pub timed_out: bool,
     /// 是否因取消请求被终止（FR-705：取消与超时可区分）。
@@ -287,6 +291,8 @@ pub fn execute_with_cancel(
                 exit_code: None,
                 stdout_tail: String::new(),
                 stderr_tail: String::new(),
+                stdout_truncated: false,
+                stderr_truncated: false,
                 timed_out: false,
                 cancelled: true,
             });
@@ -299,10 +305,15 @@ pub fn execute_with_cancel(
                 let output = child.wait_with_output().map_err(|err| {
                     WhError::new(ErrorCode::IoError, format!("读取输出失败：{err}"))
                 })?;
+                // 截断标记先于 move 计算（R-05：截断必须显式标记）。
+                let stdout_truncated = output.stdout.len() > max_output;
+                let stderr_truncated = output.stderr.len() > max_output;
                 return Ok(WorkerResult {
                     exit_code: status.code(),
                     stdout_tail: tail(output.stdout, max_output),
                     stderr_tail: tail(output.stderr, max_output),
+                    stdout_truncated,
+                    stderr_truncated,
                     timed_out: false,
                     cancelled: false,
                 });
@@ -315,6 +326,8 @@ pub fn execute_with_cancel(
                     exit_code: None,
                     stdout_tail: String::new(),
                     stderr_tail: String::new(),
+                    stdout_truncated: false,
+                    stderr_truncated: false,
                     timed_out: true,
                     cancelled: false,
                 });

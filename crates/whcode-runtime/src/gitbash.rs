@@ -261,20 +261,23 @@ fn write_input_file(input: &str) -> Result<TempInputFile, WhError> {
 }
 
 /// 执行主干（bash 定位结果统一在此映射结构化错误）：版本探测 → stdin 临时文件 →
-/// `bash -c` 子进程（cwd 固定在临时目录，`workdir_policy` 由此为 “temp”）→ 检查点四要素。
+/// `bash -c` 子进程（cwd 固定在 `workdir`，`workdir_policy` 由调用方给定）→ 检查点四要素。
 fn execute_with_bash(
     bash: Option<&Path>,
     script: &Script,
     cancel: Option<&AtomicBool>,
+    workdir: &Path,
+    workdir_policy: &str,
 ) -> Result<Checkpoint, WhError> {
     let bash = bash.ok_or_else(gitbash_unavailable)?;
     let version = probe_bash_version(bash).ok_or_else(gitbash_unavailable)?;
     let input_file = write_input_file(&script.input)?;
     let mut command = Command::new(bash);
     command.arg("-c").arg(&script.script);
-    // workdir_policy “temp” 的实际承载：脚本 cwd 固定在临时目录，相对路径写入
-    // 不污染调用方工作目录（临时目录必已存在——stdin 文件刚刚写入成功）。
-    command.current_dir(std::env::temp_dir());
+    // workdir_policy 的实际承载：脚本 cwd 固定在 `workdir`——运行时子系统用临时目录
+    // （“temp”，相对路径写入不污染调用方工作目录），shell 工具用工作区根
+    // （“workspace”，T290／ADR-070）。两者都必已存在（temp 由 stdin 写入成功保证）。
+    command.current_dir(workdir);
     // worker 只接管 stdout/stderr（无 stdin 写入路径），输入经临时文件以
     // `Stdio::from(File)` 供入；句柄随 Command 丢弃，文件由 TempInputFile RAII 删除。
     let source = std::fs::File::open(&input_file.path).map_err(|err| {
@@ -294,7 +297,7 @@ fn execute_with_bash(
         script_hash: crate::payload::fnv64(script.script.as_bytes()),
         input_hash: crate::payload::fnv64(script.input.as_bytes()),
         runtime_fingerprint: format!("gitbash/{version}"),
-        workdir_policy: "temp".to_string(),
+        workdir_policy: workdir_policy.to_string(),
         result: Some(result),
     })
 }
@@ -346,7 +349,34 @@ impl GitBashProvider {
         check_request_size(script)?;
         let _permit = gitbash_gate().acquire();
         let bash = locate_bash(self.git_path.as_deref());
-        execute_with_bash(bash.as_deref(), script, cancel)
+        execute_with_bash(
+            bash.as_deref(),
+            script,
+            cancel,
+            &std::env::temp_dir(),
+            "temp",
+        )
+    }
+
+    /// 工作区根执行（T290／FR-777／ADR-070，shell 工具专用）：与 [`Self::execute`]
+    /// 同一治理链（请求上限校验 → 专用并发闸门 → bash 定位 → 受控执行），但 cwd
+    /// 固定在 `workdir` 且 `workdir_policy = "workspace"`。运行时子系统的 "temp"
+    /// 策略（[`Self::execute`]）不受影响。
+    ///
+    /// # Errors
+    ///
+    /// `workdir` 不存在、请求超限、bash 未定位或子进程启动失败时返回 [`WhError`]。
+    pub fn execute_in(&self, script: &Script, workdir: &Path) -> Result<Checkpoint, WhError> {
+        if !workdir.is_dir() {
+            return Err(WhError::invalid_state(format!(
+                "工作目录不存在：{}",
+                workdir.display()
+            )));
+        }
+        check_request_size(script)?;
+        let _permit = gitbash_gate().acquire();
+        let bash = locate_bash(self.git_path.as_deref());
+        execute_with_bash(bash.as_deref(), script, None, workdir, "workspace")
     }
 }
 
@@ -674,7 +704,8 @@ mod tests {
             input: String::new(),
             timeout: Duration::from_secs(1),
         };
-        let err = execute_with_bash(None, &script, None).expect_err("未定位必须结构化错误");
+        let err = execute_with_bash(None, &script, None, &std::env::temp_dir(), "temp")
+            .expect_err("未定位必须结构化错误");
         assert_eq!(err.code, whcode_domain::ErrorCode::RuntimeUnavailable);
         assert_eq!(err.details.as_ref().expect("details")["reason"], "missing");
         assert!(!err.retryable, "缺失不可重试");
@@ -744,5 +775,37 @@ mod tests {
             .expect_err("超限请求必须拒绝");
         assert_eq!(err.code, whcode_domain::ErrorCode::InvalidState);
         assert!(err.message.contains("上限"), "错误须说明上限：{err}");
+    }
+
+    /// shell 工具路径（T290／FR-777／ADR-070）：`execute_in` 固定 cwd 到工作目录
+    /// （相对路径写落到工作区）且 `workdir_policy = "workspace"`；不存在的工作目录
+    /// 结构化拒绝。无 bash 时按前提不满足显式跳过（非静默）。
+    #[test]
+    fn execute_in_pins_workspace_workdir() {
+        if require_bash().is_none() {
+            return;
+        }
+        let ws = std::env::temp_dir().join(format!("whcode-execute-in-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&ws);
+        std::fs::create_dir_all(&ws).expect("建工作区夹具");
+        let provider = GitBashProvider::default();
+        let script = Script {
+            script: "echo hi > marker.txt".to_string(),
+            input: String::new(),
+            timeout: Duration::from_secs(10),
+        };
+        let checkpoint = provider.execute_in(&script, &ws).expect("工作区执行成功");
+        assert_eq!(checkpoint.workdir_policy, "workspace");
+        assert!(
+            ws.join("marker.txt").exists(),
+            "相对路径写必须落在工作目录（cwd 固定生效）"
+        );
+        // 不存在的工作目录：结构化拒绝，不伪造成功。
+        let missing = ws.join("nope");
+        let err = provider
+            .execute_in(&script, &missing)
+            .expect_err("工作目录必须存在");
+        assert_eq!(err.code, whcode_domain::ErrorCode::InvalidState);
+        let _ = std::fs::remove_dir_all(&ws);
     }
 }

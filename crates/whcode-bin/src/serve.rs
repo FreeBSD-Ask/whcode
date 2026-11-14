@@ -308,6 +308,7 @@ impl ServeSecurity {
                 registry_error: Some("测试装配未注入 LLM 剖面".to_string()),
                 factory: Arc::new(crate::llm_provider::LocalProviderFactory::default()),
                 cancel_dir: whcode_app::llm::cancel_dir_from_env(),
+                shell: None,
             }),
             approvals: Arc::new(ServeApprovals {
                 // 测试装配默认全 allow：既有用例行为不变；需要审批的用例显式注入策略。
@@ -2554,6 +2555,7 @@ mod tests {
                 registry_error: None,
                 factory: Arc::new(crate::llm_provider::LocalProviderFactory::default()),
                 cancel_dir: whcode_app::llm::cancel_dir_from_env(),
+                shell: None,
             }),
             ..ServeSecurity::loopback()
         }
@@ -4349,6 +4351,7 @@ mod tests {
                 registry_error: None,
                 factory: Arc::new(RelayStubFactory { steps, hold }),
                 cancel_dir: whcode_app::llm::cancel_dir_from_env(),
+                shell: None,
             }),
             ..ServeSecurity::loopback()
         }

@@ -13,6 +13,21 @@
 
 ### 变更
 
+- **shell 工具与执行威胁模型（T290—T292，FR-777，ADR-070，2026-11-14）**：模型首次
+  获得命令执行能力（proposal-v3 P5.1，D12 先威胁模型后代码）。**威胁模型先行**：
+  ADR-070 登记 T1—T10（模型诱导执行／审批疲劳／凭据外泄／PATH 劫持／资源耗尽／工作区
+  逃逸／拼接注入／闪窗残留／审计失真／payload 冒充）与全部残余风险（无 OS 沙箱，收敛
+  点指向 P5.2）。**治理三层**：①审批——`SideEffectScope::ProcessSpawn`＋per-tool 默认
+  `ask`（人见完整命令）；“持久允许”仅对白名单命中的**单命令**生效，复合脚本永不免审批
+  （bash 图灵完备使任意脚本白名单不可判定——白名单只约束免审批通道，不承诺阻止执行）；
+  ②资源界——超时缺省 30 s／上限 600 s（杀树）＋并发闸门＋输出尾部截断（worker 新增
+  R-05 截断标志）＋脚本 64 KiB 上限；③留痕——ToolCall 事件＋FR-706 检查点四要素
+  （脚本哈希／运行时指纹／`workdir_policy="workspace"`）。**默认关闭**（FR-704）：注册
+  三条件缺一不注册——`.zcode/shell.json` 显式 opt-in＋bash 探测＋审批闸门在场（非交互
+  装配模型面不可见）；配置写错显式失败。执行骨干＝执行器注入（`ShellExecutor` trait，
+  tools 零新依赖）＋gitbash `execute_in`（temp 策略不动）；脚本经 argv 直传不经二次
+  拼接；`WHCODE_*` 环境命名空间隔离。证据：tools 42／runtime 46／app 42／bin 白名单与
+  装配测试全绿；CI 待运行（ADR-037）。
 - **工具链升级 Rust 1.100.0 并采用新功能（ADR-069，2026-11-14）**：`rust-toolchain.toml`
   锁定值 1.99.1 → 1.100.0（上游 2026-11-12 发布；本机实测 rustc `0ef1bc386 2026-11-09`、
   cargo 1.100.0、LLVM 23.1.5），workspace `rust-version` 同步 1.100；AGENTS/宪法/README

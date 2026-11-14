@@ -298,11 +298,14 @@ fn llm_command(
         Ok(registry) => (Some(registry), None),
         Err(err) => (None, Some(err.message)),
     };
+    // shell 治理束（T290／ADR-070）：未 opt-in 或 bash 不可用为 None；配置写错显式失败。
+    let shell = crate::shell_tool::build_governance(workspace)?;
     let context = whcode_app::llm::LlmContext {
         registry: registry.as_ref(),
         registry_error: registry_error.as_deref(),
         factory: &factory,
         cancel_dir: &cancel_dir,
+        shell,
     };
     match command {
         LlmCommand::Run {

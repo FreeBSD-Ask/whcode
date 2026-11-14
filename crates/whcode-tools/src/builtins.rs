@@ -656,6 +656,23 @@ pub fn default_registry() -> Result<crate::registry::ToolRegistry, WhError> {
     Ok(registry)
 }
 
+/// 默认注册表 ＋ shell 工具（T290／FR-777／ADR-070）。
+///
+/// 仅由装配根在**三条件同时满足**时调用（缺一不注册，FR-704 口径）：`.zcode/shell.json`
+/// 显式 opt-in、bash 可用探测通过、当前装配存在审批闸门。默认注册表恒为九件
+/// （FR-704：未启用运行时不注册可执行工具）。
+///
+/// # Errors
+///
+/// 注册冲突（不应发生：稳定名互异）返回错误。
+pub fn registry_with_shell(
+    governance: std::sync::Arc<crate::shell::ShellGovernance>,
+) -> Result<crate::registry::ToolRegistry, WhError> {
+    let mut registry = default_registry()?;
+    registry.register(std::sync::Arc::new(crate::shell::Shell::new(governance)))?;
+    Ok(registry)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -776,7 +793,21 @@ mod tests {
         ] {
             assert!(registry.get(name).is_some(), "{name} 应已注册");
         }
+        // FR-704／ADR-070 失效条件门禁：默认注册表不得出现 shell（进程执行只在
+        // opt-in ＋ 探测通过 ＋ 有审批闸门的装配注册）。
+        assert!(registry.get("shell").is_none(), "默认注册表不得含 shell");
         assert_eq!(registry.provider_manifest().len(), 9);
+    }
+
+    #[test]
+    fn registry_with_shell_appends_tenth_tool() {
+        let governance = std::sync::Arc::new(crate::shell::ShellGovernance {
+            executor: std::sync::Arc::new(crate::shell::tests_support::NullExecutor),
+            allowed_commands: Vec::new(),
+        });
+        let registry = registry_with_shell(governance).expect("带 shell 注册表");
+        assert_eq!(registry.len(), 10);
+        assert!(registry.get("shell").is_some(), "shell 应已注册");
     }
 
     #[test]

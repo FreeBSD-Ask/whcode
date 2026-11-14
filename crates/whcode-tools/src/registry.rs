@@ -49,6 +49,11 @@ pub enum SideEffectScope {
     /// 会话状态写：只改本会话的派生状态（如待办快照），不触碰工作区文件
     /// （T284／FR-771；权限按写类判定，审批默认沿用读侧口径，见 ADR-048 修订）。
     SessionState,
+    /// 进程执行：受控子进程（shell 工具，T290／FR-777／ADR-070）——副作用超出
+    /// 工作区写（任意进程效应，不进前像恢复）。审批默认沿用写类口径；shell 的
+    /// 白名单降级规则见 `whcode-app::approval::ApprovalPolicy::shell_rule`。
+    /// 穷尽匹配点：`rule_for`、catalogue 渲染。
+    ProcessSpawn,
 }
 
 /// 单个参数声明。

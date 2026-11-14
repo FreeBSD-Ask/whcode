@@ -415,6 +415,15 @@ taskkill /T /F 口径）（P1）
   超限／非 UTF-8／新建文件显式登记跳过原因），失败调用不登记；恢复为破坏族——预览→确认→
   审计（`preimage_restore`，审计失败即不执行），只恢复工作区内路径；Web 提供只读
   `/api/preimages`，写面 v1 限 CUI（P2；ADR-068 决策 5—8／P3.5）
+- **FR-777**: shell 工具：模型可执行 bash 脚本（`shell`，参数 `script`＋可选
+  `timeout_ms`；缺省 30 s／上限 600 s；cwd 固定工作区根；输出＝退出码＋stdout/stderr
+  尾部＋截断与超时显式标记）。治理三层：审批（`SideEffectScope::ProcessSpawn`，
+  per-tool 默认 `ask`；“持久允许”仅对白名单命中的**单命令**生效——复合脚本永不免审批，
+  bash 图灵完备使任意脚本白名单不可判定）；资源界（超时杀树＋并发闸门＋输出尾部截断
+  ＋脚本 64 KiB 上限）；留痕（ToolCallStarted/Finished＋FR-706 检查点四要素）。注册
+  三条件缺一不注册：`.zcode/shell.json` 显式 opt-in＋bash 可用探测＋**审批闸门在场**
+  （默认构建零 shell，FR-704；非交互装配模型面不可见）；配置写错显式失败；shell 副作用
+  不进前像恢复（P2；ADR-070／proposal-v3 P5.1）
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

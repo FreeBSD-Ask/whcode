@@ -4,14 +4,14 @@
 - **来源**：Rust 1.100.0 官方发布公告（2026-11-12）与 releases.rs 逐项清单双源交叉复核；
   本机实测（`rustc -vV`、全量构建）；清华 TUNA 与 rsproxy.cn 镜像可用性双探针实测
 - **责任人**：工具链负责人、平台矩阵负责人、GUI 验收负责人
-- **退出条件**：见"将来失效条件与复审触发"节——验证链因工具链差异失败且仓库内无法修复时，
+- **退出条件**：见“将来失效条件与复审触发”节——验证链因工具链差异失败且仓库内无法修复时，
   回退口径为 `rust-toolchain.toml` 改回 `1.99.1` 并重开 MSRV 对齐
 
 ## 背景
 
 锁定工具链自 M0 起为 1.99.1（D-01 修订口径，T002/T021）。2026-11-12 上游发布 1.100.0，
 2026-11-14 用户指令升级并全面引入新功能。与 D-01 的一致性：只升版本号，host triple 交给
-各平台 runner 默认值，"不使用任何 GNU 工具链"口径不变（ADR-013）；MSRV 跟随锁定工具链
+各平台 runner 默认值，“不使用任何 GNU 工具链”口径不变（ADR-013）；MSRV 跟随锁定工具链
 的既有口径不变（Cargo.toml 注释保留演进史）。
 
 ## 决策
@@ -28,9 +28,9 @@
      `powershell`）、`resources.rs` 两处查询、`whcode-runtime` worker spawn、`whcode-mcp`
      服务器 spawn（服务器被配置为 GUI 程序时首窗按 SW_HIDE 隐藏）。
    - `str::trim_prefix`：`whcode-llm::http::frames` 的 SSE `data:` 解析原以
-     `strip_prefix(..).unwrap_or(同一变量)` 表达"有则剥除"，替换为 `trim_prefix`
+     `strip_prefix(..).unwrap_or(同一变量)` 表达“有则剥除”，替换为 `trim_prefix`
      （语义等价、去掉一层 Option 装饰）。仓库内其余 `strip_prefix` 用法语义不同
-     （需要"是否剥除"的判定分支）或为 all-or-nothing 引号剥除，**不换**。
+     （需要“是否剥除”的判定分支）或为 all-or-nothing 引号剥除，**不换**。
    - never type `!`（1.100 稳定，`Infallible` 成为别名）：`whcode-store::service` 非测试
      构建的闸门占位 `type Gate = Infallible` 改为 `type Gate = !`（行为等价，意图更直白）。
    - Cargo 新 lint 系统：`[workspace.lints.cargo] unused_dependencies = "warn"`——未使用
@@ -39,7 +39,7 @@
    - 工具链红利（自动生效，不改代码）：Unicode 18.0.0、next solver 进入 orphanck、
      `aligned_fields_in_packed` deny 级 lint（本仓库无 `repr(packed)`，实测不触发）、
      扩展后的 dropping lints 覆盖 `drop_in_place`（本仓库无直接调用）。
-3. **评估后不采用（登记理由，防止"为 adopting 而 adopting"）**：
+3. **评估后不采用（登记理由，防止“为 adopting 而 adopting”）**：
    - Allocator API（`std::alloc::Allocator`／`Vec::*_in`／`Box::new_in` 等）：与进程 RSS
      上限目标相关，但自定义分配器是架构级变更，需独立 ADR + 并发档案 + 同夹具前后测量；
      现行口径 `memory_limit` 只约束 DuckDB 缓冲管理器、进程级上限靠有界容器纪律。
@@ -56,7 +56,7 @@
      `invalid_markdown_table` 门禁化：与本项目工作流无交点，暂不引入。
 4. **兼容性变更面（1.100 的行为变化）与兜底**：闭包在 `if let` 中的捕获精度、never type
    fallback 全 edition 统一为 `!`、`box` pattern 移除、dyn 兼容性检查扩展、`Box` impl
-   泛化（推断差异）、x86 "Rust" ABI 改用 SSE 寄存器——由 fmt/clippy `-D warnings`/全量
+   泛化（推断差异）、x86 “Rust” ABI 改用 SSE 寄存器——由 fmt/clippy `-D warnings`/全量
    测试兜底；首轮本机全量构建通过且零告警（2026-11-14，`cargo build --locked
    --workspace`，4 分 22 秒）。cargo 新的中间产物目录布局（build-configuration hash 上移）
    不影响本仓库脚本：门禁脚本以 `cargo` 输出与 `target/` 固定根路径为准，实测全量构建无碍。
@@ -74,7 +74,7 @@
 
 升级解决的真实矛盾：a) 工具链落后上游两个版本，新 deny 级 lint 与兼容性变更越晚面对
 成本越高；b) GUI 宿主每次 spawn 子进程闪控制台窗，此前无 std 级收口点（项目从未使用
-`creation_flags`）；c) 未使用依赖此前只能靠人工目测。三者都有真实代价，不是"为了新而新"。
+`creation_flags`）；c) 未使用依赖此前只能靠人工目测。三者都有真实代价，不是“为了新而新”。
 
 ## 正负和解（宪法原则 II）
 
@@ -107,7 +107,7 @@
 - 版本与功能清单：官方 blog（2026-11-12）与 releases.rs 双源交叉；本地 `rustc -vV`
   复现（`0ef1bc386 2026-11-09`），三者一致。
 - 镜像可用性：TUNA rustup dist 实测 200；TUNA crates.io 经 `git ls-remote` 与 sparse
-  `config.json` 双探针 404 判定不可用（不以"曾提供"的旧知识为准）；rsproxy 官方推荐
+  `config.json` 双探针 404 判定不可用（不以“曾提供”的旧知识为准）；rsproxy 官方推荐
   sparse 配置原文照录。
-- 兼容性结论（"零编译错误、零告警"）以本机全量构建为准，不以公告为准；测试与平台
-  结论以 CI 日志与 artifact 为准（ADR-037），未取得前不写"通过"。
+- 兼容性结论（“零编译错误、零告警”）以本机全量构建为准，不以公告为准；测试与平台
+  结论以 CI 日志与 artifact 为准（ADR-037），未取得前不写“通过”。

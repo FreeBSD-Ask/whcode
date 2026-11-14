@@ -21,6 +21,7 @@ mod llm_provider;
 mod logging;
 mod runtimes;
 mod serve;
+mod shell_tool;
 mod store_source;
 mod tls;
 mod tool_call_text;

@@ -17,12 +17,13 @@ pub mod paths;
 pub mod plan;
 pub mod present;
 pub mod registry;
+pub mod shell;
 pub mod todo;
 
 /// 工具输出正文上限（64 KiB；超限截断并显式标记，FR-728/R-05 对策）。
 pub const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1024;
 
-pub use builtins::{EDIT_FILE_TOOL, WRITE_FILE_TOOL, default_registry};
+pub use builtins::{EDIT_FILE_TOOL, WRITE_FILE_TOOL, default_registry, registry_with_shell};
 pub use paths::resolve_in_workspace;
 pub use plan::{
     MAX_PLAN_GUIDANCE_CHARS, PLAN_GUIDANCE, PLAN_MODE_EXIT_RULE, PLAN_MODE_TOOL,
@@ -35,5 +36,9 @@ pub use present::{
 pub use registry::{
     DEFAULT_TOOL_TIMEOUT_MS, MAX_TOOL_TIMEOUT_MS, ParamType, SideEffectScope, Tool, ToolDescriptor,
     ToolOutput, ToolParameter, ToolRegistry, effective_deadline, validate_arguments,
+};
+pub use shell::{
+    MAX_ALLOWED_COMMANDS, SHELL_MAX_SCRIPT_BYTES, SHELL_TOOL, Shell, ShellExecutor,
+    ShellGovernance, ShellOutcome, ShellRequest, whitelist_allows,
 };
 pub use todo::{MAX_TODO_CONTENT_CHARS, MAX_TODO_ITEMS, TODO_WRITE_TOOL, snapshot_from_arguments};

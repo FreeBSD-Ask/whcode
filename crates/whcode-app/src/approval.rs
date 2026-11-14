@@ -513,7 +513,25 @@ impl ApprovalPolicy {
             // 会话状态写（待办快照）不触碰文件系统、载荷有界且全量入事件：
             // 审批默认沿用读侧口径，避免为每次清单刷新弹审批（ADR-048 修订）。
             SideEffectScope::SessionState => self.default_read_only,
+            // 进程执行（shell 工具，T290／ADR-070）：默认沿用写类口径——交互装配的
+            // per-tool `Ask` 种子已把每次调用收口到人工确认。
+            SideEffectScope::ProcessSpawn => self.default_workspace_write,
         })
+    }
+
+    /// shell 工具的有效规则（T290／FR-777／ADR-070 决策 4）。
+    ///
+    /// 白名单只约束**免审批通道**：`Deny` 恒拒绝；`Allow`（持久允许）仅当本次脚本
+    /// 命中白名单（单命令且首词匹配）才生效；其余一律降级 `Ask`——复合脚本
+    /// （含 `;`／管道／命令替换等控制结构）永不免审批，bash 图灵完备使任意脚本的
+    /// 白名单不可判定，该约束是免审批通道的边界而非"阻止执行"的承诺。
+    #[must_use]
+    pub fn shell_rule(&self, whitelist_ok: bool) -> ApprovalRule {
+        match self.rule_for("shell", SideEffectScope::ProcessSpawn) {
+            ApprovalRule::Deny => ApprovalRule::Deny,
+            ApprovalRule::Allow if whitelist_ok => ApprovalRule::Allow,
+            _ => ApprovalRule::Ask,
+        }
     }
 
     /// 两个范围默认值（配置回显与断言用）。
@@ -566,6 +584,13 @@ pub struct ApprovalGate<'a> {
 }
 
 impl<'a> ApprovalGate<'a> {
+    /// shell 有效规则的闸门视图（T290／ADR-070：turn 在闸门分支预解析白名单降级
+    /// 规则，再经 [`Self::authorize_shell_with_conn`] 显式传入）。
+    #[must_use]
+    pub fn shell_rule(&self, whitelist_ok: bool) -> ApprovalRule {
+        self.policy.shell_rule(whitelist_ok)
+    }
+
     /// 构造闸门；`answerer = None` 表示“无人可问”（`ask` 一律 `unavailable`）。
     ///
     /// `wait_ms` 被收口到 `[1, MAX_APPROVAL_WAIT_MS]`（有界等待，配置笔误不得放大成无界）。
@@ -656,7 +681,7 @@ impl<'a> ApprovalGate<'a> {
         scope: SideEffectScope,
         now_ms: u64,
     ) -> Result<ApprovalDecision, WhError> {
-        self.authorize_impl(None, exec_id, tool, scope, now_ms)
+        self.authorize_impl(None, exec_id, tool, scope, now_ms, None)
     }
 
     /// 生产路径：审计与规则写入使用 turn 自身的工作区连接（见 [`Self::for_store`]）。
@@ -672,7 +697,52 @@ impl<'a> ApprovalGate<'a> {
         scope: SideEffectScope,
         now_ms: u64,
     ) -> Result<ApprovalDecision, WhError> {
-        self.authorize_impl(Some(conn), exec_id, tool, scope, now_ms)
+        self.authorize_impl(Some(conn), exec_id, tool, scope, now_ms, None)
+    }
+
+    /// shell 工具的显式规则授权（测试路径，无存储连接）。
+    ///
+    /// # Errors
+    ///
+    /// 同 [`Self::authorize`]。
+    pub fn authorize_shell(
+        &mut self,
+        exec_id: &str,
+        rule: ApprovalRule,
+        now_ms: u64,
+    ) -> Result<ApprovalDecision, WhError> {
+        self.authorize_impl(
+            None,
+            exec_id,
+            whcode_tools::SHELL_TOOL,
+            SideEffectScope::ProcessSpawn,
+            now_ms,
+            Some(rule),
+        )
+    }
+
+    /// shell 工具的显式规则授权（T290／FR-777／ADR-070 决策 4）：规则由调用方经
+    /// [`ApprovalPolicy::shell_rule`] 预先解析（白名单降级发生在规则层，不在闸门内
+    /// 重复实现），闸门只负责请求、应答与成对审计。
+    ///
+    /// # Errors
+    ///
+    /// 同 [`Self::authorize_with_conn`]。
+    pub fn authorize_shell_with_conn(
+        &mut self,
+        conn: &duckdb::Connection,
+        exec_id: &str,
+        rule: ApprovalRule,
+        now_ms: u64,
+    ) -> Result<ApprovalDecision, WhError> {
+        self.authorize_impl(
+            Some(conn),
+            exec_id,
+            whcode_tools::SHELL_TOOL,
+            SideEffectScope::ProcessSpawn,
+            now_ms,
+            Some(rule),
+        )
     }
 
     fn authorize_impl(
@@ -682,6 +752,7 @@ impl<'a> ApprovalGate<'a> {
         tool: &str,
         scope: SideEffectScope,
         now_ms: u64,
+        rule_override: Option<ApprovalRule>,
     ) -> Result<ApprovalDecision, WhError> {
         let store_sink = if self.store_backed {
             Some(StoreAuditSink::new(conn.ok_or_else(|| {
@@ -704,7 +775,9 @@ impl<'a> ApprovalGate<'a> {
             (Some(store), _) => Some(store),
             (None, injected) => injected,
         };
-        let rule = self.policy.rule_for(tool, scope);
+        // 规则解析：显式覆盖优先（shell 白名单降级经 `authorize_shell_with_conn` 传入），
+        // 其余按 per-tool 覆盖 → 副作用范围默认（T290／ADR-070）。
+        let rule = rule_override.unwrap_or_else(|| self.policy.rule_for(tool, scope));
         // “回合批准”只影响本回合的同一工具：不再询问，也不重复落审批审计
         // （真正的人工决定已在第一次请求里成对留痕）。
         if rule == ApprovalRule::Allow
@@ -1529,5 +1602,52 @@ mod tests {
         // 超预算：无人作答返回 None（映射 unavailable），且请求从表中移除。
         assert_eq!(approvals.answer(&second, 50).expect("超时"), None);
         assert_eq!(approvals.pending_len(), 0);
+    }
+    /// shell 有效规则矩阵（T290／FR-777／ADR-070 决策 4）：Deny 恒拒绝；
+    /// Allow 仅白名单命中生效；无 per-tool 规则一律 Ask（白名单不改变 Ask 基线）。
+    #[test]
+    fn shell_rule_downgrades_allow_outside_whitelist() {
+        let allow_policy = ApprovalPolicy::new(ApprovalRule::Allow, ApprovalRule::Allow)
+            .with_tool_rule("shell", ApprovalRule::Allow)
+            .expect("规则");
+        assert_eq!(allow_policy.shell_rule(true), ApprovalRule::Allow);
+        assert_eq!(allow_policy.shell_rule(false), ApprovalRule::Ask);
+
+        let deny_policy = ApprovalPolicy::new(ApprovalRule::Allow, ApprovalRule::Allow)
+            .with_tool_rule("shell", ApprovalRule::Deny)
+            .expect("规则");
+        assert_eq!(deny_policy.shell_rule(true), ApprovalRule::Deny);
+        assert_eq!(deny_policy.shell_rule(false), ApprovalRule::Deny);
+
+        // 无 per-tool 规则：ProcessSpawn 归写类默认；即使默认 Allow，
+        // 白名单未命中也降级 Ask（交互装配另有 per-tool Ask 种子收口）。
+        let bare = ApprovalPolicy::new(ApprovalRule::Allow, ApprovalRule::Allow);
+        assert_eq!(bare.shell_rule(false), ApprovalRule::Ask);
+    }
+
+    /// 闸门显式规则授权（`authorize_shell`）：Allow 规则直接放行（不写审计，与既有
+    /// allow 口径一致）；Ask 规则在无应答者时 fail-closed（unavailable，不伪造允许）。
+    #[test]
+    fn shell_gate_explicit_rule_flow() {
+        let allow_policy = ApprovalPolicy::new(ApprovalRule::Allow, ApprovalRule::Allow)
+            .with_tool_rule("shell", ApprovalRule::Allow)
+            .expect("规则");
+        let sink = CollectingAuditSink::default();
+        let mut gate = ApprovalGate::new("S-1", allow_policy, &sink, None, 0);
+        let decision = gate
+            .authorize_shell("TX-shell", ApprovalRule::Allow, 1)
+            .expect("授权");
+        assert!(decision.is_allowed());
+        assert_eq!(gate.pending_len(), 0, "allow 不落请求");
+
+        let ask_policy = ApprovalPolicy::new(ApprovalRule::Allow, ApprovalRule::Allow)
+            .with_tool_rule("shell", ApprovalRule::Ask)
+            .expect("规则");
+        let sink = CollectingAuditSink::default();
+        let mut gate = ApprovalGate::new("S-2", ask_policy, &sink, None, 0);
+        let decision = gate
+            .authorize_shell("TX-shell-2", ApprovalRule::Ask, 1)
+            .expect("判定完成（结论为 unavailable）");
+        assert!(!decision.is_allowed(), "无应答者必须 fail-closed");
     }
 }
