@@ -16,6 +16,15 @@
   `wait_for_close`／`connection_closed`），修复后 Windows 本机复跑通过，FreeBSD 结论待下一轮
   通道取得；**修复后转绿**：run `43366102610`（提交 `0cc0e0f`）platform-verification 全绿，
   FreeBSD job success（三门 GO、全量测试与冒烟通过），EINTR 归因成立；
+  **2026-11-14 工具链 1.100.0 首轮全绿**：run `43553353128`（提交 `4d00d86`）FreeBSD job
+  success——rustup 装 `rustc 1.100.0 (0ef1bc386)` 全量构建（含 GUI/bin）＋全量测试＋三门 GO
+  （该 run 的 windows/arm64 红见 ADR-069 修订，均非 FreeBSD 侧问题）；
+  **第六样本（features.h 复发）**：run `43557659398`（提交 `40fc1bb`，仅测试纯函数化）
+  `store_gate = NO-GO`——DuckDB 2.0.0 源码构建再次 `platform.hpp:22 'features.h' file not
+  found`，与系列一致；同 run 前一次（43553353128）同通道全绿、失败提交与 DuckDB 构建无关，
+  ssh 回环 GO／进程组 GO／perf RECORDED，windows/arm64/measurements 全绿——按既有
+  “偶发/环境漂移”口径登记，不构成代码回归证据；处置（上游补丁／构建参数／ADR 豁免）
+  待用户决（同系列既有事项）；
 **不作验收结论**，性能分位数未取得 | ADR-013 修订（2026-10-31） |
 | NetBSD | **仅支持 SSH 远程开发（被连入目标）＋随 CI 自动运行（仅平台证据）**（ADR-013 修订 2026-11-03）：SSH 回环验收 GO（客户端＋服务端四项，`artifacts/ssh-acceptance/netbsd-client.txt`）、进程组零残留 GO（Check 201）；原生 store/DuckDB 豁免（上游 2.0.0 依赖 glibc `features.h`） | ADR-013、T020/T021 |
 | OpenBSD | **仅支持 SSH 远程开发（被连入目标）**（ADR-013 修订 2026-11-03）：节点证据从 Windows/FreeBSD 以内置 SSH 客户端连入取得（V-004 口径，M7 或具备主机时）；工具链阻塞记录（ports rust 1.98.1 < MSRV）已入库 | ADR-011/013 |
