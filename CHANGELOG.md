@@ -23,11 +23,12 @@
   `--self-test` 五条纯函数探针）；三个夹具支持 `WHCODE_PERF_ABSOLUTE_BUDGET=0` 测量模式
   （`perf-budget` 不设该变量，绝对预算照旧断言）。CI：windows lane 在 `pull_request` 跑
   门禁并上传报告，`perf-budget` 产出基线 artifact。**基线未取得或 runner 类别不匹配时输出
-  SKIP 并明确不声称通过**。托管 runner 基线已取得并提交（run `43640990876`，
-  `runner_class = Windows-2025Server-10.0.26100-SP0`）：turn 85.5 ms／switch 8.1 ms／
-  history 30.8 ms；本机参考值为 24.3／8.2／29.7 ms（debug）。同轮 perf-budget 的绝对
-  预算步为红（NFR-209 p95 38.6 ms > 30 ms 冻结值，环境差异，非回归）——基线步以
-  `if: always()` 独立产出。PR 级首判待首个 PR（显式缺口）。
+  SKIP 并明确不声称通过**。托管 runner 基线已取得并提交（run `43646760888`，
+  `runner_class = Windows-2025Server-10.0.26100-SP0`）：turn 39.4 ms／switch 10.0 ms／
+  history 39.1 ms（p50）；本机参考值为 23.6／7.3／24.3 ms（debug）。判据量实测后由 p95
+  改 p50：同机双跑历史页 p95 抖 +54%、p50 只 +8%（尾部是页缓存/磁盘噪声），并且“基线缺
+  指标”由静默跳过改为失败。同轮 perf-budget 的绝对预算步为红（NFR-209 p95 超 30 ms
+  冻结值，环境差异，非回归）——基线步以 `if: always()` 独立产出。PR 级首判待首个 PR（显式缺口）。
 
 - **ARM64 交付目标切 gnullvm（T308—T310，ADR-074，2026-11-15）**：ARM64 交付链由
   `aarch64-pc-windows-msvc` 改为 `aarch64-pc-windows-gnullvm`，三条 Windows lane 的工具链

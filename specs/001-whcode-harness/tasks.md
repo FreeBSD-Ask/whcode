@@ -2246,6 +2246,6 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   不把 SKIP 记作通过。
   ——**取证（2026-11-15）**：dispatch run `43640990876` 的 perf-budget 基线步 success，
   artifact `perf-baseline-pr.json`（`runner_class = Windows-2025Server-10.0.26100-SP0`，3 轮）
-  已复核并提交到 `docs/matrices/perf-baseline-pr.json`：turn 85.5 ms／switch 8.1 ms／
-  history 30.8 ms。PR 级的端到端判定需首个 PR 触发（显式缺口：仓库当前无 PR 流程，
+  已复核并提交到 `docs/matrices/perf-baseline-pr.json`：turn 39.4 ms／switch 10.0 ms／
+  history 39.1 ms（判据量 p50；首版 p95 基线因判据量修订被替换，见 ADR-075 §2.5）。PR 级的端到端判定需首个 PR 触发（显式缺口：仓库当前无 PR 流程，
   判定逻辑由 `--self-test` 五探针与本机同剖面一轮实测覆盖，不冒充 PR 结论）。
