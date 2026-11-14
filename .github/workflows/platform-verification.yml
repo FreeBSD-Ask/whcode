@@ -105,13 +105,17 @@ jobs:
 
       # ADR-043：cargo check 只做目标代码级类型检查，不链接、不运行 arm64 二进制；
       # aws-lc-sys 等 C 依赖的目标编译仍会发生，故先拉取 arm64 载荷并覆盖 DUCKDB_LIB_DIR。
-      # ADR-073：ARM64 仍走 msvc（本拉修订不切 ARM64，见 ADR-073 §2.5），故本步骤显式把
+      # ADR-073：ARM64 仍走 msvc（本轮修订不切 ARM64，见 ADR-073 §2.5），故本步骤显式把
       # 工具链钉回 msvc 主机——否则会继承 amd64 lane 的 gnullvm 环境，把两类证据混在一起。
+      # 另外必须把 llvm-mingw 从 PATH 摘掉：它在安装步骤里被前置，cc-rs 会选中其中的
+      # `clang` 去编 msvc 目标（`--target=aarch64-pc-windows-msvc`＋mingw 风格参数，找不到
+      # MSVC 头，run 43614186664 实测 `assert.h` 缺失）。摘掉后 cc-rs 回到 cl.exe 路径。
       - name: ARM64 交叉构建检查（ADR-043：代码级可构建性，不作平台结论）
         if: matrix.platform == 'windows'
         env:
           RUSTUP_TOOLCHAIN: 1.100.0-x86_64-pc-windows-msvc
         run: |
+          $env:PATH = (($env:PATH -split ';') | Where-Object { $_ -notmatch 'llvm-mingw' }) -join ';'
           rustup target add aarch64-pc-windows-msvc
           python .github/scripts/fetch-duckdb.py --target aarch64-pc-windows-msvc
           # 绝对路径（ADR-069 修订 2026-11-14）：相对值会绕过 cargo [env] 的
