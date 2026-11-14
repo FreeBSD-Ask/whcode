@@ -130,6 +130,10 @@ jobs:
         if: matrix.platform == 'windows'
         run: python .github/scripts/check-adr-limits.py
 
+      - name: 标准基线门禁（FR-779：standards-baseline.md 结构与停用登记）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/check-standards-baseline.py
+
       - name: 真 API 冒烟（FR-764：无凭据自跳过，不记通过）
         if: matrix.platform == 'windows'
         continue-on-error: true

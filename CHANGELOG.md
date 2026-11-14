@@ -13,6 +13,43 @@
 
 ### 变更
 
+- **开工前标准文献研读规则（T300，宪法原则 X 知识面，2026-11-14 用户指令）**：
+  `software-engineering-process.md` 新增 §1.6——任何工作单元开工前必须启发式研读相关
+  标准化文献（ISO／IEEE／国标／官方文档／规范／建议）并吃透、落地，不得凭经验自造判定：
+  以 `standards-baseline.md` 为唯一起点、按任务域映射候选（research/standards-alignment
+  九域笔记）、一手文本优先、付费墙内标 `[待验证]`；吃透判据＝研读记录落盘（条款号＋
+  本任务关系，由认知卡“现有证据”字段承载）；落地判据＝产物映射（FR／设计／契约／测试／
+  ADR）；纯机械变更可裁剪。本条是知难行易在知识面上的直接体现——`knowing-before-doing.md`
+  增命题 6 与卡字段承载；G0 退出判据第 8 项、G1/G2 活动、§8 自检、§9 缺口行接线；
+  AGENTS.md（§1.2 第 7 条／§5 G0 行／§9 第 12 项／§10 条目）与 `philosophy.md` §11、
+  engineering-doctrine（00 §11、01 G0 与 §7）镜像同步。证据：本地门禁链绿
+  （check-knowing-first／check-docs-style／check-eol／check_counts／traceability）；
+  CI 待运行（ADR-037）。
+- **标准基线与对标结论落地（T296—T299，FR-779，ADR-072，2026-11-14）**：10 域约 45 份
+  ISO／IEEE／GB／编程规范全景研读（用户批准范围“全景含安全关键＋文档＋门禁”），版本
+  事实全部核验到年并按〔官／检／识〕三级标注，研究证据留 `research/standards-alignment/`
+  （README＋五类判定矩阵＋九份域笔记）。落地三件：①`docs/guides/standards-baseline.md`
+  标准基线单一事实源（现行版本／停用状态／五类判定／复审触发，含已停用与负向事实登记
+  ——IEEE 1016/730/828 停用、12207:2026 取代 2017、“MISRA Rust”不存在等 8 项纠偏）；
+  ②`.github/scripts/check-standards-baseline.py` 结构门禁接入 platform-verification.yml
+  （默认模式管基线结构；`--strict` 管停用对象裸引用同行注记，含证伪探针验证，接入 CI
+  时点登记于 ADR-072 复审触发）；③过程文档版本事实修订（规范依据补 12207:2026／
+  42010:2022、IEEE 1016 停用注记；25010 改 9 特性并新增 §5.1 逐特性映射表）。思想采纳
+  与明确不做清单（33000 评级、ISMS/AIMS 认证、SLSA provenance 带触发条件等）见 ADR-072。
+  证据：门禁双模式绿＋负向探针转红；注：spec／tasks／checklist／process 的本批 hunk 随
+  SDK 批次（FR-778）同窗落账，本批提交只含纯本批文件（并行协议，防账本先行于代码）。
+- **出进程 SDK（T293—T295，FR-778，ADR-071，2026-11-14）**：`whcode sdk` 以行分帧
+  JSON-RPC 2.0（stdio，单连接）暴露最小协议——`initialize`（协议版本协商：主版本兼容、
+  minor 只增、破坏性升主版本，D14 不可逆承诺）／`session.create`／`session.open`／
+  `turn.run`（阻塞至终态，活跃槽上限 1，槽满 busy）／`turn.cancel`／`events.follow`
+  （seq 游标＋generation 世代提示——派生口径变化时客户端重算派生视图）；错误复用 CUI
+  JSON 信封；事件出站走既有脱敏管线。并发档案（ADR-015 全字段）：单写者 stdout、
+  有界出站通道（慢消费者 closed 帧关连重放）、活跃槽 RAII、Loom 豁免理由与回退方案
+  （单工模式协议不变）在案；执行骨干全复用（turn 编排／取消／游标查询），`SdkGateway`
+  注入（不新增 crate 依赖）。surface 新增 `sdk.serve`（CUI 已实现，其余三端不适用——
+  机器面，feature-parity 同步）。审批口径与 CUI `llm run` 同装配（无人值守决策面属
+  P6.3）。证据：bin 集成测试 10 项（帧矩阵／协商矩阵／槽互斥／世代推进／游标重放/
+  取消竞态／背压关连）＋全工作区链全绿；CI 待运行（ADR-037）。
 - **shell 工具与执行威胁模型（T290—T292，FR-777，ADR-070，2026-11-14）**：模型首次
   获得命令执行能力（proposal-v3 P5.1，D12 先威胁模型后代码）。**威胁模型先行**：
   ADR-070 登记 T1—T10（模型诱导执行／审批疲劳／凭据外泄／PATH 劫持／资源耗尽／工作区
