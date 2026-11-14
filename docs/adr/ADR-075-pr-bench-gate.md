@@ -45,7 +45,8 @@ P7.2 要求“turn 首 token／会话切换／历史页”三个指标进 PR 门
    判据仍留在 ADR-025 的绝对预算通道，两者分工不变；
 6. **基线未取得 ≠ 通过**：runner 类别或剖面不匹配时脚本显式输出 `SKIP`（含两边的
    `runner_class` 原文），退出码 0 但**不声称通过**——信号链完备的“正确的空”；基线文件
-   缺失同理。只有基线匹配且三指标全部在限内才打印 PASS；
+   缺失同理。该判断在测量**之前**做（runner 类别不匹配时白跑 5 分钟没有意义）；
+   只有基线匹配且三指标全部在限内才打印 PASS；
 7. **CI 接线**：
    - `platform-verification.yml` 的 windows lane：`github.event_name == 'pull_request'` 时
      运行门禁（`--json artifacts/pr-bench-report.json`，artifact 随 run 上传）；

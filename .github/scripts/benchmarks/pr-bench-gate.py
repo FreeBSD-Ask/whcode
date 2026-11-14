@@ -323,6 +323,32 @@ def main() -> int:
     except RuntimeError as err:
         return fail(str(err))
 
+    # 先判基线可用性再测量：runner 类别/剖面不匹配时白跑 5 分钟没有意义（仍是显式 SKIP，
+    # 不是通过）。
+    if not args.write_baseline:
+        baseline_path = Path(args.baseline)
+        if not baseline_path.is_file():
+            print(f"SKIP: 未找到基线 {baseline_path}；PR 门禁未判定（不声称通过）")
+            return 0
+        try:
+            preflight = load_baseline(baseline_path)
+        except (json.JSONDecodeError, ValueError) as err:
+            return fail(f"基线不可解析：{err}")
+        if preflight.get("profile") != PROFILE:
+            print(
+                f"SKIP: 基线剖面 {preflight.get('profile')} ≠ 当前 {PROFILE}；"
+                "不同剖面的绝对量不可比（不声称通过）"
+            )
+            return 0
+        if preflight.get("runner_class") != runner_class():
+            print(
+                "SKIP: 基线 runner_class 与当前不同\n"
+                f"  基线: {preflight.get('runner_class')}\n"
+                f"  当前: {runner_class()}\n"
+                "  PR 门禁只在同类环境判定（ADR-075；不声称通过）"
+            )
+            return 0
+
     rounds: list[dict[str, float]] = []
     raw_lines: list[dict[str, str]] = []
     problems: list[str] = []
