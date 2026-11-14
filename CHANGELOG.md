@@ -24,7 +24,7 @@
   作业与发布工作流 amd64 lane 全部切换（ARM64 交付链与回退 msvc 通道保持不变）。
   实测：全工作区构建 EXIT=0、测试 1205 通过／0 失败、clippy 零告警、release 两次链接
   SHA256 一致、`doctor --json` 报 `duckdb_engine_version: v2.0.0`；产物无 vcruntime 依赖。
-  证据 `artifacts/gnullvm-migration-2026-11-14.md`；CI 首次实跑结论待 T307 回填（ADR-037）。
+  证据 `artifacts/gnullvm-migration-2026-11-14.md`；CI 首次实跑已回填（2026-11-15，run `43615687323`，提交 `c9b2755`）：platform-windows success（62 步零失败）、measurements success；首跑 run `43614186664` 的 ARM64 交叉检查红已修（该步摘除 llvm-mingw，cc-rs 不再拿它的 clang 编 msvc 目标）。build-release 的 gnullvm 包待 tag／手动触发（显式缺口）。
 
 - **开工前标准文献研读规则（T300，宪法原则 X 知识面，2026-11-14 用户指令）**：
   `software-engineering-process.md` 新增 §1.6——任何工作单元开工前必须启发式研读相关

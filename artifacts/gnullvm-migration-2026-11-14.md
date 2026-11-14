@@ -38,9 +38,17 @@
 2. 把 `advapi32.lib` 等复制进工具链 `self-contained/`：制造“能过但不可复现”的工具链污染，弃用。
 3. 结论：缺的是**头文件与驱动**，不是库；只有 llvm-mingw（或等价的 mingw-w64 sysroot）可用。
 
-## 未取得（待回填）
+## CI 结论（2026-11-15 回填）
 
-- gnullvm 通道的 **CI 首次实跑**结论（platform-windows、measurements、build-release amd64
-  lanes）：待本轮推送后以 `gh run view` 日志回填，并据此更新 platform-matrix 的 CI 字段。
-- gnullvm 产物的**发布包安装验证**记录：`package-windows.py --verify --record` 产物，
-  待推送后与发布 job 的 artifact 一并归档。
+| 运行 | 提交 | 作业 | 结论 |
+|---|---|---|---|
+| `43615687323` | `c9b2755` | platform-windows | success（62 步零失败；含安装 llvm-mingw＋gnullvm、fmt、clippy、全量测试、SSH 回环、TLS、Web、计数与追溯门禁） |
+| `43615687323` | `c9b2755` | measurements | success（17 步） |
+| `43615687323` | `c9b2755` | platform-windows-arm64 | success（msvc 通道，ADR-043） |
+| `43614186664` | `ae23ce5` | platform-windows | failure：ARM64 交叉检查步被 cc-rs 选中 llvm-mingw 的 clang 去编 msvc 目标（`assert.h` 缺失）；`c9b2755` 在该步按 run 摘除 llvm-mingw 后复绿 |
+
+## 未取得（显式缺口）
+
+- gnullvm 的**发布包**（build-release 的 amd64 两条 lane）：只在 tag 或手动 dispatch 时运行，
+  本批未触发。本机的 `package-windows.py --verify` 已通过（记录在
+  `artifacts/install-verify-windows-amd64.txt`），但按 ADR-037 不作为 CI 交付结论。

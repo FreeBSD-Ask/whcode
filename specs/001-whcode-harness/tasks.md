@@ -2183,9 +2183,10 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   decisions D-01、compatibility）；`AGENTS.md`（硬边界、优先序第 4 条、验证链）；`CONTRIBUTING.md`；
   `.specify/memory/constitution.md`；`specs/001` plan／spec；`specs/002` plan；README 十三语言；
   `.github/scripts/platform-matrix/README.md`。
-- [ ] T307 gnullvm 通道 CI 首次实跑结论回填（ADR-037：本地绿不冒充 CI 结论）：待推送后以
+- [x] T307 gnullvm 通道 CI 首次实跑结论回填（ADR-037：本地绿不冒充 CI 结论）：待推送后以
   `gh run view` 逐 job 判定并回填 platform-matrix 的 CI 字段与 Check 399 证据
   ——**任务认知卡**：方向＝平台结论只能来自 CI 日志与 artifact（ADR-037），本地全绿不算；
   目标＝gnullvm 的 platform-windows／measurements／build-release amd64 三条 lane 的结论
   逐条落账；判据＝run 号＋job 名＋结论与失败步骤原文可定位；非目标＝不因本地已绿而
   预先勾选，也不把 msvc 通道旧结论移作 gnullvm 证据。
+  ——**取证（2026-11-15，run `43615687323`，提交 `c9b2755`）**：platform-windows success（62 步零失败：安装 llvm-mingw＋gnullvm 主机、fmt、clippy、全量测试、SSH 回环、TLS、Web、计数与追溯门禁全部通过）、measurements success（17 步）、platform-windows-arm64 success（msvc 通道，ADR-043）。首跑 run `43614186664` 的 ARM64 交叉检查红已由 `c9b2755` 修复：cc-rs 会把 PATH 上 llvm-mingw 的 clang 选去编 msvc 目标，该步现按 run 摘除 llvm-mingw。build-release 的 gnullvm 包由 tag／手动触发产生，本轮未取（显式缺口）。
