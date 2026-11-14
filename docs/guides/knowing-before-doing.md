@@ -42,6 +42,7 @@ for row in con.execute(
 3. 知未完成就开工，等于用行动制造证据替代理解：动作越多越像在推进，产出越多返工越大。T116 的 72 小时白跑风险是同一结构——脚本能跑、输出格式合法，但“要测什么”没写清，null 就被读成“空闲期正确行为”。
 4. 知不是一次性的：行动中发现“知”有误，要回到知修正方向陈述，而不是在错误方向上加速。
 5. 知难行易不等于“先想很久再动”：可逆小步允许快速试错，但方向陈述不可跳过；不可逆决策（数据格式、协议、权限、并发）必须设计先行并留回退证据。
+6. 知有内源与外源两路：内源是用户意图与仓库证据，外源是标准化文献（ISO、IEEE、GB 国标、官方文档、规范、建议）。外源未经研读就自造判定，等于用个人经验冒充认知；开工前对相关标准文献的启发式研读与落盘（`docs/guides/software-engineering-process.md` §1.6）是本原则在知识面上的直接体现，研读记录由认知卡“现有证据”字段承载，与 FR、实测证据同列。
 
 ## 3. 任务认知卡
 
@@ -52,7 +53,7 @@ for row in con.execute(
 目标（一句话，可判定；至少对应一个 Check 或验收判据）：
 用户意图（复述用户要解决的真实问题；须可被用户确认，不能确认标 [须提问]）：
 非目标/边界（至少一条；写不做什么，以及不可越过的边界）：
-现有证据（来源 FR、Check、实测或复现命令；未知标 [待验证]）：
+现有证据（来源 FR、Check、实测、复现命令或标准条款；涉标准任务附研读记录——条款号＋本仓落点，见 software-engineering-process.md §1.6；未知标 [待验证]）：
 手段（后置；晚于前五项填写，且不构成需求，可替换）：
 ```
 
@@ -62,6 +63,8 @@ for row in con.execute(
 2. 意图复述可被用户确认；不能确认时标 `[须提问]` 并提问（提问义务见 `docs/guides/signal-chain-completeness.md` §2，歧义无法用对照场景区分时不得默认）。
 3. 非目标至少一条。
 4. 手段必须晚于前五项填写，且不构成需求。
+5. 涉标准化文献的任务：研读记录（所读条款号＋本仓落点）随卡落盘，口径与裁剪见
+   `docs/guides/software-engineering-process.md` §1.6；纯机械变更可裁剪。
 
 全部任务适用：已勾选任务以其来源 FR、验收判据与实现记录作为最小“知”证据，不补写；未勾选任务开工前写卡；任务块末标注卡的位置（不拆断跨行任务描述），口径依 `specs/001-whcode-harness/tasks.md` 的“全局执行前置”条款。
 
@@ -77,6 +80,7 @@ for row in con.execute(
 | 任务清单 | `specs/001-whcode-harness/tasks.md` 的“全局执行前置：知难行易”条款；判据：未勾选任务块带认知卡标注，已勾选任务不补写 |
 | PR 清单 | `docs/guides/pr-checklist.md` 的“任务认知先于手段”项 |
 | 代理入口 | `AGENTS.md` §1.2 第 7 条、§2 必读表、§3 标准验证链、§9 第 11 项、§10 不确定时 |
+| 标准文献研读 | `docs/guides/software-engineering-process.md` §1.6；判据：涉标准任务开工前有研读记录（条款号＋落点），由认知卡“现有证据”字段承载（2026-11-14 用户指令） |
 | 五份模板 | `engineering-doctrine/templates/{AGENTS,spec,pr-checklist,tasks}.template.md` 与 `.specify/templates/tasks-template.md`；判据：含认知卡字段或指向本文 |
 | 程序门禁 | `.github/scripts/check-knowing-first.py`，由 `platform-verification.yml` 的 windows 门禁步骤调用；判据：落点链接可达、任务标注存在（结构检查，不验语义） |
 
