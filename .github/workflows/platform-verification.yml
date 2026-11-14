@@ -1291,7 +1291,13 @@ jobs:
       # P7.2／ADR-075：产出 PR 门禁基线（三指标三轮中位）。基线以 artifact 形式交付，
       # 人工复核后提交到 `docs/matrices/perf-baseline-pr.json`；门禁只在同类 runner 判定，
       # 因此 runner 重镜像后必须重抓（旧基线会让门禁转 SKIP）。
+      #
+      # `if: always()`：上面的绝对预算步在本轮托管 runner 上可能因环境差异转红（run
+      # 43639525007 实测 NFR-209 p95 38.6 ms > 30 ms 冻结值，NFR-207 7.5 ms 达标）——那是
+      # ADR-025 已登记的“托管 runner 与本地冻结基线不可比”，不应连带阻断**测量**本身。
+      # 基线是测量产物不是判定结论；红绿由绝对预算步单独表达。
       - name: 产出 PR 门禁基线（P7.2／ADR-075：三指标三轮中位）
+        if: always()
         run: python .github/scripts/benchmarks/pr-bench-gate.py --rounds 3 --write-baseline artifacts/perf-baseline-pr.json
 
       - name: 上传性能测量产物
