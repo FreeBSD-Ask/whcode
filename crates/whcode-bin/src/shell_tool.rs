@@ -152,18 +152,27 @@ pub fn build_governance_with(
     workspace: &Path,
     provider: &GitBashProvider,
 ) -> Result<Option<Arc<ShellGovernance>>, WhError> {
-    let Some(config) = ShellConfig::load(workspace)? else {
-        return Ok(None);
-    };
-    if !provider.is_available() {
-        return Ok(None);
+    let config = ShellConfig::load(workspace)?;
+    Ok(governance_from(config, provider.is_available(), provider.clone()).map(Arc::new))
+}
+
+/// opt-in＋探测的**双条件装配判定**（纯逻辑，ADR-070 决策 3）：配置缺失或 bash
+/// 不可用皆返回 `None`（FR-704 默认不注册）。抽成纯函数是因为“探测失败”不可在
+/// 任意机器上确定性构造——`locate_bash` 对失效的 `git_path` 会回退到已知安装目录
+/// （GitHub runner 实测），前提依赖机器状态的测试是伪测试。
+fn governance_from(
+    config: Option<ShellConfig>,
+    available: bool,
+    provider: GitBashProvider,
+) -> Option<ShellGovernance> {
+    let config = config?;
+    if !available {
+        return None;
     }
-    Ok(Some(Arc::new(ShellGovernance {
-        executor: Arc::new(GitBashShellExecutor {
-            provider: provider.clone(),
-        }),
+    Some(ShellGovernance {
+        executor: Arc::new(GitBashShellExecutor { provider }),
         allowed_commands: config.allowed_commands,
-    })))
+    })
 }
 
 #[cfg(test)]
@@ -242,25 +251,24 @@ mod tests {
         }
     }
 
-    /// 配置存在但 bash 不可用（git_path 指向不存在路径 → 探测失败）：
-    /// 返回 `Ok(None)`——双条件缺一不注册（FR-704）。
+    /// 双条件装配判定的确定性矩阵（FR-704／ADR-070 决策 3）：配置缺失或 bash
+    /// 不可用皆不注册；两条件齐备才构造治理束。经纯函数 `governance_from` 测试
+    /// ——"探测失败"依赖机器状态（`locate_bash` 会回退到已知安装目录），不可
+    /// 在任意机器上确定性构造，runner 实测（run 43553353128）伪前提即红。
     #[test]
-    fn unavailable_bash_means_no_governance() {
-        let ws = workspace("no-bash");
-        std::fs::write(ws.join(CONFIG_PATH), r#"{"allowed_commands": ["git"]}"#).expect("写配置");
-        let mut provider = GitBashProvider::default();
-        provider.git_path = Some("Z:/definitely/not/git.exe".to_string());
-        assert!(
-            !provider.is_available(),
-            "bogus git_path 必须探测失败（本用例前提）"
-        );
-        assert!(
-            build_governance_with(&ws, &provider)
-                .expect("构造")
-                .is_none(),
-            "bash 不可用不得注册 shell 工具"
-        );
-        let _ = std::fs::remove_dir_all(&ws);
+    fn governance_dual_condition_matrix() {
+        let config = ShellConfig {
+            allowed_commands: vec!["git".to_string()],
+        };
+        // 配置缺失：无论探测结果如何都不注册。
+        assert!(governance_from(None, true, GitBashProvider::default()).is_none());
+        assert!(governance_from(None, false, GitBashProvider::default()).is_none());
+        // bash 不可用：不注册。
+        assert!(governance_from(Some(config.clone()), false, GitBashProvider::default()).is_none());
+        // 双条件齐备：构造治理束且白名单就位（不触发子进程探测）。
+        let governance = governance_from(Some(config), true, GitBashProvider::default())
+            .expect("双条件齐备必须就绪");
+        assert_eq!(governance.allowed_commands, vec!["git".to_string()]);
     }
 
     /// 配置存在＋bash 可用（git_path 缺省，按前提不满足显式跳过）：
