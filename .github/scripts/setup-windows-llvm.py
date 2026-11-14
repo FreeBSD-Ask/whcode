@@ -15,8 +15,11 @@ llvm-mingw 提供 clang 驱动、mingw-w64 UCRT 头、自包含 CRT 与全部导
   - 不做静默回退：驱动缺文件、工具链装不上都显式失败。
 
 用法：
-    python .github/scripts/setup-windows-llvm.py            # CI：写 GITHUB_PATH／GITHUB_ENV
+    python .github/scripts/setup-windows-llvm.py            # amd64：CI 写 GITHUB_PATH／GITHUB_ENV
     python .github/scripts/setup-windows-llvm.py --print-env # 本地：打印需要导出的环境变量
+    python .github/scripts/setup-windows-llvm.py \\
+        --rustup-toolchain 1.100.0-aarch64-pc-windows-msvc \\
+        --rustup-target aarch64-pc-windows-gnullvm          # ARM64：宿主机 msvc ＋ gnullvm 目标（ADR-074）
 
 在 GitHub Actions 中，PATH 与 RUSTUP_TOOLCHAIN 通过 `$GITHUB_PATH`／`$GITHUB_ENV` 传给
 后续步骤；本地运行时脚本无法修改父 shell 环境，故只打印可复制的命令。
@@ -161,8 +164,13 @@ def install_toolchain_dir(archive: pathlib.Path) -> pathlib.Path:
     return bin_dir
 
 
-def ensure_rustup_toolchain() -> None:
-    """确认 rustup 工具链存在；缺失则安装（含 rustfmt/clippy，门禁依赖）。"""
+def ensure_rustup_toolchain(toolchain: str) -> None:
+    """确认 rustup 工具链存在；缺失则安装（含 rustfmt/clippy，门禁依赖）。
+
+    不传 `--no-self-update`：安装被中断时它会留下没有 update-hash 的半装工具链，之后每次
+    `rustc` 调用都重复“syncing channel updates → downloading components”（本机实测，
+    ADR-073 尖峰期踩过）。宁可多花一次自更新检查。
+    """
     rustup = shutil.which("rustup") or shutil.which("rustup.exe")
     if rustup is None:
         raise RuntimeError("未找到 rustup：gnullvm 工具链需由 rustup 安装（ADR-073）")
@@ -174,28 +182,43 @@ def ensure_rustup_toolchain() -> None:
         errors="replace",
         check=False,
     )
-    if RUSTUP_TOOLCHAIN in listed.stdout:
-        print(f"复用已有 rustup 工具链 {RUSTUP_TOOLCHAIN}")
+    if toolchain in listed.stdout:
+        print(f"复用已有 rustup 工具链 {toolchain}")
         return
-    print(f"安装 rustup 工具链 {RUSTUP_TOOLCHAIN}")
+    print(f"安装 rustup 工具链 {toolchain}")
     install = subprocess.run(
         [
             rustup,
             "toolchain",
             "install",
-            RUSTUP_TOOLCHAIN,
+            toolchain,
             "--profile",
             "minimal",
             "--component",
             "rustfmt",
             "--component",
             "clippy",
-            "--no-self-update",
         ],
         check=False,
     )
     if install.returncode != 0:
-        raise RuntimeError(f"rustup 安装 {RUSTUP_TOOLCHAIN} 失败（退出码 {install.returncode}）")
+        raise RuntimeError(f"rustup 安装 {toolchain} 失败（退出码 {install.returncode}）")
+
+
+def ensure_target(toolchain: str, target: str | None) -> None:
+    """为目标三元组补装 std（ARM64 交叉用：宿主机是 msvc，目标是 gnullvm，ADR-074）。"""
+    if target is None:
+        return
+    rustup = shutil.which("rustup") or shutil.which("rustup.exe")
+    if rustup is None:
+        raise RuntimeError("未找到 rustup：目标 std 需由 rustup 安装（ADR-074）")
+    add = subprocess.run(
+        [rustup, "target", "add", target, "--toolchain", toolchain],
+        check=False,
+    )
+    if add.returncode != 0:
+        raise RuntimeError(f"rustup target add {target}（工具链 {toolchain}）失败（退出码 {add.returncode}）")
+    print(f"目标 std 就位：{target}（工具链 {toolchain}）")
 
 
 def append_env_file(name: str, value: str) -> bool:
@@ -209,7 +232,7 @@ def append_env_file(name: str, value: str) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="安装 Windows LLVM 系列构建工具链（ADR-073）")
+    parser = argparse.ArgumentParser(description="安装 Windows LLVM 系列构建工具链（ADR-073／ADR-074）")
     parser.add_argument(
         "--mirror",
         default=os.environ.get("WHCODE_GH_MIRROR"),
@@ -220,30 +243,47 @@ def main() -> int:
         action="store_true",
         help="只打印需要导出的环境变量（本地 shell 用），不改 Actions 环境文件",
     )
+    parser.add_argument(
+        "--rustup-toolchain",
+        default=RUSTUP_TOOLCHAIN,
+        help=(
+            "要安装并钉住的 rustup 工具链。amd64 用默认的 x86_64 gnullvm 主机工具链；"
+            "ARM64 交叉时传 1.100.0-aarch64-pc-windows-msvc（ADR-074）"
+        ),
+    )
+    parser.add_argument(
+        "--rustup-target",
+        default=None,
+        help="额外补装的 std 目标三元组（ARM64 交叉：aarch64-pc-windows-gnullvm）",
+    )
     args = parser.parse_args()
 
     if platform.system() != "Windows":
-        return fail(f"本脚本只为 Windows amd64 验收目标准备工具链，当前为 {platform.platform()}（ADR-013）")
+        return fail(f"本脚本只为 Windows 平台准备工具链，当前为 {platform.platform()}（ADR-013）")
 
+    toolchain = args.rustup_toolchain
     try:
         archive = ensure_archive(args.mirror)
         bin_dir = install_toolchain_dir(archive)
-        ensure_rustup_toolchain()
+        ensure_rustup_toolchain(toolchain)
+        ensure_target(toolchain, args.rustup_target)
     except RuntimeError as err:
         return fail(str(err))
 
     print(f"llvm-mingw bin: {bin_dir}")
-    print(f"rustup 工具链: {RUSTUP_TOOLCHAIN}")
+    print(f"rustup 工具链: {toolchain}")
+    if args.rustup_target:
+        print(f"std 目标: {args.rustup_target}")
 
     if args.print_env:
         print("")
         print("# 复制到当前 shell（PowerShell）：")
         print(f'$env:Path = "{bin_dir};$env:Path"')
-        print(f'$env:RUSTUP_TOOLCHAIN = "{RUSTUP_TOOLCHAIN}"')
+        print(f'$env:RUSTUP_TOOLCHAIN = "{toolchain}"')
         return 0
 
     wrote_path = append_env_file("GITHUB_PATH", str(bin_dir))
-    wrote_env = append_env_file("GITHUB_ENV", f"RUSTUP_TOOLCHAIN={RUSTUP_TOOLCHAIN}")
+    wrote_env = append_env_file("GITHUB_ENV", f"RUSTUP_TOOLCHAIN={toolchain}")
     if not (wrote_path and wrote_env):
         print("")
         print("不在 GitHub Actions 中：本进程无法修改父 shell 环境，请用 --print-env 取导出命令。")

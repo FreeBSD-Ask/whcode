@@ -13,9 +13,11 @@
 #     打包与安装验证在原生 ARM64 runner 上取得真实运行证据，结论不进验收（验收仍为
 #     Windows 11 amd64，ADR-013）。
 #
-# amd64 两条 lane 的目标三元组为 `x86_64-pc-windows-gnullvm`（ADR-073，2026-11-14）：先用
-# `setup-windows-llvm.py` 装 llvm-mingw（固定版本＋SHA256）与 rustup gnullvm 工具链，后续
-# cargo 步骤才会产出 gnullvm 二进制。arm64 lane 不装该工具链，仍用 msvc 主机构建。
+# 三条 lane 的目标三元组均为 gnullvm：amd64 用 `x86_64-pc-windows-gnullvm`（ADR-073，
+# 2026-11-14），arm64 用 `aarch64-pc-windows-gnullvm`（ADR-074，2026-11-15，交叉构建）。
+# 三条 lane 都先用 `setup-windows-llvm.py` 装 llvm-mingw（固定版本＋SHA256）；amd64 装的是
+# x86_64 gnullvm 宿主工具链，arm64 装 msvc 宿主＋gnullvm 目标 std（rustup 无 aarch64 gnullvm
+# 宿主工具链），C 编译器取 llvm-mingw 包内的 aarch64-w64-mingw32-clang。
 #
 # 权限：顶层只读；仅 tag 发布 job 提升为 contents: write，且只用 GITHUB_TOKEN，
 # 不引入其他凭据（最小权限，AGENTS.md §1.1）。
@@ -56,16 +58,26 @@ jobs:
             os: windows-latest
           - profile: release
             arch: arm64
-            target: aarch64-pc-windows-msvc
+            target: aarch64-pc-windows-gnullvm
             os: windows-11-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # ADR-073：amd64 发布链走 gnullvm（llvm-mingw ＋ rustup gnullvm 主机工具链）。
-      # arm64 lane 仍在原生 windows-11-arm runner 上用 msvc 主机构建（ADR-043），故不加此步。
       - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
         if: matrix.arch == 'amd64'
         run: python .github/scripts/setup-windows-llvm.py
+
+      # ADR-074：ARM64 交付链同样走 gnullvm，但为交叉——主机是 aarch64-pc-windows-msvc
+      # （rustup 无 aarch64 gnullvm 宿主工具链），目标 aarch64-pc-windows-gnullvm；
+      # llvm-mingw 的 aarch64-w64-mingw32-clang 在 ARM64 runner 上以 x64 模拟运行，
+      # 产物为原生 ARM64，安装验证（--verify）仍在同一 runner 上真跑。
+      - name: 安装 LLVM 系列 Windows 工具链（ARM64：msvc 主机＋gnullvm 目标，ADR-074）
+        if: matrix.arch == 'arm64'
+        run: |
+          python .github/scripts/setup-windows-llvm.py `
+            --rustup-toolchain 1.100.0-aarch64-pc-windows-msvc `
+            --rustup-target aarch64-pc-windows-gnullvm
 
       # 确定性构建基准（ADR-047）：用 HEAD 提交时间导出 SOURCE_DATE_EPOCH（打包基准）
       # 与 WHCODE_BUILD_STAMP（版本戳，UTC `Z` 形式），使同一提交的全新构建与打包
@@ -106,17 +118,16 @@ jobs:
         if: matrix.profile == 'release' && matrix.arch == 'amd64'
         run: cargo build --release --locked -p whcode-bin
 
-      # 原生宿主构建（windows-11-arm runner 上不传 --target）：产物落 target/release/，
-      # 与 package-windows.py 的 binary_path（target==host 时取 target/release/）一致，
-      # 避免交叉路径（target/<三元组>/release/）与宿主路径两套布局打架。链接需要 arm64 载荷，
-      # 故显式导出 DUCKDB_LIB_DIR 覆盖 .cargo/config.toml 的 amd64 默认值（[env] 不覆盖
-      # 已存在的 OS 环境变量）。交叉 --target 构建只用于 platform-verification.yml 的代码级 cargo check，
-      # 不作发布产物（ADR-043）。
-      - name: 发布构建（arm64，windows-11-arm 原生 runner，ADR-043）
+      # ARM64 的发布构建是**交叉**（ADR-074）：主机 aarch64-pc-windows-msvc，目标
+      # aarch64-pc-windows-gnullvm，产物落 `target/aarch64-pc-windows-gnullvm/release/`，
+      # 与 package-windows.py 的 binary_path（target≠host 时取 target/<三元组>/release/）一致。
+      # 链接用 arm64 载荷：必须导出**绝对** DUCKDB_LIB_DIR（ADR-069 修订：相对值会绕过 cargo
+      # [env] 的 relative=true 绝对化，测试/运行期按错误 cwd 解析）。
+      - name: 发布构建（arm64，gnullvm 交叉，ADR-074）
         if: matrix.profile == 'release' && matrix.arch == 'arm64'
         env:
-          DUCKDB_LIB_DIR: vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
-        run: cargo build --release --locked -p whcode-bin
+          DUCKDB_LIB_DIR: ${{ github.workspace }}/vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
+        run: cargo build --release --locked -p whcode-bin --target aarch64-pc-windows-gnullvm
 
       # 解包到仓库外临时目录运行，避免仓库内 vendor/duckdb 与 target/ 污染 DLL 搜索路径。
       # --verify 仅在宿主架构与目标一致时由脚本放行：amd64 lane 宿主构建可验；

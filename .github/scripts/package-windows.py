@@ -49,6 +49,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 SUPPORTED_TARGETS: dict[str, str] = {
     "x86_64-pc-windows-gnullvm": "amd64",
     "x86_64-pc-windows-msvc": "amd64",
+    "aarch64-pc-windows-gnullvm": "arm64",
     "aarch64-pc-windows-msvc": "arm64",
 }
 
@@ -241,8 +242,14 @@ def collect_binaries(target: str) -> dict[str, pathlib.Path]:
 
 
 def can_execute_locally(target: str) -> bool:
-    """宿主能否直接运行该目标的二进制（决定 --version 戳记与 --verify 是否可用）。"""
-    return target == host_triple()
+    """宿主能否直接运行该目标的二进制（决定 --version 戳记与 --verify 是否可用）。
+
+    按**架构**比较而非三元组相等（ADR-074）：ARM64 交付包由 aarch64-msvc 主机交叉构建出
+    aarch64-gnullvm 目标，产物是原生 ARM64，可在同一 runner 上直接运行；拿三元组比较会
+    把这种本可验证的组合误判成“交叉不可验”。
+    """
+    host = host_triple()
+    return host is not None and SUPPORTED_TARGETS.get(target) == SUPPORTED_TARGETS.get(host)
 
 
 def build_package(out_dir: pathlib.Path, target: str) -> tuple[pathlib.Path, list[dict[str, object]]]:

@@ -129,6 +129,11 @@
   x86_64-pc-windows-gnullvm` 无输出，或 `python .github/scripts/setup-windows-llvm.py` 的
   SHA256 校验失败且上游版本表不再含 20261104 时，复审本修订。
 
+- **2026-11-15（ADR-074）**：ARM64 交付目标的三元组同步换为 `aarch64-pc-windows-gnullvm`
+  （交叉构建，主机 aarch64-msvc）。与 2026-10-28 的 ADR-043 修订相比，平台范围与证据身份
+  不变（构建交付目标、不进入验收），变的只是工具链落点。**代价与承担者**：aarch64 编译器
+  以 x64 模拟运行，构建期多一层模拟依赖；由平台矩阵负责人承担，复审触发见 ADR-074 §5。
+
 ## 影响
 
 - `spec.md`：User Story 1（M0）的目标平台、独立测试与验收场景改为“Windows 11 amd64 单一目标”；BSD 相关能力（FR-607/FR-611、V-004）标注**延后**，不删需求。

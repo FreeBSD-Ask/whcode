@@ -47,8 +47,24 @@
 | `43615687323` | `c9b2755` | platform-windows-arm64 | success（msvc 通道，ADR-043） |
 | `43614186664` | `ae23ce5` | platform-windows | failure：ARM64 交叉检查步被 cc-rs 选中 llvm-mingw 的 clang 去编 msvc 目标（`assert.h` 缺失）；`c9b2755` 在该步按 run 摘除 llvm-mingw 后复绿 |
 
-## 未取得（显式缺口）
+## 发布包结论（2026-11-15 回填，build-release run `43623479584`，提交 `6202e54`）
 
-- gnullvm 的**发布包**（build-release 的 amd64 两条 lane）：只在 tag 或手动 dispatch 时运行，
-  本批未触发。本机的 `package-windows.py --verify` 已通过（记录在
-  `artifacts/install-verify-windows-amd64.txt`），但按 ADR-037 不作为 CI 交付结论。
+手动 dispatch 触发，三条 lane 全 success：
+
+| lane | 结论 | 证据 |
+|---|---|---|
+| package-amd64-debug | success | `deps-windows` artifact（依赖记录） |
+| package-amd64-release | success | `whcode-0.1.0-windows-amd64.zip` 33 078 843 字节，sha256 `c4e73a775db9e4caa2dfa2923d745cdca89956a6d5207b45cbf6efeeb7d96811`；安装验证记录 `target_triple = x86_64-pc-windows-gnullvm`（已归档 `artifacts/install-verify-windows-amd64.txt`） |
+| package-arm64-release | success | 该轮 ARM64 仍为 msvc 通道：`whcode-0.1.0-windows-arm64.zip` sha256 `ff22ac499fad20e77458cc677c4310ababc4d9dd4bcc8bba3bd88c6190a22862`；gnullvm 交叉通道见 ADR-074 批次 |
+
+即：**gnullvm 的 amd64 发布包已在 CI 出包并完成安装验证**。ARM64 的 gnullvm 包需在 ADR-074
+批次推送后再触发一次 dispatch 取得（显式缺口，不以前一轮 msvc 结果冒充）。
+
+## ARM64 交叉尖峰（2026-11-15，本机 x64 宿主）
+
+| 命令 | 结果 |
+|---|---|
+| `rustup target add aarch64-pc-windows-gnullvm` | ok（std 组件） |
+| `cargo build -p whcode-bin --target aarch64-pc-windows-gnullvm`（`DUCKDB_LIB_DIR` 指 arm64 载荷） | EXIT=0（2 分 29 秒） |
+| `llvm-readobj --file-headers` | `Machine: IMAGE_FILE_MACHINE_ARM64 (0xAA64)` |
+| `llvm-readobj --coff-imports` | 无 vcruntime／msvcp；`duckdb.dll`（arm64，56 043 304 字节）随构建就位 |

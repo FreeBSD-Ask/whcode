@@ -13,6 +13,25 @@
 
 ### 变更
 
+- **ARM64 交付目标切 gnullvm（T308—T310，ADR-074，2026-11-15）**：ARM64 交付链由
+  `aarch64-pc-windows-msvc` 改为 `aarch64-pc-windows-gnullvm`，三条 Windows lane 的工具链
+  至此全部落在 LLVM 系列。与 amd64 的差别是**交叉**：rustup 没有 aarch64 的 gnullvm 宿主
+  工具链，故 `windows-11-arm` runner 主机保持 aarch64-msvc，目标是 gnullvm，C 编译器用
+  llvm-mingw 的 `aarch64-w64-mingw32-clang`（x64 程序、以 x64 模拟运行；产物是原生 ARM64，
+  测试与安装验证仍在原生 runner 上真跑）。`setup-windows-llvm.py` 增
+  `--rustup-toolchain`／`--rustup-target` 并去掉 `--no-self-update`（半装工具链会陷入反复
+  同步）；`package-windows.py` 的 `--verify` 改为按架构放行。本机交叉尖峰：构建 EXIT=0、
+  `IMAGE_FILE_MACHINE_ARM64`、无 vcruntime 导入。详见 `docs/adr/ADR-074-arm64-gnullvm-cross.md`；
+  CI 结论待本轮推送后回填（ADR-037）。
+- **gnullvm 首个发布包（2026-11-15，run `43623479584`）**：手动触发 build-release，三条 lane
+  全 success——amd64 包的安装验证记录 `target_triple = x86_64-pc-windows-gnullvm`、包
+  `whcode-0.1.0-windows-amd64.zip`（33 078 843 字节，sha256 `c4e73a77…6811`）；arm64 包该轮
+  仍为 msvc 通道（`ff22ac49…2862`），gnullvm 交叉通道见 ADR-074 批次的回填。
+- **依赖安全修复（2026-11-15）**：`russh` 0.65.0 → 0.65.1，修两条 low GHSA
+  （GHSA-736f-c93q-9fwx：`try_sign` 在 await 后未复验 agent 锁；GHSA-9264-jvgf-6w2f：
+  `kex_done` 的共享密钥回调早于服务端 host-key 验证）。用户批准升级；构建、clippy 与
+  whcode-ssh 47 项测试全绿。
+
 - **Windows 验收目标迁移到 gnullvm（T301—T306，ADR-073，2026-11-14 用户指令）**：
   验收目标三元组由 `x86_64-pc-windows-msvc` 改为 `x86_64-pc-windows-gnullvm`——Windows
   全链路的 rustc 目标、C 依赖编译器与链接器都换到 LLVM 系列（rustc gnullvm ＋ llvm-mingw

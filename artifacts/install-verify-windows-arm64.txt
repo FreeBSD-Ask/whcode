@@ -1,0 +1,62 @@
+WHCode Windows arm64 发布包安装验证记录（tasks.md T118／Check 118；ADR-043 口径见 platform_scope）
+utc = 2026-11-14T17:59:33Z
+package = whcode-0.1.0-windows-arm64.zip（30697359 字节，sha256=ff22ac499fad20e77458cc677c4310ababc4d9dd4bcc8bba3bd88c6190a22862）
+target_triple = aarch64-pc-windows-msvc
+os = Windows-11-10.0.26200-SP0
+machine = ARM64
+python = 3.13.17
+source_date_epoch = 1794678535
+
+验证方式：解包到仓库外临时目录，并把 cwd 切到解包目录后运行；
+临时目录在记录生成后删除（不留本地状态）。
+
+包内清单：
+  whcode.exe  24794624  6cf11097ad02aa481706a3d768ddcb25535111573baf675f9c2a99549ac41156
+  duckdb.dll  56043304  2046e745df3524dbba6dd97a86c29c81a9e474e422edb51f8d7e9a44b72f8097
+  README.md  5783  7d3be76cb5356d8b9aaba088cbe37f88de258b0248a527522e32b0f12a356e4c
+  LICENSE  1336  df3f10de1babaf5f5a863b9f963c0f9691c970bbb0d3a36e81eef3608633b929
+  CHANGELOG.md  159281  e59ccd0e5148602973d758e92718189f79322000fadd8b657d25225c4aa0d1e8
+  compatibility.md  9558  cb25afe94ba199860f419934c169cffb42403a5b4937b26cf8facccbcd58cd5b
+  platform-matrix.md  17062  ee5d70f629a97da3d584cdf8758b599476eb3493b9b47559ba00d1a51d72f303
+  assets/fonts/SOURCES.md  2087  87ce82a27b416e31460d6c0f5e5a03d377da93e7a5b73b5ad6179776a1c95f75
+  assets/fonts/Inter-LICENSE.txt  4380  262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a
+  assets/fonts/NotoSansCJKsc-LICENSE.txt  4301  6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2
+  assets/fonts/JetBrainsMono-OFL.txt  4399  a76abf002c49097d146e86740a3105a5d00450b1592e820a1109a8c5680cd697
+  assets/fonts/SarasaMonoSC-LICENSE.txt  4702  32c932e0dbae4f6e6386964bbc2d04178707665a05ca65cf636241af13d50a53
+  PACKAGE-INFO.txt  2722  77d069bfc22239eb5ff56f47f234565b963254c6ee71475a12a5dd4640503513
+
+命令与结果：
+  argv = C:\Users\RUNNER~1\AppData\Local\Temp\whcode-install-check-wkngjdpl\whcode-0.1.0-windows-arm64\whcode.exe --version
+  exit_code = 0  elapsed_ms = 497  assertion = 通过
+  stdout（前 600 字符）= whcode 2026-11-14T17:48Z
+  stderr = 空
+
+  argv = C:\Users\RUNNER~1\AppData\Local\Temp\whcode-install-check-wkngjdpl\whcode-0.1.0-windows-arm64\whcode.exe doctor --json
+  exit_code = 0  elapsed_ms = 290  assertion = 通过（DuckDB 引擎版本来自运行期实测）
+  stdout（前 600 字符）= {"doctor":{"approval":{"default_read_only":"allow","default_workspace_write":"allow","tools":{},"wait_ms":120000},"checkpoint":{"before_dangerous":true,"every_steps":0,"interval_seconds":300,"retain":10},"db":{"max_memory_limit_mb":384,"memory_limit_mb":192,"temp_directory":"C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\whcode-install-check-wkngjdpl\\whcode-0.1.0-windows-arm64\\tmp","threads":4},"trace":{"default_level":"redacted"},"ui":{"locale":null,"theme":"zcode-night"},"workspace_path":"C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\whcode-install-check-wkngjdpl\\whcode-0.1.0-windows-arm64"},"du
+  stderr（前 400 字符）= [INFO] doctor 完成（api_key=[REDACTED] 已在日志路径脱敏）
+[WARN] max_temp_directory_size 未设置：临时目录空间无显式上限（§5.4 建议显式配置）
+
+  argv = C:\Users\RUNNER~1\AppData\Local\Temp\whcode-install-check-wkngjdpl\whcode-0.1.0-windows-arm64\whcode.exe --workspace C:\Users\RUNNER~1\AppData\Local\Temp\whcode-install-check-wkngjdpl\workspace db stats --json
+  exit_code = 0  elapsed_ms = 300  assertion = 通过（库文件 798720 字节）
+  stdout（前 600 字符）= {
+  "schema_version": 1,
+  "data": {
+    "blocks_consistent": true,
+    "database_name": "whcode",
+    "database_size": "0 bytes",
+    "engine_version": "v2.0.0",
+    "file_size_bytes": 12288,
+    "free_blocks": 0,
+    "schema_version": 11,
+    "total_blocks": 0,
+    "used_blocks": 0,
+    "wal_size_bytes": 25154,
+    "wal_status": {
+      "wal_autocheckpoint": "16.0 MiB",
+      "wal_size": "24.5 KiB"
+    }
+  }
+}
+  stderr = 空
+

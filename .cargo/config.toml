@@ -47,3 +47,11 @@ rustflags = ["-C", "link-arg=/Brepro"]
 # （ADR-073 §3）。给 lld 传 link.exe 的旗标反而是未经验证的假设。
 [target.x86_64-pc-windows-gnullvm]
 linker = "x86_64-w64-mingw32-clang"
+
+# ARM64 交付目标（ADR-074，2026-11-15）：同样切 gnullvm，但与 amd64 的差别是**交叉**——
+# rustup 只为 gnullvm 提供 x86_64 宿主工具链，`windows-11-arm` runner 的主机仍是
+# aarch64-pc-windows-msvc，故目标是 `--target aarch64-pc-windows-gnullvm`，C 编译器用
+# llvm-mingw 包内的 `aarch64-w64-mingw32-clang`（该可执行文件是 x64 程序，在 ARM64 runner
+# 上以 Windows x64 模拟运行；产物本身是原生 ARM64，运行证据仍为原生）。
+[target.aarch64-pc-windows-gnullvm]
+linker = "aarch64-w64-mingw32-clang"

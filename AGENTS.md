@@ -16,7 +16,8 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 - 唯一验收目标：**Windows 11 amd64**，目标三元组 `x86_64-pc-windows-gnullvm`（ADR-073，2026-11-14 用户指令
   “仓库目标也换 gnullvm”；旧 `x86_64-pc-windows-msvc` 保留为回退通道）。gnullvm 的 ABI 前缀虽为 GCC 兼容，
   工具链本身是 LLVM 系列（rustc ＋ llvm-mingw 的 clang／lld），**不属于 GNU 工具链**；
-- **Windows ARM64 为构建交付目标**（`aarch64-pc-windows-msvc`，ADR-043）：产出 arm64 发布包，
+- **Windows ARM64 为构建交付目标**（`aarch64-pc-windows-gnullvm`，ADR-043／ADR-074：交叉构建，
+  主机 aarch64-msvc ＋ 目标 gnullvm）：产出 arm64 发布包，
   CI `windows-arm64`（原生 `windows-11-arm` runner）结果只作平台证据，**不进入验收**；
 - **不支持任何 32 位平台**；
 - **FreeBSD 为完整平台证据通道（硬门禁）**（2026-10-31 用户指令，ADR-013 修订）：platform-verification.yml 的
@@ -112,7 +113,7 @@ $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 
 ```powershell
 python .github/scripts/setup-windows-llvm.py                  # Windows 首次前置：装 llvm-mingw（固定版本＋SHA256）与 rustup gnullvm 工具链（ADR-073）；`--print-env` 打印需导出的 PATH／RUSTUP_TOOLCHAIN
-python .github/scripts/fetch-duckdb.py                        # 首次构建前置：拉取并校验 DuckDB（交叉／ARM64 载荷：--target aarch64-pc-windows-msvc，ADR-043）
+python .github/scripts/fetch-duckdb.py                        # 首次构建前置：拉取并校验 DuckDB（交叉／ARM64 载荷：--target aarch64-pc-windows-msvc，ADR-043；构建目标已为 gnullvm，载荷仍取 msvc 包）
 cargo build --locked --workspace
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
@@ -123,7 +124,7 @@ python .github/scripts/clean.py --scope all                   # 构建物/缓存
 python .github/scripts/traceability.py                        # FR↔任务↔Check 三方追溯（含缺口登记合规）
 python .github/scripts/check_counts.py                        # 任务/Check/FR 计数声明与实际一致
 python .github/scripts/check-knowing-first.py     # 知难行易落点门禁（宪法原则 X）
-python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑；--target aarch64-pc-windows-msvc 只打包，ARM64 安装验证由 CI 原生 runner 执行，ADR-043）
+python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑；--target aarch64-pc-windows-gnullvm 只打包，ARM64 安装验证由 CI 原生 runner 执行，ADR-074）
 python .github/scripts/check-eol.py                   # LF + 无 BOM 审计
 python .github/scripts/check-docs-style.py            # 文档文风验收（禁用词/表情符号/直引号/套话）
 python .github/scripts/i18n-po.py --check             # i18n PO 源文件与内建目录同步

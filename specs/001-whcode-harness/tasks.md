@@ -2190,3 +2190,26 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   逐条落账；判据＝run 号＋job 名＋结论与失败步骤原文可定位；非目标＝不因本地已绿而
   预先勾选，也不把 msvc 通道旧结论移作 gnullvm 证据。
   ——**取证（2026-11-15，run `43615687323`，提交 `c9b2755`）**：platform-windows success（62 步零失败：安装 llvm-mingw＋gnullvm 主机、fmt、clippy、全量测试、SSH 回环、TLS、Web、计数与追溯门禁全部通过）、measurements success（17 步）、platform-windows-arm64 success（msvc 通道，ADR-043）。首跑 run `43614186664` 的 ARM64 交叉检查红已由 `c9b2755` 修复：cc-rs 会把 PATH 上 llvm-mingw 的 clang 选去编 msvc 目标，该步现按 run 摘除 llvm-mingw。build-release 的 gnullvm 包由 tag／手动触发产生，本轮未取（显式缺口）。
+
+## Tasks（2026-11-15 追加）：ARM64 交付目标切 gnullvm（ADR-074，交叉构建）
+
+- [x] T308 ARM64 gnullvm 决策与交叉尖峰（ADR-074）：`docs/adr/ADR-074-arm64-gnullvm-cross.md`；
+  本地 `cargo build -p whcode-bin --target aarch64-pc-windows-gnullvm` EXIT=0，
+  `llvm-readobj` 报 `IMAGE_FILE_MACHINE_ARM64`、无 vcruntime 导入，arm64 `duckdb.dll` 就位
+  ——**任务认知卡**：方向＝ADR-073 留下的显式缺口（AMD64 已 LLVM、ARM64 仍 MSVC）；目标＝
+  三条 Windows lane 工具链统一且 ARM64 运行证据仍为原生；判据＝交叉构建成功＋机器类型＋
+  导入表＋CI 原生运行；非目标＝不改 ADR-043 的平台定位（仍为交付目标、不进验收）、不改
+  DuckDB 载荷来源。
+- [x] T309 [P] 配置与脚本扩展（ADR-074）：`.cargo/config.toml` 增
+  `[target.aarch64-pc-windows-gnullvm] linker = "aarch64-w64-mingw32-clang"`；
+  `setup-windows-llvm.py` 增 `--rustup-toolchain`／`--rustup-target` 并去掉
+  `--no-self-update`（半装工具链会陷入反复同步，ADR-073 尖峰踩过）；`package-windows.py`
+  增 arm64 gnullvm 目标，`can_execute_locally` 改按架构标签比较（交叉产物在同架构宿主上可验）。
+- [x] T310 CI 通道切换与结论回填（ADR-074）：`platform-verification.yml` 的 windows-arm64
+  lane 装工具链并给测试／SSH 回环／feature 门控加 `--target aarch64-pc-windows-gnullvm`；
+  `build-release.yml` arm64 lane 的 matrix target 改 gnullvm、发布构建带 `--target`、
+  `DUCKDB_LIB_DIR` 用绝对路径
+  ——**任务认知卡**：方向＝交付链与验证链必须同一条工具链，否则包与测试描述的产物不同；
+  目标＝arm64 lane 以 gnullvm 构建并在原生 runner 跑测试与安装验证；判据＝CI 两个工作流
+  的 arm64 作业 success 且日志出现 `target/aarch64-pc-windows-gnullvm`；非目标＝不在本批
+  改 ARM64 的平台定位或增加新的证据层级。

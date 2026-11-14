@@ -276,6 +276,18 @@ jobs:
       # ---------------- Windows ARM64（windows-11-arm 原生；ADR-043 平台证据层） ----------------
       # 结论只作平台证据，不进验收（ADR-013：验收仅 Windows 11 amd64）；本 lane 不重复
       # 架构无关门禁（fmt／clippy／EOL／计数／追溯已在 x64 lane 执行）。
+      #
+      # ADR-074（2026-11-15）：ARM64 交付目标也切 gnullvm。与 amd64 的差别是**交叉**——
+      # rustup 只发 x86_64 的 gnullvm 宿主工具链，故本 lane 主机仍是 aarch64-pc-windows-msvc，
+      # 目标是 aarch64-pc-windows-gnullvm；llvm-mingw 包内的 aarch64-w64-mingw32-clang 是 x64
+      # 程序，在 ARM64 runner 上以 Windows x64 模拟运行，产物仍是原生 ARM64，运行证据为原生。
+      - name: 安装 LLVM 系列 Windows 工具链（ARM64：msvc 主机＋gnullvm 目标，ADR-074）
+        if: matrix.platform == 'windows-arm64'
+        run: |
+          python .github/scripts/setup-windows-llvm.py `
+            --rustup-toolchain 1.100.0-aarch64-pc-windows-msvc `
+            --rustup-target aarch64-pc-windows-gnullvm
+
       - name: 显示锁定工具链（rust-toolchain.toml）
         if: matrix.platform == 'windows-arm64'
         run: rustup show
@@ -284,14 +296,14 @@ jobs:
         if: matrix.platform == 'windows-arm64'
         run: python .github/scripts/fetch-duckdb.py
 
-      - name: 测试（全量；真实原生运行）
+      - name: 测试（全量；gnullvm 目标，原生 ARM64 运行）
         if: matrix.platform == 'windows-arm64'
         # [env] 表不覆盖已存在的 OS 环境变量：显式导出 arm64 载荷目录，
         # 覆盖 .cargo/config.toml 的 amd64 默认值（ADR-043）。必须绝对路径
         # （ADR-069 修订 2026-11-14）：相对值在测试进程 PATH 注入后按 cwd 解析错位。
         env:
           DUCKDB_LIB_DIR: ${{ github.workspace }}/vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
-        run: cargo test --locked --workspace
+        run: cargo test --locked --workspace --target aarch64-pc-windows-gnullvm
 
       - name: 内置 SSH 回环验收（原生 ARM64 客户端与服务端）
         if: matrix.platform == 'windows-arm64'
@@ -300,7 +312,7 @@ jobs:
           DUCKDB_LIB_DIR: ${{ github.workspace }}/vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
         run: |
           New-Item -ItemType Directory -Force artifacts/ssh-acceptance | Out-Null
-          cargo test --locked -p whcode-ssh -- --nocapture 2>&1 |
+          cargo test --locked -p whcode-ssh --target aarch64-pc-windows-gnullvm -- --nocapture 2>&1 |
             Tee-Object -FilePath artifacts/ssh-acceptance/windows-arm64-client.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $client = Select-String -Path artifacts/ssh-acceptance/windows-arm64-client.txt `
@@ -325,7 +337,7 @@ jobs:
         if: matrix.platform == 'windows-arm64'
         env:
           DUCKDB_LIB_DIR: ${{ github.workspace }}/vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
-        run: cargo test --locked -p whcode-runtime --lib --features runtime-js
+        run: cargo test --locked -p whcode-runtime --lib --features runtime-js --target aarch64-pc-windows-gnullvm
 
       - name: 产出依赖记录（V-001，ARM64 原生 runner）
         if: matrix.platform == 'windows-arm64'

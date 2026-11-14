@@ -102,3 +102,10 @@
   绝对路径）。修复：`build.rs` 把相对 `DUCKDB_LIB_DIR` 按**工作区根**解析（从
   `CARGO_MANIFEST_DIR` 上溯含 `[workspace]` 的 Cargo.toml），与 cargo 的 `relative = true`
   同口径；已本地验证相对路径下 release/debug 均能复制 dll、TUI 冒烟三项通过。
+
+- **2026-11-15（ADR-074）**：ARM64 交付目标的**工具链**由 msvc 换为 gnullvm——目标三元组
+  `aarch64-pc-windows-gnullvm`，交叉构建（主机仍 aarch64-pc-windows-msvc，rustup 无
+  aarch64 gnullvm 宿主工具链），C 编译器取 llvm-mingw 的 `aarch64-w64-mingw32-clang`
+  （x64 程序，在 ARM64 runner 上以 x64 模拟运行）。本 ADR 的平台定位（构建交付目标、
+  不进验收）与 DuckDB 载荷口径（仍取官方 arm64 MSVC 包）不变。失效条件与复审触发见
+  ADR-074 §5。
