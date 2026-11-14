@@ -111,3 +111,26 @@
   sparse 配置原文照录。
 - 兼容性结论（“零编译错误、零告警”）以本机全量构建为准，不以公告为准；测试与平台
   结论以 CI 日志与 artifact 为准（ADR-037），未取得前不写“通过”。
+
+
+## 修订记录（2026-11-14，CI 首轮红的三处归因与修复）
+
+首轮 CI（run `43493963908`，commit `76d249c`）三处红，归因与修复：
+
+1. **platform-windows**：`check-docs-style` 门禁红于本文直引号 10 处——已在 shell 批次
+   （`4d00d86`）修复，属文档纪律，非工具链问题。
+2. **platform-windows-arm64**：whcode-app 单测 `STATUS_DLL_NOT_FOUND`——工作流导出的
+   `DUCKDB_LIB_DIR` 为**相对路径**，绕过 `.cargo/config.toml` 的 `[env] relative = true`
+   绝对化；link-search 注入到测试进程 PATH 后按测试进程 cwd 解析错位（build.rs 文档
+   记录过的同类事故 run 40691533216 复现）。修复：工作流四处导出改 `${{ github.workspace }}`
+   绝对路径。
+3. **measurements**：`whcode.exe db stats` 同错——`build.rs::profile_dirs` 按 cargo ≤1.99
+   的 `build/<pkg>-<hash>/out` 推导，1.100 重组为 `build/<pkg>/<hash>/out`（hash 上移一层，
+   cargo#17287）后返回 `None`，复制被**静默跳过**；此前决策 4 的“实测全量构建无碍”仅对
+   cargo 主流程成立，**对依赖 target 内部布局的 build.rs 与 measurements 是假**——已按
+   0 信任口径修正。修复：`profile_dirs` 双布局兼容（上溯到 `build` 目录）＋复制目的地
+   增加本包 `OUT_DIR`＋复制失败从 `let _ =` 改为**构建期显式 panic**（信号链完备，
+   不再产“错误的空”）。本地复验：三处复制全部落地，store 138／app 247 全绿。
+
+复审触发维持原口径；本轮教训（cargo 1.100 布局 + 相对 env + 静默复制）登记
+`whcode-verification-and-gotchas` 记忆第 63 条。

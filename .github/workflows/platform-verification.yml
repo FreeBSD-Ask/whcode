@@ -102,7 +102,10 @@ jobs:
         run: |
           rustup target add aarch64-pc-windows-msvc
           python .github/scripts/fetch-duckdb.py --target aarch64-pc-windows-msvc
-          $env:DUCKDB_LIB_DIR = "vendor/duckdb/2.0.0/aarch64-pc-windows-msvc"
+          # 绝对路径（ADR-069 修订 2026-11-14）：相对值会绕过 cargo [env] 的
+          # relative=true 绝对化，link-search 注入到测试进程 PATH 后按测试进程
+          # cwd 解析错位——产物缺 dll 运行期才 STATUS_DLL_NOT_FOUND（run 40691533216 同类）。
+          $env:DUCKDB_LIB_DIR = (Join-Path $env:GITHUB_WORKSPACE "vendor/duckdb/2.0.0/aarch64-pc-windows-msvc")
           cargo check --locked --workspace --target aarch64-pc-windows-msvc
 
       - name: 格式与静态检查（T003）
@@ -264,16 +267,17 @@ jobs:
       - name: 测试（全量；真实原生运行）
         if: matrix.platform == 'windows-arm64'
         # [env] 表不覆盖已存在的 OS 环境变量：显式导出 arm64 载荷目录，
-        # 覆盖 .cargo/config.toml 的 amd64 默认值（ADR-043）。
+        # 覆盖 .cargo/config.toml 的 amd64 默认值（ADR-043）。必须绝对路径
+        # （ADR-069 修订 2026-11-14）：相对值在测试进程 PATH 注入后按 cwd 解析错位。
         env:
-          DUCKDB_LIB_DIR: vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
+          DUCKDB_LIB_DIR: ${{ github.workspace }}/vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
         run: cargo test --locked --workspace
 
       - name: 内置 SSH 回环验收（原生 ARM64 客户端与服务端）
         if: matrix.platform == 'windows-arm64'
         shell: pwsh
         env:
-          DUCKDB_LIB_DIR: vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
+          DUCKDB_LIB_DIR: ${{ github.workspace }}/vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
         run: |
           New-Item -ItemType Directory -Force artifacts/ssh-acceptance | Out-Null
           cargo test --locked -p whcode-ssh -- --nocapture 2>&1 |
@@ -300,7 +304,7 @@ jobs:
       - name: 运行时 feature 门控测试（T110／ADR-029：原生 ARM64 引擎路径）
         if: matrix.platform == 'windows-arm64'
         env:
-          DUCKDB_LIB_DIR: vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
+          DUCKDB_LIB_DIR: ${{ github.workspace }}/vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
         run: cargo test --locked -p whcode-runtime --lib --features runtime-js
 
       - name: 产出依赖记录（V-001，ARM64 原生 runner）

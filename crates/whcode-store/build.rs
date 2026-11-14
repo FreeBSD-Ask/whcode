@@ -3,7 +3,9 @@
 //! 背景：`libduckdb-sys`（非 bundled，`DUCKDB_LIB_DIR` 模式）只负责**链接**，
 //! 不会把 `duckdb.dll` 复制到产物目录；而 Windows 的 DLL 搜索路径不含 vendor 目录，
 //! 二进制与测试进程启动时即加载失败。本脚本把 `duckdb.dll` 复制到
-//! `<target>/<profile>/` 与 `<target>/<profile>/deps/`（测试二进制所在目录）。
+//! `<target>/<profile>/`（最终二进制旁）、`<target>/<profile>/deps/`（cargo ≤1.99 的
+//! 测试二进制所在目录）与本包 `OUT_DIR`（cargo 1.100 起单测二进制所在目录，
+//! `build/<pkg>/<hash>/out`，cargo#17287 布局重组——ADR-069 修订 2026-11-14）。
 //!
 //! 纪律：
 //! - **不做平台判定**（NFR-101：平台差异必须集中在 `whcode-platform`）。判据是
@@ -13,8 +15,13 @@
 //!   `libduckdb-sys` 显式报错，不在本脚本吞掉；
 //! - **相对 `DUCKDB_LIB_DIR` 按工作区根解析**：构建脚本的 cwd 是 crate 目录，直接拼相对
 //!   路径会把 `vendor/...` 判成不存在而静默跳过复制；链接期 rustc 的 cwd 却是工作区根，
-//!   于是产物缺 dll 却编译通过、运行期才 `STATUS_DLL_NOT_FOUND`（run 40691533216／40691532314）。
-//!   本解析与 `.cargo/config.toml` 的 `relative = true` 同口径。
+//!   于是产物缺 dll 却编译通过、运行期才 `STATUS_DLL_NOT_FOUND`（run 40691533216／40691532314；
+//!   1.100 的 windows-arm64 通道再次复现——工作流导出的相对 `DUCKDB_LIB_DIR` 绕过了
+//!   `[env] relative = true` 的绝对化，已在工作流侧改为绝对路径）；
+//! - **复制失败显式失败**（ADR-069 修订 2026-11-14，信号链完备）：此前的 `let _ = copy`
+//!   把 ACL/占用等失败吞成“错误的空”——链接照常通过，运行期才以不可归因的
+//!   `STATUS_DLL_NOT_FOUND` 暴露（run 43493963908 的 measurements）。复制失败现在
+//!   直接使构建失败，不得静默。
 
 use std::{
     env,
@@ -35,17 +42,29 @@ fn main() {
         return;
     }
 
-    let Some((profile_dir, deps_dir)) = profile_dirs() else {
+    let Some((profile_dir, deps_dir, out_dir)) = profile_dirs() else {
         return;
     };
-    for dest in [profile_dir.join("duckdb.dll"), deps_dir.join("duckdb.dll")] {
+    for dest in [
+        profile_dir.join("duckdb.dll"),
+        deps_dir.join("duckdb.dll"),
+        out_dir.join("duckdb.dll"),
+    ] {
         if dest == dll {
             continue;
         }
-        if let Some(parent) = dest.parent() {
-            let _ = std::fs::create_dir_all(parent);
-            let _ = std::fs::copy(&dll, &dest);
-        }
+        let parent = dest.parent().unwrap_or_else(|| {
+            panic!("duckdb.dll 目标路径无父目录：{}", dest.display())
+        });
+        std::fs::create_dir_all(parent)
+            .unwrap_or_else(|err| panic!("创建目录 {} 失败：{err}", parent.display()));
+        std::fs::copy(&dll, &dest).unwrap_or_else(|err| {
+            panic!(
+                "复制 duckdb.dll 到 {} 失败：{err}——静默缺 DLL 会在运行期变成\
+                 不可归因的 STATUS_DLL_NOT_FOUND（信号链完备：显式失败）",
+                dest.display()
+            )
+        });
     }
 }
 
@@ -84,19 +103,26 @@ fn workspace_root() -> PathBuf {
     }
 }
 
-/// 从 Cargo 的 `OUT_DIR` 布局推导 `<target>/<profile>/` 与其 `deps/`。
+/// 从 Cargo 的 `OUT_DIR` 布局推导 `<target>/<profile>/`、`deps/` 与本包 `OUT_DIR`。
 ///
-/// Cargo 当前布局：`<target-dir>/[<triple>/]<profile>/build/<pkg>-<hash>/out`。
-/// 这是实现细节，识别失败时返回 `None`（跳过复制，不影响编译）。
-fn profile_dirs() -> Option<(PathBuf, PathBuf)> {
+/// 布局兼容（ADR-069 修订 2026-11-14）：cargo ≤1.99 为
+/// `<target-dir>/[<triple>/]<profile>/build/<pkg>-<hash>/out`，1.100 起中间产物重组为
+/// `.../build/<pkg>/<hash>/out`（hash 上移一层，cargo#17287）。不假设层级数：
+/// 从 `out` 逐级上溯到名为 `build` 的目录（有界 4 级），其父即 profile 根。
+/// 识别失败返回 `None`（跳过复制，不影响编译）。
+fn profile_dirs() -> Option<(PathBuf, PathBuf, PathBuf)> {
     let out_dir = PathBuf::from(env::var("OUT_DIR").ok()?);
     if out_dir.file_name()? != "out" {
         return None;
     }
-    let build_dir = out_dir.parent()?.parent()?;
-    if build_dir.file_name()? != "build" {
-        return None;
+    let mut dir = out_dir.parent()?;
+    for _ in 0..4 {
+        let name = dir.file_name()?;
+        if name == "build" {
+            let profile = dir.parent()?;
+            return Some((profile.to_path_buf(), profile.join("deps"), out_dir));
+        }
+        dir = dir.parent()?;
     }
-    let profile = build_dir.parent()?;
-    Some((profile.to_path_buf(), profile.join("deps")))
+    None
 }

@@ -43,7 +43,12 @@
   CI FreeBSD/NetBSD rustup 默认工具链同步 1.100.0；本机验证链全绿（fmt／clippy
   -D warnings／全量测试／资源铁律 session_switch RSS 98.1 MB 达标），CI 结论待运行回填
   （ADR-037）。覆盖率试点：whcode-app 89.94%（非阻断缺口，本批次未触碰 app 层，待补测）、
-  whcode-store 90.02% 达标。
+  whcode-store 90.02% 达标。**CI 首轮红的三处修复（ADR-069 修订，2026-11-14）**：run `43493963908` 归因——
+  docs 门禁直引号（已随后续批次修复）；windows-arm64 测试 `STATUS_DLL_NOT_FOUND`
+  （工作流相对 `DUCKDB_LIB_DIR` 绕过绝对化，四处改 `${{ github.workspace }}` 绝对路径）；
+  `measurements` 同错（`build.rs::profile_dirs` 按 cargo ≤1.99 布局推导，1.100 重组
+  `build/<pkg>/<hash>/out` 后静默跳过 DLL 复制——双布局兼容＋复制目的地增 `OUT_DIR`＋
+  复制失败显式 panic，`let _ = copy` 的“错误的空”清零）。
 - **回滚双路径（T288／T289，FR-775／FR-776，2026-11-13）**：新增两条互补的回滚通道，
   都不删除事实。**对话剪枝**：`session rewind --session --to-seq`（Web `GET/POST /api/rewind`）
   落 `SessionRewound` 边界事件，目标必须是 `0` 或 `TurnFinished` 的 `seq`（半截 turn 拒绝），
