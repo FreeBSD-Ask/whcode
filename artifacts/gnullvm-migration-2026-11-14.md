@@ -47,18 +47,20 @@
 | `43615687323` | `c9b2755` | platform-windows-arm64 | success（msvc 通道，ADR-043） |
 | `43614186664` | `ae23ce5` | platform-windows | failure：ARM64 交叉检查步被 cc-rs 选中 llvm-mingw 的 clang 去编 msvc 目标（`assert.h` 缺失）；`c9b2755` 在该步按 run 摘除 llvm-mingw 后复绿 |
 
-## 发布包结论（2026-11-15 回填，build-release run `43623479584`，提交 `6202e54`）
+## 发布包结论（2026-11-15，build-release run `43630790885`，提交 `1b588de`）
 
 手动 dispatch 触发，三条 lane 全 success：
 
 | lane | 结论 | 证据 |
 |---|---|---|
 | package-amd64-debug | success | `deps-windows` artifact（依赖记录） |
-| package-amd64-release | success | `whcode-0.1.0-windows-amd64.zip` 33 078 843 字节，sha256 `c4e73a775db9e4caa2dfa2923d745cdca89956a6d5207b45cbf6efeeb7d96811`；安装验证记录 `target_triple = x86_64-pc-windows-gnullvm`（已归档 `artifacts/install-verify-windows-amd64.txt`） |
-| package-arm64-release | success | 该轮 ARM64 仍为 msvc 通道：`whcode-0.1.0-windows-arm64.zip` sha256 `ff22ac499fad20e77458cc677c4310ababc4d9dd4bcc8bba3bd88c6190a22862`；gnullvm 交叉通道见 ADR-074 批次 |
+| package-amd64-release | success | `whcode-0.1.0-windows-amd64.zip` 33 079 605 字节，sha256 `1c2777094c7d2e0fc5b5af117fc0e732caf6f06b81def7c1ddede95d5e37075e`；安装验证记录 `target_triple = x86_64-pc-windows-gnullvm`（归档 `artifacts/install-verify-windows-amd64.txt`） |
+| package-arm64-release | success | `whcode-0.1.0-windows-arm64.zip` 31 119 633 字节，sha256 `a68373135e297a0500931dbe8bd3235927092a5ed23fd63a7b04e9ac9d581a72`；安装验证记录 `target_triple = aarch64-pc-windows-gnullvm`、`machine = ARM64`（归档 `artifacts/install-verify-windows-arm64.txt`） |
 
-即：**gnullvm 的 amd64 发布包已在 CI 出包并完成安装验证**。ARM64 的 gnullvm 包需在 ADR-074
-批次推送后再触发一次 dispatch 取得（显式缺口，不以前一轮 msvc 结果冒充）。
+首轮 run `43627842215`：构建、打包、安装验证、SHA256 均 success，唯 arm64 冒烟步仍指
+`target/release/whcode.exe`（交叉产物在 `target/<三元组>/release/`）而红；`1b588de` 修正路径后复绿。
+
+即：**amd64 与 arm64 的 gnullvm 发布包均已在 CI 出包并完成仓库外安装验证**。
 
 ## ARM64 交叉尖峰（2026-11-15，本机 x64 宿主）
 

@@ -2213,3 +2213,4 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   目标＝arm64 lane 以 gnullvm 构建并在原生 runner 跑测试与安装验证；判据＝CI 两个工作流
   的 arm64 作业 success 且日志出现 `target/aarch64-pc-windows-gnullvm`；非目标＝不在本批
   改 ARM64 的平台定位或增加新的证据层级。
+  ——**取证（2026-11-15）**：platform-verification run `43627823914` 的 platform-windows-arm64 success（装工具链＋全量测试＋SSH 回环＋feature 门控，均带 `--target aarch64-pc-windows-gnullvm`）；build-release run `43630790885` 三 lane 全 success，arm64 包 31 119 633 字节、sha256 `a6837313…1a72`、安装验证记录 `target_triple = aarch64-pc-windows-gnullvm`、`machine = ARM64`；首轮 run `43627842215` 的冒烟红（仍指 `target/release/`）已由 `1b588de` 修掉。

@@ -21,8 +21,13 @@
   测试与安装验证仍在原生 runner 上真跑）。`setup-windows-llvm.py` 增
   `--rustup-toolchain`／`--rustup-target` 并去掉 `--no-self-update`（半装工具链会陷入反复
   同步）；`package-windows.py` 的 `--verify` 改为按架构放行。本机交叉尖峰：构建 EXIT=0、
-  `IMAGE_FILE_MACHINE_ARM64`、无 vcruntime 导入。详见 `docs/adr/ADR-074-arm64-gnullvm-cross.md`；
-  CI 结论待本轮推送后回填（ADR-037）。
+  `IMAGE_FILE_MACHINE_ARM64`、无 vcruntime 导入。详见 `docs/adr/ADR-074-arm64-gnullvm-cross.md`。
+  **CI 已回填（2026-11-15）**：platform-verification run `43627823914` 的 platform-windows-arm64
+  success（测试／SSH 回环／feature 门控均为交叉构建＋原生运行）；build-release run
+  `43630790885` 三 lane 全 success，arm64 包 `whcode-0.1.0-windows-arm64.zip`（31 119 633 字节，
+  sha256 `a68373135e297a0500931dbe8bd3235927092a5ed23fd63a7b04e9ac9d581a72`），安装验证记录
+  `target_triple = aarch64-pc-windows-gnullvm`、`machine = ARM64`；首轮 run `43627842215` 的
+  冒烟路径红（仍指 `target/release/`）已由 `1b588de` 修掉。
 - **gnullvm 首个发布包（2026-11-15，run `43623479584`）**：手动触发 build-release，三条 lane
   全 success——amd64 包的安装验证记录 `target_triple = x86_64-pc-windows-gnullvm`、包
   `whcode-0.1.0-windows-amd64.zip`（33 078 843 字节，sha256 `c4e73a77…6811`）；arm64 包该轮
