@@ -22,8 +22,12 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use duckdb::Connection;
+use whcode_app::llm::{LlmContext, ProviderFactory, ProviderRegistry};
 use whcode_app::switch_session;
-use whcode_llm::provider::{CancelToken, LlmRequest, Provider, StubProvider};
+use whcode_app::turn::{TurnRequest, run_turn_with_progress};
+use whcode_app::{NewSession, new_session};
+use whcode_llm::http::profile::ProviderProfile;
+use whcode_llm::provider::{CancelToken, LlmRequest, Provider, StubProvider, StubStep};
 use whcode_platform::current_rss_bytes;
 use whcode_store::{Direction, MAX_PAGE_SIZE, apply_migrations, events_page};
 
@@ -36,6 +40,19 @@ const DATASET_TASKS: usize = 10_000;
 /// （2026-10-24 全量测试实测：并行时 NFR-209 p95 43 ms 超预算，独占时 21.8 ms）。
 /// 测量纪律要求一次只跑一个性能夹具，故在此串行化，不改变判据。
 static PERF_LOCK: Mutex<()> = Mutex::new(());
+
+/// 绝对预算判定开关（P7.2／ADR-075）：`WHCODE_PERF_ABSOLUTE_BUDGET=0` 时夹具只**测量**
+/// 并打印分位数，不判 ADR-025 的绝对预算——PR 门禁只做同一 runner 类别内的相对回归判定，
+/// 托管 runner 的绝对值不可比（2026-10-25 已有“环境噪声当回归”的先例）。
+///
+/// 纪律：`perf-budget` 通道**不设置**该变量，绝对预算照旧断言；本开关不是“跳过测试”，
+/// 而是把两种判定（发布门槛 vs 本次改动是否劣化）分开，缺样本与解析失败仍按失败处理。
+fn absolute_budget_enforced() -> bool {
+    !matches!(
+        std::env::var("WHCODE_PERF_ABSOLUTE_BUDGET").as_deref(),
+        Ok("0")
+    )
+}
 
 fn temp_db(tag: &str) -> Connection {
     let dir = std::env::temp_dir().join(format!("whcode-nfr-{}-{tag}", std::process::id()));
@@ -106,10 +123,14 @@ fn nfr207_switch_latency_within_frozen_budget() {
     }
     print_percentiles("NFR-207 会话切换", &mut samples);
     let p95 = percentile(&samples, 95.0);
-    assert!(
-        p95 <= 200.0,
-        "NFR-207 冻结预算 p95 ≤ 200 ms，实测 p95 {p95:.1} ms（全样本见上方输出）"
-    );
+    if absolute_budget_enforced() {
+        assert!(
+            p95 <= 200.0,
+            "NFR-207 冻结预算 p95 ≤ 200 ms，实测 p95 {p95:.1} ms（全样本见上方输出）"
+        );
+    } else {
+        println!("NFR-207 绝对预算判定已关闭（WHCODE_PERF_ABSOLUTE_BUDGET=0：PR 相对回归模式）");
+    }
 }
 
 /// NFR-209：历史单页查询 p95 ≤ 30 ms（ADR-025 冻结值）。
@@ -136,10 +157,14 @@ fn nfr209_history_single_page_query_p95_within_frozen_budget() {
     }
     print_percentiles("NFR-209 历史单页查询", &mut samples);
     let p95 = percentile(&samples, 95.0);
-    assert!(
-        p95 <= 30.0,
-        "NFR-209 冻结预算 p95 ≤ 30 ms，实测 p95 {p95:.1} ms（全样本见上方输出）"
-    );
+    if absolute_budget_enforced() {
+        assert!(
+            p95 <= 30.0,
+            "NFR-209 冻结预算 p95 ≤ 30 ms，实测 p95 {p95:.1} ms（全样本见上方输出）"
+        );
+    } else {
+        println!("NFR-209 绝对预算判定已关闭（WHCODE_PERF_ABSOLUTE_BUDGET=0：PR 相对回归模式）");
+    }
 }
 
 /// NFR-203：切换 20 次后 RSS 增量 ≤ 10 MB（ADR-025 冻结值；`#[ignore]`，
@@ -288,4 +313,128 @@ fn nfr206_llm_stream_full_feed_capacity() {
         total_chunks as f64 / elapsed
     );
     assert!(total_chunks > 0, "流式负载必须实际产出 chunk");
+}
+
+/// 桩 Provider 的工厂包装（turn 夹具用；与 `tests/integration/test_turn_loop.rs` 同形）。
+struct StubFactory(StubProvider);
+
+impl ProviderFactory for StubFactory {
+    fn create(
+        &self,
+        _profile: &ProviderProfile,
+    ) -> Result<Box<dyn Provider>, whcode_domain::WhError> {
+        Ok(Box::new(self.0.clone()))
+    }
+}
+
+/// P7.2（ADR-075）：**turn 首 token 就绪延迟**——PR 基准回归门禁的第三个指标。
+///
+/// 测的是 harness 自身从 `run_turn_with_progress` 进入、到**第一个流式增量交付给调用方**
+/// 的时间：桩 Provider 立即产出 8 个 chunk，网络与模型思考时间被排除，因此该值只反映
+/// 装配、审批、落库与通道调度。**不承诺端到端首 token**：接入真实 Provider 后须以真实流
+/// 另测（该夹具的失效条件，写进 ADR-075）。
+///
+/// 运行方式：`cargo test -p whcode-tests --test nfr_budget p72 -- --ignored --nocapture`。
+#[test]
+#[ignore = "测量夹具：由 .github/scripts/benchmarks/pr-bench-gate.py 以 --ignored 驱动"]
+fn p72_turn_first_token_latency() {
+    let _guard = PERF_LOCK.lock().expect("性能测量串行锁中毒");
+    let conn = temp_db("p72-first-token");
+    let session = new_session(
+        &conn,
+        &whcode_app::DefaultPolicy,
+        &whcode_app::actor_with_all_capabilities("p72"),
+        NewSession {
+            title: "P7.2 首 token".to_string(),
+            model: None,
+        },
+        1_700_000_000_000,
+    )
+    .expect("新建会话")
+    .id;
+    let profile: ProviderProfile = serde_json::from_str(
+        r#"{"name":"p","protocol":"openai","base_url":"https://api.example.com",
+            "model":"test-model","auth":{"type":"none"}}"#,
+    )
+    .expect("剖面");
+    let registry = ProviderRegistry::from_profiles(vec![profile]).expect("注册表");
+    let dir = std::env::temp_dir().join(format!("whcode-p72-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("临时目录");
+    let factory = StubFactory(StubProvider::with_script(vec![StubStep {
+        chunks: (0..8).map(|index| format!("chunk-{index}")).collect(),
+        finish_reason: "stop".to_string(),
+        tool_calls: Vec::new(),
+    }]));
+    let context = LlmContext {
+        registry: Some(&registry),
+        registry_error: None,
+        factory: &factory,
+        cancel_dir: &dir,
+        shell: None,
+    };
+    let actor = whcode_app::actor_with_all_capabilities("p72");
+    let mut conn = conn;
+    let make_request = || TurnRequest {
+        session_id: session.clone(),
+        provider: "p".to_string(),
+        prompt: "首 token 夹具".to_string(),
+        model: None,
+        max_tokens: None,
+        request_id: None,
+        iterations_limit: None,
+        budget_tokens: None,
+        workspace_root: None,
+        depth: 0,
+    };
+
+    // 预热两次（首次含连接页缓存、审批与通道初始化，不进样本）。
+    for _ in 0..2 {
+        run_turn_with_progress(
+            &mut conn,
+            &whcode_app::DefaultPolicy,
+            &actor,
+            &context,
+            &make_request(),
+            None,
+            1_700_000_000_100,
+        )
+        .expect("预热 turn");
+    }
+
+    let mut samples: Vec<f64> = Vec::with_capacity(20);
+    for index in 0..20u64 {
+        let started = Instant::now();
+        let first_micros = std::sync::atomic::AtomicU64::new(u64::MAX);
+        let progress = |_chunks: u64, _delta: &str| {
+            let micros = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
+            let _ = first_micros.compare_exchange(
+                u64::MAX,
+                micros,
+                std::sync::atomic::Ordering::Relaxed,
+                std::sync::atomic::Ordering::Relaxed,
+            );
+        };
+        run_turn_with_progress(
+            &mut conn,
+            &whcode_app::DefaultPolicy,
+            &actor,
+            &context,
+            &make_request(),
+            Some(&progress),
+            1_700_000_000_200 + index * 10,
+        )
+        .expect("测量 turn");
+        let micros = first_micros.load(std::sync::atomic::Ordering::Relaxed);
+        // 错误的空：没观测到首 token 不能算 0 毫秒通过。
+        assert_ne!(
+            micros,
+            u64::MAX,
+            "首 token 回调未触发（不可用零样本充当达标）"
+        );
+        samples.push(micros as f64 / 1000.0);
+    }
+    print_percentiles("P7.2 turn 首 token", &mut samples);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!samples.is_empty(), "必须取得样本");
 }

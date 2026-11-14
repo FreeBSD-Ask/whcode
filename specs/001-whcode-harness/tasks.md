@@ -2214,3 +2214,33 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   的 arm64 作业 success 且日志出现 `target/aarch64-pc-windows-gnullvm`；非目标＝不在本批
   改 ARM64 的平台定位或增加新的证据层级。
   ——**取证（2026-11-15）**：platform-verification run `43627823914` 的 platform-windows-arm64 success（装工具链＋全量测试＋SSH 回环＋feature 门控，均带 `--target aarch64-pc-windows-gnullvm`）；build-release run `43630790885` 三 lane 全 success，arm64 包 31 119 633 字节、sha256 `a6837313…1a72`、安装验证记录 `target_triple = aarch64-pc-windows-gnullvm`、`machine = ARM64`；首轮 run `43627842215` 的冒烟红（仍指 `target/release/`）已由 `1b588de` 修掉。
+
+## Tasks（2026-11-15 追加）：PR 基准回归门禁（P7.2，ADR-075）
+
+- [x] T311 口径设计与 ADR（P7.2／ADR-075）：PR 判**相对回归**（同 runner 类别＋同剖面）、
+  两条件取宽（`×1.30` 或 `+10 ms`）、三轮中位、基线版本化；绝对预算仍归 `perf-budget`
+  通道（ADR-025 修订记录）；标准研读记录（ISO/IEC/IEEE 15939:2017 测量过程链、
+  ISO/IEC 25010:2023 time behaviour）写进 ADR §7
+  ——**任务认知卡**：方向＝性能回归要在合并前可见，而托管 runner 的绝对值不可比（2026-10-25
+  已有环境噪声当回归的先例）；目标＝三指标（turn 首 token／会话切换／历史页）进 PR 门禁且
+  可判定；判据＝`--self-test` 五探针通过＋三轮实测能出基线＋CI 接线可定位；非目标＝不改
+  ADR-025 冻结值、不在 PR 判绝对值、不为通过而放宽参数。
+- [x] T312 [P] turn 首 token 夹具（`tests/stability/test_nfr_budget.rs::p72_turn_first_token_latency`）：
+  用 `run_turn_with_progress` 的首个进度回调计时，桩 Provider 立即产 8 chunk（不含网络与
+  模型思考）；20 样本、预热 2 次、与既有夹具共用串行锁；零样本按失败处理
+  ——**取证（2026-11-15，本机 debug）**：p50 23.9 ms／p95 25.1 ms，样本数 20。
+- [x] T313 [P] PR 门禁脚本（`.github/scripts/benchmarks/pr-bench-gate.py`）：三轮中位、
+  相对回归判定、`--write-baseline`、`--json`、`--self-test`（五条纯函数探针）；三个夹具
+  支持 `WHCODE_PERF_ABSOLUTE_BUDGET=0`（只测量不判绝对预算，`perf-budget` 通道不设该变量）
+  ——**取证（2026-11-15）**：`--self-test` 全过；本地一轮实测产出基线 JSON
+  （`turn 24.3 ms／switch 8.2 ms／history 29.7 ms`）。
+- [x] T314 CI 接线（ADR-075）：`platform-verification.yml` 的 windows lane 增加 PR 门禁步
+  与报告上传（`pull_request` 才跑）；`perf-budget` 增加基线导出步并纳入 artifact
+  ——**取证（2026-11-15）**：`check-workflows.py` 通过。
+- [ ] T315 托管 runner 基线取得与 PR 门禁首判回填：dispatch `perf-budget`（`perf=true`）→
+  下载 `perf-baseline-pr.json` artifact → 复核后提交到 `docs/matrices/perf-baseline-pr.json`
+  → 下一次 PR（或临时以 push 分支验证）确认门禁由 SKIP 转为 PASS/FAIL 判定
+  ——**任务认知卡**：方向＝门禁只在同类 runner 内判定，基线必须由该 runner 产出；目标＝
+  仓库内基线文件与 runner 类别一致、门禁可判定；判据＝artifact 中的 `runner_class` 与
+  CI 日志一致、门禁输出 PASS 或按 limit 报 FAIL；非目标＝不以本机基线冒充 runner 基线、
+  不把 SKIP 记作通过。

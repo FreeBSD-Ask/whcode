@@ -367,3 +367,11 @@ NFR-207 p50 9.4→10.0 ms——**三连慢确认漂移为持续性**（42.3→48
 `theme_cycle.ok` 全 true、`exit_code=0`——交互化未破坏渲染/主题/退出路径。两样本
 结论：NFR-205 在共享 runner 上噪声带宽宽（0.0—0.625%），单样本超预算一律以复跑
 确认后再定案（与 NFR-209 同口径）。
+
+- **2026-11-15（ADR-075，P7.2）**：性能判定拆成两条口径，冻结值与判定方式**不变**：
+  ① 本 ADR 的绝对预算仍是**发布门槛**，只在 `perf-budget`（workflow_dispatch）通道判定；
+  ② PR 门禁只判**同一 runner 类别内的相对回归**（turn 首 token／会话切换／历史页三指标，
+  三轮中位，`tolerance 30%` 或 `slack 10 ms` 取宽者），基线在
+  `docs/matrices/perf-baseline-pr.json`。为此三个夹具支持 `WHCODE_PERF_ABSOLUTE_BUDGET=0`
+  （只测量不判绝对值）；预算通道**不设**该变量，绝对断言照旧。新增的 `p72` 首 token 夹具
+  只承诺 harness 路径（桩 Provider），真实 Provider 接入后须真实流另测。

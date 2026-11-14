@@ -161,6 +161,21 @@ jobs:
         if: matrix.platform == 'windows'
         run: cargo test --locked --workspace
 
+      # P7.2／ADR-075：PR 只判**相对回归**（三指标三轮中位 vs 同类 runner 基线）；绝对
+      # 预算仍由 perf-budget 通道判（ADR-025）。基线缺失或 runner 类别不匹配时脚本输出
+      # SKIP 并明确“不声称通过”，不是绿灯。
+      - name: PR 基准回归门禁（P7.2／ADR-075：三指标三轮中位）
+        if: matrix.platform == 'windows' && github.event_name == 'pull_request'
+        run: python .github/scripts/benchmarks/pr-bench-gate.py --rounds 3 --json artifacts/pr-bench-report.json
+
+      - name: 上传 PR 基准报告（P7.2）
+        if: matrix.platform == 'windows' && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pr-bench
+          if-no-files-found: warn
+          path: artifacts/pr-bench-report.json
+
       - name: 内置 SSH 回环验收（Check 25，Windows 客户端侧）
         if: matrix.platform == 'windows'
         shell: pwsh
@@ -1273,6 +1288,12 @@ jobs:
             Tee-Object -FilePath artifacts/perf-ci/resource_budget.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # P7.2／ADR-075：产出 PR 门禁基线（三指标三轮中位）。基线以 artifact 形式交付，
+      # 人工复核后提交到 `docs/matrices/perf-baseline-pr.json`；门禁只在同类 runner 判定，
+      # 因此 runner 重镜像后必须重抓（旧基线会让门禁转 SKIP）。
+      - name: 产出 PR 门禁基线（P7.2／ADR-075：三指标三轮中位）
+        run: python .github/scripts/benchmarks/pr-bench-gate.py --rounds 3 --write-baseline artifacts/perf-baseline-pr.json
+
       - name: 上传性能测量产物
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -1282,6 +1303,7 @@ jobs:
           path: |
             artifacts/perf-ci/*.log
             artifacts/resource-report.json
+            artifacts/perf-baseline-pr.json
 
   # ---------------- 桌面型测试（仅 workflow_dispatch 且 desktop=true） ----------------
   # 托管 runner 运行在非交互会话：窗口可创建，但屏幕捕获可能是黑屏或受 session 0 限制。

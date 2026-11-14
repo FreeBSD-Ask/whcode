@@ -13,6 +13,19 @@
 
 ### 变更
 
+- **PR 基准回归门禁（T311—T314，P7.2，ADR-075，2026-11-15）**：把“turn 首 token／
+  会话切换／历史页”三个指标放进 PR 门禁——托管 runner 的绝对性能与 ADR-025 冻结值不可比
+  （2026-10-25 已有环境噪声当回归的先例），故 PR 只判**同一 runner 类别内的相对回归**：
+  三轮中位，`current <= baseline × 1.30` 或 `current <= baseline + 10 ms`（取宽者，绝对
+  slack 兜住小基线的抖动）。新增 `p72_turn_first_token_latency` 夹具（走
+  `run_turn_with_progress` 的首个回调，桩 Provider，测 harness 就绪延迟，不含网络与模型
+  思考）与 `.github/scripts/benchmarks/pr-bench-gate.py`（`--write-baseline`／`--json`／
+  `--self-test` 五条纯函数探针）；三个夹具支持 `WHCODE_PERF_ABSOLUTE_BUDGET=0` 测量模式
+  （`perf-budget` 不设该变量，绝对预算照旧断言）。CI：windows lane 在 `pull_request` 跑
+  门禁并上传报告，`perf-budget` 产出基线 artifact。**基线未取得或 runner 类别不匹配时输出
+  SKIP 并明确不声称通过**；托管 runner 基线待 dispatch 取得后提交（T315，显式缺口）。
+  本机实测（debug）：turn 24.3 ms／switch 8.2 ms／history 29.7 ms。
+
 - **ARM64 交付目标切 gnullvm（T308—T310，ADR-074，2026-11-15）**：ARM64 交付链由
   `aarch64-pc-windows-msvc` 改为 `aarch64-pc-windows-gnullvm`，三条 Windows lane 的工具链
   至此全部落在 LLVM 系列。与 amd64 的差别是**交叉**：rustup 没有 aarch64 的 gnullvm 宿主
