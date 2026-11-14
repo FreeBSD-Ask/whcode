@@ -36,7 +36,7 @@
 
 | المنصة | الدور |
 |---|---|
-| Windows 11 amd64 | **هدف القبول الوحيد** (`x86_64-pc-windows-msvc`، ADR-013) |
+| Windows 11 amd64 | **هدف القبول الوحيد** (`x86_64-pc-windows-gnullvm`، ADR-073) |
 | Windows ARM64 | هدف تسليم البناء (ADR-043): نتائج CI دليل على المنصة لا قبول |
 | FreeBSD | قناة كاملة لأدلة المنصة (بوابة صارمة): مع كل `main` تبني CI وتختبر وتطبّق البوابات كاملة، وأي فشل يجعلها حمراء؛ دون استنتاج قبول |
 | NetBSD | تعمل CI تلقائياً على `main`؛ دليل منصة فقط |
@@ -48,7 +48,7 @@
 
 ## البناء والتشغيل
 
-تحتاج إلى Rust 1.100.0 (مثبّت في `rust-toolchain.toml`) وسلسلة أدوات MSVC وPython 3. لا تُستخدم
+تحتاج إلى Rust 1.100.0 (مثبّت في `rust-toolchain.toml`) وسلسلة أدوات LLVM (rustc gnullvm + llvm-mingw، وتُثبَّت بـ `python .github/scripts/setup-windows-llvm.py`) وPython 3. لا تُستخدم
 أدوات GNU في أي موضع.
 
 ```powershell

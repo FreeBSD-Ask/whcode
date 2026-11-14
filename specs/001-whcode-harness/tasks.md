@@ -2150,3 +2150,42 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   知识面体现落入过程规范与唯一正文，落点可定位、门禁绿；判据＝Check 394；
   非目标＝不新增门禁脚本（结构检查由 check-knowing-first 承担、基线门禁已随 T298
   落地）、不宣称合规、不动 SDK WIP。
+
+## Tasks（2026-11-14 追加）：Windows 验收目标迁移到 gnullvm（ADR-073）
+
+- [x] T301 gnullvm 迁移决策与风险尖峰（ADR-073）：`docs/adr/ADR-073-windows-gnullvm-target.md`；
+  证据 `artifacts/gnullvm-migration-2026-11-14.md`（构建 EXIT=0、测试 1205 通过、clippy 零告警、
+  release 两次链接哈希一致、DuckDB v2.0.0 运行、产物无 vcruntime 依赖）；排除三条歧路留档
+  ——**任务认知卡**：方向＝用户指令“能切 LLVM 系列的都切，不用 GNU 那套”＋“仓库目标也换
+  gnullvm”；目标＝验收目标三元组换 `x86_64-pc-windows-gnullvm` 且全链路可用；判据＝本机
+  构建／测试／clippy／确定性／运行五项实测 + ADR 失效条件可判定；非目标＝不切 ARM64
+  （ADR-043 口径另立修订）、不改 DuckDB 后端、不动 FreeBSD/NetBSD 通道。
+- [x] T302 [P] 构建配置切换（ADR-073）：`.cargo/config.toml` 新增
+  `[target.x86_64-pc-windows-gnullvm] linker = "x86_64-w64-mingw32-clang"`（说明为何必须显式、
+  为何不传 `/Brepro`）；`rust-toolchain.toml` 注释改为 gnullvm 机器级 override ＋ llvm-mingw
+  前置条件（channel 仍只锁 `1.100.0`，BSD 通道不受影响）；`whcode-platform/src/process.rs`
+  的平台观测注释同步。
+- [x] T303 [P] 工具链安装脚本：`.github/scripts/setup-windows-llvm.py`（llvm-mingw 20261104
+  固定 URL＋SHA256＋字节数校验、安全解包拒路径穿越、rustup 工具链安装含 rustfmt/clippy、
+  Actions 写 `GITHUB_PATH`／`GITHUB_ENV`、本地 `--print-env`）；`WHCODE_GH_MIRROR` 支持本机
+  直连受限时的加速前缀。
+- [x] T304 [P] 载荷与打包映射：`fetch-duckdb.py` 增 `PAYLOAD_TRIPLE`（gnullvm → 官方 MSVC 载荷）
+  与 `payload_target()`；`package-windows.py` 的 `host_triple()` 改为 `rustc -vV` 实测（不再靠
+  `platform.machine()` 猜）、`SUPPORTED_TARGETS` 增 gnullvm、`--target` 默认取宿主实测值、
+  `find_duckdb_dll()` 按载荷三元组查找；`record_deps.py` 增 `llvm_mingw` 字段并澄清
+  `host_triple`（载荷）与 rustc host（编译目标）的区别。
+- [x] T305 [P] CI 通道切换（ADR-073）：`platform-verification.yml` 的 platform／measurements／
+  perf-budget／desktop／coverage-pilot 五处接入安装步骤；ARM64 交叉构建检查显式把
+  `RUSTUP_TOOLCHAIN` 钉回 msvc（不混证据）；`build-release.yml` 的 amd64 debug/release 两条
+  lane 目标改 gnullvm 并加安装步骤，arm64 lane 保持 msvc。
+- [x] T306 [P] 文档与台账同步：ADR-013（决策 1 与修订记录）、ADR-025、ADR-047（lld 确定性）、
+  ADR-069（override 变更）、ADR-DB-BUILD（MSVC 载荷兼容增补）；`docs/matrices/`（platform-matrix、
+  decisions D-01、compatibility）；`AGENTS.md`（硬边界、优先序第 4 条、验证链）；`CONTRIBUTING.md`；
+  `.specify/memory/constitution.md`；`specs/001` plan／spec；`specs/002` plan；README 十三语言；
+  `.github/scripts/platform-matrix/README.md`。
+- [ ] T307 gnullvm 通道 CI 首次实跑结论回填（ADR-037：本地绿不冒充 CI 结论）：待推送后以
+  `gh run view` 逐 job 判定并回填 platform-matrix 的 CI 字段与 Check 399 证据
+  ——**任务认知卡**：方向＝平台结论只能来自 CI 日志与 artifact（ADR-037），本地全绿不算；
+  目标＝gnullvm 的 platform-windows／measurements／build-release amd64 三条 lane 的结论
+  逐条落账；判据＝run 号＋job 名＋结论与失败步骤原文可定位；非目标＝不因本地已绿而
+  预先勾选，也不把 msvc 通道旧结论移作 gnullvm 证据。

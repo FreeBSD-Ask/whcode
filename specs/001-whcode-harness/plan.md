@@ -22,7 +22,7 @@
 
 **Testing**: cargo test（单元/集成/属性测试）、Nextest（并行选择）、Criterion 或等价基准夹具（NFR 测量）、CUI JSON 契约测试、平台 CI 矩阵（FreeBSD/OpenBSD/NetBSD/DragonFly/Windows）
 
-**Target Platform**: Windows 11 amd64（`x86_64-pc-windows-msvc`，ADR-013 唯一验收目标）；FreeBSD 为完整平台证据通道（硬门禁，不作验收结论）；NetBSD 随 CI 自动运行（仅证据）；OpenBSD/DragonFly 延后（代码与文档保留，恢复须新 ADR 并补齐证据链）
+**Target Platform**: Windows 11 amd64（`x86_64-pc-windows-gnullvm`，ADR-073 唯一验收目标；旧 msvc 三元组保留为回退通道）；FreeBSD 为完整平台证据通道（硬门禁，不作验收结论）；NetBSD 随 CI 自动运行（仅证据）；OpenBSD/DragonFly 延后（代码与文档保留，恢复须新 ADR 并补齐证据链）
 
 **Project Type**: 多 crate workspace——本地 TUI + 自动化 CUI + Web 服务 + SSH 入口的单仓库项目（非库/非单一 CLI）
 

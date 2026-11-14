@@ -19,6 +19,8 @@
 1. **工具链与 MSRV**：`rust-toolchain.toml` `channel = "1.100.0"`（本机实测 rustc 1.100.0
    `0ef1bc386 2026-11-09`、cargo 1.100.0、LLVM 23.1.5）；workspace `rust-version = "1.100"`；
    目录级 override 同步为 `1.100.0-x86_64-pc-windows-msvc`（机器本地，不入库）。
+   **2026-11-14 修订（ADR-073）**：Windows 验收目标改为 gnullvm，override 相应变为
+   `1.100.0-x86_64-pc-windows-gnullvm`，并需 llvm-mingw 在 PATH；版本锁定 1.100.0 不变。
 2. **采用的新功能（逐项：真实矛盾 → 落点）**：
    - `CommandExt::show_window`（Rust 1.100 稳定）：GUI（windows 子系统）主进程 spawn
      控制台子进程会闪黑窗，是每次 spawn 都发生的真实矛盾。新增

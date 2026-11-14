@@ -13,6 +13,10 @@
 #     打包与安装验证在原生 ARM64 runner 上取得真实运行证据，结论不进验收（验收仍为
 #     Windows 11 amd64，ADR-013）。
 #
+# amd64 两条 lane 的目标三元组为 `x86_64-pc-windows-gnullvm`（ADR-073，2026-11-14）：先用
+# `setup-windows-llvm.py` 装 llvm-mingw（固定版本＋SHA256）与 rustup gnullvm 工具链，后续
+# cargo 步骤才会产出 gnullvm 二进制。arm64 lane 不装该工具链，仍用 msvc 主机构建。
+#
 # 权限：顶层只读；仅 tag 发布 job 提升为 contents: write，且只用 GITHUB_TOKEN，
 # 不引入其他凭据（最小权限，AGENTS.md §1.1）。
 #
@@ -44,11 +48,11 @@ jobs:
         include:
           - profile: debug
             arch: amd64
-            target: x86_64-pc-windows-msvc
+            target: x86_64-pc-windows-gnullvm
             os: windows-latest
           - profile: release
             arch: amd64
-            target: x86_64-pc-windows-msvc
+            target: x86_64-pc-windows-gnullvm
             os: windows-latest
           - profile: release
             arch: arm64
@@ -56,6 +60,12 @@ jobs:
             os: windows-11-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # ADR-073：amd64 发布链走 gnullvm（llvm-mingw ＋ rustup gnullvm 主机工具链）。
+      # arm64 lane 仍在原生 windows-11-arm runner 上用 msvc 主机构建（ADR-043），故不加此步。
+      - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
+        if: matrix.arch == 'amd64'
+        run: python .github/scripts/setup-windows-llvm.py
 
       # 确定性构建基准（ADR-047）：用 HEAD 提交时间导出 SOURCE_DATE_EPOCH（打包基准）
       # 与 WHCODE_BUILD_STAMP（版本戳，UTC `Z` 形式），使同一提交的全新构建与打包

@@ -13,6 +13,19 @@
 
 ### 变更
 
+- **Windows 验收目标迁移到 gnullvm（T301—T306，ADR-073，2026-11-14 用户指令）**：
+  验收目标三元组由 `x86_64-pc-windows-msvc` 改为 `x86_64-pc-windows-gnullvm`——Windows
+  全链路的 rustc 目标、C 依赖编译器与链接器都换到 LLVM 系列（rustc gnullvm ＋ llvm-mingw
+  20261104 的 clang／lld），不使用任何 GNU 工具链（gnullvm 只是 ABI 前缀）。新增
+  `.github/scripts/setup-windows-llvm.py`（固定版本＋SHA256 校验＋`GITHUB_PATH`／
+  `GITHUB_ENV` 接线，本地 `--print-env`）；`.cargo/config.toml` 显式声明 gnullvm linker；
+  `fetch-duckdb.py` 增 `PAYLOAD_TRIPLE` 把 gnullvm 映射到 DuckDB 官方 MSVC 载荷（C ABI，
+  实测链接与运行），`package-windows.py` 的宿主三元组改由 `rustc -vV` 实测；CI 五个 Windows
+  作业与发布工作流 amd64 lane 全部切换（ARM64 交付链与回退 msvc 通道保持不变）。
+  实测：全工作区构建 EXIT=0、测试 1205 通过／0 失败、clippy 零告警、release 两次链接
+  SHA256 一致、`doctor --json` 报 `duckdb_engine_version: v2.0.0`；产物无 vcruntime 依赖。
+  证据 `artifacts/gnullvm-migration-2026-11-14.md`；CI 首次实跑结论待 T307 回填（ADR-037）。
+
 - **开工前标准文献研读规则（T300，宪法原则 X 知识面，2026-11-14 用户指令）**：
   `software-engineering-process.md` 新增 §1.6——任何工作单元开工前必须启发式研读相关
   标准化文献（ISO／IEEE／国标／官方文档／规范／建议）并吃透、落地，不得凭经验自造判定：

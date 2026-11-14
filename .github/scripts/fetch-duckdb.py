@@ -17,6 +17,12 @@
   - FreeBSD / NetBSD / OpenBSD / DragonFly：官方**不提供**预编译包，须经 pkg/ports 或
     以 `bundled-cmake` 源码构建；属后续真实平台验证项，本脚本显式报错而**不**静默降级。
 
+目标三元组与载荷三元组的区别（ADR-073，2026-11-14）：
+  本仓库的 Windows 验收目标已改为 `x86_64-pc-windows-gnullvm`，但 DuckDB 官方只发布
+  MSVC 载荷，且 libduckdb 是 C ABI（`duckdb.h`），MSVC 导入库在 lld 下可链接、可运行
+  （ADR-073 §3 实测）。因此 `PAYLOAD_TRIPLE` 把编译目标映射到载荷目录名：目录名保持
+  发行方口径（`*-windows-msvc`），映射关系写死在表里、可审计；不得“就近找别的目录”。
+
 安全解包（ADR-DB-BUILD）：先校验 SHA256 与字节数，再解包；拒绝绝对路径、`..` 路径穿越、
 含反斜杠或盘符的成员名；归档内符号链接等其他类型不落盘。
 
@@ -63,6 +69,19 @@ PACKAGES: dict[str, tuple[str, str, int]] = {
 #: 归档内必须存在的成员（缺任一项即视为资产不完整，链接或运行必失败）。
 REQUIRED_MEMBERS = ("duckdb.h", "duckdb.dll", "duckdb.lib")
 
+#: 编译目标三元组 -> 载荷三元组（ADR-073）。gnullvm 是编译目标，官方只有 MSVC 载荷；
+#: 未登记的三元组原样返回，由 PACKAGES/NO_PREBUILT 判定报错。
+PAYLOAD_TRIPLE: dict[str, str] = {
+    "x86_64-pc-windows-gnullvm": "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-gnullvm": "aarch64-pc-windows-msvc",
+}
+
+
+def payload_target(target: str) -> str:
+    """把编译目标三元组归一为载荷三元组（目录名按发行方口径）。"""
+    return PAYLOAD_TRIPLE.get(target, target)
+
+
 #: PROVENANCE.txt 登记的归档成员（按下列固定顺序输出）。
 PROVENANCE_MEMBERS = (
     "duckdb.dll",
@@ -87,7 +106,11 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 def host_target() -> str:
-    """推断当前主机对应的 Rust 目标三元组（覆盖本项目平台矩阵中的 Windows 两架构）。"""
+    """推断当前主机对应的**载荷**三元组（覆盖本项目平台矩阵中的 Windows 两架构）。
+
+    返回的是载荷三元组而非编译目标三元组：Windows 主机无论 rustc 主机是 msvc 还是
+    gnullvm（ADR-073），可取的都是官方 MSVC 载荷。
+    """
     system = platform.system().lower()
     machine = platform.machine().lower()
     if system == "windows":
@@ -272,12 +295,12 @@ def main() -> int:
     parser.add_argument(
         "--target",
         default=None,
-        choices=sorted(PACKAGES),
-        help="目标三元组（默认按主机推断；交叉构建时显式指定目标架构）",
+        choices=sorted(set(PACKAGES) | set(PAYLOAD_TRIPLE)),
+        help="编译目标三元组（默认按主机推断；gnullvm 会映射到官方 MSVC 载荷，ADR-073）",
     )
     args = parser.parse_args()
 
-    target = args.target if args.target is not None else host_target()
+    target = payload_target(args.target if args.target is not None else host_target())
     if target in NO_PREBUILT:
         sys.exit(
             f"{target} 无官方预编译包：请改用系统包（pkg/ports）或以 bundled-cmake "

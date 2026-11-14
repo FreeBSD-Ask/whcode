@@ -38,7 +38,7 @@ M0—M6、M8 と 4 フロントエンドの同等性は実装済みで、M7 の 
 
 | プラットフォーム | 位置づけ |
 |---|---|
-| Windows 11 amd64 | **唯一の受け入れ対象**（`x86_64-pc-windows-msvc`、ADR-013） |
+| Windows 11 amd64 | **唯一の受け入れ対象**（`x86_64-pc-windows-gnullvm`、ADR-073） |
 | Windows ARM64 | ビルド成果物の配布対象（ADR-043）。CI の結果はプラットフォーム証拠にとどまり、受け入れには含めない |
 | FreeBSD | 完全なプラットフォーム証拠チャネル（ハードゲート）。`main` のたびに CI が全量ビルド・テスト・ゲートを実行し、1 つでも失敗すれば赤になる。受け入れ結論にはしない |
 | NetBSD | `main` で CI が自動実行。プラットフォーム証拠のみ |
@@ -50,7 +50,7 @@ M0—M6、M8 と 4 フロントエンドの同等性は実装済みで、M7 の 
 
 ## ビルドと実行
 
-Rust 1.100.0（`rust-toolchain.toml` で固定）、MSVC ツールチェーン、Python 3 が必要です。
+Rust 1.100.0（`rust-toolchain.toml` で固定）、LLVM 系ツールチェーン（rustc gnullvm ＋ llvm-mingw。`python .github/scripts/setup-windows-llvm.py` で導入）、Python 3 が必要です。
 GNU ツールチェーンは一切使いません。
 
 ```powershell

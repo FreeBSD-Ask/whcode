@@ -40,7 +40,7 @@ referencia son [tasks.md](./specs/001-whcode-harness/tasks.md) y
 
 | Plataforma | Papel |
 |---|---|
-| Windows 11 amd64 | **Único objetivo de aceptación** (`x86_64-pc-windows-msvc`, ADR-013) |
+| Windows 11 amd64 | **Único objetivo de aceptación** (`x86_64-pc-windows-gnullvm`, ADR-073) |
 | Windows ARM64 | Objetivo de entrega de compilaciones (ADR-043): lo que produce la CI es prueba de plataforma, no aceptación |
 | FreeBSD | Canal completo de prueba de plataforma (barrera estricta): en cada `main` la CI compila, prueba y aplica las barreras completas, y cualquier fallo la pone en rojo; no da conclusión de aceptación |
 | NetBSD | La CI lo ejecuta sola en `main`; solo prueba de plataforma |
@@ -52,7 +52,7 @@ Los percentiles de rendimiento salen hoy solo del canal de Windows. La política
 
 ## Compilar y ejecutar
 
-Hacen falta Rust 1.100.0 (fijado en `rust-toolchain.toml`), la cadena MSVC y Python 3. No se usa
+Hacen falta Rust 1.100.0 (fijado en `rust-toolchain.toml`), la cadena de herramientas LLVM (rustc gnullvm + llvm-mingw, se instala con `python .github/scripts/setup-windows-llvm.py`) y Python 3. No se usa
 ninguna cadena de herramientas GNU.
 
 ```powershell

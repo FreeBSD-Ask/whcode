@@ -7,7 +7,7 @@
 ## 平台矩阵
 
 **范围（ADR-013，2026-10-21 用户决策；2026-10-24 两次修订 BSD CI；2026-10-28 增 ARM64 交付目标；2026-10-31 修订：FreeBSD 升为完整平台证据通道（硬门禁））**：
-唯一验收目标是**Windows 11 amd64**；**Windows ARM64（`aarch64-pc-windows-msvc`）为构建交付目标**
+唯一验收目标是**Windows 11 amd64**；**Windows ARM64（`aarch64-pc-windows-msvc`，暂不切 gnullvm，ADR-073 §2.5 登记为后续）为构建交付目标**
 （ADR-043：产出 arm64 发布包并在原生 `windows-11-arm` runner 取得平台证据，不进入验收）；
 不考虑任何 32 位平台；FreeBSD 为完整平台证据通道（硬门禁，ADR-013 修订 2026-10-31：随 main 全量构建含 GUI/bin、全量测试、三门进程组零残留/store 2.0.0/SSH 回环、TUI/Web 冒烟，任一失败即红，系统依赖允许 FreeBSD ports/latest pkg）；NetBSD 随 CI 自动运行（仅平台证据、不阻断）；OpenBSD/DragonFly 为手工占位（workflow_dispatch）。**NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发**（ADR-013 修订 2026-11-03 用户指令：作为被 Windows/FreeBSD 内置 SSH 客户端连入的目标，不要求原生工具链/引擎；DragonFly 同日追加同待遇）。四者均不进入验收结论（验收仍为 Windows 11 amd64），性能分位数未取得（perf 通道仅 Windows）。版本口径为各平台
 **最新 release**（FreeBSD `15`、NetBSD `11`、OpenBSD `8` 前缀自动取最新点版本；DragonFly
@@ -17,7 +17,7 @@
 
 | 平台 | 精确版本 | 架构 | 目标三元组 | 范围 | 构建状态 | 运行验证状态 | 证据引用 | 备注 |
 |---|---|---|---|---|---|---|---|---|
-| Windows | Windows 11（10.0.26300） | x86_64 | `x86_64-pc-windows-msvc` | **在范围内（唯一验收目标）** | 通过（本机实测） | 通过（数据库冒烟 4 步、引擎版本探测与工作区测试） | `artifacts/deps-windows.txt`；`docs/adr/ADR-DB-BUILD.md` | rustc 1.100.0（`0ef1bc386`，2026-11-14 本机复测，LLVM 23.1.5）、MSVC 工具集 14.44.35207、Windows SDK 10.0.26100.0；不使用任何 GNU 工具链；DuckDB 引擎 `v2.0.0`；**CI 回填（2026-11-14，run `43557659398`，提交 `40fc1bb`）**：platform-windows success（1.100.0 全量构建＋测试＋门禁） |
+| Windows | Windows 11（10.0.26300） | x86_64 | `x86_64-pc-windows-gnullvm` | **在范围内（唯一验收目标）** | 通过（本机实测；ADR-073 尖峰：全工作区构建 EXIT=0、clippy 零告警、release 两次链接 SHA256 一致） | 通过（数据库冒烟 4 步、引擎版本探测与工作区测试；gnullvm 产物 `doctor --json` 报 `duckdb_engine_version: v2.0.0`、`duckdb_error: null`） | `artifacts/deps-windows.txt`；`docs/adr/ADR-073-windows-gnullvm-target.md`；`docs/adr/ADR-DB-BUILD.md` | rustc 1.100.0（`0ef1bc386`，2026-11-14 本机复测）、llvm-mingw 20261104（clang／lld，SHA256 `552191b5…40f`）；**不使用任何 GNU 工具链**（gnullvm 只是 ABI 前缀，工具链为 LLVM 系列）；MSVC 14.44.35207 与 Windows SDK 10.0.26100.0 仅在回退通道或 ARM64 交付链上出现；DuckDB 载荷仍取官方 MSVC 包（C ABI 兼容，实测链接与运行）；旧三元组 `x86_64-pc-windows-msvc` 保留为回退通道，不进验收结论；**CI 回填（2026-11-14，run `43557659398`，提交 `40fc1bb`）**：platform-windows success（1.100.0 全量构建＋测试＋门禁，msvc 通道口径），gnullvm 通道首次结论待本轮推送后回填 |
 | Windows ARM64 | 未固定（托管 `windows-11-arm` 预览 runner） | arm64 | `aarch64-pc-windows-msvc` | **构建交付目标（ADR-043，不验收）** | 未取得（2026-10-28 推送后由 `windows-arm64` lane 实跑取得） | 未取得（同上；arm64 包在原生 runner 安装验证） | `docs/adr/ADR-043-windows-arm64-build-target.md`；`.github/workflows/platform-verification.yml` | arm64 预编译 DuckDB 载荷 SHA256 固定于 `fetch-duckdb.py`；一切结论只作平台证据 |
 | FreeBSD | 未固定 | x86_64 | `x86_64-unknown-freebsd` | **完整平台证据通道（硬门禁，2026-10-31）** | 全绿（run `41481740766`，硬门禁口径首次：全量构建含 GUI/bin＋全量测试＋三门全 GO＋TUI/Web 冒烟；证据 `artifacts/store-acceptance/`）；不作验收结论 | 性能分位数未取得（perf 通道仅 Windows） | `docs/adr/ADR-013-platform-scope-windows-only.md`；`docs/adr/ADR-DB-BUILD.md` | 恢复时须新 ADR 并补齐 D-14 要求的证据链 |
 | NetBSD | 未固定 | x86_64 | `x86_64-unknown-netbsd` | **SSH 远程开发目标（被连入，ADR-013 修订 2026-11-03）＋CI 自动运行（仅平台证据）** | 随 main 自动运行（rustup 按锁定装 1.100.0；**CI 回填（run `43557659398`）success**） | SSH 回环验收 GO（客户端＋服务端四项，`artifacts/ssh-acceptance/netbsd-client.txt`）；进程组零残留 GO（Check 201）；原生 store/DuckDB 豁免（上游 2.0.0 依赖 glibc `features.h`） | 同上；`artifacts/store-acceptance/netbsd-store.txt` | 远程开发能力＝从 Windows/FreeBSD 以内置 SSH 客户端连入 |

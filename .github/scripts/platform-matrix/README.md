@@ -27,7 +27,7 @@ GitHub Actions 只执行该目录下的文件；矩阵包含 windows/windows-arm
 | `bsd-ssh-client.sh` | BSD SSH 客户端＋服务端回环验收记录（Check 25／96／99） |
 | `cross-check.py` | 本机跨目标**代码级**检查（见下方纪律：不构成运行验证） |
 
-发布包脚本在 `.github/scripts/` 根级：`.github/scripts/package-windows.py`（打包 + 仓库外解包安装验证；T118／Check 118；`--target` 支持 `x86_64-pc-windows-msvc`／`aarch64-pc-windows-msvc`，ARM64 的 `--verify` 只在原生宿主放行，ADR-043）。
+发布包脚本在 `.github/scripts/` 根级：`.github/scripts/package-windows.py`（打包 + 仓库外解包安装验证；T118／Check 118；`--target` 支持 `x86_64-pc-windows-gnullvm`（默认，ADR-073）／`x86_64-pc-windows-msvc`（回退通道）／`aarch64-pc-windows-msvc`，ARM64 的 `--verify` 只在原生宿主放行，ADR-043）。
 
 纪律：
 

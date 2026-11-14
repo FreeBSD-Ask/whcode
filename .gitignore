@@ -12,6 +12,8 @@
 !/artifacts/progress-review-2026-10-23.md
 # 发布包安装验证与 quickstart 全流程留证属验收证据（Check 118／124），随仓库版本化。
 !/artifacts/install-verify-windows-amd64.txt
+# ADR-073：gnullvm 迁移的本机实测证据（构建／测试／确定性／运行），ADR 的失效条件依赖它可复核。
+!/artifacts/gnullvm-migration-2026-11-14.md
 # ADR-043：ARM64 安装验证记录由原生 windows-11-arm runner 产出，随仓库版本化后可复核。
 !/artifacts/install-verify-windows-arm64.txt
 !/artifacts/quickstart-run-2026-10-23.md

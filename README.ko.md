@@ -37,7 +37,7 @@ M0—M6, M8과 네 프런트엔드 동등성이 구현되었고 M7의 SSH 서버
 
 | 플랫폼 | 역할 |
 |---|---|
-| Windows 11 amd64 | **유일한 수용 대상** (`x86_64-pc-windows-msvc`, ADR-013) |
+| Windows 11 amd64 | **유일한 수용 대상** (`x86_64-pc-windows-gnullvm`, ADR-073) |
 | Windows ARM64 | 빌드 배포 대상 (ADR-043). CI 결과는 플랫폼 증거일 뿐 수용에는 넣지 않습니다 |
 | FreeBSD | 완전한 플랫폼 증거 채널(하드 게이트). `main`마다 CI가 전량 빌드·테스트·게이트를 돌리고 하나라도 실패하면 빨강이 됩니다. 수용 결론은 아닙니다 |
 | NetBSD | `main`에서 CI가 자동 실행. 플랫폼 증거만 해당 |
@@ -49,7 +49,7 @@ M0—M6, M8과 네 프런트엔드 동등성이 구현되었고 M7의 SSH 서버
 
 ## 빌드와 실행
 
-Rust 1.100.0(`rust-toolchain.toml`에 고정), MSVC 툴체인, Python 3이 필요합니다. GNU
+Rust 1.100.0(`rust-toolchain.toml`에 고정), LLVM 계열 툴체인(rustc gnullvm + llvm-mingw, `python .github/scripts/setup-windows-llvm.py`로 설치), Python 3이 필요합니다. GNU
 툴체인은 어디에도 쓰지 않습니다.
 
 ```powershell

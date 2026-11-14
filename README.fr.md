@@ -40,7 +40,7 @@ autorité sont [tasks.md](./specs/001-whcode-harness/tasks.md) et
 
 | Plateforme | Rôle |
 |---|---|
-| Windows 11 amd64 | **Seule cible d'acceptation** (`x86_64-pc-windows-msvc`, ADR-013) |
+| Windows 11 amd64 | **Seule cible d'acceptation** (`x86_64-pc-windows-gnullvm`, ADR-073) |
 | Windows ARM64 | Cible de livraison des compilations (ADR-043) : les résultats de la CI valent preuve de plateforme, pas acceptation |
 | FreeBSD | Canal complet de preuve de plateforme (barrière stricte) : à chaque `main`, la CI compile, teste et applique les barrières en entier, et la moindre erreur la fait échouer ; aucune conclusion d'acceptation |
 | NetBSD | Démarre automatiquement dans la CI sur `main` ; preuve de plateforme seulement |
@@ -52,7 +52,7 @@ Les quantiles de performance proviennent pour l'instant du seul canal Windows. V
 
 ## Compilation et exécution
 
-Il faut Rust 1.100.0 (épinglé dans `rust-toolchain.toml`), la chaîne MSVC et Python 3. Aucun
+Il faut Rust 1.100.0 (épinglé dans `rust-toolchain.toml`), la chaîne LLVM (rustc gnullvm + llvm-mingw, installée via `python .github/scripts/setup-windows-llvm.py`) et Python 3. Aucun
 outillage GNU n'est utilisé.
 
 ```powershell

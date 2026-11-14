@@ -203,7 +203,12 @@ def find_windows_sdk() -> str:
 
 
 def host_triple() -> str:
-    """宿主 Windows 架构 -> Rust 三元组；其他系统返回空串（BSD 无 vendor 载荷）。"""
+    """宿主 Windows 架构 -> DuckDB **载荷**三元组；其他系统返回空串（BSD 无 vendor 载荷）。
+
+    ADR-073：Windows 的编译目标已是 gnullvm，但 DuckDB 官方只发 MSVC 载荷，所以这里
+    返回的是载荷目录名（`*-windows-msvc`），用于在 vendor 目录里挑出正确的动态库。
+    真实编译目标由 `[platform] host_triple`（rustc -vV host）记录，两者不得混为一谈。
+    """
     if platform.system() != "Windows":
         return ""
     machine = platform.machine().upper()
@@ -212,6 +217,14 @@ def host_triple() -> str:
     if machine == "ARM64":
         return "aarch64-pc-windows-msvc"
     return ""
+
+
+def find_llvm_mingw() -> str:
+    """记录 llvm-mingw 驱动版本（ADR-073：C 依赖编译与最终链接由它提供）。"""
+    driver = locate("x86_64-w64-mingw32-clang") or locate("x86_64-w64-mingw32-clang.exe")
+    if not driver:
+        return f"{NO_EVIDENCE}：x86_64-w64-mingw32-clang 不在 PATH（ADR-073 前置缺失）>"
+    return f"{driver}（{first_line(run([driver, '--version']))}）"
 
 
 def find_duckdb() -> tuple[str, str, pathlib.Path | None]:
@@ -298,6 +311,9 @@ def main() -> int:
         f"cargo = {first_line(run([cargo, '-V'])) if cargo else f'{NO_EVIDENCE}：cargo 不存在>'}",
         "",
         "[compiler]",
+        # ADR-073：Windows 验收链的 C 编译器与链接器来自 llvm-mingw；MSVC 与 Windows SDK
+        # 仅在回退通道（msvc 三元组）或 ARM64 交付链上出现，记录它们不等于它们仍在使用。
+        f"llvm_mingw = {find_llvm_mingw()}",
         f"msvc_tools = {msvc_dir}",
         f"msvc_version = {msvc_version}",
         f"windows_sdk = {find_windows_sdk()}",

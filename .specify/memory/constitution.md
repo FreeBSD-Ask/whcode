@@ -177,7 +177,7 @@ RAII（NFR-215）。
 ## Technology & Platform Constraints
 
 - **核心语言**：Rust；工具链、依赖、编译器与 OS 版本在 M0 锁定并写入构建记录（V-001）。
-- **目标平台**：唯一验收目标 Windows 11 amd64（`x86_64-pc-windows-msvc`，ADR-013）；不支持任何
+- **目标平台**：唯一验收目标 Windows 11 amd64（`x86_64-pc-windows-gnullvm`，ADR-073）；不支持任何
   32 位平台；FreeBSD/OpenBSD/NetBSD/DragonFly 全部延后（代码与文档保留，不作验收结论，CI 手工
   触发）；不使用任何 GNU 工具链；Rust 锁定 1.100.0，MSRV 声明 1.100（跟随锁定工具链，
   2026-11-14 用户指令，ADR-069）。

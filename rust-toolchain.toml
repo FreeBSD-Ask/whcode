@@ -1,11 +1,17 @@
 # 工具链固定（tasks.md T002/T021；V-001、D-01；2026-11-14 经 ADR-069 升至 1.100.0）。
 #
 # 锁定策略：
-#   - 本文件只锁定**版本号**，与主机三元组无关，保持仓库跨平台可移植；
+#   - 本文件只锁定**版本号**，与主机三元组无关，保持仓库跨平台可移植（FreeBSD/NetBSD 通道
+#     直接用 1.100.0，不受 Windows 三元组选择影响）；
 #   - 各平台的主机三元组选择记录在 docs/matrices/platform-matrix.md；
-#   - 本机 rustup 默认 host 为 x86_64-pc-windows-gnu，故在仓库目录另用机器级
-#     `rustup override set 1.100.0-x86_64-pc-windows-msvc` 选择 msvc；该 override 属机器本地
-#     状态，不入库（D-01：Windows 验收使用 msvc，不使用任何 GNU 工具链）。
+#   - Windows 的机器级选择：验收目标已改为 `x86_64-pc-windows-gnullvm`（ADR-073，
+#     2026-11-14 用户指令“仓库目标也换 gnullvm”），故在仓库目录另用机器级
+#     `rustup override set 1.100.0-x86_64-pc-windows-gnullvm` 选择 gnullvm 主机工具链；
+#     该 override 属机器本地状态，不入库。gnullvm 属 LLVM 系列（lld 链接、clang 编译 C 依赖），
+#     不使用 GNU 工具链，符合 D-01 修订后的口径：禁 GNU 系，不再绑定 MSVC 系；
+#   - 前置条件：llvm-mingw 20261104 的 bin 目录在 PATH 上（`.cargo/config.toml` 的
+#     `[target.x86_64-pc-windows-gnullvm]` 显式指向其驱动，ADR-073 §3）；
+#     旧 msvc 工具链保留为回退通道，不进验收结论。
 #
 # GitHub Actions 适配（CI 必须可在 runner 上运行）：
 #   - profile = "minimal" 减小 runner 上的下载体积；

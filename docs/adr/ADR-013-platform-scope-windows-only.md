@@ -7,7 +7,8 @@
 
 ## 决策
 
-1. **唯一验收目标**：Windows 11 `x86_64`（目标三元组 `x86_64-pc-windows-msvc`）。
+1. **唯一验收目标**：Windows 11 `x86_64`（目标三元组 `x86_64-pc-windows-msvc`；**2026-11-14 修订为
+   `x86_64-pc-windows-gnullvm`，见 ADR-073 与文末修订记录**）。
    M0—M9 的“平台通过”判据只针对该目标；其他平台的结论一律不进入验收结论。
 2. **不考虑任何 32 位平台**：不使用 `i686`/`i586` 等 32 位目标，不为 32 位做兼容、CI 或性能测量。
    已安装/可安装的 32 位目标列表不作为承诺依据。
@@ -115,6 +116,18 @@
   job 出现非“工具链低于 MSRV”的失败（`gh run view <run> --json jobs --jq`），或
   GitHub Actions 的 `vmactions/openbsd-vm`／`cross-platform-actions` 镜像不再提供时，
   复审本修订。
+- **2026-11-14（用户指令：仓库目标换 gnullvm，ADR-073）**：决策 1 的目标三元组由
+  `x86_64-pc-windows-msvc` 改为 `x86_64-pc-windows-gnullvm`——验收平台仍是 Windows 11
+  amd64，变的只是工具链落点（LLVM 系列：rustc gnullvm ＋ llvm-mingw 的 clang／lld）。
+  旧 msvc 三元组保留为回退通道，不进验收结论；ARM64 交付目标（ADR-043）本轮不切，
+  登记为后续修订。**代价与承担者**：开发机与 CI 各需安装 llvm-mingw（固定版本＋SHA256，
+  `python .github/scripts/setup-windows-llvm.py`），由平台矩阵负责人承担版本漂移风险。
+  **三重时间**：过去＝D-01 的“Windows 只用 msvc”（2026-10-21）与 ADR-069 的 1.100.0 锁定；
+  现在＝ADR-073 §3 的尖峰证据（全工作区构建、测试 1205 通过、clippy 零告警、两次链接哈希
+  一致、DuckDB v2.0.0 运行）；将来失效＝上游弃用 gnullvm 目标或 llvm-mingw 不可得时回退
+  msvc 并重开 ADR。**复审触发**（绑定命令＋判定）：`rustup target list | grep
+  x86_64-pc-windows-gnullvm` 无输出，或 `python .github/scripts/setup-windows-llvm.py` 的
+  SHA256 校验失败且上游版本表不再含 20261104 时，复审本修订。
 
 ## 影响
 

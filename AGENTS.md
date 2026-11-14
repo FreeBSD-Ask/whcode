@@ -13,7 +13,9 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 
 当前硬边界（不得自行放宽）：
 
-- 唯一验收目标：**Windows 11 amd64**，目标三元组 `x86_64-pc-windows-msvc`（ADR-013）；
+- 唯一验收目标：**Windows 11 amd64**，目标三元组 `x86_64-pc-windows-gnullvm`（ADR-073，2026-11-14 用户指令
+  “仓库目标也换 gnullvm”；旧 `x86_64-pc-windows-msvc` 保留为回退通道）。gnullvm 的 ABI 前缀虽为 GCC 兼容，
+  工具链本身是 LLVM 系列（rustc ＋ llvm-mingw 的 clang／lld），**不属于 GNU 工具链**；
 - **Windows ARM64 为构建交付目标**（`aarch64-pc-windows-msvc`，ADR-043）：产出 arm64 发布包，
   CI `windows-arm64`（原生 `windows-11-arm` runner）结果只作平台证据，**不进入验收**；
 - **不支持任何 32 位平台**；
@@ -36,7 +38,8 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 1. **资源占用**：内存、GPU、线程、句柄四类同时优化；新增固定占用必须有 ADR，空闲态不得随会话数线性增长。
 2. **安全优先**：默认回环监听、追踪 `redacted`、最小权限、凭据不落日志与事件；放宽必须用户批准 + ADR。
 3. **BSD 兼容**：保持代码级兼容与交叉检查；不改变 ADR-013 的验收范围，BSD 仍延后。
-4. **禁用 GNU 工具**：沿用 D-01 修订，Windows 只用 msvc，不引入 GNU 工具链或依赖。
+4. **禁用 GNU 工具**：沿用 D-01 修订与 ADR-073，Windows 只用 LLVM 系列（rustc gnullvm ＋ llvm-mingw
+   的 clang／lld），不引入 GCC／binutils 或 GNU 工具链依赖。
 5. **内存安全**：普通 Rust 零 `unsafe`；禁止 `mem::forget`；队列/缓冲/缓存必须有界；句柄 RAII 并有释放测试；汇编仅按 ADR-015 例外（NFR-215）。
 6. **性能与并发**：内存/CPU 优化先测量；多线程禁止原型先行；设计前研读一手文献并提交并发档案；汇编仅按 ADR-015 例外（NFR-216/217）。
 
@@ -48,7 +51,7 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 4. **物质—意识**：文档必须落到代码/测试/产物，产物必须被文档解释；不一致以可复现事实为准。
 5. **没有最佳实践**：现行硬约束是当前和解，不是永恒真理；变更走 ADR 并写复审条件。
 6. **0 信任**：不信任报错、文档、外部事实与自己的旧结论；按风险独立复核。
-7. **知难行易（任务认知先于手段）**：先弄清任务方向、目标与用户真实意图，手段（工具/框架/路径）是次要且可替换的变量；方向不明必须提问，不得先开工（`docs/guides/knowing-before-doing.md`，宪法原则 X）。
+7. **知难行易（任务认知先于手段）**：先弄清任务方向、目标与用户真实意图，手段（工具/框架/路径）是次要且可替换的变量；方向不明必须提问，不得先开工（`docs/guides/knowing-before-doing.md`，宪法原则 X）。开工前相关标准化文献（ISO／IEEE／国标／官方文档／规范／建议）的启发式研读并落盘是其知识面体现（`docs/guides/software-engineering-process.md` §1.6）。
 
 ### 1.3 自由、主体性与安全（2026-10-21）
 
@@ -95,6 +98,7 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 | 15 | `engineering-doctrine/README.md` | 可移植工程哲学与开发准则（供其他项目复制） |
 | 16 | `docs/guides/signal-chain-completeness.md` | 信号链完备原则（T116 复盘：交付 = 信号存在，而非执行存在） |
 | 17 | `docs/guides/knowing-before-doing.md` | 开工前任务认知卡：方向、目标、用户意图、判据、非目标；手段后置 |
+| 18 | `docs/guides/standards-baseline.md` | 标准基线单一事实源：引用哪个标准、什么版本、作何判定、停用对象登记；引用标准先看这里 |
 
 ## 3. 环境与常用命令
 
@@ -107,6 +111,7 @@ $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 标准验证链（提交前至少跑前五项；涉及布局/CI 时全跑）：
 
 ```powershell
+python .github/scripts/setup-windows-llvm.py                  # Windows 首次前置：装 llvm-mingw（固定版本＋SHA256）与 rustup gnullvm 工具链（ADR-073）；`--print-env` 打印需导出的 PATH／RUSTUP_TOOLCHAIN
 python .github/scripts/fetch-duckdb.py                        # 首次构建前置：拉取并校验 DuckDB（交叉／ARM64 载荷：--target aarch64-pc-windows-msvc，ADR-043）
 cargo build --locked --workspace
 cargo fmt --all --check
@@ -215,7 +220,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 
 | 门禁 | 本仓库落点 | 不可省略的证据 |
 |---|---|---|
-| G0 范围 | `spec.md` 范围/Assumptions、ADR | 范围外事项明确列出 |
+| G0 范围 | `spec.md` 范围/Assumptions、ADR | 范围外事项明确列出；开工前标准文献研读记录可定位（`software-engineering-process.md` §1.6） |
 | G1 需求 | FR/NFR、`tasks.md`、`checklist.md` | FR ↔ 任务 ↔ Check 三方追溯 |
 | G2 设计 | `plan.md`、`data-model.md`、`contracts/`、设计指南 | 关键决策有 ADR；可映射到 crate |
 | G3 实现 | `crates/**`、`tests/**` | fmt/clippy/test 全绿；正向与失败路径测试 |
@@ -377,6 +382,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 9. 不伪造/未知显式、反进步叙事、文档假设与复审日期已核对（NFR-220—222）。
 10. 证据层级与三次复查已执行；不可逆决策附设计与回退证据。
 11. **知难行易**：开工前有任务认知卡（方向/目标/用户意图/判据/非目标），手段选择晚于认知；歧义已提问或登记（`docs/guides/knowing-before-doing.md`）。
+12. **标准研读前置**：开工前完成相关标准化文献（ISO／IEEE／国标／官方文档／规范／建议）的启发式研读并落盘（`docs/guides/software-engineering-process.md` §1.6）；新标准或新域先补基线登记再开工（`docs/guides/standards-baseline.md`）。
 
 提交约定（用户已授权代理自行提交）：
 
@@ -391,3 +397,4 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 设计冲突：新开 ADR 或在既有 ADR 上追加修订记录，再改代码。
 - 平台/性能结论：没有目标平台实测就写“阻塞”，并给出复现所需的命令与环境。
 - 发现既有文档与磁盘事实不一致：以可复现命令的结果为准，同步修正文档并在提交信息中说明。
+- 不知该读哪些标准：从 `docs/guides/standards-baseline.md` 起步按任务域启发式选读（`docs/guides/software-engineering-process.md` §1.6）；边界模糊按“读”处理。

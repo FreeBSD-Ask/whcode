@@ -29,7 +29,7 @@ impl fmt::Display for TerminationPolicy {
 
 /// 返回当前 `cfg(target_os)` 对应的终止策略。
 ///
-/// 观测事实（本轮实测）：本项目 Windows 验收环境为 `x86_64-pc-windows-msvc`
+/// 观测事实（本轮实测）：本项目 Windows 验收环境为 `x86_64-pc-windows-gnullvm`（ADR-073）
 /// （rustc 1.100.0、MSVC 14.44.35207、Windows SDK 10.0.26100.0），按 D-01 修订
 /// **不使用任何 GNU 工具链**。四大 BSD 的策略声明在对应平台编译时生效；其运行验证属
 /// M0/M7（V-004），未验证前 `note` 只描述计划语义，不构成能力承诺。

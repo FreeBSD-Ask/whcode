@@ -34,7 +34,7 @@
 **Testing**：`cargo test`（单元 + 契约）；纯函数夹具覆盖协议与帧解码；
 本地回环桩服务器用于后续客户端任务；不访问公网；CI 为测试结论唯一入口（ADR-037）
 
-**Target Platform**：Windows 11 amd64（`x86_64-pc-windows-msvc`，ADR-013）；
+**Target Platform**：Windows 11 amd64（`x86_64-pc-windows-gnullvm`，ADR-073；旧 msvc 为回退通道）；
 FreeBSD 经 CI 硬门禁通道做平台证据（全量构建/测试/三门/TUI-Web 冒烟，不作验收结论），其余 BSD 延后；代码级兼容保留
 
 **Project Type**：多 crate workspace 的领域服务 crate（`whcode-llm`）+ 装配根（`whcode-bin`）

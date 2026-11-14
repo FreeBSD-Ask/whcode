@@ -7,6 +7,10 @@
 # 说明：此处指向**主机默认架构**（amd64）的载荷；交叉构建（cargo build --target
 # aarch64-pc-windows-msvc）时在环境中导出 DUCKDB_LIB_DIR 指向 arm64 子目录——
 # cargo [env] 表不覆盖已存在的 OS 环境变量，故导出值优先生效（CI 工作流已按此约定）。
+# 载荷目录名里的 `msvc` 是**发行方载荷标识**，不是本仓库的编译目标：Windows 验收目标已改为
+# gnullvm（ADR-073），而 DuckDB 官方只发布 MSVC 载荷；libduckdb 是 C ABI（duckdb.h），
+# MSVC 导入库在 lld 下可链接、运行期可加载（ADR-073 §3 实测）。改名或“就近找别的目录”
+# 都会破坏映射的可审计性，禁止。
 DUCKDB_LIB_DIR = { value = "vendor/duckdb/2.0.0/x86_64-pc-windows-msvc", relative = true }
 
 # 构建期环境（tasks.md T025）：SSH 客户端原型引入 russh → aws-lc-rs → aws-lc-sys。
@@ -17,7 +21,7 @@ DUCKDB_LIB_DIR = { value = "vendor/duckdb/2.0.0/x86_64-pc-windows-msvc", relativ
 AWS_LC_SYS_PREBUILT_NASM = "1"
 
 # 链接确定性（ADR-047）：/Brepro 让 MSVC 链接器把 PE TimeDateStamp、调试目录时间戳与
-# GUID 换成确定性值（内容哈希），消除"链接墙钟"这第四个产物时间源——没有它，同一提交
+# GUID 换成确定性值（内容哈希），消除“链接墙钟”这第四个产物时间源——没有它，同一提交
 # 的两次全新构建 zip SHA256 必然不同（2026-10-29 实测：CI 同提交两次发布运行 exe 差 24
 # 字节，PE 时间戳解码即两次链接时刻；/Brepro 后同机两次全量 clean 构建 zip 哈希一致）。
 # 只作用于 windows 两个目标的构建；BSD/Linux 目标不传 MSVC 链接器参数，不受影响。
@@ -28,3 +32,18 @@ rustflags = ["-C", "link-arg=/Brepro"]
 
 [target.aarch64-pc-windows-msvc]
 rustflags = ["-C", "link-arg=/Brepro"]
+
+# Windows 验收目标（ADR-073，2026-11-14）：三元组换 gnullvm，链接器取 llvm-mingw 驱动。
+#
+# 为什么必须显式写：rustc 对 gnullvm 的默认链接器就是 `x86_64-w64-mingw32-clang`，但只在
+# PATH 上存在时才能用；rustup 自带的 `rust-mingw` 自包含组件仅有 crt2.o 与 kernel32，
+# 缺 advapi32/ole32 等导入库也缺 mingw 头，不足以链接（尖峰实测，ADR-073 §3）。显式声明
+# 让“找不到驱动”变成构建期可读错误，而不是链接期缺库的模糊失败。
+#
+# 前置条件：llvm-mingw 20261104（UCRT，x86_64 宿主包，SHA256 552191b5…40f）的 bin 目录
+# 在 PATH 上。它属 LLVM 系列（clang／lld／llvm-ar），不含 GCC/binutils，符合 D-01。
+#
+# 不设 `/Brepro`：lld 默认确定性（不写时间戳），release 两次全新链接 SHA256 一致
+# （ADR-073 §3）。给 lld 传 link.exe 的旗标反而是未经验证的假设。
+[target.x86_64-pc-windows-gnullvm]
+linker = "x86_64-w64-mingw32-clang"

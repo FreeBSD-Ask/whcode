@@ -40,7 +40,7 @@ Gründe für Offenes und Fundstellen der Belege stehen in der
 
 | Plattform | Rolle |
 |---|---|
-| Windows 11 amd64 | **Einziges Abnahmeziel** (`x86_64-pc-windows-msvc`, ADR-013) |
+| Windows 11 amd64 | **Einziges Abnahmeziel** (`x86_64-pc-windows-gnullvm`, ADR-073) |
 | Windows ARM64 | Ziel für Build-Auslieferung (ADR-043): CI-Ergebnisse gelten als Plattformbeleg, nicht als Abnahme |
 | FreeBSD | Vollständiger Plattformbeleg-Kanal (harte Prüfung): Bei jedem `main` baut, testet und prüft die CI vollständig, jeder Fehler färbt sie rot; keine Abnahmeschlussfolgerung |
 | NetBSD | Läuft auf `main` automatisch in der CI; nur Plattformbeleg |
@@ -52,7 +52,7 @@ steht in [ADR-013](./docs/adr/ADR-013-platform-scope-windows-only.md) und
 
 ## Bauen und starten
 
-Nötig sind Rust 1.100.0 (in `rust-toolchain.toml` festgelegt), die MSVC-Werkzeugkette und
+Nötig sind Rust 1.100.0 (in `rust-toolchain.toml` festgelegt), die LLVM-Werkzeugkette (rustc gnullvm + llvm-mingw, installiert über `python .github/scripts/setup-windows-llvm.py`) und
 Python 3. Eine GNU-Werkzeugkette wird nirgends verwendet.
 
 ```powershell

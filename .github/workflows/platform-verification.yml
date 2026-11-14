@@ -78,6 +78,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # ADR-073（2026-11-14）：Windows 验收目标换成 gnullvm。本步骤安装 llvm-mingw
+      # （固定版本＋SHA256 校验）与 rustup 的 gnullvm 主机工具链，并把 bin 目录写进
+      # GITHUB_PATH、RUSTUP_TOOLCHAIN 写进 GITHUB_ENV——后续所有 cargo 步骤因此产出
+      # gnullvm 二进制。缺这一步时构建会以“找不到 x86_64-w64-mingw32-clang”显式失败。
+      - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/setup-windows-llvm.py
+
       # ---------------- Windows ----------------
       - name: 工作流语义门禁（job 级 if 禁用 matrix 等 GitHub 限制）
         if: matrix.platform == 'windows'
@@ -97,8 +105,12 @@ jobs:
 
       # ADR-043：cargo check 只做目标代码级类型检查，不链接、不运行 arm64 二进制；
       # aws-lc-sys 等 C 依赖的目标编译仍会发生，故先拉取 arm64 载荷并覆盖 DUCKDB_LIB_DIR。
+      # ADR-073：ARM64 仍走 msvc（本拉修订不切 ARM64，见 ADR-073 §2.5），故本步骤显式把
+      # 工具链钉回 msvc 主机——否则会继承 amd64 lane 的 gnullvm 环境，把两类证据混在一起。
       - name: ARM64 交叉构建检查（ADR-043：代码级可构建性，不作平台结论）
         if: matrix.platform == 'windows'
+        env:
+          RUSTUP_TOOLCHAIN: 1.100.0-x86_64-pc-windows-msvc
         run: |
           rustup target add aarch64-pc-windows-msvc
           python .github/scripts/fetch-duckdb.py --target aarch64-pc-windows-msvc
@@ -1112,6 +1124,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # ADR-073：测量在同一条 gnullvm 验收链上取数，避免“测得的是 msvc 产物”。
+      - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
+        run: python .github/scripts/setup-windows-llvm.py
+
       - name: 工作流语义门禁
         run: python .github/scripts/check-workflows.py
 
@@ -1204,6 +1220,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
+        run: python .github/scripts/setup-windows-llvm.py
+
       - name: 工作流语义门禁
         run: python .github/scripts/check-workflows.py
 
@@ -1260,6 +1279,9 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
+        run: python .github/scripts/setup-windows-llvm.py
 
       - name: 工作流语义门禁
         run: python .github/scripts/check-workflows.py
@@ -1335,6 +1357,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # ADR-073：覆盖率必须在验收链（gnullvm）上取，否则数字描述的是一套没人发布的产物。
+      - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
+        run: python .github/scripts/setup-windows-llvm.py
 
       - name: 取 DuckDB 与覆盖率工具
         run: |

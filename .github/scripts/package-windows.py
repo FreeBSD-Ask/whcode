@@ -11,15 +11,17 @@
     `未取得`，不以 0 条输出冒充通过；
   - 产物为 UTF-8 无 BOM、LF。
 
-架构口径（ADR-013／ADR-043）：
-  - `--target x86_64-pc-windows-msvc`（默认）：amd64 是唯一验收目标，可打包并安装验证；
+架构口径（ADR-013／ADR-043／ADR-073）：
+  - `--target x86_64-pc-windows-gnullvm`（默认，主机为该工具链时）：amd64 是唯一验收目标，
+    可打包并安装验证；`x86_64-pc-windows-msvc` 保留为**回退通道**，仍可打包但不进验收结论
+    （ADR-073；DuckDB 载荷仍是官方 MSVC 包，C ABI 兼容，见 `PAYLOAD_TRIPLE`）；
   - `--target aarch64-pc-windows-msvc`：ARM64 是构建交付目标（非验收目标）。exe 取自
     `target/<三元组>/release/`（交叉构建）或 `target/release/`（原生 ARM64 宿主构建）；
   - `--verify` 只在**宿主架构与目标架构一致**时允许：amd64 宿主无法运行 arm64 二进制，
     反之亦然。交叉产物的安装验证由原生 ARM64 runner / 设备取得，本机只打包。
 
 用法：
-    python .github/scripts/package-windows.py                      # 只打包（主机架构）
+    python .github/scripts/package-windows.py                      # 只打包（主机三元组）
     python .github/scripts/package-windows.py --verify             # 打包 + 仓库外解包运行验证
     python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt
     python .github/scripts/package-windows.py --out target/dist --verify
@@ -43,11 +45,21 @@ import zipfile
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-#: 目标三元组 -> 包名中的架构标识与人类可读描述（ADR-043）。
+#: 目标三元组 -> 包名中的架构标识与人类可读描述（ADR-043；gnullvm 见 ADR-073）。
 SUPPORTED_TARGETS: dict[str, str] = {
+    "x86_64-pc-windows-gnullvm": "amd64",
     "x86_64-pc-windows-msvc": "amd64",
     "aarch64-pc-windows-msvc": "arm64",
 }
+
+#: 编译目标三元组 -> DuckDB 官方载荷三元组（ADR-073：官方只发 MSVC 载荷，C ABI 兼容）。
+PAYLOAD_TRIPLE: dict[str, str] = {
+    "x86_64-pc-windows-gnullvm": "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-gnullvm": "aarch64-pc-windows-msvc",
+}
+
+#: amd64 验收目标的两种三元组（gnullvm 为当前验收目标，msvc 为回退通道）。
+AMD64_TARGETS = frozenset({"x86_64-pc-windows-gnullvm", "x86_64-pc-windows-msvc"})
 
 #: 随包发布的文档（仓库相对路径 -> 包内文件名）。兼容矩阵必须随包发布（Check 118）。
 DOC_FILES: dict[str, str] = {
@@ -109,16 +121,40 @@ def zip_date_time(epoch: int) -> tuple[int, int, int, int, int, int]:
     return max(time.gmtime(epoch)[:6], ZIP_EPOCH_FLOOR)
 
 
+def rustc_host_triple() -> str | None:
+    """从 `rustc -vV` 读实际生效的主机三元组（尊重 rust-toolchain.toml 与机器级 override）。
+
+    不能靠 `platform.machine()` 推断：同一台 amd64 机器上，msvc 与 gnullvm 两种主机工具链
+    产出不同的三元组目录（ADR-073）。取不到时返回 None，由调用方显式失败而不是猜。
+    """
+    rustc = find_rustc()
+    if rustc is None:
+        return None
+    proc = subprocess.run(
+        [rustc, "-vV"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    for line in proc.stdout.splitlines():
+        if line.startswith("host:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
 def host_triple() -> str | None:
-    """宿主 Windows 架构 -> Rust 三元组；非 Windows 或未知架构返回 None。"""
+    """宿主 Windows 的**实际构建**三元组；非 Windows 或 rustc 不可用返回 None。"""
     if platform.system() != "Windows":
         return None
-    machine = platform.machine().upper()
-    if machine == "AMD64":
-        return "x86_64-pc-windows-msvc"
-    if machine == "ARM64":
-        return "aarch64-pc-windows-msvc"
-    return None
+    host = rustc_host_triple()
+    return host if host in SUPPORTED_TARGETS else None
+
+
+def payload_triple(target: str) -> str:
+    """编译目标 -> DuckDB 载荷三元组（ADR-073；未登记的原样返回）。"""
+    return PAYLOAD_TRIPLE.get(target, target)
 
 
 def read_version() -> str:
@@ -158,13 +194,14 @@ def read_version() -> str:
 
 
 def find_duckdb_dll(target: str) -> pathlib.Path:
-    """定位 fetch-duckdb.py 校验过的预编译 DLL（按目标三元组；多版本缓存时取最高版本目录）。"""
-    roots = sorted((REPO_ROOT / "vendor" / "duckdb").glob(f"*/{target}/duckdb.dll"))
+    """定位 fetch-duckdb.py 校验过的预编译 DLL（按载荷三元组；多版本缓存时取最高版本目录）。"""
+    payload = payload_triple(target)
+    roots = sorted((REPO_ROOT / "vendor" / "duckdb").glob(f"*/{payload}/duckdb.dll"))
     if not roots:
         raise RuntimeError(
-            f"未找到 vendor/duckdb/<版本>/{target}/duckdb.dll，"
+            f"未找到 vendor/duckdb/<版本>/{payload}/duckdb.dll（编译目标 {target} 的载荷三元组），"
             "请先运行 python .github/scripts/fetch-duckdb.py "
-            + ("" if target == (host_triple() or "") else f"--target {target}")
+            + ("" if payload == (host_triple() or "") else f"--target {payload}")
         )
     return roots[-1]
 
@@ -289,9 +326,9 @@ def build_package(out_dir: pathlib.Path, target: str) -> tuple[pathlib.Path, lis
     if rustc is not None:
         rustc_line = (rustc.stdout.splitlines() or ["未取得（rustc 无输出）"])[0] or "未取得（rustc 无输出）"
     scope_line = (
-        "Windows 11 amd64 唯一验收目标（ADR-013）；"
+        "Windows 11 amd64 唯一验收目标（ADR-013／ADR-073：目标三元组 x86_64-pc-windows-gnullvm）；"
         "FreeBSD/NetBSD/OpenBSD/DragonFly 延后，本包不作任何 BSD 运行结论"
-        if target == "x86_64-pc-windows-msvc"
+        if target in AMD64_TARGETS
         else "Windows 11 amd64 为唯一验收目标（ADR-013）；ARM64 为构建交付目标（ADR-043），"
         "本包不作验收结论，运行证据以原生 ARM64 采集为准"
     )
@@ -478,19 +515,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Windows 发布包打包与安装验证")
     parser.add_argument(
         "--target",
-        default="x86_64-pc-windows-msvc",
+        default=None,
         choices=sorted(SUPPORTED_TARGETS),
-        help="目标三元组（默认 amd64 验收目标；ARM64 见 ADR-043）",
+        help="目标三元组（默认取 rustc 实际主机三元组；amd64 验收目标见 ADR-073，ARM64 见 ADR-043）",
     )
     parser.add_argument("--out", default=str(REPO_ROOT / "target" / "dist"), help="输出目录（默认 target/dist）")
     parser.add_argument("--verify", action="store_true", help="仓库外临时目录解包并运行验证")
     parser.add_argument("--record", default=None, help="验证记录输出路径（需与 --verify 同用）")
     args = parser.parse_args()
-    target = args.target
 
     host = host_triple()
     if host is None:
-        return fail(f"本脚本只在 Windows 上产出交付物，当前为 {platform.platform()}（ADR-013）")
+        return fail(
+            f"无法确定本机 Windows 的构建三元组（rustc 取不到或非 Windows：{platform.platform()}）；"
+            "请确认 llvm-mingw 与 gnullvm 工具链就位，或显式传 --target"
+        )
+    target = args.target if args.target is not None else host
     if args.verify and not can_execute_locally(target):
         return fail(
             f"宿主 {platform.machine()} 无法运行 {target} 产物，拒绝 --verify（交叉编译不冒充平台结论，"

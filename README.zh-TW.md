@@ -33,7 +33,7 @@ M0—M6、M8 與四端對等已完成，M7 的 SSH 服務端也已完成。M9 �
 
 | 平台 | 定位 |
 |---|---|
-| Windows 11 amd64 | **唯一驗收目標**（`x86_64-pc-windows-msvc`，ADR-013） |
+| Windows 11 amd64 | **唯一驗收目標**（`x86_64-pc-windows-gnullvm`，ADR-073） |
 | Windows ARM64 | 建置交付目標（ADR-043）：CI 結果只作平台證據，不進入驗收 |
 | FreeBSD | 完整平台證據通道（硬性關卡）：CI 隨 `main` 全量建置、測試與關卡，任一失敗即紅；不作驗收結論 |
 | NetBSD | 隨 CI 於 `main` 自動執行；僅作平台證據 |
@@ -45,7 +45,7 @@ M0—M6、M8 與四端對等已完成，M7 的 SSH 服務端也已完成。M9 �
 
 ## 建置與執行
 
-需要 Rust 1.100.0（已由 `rust-toolchain.toml` 鎖定）、MSVC 工具鏈與 Python 3；全程不使用
+需要 Rust 1.100.0（已由 `rust-toolchain.toml` 鎖定）、LLVM 系列工具鏈（rustc gnullvm ＋ llvm-mingw，安裝見 `python .github/scripts/setup-windows-llvm.py`）與 Python 3；全程不使用
 任何 GNU 工具鏈。
 
 ```powershell

@@ -41,6 +41,13 @@ DuckDB 以**官方预编译动态库**（而非源码构建）引入，理由有
 
 **上游补丁**：无。使用官方发布物原样，未做任何本地补丁。
 
+**2026-11-14 增补（ADR-073）**：Windows 验收目标改为 `x86_64-pc-windows-gnullvm` 之后，仍使用本表
+所列官方 MSVC 载荷——DuckDB 不发布 mingw 载荷，而 libduckdb 是 C ABI（`duckdb.h`）。实测：MSVC
+导入库在 lld 下链接通过；gnullvm 产物的 `doctor --json` 报 `duckdb_engine_version: v2.0.0`、
+`duckdb_error: null`；`duckdb.dll` 自身只导入 KERNEL32／RstrtMgr／WS2_32，无 vcruntime 依赖。
+载荷目录名保持 `x86_64-pc-windows-msvc`，映射由 `fetch-duckdb.py` 的 `PAYLOAD_TRIPLE` 与
+`.cargo/config.toml` 显式承担，禁止“就近匹配目录”。
+
 ## 各平台结论（V-001/V-002 的平台覆盖）
 
 | 平台 | 目标三元组 | M0 结论 | 说明 |

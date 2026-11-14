@@ -38,7 +38,7 @@ authoritative ledgers are [tasks.md](./specs/001-whcode-harness/tasks.md) and
 
 | Platform | Role |
 |---|---|
-| Windows 11 amd64 | **Only acceptance target** (`x86_64-pc-windows-msvc`, ADR-013) |
+| Windows 11 amd64 | **Only acceptance target** (`x86_64-pc-windows-gnullvm`, ADR-073) |
 | Windows ARM64 | Build delivery target (ADR-043): CI results count as platform evidence, not acceptance |
 | FreeBSD | Full platform-evidence channel (hard gate): CI builds, tests and gates everything on `main`, and any failure turns it red; no acceptance conclusion |
 | NetBSD | Runs automatically on CI with `main`; platform evidence only |
@@ -50,7 +50,7 @@ Performance percentiles currently come from the Windows channel only. See
 
 ## Build and run
 
-You need Rust 1.100.0 (pinned in `rust-toolchain.toml`), the MSVC toolchain and Python 3. No
+You need Rust 1.100.0 (pinned in `rust-toolchain.toml`), the LLVM-series toolchain (rustc gnullvm + llvm-mingw, installed via `python .github/scripts/setup-windows-llvm.py`) and Python 3. No
 GNU toolchain is used anywhere.
 
 ```powershell

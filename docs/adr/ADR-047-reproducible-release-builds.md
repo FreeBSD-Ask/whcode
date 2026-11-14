@@ -104,3 +104,5 @@
   arm64 `faf803839d04364bc5512e9e005c2f5f07ba937a8b1c762df171d4f181804cda`；发布物
   `--version` 输出 `2026-10-28T19:01Z`＝提交时刻（端到端确定性）。可重现构建目标达成：
   同一提交在同一构建环境内，无论谁在何时重建，发布包字节相同。
+
+- 2026-11-14 **gnullvm 目标（ADR-073）**：Windows 验收目标换 `x86_64-pc-windows-gnullvm` 后，链接器由 MSVC link.exe 换为 lld。lld 默认不写 PE 时间戳（确定性输出），故不为 gnullvm 传 `/Brepro`；`/Brepro` 只保留在 `[target.x86_64-pc-windows-msvc]`／`[target.aarch64-pc-windows-msvc]`（回退通道与 ARM64 交付链）。实测：release 产物删除后重链两次，`whcode.exe` SHA256 一致（`f64f8ebbb30535a803f3bca7360e3e576a805e003207fcda90d6139c631f0f71`）。发布链是否端到端字节一致仍以同一提交两次 CI 发布运行比对为准，本修订只是把“链接器确定性”这一环换成 lld 的实测。
