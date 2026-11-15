@@ -2296,3 +2296,28 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   显式报错；ADR-077（威胁模型／正负和解／已知限制／文献依据）＋ADR-070 修订记录（复审结论
   ＝未收敛）＋`runtime-inventory` 与 CLI 契约同步——**取证（2026-11-15）**：bin 4 项测试通过；
   `doctor` 文本行与 JSON 强度一致性由测试断言。
+
+## Tasks（2026-11-15 追加）：LSP 四查询客户端（P5.3a，ADR-078）
+
+- [x] T323 传输帧与配置（P5.3a／FR-782／ADR-078）：`crates/whcode-lsp` 新 crate（第 16 个成员）
+  ——`transport.rs`（`Content-Length` 必填、UTF-8、1 MiB 上限、超限显式报错、连续帧精确推进）、
+  `config.rs`（`.zcode/lsp.json` 显式 opt-in、四类上限、坏配置显式失败、扩展名→语言 ID 映射）
+  ——**任务认知卡**：方向＝proposal P5.3 封闭集四查询，模型无法回答“符号在哪定义/谁在用”；
+  目标＝库层四查询可用且完全离线、有界、无外部进程依赖地可测；判据＝transport/config 测试
+  全绿且坏配置不静默；非目标＝模型工具面（P5.3b）、内置服务器、completion/rename/formatting、
+  客户端复用。
+- [x] T324 [P] 客户端生命周期与四查询（P5.3a／FR-782）：`client.rs`——spawn（复用
+  `whcode_runtime::worker::apply_minimal_env`）、initialize 握手与能力读取、didOpen、
+  definition／references／hover／诊断（拉取优先、推送缓存回退）、`Bounded<T>` 截断标记、
+  超时/进程退出/缺能力的显式错误、Drop shutdown→kill→join
+  ——**取证（2026-11-15）**：client 段 7 项测试通过（含 `std::io::pipe` 替身的握手＋四查询
+  往返、服务器→客户端请求回 -32601、缺能力 `not_supported`、超时 `tool_timeout`）。
+- [x] T325 [P] 有界性与“正确的空/错误的空”取证（P5.3a／FR-782）：位置/hover/诊断的条数与
+  字符上限、`truncated` 置位、`null`/空数组即正确的空、诊断“拉取与推送皆无”返回
+  `not_supported`——**取证（2026-11-15）**：bounded 相关 5 项测试通过（含超长消息截断与
+  条数截断）。
+- [x] T326 [P] crate 接入门禁与文档（P5.3a／FR-782）：`ALL_CRATES` 15→16、workspace members、
+  `module-design`（新节）、`repository-layout`／`AGENTS`／guides README／
+  `performance-and-concurrency` 的成员数、`standards-baseline` 增 LSP 行、ADR-078
+  ——**取证（2026-11-15）**：`cargo test -p whcode-tests --test layering` 6 项与
+  `--test layout` 6 项通过。

@@ -6585,6 +6585,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "whcode-lsp"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "whcode-domain",
+ "whcode-runtime",
+]
+
+[[package]]
 name = "whcode-mcp"
 version = "0.1.0"
 dependencies = [

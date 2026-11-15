@@ -13,6 +13,18 @@
 
 ### 变更
 
+- **LSP 四查询客户端（T323—T326，P5.3a，FR-782，ADR-078，2026-11-15）**：新增第 16 个成员
+  crate `whcode-lsp`，把语言服务器的 definition／references／hover／诊断四个检索面接进库层。
+  传输按 LSP 基础协议（`Content-Length` 必填、UTF-8、单条 1 MiB，超限显式报错不截断），
+  服务器经 `.zcode/lsp.json` 显式 opt-in（≤4 台、参数 ≤16、扩展名 ≤16，坏配置显式失败），
+  查询前必发 `textDocument/didOpen`；诊断先拉取（`textDocument/diagnostic`），回退推送缓存，
+  **两者皆无时返回 `not_supported` 而不是空列表**。结果有界并置 `truncated`（位置 ≤100、
+  hover ≤2000 字符、诊断 ≤100 条且单条 ≤500 字符）；客户端按查询期存在（reader 线程＋有界
+  响应/通知通道＋Drop 时 shutdown→kill→join），不内置任何服务器、不复用客户端。
+  **不含模型工具面**（`lsp_*` 四工具与 opt-in 注册属 P5.3b），也不声称已与 rust-analyzer 等
+  真实服务器兼容验证——本批以 `std::io::pipe` 协议级替身取证。
+  测试：`cargo test -p whcode-lsp` 19 项；layering／layout 与标准基线门禁通过。
+
 - **沙箱强度评估与如实上报（T320—T322，P5.2 第一步，FR-781，ADR-077，2026-11-15）**：
   `doctor` 新增 `sandbox` 块（文本与 `--json` 同源），按**实际生效的面**给三档强度——模型无
   命令执行面为 `none`，仅有工具级控制（cwd 锚点／最小环境／凭据剥离／输出截断／超时杀树／

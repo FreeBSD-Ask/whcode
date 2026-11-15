@@ -14,7 +14,7 @@ whcode-platform      （唯一允许 cfg(target_os) 的 crate）
    ↑
 whcode-app           （命令、权限、快照；不依赖前端；SQL 只在 store——ADR-018）
    ↑
-whcode-store / whcode-llm / whcode-speckit / whcode-tools / whcode-runtime / whcode-mcp
+whcode-store / whcode-llm / whcode-speckit / whcode-tools / whcode-runtime / whcode-mcp / whcode-lsp
    ↑
 whcode-tui / whcode-cui / whcode-web / whcode-ssh   （只经 app 访问状态，禁止触库）
    ↑
@@ -188,6 +188,26 @@ TLS 的依赖落点是这条边界的特例（ADR-031／ADR-040）：**出站**�
 - **测试**：`#[cfg(test)]` 内联（协议/配置/投影/有界行读取）+ `tests/mcp_session.rs`
   （stdio fixture 服务器生命周期正反路径、零残留）+ `tests/mcp_http_session.rs`
   （http fixture `http-test-server` 握手往返/超时/取消/404/401/shutdown）。
+
+### whcode-lsp
+
+- **职责**（FR-782、ADR-078）：LSP 四查询客户端（封闭集）——基础协议帧编解码
+  （`Content-Length` 必填、UTF-8、单条 1 MiB）、`.zcode/lsp.json` 显式 opt-in 配置、
+  进程生命周期（reader 线程＋有界响应/通知通道＋Drop 时 shutdown→kill→join）、
+  initialize 握手、查询前 didOpen，以及 definition／references／hover／诊断（拉取优先、
+  推送缓存回退）。
+- **不负责**：模型工具面（`lsp_*` 四工具与注册＝P5.3b）；不内置任何语言服务器
+  （与运行时 payload 同口径，离线优先）；completion／rename／formatting／workspace symbol；
+  客户端复用（每查询期一个客户端）。
+- **关键类型**：`LspClient`、`Bounded<T>`、`LspLocation`、`DiagnosticSummary`、
+  `ServerConfig`、`file_uri`。
+- **依赖**：`whcode-domain`（错误码）、`whcode-runtime`（`apply_minimal_env`／
+  `strip_credentials` 的单一实现，同 `whcode-mcp` 口径）、`serde`／`serde_json`。
+- **失败模式**：服务器未声明能力 → `not_supported`；超时 → `tool_timeout` 并终止服务器；
+  进程退出 → `io_error`；帧损坏或缺 `Content-Length` → `parse_error`；拉取诊断与推送缓存
+  皆无 → `not_supported`（不返回空列表冒充“没有诊断”）。
+- **测试**：`transport`／`config`／`client` 三段内联测试——含 `std::io::pipe` 协议级替身
+  （握手＋四查询往返、服务器→客户端请求回 -32601、缺能力、超时），不启动外部进程。
 
 ### whcode-tui
 

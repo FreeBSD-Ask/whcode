@@ -1,0 +1,18 @@
+[package]
+name = "whcode-lsp"
+description = "WHCode LSP 四查询客户端：基础协议帧、服务器配置与封闭集查询（ADR-078）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+whcode-domain = { path = "../whcode-domain" }
+# 子进程环境收敛与凭据剥离的唯一实现（与 whcode-mcp::session 同口径，ADR-078 决策 1）。
+whcode-runtime = { path = "../whcode-runtime" }
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

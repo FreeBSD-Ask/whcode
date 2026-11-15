@@ -458,6 +458,23 @@ taskkill /T /F 口径）（P1）
     Given 任意配置，Then `sandbox.strength` 不为 `full`，且文本首行与 JSON 强度一致
   - 证据：`cargo test -p whcode-domain sandbox`（5 项）、`cargo test -p whcode-platform sandbox`
     （2 项）、`cargo test -p whcode-bin sandbox`（4 项）
+- **FR-782**: LSP 四查询客户端（封闭集，P5.3a／ADR-078）：`whcode-lsp` 提供
+  `textDocument/definition`／`references`／`hover`／诊断（拉取 `textDocument/diagnostic`，
+  回退 `textDocument/publishDiagnostics` 缓存）四查询，查询前必发 `textDocument/didOpen`；
+  传输为 LSP 基础协议帧（`Content-Length` 必填、UTF-8、单条 1 MiB，超限显式报错不截断）；
+  服务器经 `.zcode/lsp.json` 显式 opt-in（≤4 台、参数 ≤16 条、扩展名 ≤16 条），坏配置
+  显式失败；结果有界（位置 ≤100、hover ≤2000 字符、诊断 ≤100 条且单条 ≤500 字符）并置
+  `truncated` 标记；客户端按查询期存在（reader 线程＋有界通道＋Drop kill→join），不内置
+  任何服务器、不做客户端复用；缺能力／超时／进程退出／帧损坏均为显式错误，诊断“拉取与
+  推送皆无”返回 `not_supported`（不返回空列表冒充“没有诊断”）；模型工具面属 P5.3b（P2）
+  - 依据：`research/synthesis/proposal-v3.md` P5.3（封闭集）；ADR-078；LSP 3.18 官方规范；
+    `whcode-mcp` 的 JSON-RPC 客户端与有界通道先例（ADR-054/071）
+  - 判据：Given `.zcode/lsp.json` 未配置，When `whcode_lsp::load` 读取，Then 返回空列表且不报错；
+    Given 坏 JSON 或超限条目，Then 显式错误；Given 一个按封闭集应答的测试替身，When 握手后
+    依次查询四类，Then 每类结果按封闭集解析、`didOpen` 先于查询发出、服务器→客户端请求
+    得到 -32601 答复、服务器不答复时在超时内返回 `tool_timeout`
+  - 证据：`cargo test -p whcode-lsp`（19 项：transport／config／client 三段，含 `std::io::pipe`
+    协议级替身）
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

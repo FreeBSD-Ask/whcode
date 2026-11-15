@@ -40,6 +40,7 @@
 | Safety-Critical Rust Consortium guidelines | 公开仓库（2024-06 成立） | 活跃 | 已覆盖（路线不同：工具强制 vs 条款清单）〔未逐条读〕 | workspace lints＋NFR-215 | 抽读一次后更新本行 |
 | MISRA Rust | **不存在** | 负向事实 | 不适用（登记防讹传；MISRA 仅有 C:2025 Addendum 6） | —— | MISRA 官方发布 Rust 准则时 |
 | POSIX.1-2024（IEEE 1003.1-2024） | 2024（Open Group Issue 8，官方免费全文） | 现行 | 部分覆盖（shell 工具语义基准；ADR-070 已引用其语义域） | ADR-070；tool 文档 | shell 工具语义争议时 |
+| LSP（Language Server Protocol） | **3.18**（官方站标注 Current；3.19 Upcoming，3.17 Previous，2026-11-15 取读） | 现行 | 部分覆盖（封闭集四查询：definition／references／hover／diagnostics＋基础帧；completion 等显式不做） | ADR-078；`whcode-lsp` | 3.19 转 Current；封闭集外需求出现时 |
 | SEI CERT C／MISRA C／AUTOSAR C++ | 各自现行 | 现行 | 不适用（本仓不写 C；偏离记录形态已同构于“有意偏离”） | —— | 无 |
 | ISO/IEC 27001 | 2022（Annex A 93 控制项） | 现行 | 有意偏离（不做 ISMS；技术控制同构项实质覆盖） | web-deployment-security.md；logging | 安全边界扩大（公网暴露）时 |
 | NIST SSDF（SP 800-218） | v1.1（19 实践 42 任务） | 现行 | 部分覆盖（PO／PS／PW 高覆盖；RV 组以现有承担物声明） | AGENTS §5；ADR-072 登记 | SSDF v1.2 发布 |
