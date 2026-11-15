@@ -1200,10 +1200,22 @@ msgid "tui.empty"
 msgstr "（暂无数据）"
 
 msgid "tui.footer"
-msgstr "1-7 视图  j/k 移动  r 刷新  t 主题  q 退出  |  {cols}x{rows}"
+msgstr "1-8 视图  j/k 移动  r 刷新  t 主题  q 退出  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "未选择会话"
+
+msgid "tui.ledger.deliverable"
+msgstr "交付物"
+
+msgid "tui.ledger.finding"
+msgstr "发现"
+
+msgid "tui.ledger.summary"
+msgstr "待办 {todo} · 交付物 {deliverables} · 发现 {findings}"
+
+msgid "tui.ledger.todo"
+msgstr "待办"
 
 msgid "tui.no_session"
 msgstr "（未选择会话——按 j/k 选择会话）"
@@ -1225,6 +1237,9 @@ msgstr "diff 预览"
 
 msgid "view.events"
 msgstr "事件"
+
+msgid "view.ledger"
+msgstr "台账"
 
 msgid "view.sessions"
 msgstr "会话"

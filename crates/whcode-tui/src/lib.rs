@@ -1145,7 +1145,7 @@ fn view_total(view: ViewId, snapshot: &ViewSnapshot) -> usize {
         ViewId::Sessions => snapshot.sessions.len(),
         ViewId::Tasks => snapshot.tasks.len(),
         ViewId::Events => snapshot.events.len(),
-        ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat => 0,
+        ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat | ViewId::Ledger => 0,
     }
 }
 
@@ -1199,7 +1199,7 @@ fn layout_columns<'a, F: Fn(usize) -> &'a str>(
             column!(1, 18, false);
             column!(2, flex, false);
         }
-        ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat => {}
+        ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat | ViewId::Ledger => {}
     }
     if rtl {
         segments.reverse();
@@ -1227,7 +1227,7 @@ fn column_header(view: ViewId, texts: &I18n, width: usize, rtl: bool) -> String 
             "tui.col.retry",
         ],
         ViewId::Events => &["tui.col.seq", "tui.col.kind", "tui.col.summary"],
-        ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat => &[],
+        ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat | ViewId::Ledger => &[],
     };
     layout_columns(
         view,
@@ -1492,7 +1492,9 @@ fn push_empty_state<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::{RunOptions, ScriptStep, UiEvent, ViewId, run_scripted, run_scripted_steps};
+    use super::{
+        RunOptions, ScriptStep, UiEvent, VIEW_COUNT, ViewId, run_scripted, run_scripted_steps,
+    };
     use crate::tests_support::{
         FakeProbe, buffer_text, draw_snapshot_with_context, fixture_snapshot, render_empty_frame,
         render_fixture_frame, render_snapshot_text, view_switch_key,
@@ -1859,8 +1861,8 @@ mod tests {
         assert_eq!(report.skipped_while_minimized, 1);
     }
 
-    /// Check 82 / T195：六视图在固定终端尺寸（80×24）下渲染出稳定三区帧——
-    /// 顶栏（应用名 + 视图序号）、导航栏（六视图 + 选中标记）、主面板、键位提示栏。
+    /// Check 82 / T195：全部视图在固定终端尺寸（80×24）下渲染出稳定三区帧——
+    /// 顶栏（应用名 + 视图序号）、导航栏（视图清单 + 选中标记）、主面板、键位提示栏。
     #[test]
     fn six_views_render_at_fixed_terminal_size() {
         for view in ViewId::ALL {
@@ -1877,11 +1879,16 @@ mod tests {
                 lines[0]
             );
             assert!(
-                lines[0].contains(&format!("{} ({}/7)", view.title(), view.index())),
+                lines[0].contains(&format!(
+                    "{} ({}/{})",
+                    view.title(),
+                    view.index(),
+                    VIEW_COUNT
+                )),
                 "{view:?} 顶栏必须含视图序号：{:?}",
                 lines[0]
             );
-            // 导航栏：六视图全部列出，当前项同时具备 `>` 标记与标题。
+            // 导航栏：全部视图列出，当前项同时具备 `>` 标记与标题。
             for item in ViewId::ALL {
                 assert!(
                     text.contains(item.title()),
@@ -1894,7 +1901,12 @@ mod tests {
             );
             // 键位提示栏（末行）：键位与窗口尺寸。
             let last = lines.last().copied().unwrap_or_default();
-            for expected in ["1-7 视图", "j/k 移动", "q 退出", "80x24"] {
+            for expected in [
+                &format!("1-{VIEW_COUNT} 视图"),
+                "j/k 移动",
+                "q 退出",
+                "80x24",
+            ] {
                 assert!(
                     last.contains(expected),
                     "{view:?} 键位提示栏缺少 {expected:?}：{last:?}"
@@ -1922,7 +1934,7 @@ mod tests {
                         assert!(text.contains(&row.kind), "{view:?} 缺类型 {}", row.kind);
                     }
                 }
-                ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat => {
+                ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat | ViewId::Ledger => {
                     for line in snapshot.render_lines() {
                         assert!(
                             text.contains(line.as_str()),
@@ -2124,7 +2136,10 @@ mod tests {
     fn empty_source_renders_explicit_placeholder() {
         let text = render_empty_frame(ViewId::Tasks, 60, 12);
         assert!(text.contains("（暂无数据）"), "空视图必须显式提示：{text}");
-        assert!(text.contains("任务 (2/7)"), "顶栏必须含视图序号：{text}");
+        assert!(
+            text.contains(&format!("任务 (2/{VIEW_COUNT})")),
+            "顶栏必须含视图序号：{text}"
+        );
     }
 
     /// FR-765：空态放得下时显示 ASCII 字标，且**空提示仍在**（字标不顶掉空态语义）。
@@ -2162,7 +2177,7 @@ mod tests {
         );
         let text = buffer_text(&buffer);
         assert!(
-            text.contains("WHCode Coding Harness  |  Tasks (2/7)"),
+            text.contains(&format!("WHCode Coding Harness  |  Tasks (2/{VIEW_COUNT})")),
             "英文顶栏：{text}"
         );
         assert!(text.contains("no session"), "英文顶栏会话占位：{text}");

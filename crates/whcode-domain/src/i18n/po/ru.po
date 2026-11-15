@@ -1200,10 +1200,22 @@ msgid "tui.empty"
 msgstr "(нет данных)"
 
 msgid "tui.footer"
-msgstr "1-7 представления  j/k переход  r обновить  t тема  q выход  |  {cols}x{rows}"
+msgstr "1-8 видов  j/k переход  r обновить  t тема  q выход  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "сессия не выбрана"
+
+msgid "tui.ledger.deliverable"
+msgstr "Результат"
+
+msgid "tui.ledger.finding"
+msgstr "Находка"
+
+msgid "tui.ledger.summary"
+msgstr "Задачи {todo} · Результаты {deliverables} · Находки {findings}"
+
+msgid "tui.ledger.todo"
+msgstr "Задача"
 
 msgid "tui.no_session"
 msgstr "(сессия не выбрана — нажать j/k)"
@@ -1225,6 +1237,9 @@ msgstr "Предпросмотр различий"
 
 msgid "view.events"
 msgstr "События"
+
+msgid "view.ledger"
+msgstr "Журнал"
 
 msgid "view.sessions"
 msgstr "Сессии"

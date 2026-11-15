@@ -68,7 +68,7 @@ pub fn surface_of(action: TuiAction) -> &'static str {
     }
 }
 
-/// 六视图 → 视图面 SurfaceId（穷尽匹配；新增 `ViewId` 即编译失败）。
+/// 视图 → 视图面 SurfaceId（穷尽匹配；新增 `ViewId` 即编译失败）。
 #[must_use]
 fn view_surface(view: ViewId) -> &'static str {
     match view {
@@ -79,6 +79,7 @@ fn view_surface(view: ViewId) -> &'static str {
         ViewId::Spec => "view.spec",
         ViewId::Diff => "view.diff",
         ViewId::Chat => "view.chat",
+        ViewId::Ledger => "view.ledger",
     }
 }
 

@@ -2386,3 +2386,20 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 - [x] T339 [P] 文档与台账（P2.2／FR-786）：ADR-080（四要件/乐观锁/迁移表/已知限制）、
   `data-model` 的 findings 节、FR-786、Check 430—432、CHANGELOG——**取证（2026-11-15）**：
   计数/追溯/文风/EOL/ADR 限制门禁通过。
+
+## Tasks（2026-11-15 追加）：台账视图（P2.2b，FR-787）
+
+- [x] T340 视图枚举与三端映射（P2.2b／FR-787）：`ViewId::Ledger`（`VIEW_COUNT`＝8、切换键
+  `8`）、`LedgerSection`／`LedgerRow`（节名走 `label_key`，缺译退回机器名）、TUI 与 GUI 的
+  `surface_map` 穷尽映射、GUI 数字键 8、`surface.rs` 登记 `view.ledger`（Web 面记为预留
+  T344，不冒充已实现）——**任务认知卡**：方向＝发现台账已有库与命令层（T337—T339）但界面
+  无处可看，视图是最后一公里；目标＝待办／交付物／发现三节聚合成一个只读列表且节名本地化；
+  判据＝`whcode-app`／`whcode-tui`／`whcode-gui` 的视图与映射测试全绿；非目标＝Web 台账面
+  （T344 预留）、任何写操作（台账只读）、跨会话聚合。
+- [x] T341 [P] 准备层聚合（P2.2b／FR-787）：`store_source::build_ledger` 三节有界聚合
+  （待办 ≤50／交付物 ≤200／发现 ≤20）、节级错误注记写摘要、`list_session_findings` 应用
+  命令——**取证（2026-11-15）**：`ledger_view_aggregates_three_sections_and_notes_failures`
+  通过。
+- [x] T342 [P] 词条与台账（P2.2b／FR-787）：13 套目录新增 `view.ledger` 与 `tui.ledger.*`
+  并把底部提示改为 `1-8`、PO 同步、FR-787、Check 433—435、CHANGELOG——**取证（2026-11-15）**：
+  `i18n-po.py --check`、计数／追溯／文风／EOL 门禁通过。

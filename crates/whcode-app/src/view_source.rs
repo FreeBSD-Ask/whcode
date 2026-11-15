@@ -14,9 +14,9 @@ use serde::Serialize;
 use std::borrow::Cow;
 
 /// 视图总数（切换键 1—6 与之一一对应）。
-pub const VIEW_COUNT: usize = 7;
+pub const VIEW_COUNT: usize = 8;
 
-/// 视图标识（六视图，FR-601）。
+/// 视图标识（8 个视图，FR-601；台账视图见 FR-787）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum ViewId {
     /// 会话树。
@@ -33,6 +33,8 @@ pub enum ViewId {
     Diff,
     /// 对话（LLM 交互；ADR-056 四端对等）。
     Chat,
+    /// 台账（待办／交付物／发现；只读聚合，FR-787）。
+    Ledger,
 }
 
 impl ViewId {
@@ -45,6 +47,7 @@ impl ViewId {
         Self::Spec,
         Self::Diff,
         Self::Chat,
+        Self::Ledger,
     ];
 
     /// 稳定标识（配置与切换）。
@@ -58,10 +61,11 @@ impl ViewId {
             Self::Spec => "spec",
             Self::Diff => "diff",
             Self::Chat => "chat",
+            Self::Ledger => "ledger",
         }
     }
 
-    /// 显示标题（帧标题与切换提示；FR-601 六视图名称）。
+    /// 显示标题（帧标题与切换提示；FR-601／FR-787 视图名称）。
     #[must_use]
     pub const fn title(self) -> &'static str {
         match self {
@@ -72,6 +76,7 @@ impl ViewId {
             Self::Spec => "Spec 状态",
             Self::Diff => "diff 预览",
             Self::Chat => "对话",
+            Self::Ledger => "台账",
         }
     }
 
@@ -86,6 +91,7 @@ impl ViewId {
             Self::Spec => "view.spec",
             Self::Diff => "view.diff",
             Self::Chat => "view.chat",
+            Self::Ledger => "view.ledger",
         }
     }
 
@@ -100,6 +106,7 @@ impl ViewId {
             Self::Spec => 5,
             Self::Diff => 6,
             Self::Chat => 7,
+            Self::Ledger => 8,
         }
     }
 
@@ -114,9 +121,58 @@ impl ViewId {
             '5' => Some(Self::Spec),
             '6' => Some(Self::Diff),
             '7' => Some(Self::Chat),
+            '8' => Some(Self::Ledger),
             _ => None,
         }
     }
+}
+
+/// 台账视图的三节（FR-787）：待办、交付物、发现台账。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LedgerSection {
+    /// 会话待办（`TodoUpdated` 最近快照）。
+    Todo,
+    /// 交付物（`DeliverablePresented` 聚合）。
+    Deliverable,
+    /// 评审发现（`findings` 表，按会话过滤）。
+    Finding,
+}
+
+impl LedgerSection {
+    /// 稳定标识（配置与序列化）。
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Todo => "todo",
+            Self::Deliverable => "deliverable",
+            Self::Finding => "finding",
+        }
+    }
+
+    /// 文本层键（渲染层取本地化节名，`as_str` 只用于机器面）。
+    #[must_use]
+    pub const fn label_key(self) -> &'static str {
+        match self {
+            Self::Todo => "tui.ledger.todo",
+            Self::Deliverable => "tui.ledger.deliverable",
+            Self::Finding => "tui.ledger.finding",
+        }
+    }
+}
+
+/// 台账视图的一行：三节共用同一渲染单位（节 + 状态 + 文本）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct LedgerRow {
+    /// 所属节。
+    pub section: LedgerSection,
+    /// 节名（准备层按 [`LedgerSection::label_key`] 本地化后填入；空串时渲染层退回
+    /// [`LedgerSection::as_str`] 的机器名，不冒充已翻译）。
+    pub section_label: String,
+    /// 状态（待办三态原文／交付物提示／发现 `open|fixing|fixed|dismissed`）。
+    pub status: String,
+    /// 正文（单行；准备层已折叠空白，不含控制字符）。
+    pub text: String,
 }
 
 /// 会话树条目（只读快照）。
@@ -204,7 +260,7 @@ const fn selection_marker(selected: bool) -> &'static str {
     if selected { "> " } else { "" }
 }
 
-/// 视图快照（七视图之一的只读数据；渲染层只消费，不反序列化）。
+/// 视图快照（单视图的只读数据；渲染层只消费，不反序列化）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ViewSnapshot {
     /// 当前视图。
@@ -225,6 +281,8 @@ pub struct ViewSnapshot {
     pub diff: Vec<DiffLine>,
     /// 会话视图的选中行（`j`/`k` 选择；`None` 表示无选中）。
     pub selected_index: Option<usize>,
+    /// 台账行（台账视图；三节统一渲染单位，FR-787）。
+    pub ledger: Vec<LedgerRow>,
 }
 
 impl ViewSnapshot {
@@ -241,6 +299,7 @@ impl ViewSnapshot {
             context_summary: String::new(),
             diff: Vec::new(),
             selected_index: None,
+            ledger: Vec::new(),
         }
     }
 
@@ -317,6 +376,21 @@ impl ViewSnapshot {
                 .collect(),
             // 对话视图（ADR-056）：turn 历史即事件流（Events 视图承载），此处无独立行。
             ViewId::Chat => Vec::new(),
+            // 台账视图（FR-787）：三节统一按“节 状态 文本”一行；节名取准备层本地化结果，
+            // 缺译时退回机器名（不猜测译文）。
+            ViewId::Ledger => self
+                .ledger
+                .iter()
+                .take(remaining)
+                .map(|row| {
+                    let label = if row.section_label.is_empty() {
+                        row.section.as_str()
+                    } else {
+                        row.section_label.as_str()
+                    };
+                    format!("{label} {} {}", row.status, row.text)
+                })
+                .collect(),
         });
         lines
     }
@@ -375,7 +449,9 @@ impl ViewSnapshot {
                     ],
                 })
                 .collect(),
-            ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat => Vec::new(),
+            ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat | ViewId::Ledger => {
+                Vec::new()
+            }
         }
     }
 }
@@ -416,6 +492,31 @@ mod tests {
         assert_eq!(snapshot.render_lines(), vec!["+新增行"]);
     }
 
+    /// 台账行：节名优先用准备层本地化结果，缺译退回机器名（FR-787）。
+    #[test]
+    fn ledger_rows_render_localized_label_with_machine_fallback() {
+        let mut snapshot = ViewSnapshot::empty(ViewId::Ledger);
+        snapshot.ledger.push(LedgerRow {
+            section: LedgerSection::Todo,
+            section_label: "待办".to_string(),
+            status: "pending".to_string(),
+            text: "补台账测试".to_string(),
+        });
+        snapshot.ledger.push(LedgerRow {
+            section: LedgerSection::Finding,
+            section_label: String::new(),
+            status: "open v1".to_string(),
+            text: "FND-1 [high] 缺失败路径".to_string(),
+        });
+        assert_eq!(
+            snapshot.render_lines(),
+            vec![
+                "待办 pending 补台账测试",
+                "finding open v1 FND-1 [high] 缺失败路径"
+            ]
+        );
+    }
+
     #[test]
     fn view_ids_are_stable() {
         for view in ViewId::ALL {
@@ -425,7 +526,7 @@ mod tests {
         assert_eq!(ViewId::Diff.as_str(), "diff");
     }
 
-    /// 标题键（FR-615）：六视图各有稳定键，且与 `title()` 同序。
+    /// 标题键（FR-615）：每个视图各有稳定键，且与 `title()` 同序。
     #[test]
     fn view_title_keys_are_stable() {
         for view in ViewId::ALL {
@@ -436,9 +537,9 @@ mod tests {
         assert_eq!(ViewId::Diff.title_key(), "view.diff");
     }
 
-    /// 切换键 `1`—`6` 与六视图一一对应（`from_key`/`index`/`ALL` 三者一致）。
+    /// 切换键 `1`—`8` 与八视图一一对应（`from_key`/`index`/`ALL` 三者一致）。
     #[test]
-    fn switching_keys_map_to_all_six_views() {
+    fn switching_keys_map_to_all_eight_views() {
         assert_eq!(ViewId::ALL.len(), VIEW_COUNT);
         for (offset, view) in ViewId::ALL.into_iter().enumerate() {
             let key = char::from_digit(u32::try_from(offset + 1).expect("序号在 u32 内"), 10)
@@ -451,7 +552,7 @@ mod tests {
             assert_eq!(view.index(), offset + 1);
             assert!(!view.title().is_empty());
         }
-        for other in ['0', '8', 'a', ' ', '\u{4e2d}'] {
+        for other in ['0', '9', 'a', ' ', '\u{4e2d}'] {
             assert_eq!(ViewId::from_key(other), None, "{other:?} 不是视图切换键");
         }
     }
@@ -685,7 +786,7 @@ pub struct PanelsSnapshot {
     pub error: Option<String>,
 }
 
-/// 空数据源：数据源不可用时的回退实现——六视图可切换、可绘制，界面提示“暂无数据”。
+/// 空数据源：数据源不可用时的回退实现——全部视图可切换、可绘制，界面提示“暂无数据”。
 #[derive(Debug, Default, Clone, Copy)]
 pub struct EmptyViewSource;
 
@@ -708,6 +809,7 @@ impl Default for ViewSnapshot {
             context_summary: String::new(),
             diff: Vec::new(),
             selected_index: None,
+            ledger: Vec::new(),
         }
     }
 }

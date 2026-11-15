@@ -1200,10 +1200,22 @@ msgid "tui.empty"
 msgstr "(데이터 없음)"
 
 msgid "tui.footer"
-msgstr "1-7 보기  j/k 이동  r 새로 고침  t 테마  q 종료  |  {cols}x{rows}"
+msgstr "1-8 보기  j/k 이동  r 새로 고침  t 테마  q 종료  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "선택한 세션 없음"
+
+msgid "tui.ledger.deliverable"
+msgstr "산출물"
+
+msgid "tui.ledger.finding"
+msgstr "발견"
+
+msgid "tui.ledger.summary"
+msgstr "할 일 {todo} · 산출물 {deliverables} · 발견 {findings}"
+
+msgid "tui.ledger.todo"
+msgstr "할 일"
 
 msgid "tui.no_session"
 msgstr "(선택한 세션 없음 — j/k로 선택)"
@@ -1225,6 +1237,9 @@ msgstr "차이 미리보기"
 
 msgid "view.events"
 msgstr "이벤트"
+
+msgid "view.ledger"
+msgstr "원장"
 
 msgid "view.sessions"
 msgstr "세션"

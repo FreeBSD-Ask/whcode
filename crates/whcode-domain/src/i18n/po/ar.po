@@ -1200,10 +1200,22 @@ msgid "tui.empty"
 msgstr "(لا بيانات)"
 
 msgid "tui.footer"
-msgstr "1-7 العروض  j/k للتنقل  r للتحديث  t للسمة  q للخروج  |  {cols}x{rows}"
+msgstr "1-8 طرق عرض  j/k للتنقل  r للتحديث  t للسمة  q للخروج  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "لا جلسة"
+
+msgid "tui.ledger.deliverable"
+msgstr "مخرج"
+
+msgid "tui.ledger.finding"
+msgstr "نتيجة"
+
+msgid "tui.ledger.summary"
+msgstr "المهام {todo} · المخرجات {deliverables} · النتائج {findings}"
+
+msgid "tui.ledger.todo"
+msgstr "مهمة"
 
 msgid "tui.no_session"
 msgstr "(لا جلسة محددة — اضغط j/k)"
@@ -1225,6 +1237,9 @@ msgstr "معاينة الفروق"
 
 msgid "view.events"
 msgstr "الأحداث"
+
+msgid "view.ledger"
+msgstr "السجل"
 
 msgid "view.sessions"
 msgstr "الجلسات"

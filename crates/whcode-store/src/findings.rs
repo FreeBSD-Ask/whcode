@@ -374,6 +374,40 @@ pub fn transition_finding(
         .ok_or_else(|| WhError::new(ErrorCode::Internal, format!("finding {id} 迁移后读回失败")))
 }
 
+/// 按会话列出发（台账视图用；`limit` 夹取到 [`MAX_FINDING_ROWS`]）。
+///
+/// # Errors
+///
+/// `limit` 为 0、查询失败或库内出现未知枚举值时返回 [`WhError`]。
+pub fn list_findings_for_session(
+    conn: &Connection,
+    session_id: &str,
+    limit: usize,
+) -> Result<Vec<Finding>, WhError> {
+    if limit == 0 {
+        return Err(invalid("list_findings_for_session 的 limit 必须大于 0"));
+    }
+    let limit_i64 =
+        i64::try_from(limit.min(MAX_FINDING_ROWS)).map_err(|_| invalid("limit 超出 i64 范围"))?;
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT {FINDING_COLUMNS} FROM findings WHERE session_id = ? \
+             ORDER BY created_at DESC, id DESC LIMIT ?"
+        ))
+        .map_err(|err| finding_err("准备按会话查询", err))?;
+    let mut rows = stmt
+        .query(duckdb::params![session_id, limit_i64])
+        .map_err(|err| finding_err("按会话查询", err))?;
+    let mut out = Vec::new();
+    while let Some(row) = rows
+        .next()
+        .map_err(|err| finding_err("遍历会话发现", err))?
+    {
+        out.push(row_to_finding(row)?);
+    }
+    Ok(out)
+}
+
 fn version_conflict(id: &str, expected: i64, actual: i64) -> WhError {
     invalid(format!(
         "finding {id} 版本冲突：期望版本 {expected}，当前 {actual}——先重读再提交（乐观锁，ADR-080 决策 3）"
@@ -498,6 +532,30 @@ mod tests {
         assert_eq!(list_findings(&conn, None, 2).expect("limit").len(), 2);
         assert_eq!(
             list_findings(&conn, None, 0).expect_err("limit=0").code,
+            ErrorCode::InvalidState
+        );
+    }
+
+    /// 按会话过滤：只返回该会话的记录（跨会话记录不混入）。
+    #[test]
+    fn session_filter_excludes_other_sessions() {
+        let conn = fixture();
+        let mut other = new_finding("别的会话");
+        other.session_id = Some("S-2".to_string());
+        create_finding(&conn, &new_finding("本会话"), 1_000).expect("登记 S-1");
+        create_finding(&conn, &other, 2_000).expect("登记 S-2");
+        let rows = list_findings_for_session(&conn, "S-1", 10).expect("按会话");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].title, "本会话");
+        assert!(
+            list_findings_for_session(&conn, "S-404", 10)
+                .expect("无记录")
+                .is_empty()
+        );
+        assert_eq!(
+            list_findings_for_session(&conn, "S-1", 0)
+                .expect_err("limit=0")
+                .code,
             ErrorCode::InvalidState
         );
     }

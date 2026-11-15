@@ -1200,10 +1200,22 @@ msgid "tui.empty"
 msgstr "(sin datos)"
 
 msgid "tui.footer"
-msgstr "1-7 vistas  j/k mover  r actualizar  t tema  q salir  |  {cols}x{rows}"
+msgstr "1-8 vistas  j/k mover  r actualizar  t tema  q salir  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "sin sesión"
+
+msgid "tui.ledger.deliverable"
+msgstr "Entregable"
+
+msgid "tui.ledger.finding"
+msgstr "Hallazgo"
+
+msgid "tui.ledger.summary"
+msgstr "Tareas {todo} · Entregables {deliverables} · Hallazgos {findings}"
+
+msgid "tui.ledger.todo"
+msgstr "Tarea"
 
 msgid "tui.no_session"
 msgstr "(ninguna sesión seleccionada: pulse j/k)"
@@ -1225,6 +1237,9 @@ msgstr "Vista previa de diferencias"
 
 msgid "view.events"
 msgstr "Eventos"
+
+msgid "view.ledger"
+msgstr "Registro"
 
 msgid "view.sessions"
 msgstr "Sesiones"

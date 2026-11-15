@@ -1200,10 +1200,22 @@ msgid "tui.empty"
 msgstr "(aucune donnée)"
 
 msgid "tui.footer"
-msgstr "1-7 vues  j/k déplacer  r actualiser  t thème  q quitter  |  {cols}x{rows}"
+msgstr "1-8 vues  j/k déplacer  r actualiser  t thème  q quitter  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "aucune session"
+
+msgid "tui.ledger.deliverable"
+msgstr "Livrable"
+
+msgid "tui.ledger.finding"
+msgstr "Constat"
+
+msgid "tui.ledger.summary"
+msgstr "Tâches {todo} · Livrables {deliverables} · Constats {findings}"
+
+msgid "tui.ledger.todo"
+msgstr "Tâche"
 
 msgid "tui.no_session"
 msgstr "(aucune session sélectionnée — appuyer sur j/k)"
@@ -1225,6 +1237,9 @@ msgstr "Aperçu des différences"
 
 msgid "view.events"
 msgstr "Événements"
+
+msgid "view.ledger"
+msgstr "Registre"
 
 msgid "view.sessions"
 msgstr "Sessions"

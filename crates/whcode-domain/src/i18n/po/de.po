@@ -1200,10 +1200,22 @@ msgid "tui.empty"
 msgstr "(keine Daten)"
 
 msgid "tui.footer"
-msgstr "1-7 Ansichten  j/k bewegen  r aktualisieren  t Design  q beenden  |  {cols}x{rows}"
+msgstr "1-8 Ansichten  j/k bewegen  r aktualisieren  t Design  q beenden  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "keine Sitzung"
+
+msgid "tui.ledger.deliverable"
+msgstr "Ergebnis"
+
+msgid "tui.ledger.finding"
+msgstr "Befund"
+
+msgid "tui.ledger.summary"
+msgstr "Aufgaben {todo} · Ergebnisse {deliverables} · Befunde {findings}"
+
+msgid "tui.ledger.todo"
+msgstr "Aufgabe"
 
 msgid "tui.no_session"
 msgstr "(keine Sitzung ausgewählt – j/k drücken)"
@@ -1225,6 +1237,9 @@ msgstr "Diff-Vorschau"
 
 msgid "view.events"
 msgstr "Ereignisse"
+
+msgid "view.ledger"
+msgstr "Register"
 
 msgid "view.sessions"
 msgstr "Sitzungen"

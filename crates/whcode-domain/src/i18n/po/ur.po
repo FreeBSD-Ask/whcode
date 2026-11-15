@@ -1200,10 +1200,22 @@ msgid "tui.empty"
 msgstr "(کوئی ڈیٹا نہیں)"
 
 msgid "tui.footer"
-msgstr "1-7 ویوز  j/k حرکت  r تازہ کریں  t تھیم  q اختتام  |  {cols}x{rows}"
+msgstr "1-8 مناظر  j/k حرکت  r تازہ کریں  t تھیم  q اختتام  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "کوئی سیشن نہیں"
+
+msgid "tui.ledger.deliverable"
+msgstr "ڈیلیوریبل"
+
+msgid "tui.ledger.finding"
+msgstr "نتیجہ"
+
+msgid "tui.ledger.summary"
+msgstr "کام {todo} · ڈیلیوریبلز {deliverables} · نتائج {findings}"
+
+msgid "tui.ledger.todo"
+msgstr "کام"
 
 msgid "tui.no_session"
 msgstr "(کوئی سیشن منتخب نہیں — j/k دبائیں)"
@@ -1225,6 +1237,9 @@ msgstr "فرق کا پیش منظر"
 
 msgid "view.events"
 msgstr "ایونٹس"
+
+msgid "view.ledger"
+msgstr "رجسٹر"
 
 msgid "view.sessions"
 msgstr "سیشنز"

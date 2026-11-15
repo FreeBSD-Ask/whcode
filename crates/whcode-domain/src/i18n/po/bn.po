@@ -1200,10 +1200,22 @@ msgid "tui.empty"
 msgstr "(কোনো তথ্য নেই)"
 
 msgid "tui.footer"
-msgstr "1-7 ভিউ  j/k সরান  r রিফ্রেশ  t থিম  q প্রস্থান  |  {cols}x{rows}"
+msgstr "1-8 ভিউ  j/k সরান  r রিফ্রেশ  t থিম  q প্রস্থান  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "সেশন নেই"
+
+msgid "tui.ledger.deliverable"
+msgstr "ডেলিভারেবল"
+
+msgid "tui.ledger.finding"
+msgstr "ফলাফল"
+
+msgid "tui.ledger.summary"
+msgstr "কাজ {todo} · ডেলিভারেবল {deliverables} · ফলাফল {findings}"
+
+msgid "tui.ledger.todo"
+msgstr "কাজ"
 
 msgid "tui.no_session"
 msgstr "(কোনো সেশন নির্বাচিত নেই — j/k চাপুন)"
@@ -1225,6 +1237,9 @@ msgstr "Diff প্রিভিউ"
 
 msgid "view.events"
 msgstr "ইভেন্ট"
+
+msgid "view.ledger"
+msgstr "খতিয়ান"
 
 msgid "view.sessions"
 msgstr "সেশন"

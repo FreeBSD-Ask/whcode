@@ -10,7 +10,7 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
 
-use crate::views::{DiffLine, EventRow, SessionRow, TaskRow};
+use crate::views::{DiffLine, EventRow, LedgerRow, LedgerSection, SessionRow, TaskRow};
 use whcode_domain::i18n::I18n;
 
 use crate::{Theme, TuiState, UiEvent, ViewId, ViewSnapshot, draw_frame};
@@ -128,6 +128,28 @@ pub fn fixture_snapshot(view: ViewId) -> ViewSnapshot {
             snapshot.spec_status = "阶段：design · 门禁 4/4 通过 · 产物 v3".into();
         }
         ViewId::Chat => {}
+        ViewId::Ledger => {
+            snapshot.ledger = vec![
+                LedgerRow {
+                    section: LedgerSection::Todo,
+                    section_label: "待办".into(),
+                    status: "in_progress".into(),
+                    text: "接线台账视图".into(),
+                },
+                LedgerRow {
+                    section: LedgerSection::Deliverable,
+                    section_label: "交付物".into(),
+                    status: "seq=3".into(),
+                    text: "docs/adr/ADR-080-findings-ledger.md".into(),
+                },
+                LedgerRow {
+                    section: LedgerSection::Finding,
+                    section_label: "发现".into(),
+                    status: "open v1".into(),
+                    text: "FND-1 [high] 缺失败路径".into(),
+                },
+            ];
+        }
         ViewId::Diff => {
             snapshot.diff = vec![
                 DiffLine {

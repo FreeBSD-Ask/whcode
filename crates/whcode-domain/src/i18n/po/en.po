@@ -1200,10 +1200,22 @@ msgid "tui.empty"
 msgstr "(no data)"
 
 msgid "tui.footer"
-msgstr "1-7 views  j/k move  r refresh  t theme  q quit  |  {cols}x{rows}"
+msgstr "1-8 views  j/k move  r refresh  t theme  q quit  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "no session"
+
+msgid "tui.ledger.deliverable"
+msgstr "Deliverable"
+
+msgid "tui.ledger.finding"
+msgstr "Finding"
+
+msgid "tui.ledger.summary"
+msgstr "Todo {todo} · Deliverables {deliverables} · Findings {findings}"
+
+msgid "tui.ledger.todo"
+msgstr "Todo"
 
 msgid "tui.no_session"
 msgstr "(no session selected — press j/k)"
@@ -1225,6 +1237,9 @@ msgstr "Diff preview"
 
 msgid "view.events"
 msgstr "Events"
+
+msgid "view.ledger"
+msgstr "Ledger"
 
 msgid "view.sessions"
 msgstr "Sessions"

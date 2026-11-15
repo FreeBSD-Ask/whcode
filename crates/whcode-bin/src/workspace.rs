@@ -238,6 +238,12 @@ mod tests {
         }
         conn.execute("DROP TABLE IF EXISTS file_preimages", [])
             .expect("撤销 v11 建表");
+        // 0012 建表与序列同样不可重复应用（`CREATE ... IF NOT EXISTS` 幂等，但版本记录
+        // 若留在表内会让备份判定认为库已是最新，等于跳过备份）。
+        conn.execute("DROP TABLE IF EXISTS findings", [])
+            .expect("撤销 v12 建表");
+        conn.execute("DROP SEQUENCE IF EXISTS whcode_finding_id_seq", [])
+            .expect("撤销 v12 序列");
         for index in [
             "CREATE INDEX idx_events_session_seq ON events(session_id, seq)",
             "CREATE INDEX idx_events_task ON events(task_id)",
@@ -247,7 +253,7 @@ mod tests {
             conn.execute(index, []).expect("重建 v9 索引");
         }
         conn.execute(
-            "DELETE FROM schema_migrations WHERE version IN (10, 11)",
+            "DELETE FROM schema_migrations WHERE version IN (10, 11, 12)",
             [],
         )
         .expect("回退版本记录");

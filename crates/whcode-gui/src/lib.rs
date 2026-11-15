@@ -632,6 +632,7 @@ impl State {
             ViewId::Events => self.snapshot.events.len(),
             ViewId::Diff => self.snapshot.diff.len(),
             ViewId::Context | ViewId::Spec | ViewId::Chat => 0,
+            ViewId::Ledger => self.snapshot.ledger.len(),
         }
     }
 
@@ -910,7 +911,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                 return Task::none();
             }
             match key {
-                '1' | '2' | '3' | '4' | '5' | '6' | '7' => {
+                '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' => {
                     let index = (key.to_digit(10).unwrap_or(1) as usize).saturating_sub(1);
                     if let Some(view) = ViewId::ALL.get(index).copied() {
                         let _ = update(state, Message::SelectView(view));
@@ -2231,6 +2232,8 @@ fn view(state: &State) -> Element<'_, Message> {
     } else {
         match state.view {
             ViewId::Chat => chat_panel(state),
+            // 台账视图（FR-787）：三节统一文本行，只读。
+            ViewId::Ledger => read_body(state, false),
             ViewId::Sessions if state.op_mode.is_some() => {
                 column![op_panel(state), read_body(state, false)]
                     .spacing(8)
@@ -2678,7 +2681,7 @@ mod tests {
             state.title()
         );
         assert!(
-            state.title().contains("会话 (1/7)"),
+            state.title().contains(&format!("会话 (1/{VIEW_COUNT})")),
             "标题须含视图序号：{}",
             state.title()
         );

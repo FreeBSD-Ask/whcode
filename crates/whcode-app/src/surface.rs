@@ -40,7 +40,7 @@ use crate::authz::Capability;
 pub enum FrontendId {
     /// 命令行界面（一次性请求响应，ADR-019）。
     Cui,
-    /// 终端界面（六视图，FR-601）。
+    /// 终端界面（视图面，FR-601）。
     Tui,
     /// 原生桌面 GUI（只读 v1，FR-711）。
     Gui,
@@ -69,12 +69,12 @@ pub const FRONTEND_ORDER: [FrontendId; 4] = [
     FrontendId::Web,
 ];
 
-/// 登记面类别：命令面或视图面（六视图与“在线可见”为 View）。
+/// 登记面类别：命令面或视图面（视图与“在线可见”为 View）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SurfaceKind {
     /// 命令面（CLI 子命令、HTTP 写路由、键盘动作）。
     Command,
-    /// 视图面（六视图快照与在线可见，FR-601／622）。
+    /// 视图面（视图快照与在线可见，FR-601／622）。
     View,
 }
 
@@ -150,7 +150,7 @@ pub enum ExclusionReason {
     CommandOutputOnly,
     /// 终端配色由终端模拟器控制（FR-612、ADR-014）。
     CuiNoTheme,
-    /// TUI／GUI 固定六视图，runtime 清单不在其中（FR-601／711）。
+    /// TUI／GUI 视图面，runtime 清单不在其中（FR-601／711）。
     SixViewScope,
     /// CUI 为一次性请求响应，无在线订阅（FR-602）。
     CuiRequestOnly,
@@ -1201,7 +1201,7 @@ pub const SURFACES: &[SurfaceEntry] = &[
         ],
     },
     // ── 证书库设置（FR-626／627、ADR-040 决策 4；设置面仅 Web 提供） ─────────
-    // 读面：状态、CA 下载与连通性校验；视图类别（设置页），六视图之外。
+    // 读面：状态、CA 下载与连通性校验；视图类别（设置页），视图之外。
     // 写面：档位、根证书与服务端证书变更；降档（入站 off／空内置根／外部私钥）须确认，
     // 成功变更写 `tls_config_change` 审计（`whcode-app::cert`）。
     SurfaceEntry {
@@ -1419,7 +1419,7 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::NotApplicable,
         ],
     },
-    // ── 视图面（FR-601／622；六视图 + 在线可见；CUI 按 CUI_COMMAND_SURFACE 排除） ──
+    // ── 视图面（FR-601／622；视图 + 在线可见；CUI 按 CUI_COMMAND_SURFACE 排除） ──
     SurfaceEntry {
         id: "view.sessions",
         kind: SurfaceKind::View,
@@ -1574,6 +1574,28 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    // 台账视图（FR-787）：待办／交付物／发现三节聚合，只读；CUI 无屏幕视图面，
+    // Web 尚无台账面（登记为预留，不冒充已实现）。
+    SurfaceEntry {
+        id: "view.ledger",
+        kind: SurfaceKind::View,
+        capability: Capability::SessionRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CuiCommandSurface,
+            },
+            Support::Implemented {
+                anchor: "LoopCore::prepare（ViewId::Ledger）",
+            },
+            Support::Implemented {
+                anchor: "State::prepare（ViewId::Ledger）",
+            },
+            Support::Reserved { milestone: "T344" },
+        ],
+    },
     // 在线可见（其他端更改；FR-605／624）：Web 经 WebSocket 推送；TUI 低频游标检查
     // （T178 已交付）；GUI 显式刷新（FR-711／714）。
     SurfaceEntry {
@@ -1620,7 +1642,7 @@ pub const SURFACES: &[SurfaceEntry] = &[
     },
     // ── B4 高级面板（T258／T259、FR-749／750／751） ─────────────────────
     // 只读面板：子代理运行、技能库、MCP 状态。数据来自准备阶段（事件窗口／文件扫描），
-    // 不 spawn 进程、不联网；CUI 与 TUI 固定六视图之外，不提供。
+    // 不 spawn 进程、不联网；CUI 与固定视图之外，不提供。
     SurfaceEntry {
         id: "settings.subagents",
         kind: SurfaceKind::View,
@@ -2107,7 +2129,7 @@ mod tests {
     }
 
     #[test]
-    fn seven_views_plus_online_visibility_are_view_kind() {
+    fn eight_views_plus_online_visibility_are_view_kind() {
         let views: Vec<&str> = SURFACES
             .iter()
             .filter(|entry| entry.kind == SurfaceKind::View)
@@ -2118,7 +2140,7 @@ mod tests {
             [
                 // 模型目录（T286／FR-773）：Web 选择器数据源，登记在 llm 面之后。
                 "llm.models",
-                // 证书设置页（T190）：仅在 Web 提供的视图面，不在六视图内；按登记顺序居前。
+                // 证书设置页（T190）：仅在 Web 提供的视图面，不在固定视图内；按登记顺序居前。
                 "settings.cert.read",
                 "view.sessions",
                 "view.tasks",
@@ -2127,6 +2149,7 @@ mod tests {
                 "view.spec",
                 "view.diff",
                 "view.chat",
+                "view.ledger",
                 "view.checkpoints",
                 "view.changes",
                 // B4 高级面板与审批规则读面（T258／T259）：仅 GUI／Web 的设置视图。
@@ -2139,7 +2162,7 @@ mod tests {
                 // 交付物清单（T285／FR-772）：Web 实现，TUI／GUI 未排期。
                 "view.deliverables"
             ],
-            "视图面条目为模型目录 + 证书设置页 + 七视图 + 检查点浏览 + 在线可见 + B4 面板 + 前像 + 交付物（FR-601／622／624／748／749—751／772／773／776、ADR-040）"
+            "视图面条目为模型目录 + 证书设置页 + 八视图 + 检查点浏览 + 在线可见 + B4 面板 + 前像 + 交付物（FR-601／622／624／748／749—751／772／773／776、ADR-040）"
         );
     }
 

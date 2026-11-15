@@ -1200,10 +1200,22 @@ msgid "tui.empty"
 msgstr "(कोई डेटा नहीं)"
 
 msgid "tui.footer"
-msgstr "1-7 दृश्य  j/k चलें  r ताज़ा करें  t थीम  q बाहर निकलें  |  {cols}x{rows}"
+msgstr "1-8 दृश्य  j/k चलें  r ताज़ा करें  t थीम  q बाहर निकलें  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "कोई सत्र नहीं"
+
+msgid "tui.ledger.deliverable"
+msgstr "डिलीवरेबल"
+
+msgid "tui.ledger.finding"
+msgstr "निष्कर्ष"
+
+msgid "tui.ledger.summary"
+msgstr "कार्य {todo} · डिलीवरेबल्स {deliverables} · निष्कर्ष {findings}"
+
+msgid "tui.ledger.todo"
+msgstr "कार्य"
 
 msgid "tui.no_session"
 msgstr "(कोई सत्र नहीं चुना गया - j/k दबाएँ)"
@@ -1225,6 +1237,9 @@ msgstr "Diff का पूर्वावलोकन"
 
 msgid "view.events"
 msgstr "इवेंट"
+
+msgid "view.ledger"
+msgstr "लेखा"
 
 msgid "view.sessions"
 msgstr "सत्र"

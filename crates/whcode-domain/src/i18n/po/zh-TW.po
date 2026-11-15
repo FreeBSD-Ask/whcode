@@ -1200,10 +1200,22 @@ msgid "tui.empty"
 msgstr "（尚無資料）"
 
 msgid "tui.footer"
-msgstr "1-7 切換檢視  j/k 移動  r 重新整理  t 主題  q 結束  |  {cols}x{rows}"
+msgstr "1-8 檢視  j/k 移動  r 重新整理  t 主題  q 結束  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "未選取工作階段"
+
+msgid "tui.ledger.deliverable"
+msgstr "交付物"
+
+msgid "tui.ledger.finding"
+msgstr "發現"
+
+msgid "tui.ledger.summary"
+msgstr "待辦 {todo} · 交付物 {deliverables} · 發現 {findings}"
+
+msgid "tui.ledger.todo"
+msgstr "待辦"
 
 msgid "tui.no_session"
 msgstr "（未選取工作階段——請按 j/k）"
@@ -1225,6 +1237,9 @@ msgstr "差異預覽"
 
 msgid "view.events"
 msgstr "事件"
+
+msgid "view.ledger"
+msgstr "台帳"
 
 msgid "view.sessions"
 msgstr "工作階段"

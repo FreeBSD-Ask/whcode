@@ -18,7 +18,8 @@ use std::sync::{Arc, Mutex};
 use duckdb::Connection;
 use whcode_app::tool_call::{TOOL_STARTED, describe};
 use whcode_app::view_source::{
-    CheckpointItem, EventRow, SessionRow, TaskRow, ViewId, ViewSnapshot, ViewSource,
+    CheckpointItem, EventRow, LedgerRow, LedgerSection, SessionRow, TaskRow, ViewId, ViewSnapshot,
+    ViewSource,
 };
 use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
 use whcode_domain::i18n::I18n;
@@ -74,12 +75,111 @@ impl StoreViewSource {
             // 对话视图（ADR-056）：无独立快照——输入与摘要由 GUI/TUI 自持状态，
             // turn 历史经 Events 视图查看。
             ViewId::Chat => Ok(ViewSnapshot::default()),
+            // 台账视图（FR-787）：待办／交付物／发现三节聚合；无会话时只列跨会话发现。
+            ViewId::Ledger => self.build_ledger(session),
         }
     }
 
     /// 持久化事件游标（FR-624/T178）：O(1) 单值查询，供 TUI 低频在线可见检查。
     fn cursor_of(&self) -> Option<i64> {
         whcode_store::latest_seq(&self.conn.lock().expect("store 连接锁中毒")).ok()
+    }
+
+    /// 台账视图（FR-787）：待办（最近快照）＋交付物（聚合去重）＋发现（按会话）。
+    ///
+    /// 三节各自有界：待办 ≤50 条（写入侧上限）、交付物 ≤200 条（读取侧上限）、发现 ≤20 条；
+    /// 任一来源失败都写进摘要行（`error.datasource` 之外的节级注记），不伪造空。
+    fn build_ledger(&self, session: Option<&str>) -> Result<ViewSnapshot, WhError> {
+        let mut snapshot = ViewSnapshot::empty(ViewId::Ledger);
+        let mut notes: Vec<String> = Vec::new();
+        let conn = self.conn.lock().expect("store 连接锁中毒");
+        // 节名一次解析（本地化归属准备层：帧路径不查目录）。
+        let todo_label = self
+            .texts
+            .resolve(LedgerSection::Todo.label_key())
+            .to_string();
+        let deliverable_label = self
+            .texts
+            .resolve(LedgerSection::Deliverable.label_key())
+            .to_string();
+        let finding_label = self
+            .texts
+            .resolve(LedgerSection::Finding.label_key())
+            .to_string();
+        let mut todo_count = 0usize;
+        let mut deliverable_count = 0usize;
+        let mut finding_count = 0usize;
+        match session {
+            Some(session) => {
+                match whcode_app::todo::current(&conn, &self.policy, &self.actor, session) {
+                    Ok(view) => {
+                        todo_count = view.items.len();
+                        snapshot
+                            .ledger
+                            .extend(view.items.into_iter().map(|entry| LedgerRow {
+                                section: LedgerSection::Todo,
+                                section_label: todo_label.clone(),
+                                status: entry.status,
+                                text: entry.content,
+                            }));
+                    }
+                    Err(err) => notes.push(format!("待办不可用：{err}")),
+                }
+                match whcode_app::deliverables::list(&conn, &self.policy, &self.actor, session) {
+                    Ok(view) => {
+                        deliverable_count = view.items.len();
+                        snapshot
+                            .ledger
+                            .extend(view.items.into_iter().map(|item| LedgerRow {
+                                section: LedgerSection::Deliverable,
+                                section_label: deliverable_label.clone(),
+                                status: format!("seq={}", item.seq),
+                                text: item.path,
+                            }));
+                    }
+                    Err(err) => notes.push(format!("交付物不可用：{err}")),
+                }
+                match whcode_app::findings::list_session_findings(
+                    &conn,
+                    &self.policy,
+                    &self.actor,
+                    session,
+                    Some(LEDGER_FINDING_LIMIT),
+                ) {
+                    Ok(rows) => {
+                        finding_count = rows.len();
+                        snapshot
+                            .ledger
+                            .extend(rows.into_iter().map(|finding| LedgerRow {
+                                section: LedgerSection::Finding,
+                                section_label: finding_label.clone(),
+                                status: format!("{} v{}", finding.status.as_str(), finding.version),
+                                text: format!(
+                                    "{} [{}] {}",
+                                    finding.id,
+                                    finding.severity.as_str(),
+                                    finding.title
+                                ),
+                            }));
+                    }
+                    Err(err) => notes.push(format!("发现不可用：{err}")),
+                }
+            }
+            None => notes.push("未选择会话：待办与交付物需要会话上下文".to_string()),
+        }
+        snapshot.summary = if notes.is_empty() {
+            self.texts.resolve_fmt(
+                "tui.ledger.summary",
+                &[
+                    ("todo", &todo_count.to_string()),
+                    ("deliverables", &deliverable_count.to_string()),
+                    ("findings", &finding_count.to_string()),
+                ],
+            )
+        } else {
+            notes.join("；")
+        };
+        Ok(snapshot)
     }
 
     fn build_sessions(&self) -> Result<ViewSnapshot, WhError> {
@@ -318,6 +418,9 @@ impl StoreViewSource {
         Ok(snapshot)
     }
 }
+
+/// 台账视图的发现条数上限（界面读取面，小于存储上限 200）。
+const LEDGER_FINDING_LIMIT: usize = 20;
 
 impl ViewSource for StoreViewSource {
     fn snapshot(&self, view: ViewId, session: Option<&str>) -> ViewSnapshot {
@@ -737,6 +840,94 @@ mod tests {
         assert!(
             unpaired.contains('?') && unpaired.contains("permission_denied"),
             "未配对结束事件显式呈现缺失：{unpaired}"
+        );
+    }
+
+    /// 台账视图（FR-787）：三节聚合与节级错误注记；无会话是显式状态，不伪造空。
+    #[test]
+    fn ledger_view_aggregates_three_sections_and_notes_failures() {
+        use whcode_app::findings::{FindingDraft, record_finding};
+        use whcode_store::create_session_with_id;
+
+        let conn = migrated_conn();
+        create_session_with_id(&conn, "S-L", "台账会话", "active", 1_000).expect("创建会话");
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, kind, payload_json, ts, persistence_level)
+             VALUES (1, 'EV-L1', 'S-L', 'TodoUpdated',
+                     CAST('{\"items\":[{\"content\":\"接线台账\",\"status\":\"in_progress\"}],
+                            \"pending\":0,\"in_progress\":1,\"completed\":0}' AS JSON)::VARIANT,
+                     current_timestamp, 'redacted')",
+            [],
+        )
+        .expect("插入待办快照");
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, kind, payload_json, ts, persistence_level)
+             VALUES (2, 'EV-L2', 'S-L', 'DeliverablePresented',
+                     CAST('{\"paths\":[\"docs/adr/ADR-080-findings-ledger.md\"],
+                            \"tool_call_id\":\"call-L\"}' AS JSON)::VARIANT,
+                     current_timestamp, 'redacted')",
+            [],
+        )
+        .expect("插入交付物登记");
+        let actor = whcode_app::actor_with_all_capabilities("tester");
+        record_finding(
+            &conn,
+            &whcode_app::DefaultPolicy,
+            &actor,
+            &FindingDraft {
+                session_id: Some("S-L".to_string()),
+                title: "缺失败路径".to_string(),
+                gap: "失败路径未覆盖".to_string(),
+                impact: "失败被当成成功".to_string(),
+                owner_fix: "补断言".to_string(),
+                verification: "cargo test 转红再转绿".to_string(),
+                severity: "high".to_string(),
+            },
+            1_500,
+        )
+        .expect("登记发现");
+
+        let source = StoreViewSource::new(
+            std::sync::Arc::new(std::sync::Mutex::new(conn)),
+            I18n::default(),
+        );
+        let snapshot = source.snapshot(ViewId::Ledger, Some("S-L"));
+        assert_eq!(
+            snapshot.ledger.len(),
+            3,
+            "三节各一行：{:?}",
+            snapshot.ledger
+        );
+        assert_eq!(snapshot.ledger[0].section.as_str(), "todo");
+        assert_eq!(snapshot.ledger[0].section_label, "待办", "节名来自文本层");
+        assert_eq!(snapshot.ledger[1].section.as_str(), "deliverable");
+        assert_eq!(snapshot.ledger[2].section.as_str(), "finding");
+        assert!(
+            snapshot.ledger[2].status.contains("open"),
+            "发现状态进入状态列：{}",
+            snapshot.ledger[2].status
+        );
+        assert!(
+            snapshot.summary.contains("待办 1") && snapshot.summary.contains("交付物 1"),
+            "摘要含三节计数：{}",
+            snapshot.summary
+        );
+
+        // 无会话：显式注记，不伪造空。
+        let orphan = source.snapshot(ViewId::Ledger, None);
+        assert!(orphan.ledger.is_empty(), "无会话无行");
+        assert!(
+            orphan.summary.contains("未选择会话"),
+            "无会话是显式状态：{}",
+            orphan.summary
+        );
+
+        // 会话不存在：节级错误进摘要（显式失败），不 panic。
+        let missing = source.snapshot(ViewId::Ledger, Some("S-404"));
+        assert!(
+            missing.summary.contains("待办不可用") && missing.summary.contains("S-404"),
+            "错误写进摘要行：{}",
+            missing.summary
         );
     }
 }

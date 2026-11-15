@@ -106,6 +106,26 @@ pub fn list_finding_rows(
     findings::list_findings(conn, status, limit.min(MAX_FINDING_ROWS))
 }
 
+/// 按会话列出发（台账视图的数据源；`limit` 缺省 [`DEFAULT_FINDING_LIMIT`]）。
+///
+/// # Errors
+///
+/// 缺少 `SessionRead` 权限或 `limit` 为 0 时返回 [`WhError`]。
+pub fn list_session_findings(
+    conn: &Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    session_id: &str,
+    limit: Option<usize>,
+) -> Result<Vec<Finding>, WhError> {
+    require(policy, actor, Capability::SessionRead)?;
+    let limit = limit.unwrap_or(DEFAULT_FINDING_LIMIT);
+    if limit == 0 {
+        return Err(WhError::invalid_state("finding 列表 limit 必须大于 0"));
+    }
+    findings::list_findings_for_session(conn, session_id, limit)
+}
+
 /// 迁移发现状态（乐观锁：`expected_version` 与当前版本不一致即冲突）。
 ///
 /// # Errors

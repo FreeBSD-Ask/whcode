@@ -526,6 +526,17 @@ taskkill /T /F 口径）（P1）
     被拒绝且版本不变；Given 无权限 actor，Then `permission_denied`
   - 证据：`cargo test -p whcode-store findings`（5 项）、`cargo test -p whcode-app findings`
     （4 项）、`cargo test -p whcode-store export`（含导出表完整性 9 项）
+- **FR-787**: 台账视图（P2.2b／ADR-080）：TUI 与原生 GUI 新增“台账”视图，把会话待办
+  （`TodoUpdated` 最近快照）、交付物（`DeliverablePresented` 聚合）与评审发现（`findings` 表
+  按会话过滤）三节聚合为同一只读列表；行格式为“节 状态 正文”，节名由准备层按文本层解析，
+  缺译时退回机器名而不猜测译文；三节各自有界（待办 ≤50、交付物 ≤200、发现 ≤20），任一来源
+  失败写入摘要行（显式失败，不伪造空）；未选择会话时只给显式注记；CUI 无视图面、Web 台账面
+  为预留（T344，不冒充已实现）
+  - 依据：FR-601（视图模型）／FR-771（待办）／FR-772（交付物）／FR-786（发现台账）；ADR-080；
+    ADR-056（四端对等）
+  - 判据：Given 会话含待办／交付物／发现各一，Then 台账三行且节名为当前语言；Given 未选择
+    会话，Then 无行且摘要注明“未选择会话”；Given 会话不存在，Then 各来源报错进摘要且不 panic
+  - 证据：`cargo test -p whcode-bin ledger_view`（1 项）、`cargo test -p whcode-app --lib view`
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，
