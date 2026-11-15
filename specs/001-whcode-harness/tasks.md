@@ -2321,3 +2321,22 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   `performance-and-concurrency` 的成员数、`standards-baseline` 增 LSP 行、ADR-078
   ——**取证（2026-11-15）**：`cargo test -p whcode-tests --test layering` 6 项与
   `--test layout` 6 项通过。
+
+## Tasks（2026-11-15 追加）：LSP 四查询的模型工具面（P5.3b，ADR-078）
+
+- [x] T327 四工具与执行器契约（P5.3b／FR-783）：`crates/whcode-tools/src/lsp.rs`——`LspQueryExecutor`
+  trait、`LspQueryKind`／`LspQueryRequest`／`LocationView`／`DiagnosticView`／`LspQueryOutcome`，
+  四个只读工具（1 基入参转 0 基、`0` 拒绝、空结果可操作说明、截断显式标注）
+  ——**任务认知卡**：方向＝P5.3a 只有库层四查询，模型仍看不见；目标＝四个只读工具可被模型调用
+  且有界、可解释；判据＝tools 层测试全绿（含 1 基/0 基转换与空结果语义）；非目标＝让模型指定
+  服务器命令或参数（那会引入与 shell 同级的审批面）。
+- [x] T328 [P] 注册表组合与应用层注入（P5.3b／FR-783）：`registry_with_shell_and_lsp`
+  （九件＋可选 shell＋四个 LSP）、`LlmContext.lsp` 字段与 turn 装配（非交互装配不注册 shell 的
+  口径不变，LSP 只读故不受闸门限制）——**取证（2026-11-15）**：`registry_combines_shell_and_lsp_tools`
+  与 app 全量 251 项通过。
+- [x] T329 [P] 装配根适配（P5.3b／FR-783）：`crates/whcode-bin/src/lsp_tool.rs`——`build_executor`
+  （未配置 `None`、坏配置显式失败）、按扩展名挑服务器（无匹配给可操作错误）、每查询期一个客户端、
+  `file://` URI 百分号解码＋平台路径归一（`whcode_platform::paths::display_path_from_uri`）
+  ——**取证（2026-11-15）**：bin 3 项测试通过（配置三态、URI 解码、坐标保真）。
+- [x] T330 [P] 文案与文档（P5.3b／FR-783）：`module-design` 的 `whcode-tools` 节补四工具、
+  CHANGELOG、FR-783 与 Check 420—422——**取证（2026-11-15）**：文风/EOL/计数/追溯门禁通过。

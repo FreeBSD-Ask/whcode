@@ -355,12 +355,15 @@ fn llm_command(
     };
     // shell 治理束（T290／ADR-070）：未 opt-in 或 bash 不可用为 None；配置写错显式失败。
     let shell = crate::shell_tool::build_governance(workspace)?;
+    // LSP 执行器（P5.3b／ADR-078）：未配置 `.zcode/lsp.json` 为 None；坏配置显式失败。
+    let lsp = crate::lsp_tool::build_executor(workspace)?;
     let context = whcode_app::llm::LlmContext {
         registry: registry.as_ref(),
         registry_error: registry_error.as_deref(),
         factory: &factory,
         cancel_dir: &cancel_dir,
         shell,
+        lsp,
     };
     match command {
         LlmCommand::Run {

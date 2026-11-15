@@ -489,10 +489,10 @@ fn run_turn_inner(
     } else {
         None
     };
-    let tool_registry = match shell_governance {
-        Some(governance) => whcode_tools::registry_with_shell(std::sync::Arc::clone(governance)),
-        None => whcode_tools::default_registry(),
-    }
+    let tool_registry = whcode_tools::registry_with_shell_and_lsp(
+        shell_governance.map(std::sync::Arc::clone),
+        context.lsp.clone(),
+    )
     .map_err(|err| WhError::internal(format!("工具注册表构造失败：{err}")))?;
     // FR-736/737、ADR-054：MCP 服务器 per-turn 连接（无配置 = 空管理器，功能关闭）；
     // 连接失败逐服务器记录，以 system 消息显式告示（不静默，区分正确的空与错误的空）。
@@ -2373,6 +2373,7 @@ mod tests {
             factory,
             cancel_dir: dir,
             shell: None,
+            lsp: None,
         }
     }
 
@@ -3932,6 +3933,7 @@ mod subagent_tests {
             factory,
             cancel_dir: dir,
             shell: None,
+            lsp: None,
         };
         (conn, id, dir, context)
     }

@@ -309,6 +309,7 @@ impl ServeSecurity {
                 factory: Arc::new(crate::llm_provider::LocalProviderFactory::default()),
                 cancel_dir: whcode_app::llm::cancel_dir_from_env(),
                 shell: None,
+                lsp: None,
             }),
             approvals: Arc::new(ServeApprovals {
                 // 测试装配默认全 allow：既有用例行为不变；需要审批的用例显式注入策略。
@@ -2556,6 +2557,7 @@ mod tests {
                 factory: Arc::new(crate::llm_provider::LocalProviderFactory::default()),
                 cancel_dir: whcode_app::llm::cancel_dir_from_env(),
                 shell: None,
+                lsp: None,
             }),
             ..ServeSecurity::loopback()
         }
@@ -4352,6 +4354,7 @@ mod tests {
                 factory: Arc::new(RelayStubFactory { steps, hold }),
                 cancel_dir: whcode_app::llm::cancel_dir_from_env(),
                 shell: None,
+                lsp: None,
             }),
             ..ServeSecurity::loopback()
         }

@@ -159,8 +159,13 @@ TLS 的依赖落点是这条边界的特例（ADR-031／ADR-040）：**出站**�
 
 ### whcode-tools
 
-- **职责**（M8 前最小）：工具注册、权限策略、执行意图与结果登记（ADR-007）。
-- **失败模式**：不确定副作用标 `unknown`。
+- **职责**（M8 前最小）：工具注册、权限策略、执行意图与结果登记（ADR-007）。内置九件
+  （读写/编辑/列目录/glob/grep/待办/交付物/计划模式）；可选两族经装配根注入——
+  `shell`（`ShellExecutor`，ADR-070）与 LSP 四工具 `lsp_definition`／`lsp_references`／
+  `lsp_hover`／`lsp_diagnostics`（`LspQueryExecutor`，P5.3b／FR-783／ADR-078）。LSP 四工具
+  只读、位置参数对外 1 基（进执行器转 0 基）、空结果给可操作说明；本 crate 不依赖
+  `whcode-lsp`（注入模式，分层不变）。
+- **失败模式**：不确定副作用标 `unknown`；LSP 未配置扩展名／缺能力／超时／进程退出为结构化错误。
 
 ### whcode-runtime
 

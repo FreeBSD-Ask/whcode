@@ -475,6 +475,20 @@ taskkill /T /F 口径）（P1）
     得到 -32601 答复、服务器不答复时在超时内返回 `tool_timeout`
   - 证据：`cargo test -p whcode-lsp`（19 项：transport／config／client 三段，含 `std::io::pipe`
     协议级替身）
+- **FR-783**: LSP 四查询的模型工具面（P5.3b／ADR-078）：`lsp_definition`／`lsp_references`／
+  `lsp_hover`／`lsp_diagnostics` 四个只读工具（`SideEffectScope::ReadOnly`，无需审批——服务器
+  命令与参数来自 `.zcode/lsp.json`，模型只能给文件与位置）；位置参数对外为 **1 基**（`0` 显式
+  拒绝），传入执行器前转 0 基；诊断只需文件路径；空结果给出可操作说明（“未找到定义（服务器
+  返回 0 处）…”）而非静默空；条数或文本截断在正文显式标注；未配置服务器时不注册四工具
+  （FR-704），坏配置在装配期显式失败；执行器由装配根注入（`LspQueryExecutor` trait），
+  `whcode-tools` 不依赖 `whcode-lsp`（P2）
+  - 依据：`research/synthesis/proposal-v3.md` P5.3；ADR-078（封闭集与工具面归属）；
+    ADR-070（工具注入模式）；FR-782（库层四查询）
+  - 判据：Given 未配置 `.zcode/lsp.json`，When 构造执行器，Then 返回 `None` 且注册表保持九件；
+    Given 坏配置，Then 装配期报错；Given 桩执行器，When 以 1 基行号查询定义，Then 请求坐标为
+    0 基且输出为 `path:line:col`；Given 行号 0，Then `invalid_state`；Given 空结果，Then 输出含
+    “未找到”并被判定为正确的空
+  - 证据：`cargo test -p whcode-tools lsp`、`cargo test -p whcode-bin lsp`
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

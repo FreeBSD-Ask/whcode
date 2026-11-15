@@ -372,6 +372,7 @@ fn p72_turn_first_token_latency() {
         factory: &factory,
         cancel_dir: &dir,
         shell: None,
+        lsp: None,
     };
     let actor = whcode_app::actor_with_all_capabilities("p72");
     let mut conn = conn;

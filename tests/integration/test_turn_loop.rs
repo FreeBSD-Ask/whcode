@@ -85,6 +85,7 @@ fn turn_persists_monotonic_events_threaded_by_turn_id_and_rebuildable_messages()
         factory: &factory,
         cancel_dir: &dir,
         shell: None,
+        lsp: None,
     };
     let outcome = run_turn(
         &mut conn,
@@ -187,6 +188,7 @@ fn tool_call_executes_and_returns_result_to_model() {
         factory: &factory,
         cancel_dir: &dir,
         shell: None,
+        lsp: None,
     };
     let mut req = request(&id, "读文件");
     req.workspace_root = Some(dir.clone());
@@ -231,6 +233,7 @@ fn conversation_tail_rebuilds_history_and_rejects_unknown_session() {
         factory: &factory,
         cancel_dir: &dir,
         shell: None,
+        lsp: None,
     };
     let _ = run_turn(
         &mut conn,

@@ -19,6 +19,7 @@ mod config;
 mod cui_dispatch;
 mod llm_provider;
 mod logging;
+mod lsp_tool;
 mod runtimes;
 mod sdk;
 mod serve;

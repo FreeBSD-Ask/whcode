@@ -13,6 +13,7 @@
 
 pub mod builtins;
 pub mod catalogue;
+pub mod lsp;
 pub mod paths;
 pub mod plan;
 pub mod present;
@@ -23,7 +24,15 @@ pub mod todo;
 /// 工具输出正文上限（64 KiB；超限截断并显式标记，FR-728/R-05 对策）。
 pub const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1024;
 
-pub use builtins::{EDIT_FILE_TOOL, WRITE_FILE_TOOL, default_registry, registry_with_shell};
+pub use builtins::{
+    EDIT_FILE_TOOL, WRITE_FILE_TOOL, default_registry, registry_with_shell,
+    registry_with_shell_and_lsp,
+};
+pub use lsp::{
+    DiagnosticView, LSP_DEFINITION_TOOL, LSP_DIAGNOSTICS_TOOL, LSP_HOVER_TOOL, LSP_REFERENCES_TOOL,
+    LSP_TOOL_TIMEOUT_MS, LocationView, LspQueryExecutor, LspQueryKind, LspQueryOutcome,
+    LspQueryRequest, LspQueryResult, LspTool,
+};
 pub use paths::resolve_in_workspace;
 pub use plan::{
     MAX_PLAN_GUIDANCE_CHARS, PLAN_GUIDANCE, PLAN_MODE_EXIT_RULE, PLAN_MODE_TOOL,

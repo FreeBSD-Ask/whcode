@@ -37,9 +37,47 @@ pub fn workspace_temp_dir(workspace_root: &Path) -> PathBuf {
     workspace_root.join("tmp")
 }
 
+/// 把已百分号解码的 `file://` 路径体转换成本机显示路径（LSP 结果回显，P5.3b／ADR-078）。
+///
+/// Windows：`/D:/src/lib.rs` → `D:\src\lib.rs`（去掉 URI 的盘符前导斜杠）；
+/// Unix 家族：原样返回（`/home/a.rs`）。跨平台差异只能在本 crate 出现（NFR-101）。
+#[must_use]
+pub fn display_path_from_uri(decoded: &str) -> String {
+    #[cfg(windows)]
+    {
+        let trimmed = decoded
+            .strip_prefix('/')
+            .filter(|rest| {
+                let bytes = rest.as_bytes();
+                bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+            })
+            .unwrap_or(decoded);
+        trimmed.replace('/', "\\")
+    }
+    #[cfg(not(windows))]
+    {
+        decoded.to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 盘符路径去前导斜杠并转本机分隔符；Unix 路径原样；无前导斜杠不 panic。
+    #[test]
+    fn display_path_from_uri_normalizes_per_platform() {
+        #[cfg(windows)]
+        {
+            assert_eq!(display_path_from_uri("/D:/src/lib.rs"), r"D:\src\lib.rs");
+            assert_eq!(display_path_from_uri("/d:/x"), r"d:\x");
+        }
+        #[cfg(not(windows))]
+        {
+            assert_eq!(display_path_from_uri("/home/user/a.rs"), "/home/user/a.rs");
+        }
+        assert!(display_path_from_uri("weird").ends_with("weird"));
+    }
 
     #[test]
     fn config_dir_is_dot_whcode_under_workspace() {

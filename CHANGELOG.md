@@ -13,6 +13,16 @@
 
 ### 变更
 
+- **LSP 四查询的模型工具面（T327—T330，P5.3b，FR-783，ADR-078，2026-11-15）**：四个只读工具
+  `lsp_definition`／`lsp_references`／`lsp_hover`／`lsp_diagnostics` 让模型直接查“符号在哪
+  定义、谁在引用、悬停说明、文件诊断”。位置参数对外是 **1 基**（`0` 显式拒绝），进执行器前转
+  0 基；诊断只需文件；空结果给可操作说明（“未找到定义（服务器返回 0 处）…”）而不是静默空；
+  截断在正文标注。工具只读、无需审批——服务器命令与参数来自 `.zcode/lsp.json`，模型不能指定，
+  这与 shell 的审批面本质不同。执行器经 `LspQueryExecutor` 注入（`whcode-tools` 不依赖
+  `whcode-lsp`）；未配置服务器不注册四工具，坏配置在装配期显式失败；URI 经百分号解码与
+  `whcode_platform::paths::display_path_from_uri` 归一为本机路径。
+  测试：tools 7 项、bin 3 项、app 251 项；注册表组合九件＋可选 shell＋四个 LSP 无冲突。
+
 - **修复：`taskkill /T` 在整树终止途中子进程自行退出时报假失败（2026-11-15，ARM64 runner
   实测）**：`whcode-platform` run `43659677134` 的 `platform-windows-arm64` 在
   `configured_child_is_terminable_and_leaves_no_residue` 上红——`taskkill /T /F` 先杀父进程，

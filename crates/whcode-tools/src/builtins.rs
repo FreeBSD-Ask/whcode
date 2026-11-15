@@ -668,8 +668,39 @@ pub fn default_registry() -> Result<crate::registry::ToolRegistry, WhError> {
 pub fn registry_with_shell(
     governance: std::sync::Arc<crate::shell::ShellGovernance>,
 ) -> Result<crate::registry::ToolRegistry, WhError> {
+    registry_with_shell_and_lsp(Some(governance), None)
+}
+
+/// 默认注册表 ＋ 可选 shell 治理束 ＋ 可选 LSP 执行器（P5.3b／FR-783／ADR-078）。
+///
+/// 两个参数都是 `None` 时等价于 [`default_registry`]（九件）。shell 的注册条件由调用方
+/// （装配根＋turn 的三条件）判定；LSP 只要配置了服务器即可注册——四个工具都是只读，
+/// 命令与参数来自用户配置文件，模型不能指定（与 shell 的审批口径不同）。
+///
+/// # Errors
+///
+/// 注册冲突（不应发生：稳定名互异）返回错误。
+pub fn registry_with_shell_and_lsp(
+    shell: Option<std::sync::Arc<crate::shell::ShellGovernance>>,
+    lsp: Option<std::sync::Arc<dyn crate::lsp::LspQueryExecutor>>,
+) -> Result<crate::registry::ToolRegistry, WhError> {
     let mut registry = default_registry()?;
-    registry.register(std::sync::Arc::new(crate::shell::Shell::new(governance)))?;
+    if let Some(governance) = shell {
+        registry.register(std::sync::Arc::new(crate::shell::Shell::new(governance)))?;
+    }
+    if let Some(executor) = lsp {
+        for kind in [
+            crate::lsp::LspQueryKind::Definition,
+            crate::lsp::LspQueryKind::References,
+            crate::lsp::LspQueryKind::Hover,
+            crate::lsp::LspQueryKind::Diagnostics,
+        ] {
+            registry.register(std::sync::Arc::new(crate::lsp::LspTool::new(
+                kind,
+                std::sync::Arc::clone(&executor),
+            )))?;
+        }
+    }
     Ok(registry)
 }
 
@@ -692,6 +723,38 @@ mod tests {
     }
 
     use std::path::PathBuf;
+
+    /// 组合装配（P5.3b）：九件默认 ＋ 可选 shell ＋ 四个 LSP 工具，互不冲突。
+    #[test]
+    fn registry_combines_shell_and_lsp_tools() {
+        struct NullLsp;
+        impl crate::lsp::LspQueryExecutor for NullLsp {
+            fn query(
+                &self,
+                _request: &crate::lsp::LspQueryRequest,
+            ) -> Result<crate::lsp::LspQueryOutcome, WhError> {
+                Ok(crate::lsp::LspQueryOutcome {
+                    result: crate::lsp::LspQueryResult::Locations(Vec::new()),
+                    truncated: false,
+                })
+            }
+        }
+
+        let plain = registry_with_shell_and_lsp(None, None).expect("默认九件");
+        assert_eq!(plain.len(), 9);
+
+        let with_lsp =
+            registry_with_shell_and_lsp(None, Some(std::sync::Arc::new(NullLsp))).expect("加 LSP");
+        assert_eq!(with_lsp.len(), 13, "九件＋四个 LSP 工具");
+        for name in [
+            crate::lsp::LSP_DEFINITION_TOOL,
+            crate::lsp::LSP_REFERENCES_TOOL,
+            crate::lsp::LSP_HOVER_TOOL,
+            crate::lsp::LSP_DIAGNOSTICS_TOOL,
+        ] {
+            assert!(with_lsp.get(name).is_some(), "缺少 {name}");
+        }
+    }
 
     #[test]
     fn read_file_returns_content_and_rejects_escape() {

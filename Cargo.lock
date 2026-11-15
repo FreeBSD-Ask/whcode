@@ -6530,6 +6530,7 @@ dependencies = [
  "whcode-domain",
  "whcode-gui",
  "whcode-llm",
+ "whcode-lsp",
  "whcode-platform",
  "whcode-runtime",
  "whcode-ssh",

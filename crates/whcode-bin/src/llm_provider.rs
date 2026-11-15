@@ -120,6 +120,9 @@ pub struct ServeLlm {
     /// shell 工具治理束（T290／FR-777／ADR-070）：`None`＝未 opt-in 或 bash 不可用
     /// （FR-704 默认关闭）；注册还需审批闸门在场（turn 装配判定）。
     pub shell: Option<Arc<whcode_tools::ShellGovernance>>,
+    /// LSP 查询执行器（P5.3b／FR-783／ADR-078）：`None`＝未配置服务器
+    /// （`.zcode/lsp.json` 缺失，FR-704 口径不注册四工具）；配置写错在构造期显式失败。
+    pub lsp: Option<Arc<dyn whcode_tools::LspQueryExecutor>>,
 }
 
 impl ServeLlm {
@@ -143,6 +146,8 @@ impl ServeLlm {
             cancel_dir: cancel_dir_from_env(),
             // 配置写错时显式失败（不静默降级）；未 opt-in 或 bash 不可用为 None。
             shell: crate::shell_tool::build_governance(workspace)?,
+            // 同口径：未配置 `.zcode/lsp.json` 为 None，坏配置构造期报错。
+            lsp: crate::lsp_tool::build_executor(workspace)?,
         })
     }
 
@@ -155,6 +160,7 @@ impl ServeLlm {
             factory: &*self.factory,
             cancel_dir: &self.cancel_dir,
             shell: self.shell.clone(),
+            lsp: self.lsp.clone(),
         }
     }
 }
