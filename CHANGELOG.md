@@ -19,7 +19,9 @@
   正文超限丢载荷标 `truncated`、单批上限、状态视图错误文本截断；store 侧拒绝分支、错误文本
   按字符截断、统计漂移、待投递越界、表不可用即显式 `IoError`；`rewind` 非法边界与坏载荷
   （该文件此前没有测试）。复测 app 90.23%、store 90.11%，阈值 90.0%、豁免清单仍为空；
-  不可达的 duckdb 错误闭包没有用伪造路径凑数。证据：`artifacts/coverage-phase3-2026-11-16.json`。
+  不可达的 duckdb 错误闭包没有用伪造路径凑数。同批把新增断言的诊断插值改为静态文案：
+  `session_id` 派生的错误文本进断言消息会触发 CodeQL `rust/cleartext-logging`
+  （#72—#74），改为静态文案后由重分析消除。证据：`artifacts/coverage-phase3-2026-11-16.json`。
 
 - **M1 校准收口：`temp_directory` 溢写路径（T352—T353，ADR-012 退出条件②，2026-11-16）**：
   ADR-012 的退出条件只剩第②条（记录 `temp_directory` 配置/可写性/磁盘余量并验证溢写路径）
