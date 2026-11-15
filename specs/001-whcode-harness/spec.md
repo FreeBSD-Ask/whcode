@@ -557,6 +557,24 @@ taskkill /T /F 口径）（P1）
   - 证据：`cargo test -p whcode-store webhooks`（7 项）、`cargo test -p whcode-app webhooks`
     （6 项）、`cargo test -p whcode-llm --features http webhook`（4 项）、
     `cargo test -p whcode-bin webhook`（3 项）
+- **FR-789**: ACP automation-only 服务端（P6.3／ADR-081）：`whcode acp serve`（stdio 上的
+  JSON-RPC 2.0，ACP v1）暴露 Agent 侧最小面——`initialize`（版本协商，只支持 1；能力最小集
+  `loadSession:false`／prompt 全 false；`_meta` 显式声明 automation-only）、`session/new`
+  （cwd 必须与绑定工作区一致；`mcpServers` 注入拒绝）、`session/prompt`（只接受 text 块；
+  turn 终态后正文一次 `agent_message_chunk` 送达；工具信号实时映射 `tool_call`／
+  `tool_call_update`；`stopReason` 只用 `cancelled`／`end_turn`，精确原因经 `_meta` 透传）、
+  `session/cancel`（取消标记，原始请求以 `cancelled` 应答）。**审批口径**：规则决策
+  （非交互配置＋shell 默认拒绝种子＋`approval_rules` 表），规则为 `ask` 时
+  `approval_unavailable`（fail-closed），**`session/request_permission` 永不发出**；
+  `session/load`／fs／terminal／elicitation／MCP 能力不实现并显式登记
+  - 依据：proposal-v3 P6.3（“无人值守＝换一个可审计的决策者”）；ACP v1 一手规范
+    （agentclientprotocol.com，2026-11-16 取读）；ADR-070（shell 审批）；ADR-071（stdio
+    JSON-RPC 纪律）；ADR-081
+  - 判据：Given 未初始化即调用，Then `-32600`；Given 非text 块或 `mcpServers` 注入，Then
+    `-32602`；Given 规则未放行 shell，Then 工具以 `approval_unavailable` 失败且无
+    `request_permission` 发出；Given 活跃 turn 中取消，Then 原始请求 `stopReason=cancelled`
+  - 证据：`cargo test -p whcode-bin --bin whcode acp`（7 项，含两条端到端）、
+    `frontend_parity_matrix_rows_match_registry`
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

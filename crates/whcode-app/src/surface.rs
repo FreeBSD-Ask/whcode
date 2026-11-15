@@ -1158,6 +1158,24 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::NotApplicable,
         ],
     },
+    // ACP automation-only 服务端（FR-789／ADR-081）：审批由规则表 fail-closed 决策，
+    // session/request_permission 永不发出；机器面同 sdk.serve，三端交互面不承载。
+    SurfaceEntry {
+        id: "acp.serve",
+        kind: SurfaceKind::Command,
+        capability: Capability::SessionCreate,
+        effect: EffectClass::Write,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Implemented {
+                anchor: "cui_dispatch::acp_exit（Command::Acp → crate::acp::run_acp_server，ADR-081）",
+            },
+            Support::NotApplicable,
+            Support::NotApplicable,
+            Support::NotApplicable,
+        ],
+    },
     SurfaceEntry {
         id: "llm.cancel",
         kind: SurfaceKind::Command,

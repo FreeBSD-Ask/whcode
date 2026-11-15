@@ -50,6 +50,13 @@ pub enum Command {
     },
     /// 出进程 SDK（FR-778；stdio 上的 JSON-RPC；契约 contracts/sdk-jsonrpc.md，ADR-071）。
     Sdk,
+    /// ACP automation-only 服务端（FR-789；stdio 上的 JSON-RPC，契约 contracts/acp.md，
+    /// ADR-081）：编辑器/自动化客户端以子进程方式启动。
+    Acp {
+        /// LLM 剖面名（缺省：注册表恰有一个剖面时取它，否则显式报错——不猜测）。
+        #[arg(long)]
+        provider: Option<String>,
+    },
     /// 状态快照（FR-314）。
     Status {
         /// 会话 ID。

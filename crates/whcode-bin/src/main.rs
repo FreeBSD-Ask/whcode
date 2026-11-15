@@ -13,6 +13,7 @@
 //! 未实现事项明确标记（宪法原则 VII / §15）：DuckDB 存取 M1/T032+；命令面 M2/T046+；
 //! SDD 门禁 M4/T068+；Web/SSH M6—M7；运行时 M8/T100+。
 
+mod acp;
 mod bench;
 mod cert_probe;
 mod config;

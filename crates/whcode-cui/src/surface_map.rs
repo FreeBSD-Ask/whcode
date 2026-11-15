@@ -39,6 +39,8 @@ pub fn surface_of(command: &Command) -> &'static str {
         },
         // sdk serve（T294／FR-778／ADR-071）：出进程 stdio JSON-RPC 服务。
         Command::Sdk => "sdk.serve",
+        // acp serve（T348／FR-789／ADR-081）：ACP automation-only 服务端。
+        Command::Acp { .. } => "acp.serve",
         Command::Status { .. } => "spec.status",
         // webhook status／deliver（P6.4／FR-788／ADR-079）：CUI 显式命令；其余三端不适用。
         Command::Webhook { command } => match command {

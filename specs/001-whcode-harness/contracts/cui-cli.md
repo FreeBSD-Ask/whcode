@@ -25,6 +25,7 @@ whcode
   font uninstall [--dry-run]
   serve --web [--bind 127.0.0.1:PORT] [--tls builtin|external|off] [--token-file PATH]
   serve --ssh [--bind HOST:PORT]
+  acp serve [--provider NAME]
   gui [--workspace DIR]
   doctor [--json]
 ```

@@ -62,6 +62,7 @@ T190：新增证书库设置两行）。
 | `runtime.install` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-701—710；预留 M8；部分 six_view_scope |
 | `llm.run` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-201—208；T167 接线（CUI／Web／TUI 三端，TUI 剖面→提示词两步输入）；ADR-056 |
 | `sdk.serve` | Command | Write | 已实现 | 不提供 | 不提供 | 不提供 | FR-778；T294（出进程 stdio JSON-RPC，机器面——TUI/GUI/Web 交互面不承载）；ADR-071 |
+| `acp.serve` | Command | Write | 已实现 | 不提供 | 不提供 | 不提供 | FR-789；T348（ACP automation-only，审批 fail-closed——request_permission 永不发出）；ADR-081 |
 | `llm.cancel` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-201—208；T167 接线（CUI／Web／TUI 三端）；ADR-056 |
 | `llm.models` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-773／ADR-031 修订 2026-11-13；CUI 无视图面（cui_command_surface），TUI／GUI 未排期 |
 | `theme.switch` | Command | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-612／713／625；部分 cui_no_theme |

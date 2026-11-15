@@ -2438,3 +2438,24 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   目标＝Web 用同一 app 命令聚合三节，与 TUI／GUI 同源；判据＝web 1 项（含正确的空与 404）＋
   app 1 项测试；非目标＝服务端渲染的台账页面（Web 只提供 JSON，页面留作前端后续）、Web 侧
   写操作（台账只读）。
+
+## Tasks（2026-11-16 追加）：ACP automation-only 服务端（P6.3，ADR-081）
+
+- [x] T348 协议层与服务循环（P6.3／FR-789／ADR-081）：`crates/whcode-bin/src/acp.rs`——
+  帧解析三分（请求／通知／坏帧）、`initialize` 版本协商与能力最小集、`session/new`（cwd
+  一致性＋mcpServers 注入拒绝）、`session/prompt`（text-only、单活跃 turn、终止原因到
+  `stopReason` 的映射＋`_meta` 透传）、`session/cancel`（取消标记）；标准基线登记 ACP 行
+  ——**任务认知卡**：方向＝无人值守不能绕过审批也不能全失败，需要一个可审计的机器决策者
+  并以 ACP 暴露；目标＝编辑器/自动化客户端可经 stdio 驱动本仓；判据＝协议测试与两条端到端
+  全绿；非目标＝客户端实现、逐块流式、fs/terminal 能力、MCP 注入。
+- [x] T349 [P] 自动化审批口径（P6.3／FR-789）：`automation_policy`（非交互配置＋shell 默认
+  拒绝种子＋`approval_rules` 表叠加）、`AppAcpGateway`（规则决策、无应答面、审计
+  store-backed）、工具信号到 `tool_call`／`tool_call_update` 的实时映射、取消流
+  ——**取证（2026-11-16）**：`automation_policy_seeds_deny_and_honors_configured_and_stored_rules`
+  与两条端到端通过。
+- [x] T350 [P] CUI 接线与登记（P6.3／FR-789）：`Command::Acp { --provider }` 拦截直跑、
+  `acp_exit` 装配（连接／剖面/审批配置）、`acp.serve` surface 条目、对等矩阵行
+  ——**取证（2026-11-16）**：`feature_parity_matrix_rows_match_registry` 等 10 项通过。
+- [x] T351 [P] 契约与文档（P6.3／FR-789）：`contracts/acp.md`、cui-cli 命令树补 `acp serve`、
+  FR-789、Check 442—445、CHANGELOG——**取证（2026-11-16）**：计数／追溯／文风／EOL／
+  标准基线门禁通过。

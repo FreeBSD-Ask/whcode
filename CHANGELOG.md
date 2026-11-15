@@ -13,6 +13,18 @@
 
 ### 变更
 
+- **ACP automation-only 服务端（T348—T351，P6.3，FR-789，ADR-081，2026-11-16）**：编辑器与
+  自动化客户端现在可以经 Agent Client Protocol v1（stdio JSON-RPC）驱动本仓：
+  `whcode acp serve [--provider NAME]`。能力面是最小集并显式声明 automation-only
+  （`loadSession:false`、prompt 仅 text、`session/request_permission` **永不发出**）——
+  无人值守不等于绕过审批：工具审批由“非交互配置＋shell 默认拒绝种子＋`approval_rules`
+  规则表”决策，规则为 `ask` 时 `approval_unavailable` 失败（审计在案），想要放行走既有
+  规则面。`mcpServers` 客户端注入直接拒绝（提示注入面）；cwd 必须与绑定工作区一致。
+  `session/prompt` 阻塞至终态，工具信号实时映射 `tool_call`／`tool_call_update`，正文终态后
+  一次送达；`stopReason` 只用一手确认过的 `cancelled`／`end_turn`，精确终止原因经 `_meta`
+  透传。不做 session/load、fs/terminal 能力、MCP 能力与逐块流式（均登记为非目标）。测试：
+  `cargo test -p whcode-bin --bin whcode acp` 7 项（解析、能力、映射、两条端到端、审批口径）。
+
 - **台账视图的 Web 面（T347，P2.2b 余项，FR-787，2026-11-15）**：上一批交付台账视图时，Web 面
   只能登记为预留。新增 `GET /api/ledger?session=`：与 TUI／GUI 同源聚合待办、交付物与发现
   三节并给出计数；单节失败把错误放进 `errors` 而其余两节照常返回，三节全因会话不存在失败时

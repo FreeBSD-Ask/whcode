@@ -103,6 +103,50 @@ fn sdk_exit(workspace: &Path) -> i32 {
     }
 }
 
+/// ACP automation-only 服务端装配（ADR-081）：与 `sdk_exit` 同构——工作区连接、
+/// LLM 剖面、顶层配置（审批规则表口径）注入网关，stdio 承载协议。
+fn acp_exit(workspace: &Path, provider: Option<&str>) -> i32 {
+    use std::sync::{Arc, Mutex};
+    let config = config_for(workspace);
+    let conn = match open_db(workspace, &config) {
+        Ok(conn) => Arc::new(Mutex::new(conn)),
+        Err(err) => {
+            eprintln!("ACP 装配失败（工作区连接）：{err}");
+            return error_exit_code(&err);
+        }
+    };
+    let llm = match crate::llm_provider::ServeLlm::from_env(workspace) {
+        Ok(llm) => Arc::new(llm),
+        Err(err) => {
+            eprintln!("ACP 装配失败（LLM 剖面）：{err}");
+            return error_exit_code(&err);
+        }
+    };
+    let gateway = crate::acp::AppAcpGateway {
+        conn,
+        llm,
+        config: config.clone(),
+        workspace: workspace.to_path_buf(),
+    };
+    let mut source = crate::sdk::StdioSource::default();
+    let sink = Box::new(crate::sdk::StdioSink);
+    match crate::acp::run_acp_server(
+        Arc::new(gateway),
+        provider.map(str::to_string),
+        &mut source,
+        sink,
+    ) {
+        Ok(()) => {
+            eprintln!("ACP 会话结束（stdin EOF）");
+            whcode_cui::output::EXIT_SUCCESS
+        }
+        Err(err) => {
+            eprintln!("ACP 服务异常退出：{err}");
+            error_exit_code(&err)
+        }
+    }
+}
+
 /// 调度实现（返回 i32 退出码，供测试直接断言稳定码表）。
 fn dispatch_code(args: &[String]) -> i32 {
     // 显式语言必须先于解析确定：`--help` 的渲染发生在 clap 内部（FR-615）。
@@ -141,6 +185,9 @@ fn dispatch_code(args: &[String]) -> i32 {
     // 帧由服务端直写 stdout，人读摘要走 stderr；退出码 0＝优雅关闭。
     if let Command::Sdk = cli.command {
         return sdk_exit(&workspace);
+    }
+    if let Command::Acp { provider } = &cli.command {
+        return acp_exit(&workspace, provider.as_deref());
     }
     match execute(&cli.command, &workspace, &texts) {
         Ok((data, human)) => {
@@ -229,6 +276,9 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
         // (Value, human) 形状）；本臂仅为穷尽性兜底，正常流程不可达。
         Command::Sdk => Err(WhError::invalid_state(
             "sdk 由调度层拦截直跑（长驻 stdio 服务），不经命令形状".to_string(),
+        )),
+        Command::Acp { .. } => Err(WhError::invalid_state(
+            "acp 由调度层拦截直跑（长驻 stdio 服务），不经命令形状".to_string(),
         )),
         Command::Status { session } => {
             let conn = open_db(workspace, &config)?;
