@@ -62,6 +62,7 @@ pub mod tool_call;
 pub mod turn;
 pub mod view_source;
 pub mod views;
+pub mod webhooks;
 
 pub use approval::{
     ApprovalAnswerer, ApprovalDecision, ApprovalGate, ApprovalPolicy, DEFAULT_APPROVAL_WAIT_MS,

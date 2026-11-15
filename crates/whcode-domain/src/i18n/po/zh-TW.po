@@ -581,6 +581,18 @@ msgstr "試執行：將取消封存工作階段 {session}——加上 --yes 才�
 msgid "cui.unarchived"
 msgstr "已取消封存工作階段 {session}"
 
+msgid "cui.webhook_delivered"
+msgstr "投遞完成：嘗試 {attempted} · 成功 {delivered} · 可重試失敗 {retryable} · 永久失敗 {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "預覽：{planned} 筆待投遞（加 --yes 執行）"
+
+msgid "cui.webhook_not_configured"
+msgstr "未設定端點：.zcode/webhooks.json 不存在或為空——零端點即零請求"
+
+msgid "cui.webhook_status"
+msgstr "端點 {endpoints}（啟用 {enabled}）· 待結果 {claimed} · 已投遞 {delivered} · 失敗 {failed}"
+
 msgid "error.datasource"
 msgstr "資料來源錯誤：{error}"
 

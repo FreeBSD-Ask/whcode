@@ -10,7 +10,9 @@
 //! - `audit`：安全审计随原库保留，不随导出文件扩散（§10.3）；
 //! - `runtime_state`：机器本地运行时配置，不属于工作区数据；
 //! - `usage_anchor`：本地实测校准值（FR-758），一次成功请求即可重建，不属工作区数据；
-//! - `schema_migrations`：由目标库自身的迁移管理，导入方不得照搬。
+//! - `schema_migrations`：由目标库自身的迁移管理，导入方不得照搬；
+//! - `webhook_deliveries`：机器本地的投递状态（含端点名与传输层错误文本），重建即可
+//!   （P6.4／FR-788／ADR-079 决策 8：登记在此，不留“既不导出也不登记”的缺口）。
 //!
 //! ## 校验（Check 40、V-106）
 //!
@@ -77,6 +79,7 @@ pub const EXCLUDED_TABLES: &[&str] = &[
     "runtime_state",
     "usage_anchor",
     "schema_migrations",
+    "webhook_deliveries",
 ];
 
 /// 分块校验和的块大小（行数）。

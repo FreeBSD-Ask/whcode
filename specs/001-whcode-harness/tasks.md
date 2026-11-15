@@ -2392,10 +2392,10 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 - [x] T340 视图枚举与三端映射（P2.2b／FR-787）：`ViewId::Ledger`（`VIEW_COUNT`＝8、切换键
   `8`）、`LedgerSection`／`LedgerRow`（节名走 `label_key`，缺译退回机器名）、TUI 与 GUI 的
   `surface_map` 穷尽映射、GUI 数字键 8、`surface.rs` 登记 `view.ledger`（Web 面记为预留
-  T344，不冒充已实现）——**任务认知卡**：方向＝发现台账已有库与命令层（T337—T339）但界面
+  T347，不冒充已实现）——**任务认知卡**：方向＝发现台账已有库与命令层（T337—T339）但界面
   无处可看，视图是最后一公里；目标＝待办／交付物／发现三节聚合成一个只读列表且节名本地化；
   判据＝`whcode-app`／`whcode-tui`／`whcode-gui` 的视图与映射测试全绿；非目标＝Web 台账面
-  （T344 预留）、任何写操作（台账只读）、跨会话聚合。
+  （T347 预留）、任何写操作（台账只读）、跨会话聚合。
 - [x] T341 [P] 准备层聚合（P2.2b／FR-787）：`store_source::build_ledger` 三节有界聚合
   （待办 ≤50／交付物 ≤200／发现 ≤20）、节级错误注记写摘要、`list_session_findings` 应用
   命令——**取证（2026-11-15）**：`ledger_view_aggregates_three_sections_and_notes_failures`
@@ -2403,3 +2403,24 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 - [x] T342 [P] 词条与台账（P2.2b／FR-787）：13 套目录新增 `view.ledger` 与 `tui.ledger.*`
   并把底部提示改为 `1-8`、PO 同步、FR-787、Check 433—435、CHANGELOG——**取证（2026-11-15）**：
   `i18n-po.py --check`、计数／追溯／文风／EOL 门禁通过。
+
+## Tasks（2026-11-15 追加）：出站 webhook 幂等投递（P6.4，ADR-079）
+
+- [x] T343 schema v13 与 store 原语（P6.4／FR-788／ADR-079）：`0013_webhook_deliveries.sql`
+  （幂等键主键＋状态索引）、`whcode-store::webhooks`（认领 `ON CONFLICT DO NOTHING`、
+  三态标记、`attempts` 上限、待投递反连接查询、状态统计）、`webhook_deliveries` 登记进
+  `EXCLUDED_TABLES`——**任务认知卡**：方向＝DSH 的 webhook 无幂等，重复投递会重复触发
+  下游副作用（proposal-v3 §5 反建议表）；目标＝同一事件在同一端点只投递一次、失败有界
+  且可查；判据＝store 7 项测试（含重复认领、永久失败、库内容漂移）；非目标＝入站 webhook、
+  常驻投递循环、HMAC 签名、界面入口。
+- [x] T344 [P] 出站 POST 与发送器（P6.4／FR-788）：`whcode-llm::http::webhook`（不跟随
+  重定向、响应有界丢弃、三分类、正文上限）与 `whcode-bin::webhook_sender`（凭据按次求值，
+  变量缺失不发无鉴权请求）——**取证（2026-11-15）**：`cargo test -p whcode-llm --features
+  http webhook` 4 项（含回环往返与幂等键头断言）。
+- [x] T345 [P] 应用编排与命令面（P6.4／FR-788）：`whcode-app::webhooks`（配置校验、计划、
+  投递记账、状态视图）、CUI `webhook status`／`webhook deliver`、`SURFACES` 两条命令面、
+  13 套目录 4 个词条——**取证（2026-11-15）**：`cargo test -p whcode-app webhooks` 6 项与
+  `cargo test -p whcode-bin webhook` 3 项通过。
+- [x] T346 [P] 文档与台账（P6.4／FR-788）：ADR-079（决策、正负和解、已知限制、标准研读）、
+  `data-model` 的 webhook_deliveries 节、FR-788、Check 436—439、标准基线的 RFC 9110 行、
+  CHANGELOG、矩阵两行——**取证（2026-11-15）**：计数／追溯／文风／EOL／标准基线门禁通过。

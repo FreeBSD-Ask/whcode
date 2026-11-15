@@ -581,6 +581,18 @@ msgstr "ڈرائی رن: سیشن {session} آرکائیو سے بحال ہوگ�
 msgid "cui.unarchived"
 msgstr "سیشن {session} آرکائیو سے بحال ہو گیا"
 
+msgid "cui.webhook_delivered"
+msgstr "ترسیل مکمل: کوششیں {attempted} · کامیاب {delivered} · قابلِ تکرار {retryable} · مستقل ناکام {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "پیش منظر: {planned} ترسیلیں زیر التوا (چلانے کے لیے --yes شامل کریں)"
+
+msgid "cui.webhook_not_configured"
+msgstr "کوئی اینڈ پوائنٹ ترتیب نہیں دیا گیا: .zcode/webhooks.json موجود نہیں یا خالی ہے — صفر اینڈ پوائنٹ یعنی صفر درخواست"
+
+msgid "cui.webhook_status"
+msgstr "اینڈ پوائنٹ {endpoints} (فعال {enabled}) · زیر التوا {claimed} · پہنچا دیے {delivered} · ناکام {failed}"
+
 msgid "error.datasource"
 msgstr "ڈیٹا ماخذ میں خرابی: {error}"
 

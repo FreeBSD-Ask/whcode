@@ -581,6 +581,18 @@ msgstr "dry-run：将取消归档会话 {session}——加 --yes 执行"
 msgid "cui.unarchived"
 msgstr "已取消归档会话 {session}"
 
+msgid "cui.webhook_delivered"
+msgstr "投递完成：尝试 {attempted} · 成功 {delivered} · 可重试失败 {retryable} · 永久失败 {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "预览：{planned} 条待投递（加 --yes 执行）"
+
+msgid "cui.webhook_not_configured"
+msgstr "未配置端点：.zcode/webhooks.json 不存在或为空——零端点即零请求"
+
+msgid "cui.webhook_status"
+msgstr "端点 {endpoints}（启用 {enabled}）· 待结果 {claimed} · 已投递 {delivered} · 失败 {failed}"
+
 msgid "error.datasource"
 msgstr "数据源错误：{error}"
 

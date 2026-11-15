@@ -581,6 +581,18 @@ msgstr "تشغيل تجريبي: ستُلغى أرشفة الجلسة {session} 
 msgid "cui.unarchived"
 msgstr "أُلغيت أرشفة الجلسة {session}"
 
+msgid "cui.webhook_delivered"
+msgstr "اكتمل التسليم: المحاولات {attempted} · نجحت {delivered} · قابلة للإعادة {retryable} · فشل دائم {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "معاينة: {planned} عملية تسليم معلّقة (أضف --yes للتنفيذ)"
+
+msgid "cui.webhook_not_configured"
+msgstr "لا توجد نقاط نهاية مهيأة: ملف .zcode/webhooks.json غير موجود أو فارغ — لا نقاط يعني لا طلبات"
+
+msgid "cui.webhook_status"
+msgstr "نقاط النهاية {endpoints} (المفعّلة {enabled}) · قيد الانتظار {claimed} · تم التسليم {delivered} · فشل {failed}"
+
 msgid "error.datasource"
 msgstr "خطأ في مصدر البيانات: {error}"
 

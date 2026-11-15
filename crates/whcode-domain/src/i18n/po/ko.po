@@ -581,6 +581,18 @@ msgstr "dry-run: 세션 {session}의 보관을 해제합니다 — 실행하려�
 msgid "cui.unarchived"
 msgstr "세션 {session} 보관 해제 완료"
 
+msgid "cui.webhook_delivered"
+msgstr "전송 완료: 시도 {attempted} · 성공 {delivered} · 재시도 가능 {retryable} · 영구 실패 {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "미리보기: {planned}건 전송 대기(--yes 로 실행)"
+
+msgid "cui.webhook_not_configured"
+msgstr "엔드포인트 미설정: .zcode/webhooks.json 이 없거나 비어 있습니다——설정이 없으면 요청도 없습니다"
+
+msgid "cui.webhook_status"
+msgstr "엔드포인트 {endpoints}(사용 {enabled}) · 대기 {claimed} · 전송됨 {delivered} · 실패 {failed}"
+
 msgid "error.datasource"
 msgstr "데이터 원본 오류: {error}"
 

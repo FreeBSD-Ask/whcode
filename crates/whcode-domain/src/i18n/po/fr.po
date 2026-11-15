@@ -581,6 +581,18 @@ msgstr "simulation : la session {session} serait désarchivée — ajouter --yes
 msgid "cui.unarchived"
 msgstr "Session {session} désarchivée"
 
+msgid "cui.webhook_delivered"
+msgstr "Livraison terminée : tentatives {attempted} · livrées {delivered} · réessayables {retryable} · définitives {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "Aperçu : {planned} livraisons en attente (ajoutez --yes pour exécuter)"
+
+msgid "cui.webhook_not_configured"
+msgstr "Aucun point de terminaison configuré : .zcode/webhooks.json absent ou vide — zéro point, zéro requête"
+
+msgid "cui.webhook_status"
+msgstr "Points de terminaison {endpoints} (actifs {enabled}) · En attente {claimed} · Livrés {delivered} · Échecs {failed}"
+
 msgid "error.datasource"
 msgstr "Erreur de source de données : {error}"
 

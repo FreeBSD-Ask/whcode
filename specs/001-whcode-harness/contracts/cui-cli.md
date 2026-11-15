@@ -18,6 +18,8 @@ whcode
   events list|show|export --session ID [--after SEQ] [--format jsonl]
   db stats|check|purge --before TS|checkpoint [--threshold V] [--autocheckpoint V]|compact|archive --export PATH|restore --from PATH --yes|explain QUERY
   runtime list|status|enable|disable|install NAME
+  webhook status
+  webhook deliver [--dry-run|--yes]
   font install [--from DIR] [--dry-run]
   font status
   font uninstall [--dry-run]
@@ -58,6 +60,15 @@ whcode
   来源、截断原因与游标（FR-105／108）。
 - `runtime list` 输出与 Web `/api/runtimes` 同形（`schema_version`、`wired`、`runtimes`，
   状态名不翻译）；`runtime status|enable|disable|install` 为预留命令。
+- `webhook status`／`webhook deliver`（P6.4／FR-788／ADR-079）：配置来自
+  `<workspace>/.zcode/webhooks.json`（显式 opt-in；未配置＝零端点＝零请求，`status` 明确
+  输出 `configured: false`，`deliver` 计划 0 条）。`status` 输出端点计数、三态计数
+  （`claimed`／`delivered`／`failed`）与最近 20 条投递记录；`deliver` 默认 dry-run
+  （`planned` 条数，不认领、不发送），`--yes` 执行并把结果记为 `attempted`／`delivered`／
+  `retryable_failures`／`permanent_failures`／`skipped`。幂等键 `<endpoint>:<event_id>` 落在
+  `webhook_deliveries`，重复执行不重复投递；凭据只以环境变量名出现在配置里，取值不进入
+  输出与事件。配置非法（明文非回环、未知事件类型、端点重名、上限越界）即显式失败，
+  不降级成“未配置”。
 - `llm run`／`llm cancel`（T167）经 `whcode_app::llm` 执行：剖面文件来自环境变量
   `WHCODE_LLM_PROFILES`（仓库外 JSON），凭据由剖面 `auth` 声明为环境变量或仓库外文件，
   值不进入输出与事件；`--provider` 必须显式给出（无剖面即无请求）。`llm run` 输出含

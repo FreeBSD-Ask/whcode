@@ -11,7 +11,7 @@
 
 use crate::cli::{
     Command, ContextCommand, DbCommand, EventsCommand, FontCommand, LlmCommand, RuntimeCommand,
-    SessionCommand, SpecCommand, TaskCommand,
+    SessionCommand, SpecCommand, TaskCommand, WebhookCommand,
 };
 
 /// 把 CUI 命令映射到登记表 `SurfaceId`（穷尽匹配，无通配臂）。
@@ -40,6 +40,11 @@ pub fn surface_of(command: &Command) -> &'static str {
         // sdk serve（T294／FR-778／ADR-071）：出进程 stdio JSON-RPC 服务。
         Command::Sdk => "sdk.serve",
         Command::Status { .. } => "spec.status",
+        // webhook status／deliver（P6.4／FR-788／ADR-079）：CUI 显式命令；其余三端不适用。
+        Command::Webhook { command } => match command {
+            WebhookCommand::Status => "webhook.status",
+            WebhookCommand::Deliver { .. } => "webhook.deliver",
+        },
         Command::Task { command } => match command {
             TaskCommand::List { .. } => "task.list",
             TaskCommand::Show { .. } => "task.show",

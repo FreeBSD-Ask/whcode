@@ -581,6 +581,18 @@ msgstr "dry-run: se desarchivaría la sesión {session}; añada --yes para ejecu
 msgid "cui.unarchived"
 msgstr "Sesión {session} desarchivada"
 
+msgid "cui.webhook_delivered"
+msgstr "Entrega terminada: intentos {attempted} · entregados {delivered} · reintentables {retryable} · permanentes {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "Vista previa: {planned} entregas pendientes (añade --yes para ejecutar)"
+
+msgid "cui.webhook_not_configured"
+msgstr "Sin extremos configurados: falta .zcode/webhooks.json o está vacío — sin extremos no hay peticiones"
+
+msgid "cui.webhook_status"
+msgstr "Extremos {endpoints} (activos {enabled}) · Pendientes {claimed} · Entregados {delivered} · Fallidos {failed}"
+
 msgid "error.datasource"
 msgstr "Error del origen de datos: {error}"
 

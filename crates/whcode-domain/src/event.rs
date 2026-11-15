@@ -87,6 +87,36 @@ impl EventKind {
         }
     }
 
+    /// 全部事件类型（顺序与 [`EventKind::as_str`] 的稳定名一致；配置校验与解析共用）。
+    pub const ALL: &'static [Self] = &[
+        Self::RequestStarted,
+        Self::StreamingChunk,
+        Self::RequestCompleted,
+        Self::RequestFailed,
+        Self::ContextState,
+        Self::ProgressChanged,
+        Self::ToolCallStarted,
+        Self::ToolCallFinished,
+        Self::RuntimeTerminated,
+        Self::PersistenceError,
+        Self::TurnStarted,
+        Self::TurnFinished,
+        Self::AssistantAttempt,
+        Self::CompactionStarted,
+        Self::CompactionSummary,
+        Self::CompactionFinished,
+        Self::TodoUpdated,
+        Self::DeliverablePresented,
+        Self::PlanModeChanged,
+        Self::SessionRewound,
+    ];
+
+    /// 解析稳定名；未知取值返回 `None`（由调用方决定报错口径，不静默取默认）。
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|kind| kind.as_str() == text)
+    }
+
     /// 可靠性分级（§4.2）。分级决定队列饱和时是背压还是丢弃。
     pub const fn criticality(self) -> EventCriticality {
         match self {
@@ -352,6 +382,17 @@ mod tests {
         assert_eq!(all.len(), 10);
         assert_eq!(all[0].as_str(), "RequestStarted");
         assert_eq!(all[9].as_str(), "PersistenceError");
+    }
+
+    /// `ALL` 与解析：清单覆盖全部类型，稳定名往返一致（webhook 配置校验依赖它）。
+    #[test]
+    fn event_kind_all_covers_every_variant_and_parses_back() {
+        assert_eq!(EventKind::ALL.len(), 20, "新增事件类型必须同步 ALL");
+        for kind in EventKind::ALL {
+            assert_eq!(EventKind::parse(kind.as_str()), Some(*kind));
+        }
+        assert_eq!(EventKind::parse("NotAEvent"), None);
+        assert_eq!(EventKind::parse("requeststarted"), None);
     }
 
     #[test]

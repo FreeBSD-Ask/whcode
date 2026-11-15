@@ -27,7 +27,7 @@ use whcode_app::tool_call::{TOOL_STARTED, describe};
 use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
 use whcode_cui::cli::{
     Command, ContextCommand, DbCommand, EventsCommand, FontCommand, LlmCommand, ParseOutcome,
-    RuntimeCommand, SessionCommand, SpecCommand, TaskCommand, parse_outcome,
+    RuntimeCommand, SessionCommand, SpecCommand, TaskCommand, WebhookCommand, parse_outcome,
 };
 use whcode_cui::format::Styler;
 use whcode_cui::output::{EXIT_USAGE, error_envelope, error_exit_code, success_envelope};
@@ -223,6 +223,8 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
         Command::Session { command } => {
             session_command(command, workspace, &config, &policy, &actor, now, texts)
         }
+        // webhook（P6.4／FR-788／ADR-079）：显式投递，无后台循环。
+        Command::Webhook { command } => webhook_command(command, workspace, &policy, &actor, texts),
         // SDK（T294／ADR-071）在 dispatch_code 拦截直跑（长驻 stdio 服务，不走
         // (Value, human) 形状）；本臂仅为穷尽性兜底，正常流程不可达。
         Command::Sdk => Err(WhError::invalid_state(
@@ -511,6 +513,126 @@ fn runtime_command(command: &RuntimeCommand) -> Result<(Value, String), WhError>
             "runtime.install",
             &format!("runtime install {name} 属运行时装配开关（M8），当前不伪造启用状态"),
         )),
+    }
+}
+
+/// `webhook` 命令（P6.4／FR-788／ADR-079）。
+///
+/// 配置缺失＝零端点（不是错误）：`status` 明确说“未配置端点”，`deliver` 明确回 0 条。
+/// 配置写错是显式错误（`load_config` 报出具体字段与上限），不降级成“未配置”。
+/// 投递默认 dry-run；`--yes` 才认领并发送，凭据由装配根的发送器按次求值。
+fn webhook_command(
+    command: &WebhookCommand,
+    workspace: &Path,
+    policy: &DefaultPolicy,
+    actor: &Actor,
+    texts: &I18n,
+) -> Result<(Value, String), WhError> {
+    let config = whcode_app::webhooks::load_config(workspace)?;
+    match command {
+        WebhookCommand::Status => {
+            let conn = open_db(workspace, &config_for(workspace))?;
+            let view = whcode_app::webhooks::status(&conn, policy, actor, &config)?;
+            let recent: Vec<Value> = view
+                .recent
+                .iter()
+                .map(|item| {
+                    json!({
+                        "idempotency_key": item.idempotency_key,
+                        "status": item.status,
+                        "attempts": item.attempts,
+                        "last_status_code": item.last_status_code,
+                        "last_error": item.last_error,
+                    })
+                })
+                .collect();
+            let value = json!({
+                "schema_version": whcode_domain::SCHEMA_VERSION,
+                "wired": true,
+                "configured": !config.is_inert(),
+                "endpoints": view.endpoints,
+                "enabled_endpoints": view.enabled_endpoints,
+                "counts": {
+                    "claimed": view.counts[0],
+                    "delivered": view.counts[1],
+                    "failed": view.counts[2],
+                },
+                "recent": recent,
+            });
+            let human = if config.is_inert() {
+                texts.resolve("cui.webhook_not_configured").to_string()
+            } else {
+                texts.resolve_fmt(
+                    "cui.webhook_status",
+                    &[
+                        ("endpoints", &view.endpoints.to_string()),
+                        ("enabled", &view.enabled_endpoints.to_string()),
+                        ("claimed", &view.counts[0].to_string()),
+                        ("delivered", &view.counts[1].to_string()),
+                        ("failed", &view.counts[2].to_string()),
+                    ],
+                )
+            };
+            Ok((value, human))
+        }
+        WebhookCommand::Deliver { dry_run, yes } => {
+            let is_dry_run = confirm_flags(*dry_run, *yes)?;
+            if config.is_inert() {
+                let value = json!({
+                    "schema_version": whcode_domain::SCHEMA_VERSION,
+                    "wired": true,
+                    "configured": false,
+                    "planned": 0,
+                    "attempted": 0,
+                    "delivered": 0,
+                    "skipped": 0,
+                });
+                return Ok((
+                    value,
+                    texts.resolve("cui.webhook_not_configured").to_string(),
+                ));
+            }
+            let conn = open_db(workspace, &config_for(workspace))?;
+            if is_dry_run {
+                let plan = whcode_app::webhooks::plan(&conn, policy, actor, &config, None)?;
+                let value = json!({
+                    "schema_version": whcode_domain::SCHEMA_VERSION,
+                    "wired": true,
+                    "configured": true,
+                    "dry_run": true,
+                    "planned": plan.len(),
+                });
+                let human = texts.resolve_fmt(
+                    "cui.webhook_dry_run",
+                    &[("planned", &plan.len().to_string())],
+                );
+                return Ok((value, human));
+            }
+            let sender = crate::webhook_sender::LlmWebhookSender;
+            let summary =
+                whcode_app::webhooks::deliver(&conn, policy, actor, &config, &sender, None)?;
+            let value = json!({
+                "schema_version": whcode_domain::SCHEMA_VERSION,
+                "wired": true,
+                "configured": true,
+                "dry_run": false,
+                "attempted": summary.attempted,
+                "delivered": summary.delivered,
+                "retryable_failures": summary.retryable_failures,
+                "permanent_failures": summary.permanent_failures,
+                "skipped": summary.skipped,
+            });
+            let human = texts.resolve_fmt(
+                "cui.webhook_delivered",
+                &[
+                    ("attempted", &summary.attempted.to_string()),
+                    ("delivered", &summary.delivered.to_string()),
+                    ("retryable", &summary.retryable_failures.to_string()),
+                    ("permanent", &summary.permanent_failures.to_string()),
+                ],
+            );
+            Ok((value, human))
+        }
     }
 }
 
@@ -3009,5 +3131,109 @@ mod tests {
         });
         let lines = human_event_lines(&without_states, &I18n::default());
         assert_eq!(lines, "1 StreamingChunk", "无标注时不加括号");
+    }
+    /// webhook（P6.4／FR-788）：未配置＝零端点显式；dry-run 只计划不认领；坏配置显式报错。
+    #[test]
+    fn webhook_reports_missing_configuration_without_pretending_success() {
+        let workspace = temp_workspace("webhook-none");
+        let texts = I18n::default();
+        let (value, human) = execute(
+            &Command::Webhook {
+                command: super::WebhookCommand::Status,
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("状态");
+        assert_eq!(value["configured"], serde_json::json!(false));
+        assert_eq!(value["endpoints"], serde_json::json!(0));
+        assert!(human.contains("未配置端点"), "{human}");
+
+        let (value, human) = execute(
+            &Command::Webhook {
+                command: super::WebhookCommand::Deliver {
+                    dry_run: true,
+                    yes: false,
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("dry-run");
+        assert_eq!(value["planned"], serde_json::json!(0));
+        assert!(human.contains("未配置端点"), "{human}");
+    }
+
+    /// 配置存在但无事件：configured=true、planned=0（区分“没配置”与“没东西可投”）。
+    #[test]
+    fn webhook_distinguishes_configured_with_nothing_pending() {
+        let workspace = temp_workspace("webhook-empty");
+        std::fs::create_dir_all(workspace.join(".zcode")).expect("创建 .zcode");
+        std::fs::write(
+            workspace.join(".zcode/webhooks.json"),
+            r#"{"endpoints":[{"name":"ci","url":"http://127.0.0.1:9/hook","events":["TurnFinished"]}]}"#,
+        )
+        .expect("写配置");
+        let texts = I18n::default();
+        let (value, human) = execute(
+            &Command::Webhook {
+                command: super::WebhookCommand::Status,
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("状态");
+        assert_eq!(value["configured"], serde_json::json!(true));
+        assert_eq!(value["enabled_endpoints"], serde_json::json!(1));
+        assert!(human.contains("端点 1"), "{human}");
+
+        let (value, _) = execute(
+            &Command::Webhook {
+                command: super::WebhookCommand::Deliver {
+                    dry_run: true,
+                    yes: false,
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("dry-run");
+        assert_eq!(value["planned"], serde_json::json!(0), "无事件可投");
+    }
+
+    /// 坏配置：显式失败（不降级成“未配置”），--dry-run 与 --yes 互斥。
+    #[test]
+    fn webhook_bad_config_and_conflicting_flags_are_explicit() {
+        let workspace = temp_workspace("webhook-bad");
+        std::fs::create_dir_all(workspace.join(".zcode")).expect("创建 .zcode");
+        std::fs::write(
+            workspace.join(".zcode/webhooks.json"),
+            r#"{"endpoints":[{"name":"ci","url":"https://x.invalid/h","events":["NotAEvent"]}]}"#,
+        )
+        .expect("写配置");
+        let texts = I18n::default();
+        let err = execute(
+            &Command::Webhook {
+                command: super::WebhookCommand::Status,
+            },
+            &workspace,
+            &texts,
+        )
+        .expect_err("未知事件类型必须报错");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        assert!(err.message.contains("webhook 配置"), "{}", err.message);
+
+        let err = execute(
+            &Command::Webhook {
+                command: super::WebhookCommand::Deliver {
+                    dry_run: true,
+                    yes: true,
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect_err("互斥旗标必须报错");
+        assert_eq!(err.code, ErrorCode::InvalidState);
     }
 }

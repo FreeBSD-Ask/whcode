@@ -581,6 +581,18 @@ msgstr "dry-run: सत्र {session} का आर्काइव हटा�
 msgid "cui.unarchived"
 msgstr "सत्र का आर्काइव हटाया गया {session}"
 
+msgid "cui.webhook_delivered"
+msgstr "डिलीवरी पूर्ण: प्रयास {attempted} · सफल {delivered} · पुनःप्रयास्य {retryable} · स्थायी विफल {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "पूर्वावलोकन: {planned} डिलीवरी लंबित (--yes जोड़कर चलाएँ)"
+
+msgid "cui.webhook_not_configured"
+msgstr "कोई एंडपॉइंट कॉन्फ़िगर नहीं: .zcode/webhooks.json मौजूद नहीं या खाली है — शून्य एंडपॉइंट का अर्थ शून्य अनुरोध"
+
+msgid "cui.webhook_status"
+msgstr "एंडपॉइंट {endpoints} (सक्रिय {enabled}) · लंबित {claimed} · पहुँचाए {delivered} · विफल {failed}"
+
 msgid "error.datasource"
 msgstr "डेटा स्रोत की त्रुटि: {error}"
 

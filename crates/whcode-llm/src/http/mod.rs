@@ -15,3 +15,6 @@ pub mod profile;
 pub mod protocols;
 #[cfg(feature = "http")]
 pub mod tls;
+/// 出站 webhook POST（P6.4／FR-788／ADR-079）：三分类结果，不重试、不跟随重定向。
+#[cfg(feature = "http")]
+pub mod webhook;

@@ -207,6 +207,9 @@ mod tests {
     }
 
     /// 迁移前自动备份（P3.4／FR-767／ADR-063）：旧库打开时先落一份备份，再完成迁移；
+    /// 本测试把库手工回退到的旧版本（v9 形态）。
+    const ROLLBACK_TO: u32 = 9;
+
     /// 同版本重开不再新增副本（不随启动次数增长）。
     #[test]
     fn opening_workspace_backs_up_before_migration_and_only_once() {
@@ -244,6 +247,9 @@ mod tests {
             .expect("撤销 v12 建表");
         conn.execute("DROP SEQUENCE IF EXISTS whcode_finding_id_seq", [])
             .expect("撤销 v12 序列");
+        // v13 建表（索引随表删除）。
+        conn.execute("DROP TABLE IF EXISTS webhook_deliveries", [])
+            .expect("撤销 v13 建表");
         for index in [
             "CREATE INDEX idx_events_session_seq ON events(session_id, seq)",
             "CREATE INDEX idx_events_task ON events(task_id)",
@@ -252,8 +258,10 @@ mod tests {
         ] {
             conn.execute(index, []).expect("重建 v9 索引");
         }
+        // 版本记录按“回退到 v9”整体删除（不逐版本列举）：新增迁移只需补上面的 DDL 撤销，
+        // 漏改这里曾两次让备份被跳过（v12、v13 各一次，2026-11-15）。
         conn.execute(
-            "DELETE FROM schema_migrations WHERE version IN (10, 11, 12)",
+            &format!("DELETE FROM schema_migrations WHERE version > {ROLLBACK_TO}"),
             [],
         )
         .expect("回退版本记录");
@@ -282,7 +290,7 @@ mod tests {
             "落后版本必须产生且只产生一份备份：{names:?}"
         );
         assert!(
-            names[0].contains(".v0009-"),
+            names[0].contains(&format!(".v{ROLLBACK_TO:04}-")),
             "备份文件名须含迁移前版本：{names:?}"
         );
 

@@ -103,6 +103,11 @@ pub enum Command {
         #[arg(long, default_value = "127.0.0.1:8080")]
         bind: String,
     },
+    /// 出站 webhook（P6.4／FR-788／ADR-079）：状态查询与显式投递。
+    Webhook {
+        #[command(subcommand)]
+        command: WebhookCommand,
+    },
     /// 环境与配置自检（M0）。
     Doctor {
         /// 输出 JSON。
@@ -482,6 +487,25 @@ pub enum RuntimeCommand {
         /// 运行时名。
         #[arg(long)]
         name: String,
+    },
+}
+
+/// `webhook` 子命令（P6.4／FR-788／ADR-079）。
+///
+/// 配置来自 `<workspace>/.zcode/webhooks.json`（未配置＝零端点＝零请求）；投递是显式动作，
+/// 默认 dry-run，`--yes` 执行。凭据只以环境变量名出现在配置里，取值不进入输出。
+#[derive(Debug, Clone, PartialEq, Subcommand)]
+pub enum WebhookCommand {
+    /// 端点计数、三态计数与最近投递记录。
+    Status,
+    /// 投递未认领的事件（默认 dry-run；`--yes` 执行）。
+    Deliver {
+        /// 只报告将投递的条数，不认领、不发送。
+        #[arg(long)]
+        dry_run: bool,
+        /// 执行投递（与 `--dry-run` 互斥）。
+        #[arg(long)]
+        yes: bool,
     },
 }
 

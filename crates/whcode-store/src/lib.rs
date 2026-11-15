@@ -58,6 +58,7 @@ pub mod tool_exec;
 pub mod turn;
 pub mod usage_anchor;
 pub mod wal;
+pub mod webhooks;
 pub mod writer;
 
 /// 测试临时目录（仅测试构建；见模块文档）。

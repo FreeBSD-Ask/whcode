@@ -37,6 +37,8 @@
 | GB/T 1.1-2020 | 2020 | 现行 | 已覆盖（同源思想：文件自反、条款可判定） | NFR-222；ADR-046 复审触发口径 | 无 |
 | ISO/IEC 25051（RUSP） | 2021（SQuaRE 系列重编号 25000.xx 进行中，25051 未改名） | 现行 | 有意偏离（0.1.0 未发布；G5 发布时再评估） | —— | tag 正式发布时 |
 | Rust FLS | rust-lang 项目持有（2025-03 捐入，公开仓库） | 活跃 | 不适用（reference 性质；语义仲裁参照） | —— | Rust 工具链升级复审（ADR-069 口径） |
+| RFC 9110（HTTP 语义；方法幂等性 §9.2.2） | 2022-06（废止并取代 7231） | 现行 | 部分覆盖（思想：POST 非幂等，副作用去重须显式键＋记录——ADR-079 决策 2） | `webhooks.rs`（store／app）＋`http::webhook` | HTTP 语义换版或 webhook 接收方要求其他幂等头 |
+| IETF draft-ietf-httpapi-idempotency-key-header | 草案（非标准） | 草案 | 部分覆盖（仅取 `Idempotency-Key` 头命名；不声称符合草案） | `http::webhook` 请求头 | 草案转正或弃案 |
 | Safety-Critical Rust Consortium guidelines | 公开仓库（2024-06 成立） | 活跃 | 已覆盖（路线不同：工具强制 vs 条款清单）〔未逐条读〕 | workspace lints＋NFR-215 | 抽读一次后更新本行 |
 | MISRA Rust | **不存在** | 负向事实 | 不适用（登记防讹传；MISRA 仅有 C:2025 Addendum 6） | —— | MISRA 官方发布 Rust 准则时 |
 | POSIX.1-2024（IEEE 1003.1-2024） | 2024（Open Group Issue 8，官方免费全文） | 现行 | 部分覆盖（shell 工具语义基准；ADR-070 已引用其语义域） | ADR-070；tool 文档 | shell 工具语义争议时 |

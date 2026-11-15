@@ -128,6 +128,22 @@
 （序列 `whcode_finding_id_seq`）。索引 `(status, created_at, id)`。随工作区导出
 （`EXPORT_TABLES` 13 张之一）。
 
+### webhook_deliveries
+
+出站 webhook 的幂等投递（P6.4／FR-788／ADR-079，schema v13）。
+
+- 字段：`idempotency_key, endpoint, event_id, event_seq, status, attempts,
+  last_status_code, last_error, created_at, updated_at`
+- 约束：`idempotency_key` 主键，取值 `<endpoint>:<event_id>`（认领用
+  `INSERT ... ON CONFLICT DO NOTHING`，影响 0 行即“已认领过”，不重复投递）；
+  `status ∈ {claimed,delivered,failed}`（未知值读取即报错，不默认为 `failed`）；
+  `attempts` 达到配置 `max_attempts`（1—5）即终态；永久失败（其余 4xx）由应用层把
+  `attempts` 直接置为上限
+- 校验：`last_error` ≤512 字符、`endpoint` ≤64、`event_id` ≤64；`last_status_code` 只在
+  拿到响应时落值
+- 索引：`(status, updated_at, idempotency_key)`
+- 导出：**不在** `EXPORT_TABLES`，登记于 `EXCLUDED_TABLES`（机器本地投递状态，重建即可）
+
 ### schema_migrations
 - 字段：`version, applied_at, checksum`
 - 约束：迁移可审计且不可重复误执行（§7.1）

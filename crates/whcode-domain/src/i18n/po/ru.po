@@ -581,6 +581,18 @@ msgstr "dry-run: сессия {session} будет разархивирован�
 msgid "cui.unarchived"
 msgstr "Сессия {session} разархивирована"
 
+msgid "cui.webhook_delivered"
+msgstr "Доставка завершена: попыток {attempted} · успешно {delivered} · повторяемых {retryable} · окончательных {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "Предпросмотр: {planned} доставок в очереди (добавьте --yes для запуска)"
+
+msgid "cui.webhook_not_configured"
+msgstr "Точки назначения не настроены: .zcode/webhooks.json отсутствует или пуст — нет точек, нет запросов"
+
+msgid "cui.webhook_status"
+msgstr "Точки {endpoints} (включено {enabled}) · В ожидании {claimed} · Доставлено {delivered} · Ошибок {failed}"
+
 msgid "error.datasource"
 msgstr "Ошибка источника данных: {error}"
 

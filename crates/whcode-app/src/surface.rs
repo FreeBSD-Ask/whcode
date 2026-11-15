@@ -982,6 +982,53 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    // ── webhook（P6.4／FR-788／ADR-079） ───────────────────────────────
+    // 出站投递只在显式命令内发生（无后台循环，NFR-211）；端点来自工作区配置，
+    // 未配置＝零端点＝零请求。三端不适用：本命令是 CLI 本地管理面（CliLocalAdmin）。
+    SurfaceEntry {
+        id: "webhook.status",
+        kind: SurfaceKind::Command,
+        capability: Capability::SessionRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Implemented {
+                anchor: "cui_dispatch::webhook_command",
+            },
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+        ],
+    },
+    SurfaceEntry {
+        id: "webhook.deliver",
+        kind: SurfaceKind::Command,
+        capability: Capability::SessionCreate,
+        effect: EffectClass::Write,
+        confirmation: Confirmation::PreviewConfirm,
+        audited: true,
+        frontends: [
+            Support::Implemented {
+                anchor: "cui_dispatch::webhook_command",
+            },
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+            Support::Excluded {
+                reason: ExclusionReason::CliLocalAdmin,
+            },
+        ],
+    },
     // ── runtime（FR-701—710；M8） ──────────────────────────────────────
     SurfaceEntry {
         id: "runtime.list",
@@ -1593,7 +1640,7 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "State::prepare（ViewId::Ledger）",
             },
-            Support::Reserved { milestone: "T344" },
+            Support::Reserved { milestone: "T347" },
         ],
     },
     // 在线可见（其他端更改；FR-605／624）：Web 经 WebSocket 推送；TUI 低频游标检查

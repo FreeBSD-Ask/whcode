@@ -12,7 +12,7 @@
 （理由码见“依据／理由”列）；预留＝未排期（里程碑见“依据／理由”列）；不提供＝本端不适用
 （依据见登记表条目注释）。
 
-**最后更新**：2026-11-15（T340—T342：新增 `view.ledger`——台账视图，待办／交付物／发现三节只读聚合，TUI 与 GUI 已实现、Web 预留 T344；FR-787）。历史：2026-11-14（T294：新增 `sdk.serve`——出进程 stdio JSON-RPC 机器面，CUI 已实现、其余三端不适用；ADR-071/FR-778）。历史：2026-11-06（T252：主题层扩展为六套——zcode-day/zcode-night 新增并冻结，
+**最后更新**：2026-11-15（P6.4：新增 `webhook.status`／`webhook.deliver`——出站幂等投递的 CUI 命令面，其余三端不适用；FR-788／ADR-079）。历史：2026-11-15（T340—T342：新增 `view.ledger`——台账视图，待办／交付物／发现三节只读聚合，TUI 与 GUI 已实现、Web 预留 T347；FR-787）。历史：2026-11-14（T294：新增 `sdk.serve`——出进程 stdio JSON-RPC 机器面，CUI 已实现、其余三端不适用；ADR-071/FR-778）。历史：2026-11-06（T252：主题层扩展为六套——zcode-day/zcode-night 新增并冻结，
 默认主题切 `zcode-night`，用户批准；ADR-057/FR-739/FR-740）。历史：2026-10-26（T167 收口：
 `llm.run`／`llm.cancel` 的 TUI 翻转为已实现——`L`／`C` 键位，剖面名→提示词两步输入，
 经 `llm_provider::TuiLlmExecutor` 真实编排；三端 CUI／TUI／Web 均 `Implemented`；
@@ -53,6 +53,8 @@ T190：新增证书库设置两行）。
 | `db.restore` | Command | Destructive | 已实现 | 部分 | 部分 | 部分 | FR-507—510；部分 cli_local_admin |
 | `db.checkpoint` | Command | Write | 已实现 | 部分 | 部分 | 部分 | FR-507—510；部分 cli_local_admin |
 | `db.explain` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-507—510；部分 cli_local_admin |
+| `webhook.status` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-788；部分 cli_local_admin |
+| `webhook.deliver` | Command | Write | 已实现 | 部分 | 部分 | 部分 | FR-788；部分 cli_local_admin（dry-run→`--yes`，ADR-079） |
 | `runtime.list` | Command | Read | 已实现 | 部分 | 部分 | 已实现 | FR-701—710；部分 six_view_scope |
 | `runtime.status` | Command | Read | 预留 | 预留 | 部分 | 预留 | FR-701—710；预留 M8；部分 six_view_scope |
 | `runtime.enable` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-701—710；预留 M8；部分 six_view_scope |
@@ -81,7 +83,7 @@ T190：新增证书库设置两行）。
 | `view.spec` | View | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-601／622；部分 cui_command_surface |
 | `view.diff` | View | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-601／622；部分 cui_command_surface |
 | `view.chat` | View | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-711；部分 cui_command_surface（Web 经 llm API） |
-| `view.ledger` | View | Read | 部分 | 已实现 | 已实现 | 预留 | FR-787；部分 cui_command_surface；Web 台账面预留 T344（P2.2b） |
+| `view.ledger` | View | Read | 部分 | 已实现 | 已实现 | 预留 | FR-787；部分 cui_command_surface；Web 台账面预留 T347（P2.2b） |
 | `view.checkpoints` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-748；部分 cui_command_surface／six_view_scope |
 | `view.changes` | View | Read | 部分 | 已实现 | 部分 | 已实现 | FR-605／624；部分 cui_request_only、gui_manual_refresh |
 | `settings.subagents` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-749；部分 cui_command_surface／six_view_scope |

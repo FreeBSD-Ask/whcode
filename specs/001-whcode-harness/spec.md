@@ -531,12 +531,30 @@ taskkill /T /F 口径）（P1）
   按会话过滤）三节聚合为同一只读列表；行格式为“节 状态 正文”，节名由准备层按文本层解析，
   缺译时退回机器名而不猜测译文；三节各自有界（待办 ≤50、交付物 ≤200、发现 ≤20），任一来源
   失败写入摘要行（显式失败，不伪造空）；未选择会话时只给显式注记；CUI 无视图面、Web 台账面
-  为预留（T344，不冒充已实现）
+  为预留（T347，不冒充已实现）
   - 依据：FR-601（视图模型）／FR-771（待办）／FR-772（交付物）／FR-786（发现台账）；ADR-080；
     ADR-056（四端对等）
   - 判据：Given 会话含待办／交付物／发现各一，Then 台账三行且节名为当前语言；Given 未选择
     会话，Then 无行且摘要注明“未选择会话”；Given 会话不存在，Then 各来源报错进摘要且不 panic
   - 证据：`cargo test -p whcode-bin ledger_view`（1 项）、`cargo test -p whcode-app --lib view`
+- **FR-788**: 出站 webhook 幂等投递（P6.4／ADR-079）：配置 `<workspace>/.zcode/webhooks.json`
+  （显式 opt-in；端点 ≤8、每端点事件类型 ≤16、`batch` 1—50、`max_attempts` 1—5、
+  `timeout_ms` 500—10000；只允许 `https`，回环主机允许 `http`；凭据只写环境变量名）。
+  幂等键 `<endpoint>:<event_id>` 落 `webhook_deliveries`（schema v13），认领冲突即跳过，
+  **重复执行不重复投递**；状态封闭三态 `claimed`／`delivered`／`failed`，可重试失败按
+  `max_attempts` 有限重试，其余 4xx 永久失败一次到底；载荷白名单字段（`event_id`／
+  `session_id`／`kind`／`seq`／`ts`／`payload`，`payload` 按 `redacted` 级脱敏）且 ≤32 KiB；
+  命令面 `webhook status`（读）与 `webhook deliver`（写，默认 dry-run，`--yes` 执行）；
+  未配置＝零端点＝零请求
+  - 依据：`research/synthesis/proposal-v3.md` P6.4 与反建议表（拒绝“尽力而为”形态）；
+    RFC 9110 §9.2.2；ADR-079；ADR-031（网络栈只在 `whcode-llm`）
+  - 判据：Given 已投递事件再次执行投递，Then 0 条尝试（认领返回 `None`）；Given 可重试
+    失败，Then 每次执行 `attempts + 1` 且达上限后该事件不再出现；Given 4xx 永久失败，
+    Then `attempts` 直接置为上限；Given 未配置，Then `status` 报“未配置端点”且 `deliver`
+    计划 0 条
+  - 证据：`cargo test -p whcode-store webhooks`（7 项）、`cargo test -p whcode-app webhooks`
+    （6 项）、`cargo test -p whcode-llm --features http webhook`（4 项）、
+    `cargo test -p whcode-bin webhook`（3 项）
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

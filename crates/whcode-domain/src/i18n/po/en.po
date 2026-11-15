@@ -581,6 +581,18 @@ msgstr "dry-run: would unarchive session {session} — pass --yes to execute"
 msgid "cui.unarchived"
 msgstr "Unarchived session {session}"
 
+msgid "cui.webhook_delivered"
+msgstr "Delivery done: attempted {attempted} · delivered {delivered} · retryable {retryable} · permanent {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "Preview: {planned} pending deliveries (add --yes to run)"
+
+msgid "cui.webhook_not_configured"
+msgstr "No endpoints configured: .zcode/webhooks.json is missing or empty — zero endpoints means zero requests"
+
+msgid "cui.webhook_status"
+msgstr "Endpoints {endpoints} (enabled {enabled}) · Pending {claimed} · Delivered {delivered} · Failed {failed}"
+
 msgid "error.datasource"
 msgstr "Data source error: {error}"
 

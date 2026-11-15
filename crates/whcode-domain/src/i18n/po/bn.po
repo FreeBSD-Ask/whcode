@@ -581,6 +581,18 @@ msgstr "dry-run: সেশন {session}-এর আর্কাইভ তুল�
 msgid "cui.unarchived"
 msgstr "সেশন {session}-এর আর্কাইভ তুলে নেওয়া হয়েছে"
 
+msgid "cui.webhook_delivered"
+msgstr "ডেলিভারি সম্পন্ন: প্রচেষ্টা {attempted} · সফল {delivered} · পুনরায় চেষ্টাযোগ্য {retryable} · স্থায়ী ব্যর্থ {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "প্রিভিউ: {planned}টি ডেলিভারি অপেক্ষমাণ (চালাতে --yes যোগ করুন)"
+
+msgid "cui.webhook_not_configured"
+msgstr "কোনো এন্ডপয়েন্ট কনফিগার করা নেই: .zcode/webhooks.json অনুপস্থিত বা খালি — শূন্য এন্ডপয়েন্ট মানে শূন্য অনুরোধ"
+
+msgid "cui.webhook_status"
+msgstr "এন্ডপয়েন্ট {endpoints} (সক্রিয় {enabled}) · অপেক্ষমাণ {claimed} · পৌঁছানো {delivered} · ব্যর্থ {failed}"
+
 msgid "error.datasource"
 msgstr "ডেটা সোর্সে ত্রুটি: {error}"
 

@@ -27,6 +27,7 @@ mod shell_tool;
 mod store_source;
 mod tls;
 mod tool_call_text;
+mod webhook_sender;
 mod workspace;
 
 use std::path::{Path, PathBuf};

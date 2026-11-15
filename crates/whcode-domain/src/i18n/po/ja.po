@@ -581,6 +581,18 @@ msgstr "dry-run：セッション {session} のアーカイブを解除します
 msgid "cui.unarchived"
 msgstr "セッション {session} のアーカイブを解除しました"
 
+msgid "cui.webhook_delivered"
+msgstr "送信完了：試行 {attempted} · 成功 {delivered} · 再試行可 {retryable} · 恒久失敗 {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "プレビュー：{planned} 件が送信待ち（--yes で実行）"
+
+msgid "cui.webhook_not_configured"
+msgstr "エンドポイント未設定：.zcode/webhooks.json が無いか空です——ゼロ設定はゼロ送信"
+
+msgid "cui.webhook_status"
+msgstr "エンドポイント {endpoints}（有効 {enabled}）· 未確定 {claimed} · 送信済み {delivered} · 失敗 {failed}"
+
 msgid "error.datasource"
 msgstr "データソースエラー：{error}"
 

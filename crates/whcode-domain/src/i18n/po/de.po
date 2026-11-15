@@ -581,6 +581,18 @@ msgstr "dry-run: Archivierung von Sitzung {session} würde aufgehoben – mit --
 msgid "cui.unarchived"
 msgstr "Archivierung von Sitzung {session} aufgehoben"
 
+msgid "cui.webhook_delivered"
+msgstr "Zustellung fertig: versucht {attempted} · zugestellt {delivered} · wiederholbar {retryable} · dauerhaft {permanent}"
+
+msgid "cui.webhook_dry_run"
+msgstr "Vorschau: {planned} ausstehende Zustellungen (mit --yes ausführen)"
+
+msgid "cui.webhook_not_configured"
+msgstr "Keine Endpunkte konfiguriert: .zcode/webhooks.json fehlt oder ist leer — keine Endpunkte heißt keine Anfragen"
+
+msgid "cui.webhook_status"
+msgstr "Endpunkte {endpoints} (aktiv {enabled}) · Ausstehend {claimed} · Zugestellt {delivered} · Fehlgeschlagen {failed}"
+
 msgid "error.datasource"
 msgstr "Fehler der Datenquelle: {error}"
 
