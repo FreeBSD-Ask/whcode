@@ -114,3 +114,12 @@ DSH 域 Q 判定“执行环境是产品主线”（DSH 领先项）；WHCode �
   不复述其实现。
 - 白名单不可判定性论证基于 bash 语义本身（控制结构可绕过首词匹配），属可复验的逻辑事实；
   决策 4 的范围因此收窄到“免审批通道”，并在工具描述与审批卡如实表述。
+
+## 修订记录
+
+- **2026-11-15（P5.2 第一步，ADR-077）**：按“P5.2 沙箱落地时逐条复审”的退出条件复审本表
+  残余风险。结论＝**未收敛**：T3／T4／T5／T6 四条仍在，原因为 OS 层强制隔离在当前硬约束下
+  不可实现（Win32 API 需 `unsafe`，本仓 `forbid(unsafe_code)`；`std::process::Command` 不暴露
+  `lpAttributeList`）。处置＝不再只写在文档里，而由 `doctor` 的 `sandbox.gaps` 在运行时逐条
+  枚举（`filesystem_write`／`filesystem_read`／`network`／`disk_quota`／`secondary_command_path`），
+  强度因此只能是 `partial`；`full` 不可达。威胁表本身不改条目。

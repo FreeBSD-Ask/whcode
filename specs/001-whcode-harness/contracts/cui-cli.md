@@ -128,7 +128,9 @@ HKCU 注册（显式、可逆，`uninstall` 撤销）；`install` 输出 Windows
 | 会话/任务查询 | `--json` 提供稳定结构，不依赖终端宽度或颜色 |
 | 事件导出 | `--after SEQ` 游标增量导出，断线流程可脚本化 |
 | 维护命令 | 全部支持 dry-run 预览；输出清理前后空间统计 |
-| 自检 | `doctor --json` 输出环境、平台、运行时与 schema 版本 |
+| 自检 | `doctor --json` 输出环境、平台、运行时、沙箱强度（`sandbox` 块，三档
+  `none`／`partial`／`full`，含 `controls`／`gaps`；判定失败时给 `sandbox_error`）与
+  schema 版本 |
 | 门禁 | `spec analyze/validate` 以退出码区分通过/失败，失败时列出未通过项 |
 
 ## 5. 验证点

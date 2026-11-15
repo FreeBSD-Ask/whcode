@@ -13,6 +13,21 @@
 
 ### 变更
 
+- **沙箱强度评估与如实上报（T320—T322，P5.2 第一步，FR-781，ADR-077，2026-11-15）**：
+  `doctor` 新增 `sandbox` 块（文本与 `--json` 同源），按**实际生效的面**给三档强度——模型无
+  命令执行面为 `none`，仅有工具级控制（cwd 锚点／最小环境／凭据剥离／输出截断／超时杀树／
+  并发闸门）为 `partial`，OS 层强制隔离生效且缺口清零为 `full`。OS 事实只在
+  `whcode-platform::sandbox` 给出（`Active` 附机制名、`Unavailable` 附可操作原因）；未生效时
+  缺口表**恒非空**（工作区外写入、凭据文件可读、网络不设限、磁盘无配额、二级命令走 PATH），
+  逐条指向 ADR-070 威胁编号。执行面经 `shell_tool::build_governance` 判定（与真实注册条件
+  同源），配置非法给 `sandbox_error` 而不静默降级。
+  **当前两平台均为 `Unavailable`，故 `full` 不可达**：Windows 的 AppContainer／受限令牌需要
+  `CreateAppContainerProfile`、`UpdateProcThreadAttribute(SECURITY_CAPABILITIES)`、
+  `CreateProcess(EXTENDED_STARTUPINFO_PRESENT)` 与工作区 DACL 授权，本仓 `forbid(unsafe_code)`
+  且依赖树无 Win32 绑定、`std::process::Command` 不暴露 `lpAttributeList`；强制隔离须另立 ADR。
+  ADR-070 的 P5.2 复审结论＝未收敛（T3／T4／T5／T6 残余仍在，现由 `gaps` 运行时枚举）。
+  测试：domain 5 项、platform 2 项、bin 4 项。
+
 - **会话内容关键词检索（T316—T318，P3.3，FR-780，ADR-076，2026-11-15）**：侧栏原先只按
   标题/ID 找回会话（FR-746），现在可按**消息正文**检索——大小写不敏感子串（DuckDB
   `contains`，`%`/`_` 按字面量），搜索词 1—128 字符、返回 1—100 条（默认 20），每条只返回

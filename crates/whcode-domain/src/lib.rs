@@ -14,6 +14,7 @@ pub mod error;
 pub mod event;
 pub mod gate;
 pub mod i18n;
+pub mod sandbox;
 pub mod state;
 pub mod theme_tokens;
 pub mod tls;
@@ -34,6 +35,10 @@ pub use event::{
     epoch_ms_to_iso8601, iso8601_to_epoch_ms,
 };
 pub use gate::{GateId, GateResult, StageTransition};
+pub use sandbox::{
+    OS_GAPS, OsEnforcement, SandboxControl, SandboxGap, SandboxReport, SandboxStrength,
+    TOOL_CONTROLS,
+};
 pub use state::{LlmRequestStatus, RuntimeExecutionStatus, SddStage, TaskStatus};
 pub use tls::{
     BUILTIN_CA_FILE, CA_BUNDLE_MAX_BYTES, CERT_JSON_MAX_BYTES, CERT_RENEW_WARN_DAYS,

@@ -436,13 +436,28 @@ taskkill /T /F 口径）（P1）
   （P2；ADR-071／proposal-v3 P6.1）
 - **FR-779**: 标准基线治理：`docs/guides/standards-baseline.md` 为本仓承认的标准／框架及其现行版本、停用状态与五类判定结论的唯一事实源，并由结构门禁保护——登记行六字段齐全、「本仓判定」取值合法（已覆盖／部分覆盖／缺口／有意偏离／不适用／停用引用锚点）、「已停用与负向事实登记」在场；已停用对象（IEEE 1016-2009、IEEE 730-2014、IEEE 828-2012、ISO/IEC/IEEE 12207:2017、“MISRA Rust”、GB/T 25000.51-2019）在本仓文档中的引用同行带状态注记；门禁默认模式接入 CI，`--strict` 裸引用检查在其覆盖面落账后评估接入（P1；ADR-072／用户指令 2026-11-14 标准全景研读）
   - 判据：Given 仓库任意工作副本，When 运行 `python .github/scripts/check-standards-baseline.py`，Then 退出码 0 且输出含「标准基线门禁通过」；When 以 `--strict` 运行，Then 停用对象裸引用（无同行注记）退出码非 0
+  - 证据：`.github/scripts/check-standards-baseline.py`；`docs/guides/standards-baseline.md`；`research/standards-alignment/`
+  - 依据：用户指令 2026-11-14（标准全景研读，范围“全景含安全关键”、落地“文档＋门禁”）；ADR-072
 - **FR-780**: 会话内容检索（关键词阶段，P3.3／ADR-076）：按消息正文做大小写不敏感的
   子串检索，CUI `session search --query` 与 Web `GET /api/search` 同源；搜索词 1—128 字符、
   返回 1—100 条、每条只返回定长片段（80 字符），无命中返回空列表、空/超长/缺参数为显式错误；
   不引入外部扩展（DuckDB `fts` 不在随包 DLL 内），分词与相关性排序显式延后（P2）
   - 依据：`research/synthesis/proposal-v3.md` P3.3；ADR-076；ADR-018（SQL 只在 store）
-  - 证据：`.github/scripts/check-standards-baseline.py`；`docs/guides/standards-baseline.md`；`research/standards-alignment/`
-  - 依据：用户指令 2026-11-14（标准全景研读，范围“全景含安全关键”、落地“文档＋门禁”）；ADR-072
+  - 判据：Given 会话内存在中文与 ASCII 混合正文，When 检索词大小写不同或以 `%`／`_` 参与匹配，Then 命中且 `%`／`_` 按字面量；When 搜索词为空或超过 128 字符，Then 返回 `invalid_state` 而非空列表；When 命中，Then 片段不超过 82 字符且不含换行
+  - 证据：`cargo test -p whcode-store search`（6 项）、`cargo test -p whcode-app search`（4 项）、Web 路由与对等合同测试
+- **FR-781**: 沙箱强度评估与如实上报（P5.2 第一步／ADR-077）：`doctor` 输出 `sandbox` 块，按“实际
+  生效的面”给三档强度——模型无命令执行面为 `none`、仅有工具级控制（cwd 锚点／最小环境／凭据
+  剥离／输出截断／超时杀树／并发闸门）为 `partial`、OS 层强制隔离生效且残余缺口清零为 `full`；
+  OS 事实只在 `whcode-platform` 给出（`Active` 附机制名、`Unavailable` 附可操作原因），未生效时
+  缺口表恒非空且逐条指向 ADR-070 威胁编号；文本与 JSON 同源，配置非法时给出 `sandbox_error`
+  而非静默降级为“未启用”；当前两平台均为 `Unavailable`，故 `full` 不可达且不作为承诺（P2）
+  - 依据：`research/synthesis/proposal-v3.md` P5.2（强度如实上报，非声称隔离）；ADR-070 的 P5.2
+    复审触发；Microsoft Learn《AppContainer isolation》《Launch an AppContainer》；NFR-215
+  - 判据：Given 默认构建（`.zcode/shell.json` 不存在），When 运行 `whcode doctor --json`，Then
+    `sandbox.strength` 为 `none` 且 `gaps` 非空；Given shell 配置非法，Then `sandbox_error` 非空；
+    Given 任意配置，Then `sandbox.strength` 不为 `full`，且文本首行与 JSON 强度一致
+  - 证据：`cargo test -p whcode-domain sandbox`（5 项）、`cargo test -p whcode-platform sandbox`
+    （2 项）、`cargo test -p whcode-bin sandbox`（4 项）
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

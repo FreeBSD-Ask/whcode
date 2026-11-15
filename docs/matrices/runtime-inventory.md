@@ -33,3 +33,26 @@
 
 **未捆绑**：任何运行时 payload（js/python/gitbash）——安装时须核对其上游许可证
 并登记到本清单（T102/T120 收口）。
+
+## 4. 沙箱强度（P5.2，ADR-077）
+
+上报面：`whcode doctor`（文本）与 `doctor --json` 的 `sandbox` 块，两者同源（同一份
+`SandboxReport`）。强度按**实际生效的面**判定，不按配置意图判定。
+
+| 强度 | 判据 | 当前 |
+|---|---|---|
+| `none` | 模型没有任意命令执行面（`shell` 工具未注册） | 默认构建即此档 |
+| `partial` | 有执行面，仅工具级控制；OS 层不隔离文件与网络 | 启用 `shell` 工具后（`.zcode/shell.json`＋bash 探测通过） |
+| `full` | OS 层强制隔离生效且残余缺口清零 | **不可达**（两平台均为 `Unavailable`，见下） |
+
+**工具级控制（六条，已生效）**：`cwd_anchor`、`minimal_env`、`credential_strip`、
+`output_truncation`、`timeout_tree_kill`、`concurrency_gate`。
+
+**OS 层缺口（五条，未收敛）**：`filesystem_write`（ADR-070 T6）、`filesystem_read`（T3）、
+`network`、`disk_quota`（T5）、`secondary_command_path`（T4）。
+
+**为何 `full` 不可达**：Windows 侧需 `CreateAppContainerProfile`、
+`UpdateProcThreadAttribute(SECURITY_CAPABILITIES)`、`CreateProcess(EXTENDED_STARTUPINFO_PRESENT)`
+与工作区 DACL 授权；本仓 `unsafe_code = "forbid"`（NFR-215）且依赖树无 Win32 绑定，
+`std::process::Command` 也不暴露 `lpAttributeList`。Unix 家族本批未启用 `chroot`／`jail`。
+强制隔离须另立 ADR（安全包装依赖或 ADR-015 式隔离 crate）。

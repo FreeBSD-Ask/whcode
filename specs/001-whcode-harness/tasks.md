@@ -2274,3 +2274,25 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   ——**任务认知卡**：方向＝四端对等不能靠“CUI/Web 已实现”口头补齐；目标＝GUI 侧栏可输入
   关键词并展示命中片段；判据＝surface 状态由 Reserved 翻为 Implemented 且矩阵同步；
   非目标＝本批不做（GUI 视图批次统一排期）、不改变 store/app 语义。
+
+## Tasks（2026-11-15 追加）：沙箱强度评估与如实上报（P5.2 第一步，ADR-077）
+
+- [x] T320 强度判定规则与事实表（P5.2／FR-781／ADR-077）：`crates/whcode-domain/src/sandbox.rs`
+  ——三档强度 `none`／`partial`／`full`（按实际生效的面判定）、六条工具级控制与五条 OS 缺口
+  静态事实表（逐条附实现落点与 ADR-070 威胁编号）、`evaluate` 纯函数；5 项测试覆盖无执行面、
+  仅工具级控制、`full` 的可达条件、id 唯一性与 JSON 形状
+  ——**任务认知卡**：方向＝ADR-070 把 T3/T4/T5/T6 残余风险登记至 P5.2，用户无从判断“跑命令
+  有多危险”；目标＝强度可判定、缺口可枚举、`full` 不可伪造；判据＝domain 测试全绿且 OS 未
+  隔离时报不出 `full`；非目标＝OS 层强制隔离（Win32 需 `unsafe`，NFR-215 禁止）、配置面与
+  UI 面。
+- [x] T321 [P] OS 层事实的单一来源（P5.2／FR-781）：`crates/whcode-platform/src/sandbox.rs`
+  ——`os_enforcement()` 纯函数，Windows 分支给出 API 事实链（AppContainer／受限令牌需
+  `CreateAppContainerProfile`＋`UpdateProcThreadAttribute(SECURITY_CAPABILITIES)`＋DACL 改写，
+  `std::process::Command` 不暴露 `lpAttributeList`），Unix 分支给出“本批未启用”；原因必含
+  ADR 指针且禁含糊措辞——**取证（2026-11-15）**：platform 2 项测试通过；`grep` 确认依赖树无
+  Win32 绑定（ADR-077 §2 事实链）。
+- [x] T322 [P] `doctor` 上报面与文档（P5.2／FR-781）：`doctor` 增 `sandbox` 块与 `sandbox_error`
+  （文本与 JSON 同源），执行面复用 `shell_tool::build_governance`（与实际注册同源），配置非法
+  显式报错；ADR-077（威胁模型／正负和解／已知限制／文献依据）＋ADR-070 修订记录（复审结论
+  ＝未收敛）＋`runtime-inventory` 与 CLI 契约同步——**取证（2026-11-15）**：bin 4 项测试通过；
+  `doctor` 文本行与 JSON 强度一致性由测试断言。

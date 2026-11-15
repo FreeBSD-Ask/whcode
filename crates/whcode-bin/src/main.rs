@@ -31,6 +31,7 @@ mod workspace;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use whcode_domain::sandbox::{OsEnforcement, SandboxReport};
 use whcode_domain::{ErrorCode, SCHEMA_VERSION, WhError};
 
 /// 二进制版本戳（精确到分钟；由 `build.rs` 注入 `WHCODE_BUILD_STAMP`）。
@@ -571,13 +572,16 @@ fn doctor(args: &[String]) {
     // 证书库状态（T191／ADR-040）：**只读**——不创建文件、不发网络请求；系统库份数读取
     // 失败或为 0 都在文本与 JSON 中显式标注，不以空对象冒充成功。
     let tls = tls_report(&config.workspace_path, now_unix_ms());
+    // 沙箱强度（T321／FR-781／ADR-077）：执行面经 `build_governance` 判定（与真正注册
+    // shell 工具的条件同源，不另立一套“大概启用”），OS 事实来自平台 crate。
+    let sandbox = sandbox_report(&config.workspace_path);
 
     if args.iter().any(|a| a == "--json") {
         let (engine_version, engine_error) = match &engine {
             Ok(version) => (Some(version.as_str()), None),
             Err(err) => (None, Some(err.to_string())),
         };
-        let payload = doctor_json_payload(&config, engine_version, engine_error, tls);
+        let payload = doctor_json_payload(&config, engine_version, engine_error, tls, sandbox);
         match serde_json::to_string(&payload) {
             Ok(json) => println!("{json}"),
             Err(err) => eprintln!("doctor 输出序列化失败：{err}"),
@@ -617,6 +621,12 @@ fn doctor(args: &[String]) {
         }
         for line in &tls.lines {
             println!("{line}");
+        }
+        for line in &sandbox.lines {
+            println!("{line}");
+        }
+        if let Some(error) = &sandbox.error {
+            println!("sandbox_error: {error}");
         }
         println!(
             "未实现（明确标记）：命令面 M2/T046+；DuckDB 存取 M1/T032+；SDD 门禁 M4/T068+；Web/SSH M6—M7；运行时 M8/T100+"
@@ -659,6 +669,7 @@ fn doctor_json_payload(
     engine_version: Option<&str>,
     engine_error: Option<String>,
     tls: TlsDoctorReport,
+    sandbox: SandboxDoctorReport,
 ) -> serde_json::Value {
     serde_json::json!({
         "schema_version": SCHEMA_VERSION,
@@ -668,6 +679,10 @@ fn doctor_json_payload(
         "duckdb_error": engine_error,
         // 三档能力等级在门禁输出中可见（FR-702、Check 101）；探针仅在显式 doctor 执行。
         "runtimes": runtimes::inventory(true),
+        // 沙箱强度（FR-781／ADR-077）：与文本行同源（同一份 `SandboxReport`）。
+        // 强度按“实际生效的面”判定，OS 层未隔离时不出现 `full`。
+        "sandbox": sandbox.report,
+        "sandbox_error": sandbox.error,
         // 证书库（T191／ADR-040）：`tls` 为 `whcode_domain::tls::TlsStatus` 原样序列化；
         // 不可用时为 `null` 且 `tls_error` 给出可操作原因（不返回空对象或伪造的 0 份）。
         "tls": tls.value,
@@ -676,6 +691,63 @@ fn doctor_json_payload(
         "tls_initialized": tls.initialized,
         "doctor": config,
     })
+}
+
+/// `doctor` 的沙箱强度块（T321／FR-781／ADR-077）：文本行与 JSON 值**同源**——两者都
+/// 来自同一份 [`SandboxReport`]，不各自表述。
+///
+/// 执行面判定复用 [`shell_tool::build_governance`]（与真正注册 `shell` 工具的条件同一处），
+/// 避免出现“上报说已启用、实际未注册”或反过来的双口径。配置非法时**显式**给出
+/// `sandbox_error`，并把执行面记为未启用（不静默降级为“一切正常”）。
+struct SandboxDoctorReport {
+    /// 上报面（JSON 原样序列化）。
+    report: SandboxReport,
+    /// 文本模式逐行输出。
+    lines: Vec<String>,
+    /// 判定失败原因（配置非法等；正常时为 `None`）。
+    error: Option<String>,
+}
+
+/// 构造 `doctor` 的沙箱强度块。
+fn sandbox_report(workspace: &Path) -> SandboxDoctorReport {
+    let (surface, error) = match shell_tool::build_governance(workspace) {
+        Ok(governance) => (governance.is_some(), None),
+        Err(err) => (false, Some(err.to_string())),
+    };
+    let report = SandboxReport::evaluate(surface, whcode_platform::sandbox::os_enforcement());
+    let mut lines = vec![format!(
+        "sandbox: {}（ADR-077）",
+        report.strength.label_zh()
+    )];
+    lines.push(if report.execution_surface {
+        "  execution_surface: 已启用（.zcode/shell.json 存在且 bash 探测通过）".to_string()
+    } else {
+        "  execution_surface: 未启用（模型不能发起任意命令）".to_string()
+    });
+    if !report.controls.is_empty() {
+        let ids: Vec<&str> = report.controls.iter().map(|item| item.id).collect();
+        lines.push(format!("  controls: {}", ids.join("、")));
+    }
+    if !report.gaps.is_empty() {
+        let ids: Vec<&str> = report.gaps.iter().map(|item| item.id).collect();
+        lines.push(format!(
+            "  gaps: {}（逐条见 ADR-070 威胁模型）",
+            ids.join("、")
+        ));
+    }
+    match report.os_enforcement {
+        OsEnforcement::Active { mechanism } => {
+            lines.push(format!("os_enforcement: {mechanism}"));
+        }
+        OsEnforcement::Unavailable { reason } => {
+            lines.push(format!("os_enforcement: 未生效（{reason}）"));
+        }
+    }
+    SandboxDoctorReport {
+        report,
+        lines,
+        error,
+    }
 }
 
 /// `doctor` 的证书库报告块：文本行与 JSON 值**同源**（同一份 `TlsStatus`，不两处各自表述）。
@@ -943,9 +1015,11 @@ fn load_config(args: &[String]) -> Result<config::Config, whcode_domain::WhError
 
 #[cfg(test)]
 mod tests {
+    use whcode_domain::sandbox::SandboxStrength;
+
     use super::{
-        BUILD_STAMP, EntrySelector, default_entry, doctor_json_payload, system_roots_text,
-        take_entry_selector, tls_report,
+        BUILD_STAMP, EntrySelector, default_entry, doctor_json_payload, sandbox_report,
+        system_roots_text, take_entry_selector, tls_report,
     };
 
     /// 临时工作区（Drop 清理；不写入仓库）。
@@ -972,6 +1046,86 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.path);
         }
+    }
+
+    /// 未 opt-in 时：强度 `none`、不列控制项、缺口照实列出，且不报错误。
+    #[test]
+    fn sandbox_report_without_shell_config_reports_none() {
+        let workspace = TempWorkspace::new("sandbox-off");
+        let block = sandbox_report(&workspace.path);
+        assert!(block.error.is_none(), "配置缺失不是错误：{:?}", block.error);
+        assert_eq!(block.report.strength, SandboxStrength::None);
+        assert!(!block.report.execution_surface);
+        assert!(block.report.controls.is_empty(), "未启用执行面不得列控制项");
+        assert!(!block.report.gaps.is_empty(), "OS 缺口必须照实列出");
+        assert!(
+            block.lines[0].contains("未启用命令执行面"),
+            "文本首行须给出强度：{:?}",
+            block.lines
+        );
+    }
+
+    /// shell 配置非法：显式给出 `sandbox_error`，不静默当成“未启用且一切正常”。
+    #[test]
+    fn sandbox_report_surfaces_invalid_shell_config() {
+        let workspace = TempWorkspace::new("sandbox-bad");
+        std::fs::create_dir_all(workspace.path.join(".zcode")).expect("建 .zcode");
+        std::fs::write(
+            workspace.path.join(".zcode").join("shell.json"),
+            b"{ not json }",
+        )
+        .expect("写坏配置");
+        let block = sandbox_report(&workspace.path);
+        let error = block.error.expect("配置非法必须显式报错");
+        assert!(!error.trim().is_empty(), "错误原因不得为空");
+        assert_eq!(
+            block.report.strength,
+            SandboxStrength::None,
+            "判定失败时不得声称已启用执行面"
+        );
+    }
+
+    /// `--json` 信封带 `sandbox` 块，且当前平台**不可能**报 `full`（OS 层无隔离）。
+    #[test]
+    fn doctor_payload_carries_sandbox_block_without_full_claim() {
+        let workspace = TempWorkspace::new("sandbox-json");
+        let config = crate::config::Config::for_workspace(workspace.path.clone());
+        let tls = tls_report(&workspace.path, 1_793_000_000_000);
+        let sandbox = sandbox_report(&workspace.path);
+        let payload = doctor_json_payload(&config, Some("v1.2.0"), None, tls, sandbox);
+
+        assert!(payload["sandbox"].is_object(), "JSON 必须含 sandbox 对象");
+        assert_ne!(
+            payload["sandbox"]["strength"],
+            serde_json::json!("full"),
+            "OS 层未隔离时不得报 full"
+        );
+        assert!(
+            payload["sandbox"]["gaps"]
+                .as_array()
+                .is_some_and(|gaps| !gaps.is_empty()),
+            "缺口必须可枚举：{payload}"
+        );
+        assert!(
+            payload["sandbox"]["os_enforcement"]["reason"]
+                .as_str()
+                .is_some_and(|reason| !reason.is_empty()),
+            "未生效原因不得为空"
+        );
+        assert!(payload["sandbox_error"].is_null(), "正常路径不得伪造错误");
+    }
+
+    /// 文本与 JSON 同源：两侧强度一致（同一份 `SandboxReport`，不各自表述）。
+    #[test]
+    fn sandbox_text_and_json_agree_on_strength() {
+        let workspace = TempWorkspace::new("sandbox-same-source");
+        let block = sandbox_report(&workspace.path);
+        let value = serde_json::to_value(&block.report).expect("序列化");
+        assert_eq!(
+            block.lines[0],
+            format!("sandbox: {}（ADR-077）", block.report.strength.label_zh())
+        );
+        assert_eq!(value["strength"], serde_json::json!("none"));
     }
 
     /// doctor 只读：未初始化工作区如实报“未初始化”与 0 份，且不创建证书库目录。
@@ -1131,7 +1285,8 @@ mod tests {
 
         // `--json` 信封：`tls` 键存在且结构可解析（与文本同一份状态）。
         let config = crate::config::Config::for_workspace(workspace.path.clone());
-        let payload = doctor_json_payload(&config, Some("v1.2.0"), None, report);
+        let sandbox = sandbox_report(&workspace.path);
+        let payload = doctor_json_payload(&config, Some("v1.2.0"), None, report, sandbox);
         assert!(payload["tls"].is_object(), "doctor JSON 必须含 tls 对象");
         assert_eq!(
             payload["tls"]["outbound"]["builtin"]["cert_count"],
@@ -1183,7 +1338,8 @@ mod tests {
             report.lines
         );
         let config = crate::config::Config::for_workspace(workspace.path.clone());
-        let payload = doctor_json_payload(&config, None, None, report);
+        let sandbox = sandbox_report(&workspace.path);
+        let payload = doctor_json_payload(&config, None, None, report, sandbox);
         assert!(payload["tls"].is_null(), "JSON 的 tls 必须为 null");
         assert!(
             payload["tls_error"].is_string(),

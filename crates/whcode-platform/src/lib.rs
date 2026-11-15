@@ -13,6 +13,7 @@ pub mod host;
 pub mod paths;
 pub mod process;
 pub mod resources;
+pub mod sandbox;
 pub mod term;
 
 pub use host::{hostname, restrict_private_file};
