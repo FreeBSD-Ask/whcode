@@ -686,6 +686,18 @@ msgstr "チェックポイント"
 msgid "gui.checkpoints.title"
 msgstr "チェックポイント"
 
+msgid "gui.content.empty_query"
+msgstr "検索語が空です"
+
+msgid "gui.content.hits"
+msgstr "{count} 件ヒット（新しい順）"
+
+msgid "gui.content.placeholder"
+msgstr "メッセージ本文を検索…（Enter で実行）"
+
+msgid "gui.content.run"
+msgstr "検索"
+
 msgid "gui.kpi.count"
 msgstr "セッション {sessions} · 表示行 {rows}"
 

@@ -375,6 +375,10 @@ enum Message {
     // —— 侧栏（B2，FR-746）——
     /// 侧栏搜索词（标题/ID/阶段子串，本地过滤，不触库）。
     SessionFilterChanged(String),
+    /// 内容检索词（T319／FR-780：按消息正文检索，经数据源命令）。
+    ContentSearchChanged(String),
+    /// 执行内容检索（输入框回车或按钮）。
+    ContentSearchSubmit,
     /// 侧栏排序键（最近活跃/创建/标题）。
     SessionSortChanged(SessionSort),
     /// 是否展示归档分段（含归档时活跃在前、归档在后）。
@@ -430,6 +434,12 @@ struct State {
     op_feedback: Option<String>,
     /// 侧栏搜索词（FR-746；本地过滤，不触库）。
     session_filter: String,
+    /// 内容检索词（T319／FR-780；经数据源命令，最新命中优先）。
+    content_query: String,
+    /// 内容检索命中（有界：默认 20 条；检索失败时清空并写状态行）。
+    content_hits: Vec<whcode_app::ContentHit>,
+    /// 内容检索状态行（错误或计数摘要；`None` = 无）。
+    content_status: Option<String>,
     /// 侧栏排序键。
     session_sort: SessionSort,
     /// 是否展示归档分段。
@@ -496,6 +506,9 @@ impl State {
             op_input: String::new(),
             op_feedback: None,
             session_filter: String::new(),
+            content_query: String::new(),
+            content_hits: Vec::new(),
+            content_status: None,
             session_sort: SessionSort::LastActive,
             session_show_archived: false,
             all_sessions: Vec::new(),
@@ -840,6 +853,39 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         return Task::none();
     }
     match message {
+        Message::ContentSearchChanged(text) => {
+            state.content_query = text;
+            return Task::none();
+        }
+        Message::ContentSearchSubmit => {
+            // turn 运行期间消息被 update 顶部的冻结门拦截，不会到达这里；
+            // 连接锁被后台线程持有，任何触库动作都必须等待——冻结优于卡死。
+            let needle = state.content_query.trim().to_string();
+            if needle.is_empty() {
+                state.content_status =
+                    Some(state.texts.resolve("gui.content.empty_query").to_string());
+                return Task::none();
+            }
+            match state
+                .source
+                .content_search(&needle, whcode_app::CONTENT_SEARCH_DEFAULT_LIMIT)
+            {
+                Ok(hits) => {
+                    state.content_status = Some(
+                        state
+                            .texts
+                            .resolve_fmt("gui.content.hits", &[("count", &hits.len().to_string())]),
+                    );
+                    state.content_hits = hits;
+                }
+                Err(err) => {
+                    // 显式失败：数据源不支持、检索词非法或存储错误都可见。
+                    state.content_hits.clear();
+                    state.content_status = Some(err.message);
+                }
+            }
+            return Task::none();
+        }
         Message::SessionFilterChanged(text) => {
             state.session_filter = text;
             state.apply_session_view();
@@ -1545,6 +1591,40 @@ fn handle_event(
     }
 }
 
+/// 内容检索面板（T319／FR-780）：输入框＋命中列表。与侧栏过滤的分工——过滤只在
+/// 已准备的会话目录上做本地子串匹配；这里经数据源命令检索**消息正文**（FR-780），
+/// 命中按最新优先、有界（默认 20 条）。输入焦点语义与侧栏过滤一致：数字键在输入框
+/// 聚焦时仍会触发全局视图切换（既有行为，本批不改）。
+fn content_search_panel(state: &State) -> Element<'_, Message> {
+    let input = text_input(
+        state.texts.resolve("gui.content.placeholder"),
+        state.content_query.as_str(),
+    )
+    .on_input(Message::ContentSearchChanged)
+    .on_submit(Message::ContentSearchSubmit)
+    .padding(4)
+    .width(Length::Fill);
+    let run = button(rich_line(
+        state.texts.resolve("gui.content.run"),
+        false,
+        12.0,
+    ))
+    .on_press(Message::ContentSearchSubmit)
+    .padding([2, 6]);
+    let mut panel = column![row!(input, run).spacing(4)].spacing(4);
+    if let Some(status) = &state.content_status {
+        panel = panel.push(rich_line(status, false, 12.0));
+    }
+    for hit in state.content_hits.iter().take(20) {
+        panel = panel.push(rich_line(
+            &format!("[{}] {} {}", hit.session_id, hit.role, hit.snippet),
+            false,
+            12.0,
+        ));
+    }
+    panel.into()
+}
+
 /// 侧栏条目样式：只用主题两色（选中反显），不引入灰色、边框或阴影（ADR-041）。
 /// zcode 系色值解析（FR-740 单一事实源）：从 `theme_tokens` 冻结 hex 构建 iced 颜色。
 /// 冻结值合法性由 `whcode-domain::theme_tokens` 测试保证，此处只做不可失败解析的
@@ -2242,6 +2322,7 @@ fn view(state: &State) -> Element<'_, Message> {
             ViewId::Sessions => column![
                 op_buttons(state),
                 session_controls(state),
+                content_search_panel(state),
                 session_body(state)
             ]
             .spacing(8)
@@ -3144,6 +3225,91 @@ mod tests {
         assert_eq!(
             diff_line_color(GuiTheme::ZcodeNight, ' '),
             GuiTheme::ZcodeNight.colors().1
+        );
+    }
+
+    /// 内容检索（T319／FR-780）：命中来自数据源且状态行给出计数；非法词/空词显式报错、
+    /// 命中清空；turn 运行期间显式拒绝——不伪造“无命中”。
+    #[test]
+    fn content_search_uses_data_source_and_reports_errors() {
+        struct SearchSource;
+        impl ViewSource for SearchSource {
+            fn snapshot(&self, view: ViewId, _session: Option<&str>) -> ViewSnapshot {
+                ViewSnapshot::empty(view)
+            }
+            fn content_search(
+                &self,
+                needle: &str,
+                limit: usize,
+            ) -> Result<Vec<whcode_app::ContentHit>, WhError> {
+                let _ = limit;
+                if needle == "坏词" {
+                    return Err(WhError::invalid_state("搜索词超过 128 字符"));
+                }
+                Ok(vec![whcode_app::ContentHit {
+                    session_id: "S-1".to_string(),
+                    session_title: "检索会话".to_string(),
+                    message_id: "M-1".to_string(),
+                    role: "assistant".to_string(),
+                    snippet: format!("…{needle}…"),
+                }])
+            }
+        }
+        let source: Rc<dyn ViewSource> = Rc::new(SearchSource);
+        let mut state = State::new(source, I18n::default(), GuiTheme::EinkDay, None, None);
+
+        let _ = update(&mut state, Message::ContentSearchChanged("台账".into()));
+        let _ = update(&mut state, Message::ContentSearchSubmit);
+        assert_eq!(state.content_hits.len(), 1);
+        assert_eq!(state.content_hits[0].session_id, "S-1");
+        assert!(
+            state
+                .content_status
+                .as_deref()
+                .unwrap_or_default()
+                .contains('1'),
+            "状态行给出命中计数：{:?}",
+            state.content_status
+        );
+
+        // 非法词：错误可见且命中清空（不是把错误画成“无命中”）。
+        let _ = update(&mut state, Message::ContentSearchChanged("坏词".into()));
+        let _ = update(&mut state, Message::ContentSearchSubmit);
+        assert!(state.content_hits.is_empty());
+        assert!(
+            state
+                .content_status
+                .as_deref()
+                .unwrap_or_default()
+                .contains("128"),
+            "{:?}",
+            state.content_status
+        );
+
+        // 空词：显式提示，不触发数据源。
+        let _ = update(&mut state, Message::ContentSearchChanged(String::new()));
+        let _ = update(&mut state, Message::ContentSearchSubmit);
+        assert!(
+            state
+                .content_status
+                .as_deref()
+                .unwrap_or_default()
+                .contains("空"),
+            "{:?}",
+            state.content_status
+        );
+
+        // turn 运行期间：update 顶部冻结门拦截一切输入——状态与命中保持不变。
+        let status_before = state.content_status.clone();
+        let hits_before = state.content_hits.len();
+        state.turn_running = true;
+        let _ = update(&mut state, Message::ContentSearchChanged("台账".into()));
+        let _ = update(&mut state, Message::ContentSearchSubmit);
+        assert_eq!(state.content_status, status_before, "冻结期间状态不变");
+        assert_eq!(state.content_hits.len(), hits_before);
+        assert_eq!(
+            state.content_query, "",
+            "冻结门连输入更新一并拦截（既有口径）"
         );
     }
 

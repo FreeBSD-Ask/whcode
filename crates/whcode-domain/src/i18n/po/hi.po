@@ -686,6 +686,18 @@ msgstr "चेकपॉइंट"
 msgid "gui.checkpoints.title"
 msgstr "चेकपॉइंट"
 
+msgid "gui.content.empty_query"
+msgstr "खोज पाठ खाली है"
+
+msgid "gui.content.hits"
+msgstr "{count} मेल (नवीनतम पहले)"
+
+msgid "gui.content.placeholder"
+msgstr "संदेश मुख्य भाग में खोजें… (Enter से चलाएँ)"
+
+msgid "gui.content.run"
+msgstr "खोजें"
+
 msgid "gui.kpi.count"
 msgstr "सत्र {sessions} · दृश्य में {rows} पंक्तियाँ"
 

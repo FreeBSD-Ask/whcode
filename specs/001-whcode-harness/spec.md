@@ -439,12 +439,13 @@ taskkill /T /F 口径）（P1）
   - 证据：`.github/scripts/check-standards-baseline.py`；`docs/guides/standards-baseline.md`；`research/standards-alignment/`
   - 依据：用户指令 2026-11-14（标准全景研读，范围“全景含安全关键”、落地“文档＋门禁”）；ADR-072
 - **FR-780**: 会话内容检索（关键词阶段，P3.3／ADR-076）：按消息正文做大小写不敏感的
-  子串检索，CUI `session search --query` 与 Web `GET /api/search` 同源；搜索词 1—128 字符、
+  子串检索，CUI `session search --query`、Web `GET /api/search` 与 GUI 侧栏内容检索同源；搜索词 1—128 字符、
   返回 1—100 条、每条只返回定长片段（80 字符），无命中返回空列表、空/超长/缺参数为显式错误；
   不引入外部扩展（DuckDB `fts` 不在随包 DLL 内），分词与相关性排序显式延后（P2）
   - 依据：`research/synthesis/proposal-v3.md` P3.3；ADR-076；ADR-018（SQL 只在 store）
   - 判据：Given 会话内存在中文与 ASCII 混合正文，When 检索词大小写不同或以 `%`／`_` 参与匹配，Then 命中且 `%`／`_` 按字面量；When 搜索词为空或超过 128 字符，Then 返回 `invalid_state` 而非空列表；When 命中，Then 片段不超过 82 字符且不含换行
-  - 证据：`cargo test -p whcode-store search`（6 项）、`cargo test -p whcode-app search`（4 项）、Web 路由与对等合同测试
+  - 证据：`cargo test -p whcode-store search`（6 项）、`cargo test -p whcode-app search`（4 项）、
+    `cargo test -p whcode-gui content_search`（1 项）、`cargo test -p whcode-bin content_search`（1 项）、Web 路由与对等合同测试
 - **FR-781**: 沙箱强度评估与如实上报（P5.2 第一步／ADR-077）：`doctor` 输出 `sandbox` 块，按“实际
   生效的面”给三档强度——模型无命令执行面为 `none`、仅有工具级控制（cwd 锚点／最小环境／凭据
   剥离／输出截断／超时杀树／并发闸门）为 `partial`、OS 层强制隔离生效且残余缺口清零为 `full`；

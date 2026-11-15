@@ -345,8 +345,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
             // TUI：终端列表视图不做内容检索（侧栏检索语义属 GUI/Web，FR-746）。
             Support::NotApplicable,
-            // GUI 只读 v1 尚无搜索输入面；入口随下一批 GUI 视图交付（T318）。
-            Support::Reserved { milestone: "T319" },
+            // GUI 侧栏内容检索（T319）：经数据源命令 `content_search`，同一权限与片段口径。
+            Support::Implemented {
+                anchor: "State::content_search（侧栏内容检索）",
+            },
             Support::Implemented {
                 anchor: "GET /api/search",
             },

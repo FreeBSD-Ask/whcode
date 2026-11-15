@@ -9,7 +9,9 @@
 
 use duckdb::Connection;
 use whcode_domain::WhError;
-use whcode_store::{ContentHit, MAX_SEARCH_LIMIT, MAX_SEARCH_NEEDLE_CHARS, search_messages};
+use whcode_store::{MAX_SEARCH_LIMIT, MAX_SEARCH_NEEDLE_CHARS, search_messages};
+
+pub use whcode_store::ContentHit;
 
 use crate::authz::{Actor, Capability, Policy, require};
 

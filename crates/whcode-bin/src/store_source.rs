@@ -24,6 +24,7 @@ use whcode_app::view_source::{
 use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
 use whcode_domain::i18n::I18n;
 use whcode_domain::{TraceLevel, WhError};
+use whcode_store::ContentHit;
 
 /// 会话清单上限。
 const SESSION_LIMIT: usize = 200;
@@ -441,6 +442,20 @@ impl ViewSource for StoreViewSource {
         self.cursor_of()
     }
 
+    /// 会话内容检索（T319／FR-780）：委托应用命令（同一权限与片段口径）。
+    fn content_search(&self, needle: &str, limit: usize) -> Result<Vec<ContentHit>, WhError> {
+        let conn = self.conn.lock().expect("store 连接锁中毒");
+        whcode_app::search::search_session_content(
+            &conn,
+            &self.policy,
+            &self.actor,
+            &whcode_app::search::ContentSearchQuery {
+                needle: needle.to_string(),
+                limit,
+            },
+        )
+    }
+
     fn conversation_tail(&self, session_id: &str, max: usize) -> Vec<(String, String)> {
         // 视图数据尽力而为（trait 契约）：读取失败返回空，不阻塞界面；
         // 错误可见性由命令面承担（与 cursor 的 .ok() 口径一致）。
@@ -841,6 +856,34 @@ mod tests {
             unpaired.contains('?') && unpaired.contains("permission_denied"),
             "未配对结束事件显式呈现缺失：{unpaired}"
         );
+    }
+
+    /// 内容检索（T319／FR-780）：数据源委托应用命令，同一权限与片段口径。
+    #[test]
+    fn content_search_delegates_to_app_command() {
+        let conn = migrated_conn();
+        whcode_store::create_session_with_id(&conn, "S-C", "检索会话", "active", 1_000)
+            .expect("创建会话");
+        conn.execute(
+            "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts)
+             VALUES ('M-1', 'S-C', 'assistant', '台账视图的检索正文里包含关键词', 8,
+                     current_timestamp)",
+            [],
+        )
+        .expect("插入消息");
+        let source = StoreViewSource::new(
+            std::sync::Arc::new(std::sync::Mutex::new(conn)),
+            I18n::default(),
+        );
+        let hits = source.content_search("检索正文", 10).expect("检索");
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].session_id, "S-C");
+        assert_eq!(hits[0].role, "assistant");
+        assert!(hits[0].snippet.contains("检索正文"));
+
+        // 空词：应用命令的显式错误穿透数据源。
+        let err = source.content_search("   ", 10).expect_err("空词");
+        assert_eq!(err.code, whcode_domain::ErrorCode::InvalidState);
     }
 
     /// 台账视图（FR-787）：三节聚合与节级错误注记；无会话是显式状态，不伪造空。

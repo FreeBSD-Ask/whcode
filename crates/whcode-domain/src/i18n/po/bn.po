@@ -686,6 +686,18 @@ msgstr "চেকপয়েন্ট"
 msgid "gui.checkpoints.title"
 msgstr "চেকপয়েন্ট"
 
+msgid "gui.content.empty_query"
+msgstr "অনুসন্ধানের পাঠ খালি"
+
+msgid "gui.content.hits"
+msgstr "{count}টি মিল (নতুন আগে)"
+
+msgid "gui.content.placeholder"
+msgstr "বার্তার মূল অংশে অনুসন্ধান… (Enter চালাতে)"
+
+msgid "gui.content.run"
+msgstr "অনুসন্ধান"
+
 msgid "gui.kpi.count"
 msgstr "সেশন {sessions} · ভিউতে {rows} সারি"
 

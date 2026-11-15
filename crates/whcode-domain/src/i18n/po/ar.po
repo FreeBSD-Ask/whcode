@@ -686,6 +686,18 @@ msgstr "نقاط التحقق"
 msgid "gui.checkpoints.title"
 msgstr "نقاط التحقق"
 
+msgid "gui.content.empty_query"
+msgstr "نص البحث فارغ"
+
+msgid "gui.content.hits"
+msgstr "{count} من النتائج (الأحدث أولاً)"
+
+msgid "gui.content.placeholder"
+msgstr "بحث في نص الرسائل… (Enter للتنفيذ)"
+
+msgid "gui.content.run"
+msgstr "بحث"
+
 msgid "gui.kpi.count"
 msgstr "الجلسات {sessions} · صفوف العرض {rows}"
 

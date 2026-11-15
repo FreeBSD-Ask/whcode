@@ -686,6 +686,18 @@ msgstr "Puntos de control"
 msgid "gui.checkpoints.title"
 msgstr "Puntos de control"
 
+msgid "gui.content.empty_query"
+msgstr "El texto de búsqueda está vacío"
+
+msgid "gui.content.hits"
+msgstr "{count} coincidencias (más recientes primero)"
+
+msgid "gui.content.placeholder"
+msgstr "Buscar en el cuerpo de mensajes… (Enter para ejecutar)"
+
+msgid "gui.content.run"
+msgstr "Buscar"
+
 msgid "gui.kpi.count"
 msgstr "Sesiones {sessions} · filas en la vista {rows}"
 

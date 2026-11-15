@@ -686,6 +686,18 @@ msgstr "체크포인트"
 msgid "gui.checkpoints.title"
 msgstr "체크포인트"
 
+msgid "gui.content.empty_query"
+msgstr "검색어가 비어 있습니다"
+
+msgid "gui.content.hits"
+msgstr "{count}건 적중(최신 우선)"
+
+msgid "gui.content.placeholder"
+msgstr "메시지 본문 검색…(Enter 실행)"
+
+msgid "gui.content.run"
+msgstr "검색"
+
 msgid "gui.kpi.count"
 msgstr "세션 {sessions} · 보기 행 {rows}"
 

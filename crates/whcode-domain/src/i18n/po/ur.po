@@ -686,6 +686,18 @@ msgstr "چیک پوائنٹس"
 msgid "gui.checkpoints.title"
 msgstr "چیک پوائنٹس"
 
+msgid "gui.content.empty_query"
+msgstr "تلاش کا متن خالی ہے"
+
+msgid "gui.content.hits"
+msgstr "{count} نتائج (تازہ ترین پہلے)"
+
+msgid "gui.content.placeholder"
+msgstr "پیغام کے متن میں تلاش… (Enter سے چلائیں)"
+
+msgid "gui.content.run"
+msgstr "تلاش"
+
 msgid "gui.kpi.count"
 msgstr "سیشنز {sessions} · ویو کی قطاریں {rows}"
 

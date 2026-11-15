@@ -2269,11 +2269,15 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   `session.search` surface 条目（CUI/Web 已实现、TUI 不适用、GUI 预留 T319）＋ 对等矩阵行
   ——**取证（2026-11-15）**：web 全量 78 项、`feature_parity_matrix_rows_match_registry`
   等 5 项合同测试通过。
-- [ ] T319 GUI 内容检索入口（P3.3／FR-780 遗留，Reserved）：GUI 只读 v1 目前只有会话列表，没有搜索
-  输入面；交付时须复用 `session.search` 同一命令与片段口径，不得在界面层自行查库
+- [x] T319 GUI 内容检索入口（P3.3／FR-780 遗留，2026-11-15 交付）：GUI 只读 v1 侧栏新增
+  内容检索面板——输入框＋检索按钮＋命中列表（`[会话] 角色 片段`，≤20 条）；经数据源命令
+  `ViewSource::content_search`（默认 `not_supported`，装配根委托 `whcode_app::search` 同一
+  权限与片段口径，界面层不自行查库）；非法词／空词与数据源错误显式可见，不伪造“无命中”；
+  turn 运行期间消息被既有冻结门拦截，检索面板不触库
   ——**任务认知卡**：方向＝四端对等不能靠“CUI/Web 已实现”口头补齐；目标＝GUI 侧栏可输入
   关键词并展示命中片段；判据＝surface 状态由 Reserved 翻为 Implemented 且矩阵同步；
-  非目标＝本批不做（GUI 视图批次统一排期）、不改变 store/app 语义。
+  非目标＝不做 FTS、不改变 store/app 语义——**取证（2026-11-15）**：`cargo test -p whcode-gui
+  content_search` 与 `-p whcode-bin content_search` 通过；`frontend_parity` 10 项通过。
 
 ## Tasks（2026-11-15 追加）：沙箱强度评估与如实上报（P5.2 第一步，ADR-077）
 

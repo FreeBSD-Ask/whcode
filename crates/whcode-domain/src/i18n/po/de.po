@@ -686,6 +686,18 @@ msgstr "Prüfpunkte"
 msgid "gui.checkpoints.title"
 msgstr "Prüfpunkte"
 
+msgid "gui.content.empty_query"
+msgstr "Suchtext ist leer"
+
+msgid "gui.content.hits"
+msgstr "{count} Treffer (neueste zuerst)"
+
+msgid "gui.content.placeholder"
+msgstr "Nachrichten texte durchsuchen… (Enter zum Ausführen)"
+
+msgid "gui.content.run"
+msgstr "Suchen"
+
 msgid "gui.kpi.count"
 msgstr "Sitzungen {sessions} · Zeilen in der Ansicht {rows}"
 

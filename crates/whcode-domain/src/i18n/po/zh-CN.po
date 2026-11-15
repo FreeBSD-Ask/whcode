@@ -686,6 +686,18 @@ msgstr "检查点"
 msgid "gui.checkpoints.title"
 msgstr "检查点"
 
+msgid "gui.content.empty_query"
+msgstr "检索词为空"
+
+msgid "gui.content.hits"
+msgstr "命中 {count} 条（最新优先）"
+
+msgid "gui.content.placeholder"
+msgstr "会话正文检索…（Enter 执行）"
+
+msgid "gui.content.run"
+msgstr "检索"
+
 msgid "gui.kpi.count"
 msgstr "会话 {sessions} · 当前视图 {rows} 条"
 

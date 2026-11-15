@@ -100,7 +100,9 @@ pub use queue::BoundedQueue;
 pub use replay::{REPLAY_PAGE_LIMIT, ReplayPage, replay_since};
 pub use residency::{ResidencyManager, ResidencyState, UnloadedSession, idle_unload_due};
 pub use rewind::{RewindView, current as current_rewind, rewind as rewind_session};
-pub use search::{CONTENT_SEARCH_DEFAULT_LIMIT, ContentSearchQuery, search_session_content};
+pub use search::{
+    CONTENT_SEARCH_DEFAULT_LIMIT, ContentHit, ContentSearchQuery, search_session_content,
+};
 
 pub use session::{
     LIST_SESSIONS_LIMIT, MAX_SESSION_SEARCH_CHARS, NewSession, SWITCH_TAIL_LIMIT,

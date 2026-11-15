@@ -24,7 +24,7 @@ T190：新增证书库设置两行）。
 |---|---|---|---|---|---|---|---|
 | `session.new` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-101；ADR-056 |
 | `session.list` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-101 |
-| `session.search` | Command | Read | 已实现 | 不提供 | 预留 | 已实现 | P3.3／ADR-076；TUI 侧栏检索语义属 GUI/Web（不提供）；GUI 只读 v1 无搜索输入面（预留 T319） |
+| `session.search` | Command | Read | 已实现 | 不提供 | 已实现 | 已实现 | P3.3／ADR-076；TUI 侧栏检索语义属 GUI/Web（不提供）；GUI 侧栏内容检索（T319） |
 | `session.show` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-101 |
 | `session.rename` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-101；ADR-056 |
 | `session.archive` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-101；ADR-056 |

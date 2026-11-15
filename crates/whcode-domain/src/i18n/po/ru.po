@@ -686,6 +686,18 @@ msgstr "Контрольные точки"
 msgid "gui.checkpoints.title"
 msgstr "Контрольные точки"
 
+msgid "gui.content.empty_query"
+msgstr "Текст поиска пуст"
+
+msgid "gui.content.hits"
+msgstr "Найдено: {count} (сначала новые)"
+
+msgid "gui.content.placeholder"
+msgstr "Поиск по телу сообщений… (Enter — выполнить)"
+
+msgid "gui.content.run"
+msgstr "Найти"
+
 msgid "gui.kpi.count"
 msgstr "Сессий {sessions} · строк в представлении {rows}"
 

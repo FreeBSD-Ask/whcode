@@ -686,6 +686,18 @@ msgstr "Checkpoints"
 msgid "gui.checkpoints.title"
 msgstr "Checkpoints"
 
+msgid "gui.content.empty_query"
+msgstr "Search text is empty"
+
+msgid "gui.content.hits"
+msgstr "{count} hit(s), newest first"
+
+msgid "gui.content.placeholder"
+msgstr "Search message bodies… (Enter to run)"
+
+msgid "gui.content.run"
+msgstr "Search"
+
 msgid "gui.kpi.count"
 msgstr "Sessions {sessions} · view rows {rows}"
 

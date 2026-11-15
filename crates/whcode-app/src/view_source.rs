@@ -11,7 +11,10 @@
 //! （预算/游标）、事件（最近流）、Spec 状态（门禁/产物版本）、diff 预览（变更行）。
 
 use serde::Serialize;
+
 use std::borrow::Cow;
+use whcode_domain::{ErrorCode, WhError};
+use whcode_store::ContentHit;
 
 /// 视图总数（切换键 1—6 与之一一对应）。
 pub const VIEW_COUNT: usize = 8;
@@ -762,6 +765,20 @@ pub trait ViewSource {
     /// 默认空——不提供该能力的视图源（TUI／CUI 与测试夹具）零改动。
     fn panels(&self, _session: Option<&str>) -> PanelsSnapshot {
         PanelsSnapshot::default()
+    }
+
+    /// 会话内容检索（T319／FR-780）：按消息正文检索，最新命中优先。
+    /// 默认显式不支持——GUI 侧栏调用时错误可见，不伪造“无命中”。
+    ///
+    /// # Errors
+    ///
+    /// 数据源不支持（`not_supported`）、检索词非法或存储失败时返回 [`WhError`]。
+    fn content_search(&self, needle: &str, limit: usize) -> Result<Vec<ContentHit>, WhError> {
+        let _ = (needle, limit);
+        Err(WhError::new(
+            ErrorCode::NotSupported,
+            "该数据源不支持会话内容检索（T319：装配根数据源实现）",
+        ))
     }
 }
 
