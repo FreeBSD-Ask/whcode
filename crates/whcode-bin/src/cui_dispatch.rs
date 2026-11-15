@@ -2497,10 +2497,29 @@ mod tests {
             keys.sort_unstable();
             assert_eq!(
                 keys,
-                vec!["available", "capability", "name", "unsupported"],
+                vec![
+                    "available",
+                    "capability",
+                    "default_enabled",
+                    "enable_requirement",
+                    "name",
+                    "unsupported"
+                ],
                 "条目字段与 Web 注入的 inventory 同形"
             );
             assert!(entry["available"].is_null(), "界面路径不探测子进程");
+            assert_eq!(
+                entry["default_enabled"],
+                serde_json::json!(false),
+                "运行时不默认启用（P5.6／ADR-024 修订）"
+            );
+            assert!(
+                entry["enable_requirement"]
+                    .as_str()
+                    .is_some_and(|text| !text.is_empty()),
+                "默认值必须可解释：{}",
+                entry["enable_requirement"]
+            );
             assert!(
                 ["full", "restricted", "shell_only"]
                     .contains(&entry["capability"].as_str().expect("能力名")),

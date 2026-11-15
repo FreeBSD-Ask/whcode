@@ -2340,3 +2340,15 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   ——**取证（2026-11-15）**：bin 3 项测试通过（配置三态、URI 解码、坐标保真）。
 - [x] T330 [P] 文案与文档（P5.3b／FR-783）：`module-design` 的 `whcode-tools` 节补四工具、
   CHANGELOG、FR-783 与 Check 420—422——**取证（2026-11-15）**：文风/EOL/计数/追溯门禁通过。
+
+## Tasks（2026-11-15 追加）：运行时默认启用策略显式化（P5.6，ADR-024 修订）
+
+- [x] T331 策略表与输出面（P5.6／FR-784）：`crates/whcode-bin/src/runtimes.rs` 增
+  `enable_policy` 与条目字段 `default_enabled`／`enable_requirement`（doctor 文本、CUI
+  `runtime list`、Web `/api/runtimes` 同源），未登记运行时按“默认关闭＋先补 ADR”
+  ——**任务认知卡**：方向＝P5.6 提案“运行时默认启用策略评估”，需要回答“为什么不默认开”；
+  目标＝默认值可见、可解释、可撤销，不改变任何运行时的实际启用状态；判据＝策略测试与
+  三端形状一致性测试通过；非目标＝默认启用任何运行时（改默认须走 ADR）。
+- [x] T332 [P] ADR-024 修订与文档（P5.6／FR-784）：修订记录（结论＝维持默认关闭，把隐含
+  策略显式化）、`runtime-inventory` 补“默认启用”列、CHANGELOG——**取证（2026-11-15）**：
+  `cargo test -p whcode-bin runtime` 4 项与文风/EOL/计数/追溯门禁通过。

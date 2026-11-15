@@ -14,6 +14,12 @@
 **能力等级**（FR-702）：`Full` / `Restricted` / `ShellOnly`——当前全部运行时
 **未安装即不可用**（`enabled=false` 不被工具注册表加载，FR-704）。
 
+**默认启用策略**（P5.6／FR-784／ADR-024 修订 2026-11-15）：四项全部**默认关闭**，
+`doctor`／CUI `runtime list`／Web `/api/runtimes` 输出 `default_enabled` 与
+`enable_requirement`（为什么关、怎么打开）：js＝引擎不交付（ADR-024 决策 1）；
+python＝装解释器并 opt-in；gitbash＝payload 四重校验；bsdshell＝M7 延后。
+改默认值必须修订 ADR-024 并同批更新守卫测试。
+
 ## 2. payload 校验（FR-703、D-07）
 
 - payload **独立分发**（来源/版本/哈希/平台校验，T102）；

@@ -489,6 +489,17 @@ taskkill /T /F 口径）（P1）
     0 基且输出为 `path:line:col`；Given 行号 0，Then `invalid_state`；Given 空结果，Then 输出含
     “未找到”并被判定为正确的空
   - 证据：`cargo test -p whcode-tools lsp`、`cargo test -p whcode-bin lsp`
+- **FR-784**: 运行时默认启用策略显式化（P5.6／ADR-024 修订 2026-11-15）：四个运行时的
+  `default_enabled` 与 `enable_requirement` 由单一策略表给出（当前全部默认关闭），经
+  `doctor` 文本、CUI `runtime list` 与 Web `/api/runtimes` 同源输出；未登记的运行时按
+  “默认关闭＋先补 ADR”处理；改默认值必须修订 ADR-024 并同批更新守卫测试（P2）
+  - 依据：`research/synthesis/proposal-v3.md` P5.6；ADR-024（决策 1—5 维持）；
+    FR-704（工具默认关闭）；资源铁律与自由原则（默认值可见、可撤销）
+  - 判据：Given `runtime list`／`/api/runtimes`／`doctor`，Then 每条目含 `default_enabled`
+    与非空 `enable_requirement`，四项均为 `false`；Given 未登记的运行时名，Then 策略函数返回
+    默认关闭并指向 ADR 流程
+  - 证据：`cargo test -p whcode-bin runtime`（含 `every_runtime_has_a_policy_and_none_is_default_enabled`
+    与 `runtime_list_matches_web_runtimes_shape`）
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

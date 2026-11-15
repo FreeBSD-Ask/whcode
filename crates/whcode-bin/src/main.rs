@@ -605,6 +605,14 @@ fn doctor(args: &[String]) {
         // 三档能力等级（FR-702）：受限运行时列明不支持项，不表述为完整生态（D-08）。
         println!("runtimes: {}", runtimes::summary(true));
         for entry in runtimes::inventory(true) {
+            // 默认值必须可见（P5.6／FR-784／ADR-024 修订）：不只报“不支持什么”，
+            // 还要报“默认是否启用、凭什么条件才能启用”。
+            println!(
+                "  {} 默认启用：{}（{}）",
+                entry.name,
+                if entry.default_enabled { "是" } else { "否" },
+                entry.enable_requirement
+            );
             if !entry.unsupported.is_empty() {
                 println!("  {} 不支持：{}", entry.name, entry.unsupported.join("、"));
             }
@@ -629,8 +637,12 @@ fn doctor(args: &[String]) {
         if let Some(error) = &sandbox.error {
             println!("sandbox_error: {error}");
         }
+        // 未实现项的**当前**口径（2026-11-15 核对）：M2／M4／M6—M8 已交付，原先那行
+        // “命令面 M2+…运行时 M8+”早已过时——doctor 输出不得陈述与账本不符的事实。
         println!(
-            "未实现（明确标记）：命令面 M2/T046+；DuckDB 存取 M1/T032+；SDD 门禁 M4/T068+；Web/SSH M6—M7；运行时 M8/T100+"
+            "未实现（明确标记）：OS 层沙箱隔离（P5.2 余项，ADR-077）；PTY／后台作业（P5.4／P5.5，待 D13）；\
+             MCP resource／instructions（P6.2）；ACP 无人值守（P6.3）；webhook 幂等投递（P6.4）；\
+             GUI 内容检索入口（T319）"
         );
     }
 

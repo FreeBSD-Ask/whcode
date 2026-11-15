@@ -55,3 +55,13 @@
 2. Git Bash payload 进入发布包（届时需补分发、校验与升级路径）；
 3. Windows 之外出现可运行的验收平台（ADR-013 变更）；
 4. 现有 Python 子进程方案出现无法在契约内解决的安全问题（届时优先收紧而非扩展）。
+
+## 修订记录
+
+- **2026-11-15（P5.6／FR-784）**：复审“运行时默认启用策略”。结论＝**维持“默认关闭”**，
+  但把默认值从装配代码里的隐含行为改为**显式可查的策略表**：`whcode-bin::runtimes::enable_policy`
+  为四个运行时各给一条可操作条件（js＝引擎不交付；python＝装解释器并 opt-in；gitbash＝
+  payload 四重校验；bsdshell＝M7 延后），由 `doctor` 与 Web `/api/runtimes`／CUI
+  `runtime list` 同源输出（条目新增 `default_enabled`／`enable_requirement`）。
+  不改变决策 1—5；不启用任何运行时。改默认值须改 ADR 并同批更新
+  `every_runtime_has_a_policy_and_none_is_default_enabled` 测试。

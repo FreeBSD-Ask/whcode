@@ -13,6 +13,14 @@
 
 ### 变更
 
+- **运行时默认启用策略显式化（T331—T332，P5.6，FR-784，ADR-024 修订，2026-11-15）**：四个运行时的
+  “默认关不关、凭什么打开”不再藏在装配代码里——`runtimes::enable_policy` 给出单一策略表，
+  `doctor`／CUI `runtime list`／Web `/api/runtimes` 同源输出 `default_enabled` 与
+  `enable_requirement`（js＝引擎不交付；python＝装解释器并 opt-in；gitbash＝payload 四重校验；
+  bsdshell＝M7 延后）。**结论是维持默认关闭**：资源铁律、执行面显式 opt-in 与“默认值可见可撤销”
+  三条约束都不支持自动启用。改默认值须修订 ADR-024 并同批更新守卫测试
+  `every_runtime_has_a_policy_and_none_is_default_enabled`。
+
 - **修复：FreeBSD 通道两条 `whcode-bin` 测试硬编码路径分隔符（2026-11-15，run `43667118984`
   实测）**：`lsp_tool` 的两个用例断言 `ends_with("…\lib.rs")`，在 FreeBSD 上必然失败——本机
   `cargo test` 全绿掩盖了它。改为把 `\` 归一成 `/` 后再断言；平台归一本身的验证仍留在
