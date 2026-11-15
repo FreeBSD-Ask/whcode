@@ -2424,3 +2424,13 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 - [x] T346 [P] 文档与台账（P6.4／FR-788）：ADR-079（决策、正负和解、已知限制、标准研读）、
   `data-model` 的 webhook_deliveries 节、FR-788、Check 436—439、标准基线的 RFC 9110 行、
   CHANGELOG、矩阵两行——**取证（2026-11-15）**：计数／追溯／文风／EOL／标准基线门禁通过。
+
+## Tasks（2026-11-15 追加）：台账视图的 Web 面（P2.2b 余项，T347）
+
+- [x] T347 [P] Web 台账面（P2.2b／FR-787）：`GET /api/ledger?session=` 三节聚合（待办／
+  交付物／发现），单节失败进 `errors` 且其余两节照常返回，三节全因会话不存在失败时合并
+  404；`view.ledger` 的 Web 支持由预留改为已实现；`list_session_findings` 区分“会话不存在”
+  与“无发现”——**任务认知卡**：方向＝FR-787 交付时 Web 面只能登记为预留，四端数据口径不齐；
+  目标＝Web 用同一 app 命令聚合三节，与 TUI／GUI 同源；判据＝web 1 项（含正确的空与 404）＋
+  app 1 项测试；非目标＝服务端渲染的台账页面（Web 只提供 JSON，页面留作前端后续）、Web 侧
+  写操作（台账只读）。

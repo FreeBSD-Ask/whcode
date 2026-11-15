@@ -530,13 +530,14 @@ taskkill /T /F 口径）（P1）
   （`TodoUpdated` 最近快照）、交付物（`DeliverablePresented` 聚合）与评审发现（`findings` 表
   按会话过滤）三节聚合为同一只读列表；行格式为“节 状态 正文”，节名由准备层按文本层解析，
   缺译时退回机器名而不猜测译文；三节各自有界（待办 ≤50、交付物 ≤200、发现 ≤20），任一来源
-  失败写入摘要行（显式失败，不伪造空）；未选择会话时只给显式注记；CUI 无视图面、Web 台账面
-  为预留（T347，不冒充已实现）
+  失败写入摘要行（显式失败，不伪造空）；未选择会话时只给显式注记；CUI 无视图面（命令面
+  承载同一数据），Web 经 `GET /api/ledger?session=` 提供同一聚合（T347）
   - 依据：FR-601（视图模型）／FR-771（待办）／FR-772（交付物）／FR-786（发现台账）；ADR-080；
     ADR-056（四端对等）
   - 判据：Given 会话含待办／交付物／发现各一，Then 台账三行且节名为当前语言；Given 未选择
     会话，Then 无行且摘要注明“未选择会话”；Given 会话不存在，Then 各来源报错进摘要且不 panic
-  - 证据：`cargo test -p whcode-bin ledger_view`（1 项）、`cargo test -p whcode-app --lib view`
+  - 证据：`cargo test -p whcode-bin ledger_view`（1 项）、`cargo test -p whcode-app --lib view`、
+    `cargo test -p whcode-web ledger`（1 项：三节聚合、正确的空、未知会话 404）
 - **FR-788**: 出站 webhook 幂等投递（P6.4／ADR-079）：配置 `<workspace>/.zcode/webhooks.json`
   （显式 opt-in；端点 ≤8、每端点事件类型 ≤16、`batch` 1—50、`max_attempts` 1—5、
   `timeout_ms` 500—10000；只允许 `https`，回环主机允许 `http`；凭据只写环境变量名）。

@@ -1622,7 +1622,7 @@ pub const SURFACES: &[SurfaceEntry] = &[
         ],
     },
     // 台账视图（FR-787）：待办／交付物／发现三节聚合，只读；CUI 无屏幕视图面，
-    // Web 尚无台账面（登记为预留，不冒充已实现）。
+    // Web 经 `GET /api/ledger?session=` 提供同一聚合（T347）。
     SurfaceEntry {
         id: "view.ledger",
         kind: SurfaceKind::View,
@@ -1640,7 +1640,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "State::prepare（ViewId::Ledger）",
             },
-            Support::Reserved { milestone: "T347" },
+            Support::Implemented {
+                anchor: "GET /api/ledger?session=",
+            },
         ],
     },
     // 在线可见（其他端更改；FR-605／624）：Web 经 WebSocket 推送；TUI 低频游标检查

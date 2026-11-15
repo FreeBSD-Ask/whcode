@@ -754,6 +754,108 @@ pub fn handle_request_with_llm(
                 Err(error) => error_response(&error),
             }
         }
+        (Method::Get, "/api/ledger") => {
+            // 台账视图的 Web 面（FR-787／T347）：待办／交付物／发现三节聚合，只读。
+            // 与 TUI／GUI 同源（`whcode_app` 的三个只读命令）：单节失败进 `errors` 且其余
+            // 两节照常返回——不把“查不到”画成“没有”；三节全因会话不存在失败时回 404。
+            let Some(session) = query_value("session") else {
+                return error_response(&WhError::invalid_state("缺 session 参数"));
+            };
+            let mut errors: Vec<(&'static str, WhError)> = Vec::new();
+            let mut todos: Vec<serde_json::Value> = Vec::new();
+            let mut deliverables: Vec<serde_json::Value> = Vec::new();
+            let mut findings_rows: Vec<serde_json::Value> = Vec::new();
+            let mut deliverable_truncated = false;
+            match whcode_app::todo::current(conn, &policy, actor, session) {
+                Ok(view) => {
+                    todos = view
+                        .items
+                        .iter()
+                        .map(|item| {
+                            serde_json::json!({
+                                "content": item.content,
+                                "status": item.status,
+                            })
+                        })
+                        .collect();
+                }
+                Err(error) => errors.push(("todo", error)),
+            }
+            match whcode_app::deliverables::list(conn, &policy, actor, session) {
+                Ok(view) => {
+                    deliverable_truncated = view.truncated;
+                    deliverables = view
+                        .items
+                        .iter()
+                        .map(|item| {
+                            serde_json::json!({
+                                "path": item.path,
+                                "seq": item.seq,
+                                "tool_call_id": item.tool_call_id,
+                            })
+                        })
+                        .collect();
+                }
+                Err(error) => errors.push(("deliverable", error)),
+            }
+            match whcode_app::findings::list_session_findings(
+                conn,
+                &policy,
+                actor,
+                session,
+                Some(whcode_app::findings::DEFAULT_FINDING_LIMIT),
+            ) {
+                Ok(rows) => {
+                    findings_rows = rows
+                        .iter()
+                        .map(|finding| {
+                            serde_json::json!({
+                                "id": finding.id,
+                                "title": finding.title,
+                                "status": finding.status.as_str(),
+                                "severity": finding.severity.as_str(),
+                                "version": finding.version,
+                            })
+                        })
+                        .collect();
+                }
+                Err(error) => errors.push(("finding", error)),
+            }
+            if errors.len() == 3
+                && errors
+                    .iter()
+                    .all(|(_, error)| error.code == whcode_domain::ErrorCode::NotFound)
+            {
+                return error_response(&errors[0].1);
+            }
+            let errors_json: Vec<serde_json::Value> = errors
+                .iter()
+                .map(|(section, error)| {
+                    serde_json::json!({
+                        "section": section,
+                        "code": error.code.as_str(),
+                        "message": error.message,
+                    })
+                })
+                .collect();
+            HttpResponse::json(
+                200,
+                &serde_json::json!({
+                    "schema_version": whcode_domain::SCHEMA_VERSION,
+                    "session_id": session,
+                    "counts": {
+                        "todos": todos.len(),
+                        "deliverables": deliverables.len(),
+                        "findings": findings_rows.len(),
+                    },
+                    "truncated_deliverables": deliverable_truncated,
+                    "todos": todos,
+                    "deliverables": deliverables,
+                    "findings": findings_rows,
+                    "errors": errors_json,
+                }),
+            )
+        }
         (Method::Get, "/api/plan") => {
             // 计划模式状态（T287／FR-774／ADR-067）：最新一条 `PlanModeChanged` 即当前值；
             // 从未切换＝关闭且 `seq` 为 null（正确的空，不用 404 冒充不存在）。
@@ -1970,6 +2072,9 @@ mod tests {
         include_str!("../../whcode-store/migrations/0009_approval_rules.sql"),
         include_str!("../../whcode-store/migrations/0010_session_fork.sql"),
         include_str!("../../whcode-store/migrations/0011_file_preimages.sql"),
+        // v12—v13：发现台账与 webhook 投递（台账路由要读 findings；schema 必须与生产同构）。
+        include_str!("../../whcode-store/migrations/0012_findings.sql"),
+        include_str!("../../whcode-store/migrations/0013_webhook_deliveries.sql"),
     );
 
     fn migrated() -> Connection {
@@ -2099,6 +2204,118 @@ mod tests {
         let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
         assert_eq!(body["wired"], false);
         assert_eq!(body["runtimes"].as_array().expect("数组").len(), 0);
+    }
+
+    /// 台账路由（FR-787／T347）：三节聚合与计数；未知会话 404；缺参 400；空会话是正确的空。
+    #[test]
+    fn ledger_route_aggregates_todos_deliverables_and_findings() {
+        use whcode_app::DefaultPolicy;
+        use whcode_app::findings::{FindingDraft, record_finding};
+
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("tester");
+        for id in ["S-L", "S-EMPTY"] {
+            conn.execute(
+                "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+                 VALUES (?, '台账', current_timestamp, current_timestamp, 'active')",
+                [id],
+            )
+            .expect("创建会话");
+        }
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                 kind, payload_json, ts, persistence_level)
+             VALUES (1, 'EV-L1', 'S-L', NULL, NULL, NULL, 'TodoUpdated',
+                     CAST(? AS JSON)::VARIANT, current_timestamp, 'redacted')",
+            [r#"{"items":[{"content":"接线台账","status":"in_progress"}],"pending":0,"in_progress":1,"completed":0}"#],
+        )
+        .expect("待办快照");
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                 kind, payload_json, ts, persistence_level)
+             VALUES (2, 'EV-L2', 'S-L', NULL, NULL, 'call-1', 'DeliverablePresented',
+                     CAST(? AS JSON)::VARIANT, current_timestamp, 'redacted')",
+            [r#"{"paths":["out/report.md"],"count":1,"tool_call_id":"call-1"}"#],
+        )
+        .expect("交付物登记");
+        record_finding(
+            &conn,
+            &DefaultPolicy,
+            &actor,
+            &FindingDraft {
+                session_id: Some("S-L".to_string()),
+                title: "缺失败路径".to_string(),
+                gap: "失败路径未覆盖".to_string(),
+                impact: "失败被当成成功".to_string(),
+                owner_fix: "补断言".to_string(),
+                verification: "cargo test 转红再转绿".to_string(),
+                severity: "high".to_string(),
+            },
+            1_000,
+        )
+        .expect("登记发现");
+
+        let req = request(Method::Get, "/api/ledger?session=S-L", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["counts"]["todos"], 1);
+        assert_eq!(body["counts"]["deliverables"], 1);
+        assert_eq!(body["counts"]["findings"], 1);
+        assert_eq!(body["todos"][0]["status"], "in_progress");
+        assert_eq!(body["deliverables"][0]["path"], "out/report.md");
+        assert_eq!(body["findings"][0]["severity"], "high");
+        assert_eq!(body["findings"][0]["status"], "open");
+        assert_eq!(
+            body["errors"].as_array().map(Vec::len),
+            Some(0),
+            "三节都成功时不得有错误注记"
+        );
+
+        // 空会话：三节都是 0，且没有错误——正确的空与失败可区分。
+        let empty = request(Method::Get, "/api/ledger?session=S-EMPTY", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &empty,
+            &actor,
+        );
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["counts"]["todos"], 0);
+        assert_eq!(body["counts"]["findings"], 0);
+        assert_eq!(body["errors"].as_array().map(Vec::len), Some(0));
+
+        // 未知会话：三节都 NotFound，合并成 404（不伪装成空台账）。
+        let missing = request(Method::Get, "/api/ledger?session=S-404", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &missing,
+            &actor,
+        );
+        assert_eq!(response.status, 404);
+
+        let no_param = request(Method::Get, "/api/ledger", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &no_param,
+            &actor,
+        );
+        assert_eq!(response.status, 400, "缺 session 参数");
     }
 
     /// 交付物路由（T285／FR-772）：空清单是可区分的正确空；登记后返回路径；

@@ -8,7 +8,7 @@
 //! 发现台账跨会话（`session_id` 可空），但写入仍是会话内动作——与待办/交付物同口径。
 
 use duckdb::Connection;
-use whcode_domain::WhError;
+use whcode_domain::{ErrorCode, WhError};
 use whcode_store::findings::{
     self, Finding, FindingSeverity, FindingStatus, MAX_FINDING_ROWS, NewFinding,
 };
@@ -123,7 +123,15 @@ pub fn list_session_findings(
     if limit == 0 {
         return Err(WhError::invalid_state("finding 列表 limit 必须大于 0"));
     }
-    findings::list_findings_for_session(conn, session_id, limit)
+    // 会话不存在与“该会话没有发现”必须可区分：前者 `not_found`，后者是正确的空
+    // （与待办／交付物同口径，台账视图与 Web `/api/ledger` 依赖这一区分）。
+    if whcode_store::get_session(conn, session_id.trim())?.is_none() {
+        return Err(WhError::new(
+            ErrorCode::NotFound,
+            format!("会话不存在：{session_id}；用 session list 查看现存会话"),
+        ));
+    }
+    findings::list_findings_for_session(conn, session_id.trim(), limit)
 }
 
 /// 迁移发现状态（乐观锁：`expected_version` 与当前版本不一致即冲突）。
@@ -218,6 +226,35 @@ mod tests {
         let err = list_finding_rows(&conn, &DefaultPolicy, &actor, Some("done"), None)
             .expect_err("未知状态");
         assert_eq!(err.code, ErrorCode::InvalidState);
+    }
+
+    /// 按会话列发现：会话不存在返回 `not_found`，不是空列表（与待办／交付物同口径）。
+    #[test]
+    fn session_listing_distinguishes_missing_session_from_empty() {
+        let conn = fixture();
+        let actor = actor_with_all_capabilities("tester");
+        whcode_store::create_session_with_id(&conn, "S-1", "发现会话", "active", 1_000)
+            .expect("创建会话");
+        record_finding(&conn, &DefaultPolicy, &actor, &draft(), 1_000).expect("登记");
+        assert_eq!(
+            list_session_findings(&conn, &DefaultPolicy, &actor, "S-1", None)
+                .expect("列表")
+                .len(),
+            1
+        );
+        whcode_store::create_session_with_id(&conn, "S-E", "空会话", "active", 1_000)
+            .expect("创建空会话");
+        assert!(
+            list_session_findings(&conn, &DefaultPolicy, &actor, "S-E", None)
+                .expect("空会话是正确的空")
+                .is_empty()
+        );
+        assert_eq!(
+            list_session_findings(&conn, &DefaultPolicy, &actor, "S-404", None)
+                .expect_err("会话不存在")
+                .code,
+            ErrorCode::NotFound
+        );
     }
 
     /// 权限：无能力者不能登记、不能列表。
