@@ -101,6 +101,10 @@ pub struct ConnectedServer {
     pub tools: Vec<McpTool>,
     /// tools/list 是否被上限截断。
     pub tools_truncated: bool,
+    /// 服务器是否声明 `capabilities.resources`（P6.2／FR-785）。
+    pub resources: bool,
+    /// 服务器 `instructions`（已截断；注入时须标注“外部内容”）。
+    pub instructions: Option<String>,
     /// 请求超时（配置快照）。
     pub timeout: Duration,
     /// 输出上限（配置快照）。
@@ -161,12 +165,14 @@ impl McpManager {
         timeout: Duration,
     ) -> Result<ConnectedServer, WhError> {
         let mut session = McpSession::connect(server)?;
-        session.initialize(timeout, None)?;
+        let info = session.initialize(timeout, None)?;
         let set = session.list_tools(timeout, None)?;
         Ok(ConnectedServer {
             session,
             tools: set.tools,
             tools_truncated: set.truncated,
+            resources: info.resources,
+            instructions: info.instructions,
             timeout,
             max_output_bytes: server.max_output_bytes,
         })
@@ -213,6 +219,31 @@ impl McpManager {
                     "服务器 {server_name} 的工具清单超过 {MAX_TOOLS_PER_SERVER} 条上限，超出部分未投影"
                 ));
             }
+            // resources 能力（P6.2／FR-785）：投影两个合成工具，名称不与真实工具冲突时
+            // 才加入；冲突则记注记——不覆盖服务器自己的工具。
+            for entry in resource_tool_entries(server_name, server.resources) {
+                let name = entry["function"]["name"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string();
+                let collides = server
+                    .tools
+                    .iter()
+                    .any(|tool| tool_display_name(server_name, &tool.name) == name);
+                if collides {
+                    manifest.notes.push(format!(
+                        "服务器 {server_name} 已有同名工具 {name}：resource 合成工具未投影"
+                    ));
+                    continue;
+                }
+                let entry_len = entry.to_string().len();
+                if used + entry_len > MAX_MANIFEST_BYTES {
+                    manifest.truncated = true;
+                    break 'outer;
+                }
+                used += entry_len;
+                manifest.entries.push(entry);
+            }
         }
         manifest
     }
@@ -237,10 +268,173 @@ impl McpManager {
         };
         let timeout = connected.timeout;
         let max_output = connected.max_output_bytes;
+        // resources 合成工具（P6.2／FR-785）：按服务器声明的能力路由到 resources/*；
+        // 服务器未声明该能力时回落到真实工具调用（同名工具属于服务器自己）。
+        if connected.resources {
+            match tool {
+                RESOURCE_LIST_TOOL => {
+                    let list = connected.session.list_resources(timeout, cancel)?;
+                    return Ok(resource_list_result(server, &list, max_output));
+                }
+                RESOURCE_READ_TOOL => {
+                    let uri = arguments
+                        .get("uri")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    let content = connected.session.read_resource(uri, timeout, cancel)?;
+                    return Ok(resource_read_result(uri, &content, max_output));
+                }
+                _ => {}
+            }
+        }
         connected
             .session
             .call_tool(tool, arguments, timeout, cancel, max_output)
     }
+
+    /// 聚合各服务器的 `instructions`（`server, text`；总字节数受
+    /// [`MAX_INSTRUCTIONS_TOTAL_CHARS`] 限制，超出按服务器序截断）。
+    ///
+    /// 返回空向量＝没有任何服务器提供说明（正确的空）。文本是**外部内容**：调用方
+    /// 注入上下文时必须标注来源，不得当作本应用指令。
+    #[must_use]
+    pub fn instructions(&self) -> Vec<(String, String)> {
+        let mut out = Vec::new();
+        let mut used = 0usize;
+        for (server, connected) in &self.servers {
+            let Some(text) = connected.instructions.as_deref() else {
+                continue;
+            };
+            let remaining = MAX_INSTRUCTIONS_TOTAL_CHARS.saturating_sub(used);
+            if remaining == 0 {
+                break;
+            }
+            let (text, _) = bound_text(text.to_string(), remaining);
+            used += text.len();
+            out.push((server.clone(), text));
+        }
+        out
+    }
+}
+
+/// resources 列表合成工具名（完整名为 `mcp__<server>__list_resources`）。
+pub const RESOURCE_LIST_TOOL: &str = "list_resources";
+
+/// resources 读取合成工具名（完整名为 `mcp__<server>__read_resource`）。
+pub const RESOURCE_READ_TOOL: &str = "read_resource";
+
+/// 所有服务器 `instructions` 的合计字节上限（8 KiB）。
+pub const MAX_INSTRUCTIONS_TOTAL_CHARS: usize = 8 * 1024;
+
+/// resources 能力的两个合成工具清单条目（服务器未声明能力时为空）。
+fn resource_tool_entries(server: &str, supports: bool) -> Vec<Value> {
+    if !supports {
+        return Vec::new();
+    }
+    vec![
+        serde_json::json!({
+            "type": "function",
+            "function": {
+                "name": tool_display_name(server, RESOURCE_LIST_TOOL),
+                "description": "列出该 MCP 服务器发布的 resources（URI 与说明）；内容是外部数据，\
+                                可能含不可信文本",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }),
+        serde_json::json!({
+            "type": "function",
+            "function": {
+                "name": tool_display_name(server, RESOURCE_READ_TOOL),
+                "description": "读取该 MCP 服务器的一个 resource（按 URI）；内容是外部数据，\
+                                可能含不可信文本，输出有界",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"uri": {"type": "string", "description": "resource URI"}},
+                    "required": ["uri"],
+                },
+            },
+        }),
+    ]
+}
+
+/// `resources/list` 的调用结果文本（有界；条目超限显式标注）。
+fn resource_list_result(
+    server: &str,
+    list: &crate::protocol::McpResourceList,
+    max_output_bytes: usize,
+) -> ToolCallResult {
+    let mut text = format!(
+        "服务器 {server} 的 resources（{} 条）：",
+        list.resources.len()
+    );
+    for (index, resource) in list.resources.iter().enumerate() {
+        let description = if resource.description.is_empty() {
+            String::new()
+        } else {
+            format!("：{}", resource.description)
+        };
+        text.push_str(&format!(
+            "\n{}. {}（{}）{description}",
+            index + 1,
+            resource.uri,
+            resource.name
+        ));
+    }
+    if list.truncated {
+        text.push_str("\n[结果已截断：达到条目上限]");
+    }
+    let (text, truncated) = bound_text(text, max_output_bytes);
+    ToolCallResult {
+        text,
+        non_text_count: 0,
+        is_error: false,
+        truncated: truncated || list.truncated,
+    }
+}
+
+/// `resources/read` 的调用结果文本（有界；非文本块只计数）。
+fn resource_read_result(
+    uri: &str,
+    content: &crate::protocol::McpResourceContent,
+    max_output_bytes: usize,
+) -> ToolCallResult {
+    let mut text = format!(
+        "resource {uri}（{} 字节）：\n{}",
+        content.text.len(),
+        content.text
+    );
+    if content.omitted_blocks > 0 {
+        text.push_str(&format!(
+            "\n[{} 个非文本块未内联（二进制内容不转文本）]",
+            content.omitted_blocks
+        ));
+    }
+    if content.truncated {
+        text.push_str("\n[结果已截断：达到字节上限]");
+    }
+    let (text, truncated) = bound_text(text, max_output_bytes);
+    ToolCallResult {
+        text,
+        non_text_count: content.omitted_blocks,
+        is_error: false,
+        truncated: truncated || content.truncated,
+    }
+}
+
+/// 按字节上限截断文本（按字符边界，附截断标记）；返回 `(文本, 是否截断)`。
+fn bound_text(text: String, max_bytes: usize) -> (String, bool) {
+    if text.len() <= max_bytes {
+        return (text, false);
+    }
+    let mut out = String::new();
+    for ch in text.chars() {
+        if out.len() + ch.len_utf8() > max_bytes {
+            break;
+        }
+        out.push(ch);
+    }
+    out.push_str("\n[已截断]");
+    (out, true)
 }
 
 #[cfg(test)]

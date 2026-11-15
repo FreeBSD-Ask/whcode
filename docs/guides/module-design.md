@@ -179,9 +179,13 @@ TLS 的依赖落点是这条边界的特例（ADR-031／ADR-040）：**出站**�
   initialize 握手 / newline JSON-RPC 2.0 请求配对 / 超时看门狗 / shutdown 零残留；
   http：`HttpTransport` Streamable HTTP 请求-响应——每请求 POST + 会话头往返 +
   DELETE 关闭 + ureq 请求超时 + 取消前置检查）、`tools/list` 投影
-  （`mcp__<server>__<tool>` 命名空间、三重上限）与 `tools/call` 调用。
+  （`mcp__<server>__<tool>` 命名空间、三重上限）与 `tools/call` 调用；P6.2 起另含
+  `resources`（`resources/list` 跟随 cursor、`resources/read` 128 KiB 上限、blob 只计数；
+  投影为 `mcp__<server>__list_resources`／`__read_resource` 两个合成工具）与
+  `instructions`（4 KiB/服务器、8 KiB 合计，注入时标注“外部内容”）。
 - **不负责**：OAuth/SSE（ADR-055 §5 复审触发；无首手使用证据，留待真实矛盾）；工具登记
-  与回填（turn 层 `execute_tool_call` 与 store 三步登记，本 crate 只产出结果）；空闲连接池。
+  与回填（turn 层 `execute_tool_call` 与 store 三步登记，本 crate 只产出结果）；空闲连接池；
+  `resources/subscribe` 与 `resources/templates/list`（P6.2 显式不做）。
 - **关键类型**：`McpConfig`、`McpSession`、`McpManager`、`McpManifest`、`CancelFlag`、
   `Transport`、`StdioTransport`、`HttpTransport`、`EofKind`。
 - **依赖**：`whcode-domain`、`whcode-platform`（进程树终止/进程组）、`whcode-runtime`

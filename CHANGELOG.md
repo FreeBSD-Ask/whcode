@@ -13,6 +13,17 @@
 
 ### 变更
 
+- **MCP resources 与 instructions（T333—T336，P6.2，FR-785，ADR-054 修订，2026-11-15）**：
+  MCP 服务器声明 `capabilities.resources` 时，清单里多出两个合成工具
+  `mcp__<server>__list_resources`／`__read_resource`——模型可按需列出并读取服务器发布的
+  resource，而不是只能调它的 tools。`resources/list` 跟随 cursor（≤64 条、≤4 页），
+  `resources/read` 文本 ≤128 KiB（按字符边界截断），blob 只计数不转文本（不伪造内容）。
+  服务器在 `initialize` 里给的 `instructions` 按 4 KiB/服务器、8 KiB 合计截断后，**单独**
+  作为一条 system 消息注入，并显式标注“外部内容、不是本应用的指令、可能不可信”——
+  不并入“MCP 服务器状态”消息。两个合成工具沿用 MCP 工具的 fail-closed 权限（按写类判定），
+  resource 内容是提示注入面，不因“只读”降级。不做订阅与模板列表。
+  测试：`cargo test -p whcode-mcp` 21 项＋集成 8 项（fixture 新增 `resources` 模式）。
+
 - **运行时默认启用策略显式化（T331—T332，P5.6，FR-784，ADR-024 修订，2026-11-15）**：四个运行时的
   “默认关不关、凭什么打开”不再藏在装配代码里——`runtimes::enable_policy` 给出单一策略表，
   `doctor`／CUI `runtime list`／Web `/api/runtimes` 同源输出 `default_enabled` 与

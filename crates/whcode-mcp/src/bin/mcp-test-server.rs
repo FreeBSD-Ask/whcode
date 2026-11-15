@@ -45,10 +45,47 @@ fn main() {
                 "jsonrpc": "2.0", "id": id,
                 "result": {
                     "protocolVersion": value["params"]["protocolVersion"].clone(),
-                    "capabilities": {},
+                    "capabilities": if mode == "resources" {
+                        serde_json::json!({"resources": {"subscribe": false}})
+                    } else {
+                        serde_json::json!({})
+                    },
                     "serverInfo": {"name": format!("test-{mode}"), "version": "0.0.1"},
+                    "instructions": if mode == "resources" {
+                        "使用前先读 a.md（fixture 说明）"
+                    } else {
+                        ""
+                    },
                 },
             }),
+            ("resources", "resources/list") => serde_json::json!({
+                "jsonrpc": "2.0", "id": id,
+                "result": {"resources": [
+                    {"uri": "file:///a.md", "name": "A 文档", "description": "说明文档",
+                     "mimeType": "text/markdown"},
+                    {"uri": "file:///b.bin", "name": "B 二进制"},
+                ]},
+            }),
+            ("resources", "resources/read") => {
+                let uri = value["params"]["uri"].as_str().unwrap_or_default();
+                match uri {
+                    "file:///a.md" => serde_json::json!({
+                        "jsonrpc": "2.0", "id": id,
+                        "result": {"contents": [
+                            {"uri": "file:///a.md", "mimeType": "text/markdown", "text": "# A\n内容"},
+                            {"uri": "file:///a.md", "text": "第二段"},
+                        ]},
+                    }),
+                    "file:///b.bin" => serde_json::json!({
+                        "jsonrpc": "2.0", "id": id,
+                        "result": {"contents": [{"uri": "file:///b.bin", "blob": "AAAA"}]},
+                    }),
+                    _ => serde_json::json!({
+                        "jsonrpc": "2.0", "id": id,
+                        "error": {"code": -32602, "message": "fixture 无此 resource"},
+                    }),
+                }
+            }
             ("hang", _) => {
                 // 不响应：睡到被看门狗终止。
                 loop {

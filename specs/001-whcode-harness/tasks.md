@@ -2352,3 +2352,22 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 - [x] T332 [P] ADR-024 修订与文档（P5.6／FR-784）：修订记录（结论＝维持默认关闭，把隐含
   策略显式化）、`runtime-inventory` 补“默认启用”列、CHANGELOG——**取证（2026-11-15）**：
   `cargo test -p whcode-bin runtime` 4 项与文风/EOL/计数/追溯门禁通过。
+
+## Tasks（2026-11-15 追加）：MCP resources 与 instructions（P6.2，ADR-054 修订）
+
+- [x] T333 协议层 resources/instructions（P6.2／FR-785）：`protocol.rs` 的
+  `McpResource`／`McpResourceList`／`McpResourceContent` 与解析（缺字段跳过、URI/名称/描述
+  上限、blob 只计数、128 KiB 按字符边界截断）、`InitializeResult` 增 `instructions` 与
+  `resources` ——**任务认知卡**：方向＝P6.2“MCP resource/instructions（限长＋权限模型）”；
+  目标＝模型可按需读取服务器发布的 resource、把服务器说明注入上下文，且两者都有界、都标注
+  不可信；判据＝协议层与端到端测试全绿；非目标＝订阅（`resources/subscribe`）、模板列表、
+  缓存与 content 转文本。
+- [x] T334 [P] 会话方法（P6.2／FR-785）：`session.rs` 的 `list_resources`（cursor 分页 ≤4 页、
+  ≤64 条）、`read_resource`（URI 校验）、`instructions()`／`supports_resources()` 访问器
+  ——**取证（2026-11-15）**：fixture `resources` 模式的会话往返测试通过。
+- [x] T335 [P] 投影与调用路由（P6.2／FR-785）：`manager.rs` 的两个合成工具条目（冲突注记）、
+  `call_tool` 对合成名的路由、`instructions()` 聚合（8 KiB 上限）、结果文本有界
+  ——**取证（2026-11-15）**：`manager_projects_resource_tools_and_instructions` 通过。
+- [x] T336 [P] 注入与文档（P6.2／FR-785）：`turn.rs` 单独 system 消息注入 instructions（“外部
+  内容”标注）、ADR-054 修订记录（决策 11—13＋已知限制）、`module-design` 的 mcp 节、
+  CHANGELOG ——**取证（2026-11-15）**：`cargo test -p whcode-app` 与文档门禁通过。

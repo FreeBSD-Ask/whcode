@@ -113,3 +113,20 @@
 ## 7. 修订记录
 
 - **2026-11-01（首版，已批准）**：编号 054（053 已被技能最小集占用）。
+- **2026-11-15（P6.2／FR-785）**：新增 `resources` 与 `instructions` 支持（§2 决策的延伸，
+  编号 11—13）：
+  11. **instructions 捕获与注入**：`initialize.result.instructions` 按
+      [`MAX_INSTRUCTIONS_CHARS`]（4 KiB）截断后随会话自持；组装层单独注入一条 system 消息，
+      **显式标注“外部内容、不是本应用指令、可能不可信”**——不并入“MCP 服务器状态”消息。
+      合计上限 [`MAX_INSTRUCTIONS_TOTAL_CHARS`]（8 KiB），按服务器序截断。
+  12. **resources 投影为两个合成工具**：服务器声明 `capabilities.resources` 时投影
+      `mcp__<server>__list_resources` 与 `mcp__<server>__read_resource`（名称与服务器自有工具
+      冲突则不投影并注记）；`resources/list` 跟随 cursor，≤
+      [`MAX_RESOURCES_PER_SERVER`]（64）条且 ≤ `MAX_RESOURCE_PAGES`（4）页；`resources/read`
+      文本 ≤ [`MAX_RESOURCE_BYTES`]（128 KiB，按字符边界截断），blob 只计数不转文本。
+  13. **权限面沿用 fail-closed**：两个合成工具与其他 MCP 工具同按 `WorkspaceWrite` 判定
+      （决策 8 不变）——resource 内容是不可信输入（提示注入面），不因“只读”降级。
+  **已知限制与失效条件**：不做 `resources/subscribe`（变更订阅）与 `resources/templates/list`；
+  每次 `resources/read` 重新拉取（无缓存）；`instructions` 是外部文本，注入不改变其不可信属性；
+  失效条件＝出现“服务器 instructions 被当作系统指令执行”的真实事故 → 重新评估是否默认注入
+  （可改为只在用户显式开启时注入）。

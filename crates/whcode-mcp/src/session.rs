@@ -469,6 +469,10 @@ pub struct McpSession {
     broken: bool,
     /// 入站通知计数（saturating；不累积消息本体）。
     notifications_seen: u64,
+    /// 服务器 `instructions`（已按上限截断；外部内容，注入时须标注来源）。
+    instructions: Option<String>,
+    /// 服务器是否声明 `capabilities.resources`（P6.2／FR-785）。
+    resources: bool,
 }
 
 impl McpSession {
@@ -486,6 +490,8 @@ impl McpSession {
             initialized: false,
             broken: false,
             notifications_seen: 0,
+            instructions: None,
+            resources: false,
         })
     }
 
@@ -507,6 +513,8 @@ impl McpSession {
             initialized: false,
             broken: false,
             notifications_seen: 0,
+            instructions: None,
+            resources: false,
         })
     }
 
@@ -551,10 +559,100 @@ impl McpSession {
         });
         let result = self.request("initialize", &params, timeout, cancel.clone())?;
         let info = protocol::parse_initialize_result(&result).map_err(|err| self.poison(err))?;
+        // instructions 与 resources 能力在此固化：投影与注入都以会话自持的事实为准，
+        // 不二次解析原始 JSON（P6.2／FR-785）。
+        self.instructions = info.instructions.clone();
+        self.resources = info.resources;
         let notification = protocol::encode_notification("notifications/initialized", &json!({}));
         self.write(&notification, timeout, cancel)?;
         self.initialized = true;
         Ok(info)
+    }
+
+    /// 服务器 `instructions`（已截断；`None`＝服务器未提供）。
+    #[must_use]
+    pub fn instructions(&self) -> Option<&str> {
+        self.instructions.as_deref()
+    }
+
+    /// 服务器是否声明 `capabilities.resources`。
+    #[must_use]
+    pub fn supports_resources(&self) -> bool {
+        self.resources
+    }
+
+    /// `resources/list`（跟随 cursor 分页，累计 [`protocol::MAX_RESOURCES_PER_SERVER`]
+    /// 条上限与 [`protocol::MAX_RESOURCE_PAGES`] 页上限；超限显式标记截断）。
+    ///
+    /// # Errors
+    ///
+    /// 未 initialize、请求失败或结果非法时返回 [`WhError`]。
+    pub fn list_resources(
+        &mut self,
+        timeout: Duration,
+        cancel: Option<CancelFlag>,
+    ) -> Result<protocol::McpResourceList, WhError> {
+        self.require_initialized()?;
+        let mut resources: Vec<protocol::McpResource> = Vec::new();
+        let mut truncated = false;
+        let mut cursor: Option<String> = None;
+        for _ in 0..protocol::MAX_RESOURCE_PAGES {
+            let mut params = serde_json::Map::new();
+            if let Some(current) = &cursor {
+                params.insert("cursor".to_string(), Value::from(current.clone()));
+            }
+            let result = self.request(
+                "resources/list",
+                &Value::Object(params),
+                timeout,
+                cancel.clone(),
+            )?;
+            let listing =
+                protocol::parse_resources_list(&result).map_err(|err| self.poison(err))?;
+            truncated |= listing.truncated;
+            for resource in listing.resources {
+                if resources.len() >= protocol::MAX_RESOURCES_PER_SERVER {
+                    truncated = true;
+                    break;
+                }
+                resources.push(resource);
+            }
+            cursor = listing.next_cursor.clone();
+            if cursor.is_none() || resources.len() >= protocol::MAX_RESOURCES_PER_SERVER {
+                break;
+            }
+        }
+        if cursor.is_some() {
+            truncated = true;
+        }
+        Ok(protocol::McpResourceList {
+            resources,
+            truncated,
+            next_cursor: None,
+        })
+    }
+
+    /// `resources/read`（文本有界、blob 只计数；不伪造文本内容）。
+    ///
+    /// # Errors
+    ///
+    /// 未 initialize、URI 为空/超长、请求失败或结果非法时返回 [`WhError`]。
+    pub fn read_resource(
+        &mut self,
+        uri: &str,
+        timeout: Duration,
+        cancel: Option<CancelFlag>,
+    ) -> Result<protocol::McpResourceContent, WhError> {
+        self.require_initialized()?;
+        let uri = uri.trim();
+        if uri.is_empty() || uri.chars().count() > protocol::MAX_RESOURCE_URI_CHARS {
+            return Err(WhError::invalid_state(format!(
+                "resource URI 长度非法（1..={} 字符）",
+                protocol::MAX_RESOURCE_URI_CHARS
+            )));
+        }
+        let result = self.request("resources/read", &json!({"uri": uri}), timeout, cancel)?;
+        protocol::parse_resource_read(&result).map_err(|err| self.poison(err))
     }
 
     /// tools/list（跟随 cursor 分页，累计 [`MAX_TOOLS_PER_SERVER`] 条上限；

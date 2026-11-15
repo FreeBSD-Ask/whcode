@@ -24,8 +24,11 @@ pub mod session;
 
 pub use config::{McpConfig, McpServerConfig};
 pub use manager::{
-    MAX_TOOLS_PER_SERVER, MCP_TOOL_PREFIX, McpManager, McpManifest, McpToolSet, parse_tool_name,
-    tool_display_name,
+    MAX_INSTRUCTIONS_TOTAL_CHARS, MAX_TOOLS_PER_SERVER, MCP_TOOL_PREFIX, McpManager, McpManifest,
+    McpToolSet, RESOURCE_LIST_TOOL, RESOURCE_READ_TOOL, parse_tool_name, tool_display_name,
 };
-pub use protocol::{McpTool, PROTOCOL_VERSION, ToolCallResult};
+pub use protocol::{
+    MAX_INSTRUCTIONS_CHARS, MAX_RESOURCE_BYTES, MAX_RESOURCES_PER_SERVER, McpResource,
+    McpResourceContent, McpResourceList, McpTool, PROTOCOL_VERSION, ToolCallResult,
+};
 pub use session::{CancelFlag, EofKind, HttpTransport, McpSession, StdioTransport, Transport};

@@ -500,6 +500,19 @@ taskkill /T /F 口径）（P1）
     默认关闭并指向 ADR 流程
   - 证据：`cargo test -p whcode-bin runtime`（含 `every_runtime_has_a_policy_and_none_is_default_enabled`
     与 `runtime_list_matches_web_runtimes_shape`）
+- **FR-785**: MCP resources 与 instructions（P6.2／ADR-054 修订 2026-11-15）：服务器声明
+  `capabilities.resources` 时投影两个合成工具 `mcp__<server>__list_resources`／
+  `__read_resource`（冲突不投影并注记）；`resources/list` 跟随 cursor（≤64 条、≤4 页），
+  `resources/read` 文本 ≤128 KiB（按字符边界截断）、blob 只计数不转文本；`instructions`
+  按 4 KiB/服务器、8 KiB 合计截断，注入为**单独** system 消息并显式标注“外部内容、可能不可信”；
+  两个合成工具沿用 MCP 工具 fail-closed 权限（`WorkspaceWrite`）；不做订阅与模板列表（P2）
+  - 依据：`research/synthesis/proposal-v3.md` P6.2；ADR-054（决策 8 权限口径不变）；
+    MCP 规范 2025-06-18 的 resources/instructions 语义
+  - 判据：Given 声明 resources 的服务器，Then 清单含两个合成工具且调用走 `resources/*`；
+    Given blob 内容，Then 文本为空、`omitted_blocks` 计数且 `truncated=true`；
+    Given `instructions`，Then 会话可取到且注入消息带“外部内容”标注
+  - 证据：`cargo test -p whcode-mcp`（lib 21 项＋集成 8 项，含
+    `resources_and_instructions_roundtrip` 与 `manager_projects_resource_tools_and_instructions`）
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

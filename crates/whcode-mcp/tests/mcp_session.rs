@@ -205,3 +205,112 @@ fn calls_before_initialize_are_rejected() {
     assert_eq!(err.code, ErrorCode::InvalidState);
     session.shutdown();
 }
+
+#[test]
+fn resources_and_instructions_roundtrip() {
+    let config = fixture_config("resources");
+    let mut session = McpSession::spawn(&config).expect("spawn");
+    let info = session.initialize(TIMEOUT, None).expect("握手");
+    assert!(info.resources, "fixture 声明 resources 能力");
+    assert_eq!(
+        session.instructions(),
+        Some("使用前先读 a.md（fixture 说明）"),
+        "instructions 必须从 initialize 结果取得"
+    );
+
+    let list = session
+        .list_resources(TIMEOUT, None)
+        .expect("resources/list");
+    assert_eq!(list.resources.len(), 2);
+    assert_eq!(list.resources[0].uri, "file:///a.md");
+    assert_eq!(
+        list.resources[0].mime_type.as_deref(),
+        Some("text/markdown")
+    );
+    assert!(!list.truncated);
+
+    let content = session
+        .read_resource("file:///a.md", TIMEOUT, None)
+        .expect("resources/read");
+    assert_eq!(content.text, "# A\n内容\n第二段", "多个 text 块按换行拼接");
+    assert!(!content.truncated);
+
+    let blob = session
+        .read_resource("file:///b.bin", TIMEOUT, None)
+        .expect("二进制 resource");
+    assert!(blob.text.is_empty(), "blob 不伪造文本");
+    assert_eq!(blob.omitted_blocks, 1);
+    assert!(blob.truncated, "未内联的非文本块必须标记截断");
+
+    let missing = session
+        .read_resource("file:///nope", TIMEOUT, None)
+        .expect_err("未知 resource 必须报错");
+    assert!(!missing.message.is_empty());
+}
+
+#[test]
+fn manager_projects_resource_tools_and_instructions() {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_nanos());
+    let dir = std::env::temp_dir().join(format!(
+        "whcode-mcp-resources-{}-{stamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(dir.join(".zcode")).expect("建目录");
+    let command = env!("CARGO_BIN_EXE_mcp-test-server");
+    let config = serde_json::json!({"servers": [{
+        "name": "test",
+        "command": command,
+        "args": ["resources"],
+        "enabled": true,
+    }]});
+    std::fs::write(dir.join(".zcode").join("mcp.json"), config.to_string()).expect("写配置");
+
+    let mut manager = whcode_mcp::McpManager::connect_workspace(Some(&dir)).expect("连接");
+    assert!(
+        manager.connect_errors().is_empty(),
+        "{:?}",
+        manager.connect_errors()
+    );
+
+    let manifest = manager.tool_manifest();
+    let names: Vec<&str> = manifest
+        .entries
+        .iter()
+        .filter_map(|entry| entry["function"]["name"].as_str())
+        .collect();
+    for expected in [
+        "mcp__test__echo_text",
+        "mcp__test__list_resources",
+        "mcp__test__read_resource",
+    ] {
+        assert!(names.contains(&expected), "缺少 {expected}：{names:?}");
+    }
+    assert!(!manifest.truncated);
+
+    let instructions = manager.instructions();
+    assert_eq!(instructions.len(), 1);
+    assert_eq!(instructions[0].0, "test");
+    assert!(instructions[0].1.contains("a.md"), "{:?}", instructions);
+
+    let list = manager
+        .call_tool("test", "list_resources", &serde_json::json!({}), None)
+        .expect("合成 list 调用");
+    assert!(list.text.contains("file:///a.md"), "{}", list.text);
+    assert!(!list.is_error);
+
+    let read = manager
+        .call_tool(
+            "test",
+            "read_resource",
+            &serde_json::json!({"uri": "file:///a.md"}),
+            None,
+        )
+        .expect("合成 read 调用");
+    assert!(read.text.contains("# A"), "{}", read.text);
+    assert!(!read.truncated);
+
+    drop(manager);
+    let _ = std::fs::remove_dir_all(&dir);
+}

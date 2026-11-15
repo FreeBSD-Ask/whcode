@@ -192,6 +192,12 @@ pub struct InitializeResult {
     pub server_name: String,
     /// 服务器版本。
     pub server_version: String,
+    /// 服务器提供的使用说明（MCP `instructions`，P6.2／FR-785）：已按
+    /// [`MAX_INSTRUCTIONS_CHARS`] 截断；`None`＝未提供（正确的空，不是空串）。
+    /// **内容不可信**：它是外部服务器给的文本，注入上下文时必须显式标注来源。
+    pub instructions: Option<String>,
+    /// 是否声明 `capabilities.resources`（决定是否投影 resource 读取工具）。
+    pub resources: bool,
 }
 
 /// 解析 initialize 结果并校验协议版本协商（ADR-054 §2.4：未知版本中止）。
@@ -211,6 +217,16 @@ pub fn parse_initialize_result(result: &Value) -> Result<InitializeResult, WhErr
         ));
     }
     let info = result.get("serverInfo");
+    let instructions = result
+        .get("instructions")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(|text| text.chars().take(MAX_INSTRUCTIONS_CHARS).collect());
+    let resources = result
+        .get("capabilities")
+        .and_then(|capabilities| capabilities.get("resources"))
+        .is_some_and(|resources| !resources.is_null());
     Ok(InitializeResult {
         protocol_version: version.to_string(),
         server_name: info
@@ -223,6 +239,8 @@ pub fn parse_initialize_result(result: &Value) -> Result<InitializeResult, WhErr
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_string(),
+        instructions,
+        resources,
     })
 }
 
@@ -488,5 +506,261 @@ mod tests {
 
         let err = parse_tools_call(&json!({"content": "not-array"})).expect_err("content 非数组");
         assert_eq!(err.code, ErrorCode::ParseError);
+    }
+}
+
+// ── resources 与 instructions（P6.2／FR-785／ADR-054 修订 2026-11-15） ─────────────
+
+/// 每服务器 resources 条数上限。
+pub const MAX_RESOURCES_PER_SERVER: usize = 64;
+
+/// resources/list 的分页上限（防服务器返回无终止的 cursor 链）。
+pub const MAX_RESOURCE_PAGES: usize = 4;
+
+/// 单个 resource URI 字符上限。
+pub const MAX_RESOURCE_URI_CHARS: usize = 1024;
+
+/// resource 名称字符上限。
+pub const MAX_RESOURCE_NAME_CHARS: usize = 256;
+
+/// resource 描述字符上限。
+pub const MAX_RESOURCE_DESC_CHARS: usize = 500;
+
+/// 单次 resources/read 的文本字节上限（128 KiB）。
+pub const MAX_RESOURCE_BYTES: usize = 128 * 1024;
+
+/// 单服务器 `instructions` 字符上限（4 KiB）。
+pub const MAX_INSTRUCTIONS_CHARS: usize = 4096;
+
+/// 单个 resource 条目（只保留展示与调用需要的字段，全部有界）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct McpResource {
+    /// URI（`resources/read` 的参数）。
+    pub uri: String,
+    /// 名称。
+    pub name: String,
+    /// 描述（可空，已截断）。
+    pub description: String,
+    /// MIME 类型（可缺省）。
+    pub mime_type: Option<String>,
+}
+
+/// resources/list 结果（已按上限截断）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct McpResourceList {
+    /// resource 条目。
+    pub resources: Vec<McpResource>,
+    /// 是否因上限被截断或跳过超限条目。
+    pub truncated: bool,
+    /// 下一页游标（服务器提供时；会话层据此分页，页数另有上限）。
+    pub next_cursor: Option<String>,
+}
+
+/// resources/read 结果（文本拼接，有界）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct McpResourceContent {
+    /// 文本内容（多个 text 块以换行拼接）。
+    pub text: String,
+    /// 非文本块数（blob 等；只计数，不伪造文本）。
+    pub omitted_blocks: usize,
+    /// 是否发生截断（字节上限或非文本块）。
+    pub truncated: bool,
+}
+
+/// 解析 `resources/list` 结果。
+///
+/// # Errors
+///
+/// 缺少 `resources` 数组时返回 [`ErrorCode::ParseError`]；单条非法（缺 uri/name）跳过，
+/// 不因一条坏条目丢掉整份清单。
+pub fn parse_resources_list(result: &Value) -> Result<McpResourceList, WhError> {
+    let entries = result
+        .get("resources")
+        .and_then(Value::as_array)
+        .ok_or_else(|| WhError::parse_error("MCP resources/list 结果缺少 resources 数组"))?;
+    let mut resources = Vec::new();
+    let mut truncated = false;
+    for entry in entries {
+        let (Some(uri), Some(name)) = (
+            entry.get("uri").and_then(Value::as_str),
+            entry.get("name").and_then(Value::as_str),
+        ) else {
+            continue;
+        };
+        if uri.chars().count() > MAX_RESOURCE_URI_CHARS
+            || name.chars().count() > MAX_RESOURCE_NAME_CHARS
+        {
+            truncated = true;
+            continue;
+        }
+        if resources.len() >= MAX_RESOURCES_PER_SERVER {
+            truncated = true;
+            break;
+        }
+        resources.push(McpResource {
+            uri: uri.to_string(),
+            name: name.to_string(),
+            description: entry
+                .get("description")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .chars()
+                .take(MAX_RESOURCE_DESC_CHARS)
+                .collect(),
+            mime_type: entry
+                .get("mimeType")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+        });
+    }
+    Ok(McpResourceList {
+        resources,
+        truncated,
+        next_cursor: result
+            .get("nextCursor")
+            .and_then(Value::as_str)
+            .filter(|cursor| !cursor.is_empty())
+            .map(str::to_string),
+    })
+}
+
+/// 解析 `resources/read` 结果：`contents[]` 中的 text 块拼接，blob 只计数。
+///
+/// # Errors
+///
+/// 缺少 `contents` 数组时返回 [`ErrorCode::ParseError`]。
+pub fn parse_resource_read(result: &Value) -> Result<McpResourceContent, WhError> {
+    let contents = result
+        .get("contents")
+        .and_then(Value::as_array)
+        .ok_or_else(|| WhError::parse_error("MCP resources/read 结果缺少 contents 数组"))?;
+    let mut text = String::new();
+    let mut omitted_blocks = 0usize;
+    let mut truncated = false;
+    for block in contents {
+        let Some(chunk) = block.get("text").and_then(Value::as_str) else {
+            omitted_blocks += 1;
+            continue;
+        };
+        if !text.is_empty() {
+            text.push('\n');
+        }
+        let remaining = MAX_RESOURCE_BYTES.saturating_sub(text.len());
+        if chunk.len() > remaining {
+            // 按字符边界截断：字节上限不能切断多字节字符。
+            let mut taken = String::new();
+            for ch in chunk.chars() {
+                if taken.len() + ch.len_utf8() > remaining {
+                    break;
+                }
+                taken.push(ch);
+            }
+            text.push_str(&taken);
+            truncated = true;
+            break;
+        }
+        text.push_str(chunk);
+    }
+    if omitted_blocks > 0 {
+        truncated = true;
+    }
+    Ok(McpResourceContent {
+        text,
+        omitted_blocks,
+        truncated,
+    })
+}
+
+#[cfg(test)]
+mod resource_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// 清单解析：缺字段条目跳过、超限条目计入截断、描述截断。
+    #[test]
+    fn resources_list_is_bounded_and_skips_invalid_entries() {
+        let long_desc = "描".repeat(MAX_RESOURCE_DESC_CHARS + 10);
+        let result = json!({"resources": [
+            {"uri": "file:///a.md", "name": "A", "description": long_desc, "mimeType": "text/markdown"},
+            {"uri": "file:///b.md"},
+            {"name": "no-uri"},
+        ]});
+        let list = parse_resources_list(&result).expect("解析");
+        assert_eq!(list.resources.len(), 1, "缺 uri/name 的条目跳过");
+        assert_eq!(
+            list.resources[0].description.chars().count(),
+            MAX_RESOURCE_DESC_CHARS
+        );
+        assert_eq!(
+            list.resources[0].mime_type.as_deref(),
+            Some("text/markdown")
+        );
+        assert!(!list.truncated);
+
+        let mut overflow = Vec::new();
+        for index in 0..MAX_RESOURCES_PER_SERVER + 2 {
+            overflow.push(json!({"uri": format!("file:///{index}"), "name": format!("r{index}")}));
+        }
+        let list = parse_resources_list(&json!({"resources": overflow})).expect("解析");
+        assert_eq!(list.resources.len(), MAX_RESOURCES_PER_SERVER);
+        assert!(list.truncated, "超限必须标记截断");
+
+        let bad_uri =
+            json!({"resources": [{"uri": "x".repeat(MAX_RESOURCE_URI_CHARS + 1), "name": "n"}]});
+        let list = parse_resources_list(&bad_uri).expect("解析");
+        assert!(list.resources.is_empty() && list.truncated);
+    }
+
+    /// 读取解析：多 text 块拼接、blob 只计数、字节上限按字符边界截断。
+    #[test]
+    fn resource_read_concatenates_text_and_counts_blobs() {
+        let result = json!({"contents": [
+            {"uri": "file:///a", "mimeType": "text/plain", "text": "第一段"},
+            {"uri": "file:///a", "text": "第二段"},
+            {"uri": "file:///a", "blob": "AAAA"},
+        ]});
+        let content = parse_resource_read(&result).expect("解析");
+        assert_eq!(content.text, "第一段\n第二段");
+        assert_eq!(content.omitted_blocks, 1);
+        assert!(content.truncated, "非文本块未内联必须标记截断");
+
+        let huge = "中".repeat(MAX_RESOURCE_BYTES / 3 + 100);
+        let content =
+            parse_resource_read(&json!({"contents": [{"uri": "u", "text": huge}]})).expect("解析");
+        assert!(content.truncated);
+        assert!(content.text.len() <= MAX_RESOURCE_BYTES);
+        assert!(
+            content.text.chars().all(|ch| ch == '中'),
+            "不得切断多字节字符"
+        );
+
+        assert!(
+            parse_resource_read(&json!({})).is_err(),
+            "缺 contents 必须报错"
+        );
+    }
+
+    /// initialize 结果带 instructions 与 resources 能力标记；空 instructions 视为缺失。
+    #[test]
+    fn initialize_result_carries_instructions_and_resources_flag() {
+        let result = parse_initialize_result(&json!({
+            "protocolVersion": SUPPORTED_VERSIONS[0],
+            "capabilities": {"resources": {"subscribe": false}},
+            "serverInfo": {"name": "s", "version": "1"},
+            "instructions": "  使用前先读 README  ",
+        }))
+        .expect("解析");
+        assert_eq!(result.instructions.as_deref(), Some("使用前先读 README"));
+        assert!(result.resources);
+
+        let blank = parse_initialize_result(&json!({
+            "protocolVersion": SUPPORTED_VERSIONS[0],
+            "capabilities": {},
+            "serverInfo": {"name": "s", "version": "1"},
+            "instructions": "   ",
+        }))
+        .expect("解析");
+        assert!(blank.instructions.is_none(), "空白 instructions 视为缺失");
+        assert!(!blank.resources);
     }
 }
