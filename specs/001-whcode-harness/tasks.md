@@ -2371,3 +2371,18 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 - [x] T336 [P] 注入与文档（P6.2／FR-785）：`turn.rs` 单独 system 消息注入 instructions（“外部
   内容”标注）、ADR-054 修订记录（决策 11—13＋已知限制）、`module-design` 的 mcp 节、
   CHANGELOG ——**取证（2026-11-15）**：`cargo test -p whcode-app` 与文档门禁通过。
+
+## Tasks（2026-11-15 追加）：评审发现台账（P2.2，ADR-080）
+
+- [x] T337 schema v12 与 store 原语（P2.2／FR-786／ADR-080）：`0012_findings.sql`（表＋序列＋
+  索引）、`crates/whcode-store/src/findings.rs`（四要件校验、状态机迁移表、修复乐观锁、
+  列表过滤排序与上限）、`EXPORT_TABLES` 增 `findings` ——**任务认知卡**：方向＝评审发现目前只
+  存在于文档段落，不可查询/不可加锁（synthesis §2 R3）；目标＝库层可登记、可迁移、可导出；
+  判据＝store 5 项测试全绿（含过期版本与非法迁移）；非目标＝模型工具面与前端入口（P2.2b）、
+  复评自动化、与 `tasks` 表同步。
+- [x] T338 [P] 应用命令与权限（P2.2／FR-786）：`crates/whcode-app/src/findings.rs`——
+  `record_finding`／`list_finding_rows`／`move_finding`，字符串枚举收敛、limit 默认与夹取、
+  `SessionRead`／`SessionCreate` 权限——**取证（2026-11-15）**：app 4 项测试通过。
+- [x] T339 [P] 文档与台账（P2.2／FR-786）：ADR-080（四要件/乐观锁/迁移表/已知限制）、
+  `data-model` 的 findings 节、FR-786、Check 430—432、CHANGELOG——**取证（2026-11-15）**：
+  计数/追溯/文风/EOL/ADR 限制门禁通过。

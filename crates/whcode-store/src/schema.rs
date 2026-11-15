@@ -28,10 +28,10 @@ use whcode_domain::{ErrorCode, WhError};
 /// `events.origin_event_id` 与 `(session_id, origin_event_id)` 唯一索引）；
 /// v11 增加文件前像表（T289／FR-776／ADR-068：每次成功的写调用登记改前内容或跳过原因，
 /// 有界保留）。
-pub const STORE_SCHEMA_VERSION: u32 = 11;
+pub const STORE_SCHEMA_VERSION: u32 = 12;
 
 /// 正式表数量（含 `schema_migrations`）。
-pub const TABLE_COUNT: usize = 17;
+pub const TABLE_COUNT: usize = 18;
 
 const MIGRATION_0001: &str = include_str!("../migrations/0001_initial.sql");
 const MIGRATION_0002: &str = include_str!("../migrations/0002_event_trace_indexes.sql");
@@ -44,6 +44,7 @@ const MIGRATION_0008: &str = include_str!("../migrations/0008_usage_anchor.sql")
 const MIGRATION_0009: &str = include_str!("../migrations/0009_approval_rules.sql");
 const MIGRATION_0010: &str = include_str!("../migrations/0010_session_fork.sql");
 const MIGRATION_0011: &str = include_str!("../migrations/0011_file_preimages.sql");
+const MIGRATION_0012: &str = include_str!("../migrations/0012_findings.sql");
 
 /// 版本化迁移清单；新增版本时追加，不修改历史 SQL。
 const MIGRATIONS: &[(u32, &str)] = &[
@@ -58,6 +59,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (9, MIGRATION_0009),
     (10, MIGRATION_0010),
     (11, MIGRATION_0011),
+    (12, MIGRATION_0012),
 ];
 
 fn store_err(context: &str, err: duckdb::Error) -> WhError {

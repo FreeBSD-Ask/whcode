@@ -513,6 +513,19 @@ taskkill /T /F 口径）（P1）
     Given `instructions`，Then 会话可取到且注入消息带“外部内容”标注
   - 证据：`cargo test -p whcode-mcp`（lib 21 项＋集成 8 项，含
     `resources_and_instructions_roundtrip` 与 `manager_projects_resource_tools_and_instructions`）
+- **FR-786**: 评审发现台账（P2.2／ADR-080）：`findings` 表（schema v12）保存发现四要件
+  （缺口／有界影响／最小修复／验证路线，均非空且 ≤2000 字符；标题 ≤200 字符）；状态封闭四态
+  `open`／`fixing`／`fixed`／`dismissed` 且有显式迁移表；严重度只三档；**修复乐观锁**——
+  每次迁移带期望版本，过期版本返回 `invalid_state`（消息含期望与实际），记录不存在返回
+  `not_found`；非法迁移在更新前拒绝且不消耗版本；库/命令层权限分别为 `SessionRead`（列表）与
+  `SessionCreate`（登记/迁移）；随工作区导出；模型工具面与前端入口属 P2.2b（P2）
+  - 依据：`research/synthesis/README.md` §2 R3；`research/synthesis/proposal.md` P0-5；
+    ADR-080；ADR-002／ADR-018（分层）
+  - 判据：Given 缺任一要件，Then `invalid_state` 且消息点名缺项；Given 过期版本迁移，
+    Then `invalid_state` 含“版本冲突”与两个版本号；Given 非法迁移（fixed→fixing），Then
+    被拒绝且版本不变；Given 无权限 actor，Then `permission_denied`
+  - 证据：`cargo test -p whcode-store findings`（5 项）、`cargo test -p whcode-app findings`
+    （4 项）、`cargo test -p whcode-store export`（含导出表完整性 9 项）
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

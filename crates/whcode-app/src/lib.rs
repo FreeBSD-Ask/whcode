@@ -36,6 +36,7 @@ pub mod compaction;
 pub mod context;
 pub mod deliverables;
 pub mod events;
+pub mod findings;
 pub mod fonts;
 pub mod gates;
 pub mod llm;
@@ -75,6 +76,9 @@ pub use context::{
 };
 pub use deliverables::{Deliverable, DeliverableView, list as list_deliverables};
 pub use events::{EventsExport, events_export};
+pub use findings::{
+    DEFAULT_FINDING_LIMIT, FindingDraft, list_finding_rows, move_finding, record_finding,
+};
 pub use gates::{ForceAdvance, TransitionContext, force_advance, request_transition};
 pub use llm::{
     LlmCancelOutcome, LlmChunkView, LlmContext, LlmRunOutcome, LlmRunRequest, ModelOption,

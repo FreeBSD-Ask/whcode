@@ -119,6 +119,15 @@
   `absent`（新建文件）；恢复必须预览→确认→审计（`preimage_restore`），审计失败即不执行
 - 导出：在 `EXPORT_TABLES`（有界的会话派生数据，导出后仍可恢复）
 
+### findings
+
+评审发现台账（P2.2／FR-786／ADR-080，schema v12）。四要件 `gap`／`impact`／`owner_fix`／
+`verification` 均 NOT NULL 且应用层校验非空与长度；`status ∈ {open,fixing,fixed,dismissed}`；
+`severity ∈ {low,medium,high}`；`version` 为修复乐观锁（迁移必须带期望版本，冲突不覆盖）；
+`fixed_at` 仅在 `fixed` 时落值；`session_id` 可空（跨会话发现无归属）。`id` 形如 `FND-<n>`
+（序列 `whcode_finding_id_seq`）。索引 `(status, created_at, id)`。随工作区导出
+（`EXPORT_TABLES` 13 张之一）。
+
 ### schema_migrations
 - 字段：`version, applied_at, checksum`
 - 约束：迁移可审计且不可重复误执行（§7.1）

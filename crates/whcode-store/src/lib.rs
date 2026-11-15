@@ -39,6 +39,7 @@ pub mod checkpoints;
 pub mod compact;
 pub mod directory;
 pub mod export;
+pub mod findings;
 pub mod fork;
 pub mod indexes;
 pub mod monitor;
@@ -82,6 +83,11 @@ pub use export::{
     EXCLUDED_TABLES, EXPORT_FORMAT, EXPORT_FORMAT_VERSION, EXPORT_TABLES, ExportFile,
     ExportManifest, ExportReport, ImportReport, ROWS_PER_CHUNK, export_workspace,
     has_any_workspace_data, import_workspace,
+};
+pub use findings::{
+    Finding, FindingSeverity, FindingStatus, MAX_FINDING_ROWS, MAX_FINDING_TEXT_CHARS,
+    MAX_FINDING_TITLE_CHARS, NewFinding, create_finding, get_finding, list_findings,
+    transition_finding,
 };
 pub use fork::{ForkOutcome, MAX_FORK_EVENTS, fork_session};
 pub use indexes::{

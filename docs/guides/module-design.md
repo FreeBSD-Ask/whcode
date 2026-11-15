@@ -88,7 +88,8 @@ TLS 的依赖落点是这条边界的特例（ADR-031／ADR-040）：**出站**�
   稳定全序游标分页；索引注册表与完整性检查；会话概览预聚合与重建；数据库监控与查询
   计划分析；会话归档、按时间清理与 TTL 及按 ID 删除（预览/确认/审计/活跃保护）；
   工作区导出/导入；compact（复制—校验—原子切换）与空间统计；WAL 阈值策略与
-  checkpoint 触发；会话目录与任务投影存储原语（ADR-018）；数据库冒烟。
+  checkpoint 触发；会话目录与任务投影存储原语（ADR-018）；评审发现台账（schema v12，
+  四要件＋修复乐观锁，P2.2／FR-786／ADR-080）；数据库冒烟。
 - **不负责**：业务规则、权限判定（属 app）。
 - **关键类型**：`WriterService`、`EventWriter`、`WriterConfig`、`WriteOutcome`、`Direction`、
   `EventCursor`/`MessageCursor`、`EventPage`/`MessagePage`、`REQUIRED_INDEXES`、

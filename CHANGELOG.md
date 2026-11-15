@@ -13,6 +13,17 @@
 
 ### 变更
 
+- **评审发现台账（T337—T339，P2.2，FR-786，ADR-080，2026-11-15）**：评审发现的缺口原先只活在
+  复盘文档与 Check 段落里，不可查询、不可加锁。新增 schema v12 的 `findings` 表与
+  `whcode-store::findings`／`whcode-app::findings` 命令：**四要件必填**（缺口／有界影响／
+  最小修复／验证路线，缺一即拒绝并点名缺项），状态封闭四态 `open`／`fixing`／`fixed`／
+  `dismissed` 且有显式迁移表，严重度只三档。**修复乐观锁**：每次状态迁移必须带期望版本，
+  `UPDATE ... WHERE version = ?` 命中 0 行时区分 `not_found` 与版本冲突（消息给出期望与实际
+  版本）；非法迁移在更新前拒绝，不消耗版本。`findings` 纳入工作区导出（13 张表）。
+  **模型工具面与前端入口属 P2.2b**，不在本批。顺带登记一处既有缺口：`approval_rules`
+  既不在 `EXPORT_TABLES` 也不在 `EXCLUDED_TABLES`，导出会丢审批规则——待单独确认。
+  测试：store 5 项＋export 9 项＋app 4 项。
+
 - **MCP resources 与 instructions（T333—T336，P6.2，FR-785，ADR-054 修订，2026-11-15）**：
   MCP 服务器声明 `capabilities.resources` 时，清单里多出两个合成工具
   `mcp__<server>__list_resources`／`__read_resource`——模型可按需列出并读取服务器发布的
