@@ -13,6 +13,15 @@
 
 ### 变更
 
+- **修复：`taskkill /T` 在整树终止途中子进程自行退出时报假失败（2026-11-15，ARM64 runner
+  实测）**：`whcode-platform` run `43659677134` 的 `platform-windows-arm64` 在
+  `configured_child_is_terminable_and_leaves_no_residue` 上红——`taskkill /T /F` 先杀父进程，
+  期间某子进程自行退出，taskkill 以 255 报 “There is no running instance of the task.”。
+  目标已不存在即已是目标状态，不能算失败：非零退出后用 `tasklist` 复核（不按错误文本匹配，
+  文本随系统语言变化），确认不存在即返回成功；“查不清”（`process_exists` 出错）仍报原错误。
+  同时给 Windows 分支补无效 PID 守卫（`0` 与 `> i32::MAX`），避免幂等判定把无效参数洗成成功。
+  新增回归用例 `terminate_tree_is_idempotent_when_target_already_gone`（两平台都跑）。
+
 - **LSP 四查询客户端（T323—T326，P5.3a，FR-782，ADR-078，2026-11-15）**：新增第 16 个成员
   crate `whcode-lsp`，把语言服务器的 definition／references／hover／诊断四个检索面接进库层。
   传输按 LSP 基础协议（`Content-Length` 必填、UTF-8、单条 1 MiB，超限显式报错不截断），

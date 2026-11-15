@@ -323,6 +323,16 @@ pub fn term_process_group(pid: u32) -> Result<(), whcode_domain::WhError> {
 pub fn terminate_tree(pid: u32) -> Result<(), whcode_domain::WhError> {
     #[cfg(target_os = "windows")]
     {
+        // 先挡住无效 PID：下文的“已不存在即成功”不能把无效参数洗成成功。
+        if pid == 0 || pid > i32::MAX as u32 {
+            return Err(whcode_domain::WhError::new(
+                whcode_domain::ErrorCode::IoError,
+                format!(
+                    "taskkill 参数非法：PID {pid} 超出有效范围 1..={}（PID 0 表示调用者自身进程组）",
+                    i32::MAX
+                ),
+            ));
+        }
         let mut command = std::process::Command::new("taskkill");
         configure_child_window(&mut command);
         let output = command
@@ -335,17 +345,24 @@ pub fn terminate_tree(pid: u32) -> Result<(), whcode_domain::WhError> {
                 )
             })?;
         if output.status.success() {
-            Ok(())
-        } else {
-            Err(whcode_domain::WhError::new(
-                whcode_domain::ErrorCode::IoError,
-                format!(
-                    "taskkill 非零退出：{}（stderr 尾部：{}）",
-                    output.status.code().unwrap_or(-1),
-                    String::from_utf8_lossy(&output.stderr)
-                ),
-            ))
+            return Ok(());
         }
+        // 幂等（2026-11-15，ARM64 runner 实测）：`taskkill /T` 先杀父进程，再逐个杀子进程；
+        // 期间若某子进程自行退出，taskkill 会以 255 报 “There is no running instance of the
+        // task.”——目标已不存在即已是目标状态，不能算失败。判定用 `tasklist` 复核，而不是
+        // 按错误文本匹配（文本随系统语言变化）。`process_exists` 自身出错时仍报原错误，
+        // 不把“查不清”当成“已不存在”。
+        if matches!(process_exists(pid), Ok(false)) {
+            return Ok(());
+        }
+        Err(whcode_domain::WhError::new(
+            whcode_domain::ErrorCode::IoError,
+            format!(
+                "taskkill 非零退出：{}（stderr 尾部：{}）",
+                output.status.code().unwrap_or(-1),
+                String::from_utf8_lossy(&output.stderr)
+            ),
+        ))
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -597,6 +614,23 @@ mod tests {
         assert_eq!(kill_group_args("TERM", 4321).join(" "), "-s TERM -- -4321");
         assert_eq!(kill_group_args("KILL", 4321).join(" "), "-s KILL -- -4321");
         assert_eq!(kill_group_args("0", 99).join(" "), "-s 0 -- -99");
+    }
+
+    /// 幂等回归（2026-11-15，ARM64 runner 实测 `taskkill` 255）：目标已不存在时，
+    /// 终止必须报成功——这正是“整树终止途中子进程自行退出”的真实竞态形态。
+    #[test]
+    fn terminate_tree_is_idempotent_when_target_already_gone() {
+        let mut command = sleep_command(30);
+        configure_child_process_group(&mut command);
+        let mut child = command.spawn().expect("配置进程组后启动");
+        let pid = child.id();
+        terminate_tree(pid).expect("首次终止必须成功");
+        let _ = child.wait();
+        assert!(
+            wait_until_gone(pid, std::time::Duration::from_secs(10)),
+            "首次终止后不得残留"
+        );
+        terminate_tree(pid).expect("目标已不存在时再次终止必须幂等成功");
     }
 
     /// 进程组目标校验（纯逻辑）：0（调用者自身进程组）与超出 `pid_t` 的值必须被拒绝。
