@@ -205,9 +205,13 @@ mod tests {
     }
 
     /// URI → 本机路径：解码空格与非 ASCII、去 `file://` 前缀。
+    ///
+    /// 断言与路径分隔符无关：FreeBSD 上本用例曾因硬编码 `\` 而红（run `43667118984`）。
+    /// 平台归一由 `whcode_platform::paths` 的测试负责，这里只验证解码与去前缀。
     #[test]
     fn uri_is_decoded_to_native_path() {
-        assert!(path_from_uri("file:///D:/a%20b/lib.rs").ends_with("a b\\lib.rs"));
+        let decoded = path_from_uri("file:///D:/a%20b/lib.rs").replace('\\', "/");
+        assert!(decoded.ends_with("a b/lib.rs"), "{decoded}");
         let unicode = percent_decode("%E7%9B%AE%E5%BD%95/x.rs");
         assert_eq!(unicode, "目录/x.rs");
         // 非法编码按字面保留（不 panic、不吞字符）。
@@ -226,7 +230,9 @@ mod tests {
             end_character: 9,
         };
         let view = location_view(&location);
-        assert!(view.path.ends_with("src\\lib.rs"), "{}", view.path);
+        // 分隔符归一后再断言（同上一个用例的理由）。
+        let normalized = view.path.replace('\\', "/");
+        assert!(normalized.ends_with("src/lib.rs"), "{normalized}");
         assert_eq!(view.line, 4);
         assert_eq!(view.end_character, 9);
     }

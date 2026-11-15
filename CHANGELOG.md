@@ -13,6 +13,13 @@
 
 ### 变更
 
+- **修复：FreeBSD 通道两条 `whcode-bin` 测试硬编码路径分隔符（2026-11-15，run `43667118984`
+  实测）**：`lsp_tool` 的两个用例断言 `ends_with("…\lib.rs")`，在 FreeBSD 上必然失败——本机
+  `cargo test` 全绿掩盖了它。改为把 `\` 归一成 `/` 后再断言；平台归一本身的验证仍留在
+  `whcode-platform` 的测试里。同批修正 CI 注解缺陷：BSD 结论注解原以 `*-store.txt` 通配读取，
+  会把仓库里入库的旧平台证据（`netbsd-store.txt`）也读进来，让 freebsd job 出现与本轮无关的
+  “features.h NO-GO” 注解（本轮 `freebsd-store.txt` 实为 GO）——改为只读 `${platform}-*.txt`。
+
 - **LSP 四查询的模型工具面（T327—T330，P5.3b，FR-783，ADR-078，2026-11-15）**：四个只读工具
   `lsp_definition`／`lsp_references`／`lsp_hover`／`lsp_diagnostics` 让模型直接查“符号在哪
   定义、谁在引用、悬停说明、文件诊断”。位置参数对外是 **1 基**（`0` 显式拒绝），进执行器前转
