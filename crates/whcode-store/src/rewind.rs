@@ -163,7 +163,7 @@ mod tests {
             ("S-1", 1, "user", ErrorCode::NotFound, "无事件"),
         ] {
             let err = record_rewind(&conn, session, target, by).expect_err(why);
-            assert_eq!(err.code, code, "{why}: {}", err.message);
+            assert_eq!(err.code, code, "{why}");
         }
 
         // 1 为 turn 边界、2 为缺口、3 为半截 turn、4 为末尾。
@@ -171,11 +171,20 @@ mod tests {
         insert_event(&conn, 3, "UserMessage");
         insert_event(&conn, 4, "TurnFinished");
         let err = record_rewind(&conn, "S-1", 4, "user").expect_err("回退到末尾");
-        assert!(err.message.contains("不早于当前末尾"), "{}", err.message);
+        assert!(
+            err.message.contains("不早于当前末尾"),
+            "回退到末尾必须显式拒绝"
+        );
         let err = record_rewind(&conn, "S-1", 3, "user").expect_err("半截 turn");
-        assert!(err.message.contains("TurnFinished"), "{}", err.message);
+        assert!(
+            err.message.contains("TurnFinished"),
+            "半截 turn 必须显式拒绝"
+        );
         let err = record_rewind(&conn, "S-1", 2, "user").expect_err("序号缺口");
-        assert!(err.message.contains("不在本会话事件中"), "{}", err.message);
+        assert!(
+            err.message.contains("不在本会话事件中"),
+            "序号缺口必须显式拒绝"
+        );
 
         // 合法边界：写入 SessionRewound 且可读回；无记录的会话返回正确的空。
         let (seq, id) = record_rewind(&conn, "S-1", 1, "model").expect("回退到 1");
