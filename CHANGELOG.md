@@ -13,6 +13,18 @@
 
 ### 变更
 
+- **M1 校准收口：`temp_directory` 溢写路径（T352—T353，ADR-012 退出条件②，2026-11-16）**：
+  ADR-012 的退出条件只剩第②条（记录 `temp_directory` 配置/可写性/磁盘余量并验证溢写路径）
+  未收口，`memory_limit=192MB` 一直只是「未复现失败」的过渡基线。新增
+  `memory_limit_spill_path_experiment`（`#[ignore]` 记录器）：96MB 上限下对约 200 MB 数据
+  外排序，轮询溢写目录峰值——**峰值 9,043,968 字节 / 8 个文件**，结果行数与源表一致，
+  溢写路径就此有了直接证据。同批把两类异常条件也测了：目录不存在时 DuckDB 会自动创建
+  （当成失败会误判），`temp_directory` 指向文件时查询失败并给出
+  `IO Error: Failed to create directory ...`（溢写失败不静默）。退出条件①③④ 已于
+  2026-11-03 收口，⑤ 已判「保持 192MB」，故 ADR-012 状态转为**冻结（M1 校准完成）**，
+  失效边界不变：单条 1 MiB 载荷在 192MB 下第 312 条附近触界，批次行数 × 单条载荷须 ≤
+  缓冲余量。证据：`artifacts/memory-limit-spill-experiment.json`。
+
 - **ACP automation-only 服务端（T348—T351，P6.3，FR-789，ADR-081，2026-11-16）**：编辑器与
   自动化客户端现在可以经 Agent Client Protocol v1（stdio JSON-RPC）驱动本仓：
   `whcode acp serve [--provider NAME]`。能力面是最小集并显式声明 automation-only

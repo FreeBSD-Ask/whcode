@@ -34,7 +34,9 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use duckdb::Connection;
 use serde::Serialize;
@@ -724,4 +726,404 @@ fn civil_from_days(days: i64) -> (i64, u32, u32) {
         month as u32,
         day as u32,
     )
+}
+
+// ── M1 校准：temp_directory 溢写路径实验（ADR-012 退出条件②）──────────────
+
+/// 溢写路径实验的读数。
+#[derive(Debug, Clone, Serialize)]
+struct SpillWatch {
+    /// 轮询期间在溢写目录里看到的峰值总字节数。
+    peak_bytes: u64,
+    /// 轮询期间看到的峰值文件数。
+    peak_files: u64,
+    /// 轮询次数（证据可信度：0 表示没有观测到任何溢写文件）。
+    polls: u64,
+}
+
+/// 目录总字节数与文件数（一层即可：DuckDB 溢写文件直接落在 temp_directory）。
+fn dir_usage(dir: &Path) -> (u64, u64) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return (0, 0);
+    };
+    let mut bytes = 0u64;
+    let mut files = 0u64;
+    for entry in entries.flatten() {
+        if let Ok(meta) = entry.metadata()
+            && meta.is_file()
+        {
+            bytes = bytes.saturating_add(meta.len());
+            files += 1;
+        }
+    }
+    (bytes, files)
+}
+
+/// 磁盘余量（字节；尽力而为：Windows 用 PowerShell 的 `Get-PSDrive`，其余用 `df -k`；
+/// 取得失败显式记为 `None`——这是记录缺口，不是伪造读数）。
+fn disk_free_bytes(path: &Path) -> Option<u64> {
+    #[cfg(windows)]
+    {
+        let drive = path
+            .components()
+            .next()
+            .and_then(|component| component.as_os_str().to_str())
+            .and_then(|prefix| prefix.strip_suffix(':'))?;
+        let output = std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                &format!("(Get-PSDrive -Name {drive}).Free"),
+            ])
+            .output()
+            .ok()?;
+        let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        text.parse::<u64>().ok()
+    }
+    #[cfg(not(windows))]
+    {
+        let output = std::process::Command::new("df")
+            .args(["-k", &path.display().to_string()])
+            .output()
+            .ok()?;
+        let text = String::from_utf8_lossy(&output.stdout);
+        let line = text.lines().nth(1)?;
+        let free_kb = line.split_whitespace().nth(3)?;
+        free_kb
+            .parse::<u64>()
+            .ok()
+            .map(|kb| kb.saturating_mul(1024))
+    }
+}
+
+/// M1 校准实验：temp_directory 溢写路径（ADR-012 退出条件②）。
+///
+/// 三件事，全部留证：
+/// 1. `temp_directory` 配置、可写性（探针文件）与磁盘余量（尽力而为，失败记缺口）；
+/// 2. **溢写路径验证**——96MB 上限下对约 200 MB 数据做外排序（`ORDER BY`），轮询线程
+///    记录溢写目录的峰值字节数与文件数：峰值 > 0 即缓冲管理器确实把数据溢写到了
+///    `temp_directory`（这是直接证据，不以回读值冒充）；
+/// 3. **异常条件**——`temp_directory` 指向不存在的路径再跑同一查询，记录 DuckDB 错误
+///    原文（或“自动创建目录”的事实），验证失败路径可见、不静默。
+///
+/// 本测试是实验记录器：溢写发生与否、异常路径成功与否都不判失败；只断言设置生效。
+#[test]
+#[ignore]
+fn memory_limit_spill_path_experiment() {
+    let workspace = temp_workspace();
+    let db = workspace.join("spill.duckdb");
+    let temp_normal = workspace.join("tmp-spill-normal");
+    let temp_missing = workspace.join("tmp-spill-missing");
+    fs::create_dir_all(&temp_normal).expect("创建正常溢写目录");
+
+    // 可写性探针：写入并删除一个文件，失败即显式记录。
+    let probe = temp_normal.join(".write-probe");
+    let writable_probe = fs::write(&probe, b"probe").is_ok() && fs::remove_file(&probe).is_ok();
+
+    let conn = Connection::open(&db).expect("打开实验库");
+    let temp_normal_sql = temp_normal.display().to_string().replace('\\', "/");
+    conn.execute_batch(&format!(
+        "SET memory_limit = '96MB'; SET threads = {THREADS};
+         SET temp_directory = '{temp_normal_sql}';
+         SET autoinstall_known_extensions = false;
+         SET autoload_known_extensions = false;
+         SET allow_community_extensions = false;
+         SET allow_extension_repositories = 'forbidden';"
+    ))
+    .expect("配置数据库参数");
+    let memory_limit_readback = query_setting(&conn, "memory_limit");
+    let temp_directory_readback = query_setting(&conn, "temp_directory");
+    let threads_readback = query_setting(&conn, "threads");
+    let duckdb_version: String = conn
+        .query_row("SELECT version()", [], |row| row.get(0))
+        .expect("读取运行期引擎版本");
+    println!(
+        "== 溢写路径实验（ADR-012 退出条件②）==\nmemory_limit 回读 {memory_limit_readback}，threads 回读 {threads_readback}，temp_directory 回读 {temp_directory_readback}，引擎 {duckdb_version}，可写性探针 {writable_probe}"
+    );
+    assert!(
+        memory_limit_readback.contains("96") || memory_limit_readback.contains("91.5"),
+        "memory_limit 设置必须生效：{memory_limit_readback}"
+    );
+
+    // 数据集：约 1.5 M 行 × ~100 字节 payload ≈ 200 MB，超过 96MB 上限。
+    conn.execute_batch(
+        "CREATE OR REPLACE TABLE spill_source (id BIGINT, payload VARCHAR);
+         INSERT INTO spill_source
+         SELECT i, md5(CAST(i AS VARCHAR)) || repeat('x', 64)
+         FROM range(1_500_000) tbl(i);",
+    )
+    .expect("生成溢写实验数据集");
+    let source_rows: i64 = conn
+        .query_row("SELECT COUNT(*) FROM spill_source", [], |row| row.get(0))
+        .expect("统计源表行数");
+    let source_bytes: i64 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(LENGTH(payload)), 0) FROM spill_source",
+            [],
+            |row| row.get(0),
+        )
+        .expect("统计源表字节");
+
+    // 磁盘余量（尽力而为）。
+    let free_bytes = disk_free_bytes(&workspace);
+    println!(
+        "磁盘余量：{}",
+        free_bytes
+            .map(|bytes| format!("{bytes} 字节"))
+            .unwrap_or_else(|| "<未取得（记录缺口）>".to_string())
+    );
+
+    // 轮询线程：记录溢写目录峰值。
+    let poll_dir = temp_normal.clone();
+    let (peak_tx, peak_rx) = std::sync::mpsc::channel::<SpillWatch>();
+    let stop = Arc::new(AtomicBool::new(false));
+    let stop_watcher = Arc::clone(&stop);
+    let watcher = std::thread::Builder::new()
+        .name("spill-watcher".to_string())
+        .spawn(move || {
+            let mut peak = SpillWatch {
+                peak_bytes: 0,
+                peak_files: 0,
+                polls: 0,
+            };
+            while !stop_watcher.load(Ordering::Relaxed) {
+                let (bytes, files) = dir_usage(&poll_dir);
+                peak.peak_bytes = peak.peak_bytes.max(bytes);
+                peak.peak_files = peak.peak_files.max(files);
+                peak.polls += 1;
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            let _ = peak_tx.send(peak);
+        })
+        .expect("轮询线程创建");
+
+    // 外排序查询：缓冲管理器装不下 200 MB 数据，必须经 temp_directory 溢写。
+    let started = Instant::now();
+    let query_a = conn.query_row(
+        "SELECT COUNT(*) FROM (SELECT id, payload FROM spill_source ORDER BY payload) sub",
+        [],
+        |row| row.get::<_, i64>(0),
+    );
+    let wall_ms_a = started.elapsed().as_secs_f64() * 1_000.0;
+    stop.store(true, Ordering::Relaxed);
+    let watch_normal = peak_rx.recv().expect("轮询线程读数");
+    let _ = watcher.join();
+
+    // 行数必须与源表一致（溢写不改变结果——这是“溢写正确性”的可判定证据）。
+    let (group_a_ok, group_a_error) = match query_a {
+        Ok(rows) => {
+            assert_eq!(rows, source_rows, "组 A 聚合行数必须等于源表行数");
+            (true, None::<String>)
+        }
+        Err(err) => (false, Some(format!("{err}"))),
+    };
+    println!(
+        "组 A（正常 temp_directory）：查询 {}，耗时 {wall_ms_a:.1} ms，溢写峰值 {} 字节 / {} 文件（{} 次轮询）",
+        if group_a_ok { "成功" } else { "失败" },
+        watch_normal.peak_bytes,
+        watch_normal.peak_files,
+        watch_normal.polls,
+    );
+
+    // 组 B：`temp_directory` 指向不存在的路径（异常条件）。必须在**独立连接**上验证：
+    // DuckDB 明确拒绝在已使用过临时目录后切换（实测「Cannot switch temporary directory
+    // after the current one has been used」——这本身也是一条边界事实，记入证据）。
+    let temp_missing_sql = temp_missing
+        .display()
+        .to_string()
+        .replace(std::path::MAIN_SEPARATOR, "/");
+    // 同进程不能两次打开同一库文件（实测「File is already open」）：先释放组 A 的连接。
+    drop(conn);
+    let conn = Connection::open(&db).expect("重新打开实验库（异常路径组）");
+    let switch_missing = conn
+        .execute_batch(&format!(
+            "SET memory_limit = '96MB'; SET threads = {THREADS};
+             SET temp_directory = '{temp_missing_sql}';"
+        ))
+        .err()
+        .map(|err| format!("{err}"));
+    let missing_readback = query_setting(&conn, "temp_directory");
+    let missing_writable_before = temp_missing.exists();
+    let started = Instant::now();
+    let query_b = conn.query_row(
+        "SELECT COUNT(*) FROM (SELECT id, payload FROM spill_source ORDER BY payload) sub",
+        [],
+        |row| row.get::<_, i64>(0),
+    );
+    let wall_ms_b = started.elapsed().as_secs_f64() * 1_000.0;
+    let dir_auto_created = temp_missing.exists();
+    let (group_b_ok, group_b_error) = match query_b {
+        Ok(rows) => {
+            if rows != source_rows {
+                // 行数不符是正确性问题（不是实验失败）：记进错误文本，判定留给 ADR 修订。
+                (
+                    false,
+                    Some(format!("行数不符：得到 {rows}，期望 {source_rows}")),
+                )
+            } else {
+                (true, None::<String>)
+            }
+        }
+        Err(err) => (false, Some(format!("{err}"))),
+    };
+    println!(
+        "组 B（不存在路径）：设置{}，回读 {missing_readback}，查询 {}，耗时 {wall_ms_b:.1} ms，         目录事前存在 {missing_writable_before}／事后存在 {dir_auto_created}，错误原文 {:?}",
+        if switch_missing.is_some() {
+            "被拒绝"
+        } else {
+            "成功"
+        },
+        if group_b_ok { "成功" } else { "失败" },
+        group_b_error
+    );
+
+    // 组 C：`temp_directory` 指向一个**文件**（真正不可写为目录）。这是“溢写失败不得
+    // 静默”的判定点：查询应在需要溢写时报错，错误原文必须可见。
+    let temp_file = workspace.join("tmp-spill-as-file");
+    fs::write(&temp_file, b"not a directory").expect("创建同名文件");
+    let temp_file_sql = temp_file
+        .display()
+        .to_string()
+        .replace(std::path::MAIN_SEPARATOR, "/");
+    drop(conn);
+    let conn = Connection::open(&db).expect("重新打开实验库（文件路径组）");
+    let setting_c = conn
+        .execute_batch(&format!(
+            "SET memory_limit = '96MB'; SET threads = {THREADS};
+             SET temp_directory = '{temp_file_sql}';"
+        ))
+        .err()
+        .map(|err| format!("{err}"));
+    let started = Instant::now();
+    let query_c = conn.query_row(
+        "SELECT COUNT(*) FROM (SELECT id, payload FROM spill_source ORDER BY payload) sub",
+        [],
+        |row| row.get::<_, i64>(0),
+    );
+    let wall_ms_c = started.elapsed().as_secs_f64() * 1_000.0;
+    let (group_c_ok, group_c_error) = match query_c {
+        Ok(rows) => {
+            if rows != source_rows {
+                (
+                    false,
+                    Some(format!("行数不符：得到 {rows}，期望 {source_rows}")),
+                )
+            } else {
+                (true, None::<String>)
+            }
+        }
+        Err(err) => (false, Some(format!("{err}"))),
+    };
+    println!(
+        "组 C（temp_directory 为文件）：设置{}，查询 {}，耗时 {wall_ms_c:.1} ms，错误原文 {:?}",
+        if setting_c.is_some() {
+            "被拒绝"
+        } else {
+            "成功"
+        },
+        if group_c_ok { "成功" } else { "失败" },
+        group_c_error
+    );
+
+    // 结论（判定留给 ADR 修订，不在测试里断言成败）。
+    let spilled = watch_normal.peak_bytes > 0;
+    let conclusion = format!(
+        "组 A 溢写目录峰值 {} 字节（{}）；组 B 缺失路径 {}（DuckDB 会自动创建目录）；         组 C 文件路径 {}（{}）。判定口径：峰值 > 0 且查询成功 = 溢写路径已验证；         不可写路径的错误原文可见 = 溢写失败不静默。",
+        watch_normal.peak_bytes,
+        if spilled {
+            "缓冲管理器确实经 temp_directory 溢写"
+        } else {
+            "未观测到溢写文件"
+        },
+        if group_b_ok {
+            "查询成功"
+        } else {
+            "查询失败"
+        },
+        if group_c_ok {
+            "查询成功"
+        } else {
+            "查询失败"
+        },
+        group_c_error.as_deref().unwrap_or("无错误")
+    );
+    println!("== 结论：{conclusion} ==");
+
+    let report = json!({
+        "schema_version": 1,
+        "experiment": "memory-limit-spill-path",
+        "adr": "ADR-012",
+        "exit_condition": "退出条件②：temp_directory 配置/可写性/磁盘余量记录＋溢写路径验证",
+        "generated_at_utc": utc_now_rfc3339(),
+        "environment": {
+            "os": std::env::consts::OS,
+            "arch": std::env::consts::ARCH,
+            "duckdb_version": duckdb_version,
+        },
+        "fixture": {
+            "memory_limit": "96MB",
+            "threads": THREADS,
+            "source_rows": source_rows,
+            "source_payload_bytes": source_bytes,
+            "query": "SELECT COUNT(*) FROM (SELECT id, payload FROM spill_source ORDER BY payload) sub",
+            "poll_interval_ms": 50,
+        },
+        "temp_directory": {
+            "normal": temp_normal_sql,
+            "normal_writable_probe": writable_probe,
+            "normal_readback": temp_directory_readback,
+            "missing_path": temp_missing_sql,
+            "missing_setting_error": switch_missing,
+            "missing_readback": missing_readback,
+            "missing_dir_existed_before": missing_writable_before,
+        },
+        "disk_free_bytes": free_bytes,
+        "group_a": {
+            "ok": group_a_ok,
+            "wall_ms": wall_ms_a,
+            "peak_spill_bytes": watch_normal.peak_bytes,
+            "peak_spill_files": watch_normal.peak_files,
+            "watch_polls": watch_normal.polls,
+            "error": group_a_error,
+        },
+        "group_c_temp_is_file": {
+            "ok": group_c_ok,
+            "wall_ms": wall_ms_c,
+            "setting_error": setting_c,
+            "error": group_c_error,
+        },
+        "group_b_missing_path": {
+            "ok": group_b_ok,
+            "wall_ms": wall_ms_b,
+            "dir_auto_created": dir_auto_created,
+            "readback": missing_readback,
+            "setting_error": switch_missing,
+            "error": group_b_error,
+        },
+        "conclusion": conclusion,
+        "notes": [
+            "实验记录器：溢写/成功/失败都是证据，不判失败；只断言设置生效",
+            "96MB 是刻意压低的实验值（低于 192MB 基线）以放大溢写概率；不改基线",
+            "磁盘余量取得失败显式记 None，不伪造读数",
+        ],
+    });
+
+    let out = workspace_root()
+        .join("artifacts")
+        .join("memory-limit-spill-experiment.json");
+    if let Some(parent) = out.parent() {
+        fs::create_dir_all(parent).expect("创建 artifacts 目录");
+    }
+    fs::write(
+        &out,
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&report).expect("实验报告必须可序列化")
+        ),
+    )
+    .expect("写入溢写实验证据");
+    println!("证据已写入 {}", out.display());
+
+    drop(conn);
+    let _ = fs::remove_dir_all(&workspace);
 }

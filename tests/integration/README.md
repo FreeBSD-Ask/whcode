@@ -30,8 +30,11 @@
   结果写 `artifacts/writer-service-stress.json`；由 stability workflow 驱动。
 - `test_query_plan.rs`（`query_plan`）——索引与查询计划基准（T036、§7.2），含 VARIANT 用例，
   报告写 `artifacts/query-plan-report.json`；由 stability workflow 驱动。
-- `test_memory_limit.rs`（`memory_limit`）——DuckDB `memory_limit` 边界实验（ADR-012），
-  128／192／384／1024 MB × 2000／20000 条；由 stability workflow 驱动。
+- `test_memory_limit.rs`（`memory_limit`）——DuckDB `memory_limit` 边界实验（ADR-012）：
+  ①基线组（128／192／384／1024 MB × 2000／20000 条，stability workflow 驱动）；
+  ②大载荷组（1 MiB × 512 条，2026-11-03）；③**溢写路径组**（96MB × 1.5M 行外排序，
+  `temp_directory` 峰值轮询＋缺失/不可写路径，2026-11-16 M1 校准收口，结果写
+  `artifacts/memory-limit-spill-experiment.json`）。
 
 夹具生成器（非验收断言）：
 

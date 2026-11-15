@@ -1,0 +1,58 @@
+{
+  "adr": "ADR-012",
+  "conclusion": "组 A 溢写目录峰值 60030976 字节（缓冲管理器确实经 temp_directory 溢写）；组 B 缺失路径 查询成功（DuckDB 会自动创建目录）；         组 C 文件路径 查询失败（IO Error: Failed to create directory \"C:\\Users\\ykla\\AppData\\Local\\Temp\\whcode-memory-limit-19744-2026-11-15-19-49-36--0\\tmp-spill-as-file\": 当文件已存在时，无法创建该文件。\r\n）。判定口径：峰值 > 0 且查询成功 = 溢写路径已验证；         不可写路径的错误原文可见 = 溢写失败不静默。",
+  "disk_free_bytes": 171815219200,
+  "environment": {
+    "arch": "x86_64",
+    "duckdb_version": "v2.0.0",
+    "os": "windows"
+  },
+  "exit_condition": "退出条件②：temp_directory 配置/可写性/磁盘余量记录＋溢写路径验证",
+  "experiment": "memory-limit-spill-path",
+  "fixture": {
+    "memory_limit": "96MB",
+    "poll_interval_ms": 50,
+    "query": "SELECT COUNT(*) FROM (SELECT id, payload FROM spill_source ORDER BY payload) sub",
+    "source_payload_bytes": 144000000,
+    "source_rows": 1500000,
+    "threads": 4
+  },
+  "generated_at_utc": "2026-11-15T19:49:39Z",
+  "group_a": {
+    "error": null,
+    "ok": true,
+    "peak_spill_bytes": 60030976,
+    "peak_spill_files": 8,
+    "wall_ms": 502.7781,
+    "watch_polls": 10
+  },
+  "group_b_missing_path": {
+    "dir_auto_created": true,
+    "error": null,
+    "ok": true,
+    "readback": "C:/Users/ykla/AppData/Local/Temp/whcode-memory-limit-19744-2026-11-15-19-49-36--0/tmp-spill-missing",
+    "setting_error": null,
+    "wall_ms": 487.437
+  },
+  "group_c_temp_is_file": {
+    "error": "IO Error: Failed to create directory \"C:\\Users\\ykla\\AppData\\Local\\Temp\\whcode-memory-limit-19744-2026-11-15-19-49-36--0\\tmp-spill-as-file\": 当文件已存在时，无法创建该文件。\r\n",
+    "ok": false,
+    "setting_error": null,
+    "wall_ms": 39.3291
+  },
+  "notes": [
+    "实验记录器：溢写/成功/失败都是证据，不判失败；只断言设置生效",
+    "96MB 是刻意压低的实验值（低于 192MB 基线）以放大溢写概率；不改基线",
+    "磁盘余量取得失败显式记 None，不伪造读数"
+  ],
+  "schema_version": 1,
+  "temp_directory": {
+    "missing_dir_existed_before": false,
+    "missing_path": "C:/Users/ykla/AppData/Local/Temp/whcode-memory-limit-19744-2026-11-15-19-49-36--0/tmp-spill-missing",
+    "missing_readback": "C:/Users/ykla/AppData/Local/Temp/whcode-memory-limit-19744-2026-11-15-19-49-36--0/tmp-spill-missing",
+    "missing_setting_error": null,
+    "normal": "C:/Users/ykla/AppData/Local/Temp/whcode-memory-limit-19744-2026-11-15-19-49-36--0/tmp-spill-normal",
+    "normal_readback": "C:/Users/ykla/AppData/Local/Temp/whcode-memory-limit-19744-2026-11-15-19-49-36--0/tmp-spill-normal",
+    "normal_writable_probe": true
+  }
+}

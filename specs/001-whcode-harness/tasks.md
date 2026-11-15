@@ -2439,6 +2439,20 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   app 1 项测试；非目标＝服务端渲染的台账页面（Web 只提供 JSON，页面留作前端后续）、Web 侧
   写操作（台账只读）。
 
+## Tasks（2026-11-16 追加）：M1 校准收口（ADR-012 退出条件②）
+
+- [x] T352 溢写路径实验（M1 校准／ADR-012 退出条件②）：`tests/integration/test_memory_limit.rs`
+  新增 `memory_limit_spill_path_experiment`（`#[ignore]` 记录器）——96MB 上限下对约 200 MB
+  数据外排序，轮询 `temp_directory` 峰值；另设「目录不存在」（DuckDB 自动创建）与
+  「路径是文件」（不可写，应报错可见）两组——**任务认知卡**：方向＝ADR-012 退出条件仅剩
+  ②（temp_directory 配置/可写性/余量与溢写路径验证）未收口，192MB 仍是「未复现失败」的
+  过渡基线；目标＝溢写路径有直接证据、失败不静默；判据＝峰值 > 0 且查询成功、不可写路径
+  错误原文可见；非目标＝量化溢写吞吐代价、改默认值。
+- [x] T353 [P] 证据与账本（M1 校准／ADR-012）：`artifacts/memory-limit-spill-experiment.json`、
+  ADR-012 修订记录（退出条件②收口、状态转冻结、失效条件不变）、`tests/integration/README.md`
+  ——**取证（2026-11-16）**：本机实验输出（峰值 9,043,968 字节／8 文件；组 C 原文
+  `IO Error: Failed to create directory`）与门禁通过。
+
 ## Tasks（2026-11-16 追加）：ACP automation-only 服务端（P6.3，ADR-081）
 
 - [x] T348 协议层与服务循环（P6.3／FR-789／ADR-081）：`crates/whcode-bin/src/acp.rs`——

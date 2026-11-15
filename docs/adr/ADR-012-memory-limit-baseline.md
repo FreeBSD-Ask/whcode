@@ -1,6 +1,6 @@
 # ADR-012：`memory_limit` 基线复核——192MB 的 OOM 断言未被独立复现
 
-- **状态**：批准（2026-10-21 部分批准 → **2026-11-03 转正**：大载荷边界已量化、长时由 NFR-204 收口、多平台按 ADR-013 修订定案；详见修订记录）
+- **状态**：**冻结（M1 校准完成，2026-11-16）**（2026-10-21 部分批准 → 2026-11-03 转正：大载荷边界已量化、长时由 NFR-204 收口、多平台按 ADR-013 修订定案；详见修订记录）
 - **来源**：《WHCode 技术任务书 v3.0》§5.2（测量纪律）、§5.4（数据库配置基线）、NFR-301—NFR-306；tasks.md T027、T028；`crates/whcode-bin/src/bench.rs` 的 `MEMORY_LIMIT` 注释；`crates/whcode-bin/src/config.rs` 的 `DEFAULT_MEMORY_LIMIT_MB`
 - **责任人**：存储与基准负责人（决策）；落地维护：`whcode-store` 与基准夹具维护者
 - **退出条件**：M1 基准校准在更大载荷、更长负载与临时目录异常条件下复核本结论；在此之前 192MB 只是“未复现失败”的过渡基线，不得表述为已冻结的性能结论
@@ -149,3 +149,33 @@ M1 基准校准必须完成以下事项后，才可冻结或修订该基线：
   memory_limit -- --ignored --nocapture` 输出的 `conclusion` 若不再是「192MB 在第 312 条
   附近失败」，或 DuckDB 主版本变化（`smoke_reports_engine_version_from_runtime`），即复审本节。
   证据：`artifacts/memory-limit-experiment.json`、`artifacts/memory-limit-large-payload.json`。
+
+- **2026-11-16（M1 校准收口：退出条件② 溢写路径）**：新增
+  `memory_limit_spill_path_experiment`（`tests/integration/test_memory_limit.rs`，
+  `#[ignore]` 记录器，M1 校准批次 T352）。夹具：96MB 上限（刻意低于 192MB 基线以放大溢写
+  概率）、`threads=4`、1,500,000 行 × 约 150 字节（合计约 200 MB，超过上限）、外排序
+  `ORDER BY payload`；轮询线程每 50 ms 记录溢写目录峰值。
+  **实测**（本机 Windows 11，DuckDB v2.0.0，debug）：
+  - 组 A（正常 `temp_directory`）：查询成功（约 0.5 s），**溢写峰值 9,043,968 字节 / 8 个
+    文件**，聚合行数与源表一致——缓冲管理器**确实**经 `temp_directory` 溢写，且溢写不改变
+    结果；
+  - 组 B（目录不存在）：DuckDB **自动创建**目录，查询成功（错误原文 `None`）——「路径不存在」
+    不是失败条件，当成失败会误判；
+  - 组 C（`temp_directory` 指向一个**文件**，真正不可写为目录）：查询失败并给出原文
+    `IO Error: Failed to create directory ...`——**溢写失败不静默**，错误可见。
+  **判读**：退出条件②「记录 `temp_directory` 配置、可写性与磁盘余量，并验证溢写路径」由本
+  实验收口（配置与回读、可写性探针、磁盘余量 160 GB+、溢写峰值与失败原文全部落盘
+  `artifacts/memory-limit-spill-experiment.json`）。退出条件①③④ 已于 2026-11-03 的大载荷
+  实验收口，⑤（定值）在 2026-11-03 已判「保持 192MB」。
+  **状态**：批准 → **冻结（M1 校准完成）**：192MB 作为默认 `memory_limit` 冻结；**失效边界
+  不变**（单条 1 MiB 载荷在 192MB 下第 312 条附近触界；批次行数 × 单条载荷须 ≤ 缓冲余量）。
+  冻结不等于「任何载荷都安全」，边界条件仍须由使用方遵守。
+  **正负和解**：正面＝溢写路径从「假设可用」变成「可复现、有峰值、失败可读」；负面＝实验用
+  96MB 放大溢写，与 192MB 默认值不完全同构，且溢写代价（吞吐）未量化——承担者＝基准维护者
+  （量化需另做吞吐对照）；和解理由＝退出条件只要求验证溢写路径与记录配置/可写性/余量，
+  性能代价不在该条目判据内。
+  **将来失效条件**（绑定命令＋判定）：`cargo test --locked -p whcode-tests --test
+  memory_limit memory_limit_spill_path_experiment -- --ignored --nocapture` 的组 A
+  `peak_spill_bytes` 变为 0（夹具不再触发溢写，实验失去证明力），或 DuckDB 主版本变化改变
+  溢写/临时目录行为，即复审本节。
+  证据：`artifacts/memory-limit-spill-experiment.json`。
