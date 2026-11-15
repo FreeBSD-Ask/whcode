@@ -662,6 +662,126 @@ mod tests {
         );
     }
 
+    /// 剩余拒绝分支：控制字符、失败标记越界与未认领、统计漂移、待投递上限。
+    #[test]
+    fn remaining_rejections_and_drift_are_explicit() {
+        let conn = fixture();
+        assert_eq!(
+            idempotency_key("ci", "EV\u{7}").expect_err("控制字符").code,
+            ErrorCode::InvalidState
+        );
+        assert_eq!(
+            mark_failed(&conn, "ci:EV-1", Some(500), "网络中断", false, 0)
+                .expect_err("max_attempts=0")
+                .code,
+            ErrorCode::InvalidState
+        );
+        assert_eq!(
+            mark_failed(&conn, "ci:EV-404", None, "网络中断", false, 3)
+                .expect_err("未认领")
+                .code,
+            ErrorCode::NotFound
+        );
+
+        // 错误文本按字符边界截断到 MAX_ERROR_CHARS（多字节字符不切坏）。
+        claim_delivery(&conn, "ci", "EV-1", 1, 3)
+            .expect("认领")
+            .expect("首次");
+        let long_error = "错".repeat(MAX_ERROR_CHARS + 20);
+        let record = mark_failed(&conn, "ci:EV-1", Some(503), &long_error, false, 3).expect("失败");
+        let text = record.last_error.expect("错误文本");
+        assert_eq!(text.chars().count(), MAX_ERROR_CHARS);
+        assert!(text.starts_with('错'));
+
+        // 待投递查询的四类越界。
+        let kinds = vec!["TurnFinished".to_string()];
+        let too_many: Vec<String> = (0..=MAX_EVENT_KINDS)
+            .map(|_| "TurnFinished".into())
+            .collect();
+        for (err, why) in [
+            (
+                pending_events(&conn, "ci", &too_many, 10, 3).expect_err("类型超限"),
+                "类型超限",
+            ),
+            (
+                pending_events(&conn, "ci", &kinds, 10, 0).expect_err("次数越界"),
+                "次数越界",
+            ),
+            (
+                pending_events(&conn, "ci", &kinds, MAX_DELIVERY_ROWS + 1, 3)
+                    .expect_err("limit 超限"),
+                "limit 超限",
+            ),
+            (
+                pending_events(&conn, "  ", &kinds, 10, 3).expect_err("端点为空"),
+                "端点为空",
+            ),
+        ] {
+            assert_eq!(err.code, ErrorCode::InvalidState, "{why}: {}", err.message);
+        }
+
+        // 列表上限夹取：超过上限不报错，按上限执行。
+        assert!(
+            list_deliveries(&conn, None, MAX_DELIVERY_ROWS + 100)
+                .expect("夹取")
+                .len()
+                <= MAX_DELIVERY_ROWS
+        );
+
+        // 统计遇到漂移状态必须显式报错（与列表同口径）。
+        conn.execute(
+            "INSERT INTO webhook_deliveries
+                 (idempotency_key, endpoint, event_id, event_seq, status, attempts)
+             VALUES ('ci:EV-9', 'ci', 'EV-9', 9, 'unknown', 1)",
+            [],
+        )
+        .expect("插入漂移行");
+        let err = count_by_status(&conn).expect_err("漂移状态必须报错");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        assert!(err.message.contains("unknown"), "{}", err.message);
+    }
+
+    /// 存储失败必须显式 `IoError`（不静默零／空）：表不可用时每个入口都报错。
+    #[test]
+    fn storage_failure_is_explicit_io_error() {
+        let conn = fixture();
+        conn.execute("DROP TABLE webhook_deliveries", [])
+            .expect("删表模拟存储不可用");
+        let kinds = vec!["TurnFinished".to_string()];
+        let checks: Vec<(WhError, &str)> = vec![
+            (
+                claim_delivery(&conn, "ci", "EV-1", 1, 3).expect_err("认领"),
+                "认领",
+            ),
+            (
+                mark_delivered(&conn, "ci:EV-1", Some(200)).expect_err("标记成功"),
+                "标记成功",
+            ),
+            (
+                mark_failed(&conn, "ci:EV-1", None, "网络中断", false, 3).expect_err("标记失败"),
+                "标记失败",
+            ),
+            (list_deliveries(&conn, None, 10).expect_err("列表"), "列表"),
+            (
+                list_deliveries(&conn, Some(DeliveryStatus::Failed), 10).expect_err("按状态列表"),
+                "按状态列表",
+            ),
+            (count_by_status(&conn).expect_err("统计"), "统计"),
+            (
+                pending_events(&conn, "ci", &kinds, 10, 3).expect_err("待投递"),
+                "待投递",
+            ),
+        ];
+        for (err, why) in checks {
+            assert_eq!(err.code, ErrorCode::IoError, "{why}: {}", err.message);
+            assert!(
+                err.message.starts_with("webhook "),
+                "{why}: {}",
+                err.message
+            );
+        }
+    }
+
     /// 列表过滤与统计：三态计数固定顺序。
     #[test]
     fn list_filters_and_counts_by_status() {

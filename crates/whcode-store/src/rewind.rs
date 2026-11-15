@@ -125,3 +125,79 @@ pub fn latest_rewind(conn: &Connection, session_id: &str) -> Result<Option<(i64,
 fn store_err(context: &str, err: duckdb::Error) -> WhError {
     WhError::new(ErrorCode::IoError, format!("{context}失败：{err}"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::schema::apply_migrations;
+
+    fn fixture() -> Connection {
+        let conn = Connection::open_in_memory().expect("内存数据库");
+        apply_migrations(&conn).expect("迁移");
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, model, archived, status, stage)
+             VALUES ('S-1', '剪枝', epoch_ms(1000), epoch_ms(1000), NULL, FALSE, 'active', 'implement')",
+            [],
+        )
+        .expect("插入会话");
+        conn
+    }
+
+    fn insert_event(conn: &Connection, seq: i64, kind: &str) {
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, kind, payload_json, ts, persistence_level)
+             VALUES (?, ?, 'S-1', ?, CAST('{}' AS JSON)::VARIANT, current_timestamp, 'redacted')",
+            params![seq, format!("EV-{seq}"), kind],
+        )
+        .expect("插入事件");
+    }
+
+    /// 每类非法边界都显式报错：空会话、来源、负序号、空历史、末尾、半截 turn、缺口。
+    #[test]
+    fn invalid_boundaries_are_explicit() {
+        let conn = fixture();
+        for (session, target, by, code, why) in [
+            ("  ", 1, "user", ErrorCode::InvalidState, "空会话"),
+            ("S-1", 1, "robot", ErrorCode::InvalidState, "来源非法"),
+            ("S-1", -1, "model", ErrorCode::InvalidState, "负序号"),
+            ("S-1", 1, "user", ErrorCode::NotFound, "无事件"),
+        ] {
+            let err = record_rewind(&conn, session, target, by).expect_err(why);
+            assert_eq!(err.code, code, "{why}: {}", err.message);
+        }
+
+        // 1 为 turn 边界、2 为缺口、3 为半截 turn、4 为末尾。
+        insert_event(&conn, 1, "TurnFinished");
+        insert_event(&conn, 3, "UserMessage");
+        insert_event(&conn, 4, "TurnFinished");
+        let err = record_rewind(&conn, "S-1", 4, "user").expect_err("回退到末尾");
+        assert!(err.message.contains("不早于当前末尾"), "{}", err.message);
+        let err = record_rewind(&conn, "S-1", 3, "user").expect_err("半截 turn");
+        assert!(err.message.contains("TurnFinished"), "{}", err.message);
+        let err = record_rewind(&conn, "S-1", 2, "user").expect_err("序号缺口");
+        assert!(err.message.contains("不在本会话事件中"), "{}", err.message);
+
+        // 合法边界：写入 SessionRewound 且可读回；无记录的会话返回正确的空。
+        let (seq, id) = record_rewind(&conn, "S-1", 1, "model").expect("回退到 1");
+        assert_eq!(seq, 5);
+        assert_eq!(id, "EV-5");
+        assert_eq!(latest_rewind(&conn, "S-1").expect("最新"), Some((1, 5)));
+        assert_eq!(latest_rewind(&conn, "S-NONE").expect("无记录"), None);
+    }
+
+    /// 载荷缺 `target_seq` 必须显式报错，不得静默当作“未回退”。
+    #[test]
+    fn corrupted_rewind_payload_is_explicit() {
+        let conn = fixture();
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, kind, payload_json, ts, persistence_level)
+             VALUES (1, 'EV-1', 'S-1', ?,
+                     CAST('{\"x\":1}' AS JSON)::VARIANT, current_timestamp, 'redacted')",
+            params![REWIND_EVENT_KIND],
+        )
+        .expect("插入坏载荷");
+        let err = latest_rewind(&conn, "S-1").expect_err("缺 target_seq");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        assert!(err.message.contains("target_seq"), "{}", err.message);
+    }
+}

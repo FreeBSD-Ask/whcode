@@ -2473,3 +2473,16 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 - [x] T351 [P] 契约与文档（P6.3／FR-789）：`contracts/acp.md`、cui-cli 命令树补 `acp serve`、
   FR-789、Check 442—445、CHANGELOG——**取证（2026-11-16）**：计数／追溯／文风／EOL／
   标准基线门禁通过。
+
+## Tasks（2026-11-16 追加）：覆盖率门禁回归修复（P7.1，FR-762）
+
+- [x] T354 分支测试补齐（P7.1／FR-762／ADR-060 项 I）：`crates/whcode-app/src/webhooks.rs`
+  补配置上限/重名/控制字符/订阅/凭据变量名/URL 形态与读取失败、正文超限截断、批上限、
+  状态视图错误文本截断；`crates/whcode-store/src/webhooks.rs` 补拒绝分支、错误文本截断、
+  统计漂移、待投递越界与「表不可用即显式 IoError」；`crates/whcode-store/src/rewind.rs`
+  补非法边界与坏载荷（此前该文件无测试）——**任务认知卡**：方向＝P6.4／P5 批次新增代码把
+  两试点 crate 拉回 90% 线下（app 89.64%、store 89.45%），门禁红；目标＝用可达分支的真实
+  测试回到线上，而不是调阈值或加豁免；判据＝`python .github/scripts/check-coverage.py`
+  两 crate ≥90%；非目标＝追求 per-file 高覆盖、为不可达的 `map_err` 闭包造假路径。
+  **取证（2026-11-16）**：复测 app 14684/16274＝**90.23%**、store 8922/9901＝**90.11%**，
+  阈值 90.0%、豁免清单仍为空；归档 `artifacts/coverage-phase3-2026-11-16.json`。

@@ -739,6 +739,110 @@ mod tests {
         );
     }
 
+    /// 配置校验的每个拒绝分支（上限、重名、控制字符、订阅、凭据变量名、URL 形态）。
+    #[test]
+    fn config_validation_rejects_each_boundary() {
+        let nine = (0..=MAX_ENDPOINTS)
+            .map(|index| {
+                format!(
+                    r#"{{"name":"e{index}","url":"https://x.invalid/h","events":["TurnFinished"]}}"#
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let too_many_events = (0..=MAX_EVENT_KINDS)
+            .map(|_| r#""TurnFinished""#)
+            .collect::<Vec<_>>()
+            .join(",");
+        let long_name = "n".repeat(MAX_NAME_CHARS + 1);
+        let cases: Vec<(String, &str)> = vec![
+            (format!(r#"{{"endpoints":[{nine}]}}"#), "端点数超限"),
+            (
+                r#"{"endpoints":[{"name":"","url":"https://x.invalid/h","events":["TurnFinished"]}]}"#.to_string(),
+                "端点名为空",
+            ),
+            (
+                format!(r#"{{"endpoints":[{{"name":"{long_name}","url":"https://x.invalid/h","events":["TurnFinished"]}}]}}"#),
+                "端点名超长",
+            ),
+            (
+                r#"{"endpoints":[{"name":"a\u0000b","url":"https://x.invalid/h","events":["TurnFinished"]}]}"#.to_string(),
+                "端点名含控制字符",
+            ),
+            (
+                r#"{"endpoints":[{"name":"ci","url":"https://x.invalid/h","events":[]}]}"#.to_string(),
+                "未订阅事件",
+            ),
+            (
+                format!(r#"{{"endpoints":[{{"name":"ci","url":"https://x.invalid/h","events":[{too_many_events}]}}]}}"#),
+                "订阅类型超限",
+            ),
+            (
+                r#"{"endpoints":[{"name":"ci","url":"https://x.invalid/h","events":["TurnFinished"],"token_env":""}]}"#.to_string(),
+                "token_env 为空",
+            ),
+            (
+                r#"{"endpoints":[{"name":"ci","url":"https://x.invalid/h","events":["TurnFinished"],"token_env":"bad-name"}]}"#.to_string(),
+                "token_env 非法字符",
+            ),
+            (
+                r#"{"endpoints":[{"name":"ci","url":"no-scheme","events":["TurnFinished"]}]}"#.to_string(),
+                "URL 缺协议",
+            ),
+            (
+                r#"{"endpoints":[{"name":"ci","url":"https:///h","events":["TurnFinished"]}]}"#.to_string(),
+                "URL 缺主机",
+            ),
+            (
+                r#"{"endpoints":[{"name":"ci","url":"ftp://x.invalid/h","events":["TurnFinished"]}]}"#.to_string(),
+                "协议不受支持",
+            ),
+            (
+                r#"{"endpoints":[{"name":"ci","url":"https://x.invalid/a b","events":["TurnFinished"]}]}"#.to_string(),
+                "URL 含空白",
+            ),
+            (
+                r#"{"endpoints":[],"timeout_ms":100}"#.to_string(),
+                "时限越界",
+            ),
+            (
+                r#"{"endpoints":[],"max_attempts":9}"#.to_string(),
+                "重试次数越界",
+            ),
+        ];
+        for (index, (config, why)) in cases.iter().enumerate() {
+            let dir = workspace_with(&format!("bound-{index}"), config);
+            let err = load_config(&dir).expect_err(why);
+            assert_eq!(err.code, ErrorCode::InvalidState, "{why}: {}", err.message);
+        }
+
+        // IPv6 回环与 localhost 的明文 http 是允许的（本地联调）。
+        for (index, url) in ["http://[::1]:9000/h", "http://localhost:9000/h"]
+            .iter()
+            .enumerate()
+        {
+            let dir = workspace_with(
+                &format!("loopback-{index}"),
+                &format!(
+                    r#"{{"endpoints":[{{"name":"local","url":"{url}","events":["TurnFinished"]}}]}}"#
+                ),
+            );
+            assert_eq!(load_config(&dir).expect("回环 http").endpoints.len(), 1);
+        }
+    }
+
+    /// 配置读取的非“文件不存在”错误必须是显式 IO 错误（路径是目录）。
+    #[test]
+    fn config_read_failure_is_explicit() {
+        let dir = workspace_with("io-error", "{}");
+        let path = dir.join(CONFIG_RELATIVE_PATH);
+        let _ = std::fs::remove_file(&path);
+        std::fs::create_dir_all(&path).expect("用目录占位");
+        let err = load_config(&dir).expect_err("读取目录必须报错");
+        assert_eq!(err.code, ErrorCode::IoError);
+        assert!(err.message.contains("读取 webhook 配置"), "{}", err.message);
+    }
+
     /// 计划：只含订阅类型、正文脱敏、键形状稳定，且不写库。
     #[test]
     fn plan_builds_redacted_bodies_without_claiming() {
@@ -845,6 +949,62 @@ mod tests {
         );
     }
 
+    /// 单批条数的两处边界：越界显式报错；取到上限即停（跨端点也受限）。
+    #[test]
+    fn plan_enforces_batch_bounds() {
+        let conn = fixture();
+        seed_events(&conn);
+        let actor = actor_with_all_capabilities("tester");
+        let mut config = valid_config();
+        for (limit, why) in [(0usize, "0"), (MAX_BATCH + 1, "超上限")] {
+            let err = plan(&conn, &DefaultPolicy, &actor, &config, Some(limit))
+                .expect_err("越界必须报错");
+            assert_eq!(err.code, ErrorCode::InvalidState, "{why}: {}", err.message);
+            assert!(err.message.contains("1—"), "{}", err.message);
+        }
+        // 两个端点、单批 1 条：只取第一条，不越过上限。
+        config.endpoints.push(WebhookEndpoint {
+            name: "ops".to_string(),
+            url: "https://ops.invalid/hook".to_string(),
+            events: vec!["TurnFinished".to_string()],
+            token_env: None,
+            enabled: true,
+        });
+        let requests = plan(&conn, &DefaultPolicy, &actor, &config, Some(1)).expect("计划");
+        assert_eq!(requests.len(), 1, "单批条数上限必须跨端点生效");
+        assert_eq!(requests[0].endpoint, "ci");
+    }
+
+    /// 正文超限：先丢载荷再标 `truncated`，事件身份保留。
+    #[test]
+    fn oversized_body_drops_payload_and_marks_truncated() {
+        let conn = fixture();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, model, archived, status, stage)
+             VALUES ('S-1', '大载荷', epoch_ms(1000), epoch_ms(1000), NULL, FALSE, 'active', 'implement')",
+            [],
+        )
+        .expect("插入会话");
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, kind, payload_json, ts, persistence_level)
+             VALUES (1, 'EV-BIG', 'S-1', 'TurnFinished',
+                     CAST(? AS JSON)::VARIANT, current_timestamp, 'redacted')",
+            duckdb::params![format!(r#"{{"blob":"{}"}}"#, "x".repeat(40 * 1024))],
+        )
+        .expect("插入大载荷事件");
+        let actor = actor_with_all_capabilities("tester");
+        let requests = plan(&conn, &DefaultPolicy, &actor, &valid_config(), None).expect("计划");
+        assert_eq!(requests.len(), 1);
+        assert!(
+            requests[0].body.len() <= MAX_BODY_BYTES,
+            "正文必须收敛到上限内：{}",
+            requests[0].body.len()
+        );
+        assert!(requests[0].body.contains(r#""truncated":true"#));
+        assert!(requests[0].body.contains(r#""payload":null"#));
+        assert!(requests[0].body.contains("EV-BIG"), "事件身份必须保留");
+    }
+
     /// 权限与状态视图：无能力者不能计划/投递/查状态；状态给出三态计数。
     #[test]
     fn permissions_and_status_view() {
@@ -875,5 +1035,46 @@ mod tests {
         assert_eq!(view.counts, [0, 2, 0]);
         assert_eq!(view.recent.len(), 2);
         assert!(view.recent.iter().all(|item| item.status == "delivered"));
+    }
+
+    /// 状态视图的最近错误文本：短的照抄，长的按字符截到 160（不切坏多字节字符）。
+    #[test]
+    fn status_truncates_recent_error_text() {
+        let conn = fixture();
+        let actor = actor_with_all_capabilities("tester");
+        let config = valid_config();
+        for (id, error) in [
+            ("EV-SHORT", "网络中断".to_string()),
+            ("EV-LONG", "错".repeat(200)),
+        ] {
+            claim_delivery(&conn, "ci", id, 1, config.max_attempts)
+                .expect("认领")
+                .expect("首次");
+            mark_failed(
+                &conn,
+                &format!("ci:{id}"),
+                Some(503),
+                &error,
+                false,
+                config.max_attempts,
+            )
+            .expect("失败");
+        }
+        let view = status(&conn, &DefaultPolicy, &actor, &config).expect("状态");
+        let short = view
+            .recent
+            .iter()
+            .find(|item| item.idempotency_key == "ci:EV-SHORT")
+            .and_then(|item| item.last_error.as_deref())
+            .expect("短错误");
+        assert_eq!(short, "网络中断");
+        let long = view
+            .recent
+            .iter()
+            .find(|item| item.idempotency_key == "ci:EV-LONG")
+            .and_then(|item| item.last_error.as_deref())
+            .expect("长错误");
+        assert_eq!(long.chars().count(), 160);
+        assert!(long.starts_with('错'));
     }
 }
