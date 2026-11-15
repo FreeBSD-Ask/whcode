@@ -168,6 +168,15 @@ pub enum SessionCommand {
         #[arg(long)]
         all: bool,
     },
+    /// 检索会话内容（P3.3／ADR-076：消息正文关键词，大小写不敏感）。
+    Search {
+        /// 关键词（1—128 字符）。
+        #[arg(long)]
+        query: String,
+        /// 返回条数上限（默认 20，上限 100）。
+        #[arg(long)]
+        limit: Option<usize>,
+    },
     /// 查看会话。
     Show {
         /// 会话 ID。

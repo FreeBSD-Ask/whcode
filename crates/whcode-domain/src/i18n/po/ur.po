@@ -302,6 +302,15 @@ msgstr "سیشن ID۔"
 msgid "cli.session.rename.title"
 msgstr "نیا عنوان۔"
 
+msgid "cli.session.search.about"
+msgstr "سیشن کے مواد میں تلاش (پیغام کے متن میں کلیدی لفظ، P3.3/ADR-076)۔"
+
+msgid "cli.session.search.limit"
+msgstr "نتائج کی زیادہ سے زیادہ تعداد۔"
+
+msgid "cli.session.search.query"
+msgstr "کلیدی لفظ (1–128 حروف)۔"
+
 msgid "cli.session.share.about"
 msgstr "سیشن کا ماسک شدہ بنڈل مقامی فائل میں برآمد کریں (کوئی اپ لوڈ نہیں)۔"
 
@@ -1165,6 +1174,9 @@ msgstr "قسم"
 
 msgid "tui.col.retry"
 msgstr "دوبارہ کوشش"
+
+msgid "tui.col.role"
+msgstr "کردار"
 
 msgid "tui.col.seq"
 msgstr "ترتیب"

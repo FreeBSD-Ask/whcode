@@ -436,6 +436,11 @@ taskkill /T /F 口径）（P1）
   （P2；ADR-071／proposal-v3 P6.1）
 - **FR-779**: 标准基线治理：`docs/guides/standards-baseline.md` 为本仓承认的标准／框架及其现行版本、停用状态与五类判定结论的唯一事实源，并由结构门禁保护——登记行六字段齐全、「本仓判定」取值合法（已覆盖／部分覆盖／缺口／有意偏离／不适用／停用引用锚点）、「已停用与负向事实登记」在场；已停用对象（IEEE 1016-2009、IEEE 730-2014、IEEE 828-2012、ISO/IEC/IEEE 12207:2017、“MISRA Rust”、GB/T 25000.51-2019）在本仓文档中的引用同行带状态注记；门禁默认模式接入 CI，`--strict` 裸引用检查在其覆盖面落账后评估接入（P1；ADR-072／用户指令 2026-11-14 标准全景研读）
   - 判据：Given 仓库任意工作副本，When 运行 `python .github/scripts/check-standards-baseline.py`，Then 退出码 0 且输出含「标准基线门禁通过」；When 以 `--strict` 运行，Then 停用对象裸引用（无同行注记）退出码非 0
+- **FR-780**: 会话内容检索（关键词阶段，P3.3／ADR-076）：按消息正文做大小写不敏感的
+  子串检索，CUI `session search --query` 与 Web `GET /api/search` 同源；搜索词 1—128 字符、
+  返回 1—100 条、每条只返回定长片段（80 字符），无命中返回空列表、空/超长/缺参数为显式错误；
+  不引入外部扩展（DuckDB `fts` 不在随包 DLL 内），分词与相关性排序显式延后（P2）
+  - 依据：`research/synthesis/proposal-v3.md` P3.3；ADR-076；ADR-018（SQL 只在 store）
   - 证据：`.github/scripts/check-standards-baseline.py`；`docs/guides/standards-baseline.md`；`research/standards-alignment/`
   - 依据：用户指令 2026-11-14（标准全景研读，范围“全景含安全关键”、落地“文档＋门禁”）；ADR-072
 

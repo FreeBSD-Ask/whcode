@@ -302,6 +302,15 @@ msgstr "Session ID."
 msgid "cli.session.rename.title"
 msgstr "New title."
 
+msgid "cli.session.search.about"
+msgstr "Search session content (keyword over message bodies, P3.3/ADR-076)."
+
+msgid "cli.session.search.limit"
+msgstr "Maximum number of hits."
+
+msgid "cli.session.search.query"
+msgstr "Keyword (1-128 characters)."
+
 msgid "cli.session.share.about"
 msgstr "Export a redacted session bundle to a local file (no upload)."
 
@@ -1165,6 +1174,9 @@ msgstr "Kind"
 
 msgid "tui.col.retry"
 msgstr "Retry"
+
+msgid "tui.col.role"
+msgstr "Role"
 
 msgid "tui.col.seq"
 msgstr "Seq"

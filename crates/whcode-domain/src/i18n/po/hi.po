@@ -302,6 +302,15 @@ msgstr "सत्र ID।"
 msgid "cli.session.rename.title"
 msgstr "नया शीर्षक।"
 
+msgid "cli.session.search.about"
+msgstr "सत्र सामग्री खोजें (संदेश पाठ में कीवर्ड, P3.3/ADR-076)।"
+
+msgid "cli.session.search.limit"
+msgstr "परिणामों की अधिकतम संख्या।"
+
+msgid "cli.session.search.query"
+msgstr "कीवर्ड (1–128 अक्षर)।"
+
 msgid "cli.session.share.about"
 msgstr "सत्र का मास्क किया गया बंडल स्थानीय फ़ाइल में निर्यात करें (कोई अपलोड नहीं)।"
 
@@ -1165,6 +1174,9 @@ msgstr "प्रकार"
 
 msgid "tui.col.retry"
 msgstr "पुनः प्रयास"
+
+msgid "tui.col.role"
+msgstr "भूमिका"
 
 msgid "tui.col.seq"
 msgstr "क्रम"

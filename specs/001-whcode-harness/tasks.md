@@ -2249,3 +2249,28 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   已复核并提交到 `docs/matrices/perf-baseline-pr.json`：turn 39.4 ms／switch 10.0 ms／
   history 39.1 ms（判据量 p50；首版 p95 基线因判据量修订被替换，见 ADR-075 §2.5）。PR 级的端到端判定需首个 PR 触发（显式缺口：仓库当前无 PR 流程，
   判定逻辑由 `--self-test` 五探针与本机同剖面一轮实测覆盖，不冒充 PR 结论）。
+
+## Tasks（2026-11-15 追加）：会话内容关键词检索（P3.3 第一步，ADR-076）
+
+- [x] T316 检索语义与 store 原语（P3.3／FR-780／ADR-076）：`crates/whcode-store/src/search.rs`——
+  `messages.content_ref` 上的大小写不敏感子串（DuckDB `contains`，`%`/`_` 按字面量），
+  搜索词 1—128 字符、返回 1—100 条、片段定长 80 字符（换行/控制字符折叠）；6 项测试覆盖
+  命中上下文、片段有界、limit 与排序、字面量通配、校验与空结果
+  ——**任务认知卡**：方向＝侧栏只能按标题/ID 找回（FR-746），用户按“聊过什么”找不回；
+  目标＝按消息正文检索且完全离线、有界；判据＝store 测试全绿（含 CJK 与 `%`/`_` 字面量）；
+  非目标＝不做分词/相关性/FTS（显式延后）、不检索事件正文（受脱敏影响）。
+- [x] T317 [P] 应用命令与 CUI 入口（P3.3／FR-780）：`crates/whcode-app/src/search.rs`
+  （`session.read` 权限、非空/超长校验、limit 夹取）＋ `whcode session search --query
+  [--limit]`（JSON `hits`/`count`，人类表 ID／标题／角色／摘要）＋ 13 语言文案 4 键
+  （`cli.session.search.{about,query,limit}`、`tui.col.role`）＋ 契约命令树
+  ——**取证（2026-11-15）**：app 4 项、CUI 1 项测试通过；`all_catalogs_define_the_same_keys`
+  与 `i18n-po.py --check` 通过。
+- [x] T318 [P] Web 路由与对等登记（P3.3／FR-780）：`GET /api/search?q=&limit=`（缺 `q` 为 400）＋
+  `session.search` surface 条目（CUI/Web 已实现、TUI 不适用、GUI 预留 T319）＋ 对等矩阵行
+  ——**取证（2026-11-15）**：web 全量 78 项、`feature_parity_matrix_rows_match_registry`
+  等 5 项合同测试通过。
+- [ ] T319 GUI 内容检索入口（P3.3／FR-780 遗留，Reserved）：GUI 只读 v1 目前只有会话列表，没有搜索
+  输入面；交付时须复用 `session.search` 同一命令与片段口径，不得在界面层自行查库
+  ——**任务认知卡**：方向＝四端对等不能靠“CUI/Web 已实现”口头补齐；目标＝GUI 侧栏可输入
+  关键词并展示命中片段；判据＝surface 状态由 Reserved 翻为 Implemented 且矩阵同步；
+  非目标＝本批不做（GUI 视图批次统一排期）、不改变 store/app 语义。

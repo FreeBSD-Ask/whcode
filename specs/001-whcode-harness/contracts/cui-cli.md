@@ -8,7 +8,7 @@
 
 ```text
 whcode
-  session new|list|show|rename|archive|delete
+  session new|list|search|show|rename|archive|delete
   llm run --session ID --provider NAME --prompt TEXT [--model MODEL] [--max-tokens N] [--request-id ID] [--trace-level LEVEL]
   llm cancel --request ID
   status [--json]

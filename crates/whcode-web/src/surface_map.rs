@@ -24,6 +24,7 @@ pub fn surface_of(method: &str, path: &str) -> Option<&'static str> {
         // ── 现有读路由（M6 口径） ─────────────────────────────────────
         ("GET", "/api/status") => Some("spec.status"),
         ("GET", "/api/sessions") => Some("session.list"),
+        ("GET", "/api/search") => Some("session.search"),
         ("GET", "/api/events") => Some("events.list"),
         ("GET", "/api/checkpoints") => Some("view.checkpoints"),
         ("GET", "/api/tasks") => Some("task.overview"),
@@ -91,6 +92,7 @@ mod tests {
         let routes = [
             ("GET", "/api/status", "spec.status"),
             ("GET", "/api/sessions", "session.list"),
+            ("GET", "/api/search", "session.search"),
             ("GET", "/api/events", "events.list"),
             ("GET", "/api/tasks", "task.overview"),
             ("GET", "/api/runtimes", "runtime.list"),

@@ -21,6 +21,7 @@ pub fn surface_of(command: &Command) -> &'static str {
         Command::Session { command } => match command {
             SessionCommand::New { .. } => "session.new",
             SessionCommand::List { .. } => "session.list",
+            SessionCommand::Search { .. } => "session.search",
             SessionCommand::Show { .. } => "session.show",
             SessionCommand::Share { .. } => "session.share",
             SessionCommand::Fork { .. } => "session.fork",

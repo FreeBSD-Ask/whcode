@@ -302,6 +302,15 @@ msgstr "Sitzungs-ID."
 msgid "cli.session.rename.title"
 msgstr "Neuer Titel."
 
+msgid "cli.session.search.about"
+msgstr "Sitzungsinhalte durchsuchen (Schlüsselwort im Nachrichtentext, P3.3/ADR-076)."
+
+msgid "cli.session.search.limit"
+msgstr "Maximale Trefferzahl."
+
+msgid "cli.session.search.query"
+msgstr "Schlüsselwort (1–128 Zeichen)."
+
 msgid "cli.session.share.about"
 msgstr "Maskiertes Sitzungspaket in eine lokale Datei exportieren (kein Upload)."
 
@@ -1165,6 +1174,9 @@ msgstr "Art"
 
 msgid "tui.col.retry"
 msgstr "Wiederholungen"
+
+msgid "tui.col.role"
+msgstr "Rolle"
 
 msgid "tui.col.seq"
 msgstr "Nr."

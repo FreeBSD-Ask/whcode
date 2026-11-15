@@ -302,6 +302,15 @@ msgstr "সেশন ID।"
 msgid "cli.session.rename.title"
 msgstr "নতুন শিরোনাম।"
 
+msgid "cli.session.search.about"
+msgstr "সেশনের বিষয়বস্তু খুঁজুন (বার্তার পাঠ্যে কীওয়ার্ড, P3.3/ADR-076)।"
+
+msgid "cli.session.search.limit"
+msgstr "ফলাফলের সর্বোচ্চ সংখ্যা।"
+
+msgid "cli.session.search.query"
+msgstr "কীওয়ার্ড (1–128 অক্ষর)।"
+
 msgid "cli.session.share.about"
 msgstr "সেশন ব্যান্ডল স্থানীয় ফাইলে রপ্তানি করুন (মাস্ক করা, কোনো আপলোড নেই)।"
 
@@ -1165,6 +1174,9 @@ msgstr "ধরন"
 
 msgid "tui.col.retry"
 msgstr "পুনরায় চেষ্টা"
+
+msgid "tui.col.role"
+msgstr "ভূমিকা"
 
 msgid "tui.col.seq"
 msgstr "ক্রম"

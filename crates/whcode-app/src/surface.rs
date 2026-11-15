@@ -333,6 +333,26 @@ pub const SURFACES: &[SurfaceEntry] = &[
         ],
     },
     SurfaceEntry {
+        id: "session.search",
+        kind: SurfaceKind::Command,
+        capability: Capability::SessionRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Implemented {
+                anchor: "cui_dispatch::session_command",
+            },
+            // TUI：终端列表视图不做内容检索（侧栏检索语义属 GUI/Web，FR-746）。
+            Support::NotApplicable,
+            // GUI 只读 v1 尚无搜索输入面；入口随下一批 GUI 视图交付（T318）。
+            Support::Reserved { milestone: "T319" },
+            Support::Implemented {
+                anchor: "GET /api/search",
+            },
+        ],
+    },
+    SurfaceEntry {
         id: "session.show",
         kind: SurfaceKind::Command,
         capability: Capability::SessionRead,

@@ -302,6 +302,15 @@ msgstr "معرّف الجلسة."
 msgid "cli.session.rename.title"
 msgstr "العنوان الجديد."
 
+msgid "cli.session.search.about"
+msgstr "البحث في محتوى الجلسة (كلمة مفتاحية في نص الرسائل، P3.3/ADR-076)."
+
+msgid "cli.session.search.limit"
+msgstr "الحد الأقصى للنتائج."
+
+msgid "cli.session.search.query"
+msgstr "الكلمة المفتاحية (1–128 حرفًا)."
+
 msgid "cli.session.share.about"
 msgstr "تصدير حزمة جلسة منقّحة إلى ملف محلي (دون رفع)."
 
@@ -1165,6 +1174,9 @@ msgstr "النوع"
 
 msgid "tui.col.retry"
 msgstr "المحاولات"
+
+msgid "tui.col.role"
+msgstr "الدور"
 
 msgid "tui.col.seq"
 msgstr "التسلسل"

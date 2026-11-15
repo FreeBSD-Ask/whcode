@@ -302,6 +302,15 @@ msgstr "ID de la sesión."
 msgid "cli.session.rename.title"
 msgstr "Título nuevo."
 
+msgid "cli.session.search.about"
+msgstr "Busca en el contenido de la sesión (palabra clave en el cuerpo de los mensajes, P3.3/ADR-076)."
+
+msgid "cli.session.search.limit"
+msgstr "Número máximo de resultados."
+
+msgid "cli.session.search.query"
+msgstr "Palabra clave (1–128 caracteres)."
+
 msgid "cli.session.share.about"
 msgstr "Exportar un paquete de sesión anonimizado a un archivo local (sin subida)."
 
@@ -1165,6 +1174,9 @@ msgstr "Tipo"
 
 msgid "tui.col.retry"
 msgstr "Reintentos"
+
+msgid "tui.col.role"
+msgstr "Rol"
 
 msgid "tui.col.seq"
 msgstr "Sec."

@@ -302,6 +302,15 @@ msgstr "세션 ID."
 msgid "cli.session.rename.title"
 msgstr "새 제목."
 
+msgid "cli.session.search.about"
+msgstr "세션 내용을 검색합니다(메시지 본문 키워드, P3.3/ADR-076)."
+
+msgid "cli.session.search.limit"
+msgstr "반환 개수 상한."
+
+msgid "cli.session.search.query"
+msgstr "키워드(1~128자)."
+
 msgid "cli.session.share.about"
 msgstr "세션 공유 번들을 로컬 파일로 내보냅니다(가림 처리, 업로드 없음)."
 
@@ -1165,6 +1174,9 @@ msgstr "종류"
 
 msgid "tui.col.retry"
 msgstr "재시도"
+
+msgid "tui.col.role"
+msgstr "역할"
 
 msgid "tui.col.seq"
 msgstr "순번"

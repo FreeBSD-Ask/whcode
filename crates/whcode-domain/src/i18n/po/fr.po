@@ -302,6 +302,15 @@ msgstr "ID de session."
 msgid "cli.session.rename.title"
 msgstr "Nouveau titre."
 
+msgid "cli.session.search.about"
+msgstr "Recherche dans le contenu de la session (mot-clé dans le corps des messages, P3.3/ADR-076)."
+
+msgid "cli.session.search.limit"
+msgstr "Nombre maximal de résultats."
+
+msgid "cli.session.search.query"
+msgstr "Mot-clé (1 à 128 caractères)."
+
 msgid "cli.session.share.about"
 msgstr "Exporter un paquet de session masqué vers un fichier local (sans envoi)."
 
@@ -1165,6 +1174,9 @@ msgstr "Type"
 
 msgid "tui.col.retry"
 msgstr "Tentatives"
+
+msgid "tui.col.role"
+msgstr "Rôle"
 
 msgid "tui.col.seq"
 msgstr "Séqu."

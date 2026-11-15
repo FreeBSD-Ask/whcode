@@ -302,6 +302,15 @@ msgstr "Идентификатор сессии."
 msgid "cli.session.rename.title"
 msgstr "Новый заголовок."
 
+msgid "cli.session.search.about"
+msgstr "Поиск по содержимому сеанса (ключевое слово в тексте сообщений, P3.3/ADR-076)."
+
+msgid "cli.session.search.limit"
+msgstr "Максимум результатов."
+
+msgid "cli.session.search.query"
+msgstr "Ключевое слово (1–128 символов)."
+
 msgid "cli.session.share.about"
 msgstr "Экспорт обезличенного пакета сеанса в локальный файл (без отправки)."
 
@@ -1165,6 +1174,9 @@ msgstr "Тип"
 
 msgid "tui.col.retry"
 msgstr "Повторы"
+
+msgid "tui.col.role"
+msgstr "Роль"
 
 msgid "tui.col.seq"
 msgstr "№"

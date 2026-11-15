@@ -656,6 +656,49 @@ pub fn handle_request_with_llm(
                 Err(error) => error_response(&error),
             }
         }
+        (Method::Get, "/api/search") => {
+            // 会话内容检索（P3.3／ADR-076）：关键词有界（1—128 字符），条数上限 100。
+            // 缺 `q` 是参数错误（不静默返回全量）；空/超长由 app 层给出可操作错误。
+            let Some(needle) = query_value("q") else {
+                return error_response(&WhError::invalid_state("缺 q 参数"));
+            };
+            let limit = query_value("limit")
+                .and_then(|raw| raw.parse::<usize>().ok())
+                .unwrap_or(whcode_app::CONTENT_SEARCH_DEFAULT_LIMIT);
+            match whcode_app::search_session_content(
+                conn,
+                &policy,
+                actor,
+                &whcode_app::ContentSearchQuery {
+                    needle: needle.to_string(),
+                    limit,
+                },
+            ) {
+                Ok(hits) => {
+                    let items: Vec<serde_json::Value> = hits
+                        .iter()
+                        .map(|hit| {
+                            serde_json::json!({
+                                "session_id": hit.session_id,
+                                "session_title": hit.session_title,
+                                "message_id": hit.message_id,
+                                "role": hit.role,
+                                "snippet": hit.snippet,
+                            })
+                        })
+                        .collect();
+                    HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "hits": items,
+                            "count": hits.len(),
+                        }),
+                    )
+                }
+                Err(error) => error_response(&error),
+            }
+        }
         (Method::Get, "/api/events") => {
             let Some(session) = query_value("session") else {
                 return error_response(&WhError::invalid_state("缺 session 参数"));
@@ -2478,6 +2521,12 @@ mod tests {
         conn.execute("UPDATE sessions SET archived = true WHERE id = 'S-2'", [])
             .expect("归档 beta");
         let actor = actor_with_all_capabilities("tester");
+        conn.execute(
+            "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
+             VALUES ('M-SEARCH', 'S-1', 'user', '讨论 DuckDB 的 WAL', NULL, current_timestamp, NULL)",
+            [],
+        )
+        .expect("插入检索用消息");
 
         let mut fetch = |route: &str| {
             let req = request(Method::Get, route, false);
@@ -2517,6 +2566,29 @@ mod tests {
         // 非法 sort 回落默认、不报错（参数容错口径）。
         let body = fetch("/api/sessions?sort=unknown");
         assert_eq!(body["sessions"].as_array().expect("数组").len(), 2);
+
+        // 内容检索（P3.3／ADR-076）：命中消息正文并带定长片段。
+        let body = fetch("/api/search?q=wal");
+        assert_eq!(body["count"], 1, "{body}");
+        assert_eq!(body["hits"][0]["session_id"], "S-1");
+        assert!(
+            body["hits"][0]["snippet"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("WAL")
+        );
+
+        // 缺 q 是参数错误（不静默返回全量）。
+        let req = request(Method::Get, "/api/search", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 400);
     }
 
     #[test]

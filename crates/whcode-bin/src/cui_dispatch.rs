@@ -695,6 +695,35 @@ fn session_command(
                 human,
             ))
         }
+        SessionCommand::Search { query, limit } => {
+            // 内容检索（P3.3／ADR-076）：只读、有界；片段正文不写日志。
+            let conn = open_db(workspace, config)?;
+            let hits = whcode_app::search_session_content(
+                &conn,
+                policy,
+                actor,
+                &whcode_app::ContentSearchQuery {
+                    needle: query.clone(),
+                    limit: limit.unwrap_or(whcode_app::CONTENT_SEARCH_DEFAULT_LIMIT),
+                },
+            )?;
+            let values: Vec<Value> = hits
+                .iter()
+                .map(|hit| {
+                    json!({
+                        "session_id": hit.session_id,
+                        "session_title": hit.session_title,
+                        "message_id": hit.message_id,
+                        "role": hit.role,
+                        "snippet": hit.snippet,
+                    })
+                })
+                .collect();
+            Ok((
+                json!({ "hits": values, "count": hits.len() }),
+                search_hits_table(&hits, texts),
+            ))
+        }
         SessionCommand::Show { session } => {
             let conn = open_db(workspace, config)?;
             let row = whcode_app::show_session(&conn, policy, actor, session)?;
@@ -1507,6 +1536,32 @@ fn db_command(
 }
 
 /// 会话列表 → 对齐表格（T196／ADR-041）；空列表输出显式空态，不输出空白。
+/// 内容检索命中表（P3.3／ADR-076）：ID／标题／角色／摘要（定长片段）。
+fn search_hits_table(hits: &[whcode_store::ContentHit], texts: &I18n) -> String {
+    if hits.is_empty() {
+        return texts.resolve("cui.empty").to_string();
+    }
+    let styler = human_styler(texts);
+    let headers = [
+        texts.resolve("tui.col.id"),
+        texts.resolve("tui.col.title"),
+        texts.resolve("tui.col.role"),
+        texts.resolve("tui.col.summary"),
+    ];
+    let cells: Vec<Vec<String>> = hits
+        .iter()
+        .map(|hit| {
+            vec![
+                hit.session_id.clone(),
+                hit.session_title.clone(),
+                hit.role.clone(),
+                hit.snippet.clone(),
+            ]
+        })
+        .collect();
+    styler.table(&headers, &cells)
+}
+
 fn sessions_table(rows: &[whcode_store::SessionRow], texts: &I18n) -> String {
     if rows.is_empty() {
         return texts.resolve("cui.empty").to_string();
@@ -1770,6 +1825,65 @@ mod tests {
             &whcode_domain::i18n::I18n::default(),
         )
         .expect_err("回退到末尾是空操作");
+        assert_eq!(err.code, whcode_domain::ErrorCode::InvalidState);
+    }
+
+    /// 会话内容检索（P3.3／ADR-076）：消息正文关键词、大小写不敏感、片段有界。
+    #[test]
+    fn session_search_returns_content_hits_with_bounded_snippet() {
+        let workspace = temp_workspace("search");
+        let create = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "检索会话".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("创建会话");
+        let id = create.0["session"]["id"]
+            .as_str()
+            .expect("会话 ID")
+            .to_string();
+
+        let config = crate::config::Config::for_workspace(&workspace);
+        let conn = super::open_db(&workspace, &config).expect("打开库");
+        conn.execute(
+            "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
+             VALUES ('M-1', ?, 'user', ?, NULL, current_timestamp, NULL)",
+            duckdb::params![&id, "关于 WAL 与 checkpoint 的讨论"],
+        )
+        .expect("插入消息");
+        drop(conn);
+
+        let (value, human) = execute(
+            &Command::Session {
+                command: SessionCommand::Search {
+                    query: "wal".into(),
+                    limit: Some(5),
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect("检索");
+        assert_eq!(value["count"], 1, "{value}");
+        assert_eq!(value["hits"][0]["session_id"], id);
+        assert!(human.contains("WAL"), "人类输出须含命中片段：{human}");
+
+        let err = execute(
+            &Command::Session {
+                command: SessionCommand::Search {
+                    query: "   ".into(),
+                    limit: None,
+                },
+            },
+            &workspace,
+            &whcode_domain::i18n::I18n::default(),
+        )
+        .expect_err("空搜索词必须拒绝");
         assert_eq!(err.code, whcode_domain::ErrorCode::InvalidState);
     }
 

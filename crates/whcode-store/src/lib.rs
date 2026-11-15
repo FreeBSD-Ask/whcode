@@ -49,6 +49,7 @@ pub mod purge;
 pub mod query;
 pub mod rewind;
 pub mod schema;
+pub mod search;
 pub mod service;
 pub mod smoke;
 pub mod tasks;
@@ -99,6 +100,11 @@ pub use purge::{
     PurgeCriterion, PurgePreview, PurgeProtection, PurgeResult, execute_purge, preview_purge,
     set_archived,
 };
+pub use search::{
+    ContentHit, MAX_SEARCH_LIMIT, MAX_SEARCH_NEEDLE_CHARS, SNIPPET_CHARS, search_messages,
+    snippet_around,
+};
+
 pub use query::{
     Direction, EventCursor, EventPage, EventRow, MAX_PAGE_SIZE, MessageCursor, MessagePage,
     MessageRow, events_page, latest_seq, messages_page,

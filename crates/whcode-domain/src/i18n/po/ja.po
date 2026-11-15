@@ -302,6 +302,15 @@ msgstr "セッション ID。"
 msgid "cli.session.rename.title"
 msgstr "新しいタイトル。"
 
+msgid "cli.session.search.about"
+msgstr "セッション内容を検索します（メッセージ本文のキーワード、P3.3／ADR-076）。"
+
+msgid "cli.session.search.limit"
+msgstr "取得件数の上限。"
+
+msgid "cli.session.search.query"
+msgstr "キーワード（1—128 文字）。"
+
 msgid "cli.session.share.about"
 msgstr "セッション共有バンドルをローカルファイルへ書き出します（マスク済み、アップロードなし）。"
 
@@ -1165,6 +1174,9 @@ msgstr "種別"
 
 msgid "tui.col.retry"
 msgstr "再試行"
+
+msgid "tui.col.role"
+msgstr "役割"
 
 msgid "tui.col.seq"
 msgstr "連番"

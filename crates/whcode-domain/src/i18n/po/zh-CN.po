@@ -302,6 +302,15 @@ msgstr "会话 ID。"
 msgid "cli.session.rename.title"
 msgstr "新标题。"
 
+msgid "cli.session.search.about"
+msgstr "检索会话内容（消息正文关键词，P3.3／ADR-076）。"
+
+msgid "cli.session.search.limit"
+msgstr "返回条数上限。"
+
+msgid "cli.session.search.query"
+msgstr "关键词（1—128 字符）。"
+
 msgid "cli.session.share.about"
 msgstr "导出会话分享包到本地文件（脱敏、无上传）。"
 
@@ -1165,6 +1174,9 @@ msgstr "类型"
 
 msgid "tui.col.retry"
 msgstr "重试"
+
+msgid "tui.col.role"
+msgstr "角色"
 
 msgid "tui.col.seq"
 msgstr "序号"
