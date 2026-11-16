@@ -2565,7 +2565,8 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   **取证（2026-11-16）**：`check-workflows.py` 与 actionlint 通过；run `43894584718` 中
   `extreme-scale-*` 按设计 skipped，Windows 测试步 14.2→8.38 分钟、FreeBSD 39.8→28.2、
   ARM64 26.2→20.0（全绿）；第二轮 run `43902805603` 缓存命中后 Windows 测试步 6.80 分钟、
-  Windows 16.6／ARM64 14.8／FreeBSD 25.6；周期专项待回填，详见 Check 458。
+  Windows 16.6／ARM64 14.8／FreeBSD 25.6；周期专项首跑 run `43923617369`（dispatch）两矩阵
+  项 success（amd64 16.4／ARM64 11.4 分钟），详见 Check 458。
 - [x] T364 文档推送分流（P7.4／FR-793）：`triage` job（`git diff HEAD~1` 白名单判定；无父
   提交或 triage 失败一律按代码处理）＋`docs-gates` job（文档类门禁全跑）；`platform`／
   `measurements` 以 `needs: triage`＋`always()` 组合避免 PR 与 schedule 被静默跳过
