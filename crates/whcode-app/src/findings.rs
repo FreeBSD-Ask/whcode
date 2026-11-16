@@ -10,7 +10,7 @@
 use duckdb::Connection;
 use whcode_domain::{ErrorCode, WhError};
 use whcode_store::findings::{
-    self, Finding, FindingSeverity, FindingStatus, MAX_FINDING_ROWS, NewFinding,
+    self, DismissReason, Finding, FindingSeverity, FindingStatus, MAX_FINDING_ROWS, NewFinding,
 };
 
 use crate::authz::{Actor, Capability, Policy, require};
@@ -139,6 +139,9 @@ pub fn list_session_findings(
 /// # Errors
 ///
 /// 缺少 `SessionCreate` 权限、状态名未知、版本冲突、非法迁移或记录不存在时返回 [`WhError`]。
+// 参数与 store 原语一一对应（id／版本／目标状态／封闭原因／时间戳）；打包成结构体会让
+// TUI／GUI／Web 三端调用点各写一遍解包，收益不抵改动面——与 cert.rs／turn.rs 同名告警同处理。
+#[allow(clippy::too_many_arguments)]
 pub fn move_finding(
     conn: &Connection,
     policy: &dyn Policy,
@@ -146,6 +149,7 @@ pub fn move_finding(
     id: &str,
     expected_version: i64,
     next_status: &str,
+    dismiss_reason: Option<&str>,
     now_ms: u64,
 ) -> Result<Finding, WhError> {
     require(policy, actor, Capability::SessionCreate)?;
@@ -154,7 +158,46 @@ pub fn move_finding(
             "未知发现状态 `{next_status}`：允许 open／fixing／fixed／dismissed"
         ))
     })?;
-    findings::transition_finding(conn, id.trim(), expected_version, next, now_ms)
+    // 负面控制（P2.4／ADR-084 决策 3）：dismissed 必须带封闭原因码；字符串解析在本层，
+    // “dismissed 却没带码”由 store 层拒绝（两处口径一致）。
+    let reason = match dismiss_reason
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+    {
+        None => None,
+        Some(text) => Some(DismissReason::parse(text).ok_or_else(|| {
+            WhError::invalid_state(format!(
+                "未知关闭原因 `{text}`：允许 by-design／superseded／duplicate／cost／wontfix"
+            ))
+        })?),
+    };
+    findings::transition_finding(conn, id.trim(), expected_version, next, reason, now_ms)
+}
+
+/// 登记一次复发（P2.4／FR-794／ADR-084 决策 2）：显式动作，语义＝“修复声明完成后，
+/// 同一问题再次出现”。只有 `fixed` 状态可登记（store 层判定）；`pattern` 提供时写回归类。
+///
+/// # Errors
+///
+/// 缺少 `SessionCreate` 权限、记录不存在、版本冲突、状态不是 `fixed`、pattern 超长时
+/// 返回 [`WhError`]。
+pub fn record_finding_recurrence(
+    conn: &Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    id: &str,
+    expected_version: i64,
+    pattern: Option<&str>,
+    now_ms: u64,
+) -> Result<Finding, WhError> {
+    require(policy, actor, Capability::SessionCreate)?;
+    findings::record_finding_recurrence(
+        conn,
+        id.trim(),
+        expected_version,
+        pattern.map(str::trim).filter(|text| !text.is_empty()),
+        now_ms,
+    )
 }
 
 #[cfg(test)]
@@ -204,6 +247,7 @@ mod tests {
             &finding.id,
             finding.version,
             "fixed",
+            None,
             2_000,
         )
         .expect("迁移");

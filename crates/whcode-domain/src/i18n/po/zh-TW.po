@@ -588,7 +588,7 @@ msgid "cui.webhook_dry_run"
 msgstr "預覽：{planned} 筆待投遞（加 --yes 執行）"
 
 msgid "cui.webhook_not_configured"
-msgstr "未設定端點：.zcode/webhooks.json 不存在或為空——零端點即零請求"
+msgstr "未設定端點：.whcode/webhooks.json 不存在或為空——零端點即零請求"
 
 msgid "cui.webhook_status"
 msgstr "端點 {endpoints}（啟用 {enabled}）· 待結果 {claimed} · 已投遞 {delivered} · 失敗 {failed}"
@@ -1059,7 +1059,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "觀察工具：{tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr "找不到 .zcode/mcp.json（MCP 已關閉）。"
+msgstr "找不到 .whcode/mcp.json（MCP 已關閉）。"
 
 msgid "settings.panels.open"
 msgstr "面板"
@@ -1083,7 +1083,7 @@ msgid "settings.panels.skills.empty"
 msgstr "沒有技能（正確的空）。"
 
 msgid "settings.panels.skills.hint"
-msgstr "掃描工作區的 .zcode/skills/；引用缺失逐項列出。"
+msgstr "掃描工作區的 .whcode/skills/；引用缺失逐項列出。"
 
 msgid "settings.panels.skills.issues"
 msgstr "引用缺失 {count} 項"
@@ -1235,8 +1235,11 @@ msgstr "交付物"
 msgid "tui.ledger.finding"
 msgstr "發現"
 
+msgid "tui.ledger.intervention"
+msgstr "干預"
+
 msgid "tui.ledger.summary"
-msgstr "待辦 {todo} · 交付物 {deliverables} · 發現 {findings}"
+msgstr "待辦 {todo} · 交付物 {deliverables} · 發現 {findings}· 干預 {interventions}"
 
 msgid "tui.ledger.todo"
 msgstr "待辦"

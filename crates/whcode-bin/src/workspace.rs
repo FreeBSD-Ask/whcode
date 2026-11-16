@@ -241,6 +241,26 @@ mod tests {
         }
         conn.execute("DROP TABLE IF EXISTS file_preimages", [])
             .expect("撤销 v11 建表");
+        // v14（P2.4／ADR-084）：interventions 建表＋findings 三列。DuckDB 对挂索引的表
+        // 拒绝 ALTER，先撤 idx_findings_status 再 DROP COLUMN，最后按 0012 原定义重建。
+        conn.execute("DROP TABLE IF EXISTS interventions", [])
+            .expect("撤销 v14 建表");
+        conn.execute("DROP SEQUENCE IF EXISTS whcode_intervention_id_seq", [])
+            .expect("撤销 v14 序列");
+        conn.execute("DROP INDEX IF EXISTS idx_findings_status", [])
+            .expect("撤销 v14 前先撤 findings 索引");
+        for column in [
+            "ALTER TABLE findings DROP COLUMN pattern",
+            "ALTER TABLE findings DROP COLUMN recurrence_count",
+            "ALTER TABLE findings DROP COLUMN dismiss_reason",
+        ] {
+            conn.execute(column, []).expect("撤销 v14 加列");
+        }
+        conn.execute(
+            "CREATE INDEX idx_findings_status ON findings(status, created_at, id)",
+            [],
+        )
+        .expect("重建 findings 索引");
         // 0012 建表与序列同样不可重复应用（`CREATE ... IF NOT EXISTS` 幂等，但版本记录
         // 若留在表内会让备份判定认为库已是最新，等于跳过备份）。
         conn.execute("DROP TABLE IF EXISTS findings", [])

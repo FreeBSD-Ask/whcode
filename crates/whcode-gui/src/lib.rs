@@ -2312,7 +2312,7 @@ fn view(state: &State) -> Element<'_, Message> {
     } else {
         match state.view {
             ViewId::Chat => chat_panel(state),
-            // 台账视图（FR-787）：三节统一文本行，只读。
+            // 台账视图（FR-787／FR-794）：四节统一文本行，只读。
             ViewId::Ledger => read_body(state, false),
             ViewId::Sessions if state.op_mode.is_some() => {
                 column![op_panel(state), read_body(state, false)]

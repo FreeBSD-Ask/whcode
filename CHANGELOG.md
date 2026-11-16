@@ -13,6 +13,12 @@
 
 ### 变更
 
+- **学习捕获与干预台账（2026-11-17，P2.4／FR-794／ADR-084）**：`findings` 增加复发归因
+  字段（`pattern`／`recurrence_count`／`dismiss_reason`）——复发登记是显式动作（仅 `fixed`
+  可登记），`dismissed` 必须带封闭原因码；新表 `interventions` 以四要件登记改进，结论由
+  复发计数自动判定（人工不得自证有效）；台账视图由三节扩为四节（待办／交付物／发现／
+  干预），TUI／GUI／Web 同源；schema v14 迁移与十三套 i18n 键同批。
+
 - **主题与工作区配置更名（2026-11-17 用户指令）**：主题 `zcode-day`／`zcode-night` 更名
   `whcode-day`／`whcode-night`（冻结色值逐值不变，默认主题为 `whcode-night`）；工作区配置
   目录 `.zcode/` 更名 `.whcode/`——`skills/`、`mcp.json`、`lsp.json`、`shell.json`、

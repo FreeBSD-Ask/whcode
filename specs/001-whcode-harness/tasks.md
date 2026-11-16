@@ -2623,3 +2623,16 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   并回填；判据＝run 内 package-freebsd success、六件资产断言通过、记录四方一致；非目标＝
   改判据、以本地推断冒充、跳过证据直接勾选。
   ——**显式缺口：外部条件（需推送 tag 或手动触发），不冒充。**
+
+- [x] T370 学习捕获与干预台账（P2.4／FR-794／ADR-084）：`findings` 加复发归因字段
+  （`pattern`／`recurrence_count`／`dismiss_reason`）与 `dismissed` 原因码负面控制；新表
+  `interventions` 四要件台账，结论由复发计数自动判定；台账视图扩第四节（TUI／GUI／Web
+  同源）；schema v14 迁移（先撤 `idx_findings_status` 再加列并按原定义重建）；i18n 十三套
+  键同批同步
+  ——**任务认知卡**：方向＝发现台账只记缺口，不记改进与复发，学习闭环缺失；目标＝复发可
+  计数、关闭必交代、干预结论不可自证；判据＝Check 466 全部条目；非目标＝自动抽取干预、
+  跨项目模式库、审批流、排行榜类统计。
+  **取证（2026-11-17）**：`cargo test -p whcode-store` 172 通过（含复发前置、原因码隔离、
+  自动结论、列表范围与夹取、漂移检测等新增用例）；`cargo test -p whcode-app`／`-p
+  whcode-web` 全绿；`check-coverage.py` store 90.02%、app 90.31%；`i18n-po.py --check`
+  同步。CI 结论待推送后回填（ADR-037）。

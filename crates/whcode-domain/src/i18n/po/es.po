@@ -588,7 +588,7 @@ msgid "cui.webhook_dry_run"
 msgstr "Vista previa: {planned} entregas pendientes (añade --yes para ejecutar)"
 
 msgid "cui.webhook_not_configured"
-msgstr "Sin extremos configurados: falta .zcode/webhooks.json o está vacío — sin extremos no hay peticiones"
+msgstr "Sin extremos configurados: falta .whcode/webhooks.json o está vacío — sin extremos no hay peticiones"
 
 msgid "cui.webhook_status"
 msgstr "Extremos {endpoints} (activos {enabled}) · Pendientes {claimed} · Entregados {delivered} · Fallidos {failed}"
@@ -1059,7 +1059,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "Herramientas observadas: {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr "No hay .zcode/mcp.json (MCP apagado)."
+msgstr "No hay .whcode/mcp.json (MCP apagado)."
 
 msgid "settings.panels.open"
 msgstr "Paneles"
@@ -1083,7 +1083,7 @@ msgid "settings.panels.skills.empty"
 msgstr "Sin habilidades (vacío correcto)."
 
 msgid "settings.panels.skills.hint"
-msgstr "Examina .zcode/skills/ del espacio de trabajo; las referencias faltantes se listan por habilidad."
+msgstr "Examina .whcode/skills/ del espacio de trabajo; las referencias faltantes se listan por habilidad."
 
 msgid "settings.panels.skills.issues"
 msgstr "Referencias faltantes: {count}"
@@ -1235,8 +1235,11 @@ msgstr "Entregable"
 msgid "tui.ledger.finding"
 msgstr "Hallazgo"
 
+msgid "tui.ledger.intervention"
+msgstr "Intervenciones"
+
 msgid "tui.ledger.summary"
-msgstr "Tareas {todo} · Entregables {deliverables} · Hallazgos {findings}"
+msgstr "Tareas {todo} · Entregables {deliverables} · Hallazgos {findings} · Intervenciones {interventions}"
 
 msgid "tui.ledger.todo"
 msgstr "Tarea"

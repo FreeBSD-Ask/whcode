@@ -588,7 +588,7 @@ msgid "cui.webhook_dry_run"
 msgstr "معاينة: {planned} عملية تسليم معلّقة (أضف --yes للتنفيذ)"
 
 msgid "cui.webhook_not_configured"
-msgstr "لا توجد نقاط نهاية مهيأة: ملف .zcode/webhooks.json غير موجود أو فارغ — لا نقاط يعني لا طلبات"
+msgstr "لا توجد نقاط نهاية مهيأة: ملف .whcode/webhooks.json غير موجود أو فارغ — لا نقاط يعني لا طلبات"
 
 msgid "cui.webhook_status"
 msgstr "نقاط النهاية {endpoints} (المفعّلة {enabled}) · قيد الانتظار {claimed} · تم التسليم {delivered} · فشل {failed}"
@@ -1059,7 +1059,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "الأدوات المرصودة: {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr "لا يوجد .zcode/mcp.json (MCP متوقف)."
+msgstr "لا يوجد .whcode/mcp.json (MCP متوقف)."
 
 msgid "settings.panels.open"
 msgstr "اللوحات"
@@ -1083,7 +1083,7 @@ msgid "settings.panels.skills.empty"
 msgstr "لا توجد مهارات (فراغ سليم)."
 
 msgid "settings.panels.skills.hint"
-msgstr "يمسح .zcode/skills/ في مساحة العمل؛ تُدرج المراجع المفقودة لكل مهارة."
+msgstr "يمسح .whcode/skills/ في مساحة العمل؛ تُدرج المراجع المفقودة لكل مهارة."
 
 msgid "settings.panels.skills.issues"
 msgstr "المراجع المفقودة: {count}"
@@ -1235,8 +1235,11 @@ msgstr "مخرج"
 msgid "tui.ledger.finding"
 msgstr "نتيجة"
 
+msgid "tui.ledger.intervention"
+msgstr "التدخلات"
+
 msgid "tui.ledger.summary"
-msgstr "المهام {todo} · المخرجات {deliverables} · النتائج {findings}"
+msgstr "المهام {todo} · المخرجات {deliverables} · النتائج {findings}· التدخلات {interventions}"
 
 msgid "tui.ledger.todo"
 msgstr "مهمة"

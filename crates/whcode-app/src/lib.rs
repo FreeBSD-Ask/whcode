@@ -39,6 +39,7 @@ pub mod events;
 pub mod findings;
 pub mod fonts;
 pub mod gates;
+pub mod interventions;
 pub mod llm;
 pub mod maintenance;
 pub mod overview;
@@ -81,6 +82,10 @@ pub use findings::{
     DEFAULT_FINDING_LIMIT, FindingDraft, list_finding_rows, move_finding, record_finding,
 };
 pub use gates::{ForceAdvance, TransitionContext, force_advance, request_transition};
+pub use interventions::{
+    DEFAULT_INTERVENTION_LIMIT, InterventionDraft, conclude_intervention, list_intervention_rows,
+    list_session_interventions, record_intervention,
+};
 pub use llm::{
     LlmCancelOutcome, LlmChunkView, LlmContext, LlmRunOutcome, LlmRunRequest, ModelOption,
     ProfileCatalogue, ProviderFactory, ProviderRegistry, cancel_dir_from_env, model_catalogue,

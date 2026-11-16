@@ -5,7 +5,7 @@
 //!
 //! ## 范围
 //!
-//! 导出 13 张业务表（[`EXPORT_TABLES`]）；**不含** [`EXCLUDED_TABLES`]：
+//! 导出 14 张业务表（[`EXPORT_TABLES`]）；**不含** [`EXCLUDED_TABLES`]：
 //!
 //! - `audit`：安全审计随原库保留，不随导出文件扩散（§10.3）；
 //! - `runtime_state`：机器本地运行时配置，不属于工作区数据；
@@ -71,6 +71,9 @@ pub const EXPORT_TABLES: &[&str] = &[
     "file_preimages",
     // 评审发现台账（P2.2／FR-786／ADR-080）：跨会话的工程记录，属工作区数据。
     "findings",
+    // 学习捕获干预台账（P2.4／FR-794／ADR-083）：跨会话的干预记录与自动判定的 outcome，
+    // 属工作区数据（与 findings 同口径）。
+    "interventions",
 ];
 
 /// 明确排除的表及理由见模块文档。

@@ -634,6 +634,29 @@ taskkill /T /F 口径）（P1）
     extreme-scale／netbsd）、`.github/scripts/action-versions.json`（`actions/cache` v6.1.0）、
     `check-workflows.py` 与 `check-actions.py` 通过；CI run 回填见 Check 456—461
 
+- **FR-794**: 学习捕获与干预台账（P2.4／ADR-084）：发现的复发可归因、可计数，改进以四要件
+  登记且结论由计数自动判定——① `findings` 增加 `pattern`（≤200 字符模式归类）、
+  `recurrence_count`（仅 `fixed` 状态可登记复发，状态回 `open`、计数 +1、不传模式保留既有
+  归类）、`dismiss_reason`（`dismissed` 迁移必须带封闭原因码 `by-design`／`superseded`／
+  `duplicate`／`cost`／`wontfix`，其余迁移携带即拒绝）；② 新表 `interventions` 四要件
+  （`pattern`／`action`／`expected_effect`／`verification`，各 ≤2000 字符）登记干预，
+  `recurrences_before` 取该模式当前复发总和；③ `conclude` 由 store 重算
+  `recurrences_after`，与基线相等判 `effective`、否则 `not_effective`，人工不得指定结论，
+  结论为终态；④ 台账视图由三节扩为四节（待办／交付物／发现／干预），TUI／GUI／Web 同源，
+  单节失败进 `errors` 且其余节照常返回
+  - 依据：2026-11-17 用户指令（P2.4 在途实现的收口与台账回填）；ADR-080（发现台账四要件）、
+    ADR-018（SQL 只在 store）、ADR-036（任意文本列保持 `TEXT`）
+  - 判据：Given `open` 状态的发现，Then 登记复发被拒绝（仅 `fixed` 可登记）；Given
+    `dismissed` 迁移不带原因码，Then 拒绝且消息列出允许值；Given 干预登记后窗口内无新复发，
+    Then 结论为 `effective` 且 `recurrences_after` 等于基线；Given 窗口内有新复发，Then 结论
+    为 `not_effective`；Given 库内出现未知状态、未知原因码或负计数，Then 读取按
+    `ParseError` 报错
+  - 证据：`crates/whcode-store/migrations/0014_learning_capture.sql`、
+    `crates/whcode-store/src/interventions.rs`、`crates/whcode-store/src/findings.rs`、
+    `crates/whcode-app/src/interventions.rs`、`crates/whcode-web/src/api.rs`（`/api/ledger`
+    第四节）；Check 466
+
+
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，
   成功调用才落、失败不落），条目数与单条长度有常量上限且超限拒绝不截断；待办与 SDD 任务

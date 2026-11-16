@@ -36,7 +36,7 @@ pub enum ViewId {
     Diff,
     /// 对话（LLM 交互；ADR-056 四端对等）。
     Chat,
-    /// 台账（待办／交付物／发现；只读聚合，FR-787）。
+    /// 台账（待办／交付物／发现／干预；只读聚合，FR-787／FR-794）。
     Ledger,
 }
 
@@ -130,7 +130,7 @@ impl ViewId {
     }
 }
 
-/// 台账视图的三节（FR-787）：待办、交付物、发现台账。
+/// 台账视图的四节（FR-787／FR-794）：待办、交付物、发现台账、干预台账。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LedgerSection {
@@ -140,6 +140,8 @@ pub enum LedgerSection {
     Deliverable,
     /// 评审发现（`findings` 表，按会话过滤）。
     Finding,
+    /// 学习捕获干预（`interventions` 表，按会话过滤；P2.4／ADR-084）。
+    Intervention,
 }
 
 impl LedgerSection {
@@ -150,6 +152,7 @@ impl LedgerSection {
             Self::Todo => "todo",
             Self::Deliverable => "deliverable",
             Self::Finding => "finding",
+            Self::Intervention => "intervention",
         }
     }
 
@@ -160,11 +163,12 @@ impl LedgerSection {
             Self::Todo => "tui.ledger.todo",
             Self::Deliverable => "tui.ledger.deliverable",
             Self::Finding => "tui.ledger.finding",
+            Self::Intervention => "tui.ledger.intervention",
         }
     }
 }
 
-/// 台账视图的一行：三节共用同一渲染单位（节 + 状态 + 文本）。
+/// 台账视图的一行：四节共用同一渲染单位（节 + 状态 + 文本）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct LedgerRow {
     /// 所属节。
@@ -284,7 +288,7 @@ pub struct ViewSnapshot {
     pub diff: Vec<DiffLine>,
     /// 会话视图的选中行（`j`/`k` 选择；`None` 表示无选中）。
     pub selected_index: Option<usize>,
-    /// 台账行（台账视图；三节统一渲染单位，FR-787）。
+    /// 台账行（台账视图；四节统一渲染单位，FR-787／FR-794）。
     pub ledger: Vec<LedgerRow>,
 }
 
@@ -379,7 +383,7 @@ impl ViewSnapshot {
                 .collect(),
             // 对话视图（ADR-056）：turn 历史即事件流（Events 视图承载），此处无独立行。
             ViewId::Chat => Vec::new(),
-            // 台账视图（FR-787）：三节统一按“节 状态 文本”一行；节名取准备层本地化结果，
+            // 台账视图（FR-787／FR-794）：四节统一按“节 状态 文本”一行；节名取准备层本地化结果，
             // 缺译时退回机器名（不猜测译文）。
             ViewId::Ledger => self
                 .ledger

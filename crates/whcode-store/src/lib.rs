@@ -42,6 +42,7 @@ pub mod export;
 pub mod findings;
 pub mod fork;
 pub mod indexes;
+pub mod interventions;
 pub mod monitor;
 pub mod overview;
 pub mod plan;
@@ -86,13 +87,18 @@ pub use export::{
     has_any_workspace_data, import_workspace,
 };
 pub use findings::{
-    Finding, FindingSeverity, FindingStatus, MAX_FINDING_ROWS, MAX_FINDING_TEXT_CHARS,
-    MAX_FINDING_TITLE_CHARS, NewFinding, create_finding, get_finding, list_findings,
-    transition_finding,
+    DismissReason, Finding, FindingSeverity, FindingStatus, MAX_FINDING_ROWS,
+    MAX_FINDING_TEXT_CHARS, MAX_FINDING_TITLE_CHARS, NewFinding, create_finding, get_finding,
+    list_findings, record_finding_recurrence, transition_finding,
 };
 pub use fork::{ForkOutcome, MAX_FORK_EVENTS, fork_session};
 pub use indexes::{
     REQUIRED_INDEXES, RequiredIndex, installed_indexes, missing_indexes, verify_indexes,
+};
+pub use interventions::{
+    Intervention, InterventionOutcome, InterventionStatus, MAX_INTERVENTION_ROWS,
+    MAX_INTERVENTION_TEXT_CHARS, NewIntervention, conclude_intervention, create_intervention,
+    get_intervention, list_interventions, list_interventions_for_session,
 };
 pub use monitor::{
     DatabaseStats, MonitorReport, PlanRow, QueryPlan, TableStat, WalStatus, WriterStats, collect,

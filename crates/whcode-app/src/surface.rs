@@ -1641,8 +1641,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
-    // 台账视图（FR-787）：待办／交付物／发现三节聚合，只读；CUI 无屏幕视图面，
-    // Web 经 `GET /api/ledger?session=` 提供同一聚合（T347）。
+    // 台账视图（FR-787／FR-794）：待办／交付物／发现／干预四节聚合，只读；CUI 无屏幕视图面，
+    // Web 经 `GET /api/ledger?session=` 提供同一聚合（T347；P2.4 扩第四节）。
     SurfaceEntry {
         id: "view.ledger",
         kind: SurfaceKind::View,

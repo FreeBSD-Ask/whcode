@@ -588,7 +588,7 @@ msgid "cui.webhook_dry_run"
 msgstr "पूर्वावलोकन: {planned} डिलीवरी लंबित (--yes जोड़कर चलाएँ)"
 
 msgid "cui.webhook_not_configured"
-msgstr "कोई एंडपॉइंट कॉन्फ़िगर नहीं: .zcode/webhooks.json मौजूद नहीं या खाली है — शून्य एंडपॉइंट का अर्थ शून्य अनुरोध"
+msgstr "कोई एंडपॉइंट कॉन्फ़िगर नहीं: .whcode/webhooks.json मौजूद नहीं या खाली है — शून्य एंडपॉइंट का अर्थ शून्य अनुरोध"
 
 msgid "cui.webhook_status"
 msgstr "एंडपॉइंट {endpoints} (सक्रिय {enabled}) · लंबित {claimed} · पहुँचाए {delivered} · विफल {failed}"
@@ -1059,7 +1059,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "दिखे टूल: {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr ".zcode/mcp.json नहीं मिला (MCP बंद)।"
+msgstr ".whcode/mcp.json नहीं मिला (MCP बंद)।"
 
 msgid "settings.panels.open"
 msgstr "पैनल"
@@ -1083,7 +1083,7 @@ msgid "settings.panels.skills.empty"
 msgstr "कोई कौशल नहीं (सही खाली)।"
 
 msgid "settings.panels.skills.hint"
-msgstr "कार्यक्षेत्र में .zcode/skills/ देखता है; गुम संदर्भ हर कौशल के नीचे दिखते हैं।"
+msgstr "कार्यक्षेत्र में .whcode/skills/ देखता है; गुम संदर्भ हर कौशल के नीचे दिखते हैं।"
 
 msgid "settings.panels.skills.issues"
 msgstr "गुम संदर्भ: {count}"
@@ -1235,8 +1235,11 @@ msgstr "डिलीवरेबल"
 msgid "tui.ledger.finding"
 msgstr "निष्कर्ष"
 
+msgid "tui.ledger.intervention"
+msgstr "हस्तक्षेप"
+
 msgid "tui.ledger.summary"
-msgstr "कार्य {todo} · डिलीवरेबल्स {deliverables} · निष्कर्ष {findings}"
+msgstr "कार्य {todo} · डिलीवरेबल्स {deliverables} · निष्कर्ष {findings}· हस्तक्षेप {interventions}"
 
 msgid "tui.ledger.todo"
 msgstr "कार्य"

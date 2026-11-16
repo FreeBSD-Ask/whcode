@@ -13,6 +13,11 @@
 //! 有界性：标题 ≤ [`MAX_FINDING_TITLE_CHARS`]、四要件各 ≤ [`MAX_FINDING_TEXT_CHARS`]、
 //! 列表一次 ≤ [`MAX_FINDING_ROWS`] 条（超出由调用方分页或收窄条件，不静默截断）。
 //!
+//! 学习捕获扩展（P2.4／FR-794／ADR-084）：`pattern`（可选归类）、`recurrence_count`
+//! （显式登记的复发次数）与 `dismiss_reason`（dismissed 迁移必填的封闭原因码，负面控制）。
+//! 复发是**显式动作**（[`record_finding_recurrence`]）：只有 `fixed` 状态可登记——修复尚未
+//! 声明完成的重开不计复发，防“重开即复发”的口径漂移。
+//!
 //! 边界：本模块只读写 `findings` 表；权限、字符串枚举解析与默认值归一在 `whcode-app::findings`。
 
 use duckdb::Connection;
@@ -74,6 +79,49 @@ impl FindingStatus {
                 | (Self::Fixed, Self::Open)
                 | (Self::Dismissed, Self::Open)
         )
+    }
+}
+
+/// dismissed 的封闭原因码（P2.4／ADR-084 决策 3，ADR-080 决策 4 修订）：负面控制——
+/// “不修”必须回答为什么，不接受无理由的关闭。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DismissReason {
+    /// 按设计如此（行为即规格）。
+    ByDesign,
+    /// 已被后续方案取代。
+    Superseded,
+    /// 与既有发现重复。
+    Duplicate,
+    /// 代价超出收益（写明取舍）。
+    Cost,
+    /// 暂不处理（显式放弃，而非遗忘）。
+    Wontfix,
+}
+
+impl DismissReason {
+    /// 库内稳定名。
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ByDesign => "by-design",
+            Self::Superseded => "superseded",
+            Self::Duplicate => "duplicate",
+            Self::Cost => "cost",
+            Self::Wontfix => "wontfix",
+        }
+    }
+
+    /// 解析稳定名。
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "by-design" => Some(Self::ByDesign),
+            "superseded" => Some(Self::Superseded),
+            "duplicate" => Some(Self::Duplicate),
+            "cost" => Some(Self::Cost),
+            "wontfix" => Some(Self::Wontfix),
+            _ => None,
+        }
     }
 }
 
@@ -159,10 +207,16 @@ pub struct Finding {
     pub updated_at_ms: u64,
     /// 标记为 fixed 的时间（其余状态为 `None`）。
     pub fixed_at_ms: Option<u64>,
+    /// 复发模式归类（可选；登记复发时提供即写回）。
+    pub pattern: Option<String>,
+    /// 显式登记的复发次数（0＝未复发过）。
+    pub recurrence_count: u64,
+    /// dismissed 原因码（仅在 dismissed 迁移时写入；历史行为 `None`）。
+    pub dismiss_reason: Option<DismissReason>,
 }
 
 const FINDING_COLUMNS: &str = "id, session_id, title, gap, impact, owner_fix, verification, \
-     status, severity, version, epoch_ms(created_at), epoch_ms(updated_at), epoch_ms(fixed_at)";
+     status, severity, version, epoch_ms(created_at), epoch_ms(updated_at), epoch_ms(fixed_at), \n     pattern, recurrence_count, dismiss_reason";
 
 fn finding_err(context: &str, err: duckdb::Error) -> WhError {
     WhError::new(
@@ -212,6 +266,36 @@ fn row_to_finding(row: &duckdb::Row<'_>) -> Result<Finding, WhError> {
     let fixed_at_ms: Option<i64> = row
         .get(12)
         .map_err(|err| finding_err("读取修复时间", err))?;
+    let pattern: Option<String> = row
+        .get(13)
+        .map_err(|err| finding_err("读取复发模式", err))?;
+    let recurrence_count: i64 = row
+        .get(14)
+        .map_err(|err| finding_err("读取复发计数", err))?;
+    let dismiss_text: Option<String> = row
+        .get(15)
+        .map_err(|err| finding_err("读取关闭原因", err))?;
+    let dismiss_reason = dismiss_text
+        .as_deref()
+        .map(|text| {
+            DismissReason::parse(text).ok_or_else(|| {
+                WhError::new(
+                    ErrorCode::ParseError,
+                    format!(
+                        "findings.dismiss_reason 出现未知取值 `{text}`：库内容漂移，需人工核对"
+                    ),
+                )
+            })
+        })
+        .transpose()?;
+    if recurrence_count < 0 {
+        return Err(WhError::new(
+            ErrorCode::ParseError,
+            format!(
+                "findings.recurrence_count 为负数（{recurrence_count}）：库内容漂移，需人工核对"
+            ),
+        ));
+    }
     Ok(Finding {
         id: row.get(0).map_err(|err| finding_err("读取 id", err))?,
         session_id: row.get(1).map_err(|err| finding_err("读取会话", err))?,
@@ -226,6 +310,9 @@ fn row_to_finding(row: &duckdb::Row<'_>) -> Result<Finding, WhError> {
         created_at_ms: u64::try_from(created_at_ms).unwrap_or(0),
         updated_at_ms: u64::try_from(updated_at_ms).unwrap_or(0),
         fixed_at_ms: fixed_at_ms.and_then(|value| u64::try_from(value).ok()),
+        pattern,
+        recurrence_count: u64::try_from(recurrence_count).unwrap_or(0),
+        dismiss_reason,
     })
 }
 
@@ -341,6 +428,7 @@ pub fn transition_finding(
     id: &str,
     expected_version: i64,
     next: FindingStatus,
+    dismiss_reason: Option<DismissReason>,
     now_ms: u64,
 ) -> Result<Finding, WhError> {
     let current = get_finding(conn, id)?
@@ -355,14 +443,41 @@ pub fn transition_finding(
             next.as_str()
         )));
     }
+    // 负面控制（ADR-084 决策 3，ADR-080 决策 4 修订）：dismissed 必须回答“为什么不修”，
+    // 且原因码只允许出现在 dismissed 迁移上（其余迁移带码属调用方口径错误）。
+    match (next, dismiss_reason) {
+        (FindingStatus::Dismissed, None) => {
+            return Err(invalid(
+                "dismissed 迁移必须带原因码（by-design／superseded／duplicate／cost／wontfix 之一）",
+            ));
+        }
+        (FindingStatus::Dismissed, Some(_))
+        | (FindingStatus::Open | FindingStatus::Fixing | FindingStatus::Fixed, None) => {}
+        (_, Some(_)) => {
+            return Err(invalid(
+                "仅 dismissed 迁移可携带原因码：其余迁移与原因码不匹配",
+            ));
+        }
+    }
     let now = i64::try_from(now_ms).map_err(|_| invalid("now_ms 超出可表示范围"))?;
+    let reason_text = dismiss_reason.map(|reason| reason.as_str().to_string());
     let changed = conn
         .execute(
             "UPDATE findings
                 SET status = ?, version = version + 1, updated_at = epoch_ms(?),
-                    fixed_at = CASE WHEN ? = 'fixed' THEN epoch_ms(?) ELSE fixed_at END
+                    fixed_at = CASE WHEN ? = 'fixed' THEN epoch_ms(?) ELSE fixed_at END,
+                    dismiss_reason = CASE WHEN ? = 'dismissed' THEN ? ELSE dismiss_reason END
               WHERE id = ? AND version = ?",
-            duckdb::params![next.as_str(), now, next.as_str(), now, id, expected_version],
+            duckdb::params![
+                next.as_str(),
+                now,
+                next.as_str(),
+                now,
+                next.as_str(),
+                reason_text,
+                id,
+                expected_version,
+            ],
         )
         .map_err(|err| finding_err("状态迁移", err))?;
     if changed == 0 {
@@ -372,6 +487,60 @@ pub fn transition_finding(
     }
     get_finding(conn, id)?
         .ok_or_else(|| WhError::new(ErrorCode::Internal, format!("finding {id} 迁移后读回失败")))
+}
+
+/// 登记一次复发（P2.4／FR-794／ADR-084 决策 2）：显式动作，语义＝“修复声明完成后，
+/// 同一问题再次出现”。仅 `fixed` 状态可登记：状态回 `open`（复用 ADR-080 的 fixed→open
+/// 迁移）、`recurrence_count` +1；提供 `pattern` 时写回归类（已有归类时不传则保留）。
+/// 乐观锁与 [`transition_finding`] 同款。
+///
+/// # Errors
+///
+/// 记录不存在（`not_found`）、版本冲突（`invalid_state`）、状态不是 `fixed`
+/// （`invalid_state`）、pattern 超长（`invalid_state`）或写入失败（`io_error`）时返回
+/// [`WhError`]。
+pub fn record_finding_recurrence(
+    conn: &Connection,
+    id: &str,
+    expected_version: i64,
+    pattern: Option<&str>,
+    now_ms: u64,
+) -> Result<Finding, WhError> {
+    let current = get_finding(conn, id)?
+        .ok_or_else(|| WhError::new(ErrorCode::NotFound, format!("finding {id} 不存在")))?;
+    if current.version != expected_version {
+        return Err(version_conflict(id, expected_version, current.version));
+    }
+    if current.status != FindingStatus::Fixed {
+        return Err(invalid(format!(
+            "finding {id} 当前为 {}：仅 fixed 状态可登记复发——修复尚未声明完成的重开不计复发",
+            current.status.as_str()
+        )));
+    }
+    if let Some(pattern) = pattern {
+        text_within(pattern, "复发模式归类", MAX_FINDING_TITLE_CHARS)?;
+    }
+    let now = i64::try_from(now_ms).map_err(|_| invalid("now_ms 超出可表示范围"))?;
+    let changed = conn
+        .execute(
+            "UPDATE findings
+                SET status = 'open', version = version + 1, updated_at = epoch_ms(?),
+                    recurrence_count = recurrence_count + 1,
+                    pattern = COALESCE(?, pattern)
+              WHERE id = ? AND version = ?",
+            duckdb::params![now, pattern, id, expected_version],
+        )
+        .map_err(|err| finding_err("登记复发", err))?;
+    if changed == 0 {
+        let actual = get_finding(conn, id)?.map_or(-1, |finding| finding.version);
+        return Err(version_conflict(id, expected_version, actual));
+    }
+    get_finding(conn, id)?.ok_or_else(|| {
+        WhError::new(
+            ErrorCode::Internal,
+            format!("finding {id} 复发登记后读回失败"),
+        )
+    })
 }
 
 /// 按会话列出发（台账视图用；`limit` 夹取到 [`MAX_FINDING_ROWS`]）。
@@ -475,18 +644,18 @@ mod tests {
     fn transition_rejects_stale_version() {
         let conn = fixture();
         let finding = create_finding(&conn, &new_finding("并发"), 1_000).expect("登记");
-        let fixing = transition_finding(&conn, &finding.id, 1, FindingStatus::Fixing, 2_000)
+        let fixing = transition_finding(&conn, &finding.id, 1, FindingStatus::Fixing, None, 2_000)
             .expect("开始修");
         assert_eq!(fixing.version, 2);
 
-        let err = transition_finding(&conn, &finding.id, 1, FindingStatus::Fixed, 3_000)
+        let err = transition_finding(&conn, &finding.id, 1, FindingStatus::Fixed, None, 3_000)
             .expect_err("过期版本必须冲突");
         assert_eq!(err.code, ErrorCode::InvalidState);
         assert!(err.message.contains("版本冲突"), "{}", err.message);
         assert!(err.message.contains("期望版本 1"), "{}", err.message);
         assert!(err.message.contains("当前 2"), "{}", err.message);
 
-        let fixed = transition_finding(&conn, &finding.id, 2, FindingStatus::Fixed, 3_000)
+        let fixed = transition_finding(&conn, &finding.id, 2, FindingStatus::Fixed, None, 3_000)
             .expect("按最新版本修完");
         assert_eq!(fixed.status, FindingStatus::Fixed);
         assert_eq!(fixed.version, 3);
@@ -498,8 +667,9 @@ mod tests {
     fn illegal_transition_is_rejected_without_bumping_version() {
         let conn = fixture();
         let finding = create_finding(&conn, &new_finding("迁移表"), 1_000).expect("登记");
-        transition_finding(&conn, &finding.id, 1, FindingStatus::Fixed, 2_000).expect("直接修完");
-        let err = transition_finding(&conn, &finding.id, 2, FindingStatus::Fixing, 3_000)
+        transition_finding(&conn, &finding.id, 1, FindingStatus::Fixed, None, 2_000)
+            .expect("直接修完");
+        let err = transition_finding(&conn, &finding.id, 2, FindingStatus::Fixing, None, 3_000)
             .expect_err("fixed→fixing 非法");
         assert_eq!(err.code, ErrorCode::InvalidState);
         assert!(err.message.contains("迁移表"), "{}", err.message);
@@ -564,10 +734,188 @@ mod tests {
     #[test]
     fn unknown_id_and_missing_record_are_explicit() {
         let conn = fixture();
-        let err = transition_finding(&conn, "FND-9999", 1, FindingStatus::Fixed, 1_000)
+        let err = transition_finding(&conn, "FND-9999", 1, FindingStatus::Fixed, None, 1_000)
             .expect_err("不存在必须报错");
         assert_eq!(err.code, ErrorCode::NotFound);
         assert!(get_finding(&conn, "FND-9999").expect("查询").is_none());
         assert_eq!(FindingStatus::parse("done"), None, "未知状态名不静默映射");
+    }
+
+    /// dismissed 的负面控制：必须带封闭原因码，且原因码不得出现在其他迁移上。
+    #[test]
+    fn dismiss_requires_reason_and_isolates_reason_to_dismissed() {
+        let conn = fixture();
+        let finding = create_finding(&conn, &new_finding("负面控制"), 1_000).expect("登记");
+        let err = transition_finding(&conn, &finding.id, 1, FindingStatus::Dismissed, None, 2_000)
+            .expect_err("dismissed 无原因码必须拒绝");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        assert!(err.message.contains("原因码"), "{}", err.message);
+
+        let dismissed = transition_finding(
+            &conn,
+            &finding.id,
+            1,
+            FindingStatus::Dismissed,
+            Some(DismissReason::ByDesign),
+            2_500,
+        )
+        .expect("带原因码关闭");
+        assert_eq!(dismissed.status, FindingStatus::Dismissed);
+        assert_eq!(dismissed.dismiss_reason, Some(DismissReason::ByDesign));
+
+        let other = create_finding(&conn, &new_finding("原因码越界"), 3_000).expect("登记");
+        let err = transition_finding(
+            &conn,
+            &other.id,
+            1,
+            FindingStatus::Fixing,
+            Some(DismissReason::Cost),
+            3_500,
+        )
+        .expect_err("非 dismissed 迁移带原因码必须拒绝");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        assert!(err.message.contains("仅 dismissed"), "{}", err.message);
+    }
+
+    /// 三个枚举的稳定名与解析：全变体往返一致，未知值返回 `None`（不静默映射）。
+    #[test]
+    fn enum_parsers_round_trip_and_reject_unknown() {
+        for status in [
+            FindingStatus::Open,
+            FindingStatus::Fixing,
+            FindingStatus::Fixed,
+            FindingStatus::Dismissed,
+        ] {
+            assert_eq!(FindingStatus::parse(status.as_str()), Some(status));
+        }
+        for reason in [
+            DismissReason::ByDesign,
+            DismissReason::Superseded,
+            DismissReason::Duplicate,
+            DismissReason::Cost,
+            DismissReason::Wontfix,
+        ] {
+            assert_eq!(DismissReason::parse(reason.as_str()), Some(reason));
+        }
+        for severity in [
+            FindingSeverity::Low,
+            FindingSeverity::Medium,
+            FindingSeverity::High,
+        ] {
+            assert_eq!(FindingSeverity::parse(severity.as_str()), Some(severity));
+        }
+        assert_eq!(DismissReason::parse("nope"), None);
+        assert_eq!(FindingSeverity::parse("critical"), None);
+    }
+
+    /// 复发登记的前置条件：仅 fixed 可登记；版本过期、模式超长与缺失 id 都显式拒绝；
+    /// 不传模式时保留既有归类（`COALESCE` 语义）。
+    #[test]
+    fn recurrence_requires_fixed_state_and_preserves_pattern() {
+        let conn = fixture();
+        let finding = create_finding(&conn, &new_finding("复发前置"), 1_000).expect("登记");
+        let err = record_finding_recurrence(&conn, &finding.id, 1, None, 2_000)
+            .expect_err("open 状态不得登记复发");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        assert!(err.message.contains("仅 fixed"), "{}", err.message);
+
+        assert_eq!(
+            record_finding_recurrence(&conn, "FND-9999", 1, None, 2_000)
+                .expect_err("不存在必须报错")
+                .code,
+            ErrorCode::NotFound
+        );
+
+        transition_finding(&conn, &finding.id, 1, FindingStatus::Fixed, None, 3_000).expect("修复");
+        assert_eq!(
+            record_finding_recurrence(&conn, &finding.id, 1, None, 3_500)
+                .expect_err("版本过期必须拒绝")
+                .code,
+            ErrorCode::InvalidState
+        );
+        let too_long = "x".repeat(MAX_FINDING_TITLE_CHARS + 1);
+        assert_eq!(
+            record_finding_recurrence(&conn, &finding.id, 2, Some(&too_long), 3_800)
+                .expect_err("模式超长必须拒绝")
+                .code,
+            ErrorCode::InvalidState
+        );
+
+        let recurred =
+            record_finding_recurrence(&conn, &finding.id, 2, Some("平台差异断言"), 4_000)
+                .expect("登记复发");
+        assert_eq!(recurred.status, FindingStatus::Open);
+        assert_eq!(recurred.recurrence_count, 1);
+        assert_eq!(recurred.pattern.as_deref(), Some("平台差异断言"));
+
+        transition_finding(
+            &conn,
+            &finding.id,
+            recurred.version,
+            FindingStatus::Fixed,
+            None,
+            5_000,
+        )
+        .expect("再修");
+        let again =
+            record_finding_recurrence(&conn, &finding.id, recurred.version + 1, None, 6_000)
+                .expect("二次复发");
+        assert_eq!(again.recurrence_count, 2);
+        assert_eq!(
+            again.pattern.as_deref(),
+            Some("平台差异断言"),
+            "不传模式时保留既有归类"
+        );
+    }
+
+    /// 库内容漂移：未知状态／严重度／原因码与负计数按 `ParseError` 显式报错。
+    #[test]
+    fn row_parsing_rejects_drifted_columns() {
+        let conn = fixture();
+        let finding = create_finding(&conn, &new_finding("漂移"), 1_000).expect("登记");
+        conn.execute(
+            "UPDATE findings SET status = 'yanked' WHERE id = ?",
+            duckdb::params![&finding.id],
+        )
+        .expect("注入状态漂移");
+        assert_eq!(
+            list_findings(&conn, None, 10)
+                .expect_err("状态漂移必须报错")
+                .code,
+            ErrorCode::ParseError
+        );
+        conn.execute(
+            "UPDATE findings SET status = 'open', severity = 'critical' WHERE id = ?",
+            duckdb::params![&finding.id],
+        )
+        .expect("注入严重度漂移");
+        assert_eq!(
+            list_findings(&conn, None, 10)
+                .expect_err("严重度漂移必须报错")
+                .code,
+            ErrorCode::ParseError
+        );
+        conn.execute(
+            "UPDATE findings SET severity = 'medium', dismiss_reason = 'meh' WHERE id = ?",
+            duckdb::params![&finding.id],
+        )
+        .expect("注入原因码漂移");
+        assert_eq!(
+            list_findings(&conn, None, 10)
+                .expect_err("原因码漂移必须报错")
+                .code,
+            ErrorCode::ParseError
+        );
+        conn.execute(
+            "UPDATE findings SET dismiss_reason = NULL, recurrence_count = -1 WHERE id = ?",
+            duckdb::params![&finding.id],
+        )
+        .expect("注入负计数");
+        assert_eq!(
+            list_findings(&conn, None, 10)
+                .expect_err("负计数必须报错")
+                .code,
+            ErrorCode::ParseError
+        );
     }
 }

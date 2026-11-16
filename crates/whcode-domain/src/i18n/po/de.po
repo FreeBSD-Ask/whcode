@@ -588,7 +588,7 @@ msgid "cui.webhook_dry_run"
 msgstr "Vorschau: {planned} ausstehende Zustellungen (mit --yes ausführen)"
 
 msgid "cui.webhook_not_configured"
-msgstr "Keine Endpunkte konfiguriert: .zcode/webhooks.json fehlt oder ist leer — keine Endpunkte heißt keine Anfragen"
+msgstr "Keine Endpunkte konfiguriert: .whcode/webhooks.json fehlt oder ist leer — keine Endpunkte heißt keine Anfragen"
 
 msgid "cui.webhook_status"
 msgstr "Endpunkte {endpoints} (aktiv {enabled}) · Ausstehend {claimed} · Zugestellt {delivered} · Fehlgeschlagen {failed}"
@@ -1059,7 +1059,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "Beobachtete Tools: {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr "Kein .zcode/mcp.json (MCP aus)."
+msgstr "Kein .whcode/mcp.json (MCP aus)."
 
 msgid "settings.panels.open"
 msgstr "Panels"
@@ -1083,7 +1083,7 @@ msgid "settings.panels.skills.empty"
 msgstr "Keine Skills (korrekt leer)."
 
 msgid "settings.panels.skills.hint"
-msgstr "Durchsucht .zcode/skills/ im Workspace; fehlende Referenzen stehen pro Skill."
+msgstr "Durchsucht .whcode/skills/ im Workspace; fehlende Referenzen stehen pro Skill."
 
 msgid "settings.panels.skills.issues"
 msgstr "Fehlende Referenzen: {count}"
@@ -1235,8 +1235,11 @@ msgstr "Ergebnis"
 msgid "tui.ledger.finding"
 msgstr "Befund"
 
+msgid "tui.ledger.intervention"
+msgstr "Maßnahmen"
+
 msgid "tui.ledger.summary"
-msgstr "Aufgaben {todo} · Ergebnisse {deliverables} · Befunde {findings}"
+msgstr "Aufgaben {todo} · Ergebnisse {deliverables} · Befunde {findings}· Maßnahmen {interventions}"
 
 msgid "tui.ledger.todo"
 msgstr "Aufgabe"

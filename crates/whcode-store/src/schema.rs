@@ -30,10 +30,10 @@ use whcode_domain::{ErrorCode, WhError};
 /// 有界保留）；
 /// v12 增加评审发现台账（P2.2／FR-786／ADR-080：发现四要件、状态机与修复乐观锁）；
 /// v13 增加 webhook 幂等投递表（P6.4／FR-788／ADR-079：幂等键＋去重记录＋有界重试状态）。
-pub const STORE_SCHEMA_VERSION: u32 = 13;
+pub const STORE_SCHEMA_VERSION: u32 = 14;
 
 /// 正式表数量（含 `schema_migrations`）。
-pub const TABLE_COUNT: usize = 19;
+pub const TABLE_COUNT: usize = 20;
 
 const MIGRATION_0001: &str = include_str!("../migrations/0001_initial.sql");
 const MIGRATION_0002: &str = include_str!("../migrations/0002_event_trace_indexes.sql");
@@ -48,6 +48,7 @@ const MIGRATION_0010: &str = include_str!("../migrations/0010_session_fork.sql")
 const MIGRATION_0011: &str = include_str!("../migrations/0011_file_preimages.sql");
 const MIGRATION_0012: &str = include_str!("../migrations/0012_findings.sql");
 const MIGRATION_0013: &str = include_str!("../migrations/0013_webhook_deliveries.sql");
+const MIGRATION_0014: &str = include_str!("../migrations/0014_learning_capture.sql");
 
 /// 版本化迁移清单；新增版本时追加，不修改历史 SQL。
 const MIGRATIONS: &[(u32, &str)] = &[
@@ -64,6 +65,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (11, MIGRATION_0011),
     (12, MIGRATION_0012),
     (13, MIGRATION_0013),
+    (14, MIGRATION_0014),
 ];
 
 fn store_err(context: &str, err: duckdb::Error) -> WhError {

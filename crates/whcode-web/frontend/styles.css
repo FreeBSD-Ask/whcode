@@ -1,5 +1,5 @@
 /* WHCode Web 应用外壳（T197／ADR-041）：无第三方字体、无渐变、无阴影、无 WebGL；
-   六套主题：既有四套铁律精确色值（FR-612/713）＋ zcode 系（FR-739，2026-11-06 用户
+   六套主题：既有四套铁律精确色值（FR-612/713）＋ whcode 系（FR-739，2026-11-06 用户
    批准冻结，色值单一事实源 whcode_domain::theme_tokens，本文件为受校验产物——
    契约测试对照断言，篡改即失败）；间距与字号刻度见 docs/guides/ui-design.md §13。
    层次只由位置、对齐、字重、字号与留白表达；状态不依赖颜色（ui-design §3）。 */
@@ -31,14 +31,14 @@
   --bg: #000000;
   --fg: #00ff00;
 }
-[data-theme="zcode-day"] {
+[data-theme="whcode-day"] {
   --bg: #f8f8f8;
   --fg: #262626;
   /* diff 行色（T260）：与 whcode_domain::theme_tokens::TERMINAL_DAY 同源。 */
   --diff-added: #1e8a3e;
   --diff-removed: #e03131;
 }
-[data-theme="zcode-night"] {
+[data-theme="whcode-night"] {
   --bg: #161616;
   --fg: #d4d4d4;
   /* diff 行色（T260）：与 whcode_domain::theme_tokens::TERMINAL_NIGHT 同源。 */
@@ -156,7 +156,7 @@ main {
 }
 .rows li:last-child { border-block-end: none; }
 /* diff 预览（T260／FR-622）：+ 绿 / - 红 / 上下文前景；3px 内嵌左条（逻辑属性，
-   RTL 自动镜像）。zcode 系取冻结终端调色板，既有四套回落前景色；标记字符始终保留，
+   RTL 自动镜像）。whcode 系取冻结终端调色板，既有四套回落前景色；标记字符始终保留，
    状态不只靠颜色（ui-design §3）。数据面已按 200 行截断并显式标注。 */
 .diff-line {
   display: block;

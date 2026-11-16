@@ -11,11 +11,11 @@
 
 | 项 | 数量 |
 |---|---|
-| 功能需求 FR | 171 |
-| 任务 | 369（已完成 368，未完成 1——T369 待外部条件回填） |
-| 验收检查点 | 465（已有复核记录 464，missing 1——Check 464 待 CI 实跑回填） |
+| 功能需求 FR | 172 |
+| 任务 | 370（已完成 369，未完成 1——T369 待外部条件回填） |
+| 验收检查点 | 466（已有复核记录 465，missing 1——Check 464 待 CI 实跑回填） |
 
-证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 414、
+证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 416、
 outcome-supported 49、missing 1。ADR-060 Phase 1、proposal-v3 的 P1.9／P1.10／P2.2b／P3.3／
 P5.2／P5.3／P5.6／P6.2—P6.4／P7.1—P7.4 均已收口，最近批次（Check 462—463，主题与配置
 更名＋FreeBSD 交付目标落地）的取证见

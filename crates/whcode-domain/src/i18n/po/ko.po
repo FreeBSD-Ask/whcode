@@ -588,7 +588,7 @@ msgid "cui.webhook_dry_run"
 msgstr "미리보기: {planned}건 전송 대기(--yes 로 실행)"
 
 msgid "cui.webhook_not_configured"
-msgstr "엔드포인트 미설정: .zcode/webhooks.json 이 없거나 비어 있습니다——설정이 없으면 요청도 없습니다"
+msgstr "엔드포인트 미설정: .whcode/webhooks.json 이 없거나 비어 있습니다——설정이 없으면 요청도 없습니다"
 
 msgid "cui.webhook_status"
 msgstr "엔드포인트 {endpoints}(사용 {enabled}) · 대기 {claimed} · 전송됨 {delivered} · 실패 {failed}"
@@ -1059,7 +1059,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "관측된 도구: {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr ".zcode/mcp.json이 없습니다(MCP 꺼짐)."
+msgstr ".whcode/mcp.json이 없습니다(MCP 꺼짐)."
 
 msgid "settings.panels.open"
 msgstr "패널"
@@ -1083,7 +1083,7 @@ msgid "settings.panels.skills.empty"
 msgstr "스킬이 없습니다(올바른 빈 상태)."
 
 msgid "settings.panels.skills.hint"
-msgstr "작업 공간의 .zcode/skills/를 훑습니다. 끊긴 참조는 스킬마다 표시합니다."
+msgstr "작업 공간의 .whcode/skills/를 훑습니다. 끊긴 참조는 스킬마다 표시합니다."
 
 msgid "settings.panels.skills.issues"
 msgstr "끊긴 참조 {count}건"
@@ -1235,8 +1235,11 @@ msgstr "산출물"
 msgid "tui.ledger.finding"
 msgstr "발견"
 
+msgid "tui.ledger.intervention"
+msgstr "개입"
+
 msgid "tui.ledger.summary"
-msgstr "할 일 {todo} · 산출물 {deliverables} · 발견 {findings}"
+msgstr "할 일 {todo} · 산출물 {deliverables} · 발견 {findings}· 개입 {interventions}"
 
 msgid "tui.ledger.todo"
 msgstr "할 일"

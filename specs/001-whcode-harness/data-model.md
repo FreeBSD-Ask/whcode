@@ -4,7 +4,7 @@
 
 **来源**：任务书 §3（术语与状态模型）、§7（数据模型与持久化）。字段为逻辑模型，具体类型/DDL 在实现期确定；每张表都必须有 schema 版本与迁移脚本（FR-501、NFR-103）。
 
-## 1. 核心实体（15 张表）
+## 1. 核心实体（16 张表）
 
 ### workspace_meta
 - 字段：`schema_version, workspace_id, created_at`
@@ -124,9 +124,22 @@
 评审发现台账（P2.2／FR-786／ADR-080，schema v12）。四要件 `gap`／`impact`／`owner_fix`／
 `verification` 均 NOT NULL 且应用层校验非空与长度；`status ∈ {open,fixing,fixed,dismissed}`；
 `severity ∈ {low,medium,high}`；`version` 为修复乐观锁（迁移必须带期望版本，冲突不覆盖）；
-`fixed_at` 仅在 `fixed` 时落值；`session_id` 可空（跨会话发现无归属）。`id` 形如 `FND-<n>`
+`fixed_at` 仅在 `fixed` 时落值；`session_id` 可空（跨会话发现无归属）。schema v14 起另增
+`pattern`（模式归类，≤200 字符）、`recurrence_count`（显式复发登记计数，默认 0）、
+`dismiss_reason`（`dismissed` 迁移必须带封闭原因码，ADR-084 决策 3）。`id` 形如 `FND-<n>`
 （序列 `whcode_finding_id_seq`）。索引 `(status, created_at, id)`。随工作区导出
 （`EXPORT_TABLES` 13 张之一）。
+
+### interventions
+
+学习捕获干预台账（P2.4／FR-794／ADR-084，schema v14）。四要件 `pattern`（≤200 字符）／
+`action`／`expected_effect`／`verification`（各 ≤2000 字符）均 NOT NULL，应用层校验非空与
+长度；`status ∈ {active,concluded}`；`outcome ∈ {effective,not_effective}`（仅 `concluded`
+有值，由 store 按复发计数自动判定，人工不得指定）；`recurrences_before` 为登记时该模式复发
+计数总和、`recurrences_after` 为结论时复算值；`version` 为乐观锁；`session_id` 可空；
+`target_finding_id` 可空（关联首发发现）。`id` 形如 `INT-<n>`（序列
+`whcode_intervention_id_seq`）。索引 `(status, created_at, id)` 与 `(pattern, status, id)`。
+随工作区导出（`EXPORT_TABLES` 之一）。
 
 ### webhook_deliveries
 

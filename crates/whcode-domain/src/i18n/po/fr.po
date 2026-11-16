@@ -588,7 +588,7 @@ msgid "cui.webhook_dry_run"
 msgstr "Aperçu : {planned} livraisons en attente (ajoutez --yes pour exécuter)"
 
 msgid "cui.webhook_not_configured"
-msgstr "Aucun point de terminaison configuré : .zcode/webhooks.json absent ou vide — zéro point, zéro requête"
+msgstr "Aucun point de terminaison configuré : .whcode/webhooks.json absent ou vide — zéro point, zéro requête"
 
 msgid "cui.webhook_status"
 msgstr "Points de terminaison {endpoints} (actifs {enabled}) · En attente {claimed} · Livrés {delivered} · Échecs {failed}"
@@ -1059,7 +1059,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "Outils observés : {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr "Aucun fichier .zcode/mcp.json (MCP désactivé)."
+msgstr "Aucun fichier .whcode/mcp.json (MCP désactivé)."
 
 msgid "settings.panels.open"
 msgstr "Panneaux"
@@ -1083,7 +1083,7 @@ msgid "settings.panels.skills.empty"
 msgstr "Aucune compétence (vide correct)."
 
 msgid "settings.panels.skills.hint"
-msgstr "Analyse .zcode/skills/ du workspace ; les références manquantes sont listées par compétence."
+msgstr "Analyse .whcode/skills/ du workspace ; les références manquantes sont listées par compétence."
 
 msgid "settings.panels.skills.issues"
 msgstr "Références manquantes : {count}"
@@ -1235,8 +1235,11 @@ msgstr "Livrable"
 msgid "tui.ledger.finding"
 msgstr "Constat"
 
+msgid "tui.ledger.intervention"
+msgstr "Interventions"
+
 msgid "tui.ledger.summary"
-msgstr "Tâches {todo} · Livrables {deliverables} · Constats {findings}"
+msgstr "Tâches {todo} · Livrables {deliverables} · Constats {findings} · Interventions {interventions}"
 
 msgid "tui.ledger.todo"
 msgstr "Tâche"

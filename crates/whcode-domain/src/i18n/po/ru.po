@@ -588,7 +588,7 @@ msgid "cui.webhook_dry_run"
 msgstr "Предпросмотр: {planned} доставок в очереди (добавьте --yes для запуска)"
 
 msgid "cui.webhook_not_configured"
-msgstr "Точки назначения не настроены: .zcode/webhooks.json отсутствует или пуст — нет точек, нет запросов"
+msgstr "Точки назначения не настроены: .whcode/webhooks.json отсутствует или пуст — нет точек, нет запросов"
 
 msgid "cui.webhook_status"
 msgstr "Точки {endpoints} (включено {enabled}) · В ожидании {claimed} · Доставлено {delivered} · Ошибок {failed}"
@@ -1059,7 +1059,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "Наблюдаемые инструменты: {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr "Файл .zcode/mcp.json не найден (MCP выключен)."
+msgstr "Файл .whcode/mcp.json не найден (MCP выключен)."
 
 msgid "settings.panels.open"
 msgstr "Панели"
@@ -1083,7 +1083,7 @@ msgid "settings.panels.skills.empty"
 msgstr "Навыков нет (корректная пустота)."
 
 msgid "settings.panels.skills.hint"
-msgstr "Сканирует .zcode/skills/ в рабочей области; отсутствующие ссылки перечислены для каждого навыка."
+msgstr "Сканирует .whcode/skills/ в рабочей области; отсутствующие ссылки перечислены для каждого навыка."
 
 msgid "settings.panels.skills.issues"
 msgstr "Отсутствующих ссылок: {count}"
@@ -1235,8 +1235,11 @@ msgstr "Результат"
 msgid "tui.ledger.finding"
 msgstr "Находка"
 
+msgid "tui.ledger.intervention"
+msgstr "Вмешательства"
+
 msgid "tui.ledger.summary"
-msgstr "Задачи {todo} · Результаты {deliverables} · Находки {findings}"
+msgstr "Задачи {todo} · Результаты {deliverables} · Находки {findings}· Вмешательства {interventions}"
 
 msgid "tui.ledger.todo"
 msgstr "Задача"

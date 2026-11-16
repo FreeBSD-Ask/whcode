@@ -76,7 +76,7 @@ impl StoreViewSource {
             // 对话视图（ADR-056）：无独立快照——输入与摘要由 GUI/TUI 自持状态，
             // turn 历史经 Events 视图查看。
             ViewId::Chat => Ok(ViewSnapshot::default()),
-            // 台账视图（FR-787）：待办／交付物／发现三节聚合；无会话时只列跨会话发现。
+            // 台账视图（FR-787／FR-794）：待办／交付物／发现／干预四节聚合；无会话时只列跨会话发现。
             ViewId::Ledger => self.build_ledger(session),
         }
     }
@@ -86,10 +86,11 @@ impl StoreViewSource {
         whcode_store::latest_seq(&self.conn.lock().expect("store 连接锁中毒")).ok()
     }
 
-    /// 台账视图（FR-787）：待办（最近快照）＋交付物（聚合去重）＋发现（按会话）。
+    /// 台账视图（FR-787／FR-794）：待办（最近快照）＋交付物（聚合去重）＋发现（按会话）
+    /// ＋干预（按会话）。
     ///
-    /// 三节各自有界：待办 ≤50 条（写入侧上限）、交付物 ≤200 条（读取侧上限）、发现 ≤20 条；
-    /// 任一来源失败都写进摘要行（`error.datasource` 之外的节级注记），不伪造空。
+    /// 四节各自有界：待办 ≤50 条（写入侧上限）、交付物 ≤200 条（读取侧上限）、发现 ≤20 条、
+    /// 干预 ≤20 条；任一来源失败都写进摘要行（`error.datasource` 之外的节级注记），不伪造空。
     fn build_ledger(&self, session: Option<&str>) -> Result<ViewSnapshot, WhError> {
         let mut snapshot = ViewSnapshot::empty(ViewId::Ledger);
         let mut notes: Vec<String> = Vec::new();
@@ -107,9 +108,14 @@ impl StoreViewSource {
             .texts
             .resolve(LedgerSection::Finding.label_key())
             .to_string();
+        let intervention_label = self
+            .texts
+            .resolve(LedgerSection::Intervention.label_key())
+            .to_string();
         let mut todo_count = 0usize;
         let mut deliverable_count = 0usize;
         let mut finding_count = 0usize;
+        let mut intervention_count = 0usize;
         match session {
             Some(session) => {
                 match whcode_app::todo::current(&conn, &self.policy, &self.actor, session) {
@@ -165,6 +171,39 @@ impl StoreViewSource {
                     }
                     Err(err) => notes.push(format!("发现不可用：{err}")),
                 }
+                match whcode_app::list_session_interventions(
+                    &conn,
+                    &self.policy,
+                    &self.actor,
+                    session,
+                    Some(LEDGER_INTERVENTION_LIMIT),
+                ) {
+                    Ok(rows) => {
+                        intervention_count = rows.len();
+                        snapshot
+                            .ledger
+                            .extend(rows.into_iter().map(|item| LedgerRow {
+                                section: LedgerSection::Intervention,
+                                section_label: intervention_label.clone(),
+                                status: match (&item.status, &item.outcome) {
+                                    (whcode_store::InterventionStatus::Active, _) => {
+                                        "active".to_string()
+                                    }
+                                    (whcode_store::InterventionStatus::Concluded, outcome) => {
+                                        format!(
+                                            "concluded={}",
+                                            outcome
+                                                .as_ref()
+                                                .map(|verdict| verdict.as_str())
+                                                .unwrap_or("?")
+                                        )
+                                    }
+                                },
+                                text: format!("{} [{}] {}", item.id, item.pattern, item.action),
+                            }));
+                    }
+                    Err(err) => notes.push(format!("干预不可用：{err}")),
+                }
             }
             None => notes.push("未选择会话：待办与交付物需要会话上下文".to_string()),
         }
@@ -175,6 +214,7 @@ impl StoreViewSource {
                     ("todo", &todo_count.to_string()),
                     ("deliverables", &deliverable_count.to_string()),
                     ("findings", &finding_count.to_string()),
+                    ("interventions", &intervention_count.to_string()),
                 ],
             )
         } else {
@@ -422,6 +462,8 @@ impl StoreViewSource {
 
 /// 台账视图的发现条数上限（界面读取面，小于存储上限 200）。
 const LEDGER_FINDING_LIMIT: usize = 20;
+/// 台账视图干预节的读取上限（与发现节同口径，FR-794）。
+const LEDGER_INTERVENTION_LIMIT: usize = 20;
 
 impl ViewSource for StoreViewSource {
     fn snapshot(&self, view: ViewId, session: Option<&str>) -> ViewSnapshot {

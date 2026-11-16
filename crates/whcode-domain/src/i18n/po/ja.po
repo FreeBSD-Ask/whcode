@@ -588,7 +588,7 @@ msgid "cui.webhook_dry_run"
 msgstr "プレビュー：{planned} 件が送信待ち（--yes で実行）"
 
 msgid "cui.webhook_not_configured"
-msgstr "エンドポイント未設定：.zcode/webhooks.json が無いか空です——ゼロ設定はゼロ送信"
+msgstr "エンドポイント未設定：.whcode/webhooks.json が無いか空です——ゼロ設定はゼロ送信"
 
 msgid "cui.webhook_status"
 msgstr "エンドポイント {endpoints}（有効 {enabled}）· 未確定 {claimed} · 送信済み {delivered} · 失敗 {failed}"
@@ -1059,7 +1059,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "観測されたツール：{tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr ".zcode/mcp.json が見つかりません（MCP はオフ）。"
+msgstr ".whcode/mcp.json が見つかりません（MCP はオフ）。"
 
 msgid "settings.panels.open"
 msgstr "パネル"
@@ -1083,7 +1083,7 @@ msgid "settings.panels.skills.empty"
 msgstr "スキルはありません（正しい空）。"
 
 msgid "settings.panels.skills.hint"
-msgstr "ワークスペースの .zcode/skills/ を走査します。参照切れはスキルごとに表示。"
+msgstr "ワークスペースの .whcode/skills/ を走査します。参照切れはスキルごとに表示。"
 
 msgid "settings.panels.skills.issues"
 msgstr "参照切れ {count} 件"
@@ -1235,8 +1235,11 @@ msgstr "成果物"
 msgid "tui.ledger.finding"
 msgstr "指摘"
 
+msgid "tui.ledger.intervention"
+msgstr "介入"
+
 msgid "tui.ledger.summary"
-msgstr "タスク {todo} · 成果物 {deliverables} · 指摘 {findings}"
+msgstr "タスク {todo} · 成果物 {deliverables} · 指摘 {findings}· 介入 {interventions}"
 
 msgid "tui.ledger.todo"
 msgstr "タスク"

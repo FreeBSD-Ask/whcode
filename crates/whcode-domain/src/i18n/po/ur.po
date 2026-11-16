@@ -588,7 +588,7 @@ msgid "cui.webhook_dry_run"
 msgstr "پیش منظر: {planned} ترسیلیں زیر التوا (چلانے کے لیے --yes شامل کریں)"
 
 msgid "cui.webhook_not_configured"
-msgstr "کوئی اینڈ پوائنٹ ترتیب نہیں دیا گیا: .zcode/webhooks.json موجود نہیں یا خالی ہے — صفر اینڈ پوائنٹ یعنی صفر درخواست"
+msgstr "کوئی اینڈ پوائنٹ ترتیب نہیں دیا گیا: .whcode/webhooks.json موجود نہیں یا خالی ہے — صفر اینڈ پوائنٹ یعنی صفر درخواست"
 
 msgid "cui.webhook_status"
 msgstr "اینڈ پوائنٹ {endpoints} (فعال {enabled}) · زیر التوا {claimed} · پہنچا دیے {delivered} · ناکام {failed}"
@@ -1059,7 +1059,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "دیکھے گئے ٹول: {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr ".zcode/mcp.json نہیں ملا (MCP بند ہے)۔"
+msgstr ".whcode/mcp.json نہیں ملا (MCP بند ہے)۔"
 
 msgid "settings.panels.open"
 msgstr "پینل"
@@ -1083,7 +1083,7 @@ msgid "settings.panels.skills.empty"
 msgstr "کوئی ہنر نہیں (درست خالی)۔"
 
 msgid "settings.panels.skills.hint"
-msgstr "ورک اسپیس میں .zcode/skills/ دیکھتا ہے؛ گمشدہ حوالے ہر ہنر کے نیچے دکھائے جاتے ہیں۔"
+msgstr "ورک اسپیس میں .whcode/skills/ دیکھتا ہے؛ گمشدہ حوالے ہر ہنر کے نیچے دکھائے جاتے ہیں۔"
 
 msgid "settings.panels.skills.issues"
 msgstr "گمشدہ حوالے: {count}"
@@ -1235,8 +1235,11 @@ msgstr "ڈیلیوریبل"
 msgid "tui.ledger.finding"
 msgstr "نتیجہ"
 
+msgid "tui.ledger.intervention"
+msgstr "مداخلت"
+
 msgid "tui.ledger.summary"
-msgstr "کام {todo} · ڈیلیوریبلز {deliverables} · نتائج {findings}"
+msgstr "کام {todo} · ڈیلیوریبلز {deliverables} · نتائج {findings}· مداخلت {interventions}"
 
 msgid "tui.ledger.todo"
 msgstr "کام"

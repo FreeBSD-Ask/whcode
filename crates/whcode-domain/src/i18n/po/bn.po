@@ -588,7 +588,7 @@ msgid "cui.webhook_dry_run"
 msgstr "প্রিভিউ: {planned}টি ডেলিভারি অপেক্ষমাণ (চালাতে --yes যোগ করুন)"
 
 msgid "cui.webhook_not_configured"
-msgstr "কোনো এন্ডপয়েন্ট কনফিগার করা নেই: .zcode/webhooks.json অনুপস্থিত বা খালি — শূন্য এন্ডপয়েন্ট মানে শূন্য অনুরোধ"
+msgstr "কোনো এন্ডপয়েন্ট কনফিগার করা নেই: .whcode/webhooks.json অনুপস্থিত বা খালি — শূন্য এন্ডপয়েন্ট মানে শূন্য অনুরোধ"
 
 msgid "cui.webhook_status"
 msgstr "এন্ডপয়েন্ট {endpoints} (সক্রিয় {enabled}) · অপেক্ষমাণ {claimed} · পৌঁছানো {delivered} · ব্যর্থ {failed}"
@@ -1059,7 +1059,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "দেখা টুল: {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr ".zcode/mcp.json নেই (MCP বন্ধ)।"
+msgstr ".whcode/mcp.json নেই (MCP বন্ধ)।"
 
 msgid "settings.panels.open"
 msgstr "প্যানেল"
@@ -1083,7 +1083,7 @@ msgid "settings.panels.skills.empty"
 msgstr "কোনো স্কিল নেই (সঠিক শূন্য)।"
 
 msgid "settings.panels.skills.hint"
-msgstr "ওয়ার্কস্পেসে .zcode/skills/ দেখে; নিখোঁজ রেফারেন্স স্কিলপ্রতি তালিকাভুক্ত হয়।"
+msgstr "ওয়ার্কস্পেসে .whcode/skills/ দেখে; নিখোঁজ রেফারেন্স স্কিলপ্রতি তালিকাভুক্ত হয়।"
 
 msgid "settings.panels.skills.issues"
 msgstr "নিখোঁজ রেফারেন্স: {count}"
@@ -1235,8 +1235,11 @@ msgstr "ডেলিভারেবল"
 msgid "tui.ledger.finding"
 msgstr "ফলাফল"
 
+msgid "tui.ledger.intervention"
+msgstr "হস্তক্ষেপ"
+
 msgid "tui.ledger.summary"
-msgstr "কাজ {todo} · ডেলিভারেবল {deliverables} · ফলাফল {findings}"
+msgstr "কাজ {todo} · ডেলিভারেবল {deliverables} · ফলাফল {findings}· হস্তক্ষেপ {interventions}"
 
 msgid "tui.ledger.todo"
 msgstr "কাজ"

@@ -755,9 +755,10 @@ pub fn handle_request_with_llm(
             }
         }
         (Method::Get, "/api/ledger") => {
-            // 台账视图的 Web 面（FR-787／T347）：待办／交付物／发现三节聚合，只读。
-            // 与 TUI／GUI 同源（`whcode_app` 的三个只读命令）：单节失败进 `errors` 且其余
-            // 两节照常返回——不把“查不到”画成“没有”；三节全因会话不存在失败时回 404。
+            // 台账视图的 Web 面（FR-787／T347；P2.4／FR-794 扩第四节）：待办／交付物／发现／
+            // 干预聚合，只读。与 TUI／GUI 同源（`whcode_app` 的只读命令）：单节失败进
+            // `errors` 且其余各节照常返回——不把“查不到”画成“没有”；各节全因会话不存在
+            // 失败时回 404。
             let Some(session) = query_value("session") else {
                 return error_response(&WhError::invalid_state("缺 session 参数"));
             };
@@ -765,6 +766,7 @@ pub fn handle_request_with_llm(
             let mut todos: Vec<serde_json::Value> = Vec::new();
             let mut deliverables: Vec<serde_json::Value> = Vec::new();
             let mut findings_rows: Vec<serde_json::Value> = Vec::new();
+            let mut interventions_rows: Vec<serde_json::Value> = Vec::new();
             let mut deliverable_truncated = false;
             match whcode_app::todo::current(conn, &policy, actor, session) {
                 Ok(view) => {
@@ -821,7 +823,37 @@ pub fn handle_request_with_llm(
                 }
                 Err(error) => errors.push(("finding", error)),
             }
-            if errors.len() == 3
+            match whcode_app::list_session_interventions(
+                conn,
+                &policy,
+                actor,
+                session,
+                Some(whcode_app::DEFAULT_INTERVENTION_LIMIT),
+            ) {
+                Ok(rows) => {
+                    interventions_rows = rows
+                        .iter()
+                        .map(|item| {
+                            serde_json::json!({
+                                "id": item.id,
+                                "pattern": item.pattern,
+                                "status": item.status.as_str(),
+                                "outcome": item.outcome.map(|outcome| outcome.as_str()),
+                                "recurrences_before": item.recurrences_before,
+                                "recurrences_after": item.recurrences_after,
+                                "version": item.version,
+                            })
+                        })
+                        .collect();
+                }
+                Err(error) => errors.push(("intervention", error)),
+            }
+            if !errors.is_empty()
+                && errors.len()
+                    == errors
+                        .iter()
+                        .filter(|(_, error)| error.code == whcode_domain::ErrorCode::NotFound)
+                        .count()
                 && errors
                     .iter()
                     .all(|(_, error)| error.code == whcode_domain::ErrorCode::NotFound)
@@ -847,11 +879,13 @@ pub fn handle_request_with_llm(
                         "todos": todos.len(),
                         "deliverables": deliverables.len(),
                         "findings": findings_rows.len(),
+                        "interventions": interventions_rows.len(),
                     },
                     "truncated_deliverables": deliverable_truncated,
                     "todos": todos,
                     "deliverables": deliverables,
                     "findings": findings_rows,
+                    "interventions": interventions_rows,
                     "errors": errors_json,
                 }),
             )
@@ -2075,6 +2109,9 @@ mod tests {
         // v12—v13：发现台账与 webhook 投递（台账路由要读 findings；schema 必须与生产同构）。
         include_str!("../../whcode-store/migrations/0012_findings.sql"),
         include_str!("../../whcode-store/migrations/0013_webhook_deliveries.sql"),
+        // v14：学习捕获台账（FR-794／ADR-084：findings 加列＋interventions 建表；
+        // 台账路由读 interventions，schema 必须与生产同构）。
+        include_str!("../../whcode-store/migrations/0014_learning_capture.sql"),
     );
 
     fn migrated() -> Connection {
@@ -2206,7 +2243,8 @@ mod tests {
         assert_eq!(body["runtimes"].as_array().expect("数组").len(), 0);
     }
 
-    /// 台账路由（FR-787／T347）：三节聚合与计数；未知会话 404；缺参 400；空会话是正确的空。
+    /// 台账路由（FR-787／T347；FR-794 扩第四节）：四节聚合与计数；未知会话 404；缺参 400；
+    /// 空会话是正确的空。
     #[test]
     fn ledger_route_aggregates_todos_deliverables_and_findings() {
         use whcode_app::DefaultPolicy;
@@ -2276,10 +2314,10 @@ mod tests {
         assert_eq!(
             body["errors"].as_array().map(Vec::len),
             Some(0),
-            "三节都成功时不得有错误注记"
+            "四节都成功时不得有错误注记"
         );
 
-        // 空会话：三节都是 0，且没有错误——正确的空与失败可区分。
+        // 空会话：四节都是 0，且没有错误——正确的空与失败可区分。
         let empty = request(Method::Get, "/api/ledger?session=S-EMPTY", false);
         let response = handle_request(
             &mut conn,
@@ -2294,7 +2332,7 @@ mod tests {
         assert_eq!(body["counts"]["findings"], 0);
         assert_eq!(body["errors"].as_array().map(Vec::len), Some(0));
 
-        // 未知会话：三节都 NotFound，合并成 404（不伪装成空台账）。
+        // 未知会话：四节都 NotFound，合并成 404（不伪装成空台账）。
         let missing = request(Method::Get, "/api/ledger?session=S-404", false);
         let response = handle_request(
             &mut conn,

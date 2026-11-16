@@ -588,7 +588,7 @@ msgid "cui.webhook_dry_run"
 msgstr "Preview: {planned} pending deliveries (add --yes to run)"
 
 msgid "cui.webhook_not_configured"
-msgstr "No endpoints configured: .zcode/webhooks.json is missing or empty — zero endpoints means zero requests"
+msgstr "No endpoints configured: .whcode/webhooks.json is missing or empty — zero endpoints means zero requests"
 
 msgid "cui.webhook_status"
 msgstr "Endpoints {endpoints} (enabled {enabled}) · Pending {claimed} · Delivered {delivered} · Failed {failed}"
@@ -1059,7 +1059,7 @@ msgid "settings.panels.mcp.tools"
 msgstr "Observed tools: {tools}"
 
 msgid "settings.panels.mcp.unconfigured"
-msgstr "No .zcode/mcp.json (MCP is off)."
+msgstr "No .whcode/mcp.json (MCP is off)."
 
 msgid "settings.panels.open"
 msgstr "Panels"
@@ -1083,7 +1083,7 @@ msgid "settings.panels.skills.empty"
 msgstr "No skills found (a correct empty)."
 
 msgid "settings.panels.skills.hint"
-msgstr "Scans .zcode/skills/ in the workspace; missing references are listed per skill."
+msgstr "Scans .whcode/skills/ in the workspace; missing references are listed per skill."
 
 msgid "settings.panels.skills.issues"
 msgstr "{count} missing references"
@@ -1235,8 +1235,11 @@ msgstr "Deliverable"
 msgid "tui.ledger.finding"
 msgstr "Finding"
 
+msgid "tui.ledger.intervention"
+msgstr "Intervention"
+
 msgid "tui.ledger.summary"
-msgstr "Todo {todo} · Deliverables {deliverables} · Findings {findings}"
+msgstr "Todo {todo} · Deliverables {deliverables} · Findings {findings} · Interventions {interventions}"
 
 msgid "tui.ledger.todo"
 msgstr "Todo"
