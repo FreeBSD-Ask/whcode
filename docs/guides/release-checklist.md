@@ -78,6 +78,18 @@ ADR 修改判据）。
    现象。交互式主题切换的人工证据仍按 V-003 口径认定，托管 runner 的非交互会话截图时序
    为待归因候因；ADR-027 复审触发已命中，未改写预算或判据（ADR-082 不改变其周期）。
 
+## 6.1 本版发布记录（v0.1.0，2026-11-17）
+
+| 项 | 事实 |
+|---|---|
+| 标签 | `v0.1.0`（annotated）→ 提交 `712227c`，2026-11-17 推送 |
+| 验收链证据 | run `43902805603`（代码提交 `14c2f3b`）：windows 16.6／arm64 14.8／freebsd 25.6／openbsd 1.4／dragonfly 2.3／measurements 27.8 分钟，全部 success |
+| 文档提交 | run `43908904591`／`43910634901`／`43911318731`：triage＋docs-gates 0.3—0.5 分钟（ADR-082 分流） |
+| 发布构建 | run `43911920856`：package-amd64-release 11.1／package-arm64-release 8.1／package-amd64-debug 5.9／release 0.6 分钟，全部 success |
+| 产物 | `whcode-0.1.0-windows-amd64.zip` 33,364,477 字节＋`.sha256`；`whcode-0.1.0-windows-arm64.zip` 31,388,490 字节＋`.sha256` |
+| Code Scanning | 0 条 open 告警（2026-11-17 复核；ADR-037／§5.2） |
+| 本机安装验证 | `artifacts/install-verify-windows-amd64.txt`（2026-11-16T16:40:24Z，gnullvm，doctor `--json` 退出 0） |
+
 ## 7. 发布后监控
 
 - `platform-verification.yml` 随 `main` 运行（含 FreeBSD 硬门禁）；
