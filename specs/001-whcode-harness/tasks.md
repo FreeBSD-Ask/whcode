@@ -2551,8 +2551,10 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   被取代的运行立刻让位；判据＝并发组含三个维度且 schedule 不取消 push、缓存键绑定版本与
   `Cargo.lock`、SHA256 校验未被绕过、`check-actions.py` 通过；非目标＝放宽任何验收判据、
   用缓存判定结果（缓存只省时间）、无界缓存（键必须收敛）。
-  **取证（2026-11-16）**：`check-workflows.py`、`check-actions.py` 通过；缓存省时判据与
-  撤回条件见 ADR-082 §5，CI 首轮数据回填 Check 456—457。
+  **取证（2026-11-16）**：`check-workflows.py`、`check-actions.py` 与本地 actionlint 通过；
+  run `43894584718`（`b803dde`）全绿，三个缓存保存成功（llvm-mingw 344 MB、DuckDB 载荷
+  38 MB、cargo 含 target 2.70 GB／arm64 2.30 GB）；按自设判据撤回 `target` 缓存并删除旧键
+  （仓库缓存总量 9.3→4.0 GB），详见 Check 456—457。
 - [x] T363 extreme_scale 周期专项（P7.4／FR-793）：windows／ARM64／FreeBSD 三条通道的全量
   测试加 `-- --skip extreme_scale`，新增 `extreme-scale` job（schedule 与
   dispatch(`extreme=true`)；`windows-latest`＋`windows-11-arm` 矩阵，含证据 artifact）
@@ -2560,14 +2562,19 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   独占 8.78 分钟（78%），而它断言的是与平台无关的 O(1) 内存／翻页不变量；目标＝把这项
   重资产移到周期通道，同时保留 amd64 与 ARM64 两条证据；判据＝push 路径一致跳过、专项在
   schedule／dispatch 运行且失败仍红；非目标＝删除用例、用 `#[ignore]` 藏起、缩小 1M 夹具。
-  **取证（2026-11-16）**：workflow 结构与 `check-workflows.py`；周期运行结果回填 Check 458。
+  **取证（2026-11-16）**：`check-workflows.py` 与 actionlint 通过；run `43894584718` 中
+  `extreme-scale-*` 按设计 skipped，Windows 测试步 14.2→8.38 分钟、FreeBSD 39.8→28.2、
+  ARM64 26.2→20.0（全绿）；第二轮 run `43902805603` 缓存命中后 Windows 测试步 6.80 分钟、
+  Windows 16.6／ARM64 14.8／FreeBSD 25.6；周期专项待回填，详见 Check 458。
 - [x] T364 文档推送分流（P7.4／FR-793）：`triage` job（`git diff HEAD~1` 白名单判定；无父
   提交或 triage 失败一律按代码处理）＋`docs-gates` job（文档类门禁全跑）；`platform`／
   `measurements` 以 `needs: triage`＋`always()` 组合避免 PR 与 schedule 被静默跳过
   ——**任务认知卡**：方向＝文档提交占比高，但它们不改被构建、被测量的对象；目标＝纯文档
   推送只跑文档门禁，代码推送照旧全量；判据＝白名单之外一律按代码、PR 不受影响、triage
   异常时矩阵照跑；非目标＝按提交信息或人工判断分流、把 `.github/` 改动当文档。
-  **取证（2026-11-16）**：workflow 结构与 `check-workflows.py`；分流行为回填 Check 459。
+  **取证（2026-11-16）**：`check-workflows.py` 与 actionlint 通过；run `43894584718` 的
+  `triage` 输出 `docs_only=false（改动文件数 1）`、`docs-gates` skipped、矩阵照跑（代码路径
+  成立）；纯文档路径由本批台账回填提交验证，详见 Check 459。
 - [x] T365 NetBSD 专项与 BSD 阶段计时（P7.4／FR-793／ADR-013 修订）：NetBSD 步骤从平台矩阵
   抽出为独立 job（仅 schedule／dispatch(`netbsd=true`)，含同名公开注解）；FreeBSD 与 NetBSD
   的进度行加 `at=<UTC>` 时间戳
@@ -2576,7 +2583,9 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   内各阶段占比没有数据，优化无从下手；目标＝把该证据周期改为每周，并让 VM 阶段耗时可
   拆解；判据＝矩阵不再含 netbsd、专项仅 schedule／dispatch 触发、进度行含时间戳；非目标＝
   把 NetBSD 升成门禁、删除该平台证据。
-  **取证（2026-11-16）**：workflow 结构与 `check-workflows.py`；首轮专项回填 Check 460—461。
+  **取证（2026-11-16）**：`check-workflows.py` 与 actionlint 通过；run `43894584718` 中 NetBSD
+  作业 skipped（不再占每次推送 40 分钟以上），矩阵五项全绿；FreeBSD 的 VM 阶段已可按时间戳
+  拆解（DuckDB 源码构建 16.4 分钟为最大一块），详见 Check 460—461。
 - [x] T366 [P] 文档与台账（P7.4／FR-793）：ADR-082（新）、ADR-013／ADR-037 修订记录、
   AGENTS.md 边界条目、CHANGELOG、`docs/guides/project-status.md`、`docs/guides/release-checklist.md`、
   计数声明——**取证（2026-11-16）**：计数／追溯／文风／EOL／ADR 限制／标准基线门禁通过。

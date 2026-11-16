@@ -57,7 +57,7 @@ P2.2b／P3.3／P5.x／P6.x／P7.1／P7.2 的进展见 `CHANGELOG.md`，本表不
 
 当前账本无未完成任务；以下条目是仍开放的观察项、平台缺口与历史收口记录。
 
-- **CI 证据节奏（2026-11-16 变更，ADR-082，用户批准）**：五平台矩阵只随**代码推送**
+- **CI 证据节奏（2026-11-16 变更，ADR-082，用户批准；首个全绿运行 run `43894584718`，`b803dde`——FreeBSD 28.2 分钟、ARM64 20.0、Windows 25.1、measurements 35.6，关键路径由 FreeBSD 转为 measurements）**：五平台矩阵只随**代码推送**
   产生证据——纯文档推送（`docs/`、`specs/`、`artifacts/`、`i18n/`、根级 `*.md`）走
   `docs-gates` 的十项文档门禁，不重建平台产物；`extreme_scale`（1M 事件）与 NetBSD 改由
   每周 schedule 与手动 dispatch 专项覆盖；同一 ref 的新运行会取消被覆盖的运行，**被取消

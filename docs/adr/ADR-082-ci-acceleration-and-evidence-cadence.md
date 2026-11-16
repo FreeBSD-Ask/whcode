@@ -107,6 +107,11 @@
   | platform-windows | 21.9 | 25.1 | +3.2（首轮缓存全冷：fmt/clippy 3.0 分钟 vs 1.5，交叉检查 3.0 vs 1.9） |
   | measurements | 34.2 | 35.6 | +1.4（同上） |
 
+  **第二轮（run `43902805603`，`14c2f3b`，缓存命中）**：windows 16.6、arm64 14.8、
+  freebsd 25.6、measurements 27.8，全部 success；Windows 测试步 6.80 分钟（改前 14.2，
+  首轮 8.38），ARM64 测试步 9.07、FreeBSD 25.6（改前 39.8）。相对改前：windows −5.3、
+  ARM64 −11.4、FreeBSD −14.2、measurements −6.4 分钟。
+
   关键路径由 FreeBSD（39.8）转到 measurements（35.6）。FreeBSD 的 24.8 分钟 VM 阶段现已
   可按时间戳拆解（`freebsd-progress.txt`）：DuckDB 2.0.0 源码构建 16.4 分钟是最大一块，
   workspace 构建 1.6、workspace 测试 2.4、SSH 回环 1.7。缓存体积实测：llvm-mingw

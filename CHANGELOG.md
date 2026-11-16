@@ -22,8 +22,9 @@
   llvm-mingw（191 MB）与 DuckDB 载荷、`target/` 全冷编译，被新提交取代的运行仍跑完整
   矩阵。五项改动：① 顶层 `concurrency`（group 含 workflow／ref／event，仅 push／PR
   取消），被取消的运行不算绿、不得作证据；② `actions/cache` v6.1.0 三处**有界**缓存
-  （工具链归档、DuckDB 载荷、Cargo registry＋`target`），键绑定固定版本与
-  `Cargo.lock`＋`rust-toolchain.toml`，SHA256／字节数校验逐次照跑；③ `extreme_scale`
+  （工具链归档、DuckDB 载荷、Cargo registry），键绑定固定版本与
+  `Cargo.lock`＋`rust-toolchain.toml`，SHA256／字节数校验逐次照跑——`target` 缓存首轮
+  实测 2.70 GB／2.30 GB，按自设的「单键 >2 GB 即撤回」当日撤回（ADR-082 §4／§5）；③ `extreme_scale`
   移出 windows／ARM64／FreeBSD 三条通道的推送路径（`--skip`），改由每周 schedule 与
   dispatch(`extreme=true`) 的专项 job 覆盖 amd64＋ARM64——实测该套件占 Windows 测试
   运行时间 78%（8.78／11.3 分钟）；④ 纯文档推送走 `triage`＋`docs-gates`（十项文档
