@@ -1317,6 +1317,15 @@ jobs:
         if: always()
         run: python .github/scripts/benchmarks/pr-bench-gate.py --rounds 3 --write-baseline artifacts/perf-baseline-pr.json
 
+      # P7.3／FR-792：压力场景（并发读者／写入压力）没有冻结预算，本步**只记录不判定**——
+      # 脚本输出 `budget_mb:null`／`verdict:recorded`，只有"零样本"才失败（未取得信号）。
+      - name: 内存压力通道（P7.3／FR-792：只记录不判定）
+        shell: pwsh
+        run: |
+          python .github/scripts/benchmarks/measure-memory-pressure.py 2>&1 |
+            Tee-Object -FilePath artifacts/perf-ci/memory_pressure.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: 上传性能测量产物
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -1327,6 +1336,7 @@ jobs:
             artifacts/perf-ci/*.log
             artifacts/resource-report.json
             artifacts/perf-baseline-pr.json
+            artifacts/memory-pressure-report.json
 
   # ---------------- 桌面型测试（仅 workflow_dispatch 且 desktop=true） ----------------
   # 托管 runner 运行在非交互会话：窗口可创建，但屏幕捕获可能是黑屏或受 session 0 限制。

@@ -379,3 +379,19 @@ NFR-207 p50 9.4→10.0 ms——**三连慢确认漂移为持续性**（42.3→48
   NFR-209 p95 38.6 ms（超 30 ms 冻结值；同一夹具在参考机为 28.9 ms）。该结果按
   “环境证据”记录，**不作发布判定**——发布门槛仍以参考机（i7-1260P）的冻结夹具结果为准，
   这也正是 PR 门禁改判相对回归的直接依据。
+
+- **2026-11-16（P7.3／FR-792）：内存压力通道＝只记录不判定**。既有三条口径都是门禁或
+  预算判定（M1 测试进程 512 MB、NFR-201/202 冻结预算取中位数、NFR-207/209 延迟预算），
+  但“并发读者”与“写入压力”两类场景没有冻结预算，此前只能靠临时探测。新增
+  `.github/scripts/benchmarks/measure-memory-pressure.py`：
+  ① `serve_concurrent_readers`——2 万事件夹具、4 线程并发读 sessions/events/tasks（本机
+  360 请求、0 错误），采样 serve 进程 WorkingSet：中位 45.46 MB／p95 47.88 MB／峰值
+  48.52 MB（peak working set 48.77 MB）；
+  ② `bench_write`——`whcode bench baseline --events 20000 --repeat 3`（192 MB 缓冲上限、
+  固定夹具）：中位 59.11 MB／p95 67.56 MB／峰值 73.04 MB（peak 74.47 MB）。
+  **不判红绿**：报告 `budget_mb: null`、`verdict: "recorded"`，零样本判“未取得信号”并
+  退出 1。冻结预算须另立 ADR（本 ADR 口径：未冻结即不得把该通道当门禁，也不得以单次
+  记录冻结预算）。通道只在 `perf-budget`（workflow_dispatch）运行，artifact 命名
+  `perf-budget`；本机 Windows 11 记录归档 `artifacts/memory-pressure-report.json`。
+  失效条件：若并发读者或写入压力被纳入冻结预算，本段升级为门禁口径并重写判据；若真实
+  会话规模显著偏离 2 万事件夹具，重抓夹具参数。

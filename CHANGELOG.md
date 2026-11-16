@@ -13,6 +13,16 @@
 
 ### 变更
 
+- **内存压力通道（T360—T361，P7.3，FR-792，ADR-025 修订，2026-11-16）**：M1（测试进程
+  512 MB）与 NFR-201/202（36／80 MB，取中位数）都是门禁口径，而“并发读者”“写入压力”两类
+  场景没有冻结预算，此前只能临时探测。新增
+  `measure-memory-pressure.py`：对真实产品进程 50 ms 采样 WorkingSet，两场景——2 万事件
+  夹具下 4 线程并发读 360 请求（0 错误）：中位 45.46 MB、峰值 48.52 MB；`bench baseline
+  --events 20000 --repeat 3`：中位 59.11 MB、峰值 73.04 MB。**只记录不判定**
+  （`budget_mb:null`、`verdict:recorded`）：零样本判“未取得信号”并退出 1，冻结预算须另立
+  ADR。接线在 `perf-budget`（workflow_dispatch）通道并收集 artifact；本机记录归档
+  `artifacts/memory-pressure-report.json`。
+
 - **技能读取工具（T357—T359，P1.9，FR-791，ADR-053 修订，2026-11-16）**：技能此前只能
   靠 system 消息里的描述清单发现，正文要模型自己拼路径 `read_file`——读取面是任意文件、
   没有正文预算、引用要么自己解析要么漏读。新增只读工具 `skill`：不带 `name` 列出技能

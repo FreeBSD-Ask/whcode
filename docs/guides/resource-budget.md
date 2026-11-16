@@ -17,6 +17,20 @@ NFR-215 有界容器纪律。D-06 预算未冻结——本文件把候选值**�
 | M3 | 长历史会话切换 RSS 增量 | ≤ 10 MB（NFR-203 候选；10 万事件、切换 20 次） | T054 有界加载测试 + 切换视图快照恒定大小（`SWITCH_TAIL_LIMIT=50`） |
 | M4 | 挂起/空闲驻留 | 空闲会话卸载后仅保留元数据 + 游标（FR-614） | T131 驻留策略测试 |
 
+### 1.1.1 内存压力通道（只记录不判定；P7.3／FR-792）
+
+| 场景 | 夹具 | 命令 | 口径 |
+|---|---|---|---|
+| 并发读者 | 2 万事件 + 2 千任务，4 线程 × 30 轮 × 3 端点 | `python .github/scripts/benchmarks/measure-memory-pressure.py` | serve 进程 WorkingSet 峰值／p95；**无冻结预算** |
+| 写入压力 | `bench baseline --events 20000 --repeat 3`（192 MB 缓冲上限） | 同上 | 同上 |
+
+- 只记录：报告 `budget_mb: null`、`verdict: "recorded"`；零样本判“未取得信号”（退出 1），
+  不得以 0 MB 冒充达标。
+- 2026-11-16 本机记录：并发读者峰值 48.52 MB（peak working set 48.77 MB）、写入压力
+  峰值 73.04 MB（peak 74.47 MB）——归档 `artifacts/memory-pressure-report.json`。
+- 与门禁的分工：M1（测试进程 512 MB）与 NFR-201/202（36／80 MB，取中位数）仍是门禁；
+  本通道不加预算，预算须另立 ADR。
+
 ### 1.2 CPU（无忙等 / 空闲零占用 / 分位数）
 
 | # | 检查 | 标准 | 判定方式 |

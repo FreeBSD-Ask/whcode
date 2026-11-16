@@ -2522,3 +2522,20 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   app 274 项全绿。
 - [x] T359 [P] 文档与登记（P1.9／FR-791）：FR-791、ADR-053 修订记录、Check 451—453、
   CHANGELOG、计数声明——**取证（2026-11-16）**：计数／追溯／文风／EOL 门禁通过。
+
+## Tasks（2026-11-16 追加）：内存压力通道（P7.3，FR-792，ADR-025 修订）
+
+- [x] T360 压力通道脚本（P7.3／FR-792／ADR-025 修订）：
+  `.github/scripts/benchmarks/measure-memory-pressure.py`——两场景（并发读者 serve；写入压力
+  `bench baseline`）以 Win32 `GetProcessMemoryInfo` 50 ms 采样 WorkingSet；报告含中位／p95／
+  峰值、样本数、请求／错误计数、exe sha256 与采样条件；**只记录不判定**（`budget_mb:null`），
+  零样本判“未取得信号”并退出 1；非 Windows 直接报未测得
+  ——**任务认知卡**：方向＝M1 与 NFR-201/202 都是门禁口径，压力场景（并发读者／写入）没有
+  冻结预算，此前只能临时探测；目标＝压力下的峰值可复现、可归档、不与门禁混淆；判据＝两
+  场景有样本且报告无 PASS/FAIL；非目标＝给压力场景冻结预算（须另立 ADR）、把该通道做成门禁。
+  **取证（2026-11-16）**：本机 Windows 11 运行退出 0——并发读者中位 45.46 MB／峰值 48.52 MB
+  （360 请求、0 错误）、写入压力中位 59.11 MB／峰值 73.04 MB；归档
+  `artifacts/memory-pressure-report.json`。
+- [x] T361 [P] 通道接线与文档（P7.3／FR-792）：perf-budget（workflow_dispatch）job 增测量步与
+  artifact 收集、ADR-025 修订、`docs/guides/resource-budget.md` §1.1.1、FR-792、Check 454—455、
+  CHANGELOG——**取证（2026-11-16）**：`check-workflows.py` 通过；CI 通道待运行（ADR-037）。

@@ -576,6 +576,17 @@ taskkill /T /F 口径）（P1）
   - 证据：`cargo test -p whcode-bin --bin whcode acp`（7 项，含两条端到端）、
     `frontend_parity_matrix_rows_match_registry`
 
+- **FR-792**: 内存压力通道（P7.3／ADR-025 修订）：`measure-memory-pressure.py` 对真实产品
+  进程的两类压力场景采样 WorkingSet——① 并发读者（2 万事件夹具、多线程读 sessions／events／
+  tasks）；② 写入压力（`bench baseline`，固定夹具、192 MB 缓冲上限）；报告含中位／p95／
+  峰值、样本数、请求数与错误数、可比性条件（exe sha256、平台、轮询间隔）。**只记录不判定**
+  （`budget_mb: null`、`verdict: recorded`）：零样本＝未取得信号并退出 1，冻结预算须另立 ADR
+  - 依据：proposal-v3 P7.3；ADR-025（未冻结不得当门禁、亦不得以单次记录冻结预算）
+  - 判据：Given 两场景均取得样本，Then 报告含峰值与条件字段且退出 0；Given 任一场景零样本，
+    Then 退出 1 且该场景 `measured=false`；Then 报告不得出现 PASS/FAIL 结论
+  - 证据：`python .github/scripts/benchmarks/measure-memory-pressure.py` 本机记录
+    （并发读者峰值 48.52 MB、写入压力峰值 73.04 MB，`artifacts/memory-pressure-report.json`）
+
 - **FR-791**: 技能读取工具（P1.9／ADR-053 修订）：只读工具 `skill` 按名字读取工作区技能
   （`.zcode/skills/<name>/SKILL.md`）——不带 `name` 列出技能（名字、描述、相对路径，≤32 条）；
   带 `name` 返回正文（≤16 KiB，超出按字符边界截断并标 `truncated`）与一跳引用清单
