@@ -52,7 +52,10 @@
      rust-toolchain.toml)>`，`restore-keys` 只复用同通道旧键。
    缓存**只省时间**：工具链与载荷的 SHA256 与字节数校验仍由脚本逐次执行，校验失败照旧
    中止。`actions/cache` 取 v6.1.0（固定 SHA，入 `action-versions.json`）。
-   不做“整体 target 缓存”的五次取舍见 §7 第 1 条。
+   **首轮实测后撤回 `target`**（2026-11-16，见 §4）：Cargo 缓存含 `target` 时体积
+   2.70 GB（amd64）／2.30 GB（arm64），触犯 §5 的「单键 >2 GB 即撤回」；现只缓存
+   `~/.cargo/registry` 与 `~/.cargo/git`。将来做有界 target 缓存须先在日志里取到
+   `target/debug/{deps,build,incremental,.fingerprint}` 的体积分布（工作流内已有诊断步）。
 3. **`extreme_scale` 周期专项（C）**：windows、windows-arm64、FreeBSD 三条通道的全量
    测试一致改为 `cargo test … -- --skip extreme_scale`，新增 `extreme-scale` job 在
    schedule 与 `workflow_dispatch(extreme=true)` 运行 `windows-latest` 与
@@ -94,8 +97,23 @@
   改变判据”；ADR-013 修订（2026-10-31）把 FreeBSD 定为硬门禁，本轮只改其测试集合的
   一项与 NetBSD 的运行时机；`proto.rs` 的既有注释（“预算取 3 s：过小的预算会在平台上
   把慢误判为超时”）是本轮“不要把机器速度当判据”的先例。
-- **现在**：上表的墙钟与套件耗时是实测值；缓存收益与取消行为在首轮运行后回填
-  （Check 456—457），未取得前不声称省时。
+- **现在**：上表的墙钟与套件耗时是实测值。**改后首轮**（run `43894584718`，
+  main@`b803dde`，全绿）与改前同口径对比：
+
+  | job | 改前 | 改后 | 变化 |
+  |---|---|---|---|
+  | platform-freebsd | 39.8（红） | 28.2（绿） | −11.6 |
+  | platform-windows-arm64 | 26.2 | 20.0 | −6.2 |
+  | platform-windows | 21.9 | 25.1 | +3.2（首轮缓存全冷：fmt/clippy 3.0 分钟 vs 1.5，交叉检查 3.0 vs 1.9） |
+  | measurements | 34.2 | 35.6 | +1.4（同上） |
+
+  关键路径由 FreeBSD（39.8）转到 measurements（35.6）。FreeBSD 的 24.8 分钟 VM 阶段现已
+  可按时间戳拆解（`freebsd-progress.txt`）：DuckDB 2.0.0 源码构建 16.4 分钟是最大一块，
+  workspace 构建 1.6、workspace 测试 2.4、SSH 回环 1.7。缓存体积实测：llvm-mingw
+  344 MB×2、DuckDB 载荷 38+18 MB、`target` 2.70+2.30 GB、vmactions VM 镜像另占约 3.5 GB。
+  **自我纠正**：此前以为“四个 BSD job 每轮从零装 rustup”，实际 vmactions 自带 VM 镜像缓存
+  （`freebsd-15.1-*`／`netbsd-11.*`／`openbsd-8.0-*`），`toolchain-ok` 实测 9 秒；BSD 侧
+  真正的固定成本是 `pkg install` 与 DuckDB 源码构建，不是工具链下载。
 - **将来**：仓库缓存总量逼近配额、runner 缓存策略变化、或 `extreme_scale` 时长被其他
   结构（例如增量夹具）改变时，本 ADR 失效（§8）。
 
@@ -105,7 +123,7 @@
 |---|---|---|
 | 并发组含 workflow／ref／event，且仅 push／PR 取消 | `python .github/scripts/check-workflows.py` | 红灯，修工作流 |
 | 缓存键绑定版本／`Cargo.lock`／工具链 | `python .github/scripts/check-actions.py`＋人工核对键串 | 红灯，修键 |
-| 缓存确实省时 | 首轮运行日志：命中记录与测试步时长 | **省时 <2 分钟或单键 >2 GB ⇒ 移除该缓存并登记** |
+| 缓存确实省时 | 首轮运行日志：命中记录与测试步时长 | **省时 <2 分钟或单键 >2 GB ⇒ 移除该缓存并登记**（2026-11-16 已按此撤回 `target`：2.70 GB／2.30 GB） |
 | push 路径不再跑 `extreme_scale` | `grep -n "skip extreme_scale" .github/workflows/platform-verification.yml`（三处） | 红灯 |
 | 周期专项存在且两平台 | `grep -n "extreme-scale" .github/workflows/platform-verification.yml` | 红灯 |
 | 文档推送只跑 docs-gates | 首个纯文档推送的 run 页面 | 记录为缺口并修 triage |
@@ -133,9 +151,10 @@
 
 ## 7. 已知限制
 
-1. **不整体缓存 `target/`**：本机 `target` 48 GB（`incremental` 8 GB、`build` 32 GB 为
-   历史堆积），而仓库缓存总量上限 10 GB，全量缓存会互相驱逐、命中率不稳。当前对
-   `target` 的缓存是“试运行”性质，按 §5 撤回条件处置。
+1. **`target` 不进缓存（已撤回）**：首轮实测单键 2.70 GB／2.30 GB，且仓库缓存总量当时
+   已达 9.3 GB（vmactions VM 镜像 3.5 GB、其余旧键若干），接近 10 GB 上限——继续留会
+   挤掉更值钱的镜像缓存。代价是冷编译仍在每次运行发生；补偿手段是工作流内的体积诊断步，
+   为将来按子目录（`deps`／`build`／`.fingerprint`）划定有界范围提供数据。
 2. **缓存可见性受分支规则限制**：PR 运行只能恢复基分支缓存，不能恢复兄弟分支——同一
    仓库多分支并行时命中率会下降（平台行为，不是配置错误）。
 3. **文档推送不产出该提交的平台证据**：验收引用最近一次代码提交的运行；若某次纯文档
@@ -162,3 +181,10 @@
   成本），或 1M 夹具改为增量生成，则决策 3 的前提消失，应复审是否恢复 push 期运行；
 - 若平台范围或验收目标变更（ADR-013／ADR-073 修订），本 ADR 的“哪些通道跑什么”表
   须同批复核。
+
+## 修订记录
+
+- **2026-11-16（同日实测回填）**：首轮运行（`43894584718`，main@`b803dde`）全绿，按 §4
+  记录前后墙钟；`target` 缓存因单键体积超出自设上限被撤回（决策 2、限制 1）；同时更正
+  “BSD job 每轮从零装工具链”的错误前提——vmactions 自带 VM 镜像缓存。判据与门禁语义
+  未变，只是把写下的撤回规则用在了自己身上。

@@ -201,11 +201,12 @@ jobs:
       # 三个缓存都**有界**且带精确键：
       #   - llvm-mingw 归档 191 MB，键含固定版本号——版本升级必须同步本键与脚本常量；
       #   - DuckDB 预编译载荷 50 MB，按通道分键（amd64 通道另需 arm64 交叉载荷）；
-      #   - Cargo registry 与 target：键绑定 Cargo.lock 与 rust-toolchain.toml，
+      #   - Cargo registry 与 git：键绑定 Cargo.lock 与 rust-toolchain.toml，
       #     restore-keys 只复用同通道旧键。
-      # target 不做“整体缓存”的取舍见 ADR-082：本机 target 48 GB（incremental 8 GB、
-      # build 32 GB 为历史堆积），GitHub 单仓库缓存上限 10 GB，全量缓存会互相驱逐。
-      # 省时判据：首轮若非「命中且省时 ≥2 分钟」或单键体积 >2 GB，即撤回该缓存。
+      # **`target` 不在缓存内**：首轮实测 2.70 GB（amd64）／2.30 GB（arm64），触犯
+      # ADR-082 §5 的「单键 >2 GB 即撤回」；当时仓库缓存总量已 9.3 GB（vmactions 的
+      # VM 镜像另占 3.5 GB），再留会挤掉更值钱的镜像缓存。将来做有界 target 缓存须先按
+      # 下列诊断步的体积分布定范围，并把省时数据写进 ADR 复审。
       - name: 缓存 LLVM 系列工具链归档（版本键）
         if: matrix.platform == 'windows' || matrix.platform == 'windows-arm64'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -220,14 +221,13 @@ jobs:
           path: vendor/duckdb/.cache
           key: duckdb-2.0.0-payload-${{ matrix.platform }}
 
-      - name: 缓存 Cargo registry 与 target（依赖图＋工具链键）
+      - name: 缓存 Cargo registry 与 git（依赖图＋工具链键）
         if: matrix.platform == 'windows' || matrix.platform == 'windows-arm64'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
           key: cargo-${{ matrix.platform }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
             cargo-${{ matrix.platform }}-
@@ -323,6 +323,21 @@ jobs:
       - name: 测试（含分层与目录分类契约；extreme_scale 走周专项）
         if: matrix.platform == 'windows'
         run: cargo test --locked --workspace -- --skip extreme_scale
+
+      # 为将来的“有界 target 缓存”取数（ADR-082 §5 撤回判据的后续动作）：只打印体积分布，
+      # 不做任何缓存动作。没有这份分布，任何 target 缓存范围都是猜的。
+      - name: 诊断：target 子目录体积（有界缓存的取数依据）
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          foreach ($d in @("target", "target/debug/deps", "target/debug/build",
+                           "target/debug/incremental", "target/debug/.fingerprint")) {
+            if (Test-Path $d) {
+              $mb = (Get-ChildItem -Recurse -Force $d -ErrorAction SilentlyContinue |
+                Measure-Object -Property Length -Sum).Sum / 1MB
+              Write-Output ("{0} = {1:N1} MB" -f $d, $mb)
+            }
+          }
 
       # P7.2／ADR-075：PR 只判**相对回归**（三指标三轮中位 vs 同类 runner 基线）；绝对
       # 预算仍由 perf-budget 通道判（ADR-025）。基线缺失或 runner 类别不匹配时脚本输出
@@ -487,6 +502,21 @@ jobs:
         env:
           DUCKDB_LIB_DIR: ${{ github.workspace }}/vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
         run: cargo test --locked --workspace --target aarch64-pc-windows-gnullvm -- --skip extreme_scale
+
+      - name: 诊断：ARM64 target 子目录体积（有界缓存的取数依据）
+        if: matrix.platform == 'windows-arm64'
+        shell: pwsh
+        run: |
+          foreach ($d in @("target/aarch64-pc-windows-gnullvm/debug/deps",
+                           "target/aarch64-pc-windows-gnullvm/debug/build",
+                           "target/aarch64-pc-windows-gnullvm/debug/incremental",
+                           "target/aarch64-pc-windows-gnullvm/debug/.fingerprint")) {
+            if (Test-Path $d) {
+              $mb = (Get-ChildItem -Recurse -Force $d -ErrorAction SilentlyContinue |
+                Measure-Object -Property Length -Sum).Sum / 1MB
+              Write-Output ("{0} = {1:N1} MB" -f $d, $mb)
+            }
+          }
 
       - name: 内置 SSH 回环验收（原生 ARM64 客户端与服务端）
         if: matrix.platform == 'windows-arm64'
@@ -1407,13 +1437,12 @@ jobs:
           path: vendor/duckdb/.cache
           key: duckdb-2.0.0-payload-measurements
 
-      - name: 缓存 Cargo registry 与 target（依赖图＋工具链键）
+      - name: 缓存 Cargo registry 与 git（依赖图＋工具链键）
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
           key: cargo-measurements-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
             cargo-measurements-
@@ -1542,13 +1571,12 @@ jobs:
           path: vendor/duckdb/.cache
           key: duckdb-2.0.0-payload-${{ matrix.platform }}
 
-      - name: 缓存 Cargo registry 与 target（依赖图＋工具链键）
+      - name: 缓存 Cargo registry 与 git（依赖图＋工具链键）
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
           key: cargo-${{ matrix.platform }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
             cargo-${{ matrix.platform }}-
