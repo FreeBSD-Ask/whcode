@@ -693,6 +693,24 @@ mod tests {
         }
     }
 
+    /// 配置目录更名的值层守卫：内建目录不得再指向旧目录名。
+    ///
+    /// 键级一致测试抓不到“键相同、值仍写旧路径”的陈旧（2026-11-17 实测十三套
+    /// 文案全部指向旧路径，代码读新路径——用户按提示创建的文件读不到）。出现
+    /// 旧目录名即失败：改 properties 后重新生成 PO。
+    #[test]
+    fn catalogs_do_not_reference_legacy_config_dir() {
+        const LEGACY_DIR: &str = ".zcode/"; // 本常量为禁令本身，不是残留
+        for (locale, text) in BUILTIN_LOCALES {
+            for (key, value) in parse_properties(text) {
+                assert!(
+                    !value.contains(LEGACY_DIR),
+                    "{locale} 的 {key} 仍指向旧配置目录：值层未随更名同步"
+                );
+            }
+        }
+    }
+
     /// 译文与资源卫生：不得以引号起止（解析器会剥离成对引号）、不得含表情符号、
     /// 不得为空——翻译质量无法自动判定，但这几类结构性缺陷可以。
     #[test]
