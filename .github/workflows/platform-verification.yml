@@ -1282,6 +1282,12 @@ jobs:
       - name: 构建（锁定依赖图）
         run: cargo build --locked --workspace
 
+      # 压力夹具用 python duckdb 播种（与引擎 2.0.0 对齐）；托管 runner 未预装该模块，
+      # 缺它时脚本会以"场景异常"退出 1（不静默跳过）。
+      - name: 安装压力夹具依赖（duckdb python 2.0.0）
+        shell: pwsh
+        run: python -m pip install --disable-pip-version-check duckdb==2.0.0
+
       # P7.3／FR-792：压力场景（并发读者／写入压力）没有冻结预算，本步**只记录不判定**——
       # 脚本输出 `budget_mb:null`／`verdict:recorded`，只有"零样本"才失败（未取得信号）。
       # 放在绝对预算步之前：托管 runner 的 NFR-207/209 会因环境差异红（ADR-025 已登记），

@@ -129,7 +129,12 @@ def prepare_workspace(dir_path: pathlib.Path) -> None:
 def seed_workspace(dir_path: pathlib.Path, session_id: str, events: int, tasks: int) -> None:
     """压力夹具：`events` 条事件 + `tasks` 条任务（与 NFR-202 同表同列，规模可调）。"""
     prepare_workspace(dir_path)
-    import duckdb
+    try:
+        import duckdb
+    except ImportError as err:  # 明确的依赖缺口，不静默跳过
+        raise RuntimeError(
+            "缺少 python duckdb 模块（pip install duckdb==2.0.0）：压力夹具无法播种"
+        ) from err
 
     conn = duckdb.connect(str(dir_path / "whcode.duckdb"))
     conn.execute(
@@ -360,11 +365,25 @@ def main() -> int:
     report["platform"] = platform.platform()
 
     print("场景 1/2：并发读者（serve）…", flush=True)
-    report["scenarios"].append(
-        measure_serve_concurrent_readers(args.events, args.readers, args.rounds)
-    )
+    try:
+        report["scenarios"].append(
+            measure_serve_concurrent_readers(args.events, args.readers, args.rounds)
+        )
+    except Exception as err:  # noqa: BLE001 - 场景级异常记成"未测得"并给原因，不吞成通过
+        report["scenarios"].append({
+            "scenario": "serve_concurrent_readers",
+            "measured": False,
+            "reason": f"场景异常：{type(err).__name__}: {err}",
+        })
     print("场景 2/2：写入压力（bench baseline）…", flush=True)
-    report["scenarios"].append(measure_bench_write(args.events, args.repeat))
+    try:
+        report["scenarios"].append(measure_bench_write(args.events, args.repeat))
+    except Exception as err:  # noqa: BLE001
+        report["scenarios"].append({
+            "scenario": "bench_write",
+            "measured": False,
+            "reason": f"场景异常：{type(err).__name__}: {err}",
+        })
 
     measured = [s for s in report["scenarios"] if s.get("measured")]
     report["measured_scenarios"] = len(measured)
