@@ -498,7 +498,7 @@ jobs:
             if [ "$cargo_rc" -eq 0 ]; then
               echo "phase=workspace-tests-ok" >> "$progress"
             else
-              echo "workspace 测试失败（rc=$cargo_rc）：开始 A2 诊断（单线程复跑＋truss 尾迹）"
+              echo "workspace 测试失败（rc=$cargo_rc）：开始 A2 诊断（单线程复跑＋并行 truss 尾迹）"
               mkdir -p artifacts/a2-diag
               {
                 echo "workspace_cargo_rc=$cargo_rc"
@@ -511,11 +511,20 @@ jobs:
               # 直接定位测试二进制（cargo 已构建）：deps/whcode-<hash>（排除 .d 依赖文件）。
               a2_bin=$(ls -t target/debug/deps/whcode-* 2>/dev/null | grep -v '\.d$' | head -n 1)
               echo "binary=${a2_bin:-<未定位>}" >> artifacts/a2-diag/single-thread.txt
-              if [ -n "${a2_bin:-}" ] && command -v truss >/dev/null 2>&1; then
-                timeout 900 truss -f -o artifacts/a2-diag/truss.log -- "$a2_bin" \
-                  --test-threads=1 > artifacts/a2-diag/direct-run.txt 2>&1 || true
-                tail -n 80 artifacts/a2-diag/truss.log \
-                  >> artifacts/a2-diag/direct-run.txt 2>/dev/null || true
+              # 并行复跑才是 A2 的可复现形态（单线程历来全过）；崩溃在测试二进制的退出
+              # 路径，先直接跑一次拿退出码与 stderr，再用 truss 取故障前后的系统调用尾迹。
+              if [ -n "${a2_bin:-}" ]; then
+                parallel_rc=0
+                timeout 900 "$a2_bin" > artifacts/a2-diag/parallel-run.txt 2>&1 || parallel_rc=$?
+                echo "parallel_rc=$parallel_rc" >> artifacts/a2-diag/single-thread.txt
+                if command -v truss >/dev/null 2>&1; then
+                  truss_rc=0
+                  timeout 900 truss -f -o artifacts/a2-diag/truss-parallel.log -- "$a2_bin" \
+                    >> artifacts/a2-diag/parallel-run.txt 2>&1 || truss_rc=$?
+                  echo "parallel_truss_rc=$truss_rc" >> artifacts/a2-diag/single-thread.txt
+                  tail -n 120 artifacts/a2-diag/truss-parallel.log \
+                    >> artifacts/a2-diag/parallel-run.txt 2>/dev/null || true
+                fi
               fi
               echo "A2 诊断证据已写入 artifacts/a2-diag/"
               exit 1
