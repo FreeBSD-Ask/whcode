@@ -151,6 +151,32 @@ JSON 协议模拟或换供应商方案。
   思考内容可能被服务端内部消费；
 - T1 `content` 为两个换行符（工具调用响应正文为空，仅 `tool_calls` 有值）。
 
+## 6.1 冒烟判据与思考通道（2026-11-17 实测）
+
+`smoke-sensenova.py`（FR-764）以“`choices[0].message.content` 非空”为通过判据。
+2026-11-17 复测发现该判据在默认参数下**永不可能通过**，根因不是服务不可用，而是思考通道
+吃光 token 预算：
+
+| 请求 | content 长度 | reasoning 长度 | finish_reason |
+|---|---|---|---|
+| `max_tokens=16`（原脚本） | 0 | 53 | `length` |
+| `max_tokens=64` | 0 | 209 | `length` |
+| `max_tokens=128` | 0 | 471 | `length` |
+| `max_tokens=16` ＋ `reasoning_effort: "none"` | 2（`OK`） | 0 | `stop` |
+| `max_tokens=16` ＋ `thinking: {"type":"disabled"}` | 2（`OK`） | 0 | `stop` |
+
+两条结论：
+
+1. 该模型默认开启思考，正文预算随 `max_tokens` 增大仍被思考填满；判据类请求必须显式关闭
+   思考（`reasoning_effort: "none"`，属 AGENTS.md §3.1 列出的合法值）。
+2. 本端点当前把思考内容放在 `message.reasoning`（对象键表为 `reasoning`／`role`），
+   本文档上文“返回 `reasoning_content`”的表述对应旧版模型，按现行实测改为 `reasoning`；
+   是否需要两者兼容由 `whcode-llm` 适配层决定（不在纯文本冒烟范围内）。
+
+脚本已按此修复：请求带 `reasoning_effort: "none"`，归档新增 `reasoning_chars` 与
+`finish_reason` 两个诊断量（只记数值，不落正文）。修复后冒烟 PASS（849 ms，
+prompt=62／completion=2），证据 `artifacts/sensenova-smoke.json`。
+
 ## 7. 官方来源
 
 - 模型总览与定位：`https://www.sensenova.cn/models`

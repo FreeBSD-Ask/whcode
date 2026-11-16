@@ -110,6 +110,11 @@ def main(argv: list[str]) -> int:
         "messages": [{"role": "user", "content": "仅回复 OK"}],
         "max_tokens": MAX_TOKENS,
         "temperature": 0,
+        # 该模型默认开启思考：16 token 预算会被 `message.reasoning` 全部吃掉，
+        # `content` 恒为空且 `finish_reason=length`（2026-11-17 实测 64/128 token
+        # 同样被吃光，209/471 字符全是 reasoning）。冒烟判据是“有无可用正文”，
+        # 故显式关闭思考（AGENTS.md §3.1 的 `reasoning_effort` 合法值之一）。
+        "reasoning_effort": "none",
     }
     request = urllib.request.Request(
         url,
@@ -157,11 +162,16 @@ def main(argv: list[str]) -> int:
         return 1
 
     elapsed_ms = int((time.monotonic() - started) * 1000)
+    reasoning_len = 0
+    finish_reason = None
     try:
         parsed = json.loads(body.decode("utf-8", errors="replace"))
         choices = parsed.get("choices") or []
         message = choices[0].get("message") if choices else None
         content = (message or {}).get("content") or ""
+        # 诊断量：思考通道长度与结束原因。只记数值，不落正文（凭据纪律 §5.2）。
+        reasoning_len = len((message or {}).get("reasoning") or "")
+        finish_reason = choices[0].get("finish_reason") if choices else None
         usage = parsed.get("usage") or {}
         ok = bool(status_code == 200 and content)
     except (ValueError, AttributeError, IndexError, TypeError):
@@ -175,6 +185,8 @@ def main(argv: list[str]) -> int:
         "latency_ms": elapsed_ms,
         "http_status": status_code,
         "content_nonempty": bool(content),
+        "reasoning_chars": reasoning_len,
+        "finish_reason": finish_reason,
         "usage": {
             "prompt_tokens": usage.get("prompt_tokens"),
             "completion_tokens": usage.get("completion_tokens"),
