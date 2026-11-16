@@ -596,6 +596,7 @@ fn run_turn_inner(
     let mut integrity_gaps = 0u64;
     let mut compressed_once = false;
     let mut subagents_spawned: u32 = 0;
+    let mut repeat_tracker = RepeatTracker::default();
     let mut table_pressure_observed = false;
     let mut usage = None;
     let mut transport = None;
@@ -1174,6 +1175,28 @@ fn run_turn_inner(
                 role: Role::Tool,
                 content: result_text.clone(),
             });
+            // ── 重复调用提醒（T355／FR-790／ADR-044 修订）────────────────────
+            // 只有「同工具＋同参数＋**同输出**」才算重复：轮询型调用（输出在变）不打扰；
+            // 每个指纹每 turn 至多提醒一次，事件不含参数（避免把工具输入写进事件）。
+            if let Some(repeats) =
+                repeat_tracker.observe(&tool_call.name, &tool_call.arguments, &result_text)
+            {
+                emit!(
+                    EventKind::ToolCallRepeated,
+                    "iteration": iteration,
+                    "request_id": request_id,
+                    "tool_name": tool_call.name,
+                    "repeats": repeats,
+                    "output_unchanged": true,
+                );
+                messages.push(LlmMessage {
+                    role: Role::System,
+                    content: format!(
+                        "提示（工具重复调用）：{} 已用相同参数调用 {} 次且输出未变化。                         不要重复同一调用——改变参数、换工具，或直接给出结论。",
+                        tool_call.name, repeats
+                    ),
+                });
+            }
             emit!(
                 EventKind::ToolCallFinished,
                 "iteration": iteration,
@@ -1661,6 +1684,68 @@ fn tool_input_hash(name: &str, arguments: &str) -> String {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     name.hash(&mut hasher);
     arguments.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
+/// 重复调用提醒阈值（T355／FR-790／ADR-044 修订）：同工具＋同参数＋同输出到第 3 次提醒。
+const REPEAT_HINT_THRESHOLD: u32 = 3;
+
+/// 单 turn 跟踪上限（有界：超出后丢弃最旧条目，不随调用次数增长）。
+const MAX_TRACKED_REPEATS: usize = 16;
+
+/// 单 turn 的重复调用跟踪（纯内存、有界、无锁）。
+#[derive(Default)]
+struct RepeatTracker {
+    entries: std::collections::VecDeque<RepeatEntry>,
+}
+
+struct RepeatEntry {
+    /// 工具名＋参数哈希＋输出哈希。
+    fingerprint: String,
+    /// 命中次数。
+    repeats: u32,
+    /// 是否已提醒过（每个指纹每 turn 至多一次）。
+    hinted: bool,
+}
+
+impl RepeatTracker {
+    /// 记录一次调用；返回 `Some(次数)` 表示本次应发一次提醒。
+    fn observe(&mut self, tool: &str, arguments: &str, output: &str) -> Option<u32> {
+        let fingerprint = format!(
+            "{}:{}:{}",
+            tool,
+            tool_input_hash(tool, arguments),
+            text_hash(output)
+        );
+        if let Some(entry) = self
+            .entries
+            .iter_mut()
+            .find(|entry| entry.fingerprint == fingerprint)
+        {
+            entry.repeats = entry.repeats.saturating_add(1);
+            if entry.repeats >= REPEAT_HINT_THRESHOLD && !entry.hinted {
+                entry.hinted = true;
+                return Some(entry.repeats);
+            }
+            return None;
+        }
+        if self.entries.len() >= MAX_TRACKED_REPEATS {
+            self.entries.pop_front();
+        }
+        self.entries.push_back(RepeatEntry {
+            fingerprint,
+            repeats: 1,
+            hinted: false,
+        });
+        None
+    }
+}
+
+/// 文本指纹（进程内比较用；与 [`tool_input_hash`] 同一种哈希，不落库）。
+fn text_hash(text: &str) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    text.hash(&mut hasher);
     format!("{:016x}", hasher.finish())
 }
 
@@ -2317,6 +2402,54 @@ mod tests {
         }
     }
 
+    /// 透传桩＋记录每次请求的消息数组（校验“提醒确实进入了模型输入”）。
+    struct RecordingProvider {
+        inner: StubProvider,
+        requests: std::sync::Arc<std::sync::Mutex<Vec<Vec<LlmMessage>>>>,
+    }
+
+    impl whcode_llm::Provider for RecordingProvider {
+        fn name(&self) -> &str {
+            self.inner.name()
+        }
+
+        fn capabilities(&self) -> whcode_llm::ProviderCapabilities {
+            self.inner.capabilities()
+        }
+
+        fn is_available(&self) -> bool {
+            true
+        }
+
+        fn execute(
+            &self,
+            request: &whcode_llm::LlmRequest,
+            cancel: &whcode_llm::CancelToken,
+        ) -> Result<whcode_llm::ChunkStream, WhError> {
+            self.requests
+                .lock()
+                .expect("请求记录锁")
+                .push(request.messages.clone());
+            self.inner.execute(request, cancel)
+        }
+    }
+
+    struct RecordingFactory {
+        provider: RecordingProvider,
+    }
+
+    impl ProviderFactory for RecordingFactory {
+        fn create(
+            &self,
+            _profile: &ProviderProfile,
+        ) -> Result<Box<dyn whcode_llm::Provider>, WhError> {
+            Ok(Box::new(RecordingProvider {
+                inner: self.provider.inner.clone(),
+                requests: std::sync::Arc::clone(&self.provider.requests),
+            }))
+        }
+    }
+
     fn migrated() -> duckdb::Connection {
         let conn = duckdb::Connection::open_in_memory().expect("内存库");
         apply_migrations(&conn).expect("迁移");
@@ -2610,6 +2743,123 @@ mod tests {
             )
             .expect("登记行");
         assert_eq!(exec_state, "completed");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// T355／FR-790：跟踪器只提醒一次、输出变化即新指纹、条目有界。
+    #[test]
+    fn repeat_tracker_hints_once_and_stays_bounded() {
+        let mut tracker = RepeatTracker::default();
+        let args = r#"{"path":"src/lib.rs"}"#;
+        assert_eq!(tracker.observe("read_file", args, "same"), None);
+        assert_eq!(tracker.observe("read_file", args, "same"), None);
+        assert_eq!(
+            tracker.observe("read_file", args, "same"),
+            Some(REPEAT_HINT_THRESHOLD)
+        );
+        assert_eq!(
+            tracker.observe("read_file", args, "same"),
+            None,
+            "同一指纹每 turn 只提醒一次"
+        );
+        // 输出变化＝新指纹：轮询型调用（等构建、等日志）不会被误判为重复。
+        assert_eq!(tracker.observe("read_file", args, "changed"), None);
+        // 参数变化＝新指纹。
+        assert_eq!(
+            tracker.observe("read_file", r#"{"path":"src/main.rs"}"#, "same"),
+            None
+        );
+        // 有界：超过上限丢弃最旧，条目数不随调用次数增长。
+        for index in 0..(MAX_TRACKED_REPEATS * 2) {
+            let _ = tracker.observe("glob", &format!("{{\"pattern\":\"{index}\"}}"), "out");
+        }
+        assert!(
+            tracker.entries.len() <= MAX_TRACKED_REPEATS,
+            "跟踪表必须有界：{}",
+            tracker.entries.len()
+        );
+    }
+
+    /// T355／FR-790：三次相同调用（同参数同输出）只注入一条 system 提醒、只落一条事件，
+    /// 事件载荷不含工具参数。
+    #[test]
+    fn repeated_identical_tool_calls_emit_one_reminder() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let mut steps: Vec<StubStep> = (0..REPEAT_HINT_THRESHOLD)
+            .map(|index| StubStep {
+                chunks: vec![format!("第 {index} 次读取")],
+                finish_reason: "tool_call".to_string(),
+                tool_calls: vec![whcode_llm::provider::LlmToolCall {
+                    id: format!("call-{index}"),
+                    name: "read_file".to_string(),
+                    arguments: r#"{"path":"src/lib.rs"}"#.to_string(),
+                }],
+            })
+            .collect();
+        steps.push(StubStep::simple("完成", "stop"));
+        let requests = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let factory = RecordingFactory {
+            provider: RecordingProvider {
+                inner: StubProvider::with_script(steps),
+                requests: std::sync::Arc::clone(&requests),
+            },
+        };
+        let dir = temp_dir("repeat-reminder");
+        std::fs::create_dir_all(dir.join("src")).expect("工作区子目录");
+        std::fs::write(
+            dir.join("src/lib.rs"),
+            "fn repeated() {}
+",
+        )
+        .expect("工作区文件");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "重复读取");
+        req.workspace_root = Some(dir.clone());
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 7).expect("完成");
+        assert_eq!(outcome.termination_reason, "model_finished");
+
+        let reminders: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE session_id=? AND kind='ToolCallRepeated'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("提醒事件计数");
+        assert_eq!(reminders, 1, "只落一条提醒事件");
+        let payload: String = conn
+            .query_row(
+                "SELECT CAST(CAST(payload_json AS JSON) AS VARCHAR) FROM events
+                  WHERE session_id=? AND kind='ToolCallRepeated'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("提醒载荷");
+        assert!(payload.contains("\"repeats\":3"), "载荷记录次数：{payload}");
+        assert!(
+            !payload.contains("src/lib.rs"),
+            "事件不得携带工具参数：{payload}"
+        );
+        // 提醒是每轮派生的 system 消息（不落 messages）：断言它确实进入了模型输入，
+        // 且只出现一次（第 4 次请求可见）。
+        let requests = requests.lock().expect("请求记录锁");
+        let hint_count: usize = requests
+            .iter()
+            .flat_map(|messages| messages.iter())
+            .filter(|message| {
+                message.role == Role::System && message.content.contains("工具重复调用")
+            })
+            .count();
+        assert_eq!(hint_count, 1, "提醒消息只注入一次");
+        assert!(
+            requests[3]
+                .iter()
+                .any(|m| m.role == Role::System && m.content.contains("工具重复调用")),
+            "第 4 次模型请求必须看到提醒"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

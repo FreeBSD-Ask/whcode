@@ -576,6 +576,17 @@ taskkill /T /F 口径）（P1）
   - 证据：`cargo test -p whcode-bin --bin whcode acp`（7 项，含两条端到端）、
     `frontend_parity_matrix_rows_match_registry`
 
+- **FR-790**: 重复调用提醒（P1.10／ADR-044 修订）：同一 turn 内「同一工具＋同一参数＋
+  **同一输出**」连续出现到第 3 次时，向模型注入一条 system 提醒并落一条
+  `ToolCallRepeated` 事件（载荷只含工具名、次数与 `output_unchanged`，**不含参数**）；
+  每个指纹每 turn 至多提醒一次；跟踪表有界（≤16 条，超出丢最旧）；参数或输出变化即新
+  指纹（轮询型调用不打扰）；提醒不阻断 turn、不改变终止判定
+  - 依据：proposal-v3 P1.10；ADR-060 已登记“重复调用无提示”的缺口；ADR-044（turn 循环）
+  - 判据：Given 三次同工具同参数同输出的调用，Then 恰一条 `ToolCallRepeated` 事件与一条
+    模型可见的 system 提醒；Given 输出或参数变化，Then 无提醒；Given 同一指纹继续重复，
+    Then 不再提醒；Then 事件载荷不含工具参数
+  - 证据：`cargo test -p whcode-app repeat`（跟踪器边界＋端到端请求记录）
+
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，
   成功调用才落、失败不落），条目数与单条长度有常量上限且超限拒绝不截断；待办与 SDD 任务

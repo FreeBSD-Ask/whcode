@@ -10,7 +10,8 @@
 持久化异常。**完整枚举以实现为准**：`whcode_domain::EventKind`（另含 turn 边界 `TurnStarted`／
 `TurnFinished`、失败尝试 `AssistantAttempt`、压缩三事件 `Compaction*`、会话待办快照
 `TodoUpdated`（T284／FR-771）、交付物登记 `DeliverablePresented`（T285／FR-772）、计划模式
-状态 `PlanModeChanged`（T287／FR-774）与对话剪枝边界 `SessionRewound`（T288／FR-775））；
+状态 `PlanModeChanged`（T287／FR-774）、对话剪枝边界 `SessionRewound`（T288／FR-775）与
+重复调用提醒 `ToolCallRepeated`（T355／FR-790；只含工具名与次数，不含参数））；
 新增类型必须同时更新该枚举与本节口径。
 
 示例（字段与语义必须与实现一致；`schema_version` 必备）：

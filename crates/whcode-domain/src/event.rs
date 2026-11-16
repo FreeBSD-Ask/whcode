@@ -58,6 +58,8 @@ pub enum EventKind {
     PlanModeChanged,
     /// 对话剪枝边界（T288／FR-775／ADR-068；log-only：只承载回退目标与来源）。
     SessionRewound,
+    /// 重复调用提醒（T355／FR-790／ADR-044 修订；只承载工具名与次数，不含参数）。
+    ToolCallRepeated,
 }
 
 impl EventKind {
@@ -84,6 +86,7 @@ impl EventKind {
             Self::DeliverablePresented => "DeliverablePresented",
             Self::PlanModeChanged => "PlanModeChanged",
             Self::SessionRewound => "SessionRewound",
+            Self::ToolCallRepeated => "ToolCallRepeated",
         }
     }
 
@@ -109,6 +112,7 @@ impl EventKind {
         Self::DeliverablePresented,
         Self::PlanModeChanged,
         Self::SessionRewound,
+        Self::ToolCallRepeated,
     ];
 
     /// 解析稳定名；未知取值返回 `None`（由调用方决定报错口径，不静默取默认）。
@@ -143,7 +147,8 @@ impl EventKind {
             Self::StreamingChunk | Self::ContextState | Self::CompactionSummary => {
                 EventCriticality::Content
             }
-            Self::ProgressChanged => EventCriticality::DisplaySnapshot,
+            // 重复调用提醒是建议性诊断：丢失不改变任何状态（可从相邻工具事件重建）。
+            Self::ProgressChanged | Self::ToolCallRepeated => EventCriticality::DisplaySnapshot,
         }
     }
 }
@@ -387,7 +392,7 @@ mod tests {
     /// `ALL` 与解析：清单覆盖全部类型，稳定名往返一致（webhook 配置校验依赖它）。
     #[test]
     fn event_kind_all_covers_every_variant_and_parses_back() {
-        assert_eq!(EventKind::ALL.len(), 20, "新增事件类型必须同步 ALL");
+        assert_eq!(EventKind::ALL.len(), 21, "新增事件类型必须同步 ALL");
         for kind in EventKind::ALL {
             assert_eq!(EventKind::parse(kind.as_str()), Some(*kind));
         }

@@ -2486,3 +2486,19 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   两 crate ≥90%；非目标＝追求 per-file 高覆盖、为不可达的 `map_err` 闭包造假路径。
   **取证（2026-11-16）**：复测 app 14684/16274＝**90.23%**、store 8922/9901＝**90.11%**，
   阈值 90.0%、豁免清单仍为空；归档 `artifacts/coverage-phase3-2026-11-16.json`。
+
+## Tasks（2026-11-16 追加）：重复调用提醒（P1.10，FR-790，ADR-044 修订）
+
+- [x] T355 重复调用跟踪与提醒（P1.10／FR-790／ADR-044 修订）：`crates/whcode-app/src/turn.rs`
+  新增 `RepeatTracker`（指纹＝工具名＋参数哈希＋输出哈希；有界 16 条；每指纹每 turn 提醒
+  一次）＋`EventKind::ToolCallRepeated`（`DisplaySnapshot` 级，载荷不含参数）＋第 4 次请求
+  可见的 `role:system` 提醒；轮询型调用（输出变化）不打扰，提醒不改变终止判定
+  ——**任务认知卡**：方向＝ADR-060 项“工具无预算”清单仅剩“重复调用无提示”未收口，
+  模型重复同一调用会静默烧预算；目标＝重复可被模型看见、可被审计查询；判据＝三次相同
+  调用恰一条事件＋一条提醒、输出或参数变化不提醒、事件无参数；非目标＝工具调用预算上限、
+  自动中止重复调用（提醒是建议，不是门禁）。
+  **取证（2026-11-16）**：`cargo test -p whcode-app repeat`（跟踪器边界＋端到端请求记录）、
+  `cargo test -p whcode-domain event`（ALL 21 项往返）。
+- [x] T356 [P] 文档与登记（P1.10／FR-790）：FR-790、`contracts/event-schema.md` 事件清单、
+  ADR-044 修订记录、Check 449—450、CHANGELOG——**取证（2026-11-16）**：计数、追溯、
+  文风、EOL 门禁通过。
