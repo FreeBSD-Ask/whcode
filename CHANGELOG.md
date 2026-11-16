@@ -17,6 +17,16 @@
   `whcode-day`／`whcode-night`（冻结色值逐值不变，默认主题为 `whcode-night`）；工作区配置
   目录 `.zcode/` 更名 `.whcode/`——`skills/`、`mcp.json`、`lsp.json`、`shell.json`、
   `webhooks.json` 五处路径只改名，schema 与上限不变；既有 `.zcode/*` 配置需手动迁移。
+
+- **更名收口补正与台账加固（2026-11-17，融洽性审计）**：Web `crates/whcode-web/frontend/styles.css`
+  的选择器更名与十三套 i18n 文案值（`.zcode/` → `.whcode/`）此前只落在工作树、未进提交——
+  提交树上 Web 主题契约测试必红而台账记为全绿；本次两者对齐，内部常量 `theme_tokens::ZCODE`
+  更名 `WHCODE`，并新增 `whcode-domain` 值层守卫测试（任何语言的文案出现旧配置目录名即失败）。
+  台账侧：`checklist.md` 的追溯缺口登记节移回文件末（其后的 88 条 Check 原被 traceability 的
+  节尾匹配吞出审计范围，检查点计数 376≠465）；重复的第七层标题重编号为第八层，组织行同步；
+  已完成任务 T366 由新增 Check 465 补齐验收引用。门禁侧：`traceability.py` 的 FR/任务覆盖只认
+  Check 条目（不再被复核记录叙述行满足），并新增“缺口节内不得出现 Check”不变量；
+  `check_counts.py` 新增反向覆盖判据（已完成任务必须被至少一个 Check 引用）。
   依据：ADR-053／054／057／070／078／079 同日修订记录。
 
 - **FreeBSD 发布包（2026-11-17 用户批准，ADR-083）**：Release 资产在两平台 zip 之外新增

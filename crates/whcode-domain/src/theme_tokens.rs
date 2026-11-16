@@ -139,7 +139,7 @@ pub const TERMINAL_DAY: TerminalPalette = TerminalPalette {
 };
 
 /// whcode 系全部主题（契约测试与遍历用；顺序＝`t` 键循环中的出现顺序）。
-pub const ZCODE: [ThemeTokens; 2] = [WHCODE_DAY, WHCODE_NIGHT];
+pub const WHCODE: [ThemeTokens; 2] = [WHCODE_DAY, WHCODE_NIGHT];
 
 /// 既有四套主题的 bg/fg 锚点（`(配置名, 背景, 前景)`；铁律值，
 /// 来源 AGENTS.md §6——本模块只引用不重定义，供 Web CSS 契约对照）。
@@ -204,7 +204,7 @@ mod tests {
     /// 全部色值（含 rgba 串的 hex 部分）可被 `parse_rgb` 解析或显式 rgba 形态。
     #[test]
     fn hex_tokens_are_parseable() {
-        for theme in ZCODE {
+        for theme in WHCODE {
             for hex in [
                 theme.background,
                 theme.foreground,
@@ -263,7 +263,7 @@ mod tests {
     /// 配置名稳定且唯一（kebab-case；`data-theme`/`ui.theme` 双消费）。
     #[test]
     fn names_are_unique_kebab_case() {
-        let mut names: Vec<&str> = ZCODE.iter().map(|t| t.name).collect();
+        let mut names: Vec<&str> = WHCODE.iter().map(|t| t.name).collect();
         names.extend(LEGACY_THEMES.iter().map(|(name, _bg, _fg)| *name));
         assert_eq!(names.len(), 6);
         for name in &names {

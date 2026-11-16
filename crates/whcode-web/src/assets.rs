@@ -952,7 +952,7 @@ mod tests {
             assert!(STYLES_CSS.contains(hex), "styles.css 缺色值 {hex}");
         }
         // FR-740 契约：whcode 系与既有四套的 bg/fg 全部对照单一事实源。
-        let tokens = whcode_domain::theme_tokens::ZCODE;
+        let tokens = whcode_domain::theme_tokens::WHCODE;
         for theme in tokens {
             let block = STYLES_CSS
                 .split(&format!("[data-theme=\"{}\"]", theme.name))
@@ -990,7 +990,7 @@ mod tests {
     /// 前景色（不新增主题外颜色）；`+`／`-`／上下文类名与标记字符并存。
     #[test]
     fn diff_presentation_uses_frozen_palette_and_markers() {
-        for theme in whcode_domain::theme_tokens::ZCODE {
+        for theme in whcode_domain::theme_tokens::WHCODE {
             let palette = theme.terminal.expect("whcode 主题已冻结终端调色板");
             let block = STYLES_CSS
                 .split(&format!("[data-theme=\"{}\"]", theme.name))

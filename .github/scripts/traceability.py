@@ -28,6 +28,9 @@ FR_RANGE = re.compile(r"\bFR-(\d{3})\s*[—–~-]\s*(?:FR-)?(\d{3})\b")
 FR_COMPOSITE = re.compile(r"\bFR-(\d{3})((?:/\d{3})+)?\b")
 TASK_PATTERN = re.compile(r"\bT(\d{3})\b")
 CHECK_PATTERN = re.compile(r"^- \[[ x]\] Check (\d+):", re.MULTILINE)
+CHECK_BLOCK = re.compile(
+    r"(?ms)^- \[[ x]\] Check \d+:.*?(?=^(?:- \[[ x]\] |## |### |---\s*$|\Z))"
+)
 GAP_PATTERN = re.compile(r"(?ms)^- 缺口 (G-\d+)：(.*?)(?=^- 缺口 |\Z)")
 # 缺口登记节：其中的 FR 引用**不构成验收覆盖**（登记 ≠ 通过），扫描覆盖时必须剔除。
 GAP_SECTION = re.compile(r"(?ms)^## 追溯缺口登记.*\Z")
@@ -76,6 +79,16 @@ def task_hits(text: str) -> dict[str, list[int]]:
         for match in TASK_PATTERN.finditer(line):
             hits.setdefault(match.group(1), []).append(line_number)
     return hits
+
+
+def check_blocks(text: str) -> str:
+    """只保留 Check 条目整块文本（含多行续行），剔除叙述行。
+
+    覆盖统计若把复核记录等叙述段计入，会出现「叙述覆盖验收」的假阴性：实测
+    Check 377—464 被缺口节吞出审计范围后，FR-769／FR-775／FR-776 仍因正文
+    叙述行含编号而判为已覆盖（2026-11-17 融洽性审计）。覆盖只认 Check 条目。
+    """
+    return "\n".join(match.group(0) for match in CHECK_BLOCK.finditer(text))
 
 
 def parse_gaps(text: str) -> tuple[dict[str, str], list[str]]:
@@ -128,12 +141,19 @@ def main() -> int:
     spec_frs = set(fr_hits(spec_text))
     task_fr_hits = fr_hits(tasks_text)
     check_body, gap_section = split_gap_section(checklist_text)
-    check_fr_hits = fr_hits(check_body)
+    references = check_blocks(check_body)
+    check_fr_hits = fr_hits(references)
     task_ids = set(task_hits(tasks_text))
-    check_task_hits = task_hits(check_body)
+    check_task_hits = task_hits(references)
     registered, gap_problems = parse_gaps(gap_section)
 
     failures: list[str] = list(gap_problems)
+    swallowed = CHECK_PATTERN.search(gap_section)
+    if swallowed:
+        failures.append(
+            "追溯缺口登记节内出现 Check 条目：该节必须恒为文件末节，"
+            "否则其后的检查点全部脱离审计范围（2026-11-17 实测 88 条被吞）"
+        )
 
     missing_in_tasks = sorted(
         fr for fr in spec_frs if fr not in task_fr_hits and fr not in registered

@@ -78,6 +78,30 @@ def check_task_check_consistency(checklist: str, tasks_text: str) -> list[str]:
     return failures
 
 
+def check_completed_tasks_covered_by_checks(checklist: str, tasks_text: str) -> list[str]:
+    """已完成任务必须被至少一个 Check 条目引用（反向覆盖，2026-11-17 加入）。
+
+    既有校验只查强方向（已勾 Check 的映射任务必须已勾）；反向缺失（任务已勾、
+    无任何验收判据引用）会让交付物无人审计——实测 T366 一例（已由 Check 465 补齐）。
+    """
+    failures: list[str] = []
+    completed = {int(n) for n in re.findall(r"^- \[x\] T(\d+)", tasks_text, re.M)}
+    referenced: set[int] = set()
+    for m in re.finditer(r"\bT(\d{3})(?:\s*[—–~-]\s*T?(\d{3}))?", checklist):
+        lo, hi = int(m.group(1)), int(m.group(2) or m.group(1))
+        if 0 < hi - lo <= 200:
+            referenced.update(range(lo, hi + 1))
+        else:
+            referenced.add(lo)
+    missing = sorted(completed - referenced)
+    if missing:
+        failures.append(
+            "已完成任务未被任何 Check 引用："
+            + "、".join(f"T{n:03d}" for n in missing)
+        )
+    return failures
+
+
 def check_check_number_continuity(checklist: str) -> list[str]:
     """Check 编号连续性校验（2026-10-24 全局复核后加入）。
 
@@ -121,6 +145,7 @@ def main() -> int:
 
     failures: list[str] = []
     failures += check_task_check_consistency(checklist, tasks)
+    failures += check_completed_tasks_covered_by_checks(checklist, tasks)
     failures += check_check_number_continuity(checklist)
     state_failures, state_dist = check_evidence_states(checklist)
     failures += state_failures
