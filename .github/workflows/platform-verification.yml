@@ -64,9 +64,6 @@ on:
 # Windows runner 控制台默认代码页非 UTF-8；门禁脚本含中文输出，统一强制 Python UTF-8 模式。
 env:
   PYTHONUTF8: "1"
-  # 工具链下载缓存目录显式钉在 runner 临时目录：缓存步骤的 path 与脚本 `cache_dir()`
-  # 用同一个来源，避免依赖 `tempfile.gettempdir()` 的平台默认值（ADR-082 决策 2）。
-  WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
 
 permissions:
   contents: read
@@ -178,6 +175,12 @@ jobs:
     if: always() && github.event_name != 'schedule' && !(github.event_name == 'push' && needs.triage.outputs.docs_only == 'true')
     name: platform-${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
+    env:
+      # 工具链下载缓存目录显式钉在 runner 临时目录：缓存步骤的 path 与脚本 `cache_dir()`
+      # 用同一个来源，避免依赖 `tempfile.gettempdir()` 的平台默认值（ADR-082 决策 2）。
+      # 必须在**作业级**声明：workflow 级 env 不允许 `runner` 上下文（Actions 会判整份
+      # 工作流非法，表现为 run 立刻失败且没有 job——2026-11-16 实测过一次）。
+      WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
     # 门禁超时（2026-11-01）：VM 通道（FreeBSD/NetBSD/OpenBSD/DragonFly）含 pkg 安装、
     # DuckDB 源码构建、全量构建/测试/冒烟，任一环节挂死不得无限占用 runner——90 分钟
     # 封顶，超时按失败处理（硬门禁语义，ADR-013 修订 2026-10-31）。
@@ -1382,6 +1385,12 @@ jobs:
     needs: triage
     if: always() && github.event_name != 'schedule' && github.event_name != 'pull_request' && !(github.event_name == 'push' && needs.triage.outputs.docs_only == 'true')
     runs-on: windows-latest
+    env:
+      # 工具链下载缓存目录显式钉在 runner 临时目录：缓存步骤的 path 与脚本 `cache_dir()`
+      # 用同一个来源，避免依赖 `tempfile.gettempdir()` 的平台默认值（ADR-082 决策 2）。
+      # 必须在**作业级**声明：workflow 级 env 不允许 `runner` 上下文（Actions 会判整份
+      # 工作流非法，表现为 run 立刻失败且没有 job——2026-11-16 实测过一次）。
+      WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1514,6 +1523,12 @@ jobs:
           - platform: windows-arm64
             os: windows-11-arm
     runs-on: ${{ matrix.os }}
+    env:
+      # 工具链下载缓存目录显式钉在 runner 临时目录：缓存步骤的 path 与脚本 `cache_dir()`
+      # 用同一个来源，避免依赖 `tempfile.gettempdir()` 的平台默认值（ADR-082 决策 2）。
+      # 必须在**作业级**声明：workflow 级 env 不允许 `runner` 上下文（Actions 会判整份
+      # 工作流非法，表现为 run 立刻失败且没有 job——2026-11-16 实测过一次）。
+      WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
