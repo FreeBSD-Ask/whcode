@@ -2574,7 +2574,8 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   异常时矩阵照跑；非目标＝按提交信息或人工判断分流、把 `.github/` 改动当文档。
   **取证（2026-11-16）**：`check-workflows.py` 与 actionlint 通过；run `43894584718` 的
   `triage` 输出 `docs_only=false（改动文件数 1）`、`docs-gates` skipped、矩阵照跑（代码路径
-  成立）；纯文档路径由本批台账回填提交验证，详见 Check 459。
+  成立）；纯文档路径 run `43908904591`（`3cb0067`）：`docs-gates` success、矩阵 skipped、
+  墙钟 0.3 分钟，详见 Check 459。
 - [x] T365 NetBSD 专项与 BSD 阶段计时（P7.4／FR-793／ADR-013 修订）：NetBSD 步骤从平台矩阵
   抽出为独立 job（仅 schedule／dispatch(`netbsd=true`)，含同名公开注解）；FreeBSD 与 NetBSD
   的进度行加 `at=<UTC>` 时间戳
