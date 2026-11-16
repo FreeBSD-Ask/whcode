@@ -1280,6 +1280,18 @@ jobs:
       - name: 构建（锁定依赖图）
         run: cargo build --locked --workspace
 
+      # P7.3／FR-792：压力场景（并发读者／写入压力）没有冻结预算，本步**只记录不判定**——
+      # 脚本输出 `budget_mb:null`／`verdict:recorded`，只有"零样本"才失败（未取得信号）。
+      # 放在绝对预算步之前：托管 runner 的 NFR-207/209 会因环境差异红（ADR-025 已登记），
+      # 记录型通道不得被它连带饿死（这只是测量，不是判定）。
+      - name: 内存压力通道（P7.3／FR-792：只记录不判定）
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/perf-ci | Out-Null
+          python .github/scripts/benchmarks/measure-memory-pressure.py 2>&1 |
+            Tee-Object -FilePath artifacts/perf-ci/memory_pressure.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: NFR-207/NFR-209 性能预算（串行独占）
         shell: pwsh
         run: |
@@ -1316,15 +1328,6 @@ jobs:
       - name: 产出 PR 门禁基线（P7.2／ADR-075：三指标三轮中位）
         if: always()
         run: python .github/scripts/benchmarks/pr-bench-gate.py --rounds 3 --write-baseline artifacts/perf-baseline-pr.json
-
-      # P7.3／FR-792：压力场景（并发读者／写入压力）没有冻结预算，本步**只记录不判定**——
-      # 脚本输出 `budget_mb:null`／`verdict:recorded`，只有"零样本"才失败（未取得信号）。
-      - name: 内存压力通道（P7.3／FR-792：只记录不判定）
-        shell: pwsh
-        run: |
-          python .github/scripts/benchmarks/measure-memory-pressure.py 2>&1 |
-            Tee-Object -FilePath artifacts/perf-ci/memory_pressure.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: 上传性能测量产物
         if: always()
