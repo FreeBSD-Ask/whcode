@@ -13,7 +13,7 @@ ADR 修改判据）。
 |---|---|---|
 | 工作区版本为 0.1.0 | `cargo metadata --no-deps --format-version 1` | `whcode` 包版本 `0.1.0` |
 | CHANGELOG 有发布节 | `grep -n "^## \[0.1.0\]" CHANGELOG.md` | 命中 `## [0.1.0] — 2026-11-16`，且 `## [Unreleased]` 为空节 |
-| 十三套 README 版本行一致 | `grep -l "0.1.0" README*.md \| wc -l` | 13 |
+| README 版本行一致（中英两套） | `grep -l "0.1.0" README*.md \| wc -l` | 2（2026-11-17 用户指令收敛为中英） |
 | 三方追溯与计数 | `python .github/scripts/check_counts.py`、`python .github/scripts/traceability.py` | `counts consistent`、`追溯一致：无断链` |
 | 任务无未勾项 | `grep -c "^- \[ \]" specs/001-whcode-harness/tasks.md` | `0` |
 

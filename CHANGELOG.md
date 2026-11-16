@@ -11,7 +11,15 @@
 
 ## [Unreleased]
 
-（下一版本的变更写在这里。）
+### 变更
+
+- **README 收敛为中英两套（2026-11-17 用户指令）**：删除 `README.zh-TW`／`ja`／`ko`／`ru`／
+  `fr`／`es`／`de`／`ar`／`hi`／`ur`／`bn` 十一份译文，保留 `README.md`（简体中文）与
+  `README.en.md`（英文），两份的语言导航同步收敛。**界面十三套语言目录不受影响**——
+  ADR-062／FR-766 的十三套内建目录与 RTL 交付口径不变，本条只收敛仓库入口文档；
+  `test_layout` 的 `README.<locale>.md` 前缀白名单保留，供将来按需增补。
+  `docs/guides/repository-layout.md` 与 `docs/guides/release-checklist.md` §1 判据
+  （README 版本行计数 13→2）同步修改。译文全文保留在 git 历史（`v0.1.0` 标签内可查）。
 
 ## [0.1.0] — 2026-11-16（正式发布；M0 工程侧基线）
 

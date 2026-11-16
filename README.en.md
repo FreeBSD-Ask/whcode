@@ -6,7 +6,7 @@
 
 [![platform verification](https://github.com/FreeBSD-Ask/whcode/actions/workflows/platform-verification.yml/badge.svg)](https://github.com/FreeBSD-Ask/whcode/actions/workflows/platform-verification.yml)
 
-[简体中文](README.md) | [繁體中文](README.zh-TW.md) | English | [日本語](README.ja.md) | [한국어](README.ko.md) | [Русский](README.ru.md) | [Français](README.fr.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [اردو](README.ur.md) | [বাংলা](README.bn.md)
+[简体中文](README.md) | English
 
 A Rust-native, local-first harness for LLM coding. Everything lands in a single DuckDB file,
 every action is traceable, and the gates of spec-driven development are enforced by programs

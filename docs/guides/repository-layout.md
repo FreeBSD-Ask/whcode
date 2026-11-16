@@ -27,12 +27,12 @@
 | `local/` | 本地 | 临时脚本、探测脚本、运行日志、下载缓存与旧发布目录（不出库；一次性脚本与日志由 `.github/scripts/clean.py --scope script` 回收，下载缓存与旧发布目录由 `--scope download` 回收） | **忽略** |
 | `target/` | 本地 | Rust 构建产物（含 `git worktree list` 登记工作树的 `target/`；由 `clean.py --scope target` 回收） | **忽略** |
 | `state/` | 本地 | 环境工具自动重建的状态目录（内容不可控，视为不存在） | **忽略** |
-| `.github/` | 治理（流程与自动化） | `workflows/`（`platform-verification.yml` 为唯一测试入口：Windows（验收）、FreeBSD（硬门禁证据通道）、NetBSD（自动证据）随 push 运行；OpenBSD/DragonFly 手工触发占位，桌面与性能 job 由 `workflow_dispatch` 输入触发；`build-release.yml` 以 `profile: [debug, release]` 矩阵承担工作区构建（debug）与发布链路（release：打包安装验证、SHA256、TUI/Web 冒烟、artifact 上传），tag `v*` 时创建/更新 GitHub Release；`long-run.yml` 为手动 5.5 小时长跑）；`scripts/`（原 `ci/`：平台矩阵、基准、打包与门禁脚本，含 `check-release.py`）；PR/Issue 模板；`dependabot.yml`（每日依赖与 Actions 更新，仅开 PR、不自动合并） | 入库 |
+| `.github/` | 治理（流程与自动化） | `workflows/`（`platform-verification.yml` 为唯一测试入口：Windows（验收）、FreeBSD（硬门禁证据通道）、NetBSD（周 schedule／dispatch 专项，ADR-082）；OpenBSD/DragonFly 手工触发占位，桌面与性能 job 由 `workflow_dispatch` 输入触发；`build-release.yml` 以 `profile: [debug, release]` 矩阵承担工作区构建（debug）与发布链路（release：打包安装验证、SHA256、TUI/Web 冒烟、artifact 上传），tag `v*` 时创建/更新 GitHub Release；`long-run.yml` 为手动 5.5 小时长跑）；`scripts/`（原 `ci/`：平台矩阵、基准、打包与门禁脚本，含 `check-release.py`）；PR/Issue 模板；`dependabot.yml`（每日依赖与 Actions 更新，仅开 PR、不自动合并） | 入库 |
 | `.specify/` | 治理（工具链） | Spec-Kit 1.0.13 模板、PowerShell 脚本、集成清单与项目宪法（`memory/constitution.md`）；`feature.json` 为当前 feature 指针，切换时产生显式差异 | 入库（2026-10-24 全量纳入） |
 
 根文件只允许工程清单（`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、`rustfmt.toml`）、
 标准开源文件（`LICENSE`、`README.md`、`CONTRIBUTING.md`、`SECURITY.md`、`CHANGELOG.md`）、
-多语言入口（`README.<locale>.md`，2026-11-08 起十二种语言各一份，白名单按前缀放行）、
+多语言入口（`README.<locale>.md`；2026-11-17 用户指令收敛为中英两套，仅存 `README.en.md`，前缀白名单保留供将来增补）、
 代理协作入口（`AGENTS.md`）与编码策略文件（`.gitattributes`、`.editorconfig`）；点开头条目不受
 `test_layout` 枚举限制，其中 `.specify/` 已按治理工具链入库，其余点开头目录仍视为本机工具状态；由 `test_layout` 门禁强制。
 
