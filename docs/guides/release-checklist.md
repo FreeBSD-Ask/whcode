@@ -40,7 +40,7 @@ ADR 修改判据）。
 |---|---|---|
 | 发布包与 SHA256 对齐 | `build-release.yml` 内 `check-release.py --tag v0.1.0 --arch amd64 --record …` | 退出 0（包名／tag／sha256／记录四方一致） |
 | 安装验证（仓库外解包运行） | 同工作流 `package-windows.py --verify` | 三条命令有可归因信号、库文件生成 |
-| 本机记录（amd64 gnullvm） | `python .github/scripts/package-windows.py --target x86_64-pc-windows-gnullvm --verify --record artifacts/install-verify-windows-amd64.txt` | 记录首行 `target_triple = x86_64-pc-windows-gnullvm` |
+| 本机记录（amd64 gnullvm） | `python .github/scripts/package-windows.py --target x86_64-pc-windows-gnullvm --verify --record artifacts/install-verify-windows-amd64.txt` | 记录含 `target_triple = x86_64-pc-windows-gnullvm`（第 4 行；前 3 行是标题、utc、package），且三条命令各有可归因信号 |
 | 可重现构建 | `WHCODE_BUILD_STAMP` 由 CI 从提交时间导出（ADR-047） | 同一提交全新构建字节一致 |
 
 ## 4. 安全与告警
