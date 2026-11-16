@@ -175,12 +175,6 @@ jobs:
     if: always() && github.event_name != 'schedule' && !(github.event_name == 'push' && needs.triage.outputs.docs_only == 'true')
     name: platform-${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
-    env:
-      # 工具链下载缓存目录显式钉在 runner 临时目录：缓存步骤的 path 与脚本 `cache_dir()`
-      # 用同一个来源，避免依赖 `tempfile.gettempdir()` 的平台默认值（ADR-082 决策 2）。
-      # 必须在**作业级**声明：workflow 级 env 不允许 `runner` 上下文（Actions 会判整份
-      # 工作流非法，表现为 run 立刻失败且没有 job——2026-11-16 实测过一次）。
-      WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
     # 门禁超时（2026-11-01）：VM 通道（FreeBSD/NetBSD/OpenBSD/DragonFly）含 pkg 安装、
     # DuckDB 源码构建、全量构建/测试/冒烟，任一环节挂死不得无限占用 runner——90 分钟
     # 封顶，超时按失败处理（硬门禁语义，ADR-013 修订 2026-10-31）。
@@ -244,6 +238,11 @@ jobs:
       # gnullvm 二进制。缺这一步时构建会以“找不到 x86_64-w64-mingw32-clang”显式失败。
       - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
         if: matrix.platform == 'windows'
+        env:
+          # 工具链下载缓存目录与缓存步骤的 path 同源。**只能写在步骤级**：workflow 级
+          # 与作业级 env 都不允许 `runner` 上下文，写上去 Actions 会判整份工作流非法
+          # （run 43893134376／43893707428 两次实测：马上失败、没有任何 job）。
+          WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
         run: python .github/scripts/setup-windows-llvm.py
 
       # ---------------- Windows ----------------
@@ -462,6 +461,11 @@ jobs:
       # 程序，在 ARM64 runner 上以 Windows x64 模拟运行，产物仍是原生 ARM64，运行证据为原生。
       - name: 安装 LLVM 系列 Windows 工具链（ARM64：msvc 主机＋gnullvm 目标，ADR-074）
         if: matrix.platform == 'windows-arm64'
+        env:
+          # 工具链下载缓存目录与缓存步骤的 path 同源。**只能写在步骤级**：workflow 级
+          # 与作业级 env 都不允许 `runner` 上下文，写上去 Actions 会判整份工作流非法
+          # （run 43893134376／43893707428 两次实测：马上失败、没有任何 job）。
+          WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
         run: |
           python .github/scripts/setup-windows-llvm.py `
             --rustup-toolchain 1.100.0-aarch64-pc-windows-msvc `
@@ -1385,12 +1389,6 @@ jobs:
     needs: triage
     if: always() && github.event_name != 'schedule' && github.event_name != 'pull_request' && !(github.event_name == 'push' && needs.triage.outputs.docs_only == 'true')
     runs-on: windows-latest
-    env:
-      # 工具链下载缓存目录显式钉在 runner 临时目录：缓存步骤的 path 与脚本 `cache_dir()`
-      # 用同一个来源，避免依赖 `tempfile.gettempdir()` 的平台默认值（ADR-082 决策 2）。
-      # 必须在**作业级**声明：workflow 级 env 不允许 `runner` 上下文（Actions 会判整份
-      # 工作流非法，表现为 run 立刻失败且没有 job——2026-11-16 实测过一次）。
-      WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1422,6 +1420,11 @@ jobs:
 
       # ADR-073：测量在同一条 gnullvm 验收链上取数，避免“测得的是 msvc 产物”。
       - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
+        env:
+          # 工具链下载缓存目录与缓存步骤的 path 同源。**只能写在步骤级**：workflow 级
+          # 与作业级 env 都不允许 `runner` 上下文，写上去 Actions 会判整份工作流非法
+          # （run 43893134376／43893707428 两次实测：马上失败、没有任何 job）。
+          WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
         run: python .github/scripts/setup-windows-llvm.py
 
       - name: 工作流语义门禁
@@ -1523,12 +1526,6 @@ jobs:
           - platform: windows-arm64
             os: windows-11-arm
     runs-on: ${{ matrix.os }}
-    env:
-      # 工具链下载缓存目录显式钉在 runner 临时目录：缓存步骤的 path 与脚本 `cache_dir()`
-      # 用同一个来源，避免依赖 `tempfile.gettempdir()` 的平台默认值（ADR-082 决策 2）。
-      # 必须在**作业级**声明：workflow 级 env 不允许 `runner` 上下文（Actions 会判整份
-      # 工作流非法，表现为 run 立刻失败且没有 job——2026-11-16 实测过一次）。
-      WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1558,10 +1555,20 @@ jobs:
 
       - name: 安装 LLVM 系列 Windows 工具链（amd64 gnullvm，ADR-073）
         if: matrix.platform == 'windows'
+        env:
+          # 工具链下载缓存目录与缓存步骤的 path 同源。**只能写在步骤级**：workflow 级
+          # 与作业级 env 都不允许 `runner` 上下文，写上去 Actions 会判整份工作流非法
+          # （run 43893134376／43893707428 两次实测：马上失败、没有任何 job）。
+          WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
         run: python .github/scripts/setup-windows-llvm.py
 
       - name: 安装 LLVM 系列 Windows 工具链（ARM64：msvc 主机＋gnullvm 目标，ADR-074）
         if: matrix.platform == 'windows-arm64'
+        env:
+          # 工具链下载缓存目录与缓存步骤的 path 同源。**只能写在步骤级**：workflow 级
+          # 与作业级 env 都不允许 `runner` 上下文，写上去 Actions 会判整份工作流非法
+          # （run 43893134376／43893707428 两次实测：马上失败、没有任何 job）。
+          WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
         run: |
           python .github/scripts/setup-windows-llvm.py `
             --rustup-toolchain 1.100.0-aarch64-pc-windows-msvc `
@@ -1610,6 +1617,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
+        env:
+          # 工具链下载缓存目录与缓存步骤的 path 同源。**只能写在步骤级**：workflow 级
+          # 与作业级 env 都不允许 `runner` 上下文，写上去 Actions 会判整份工作流非法
+          # （run 43893134376／43893707428 两次实测：马上失败、没有任何 job）。
+          WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
         run: python .github/scripts/setup-windows-llvm.py
 
       - name: 工作流语义门禁
@@ -1702,6 +1714,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
+        env:
+          # 工具链下载缓存目录与缓存步骤的 path 同源。**只能写在步骤级**：workflow 级
+          # 与作业级 env 都不允许 `runner` 上下文，写上去 Actions 会判整份工作流非法
+          # （run 43893134376／43893707428 两次实测：马上失败、没有任何 job）。
+          WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
         run: python .github/scripts/setup-windows-llvm.py
 
       - name: 工作流语义门禁
@@ -1781,6 +1798,11 @@ jobs:
 
       # ADR-073：覆盖率必须在验收链（gnullvm）上取，否则数字描述的是一套没人发布的产物。
       - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
+        env:
+          # 工具链下载缓存目录与缓存步骤的 path 同源。**只能写在步骤级**：workflow 级
+          # 与作业级 env 都不允许 `runner` 上下文，写上去 Actions 会判整份工作流非法
+          # （run 43893134376／43893707428 两次实测：马上失败、没有任何 job）。
+          WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
         run: python .github/scripts/setup-windows-llvm.py
 
       - name: 取 DuckDB 与覆盖率工具
