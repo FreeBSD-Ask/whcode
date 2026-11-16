@@ -1263,13 +1263,25 @@ mod tests {
 
     #[tokio::test]
     async fn command_without_exit_status_is_unknown_not_completed_or_failed() {
-        let (outcome, registry) = run_against_test_server(TestBehavior::Silent, 300).await;
+        // 预算是**整次调用**的单一时限（各阶段只消费剩余预算）。取 300 ms 时，负载高的
+        // runner 会在连接/认证/开通道阶段先耗尽预算，得到 failure_report（Failed，命令未
+        // 发出）——那是另一种正确结论，却让本条断言变成平台负载的函数（2026-11-16 的 CI
+        // 上实测复现）。改为让服务端主动“关闭通道但不发退出状态”，并给足预算：收尾分支
+        // 由服务端行为决定，不再依赖预算与机器速度的赛跑。
+        let (outcome, registry) =
+            run_against_test_server(TestBehavior::CloseWithoutStatus, 10_000).await;
 
         let report = outcome.expect("结果不确定同样必须返回报告");
         assert_eq!(report.status, RuntimeExecutionStatus::Unknown);
         assert_ne!(report.status, RuntimeExecutionStatus::Completed);
         assert_ne!(report.status, RuntimeExecutionStatus::Failed);
         assert_eq!(report.exit_code, None);
+        // 钉住走的是“通道关闭”而非“等待超时”，否则本用例与超时分支无法区分。
+        assert!(
+            report.note.contains("通道关闭"),
+            "必须写明通道关闭：{}",
+            report.note
+        );
         assert!(report.note.contains("必须核对"), "note：{}", report.note);
         assert!(
             report.note.contains("不得盲目重放"),
