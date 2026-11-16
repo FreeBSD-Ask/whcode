@@ -735,7 +735,7 @@ fn sandbox_report(workspace: &Path) -> SandboxDoctorReport {
         report.strength.label_zh()
     )];
     lines.push(if report.execution_surface {
-        "  execution_surface: 已启用（.zcode/shell.json 存在且 bash 探测通过）".to_string()
+        "  execution_surface: 已启用（.whcode/shell.json 存在且 bash 探测通过）".to_string()
     } else {
         "  execution_surface: 未启用（模型不能发起任意命令）".to_string()
     });
@@ -1084,9 +1084,9 @@ mod tests {
     #[test]
     fn sandbox_report_surfaces_invalid_shell_config() {
         let workspace = TempWorkspace::new("sandbox-bad");
-        std::fs::create_dir_all(workspace.path.join(".zcode")).expect("建 .zcode");
+        std::fs::create_dir_all(workspace.path.join(".whcode")).expect("建 .whcode");
         std::fs::write(
-            workspace.path.join(".zcode").join("shell.json"),
+            workspace.path.join(".whcode").join("shell.json"),
             b"{ not json }",
         )
         .expect("写坏配置");

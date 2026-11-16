@@ -130,3 +130,4 @@
   每次 `resources/read` 重新拉取（无缓存）；`instructions` 是外部文本，注入不改变其不可信属性；
   失效条件＝出现“服务器 instructions 被当作系统指令执行”的真实事故 → 重新评估是否默认注入
   （可改为只在用户显式开启时注入）。
+- **2026-11-17（`.zcode` 更名 `.whcode`，用户指令）**：本 ADR 的配置路径 `.zcode/mcp.json` 更名 `.whcode/mcp.json`；只改名字，schema、上限与 fail-closed 语义不变。背景与迁移口径见 ADR-053 同日修订记录。

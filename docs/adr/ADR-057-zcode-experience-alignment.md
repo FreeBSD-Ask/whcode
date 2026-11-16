@@ -160,3 +160,8 @@ TUI／CUI 用户不承担其不受益的成本。
   残余；ADR-056 后续三项确认两项移交。Check 348 的 CUI／TUI 结构化工具文本同日收口
   （`whcode-app::tool_call`＋`whcode-bin::tool_call_text`，四端语义一致）；复审触发未变。
 
+- 2026-11-17：**用户指令「全部改为 whcode 前缀」**——主题 zcode-day／zcode-night 更名
+  whcode-day／whcode-night，冻结色值逐值不变（`theme_tokens` 冻结测试与 Web CSS 受校验
+  契约继续生效，只改名不改值）；默认主题随更名为 `whcode-night`。决策 2 的「不得被
+  替换」承诺由本次用户批准更名修订（只改名、不改值）；工作区配置 `.zcode/*` 同批更名
+  `.whcode/*`（ADR-053／054／070／078／079 同日修订记录）。

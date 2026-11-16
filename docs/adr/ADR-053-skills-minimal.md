@@ -102,3 +102,13 @@ provider 侧演进为原生“附件/资源”通道，复审本工具为薄适�
 校验/正文截断/描述符）；`cargo test -p whcode-app skills`（目录适配、超限拒绝、引用去重）；
 `cargo test -p whcode-app skill_tool`（端到端：工具回填含外部内容标注与正文、frontmatter
 不进入正文）。
+
+## 修订记录（2026-11-17：`.zcode` 更名 `.whcode`，用户指令）
+
+**触发**：用户指令「全部改为 whcode 前缀」——产品名为 WHCode，工作区配置目录沿用 ZCode
+的 `.zcode` 前缀造成品牌歧义；ZCode 配置互操作的价值由用户裁量终止。
+
+**决策增量**：本 ADR 记录的配置路径 `.zcode/…` 统一更名 `.whcode/…`。只改名字：schema、
+上限、显式 opt-in、fail-closed 语义与测试判据全部不变。既有工作区的 `.zcode/*` 配置
+需手动迁移至 `.whcode/*`。历史正文、`research/zcode-comparison/` 与 `local/zcode-src`
+证据锚点保留原名不改写。

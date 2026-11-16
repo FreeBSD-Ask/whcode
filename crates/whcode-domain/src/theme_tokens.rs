@@ -1,6 +1,6 @@
 //! # 视觉 token 单一事实源（FR-739／FR-740，ADR-057 决策 2/3）
 //!
-//! 本模块是主题色值的**唯一定义处**：`zcode-day`／`zcode-night` 两套主题的全部
+//! 本模块是主题色值的**唯一定义处**：`whcode-day`／`whcode-night` 两套主题的全部
 //! token 在此冻结，GUI（`whcode-gui`）直接消费，Web（`whcode-web`）的
 //! `frontend/styles.css` 作为**受校验产物**由契约测试对照本表断言（篡改 CSS
 //! 色值即测试失败，同 feature-parity 矩阵模式）。
@@ -20,12 +20,12 @@
 //! `eink-day`／`eink-night`／`amoled-night`／`terminal-green` 的精确色值由
 //! AGENTS.md §6 与 `whcode-tui::theme` 的铁律承载（OLED 纯黑、墨水屏真灰口径），
 //! **本模块不重定义、不派生它们**；[`LEGACY_THEMES`] 仅作 bg/fg 锚点供契约测试
-//! 对照 Web CSS，保证六套主题的 `[data-theme]` 块齐全（FR-739：zcode 系为新增
-//! 而非覆盖）。扩展 token（brand/accent/panel/…/terminal 调色板）只有 zcode 系
+//! 对照 Web CSS，保证六套主题的 `[data-theme]` 块齐全（FR-739：whcode 系为新增
+//! 而非覆盖）。扩展 token（brand/accent/panel/…/terminal 调色板）只有 whcode 系
 //! 定义；既有四套保持 FR-713 口径（不引入主题外颜色），B1 对话渲染使用扩展
-//! token 时仅对 zcode 系生效。
+//! token 时仅对 whcode 系生效。
 
-/// zcode 系主题的完整视觉 token（冻结值，见模块文档）。
+/// whcode 系主题的完整视觉 token（冻结值，见模块文档）。
 pub struct ThemeTokens {
     /// 稳定配置名（kebab-case，与 `ui.theme`／`data-theme` 一致）。
     pub name: &'static str,
@@ -74,9 +74,9 @@ pub struct TerminalPalette {
     pub white: &'static str,
 }
 
-/// zcode-day（← ZCode `zai-light`，浅色）。
-pub const ZCODE_DAY: ThemeTokens = ThemeTokens {
-    name: "zcode-day",
+/// whcode-day（← ZCode `zai-light`，浅色）。
+pub const WHCODE_DAY: ThemeTokens = ThemeTokens {
+    name: "whcode-day",
     background: "#f8f8f8",
     foreground: "#262626",
     brand: "#000000",
@@ -94,9 +94,9 @@ pub const ZCODE_DAY: ThemeTokens = ThemeTokens {
     terminal: Some(&TERMINAL_DAY),
 };
 
-/// zcode-night（← ZCode `zai-dark`，深色；2026-11-06 用户批准为默认主题）。
-pub const ZCODE_NIGHT: ThemeTokens = ThemeTokens {
-    name: "zcode-night",
+/// whcode-night（← ZCode `zai-dark`，深色；2026-11-06 用户批准为默认主题）。
+pub const WHCODE_NIGHT: ThemeTokens = ThemeTokens {
+    name: "whcode-night",
     background: "#161616",
     foreground: "#d4d4d4",
     brand: "#ffffff",
@@ -114,7 +114,7 @@ pub const ZCODE_NIGHT: ThemeTokens = ThemeTokens {
     terminal: Some(&TERMINAL_NIGHT),
 };
 
-/// zcode-night 终端调色板（冻结）。
+/// whcode-night 终端调色板（冻结）。
 pub const TERMINAL_NIGHT: TerminalPalette = TerminalPalette {
     black: "#363636",
     red: "#ff5c5c",
@@ -126,7 +126,7 @@ pub const TERMINAL_NIGHT: TerminalPalette = TerminalPalette {
     white: "#adadad",
 };
 
-/// zcode-day 终端调色板（冻结）。
+/// whcode-day 终端调色板（冻结）。
 pub const TERMINAL_DAY: TerminalPalette = TerminalPalette {
     black: "#5c5c5c",
     red: "#e03131",
@@ -138,8 +138,8 @@ pub const TERMINAL_DAY: TerminalPalette = TerminalPalette {
     white: "#adadad",
 };
 
-/// zcode 系全部主题（契约测试与遍历用；顺序＝`t` 键循环中的出现顺序）。
-pub const ZCODE: [ThemeTokens; 2] = [ZCODE_DAY, ZCODE_NIGHT];
+/// whcode 系全部主题（契约测试与遍历用；顺序＝`t` 键循环中的出现顺序）。
+pub const ZCODE: [ThemeTokens; 2] = [WHCODE_DAY, WHCODE_NIGHT];
 
 /// 既有四套主题的 bg/fg 锚点（`(配置名, 背景, 前景)`；铁律值，
 /// 来源 AGENTS.md §6——本模块只引用不重定义，供 Web CSS 契约对照）。
@@ -165,29 +165,29 @@ pub fn parse_rgb(hex: &str) -> Option<(u8, u8, u8)> {
 mod tests {
     use super::*;
 
-    /// 冻结值锚定：zcode 两套的 bg/fg/brand 与终端调色板逐值断言
+    /// 冻结值锚定：whcode 两套的 bg/fg/brand 与终端调色板逐值断言
     /// （本测试即冻结记录，改动任何值必须同步 ADR-057 修订记录）。
     #[test]
     fn frozen_values_match_approved_proposal() {
-        assert_eq!(ZCODE_DAY.name, "zcode-day");
-        assert_eq!(ZCODE_DAY.background, "#f8f8f8");
-        assert_eq!(ZCODE_DAY.foreground, "#262626");
-        assert_eq!(ZCODE_DAY.brand, "#000000");
-        assert_eq!(ZCODE_DAY.accent, "#ebf4ff");
-        assert_eq!(ZCODE_DAY.panel, "#ffffff");
-        assert_eq!(ZCODE_DAY.sidebar, "#f0f0f0");
-        let day_terminal = ZCODE_DAY.terminal.expect("zcode-day 须有终端调色板");
+        assert_eq!(WHCODE_DAY.name, "whcode-day");
+        assert_eq!(WHCODE_DAY.background, "#f8f8f8");
+        assert_eq!(WHCODE_DAY.foreground, "#262626");
+        assert_eq!(WHCODE_DAY.brand, "#000000");
+        assert_eq!(WHCODE_DAY.accent, "#ebf4ff");
+        assert_eq!(WHCODE_DAY.panel, "#ffffff");
+        assert_eq!(WHCODE_DAY.sidebar, "#f0f0f0");
+        let day_terminal = WHCODE_DAY.terminal.expect("whcode-day 须有终端调色板");
         assert_eq!(day_terminal.green, "#1e8a3e");
         assert_eq!(day_terminal.blue, "#0b7fff");
 
-        assert_eq!(ZCODE_NIGHT.name, "zcode-night");
-        assert_eq!(ZCODE_NIGHT.background, "#161616");
-        assert_eq!(ZCODE_NIGHT.foreground, "#d4d4d4");
-        assert_eq!(ZCODE_NIGHT.brand, "#ffffff");
-        assert_eq!(ZCODE_NIGHT.accent, "#001d3d");
-        assert_eq!(ZCODE_NIGHT.panel, "#202020");
-        assert_eq!(ZCODE_NIGHT.card, "#2b2b2b");
-        let night_terminal = ZCODE_NIGHT.terminal.expect("zcode-night 须有终端调色板");
+        assert_eq!(WHCODE_NIGHT.name, "whcode-night");
+        assert_eq!(WHCODE_NIGHT.background, "#161616");
+        assert_eq!(WHCODE_NIGHT.foreground, "#d4d4d4");
+        assert_eq!(WHCODE_NIGHT.brand, "#ffffff");
+        assert_eq!(WHCODE_NIGHT.accent, "#001d3d");
+        assert_eq!(WHCODE_NIGHT.panel, "#202020");
+        assert_eq!(WHCODE_NIGHT.card, "#2b2b2b");
+        let night_terminal = WHCODE_NIGHT.terminal.expect("whcode-night 须有终端调色板");
         assert_eq!(night_terminal.green, "#46bf72");
         assert_eq!(night_terminal.blue, "#4099ff");
     }

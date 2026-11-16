@@ -25,6 +25,10 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
   与 TUI/Web 冒烟，任一失败即红；系统依赖允许取自 FreeBSD ports／latest pkg。
   其中 `extreme_scale`（1M 事件）按 ADR-082 移出推送路径、由每周专项覆盖（2026-11-16 用户批准）。
   **不作验收结论**（验收仍为 Windows 11 amd64）；性能分位数未取得（perf 通道仍仅 Windows）；
+  2026-11-17 用户批准（ADR-083）：FreeBSD 同时为**构建交付目标**——build-release.yml 的
+  `package-freebsd` lane 随 tag／手动产出 `whcode-<v>-freebsd-amd64.tar.gz`（tar.gz＋
+  sha256，RPATH=$ORIGIN 随包带 libduckdb.so），VM 内仓库外安装验证＋冒烟后挂 GitHub
+  Release；首个实跑证据待回填（Check 464）；
 - NetBSD 在 GitHub CI 由**每周 schedule 与手动 dispatch 专项**运行（2026-11-16 用户批准，
   ADR-082：移出 push 路径；仅作平台证据、不阻断 CI）；**NetBSD/OpenBSD/
   DragonFly 仅支持 SSH 远程开发**（作为被 Windows/FreeBSD 内置 SSH 客户端连入的目标，
@@ -279,11 +283,11 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 - 预算：首屏 JS ≤ 50 KB（gzip）、CSS ≤ 20 KB（gzip）、DOM ≤ 2000 节点；无 WebGL/视频/自动播放/第三方字体。
 - 主题精确色值：`amoled-night` 背景 `#000000` 前景 `#E6E6E6`；`eink-day` 背景 `#FFFFFF`
   前景 `#000000`；`eink-night` 背景 `#000000` 前景 `#FFFFFF`；GUI 另有 `terminal-green`
-  背景 `#000000` 前景 `#00FF00`（2026-10-24 用户新增，OLED 兼容纯黑）；2026-11-06 用户
-  新增并批准冻结 zcode 系（ADR-057/FR-739）：`zcode-day` 背景 `#f8f8f8` 前景 `#262626`、
-  `zcode-night` 背景 `#161616` 前景 `#d4d4d4`（完整 token 单一事实源
-  `whcode_domain::theme_tokens`，Web CSS 为受校验产物）。默认主题为 `zcode-night`
-  （2026-11-06 用户批准切换）；**既有四套铁律色值一个不动**，墨水屏避免大面积中间灰
+  背景 `#000000` 前景 `#00FF00`（2026-10-24 用户新增，OLED 兼容纯黑）；2026-11-06 用户新增并批准冻结（原 zcode 系，2026-11-17 用户指令
+  更名 whcode 系，色值不变；ADR-057/FR-739）：`whcode-day` 背景 `#f8f8f8` 前景 `#262626`、
+  `whcode-night` 背景 `#161616` 前景 `#d4d4d4`（完整 token 单一事实源
+  `whcode_domain::theme_tokens`，Web CSS 为受校验产物）。默认主题为 `whcode-night`
+  （2026-11-06 用户批准切换，2026-11-17 随主题更名）；**既有四套铁律色值一个不动**，墨水屏避免大面积中间灰
   与渐变，中间灰判据按真灰口径（R=G=B）。TUI/GUI/Web 六套齐备。
 - 减少无效动效；能交给 GPU 的交给 GPU，不能的关闭；不得为每个会话增加固定资源占用。
 - 窗口最小化/不可见时停止绘制与动画：恢复去抖 ≥250 ms，单次全量重绘，事件游标连续（FR-617）。

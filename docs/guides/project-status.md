@@ -12,12 +12,13 @@
 | 项 | 数量 |
 |---|---|
 | 功能需求 FR | 171 |
-| 任务 | 366（已完成 366，未完成 0） |
-| 验收检查点 | 461（已有复核记录 461，missing 0） |
+| 任务 | 369（已完成 368，未完成 1——T369 待外部条件回填） |
+| 验收检查点 | 464（已有复核记录 463，missing 1——Check 464 待 CI 实跑回填） |
 
-证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 412、
-outcome-supported 49、missing 0。ADR-060 Phase 1、proposal-v3 的 P1.9／P1.10／P2.2b／P3.3／
-P5.2／P5.3／P5.6／P6.2—P6.4／P7.1—P7.3 均已收口，最近批次（Check 456—461，CI 加速与证据节奏）的取证见
+证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 414、
+outcome-supported 49、missing 1。ADR-060 Phase 1、proposal-v3 的 P1.9／P1.10／P2.2b／P3.3／
+P5.2／P5.3／P5.6／P6.2—P6.4／P7.1—P7.4 均已收口，最近批次（Check 462—463，主题与配置
+更名＋FreeBSD 交付目标落地）的取证见
 `checklist.md` 与 `CHANGELOG.md`。
 并行会话在途（截至本快照）：无（工作树干净，未入账 WIP 已清空）。
 proposal-v3 全部 45 条提案的执行态比对见
@@ -55,7 +56,17 @@ P2.2b／P3.3／P5.x／P6.x／P7.1／P7.2 的进展见 `CHANGELOG.md`，本表不
 
 ## 未完成项与原因
 
-当前账本无未完成任务；以下条目是仍开放的观察项、平台缺口与历史收口记录。
+当前账本余 T369 一项（FreeBSD 包 CI 实跑取证回填，外部条件：需推送 tag 或手动触发）；
+以下条目是仍开放的观察项、平台缺口与历史收口记录。
+
+- **FreeBSD 构建交付与品牌更名（2026-11-17，用户批准）**：ADR-083 把 FreeBSD 在硬门禁证据
+  通道之上升为**构建交付目标**——`build-release.yml` 新增 `package-freebsd` lane（tag／手动
+  触发）：rustup 1.100.0＋DuckDB 2.0.0 源码构建＋release 构建（RPATH=$ORIGIN，随包带
+  `libduckdb.so`），VM 内仓库外安装验证三条命令与 TUI/Web 冒烟后挂 GitHub Release；
+  release job 六件资产数量断言＋`check-release.py --arch freebsd-amd64` 交叉校验；首个
+  实跑证据待回填（T369／Check 464），仍不作验收结论、性能分位数未取得。同批完成品牌更名：
+  主题 zcode-day／zcode-night 更名 whcode-day／whcode-night、工作区配置 `.zcode/*` 更名
+  `.whcode/*`（ADR-053／054／057／070／078／079 修订；冻结色值逐值不变）。
 
 - **CI 证据节奏（2026-11-16 变更，ADR-082，用户批准；首个全绿运行 run `43894584718`，`b803dde`——FreeBSD 28.2 分钟、ARM64 20.0、Windows 25.1、measurements 35.6，关键路径由 FreeBSD 转为 measurements）**：五平台矩阵只随**代码推送**
   产生证据——纯文档推送（`docs/`、`specs/`、`artifacts/`、`i18n/`、根级 `*.md`）走
@@ -116,7 +127,8 @@ P2.2b／P3.3／P5.x／P6.x／P7.1／P7.2 的进展见 `CHANGELOG.md`，本表不
 - LLM：Provider 语义、四级追踪与脱敏、传输层事件；真实 HTTP 客户端与 CUI／TUI／GUI／Web
   四端调用均已接通（T167＋ADR-056）。
 - GUI：七视图（含对话）接真实数据、六套主题（amoled-night／eink-day／eink-night／
-  terminal-green／zcode-day／zcode-night，zcode 系 2026-11-06 冻结，默认 `zcode-night`）、
+  terminal-green／whcode-day／whcode-night，whcode 系（原 zcode 系，2026-11-17 更名）
+  2026-11-06 冻结，默认 `whcode-night`）、
   脏标记零重绘、最小化挂起与恢复；对话与写命令已接线（ADR-056 四端功能对等）；
   turn 后台执行（界面不冻结，Phase 2）。
 - CUI：clap 命令树、`--json` 信封、稳定退出码；未接线命令显式失败。

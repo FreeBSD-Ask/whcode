@@ -1551,8 +1551,8 @@ mod tests {
         let report = run_scripted(&events);
         assert_eq!(
             report.theme,
-            Theme::ZcodeNight,
-            "六步必须回原位（默认 zcode-night）"
+            Theme::WhcodeNight,
+            "六步必须回原位（默认 whcode-night）"
         );
         let one = run_scripted(&[UiEvent::Key('t')]);
         assert_eq!(one.theme, Theme::EinkDay, "一步到第二套");

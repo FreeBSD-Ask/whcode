@@ -48,7 +48,7 @@ python＝装解释器并 opt-in；gitbash＝payload 四重校验；bsdshell＝M7
 | 强度 | 判据 | 当前 |
 |---|---|---|
 | `none` | 模型没有任意命令执行面（`shell` 工具未注册） | 默认构建即此档 |
-| `partial` | 有执行面，仅工具级控制；OS 层不隔离文件与网络 | 启用 `shell` 工具后（`.zcode/shell.json`＋bash 探测通过） |
+| `partial` | 有执行面，仅工具级控制；OS 层不隔离文件与网络 | 启用 `shell` 工具后（`.whcode/shell.json`＋bash 探测通过） |
 | `full` | OS 层强制隔离生效且残余缺口清零 | **不可达**（两平台均为 `Unavailable`，见下） |
 
 **工具级控制（六条，已生效）**：`cwd_anchor`、`minimal_env`、`credential_strip`、

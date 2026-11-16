@@ -159,3 +159,9 @@
 - “延后”**不等于**“已支持”或“已放弃”：不得在 README、发行说明或对外材料中声称 BSD 可用；
 - 不得把 Windows 的实测数字外推为其他平台结论（G-01）；
 - 恢复任一平台时，必须补齐：构建与依赖记录（含 DuckDB 引擎版本）、数据库冒烟四步、TUI 或 CUI 可运行证据、以及该平台的性能分位数——缺一不得宣称通过。
+- **2026-11-17（用户指令：release 出 FreeBSD 包，ADR-083）**：FreeBSD 在「完整平台
+  证据通道（硬门禁）」之上扩展为**构建交付目标**——`build-release.yml` 新增
+  `package-freebsd` lane（tag／手动触发），产出 `whcode-<v>-freebsd-amd64.tar.gz`＋
+  `.sha256`，VM 内仓库外安装验证与 TUI/Web 冒烟后挂 GitHub Release。**验收目标仍是
+  Windows 11 amd64**，FreeBSD 证据身份与硬门禁语义不变；NetBSD/OpenBSD/DragonFly
+  延后口径不变。决策、代价与回退见 ADR-083。

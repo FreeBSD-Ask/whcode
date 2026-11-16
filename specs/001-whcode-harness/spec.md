@@ -265,13 +265,13 @@ Runtime Provider 接口（探测、能力声明、版本指纹、执行、取消
 - **FR-732**: 子代理编排（whcode-app）：模型经 spawn_subagent 工具调用委派子任务，执行器同步嵌套 run_turn（独立 request_id/turn_id、同一会话落表）；硬上限三重——每 turn 子代理数 ≤ 3、递归深度 = 1（子代理不得再 spawn）、子 turn 迭代上限继承请求；超限结构化拒绝不中断父 turn（ADR-052）（P1）
 - **FR-733**: 子 turn 事件落父会话（session_id=父、request_id=子请求），父 turn 的ToolCallStarted/Finished 关联 tool_call_id；子 turn 终止原因与末轮正文以 role:tool 结果回填父循环，子代理失败为结构化失败不伪造成功；父取消在子 turn chunk 边界生效（FR-722/FR-723 口径；ADR-052）（P1）
 - **FR-734**: 工具清单随请求下发：LlmRequest 携带工具清单（registry.provider_manifest），openai 兼容族映射到请求体 tools 数组（其余协议映射随各自能力登记）；此前工具定义从未随请求下发——真实供应商的 tool_calls 依赖该能力，桩剧本测试不受影响（ADR-048 追加；〔未实现〕T231 登记）（P1）
-- **FR-735**: 技能最小集（whcode-app）：`.zcode/skills/<name>/SKILL.md` 扫描与
+- **FR-735**: 技能最小集（whcode-app）：`.whcode/skills/<name>/SKILL.md` 扫描与
 frontmatter 解析（name + description）；技能描述注入 turn 的 system 消息
 （description 截 200 字符，技能数上限 10）；正文由模型按需 read_file 读取；
 SKILL.md 引用的相对路径文件必须存在且可达（门禁强制）；坏文件跳过并记 warning
 （ADR-053）（P1）
 - **FR-736**: MCP 客户端最小集（whcode-mcp，ADR-054）：stdio transport——显式配置
-`.zcode/mcp.json`（服务器 ≤ 8、enabled 开关、无自动发现；无配置文件=功能关闭、
+`.whcode/mcp.json`（服务器 ≤ 8、enabled 开关、无自动发现；无配置文件=功能关闭、
 坏配置=显式报错）驱动的子进程会话：spawn（最小环境注入 + 显式 env 回填，凭据值
 不入日志与事件）→ initialize 握手（2025-06-18，未知版本中止）→ newline 分帧
 JSON-RPC 2.0 请求/响应配对；请求超时默认 30s（上限 600s）由看门狗线程到点
@@ -292,13 +292,14 @@ taskkill /T /F 口径）（P1）
   超时由 ureq 请求超时承担（默认 30s、上限 600s），取消在请求前置检查（阻塞中的
   请求不可中断，见 ADR-055 §5 复审触发）；远程仅 https、http 仅限回环
   （127.0.0.1/localhost/::1），远程明文拒绝；本轮不含 OAuth 与 SSE（P1）
-- **FR-739**: zcode-day／zcode-night 主题层（ADR-057 决策 2）：精确色值由批次 R 从
+- **FR-739**: whcode-day／whcode-night 主题层（ADR-057 决策 2；2026-11-17 用户批准由
+  zcode-day／zcode-night 更名，冻结色值不变）：精确色值由批次 R 从
   ZCode 基线（`local/zcode-src`，commit `3c5b227`）提取并冻结；**主题保证铁律**——
   既有四套主题（amoled-night 纯黑 `#000000`／eink-day／eink-night 墨水屏口径真灰
   R=G=B、避免大面积中间灰与渐变／terminal-green 纯黑＋`#00FF00`）的精确色值与可用性
-  不可稀释，zcode 主题为新增而非覆盖；四套主题色值由双端 hex 断言测试锁定且为每批
-  结题前置；GUI／Web 经 `theme.switch` 切换；默认主题是否切换为 zcode 系由用户单独
-  批准（默认值可见可改可撤销）（P1）
+  不可稀释，whcode 主题为新增而非覆盖；四套主题色值由双端 hex 断言测试锁定且为每批
+  结题前置；GUI／Web 经 `theme.switch` 切换；默认主题为 whcode-night（2026-11-06 用户
+  批准切换，2026-11-17 随主题更名；默认值可见可改可撤销）（P1）
 - **FR-740**: 视觉 token 单一事实源（ADR-057 决策 3）：色板／间距／字号／圆角／层级
   token 一处定义，GUI 与 Web 派生同一来源，一致性由契约测试断言（受校验产物模式）；
   token 派生对既有四套主题渲染零影响（P1）
@@ -421,7 +422,7 @@ taskkill /T /F 口径）（P1）
   per-tool 默认 `ask`；“持久允许”仅对白名单命中的**单命令**生效——复合脚本永不免审批，
   bash 图灵完备使任意脚本白名单不可判定）；资源界（超时杀树＋并发闸门＋输出尾部截断
   ＋脚本 64 KiB 上限）；留痕（ToolCallStarted/Finished＋FR-706 检查点四要素）。注册
-  三条件缺一不注册：`.zcode/shell.json` 显式 opt-in＋bash 可用探测＋**审批闸门在场**
+  三条件缺一不注册：`.whcode/shell.json` 显式 opt-in＋bash 可用探测＋**审批闸门在场**
   （默认构建零 shell，FR-704；非交互装配模型面不可见）；配置写错显式失败；shell 副作用
   不进前像恢复（P2；ADR-070／proposal-v3 P5.1）
 - **FR-778**: 出进程 SDK：`whcode sdk` 以行分帧 JSON-RPC 2.0（stdio，单连接，单行 64 KiB
@@ -454,7 +455,7 @@ taskkill /T /F 口径）（P1）
   而非静默降级为“未启用”；当前两平台均为 `Unavailable`，故 `full` 不可达且不作为承诺（P2）
   - 依据：`research/synthesis/proposal-v3.md` P5.2（强度如实上报，非声称隔离）；ADR-070 的 P5.2
     复审触发；Microsoft Learn《AppContainer isolation》《Launch an AppContainer》；NFR-215
-  - 判据：Given 默认构建（`.zcode/shell.json` 不存在），When 运行 `whcode doctor --json`，Then
+  - 判据：Given 默认构建（`.whcode/shell.json` 不存在），When 运行 `whcode doctor --json`，Then
     `sandbox.strength` 为 `none` 且 `gaps` 非空；Given shell 配置非法，Then `sandbox_error` 非空；
     Given 任意配置，Then `sandbox.strength` 不为 `full`，且文本首行与 JSON 强度一致
   - 证据：`cargo test -p whcode-domain sandbox`（5 项）、`cargo test -p whcode-platform sandbox`
@@ -463,14 +464,14 @@ taskkill /T /F 口径）（P1）
   `textDocument/definition`／`references`／`hover`／诊断（拉取 `textDocument/diagnostic`，
   回退 `textDocument/publishDiagnostics` 缓存）四查询，查询前必发 `textDocument/didOpen`；
   传输为 LSP 基础协议帧（`Content-Length` 必填、UTF-8、单条 1 MiB，超限显式报错不截断）；
-  服务器经 `.zcode/lsp.json` 显式 opt-in（≤4 台、参数 ≤16 条、扩展名 ≤16 条），坏配置
+  服务器经 `.whcode/lsp.json` 显式 opt-in（≤4 台、参数 ≤16 条、扩展名 ≤16 条），坏配置
   显式失败；结果有界（位置 ≤100、hover ≤2000 字符、诊断 ≤100 条且单条 ≤500 字符）并置
   `truncated` 标记；客户端按查询期存在（reader 线程＋有界通道＋Drop kill→join），不内置
   任何服务器、不做客户端复用；缺能力／超时／进程退出／帧损坏均为显式错误，诊断“拉取与
   推送皆无”返回 `not_supported`（不返回空列表冒充“没有诊断”）；模型工具面属 P5.3b（P2）
   - 依据：`research/synthesis/proposal-v3.md` P5.3（封闭集）；ADR-078；LSP 3.18 官方规范；
     `whcode-mcp` 的 JSON-RPC 客户端与有界通道先例（ADR-054/071）
-  - 判据：Given `.zcode/lsp.json` 未配置，When `whcode_lsp::load` 读取，Then 返回空列表且不报错；
+  - 判据：Given `.whcode/lsp.json` 未配置，When `whcode_lsp::load` 读取，Then 返回空列表且不报错；
     Given 坏 JSON 或超限条目，Then 显式错误；Given 一个按封闭集应答的测试替身，When 握手后
     依次查询四类，Then 每类结果按封闭集解析、`didOpen` 先于查询发出、服务器→客户端请求
     得到 -32601 答复、服务器不答复时在超时内返回 `tool_timeout`
@@ -478,14 +479,14 @@ taskkill /T /F 口径）（P1）
     协议级替身）
 - **FR-783**: LSP 四查询的模型工具面（P5.3b／ADR-078）：`lsp_definition`／`lsp_references`／
   `lsp_hover`／`lsp_diagnostics` 四个只读工具（`SideEffectScope::ReadOnly`，无需审批——服务器
-  命令与参数来自 `.zcode/lsp.json`，模型只能给文件与位置）；位置参数对外为 **1 基**（`0` 显式
+  命令与参数来自 `.whcode/lsp.json`，模型只能给文件与位置）；位置参数对外为 **1 基**（`0` 显式
   拒绝），传入执行器前转 0 基；诊断只需文件路径；空结果给出可操作说明（“未找到定义（服务器
   返回 0 处）…”）而非静默空；条数或文本截断在正文显式标注；未配置服务器时不注册四工具
   （FR-704），坏配置在装配期显式失败；执行器由装配根注入（`LspQueryExecutor` trait），
   `whcode-tools` 不依赖 `whcode-lsp`（P2）
   - 依据：`research/synthesis/proposal-v3.md` P5.3；ADR-078（封闭集与工具面归属）；
     ADR-070（工具注入模式）；FR-782（库层四查询）
-  - 判据：Given 未配置 `.zcode/lsp.json`，When 构造执行器，Then 返回 `None` 且注册表保持九件；
+  - 判据：Given 未配置 `.whcode/lsp.json`，When 构造执行器，Then 返回 `None` 且注册表保持九件；
     Given 坏配置，Then 装配期报错；Given 桩执行器，When 以 1 基行号查询定义，Then 请求坐标为
     0 基且输出为 `path:line:col`；Given 行号 0，Then `invalid_state`；Given 空结果，Then 输出含
     “未找到”并被判定为正确的空
@@ -539,7 +540,7 @@ taskkill /T /F 口径）（P1）
     会话，Then 无行且摘要注明“未选择会话”；Given 会话不存在，Then 各来源报错进摘要且不 panic
   - 证据：`cargo test -p whcode-bin ledger_view`（1 项）、`cargo test -p whcode-app --lib view`、
     `cargo test -p whcode-web ledger`（1 项：三节聚合、正确的空、未知会话 404）
-- **FR-788**: 出站 webhook 幂等投递（P6.4／ADR-079）：配置 `<workspace>/.zcode/webhooks.json`
+- **FR-788**: 出站 webhook 幂等投递（P6.4／ADR-079）：配置 `<workspace>/.whcode/webhooks.json`
   （显式 opt-in；端点 ≤8、每端点事件类型 ≤16、`batch` 1—50、`max_attempts` 1—5、
   `timeout_ms` 500—10000；只允许 `https`，回环主机允许 `http`；凭据只写环境变量名）。
   幂等键 `<endpoint>:<event_id>` 落 `webhook_deliveries`（schema v13），认领冲突即跳过，
@@ -589,7 +590,7 @@ taskkill /T /F 口径）（P1）
     `artifacts/memory-pressure-report.json` 为其中一轮）
 
 - **FR-791**: 技能读取工具（P1.9／ADR-053 修订）：只读工具 `skill` 按名字读取工作区技能
-  （`.zcode/skills/<name>/SKILL.md`）——不带 `name` 列出技能（名字、描述、相对路径，≤32 条）；
+  （`.whcode/skills/<name>/SKILL.md`）——不带 `name` 列出技能（名字、描述、相对路径，≤32 条）；
   带 `name` 返回正文（≤16 KiB，超出按字符边界截断并标 `truncated`）与一跳引用清单
   （相对路径 ≤20 条并给出总数）。可见范围＝目录扫描白名单，模型给的名字不拼进路径
   （`/`、`\`、`..`、控制字符与超长名一律拒绝）；单文件 >1 MiB 拒绝；输出首行显式标注

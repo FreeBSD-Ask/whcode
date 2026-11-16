@@ -123,3 +123,4 @@ DSH 域 Q 判定“执行环境是产品主线”（DSH 领先项）；WHCode �
   `lpAttributeList`）。处置＝不再只写在文档里，而由 `doctor` 的 `sandbox.gaps` 在运行时逐条
   枚举（`filesystem_write`／`filesystem_read`／`network`／`disk_quota`／`secondary_command_path`），
   强度因此只能是 `partial`；`full` 不可达。威胁表本身不改条目。
+- **2026-11-17（`.zcode` 更名 `.whcode`，用户指令）**：本 ADR 的配置路径 `.zcode/shell.json` 更名 `.whcode/shell.json`；只改名字，schema、上限与 fail-closed 语义不变。背景与迁移口径见 ADR-053 同日修订记录。

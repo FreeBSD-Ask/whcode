@@ -407,7 +407,7 @@ fn llm_command(
     };
     // shell 治理束（T290／ADR-070）：未 opt-in 或 bash 不可用为 None；配置写错显式失败。
     let shell = crate::shell_tool::build_governance(workspace)?;
-    // LSP 执行器（P5.3b／ADR-078）：未配置 `.zcode/lsp.json` 为 None；坏配置显式失败。
+    // LSP 执行器（P5.3b／ADR-078）：未配置 `.whcode/lsp.json` 为 None；坏配置显式失败。
     let lsp = crate::lsp_tool::build_executor(workspace)?;
     let context = whcode_app::llm::LlmContext {
         registry: registry.as_ref(),
@@ -3218,9 +3218,9 @@ mod tests {
     #[test]
     fn webhook_distinguishes_configured_with_nothing_pending() {
         let workspace = temp_workspace("webhook-empty");
-        std::fs::create_dir_all(workspace.join(".zcode")).expect("创建 .zcode");
+        std::fs::create_dir_all(workspace.join(".whcode")).expect("创建 .whcode");
         std::fs::write(
-            workspace.join(".zcode/webhooks.json"),
+            workspace.join(".whcode/webhooks.json"),
             r#"{"endpoints":[{"name":"ci","url":"http://127.0.0.1:9/hook","events":["TurnFinished"]}]}"#,
         )
         .expect("写配置");
@@ -3255,9 +3255,9 @@ mod tests {
     #[test]
     fn webhook_bad_config_and_conflicting_flags_are_explicit() {
         let workspace = temp_workspace("webhook-bad");
-        std::fs::create_dir_all(workspace.join(".zcode")).expect("创建 .zcode");
+        std::fs::create_dir_all(workspace.join(".whcode")).expect("创建 .whcode");
         std::fs::write(
-            workspace.join(".zcode/webhooks.json"),
+            workspace.join(".whcode/webhooks.json"),
             r#"{"endpoints":[{"name":"ci","url":"https://x.invalid/h","events":["NotAEvent"]}]}"#,
         )
         .expect("写配置");

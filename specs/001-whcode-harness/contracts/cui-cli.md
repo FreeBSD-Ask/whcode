@@ -62,7 +62,7 @@ whcode
 - `runtime list` 输出与 Web `/api/runtimes` 同形（`schema_version`、`wired`、`runtimes`，
   状态名不翻译）；`runtime status|enable|disable|install` 为预留命令。
 - `webhook status`／`webhook deliver`（P6.4／FR-788／ADR-079）：配置来自
-  `<workspace>/.zcode/webhooks.json`（显式 opt-in；未配置＝零端点＝零请求，`status` 明确
+  `<workspace>/.whcode/webhooks.json`（显式 opt-in；未配置＝零端点＝零请求，`status` 明确
   输出 `configured: false`，`deliver` 计划 0 条）。`status` 输出端点计数、三态计数
   （`claimed`／`delivered`／`failed`）与最近 20 条投递记录；`deliver` 默认 dry-run
   （`planned` 条数，不认领、不发送），`--yes` 执行并把结果记为 `attempted`／`delivered`／

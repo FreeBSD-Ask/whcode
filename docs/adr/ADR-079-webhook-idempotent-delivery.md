@@ -121,3 +121,13 @@
 - **知难行易**：方向＝P6.4“幂等键＋去重表”；目标＝同一事件不重复投递、失败有界且可查；
   判据＝store／app／llm 三处测试全绿且 `webhook status` 输出可判定；非目标＝入站 webhook、
   常驻投递、HMAC 签名、界面入口。
+
+## 修订记录（2026-11-17：`.zcode` 更名 `.whcode`，用户指令）
+
+**触发**：用户指令「全部改为 whcode 前缀」——产品名为 WHCode，工作区配置目录沿用 ZCode
+的 `.zcode` 前缀造成品牌歧义；ZCode 配置互操作的价值由用户裁量终止。
+
+**决策增量**：本 ADR 记录的配置路径 `.zcode/…` 统一更名 `.whcode/…`。只改名字：schema、
+上限、显式 opt-in、fail-closed 语义与测试判据全部不变。既有工作区的 `.zcode/*` 配置
+需手动迁移至 `.whcode/*`。历史正文、`research/zcode-comparison/` 与 `local/zcode-src`
+证据锚点保留原名不改写。

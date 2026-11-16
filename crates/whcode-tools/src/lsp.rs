@@ -6,7 +6,7 @@
 //!
 //! 封闭集四个工具：`lsp_definition`／`lsp_references`／`lsp_hover`／`lsp_diagnostics`。
 //! 它们都是**只读**（`SideEffectScope::ReadOnly`）：模型只能指定文件与位置，**不能指定要
-//! 启动哪个服务器或参数**——命令来自用户配置文件（`.zcode/lsp.json`），这是与 shell 工具
+//! 启动哪个服务器或参数**——命令来自用户配置文件（`.whcode/lsp.json`），这是与 shell 工具
 //! 的本质区别（shell 的脚本文本由模型给出，故必须审批）。
 //!
 //! 位置参数对外是 **1 基**（`line`／`character` 从 1 开始，与编辑器、grep 输出一致），
@@ -344,7 +344,7 @@ impl Tool for LspTool {
         let (description, timeout_ms) = match self.kind {
             LspQueryKind::Definition => (
                 "经语言服务器查询符号定义位置（LSP textDocument/definition）；只读，\
-                 服务器与参数来自用户配置（.zcode/lsp.json），模型不能指定",
+                 服务器与参数来自用户配置（.whcode/lsp.json），模型不能指定",
                 Some(LSP_TOOL_TIMEOUT_MS),
             ),
             LspQueryKind::References => (

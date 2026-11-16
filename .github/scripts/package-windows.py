@@ -334,7 +334,7 @@ def build_package(out_dir: pathlib.Path, target: str) -> tuple[pathlib.Path, lis
         rustc_line = (rustc.stdout.splitlines() or ["未取得（rustc 无输出）"])[0] or "未取得（rustc 无输出）"
     scope_line = (
         "Windows 11 amd64 唯一验收目标（ADR-013／ADR-073：目标三元组 x86_64-pc-windows-gnullvm）；"
-        "FreeBSD/NetBSD/OpenBSD/DragonFly 延后，本包不作任何 BSD 运行结论"
+        "FreeBSD 有独立发布包（ADR-083），NetBSD/OpenBSD/DragonFly 延后，本包不作任何 BSD 运行结论"
         if target in AMD64_TARGETS
         else "Windows 11 amd64 为唯一验收目标（ADR-013）；ARM64 为构建交付目标（ADR-043），"
         "本包不作验收结论，运行证据以原生 ARM64 采集为准"

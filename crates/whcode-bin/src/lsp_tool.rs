@@ -1,7 +1,7 @@
 //! # LSP 工具装配（P5.3b／FR-783／ADR-078）
 //!
-//! 配置＝`<workspace>/.zcode/lsp.json`（显式 opt-in、无自动发现，与 `.zcode/mcp.json`／
-//! `.zcode/shell.json` 同模式）。本模块把 [`whcode_lsp::LspClient`] 适配成
+//! 配置＝`<workspace>/.whcode/lsp.json`（显式 opt-in、无自动发现，与 `.whcode/mcp.json`／
+//! `.whcode/shell.json` 同模式）。本模块把 [`whcode_lsp::LspClient`] 适配成
 //! [`whcode_tools::LspQueryExecutor`]：每次查询按扩展名挑服务器、新建客户端、查完即弃
 //! （客户端按查询期存在，非会话常驻，见 ADR-078 决策 4）。
 //!
@@ -54,7 +54,7 @@ impl LspQueryExecutor for LspToolExecutor {
             WhError::new(
                 ErrorCode::NotSupported,
                 format!(
-                    "无 LSP 服务器负责扩展名 `{extension}`：在 .zcode/lsp.json 增加该扩展名\
+                    "无 LSP 服务器负责扩展名 `{extension}`：在 .whcode/lsp.json 增加该扩展名\
                      （当前已配置：{}）",
                     if configured.is_empty() {
                         "无".to_string()
@@ -184,19 +184,19 @@ mod tests {
             "whcode-lsp-assembly-{}-{stamp}",
             std::process::id()
         ));
-        std::fs::create_dir_all(dir.join(".zcode")).expect("建夹具");
+        std::fs::create_dir_all(dir.join(".whcode")).expect("建夹具");
 
         assert!(
             build_executor(&dir).expect("未配置").is_none(),
             "无配置文件必须返回 None"
         );
 
-        std::fs::write(dir.join(".zcode").join("lsp.json"), b"{ not json }").expect("写坏配置");
+        std::fs::write(dir.join(".whcode").join("lsp.json"), b"{ not json }").expect("写坏配置");
         let err = build_executor(&dir).err().expect("坏配置必须失败");
         assert_eq!(err.code, ErrorCode::ParseError);
 
         std::fs::write(
-            dir.join(".zcode").join("lsp.json"),
+            dir.join(".whcode").join("lsp.json"),
             r#"{"servers":[{"id":"ra","command":"rust-analyzer","extensions":[".rs"]}]}"#,
         )
         .expect("写配置");

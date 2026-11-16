@@ -24,6 +24,7 @@ ADR 修改判据）。
 | 唯一验收目标（Windows 11 amd64，`x86_64-pc-windows-gnullvm`） | `platform-verification.yml` 的 `platform-windows` job | success（ADR-073） |
 | FreeBSD 硬门禁 | 同工作流 `platform-freebsd` job | success（ADR-013 修订） |
 | ARM64 构建交付 | `build-release.yml` 的 `release/arm64` lane | success（不入验收，ADR-043／074） |
+| FreeBSD 构建交付（发布包，ADR-083） | `build-release.yml` 的 `package-freebsd` job（tag／手动触发） | success（不入验收）；首个实跑证据待回填（Check 464） |
 | 五平台证据 | `platform-verification.yml` 全 job | success 或按登记 skipped（NetBSD 仅证据） |
 
 **已知间歇项**：A2（FreeBSD `whcode-bin` 测试二进制退出路径 SIGSEGV）仍 open（monitoring）；
@@ -89,6 +90,8 @@ ADR 修改判据）。
 | 产物 | `whcode-0.1.0-windows-amd64.zip` 33,364,477 字节＋`.sha256`；`whcode-0.1.0-windows-arm64.zip` 31,388,490 字节＋`.sha256` |
 | Code Scanning | 0 条 open 告警（2026-11-17 复核；ADR-037／§5.2） |
 | 本机安装验证 | `artifacts/install-verify-windows-amd64.txt`（2026-11-16T16:40:24Z，gnullvm，doctor `--json` 退出 0） |
+
+下一版本起 Release 资产为六件：两平台 zip 各带 `.sha256`＋`whcode-<v>-freebsd-amd64.tar.gz` 带 `.tar.gz.sha256`（ADR-083），release job 数量断言同步收紧；v0.1.0 的两件产物为历史事实，不改写。
 
 ## 7. 发布后监控
 

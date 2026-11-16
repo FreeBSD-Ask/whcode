@@ -8,7 +8,7 @@
 |---|---|---|
 | Windows 11 amd64（`x86_64-pc-windows-gnullvm`，ADR-073） | **唯一验收目标**，已验收（M0—M9 测试在本机通过；2026-10-23 进度复核后 `fmt`/`clippy`/`test`/契约/布局门禁全绿） | ADR-013 |
 | Windows 11 arm64（`aarch64-pc-windows-gnullvm`，ADR-074） | **构建交付目标**（ADR-043）：交叉构建（主机 aarch64-msvc）、产物原生 ARM64，在 `windows-11-arm` runner 取得运行证据；不进入验收 | ADR-043／ADR-074 |
-| FreeBSD | **完整平台证据通道（硬门禁）**（2026-10-31 用户指令解除延后）：platform-verification.yml 随 `main` 全量构建（含 GUI／bin）、全量测试、三门与 TUI/Web 冒烟，失败即红；2026-11-03 起 run `41481740766` 全绿（三门 GO＋冒烟，证据 `artifacts/store-acceptance/`）；**2026-11-06 观察**：run `42143683382` 出现 `store_gate = NO-GO`（DuckDB 源码构建报 `platform.hpp:22 'features.h' file not found`，与 2026-11-03 GO 不一致，**根因未归因**，不得读作代码回归；本行为 2026-11-06 观察记录，未经本地复现 `[待验证]`）；**2026-11-12 第二次观察**：run `43133995969`（提交 `1a630a3`）同一形态复现——`platform.hpp:22 'features.h' file not found`，DuckDB 2.0.0 源码构建失败，同一提交的 Windows 通道仅因文档文风失败（已修），说明不是本批代码回归；前一次 green 为 run `43047655597`（`66f66ba`），两次结论均在数小时内翻转，**倾向 VM 侧环境漂移或并行构建偶发**，仍属 `[待验证]`；**同日反证**：run `43158082645`（提交 `1486515`）同通道全绿（三门 GO，54m34s）；**第三样本**：run `43164301061`（提交 `ee88445`，仅一个参数改名）再度同形态失败。三样本交替（红—绿—红）且失败提交的代码与 DuckDB 构建无关，据此按“偶发/环境漂移”登记，不构成代码回归证据；处置（上游补丁／构建参数／ADR 豁免）待用户决；**2026-11-13 第五样本（不同根因）**：run `43327197256`（提交 `31ffcf2`）三门全部 GO
+| FreeBSD | **完整平台证据通道（硬门禁）**（2026-10-31 用户指令解除延后）：platform-verification.yml 随 `main` 全量构建（含 GUI／bin）、全量测试、三门与 TUI/Web 冒烟，失败即红；2026-11-03 起 run `41481740766` 全绿（三门 GO＋冒烟，证据 `artifacts/store-acceptance/`）；**2026-11-06 观察**：run `42143683382` 出现 `store_gate = NO-GO`（DuckDB 源码构建报 `platform.hpp:22 'features.h' file not found`，与 2026-11-03 GO 不一致，**根因未归因**，不得读作代码回归；本行为 2026-11-06 观察记录，未经本地复现 `[待验证]`）；**2026-11-12 第二次观察**：run `43133995969`（提交 `1a630a3`）同一形态复现——`platform.hpp:22 'features.h' file not found`，DuckDB 2.0.0 源码构建失败，同一提交的 Windows 通道仅因文档文风失败（已修），说明不是本批代码回归；前一次 green 为 run `43047655597`（`66f66ba`），两次结论均在数小时内翻转，**倾向 VM 侧环境漂移或并行构建偶发**，仍属 `[待验证]`；**同日反证**：run `43158082645`（提交 `1486515`）同通道全绿（三门 GO，54m34s）；**第三样本**：run `43164301061`（提交 `ee88445`，仅一个参数改名）再度同形态失败。三样本交替（红—绿—红）且失败提交的代码与 DuckDB 构建无关，据此按“偶发/环境漂移”登记，不构成代码回归证据；处置（上游补丁／构建参数／ADR 豁免）待用户决；**2026-11-13 第五样本（不同根因）**：run `43327197256`（提交 `31ffcf2`）三门全部 GO；**2026-11-17 升级（ADR-083，用户批准）**：FreeBSD 在硬门禁证据通道之上同时为**构建交付目标**——build-release.yml 新增 `package-freebsd` lane（tag／手动触发），产出 `whcode-<v>-freebsd-amd64.tar.gz` 经 VM 内仓库外安装验证与 TUI/Web 冒烟后挂 GitHub Release；验收目标与证据身份不变，首个包实跑证据待回填（Check 464）
   （store／SSH 回环／进程组），红因是 workspace 测试里
   `serve::tests::turn_ws_relay_first_delta_busy_codes_and_event_missing` 读取第二个 turn
   响应时收到 `Interrupted system call (os error 4)`（EINTR）——与 DuckDB `features.h` 无关，
@@ -69,8 +69,8 @@
    不代表进程 RSS（NFR-201—204）。
 8. **桌面形态**：原生 GUI 已实现（`whcode gui`，FR-711—FR-717、ADR-027：iced + `tiny-skia`
    软件光栅、内置 OFL 字体子集）；七视图（ADR-056 起含对话视图并已交互化）、六套主题
-   （amoled-night／eink-day／eink-night／terminal-green／zcode-day／zcode-night，zcode 系
-   2026-11-06 冻结，默认 `zcode-night`；ADR-057／FR-739）；TUI 仍是默认终端形态，Web UI 是
+   （amoled-night／eink-day／eink-night／terminal-green／whcode-day／whcode-night，whcode 系
+   （原 zcode 系，2026-11-17 用户批准更名）2026-11-06 冻结，默认 `whcode-night`；ADR-057／FR-739）；TUI 仍是默认终端形态，Web UI 是
    **独立浏览器前端**。ADR-026 铁律不变：不得以内嵌浏览器引擎（WebView／WebView2、CEF、
    Tauri／wry、Electron、NW.js）承载桌面界面，“自绘窗口 + 内嵌 Web UI”同样禁止。
 

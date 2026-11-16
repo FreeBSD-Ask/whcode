@@ -202,7 +202,7 @@ TLS 的依赖落点是这条边界的特例（ADR-031／ADR-040）：**出站**�
 ### whcode-lsp
 
 - **职责**（FR-782、ADR-078）：LSP 四查询客户端（封闭集）——基础协议帧编解码
-  （`Content-Length` 必填、UTF-8、单条 1 MiB）、`.zcode/lsp.json` 显式 opt-in 配置、
+  （`Content-Length` 必填、UTF-8、单条 1 MiB）、`.whcode/lsp.json` 显式 opt-in 配置、
   进程生命周期（reader 线程＋有界响应/通知通道＋Drop 时 shutdown→kill→join）、
   initialize 握手、查询前 didOpen，以及 definition／references／hover／诊断（拉取优先、
   推送缓存回退）。

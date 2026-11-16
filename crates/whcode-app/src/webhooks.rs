@@ -1,6 +1,6 @@
 //! # webhook 投递编排（P6.4／FR-788／ADR-079）
 //!
-//! 三件事：**读配置**（`.zcode/webhooks.json`，显式 opt-in）、**建计划**（订阅事件 ×
+//! 三件事：**读配置**（`.whcode/webhooks.json`，显式 opt-in）、**建计划**（订阅事件 ×
 //! 尚未认领）、**记账**（认领→发送→结果，失败有界重试）。网络与凭据都不在本层：
 //! [`WebhookSender`] 由装配根实现，`token_env` 只传变量名，取值在装配根按次求值
 //! （ADR-031／ADR-079 决策 1）。
@@ -27,7 +27,7 @@ use whcode_store::webhooks::{
 use crate::authz::{Actor, Capability, Policy, require};
 
 /// 配置文件相对工作区的路径。
-pub const CONFIG_RELATIVE_PATH: &str = ".zcode/webhooks.json";
+pub const CONFIG_RELATIVE_PATH: &str = ".whcode/webhooks.json";
 
 /// 端点数量上限。
 pub const MAX_ENDPOINTS: usize = 8;
@@ -671,8 +671,8 @@ mod tests {
     fn workspace_with(tag: &str, config: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("whcode-webhook-{}-{tag}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(dir.join(".zcode")).expect("创建 .zcode");
-        std::fs::write(dir.join(".zcode/webhooks.json"), config).expect("写配置");
+        std::fs::create_dir_all(dir.join(".whcode")).expect("创建 .whcode");
+        std::fs::write(dir.join(".whcode/webhooks.json"), config).expect("写配置");
         dir
     }
 
@@ -709,7 +709,7 @@ mod tests {
         assert!(config.is_inert(), "零端点即零请求");
 
         let missing = workspace_with("missing", "");
-        let _ = std::fs::remove_file(missing.join(".zcode/webhooks.json"));
+        let _ = std::fs::remove_file(missing.join(".whcode/webhooks.json"));
         assert!(load_config(&missing).expect("缺文件").is_inert());
 
         let cases = [

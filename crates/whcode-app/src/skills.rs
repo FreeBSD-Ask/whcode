@@ -1,6 +1,6 @@
 //! # 技能扫描器（FR-735、ADR-053）
 //!
-//! 扫描 `.zcode/skills/<name>/SKILL.md`，解析 frontmatter（name + description），
+//! 扫描 `.whcode/skills/<name>/SKILL.md`，解析 frontmatter（name + description），
 //! 返回结构化列表。坏文件跳过并记 warning（不 panic、不静默）。
 //!
 //! 治理（BH 骨，ADR-053 §2.2）：SKILL.md 引用的相对路径文件必须存在——可达性
@@ -20,7 +20,7 @@ pub struct SkillEntry {
     pub path: std::path::PathBuf,
 }
 
-/// 扫描工作区的 `.zcode/skills/` 目录（FR-735）。
+/// 扫描工作区的 `.whcode/skills/` 目录（FR-735）。
 ///
 /// 不递归（与 ZCode 一致）；每个子目录下有 `SKILL.md` 即收录。
 /// 坏文件（无 frontmatter 或解析失败）跳过并返回 warnings。
@@ -31,7 +31,7 @@ pub struct SkillEntry {
 pub fn scan_skills(workspace: &Path) -> Result<(Vec<SkillEntry>, Vec<String>), WhError> {
     let mut entries = Vec::new();
     let mut warnings = Vec::new();
-    let skills_dir = workspace.join(".zcode").join("skills");
+    let skills_dir = workspace.join(".whcode").join("skills");
     let Ok(read_dir) = std::fs::read_dir(&skills_dir) else {
         return Ok((entries, warnings)); // 无技能目录 = 空列表，不是错误
     };
@@ -168,7 +168,7 @@ impl whcode_tools::SkillCatalog for WorkspaceSkillCatalog {
                 WhError::new(
                     ErrorCode::NotFound,
                     format!(
-                        "技能 {name} 不存在：可用技能见 skill 工具列表（.zcode/skills/<name>/SKILL.md）"
+                        "技能 {name} 不存在：可用技能见 skill 工具列表（.whcode/skills/<name>/SKILL.md）"
                     ),
                 )
             })?;
@@ -222,7 +222,7 @@ mod tests {
         let dir =
             std::env::temp_dir().join(format!("whcode-skills-test-{}-{seq}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        let skill_dir = dir.join(".zcode/skills/read-guide");
+        let skill_dir = dir.join(".whcode/skills/read-guide");
         std::fs::create_dir_all(&skill_dir).expect("建技能目录");
         std::fs::write(
             skill_dir.join("SKILL.md"),
@@ -258,7 +258,7 @@ mod tests {
     #[test]
     fn bad_frontmatter_is_skipped_with_warning() {
         let ws = workspace();
-        let bad_dir = ws.join(".zcode/skills/broken");
+        let bad_dir = ws.join(".whcode/skills/broken");
         std::fs::create_dir_all(&bad_dir).expect("建坏目录");
         std::fs::write(bad_dir.join("SKILL.md"), "无 frontmatter").expect("写坏文件");
         let (entries, warnings) = scan_skills(&ws).expect("扫描");
@@ -270,7 +270,7 @@ mod tests {
     #[test]
     fn reference_validation_catches_missing_files() {
         let ws = workspace();
-        let skill_dir = ws.join(".zcode/skills/read-guide");
+        let skill_dir = ws.join(".whcode/skills/read-guide");
         let content = std::fs::read_to_string(skill_dir.join("SKILL.md")).expect("读");
         let missing = validate_references(&skill_dir, &content);
         assert!(missing.is_empty(), "已存在的引用不应报缺失");
@@ -290,7 +290,7 @@ mod tests {
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].name, "read-guide");
         assert_eq!(
-            list[0].path, ".zcode/skills/read-guide/SKILL.md",
+            list[0].path, ".whcode/skills/read-guide/SKILL.md",
             "路径必须相对工作区且用正斜杠"
         );
 
@@ -317,7 +317,7 @@ mod tests {
         use whcode_tools::SkillCatalog;
 
         let ws = workspace();
-        let big = ws.join(".zcode/skills/big");
+        let big = ws.join(".whcode/skills/big");
         std::fs::create_dir_all(&big).expect("建目录");
         let mut content = String::from(
             "---

@@ -262,7 +262,7 @@ impl LspClient {
             WhError::new(
                 ErrorCode::RuntimeUnavailable,
                 format!(
-                    "启动 LSP 服务器 {} 失败（{}）：{err}；检查 .zcode/lsp.json 的 command 与 args",
+                    "启动 LSP 服务器 {} 失败（{}）：{err}；检查 .whcode/lsp.json 的 command 与 args",
                     server.id, server.command
                 ),
             )

@@ -6,7 +6,7 @@
 //! 三层，各自可单测：
 //!
 //! - [`transport`]：基础协议帧的编解码（`Content-Length` 必填、UTF-8、单条上限）——纯函数；
-//! - [`config`]：`.zcode/lsp.json` 的解析与校验（显式 opt-in、写错显式失败、全部有上限）；
+//! - [`config`]：`.whcode/lsp.json` 的解析与校验（显式 opt-in、写错显式失败、全部有上限）；
 //! - [`client`]：进程生命周期（reader 线程＋有界通道＋Drop join）、握手、didOpen 与四查询。
 //!
 //! 不做的事（显式）：不内置任何语言服务器、不做 completion／rename／formatting、

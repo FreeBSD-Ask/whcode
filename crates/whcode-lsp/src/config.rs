@@ -1,6 +1,6 @@
 //! # LSP 服务器配置（ADR-078 决策 1）
 //!
-//! 配置文件＝`<workspace>/.zcode/lsp.json`，与 `.zcode/mcp.json`／`.zcode/shell.json` 同
+//! 配置文件＝`<workspace>/.whcode/lsp.json`，与 `.whcode/mcp.json`／`.whcode/shell.json` 同
 //! 模式：**显式 opt-in、无自动发现**，文件不存在即“未配置”（正确的空）。写错（坏 JSON、
 //! 超限、字段缺失）**显式失败**——不静默降级为“未配置”，否则用户会以为自己的服务器在跑。
 //!
@@ -16,7 +16,7 @@ use serde::Deserialize;
 use whcode_domain::WhError;
 
 /// 配置文件路径（相对工作区根）。
-pub const CONFIG_PATH: &str = ".zcode/lsp.json";
+pub const CONFIG_PATH: &str = ".whcode/lsp.json";
 
 /// 配置文件字节上限。
 pub const MAX_CONFIG_BYTES: usize = 16 * 1024;
@@ -243,7 +243,7 @@ mod tests {
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(dir.join(".zcode")).expect("建夹具");
+        std::fs::create_dir_all(dir.join(".whcode")).expect("建夹具");
         dir
     }
 

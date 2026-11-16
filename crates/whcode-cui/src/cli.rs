@@ -499,7 +499,7 @@ pub enum RuntimeCommand {
 
 /// `webhook` 子命令（P6.4／FR-788／ADR-079）。
 ///
-/// 配置来自 `<workspace>/.zcode/webhooks.json`（未配置＝零端点＝零请求）；投递是显式动作，
+/// 配置来自 `<workspace>/.whcode/webhooks.json`（未配置＝零端点＝零请求）；投递是显式动作，
 /// 默认 dry-run，`--yes` 执行。凭据只以环境变量名出现在配置里，取值不进入输出。
 #[derive(Debug, Clone, PartialEq, Subcommand)]
 pub enum WebhookCommand {

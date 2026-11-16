@@ -302,7 +302,7 @@ pub struct LlmContext<'a> {
     pub shell: Option<std::sync::Arc<whcode_tools::ShellGovernance>>,
     /// LSP 查询执行器（P5.3b／FR-783／ADR-078）：`None`＝本装配不注册 `lsp_*` 四工具
     /// （默认构建恒为 `None`）。四个工具只读；服务器命令与参数来自用户配置文件
-    /// （`.zcode/lsp.json`），模型不能指定——这是与 shell 的审批口径差异所在。
+    /// （`.whcode/lsp.json`），模型不能指定——这是与 shell 的审批口径差异所在。
     pub lsp: Option<std::sync::Arc<dyn whcode_tools::LspQueryExecutor>>,
 }
 

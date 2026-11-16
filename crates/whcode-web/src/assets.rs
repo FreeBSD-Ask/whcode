@@ -90,15 +90,15 @@ pub fn render_chat_auth_required(default_theme: &str) -> String {
     )
 }
 
-/// 合法主题六套（FR-612/713、T175、FR-739 zcode 系 2026-11-06 新增）：服务端注入的
+/// 合法主题六套（FR-612/713、T175、FR-739 whcode 系 2026-11-06 新增）：服务端注入的
 /// 默认主题必须取自本表。
 pub const THEMES: [&str; 6] = [
     "eink-day",
     "eink-night",
     "amoled-night",
     "terminal-green",
-    "zcode-day",
-    "zcode-night",
+    "whcode-day",
+    "whcode-night",
 ];
 
 const HTML_OPEN: &str = "<html lang=\"zh-CN\">";
@@ -129,7 +129,7 @@ pub fn with_direction(html: String, locale: &str) -> String {
     )
 }
 
-/// 把服务端默认主题注入 `<html data-theme="…">`（T175）：非法值回落 `zcode-night`
+/// 把服务端默认主题注入 `<html data-theme="…">`（T175）：非法值回落 `whcode-night`
 /// （默认主题，2026-11-06 用户批准切换；配置笔误不得让首页 500）；浏览器端
 /// `?theme=` 与选择器可在其上运行时覆盖。
 #[must_use]
@@ -137,7 +137,7 @@ pub fn with_default_theme(html: String, default_theme: &str) -> String {
     let theme = if THEMES.contains(&default_theme) {
         default_theme
     } else {
-        "zcode-night"
+        "whcode-night"
     };
     html.replacen(
         HTML_OPEN,
@@ -922,7 +922,7 @@ mod tests {
         }
     }
 
-    /// 服务端默认主题注入（T175）：合法值原样、非法值回落 zcode-night（默认主题，
+    /// 服务端默认主题注入（T175）：合法值原样、非法值回落 whcode-night（默认主题，
     /// 2026-11-06 用户批准）；六套主题的精确色值由 styles.css 的 data-theme 块承载
     /// （静态审计，不依赖浏览器），并与 `whcode_domain::theme_tokens` 单一事实源
     /// 逐值对照（FR-740 契约：本文件是受校验产物，篡改 CSS 色值即失败）。
@@ -931,9 +931,9 @@ mod tests {
         for (input, expected) in [
             ("eink-day", "eink-day"),
             ("terminal-green", "terminal-green"),
-            ("zcode-day", "zcode-day"),
-            ("zcode-night", "zcode-night"),
-            ("neon-pink", "zcode-night"),
+            ("whcode-day", "whcode-day"),
+            ("whcode-night", "whcode-night"),
+            ("neon-pink", "whcode-night"),
         ] {
             let html = with_default_theme(INDEX_HTML.to_string(), input);
             assert!(
@@ -951,13 +951,13 @@ mod tests {
         for hex in ["#ffffff", "#000000", "#e6e6e6", "#00ff00"] {
             assert!(STYLES_CSS.contains(hex), "styles.css 缺色值 {hex}");
         }
-        // FR-740 契约：zcode 系与既有四套的 bg/fg 全部对照单一事实源。
+        // FR-740 契约：whcode 系与既有四套的 bg/fg 全部对照单一事实源。
         let tokens = whcode_domain::theme_tokens::ZCODE;
         for theme in tokens {
             let block = STYLES_CSS
                 .split(&format!("[data-theme=\"{}\"]", theme.name))
                 .nth(1)
-                .expect("styles.css 缺 zcode 主题块");
+                .expect("styles.css 缺 whcode 主题块");
             let block = &block[..block.find('}').expect("主题块必须闭合")];
             assert!(
                 block.contains(&format!("--bg: {};", theme.background)),
@@ -986,16 +986,16 @@ mod tests {
         }
     }
 
-    /// T260／FR-622：diff 呈现形态——zcode 系行色与终端调色板同源，既有四套回退
+    /// T260／FR-622：diff 呈现形态——whcode 系行色与终端调色板同源，既有四套回退
     /// 前景色（不新增主题外颜色）；`+`／`-`／上下文类名与标记字符并存。
     #[test]
     fn diff_presentation_uses_frozen_palette_and_markers() {
         for theme in whcode_domain::theme_tokens::ZCODE {
-            let palette = theme.terminal.expect("zcode 主题已冻结终端调色板");
+            let palette = theme.terminal.expect("whcode 主题已冻结终端调色板");
             let block = STYLES_CSS
                 .split(&format!("[data-theme=\"{}\"]", theme.name))
                 .nth(1)
-                .expect("styles.css 缺 zcode 主题块");
+                .expect("styles.css 缺 whcode 主题块");
             let block = &block[..block.find('}').expect("主题块必须闭合")];
             assert!(
                 block.contains(&format!("--diff-added: {};", palette.green)),
@@ -1041,10 +1041,10 @@ mod tests {
         }
         let html = render_chat(
             "<p data-role=\"entry\"><strong>[user]</strong> &lt;脚本&gt;</p>",
-            "zcode-night",
+            "whcode-night",
         );
         assert!(
-            html.contains("data-theme=\"zcode-night\""),
+            html.contains("data-theme=\"whcode-night\""),
             "对话页必须注入默认主题"
         );
         assert!(
@@ -1052,7 +1052,7 @@ mod tests {
             "注入点保留调用方已转义的历史"
         );
         assert!(html.contains("chat.js"), "脚本引用必须在位");
-        let auth = render_chat_auth_required("zcode-night");
+        let auth = render_chat_auth_required("whcode-night");
         assert!(auth.contains("认证已启用"), "认证分支必须显式说明");
         assert!(
             !auth.contains("data-role=\"entry\""),

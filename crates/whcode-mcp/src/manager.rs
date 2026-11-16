@@ -502,17 +502,17 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("whcode-mcp-mgr-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         let manager = McpManager::connect_workspace(Some(&dir)).expect("无配置");
-        assert!(manager.is_empty(), "无 .zcode/mcp.json=功能关闭");
+        assert!(manager.is_empty(), "无 .whcode/mcp.json=功能关闭");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn connect_failure_is_recorded_not_fatal() {
         let dir = std::env::temp_dir().join(format!("whcode-mcp-fail-{}", std::process::id()));
-        let zcode = dir.join(".zcode");
-        std::fs::create_dir_all(&zcode).expect("建目录");
+        let cfg_dir = dir.join(".whcode");
+        std::fs::create_dir_all(&cfg_dir).expect("建目录");
         std::fs::write(
-            zcode.join("mcp.json"),
+            cfg_dir.join("mcp.json"),
             br#"{"servers":[{"name":"dead","command":"whcode-mcp-nonexistent-program-xyz"}]}"#,
         )
         .expect("写配置");

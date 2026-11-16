@@ -658,7 +658,7 @@ pub fn default_registry() -> Result<crate::registry::ToolRegistry, WhError> {
 
 /// 默认注册表 ＋ shell 工具（T290／FR-777／ADR-070）。
 ///
-/// 仅由装配根在**三条件同时满足**时调用（缺一不注册，FR-704 口径）：`.zcode/shell.json`
+/// 仅由装配根在**三条件同时满足**时调用（缺一不注册，FR-704 口径）：`.whcode/shell.json`
 /// 显式 opt-in、bash 可用探测通过、当前装配存在审批闸门。默认注册表恒为九件
 /// （FR-704：未启用运行时不注册可执行工具）。
 ///

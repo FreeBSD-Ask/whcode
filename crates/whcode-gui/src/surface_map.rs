@@ -195,8 +195,8 @@ mod tests {
             crate::GuiTheme::EinkNight,
             crate::GuiTheme::AmoledNight,
             crate::GuiTheme::TerminalGreen,
-            crate::GuiTheme::ZcodeDay,
-            crate::GuiTheme::ZcodeNight,
+            crate::GuiTheme::WhcodeDay,
+            crate::GuiTheme::WhcodeNight,
         ];
         for theme in names {
             assert_eq!(crate::GuiTheme::parse(theme.name()), Some(theme));

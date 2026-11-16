@@ -491,7 +491,7 @@ fn run_turn_inner(
     };
     // P1.9／FR-791／ADR-053 修订：绑定工作区时注册技能读取工具（只读；可见范围由目录
     // 扫描白名单决定，模型给的名字不会拼进路径）。未绑定工作区即不注册——没有工作区就没有
-    // `.zcode/skills/`，注册一个必然返回空目录的工具只会污染工具清单。
+    // `.whcode/skills/`，注册一个必然返回空目录的工具只会污染工具清单。
     let skill_catalog: Option<std::sync::Arc<dyn whcode_tools::SkillCatalog>> =
         request.workspace_root.as_ref().map(|_| {
             std::sync::Arc::new(crate::skills::WorkspaceSkillCatalog)
@@ -539,7 +539,7 @@ fn run_turn_inner(
         messages.push(LlmMessage {
             role: Role::System,
             content: format!(
-                "可用技能（按需 read_file 读取 .zcode/skills/<name>/SKILL.md）：\n{}",
+                "可用技能（按需 read_file 读取 .whcode/skills/<name>/SKILL.md）：\n{}",
                 desc.join("\n")
             ),
         });
@@ -2892,7 +2892,7 @@ mod tests {
             StubStep::simple("完成", "stop"),
         ]));
         let dir = temp_dir("skill-tool");
-        let skill_dir = dir.join(".zcode/skills/guide");
+        let skill_dir = dir.join(".whcode/skills/guide");
         std::fs::create_dir_all(&skill_dir).expect("技能目录");
         std::fs::write(
             skill_dir.join("SKILL.md"),

@@ -1,6 +1,6 @@
 //! # MCP 服务器配置（FR-736、ADR-054 §2.3）
 //!
-//! 配置文件 `<workspace>/.zcode/mcp.json`，显式 opt-in、无自动发现：
+//! 配置文件 `<workspace>/.whcode/mcp.json`，显式 opt-in、无自动发现：
 //! 无配置文件 = 功能关闭（正确的空）；配置存在但解析失败 = 显式报错（错误的空）。
 //!
 //! 上限校验在加载层强制：服务器数、env 键数、名称字符集、超时范围——越界即拒绝，
@@ -12,8 +12,8 @@ use std::path::Path;
 use serde::Deserialize;
 use whcode_domain::{ErrorCode, WhError};
 
-/// 配置文件相对工作区根的路径（与技能目录 `.zcode/skills/` 同一约定前缀）。
-pub const CONFIG_PATH: &str = ".zcode/mcp.json";
+/// 配置文件相对工作区根的路径（与技能目录 `.whcode/skills/` 同一约定前缀）。
+pub const CONFIG_PATH: &str = ".whcode/mcp.json";
 
 /// 服务器数量上限（ADR-054 §2.3）。
 pub const MAX_SERVERS: usize = 8;
@@ -325,9 +325,9 @@ mod tests {
     #[test]
     fn load_present_but_malformed_is_explicit_error() {
         let dir = std::env::temp_dir().join(format!("whcode-mcp-bad-{}", std::process::id()));
-        let zcode = dir.join(".zcode");
-        std::fs::create_dir_all(&zcode).expect("建目录");
-        std::fs::write(zcode.join("mcp.json"), b"{ not json }").expect("写坏配置");
+        let cfg_dir = dir.join(".whcode");
+        std::fs::create_dir_all(&cfg_dir).expect("建目录");
+        std::fs::write(cfg_dir.join("mcp.json"), b"{ not json }").expect("写坏配置");
         let err = McpConfig::load(&dir).expect_err("坏配置必须显式报错（错误的空）");
         assert_eq!(err.code, ErrorCode::ParseError);
         let _ = std::fs::remove_dir_all(&dir);

@@ -12,8 +12,8 @@
 （理由码见“依据／理由”列）；预留＝未排期（里程碑见“依据／理由”列）；不提供＝本端不适用
 （依据见登记表条目注释）。
 
-**最后更新**：2026-11-15（P6.4：新增 `webhook.status`／`webhook.deliver`——出站幂等投递的 CUI 命令面，其余三端不适用；FR-788／ADR-079）。历史：2026-11-15（T340—T342：新增 `view.ledger`——台账视图，待办／交付物／发现三节只读聚合，TUI 与 GUI 已实现；T347 补齐 Web 的 `GET /api/ledger`；FR-787）。历史：2026-11-14（T294：新增 `sdk.serve`——出进程 stdio JSON-RPC 机器面，CUI 已实现、其余三端不适用；ADR-071/FR-778）。历史：2026-11-06（T252：主题层扩展为六套——zcode-day/zcode-night 新增并冻结，
-默认主题切 `zcode-night`，用户批准；ADR-057/FR-739/FR-740）。历史：2026-10-26（T167 收口：
+**最后更新**：2026-11-15（P6.4：新增 `webhook.status`／`webhook.deliver`——出站幂等投递的 CUI 命令面，其余三端不适用；FR-788／ADR-079）。历史：2026-11-15（T340—T342：新增 `view.ledger`——台账视图，待办／交付物／发现三节只读聚合，TUI 与 GUI 已实现；T347 补齐 Web 的 `GET /api/ledger`；FR-787）。历史：2026-11-14（T294：新增 `sdk.serve`——出进程 stdio JSON-RPC 机器面，CUI 已实现、其余三端不适用；ADR-071/FR-778）。历史：2026-11-06（T252：主题层扩展为六套——whcode-day/whcode-night 新增并冻结，
+默认主题切 `whcode-night`，用户批准；ADR-057/FR-739/FR-740）。历史：2026-11-17（用户指令：zcode 系全部改为 whcode 前缀——主题更名 whcode-day/night、工作区配置 `.zcode/*` 更名 `.whcode/*`，冻结色值不变）。历史：2026-10-26（T167 收口：
 `llm.run`／`llm.cancel` 的 TUI 翻转为已实现——`L`／`C` 键位，剖面名→提示词两步输入，
 经 `llm_provider::TuiLlmExecutor` 真实编排；三端 CUI／TUI／Web 均 `Implemented`；
 T190：新增证书库设置两行）。
@@ -112,7 +112,7 @@ CUI 退出码 **55**、Web **HTTP 501**；未登记路径仍为 404（ADR-032 �
 状态快照、上下文、diff、运行时清单、i18n 与证书库状态／CA 下载／连通性校验；写命令经
 `POST /api/sessions/*`、`/api/tasks/*`、`/api/purge`（预览默认 + 确认执行）与
 `POST /api/certs/*`（档位、根证书、服务端证书；降档须确认、成功写 `tls_config_change` 审计）；
-六套主题经 `data-theme` 运行时切换（zcode 系 2026-11-06 新增，FR-739）；
+六套主题经 `data-theme` 运行时切换（whcode 系 2026-11-06 新增，FR-739）；
 对话页 `/chat?session=…` 服务端直出历史尾部（T251，`GET /api/chat/tail` 经 `view.chat`
 判权＝SessionRead；发送经 `/api/llm/run` 同步语义与 CUI/TUI 一致；无 JS 时历史完整
 可读、表单由 chat.js 渐进增强；WS 逐块增量经 `/ws` 的 `llm.chunk`/`llm.loss` 帧消费，
@@ -123,7 +123,7 @@ CUI 退出码 **55**、Web **HTTP 501**；未登记路径仍为 404（ADR-032 �
 档位、根证书与服务端证书编辑、下载、重新生成与连通性校验均走 `/api/certs/*`；
 无 JS 时页面显示只读状态摘要与证书库文件路径（HTML 转义）。
 TUI 补写操作（`n`／`m`／`d`／`A`、`R`／`X`、`p`，破坏性命令先预览后确认）、`t` 主题循环
-（FR-739 后六套，默认 `zcode-night`，2026-11-06 用户批准）
+（FR-739 后六套，默认 `whcode-night`，2026-11-06 用户批准）
 与 ≥1000 ms 低频游标检查（推进才重绘）。GUI 只读六视图，写命令登记 `GUI_READ_ONLY_V1`。
 `llm.run`／`llm.cancel` 的 CUI（`cui_dispatch::llm_command`）、Web（`POST /api/llm/*`）
 与 TUI（`L`／`C` 键位 → `llm_provider::TuiLlmExecutor`，剖面名→提示词两步输入，

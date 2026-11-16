@@ -615,7 +615,7 @@ fn session_new(
         let _ = tx.send(encode_error(
             Some(id),
             RPC_INVALID_PARAMS,
-            "不接受客户端注入的 mcpServers（提示注入面；用工作区 .zcode/mcp.json）",
+            "不接受客户端注入的 mcpServers（提示注入面；用工作区 .whcode/mcp.json）",
         ));
         return;
     }

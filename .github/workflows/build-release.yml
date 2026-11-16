@@ -13,11 +13,18 @@
 #     打包与安装验证在原生 ARM64 runner 上取得真实运行证据，结论不进验收（验收仍为
 #     Windows 11 amd64，ADR-013）。
 #
-# 三条 lane 的目标三元组均为 gnullvm：amd64 用 `x86_64-pc-windows-gnullvm`（ADR-073，
+# 第四条 lane（ADR-083，2026-11-17 用户批准）：package-freebsd（ubuntu-latest 宿主＋
+# vmactions/freebsd-vm）——FreeBSD 在「完整平台证据通道（硬门禁）」之上扩展为构建交付
+# 目标：rustup 1.100.0＋DuckDB 2.0.0 源码构建（bsd-duckdb.sh）→ release 构建（RPATH=$ORIGIN）
+# → package-freebsd.sh 打包 tar.gz＋安装验证（仓库外解包三条命令）＋TUI/Web 冒烟；
+# 结论不作验收，证据身份为 vmactions QEMU（与平台通道同源）。
+#
+# 三条 Windows lane 的目标三元组均为 gnullvm：amd64 用 `x86_64-pc-windows-gnullvm`（ADR-073，
 # 2026-11-14），arm64 用 `aarch64-pc-windows-gnullvm`（ADR-074，2026-11-15，交叉构建）。
-# 三条 lane 都先用 `setup-windows-llvm.py` 装 llvm-mingw（固定版本＋SHA256）；amd64 装的是
+# 三条 Windows lane 都先用 `setup-windows-llvm.py` 装 llvm-mingw（固定版本＋SHA256）；amd64 装的是
 # x86_64 gnullvm 宿主工具链，arm64 装 msvc 宿主＋gnullvm 目标 std（rustup 无 aarch64 gnullvm
-# 宿主工具链），C 编译器取 llvm-mingw 包内的 aarch64-w64-mingw32-clang。
+# 宿主工具链），C 编译器取 llvm-mingw 包内的 aarch64-w64-mingw32-clang。FreeBSD lane 用
+# rustup 原生 1.100.0（pkg 的 rust 版本不确定，无法满足可复现要求）。
 #
 # 权限：顶层只读；仅 tag 发布 job 提升为 contents: write，且只用 GITHUB_TOKEN，
 # 不引入其他凭据（最小权限，AGENTS.md §1.1）。
@@ -187,10 +194,124 @@ jobs:
             artifacts/tui-smoke-ci*.json
             artifacts/web-smoke-ci*.json
 
+  # ---------------- FreeBSD 发布包（ADR-083；tag v* 与 workflow_dispatch） ----------------
+  package-freebsd:
+    name: package-freebsd-amd64-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # 确定性构建基准（ADR-047）：与 Windows lane 同口径，HEAD 提交时间。
+      - name: 确定性构建基准（ADR-047）：提交时间 → WHCODE_BUILD_STAMP／SOURCE_DATE_EPOCH
+        run: |
+          set -euo pipefail
+          epoch=$(git log -1 --format=%ct)
+          {
+            echo "SOURCE_DATE_EPOCH=${epoch}"
+            echo "WHCODE_BUILD_STAMP=$(date -u -d "@${epoch}" +%Y-%m-%dT%H:%MZ)"
+          } >> "$GITHUB_ENV"
+
+      - name: 在 FreeBSD VM 中构建、打包、安装验证与冒烟（ADR-083）
+        id: freebsd_pkg
+        # 与 platform-verification.yml 平台通道同一份 pin（action 版本铁律，§5.1）。
+        uses: vmactions/freebsd-vm@811efaaac0668df8bfb8308c3ec997b5ab50037b # v1.6.0
+        with:
+          # 只写主版本：action 自动取最新 15.x 点版本。
+          release: "15"
+          usesh: true
+          prepare: |
+            # latest pkg 仓库与 X11／字体依赖面与平台通道同源（platform-verification.yml
+            # FreeBSD job 的 prepare，2026-10-31 用户指令允许 ports／latest pkg）。
+            mkdir -p /usr/local/etc/pkg/repos
+            printf 'FreeBSD: {\n  url: "https://pkg.freebsd.org/${ABI}/latest",\n  signature_type: "fingerprints",\n  fingerprints: "/usr/share/keys/pkg"\n}\n' \
+              > /usr/local/etc/pkg/repos/whcode-latest.conf
+            pkg update -q
+            # whcode-bin 装配 whcode-gui，编译期同样需要 X11/xkb/字体栈头文件。
+            pkg install -y curl cmake ninja python3 pkgconf \
+              libX11 libXcursor libXrandr libXi libxkbcommon \
+              fontconfig freetype2 wayland
+          run: |
+            # 证据保全（与平台通道同款）：VM 脚本非零退出会跳过 copyback，主体改为
+            # 子 shell——失败只写标记文件并 exit 0，由宿主步骤判红；门禁语义不变。
+            set +e
+            (
+            set -e
+            mkdir -p artifacts/release-freebsd artifacts/store-acceptance
+            # rustup 装锁定工具链（pkg 的 rust 版本不确定，无法满足可复现要求）。
+            export HOME=/root
+            export PATH="$HOME/.cargo/bin:$PATH"
+            if [ ! -x "$HOME/.cargo/bin/cargo" ]; then
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+                | sh -s -- -y --profile minimal --default-toolchain 1.100.0
+            fi
+            rustc -vV
+            cargo -V
+            # DuckDB 2.0.0 源码构建（官方无 BSD 预编译包）：产出 libduckdb.so 与 env；
+            # env 文件同时是版本与就绪标记（WHCODE_DUCKDB_READY）。
+            sh .github/scripts/platform-matrix/bsd-duckdb.sh artifacts/release-freebsd/duckdb
+            # shellcheck disable=SC1091
+            . artifacts/release-freebsd/duckdb/freebsd-duckdb.env
+            # 发布构建：RPATH=$ORIGIN 让包内 libduckdb.so 与可执行文件同目录即可运行；
+            # CARGO_TARGET_DIR 放 VM 本地，避免数百 MB target 被 copyback 拖慢 lane。
+            export CARGO_TARGET_DIR=/tmp/whcode-rel-target
+            export RUSTFLAGS='-C link-arg=-Wl,-rpath,$ORIGIN'
+            cargo build --release --locked -p whcode-bin
+            sh .github/scripts/package-freebsd.sh
+            echo "FREEBSD_PKG_BODY=GO"
+            )
+            body_rc=$?
+            set -e
+            if [ "$body_rc" -ne 0 ]; then
+              mkdir -p artifacts
+              [ -f artifacts/freebsd-release-failed.txt ] || \
+                echo "freebsd_release_failed_rc=$body_rc" > artifacts/freebsd-release-failed.txt
+              echo "FREEBSD_RELEASE_FAILED=$body_rc（证据已保全，由宿主步骤判红）"
+            fi
+
+      # 宿主步骤判红：VM 主体失败时红，且不得以缺文件冒充通过。
+      - name: FreeBSD 发布门禁判定
+        if: always()
+        run: |
+          if [ -f artifacts/freebsd-release-failed.txt ]; then
+            echo "FreeBSD 发布 lane：**失败**（$(cat artifacts/freebsd-release-failed.txt)）" >> "$GITHUB_STEP_SUMMARY"
+            cat artifacts/freebsd-release-failed.txt
+            exit 1
+          fi
+          echo "FreeBSD 发布 lane：VM 主体完成，门禁判定通过。" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传 FreeBSD 发布包（tar.gz + sha256）
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: whcode-freebsd-amd64
+          if-no-files-found: error
+          path: |
+            artifacts/release-freebsd/*.tar.gz
+            artifacts/release-freebsd/*.tar.gz.sha256
+
+      - name: 上传 FreeBSD 安装验证记录
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: install-verify-freebsd-amd64
+          if-no-files-found: warn
+          path: artifacts/release-freebsd/install-verify-freebsd-amd64.txt
+
+      - name: 上传 FreeBSD 冒烟证据（TUI／Web）
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: smoke-evidence-freebsd-release
+          if-no-files-found: warn
+          path: |
+            artifacts/tui-smoke-freebsd-release.json
+            artifacts/web-smoke-freebsd-release.json
+
   # ---------------- GitHub Release（仅 tag v*） ----------------
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: package
+    needs: [package, package-freebsd]
     runs-on: windows-latest
     timeout-minutes: 20
     # 仅本 job 需要写权限；顶层仍为 contents: read。
@@ -213,7 +334,13 @@ jobs:
           name: whcode-windows-arm64
           path: dist
 
-      # 安装验证记录是 SHA256 的第二来源：check-release.py 复算后与之交叉校验（按架构）。
+      - name: 下载 FreeBSD 发布包 artifact（ADR-083）
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: whcode-freebsd-amd64
+          path: dist
+
+      # 安装验证记录是 SHA256 的第二来源：check-release.py 复算后与之交叉校验（按平台）。
       - name: 下载 amd64 安装验证记录 artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -226,6 +353,12 @@ jobs:
           name: install-verify-windows-arm64
           path: verify-arm64
 
+      - name: 下载 FreeBSD 安装验证记录 artifact（ADR-083）
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: install-verify-freebsd-amd64
+          path: verify-freebsd
+
       # tag 取 runner 注入的环境变量，不把表达式拼进 shell 命令串。
       - name: 校验 tag 与包版本、重算 SHA256，并与安装验证记录交叉校验（amd64）
         run: python .github/scripts/check-release.py --dir dist --tag "$env:GITHUB_REF_NAME" --arch amd64 --record verify-amd64/install-verify-windows-amd64.txt
@@ -233,9 +366,13 @@ jobs:
       - name: 校验 tag 与包版本、重算 SHA256，并与安装验证记录交叉校验（arm64，ADR-043）
         run: python .github/scripts/check-release.py --dir dist --tag "$env:GITHUB_REF_NAME" --arch arm64 --record verify-arm64/install-verify-windows-arm64.txt
 
+      - name: 校验 tag 与包版本、重算 SHA256，并与安装验证记录交叉校验（freebsd-amd64，ADR-083）
+        run: python .github/scripts/check-release.py --dir dist --tag "$env:GITHUB_REF_NAME" --arch freebsd-amd64 --record verify-freebsd/install-verify-freebsd-amd64.txt
+
       # windows-latest 自带 Git Bash 与 gh；只做上传与发布，不再构建。
       # tag 含 `-`（如 v0.1.0-rc.1）按预发布发布；标签已存在则 --clobber 覆盖同名资产。
-      # 发布物为 amd64 与 arm64 两个包（各含 .zip 与 .zip.sha256，ADR-043）。
+      # 发布物为两平台 zip（各含 .zip 与 .zip.sha256，ADR-043）＋FreeBSD tar.gz
+      # （含 .tar.gz.sha256，ADR-083），共六件资产。
       - name: 创建或更新 GitHub Release
         shell: bash
         env:
@@ -243,12 +380,17 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          # 用 bash 内建通配定位资产，不引入外部工具；两架构各一包一校验和。
+          # 用 bash 内建通配定位资产，不引入外部工具；两 Windows 架构各一包一校验和，
+          # FreeBSD 一包一校验和（ADR-083）。
           shopt -s nullglob
           zips=(dist/*.zip)
           shas=(dist/*.zip.sha256)
-          if [ "${#zips[@]}" -ne 2 ] || [ "${#shas[@]}" -ne 2 ]; then
-            echo "发布失败：dist 下应有且仅有 amd64/arm64 两个 .zip 与两个 .zip.sha256，实际 zip=${#zips[@]} sha256=${#shas[@]}" >&2
+          tars=(dist/*.tar.gz)
+          tarshas=(dist/*.tar.gz.sha256)
+          if [ "${#zips[@]}" -ne 2 ] || [ "${#shas[@]}" -ne 2 ] || [ "${#tars[@]}" -ne 1 ] || [ "${#tarshas[@]}" -ne 1 ]; then
+            echo "发布失败：dist 下应有且仅有 amd64/arm64 两个 .zip 与两个 .zip.sha256、" \
+                 "freebsd-amd64 一个 .tar.gz 与一个 .tar.gz.sha256（ADR-083），" \
+                 "实际 zip=${#zips[@]} sha256=${#shas[@]} tar=${#tars[@]} tar.sha256=${#tarshas[@]}" >&2
             exit 1
           fi
 
@@ -257,8 +399,9 @@ jobs:
             *-*) prerelease=(--prerelease) ;;
           esac
 
+          assets=("${zips[@]}" "${shas[@]}" "${tars[@]}" "${tarshas[@]}")
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "${zips[@]}" "${shas[@]}" --clobber
+            gh release upload "$TAG" "${assets[@]}" --clobber
           else
-            gh release create "$TAG" "${zips[@]}" "${shas[@]}" --title "$TAG" --generate-notes "${prerelease[@]}"
+            gh release create "$TAG" "${assets[@]}" --title "$TAG" --generate-notes "${prerelease[@]}"
           fi

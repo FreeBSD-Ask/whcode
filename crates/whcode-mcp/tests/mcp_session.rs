@@ -257,7 +257,7 @@ fn manager_projects_resource_tools_and_instructions() {
         "whcode-mcp-resources-{}-{stamp}",
         std::process::id()
     ));
-    std::fs::create_dir_all(dir.join(".zcode")).expect("建目录");
+    std::fs::create_dir_all(dir.join(".whcode")).expect("建目录");
     let command = env!("CARGO_BIN_EXE_mcp-test-server");
     let config = serde_json::json!({"servers": [{
         "name": "test",
@@ -265,7 +265,7 @@ fn manager_projects_resource_tools_and_instructions() {
         "args": ["resources"],
         "enabled": true,
     }]});
-    std::fs::write(dir.join(".zcode").join("mcp.json"), config.to_string()).expect("写配置");
+    std::fs::write(dir.join(".whcode").join("mcp.json"), config.to_string()).expect("写配置");
 
     let mut manager = whcode_mcp::McpManager::connect_workspace(Some(&dir)).expect("连接");
     assert!(

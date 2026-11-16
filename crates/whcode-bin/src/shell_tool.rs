@@ -1,7 +1,7 @@
 //! # shell 工具装配（T290／FR-777／ADR-070）
 //!
-//! 配置＝`<workspace>/.zcode/shell.json`（显式 opt-in、无自动发现，与
-//! `.zcode/mcp.json` 同目录同模式）；执行器＝[`GitBashProvider::execute_in`]
+//! 配置＝`<workspace>/.whcode/shell.json`（显式 opt-in、无自动发现，与
+//! `.whcode/mcp.json` 同目录同模式）；执行器＝[`GitBashProvider::execute_in`]
 //! 适配 `whcode_tools::ShellExecutor`（FR-706 检查点四要素随结果返回）。
 //!
 //! 启用三条件（缺一不注册，FR-704 口径）：①配置文件存在（本模块判定）；
@@ -22,9 +22,9 @@ use whcode_runtime::providers::GitBashProvider;
 use whcode_tools::{ShellExecutor, ShellGovernance, ShellOutcome, ShellRequest};
 
 /// 配置文件路径（相对工作区根）。
-pub const CONFIG_PATH: &str = ".zcode/shell.json";
+pub const CONFIG_PATH: &str = ".whcode/shell.json";
 
-/// 配置文件字节上限（与 `.zcode/mcp.json` 的有界口径一致；超限显式拒绝）。
+/// 配置文件字节上限（与 `.whcode/mcp.json` 的有界口径一致；超限显式拒绝）。
 pub const MAX_CONFIG_BYTES: usize = 16 * 1024;
 
 /// 单条白名单条目的字节上限（首词是单一名词，不是脚本）。
@@ -187,7 +187,7 @@ mod tests {
             std::time::Instant::now().elapsed().as_nanos()
         ));
         let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(dir.join(".zcode")).expect("建夹具");
+        std::fs::create_dir_all(dir.join(".whcode")).expect("建夹具");
         dir
     }
 

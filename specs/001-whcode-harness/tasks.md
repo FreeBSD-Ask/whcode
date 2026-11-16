@@ -2590,3 +2590,35 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 - [x] T366 [P] 文档与台账（P7.4／FR-793）：ADR-082（新）、ADR-013／ADR-037 修订记录、
   AGENTS.md 边界条目、CHANGELOG、`docs/guides/project-status.md`、`docs/guides/release-checklist.md`、
   计数声明——**取证（2026-11-16）**：计数／追溯／文风／EOL／ADR 限制／标准基线门禁通过。
+- [x] T367 主题与工作区配置更名（2026-11-17 用户指令「全部改为 whcode 前缀」）：zcode-day/night
+  → whcode-day/night（冻结色值逐值不变）；`.zcode/*` → `.whcode/*`（skills／mcp.json／lsp.json／
+  shell.json／webhooks.json 五处路径）；ADR-053／054／057／070／078／079 修订记录、spec／
+  checklist 判据同步、guides／matrices 活文档同步；历史取证记录与 `research/`／`local/` 证据
+  锚点保留不改写
+  ——**任务认知卡**：方向＝发布包内的 zcode 字样是品牌歧义，用户批准全量更名；目标＝标识符
+  只改名、schema／色值／上限语义全不动；判据＝全仓 grep 无 zcode 标识符残留（`ZCode` 产品
+  提法与证据锚点除外）＋冻结测试全绿＋验证链全绿；非目标＝改色值、改写历史记录、动
+  ZCode 工具自身的 `.zcode` 目录。
+  **取证（2026-11-17）**：本地 fmt／clippy／test（40 套件 1106 通过）与 check-counts／
+  traceability／check-docs-style／check-eol／i18n-po／check-knowing-first／check-adr-limits
+  全绿；CI 结论待运行回填（ADR-037，显式缺口，不冒充）。
+- [x] T368 FreeBSD 构建交付目标落地（ADR-083）：build-release.yml 新增 `package-freebsd` job
+  （vmactions 同 pin、rustup 1.100.0、bsd-duckdb.sh 源码构建、RUSTFLAGS RPATH=$ORIGIN、
+  package-freebsd.sh 打包＋仓库外安装验证＋TUI/Web 冒烟）与 release job 三平台挂载（needs
+  双 job、`--arch freebsd-amd64` 校验、六件资产数量断言）；check-release.py 扩展 tar.gz 形态；
+  package-windows.py scope 文案收口；ADR-083、ADR-013 修订、AGENTS §1、release-checklist、
+  compatibility、CHANGELOG
+  ——**任务认知卡**：方向＝release 缺 FreeBSD 包，用户批准升级为构建交付目标；目标＝tag／
+  手动发布产出 `whcode-<v>-freebsd-amd64.tar.gz` 并通过独立复算校验；判据＝Check 463 离线
+  判据全过＋Check 464 CI 回填；非目标＝FreeBSD 验收结论、性能分位数、NetBSD/OpenBSD/
+  DragonFly 交付、pkg/ports 载体。
+  **取证（2026-11-17）**：`check-workflows.py` 通过；`check-release.py` 对合成 freebsd tar.gz
+  夹具的 --write／tag／record／负向（字节不一致即红）／双包并存五探针本地实跑通过。CI 实跑
+  待 Check 464。
+- [ ] T369 FreeBSD 包 CI 实跑取证回填（ADR-083 §8）：tag 或 dispatch 触发 build-release 后，
+  回填 package-freebsd 三步结论（构建／打包＋安装验证三条命令 GO／冒烟）、release job 六件
+  资产数量断言与 `check-release.py --arch freebsd-amd64` 四方一致证据，勾选 Check 464
+  ——**任务认知卡**：方向＝交付链已离线落地，缺真实运行证据；目标＝取得 CI 日志与 artifact
+  并回填；判据＝run 内 package-freebsd success、六件资产断言通过、记录四方一致；非目标＝
+  改判据、以本地推断冒充、跳过证据直接勾选。
+  ——**显式缺口：外部条件（需推送 tag 或手动触发），不冒充。**

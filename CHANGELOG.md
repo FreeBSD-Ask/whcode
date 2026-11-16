@@ -13,6 +13,19 @@
 
 ### 变更
 
+- **主题与工作区配置更名（2026-11-17 用户指令）**：主题 `zcode-day`／`zcode-night` 更名
+  `whcode-day`／`whcode-night`（冻结色值逐值不变，默认主题为 `whcode-night`）；工作区配置
+  目录 `.zcode/` 更名 `.whcode/`——`skills/`、`mcp.json`、`lsp.json`、`shell.json`、
+  `webhooks.json` 五处路径只改名，schema 与上限不变；既有 `.zcode/*` 配置需手动迁移。
+  依据：ADR-053／054／057／070／078／079 同日修订记录。
+
+- **FreeBSD 发布包（2026-11-17 用户批准，ADR-083）**：Release 资产在两平台 zip 之外新增
+  `whcode-<版本>-freebsd-amd64.tar.gz`＋`.sha256`（内含 `whcode`、`libduckdb.so*`、文档与
+  字体许可，RPATH=$ORIGIN 同目录运行）。发布构建在 FreeBSD 15 VM（vmactions，与平台证据
+  通道同源）内完成：rustup 1.100.0、DuckDB 2.0.0 源码构建、仓库外安装验证三条命令与
+  TUI/Web 冒烟；release job 六件资产数量断言与 `check-release.py --arch freebsd-amd64`
+  交叉校验通过才上传。FreeBSD 仍不作验收结论，性能分位数未取得（perf 通道仅 Windows）；
+  首个包实跑证据待回填（Check 464）。
 - **README 收敛为中英两套（2026-11-17 用户指令）**：删除 `README.zh-TW`／`ja`／`ko`／`ru`／
   `fr`／`es`／`de`／`ar`／`hi`／`ur`／`bn` 十一份译文，保留 `README.md`（简体中文）与
   `README.en.md`（英文），两份的语言导航同步收敛。**界面十三套语言目录不受影响**——

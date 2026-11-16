@@ -1,4 +1,4 @@
-//! # 渲染主题（T128、FR-612；FR-739 zcode 系新增）
+//! # 渲染主题（T128、FR-612；FR-739 whcode 系新增）
 //!
 //! 六套主题。既有四套为铁律精确色值（OLED 仅纯黑关断像素；e-ink 黑→白转换残影最重）：
 //!
@@ -9,15 +9,15 @@
 //! | [`EINK_NIGHT`] | `#000000`（纯黑） | `#FFFFFF` |
 //! | [`TERMINAL_GREEN`] | `#000000`（纯黑） | `#00FF00`（2026-10-24 用户新增，CRT 荧光风格） |
 //!
-//! 2026-11-06 用户批准新增 zcode 系（ADR-057 决策 2，色值冻结于
+//! 2026-11-06 用户批准新增 whcode 系（ADR-057 决策 2，色值冻结于
 //! `whcode_domain::theme_tokens`——本模块 bg/fg 直接引用该单一事实源，不复制值）：
 //!
 //! | 主题 | 背景 | 前景 |
 //! |---|---|---|
-//! | [`Theme::ZcodeDay`] | `#f8f8f8` | `#262626` |
-//! | [`Theme::ZcodeNight`] | `#161616` | `#d4d4d4`（**默认主题**，用户批准切换） |
+//! | [`Theme::WhcodeDay`] | `#f8f8f8` | `#262626` |
+//! | [`Theme::WhcodeNight`] | `#161616` | `#d4d4d4`（**默认主题**，用户批准切换） |
 //!
-//! zcode 系无墨水屏/OLED 纯黑承诺（背景允许非纯黑/白）；既有四套铁律不受影响。
+//! whcode 系无墨水屏/OLED 纯黑承诺（背景允许非纯黑/白）；既有四套铁律不受影响。
 //! 主题经配置选择（可见、可改、可撤销）；测试断言既有四套背景精确为纯黑/纯白。
 //!
 //! 边界：色值为常量声明（渲染应用属 `render.rs`，T083/T129）；终端绘制由终端
@@ -50,18 +50,18 @@ pub const TERMINAL_GREEN: (&str, &str) = (BLACK, "#00FF00");
 pub enum Theme {
     /// AMOLED 夜间。
     AmoledNight,
-    /// 墨水屏日间（2026-11-06 前的默认；现默认为 zcode-night，用户批准，ADR-057）。
+    /// 墨水屏日间（2026-11-06 前的默认；现默认为 whcode-night，用户批准，ADR-057）。
     EinkDay,
     /// 墨水屏夜间。
     EinkNight,
     /// 终端绿夜间（2026-10-24 用户新增；FR-612 三套为下限，GUI 侧 FR-713 同步四套）。
     TerminalGreen,
-    /// zcode 日间（FR-739，2026-11-06 用户新增并批准冻结；色值源
+    /// whcode 日间（FR-739，2026-11-06 用户新增并批准冻结；色值源
     /// `whcode_domain::theme_tokens`）。
-    ZcodeDay,
-    /// zcode 夜间（FR-739；**默认主题**，2026-11-06 用户批准切换）。
+    WhcodeDay,
+    /// whcode 夜间（FR-739；**默认主题**，2026-11-06 用户批准切换）。
     #[default]
-    ZcodeNight,
+    WhcodeNight,
 }
 
 impl Theme {
@@ -72,13 +72,13 @@ impl Theme {
             Self::EinkDay => Self::EinkNight,
             Self::EinkNight => Self::AmoledNight,
             Self::AmoledNight => Self::TerminalGreen,
-            Self::TerminalGreen => Self::ZcodeDay,
-            Self::ZcodeDay => Self::ZcodeNight,
-            Self::ZcodeNight => Self::EinkDay,
+            Self::TerminalGreen => Self::WhcodeDay,
+            Self::WhcodeDay => Self::WhcodeNight,
+            Self::WhcodeNight => Self::EinkDay,
         }
     }
 
-    /// 主题的精确色值（背景，前景）。zcode 系引用
+    /// 主题的精确色值（背景，前景）。whcode 系引用
     /// `whcode_domain::theme_tokens` 冻结值（单一事实源，FR-740）。
     #[must_use]
     pub const fn colors(self) -> (&'static str, &'static str) {
@@ -87,13 +87,13 @@ impl Theme {
             Self::EinkDay => EINK_DAY,
             Self::EinkNight => EINK_NIGHT,
             Self::TerminalGreen => TERMINAL_GREEN,
-            Self::ZcodeDay => (
-                theme_tokens::ZCODE_DAY.background,
-                theme_tokens::ZCODE_DAY.foreground,
+            Self::WhcodeDay => (
+                theme_tokens::WHCODE_DAY.background,
+                theme_tokens::WHCODE_DAY.foreground,
             ),
-            Self::ZcodeNight => (
-                theme_tokens::ZCODE_NIGHT.background,
-                theme_tokens::ZCODE_NIGHT.foreground,
+            Self::WhcodeNight => (
+                theme_tokens::WHCODE_NIGHT.background,
+                theme_tokens::WHCODE_NIGHT.foreground,
             ),
         }
     }
@@ -106,8 +106,8 @@ impl Theme {
             Self::EinkDay => "eink-day",
             Self::EinkNight => "eink-night",
             Self::TerminalGreen => "terminal-green",
-            Self::ZcodeDay => "zcode-day",
-            Self::ZcodeNight => "zcode-night",
+            Self::WhcodeDay => "whcode-day",
+            Self::WhcodeNight => "whcode-night",
         }
     }
 }
@@ -126,11 +126,11 @@ impl std::str::FromStr for Theme {
             "eink-day" => Ok(Self::EinkDay),
             "eink-night" => Ok(Self::EinkNight),
             "terminal-green" => Ok(Self::TerminalGreen),
-            "zcode-day" => Ok(Self::ZcodeDay),
-            "zcode-night" => Ok(Self::ZcodeNight),
+            "whcode-day" => Ok(Self::WhcodeDay),
+            "whcode-night" => Ok(Self::WhcodeNight),
             other => Err(whcode_domain::WhError::parse_error(format!(
                 "未知主题 {other:?}：合法取值为 amoled-night / eink-day / eink-night / \
-                 terminal-green / zcode-day / zcode-night"
+                 terminal-green / whcode-day / whcode-night"
             ))),
         }
     }
@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     fn background_colors_are_exactly_pure_black_or_pure_white() {
-        // 既有四套为铁律（OLED/墨水屏口径）；zcode 系无此承诺，见下一测试。
+        // 既有四套为铁律（OLED/墨水屏口径）；whcode 系无此承诺，见下一测试。
         for theme in [
             Theme::AmoledNight,
             Theme::EinkDay,
@@ -171,16 +171,16 @@ mod tests {
         assert_eq!(Theme::EinkNight.colors(), ("#000000", "#FFFFFF"));
     }
 
-    /// zcode 系精确引用 `theme_tokens` 冻结值（FR-740：本 crate 不复制色值）。
+    /// whcode 系精确引用 `theme_tokens` 冻结值（FR-740：本 crate 不复制色值）。
     #[test]
-    fn zcode_colors_come_from_domain_single_source() {
-        assert_eq!(Theme::ZcodeDay.colors(), ("#f8f8f8", "#262626"));
-        assert_eq!(Theme::ZcodeNight.colors(), ("#161616", "#d4d4d4"));
+    fn whcode_colors_come_from_domain_single_source() {
+        assert_eq!(Theme::WhcodeDay.colors(), ("#f8f8f8", "#262626"));
+        assert_eq!(Theme::WhcodeNight.colors(), ("#161616", "#d4d4d4"));
         assert_eq!(
-            Theme::ZcodeNight.colors(),
+            Theme::WhcodeNight.colors(),
             (
-                theme_tokens::ZCODE_NIGHT.background,
-                theme_tokens::ZCODE_NIGHT.foreground
+                theme_tokens::WHCODE_NIGHT.background,
+                theme_tokens::WHCODE_NIGHT.foreground
             )
         );
     }
@@ -192,19 +192,19 @@ mod tests {
         assert_eq!(Theme::EinkNight.as_str(), "eink-night");
         assert_eq!(Theme::TerminalGreen.as_str(), "terminal-green");
         assert_eq!(Theme::TerminalGreen.colors(), ("#000000", "#00FF00"));
-        assert_eq!(Theme::ZcodeDay.as_str(), "zcode-day");
-        assert_eq!(Theme::ZcodeNight.as_str(), "zcode-night");
+        assert_eq!(Theme::WhcodeDay.as_str(), "whcode-day");
+        assert_eq!(Theme::WhcodeNight.as_str(), "whcode-night");
     }
 
-    /// 默认主题为 `zcode-night`（2026-11-06 用户批准切换，ADR-057/FR-739）。
+    /// 默认主题为 `whcode-night`（2026-11-06 用户批准切换，ADR-057/FR-739）。
     #[test]
-    fn default_theme_is_zcode_night() {
-        assert_eq!(Theme::default(), Theme::ZcodeNight);
+    fn default_theme_is_whcode_night() {
+        assert_eq!(Theme::default(), Theme::WhcodeNight);
         assert_eq!(
             Theme::default().colors(),
             (
-                theme_tokens::ZCODE_NIGHT.background,
-                theme_tokens::ZCODE_NIGHT.foreground
+                theme_tokens::WHCODE_NIGHT.background,
+                theme_tokens::WHCODE_NIGHT.foreground
             )
         );
     }
@@ -217,15 +217,15 @@ mod tests {
             Theme::EinkDay,
             Theme::EinkNight,
             Theme::TerminalGreen,
-            Theme::ZcodeDay,
-            Theme::ZcodeNight,
+            Theme::WhcodeDay,
+            Theme::WhcodeNight,
         ] {
             assert_eq!(theme.as_str().parse::<Theme>(), Ok(theme));
         }
         let err = "midnight".parse::<Theme>().expect_err("未知主题必须失败");
         assert_eq!(err.code, whcode_domain::ErrorCode::ParseError);
         assert!(
-            err.message.contains("amoled-night") && err.message.contains("zcode-night"),
+            err.message.contains("amoled-night") && err.message.contains("whcode-night"),
             "错误消息须列出全部合法取值"
         );
     }
