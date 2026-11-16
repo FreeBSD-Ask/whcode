@@ -25,7 +25,7 @@ native, le TUI, le CUI, le Web et le SSH partagent un même service applicatif.
 
 ## État actuel
 
-Version `0.1.0`, pas encore publiée. Les changements sont dans [CHANGELOG.md](./CHANGELOG.md).
+Version `0.1.0` (publiée le 2026-11-16). Les changements et les limitations connues sont dans [CHANGELOG.md](./CHANGELOG.md).
 
 M0 à M6, M8 et la parité des quatre interfaces sont livrés ; le serveur SSH de M7 fonctionne
 également. L'essai de stabilité de 5,5 heures pour M9 n'a pas encore de données valables, et le

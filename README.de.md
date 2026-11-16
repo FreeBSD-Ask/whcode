@@ -25,7 +25,7 @@ Disziplin der Beteiligten. Native GUI, TUI, CUI, Web und SSH nutzen denselben An
 
 ## Aktueller Stand
 
-Version `0.1.0`, noch nicht veröffentlicht. Änderungen stehen in [CHANGELOG.md](./CHANGELOG.md).
+Version `0.1.0` (veröffentlicht am 2026-11-16). Änderungen und bekannte Einschränkungen stehen in [CHANGELOG.md](./CHANGELOG.md).
 
 M0 bis M6, M8 und die Gleichheit der vier Oberflächen sind umgesetzt, der SSH-Server aus M7
 läuft ebenfalls. Für den 5,5-Stunden-Stabilitätslauf aus M9 fehlen noch belastbare Daten, und

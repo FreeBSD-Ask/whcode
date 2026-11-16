@@ -10,6 +10,7 @@
 | `philosophy.md` | 核心哲学与工程方法论（形式审查、正负和解、三重时间、0 信任） |
 | `design-principles.md`、`module-design.md` | 设计原则与 16 个 crate 的职责/依赖/失败模式 |
 | `software-engineering-process.md` | G0—G5 阶段门禁、角色合并、产物映射 |
+| `release-checklist.md` | G5 发布检查表（判据、命令、已知限制、发布后监控；v0.1.0 起） |
 | `requirements-engineering.md` | FR 模板、需求质量判据、三方追溯抽查方法、变更控制 |
 | `repository-layout.md` | 目录分类原则（由 `tests/contract/test_layout.rs` 强制） |
 | `pr-checklist.md` | 每 PR 必过的 §15 七项清单（含宪法与 spec 的补充约束） |

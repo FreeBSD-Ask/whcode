@@ -1,48 +1,49 @@
-# 项目状态快照（2026-11-11）
+# 项目状态快照（2026-11-16）
 
 本页是**带日期的状态快照**，供了解进度用。权威账本始终是
 [`tasks.md`](../../specs/001-whcode-harness/tasks.md)（任务勾选）与
 [`checklist.md`](../../specs/001-whcode-harness/checklist.md)（验收检查点）。
 两者与 `spec.md` 的 FR 三方追溯由 `python .github/scripts/traceability.py` 与
-`check_counts.py` 在 CI 中强制；本页数字来自这两个文件在 2026-11-11 的实测统计，
+`check_counts.py` 在 CI 中强制；本页数字来自这两个文件在 2026-11-16 的实测统计，
 过期即失效，不得引用为验收结论。CI 结论以最新 run 为准，本页不写“当前红／绿”。
 
 ## 总量
 
 | 项 | 数量 |
 |---|---|
-| 功能需求 FR | 146 |
-| 任务 | 281（已完成 281，未完成 0） |
-| 验收检查点 | 376（已有复核记录 376，missing 0） |
+| 功能需求 FR | 170 |
+| 任务 | 361（已完成 361，未完成 0） |
+| 验收检查点 | 455（已有复核记录 455，missing 0） |
 
-证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 327、
-outcome-supported 49、missing 0。Phase 24（T244—T263）与 ADR-060 Phase 1（T264—T275）
-全部收口，最近一批 Check 359—376 的取证见 `checklist.md`。
-并行会话在途（截至本快照）：无已入账的未完成任务；工作树存在 P3.1 会话分叉的未入账
-WIP（schema v10 迁移，引用 T282／FR-769／ADR-065，三者均未登记），未过 G1，不计入进度。
+证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 406、
+outcome-supported 49、missing 0。ADR-060 Phase 1、proposal-v3 的 P1.9／P1.10／P2.2b／P3.3／
+P5.2／P5.3／P5.6／P6.2—P6.4／P7.1—P7.3 均已收口，最近批次（Check 442—455）的取证见
+`checklist.md` 与 `CHANGELOG.md`。
+并行会话在途（截至本快照）：无（工作树干净，未入账 WIP 已清空）。
 proposal-v3 全部 45 条提案的执行态比对见
 [`artifacts/proposal-v3-execution-audit-2026-11-11.md`](../../artifacts/proposal-v3-execution-audit-2026-11-11.md)：
-已实现 19、部分 2（P3.3／P7.2）、在途 1（P3.1）、未实现 23。
+已实现 19、部分 2、在途 1、未实现 23（**2026-11-11 快照**；其后 P1.9／P1.10／P7.3 与
+P2.2b／P3.3／P5.x／P6.x／P7.1／P7.2 的进展见 `CHANGELOG.md`，本表不重算）。
 回填后须重跑上述脚本并更新本表，不得沿用旧数字。
 
 ## 四端能力面
 
 `docs/matrices/feature-parity.md` 为受校验产物（来源 `whcode-app::surface::SURFACES`），
-共 **65 条**能力面（51 Command＋14 View）；状态符号为 已实现、部分、预留，
+共 **78 条**能力面（60 Command＋18 View）；状态符号为 已实现、部分、预留，
 每端另有 1—2 行“不提供”（该端按理由码排除）：
 
 | 端 | 已实现 | 部分 | 预留 | 不提供 |
 |---|---|---|---|---|
-| CUI | 34 | 18 | 11 | 2 |
-| TUI | 27 | 26 | 11 | 1 |
-| GUI | 32 | 31 | 1 | 1 |
-| Web | 37 | 15 | 11 | 2 |
+| CUI | 43 | 22 | 11 | 2 |
+| TUI | 28 | 28 | 18 | 4 |
+| GUI | 34 | 34 | 7 | 3 |
+| Web | 44 | 17 | 13 | 4 |
 
 ## 里程碑
 
 | 里程碑 | 状态 |
 |---|---|
-| M0 平台可行性与基线冻结 | Windows 工程基线有条件通过（ADR-016）；V-004 延后至 M7 |
+| M0 平台可行性与基线冻结 | 已发布（`v0.1.0`，2026-11-16；ADR-016 条件 V-003 已取证、V-006 由 ADR-025 收口，V-004 跨机节点按 ADR-013 归 M7 延后） |
 | M1 存储与事件基座、M2 会话与任务、M3 LLM 与上下文、M4 SDD 门禁、M5 TUI/CUI、M6 Web | 实现完成，测试在库 |
 | M7 SSH | 服务端实现完成（russh 0.64.1，ADR-030）；FreeBSD/NetBSD SSH 回环验收 GO（客户端＋服务端四项，run `41481740766`）；V-004 外部节点延后至 M7；NetBSD/OpenBSD 定位为 SSH 远程开发目标（ADR-013 修订 2026-11-03） |
 | M8 可选执行运行时 | 实现完成，feature 默认关闭 |

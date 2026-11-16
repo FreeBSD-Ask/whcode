@@ -25,7 +25,7 @@ la CUI, la Web y el SSH comparten un mismo servicio de aplicación.
 
 ## Estado actual
 
-Versión `0.1.0`, aún sin publicar. Los cambios están en [CHANGELOG.md](./CHANGELOG.md).
+Versión `0.1.0` (publicada el 2026-11-16). Los cambios y las limitaciones conocidas están en [CHANGELOG.md](./CHANGELOG.md).
 
 M0—M6, M8 y la paridad de las cuatro interfaces están implementados, y el servidor SSH de M7
 también funciona. La prueba de estabilidad de 5,5 horas de M9 todavía no tiene datos válidos, y

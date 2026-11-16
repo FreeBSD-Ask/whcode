@@ -24,7 +24,7 @@ application service.
 
 ## Status
 
-Version `0.1.0`, not yet released. See [CHANGELOG.md](./CHANGELOG.md) for changes.
+Version `0.1.0` (released 2026-11-16). See [CHANGELOG.md](./CHANGELOG.md) for changes and known limitations.
 
 M0 to M6, M8 and four-front-end parity are implemented, and the M7 SSH server is in place.
 The 5.5-hour stability run for M9 has no qualifying data yet, and the client wiring for a real
