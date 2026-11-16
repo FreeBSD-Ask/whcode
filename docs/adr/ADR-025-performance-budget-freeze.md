@@ -385,10 +385,11 @@ NFR-207 p50 9.4→10.0 ms——**三连慢确认漂移为持续性**（42.3→48
   但“并发读者”与“写入压力”两类场景没有冻结预算，此前只能靠临时探测。新增
   `.github/scripts/benchmarks/measure-memory-pressure.py`：
   ① `serve_concurrent_readers`——2 万事件夹具、4 线程并发读 sessions/events/tasks（本机
-  360 请求、0 错误），采样 serve 进程 WorkingSet：中位 45.46 MB／p95 47.88 MB／峰值
-  48.52 MB（peak working set 48.77 MB）；
+  360 请求、0 错误），采样 serve 进程 WorkingSet：中位 46.43 MB／p95 48.91 MB／峰值 49.71 MB
+  （peak working set 49.82 MB）；
   ② `bench_write`——`whcode bench baseline --events 20000 --repeat 3`（192 MB 缓冲上限、
-  固定夹具）：中位 59.11 MB／p95 67.56 MB／峰值 73.04 MB（peak 74.47 MB）。
+  固定夹具）：中位 60.67 MB／p95 68.58 MB／峰值 75.49 MB（peak 76.47 MB）；
+  三轮重复记录显示峰值波动约 ±3 MB（读者 48.5—51.2、写入 71.2—75.5），故本通道只记录、不设阈值。
   **不判红绿**：报告 `budget_mb: null`、`verdict: "recorded"`，零样本判“未取得信号”并
   退出 1。冻结预算须另立 ADR（本 ADR 口径：未冻结即不得把该通道当门禁，也不得以单次
   记录冻结预算）。通道只在 `perf-budget`（workflow_dispatch）运行，artifact 命名

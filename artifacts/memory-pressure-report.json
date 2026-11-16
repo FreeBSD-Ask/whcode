@@ -4,7 +4,7 @@
   "adr": "ADR-025",
   "verdict": "recorded",
   "budget_mb": null,
-  "utc": "2026-11-16T08:05:03Z",
+  "utc": "2026-11-16T08:30:26Z",
   "os": "win32",
   "python": "3.15.2",
   "exe": {
@@ -17,11 +17,11 @@
   "poll_seconds": 0.05,
   "scenarios": [
     {
-      "samples": 205,
+      "samples": 199,
       "measured": true,
-      "median_mb": 45.46,
-      "p95_mb": 47.88,
-      "max_mb": 48.52,
+      "median_mb": 46.43,
+      "p95_mb": 48.91,
+      "max_mb": 49.71,
       "scenario": "serve_concurrent_readers",
       "fixture": {
         "events": 20000,
@@ -31,17 +31,17 @@
       "rounds": 30,
       "requests": 360,
       "errors": 0,
-      "peak_working_set_mb": 48.77,
+      "peak_working_set_mb": 49.82,
       "budget_mb": null,
       "verdict": "recorded",
       "method": "serve --web --tls off；并发读 sessions/events/tasks；GetProcessMemoryInfo 50 ms 轮询采样；无冻结预算，只记录"
     },
     {
-      "samples": 618,
+      "samples": 564,
       "measured": true,
-      "median_mb": 59.11,
-      "p95_mb": 67.56,
-      "max_mb": 73.04,
+      "median_mb": 60.67,
+      "p95_mb": 68.58,
+      "max_mb": 75.49,
       "scenario": "bench_write",
       "fixture": {
         "events": 20000,
@@ -49,7 +49,7 @@
       },
       "exit_code": 0,
       "report": "D:\\WHCode\\local\\memory-pressure-baseline.json",
-      "peak_working_set_mb": 74.47,
+      "peak_working_set_mb": 76.47,
       "budget_mb": null,
       "verdict": "recorded",
       "method": "whcode bench baseline（固定夹具、192MB 缓冲上限、release）；GetProcessMemoryInfo 50 ms 轮询采样；无冻结预算，只记录"

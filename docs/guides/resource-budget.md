@@ -26,8 +26,7 @@ NFR-215 有界容器纪律。D-06 预算未冻结——本文件把候选值**�
 
 - 只记录：报告 `budget_mb: null`、`verdict: "recorded"`；零样本判“未取得信号”（退出 1），
   不得以 0 MB 冒充达标。
-- 2026-11-16 本机记录：并发读者峰值 48.52 MB（peak working set 48.77 MB）、写入压力
-  峰值 73.04 MB（peak 74.47 MB）——归档 `artifacts/memory-pressure-report.json`。
+- 2026-11-16 本机记录：并发读者峰值 49.71 MB、写入压力峰值 75.49 MB（三轮波动约 ±3 MB；归档为最新一轮）——归档 `artifacts/memory-pressure-report.json`。
 - 与门禁的分工：M1（测试进程 512 MB）与 NFR-201/202（36／80 MB，取中位数）仍是门禁；
   本通道不加预算，预算须另立 ADR。
 

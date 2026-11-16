@@ -585,7 +585,8 @@ taskkill /T /F 口径）（P1）
   - 判据：Given 两场景均取得样本，Then 报告含峰值与条件字段且退出 0；Given 任一场景零样本，
     Then 退出 1 且该场景 `measured=false`；Then 报告不得出现 PASS/FAIL 结论
   - 证据：`python .github/scripts/benchmarks/measure-memory-pressure.py` 本机记录
-    （并发读者峰值 48.52 MB、写入压力峰值 73.04 MB，`artifacts/memory-pressure-report.json`）
+    （并发读者峰值 49.71 MB、写入压力 75.49 MB，三轮波动约 ±3 MB；
+    `artifacts/memory-pressure-report.json`）
 
 - **FR-791**: 技能读取工具（P1.9／ADR-053 修订）：只读工具 `skill` 按名字读取工作区技能
   （`.zcode/skills/<name>/SKILL.md`）——不带 `name` 列出技能（名字、描述、相对路径，≤32 条）；

@@ -369,7 +369,11 @@ def main() -> int:
     measured = [s for s in report["scenarios"] if s.get("measured")]
     report["measured_scenarios"] = len(measured)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    args.out.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
     print(f"\n报告：{args.out}")
     for scenario in report["scenarios"]:
