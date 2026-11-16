@@ -29,6 +29,11 @@ ADR 修改判据）。
 **已知间歇项**：A2（FreeBSD `whcode-bin` 测试二进制退出路径 SIGSEGV）仍 open（monitoring）；
 红时按 `docs/guides/long-line-plan.md` A2 行判读并重跑，不得改写门禁语义。
 
+**证据节奏（ADR-082，2026-11-16）**：矩阵只随**代码推送**产生证据；纯文档推送跑
+`docs-gates` 十项门禁；`extreme_scale`（1M 事件）与 NetBSD 由每周 schedule／手动 dispatch
+专项覆盖。核对发布提交时必须确认该提交含代码改动并引用其 run 号；**被取消的运行不是绿**，
+不得作为证据。
+
 ## 3. 交付物与安装验证
 
 | 判据 | 命令／入口 | 期望 |

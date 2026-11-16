@@ -1,7 +1,11 @@
 {
-  "checked_at": "2026-11-10",
+  "checked_at": "2026-11-16",
   "source": "GitHub API releases/latest；无 release 时取最高语义化 tag；SHA 由 commits/{tag} 解析",
   "actions": {
+    "actions/cache": {
+      "version": "v6.1.0",
+      "sha": "55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
+    },
     "actions/checkout": {
       "version": "v7.0.1",
       "sha": "3d3c42e5aac5ba805825da76410c181273ba90b1"

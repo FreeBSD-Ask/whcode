@@ -41,7 +41,7 @@ authoritative ledgers are [tasks.md](./specs/001-whcode-harness/tasks.md) and
 | Windows 11 amd64 | **Only acceptance target** (`x86_64-pc-windows-gnullvm`, ADR-073) |
 | Windows ARM64 | Build delivery target (ADR-043): CI results count as platform evidence, not acceptance |
 | FreeBSD | Full platform-evidence channel (hard gate): CI builds, tests and gates everything on `main`, and any failure turns it red; no acceptance conclusion |
-| NetBSD | Runs automatically on CI with `main`; platform evidence only |
+| NetBSD | Runs in CI on a weekly schedule and manual dispatch; platform evidence only (ADR-082) |
 | OpenBSD / DragonFly | Manual placeholder; together with NetBSD they are SSH remote-development targets (the machine being connected to, no native toolchain required) |
 
 Performance percentiles currently come from the Windows channel only. See

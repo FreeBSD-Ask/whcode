@@ -613,6 +613,26 @@ taskkill /T /F 口径）（P1）
     Then 不再提醒；Then 事件载荷不含工具参数
   - 证据：`cargo test -p whcode-app repeat`（跟踪器边界＋端到端请求记录）
 
+- **FR-793**: CI 加速与证据节奏（P7.4／ADR-082）：五平台矩阵的运行时延由结构性取舍压下来，
+  判据不降级——① 同一 workflow＋ref＋事件的新运行取消旧运行（被取消的运行不算绿、不得作
+  证据引用）；② 工具有界缓存（LLVM 系列工具链归档 191 MB、DuckDB 预编译载荷 50 MB、
+  Cargo registry 与 target），键绑定版本／`Cargo.lock`＋`rust-toolchain.toml`，SHA256 与
+  字节数校验逐次照跑；③ `extreme_scale`（1M 事件夹具）移出 push 路径，由每周 schedule 与
+  手动 dispatch 的专项 job 覆盖 amd64＋ARM64；④ 纯文档推送（`docs/`、`specs/`、
+  `artifacts/`、`i18n/`、根级 `*.md`）不重建五平台产物，改跑文档门禁专项；⑤ NetBSD 移出
+  push，改由 schedule／dispatch 专项覆盖（仍只作平台证据）
+  - 依据：2026-11-16 用户请求“CI 有没有加速方案？目前太慢了”与“A+B+C+E+F 全上”批准；
+    ADR-037（CI 唯一验收入口）、ADR-013（FreeBSD 硬门禁与 BSD 证据身份）、ADR-025（测量口径）
+  - 判据：Given 连续两次 push，Then 前一次运行被取消（`cancelled`，不得引用为绿）；Given
+    推送含 `crates/**` 等代码路径，Then 五平台矩阵照常运行；Given 只改文档，Then 只跑
+    docs-gates 且 EOL／文风／知难行易／ADR 限制／标准基线／计数／追溯／i18n／工作流／
+    action 门禁全绿；Given 周 schedule 或 dispatch(`extreme=true`)，Then extreme-scale 的
+    amd64＋ARM64 两项运行并上传证据；Given schedule 或 dispatch(`netbsd=true`)，Then
+    NetBSD 专项运行；Then 平台矩阵不再含 netbsd 项
+  - 证据：`.github/workflows/platform-verification.yml`（concurrency／triage／docs-gates／
+    extreme-scale／netbsd）、`.github/scripts/action-versions.json`（`actions/cache` v6.1.0）、
+    `check-workflows.py` 与 `check-actions.py` 通过；CI run 回填见 Check 456—461
+
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，
   成功调用才落、失败不落），条目数与单条长度有常量上限且超限拒绝不截断；待办与 SDD 任务

@@ -11,13 +11,13 @@
 
 | 项 | 数量 |
 |---|---|
-| 功能需求 FR | 170 |
-| 任务 | 361（已完成 361，未完成 0） |
-| 验收检查点 | 455（已有复核记录 455，missing 0） |
+| 功能需求 FR | 171 |
+| 任务 | 366（已完成 366，未完成 0） |
+| 验收检查点 | 461（已有复核记录 461，missing 0） |
 
-证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 406、
+证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 412、
 outcome-supported 49、missing 0。ADR-060 Phase 1、proposal-v3 的 P1.9／P1.10／P2.2b／P3.3／
-P5.2／P5.3／P5.6／P6.2—P6.4／P7.1—P7.3 均已收口，最近批次（Check 442—455）的取证见
+P5.2／P5.3／P5.6／P6.2—P6.4／P7.1—P7.3 均已收口，最近批次（Check 456—461，CI 加速与证据节奏）的取证见
 `checklist.md` 与 `CHANGELOG.md`。
 并行会话在途（截至本快照）：无（工作树干净，未入账 WIP 已清空）。
 proposal-v3 全部 45 条提案的执行态比对见
@@ -57,6 +57,12 @@ P2.2b／P3.3／P5.x／P6.x／P7.1／P7.2 的进展见 `CHANGELOG.md`，本表不
 
 当前账本无未完成任务；以下条目是仍开放的观察项、平台缺口与历史收口记录。
 
+- **CI 证据节奏（2026-11-16 变更，ADR-082，用户批准）**：五平台矩阵只随**代码推送**
+  产生证据——纯文档推送（`docs/`、`specs/`、`artifacts/`、`i18n/`、根级 `*.md`）走
+  `docs-gates` 的十项文档门禁，不重建平台产物；`extreme_scale`（1M 事件）与 NetBSD 改由
+  每周 schedule 与手动 dispatch 专项覆盖；同一 ref 的新运行会取消被覆盖的运行，**被取消
+  的运行不是绿、不得引用**。因此“某提交没有平台 job”不等于失败，须看该提交是否含代码
+  改动；引用证据时须给出 run 号与 job 结论。
 - **BSD 验收（2026-11-03 已收口一批）**：Check 22/25/96/99/195/336 与 T099/T240 已转勾（run `41481740766` 硬门禁首次全绿，证据落库 `artifacts/ssh-acceptance/` 与 `artifacts/store-acceptance/`）。ADR-013 修订（2026-10-31）设 FreeBSD 为完整平台证据通道（硬门禁）；修订（2026-11-03，用户指令）定 **NetBSD/OpenBSD/DragonFly 仅支持 SSH 远程开发**（被 Windows/FreeBSD 内置 SSH 客户端连入的目标，不要求原生工具链/引擎；NetBSD 原生 SSH GO 维持为证据，NetBSD 原生 store 豁免——上游 DuckDB 2.0.0 依赖 glibc `features.h`；OpenBSD/DragonFly 节点证据走真实连入取证，DragonFly 同日追加同待遇）。**仍开放**：V-004 外部节点连通性（M7）；性能分位数未取得（perf 通道仅 Windows）。**2026-11-06 观察**：FreeBSD 通道在 run `42143683382` 出现 `store_gate = NO-GO`（DuckDB 源码构建报 `platform.hpp:22 'features.h' file not found`），与 2026-11-03 run `41481740766` 的 GO 不一致，**根因未归因**，不得读作代码回归；CI 结论以最新 run 为准，细节见 `docs/matrices/compatibility.md`。**2026-11-15 观察（当日三次运行，结论互不相同——以单次为准必错）**：手动 dispatch 的 run `43646760888`（`cebf3a4`）红于 FreeBSD `store_gate = NO-GO`（DuckDB 源码构建 `platform.hpp:22 'features.h' file not found`，上游硬编码）、同 run 的 `whcode-bin` 测试二进制退出路径 SIGSEGV 与 coverage-pilot `whcode-app 89.82% < 90%`；推送触发的 run `43661764421`（`e57723b`）FreeBSD 红于 `workspace 测试失败（rc=101）`，但**单线程复跑 139 项全过**——属已登记的 A2 债务（并行压力下的二进制退出路径 SIGSEGV），同 run 的 ARM64 红于 `taskkill` 255 竞态（已在 `e7f82da` 修）；run `43667118984`（`ba92fba`）FreeBSD 红于两条 `whcode-bin` 测试在 FreeBSD 上失败（断言硬编码 `\` 分隔符，已修）；同日 run `43664650070`（`e7f82da`）**全通道 success**（含 FreeBSD）。另发现一处 CI 注解缺陷并修复：BSD 结论注解原以 `*-store.txt` 通配读取，会把仓库里入库的旧平台证据（如 `netbsd-store.txt`）也读进来，导致 freebsd job 上出现与本轮无关的 “features.h NO-GO” 注解（本轮 `freebsd-store.txt` 实为 GO）——已改为只读 `${platform}-*.txt`。**A2 债务仍开放**。
 - **GUI 桌面探测主题循环（2026-11-16 观察，开放）**：weekly schedule 的 `desktop` job 在 run
   `43855538365`（`c9a618c`）判红——`gui-probe.py` 的 `theme_cycle.ok` 对四套主题均为 false，

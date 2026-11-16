@@ -34,7 +34,7 @@ M0—M6、M8 与四端对等收口已实现，M7 SSH 服务端已实现。M9 的
 | Windows 11 amd64 | **唯一验收目标**（`x86_64-pc-windows-gnullvm`，ADR-073） |
 | Windows ARM64 | 构建交付目标（ADR-043）：CI 结果仅作平台证据，不进验收 |
 | FreeBSD | 完整平台证据通道（硬门禁）：CI 随 main 全量构建、测试与门禁，任一失败即红；不作验收结论 |
-| NetBSD | CI 随 main 自动运行，仅平台证据 |
+| NetBSD | CI 每周定时与手动触发运行，仅平台证据（ADR-082） |
 | OpenBSD／DragonFly | 手工占位；与 NetBSD 同为 SSH 远程开发目标（作为被连入端，不要求原生工具链） |
 
 性能分位数目前仅取自 Windows 通道。平台口径详见

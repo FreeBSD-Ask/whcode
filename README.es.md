@@ -43,7 +43,7 @@ referencia son [tasks.md](./specs/001-whcode-harness/tasks.md) y
 | Windows 11 amd64 | **Único objetivo de aceptación** (`x86_64-pc-windows-gnullvm`, ADR-073) |
 | Windows ARM64 | Objetivo de entrega de compilaciones (ADR-043): lo que produce la CI es prueba de plataforma, no aceptación |
 | FreeBSD | Canal completo de prueba de plataforma (barrera estricta): en cada `main` la CI compila, prueba y aplica las barreras completas, y cualquier fallo la pone en rojo; no da conclusión de aceptación |
-| NetBSD | La CI lo ejecuta sola en `main`; solo prueba de plataforma |
+| NetBSD | La CI lo ejecuta con programación semanal o disparo manual; solo prueba de plataforma (ADR-082) |
 | OpenBSD / DragonFly | Marcador manual; junto con NetBSD sirven de destino para desarrollo remoto por SSH (el lado al que se conecta, sin cadena de herramientas nativa) |
 
 Los percentiles de rendimiento salen hoy solo del canal de Windows. La política completa está en

@@ -43,7 +43,7 @@ autorité sont [tasks.md](./specs/001-whcode-harness/tasks.md) et
 | Windows 11 amd64 | **Seule cible d'acceptation** (`x86_64-pc-windows-gnullvm`, ADR-073) |
 | Windows ARM64 | Cible de livraison des compilations (ADR-043) : les résultats de la CI valent preuve de plateforme, pas acceptation |
 | FreeBSD | Canal complet de preuve de plateforme (barrière stricte) : à chaque `main`, la CI compile, teste et applique les barrières en entier, et la moindre erreur la fait échouer ; aucune conclusion d'acceptation |
-| NetBSD | Démarre automatiquement dans la CI sur `main` ; preuve de plateforme seulement |
+| NetBSD | S'exécute dans la CI selon un calendrier hebdomadaire ou sur déclenchement manuel ; preuve de plateforme seulement (ADR-082) |
 | OpenBSD / DragonFly | Emplacement manuel ; avec NetBSD, servent de cible de développement distant par SSH (côté qui reçoit la connexion, aucun outillage natif requis) |
 
 Les quantiles de performance proviennent pour l'instant du seul canal Windows. Voir

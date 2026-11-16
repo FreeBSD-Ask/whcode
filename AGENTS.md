@@ -23,8 +23,10 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 - **FreeBSD 为完整平台证据通道（硬门禁）**（2026-10-31 用户指令，ADR-013 修订）：platform-verification.yml 的
   FreeBSD job 随 `main` 全量构建（含 GUI／bin）、全量测试、三门（进程组／store／SSH 回环）
   与 TUI/Web 冒烟，任一失败即红；系统依赖允许取自 FreeBSD ports／latest pkg。
+  其中 `extreme_scale`（1M 事件）按 ADR-082 移出推送路径、由每周专项覆盖（2026-11-16 用户批准）。
   **不作验收结论**（验收仍为 Windows 11 amd64）；性能分位数未取得（perf 通道仍仅 Windows）；
-- NetBSD 在 GitHub CI 随 `main` 自动运行（仅作平台证据、不阻断 CI）；**NetBSD/OpenBSD/
+- NetBSD 在 GitHub CI 由**每周 schedule 与手动 dispatch 专项**运行（2026-11-16 用户批准，
+  ADR-082：移出 push 路径；仅作平台证据、不阻断 CI）；**NetBSD/OpenBSD/
   DragonFly 仅支持 SSH 远程开发**（作为被 Windows/FreeBSD 内置 SSH 客户端连入的目标，
   不要求原生工具链/引擎——ADR-013 修订 2026-11-03 用户指令，DragonFly 同日追加同待遇）；
   三者代码与文档保留，不作验收结论；

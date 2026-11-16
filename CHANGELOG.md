@@ -17,6 +17,20 @@
 
 ### 变更
 
+- **CI 加速与证据节奏（T362—T366，P7.4，FR-793，ADR-082，2026-11-16 用户批准）**：
+  一次 push 的关键路径是 FreeBSD VM（39.8 分钟），同时每个 Windows job 每轮重下
+  llvm-mingw（191 MB）与 DuckDB 载荷、`target/` 全冷编译，被新提交取代的运行仍跑完整
+  矩阵。五项改动：① 顶层 `concurrency`（group 含 workflow／ref／event，仅 push／PR
+  取消），被取消的运行不算绿、不得作证据；② `actions/cache` v6.1.0 三处**有界**缓存
+  （工具链归档、DuckDB 载荷、Cargo registry＋`target`），键绑定固定版本与
+  `Cargo.lock`＋`rust-toolchain.toml`，SHA256／字节数校验逐次照跑；③ `extreme_scale`
+  移出 windows／ARM64／FreeBSD 三条通道的推送路径（`--skip`），改由每周 schedule 与
+  dispatch(`extreme=true`) 的专项 job 覆盖 amd64＋ARM64——实测该套件占 Windows 测试
+  运行时间 78%（8.78／11.3 分钟）；④ 纯文档推送走 `triage`＋`docs-gates`（十项文档
+  门禁），不重建五平台产物；⑤ NetBSD 移出 push，改为 schedule／dispatch(`netbsd=true`)
+  专项；FreeBSD／NetBSD 的 VM 进度行加 UTC 时间戳以便拆解阶段耗时。判据不降级：唯一
+  验收目标、FreeBSD 硬门禁、Code Scanning 零告警与全部预算口径不变；缓存省时不足
+  （<2 分钟）或单键 >2 GB 即撤回（ADR-082 §5）。
 - **内存压力通道（T360—T361，P7.3，FR-792，ADR-025 修订，2026-11-16）**：M1（测试进程
   512 MB）与 NFR-201/202（36／80 MB，取中位数）都是门禁口径，而“并发读者”“写入压力”两类
   场景没有冻结预算，此前只能临时探测。新增

@@ -102,3 +102,14 @@
   失败；②`gh run list --workflow=platform-verification.yml --limit 1` 返回空（说明路径与
   远端不一致）；③`git grep -l 'workflows/ci.yml' -- ':!CHANGELOG.md' ':!docs/adr' ':!specs'`
   命中活动文档（说明改名未同步）。
+
+- **2026-11-16（ADR-082，用户批准）**：证据节奏与“绿”的判定口径三处澄清。① **被取消的
+  运行不是绿**：工作流顶层 `concurrency` 会对同一 ref 的 push／PR 取消被覆盖的运行；
+  被取消的运行不得引用为证据，验收结论只取最终完成的运行。② **纯文档推送不重建五平台
+  产物**：`triage` 把 `docs/`、`specs/`、`artifacts/`、`i18n/`、根级 `*.md` 之外的改动
+  一律当代码处理；纯文档推送跑 `docs-gates`（十项文档门禁）而不是五平台矩阵，验收引用
+  最近一次代码提交的运行——这是“测试证据按代码变更产生”，不是“按推送产生”。
+  ③ **`extreme_scale` 与 NetBSD 按周期产生证据**：前者每周 schedule／dispatch 专项覆盖
+  amd64＋ARM64，后者每周专项覆盖；两者的失败仍然是红，只是发现延迟最长 7 天（ADR-082
+  §7 登记）。**复审触发**：`python .github/scripts/check-workflows.py` 失败，或任一
+  纯文档推送的 run 出现五平台 job（说明分流失效）时，复审本条。

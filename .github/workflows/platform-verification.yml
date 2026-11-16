@@ -22,6 +22,17 @@
 #   - 所有 job 只读仓库；上传 artifact 使用 Actions 运行时令牌。
 #   - 测试与测量的唯一验收入口是 CI；本地脚本仅作复现与排障（用户 2026-10-25 选择）。
 #   - 测量 job 串行执行（写者压力/内存/查询计划/NFR 对资源敏感），避免互相污染。
+#
+# 加速与证据节奏（2026-11-16 用户批准；ADR-082）：
+#   - 顶层 concurrency：同一 workflow＋ref＋事件的新运行取消旧运行。**被取消的运行不是绿**，
+#     不得作为证据引用；验收结论只取最终完成的运行（ADR-037 修订）。
+#   - actions/cache 复用 LLVM 系列工具链下载、DuckDB 预编译载荷与 Cargo 构建产物。
+#     缓存只省时间、不改判据：工具链与载荷的 SHA256／字节数校验仍由脚本逐次执行。
+#   - extreme_scale（1M 事件夹具，单次约 8.8 分钟，占测试运行 78%）移出 push／PR 路径，
+#     由 schedule 与 workflow_dispatch 的 extreme-scale 专项 job 覆盖（amd64＋ARM64）。
+#   - 纯文档推送（docs/、specs/、artifacts/、i18n/、根级 *.md）不跑五平台矩阵，改跑
+#     docs-gates 专项；判据不降级——文档类门禁全跑，只是不重建五平台产物。
+#   - NetBSD 移出 push，改由 schedule／dispatch 专项 job 运行（仍只作平台证据，ADR-013）。
 name: platform-verification
 
 on:
@@ -35,6 +46,14 @@ on:
         description: "运行性能预算（NFR-207/209 与测试进程 RSS；托管 runner 结果仅作受控测量信号）"
         type: boolean
         default: false
+      extreme:
+        description: "运行 extreme_scale 专项（1M 事件；push 路径已移出，ADR-082）"
+        type: boolean
+        default: false
+      netbsd:
+        description: "运行 NetBSD 专项（仅平台证据；push 路径已移出，ADR-082）"
+        type: boolean
+        default: false
   push:
     branches: [main]
   pull_request:
@@ -45,13 +64,118 @@ on:
 # Windows runner 控制台默认代码页非 UTF-8；门禁脚本含中文输出，统一强制 Python UTF-8 模式。
 env:
   PYTHONUTF8: "1"
+  # 工具链下载缓存目录显式钉在 runner 临时目录：缓存步骤的 path 与脚本 `cache_dir()`
+  # 用同一个来源，避免依赖 `tempfile.gettempdir()` 的平台默认值（ADR-082 决策 2）。
+  WHCODE_TOOLCACHE: ${{ runner.temp }}/whcode-toolcache
 
 permissions:
   contents: read
 
+# 同一 workflow＋ref＋事件的新运行取消旧运行（ADR-082）：
+#   - push／pull_request 取消被覆盖的运行：今天三次推送时，前两次的整套矩阵都跑完了才被
+#     新提交取代，纯属白烧 runner 分钟；
+#   - group 里带 event_name：schedule 的周任务不会取消正在进行的 push 验证；
+#   - 被取消的运行不是绿，也不得作为证据引用（ADR-037 修订，2026-11-16）。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+
 jobs:
+  # ---------------- 推送分流（纯文档推送不重建五平台产物，ADR-082） ----------------
+  # 判据只看**改动路径**，不问改动内容：白名单之外的任何路径（含 .github/、crates/、
+  # tests/、Cargo.*、*.rs）都按代码处理，走完整矩阵。宁严不宽——把代码误判为文档会
+  # 丢掉平台证据，把文档误判为代码只多花时间。
+  triage:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+      changed: ${{ steps.classify.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+
+      - name: 判定本次推送是否只改文档/规范/证据
+        id: classify
+        shell: bash
+        run: |
+          set -eu
+          # HEAD~1 不存在（仓库首个提交）时按代码处理：无法判定就不放宽。
+          if ! base=$(git rev-parse --verify HEAD~1 2>/dev/null); then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            echo "changed=<无父提交，无法判定：按代码处理>" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(git diff --name-only "$base" HEAD)
+          echo "changed<<EOF" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$files" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          docs_only=true
+          if [ -n "$files" ]; then
+            # here-string 而非缩进 heredoc：缩进会把十个空格拼进第一个文件名，
+            # 让它匹配不上白名单，结果每次推送都被判成代码（静默失效）。
+            while IFS= read -r f; do
+              [ -n "$f" ] || continue
+              case "$f" in
+                docs/*|specs/*|artifacts/*|i18n/*|*.md) ;;
+                *) docs_only=false; break ;;
+              esac
+            done <<< "$files"
+          fi
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+          echo "docs_only=$docs_only（改动文件数 $(printf '%s\n' "$files" | grep -c . || true)）"
+
+  # 纯文档推送的专项门禁：文档类判据一条不少，只是不重建五平台产物。
+  # 这些脚本都是纯文件检查（无 DuckDB／GUI 依赖），用 ubuntu-latest 更快。
+  docs-gates:
+    needs: triage
+    if: github.event_name == 'push' && needs.triage.outputs.docs_only == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: EOL 与编码门禁（LF / 无 BOM）
+        run: python3 .github/scripts/check-eol.py
+
+      - name: 文档文风门禁（禁用词 / 表情符号 / 直引号 / 套话）
+        run: python3 .github/scripts/check-docs-style.py
+
+      - name: 知难行易落点门禁（宪法原则 X）
+        run: python3 .github/scripts/check-knowing-first.py
+
+      - name: ADR 已知限制门禁（FR-763）
+        run: python3 .github/scripts/check-adr-limits.py
+
+      - name: 标准基线门禁（FR-779）
+        run: python3 .github/scripts/check-standards-baseline.py
+
+      - name: 计数一致性（FR/任务/Check）
+        run: python3 .github/scripts/check_counts.py
+
+      - name: 三方追溯（FR↔任务↔Check）
+        run: python3 .github/scripts/traceability.py
+
+      - name: i18n PO 源文件漂移门禁
+        run: python3 .github/scripts/i18n-po.py --check
+
+      - name: 工作流语义门禁
+        run: python3 .github/scripts/check-workflows.py
+
+      - name: CI action 版本门禁（离线段）
+        run: python3 .github/scripts/check-actions.py
+
   platform:
-    if: github.event_name != 'schedule'
+    # 纯文档推送由 docs-gates 接管；schedule 不跑平台矩阵（周任务只有 CodeQL 复核、
+    # 桌面探针、extreme-scale 与 NetBSD 专项）。
+    #
+    # `always()` 是必需的：pull_request 上 triage 被跳过，而 needs 的默认语义会把依赖
+    # 跳过视为不满足，导致整个平台矩阵静默不跑。这里反过来——triage 失败或跳过时按
+    # “可能含代码”处理，照常跑矩阵（宁多跑，不漏证）。
+    needs: triage
+    if: always() && github.event_name != 'schedule' && !(github.event_name == 'push' && needs.triage.outputs.docs_only == 'true')
     name: platform-${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     # 门禁超时（2026-11-01）：VM 通道（FreeBSD/NetBSD/OpenBSD/DragonFly）含 pkg 安装、
@@ -69,14 +193,47 @@ jobs:
             os: windows-11-arm
           - platform: freebsd
             os: ubuntu-latest
-          - platform: netbsd
-            os: ubuntu-latest
           - platform: openbsd
             os: ubuntu-latest
           - platform: dragonfly
             os: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # ---------------- 缓存（B／ADR-082：只省时间，不改判据） ----------------
+      # 三个缓存都**有界**且带精确键：
+      #   - llvm-mingw 归档 191 MB，键含固定版本号——版本升级必须同步本键与脚本常量；
+      #   - DuckDB 预编译载荷 50 MB，按通道分键（amd64 通道另需 arm64 交叉载荷）；
+      #   - Cargo registry 与 target：键绑定 Cargo.lock 与 rust-toolchain.toml，
+      #     restore-keys 只复用同通道旧键。
+      # target 不做“整体缓存”的取舍见 ADR-082：本机 target 48 GB（incremental 8 GB、
+      # build 32 GB 为历史堆积），GitHub 单仓库缓存上限 10 GB，全量缓存会互相驱逐。
+      # 省时判据：首轮若非「命中且省时 ≥2 分钟」或单键体积 >2 GB，即撤回该缓存。
+      - name: 缓存 LLVM 系列工具链归档（版本键）
+        if: matrix.platform == 'windows' || matrix.platform == 'windows-arm64'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/whcode-toolcache
+          key: llvm-mingw-20261104-ucrt-x86_64
+
+      - name: 缓存 DuckDB 预编译载荷（版本＋通道键）
+        if: matrix.platform == 'windows' || matrix.platform == 'windows-arm64'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor/duckdb/.cache
+          key: duckdb-2.0.0-payload-${{ matrix.platform }}
+
+      - name: 缓存 Cargo registry 与 target（依赖图＋工具链键）
+        if: matrix.platform == 'windows' || matrix.platform == 'windows-arm64'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ matrix.platform }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            cargo-${{ matrix.platform }}-
 
       # ADR-073（2026-11-14）：Windows 验收目标换成 gnullvm。本步骤安装 llvm-mingw
       # （固定版本＋SHA256 校验）与 rustup 的 gnullvm 主机工具链，并把 bin 目录写进
@@ -157,9 +314,13 @@ jobs:
           SENSENOVA_API_KEY: ${{ secrets.SENSENOVA_API_KEY }}
         run: python .github/scripts/smoke-sensenova.py --artifact artifacts/sensenova-smoke.json
 
-      - name: 测试（含分层与目录分类契约）
+      # extreme_scale（1M 事件，单次 8.78 分钟＝本次测试运行时间的 78%）不在此路径运行：
+      # 它断言的是 O(1) 内存与翻页不变量，不随每次推送的代码差异改变，改由每周 schedule
+      # 与手动 dispatch 的 extreme-scale 专项 job 覆盖（ADR-082；证据周期处置见 ADR-037
+      # 修订记录）。`--skip` 只过滤用例，构建与其余 55 个套件照旧全跑。
+      - name: 测试（含分层与目录分类契约；extreme_scale 走周专项）
         if: matrix.platform == 'windows'
-        run: cargo test --locked --workspace
+        run: cargo test --locked --workspace -- --skip extreme_scale
 
       # P7.2／ADR-075：PR 只判**相对回归**（三指标三轮中位 vs 同类 runner 基线）；绝对
       # 预算仍由 perf-budget 通道判（ADR-025）。基线缺失或 runner 类别不匹配时脚本输出
@@ -311,14 +472,14 @@ jobs:
         if: matrix.platform == 'windows-arm64'
         run: python .github/scripts/fetch-duckdb.py
 
-      - name: 测试（全量；gnullvm 目标，原生 ARM64 运行）
+      - name: 测试（全量；gnullvm 目标，原生 ARM64 运行；extreme_scale 走周专项）
         if: matrix.platform == 'windows-arm64'
         # [env] 表不覆盖已存在的 OS 环境变量：显式导出 arm64 载荷目录，
         # 覆盖 .cargo/config.toml 的 amd64 默认值（ADR-043）。必须绝对路径
         # （ADR-069 修订 2026-11-14）：相对值在测试进程 PATH 注入后按 cwd 解析错位。
         env:
           DUCKDB_LIB_DIR: ${{ github.workspace }}/vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
-        run: cargo test --locked --workspace --target aarch64-pc-windows-gnullvm
+        run: cargo test --locked --workspace --target aarch64-pc-windows-gnullvm -- --skip extreme_scale
 
       - name: 内置 SSH 回环验收（原生 ARM64 客户端与服务端）
         if: matrix.platform == 'windows-arm64'
@@ -408,7 +569,7 @@ jobs:
             set -e
             mkdir -p artifacts/store-acceptance artifacts/ssh-acceptance
             progress=artifacts/store-acceptance/freebsd-progress.txt
-            echo "phase=bootstrap-start" > "$progress"
+            echo "phase=bootstrap-start at=$(date -u +%FT%TZ)" > "$progress"
             # 用 rustup 装锁定工具链（pkg 的 rust 版本不确定，无法满足可复现要求）。
             export HOME=/root
             export PATH="$HOME/.cargo/bin:$PATH"
@@ -418,7 +579,7 @@ jobs:
             fi
             rustc -vV
             cargo -V
-            echo "phase=toolchain-ok" >> "$progress"
+            echo "phase=toolchain-ok at=$(date -u +%FT%TZ)" >> "$progress"
             echo "rustc_version=$(rustc --version)" >> "$progress"
 
             # Check 109／201 的 BSD 侧：进程组终止后孙进程零残留。退码 0 不足以判定，
@@ -454,7 +615,7 @@ jobs:
             # 只记录不判定（始终退出 0），硬门禁下由本脚本读证据文件并裁决。
             echo "=== DuckDB 2.0.0 源码构建与 store 冒烟（Check 22／ADR-034）==="
             sh .github/scripts/platform-matrix/bsd-duckdb.sh
-            echo "phase=duckdb-script-done" >> "$progress"
+            echo "phase=duckdb-script-done at=$(date -u +%FT%TZ)" >> "$progress"
             if [ ! -f artifacts/store-acceptance/freebsd-duckdb.env ]; then
               echo "DuckDB 2.0.0 源码构建未产出环境（freebsd-duckdb.env 缺失）：硬门禁下中止"
               exit 1
@@ -475,13 +636,13 @@ jobs:
               echo "SSH 回环门禁 NO-GO：硬门禁下中止（详见 freebsd-client.txt）"
               exit 1
             fi
-            echo "phase=ssh-gate-go" >> "$progress"
+            echo "phase=ssh-gate-go at=$(date -u +%FT%TZ)" >> "$progress"
 
             # 2026-10-31 用户指令解除 --exclude：whcode-gui 的系统依赖由 prepare 安装，
             # GUI／bin 必须参与构建与测试，功能等价以全量通过为准。
             echo "=== 全量构建（workspace 含 GUI／bin）==="
             cargo build --locked --workspace
-            echo "phase=workspace-build-ok" >> "$progress"
+            echo "phase=workspace-build-ok at=$(date -u +%FT%TZ)" >> "$progress"
 
             echo "=== 全量测试（workspace 全部 crate，含集成/稳定性/契约）==="
             # 禁核心转储：tests/integration/test_durability.rs 的子进程以
@@ -494,9 +655,12 @@ jobs:
             # 二进制退出路径 SIGSEGV，run 41290577560 首现、41529766439 复现），证据
             # 随 artifact 上传；门禁语义不变——失败仍然 exit 1。
             cargo_rc=0
-            cargo test --locked --workspace --no-fail-fast || cargo_rc=$?
+            # extreme_scale 与其他通道一致移出 push 路径（ADR-082）：BSD 硬门禁仍是
+            # “全量构建＋全量测试”，只是把 1M 事件那一项交给周专项——它在 QEMU 里最贵，
+            # 且断言的是与平台无关的 O(1) 内存／翻页不变量。
+            cargo test --locked --workspace --no-fail-fast -- --skip extreme_scale || cargo_rc=$?
             if [ "$cargo_rc" -eq 0 ]; then
-              echo "phase=workspace-tests-ok" >> "$progress"
+              echo "phase=workspace-tests-ok at=$(date -u +%FT%TZ)" >> "$progress"
             else
               echo "workspace 测试失败（rc=$cargo_rc）：开始 A2 诊断（单线程复跑＋并行 truss 尾迹）"
               mkdir -p artifacts/a2-diag
@@ -546,7 +710,7 @@ jobs:
             sh .github/scripts/platform-matrix/bsd-perf.sh
 
             echo "GATE_RESULT=GO（全量构建＋全量测试＋三门 GO＋TUI/Web 冒烟；2026-10-31 用户指令硬门禁）"
-            echo "phase=done" >> "$progress"
+            echo "phase=done at=$(date -u +%FT%TZ)" >> "$progress"
             )
             body_rc=$?
             set -e
@@ -639,289 +803,6 @@ jobs:
           fi
           echo "FreeBSD 硬门禁：VM 内全部检查通过"
 
-      # ---------------- NetBSD（最新 11.x release） ----------------
-      - name: 在 NetBSD VM 中构建、测试与记录
-        id: netbsd_vm
-        if: matrix.platform == 'netbsd' && github.event_name != 'pull_request'
-        # 同 FreeBSD：BSD 平台证据不阻断 CI 绿路径（ADR-013）。
-        continue-on-error: true
-        uses: vmactions/netbsd-vm@5957cf330aef2e6ddc63c604364c99ce2e02b91d # v1.5.3
-        with:
-          # 只写主版本：action 自动取最新 11.x 点版本；pkgin 仓库路径由 VM 的 uname -r 推导。
-          release: "11"
-          usesh: true
-          prepare: |
-            # 用户指令（2026-10-24）：NetBSD 不用 pkg_add，改为解压官方包引导 pkgin。
-            # 一手依据：vmactions/netbsd-vm v1.5.2 README（prepare 以 sh 执行；示例用
-            # pkg_add）；pkgin-26.4.0 仅含 bin/pkgin，运行时依赖 pkg_install>=20200701
-            # 与 sqlite3>=3.51.1nb1；sqlite3-3.53.4 无运行时依赖。上一轮失败
-            # （run 40076402536）是解压到 `/` 而非 pkgsrc 前缀，导致 pkgin 找不到
-            # /usr/pkg/sbin/pkg_admin；本次统一解压到 /usr/pkg。
-            # 仓库用主站 ftp.netbsd.org 的 amd64 路径：CDN 的 x86_64 边缘与 pkg_summary
-            # 不同步（实测 curl/expat Not Found、cmake/rust size mismatch），主站摘要与
-            # 文件一致。pkgin 的 $arch 宏会展开为 x86_64，故 repositories.conf 直接写 amd64。
-            # 发行版号取自 VM 自身（uname -r），release 前缀升级到新点版本时无需改脚本。
-            set -eu
-            rel=$(uname -r)
-            base="https://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/${rel}/All"
-            work=/tmp/pkgin-bootstrap
-            mkdir -p "$work" /usr/pkg
-            cd "$work"
-            ftp -V -o pkgin.tgz "${base}/pkgin-26.4.0.tgz"
-            ftp -V -o sqlite3.tgz "${base}/sqlite3-3.53.4.tgz"
-            ftp -V -o pkg_install.tgz "${base}/pkg_install-20260227.tgz"
-            tar -xf pkgin.tgz -C /usr/pkg bin/pkgin
-            tar -xf sqlite3.tgz -C /usr/pkg bin/sqlite3 lib
-            tar -xf pkg_install.tgz -C /usr/pkg sbin
-            mkdir -p /usr/pkg/etc/pkgin /var/db/pkgin
-            printf '%s\n' "$base" > /usr/pkg/etc/pkgin/repositories.conf
-            export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
-            export LD_LIBRARY_PATH="/usr/pkg/lib"
-            pkgin -y update
-            pkgin -y install rust cmake ninja
-            # 实测（run 40515646118）：该仓库的 ninja 包是 IRC 客户端分支（--version
-            # 输出非版本号），bsd-duckdb.sh 会探测并回退 Unix Makefiles，此时需要 gmake。
-            pkgin -y install gmake || echo "WARN: gmake 安装失败（Makefiles 回退受限）"
-            # python3／curl 缺失不阻断 bootstrap：DuckDB 源码构建会记录 NO-GO，
-            # 但依赖记录与工具链检查仍应执行（区分“正确的空”与“前置缺失”）。
-            pkgin -y install python3 || echo "WARN: python3 安装失败（DuckDB 源码构建将记录 NO-GO）"
-            pkgin -y install curl || echo "WARN: curl 安装失败（rustup 下载将回退 pkgsrc）"
-            # DuckDB 需要 C/C++ 编译器；NetBSD 的 VM 镜像默认没有 comp 集。
-            # pkgsrc 的 gcc 包通常提供带版本号的可执行名（gcc12／g++12），
-            # 不保证存在无后缀的 gcc／g++，因此两个名字都尝试安装。
-            pkgin -y install gcc12 || pkgin -y install gcc || echo "WARN: 无可用 gcc（DuckDB 配置将记录 NO-GO）"
-            # pkgsrc 的 gcc 包装器在部分 NetBSD 镜像上无法通过 CMake 的编译试验；
-            # clang 是自包含工具链，作为优先候选可绕开该环境问题。
-            pkgin -y install clang || echo "WARN: clang 安装失败（回退 gcc）"
-            pkgin -y install python313 || true
-            pkgin -y install duckdb || true
-          run: |
-            set -e
-            export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
-            export LD_LIBRARY_PATH="/usr/pkg/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-            mkdir -p artifacts/store-acceptance artifacts/ssh-acceptance
-            progress=artifacts/store-acceptance/netbsd-progress.txt
-            echo "phase=bootstrap-start" > "$progress"
-
-            # pkgsrc 的 rust 可能与锁定版本不一致（Check 21）。优先用 rustup 安装
-            # rust-toolchain.toml 的版本；下载或安装失败时回退 pkgsrc rust，
-            # 由下面的 MSRV 闸门显式 SKIP，不得用旧工具链冒充通过。
-            export HOME=${HOME:-/root}
-            if [ ! -x "$HOME/.cargo/bin/cargo" ]; then
-              echo "=== 尝试 rustup 安装锁定工具链 1.100.0（x86_64-unknown-netbsd）==="
-              rustup_url=https://static.rust-lang.org/rustup/dist/x86_64-unknown-netbsd/rustup-init
-              if command -v curl >/dev/null 2>&1; then
-                curl -fsSL --retry 2 --connect-timeout 30 -o /tmp/rustup-init "$rustup_url" \
-                  || rm -f /tmp/rustup-init
-              elif command -v ftp >/dev/null 2>&1; then
-                ftp -V -o /tmp/rustup-init "$rustup_url" 2>/dev/null || rm -f /tmp/rustup-init
-              fi
-              if [ -s /tmp/rustup-init ]; then
-                chmod +x /tmp/rustup-init
-                if /tmp/rustup-init -y --profile minimal --default-toolchain 1.100.0 \
-                  >/tmp/rustup-init.log 2>&1; then
-                  echo "rustup 安装完成"
-                else
-                  echo "rustup 安装失败；回退 pkgsrc rust"
-                  tail -n 20 /tmp/rustup-init.log || true
-                fi
-              else
-                echo "rustup-init 下载失败；回退 pkgsrc rust"
-              fi
-            fi
-            # 只有 rustc 真能执行才前置 rustup 的 PATH；rustup-init 失败时可能留下
-            # 不可用的 shim，前置它会让后续每一步都以 127／非零退出。
-            if [ -x "$HOME/.cargo/bin/rustc" ] && \
-              "$HOME/.cargo/bin/rustc" --version >/dev/null 2>&1; then
-              export PATH="$HOME/.cargo/bin:$PATH"
-              echo "phase=rustup-ok" >> "$progress"
-            else
-              echo "phase=rustup-fallback-pkgsrc" >> "$progress"
-            fi
-            rustc -vV
-            cargo -V
-            echo "rustc_version=$(rustc --version)" >> "$progress"
-
-            # MSRV 从 Cargo.toml 读取：工作流手写版本会与清单漂移（2026-10-24 升至 1.99，
-            # 2026-11-14 经 ADR-069 升至 1.100），
-            # 手写值一旦落后，pkgsrc rust 低于 MSRV 时不会跳过而是直接编译失败。
-            msrv=$(sed -n 's/^rust-version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -n1)
-            if [ -z "$msrv" ]; then
-              echo "无法从 Cargo.toml 读取 rust-version" >&2
-              exit 1
-            fi
-            version=$(rustc --version | awk '{print $2}')
-            major=$(echo "$version" | cut -d. -f1)
-            minor=$(echo "$version" | cut -d. -f2)
-            msrv_major=$(echo "$msrv" | cut -d. -f1)
-            msrv_minor=$(echo "$msrv" | cut -d. -f2)
-            # 这里只判定、不立即退出：依赖记录必须先于 SKIP 闸门执行，否则工具链低于
-            # MSRV 时 deps-netbsd.txt 永不生成，上传步骤只能报 “No files were found”
-            # （run 40159516841）。BSD 只作平台证据，依赖事实与代码结论分开记录。
-            msrv_ok=1
-            if [ "$major" -lt "$msrv_major" ] || \
-              { [ "$major" -eq "$msrv_major" ] && [ "$minor" -lt "$msrv_minor" ]; }; then
-              msrv_ok=0
-              # 低于 MSRV 时 whcode-bin（依赖 GUI）无法构建，doctor 探针只会写入编译错误；
-              # 显式跳过，运行期引擎版本退回 pkg_info duckdb 的版本（记录文件标注来源）。
-              export WHCODE_SKIP_RUNTIME_PROBE=1
-            fi
-
-            echo "=== 依赖记录（V-001，先于 MSRV 闸门执行）==="
-            mkdir -p artifacts
-            # 包由 prepare 阶段安装（pkgin 装 duckdb，失败不阻断）；先导出库目录，
-            # 记录脚本才能取到 DuckDB 版本类与载荷校验和，而不是占位符。
-            export DUCKDB_LIB_DIR=/usr/pkg/lib
-            export DUCKDB_INCLUDE_DIR=/usr/pkg/include
-            sh .github/scripts/platform-matrix/record-deps.sh artifacts
-
-            if [ "$msrv_ok" -eq 0 ]; then
-              echo "SKIP：pkgsrc rust $version 低于 MSRV $msrv（环境限制，不作代码结论）"
-              echo "本次仅产出依赖记录，不进入验收结论（ADR-013：BSD 只作平台证据）。"
-              echo "phase=msrv-skip" >> "$progress"
-              exit 0
-            fi
-
-            echo "=== 代码级检查（平台中立 crate，不链接 DuckDB／GUI）==="
-            cargo check --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
-              -p whcode-llm -p whcode-runtime
-            echo "phase=code-check-ok" >> "$progress"
-
-            echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
-            cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
-              -p whcode-llm -p whcode-runtime
-            echo "phase=package-tests-ok" >> "$progress"
-
-            echo "=== BSD 进程组零残留（Check 109／201）==="
-            pg_log=/tmp/whcode-process-group.$$.log
-            pg=NO-GO
-            if cargo test --locked -p whcode-platform process_group_termination_kills_grandchild \
-              -- --nocapture > "$pg_log" 2>&1 \
-              && grep -q 'process_group_termination_kills_grandchild_and_leaves_no_residue ... ok' "$pg_log"; then
-              pg=GO
-            fi
-            mkdir -p artifacts/process-group
-            {
-              echo "# WHCode BSD 进程组零残留（Check 109／201）"
-              echo "format_version = 1"
-              echo "platform = $(uname -s)"
-              echo "test = process_group_termination_kills_grandchild_and_leaves_no_residue"
-              echo "process_group_gate = $pg"
-              echo "[cargo_output_tail]"
-              tail -n 40 "$pg_log" 2>/dev/null || echo "<未取得证据：未执行>"
-            } > artifacts/process-group/netbsd-process-group.txt
-            rm -f "$pg_log"
-            echo "process_group_gate=$pg" >> "$progress"
-
-            # 源码构建后才能让 store 的引擎版本断言与 SSH 链接路径成立。
-            # CMake 不认“路径里有编译器但环境没声明”的情况；按可用名字显式导出。
-            cc_name=""
-            for candidate in clang gcc gcc12 gcc13 gcc14; do
-              if command -v "$candidate" >/dev/null 2>&1; then cc_name="$candidate"; break; fi
-            done
-            cxx_name=""
-            for candidate in clang++ g++ g++12 g++13 g++14; do
-              if command -v "$candidate" >/dev/null 2>&1; then cxx_name="$candidate"; break; fi
-            done
-            if [ -n "$cc_name" ] && [ -n "$cxx_name" ]; then
-              export CC="$cc_name" CXX="$cxx_name"
-              echo "phase=compiler-$cc_name-$cxx_name" >> "$progress"
-            else
-              echo "phase=compiler-missing-${cc_name:-none}-${cxx_name:-none}" >> "$progress"
-            fi
-            echo "=== DuckDB 2.0.0 源码构建与 store 冒烟（Check 22／ADR-034）==="
-            WHCODE_DUCKDB_JOBS=2 sh .github/scripts/platform-matrix/bsd-duckdb.sh
-            echo "phase=duckdb-script-done" >> "$progress"
-            if [ -f artifacts/store-acceptance/netbsd-duckdb.env ]; then
-              # shellcheck disable=SC1091
-              . artifacts/store-acceptance/netbsd-duckdb.env
-            fi
-
-            echo "=== SSH 客户端＋服务端 BSD 回环验收（Check 25／96／99）==="
-            sh .github/scripts/platform-matrix/bsd-ssh-client.sh
-            echo "phase=ssh-script-done" >> "$progress"
-
-            echo "=== BSD 量化测量记录（ADR-025 证据通道扩展；只记录不判定，脚本恒退出 0）==="
-            sh .github/scripts/platform-matrix/bsd-perf.sh
-            echo "phase=perf-recorded" >> "$progress"
-
-            echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
-            duckdb_ready=0
-            if [ "${WHCODE_DUCKDB_READY:-0}" = 1 ]; then
-              duckdb_ready=1
-              if grep -q '^store_gate = GO' artifacts/store-acceptance/netbsd-store.txt; then
-                echo "STORE_GATE_RESULT=GO（源码构建 DuckDB 2.0.0；store 冒烟已由 bsd-duckdb.sh 执行）"
-              else
-                echo "STORE_GATE_RESULT=NO-GO（源码构建就绪但 store 冒烟未通过，详见 netbsd-store.txt）"
-              fi
-            elif pkg_info duckdb >/dev/null 2>&1; then
-              export DUCKDB_LIB_DIR=/usr/pkg/lib
-              export DUCKDB_INCLUDE_DIR=/usr/pkg/include
-              duckdb_ready=1
-              if cargo test --locked -p whcode-store; then
-                echo "STORE_GATE_RESULT=GO（pkgsrc DuckDB；store 冒烟用例已执行）"
-              else
-                echo "STORE_GATE_RESULT=NO-GO（pkgsrc DuckDB 与引擎主版本不一致，属 R-01 现实化路径）"
-              fi
-            else
-              echo "STORE_GATE_RESULT=NO-GO（pkgsrc 无 DuckDB 包）"
-            fi
-
-            if [ "$duckdb_ready" -eq 1 ]; then
-              # 禁核心转储（同 FreeBSD 通道：durability abort() 的 core 落 tests/ 会破 layout 门禁）。
-              ulimit -c 0
-              if cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
-                && cargo test --locked --workspace --exclude whcode-gui --exclude whcode-bin; then
-                echo "GATE_RESULT=GO"
-              else
-                echo "GATE_RESULT=NO-GO（版本或 ABI 不一致时的预期风险路径）"
-              fi
-            else
-              echo "GATE_RESULT=NO-GO（无可用 DuckDB 原生库）"
-            fi
-            echo "phase=done" >> "$progress"
-
-      - name: 归档 NetBSD 结论
-        if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
-        run: |
-          echo "NetBSD 绿路径：${{ steps.netbsd_vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "若绿路径失败且原因是 pkgsrc rust 低于 MSRV，属环境限制。" >> "$GITHUB_STEP_SUMMARY"
-          echo "DuckDB Go/No-Go 见 VM 日志末尾；两者均只作平台证据，不进入验收结论。" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: 上传 NetBSD 依赖记录
-        if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: deps-netbsd
-          path: artifacts/deps-netbsd.txt
-
-      - name: 上传 NetBSD DuckDB 源码构建与 store 验收记录
-        if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: store-acceptance-netbsd
-          if-no-files-found: warn
-          path: |
-            artifacts/store-acceptance/
-            artifacts/process-group/
-
-      - name: 上传 NetBSD SSH 客户端验收记录
-        if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ssh-acceptance-netbsd
-          if-no-files-found: warn
-          path: artifacts/ssh-acceptance/
-
-      # 量化测量（2026-11-03）：NetBSD 无 libduckdb 时按 SKIPPED 如实记录，不伪造测量。
-      - name: 上传 NetBSD 量化测量记录（记录口径，不作预算判定）
-        if: always() && matrix.platform == 'netbsd' && github.event_name != 'pull_request'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: bsd-perf-netbsd
-          if-no-files-found: warn
-          path: artifacts/bsd-perf/
-
       # check-run 注解是公开可读的机器证据（日志下载需登录）：把 store／SSH 判据行
       # 以 notice 形式附在 job 上，供无凭据复核；NO-GO 不改写、缺文件显式告警。
       #
@@ -979,8 +860,9 @@ jobs:
             echo "::notice title=VM progress $(basename "$f")::$stage"
           done
           # OpenBSD／DragonFly 的 VM 不把工作区文件同步回 runner（既有事实），
-          # 它们缺证据属预期；只有 FreeBSD／NetBSD 缺证据才是需要告警的异常。
-          if [ "$found" -eq 0 ] && { [ "${{ matrix.platform }}" = freebsd ] || [ "${{ matrix.platform }}" = netbsd ]; }; then
+          # 它们缺证据属预期；只有 FreeBSD 缺证据才是需要告警的异常（NetBSD 已移到独立
+          # 专项 job，其同名注解在 netbsd 作业末尾）。
+          if [ "$found" -eq 0 ] && [ "${{ matrix.platform }}" = freebsd ]; then
             echo "::warning title=BSD evidence （${{ matrix.platform }}）::未找到 store／ssh 证据或进度文件（相关步骤可能未执行）"
           fi
 
@@ -1165,14 +1047,369 @@ jobs:
           if-no-files-found: warn
           path: artifacts/ssh-acceptance/
 
+  # ---------------- NetBSD（最新 11.x release；schedule／dispatch 专项） ----------------
+  # ADR-082（2026-11-16 用户批准）：NetBSD 移出 push 路径。它历来只作平台证据、不阻断
+  # CI，但每次推送都要起一台 QEMU、引导 pkgsrc、源码构建 DuckDB、跑全量测试，常驻
+  # 40 分钟以上且与验收无关。改由每周 schedule 与手动 dispatch（netbsd=true）覆盖。
+  netbsd:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.netbsd)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: 在 NetBSD VM 中构建、测试与记录
+        id: netbsd_vm
+        if: github.event_name != 'pull_request'
+        # 同 FreeBSD：BSD 平台证据不阻断 CI 绿路径（ADR-013）。
+        continue-on-error: true
+        uses: vmactions/netbsd-vm@5957cf330aef2e6ddc63c604364c99ce2e02b91d # v1.5.3
+        with:
+          # 只写主版本：action 自动取最新 11.x 点版本；pkgin 仓库路径由 VM 的 uname -r 推导。
+          release: "11"
+          usesh: true
+          prepare: |
+            # 用户指令（2026-10-24）：NetBSD 不用 pkg_add，改为解压官方包引导 pkgin。
+            # 一手依据：vmactions/netbsd-vm v1.5.2 README（prepare 以 sh 执行；示例用
+            # pkg_add）；pkgin-26.4.0 仅含 bin/pkgin，运行时依赖 pkg_install>=20200701
+            # 与 sqlite3>=3.51.1nb1；sqlite3-3.53.4 无运行时依赖。上一轮失败
+            # （run 40076402536）是解压到 `/` 而非 pkgsrc 前缀，导致 pkgin 找不到
+            # /usr/pkg/sbin/pkg_admin；本次统一解压到 /usr/pkg。
+            # 仓库用主站 ftp.netbsd.org 的 amd64 路径：CDN 的 x86_64 边缘与 pkg_summary
+            # 不同步（实测 curl/expat Not Found、cmake/rust size mismatch），主站摘要与
+            # 文件一致。pkgin 的 $arch 宏会展开为 x86_64，故 repositories.conf 直接写 amd64。
+            # 发行版号取自 VM 自身（uname -r），release 前缀升级到新点版本时无需改脚本。
+            set -eu
+            rel=$(uname -r)
+            base="https://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/${rel}/All"
+            work=/tmp/pkgin-bootstrap
+            mkdir -p "$work" /usr/pkg
+            cd "$work"
+            ftp -V -o pkgin.tgz "${base}/pkgin-26.4.0.tgz"
+            ftp -V -o sqlite3.tgz "${base}/sqlite3-3.53.4.tgz"
+            ftp -V -o pkg_install.tgz "${base}/pkg_install-20260227.tgz"
+            tar -xf pkgin.tgz -C /usr/pkg bin/pkgin
+            tar -xf sqlite3.tgz -C /usr/pkg bin/sqlite3 lib
+            tar -xf pkg_install.tgz -C /usr/pkg sbin
+            mkdir -p /usr/pkg/etc/pkgin /var/db/pkgin
+            printf '%s\n' "$base" > /usr/pkg/etc/pkgin/repositories.conf
+            export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
+            export LD_LIBRARY_PATH="/usr/pkg/lib"
+            pkgin -y update
+            pkgin -y install rust cmake ninja
+            # 实测（run 40515646118）：该仓库的 ninja 包是 IRC 客户端分支（--version
+            # 输出非版本号），bsd-duckdb.sh 会探测并回退 Unix Makefiles，此时需要 gmake。
+            pkgin -y install gmake || echo "WARN: gmake 安装失败（Makefiles 回退受限）"
+            # python3／curl 缺失不阻断 bootstrap：DuckDB 源码构建会记录 NO-GO，
+            # 但依赖记录与工具链检查仍应执行（区分“正确的空”与“前置缺失”）。
+            pkgin -y install python3 || echo "WARN: python3 安装失败（DuckDB 源码构建将记录 NO-GO）"
+            pkgin -y install curl || echo "WARN: curl 安装失败（rustup 下载将回退 pkgsrc）"
+            # DuckDB 需要 C/C++ 编译器；NetBSD 的 VM 镜像默认没有 comp 集。
+            # pkgsrc 的 gcc 包通常提供带版本号的可执行名（gcc12／g++12），
+            # 不保证存在无后缀的 gcc／g++，因此两个名字都尝试安装。
+            pkgin -y install gcc12 || pkgin -y install gcc || echo "WARN: 无可用 gcc（DuckDB 配置将记录 NO-GO）"
+            # pkgsrc 的 gcc 包装器在部分 NetBSD 镜像上无法通过 CMake 的编译试验；
+            # clang 是自包含工具链，作为优先候选可绕开该环境问题。
+            pkgin -y install clang || echo "WARN: clang 安装失败（回退 gcc）"
+            pkgin -y install python313 || true
+            pkgin -y install duckdb || true
+          run: |
+            set -e
+            export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
+            export LD_LIBRARY_PATH="/usr/pkg/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            mkdir -p artifacts/store-acceptance artifacts/ssh-acceptance
+            progress=artifacts/store-acceptance/netbsd-progress.txt
+            echo "phase=bootstrap-start at=$(date -u +%FT%TZ)" > "$progress"
+
+            # pkgsrc 的 rust 可能与锁定版本不一致（Check 21）。优先用 rustup 安装
+            # rust-toolchain.toml 的版本；下载或安装失败时回退 pkgsrc rust，
+            # 由下面的 MSRV 闸门显式 SKIP，不得用旧工具链冒充通过。
+            export HOME=${HOME:-/root}
+            if [ ! -x "$HOME/.cargo/bin/cargo" ]; then
+              echo "=== 尝试 rustup 安装锁定工具链 1.100.0（x86_64-unknown-netbsd）==="
+              rustup_url=https://static.rust-lang.org/rustup/dist/x86_64-unknown-netbsd/rustup-init
+              if command -v curl >/dev/null 2>&1; then
+                curl -fsSL --retry 2 --connect-timeout 30 -o /tmp/rustup-init "$rustup_url" \
+                  || rm -f /tmp/rustup-init
+              elif command -v ftp >/dev/null 2>&1; then
+                ftp -V -o /tmp/rustup-init "$rustup_url" 2>/dev/null || rm -f /tmp/rustup-init
+              fi
+              if [ -s /tmp/rustup-init ]; then
+                chmod +x /tmp/rustup-init
+                if /tmp/rustup-init -y --profile minimal --default-toolchain 1.100.0 \
+                  >/tmp/rustup-init.log 2>&1; then
+                  echo "rustup 安装完成"
+                else
+                  echo "rustup 安装失败；回退 pkgsrc rust"
+                  tail -n 20 /tmp/rustup-init.log || true
+                fi
+              else
+                echo "rustup-init 下载失败；回退 pkgsrc rust"
+              fi
+            fi
+            # 只有 rustc 真能执行才前置 rustup 的 PATH；rustup-init 失败时可能留下
+            # 不可用的 shim，前置它会让后续每一步都以 127／非零退出。
+            if [ -x "$HOME/.cargo/bin/rustc" ] && \
+              "$HOME/.cargo/bin/rustc" --version >/dev/null 2>&1; then
+              export PATH="$HOME/.cargo/bin:$PATH"
+              echo "phase=rustup-ok at=$(date -u +%FT%TZ)" >> "$progress"
+            else
+              echo "phase=rustup-fallback-pkgsrc at=$(date -u +%FT%TZ)" >> "$progress"
+            fi
+            rustc -vV
+            cargo -V
+            echo "rustc_version=$(rustc --version)" >> "$progress"
+
+            # MSRV 从 Cargo.toml 读取：工作流手写版本会与清单漂移（2026-10-24 升至 1.99，
+            # 2026-11-14 经 ADR-069 升至 1.100），
+            # 手写值一旦落后，pkgsrc rust 低于 MSRV 时不会跳过而是直接编译失败。
+            msrv=$(sed -n 's/^rust-version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -n1)
+            if [ -z "$msrv" ]; then
+              echo "无法从 Cargo.toml 读取 rust-version" >&2
+              exit 1
+            fi
+            version=$(rustc --version | awk '{print $2}')
+            major=$(echo "$version" | cut -d. -f1)
+            minor=$(echo "$version" | cut -d. -f2)
+            msrv_major=$(echo "$msrv" | cut -d. -f1)
+            msrv_minor=$(echo "$msrv" | cut -d. -f2)
+            # 这里只判定、不立即退出：依赖记录必须先于 SKIP 闸门执行，否则工具链低于
+            # MSRV 时 deps-netbsd.txt 永不生成，上传步骤只能报 “No files were found”
+            # （run 40159516841）。BSD 只作平台证据，依赖事实与代码结论分开记录。
+            msrv_ok=1
+            if [ "$major" -lt "$msrv_major" ] || \
+              { [ "$major" -eq "$msrv_major" ] && [ "$minor" -lt "$msrv_minor" ]; }; then
+              msrv_ok=0
+              # 低于 MSRV 时 whcode-bin（依赖 GUI）无法构建，doctor 探针只会写入编译错误；
+              # 显式跳过，运行期引擎版本退回 pkg_info duckdb 的版本（记录文件标注来源）。
+              export WHCODE_SKIP_RUNTIME_PROBE=1
+            fi
+
+            echo "=== 依赖记录（V-001，先于 MSRV 闸门执行）==="
+            mkdir -p artifacts
+            # 包由 prepare 阶段安装（pkgin 装 duckdb，失败不阻断）；先导出库目录，
+            # 记录脚本才能取到 DuckDB 版本类与载荷校验和，而不是占位符。
+            export DUCKDB_LIB_DIR=/usr/pkg/lib
+            export DUCKDB_INCLUDE_DIR=/usr/pkg/include
+            sh .github/scripts/platform-matrix/record-deps.sh artifacts
+
+            if [ "$msrv_ok" -eq 0 ]; then
+              echo "SKIP：pkgsrc rust $version 低于 MSRV $msrv（环境限制，不作代码结论）"
+              echo "本次仅产出依赖记录，不进入验收结论（ADR-013：BSD 只作平台证据）。"
+              echo "phase=msrv-skip at=$(date -u +%FT%TZ)" >> "$progress"
+              exit 0
+            fi
+
+            echo "=== 代码级检查（平台中立 crate，不链接 DuckDB／GUI）==="
+            cargo check --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+              -p whcode-llm -p whcode-runtime
+            echo "phase=code-check-ok at=$(date -u +%FT%TZ)" >> "$progress"
+
+            echo "=== 包级测试（不依赖 libduckdb 的 crate）==="
+            cargo test --locked -p whcode-domain -p whcode-platform -p whcode-speckit \
+              -p whcode-llm -p whcode-runtime
+            echo "phase=package-tests-ok at=$(date -u +%FT%TZ)" >> "$progress"
+
+            echo "=== BSD 进程组零残留（Check 109／201）==="
+            pg_log=/tmp/whcode-process-group.$$.log
+            pg=NO-GO
+            if cargo test --locked -p whcode-platform process_group_termination_kills_grandchild \
+              -- --nocapture > "$pg_log" 2>&1 \
+              && grep -q 'process_group_termination_kills_grandchild_and_leaves_no_residue ... ok' "$pg_log"; then
+              pg=GO
+            fi
+            mkdir -p artifacts/process-group
+            {
+              echo "# WHCode BSD 进程组零残留（Check 109／201）"
+              echo "format_version = 1"
+              echo "platform = $(uname -s)"
+              echo "test = process_group_termination_kills_grandchild_and_leaves_no_residue"
+              echo "process_group_gate = $pg"
+              echo "[cargo_output_tail]"
+              tail -n 40 "$pg_log" 2>/dev/null || echo "<未取得证据：未执行>"
+            } > artifacts/process-group/netbsd-process-group.txt
+            rm -f "$pg_log"
+            echo "process_group_gate=$pg" >> "$progress"
+
+            # 源码构建后才能让 store 的引擎版本断言与 SSH 链接路径成立。
+            # CMake 不认“路径里有编译器但环境没声明”的情况；按可用名字显式导出。
+            cc_name=""
+            for candidate in clang gcc gcc12 gcc13 gcc14; do
+              if command -v "$candidate" >/dev/null 2>&1; then cc_name="$candidate"; break; fi
+            done
+            cxx_name=""
+            for candidate in clang++ g++ g++12 g++13 g++14; do
+              if command -v "$candidate" >/dev/null 2>&1; then cxx_name="$candidate"; break; fi
+            done
+            if [ -n "$cc_name" ] && [ -n "$cxx_name" ]; then
+              export CC="$cc_name" CXX="$cxx_name"
+              echo "phase=compiler-$cc_name-$cxx_name" >> "$progress"
+            else
+              echo "phase=compiler-missing-${cc_name:-none}-${cxx_name:-none}" >> "$progress"
+            fi
+            echo "=== DuckDB 2.0.0 源码构建与 store 冒烟（Check 22／ADR-034）==="
+            WHCODE_DUCKDB_JOBS=2 sh .github/scripts/platform-matrix/bsd-duckdb.sh
+            echo "phase=duckdb-script-done at=$(date -u +%FT%TZ)" >> "$progress"
+            if [ -f artifacts/store-acceptance/netbsd-duckdb.env ]; then
+              # shellcheck disable=SC1091
+              . artifacts/store-acceptance/netbsd-duckdb.env
+            fi
+
+            echo "=== SSH 客户端＋服务端 BSD 回环验收（Check 25／96／99）==="
+            sh .github/scripts/platform-matrix/bsd-ssh-client.sh
+            echo "phase=ssh-script-done at=$(date -u +%FT%TZ)" >> "$progress"
+
+            echo "=== BSD 量化测量记录（ADR-025 证据通道扩展；只记录不判定，脚本恒退出 0）==="
+            sh .github/scripts/platform-matrix/bsd-perf.sh
+            echo "phase=perf-recorded at=$(date -u +%FT%TZ)" >> "$progress"
+
+            echo "=== DuckDB 原生 Go/No-Go（失败属 R-01 证据，不使 job 变红）==="
+            duckdb_ready=0
+            if [ "${WHCODE_DUCKDB_READY:-0}" = 1 ]; then
+              duckdb_ready=1
+              if grep -q '^store_gate = GO' artifacts/store-acceptance/netbsd-store.txt; then
+                echo "STORE_GATE_RESULT=GO（源码构建 DuckDB 2.0.0；store 冒烟已由 bsd-duckdb.sh 执行）"
+              else
+                echo "STORE_GATE_RESULT=NO-GO（源码构建就绪但 store 冒烟未通过，详见 netbsd-store.txt）"
+              fi
+            elif pkg_info duckdb >/dev/null 2>&1; then
+              export DUCKDB_LIB_DIR=/usr/pkg/lib
+              export DUCKDB_INCLUDE_DIR=/usr/pkg/include
+              duckdb_ready=1
+              if cargo test --locked -p whcode-store; then
+                echo "STORE_GATE_RESULT=GO（pkgsrc DuckDB；store 冒烟用例已执行）"
+              else
+                echo "STORE_GATE_RESULT=NO-GO（pkgsrc DuckDB 与引擎主版本不一致，属 R-01 现实化路径）"
+              fi
+            else
+              echo "STORE_GATE_RESULT=NO-GO（pkgsrc 无 DuckDB 包）"
+            fi
+
+            if [ "$duckdb_ready" -eq 1 ]; then
+              # 禁核心转储（同 FreeBSD 通道：durability abort() 的 core 落 tests/ 会破 layout 门禁）。
+              ulimit -c 0
+              if cargo build --locked --workspace --exclude whcode-gui --exclude whcode-bin \
+                && cargo test --locked --workspace --exclude whcode-gui --exclude whcode-bin; then
+                echo "GATE_RESULT=GO"
+              else
+                echo "GATE_RESULT=NO-GO（版本或 ABI 不一致时的预期风险路径）"
+              fi
+            else
+              echo "GATE_RESULT=NO-GO（无可用 DuckDB 原生库）"
+            fi
+            echo "phase=done at=$(date -u +%FT%TZ)" >> "$progress"
+
+      - name: 归档 NetBSD 结论
+        if: always()
+        run: |
+          echo "NetBSD 绿路径：${{ steps.netbsd_vm.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "若绿路径失败且原因是 pkgsrc rust 低于 MSRV，属环境限制。" >> "$GITHUB_STEP_SUMMARY"
+          echo "DuckDB Go/No-Go 见 VM 日志末尾；两者均只作平台证据，不进入验收结论。" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传 NetBSD 依赖记录
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deps-netbsd
+          path: artifacts/deps-netbsd.txt
+
+      - name: 上传 NetBSD DuckDB 源码构建与 store 验收记录
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: store-acceptance-netbsd
+          if-no-files-found: warn
+          path: |
+            artifacts/store-acceptance/
+            artifacts/process-group/
+
+      - name: 上传 NetBSD SSH 客户端验收记录
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ssh-acceptance-netbsd
+          if-no-files-found: warn
+          path: artifacts/ssh-acceptance/
+
+      # 量化测量（2026-11-03）：NetBSD 无 libduckdb 时按 SKIPPED 如实记录，不伪造测量。
+      - name: 上传 NetBSD 量化测量记录（记录口径，不作预算判定）
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bsd-perf-netbsd
+          if-no-files-found: warn
+          path: artifacts/bsd-perf/
+
+      # check-run 注解是公开可读的机器证据（日志下载需登录）：判据行与进度阶段以 notice
+      # 形式附在 job 上。与 platform 作业内的同名步骤同源，只是平台固定为 netbsd。
+      - name: 公布 NetBSD 验收结论（公开注解）
+        if: always()
+        run: |
+          set -eu
+          found=0
+          for f in artifacts/store-acceptance/netbsd-store.txt \
+            artifacts/ssh-acceptance/netbsd-client.txt \
+            artifacts/process-group/netbsd-process-group.txt \
+            artifacts/bsd-perf/netbsd-perf.txt; do
+            [ -f "$f" ] || continue
+            found=1
+            verdict=$(grep -m1 -E '^(store_gate|ssh_loopback_gate|process_group_gate|real_sshd_gate|perf_record_gate) = ' "$f" || true)
+            [ -n "$verdict" ] || verdict="<未取得判据行>"
+            echo "::notice title=NetBSD evidence $(basename "$f")::$verdict"
+            echo "$f：$verdict" >> "$GITHUB_STEP_SUMMARY"
+            if printf '%s' "$verdict" | grep -q 'NO-GO'; then
+              detail=$(grep -aE '^test .* FAILED|^error(\[|:)|panicked at|not found|undefined' "$f" \
+                | head -n 6 | tr '\n' ';' | cut -c1-600)
+              if [ -n "${detail:-}" ]; then
+                echo "::notice title=NetBSD failure $(basename "$f")::$detail"
+              fi
+            fi
+          done
+          for f in artifacts/store-acceptance/netbsd-progress.txt; do
+            [ -f "$f" ] || continue
+            found=1
+            stage=$(tr '\n' ';' < "$f" | cut -c1-600)
+            echo "::notice title=VM progress $(basename "$f")::$stage"
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::warning title=NetBSD evidence::未找到 store／ssh 证据或进度文件（VM 步骤可能未执行）"
+          fi
+
+
   measurements:
     # PR 只跑构建与功能测试；测量在 push main 与手动触发时执行，避免每个 PR 消耗 6 小时配额
-    # 与 runner 环境差异造成不可归因的预算波动。
-    if: github.event_name != 'schedule' && github.event_name != 'pull_request'
+    # 与 runner 环境差异造成不可归因的预算波动。纯文档推送同样不跑（ADR-082：文档改动
+    # 不改变被测量对象，34 分钟的测量链没必要重来；证据引用最近一次代码提交的运行）。
+    needs: triage
+    if: always() && github.event_name != 'schedule' && github.event_name != 'pull_request' && !(github.event_name == 'push' && needs.triage.outputs.docs_only == 'true')
     runs-on: windows-latest
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # 缓存同 platform 作业（B／ADR-082），键前缀改用 measurements 以免与平台通道互相
+      # 覆盖同一键（actions/cache 的保存先到先得，键冲突会让后到者的产物被丢弃）。
+      - name: 缓存 LLVM 系列工具链归档（版本键）
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/whcode-toolcache
+          key: llvm-mingw-20261104-ucrt-x86_64
+
+      - name: 缓存 DuckDB 预编译载荷（版本＋通道键）
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor/duckdb/.cache
+          key: duckdb-2.0.0-payload-measurements
+
+      - name: 缓存 Cargo registry 与 target（依赖图＋工具链键）
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-measurements-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            cargo-measurements-
 
       # ADR-073：测量在同一条 gnullvm 验收链上取数，避免“测得的是 msvc 产物”。
       - name: 安装 LLVM 系列 Windows 工具链（llvm-mingw ＋ rustup gnullvm，ADR-073）
@@ -1259,6 +1496,93 @@ jobs:
             artifacts/query-plan-report.json
             artifacts/nfr-budget-report.json
             artifacts/resource-report.json
+
+  # ---------------- extreme_scale 专项（1M 事件；schedule＋dispatch，ADR-082） ----------------
+  # 从 push 路径移出的唯一重项：单次 8.78 分钟（占 Windows 测试运行时间 78%），断言的是
+  # 与平台无关的 O(1) 内存与翻页不变量（X2 翻页／X3 聚合／X4 清理／X5 切换），不随每次
+  # 推送的代码差异改变。保留两条证据：amd64（唯一验收目标，ADR-073）与 ARM64（交付目标，
+  # ADR-074）。周期覆盖不等于判据放宽——失败仍红，且仍是 ADR-076 触发条件的数据来源。
+  extreme-scale:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.extreme)
+    name: extreme-scale-${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            os: windows-latest
+          - platform: windows-arm64
+            os: windows-11-arm
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 缓存 LLVM 系列工具链归档（版本键）
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/whcode-toolcache
+          key: llvm-mingw-20261104-ucrt-x86_64
+
+      - name: 缓存 DuckDB 预编译载荷（版本＋通道键）
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor/duckdb/.cache
+          key: duckdb-2.0.0-payload-${{ matrix.platform }}
+
+      - name: 缓存 Cargo registry 与 target（依赖图＋工具链键）
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ matrix.platform }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            cargo-${{ matrix.platform }}-
+
+      - name: 安装 LLVM 系列 Windows 工具链（amd64 gnullvm，ADR-073）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/setup-windows-llvm.py
+
+      - name: 安装 LLVM 系列 Windows 工具链（ARM64：msvc 主机＋gnullvm 目标，ADR-074）
+        if: matrix.platform == 'windows-arm64'
+        run: |
+          python .github/scripts/setup-windows-llvm.py `
+            --rustup-toolchain 1.100.0-aarch64-pc-windows-msvc `
+            --rustup-target aarch64-pc-windows-gnullvm
+
+      - name: 拉取并校验预编译 DuckDB（ADR-DB-BUILD）
+        run: python .github/scripts/fetch-duckdb.py
+
+      - name: extreme_scale（1M 事件夹具；验收目标 gnullvm）
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/extreme-scale | Out-Null
+          cargo test --locked -p whcode-tests --test extreme_scale -- --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/extreme-scale/amd64.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: extreme_scale（1M 事件夹具；原生 ARM64）
+        if: matrix.platform == 'windows-arm64'
+        shell: pwsh
+        env:
+          DUCKDB_LIB_DIR: ${{ github.workspace }}/vendor/duckdb/2.0.0/aarch64-pc-windows-msvc
+        run: |
+          New-Item -ItemType Directory -Force artifacts/extreme-scale | Out-Null
+          cargo test --locked -p whcode-tests --test extreme_scale `
+            --target aarch64-pc-windows-gnullvm -- --nocapture 2>&1 |
+            Tee-Object -FilePath artifacts/extreme-scale/arm64.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 上传极值规模证据
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: extreme-scale-${{ matrix.platform }}
+          if-no-files-found: warn
+          path: artifacts/extreme-scale/
 
   # ---------------- 性能预算（仅 workflow_dispatch 且 perf=true） ----------------
   # 托管 runner 为共享环境，绝对延迟受邻居负载影响；本 job 只产出受控测量信号，

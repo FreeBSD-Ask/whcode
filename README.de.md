@@ -43,7 +43,7 @@ Gründe für Offenes und Fundstellen der Belege stehen in der
 | Windows 11 amd64 | **Einziges Abnahmeziel** (`x86_64-pc-windows-gnullvm`, ADR-073) |
 | Windows ARM64 | Ziel für Build-Auslieferung (ADR-043): CI-Ergebnisse gelten als Plattformbeleg, nicht als Abnahme |
 | FreeBSD | Vollständiger Plattformbeleg-Kanal (harte Prüfung): Bei jedem `main` baut, testet und prüft die CI vollständig, jeder Fehler färbt sie rot; keine Abnahmeschlussfolgerung |
-| NetBSD | Läuft auf `main` automatisch in der CI; nur Plattformbeleg |
+| NetBSD | Läuft in der CI nach Wochenplan und per manueller Auslösung; nur Plattformbeleg (ADR-082) |
 | OpenBSD / DragonFly | Manueller Platzhalter; zusammen mit NetBSD Ziel für SSH-Fernentwicklung (die verbundene Seite, keine native Werkzeugkette nötig) |
 
 Leistungsquantile stammen derzeit nur aus dem Windows-Kanal. Die vollständige Plattformpolitik

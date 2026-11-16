@@ -134,6 +134,16 @@
   不变（构建交付目标、不进入验收），变的只是工具链落点。**代价与承担者**：aarch64 编译器
   以 x64 模拟运行，构建期多一层模拟依赖；由平台矩阵负责人承担，复审触发见 ADR-074 §5。
 
+- **2026-11-16（ADR-082，用户批准）**：CI 证据节奏调整，平台范围与证据身份不变。
+  ① **FreeBSD 硬门禁的全量测试集合减一项**：`cargo test --locked --workspace` 统一加
+  `-- --skip extreme_scale`（1M 事件夹具，QEMU 内最贵的一项），该项改由每周 schedule 与
+  手动 dispatch 的 `extreme-scale` 专项覆盖（amd64＋ARM64 两个矩阵项）。硬门禁仍为
+  “全量构建（含 GUI／bin）＋全量测试＋三门＋TUI/Web 冒烟”，失败仍红。② **NetBSD 移出
+  push**：由每次 main 推送运行改为每周 schedule 与 `workflow_dispatch(netbsd=true)` 的
+  独立专项 job（含同名公开注解）；仍只作平台证据、不阻断 CI。**代价**：这两类证据的
+  发现延迟最长 7 天；**承担者**：CI 维护者与平台证据维护者；**失效条件**：若 1M 事件
+  不变量或 BSD 差异需要在推送当次可见，按 ADR-082 §8 恢复 push 期运行。
+
 ## 影响
 
 - `spec.md`：User Story 1（M0）的目标平台、独立测试与验收场景改为“Windows 11 amd64 单一目标”；BSD 相关能力（FR-607/FR-611、V-004）标注**延后**，不删需求。
