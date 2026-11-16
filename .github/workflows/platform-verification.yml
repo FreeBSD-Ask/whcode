@@ -508,8 +508,10 @@ jobs:
               cargo test --locked -p whcode-bin --bin whcode -- --test-threads=1 \
                 >> artifacts/a2-diag/single-thread.txt 2>&1 || single_rc=$?
               echo "single_thread_rc=$single_rc" >> artifacts/a2-diag/single-thread.txt
-              # 直接定位测试二进制（cargo 已构建）：deps/whcode-<hash>（排除 .d 依赖文件）。
-              a2_bin=$(ls -t target/debug/deps/whcode-* 2>/dev/null | grep -v '\.d$' | head -n 1)
+              # 直接定位测试二进制（cargo 已构建）。bin 目标通常在 deps/whcode-<hash>；
+              # 但 A2 实测里它落在 build/whcode-bin/<hash>/out/（run 437dc26：binary=<未定位>，
+              # 并行复跑与 truss 因此空转）。两个候选都找，按 mtime 取最新，排除 .d 文件。
+              a2_bin=$(ls -t target/debug/deps/whcode-* target/debug/build/whcode-bin/*/out/whcode-* 2>/dev/null | grep -v '\.d$' | head -n 1)
               echo "binary=${a2_bin:-<未定位>}" >> artifacts/a2-diag/single-thread.txt
               # 并行复跑才是 A2 的可复现形态（单线程历来全过）；崩溃在测试二进制的退出
               # 路径，先直接跑一次拿退出码与 stderr，再用 truss 取故障前后的系统调用尾迹。
