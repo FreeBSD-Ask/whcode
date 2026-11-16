@@ -684,6 +684,23 @@ pub fn registry_with_shell_and_lsp(
     shell: Option<std::sync::Arc<crate::shell::ShellGovernance>>,
     lsp: Option<std::sync::Arc<dyn crate::lsp::LspQueryExecutor>>,
 ) -> Result<crate::registry::ToolRegistry, WhError> {
+    registry_with_optional_tools(shell, lsp, None)
+}
+
+/// 默认注册表 ＋ 可选 shell ＋ 可选 LSP ＋ 可选技能读取口（P1.9／FR-791／ADR-053 修订）。
+///
+/// 三个参数全为 `None` 时等价于 [`default_registry`]（九件）。技能工具只在绑定工作区时
+/// 注册（读取范围受目录扫描白名单约束，见 [`crate::skill`]）；其注册不改变默认注册表，
+/// 因此 `docs/guides/tool-catalogue.md`（受校验产物）仍只描述九件静态工具。
+///
+/// # Errors
+///
+/// 注册冲突（不应发生：稳定名互异）返回错误。
+pub fn registry_with_optional_tools(
+    shell: Option<std::sync::Arc<crate::shell::ShellGovernance>>,
+    lsp: Option<std::sync::Arc<dyn crate::lsp::LspQueryExecutor>>,
+    skill: Option<std::sync::Arc<dyn crate::skill::SkillCatalog>>,
+) -> Result<crate::registry::ToolRegistry, WhError> {
     let mut registry = default_registry()?;
     if let Some(governance) = shell {
         registry.register(std::sync::Arc::new(crate::shell::Shell::new(governance)))?;
@@ -700,6 +717,9 @@ pub fn registry_with_shell_and_lsp(
                 std::sync::Arc::clone(&executor),
             )))?;
         }
+    }
+    if let Some(catalog) = skill {
+        registry.register(std::sync::Arc::new(crate::skill::SkillTool::new(catalog)))?;
     }
     Ok(registry)
 }

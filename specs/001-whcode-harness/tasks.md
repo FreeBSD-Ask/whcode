@@ -2502,3 +2502,23 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
 - [x] T356 [P] 文档与登记（P1.10／FR-790）：FR-790、`contracts/event-schema.md` 事件清单、
   ADR-044 修订记录、Check 449—450、CHANGELOG——**取证（2026-11-16）**：计数、追溯、
   文风、EOL 门禁通过。
+
+## Tasks（2026-11-16 追加）：技能读取工具（P1.9，FR-791，ADR-053 修订）
+
+- [x] T357 技能工具与目录访问口（P1.9／FR-791／ADR-053 修订）：`crates/whcode-tools/src/skill.rs`
+  新增只读工具 `skill`（列表／按名读取、正文 ≤16 KiB 截断标记、引用 ≤20 条含总数、外部内容
+  标注、名字白名单校验：`/`、`\`、`..`、控制字符、超长一律拒绝）＋`SkillCatalog` 注入口；
+  `crates/whcode-app/src/skills.rs` 新增 `WorkspaceSkillCatalog`（扫描白名单、相对路径、
+  一跳引用去重、>1 MiB 显式拒绝），`validate_references` 与引用解析共用同一份实现
+  ——**任务认知卡**：方向＝ADR-053 让模型 `read_file` 读技能正文，但读取面是任意文件、无
+  正文预算、引用需自行解析；目标＝把读取收窄到技能目录白名单并给出有界文档；判据＝列表
+  排序与相对路径、正文无 frontmatter、遍历名拒绝、超限截断可见；非目标＝正文注入上下文、
+  技能参数化调用、热重载。
+  **取证（2026-11-16）**：`cargo test -p whcode-tools skill`（7 项）、
+  `cargo test -p whcode-app skills`（9 项，含目录适配与超限拒绝）。
+- [x] T358 装配与端到端（P1.9／FR-791）：`registry_with_optional_tools`（九件＋可选
+  shell／LSP／技能）与 turn 注册（仅绑定工作区时）；`cargo test -p whcode-app skill_tool`
+  断言工具回填含外部内容标注与正文、frontmatter 不进入正文——**取证（2026-11-16）**：
+  app 274 项全绿。
+- [x] T359 [P] 文档与登记（P1.9／FR-791）：FR-791、ADR-053 修订记录、Check 451—453、
+  CHANGELOG、计数声明——**取证（2026-11-16）**：计数／追溯／文风／EOL 门禁通过。

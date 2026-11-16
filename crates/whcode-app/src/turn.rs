@@ -489,9 +489,18 @@ fn run_turn_inner(
     } else {
         None
     };
-    let tool_registry = whcode_tools::registry_with_shell_and_lsp(
+    // P1.9／FR-791／ADR-053 修订：绑定工作区时注册技能读取工具（只读；可见范围由目录
+    // 扫描白名单决定，模型给的名字不会拼进路径）。未绑定工作区即不注册——没有工作区就没有
+    // `.zcode/skills/`，注册一个必然返回空目录的工具只会污染工具清单。
+    let skill_catalog: Option<std::sync::Arc<dyn whcode_tools::SkillCatalog>> =
+        request.workspace_root.as_ref().map(|_| {
+            std::sync::Arc::new(crate::skills::WorkspaceSkillCatalog)
+                as std::sync::Arc<dyn whcode_tools::SkillCatalog>
+        });
+    let tool_registry = whcode_tools::registry_with_optional_tools(
         shell_governance.map(std::sync::Arc::clone),
         context.lsp.clone(),
+        skill_catalog,
     )
     .map_err(|err| WhError::internal(format!("工具注册表构造失败：{err}")))?;
     // FR-736/737、ADR-054：MCP 服务器 per-turn 连接（无配置 = 空管理器，功能关闭）；
@@ -2859,6 +2868,60 @@ mod tests {
                 .iter()
                 .any(|m| m.role == Role::System && m.content.contains("工具重复调用")),
             "第 4 次模型请求必须看到提醒"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// P1.9／FR-791：绑定工作区时模型可调用 `skill` 工具读技能正文（外部内容标注随文）。
+    #[test]
+    fn skill_tool_reads_workspace_skill_document() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let factory = StubFactory(StubProvider::with_script(vec![
+            StubStep {
+                chunks: vec!["读技能".to_string()],
+                finish_reason: "tool_call".to_string(),
+                tool_calls: vec![whcode_llm::provider::LlmToolCall {
+                    id: "call-1".to_string(),
+                    name: "skill".to_string(),
+                    arguments: r#"{"name":"guide"}"#.to_string(),
+                }],
+            },
+            StubStep::simple("完成", "stop"),
+        ]));
+        let dir = temp_dir("skill-tool");
+        let skill_dir = dir.join(".zcode/skills/guide");
+        std::fs::create_dir_all(&skill_dir).expect("技能目录");
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---
+name: guide
+description: 指南
+---
+步骤一：先读清单。
+",
+        )
+        .expect("写技能");
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let mut req = request(&id, "用技能");
+        req.workspace_root = Some(dir.clone());
+        let outcome = run_turn(&mut conn, &policy, &actor, &ctx, &req, 7).expect("完成");
+        assert_eq!(outcome.termination_reason, "model_finished");
+        let tool_msg: String = conn
+            .query_row(
+                "SELECT content_ref FROM messages WHERE session_id=? AND role='tool'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("工具回填");
+        assert!(tool_msg.contains("外部内容"), "{}", tool_msg);
+        assert!(tool_msg.contains("步骤一"), "{}", tool_msg);
+        assert!(
+            !tool_msg.contains("description:"),
+            "frontmatter 不应进入正文：{tool_msg}"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }

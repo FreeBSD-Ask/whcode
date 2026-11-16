@@ -7,7 +7,7 @@
 //! 门禁由 [`validate_references`] 强制。
 
 use std::path::Path;
-use whcode_domain::WhError;
+use whcode_domain::{ErrorCode, WhError};
 
 /// 已解析的技能描述（ADR-053 §2.3）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -92,17 +92,31 @@ fn parse_frontmatter(content: &str) -> Result<(String, String), WhError> {
     Ok((name, description))
 }
 
-/// 可达性校验（FR-735、ADR-053 §2.2）：SKILL.md 中 `](relative/path)` 引用的
-/// 相对路径文件必须存在于同一技能目录下；缺失返回错误列表（空 = 全通过）。
-pub fn validate_references(skill_dir: &Path, content: &str) -> Vec<String> {
-    let mut missing = Vec::new();
+/// 单个 SKILL.md 的读取上限（1 MiB）：技能是文档，不是数据文件；超限显式拒绝。
+pub const MAX_SKILL_SOURCE_BYTES: u64 = 1024 * 1024;
+
+/// SKILL.md 去掉 frontmatter 后的正文（`---` 闭合行之后的部分）。
+fn body_after_frontmatter(content: &str) -> &str {
+    let trimmed = content.trim_start();
+    let Some(rest) = trimmed.strip_prefix("---") else {
+        return content;
+    };
+    let Some(end) = rest.find("\n---") else {
+        return content;
+    };
+    let after = &rest[end + 4..];
+    after.strip_prefix('\n').unwrap_or(after)
+}
+
+/// 正文中 `](relative/path)` 形式的引用（去重、保持出现顺序；跳过 URL 与锚点）。
+pub fn references(content: &str) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
     for line in content.lines() {
-        // 匹配 markdown 链接 ](path) 形态
         let mut search = line;
         while let Some(pos) = search.find("](") {
             let rest = &search[pos + 2..];
             let Some(close) = rest.find(')') else { break };
-            let path = &rest[..close];
+            let path = rest[..close].trim();
             if path.starts_with("http")
                 || path.starts_with('#')
                 || path.contains("://")
@@ -112,16 +126,90 @@ pub fn validate_references(skill_dir: &Path, content: &str) -> Vec<String> {
                 continue;
             }
             let clean = path.trim_start_matches("./");
-            if !clean.is_empty() && !clean.contains("..") {
-                let full = skill_dir.join(clean);
-                if !full.exists() {
-                    missing.push(format!("引用不存在：{}", full.display()));
-                }
+            if !clean.is_empty() && !clean.contains("..") && !found.iter().any(|item| item == clean)
+            {
+                found.push(clean.to_string());
             }
             search = &rest[close + 1..];
         }
     }
-    missing
+    found
+}
+
+/// 工作区技能目录访问口（工具层 [`whcode_tools::SkillCatalog`] 的实现；扫描与解析只有一份）。
+pub struct WorkspaceSkillCatalog;
+
+fn relative_path(workspace: &Path, path: &Path) -> String {
+    path.strip_prefix(workspace)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace(std::path::MAIN_SEPARATOR, "/")
+}
+
+impl whcode_tools::SkillCatalog for WorkspaceSkillCatalog {
+    fn list(&self, workspace: &Path) -> Result<Vec<whcode_tools::SkillSummary>, WhError> {
+        let (entries, _) = scan_skills(workspace)?;
+        Ok(entries
+            .into_iter()
+            .map(|entry| whcode_tools::SkillSummary {
+                path: relative_path(workspace, &entry.path),
+                name: entry.name,
+                description: entry.description,
+            })
+            .collect())
+    }
+
+    fn read(&self, workspace: &Path, name: &str) -> Result<whcode_tools::SkillDocument, WhError> {
+        let (entries, _) = scan_skills(workspace)?;
+        let entry = entries
+            .into_iter()
+            .find(|entry| entry.name == name)
+            .ok_or_else(|| {
+                WhError::new(
+                    ErrorCode::NotFound,
+                    format!(
+                        "技能 {name} 不存在：可用技能见 skill 工具列表（.zcode/skills/<name>/SKILL.md）"
+                    ),
+                )
+            })?;
+        let size = std::fs::metadata(&entry.path)
+            .map_err(|err| {
+                WhError::new(
+                    ErrorCode::IoError,
+                    format!("读取技能文件 {} 失败：{err}", entry.path.display()),
+                )
+            })?
+            .len();
+        if size > MAX_SKILL_SOURCE_BYTES {
+            return Err(WhError::invalid_state(format!(
+                "技能文件 {} 有 {size} 字节，超过 {MAX_SKILL_SOURCE_BYTES} 上限；技能应是文档而不是数据文件",
+                entry.path.display()
+            )));
+        }
+        let content = std::fs::read_to_string(&entry.path).map_err(|err| {
+            WhError::new(
+                ErrorCode::IoError,
+                format!("读取技能文件 {} 失败：{err}", entry.path.display()),
+            )
+        })?;
+        Ok(whcode_tools::SkillDocument {
+            path: relative_path(workspace, &entry.path),
+            name: entry.name,
+            description: entry.description,
+            body: body_after_frontmatter(&content).to_string(),
+            references: references(body_after_frontmatter(&content)),
+        })
+    }
+}
+
+/// 可达性校验（FR-735、ADR-053 §2.2）：SKILL.md 中 `](relative/path)` 引用的
+/// 相对路径文件必须存在于同一技能目录下；缺失返回错误列表（空 = 全通过）。
+pub fn validate_references(skill_dir: &Path, content: &str) -> Vec<String> {
+    references(content)
+        .into_iter()
+        .filter(|reference| !skill_dir.join(reference).exists())
+        .map(|reference| format!("引用不存在：{}", skill_dir.join(reference).display()))
+        .collect()
 }
 
 #[cfg(test)]
@@ -190,6 +278,70 @@ mod tests {
         let missing = validate_references(&skill_dir, with_missing);
         assert_eq!(missing.len(), 1);
         let _ = std::fs::remove_dir_all(&ws);
+    }
+
+    /// 目录访问口（P1.9／FR-791）：列表给相对路径，读取给正文与引用，未知名显式 `not_found`。
+    #[test]
+    fn catalog_lists_and_reads_documents() {
+        use whcode_tools::SkillCatalog;
+
+        let ws = workspace();
+        let list = WorkspaceSkillCatalog.list(&ws).expect("列表");
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].name, "read-guide");
+        assert_eq!(
+            list[0].path, ".zcode/skills/read-guide/SKILL.md",
+            "路径必须相对工作区且用正斜杠"
+        );
+
+        let document = WorkspaceSkillCatalog.read(&ws, "read-guide").expect("读取");
+        assert!(
+            !document.body.contains("name: read-guide"),
+            "正文不应含 frontmatter：{}",
+            document.body
+        );
+        assert!(document.body.contains("参见"), "{}", document.body);
+        assert_eq!(document.references, vec!["detail.md".to_string()]);
+
+        let err = WorkspaceSkillCatalog
+            .read(&ws, "ghost")
+            .expect_err("未知名");
+        assert_eq!(err.code, ErrorCode::NotFound);
+        assert!(err.message.contains("skill"), "{}", err.message);
+        let _ = std::fs::remove_dir_all(&ws);
+    }
+
+    /// 超过 1 MiB 的 SKILL.md 显式拒绝：技能是文档而不是数据文件。
+    #[test]
+    fn catalog_rejects_oversized_source() {
+        use whcode_tools::SkillCatalog;
+
+        let ws = workspace();
+        let big = ws.join(".zcode/skills/big");
+        std::fs::create_dir_all(&big).expect("建目录");
+        let mut content = String::from(
+            "---
+name: big
+description: 大文件
+---
+",
+        );
+        content.push_str(&"x".repeat(MAX_SKILL_SOURCE_BYTES as usize + 1));
+        std::fs::write(big.join("SKILL.md"), content).expect("写大文件");
+        let err = WorkspaceSkillCatalog.read(&ws, "big").expect_err("超限");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        assert!(err.message.contains("上限"), "{}", err.message);
+        let _ = std::fs::remove_dir_all(&ws);
+    }
+
+    /// 引用解析：去重、跳过 URL 与锚点、拒绝点段（与可达性门禁同一份实现）。
+    #[test]
+    fn references_deduplicate_and_skip_urls_and_anchors() {
+        let text = "[a](one.md) [a2](one.md) [web](https://x/y) [top](#t) [esc](../secret.md) [here](./two.md)";
+        assert_eq!(
+            references(text),
+            vec!["one.md".to_string(), "two.md".to_string()]
+        );
     }
 
     #[test]

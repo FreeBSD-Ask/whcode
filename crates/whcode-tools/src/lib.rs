@@ -19,14 +19,15 @@ pub mod plan;
 pub mod present;
 pub mod registry;
 pub mod shell;
+pub mod skill;
 pub mod todo;
 
 /// 工具输出正文上限（64 KiB；超限截断并显式标记，FR-728/R-05 对策）。
 pub const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1024;
 
 pub use builtins::{
-    EDIT_FILE_TOOL, WRITE_FILE_TOOL, default_registry, registry_with_shell,
-    registry_with_shell_and_lsp,
+    EDIT_FILE_TOOL, WRITE_FILE_TOOL, default_registry, registry_with_optional_tools,
+    registry_with_shell, registry_with_shell_and_lsp,
 };
 pub use lsp::{
     DiagnosticView, LSP_DEFINITION_TOOL, LSP_DIAGNOSTICS_TOOL, LSP_HOVER_TOOL, LSP_REFERENCES_TOOL,
@@ -49,5 +50,9 @@ pub use registry::{
 pub use shell::{
     MAX_ALLOWED_COMMANDS, SHELL_MAX_SCRIPT_BYTES, SHELL_TOOL, Shell, ShellExecutor,
     ShellGovernance, ShellOutcome, ShellRequest, whitelist_allows,
+};
+pub use skill::{
+    MAX_SKILL_BODY_BYTES, MAX_SKILL_NAME_CHARS, MAX_SKILL_REFERENCES, MAX_SKILLS, SKILL_TOOL,
+    SkillCatalog, SkillDocument, SkillSummary, SkillTool,
 };
 pub use todo::{MAX_TODO_CONTENT_CHARS, MAX_TODO_ITEMS, TODO_WRITE_TOOL, snapshot_from_arguments};
