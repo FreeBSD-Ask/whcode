@@ -466,4 +466,25 @@ mod tests {
             assert!(!err.retryable);
         }
     }
+
+    #[test]
+    fn writer_stats_come_from_service_queue_and_capacity() {
+        use crate::service::WriterService;
+        use crate::writer::WriterConfig;
+
+        let db = crate::test_util::dir("monitor-writer").join("monitor-writer.duckdb");
+        let _ = std::fs::remove_file(&db);
+        let conn = Connection::open(&db).expect("打开测试库");
+        apply_migrations(&conn).expect("迁移");
+
+        let config = WriterConfig::default();
+        let service = WriterService::start(conn, config).expect("启动写者服务");
+        let stats = WriterStats::from_service(&service);
+        assert_eq!(stats.queued, 0, "空闲态队列深度必为 0");
+        assert_eq!(
+            stats.capacity, config.max_pending,
+            "容量取自写者有界队列配置"
+        );
+        service.shutdown().expect("关闭写者");
+    }
 }

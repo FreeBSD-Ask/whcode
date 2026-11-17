@@ -216,3 +216,99 @@ pub fn by_exec(
 fn store_err(context: &str, err: duckdb::Error) -> WhError {
     WhError::new(ErrorCode::IoError, format!("{context}失败：{err}"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::schema::apply_migrations;
+
+    fn migrated() -> Connection {
+        let conn = Connection::open_in_memory().expect("内存数据库");
+        apply_migrations(&conn).expect("迁移");
+        conn
+    }
+
+    #[test]
+    fn record_requires_non_empty_session_exec_and_path() {
+        let conn = migrated();
+        for (session, exec, path) in [
+            ("", "X-1", "src/a.rs"),
+            ("S-1", "   ", "src/a.rs"),
+            ("S-1", "X-1", ""),
+        ] {
+            let err = record(&conn, session, exec, path, 3, Some("abc"), None)
+                .expect_err("空会话/执行 ID/路径必须拒绝");
+            assert_eq!(
+                err.code,
+                ErrorCode::InvalidState,
+                "错误码须为 invalid_state"
+            );
+        }
+    }
+
+    #[test]
+    fn record_requires_exactly_one_of_content_and_skipped_reason() {
+        let conn = migrated();
+        let both = record(
+            &conn,
+            "S-1",
+            "X-1",
+            "src/a.rs",
+            3,
+            Some("abc"),
+            Some("too_large"),
+        )
+        .expect_err("内容与跳过原因不得同时给出");
+        assert_eq!(both.code, ErrorCode::InvalidState);
+        let neither = record(&conn, "S-1", "X-1", "src/a.rs", 0, None, None)
+            .expect_err("内容与跳过原因不得同时缺失");
+        assert_eq!(neither.code, ErrorCode::InvalidState);
+    }
+
+    #[test]
+    fn record_rejects_content_over_single_file_limit() {
+        let conn = migrated();
+        let big = "x".repeat(MAX_PREIMAGE_BYTES + 1);
+        let err = record(
+            &conn,
+            "S-1",
+            "X-1",
+            "src/a.rs",
+            big.len() as i64,
+            Some(&big),
+            None,
+        )
+        .expect_err("超限内容必须拒绝，调用方改登记跳过原因");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+
+        let id = record(
+            &conn,
+            "S-1",
+            "X-1",
+            "src/a.rs",
+            big.len() as i64,
+            None,
+            Some("too_large"),
+        )
+        .expect("超限文件以跳过原因登记");
+        assert!(id.starts_with("PI-"), "前像标识必须带 PI- 前缀");
+        let rows = by_exec(&conn, "S-1", "X-1").expect("按执行读取");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].skipped_reason.as_deref(), Some("too_large"));
+        assert!(rows[0].content.is_none(), "跳过登记不得存内容");
+    }
+
+    #[test]
+    fn list_rejects_limit_outside_bounds() {
+        let conn = migrated();
+        assert!(list(&conn, "S-1", 0).is_err(), "limit 为 0 必须拒绝");
+        assert!(
+            list(&conn, "S-1", MAX_PREIMAGES_PER_SESSION + 1).is_err(),
+            "limit 超过会话上限必须拒绝"
+        );
+        assert!(
+            list(&conn, "S-1", MAX_PREIMAGES_PER_SESSION).is_ok(),
+            "上限本身是合法取值"
+        );
+    }
+}

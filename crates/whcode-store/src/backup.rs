@@ -576,4 +576,36 @@ mod tests {
         let err = verify_backup(&missing, "00").expect_err("缺失备份必须拒绝");
         assert_eq!(err.code, ErrorCode::NotFound);
     }
+
+    /// 迁移前提示文案：只含路径、迁移前版本、字节数与校验和，不回显库内容。
+    #[test]
+    fn notice_reports_path_version_bytes_and_digest() {
+        let record = BackupRecord {
+            source: "/tmp/whcode.duckdb".to_string(),
+            path: "/tmp/.whcode-backups/whcode.duckdb.v0014-1700000000000.bak".to_string(),
+            sha256: ABC_SHA256.to_string(),
+            bytes: 3,
+            schema_version: 14,
+            created_at_ms: 1_700_000_000_000,
+        };
+        let notice = record.notice();
+        assert!(notice.contains("v14"), "文案须写明迁移前版本：{notice}");
+        assert!(
+            notice.contains(&record.path),
+            "文案须写明备份路径：{notice}"
+        );
+        assert!(notice.contains("3 字节"), "文案须写明字节数：{notice}");
+        assert!(notice.contains(ABC_SHA256), "文案须写明校验和：{notice}");
+    }
+
+    /// 库文件尚不存在（真实首次启动）时不做备份，返回“正确的空”。
+    #[test]
+    fn pre_migration_backup_skips_absent_database_file() {
+        let dir = test_util::dir("backup-absent");
+        let absent = dir.join("absent.duckdb");
+        let record =
+            pre_migration_backup(&absent, crate::STORE_SCHEMA_VERSION, 1).expect("缺失库检查");
+        assert!(record.is_none(), "库文件不存在时不得视为待备份");
+        assert!(!absent.exists(), "检查动作不得顺手创建库文件");
+    }
 }

@@ -363,4 +363,139 @@ mod tests {
         assert_eq!(runs[0].phase, CoherencePhase::Mid);
         assert!(list_runs(&conn, 0).is_err());
     }
+
+    #[test]
+    fn requirement_over_limit_is_rejected() {
+        let conn = migrated();
+        let long = "x".repeat(MAX_COHERENCE_REQUIREMENT_CHARS + 1);
+        let mut new = request(CoherencePhase::Pre, Verdict::Satisfied);
+        new.requirement = &long;
+        let err = insert_run(&conn, new, 1).expect_err("超长要求必须拒绝");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+    }
+
+    #[test]
+    fn total_smaller_than_counterexamples_is_rejected() {
+        let conn = migrated();
+        let mut new = request(CoherencePhase::Pre, Verdict::Counterexample);
+        new.total = 0;
+        new.counterexamples = 1;
+        new.counterexamples_json = r#"[{"rule":"SFR-03"}]"#;
+        let err = insert_run(&conn, new, 1).expect_err("总数小于反例数必须拒绝");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+    }
+
+    #[test]
+    fn session_less_run_is_allowed_and_readable_by_list() {
+        let conn = migrated();
+        let mut new = request(CoherencePhase::End, Verdict::Satisfied);
+        new.session_id = None;
+        insert_run(&conn, new, 5).expect("仓库级计算");
+        let runs = list_runs(&conn, 5).expect("列表");
+        assert_eq!(runs.len(), 1);
+        assert!(runs[0].session_id.is_none());
+    }
+
+    #[test]
+    fn drifted_phase_is_parse_error() {
+        let conn = migrated();
+        conn.execute(
+            "INSERT INTO coherence_runs (id, session_id, phase, verdict, requirement, total, \
+             counterexamples, unknowns, counterexamples_json) \
+             VALUES ('COH-BAD-PHASE', 'S-1', 'audit', 'satisfied', '要求', 1, 0, 0, \
+             CAST('[]' AS JSON)::VARIANT)",
+            [],
+        )
+        .expect("写入漂移行");
+        let err = latest_run(&conn, "S-1").expect_err("未知阶段必须报错");
+        assert_eq!(err.code, ErrorCode::ParseError);
+    }
+
+    #[test]
+    fn drifted_verdict_is_parse_error() {
+        let conn = migrated();
+        conn.execute(
+            "INSERT INTO coherence_runs (id, session_id, phase, verdict, requirement, total, \
+             counterexamples, unknowns, counterexamples_json) \
+             VALUES ('COH-BAD-VERDICT', 'S-1', 'pre', 'green', '要求', 1, 0, 0, \
+             CAST('[]' AS JSON)::VARIANT)",
+            [],
+        )
+        .expect("写入漂移行");
+        let err = latest_run(&conn, "S-1").expect_err("未知结论必须报错");
+        assert_eq!(err.code, ErrorCode::ParseError);
+    }
+
+    #[test]
+    fn detail_must_be_json_array() {
+        let conn = migrated();
+        let mut new = request(CoherencePhase::Pre, Verdict::Satisfied);
+        new.counterexamples_json = r#"{"rule":"SFR-03"}"#;
+        let err = insert_run(&conn, new, 1).expect_err("JSON 对象不是数组必须拒绝");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+    }
+
+    #[test]
+    fn counterexample_verdict_round_trips() {
+        let conn = migrated();
+        let mut new = request(CoherencePhase::Pre, Verdict::Counterexample);
+        new.counterexamples = 1;
+        new.total = 10;
+        new.counterexamples_json = r#"[{"rule":"SFR-03","evidence":"缺口登记待补"}]"#;
+        insert_run(&conn, new, 7).expect("写入反例结论");
+        let run = latest_run(&conn, "S-1").expect("查询").expect("存在");
+        assert_eq!(run.verdict, Verdict::Counterexample);
+        assert_eq!(run.counterexamples, 1);
+    }
+
+    #[test]
+    fn session_task_prefers_latest_unfinished() {
+        let conn = migrated();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status) \
+             VALUES ('S-T', '任务会话', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("建会话");
+        for (id, acceptance, updated) in [
+            ("T-OLD", r#"["旧判据"]"#, "2025-01-01 00:00:00"),
+            ("T-NEW", r#"["新判据"]"#, "2025-06-01 00:00:00"),
+        ] {
+            conn.execute(
+                "INSERT INTO tasks (id, session_id, title, stage, status, parent_id, \
+                 acceptance_json, retry_count, updated_at) \
+                 VALUES (?, 'S-T', '补齐导出', 'specify', 'pending', NULL, \
+                 CAST(? AS JSON)::VARIANT, 0, CAST(? AS TIMESTAMP))",
+                duckdb::params![id, acceptance, updated],
+            )
+            .expect("建任务");
+        }
+        let brief = session_task(&conn, "S-T").expect("读取").expect("有任务");
+        assert_eq!(brief.title, "补齐导出");
+        assert_eq!(brief.acceptance_json, r#"["新判据"]"#);
+        assert!(session_task(&conn, "S-none").expect("读取空").is_none());
+    }
+
+    #[test]
+    fn session_turn_count_counts_only_turn_started() {
+        let conn = migrated();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status) \
+             VALUES ('S-C', '计数会话', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("建会话");
+        assert_eq!(session_turn_count(&conn, "S-C").expect("空计数"), 0);
+        for (seq, kind) in [(1, "TurnStarted"), (2, "TurnFinished"), (3, "TurnStarted")] {
+            conn.execute(
+                "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id, \
+                 kind, payload_json, ts, persistence_level) \
+                 VALUES (?, ?, 'S-C', NULL, NULL, NULL, ?, CAST('{}' AS JSON)::VARIANT, \
+                 current_timestamp, 'redacted')",
+                duckdb::params![seq, format!("EV-{seq}"), kind],
+            )
+            .expect("写事件");
+        }
+        assert_eq!(session_turn_count(&conn, "S-C").expect("计数"), 2);
+    }
 }
