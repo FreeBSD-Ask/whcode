@@ -13,6 +13,12 @@
 
 ### 变更
 
+- **公理体系与充分性审计指南（2026-11-17，用户批准）**：新增 `docs/guides/axiom-system.md`，
+  把 AGENTS、spec、ADR 与工具链的可判定规则重构为 45 条公理、7 条推理规则与 6 条元定理，
+  给出判定程序索引、充分性计算方法与当前快照；与 `coherence.py` 的可执行子集互补，
+  编号以 `COH-` 前缀区分。同批把审计的七条缺口并入该求值器公理表（索引、作用域、降级、
+  样本、判据充分、极性、资源预算），该批次随一致性求值器入账。
+
 - **FreeBSD 安装验证记录命名修正（2026-11-17，Check 464 取证反推）**：`package-freebsd.sh` 的记录首部
   原写目录名（`whcode-<v>-freebsd-amd64`），与 `check-release.py --record` 的“记录名等于归档
   文件名”口径不符，导致发布校验对 FreeBSD 包恒红；现按 Windows 侧 `zip_path.name` 口径写

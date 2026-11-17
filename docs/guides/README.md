@@ -30,6 +30,7 @@
 | `yike-philosophy.md` | 一刻哲学源流与工程翻译 |
 | `knowing-before-doing.md` | 知难行易（宪法原则 X）：任务认知卡、门禁落点、反例与复审触发 |
 | `evidence-states.md` | Check 证据五态命名与升级判据（ADR-046 项 H；T271） |
+| `axiom-system.md` | 公理体系与充分性审计：45 条公理、推理规则、判定程序索引与待办充分性计算方法 |
 | `review-protocol.md` | 评审协议：三证据域独立、调和纪律、质量门与硬上限（T272） |
 | `milestone-review.md` | 里程碑评审协议（Agent Work Loop 评审层） |
 | `long-line-plan.md` | 长线计划：阶段 A—C 工作序列与门禁的权威索引（非验收结论） |
