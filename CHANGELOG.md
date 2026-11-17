@@ -11,6 +11,10 @@
 
 ## [Unreleased]
 
+### 变更
+
+- **字段测试：真实供应商工具调用链路断裂（2026-11-17/18，P0 发现）**：接 SenseNova 真跑字段测试（沙盒样例库，`local/fieldtest/` 不入库）：需要工具的任务在 `finish_reason=tool_calls` 下**事件流无任何 ToolCall、正文为空、turn 静默按 `model_finished` 终止**；纯文本对照任务完全健康。根因＝协议解码器只读 `delta.content`、不读 `tool_calls`/`tool_use`/`functionCall` 帧，请求侧也无 `role:tool`/`tool_result` 回传装配（`protocols.rs:139` 自认随 P0-2 扩展）；既有工具执行 Check 全部走桩剧本，桩绿≠真通。缺口清单与修复面见 `artifacts/fieldtest-2026-11-17.md`。
+
 ### 修复
 
 - **多提交推送被误判为纯文档（2026-11-17）**：`platform-verification.yml` 的 `triage`
