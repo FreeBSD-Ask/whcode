@@ -13,6 +13,11 @@
 
 ### 变更
 
+- **FreeBSD 安装验证记录命名修正（2026-11-17，Check 464 取证反推）**：`package-freebsd.sh` 的记录首部
+  原写目录名（`whcode-<v>-freebsd-amd64`），与 `check-release.py --record` 的“记录名等于归档
+  文件名”口径不符，导致发布校验对 FreeBSD 包恒红；现按 Windows 侧 `zip_path.name` 口径写
+  `whcode-<v>-freebsd-amd64.tar.gz`。
+
 - **学习捕获与干预台账（2026-11-17，P2.4／FR-794／ADR-084）**：`findings` 增加复发归因
   字段（`pattern`／`recurrence_count`／`dismiss_reason`）——复发登记是显式动作（仅 `fixed`
   可登记），`dismissed` 必须带封闭原因码；新表 `interventions` 以四要件登记改进，结论由

@@ -199,7 +199,9 @@ run_cmd() {
 
 {
     echo "WHCode FreeBSD amd64 发布包"
-    echo "package = $package_name（$tar_bytes 字节，sha256=$tar_digest）"
+    # 包名写归档文件全名（含 .tar.gz）：check-release.py 的 --record 交叉校验按
+    # `recorded_name == 实际包文件名` 比对，与 Windows 侧 `zip_path.name` 同口径。
+    echo "package = $package_name.tar.gz（$tar_bytes 字节，sha256=$tar_digest）"
     echo "version = $version"
     echo "target_triple = x86_64-unknown-freebsd"
     echo "binary_version = $("$unpack/whcode" --version 2>&1 | head -n 1)"
