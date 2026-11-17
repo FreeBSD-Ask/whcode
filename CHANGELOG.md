@@ -13,6 +13,15 @@
 
 ### 修复
 
+- **多提交推送被误判为纯文档（2026-11-17）**：`platform-verification.yml` 的 `triage`
+  用 `git diff HEAD~1 HEAD` 判定，只看得到**最后一次提交**；一次推送若前面是代码、末条是
+  文档，整次推送会被判成纯文档，平台矩阵、覆盖率复测与 Code Scanning 全部 skipped——
+  run `44091664605`（`2008bfa`＋`7694774`，6 个文件含 4 个 `crates/whcode-store/**`）实测
+  `docs_only=true（改动文件数 2）`。改为以 `github.event.before`…`HEAD` 的整段推送范围
+  判定；浅克隆下补取基线提交，仍不可达则按代码处理（宁严不宽）。本地对两个基线复算
+  （`7a7c8dc`→false／6 文件、`2008bfa`→true／2 文件）确认新旧口径的差异，`check-workflows.py`
+  通过。
+
 - **覆盖率试点被新模块拉回线下（2026-11-17，store 89.72%→90.28%）**：新增的
   `whcode-store::coherence` 与配套存储代码上线后，dispatch run `44084818854`（`7a7c8dc`）的
   coverage-pilot 判红：store 9839/10966＝**89.72%**（阈值 90%，app 为 90.33%）。按 Check 448

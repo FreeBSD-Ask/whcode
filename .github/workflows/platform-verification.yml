@@ -31,7 +31,9 @@
 #   - extreme_scale（1M 事件夹具，单次约 8.8 分钟，占测试运行 78%）移出 push／PR 路径，
 #     由 schedule 与 workflow_dispatch 的 extreme-scale 专项 job 覆盖（amd64＋ARM64）。
 #   - 纯文档推送（docs/、specs/、artifacts/、i18n/、根级 *.md）不跑五平台矩阵，改跑
-#     docs-gates 专项；判据不降级——文档类门禁全跑，只是不重建五平台产物。
+#     docs-gates 专项；判据不降级——文档类门禁全跑，只是不重建五平台产物。判定基线为
+#     `github.event.before`（本次推送前的远端 head），按整段推送的改动判定；基线缺失或
+#     不可达时按代码处理（只看 HEAD~1 会漏掉多提交推送里的代码改动，run 44091664605）。
 #   - NetBSD 移出 push，改由 schedule／dispatch 专项 job 运行（仍只作平台证据，ADR-013）。
 name: platform-verification
 
@@ -99,10 +101,24 @@ jobs:
         shell: bash
         run: |
           set -eu
-          # HEAD~1 不存在（仓库首个提交）时按代码处理：无法判定就不放宽。
-          if ! base=$(git rev-parse --verify HEAD~1 2>/dev/null); then
+          # 判定基线＝本次推送前的远端 head（github.event.before）。只看 HEAD~1 只能覆盖
+          # 最后一次提交：多提交推送若末条是文档，会把含代码的推送误判成纯文档并整段丢掉
+          # 五平台证据与覆盖率复测（run 44091664605 实测：2 条提交 6 个文件被判 docs_only=true）。
+          base="${{ github.event.before }}"
+          case "$base" in
+            ""|"0000000000000000000000000000000000000000"*)
+              echo "docs_only=false" >> "$GITHUB_OUTPUT"
+              echo "changed=<推送基线缺失（首推或无 before）：按代码处理>" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+          # 浅克隆（fetch-depth: 2）里基线提交可能不在本地：补取一次；仍不可达即按代码处理。
+          git cat-file -e "$base^{commit}" 2>/dev/null \
+            || git fetch --no-tags --depth=1 --quiet origin "$base" 2>/dev/null \
+            || true
+          if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
             echo "docs_only=false" >> "$GITHUB_OUTPUT"
-            echo "changed=<无父提交，无法判定：按代码处理>" >> "$GITHUB_OUTPUT"
+            echo "changed=<推送基线不可达（浅克隆或强推）：按代码处理>" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           files=$(git diff --name-only "$base" HEAD)
@@ -122,7 +138,7 @@ jobs:
             done <<< "$files"
           fi
           echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
-          echo "docs_only=$docs_only（改动文件数 $(printf '%s\n' "$files" | grep -c . || true)）"
+          echo "docs_only=$docs_only（改动文件数 $(printf '%s\n' "$files" | grep -c . || true)，基线 ${base:0:7}）"
 
   # 纯文档推送的专项门禁：文档类判据一条不少，只是不重建五平台产物。
   # 这些脚本都是纯文件检查（无 DuckDB／GUI 依赖），用 ubuntu-latest 更快。
