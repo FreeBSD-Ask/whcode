@@ -262,12 +262,20 @@ fn run(
         #[cfg(test)]
         if let Some(gate) = _gate.as_ref() {
             gate.wait_until_open();
-            if gate.take_poison() {
-                panic!("注入写线程故障：验证 panic 故障路径（ADR-017 §6）");
-            }
         }
         match rx.recv_timeout(window) {
             Ok(request) => {
+                // 毒丸按请求生效（与 Gate 文档口径一致）：测试先 arm 再提交，取到
+                // 请求时必然命中——消除"线程启动先于 poison 挂起"的竞态。该竞态
+                // 在 CI run 44176786717 的 FreeBSD 全量测试中现实化
+                // （writer_panic_is_reported_and_later_requests_are_rejected
+                // 的 expect_err 撞上已成功提交的请求），按可复现事实修复。
+                #[cfg(test)]
+                if let Some(gate) = _gate.as_ref()
+                    && gate.take_poison()
+                {
+                    panic!("注入写线程故障：验证 panic 故障路径（ADR-017 §6）");
+                }
                 queued.fetch_sub(1, Ordering::SeqCst);
                 let outcome = writer.submit_at(request.record, request.idempotency_key, now_ms());
                 let _ = request.reply.send(outcome);
