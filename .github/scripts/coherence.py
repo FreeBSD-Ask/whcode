@@ -504,16 +504,30 @@ def eol_violations(items: list[tuple[str, bytes]]) -> tuple[list[str], list[str]
     return crlf, bom
 
 
-def pred_eol_tracked(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
-    """只查 git 跟踪文件的行尾与 BOM。
+def parse_eol_entry(record: str) -> tuple[str, str, str]:
+    """解析 `git ls-files --eol -z` 的一条记录 →（index 行尾、worktree 行尾、路径）。"""
+    meta, _, name = record.partition("\t")
+    index_eol = "unknown"
+    worktree_eol = "unknown"
+    for field in meta.split():
+        if field.startswith("i/"):
+            index_eol = field[2:]
+        elif field.startswith("w/"):
+            worktree_eol = field[2:]
+    return index_eol, worktree_eol, name
 
-    不委托 `check-eol.py`：该门禁按工作区扫描，会把 CI 中先于它生成的运行期产物
-    （如 `artifacts/ssh-acceptance/*.txt`）算成违规；同一提交在本地绿、CI 红（2026-11-17
-    实测）。跟踪文件集合与运行顺序无关，是“仓库文本卫生”的准确口径；运行期产物由
-    `.gitignore` 与 `clean.py` 管。
+
+def pred_eol_tracked(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
+    """只查 git 跟踪文件的**提交内容**行尾与 BOM。
+
+    判定对象是索引（提交内容），不是工作树：CI 的平台 job 会就地重写
+    `artifacts/ssh-acceptance/*.txt`（CRLF），工作树因此与提交树不一致；按工作树判会把
+    运行期改写当成仓库卫生违规，且该文件在本机不存在时又会漏判（2026-11-17 两轮实测）。
+    行尾取 `git ls-files --eol` 的 `i/` 字段；BOM 读工作树字节，文件不存在时读索引 blob。
+    二进制（`i/binary` 或含 NUL）跳过。
     """
     completed = subprocess.run(
-        ["git", "ls-files", "-z"],
+        ["git", "ls-files", "--eol", "-z"],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -521,17 +535,27 @@ def pred_eol_tracked(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
         errors="replace",
         check=False,
     )
-    names = [name for name in completed.stdout.split("\0") if name]
-    items: list[tuple[str, bytes]] = []
-    for name in names:
-        path = ROOT / name
-        if not path.is_file():
+    records = [record for record in completed.stdout.split("\0") if record]
+    crlf: list[str] = []
+    bom: list[str] = []
+    checked = 0
+    for record in records:
+        index_eol, _worktree_eol, name = parse_eol_entry(record)
+        if index_eol in ("binary", "unknown"):
             continue
+        checked += 1
+        if index_eol in ("crlf", "mixed"):
+            crlf.append(name)
+            continue
+        path = ROOT / name
         try:
-            items.append((name, path.read_bytes()))
+            data = path.read_bytes() if path.is_file() else _index_blob(name)
         except OSError:
             continue
-    crlf, bom = eol_violations(items)
+        if data is None or b"\x00" in data:
+            continue
+        if data.startswith(b"\xef\xbb\xbf"):
+            bom.append(name)
     if crlf or bom:
         detail = f"跟踪文件 CRLF {len(crlf)}、BOM {len(bom)}"
         if crlf:
@@ -539,7 +563,20 @@ def pred_eol_tracked(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
         if bom:
             detail += "；BOM 前 3：" + "、".join(bom[:3])
         return False, detail
-    return True, f"{len(names)} 个跟踪文件无 CRLF 与 BOM"
+    return True, f"{checked} 个跟踪文本文件的提交内容无 CRLF 与 BOM"
+
+
+def _index_blob(name: str) -> bytes | None:
+    """读取索引中的文件内容；失败返回 `None`（不把读不到当作通过）。"""
+    completed = subprocess.run(
+        ["git", "show", f":{name}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return None
+    return completed.stdout
 
 
 INDEX_FIELD = re.compile(r"index=[^\s，；、]+")
@@ -907,6 +944,15 @@ def selftest() -> int:
     expect(
         eol_violations([("bin.dat", b"a\x00\r\n")]) == ([], []),
         "二进制跳过",
+    )
+    expect(
+        parse_eol_entry("i/crlf    w/crlf    attr/text=auto eol=lf\tx.md")
+        == ("crlf", "crlf", "x.md"),
+        "行尾记录解析（CRLF）",
+    )
+    expect(
+        parse_eol_entry("i/lf    w/missing   -text\tdata.bin") == ("lf", "missing", "data.bin"),
+        "行尾记录解析（工作树缺失）",
     )
 
     if failures:
