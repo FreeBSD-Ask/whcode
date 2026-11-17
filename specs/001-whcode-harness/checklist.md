@@ -1321,7 +1321,7 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   （来源：ADR-083 §2，Task T368）——**取证（2026-11-17）**：`check-workflows.py` 通过；
   `check-release.py` 对合成 freebsd tar.gz 夹具的 --write／tag／record／负向（记录字节数
   不一致即红）／双包并存五探针本地实跑通过（夹具在 TEMP，不入库）。
-- [ ] Check 464: [missing] FreeBSD 包经 tag／dispatch 实跑取得：package-freebsd 主体三段
+- [x] Check 464: [exercised] FreeBSD 包经 tag／dispatch 实跑取得：package-freebsd 主体三段
   success（release 构建／打包与安装验证三条命令 GO／TUI 与 Web 冒烟）、release job 六件资产
   数量断言通过、`check-release.py --arch freebsd-amd64` 与安装验证记录四方一致（来源：
   ADR-083 §2／§8，Task T369）——**显式缺口：需推送 tag 或手动触发后取得，不冒充。**
@@ -1335,6 +1335,17 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   `refs/tags/v*` 触发（`build-release.yml` 的 `if: startsWith(github.ref, 'refs/tags/v')`），
   本次 dispatch 该 job skipped，故“六件资产数量断言”与 `check-release.py --arch
   freebsd-amd64` 的四方一致尚未取得——须推送新 tag 后回填，本 Check 保持未完成。
+  **完成取证（2026-11-17，tag `v0.1.0-m0.8`，build-release run `44109608803`）**：四条
+  lane 与 `release` job 全部 success——`package-freebsd-amd64-release` VM 内
+  `STORE_GATE_RESULT=GO`，安装验证记录三条命令（`--version`／`doctor`／`doctor --json`）
+  退出码均 0（FreeBSD 15.1-RELEASE-p6，仓库外 `/tmp/whcode-verify.*` 解包，RPATH=$ORIGIN
+  随包带 libduckdb.so），包 `whcode-0.1.0-freebsd-amd64.tar.gz` 39 171 033 字节、
+  sha256 `9c8eee67…fe95a9`；`smoke-evidence-freebsd-release`（TUI／Web）随 run 产出；
+  `release` job 三段 `check-release.py`（amd64／arm64／freebsd-amd64）均输出“发布校验
+  通过：tag=v0.1.0-m0.8 与各包版本一致，SHA256 与记录一致，安装验证记录与包一致”，
+  六件资产数量断言通过并挂 GitHub Release（预发布：2 zip＋2 zip.sha256＋1 tar.gz＋
+  1 tar.gz.sha256，`gh release view` 实测六件资产名称与字节数）。T369 同步勾选；
+  dispatch 部分证据（`44084840460`）保留为过程记录。
 
 ## 第六十层：学习捕获与干预台账（2026-11-17，Task T370／FR-794，ADR-084）
 

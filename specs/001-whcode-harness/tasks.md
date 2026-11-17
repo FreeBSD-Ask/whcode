@@ -2616,13 +2616,21 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   **取证（2026-11-17）**：`check-workflows.py` 通过；`check-release.py` 对合成 freebsd tar.gz
   夹具的 --write／tag／record／负向（字节不一致即红）／双包并存五探针本地实跑通过。CI 实跑
   待 Check 464。
-- [ ] T369 FreeBSD 包 CI 实跑取证回填（ADR-083 §8）：tag 或 dispatch 触发 build-release 后，
+- [x] T369 FreeBSD 包 CI 实跑取证回填（ADR-083 §8）：tag 或 dispatch 触发 build-release 后，
   回填 package-freebsd 三步结论（构建／打包＋安装验证三条命令 GO／冒烟）、release job 六件
   资产数量断言与 `check-release.py --arch freebsd-amd64` 四方一致证据，勾选 Check 464
   ——**任务认知卡**：方向＝交付链已离线落地，缺真实运行证据；目标＝取得 CI 日志与 artifact
   并回填；判据＝run 内 package-freebsd success、六件资产断言通过、记录四方一致；非目标＝
   改判据、以本地推断冒充、跳过证据直接勾选。
-  ——**显式缺口：外部条件（需推送 tag 或手动触发），不冒充。**
+  **取证（2026-11-17，tag `v0.1.0-m0.8`，build-release run `44109608803`）**：四条 lane
+  （amd64 debug／amd64 release／arm64 release／freebsd-amd64 release）与 `release` job 全部
+  success；`package-freebsd-amd64-release` VM 内 `STORE_GATE_RESULT=GO`，安装验证记录三条
+  命令（`--version`／`doctor`／`doctor --json`）退出码均 0，包 39 171 033 字节、
+  sha256 `9c8eee67…fe95a9`；`smoke-evidence-freebsd-release`（TUI／Web）随 run 产出；
+  `release` job 三段 `check-release.py`（amd64／arm64／freebsd-amd64）均“发布校验通过：tag
+  与各包版本一致，SHA256 与记录一致，安装验证记录与包一致”，六件资产数量断言通过并挂
+  GitHub Release（`v0.1.0-m0.8` 预发布：2 zip＋2 zip.sha256＋1 tar.gz＋1 tar.gz.sha256）。
+  Check 464 已勾选。
 
 ## Tasks（2026-11-17 追加）：形式化融洽性与三阶段充分性计算（P7.5，FR-795，ADR-085）
 
