@@ -1,8 +1,21 @@
 # WHCode 代理协作说明（AGENTS.md）
 
 > 本文件面向在本仓库工作的 AI 编码代理（Claude Code、Codex、Trae、Cursor 等），
-> 作用等价于 `AGENTS.md` / `CLAUDE.md`。它是**入口与摘要**，不复制规范正文；
-> 与 `docs/guides/`、`specs/`、ADR 冲突时，以那些文档为准。
+> 作用等价于 `AGENTS.md` / `CLAUDE.md`。它是**入口与目录**：列出必读路径、命令与完成定义，
+> 不复制规范正文，不承担最终裁定。
+>
+> **权威层级**（2026-11-17 用户指令，ADR-086）：
+> 1. **公理最高**：`specs/001-whcode-harness/coherence/axioms.toml` 的 `COH-` 条目与
+>    `docs/guides/axiom-system.md` 的 45 条目录。条款与公理冲突时，以公理为准并修订条款；
+>    新增硬约束必须能归入公理，或在公理表登记（不可判定项走 `registered`）。
+> 2. **规则正文**：`specs/`、`docs/adr/`、`docs/guides/` 的具体条款与门禁脚本——公理的实例。
+> 3. **本文件**：入口与目录，只指向上述两层的正文；与正文冲突时以正文为准。
+> 4. **软件工程理论（哲学与方法论）**：`docs/guides/software-engineering-process.md`、
+>    `philosophy.md`、`standards-baseline.md` 与 ISO／IEEE 文献——为公理提供来源、解释与
+>    复审理由，不直接裁定仓库事实；其结论转化为公理或条款后才生效（ADR-045）。
+>
+> 冲突判定顺序：公理 ＞ 规则正文 ＞ 本文件；方法论只在解释与复审中使用。层级声明由公理
+> `COH-M1-06` 在 `pre` 阶段校验。
 
 **最后更新**：2026-11-17 | **适用版本**：`0.1.0`（M0 基线，未发布）
 
@@ -84,6 +97,10 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 任何一条规则都不得被用来伪造证据、压制反对意见或拒绝必要工作（`docs/guides/philosophy.md` §9）。
 
 ## 2. 开工前必读（按顺序）
+
+**先读公理**：`specs/001-whcode-harness/coherence/axioms.toml` 与
+`docs/guides/axiom-system.md` 是最高层（ADR-086）；下表其余条目是本文件维护的阅读目录，
+按任务域取用，不构成对公理的替代。
 
 | 顺序 | 文件 | 读它是为了 |
 |---|---|---|

@@ -2684,3 +2684,17 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   whcode-web` 全绿；`check-coverage.py` store 90.02%、app 90.31%；`i18n-po.py --check`
   同步。**CI（run `43976863908`，`67de846`）**：platform-verification success（五平台与
 measurements 全绿），CodeQL success，Code Scanning 0 open。
+
+## Tasks（2026-11-17 追加）：规则权威层级（ADR-086，用户指令）
+
+- [x] T375 权威层级与冲突判定落盘（ADR-086）：AGENTS.md 头部新增权威层级四条（公理最高／
+  规则正文／本文件入口与目录／软件工程理论为哲学与方法论）与冲突顺序；`axiom-system.md`
+  新增 §0.1 与头部层级声明；`coherence-audit.md` §1 增层级段；新增
+  `docs/adr/ADR-086-rule-authority-hierarchy.md`；公理表新增 `COH-M1-06`
+  （`direct:authority_layers`，`pre` 硬判定四处声明一致）
+  ——**任务认知卡**：方向＝规则分散且只在 AGENTS 自述“以那些文档为准”，没有裁定顺序，
+  冲突时可各取所需、方法论常被当成挡箭牌；目标＝把公理设为最高层、AGENTS 定位为入口与
+  目录、软件工程理论定位为哲学与方法论，并让声明漂移可判；判据＝四处声明一致且
+  `COH-M1-06` 通过；非目标＝改动既有条款内容、把方法论升格为判据、新增平台或资源边界。
+  **取证（2026-11-17）**：`coherence.py --phase pre` 退出 0（46 条，`COH-M1-06` 满足）；
+  `check-adr-limits.py`、`check-docs-style.py`、`check-eol.py` 通过。

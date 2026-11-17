@@ -24,6 +24,11 @@
    与 `git status --short`，不得把工作区结论冒充提交树结论（2026-11-17 已发生一例）。
 3. `M ⊨ γ` 只是“程序在当前快照上判为满足”，不等于“条款在语义上被正确执行”。
 
+**权威层级**（ADR-086）：公理（本指南与 `axioms.toml`）最高；其次是规则正文（`specs/`、
+ADR、指南的具体条款与脚本）；`AGENTS.md` 只作入口与目录；`software-engineering-process.md`、
+`philosophy.md` 与标准基线属软件工程理论，是哲学与方法论来源，不直接裁定仓库事实。
+条款与公理冲突时以公理为准并修订条款；声明一致性由 `COH-M1-06` 在 `pre` 阶段判定。
+
 ## 2. 公理体系与条目结构
 
 公理编号沿用 `docs/analysis/software-engineering-logic-sufficiency.md` 的 A1—A9（证据约束、

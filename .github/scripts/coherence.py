@@ -469,6 +469,27 @@ def pred_adr_numbering(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
     return True, f"ADR 1—{numbers[-1]} 编号连续"
 
 
+def pred_authority_layers(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
+    """ADR-086：四处声明必须同时在场且指向同一层级。"""
+    checks = [
+        ("docs/adr/ADR-086-rule-authority-hierarchy.md", ("权威层级", "公理最高")),
+        ("AGENTS.md", ("权威层级", "公理最高", "入口与目录", "软件工程理论")),
+        ("docs/guides/axiom-system.md", ("权威层级", "公理最高")),
+        ("docs/guides/coherence-audit.md", ("权威层级", "ADR-086")),
+    ]
+    failures: list[str] = []
+    for name, needles in checks:
+        path = ROOT / name
+        if not path.is_file():
+            failures.append(f"缺文件：{name}")
+            continue
+        text = ctx.text(path)
+        for needle in needles:
+            if needle not in text:
+                failures.append(f"{name} 缺表述：{needle}")
+    return (not failures, "；".join(failures[:5]) if failures else "四处权威层级声明一致")
+
+
 INDEX_FIELD = re.compile(r"index=[^\s，；、]+")
 RUN_INDEX = re.compile(r"run\s+`?\d{6,}")
 SCOPE_FIELD = re.compile(r"scope=")
@@ -570,6 +591,7 @@ DIRECT_PREDICATES = {
     "means_exist": pred_means_exist,
     "adr_review_trigger": pred_adr_review_trigger,
     "adr_numbering": pred_adr_numbering,
+    "authority_layers": pred_authority_layers,
     "evidence_indexed": pred_evidence_indexed,
     "evidence_scoped": pred_evidence_scoped,
     "positive_coverage": pred_positive_coverage,

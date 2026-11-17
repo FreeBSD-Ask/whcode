@@ -494,3 +494,15 @@ tier = "IV"
 phase = ["pre", "mid", "end"]
 severity = "soft"
 evaluator = "registered:占用测量需要运行产物与平台探针；补偿控制是 ADR-027／042 的 GUI 探针与 CI desktop job"
+
+# ---------------- 权威层级（ADR-086：公理最高、AGENTS 为入口、理论为方法论） ----------------
+
+[[axiom]]
+id = "COH-M1-06"
+axiom = "M"
+statement = "权威层级在 AGENTS、公理指南、可执行指南与 ADR 四处声明一致：公理最高、AGENTS 为入口与目录、软件工程理论为方法论"
+source = "docs/adr/ADR-086-rule-authority-hierarchy.md :: ## 2. 决策"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:authority_layers"

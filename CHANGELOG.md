@@ -13,6 +13,14 @@
 
 ### 变更
 
+- **规则权威层级（2026-11-17，ADR-086，用户指令）**：确立 L0 公理最高（`axioms.toml` 与
+  `axiom-system.md` 的 45 条目录）→ L1 规则正文（spec／ADR／guides 条款与脚本）→ L2
+  `AGENTS.md` 入口与目录 → L3 软件工程理论（process／philosophy／标准基线：哲学与方法论，
+  不直接裁定仓库事实）。条款与公理冲突时以公理为准并修订条款；新增硬约束必须归入公理或
+  在公理表登记。`AGENTS.md` 头部、`axiom-system.md` §0.1、`coherence-audit.md` §1 与
+  ADR-086 四处声明一致，由新公理 `COH-M1-06`（`direct:authority_layers`）在 `pre` 阶段
+  判定；新增 Task T375 与 Check 471。
+
 - **形式化融洽性审计与三阶段充分性计算（2026-11-17，FR-795／ADR-085）**：把规则体系视为形式
   理论 Γ、仓库现状视为模型 M，对可判定片段逐条计算 `M ⊨ γ`——
   ① 仓库层：公理表 `specs/001-whcode-harness/coherence/axioms.toml`（45 条：A1—A9／R1—R8
