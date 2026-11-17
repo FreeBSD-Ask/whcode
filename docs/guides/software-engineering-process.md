@@ -47,15 +47,15 @@
 
 | 项 | 当前值 | 出处 |
 |---|---|---|
-| 需求 | 172 条 FR 定义；NFR-101—107、NFR-201—222；31 项验收（V-001—V-007、V-101—V-110、V-201—V-207、V-301—V-307） | `specs/001-whcode-harness/spec.md` |
-| 任务 | 369 条（T001—T369，编号连续） | `specs/001-whcode-harness/tasks.md` |
-| 验收检查点 | Check 1—466 | `specs/001-whcode-harness/checklist.md` |
+| 需求 | 173 条 FR 定义；NFR-101—107、NFR-201—222；31 项验收（V-001—V-007、V-101—V-110、V-201—V-207、V-301—V-307） | `specs/001-whcode-harness/spec.md` |
+| 任务 | 374 条（T001—T374，编号连续） | `specs/001-whcode-harness/tasks.md` |
+| 验收检查点 | Check 1—470 | `specs/001-whcode-harness/checklist.md` |
 | 可执行结构门禁 | `layering`、`layout` 两个契约测试 | `tests/contract/test_layering.rs`、`tests/contract/test_layout.rs` |
 | 测试规模 | 2026-11-08 全量运行 1038 例通过、0 失败、16 例 `#[ignore]`（实验性与长跑用例，运行方式见用例注释） | `cargo test --locked --workspace` 输出 |
 | 配置管理基线 | git 标签 `v0.1.0`（2026-11-16 正式发布；预发布序列 `v0.1.0-m0`—`v0.1.0-m0.6` 保留为历史） | `CHANGELOG.md`、`README.md`、`docs/guides/release-checklist.md` |
 | 平台范围 | Windows 11 amd64 在范围内（唯一验收目标）；FreeBSD 为完整平台证据通道（硬门禁）＋构建交付目标（ADR-083，均非验收结论）；NetBSD CI 自动运行（证据、不阻断）；OpenBSD/DragonFly 手工占位 | ADR-013、ADR-083、`docs/matrices/platform-matrix.md` |
 
-**口径约束**：上表是过程快照，不是验收结论。Check 1—466 中仍有未取证项（Check 464 一项，待 FreeBSD 包 CI 实跑回填；2026-11-17 复核——Check 1—393 已随标准基线批次取证在案，Check 394 随 T300、Check 395—400 随 T301—T306、Check 401—403 随 T308—T310、Check 404—408 随 T311—T315、Check 409—412 随 T316—T319 当批取证、Check 413—415 随 T320—T322 当批取证、Check 416—419 随 T323—T326、Check 420—423 随 T327—T330、Check 424—425 随 T331—T332、Check 426—429 随 T333—T336、Check 430—432 随 T337—T339 当批取证、Check 433—435 随 T340—T342 当批取证、Check 436—439 随 T343—T346 当批取证、Check 440 随 T347 当批取证、Check 441 随 T319 当批取证、Check 442—445 随 T348—T351 当批取证、Check 446—447 随 M1 校准收口当批取证、Check 448 随 T354 覆盖率回归修复当批取证、Check 449—450 随 P1.10 重复调用提醒当批取证、Check 451—453 随 P1.9 技能读取工具当批取证、Check 454—455 随 P7.3 内存压力通道当批取证、Check 456—461 随 P7.4 CI 加速与证据节奏当批取证（其中 CI 行为类判据按 ADR-037 回填运行号）、Check 462 随主题与配置更名批次、Check 463 随 ADR-083 当批取证（CI 行为类判据待回填）、Check 465 随融洽性审计批次取证、Check 466 随 P2.4 学习捕获批次取证；T319 的 GUI 入口为预留项，不影响 Check 计数）；预发布标签序列
+**口径约束**：上表是过程快照，不是验收结论。Check 1—470 中仍有未取证项（Check 464 一项，待 FreeBSD 包 CI 实跑回填；2026-11-17 复核——Check 1—393 已随标准基线批次取证在案，Check 394 随 T300、Check 395—400 随 T301—T306、Check 401—403 随 T308—T310、Check 404—408 随 T311—T315、Check 409—412 随 T316—T319 当批取证、Check 413—415 随 T320—T322 当批取证、Check 416—419 随 T323—T326、Check 420—423 随 T327—T330、Check 424—425 随 T331—T332、Check 426—429 随 T333—T336、Check 430—432 随 T337—T339 当批取证、Check 433—435 随 T340—T342 当批取证、Check 436—439 随 T343—T346 当批取证、Check 440 随 T347 当批取证、Check 441 随 T319 当批取证、Check 442—445 随 T348—T351 当批取证、Check 446—447 随 M1 校准收口当批取证、Check 448 随 T354 覆盖率回归修复当批取证、Check 449—450 随 P1.10 重复调用提醒当批取证、Check 451—453 随 P1.9 技能读取工具当批取证、Check 454—455 随 P7.3 内存压力通道当批取证、Check 456—461 随 P7.4 CI 加速与证据节奏当批取证（其中 CI 行为类判据按 ADR-037 回填运行号）、Check 462 随主题与配置更名批次、Check 463 随 ADR-083 当批取证（CI 行为类判据待回填）、Check 465 随融洽性审计批次取证、Check 466 随 P2.4 学习捕获批次取证、Check 467—470 随 ADR-085 融洽性计算批次取证；T319 的 GUI 入口为预留项，不影响 Check 计数）；预发布标签序列
 `v0.1.0-m0*` 保留为历史快照，正式发布由 `v0.1.0` 承载。计数会随任务推进变化，更新时必须同时修正本表与相关文档。
 
 ### 1.5 哲学基线
@@ -71,6 +71,7 @@
 | 自由审查 | 退出/导出/离线/默认值可撤销；无暗黑模式与强制账户/联网 |
 | 安全审查 | 威胁模型、攻击面、证据、代价、失效条件；禁止以“最佳实践/合规”替代 |
 | 知难行易（原则 X） | 任务方向、目标、用户意图复述、判据与非目标先于手段；歧义必须提问；全部任务适用（`docs/guides/knowing-before-doing.md`） |
+| 融洽性计算（ADR-085） | 可判定片段逐条计算 M ⊨ γ；pre 阻断、mid／end 记录；反例全部登记到台账；不可判定项显式标 unknown（`docs/guides/coherence-audit.md`） |
 
 **非教条条款**：现行硬约束（零 `unsafe`、Windows 唯一验收、禁用 GNU 工具、极简前端等）
 是当前和解，不是永恒最佳实践；变更走 ADR，并写明复审条件。
@@ -190,7 +191,7 @@ G5：预发布标签序列 `v0.1.0-m0`—`v0.1.0-m0.6` 后，`v0.1.0` 于 2026-1
 | 输入 | 用户指令、技术任务书、现有仓库状态、平台与资源约束、已知风险 |
 | 活动 | 界定问题与目标；列出范围内/范围外/非目标；确定平台与验收目标；识别外部依赖与阻塞；指定角色与决策人；按 §1.6 完成相关标准的启发式研读并落盘 |
 | 产物 | `README.md` 的平台范围；`spec.md` 的 Input/Assumptions；范围类 ADR（如 ADR-013）；`docs/matrices/decisions.md` 的决策项（如 D-14）；`docs/guides/repository-layout.md` 的目录边界 |
-| 退出判据 | 1）范围有书面结论；2）范围外事项逐条列出；3）平台承诺精确到 OS 版本 + 架构 + 目标三元组；4）外部阻塞有登记；5）用户批准记录可定位；6）纳入与排除项的代价承担者已写明；7）任务认知卡已填写（方向、目标、用户真实意图、判据、非目标），手段选择在其后（宪法原则 X）；8）开工前标准文献研读已落盘，新标准或新域已补基线登记（§1.6） |
+| 退出判据 | 1）范围有书面结论；2）范围外事项逐条列出；3）平台承诺精确到 OS 版本 + 架构 + 目标三元组；4）外部阻塞有登记；5）用户批准记录可定位；6）纳入与排除项的代价承担者已写明；7）任务认知卡已填写（方向、目标、用户真实意图、判据、非目标），手段选择在其后（宪法原则 X）；8）开工前标准文献研读已落盘，新标准或新域已补基线登记（§1.6）；9）融洽性 pre 计算通过——要求—检查点—手段三元组无反例，或反例已登记到台账（`python .github/scripts/coherence.py --phase pre`，ADR-085） |
 | 评审方式 | 用户批准（必须有原话或 ADR 批准记录）；架构角色检查范围与任务书是否矛盾；AI 代理以“找范围漏洞”为目标做对抗式复核 |
 | 当前证据 | ADR-013 批准、D-14、README 平台表、ADR-011 |
 | 缺口 | 无独立项目章程（charter）；范围结论分散在 README、spec 与 ADR，需读者自行拼接 |
@@ -204,7 +205,7 @@ G5：预发布标签序列 `v0.1.0-m0`—`v0.1.0-m0.6` 后，`v0.1.0` 于 2026-1
 | 产物 | `spec.md` 的 FR/NFR；`specs/001-whcode-harness/checklists/requirements.md`；`tasks.md`；`checklist.md`；必要时 ADR |
 | 退出判据 | 1）每条 FR 有稳定编号、P0/P1、可测判据、证据位置、归属里程碑；2）每条 FR 至少有一个任务与一个 Check；3）未验证项标 `[待验证]` 且有退出条件；4）无实现细节绑定（架构约束除外，须 ADR）；5）需求质量清单通过；6）每条需求有可执行的证伪条件；7）需求与文档标注假设、适用范围与复审日期；8）每条 FR 从认知卡目标派生，手段未写成需求；存量已勾选任务以其来源 FR/Check/实现记录为最小“知”证据 |
 | 评审方式 | 需求工程抽查（见 `docs/guides/requirements-engineering.md`）；`checklists/requirements.md` 逐条核对；AI 代理反向找“孤儿需求/断链/不可测判据”；用户对范围与优先级批准 |
-| 当前证据 | 172 条 FR 定义、370 条任务、466 项 Check；FR-611—FR-618、FR-711—FR-717、FR-619—FR-625、FR-626／627、FR-718—724、FR-725—729、FR-730—737、FR-738、FR-739—753、FR-754—764、FR-765、FR-766、FR-767—FR-776、FR-777、FR-778、FR-779、FR-780、FR-781、FR-782、FR-783、FR-784、FR-785、FR-786、FR-787、FR-788、FR-789、FR-790、FR-791、FR-792、FR-793 已登记 |
+| 当前证据 | 173 条 FR 定义、374 条任务、470 项 Check；FR-611—FR-618、FR-711—FR-717、FR-619—FR-625、FR-626／627、FR-718—724、FR-725—729、FR-730—737、FR-738、FR-739—753、FR-754—764、FR-765、FR-766、FR-767—FR-776、FR-777、FR-778、FR-779、FR-780、FR-781、FR-782、FR-783、FR-784、FR-785、FR-786、FR-787、FR-788、FR-789、FR-790、FR-791、FR-792、FR-793、FR-794、FR-795 已登记 |
 | 缺口 | 无正式 CR 表单编号；无独立需求属性表（来源、稳定性、验证方法以行内标注替代） |
 
 ### 3.3 G2 设计基线
@@ -226,7 +227,7 @@ G5：预发布标签序列 `v0.1.0-m0`—`v0.1.0-m0.6` 后，`v0.1.0` 于 2026-1
 | 输入 | G2 产物、任务清单、测试位置约定 |
 | 活动 | 编码；单元测试与失败路径测试；静态检查；文档同步；任务状态更新 |
 | 产物 | `crates/**`、`tests/**`、测试输出、`CHANGELOG.md` 条目、必要的模块文档更新 |
-| 退出判据 | 1）`cargo fmt --all --check` 无差异；2）`cargo clippy --workspace --all-targets -- -D warnings` 零告警；3）`cargo test --locked --workspace` 全部通过；4）新增行为至少有一个正向与一个失败路径测试；5）`test_layering` 与 `test_layout` 通过；6）未完成任务不得勾选；7）`[待验证]` 不得以推断关闭；8）测试包含证伪路径，而非仅证明实现正确；9）并发实现有模型/差分/压力验证，汇编有回退与差分测试；10）CI 工作流的 action 引用为**最新 release 版本 + 固定 commit SHA**，并通过 `.github/scripts/check-actions.py`（离线）与每周 `platform-verification.yml` 的 `action-audit` job（联网） |
+| 退出判据 | 1）`cargo fmt --all --check` 无差异；2）`cargo clippy --workspace --all-targets -- -D warnings` 零告警；3）`cargo test --locked --workspace` 全部通过；4）新增行为至少有一个正向与一个失败路径测试；5）`test_layering` 与 `test_layout` 通过；6）未完成任务不得勾选；7）`[待验证]` 不得以推断关闭；8）测试包含证伪路径，而非仅证明实现正确；9）并发实现有模型/差分/压力验证，汇编有回退与差分测试；10）CI 工作流的 action 引用为**最新 release 版本 + 固定 commit SHA**，并通过 `.github/scripts/check-actions.py`（离线）与每周 `platform-verification.yml` 的 `action-audit` job（联网）；11）批次提交前跑过 `coherence.py --phase mid --independent`，反向路径差异为零或已登记（ADR-085） |
 | 评审方式 | 可执行门禁；`docs/guides/pr-checklist.md` 逐项；AI 代理按“反例优先”审查；涉及安全、权限、恢复的改动必须由用户复核 |
 | 当前证据 | 154 例测试通过、0 失败；fmt/clippy 全绿；写者服务、迁移、游标分页、索引基准、概览预聚合与监控已补齐 |
 | 缺口 | 无独立人类代码评审记录；TUI 人工交互项不能由单元测试替代 |
@@ -238,7 +239,7 @@ G5：预发布标签序列 `v0.1.0-m0`—`v0.1.0-m0.6` 后，`v0.1.0` 于 2026-1
 | 输入 | G3 产物、验收清单、快速验证指南、基准夹具 |
 | 活动 | 集成测试；端到端验证；验收判据逐条判定；证据归档；追溯抽查；安全与性能复核 |
 | 产物 | `artifacts/` 下的报告与数据（如 `artifacts/m0-report.md`、`artifacts/deps-windows.txt`、`artifacts/baseline-192mb.json`）；`checklist.md` 勾选；`specs/001-whcode-harness/quickstart.md` 执行记录 |
-| 退出判据 | 1）适用的 V 项与 Check 有证据；2）失败项明确记录，不得静默跳过；3）追溯抽查通过；4）已知限制公开；5）用户验收结论可定位；6）0 信任复核：至少一次换命令、换环境或换角色验证；7）性能优化有同夹具前后对比与回退验证；8）退出路径、完整导出与离线核心能力已验证；9）测量程序可复现且交叉验证；不以采用率/星数作证据；10）`security/code-scanning` 为 0 条 open 告警（`python .github/scripts/check-code-scanning.py`，事实源为 GitHub API；AGENTS.md §5.2） |
+| 退出判据 | 1）适用的 V 项与 Check 有证据；2）失败项明确记录，不得静默跳过；3）追溯抽查通过；4）已知限制公开；5）用户验收结论可定位；6）0 信任复核：至少一次换命令、换环境或换角色验证；7）性能优化有同夹具前后对比与回退验证；8）退出路径、完整导出与离线核心能力已验证；9）测量程序可复现且交叉验证；不以采用率/星数作证据；10）`security/code-scanning` 为 0 条 open 告警（`python .github/scripts/check-code-scanning.py`，事实源为 GitHub API；AGENTS.md §5.2）；11）收口计算 `coherence.py --phase end --strict` 无未登记反例，台账中 open 条目均带责任人与退出条件（ADR-085） |
 | 评审方式 | 证据审计（换一个角色按路径逐项打开产物）；AI 代理核对“结论是否超出证据”；0 信任复核；三次复查（查证→交叉验证→判定）；用户签收 |
 | 当前证据 | `m0-report.md`、依赖记录、数据库冒烟、写者与基准数据；Windows 侧 Go |
 | 缺口 | V-003 人工交互项、V-004 服务端验收、V-006 预算冻结未完成；BSD 证据按 ADR-013 延后 |
@@ -322,7 +323,7 @@ G5：预发布标签序列 `v0.1.0-m0`—`v0.1.0-m0.6` 后，`v0.1.0` 于 2026-1
 
 | 教科书产物 | 本仓库对应 | 现状 | 缺口 |
 |---|---|---|---|
-| SRS（IEEE 29148） | `specs/001-whcode-harness/spec.md` | 172 条 FR 定义、NFR、验收场景、Assumptions | 无独立“需求属性表”；以 FR 行内标注替代 |
+| SRS（IEEE 29148） | `specs/001-whcode-harness/spec.md` | 173 条 FR 定义、NFR、验收场景、Assumptions | 无独立“需求属性表”；以 FR 行内标注替代 |
 | SDD（IEEE 1016-2009，已停用） | `plan.md` + `data-model.md` + `contracts/` + `docs/guides/module-design.md` | 有架构、数据模型、六份契约、模块设计 | 无逐模块的算法与状态机时序图 |
 | 需求工程规范 | `docs/guides/requirements-engineering.md` | 模板、追溯抽查、变更控制 | 无正式 CR 表单编号体系（以 ADR 编号承担） |
 | 设计原则/哲学 | `docs/guides/design-principles.md` | 原则 → 可执行落点 | 无 |
@@ -367,6 +368,9 @@ cargo test --locked --workspace
 cargo test -p whcode-tests --test layering
 cargo test -p whcode-tests --test layout
 python .github/scripts/check-knowing-first.py     # 知难行易落点门禁（宪法原则 X）
+python .github/scripts/coherence.py --phase pre    # 融洽性 pre（ADR-085：反例即阻断）
+python .github/scripts/coherence.py --phase mid --independent   # 提交前对账（记录型）
+python .github/scripts/coherence.py --phase end --strict        # 收口（未登记反例即红）
 
 # 编码卫生（G5 前必过）
 python .github/scripts/check-eol.py

@@ -2624,6 +2624,53 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   改判据、以本地推断冒充、跳过证据直接勾选。
   ——**显式缺口：外部条件（需推送 tag 或手动触发），不冒充。**
 
+## Tasks（2026-11-17 追加）：形式化融洽性与三阶段充分性计算（P7.5，FR-795，ADR-085）
+
+- [x] T371 公理表、反例台账与三相位求值器（FR-795／ADR-085）：
+  `specs/001-whcode-harness/coherence/axioms.toml`（45 条公理：A1—A9／R1—R8 可判定片段、
+  M 元公理、H 编码卫生；字段 id／axiom／statement／source／tier／phase／severity／evaluator）、
+  `coherence/counterexamples.md`（六字段台账与销号纪律）、`.github/scripts/coherence.py`
+  （direct／delegate／registered 三型求值；pre 阻断、mid／end 记录；`--independent` 反向路径；
+  `--ledger-check`；`--selftest`）、`docs/guides/coherence-audit.md`、ADR-085、
+  `research/standards-alignment/notes/formal-coherence.md`
+  ——**任务认知卡**：方向＝规则已积累 363 处规范模态却没有可执行载体，要求／检查点／手段的
+  不一致只能靠人读；目标＝把 A1—A9 的可判定片段逐条计算 M ⊨ γ，反例登记到文件；
+  用户意图＝执行前先计算充分性、执行中独立审计、结束再算一遍，并把这条流程接进 WHCode；
+  判据＝pre 反例即红、台账字段齐全、反向路径差异可查、锚点可定位；非目标＝把自然语言整体
+  形式化、替代人工评审、做运行时模型检验。
+  **取证（2026-11-17）**：`coherence.py --selftest`、`--ledger-check`、`--phase pre` 退出 0
+  （38 条：satisfied 26／counterexample 0／unknown 1／skipped 11）；`--phase mid --independent`
+  反向路径 2 条、差异 0；一次实跑发现 Check 316 正文丢失并按其原始提交恢复。
+- [x] T372 流程接线与台账同步（FR-795／ADR-085）：`AGENTS.md` §2／§3／§9、`software-engineering-process.md`
+  §1.4／§1.5／G0／G3／G4／§3.2／§5／§6、`platform-verification.yml` 的 docs-gates 与
+  windows 门禁各加 `coherence.py --phase pre`、spec FR-795、Check 467—470、CHANGELOG
+  ——**任务认知卡**：方向＝求值器存在但流程未引用，等于没有门禁；目标＝三阶段进入标准验证链、
+  G0／G3／G4 退出判据与 CI 同源；判据＝文档与工作流命令可复跑、计数与追溯门禁通过；
+  非目标＝把 mid／end 也塞进每次推送（记录型，避免重复计算同一批事实）。
+  **取证（2026-11-17）**：`check-workflows.py`、`check_counts.py`、`traceability.py`、
+  `check-knowing-first.py`、`check-adr-limits.py`、`check-standards-baseline.py` 通过。
+- [x] T373 产品充分性域求值器与持久化（FR-795／ADR-085）：`crates/whcode-domain/src/coherence.rs`
+  （10 条规则：要求／检查点／手段／预算；结论只覆盖 tier I；语义恒 unknown；上限拒绝不截断）、
+  `crates/whcode-store/migrations/0015_coherence_runs.sql`（VARIANT 反例明细）、
+  `crates/whcode-store/src/coherence.rs`（登记／读取／会话当前任务／turn 计数）
+  ——**任务认知卡**：方向＝判定必须在产品运行时可用，而不是只在仓库脚本里；目标＝同一套
+  可判定片段在 domain 层可复算、在 store 层可追溯；判据＝正反用例与上限用例全绿、库内枚举
+  未知即报错；非目标＝语义判定、自动修复、跨会话聚合。
+  **取证（2026-11-17）**：`cargo test -p whcode-domain coherence`（10 项）、
+  `cargo test -p whcode-store coherence`（6 项）通过。
+- [x] T374 产品执行层接入与四端登记（FR-795／ADR-085）：`crates/whcode-app/src/coherence.rs`
+  （audit／audit_session／preflight；无任务返回正确的空）、`turn.rs`（计划模式退出前置阻断、
+  每 8 轮 mid、收口 end）、Web `GET /api/coherence`、`surface::view.coherence`（CUI 排除、
+  TUI／GUI 预留、Web 已实现）、feature-parity 矩阵行
+  ——**任务认知卡**：方向＝产品内建“执行前自检”必须落在真实的执行边界上；目标＝计划模式退出
+  前算出反例即拒绝，执行中与收口留报告；判据＝验收为空时退出被拒且计划仍激活、齐备时退出
+  成功并落 end 报告、无任务时 API 返回 null；非目标＝把语义判断自动化、改计划模式语义、
+  给每轮增加固定写入。
+  **取证（2026-11-17）**：`cargo test -p whcode-app coherence`（7 项）、
+  `plan_mode_exit`（3 项）、`turn_finish_records_end_audit_for_active_task`、
+  `cargo test -p whcode-web coherence_route`、`cargo test -p whcode-tests --test frontend_parity`
+  （10 项）通过。
+
 - [x] T370 学习捕获与干预台账（P2.4／FR-794／ADR-084）：`findings` 加复发归因字段
   （`pattern`／`recurrence_count`／`dismiss_reason`）与 `dismissed` 原因码负面控制；新表
   `interventions` 四要件台账，结论由复发计数自动判定；台账视图扩第四节（TUI／GUI／Web
@@ -2635,4 +2682,5 @@ trace_and_context 1）；fmt/clippy 零差异零告警；分层/布局/EOL/workf
   **取证（2026-11-17）**：`cargo test -p whcode-store` 172 通过（含复发前置、原因码隔离、
   自动结论、列表范围与夹取、漂移检测等新增用例）；`cargo test -p whcode-app`／`-p
   whcode-web` 全绿；`check-coverage.py` store 90.02%、app 90.31%；`i18n-po.py --check`
-  同步。CI 结论待推送后回填（ADR-037）。
+  同步。**CI（run `43976863908`，`67de846`）**：platform-verification success（五平台与
+measurements 全绿），CodeQL success，Code Scanning 0 open。

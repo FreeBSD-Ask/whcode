@@ -29,11 +29,13 @@ use whcode_domain::{ErrorCode, WhError};
 /// v11 增加文件前像表（T289／FR-776／ADR-068：每次成功的写调用登记改前内容或跳过原因，
 /// 有界保留）；
 /// v12 增加评审发现台账（P2.2／FR-786／ADR-080：发现四要件、状态机与修复乐观锁）；
-/// v13 增加 webhook 幂等投递表（P6.4／FR-788／ADR-079：幂等键＋去重记录＋有界重试状态）。
-pub const STORE_SCHEMA_VERSION: u32 = 14;
+/// v13 增加 webhook 幂等投递表（P6.4／FR-788／ADR-079：幂等键＋去重记录＋有界重试状态）；
+/// v14 增加发现复发归因与干预台账（P2.4／FR-794／ADR-084：模式、复发计数、封闭原因码）；
+/// v15 增加任务充分性计算报告表（FR-795／ADR-085：阶段、结论、逐条计数与反例明细）。
+pub const STORE_SCHEMA_VERSION: u32 = 15;
 
 /// 正式表数量（含 `schema_migrations`）。
-pub const TABLE_COUNT: usize = 20;
+pub const TABLE_COUNT: usize = 21;
 
 const MIGRATION_0001: &str = include_str!("../migrations/0001_initial.sql");
 const MIGRATION_0002: &str = include_str!("../migrations/0002_event_trace_indexes.sql");
@@ -49,6 +51,7 @@ const MIGRATION_0011: &str = include_str!("../migrations/0011_file_preimages.sql
 const MIGRATION_0012: &str = include_str!("../migrations/0012_findings.sql");
 const MIGRATION_0013: &str = include_str!("../migrations/0013_webhook_deliveries.sql");
 const MIGRATION_0014: &str = include_str!("../migrations/0014_learning_capture.sql");
+const MIGRATION_0015: &str = include_str!("../migrations/0015_coherence_runs.sql");
 
 /// 版本化迁移清单；新增版本时追加，不修改历史 SQL。
 const MIGRATIONS: &[(u32, &str)] = &[
@@ -66,6 +69,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (12, MIGRATION_0012),
     (13, MIGRATION_0013),
     (14, MIGRATION_0014),
+    (15, MIGRATION_0015),
 ];
 
 fn store_err(context: &str, err: duckdb::Error) -> WhError {

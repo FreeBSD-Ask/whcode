@@ -7,7 +7,7 @@
 //! 1. 顶层只允许既定目录与既定根文件；点开头条目（.cargo/.qoder/.git 等工具目录）不限制；
 //! 2. `crates/` 成员必须以 `whcode-` 为前缀（snake_case），与 workspace 声明一致；
 //! 3. `tests/` 子目录限于六类（unit/contract/integration/crash/stability/fixtures）且各有 README；
-//! 4. `docs/` 子目录限于 adr/matrices/guides；
+//! 4. `docs/` 子目录限于 adr/analysis/guides/matrices；
 //! 5. `specs/` 子目录遵循 `<三位编号>-<slug>` 命名；
 //! 6. 本地与产物目录（target/vendor/local/artifacts）不要求存在（机器本地、可再生成），
 //!    但若存在则不得含入库形态的源码（防“顺手把代码写进临时目录”）。
@@ -180,10 +180,10 @@ fn tests_dir_uses_six_categories() {
 }
 
 #[test]
-fn docs_dir_uses_three_kinds() {
+fn docs_dir_uses_registered_kinds() {
     assert_subset(
         &read_subdir_names(&repo_root().join("docs")),
-        &["adr", "matrices", "guides"],
+        &["adr", "analysis", "matrices", "guides"],
         "docs/",
     );
 }

@@ -890,6 +890,43 @@ pub fn handle_request_with_llm(
                 }),
             )
         }
+        (Method::Get, "/api/coherence") => {
+            // 充分性报告（FR-795／ADR-085）：会话最近一次计算的只读视图；从未计算＝
+            // `report: null`（正确的空，不用 404 冒充不存在）。判定与持久化在应用层，
+            // 本端点只透传；`details` 是反例明细，不含凭据与正文。
+            let Some(session) = query_value("session") else {
+                return error_response(&WhError::invalid_state("缺 session 参数"));
+            };
+            match whcode_app::coherence::latest(conn, &policy, actor, session) {
+                Ok(Some(view)) => HttpResponse::json(
+                    200,
+                    &serde_json::json!({
+                        "schema_version": whcode_domain::SCHEMA_VERSION,
+                        "session_id": session,
+                        "report": {
+                            "id": view.id,
+                            "phase": view.phase.as_str(),
+                            "verdict": view.verdict.as_str(),
+                            "requirement": view.requirement,
+                            "total": view.total,
+                            "counterexamples": view.counterexamples,
+                            "unknowns": view.unknowns,
+                            "details": view.details,
+                            "created_at_ms": view.created_at_ms,
+                        },
+                    }),
+                ),
+                Ok(None) => HttpResponse::json(
+                    200,
+                    &serde_json::json!({
+                        "schema_version": whcode_domain::SCHEMA_VERSION,
+                        "session_id": session,
+                        "report": serde_json::Value::Null,
+                    }),
+                ),
+                Err(error) => error_response(&error),
+            }
+        }
         (Method::Get, "/api/plan") => {
             // 计划模式状态（T287／FR-774／ADR-067）：最新一条 `PlanModeChanged` 即当前值；
             // 从未切换＝关闭且 `seq` 为 null（正确的空，不用 404 冒充不存在）。
@@ -2112,6 +2149,8 @@ mod tests {
         // v14：学习捕获台账（FR-794／ADR-084：findings 加列＋interventions 建表；
         // 台账路由读 interventions，schema 必须与生产同构）。
         include_str!("../../whcode-store/migrations/0014_learning_capture.sql"),
+        // v15：充分性计算报告（FR-795／ADR-085：`GET /api/coherence` 读 coherence_runs）。
+        include_str!("../../whcode-store/migrations/0015_coherence_runs.sql"),
     );
 
     fn migrated() -> Connection {
@@ -2354,6 +2393,83 @@ mod tests {
             &actor,
         );
         assert_eq!(response.status, 400, "缺 session 参数");
+    }
+
+    /// 充分性报告路由（FR-795／ADR-085）：从未计算＝`report: null`；落库后返回末次报告；
+    /// 缺失 session 参数与不存在的会话分别 400／404。
+    #[test]
+    fn coherence_route_reports_latest_run_and_empty_state() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("tester");
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-COH', '充分性', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("创建会话");
+
+        let empty = request(Method::Get, "/api/coherence?session=S-COH", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &empty,
+            &actor,
+        );
+        assert_eq!(
+            response.status,
+            200,
+            "响应体：{}",
+            String::from_utf8_lossy(&response.body)
+        );
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert!(body["report"].is_null(), "从未计算是正确的空");
+
+        conn.execute(
+            "INSERT INTO coherence_runs (id, session_id, phase, verdict, requirement, total,
+                                         counterexamples, unknowns, counterexamples_json)
+             VALUES ('COH-9001', 'S-COH', 'pre', 'counterexample', '补齐导出', 10, 1, 2,
+                     CAST('[{\"rule\":\"SFR-03\"}]' AS JSON)::VARIANT)",
+            [],
+        )
+        .expect("写入报告");
+        let req = request(Method::Get, "/api/coherence?session=S-COH", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &req,
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["report"]["id"], "COH-9001");
+        assert_eq!(body["report"]["phase"], "pre");
+        assert_eq!(body["report"]["verdict"], "counterexample");
+        assert_eq!(body["report"]["details"][0]["rule"], "SFR-03");
+
+        let no_param = request(Method::Get, "/api/coherence", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &no_param,
+            &actor,
+        );
+        assert_eq!(response.status, 400, "缺 session 参数");
+        let unknown = request(Method::Get, "/api/coherence?session=S-none", false);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &unknown,
+            &actor,
+        );
+        assert_eq!(response.status, 404, "未知会话");
     }
 
     /// 交付物路由（T285／FR-772）：空清单是可区分的正确空；登记后返回路径；

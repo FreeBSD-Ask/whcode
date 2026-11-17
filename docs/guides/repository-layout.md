@@ -16,7 +16,7 @@
 |---|---|---|---|
 | `crates/` | 产品代码 | 16 个成员 crate，按 §6.2 单向依赖（domain → app → 服务 → 前端适配器） | 入库 |
 | `tests/` | 验证 | 六类测试：unit / contract / integration / crash / stability / fixtures；每类有 README | 入库 |
-| `docs/` | 治理文档 | `adr/`（决策记录）、`matrices/`（平台/能力/决策矩阵）、`guides/`（操作指南） | 入库 |
+| `docs/` | 治理文档 | `adr/`（决策记录）、`matrices/`（平台/能力/决策矩阵）、`guides/`（操作指南）、`analysis/`（对规则与流程的分析性审计，不承载需求承诺） | 入库 |
 | `research/` | 治理（研究证据） | 外部参照与调研证据：对照、差距登记、参照路径、存疑项、上游源码分析（如 `zcode-comparison/`、`dsh-comparison/`）；**不承载需求承诺**，研究结论转化为承诺须走 G0—G5 门禁（ADR-045） | 入库（引用的外部源码克隆不入库，仍在 `local/`，以路径+commit 指向） |
 | `engineering-doctrine/` | 治理（可移植） | 工程哲学与开发准则的独立版本，供其他项目复制；不依赖本仓库代码 | 入库 |
 | `.specify/` | 治理（工具配置） | spec-kit 集成声明与特性配置（用户工作流依赖；隐藏目录不入布局门禁检查范围，2026-10-24 登记） | 入库 |
@@ -55,7 +55,7 @@ whcode-bin      ← 装配根：配置、日志、feature 组装
 
 - 新 crate 进 `crates/whcode-<域>/`；新测试按性质进 `tests/<六类之一>/`，并在该类 README 登记；
 - 新自动化脚本按平台进 `.github/scripts/platform-matrix/`、按测量进 `.github/scripts/benchmarks/`，通用门禁/打包脚本放 `.github/scripts/` 根级；
-- 新文档按用途进 `docs/{adr,matrices,guides}/`；需求变更走 `specs/` 流程，**不**写进 docs；
+- 新文档按用途进 `docs/{adr,matrices,guides,analysis}/`；需求变更走 `specs/` 流程，**不**写进 docs；
 - 新外部参照/调研证据进 `research/<主题>/`（如 `research/zcode-comparison/`、`research/dsh-comparison/`），按域拆分、
   以路径+commit 指向外部克隆；研究结论转化为承诺须走 G0—G5 门禁并落 `specs/` 或 ADR（ADR-045）；
 - 新内置资源进 `assets/<类型>/`：只放可再分发许可的文件，逐项在 `SOURCES.md`（或同级说明）

@@ -42,6 +42,8 @@ pub fn surface_of(method: &str, path: &str) -> Option<&'static str> {
         // ── 本变更新增读路由（Task 174 接线；当前登记为预留） ──────────
         ("GET", "/api/context") => Some("context.budget"),
         ("GET", "/api/diff") => Some("view.diff"),
+        // 充分性报告（FR-795／ADR-085）：会话最近一次计算的只读视图。
+        ("GET", "/api/coherence") => Some("view.coherence"),
         ("GET", "/api/events/export") => Some("events.export"),
         // ── 证书库设置（T190、ADR-040 决策 4）：读面与连通性校验 ───────
         ("GET", "/api/certs") => Some("settings.cert.read"),

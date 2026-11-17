@@ -100,6 +100,7 @@ T190：新增证书库设置两行）。
 | `view.preimages` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-776／ADR-068；CUI 无视图面（cui_command_surface），前像清单只读，TUI／GUI 未排期 |
 | `session.plan` | Command | Write | 已实现 | 预留 | 预留 | 已实现 | FR-774／ADR-067；计划模式切换（软引导、不经审批、落 `PlanModeChanged`），TUI／GUI 未排期 |
 | `view.deliverables` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-772／ADR-048 §7.2；CUI 无视图面（cui_command_surface），TUI／GUI 未排期 |
+| `view.coherence` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-795／ADR-085；CUI 无视图面（cui_command_surface），充分性报告只读视图（`GET /api/coherence?session=`），TUI／GUI 未排期 |
 
 **权限**：全部命令经 `whcode-app::authz` 统一判定（拒绝 `permission_denied` 不可重试，
 FR-604）；四端不得自行推断权限。

@@ -36,6 +36,7 @@ pub mod approval_rules;
 pub mod audit;
 pub mod backup;
 pub mod checkpoints;
+pub mod coherence;
 pub mod compact;
 pub mod directory;
 pub mod export;
@@ -75,6 +76,10 @@ pub use checkpoints::{
     CheckpointInsert, CheckpointRecovery, EventInsertInfo, MAX_ARTIFACT_REFS, MAX_DELTA_JSON_BYTES,
     TaskTransition, TaskTransitionReport, insert_checkpoint, recover_from_checkpoint,
     task_transition,
+};
+pub use coherence::{
+    CoherenceRun, MAX_COHERENCE_REQUIREMENT_CHARS, MAX_COHERENCE_RUN_ROWS, NewCoherenceRun,
+    SessionTaskBrief, insert_run, latest_run, list_runs, session_task, session_turn_count,
 };
 pub use compact::{CompactReport, SpaceReport, capture_space, compact_database};
 pub use directory::{

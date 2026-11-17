@@ -1,0 +1,496 @@
+# 融洽性公理表：Γ 的可判定片段（ADR-085／docs/guides/coherence-audit.md）
+#
+# 每条公理把 Γ 中的一条规则登记为可求值的条目。字段含义：
+#   id          稳定编号，报告与反例台账引用它
+#   axiom       归入的公理或推理规则（A1—A9、R1—R8、M 元公理、H 编码卫生）
+#   statement   一句话、可判定，不写“良好”“基本”
+#   source      锚点，格式“文件 :: 片段”，片段必须逐字出现在文件里
+#   tier        I 可判定／III 半可判定／IV 不可判定
+#   phase       参与的阶段：pre／mid／end
+#   severity    hard：pre 阶段反例即阻断；soft：只记录
+#   evaluator   direct:<谓词>／delegate:<脚本>／registered:<理由>
+#   args        delegate 的附加参数（可选）
+#
+# 约束（由 COH-M1-01 判定）：tier I 不得只写 registered；tier IV 只能是 registered。
+
+schema = 1
+updated = "2026-11-17"
+
+# ---------------- M 元公理：审计审计自身 ----------------
+
+[[axiom]]
+id = "COH-M1-01"
+axiom = "M"
+statement = "公理表每条条目字段齐全，且 tier 与 evaluator 型别相容"
+source = "docs/guides/coherence-audit.md :: 2. 公理体系与条目结构"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:meta_axiom_table"
+
+[[axiom]]
+id = "COH-M1-02"
+axiom = "M"
+statement = "每条公理的 source 锚点都能在源文件中逐字定位"
+source = "docs/guides/coherence-audit.md :: 三点限定（0 信任）"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:meta_anchors"
+
+[[axiom]]
+id = "COH-M1-03"
+axiom = "M"
+statement = "反例台账每条条目含 id／axiom／evidence／owner／exit／status，closed 条目附修复证据"
+source = "docs/guides/coherence-audit.md :: 5. 反例台账"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:ledger_fields"
+
+[[axiom]]
+id = "COH-M1-04"
+axiom = "M"
+statement = "本次运行的反例都在台账中带责任人与退出条件"
+source = "docs/guides/coherence-audit.md :: 5. 反例台账"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:ledger_coverage"
+
+[[axiom]]
+id = "COH-M1-05"
+axiom = "M"
+statement = "end 阶段存在同批次的 mid 报告可供比对"
+source = "docs/guides/coherence-audit.md :: 3. 三阶段计算"
+tier = "I"
+phase = ["end"]
+severity = "soft"
+evaluator = "direct:phase_reports"
+
+# ---------------- A1 证据约束 ----------------
+
+[[axiom]]
+id = "COH-A1-01"
+axiom = "A1"
+statement = "FR→任务→Check 三方追溯无断链、无幻影引用"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A1 | 证据约束"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "delegate:traceability.py"
+
+[[axiom]]
+id = "COH-A1-02"
+axiom = "A1"
+statement = "FR／任务／Check 的实际数量与文档声明一致"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A1 | 证据约束"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "delegate:check_counts.py"
+
+[[axiom]]
+id = "COH-A1-03"
+axiom = "A1"
+statement = "Check 证据态合法，已勾选条目不低于 exercised"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A1 | 证据约束"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "delegate:check_counts.py"
+
+[[axiom]]
+id = "COH-A1-04"
+axiom = "A1"
+statement = "每条 Check 条目含可追溯来源（FR／任务／ADR 至少其一）"
+source = "docs/guides/coherence-audit.md :: 2. 公理体系与条目结构"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:check_sources"
+
+[[axiom]]
+id = "COH-A1-05"
+axiom = "A1"
+statement = "已勾选的 Check 条目留有取证或复核记录"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A1 | 证据约束"
+tier = "I"
+phase = ["mid", "end"]
+severity = "soft"
+evaluator = "direct:check_evidence_recorded"
+
+# ---------------- A2 可证伪 ----------------
+
+[[axiom]]
+id = "COH-A2-01"
+axiom = "A2"
+statement = "每条 FR 至少被一个任务引用，且至少被一个 Check 引用"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A2 | 可证伪"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:fr_closure"
+
+[[axiom]]
+id = "COH-A2-02"
+axiom = "A2"
+statement = "Check 判据不含“基本完成”“整体良好”一类不可判定的表述"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A2 | 可证伪"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:check_decidable_wording"
+
+[[axiom]]
+id = "COH-A2-03"
+axiom = "A2"
+statement = "FR 文本引用的 ADR 编号在 docs/adr 有对应文件"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A2 | 可证伪"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:fr_adr_exists"
+
+# ---------------- A3 意图预言机 ----------------
+
+[[axiom]]
+id = "COH-A3-01"
+axiom = "A3"
+statement = "未勾选任务块含任务认知卡标注"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A3 | 意图预言机"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:card_present"
+
+[[axiom]]
+id = "COH-A3-02"
+axiom = "A3"
+statement = "知难行易的落点链接可达、任务标注存在"
+source = "docs/guides/knowing-before-doing.md :: ## 4. 门禁落点"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "delegate:check-knowing-first.py"
+
+[[axiom]]
+id = "COH-A3-03"
+axiom = "A3"
+statement = "用户意图是否被正确理解"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A3 | 意图预言机"
+tier = "IV"
+phase = ["pre", "end"]
+severity = "soft"
+evaluator = "registered:意图正确性只能由用户确认；补偿控制是认知卡的用户意图字段与开工提问义务"
+
+# ---------------- A4 单写者与单层 SQL ----------------
+
+[[axiom]]
+id = "COH-A4-01"
+axiom = "A4"
+statement = "平台分支只出现在 whcode-platform crate"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A4 | 单写者与单层 SQL"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:platform_cfg_single"
+
+[[axiom]]
+id = "COH-A4-02"
+axiom = "A4"
+statement = "四个前端 crate 不自行打开磁盘数据库（允许透传 Connection 类型与测试内存库）"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A4 | 单写者与单层 SQL"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:frontend_no_store"
+
+[[axiom]]
+id = "COH-A4-03"
+axiom = "A4"
+statement = "动态拼接的 SQL 只出现在 store crate"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A4 | 单写者与单层 SQL"
+tier = "IV"
+phase = ["end"]
+severity = "soft"
+evaluator = "registered:动态 SQL 无法用文本谓词判定；补偿控制是 test_layering 与代码评审"
+
+# ---------------- A5 资源有界 ----------------
+
+[[axiom]]
+id = "COH-A5-01"
+axiom = "A5"
+statement = "自有 crate 源码不含 unsafe 块、unsafe fn、unsafe impl 与 mem::forget"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A5 | 资源有界"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:unsafe_absent"
+
+[[axiom]]
+id = "COH-A5-02"
+axiom = "A5"
+statement = "新增容器、缓存与通道都有容量上限与上限测试"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A5 | 资源有界"
+tier = "IV"
+phase = ["end"]
+severity = "soft"
+evaluator = "registered:上限是否充分无法文本判定；补偿控制是评审清单与上限测试"
+
+# ---------------- A6 不伪造 ----------------
+
+[[axiom]]
+id = "COH-A6-01"
+axiom = "A6"
+statement = "T360 起的任务块引用的手段路径（脚本、crate、文档、测试）真实存在"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A6 | 不伪造"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:means_exist"
+
+[[axiom]]
+id = "COH-A6-02"
+axiom = "A6"
+statement = "空、零、null 输出被归因为正确的空或前置缺失"
+source = "docs/guides/signal-chain-completeness.md :: ## 核心命题"
+tier = "IV"
+phase = ["end"]
+severity = "soft"
+evaluator = "registered:归因质量无法文本判定；补偿控制是信号链完备原则与对照场景"
+
+# ---------------- A7 退出权 ----------------
+
+[[axiom]]
+id = "COH-A7-01"
+axiom = "A7"
+statement = "完整导出与离线核心能力的端到端路径可用"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A7 | 退出权"
+tier = "III"
+phase = ["end"]
+severity = "soft"
+evaluator = "registered:一次真实运行给见证不给证明；见证由集成测试与 CI 日志承担"
+
+# ---------------- A8 可修订 ----------------
+
+[[axiom]]
+id = "COH-A8-01"
+axiom = "A8"
+statement = "新 ADR 含已知限制或失效条件节且有正文"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A8 | 可修订"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "delegate:check-adr-limits.py"
+
+[[axiom]]
+id = "COH-A8-02"
+axiom = "A8"
+statement = "编号 ADR（63 起）文本含复审触发或失效条件表述"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A8 | 可修订"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:adr_review_trigger"
+
+# ---------------- A9 角色分离 ----------------
+
+[[axiom]]
+id = "COH-A9-01"
+axiom = "A9"
+statement = "门禁记录区分作者、复核者与批准者"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A9 | 角色分离"
+tier = "IV"
+phase = ["end"]
+severity = "soft"
+evaluator = "registered:单人项目的角色是帽子，记录形态无法机器核对；补偿控制是 process §4.2"
+
+# ---------------- R 推理规则 ----------------
+
+[[axiom]]
+id = "COH-R4-01"
+axiom = "R4"
+statement = "跨门禁跳跃带 ADR、用户批准与被跳判据清单"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: R4 | 禁跳与例外"
+tier = "IV"
+phase = ["end"]
+severity = "soft"
+evaluator = "registered:例外是否成立须人读 ADR；补偿控制是 G0—G5 评审"
+
+[[axiom]]
+id = "COH-R5-01"
+axiom = "R5"
+statement = "未观察到结果的外部操作标 unknown 且不自动重放"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: R5 | 未知不回放"
+tier = "III"
+phase = ["end"]
+severity = "soft"
+evaluator = "registered:行为证据取自崩溃恢复测试与 CI 日志，静态检查不覆盖"
+
+[[axiom]]
+id = "COH-R6-01"
+axiom = "R6"
+statement = "工具无信号时区分正确的空与前置缺失，无法区分即提问"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: R6 | 信号链"
+tier = "IV"
+phase = ["end"]
+severity = "soft"
+evaluator = "registered:归因判断属语义层；补偿控制是信号链完备原则与对照场景"
+
+[[axiom]]
+id = "COH-R8-01"
+axiom = "R8"
+statement = "冲突优先级有全序（自由与安全 ≻ 证据 ≻ 进度）"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: | G1 | 冲突优先级无全序"
+tier = "IV"
+phase = ["end"]
+severity = "soft"
+evaluator = "registered:原文只有局部优先级，缺口 G1 已登记；补偿控制是用户批准"
+
+# ---------------- H 编码与台账卫生 ----------------
+
+[[axiom]]
+id = "COH-H-01"
+axiom = "H"
+statement = "文本文件为 UTF-8 无 BOM、换行 LF"
+source = "AGENTS.md :: 所有文本文件 **UTF-8 无 BOM**"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "delegate:check-eol.py"
+
+[[axiom]]
+id = "COH-H-02"
+axiom = "H"
+statement = "文档文风符合禁用词、表情符号、直引号与套话规则"
+source = "AGENTS.md :: 文风（2026-11-08 用户指令"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "delegate:check-docs-style.py"
+
+[[axiom]]
+id = "COH-H-03"
+axiom = "H"
+statement = "十三套语言目录齐全且 PO 源文件与内建目录同步"
+source = "AGENTS.md :: i18n：十三套语言目录必须同时可用"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "delegate:i18n-po.py"
+args = ["--check"]
+
+[[axiom]]
+id = "COH-H-04"
+axiom = "H"
+statement = "工作流 action 引用为固定 SHA 且在清单内"
+source = "AGENTS.md :: ### 5.1 CI action 版本铁律"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "delegate:check-actions.py"
+
+[[axiom]]
+id = "COH-H-05"
+axiom = "H"
+statement = "工作流语义满足触发、并发与矩阵约束"
+source = "AGENTS.md :: ### 5.1 CI action 版本铁律"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "delegate:check-workflows.py"
+
+[[axiom]]
+id = "COH-H-06"
+axiom = "H"
+statement = "标准基线登记行六字段齐全、判定取值合法"
+source = "AGENTS.md :: 从 `docs/guides/standards-baseline.md` 起步"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "delegate:check-standards-baseline.py"
+
+[[axiom]]
+id = "COH-H-07"
+axiom = "H"
+statement = "ADR 文件编号唯一且连续，文件名符合 ADR-<编号>[-slug].md"
+source = "docs/analysis/software-engineering-logic-sufficiency.md :: A8 | 可修订"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:adr_numbering"
+
+# ---------------- 证据充分性补充条目（2026-11-17 公理体系审计合并） ----------------
+# 来源：docs/guides/coherence-audit.md §11；本组条目在 mid／end 以 soft 运行，
+# 存量债务由 counterexamples.md 持有，不阻断 pre。
+
+[[axiom]]
+id = "COH-A1-06"
+axiom = "A1"
+statement = "已勾选的行为或性能类 Check 带 index 或 run／commit 引用"
+source = "docs/guides/coherence-audit.md :: 已勾选的行为或性能类 Check 带 `index=` 或 run／commit 引用"
+tier = "I"
+phase = ["mid", "end"]
+severity = "soft"
+evaluator = "direct:evidence_indexed"
+
+[[axiom]]
+id = "COH-A1-07"
+axiom = "A1"
+statement = "预算与平台类 Check 带 scope 作用域元组"
+source = "docs/guides/coherence-audit.md :: 预算与平台类 Check 带 `scope=` 作用域元组"
+tier = "I"
+phase = ["mid", "end"]
+severity = "soft"
+evaluator = "direct:evidence_scoped"
+
+[[axiom]]
+id = "COH-A1-08"
+axiom = "A1"
+statement = "同判据后续反例使旧 Check 降级或追加复核记录"
+source = "docs/guides/coherence-audit.md :: 同判据后续反例必须使旧 Check 降级或追加复核记录"
+tier = "IV"
+phase = ["pre", "mid", "end"]
+severity = "soft"
+evaluator = "registered:历史证据与后续 run 的冲突须人读比对；补偿控制是证据态升降级规则与 ADR-046 复审触发"
+
+[[axiom]]
+id = "COH-A1-09"
+axiom = "A1"
+statement = "单样本不支撑全称预算结论，须声明样本量或复测规则"
+source = "docs/guides/coherence-audit.md :: 单样本不得支撑全称预算结论，须声明样本量或复测规则"
+tier = "IV"
+phase = ["pre", "mid", "end"]
+severity = "soft"
+evaluator = "registered:统计功效不可由静态文本判定；补偿控制是 ADR-025 的多样本纪律与复跑确认"
+
+[[axiom]]
+id = "COH-A2-04"
+axiom = "A2"
+statement = "正面 FR 的验收覆盖不得只由负极性 Check 承担"
+source = "docs/guides/coherence-audit.md :: 正面 FR 的验收覆盖不得只由负极性 Check 承担"
+tier = "I"
+phase = ["mid", "end"]
+severity = "soft"
+evaluator = "direct:positive_coverage"
+
+[[axiom]]
+id = "COH-A2-05"
+axiom = "A2"
+statement = "Check 极性可判定且与 FR 极性相容"
+source = "docs/guides/coherence-audit.md :: Check 的极性（positive／negative）可判定且与 FR 极性相容"
+tier = "III"
+phase = ["mid", "end"]
+severity = "soft"
+evaluator = "direct:polarity_declared"
+
+[[axiom]]
+id = "COH-A5-03"
+axiom = "A5"
+statement = "资源预算四类占用可测且不静默放宽"
+source = "docs/guides/coherence-audit.md :: 资源预算四类占用可测且不静默放宽"
+tier = "IV"
+phase = ["pre", "mid", "end"]
+severity = "soft"
+evaluator = "registered:占用测量需要运行产物与平台探针；补偿控制是 ADR-027／042 的 GUI 探针与 CI desktop job"

@@ -657,6 +657,29 @@ taskkill /T /F 口径）（P1）
     第四节）；Check 466
 
 
+- **FR-795**: 任务执行三阶段充分性计算（P7.5／ADR-085）：要求—检查点—手段三元组在可判定
+  片段上被程序判定，反例阻断或留档——① 执行前（计划模式退出审批通过后）以当前任务标题为
+  要求、验收条件为检查点、工具注册表为手段计算；有反例即拒绝退出（`error_code` 为
+  `sufficiency_incomplete`），计算过程失败按 fail-closed 处理，不把“查不了”当放行；
+  ② 执行中每 8 轮（`MID_AUDIT_INTERVAL_TURNS`）与 turn 收口各重算一次，只记录不阻断，
+  写入失败落 `PersistenceError`；③ 报告持久化（`coherence_runs`，反例明细为 VARIANT），
+  会话无未完成任务时返回空（正确的空）而非“通过”；④ 语义充分性（意图与方案质量）恒为
+  `unknown`，不算通过也不算失败，由用户确认；只读视图经 Web `GET /api/coherence?session=`，
+  TUI／GUI 登记为预留，CUI 无视图面
+  - 依据：2026-11-17 用户指令（要求—目的—手段的数理逻辑充分性须在执行前计算、执行中独立
+    审计、结束再算一遍；形式化审计接入 WHCode 内部流程）；ADR-085；ADR-010（权限面）；
+    ADR-018（SQL 只在 store）；ADR-036（JSON 语义列用 VARIANT）
+  - 判据：Given 当前任务验收条件为空，Then 计划模式退出被拒绝且 `PlanModeChanged` 不落、
+    `coherence_runs` 有 `pre` 报告；Given 三元组齐备，Then 退出成功且 turn 收口落 `end`
+    报告；Given 会话无未完成任务，Then 不阻断且 `GET /api/coherence` 返回 `report: null`；
+    Given 显式传入未注册手段，Then 反例明细含 `SFR-07`；Given 审计读写失败，Then 退出按
+    fail-closed 处理并给出 `coherence_audit_failed`
+  - 证据：`crates/whcode-domain/src/coherence.rs`、`crates/whcode-store/src/coherence.rs`、
+    `crates/whcode-store/migrations/0015_coherence_runs.sql`、`crates/whcode-app/src/coherence.rs`、
+    `crates/whcode-app/src/turn.rs`（计划模式退出前置与收口）、`crates/whcode-web/src/api.rs`
+    （`/api/coherence`）、`whcode-app::surface`（`view.coherence`）；Check 469—470
+
+
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，
   成功调用才落、失败不落），条目数与单条长度有常量上限且超限拒绝不截断；待办与 SDD 任务

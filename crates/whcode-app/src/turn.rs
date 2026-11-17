@@ -635,6 +635,35 @@ fn run_turn_inner(
     // append_turn 不清空草稿（清空由 flush 负责）：这里显式清空，避免后续批次重放边界事件。
     pending_events.clear();
 
+    // ── 执行中重算（FR-795／ADR-085）：每 MID_AUDIT_INTERVAL_TURNS 轮记录一次 ──
+    // 记录型：失败只落 PersistenceError，不改变 turn 结果；没有未完成任务时不计算
+    // （正确的空）。不按每轮落库，避免固定写入开销（资源铁律）。
+    if let Ok(count) = whcode_store::session_turn_count(conn, session)
+        && count > 0
+        && count % whcode_domain::MID_AUDIT_INTERVAL_TURNS == 0
+    {
+        let available_refs: Vec<&str> = tool_registry
+            .descriptors()
+            .iter()
+            .map(|item| item.name)
+            .collect();
+        if let Err(err) = crate::coherence::audit_session(
+            conn,
+            policy,
+            actor,
+            session,
+            whcode_domain::CoherencePhase::Mid,
+            &available_refs,
+            now_ms,
+        ) {
+            emit!(
+                EventKind::PersistenceError,
+                "error_code": err.code.as_str(),
+                "stage": "coherence_mid",
+            );
+        }
+    }
+
     // ── 孤儿压缩锁（T265／FR-755）：上次崩溃留下的未闭合压缩在本次打开时可见 ──
     // 只观察不阻断：孤儿锁说明"上次压缩被中断"，当前 turn 仍可正常开始。
     let orphan_compactions = whcode_store::turn::orphan_compactions(conn, session)?;
@@ -1343,6 +1372,31 @@ fn run_turn_inner(
         "iterations": iterations,
     );
     persister.flush(conn, &mut pending_events, &messages)?;
+
+    // ── 收口计算（FR-795／ADR-085）：只记录，不改变 turn 结果 ────────────
+    // 与计划模式退出前的 pre 同源（同一函数、同一三元组）；失败落 PersistenceError，
+    // 不把 turn 判为失败——mid／end 是记录型，阻断只发生在 pre。
+    let available_refs: Vec<&str> = tool_registry
+        .descriptors()
+        .iter()
+        .map(|item| item.name)
+        .collect();
+    if let Err(err) = crate::coherence::audit_session(
+        conn,
+        policy,
+        actor,
+        session,
+        whcode_domain::CoherencePhase::End,
+        &available_refs,
+        now_ms,
+    ) {
+        emit!(
+            EventKind::PersistenceError,
+            "error_code": err.code.as_str(),
+            "stage": "coherence_end",
+        );
+        persister.flush(conn, &mut pending_events, &messages)?;
+    }
     drop(marker);
     drop(turn_marker);
 
@@ -1903,6 +1957,35 @@ fn execute_tool_call(
                     return fail_code(
                         RuntimeExecutionStatus::Failed,
                         format!("{reason}；命中规则 {}", decision.rule.as_str()),
+                        code,
+                    );
+                }
+                // ── 充分性前置（FR-795／ADR-085）──────────────────────────
+                // 计划模式退出是“执行前”的最后一个可判定点：用户已批准动手，三元组
+                // （要求＝当前任务标题、检查点＝验收条件、手段＝注册表工具）须先算出
+                // 无反例。会话没有未完成任务时返回 None（正确的空），不阻断。
+                // 审计过程本身失败按 fail-closed 处理，不把“查不了”当成“没问题”。
+                let available_refs: Vec<&str> = registry
+                    .descriptors()
+                    .iter()
+                    .map(|item| item.name)
+                    .collect();
+                if let Err(err) = crate::coherence::preflight(
+                    conn,
+                    policy,
+                    actor,
+                    session,
+                    &available_refs,
+                    now_ms,
+                ) {
+                    let code = if matches!(err.code, whcode_domain::ErrorCode::InvalidState) {
+                        "sufficiency_incomplete"
+                    } else {
+                        "coherence_audit_failed"
+                    };
+                    return fail_code(
+                        RuntimeExecutionStatus::Failed,
+                        format!("充分性前置未通过：{err}；本次退出未执行，请先补齐计划"),
                         code,
                     );
                 }
@@ -3900,6 +3983,118 @@ description: 指南
         assert!(!active);
         assert_eq!(source, "model");
         assert_eq!(gate.pending_len(), 0, "判定后不得残留待审批");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn plan_mode_exit_is_blocked_when_task_has_no_acceptance() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let dir = temp_dir("plan-exit-sufficiency");
+        let factory = StubFactory(StubProvider::with_script(vec![
+            plan_tool_step("call-plan-exit-blocked", false),
+            StubStep::simple("已按反馈补充检查点", "stop"),
+        ]));
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        whcode_store::plan::record_mode(&conn, &id, true, "user", None).expect("先进入计划模式");
+        let task_id = format!("T-{id}");
+        whcode_store::tasks::insert_task(
+            &conn,
+            &whcode_store::tasks::NewTask {
+                id: &task_id,
+                session_id: &id,
+                title: "补齐导出",
+                stage: "specify",
+                parent_id: None,
+                acceptance_json: "[]",
+            },
+            1,
+        )
+        .expect("建任务");
+        let mut req = request(&id, "退出计划模式");
+        req.workspace_root = Some(dir.clone());
+
+        let sink = CollectingAuditSink::new();
+        let answerer = FixedAnswerer(ApprovalAnswer::Approve);
+        let mut gate = ApprovalGate::new(
+            "turn-test",
+            policy_for(whcode_tools::PLAN_MODE_EXIT_RULE, ApprovalRule::Ask),
+            &sink,
+            Some(&answerer),
+            DEFAULT_APPROVAL_WAIT_MS,
+        );
+        run_turn_with_approval(
+            &mut conn, &policy, &actor, &ctx, &req, None, None, &mut gate, 34,
+        )
+        .expect("turn 正常结束（工具失败回填，不中断循环）");
+
+        assert!(
+            crate::plan::is_active(&conn, &id).expect("状态可读"),
+            "充分性未通过时不得退出计划模式"
+        );
+        let code: String = conn
+            .query_row(
+                "SELECT CAST(CAST(payload_json AS JSON)->>'$.error_code' AS VARCHAR) \
+                 FROM events WHERE session_id=? AND kind='ToolCallFinished' \
+                 ORDER BY seq DESC LIMIT 1",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("读取错误码");
+        assert_eq!(code, "sufficiency_incomplete");
+        let runs: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM coherence_runs WHERE session_id=? AND phase='pre'",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("统计 pre 报告");
+        assert_eq!(runs, 1, "阻断同时必须留下可查的报告");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn turn_finish_records_end_audit_for_active_task() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let dir = temp_dir("coherence-end");
+        let factory = StubFactory(StubProvider::with_script(vec![StubStep::simple(
+            "完成", "stop",
+        )]));
+        let ctx = context(&registry, &factory, &dir);
+        let id = session(&mut conn);
+        let task_id = format!("T-{id}");
+        whcode_store::tasks::insert_task(
+            &conn,
+            &whcode_store::tasks::NewTask {
+                id: &task_id,
+                session_id: &id,
+                title: "补齐导出",
+                stage: "specify",
+                parent_id: None,
+                acceptance_json: r#"["导出含 schema_version"]"#,
+            },
+            1,
+        )
+        .expect("建任务");
+        let mut req = request(&id, "继续");
+        req.workspace_root = Some(dir.clone());
+        run_turn(&mut conn, &policy, &actor, &ctx, &req, 40).expect("turn 完成");
+        let (phase, verdict): (String, String) = conn
+            .query_row(
+                "SELECT phase, verdict FROM coherence_runs WHERE session_id=? \
+                 ORDER BY created_at DESC LIMIT 1",
+                [&id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("收口报告");
+        assert_eq!(phase, "end");
+        assert_eq!(verdict, "satisfied");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

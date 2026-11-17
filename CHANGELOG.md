@@ -13,6 +13,21 @@
 
 ### 变更
 
+- **形式化融洽性审计与三阶段充分性计算（2026-11-17，FR-795／ADR-085）**：把规则体系视为形式
+  理论 Γ、仓库现状视为模型 M，对可判定片段逐条计算 `M ⊨ γ`——
+  ① 仓库层：公理表 `specs/001-whcode-harness/coherence/axioms.toml`（45 条：A1—A9／R1—R8
+  片段＋七条缺口）、求值器 `.github/scripts/coherence.py`（direct／delegate／registered 三型，
+  `pre` 阻断、`mid`／`end` 记录，`--independent` 反向路径、`--ledger-check`、`--selftest`）、
+  反例台账 `coherence/counterexamples.md`（七条，含五条存量债务）；`pre` 进入 AGENTS 验证链、
+  process G0／G3／G4 判据与 `platform-verification.yml` 的 docs-gates 及 windows 步骤；
+  ② 产品层：`whcode-domain::coherence` 纯求值器（10 条规则，结论只覆盖可判定片段）、迁移
+  0015 `coherence_runs`（反例明细 VARIANT）、app 服务 `audit`／`audit_session`／`preflight`、
+  turn 三相位（计划模式退出前 `pre` 阻断 `sufficiency_incomplete`、每 8 轮 `mid`、收口
+  `end`）、Web `GET /api/coherence` 与登记表 `view.coherence`（CUI 排除、TUI／GUI 预留）。
+  新增 Task T371—T374 与 Check 467—470；同批修复 Check 316 正文丢失（按其原始提交恢复）。
+  配套指南 `docs/guides/coherence-audit.md`（三阶段协议与台账纪律）与
+  `docs/guides/axiom-system.md`（45 条公理目录与充分性方法）互补，编号与组名同名不同义。
+
 - **公理体系与充分性审计指南（2026-11-17，用户批准）**：新增 `docs/guides/axiom-system.md`，
   把 AGENTS、spec、ADR 与工具链的可判定规则重构为 45 条公理、7 条推理规则与 6 条元定理，
   给出判定程序索引、充分性计算方法与当前快照；与 `coherence.py` 的可执行子集互补，

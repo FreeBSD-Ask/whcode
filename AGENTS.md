@@ -4,7 +4,7 @@
 > 作用等价于 `AGENTS.md` / `CLAUDE.md`。它是**入口与摘要**，不复制规范正文；
 > 与 `docs/guides/`、`specs/`、ADR 冲突时，以那些文档为准。
 
-**最后更新**：2026-11-14 | **适用版本**：`0.1.0`（M0 基线，未发布）
+**最后更新**：2026-11-17 | **适用版本**：`0.1.0`（M0 基线，未发布）
 
 ## 1. 项目定位与硬边界
 
@@ -106,6 +106,8 @@ WHCode 是 Rust 原生、本地优先的 LLM 编码 Harness：单文件 DuckDB �
 | 16 | `docs/guides/signal-chain-completeness.md` | 信号链完备原则（T116 复盘：交付 = 信号存在，而非执行存在） |
 | 17 | `docs/guides/knowing-before-doing.md` | 开工前任务认知卡：方向、目标、用户意图、判据、非目标；手段后置 |
 | 18 | `docs/guides/standards-baseline.md` | 标准基线单一事实源：引用哪个标准、什么版本、作何判定、停用对象登记；引用标准先看这里 |
+| 19 | `docs/guides/coherence-audit.md` | 融洽性审计：Γ 规则体系与 M 仓库模型的满足关系、可判定片段、三阶段计算与反例台账 |
+| 20 | `docs/guides/axiom-system.md` | 公理体系与充分性审计：45 条公理、判定程序索引、待办充分性判据；编号与本文件及 `coherence-audit.md` 的 `COH-` 条目分开引用 |
 
 ## 3. 环境与常用命令
 
@@ -130,6 +132,9 @@ python .github/scripts/clean.py --scope all                   # 构建物/缓存
 python .github/scripts/traceability.py                        # FR↔任务↔Check 三方追溯（含缺口登记合规）
 python .github/scripts/check_counts.py                        # 任务/Check/FR 计数声明与实际一致
 python .github/scripts/check-knowing-first.py     # 知难行易落点门禁（宪法原则 X）
+python .github/scripts/coherence.py --phase pre   # 融洽性 pre 门禁（ADR-085：M ⊨ γ 可判定片段；反例即阻断）
+python .github/scripts/coherence.py --phase mid --independent   # 批次提交前：反向路径对账（记录型）
+python .github/scripts/coherence.py --phase end --strict        # 收口：未登记反例即红
 python .github/scripts/package-windows.py --verify --record artifacts/install-verify-windows-amd64.txt  # 发布包安装验证（交付相关改动必跑；--target aarch64-pc-windows-gnullvm 只打包，ARM64 安装验证由 CI 原生 runner 执行，ADR-074）
 python .github/scripts/check-eol.py                   # LF + 无 BOM 审计
 python .github/scripts/check-docs-style.py            # 文档文风验收（禁用词/表情符号/直引号/套话）
@@ -390,6 +395,7 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 10. 证据层级与三次复查已执行；不可逆决策附设计与回退证据。
 11. **知难行易**：开工前有任务认知卡（方向/目标/用户意图/判据/非目标），手段选择晚于认知；歧义已提问或登记（`docs/guides/knowing-before-doing.md`）。
 12. **标准研读前置**：开工前完成相关标准化文献（ISO／IEEE／国标／官方文档／规范／建议）的启发式研读并落盘（`docs/guides/software-engineering-process.md` §1.6）；新标准或新域先补基线登记再开工（`docs/guides/standards-baseline.md`）。
+13. **融洽性计算**：开工前 `pre` 阶段通过（要求—检查点—手段三元组无反例）；批次提交前跑 `mid --independent`，收口跑 `end --strict`；反例全部登记到 `specs/001-whcode-harness/coherence/counterexamples.md`，未登记反例按阻断处理（`docs/guides/coherence-audit.md`、ADR-085）。完整公理清单、无程序条目与待办充分性计算方法见 `docs/guides/axiom-system.md`；两套编号（本文件的章节号、`COH-` 条目、`A01`—`G04` 公理）不得互换。
 
 提交约定（用户已授权代理自行提交）：
 

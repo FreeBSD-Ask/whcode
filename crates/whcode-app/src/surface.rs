@@ -2012,6 +2012,30 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    // 充分性报告（FR-795／ADR-085）：只读视图，Web 经 `GET /api/coherence?session=`；
+    // TUI／GUI 未排期，CUI 无视图面（命令面按 ADR-032 排除）。
+    SurfaceEntry {
+        id: "view.coherence",
+        kind: SurfaceKind::View,
+        capability: Capability::SessionRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CuiCommandSurface,
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Reserved {
+                milestone: "未排期",
+            },
+            Support::Implemented {
+                anchor: "GET /api/coherence?session=",
+            },
+        ],
+    },
 ];
 
 /// 按 SurfaceId 查找登记条目。
@@ -2229,9 +2253,11 @@ mod tests {
                 // 前像清单（T289／FR-776）：Web 只读，TUI／GUI 未排期。
                 "view.preimages",
                 // 交付物清单（T285／FR-772）：Web 实现，TUI／GUI 未排期。
-                "view.deliverables"
+                "view.deliverables",
+                // 充分性报告（FR-795／ADR-085）：Web 只读，TUI／GUI 未排期。
+                "view.coherence"
             ],
-            "视图面条目为模型目录 + 证书设置页 + 八视图 + 检查点浏览 + 在线可见 + B4 面板 + 前像 + 交付物（FR-601／622／624／748／749—751／772／773／776、ADR-040）"
+            "视图面条目为模型目录 + 证书设置页 + 八视图 + 检查点浏览 + 在线可见 + B4 面板 + 前像 + 交付物 + 充分性报告（FR-601／622／624／748／749—751／772／773／776／795、ADR-040／085）"
         );
     }
 

@@ -155,6 +155,9 @@ jobs:
       - name: 三方追溯（FR↔任务↔Check）
         run: python3 .github/scripts/traceability.py
 
+      - name: 融洽性 pre 门禁（ADR-085：M ⊨ γ 可判定片段）
+        run: python3 .github/scripts/coherence.py --phase pre
+
       - name: i18n PO 源文件漂移门禁
         run: python3 .github/scripts/i18n-po.py --check
 
@@ -461,6 +464,12 @@ jobs:
       - name: 三方追溯（FR↔任务↔Check，含缺口登记合规）
         if: matrix.platform == 'windows'
         run: python .github/scripts/traceability.py
+
+      # 融洽性 pre 门禁（ADR-085）：开工前置的可判定片段计算。mid／end 由批次执行者
+      # 在提交前与收口前各跑一次（记录型），不进推送路径以免重复计算同一批事实。
+      - name: 融洽性 pre 门禁（ADR-085：M ⊨ γ 可判定片段）
+        if: matrix.platform == 'windows'
+        run: python .github/scripts/coherence.py --phase pre
 
       - name: 前端预算（FR-618／ADR-014）
         if: matrix.platform == 'windows'

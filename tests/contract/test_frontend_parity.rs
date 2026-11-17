@@ -44,6 +44,7 @@ fn web_routes_resolve_to_implemented_surfaces() {
         ("GET", "/api/tasks"),
         ("GET", "/api/context"),
         ("GET", "/api/diff"),
+        ("GET", "/api/coherence"),
         ("GET", "/api/events/export"),
         ("GET", "/api/runtimes"),
         ("GET", "/api/i18n"),

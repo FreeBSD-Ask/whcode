@@ -10,6 +10,7 @@ pub mod approval;
 pub mod audit;
 pub mod brand;
 pub mod checkpoint;
+pub mod coherence;
 pub mod error;
 pub mod event;
 pub mod gate;
@@ -28,6 +29,11 @@ pub use audit::{AuditAction, AuditRecord, AuditSink, CollectingAuditSink};
 pub use checkpoint::{
     CheckpointPolicy, CheckpointState, CheckpointTrigger, DEFAULT_INTERVAL_SECONDS, DEFAULT_RETAIN,
     MAX_EVERY_STEPS, MAX_INTERVAL_SECONDS, MAX_RETAINED, retain_recent,
+};
+pub use coherence::{
+    CoherencePhase, MAX_SUFFICIENCY_ITEMS, MAX_SUFFICIENCY_TEXT_CHARS, MID_AUDIT_INTERVAL_TURNS,
+    RuleOutcome, RuleStatus, SufficiencyInput, SufficiencyReport, SufficiencyRule, Verdict,
+    evaluate as evaluate_sufficiency,
 };
 pub use error::{ErrEnvelope, ErrorCode, OkEnvelope, SCHEMA_VERSION, WhError};
 pub use event::{

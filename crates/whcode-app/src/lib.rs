@@ -31,6 +31,7 @@ pub mod approval;
 pub mod approval_rules;
 pub mod authz;
 pub mod cert;
+pub mod coherence;
 pub mod commands;
 pub mod compaction;
 pub mod context;
@@ -70,6 +71,7 @@ pub use approval::{
     MAX_APPROVAL_TOOL_RULES, MAX_APPROVAL_WAIT_MS,
 };
 pub use authz::{Actor, Capability, DefaultPolicy, Policy, actor_with_all_capabilities, require};
+pub use coherence::{CoherenceView, audit as audit_coherence, latest as latest_coherence};
 pub use commands::{CommandExecutor, CommandOutcome, FrontendCommand, execute_command};
 pub use context::{
     CONTEXT_PAGE_SIZE, ContextCompression, ContextItem, ContextWindow,
