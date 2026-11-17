@@ -411,15 +411,21 @@ fn launch_interactive(args: &[String]) -> ExitCode {
     let executor_ref: Option<&dyn whcode_app::commands::CommandExecutor> = executor
         .as_ref()
         .map(|executor| executor as &dyn whcode_app::commands::CommandExecutor);
-    let llm_ref: Option<&dyn whcode_tui::LlmExecutor> = llm_executor
+    // ADR-087：同一执行器双口径注入——同步 `LlmExecutor`（L/C 键位）与
+    // `Arc<dyn ChatExecutor>`（Chat 视图后台流式 turn）。
+    let llm_arc = llm_executor.map(std::sync::Arc::new);
+    let llm_ref: Option<&dyn whcode_tui::LlmExecutor> = llm_arc
         .as_ref()
-        .map(|executor| executor as &dyn whcode_tui::LlmExecutor);
+        .map(|arc| arc.as_ref() as &dyn whcode_tui::LlmExecutor);
+    let chat_executor: Option<std::sync::Arc<dyn whcode_tui::ChatExecutor>> =
+        llm_arc.as_ref().map(|arc| std::sync::Arc::clone(arc) as _);
     let options = whcode_tui::RunOptions {
         theme,
         texts,
         minimize_probe: Some(&probe),
         command_executor: executor_ref,
         llm_executor: llm_ref,
+        chat_executor,
     };
     match whcode_tui::run_with(source.as_ref(), options) {
         Ok(()) => ExitCode::SUCCESS,

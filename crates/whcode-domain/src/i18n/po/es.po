@@ -1190,6 +1190,69 @@ msgstr "salida={output}"
 msgid "tool.call.started"
 msgstr "{tool} · llamada iniciada · exec={exec} · call={call} · iteración {iteration}"
 
+msgid "tui.chat.composer.hint"
+msgstr "i escribir una petición · Enter enviar · P perfil · Esc volver"
+
+msgid "tui.chat.composer.running"
+msgstr "en curso · Esc para cancelar · entrada congelada"
+
+msgid "tui.chat.reason.budget"
+msgstr "límite de presupuesto alcanzado"
+
+msgid "tui.chat.reason.cancel"
+msgstr "cancelado"
+
+msgid "tui.chat.reason.error"
+msgstr "error"
+
+msgid "tui.chat.reason.limit"
+msgstr "límite de iteraciones alcanzado"
+
+msgid "tui.chat.reason.model_finished"
+msgstr "modelo terminó"
+
+msgid "tui.chat.role.assistant"
+msgstr "Asistente"
+
+msgid "tui.chat.role.tool"
+msgstr "Herramienta"
+
+msgid "tui.chat.role.user"
+msgstr "Usuario"
+
+msgid "tui.chat.status.busy"
+msgstr "chat: ya hay un turno en curso (Esc para cancelar)"
+
+msgid "tui.chat.status.cancel_failed"
+msgstr "fallo al cancelar: {err}"
+
+msgid "tui.chat.status.cancel_requested"
+msgstr "cancelación solicitada: {request}"
+
+msgid "tui.chat.status.empty"
+msgstr "chat: petición vacía"
+
+msgid "tui.chat.status.error"
+msgstr "fallo del chat: {err}"
+
+msgid "tui.chat.status.no_provider"
+msgstr "chat: sin perfil disponible"
+
+msgid "tui.chat.status.no_session"
+msgstr "chat: sin sesión seleccionada (j/k en vista de sesiones)"
+
+msgid "tui.chat.status.not_supported"
+msgstr "chat: ejecutor no inyectado (not_supported)"
+
+msgid "tui.chat.tool.output"
+msgstr "salida: {output}"
+
+msgid "tui.chat.turn.footer"
+msgstr "── fin de turno · {reason} · {duration} ms"
+
+msgid "tui.chat.turn.header"
+msgstr "── inicio de turno · {request}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

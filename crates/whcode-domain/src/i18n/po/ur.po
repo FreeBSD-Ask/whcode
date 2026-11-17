@@ -1190,6 +1190,69 @@ msgstr "آؤٹ پٹ={output}"
 msgid "tool.call.started"
 msgstr "{tool} · کال شروع · exec={exec} · call={call} · تکرار {iteration}"
 
+msgid "tui.chat.composer.hint"
+msgstr "i پرامپٹ لکھیں · Enter بھیجیں · P پروفائل · Esc واپس"
+
+msgid "tui.chat.composer.running"
+msgstr "جاری ہے · Esc منسوخ · اِنپٹ منجمد"
+
+msgid "tui.chat.reason.budget"
+msgstr "بجٹ کی حد"
+
+msgid "tui.chat.reason.cancel"
+msgstr "منسوخ کیا گیا"
+
+msgid "tui.chat.reason.error"
+msgstr "خرابی"
+
+msgid "tui.chat.reason.limit"
+msgstr "تکرار کی حد"
+
+msgid "tui.chat.reason.model_finished"
+msgstr "ماڈل مکمل"
+
+msgid "tui.chat.role.assistant"
+msgstr "معاون"
+
+msgid "tui.chat.role.tool"
+msgstr "آلہ"
+
+msgid "tui.chat.role.user"
+msgstr "صارف"
+
+msgid "tui.chat.status.busy"
+msgstr "چیٹ: وارش پہلے سے جاری ہے (Esc منسوخ)"
+
+msgid "tui.chat.status.cancel_failed"
+msgstr "منسوخی ناکام: {err}"
+
+msgid "tui.chat.status.cancel_requested"
+msgstr "منسوخی کی درخواست: {request}"
+
+msgid "tui.chat.status.empty"
+msgstr "چیٹ: پرامپٹ خالی"
+
+msgid "tui.chat.status.error"
+msgstr "چیٹ ناکام: {err}"
+
+msgid "tui.chat.status.no_provider"
+msgstr "چیٹ: کوئی پروفائل دستیاب نہیں"
+
+msgid "tui.chat.status.no_session"
+msgstr "چیٹ: کوئی سیشن منتخب نہیں (سیشن منظر میں j/k)"
+
+msgid "tui.chat.status.not_supported"
+msgstr "چیٹ: ایگزیکیوٹر منسلک نہیں (not_supported)"
+
+msgid "tui.chat.tool.output"
+msgstr "آؤٹ پُٹ: {output}"
+
+msgid "tui.chat.turn.footer"
+msgstr "── وارش اختتام · {reason} · {duration} ملی سیکنڈ"
+
+msgid "tui.chat.turn.header"
+msgstr "── وارش آغاز · {request}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

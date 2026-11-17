@@ -1190,6 +1190,69 @@ msgstr "Ausgabe={output}"
 msgid "tool.call.started"
 msgstr "{tool} · Aufruf gestartet · exec={exec} · call={call} · Iteration {iteration}"
 
+msgid "tui.chat.composer.hint"
+msgstr "i Eingabe tippen · Enter senden · P Profil · Esc zurück"
+
+msgid "tui.chat.composer.running"
+msgstr "läuft · Esc bricht ab · Eingabe eingefroren"
+
+msgid "tui.chat.reason.budget"
+msgstr "Budgetlimit erreicht"
+
+msgid "tui.chat.reason.cancel"
+msgstr "abgebrochen"
+
+msgid "tui.chat.reason.error"
+msgstr "Fehler"
+
+msgid "tui.chat.reason.limit"
+msgstr "Iterationslimit erreicht"
+
+msgid "tui.chat.reason.model_finished"
+msgstr "Modell fertig"
+
+msgid "tui.chat.role.assistant"
+msgstr "Assistent"
+
+msgid "tui.chat.role.tool"
+msgstr "Werkzeug"
+
+msgid "tui.chat.role.user"
+msgstr "Nutzer"
+
+msgid "tui.chat.status.busy"
+msgstr "Chat: ein Zug läuft bereits (Esc bricht ab)"
+
+msgid "tui.chat.status.cancel_failed"
+msgstr "Abbruch fehlgeschlagen: {err}"
+
+msgid "tui.chat.status.cancel_requested"
+msgstr "Abbruch angefordert: {request}"
+
+msgid "tui.chat.status.empty"
+msgstr "Chat: leere Eingabe"
+
+msgid "tui.chat.status.error"
+msgstr "Chat fehlgeschlagen: {err}"
+
+msgid "tui.chat.status.no_provider"
+msgstr "Chat: kein Profil verfügbar"
+
+msgid "tui.chat.status.no_session"
+msgstr "Chat: keine Sitzung gewählt (j/k in der Sitzungsansicht)"
+
+msgid "tui.chat.status.not_supported"
+msgstr "Chat: Executor nicht injiziert (not_supported)"
+
+msgid "tui.chat.tool.output"
+msgstr "Ausgabe: {output}"
+
+msgid "tui.chat.turn.footer"
+msgstr "── Zugende · {reason} · {duration} ms"
+
+msgid "tui.chat.turn.header"
+msgstr "── Zugbeginn · {request}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

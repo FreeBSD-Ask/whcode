@@ -1190,6 +1190,69 @@ msgstr "output={output}"
 msgid "tool.call.started"
 msgstr "{tool} · call started · exec={exec} · call={call} · iteration {iteration}"
 
+msgid "tui.chat.composer.hint"
+msgstr "i type a prompt · Enter send · P profile · Esc back"
+
+msgid "tui.chat.composer.running"
+msgstr "running · Esc to cancel · input frozen"
+
+msgid "tui.chat.reason.budget"
+msgstr "budget limit reached"
+
+msgid "tui.chat.reason.cancel"
+msgstr "cancelled"
+
+msgid "tui.chat.reason.error"
+msgstr "error"
+
+msgid "tui.chat.reason.limit"
+msgstr "iteration limit reached"
+
+msgid "tui.chat.reason.model_finished"
+msgstr "model finished"
+
+msgid "tui.chat.role.assistant"
+msgstr "Assistant"
+
+msgid "tui.chat.role.tool"
+msgstr "Tool"
+
+msgid "tui.chat.role.user"
+msgstr "You"
+
+msgid "tui.chat.status.busy"
+msgstr "chat: a turn is already running (Esc to cancel)"
+
+msgid "tui.chat.status.cancel_failed"
+msgstr "cancel failed: {err}"
+
+msgid "tui.chat.status.cancel_requested"
+msgstr "cancel requested: {request}"
+
+msgid "tui.chat.status.empty"
+msgstr "chat: empty prompt"
+
+msgid "tui.chat.status.error"
+msgstr "chat failed: {err}"
+
+msgid "tui.chat.status.no_provider"
+msgstr "chat: no available profile"
+
+msgid "tui.chat.status.no_session"
+msgstr "chat: no session selected (j/k in sessions view)"
+
+msgid "tui.chat.status.not_supported"
+msgstr "chat: executor not injected (not_supported)"
+
+msgid "tui.chat.tool.output"
+msgstr "output: {output}"
+
+msgid "tui.chat.turn.footer"
+msgstr "── turn end · {reason} · {duration} ms"
+
+msgid "tui.chat.turn.header"
+msgstr "── turn start · {request}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

@@ -1190,6 +1190,69 @@ msgstr "आउटपुट={output}"
 msgid "tool.call.started"
 msgstr "{tool} · कॉल प्रारंभ · exec={exec} · call={call} · पुनरावृत्ति {iteration}"
 
+msgid "tui.chat.composer.hint"
+msgstr "i प्रॉम्प्ट लिखें · Enter भेजें · P प्रोफ़ाइल · Esc वापस"
+
+msgid "tui.chat.composer.running"
+msgstr "चल रहा है · Esc रद्द करें · इनपुट स्थिर"
+
+msgid "tui.chat.reason.budget"
+msgstr "बजट सीमा पहुँची"
+
+msgid "tui.chat.reason.cancel"
+msgstr "रद्द किया गया"
+
+msgid "tui.chat.reason.error"
+msgstr "त्रुटि"
+
+msgid "tui.chat.reason.limit"
+msgstr "पुनरावृत्ति सीमा पहुँची"
+
+msgid "tui.chat.reason.model_finished"
+msgstr "मॉडल पूर्ण"
+
+msgid "tui.chat.role.assistant"
+msgstr "सहायक"
+
+msgid "tui.chat.role.tool"
+msgstr "उपकरण"
+
+msgid "tui.chat.role.user"
+msgstr "उपयोगकर्ता"
+
+msgid "tui.chat.status.busy"
+msgstr "चैट: टर्न पहले से चल रहा है (Esc रद्द करें)"
+
+msgid "tui.chat.status.cancel_failed"
+msgstr "रद्दीकरण विफल: {err}"
+
+msgid "tui.chat.status.cancel_requested"
+msgstr "रद्दीकरण अनुरोधित: {request}"
+
+msgid "tui.chat.status.empty"
+msgstr "चैट: प्रॉम्प्ट खाली"
+
+msgid "tui.chat.status.error"
+msgstr "चैट विफल: {err}"
+
+msgid "tui.chat.status.no_provider"
+msgstr "चैट: कोई प्रोफ़ाइल उपलब्ध नहीं"
+
+msgid "tui.chat.status.no_session"
+msgstr "चैट: कोई सत्र चयनित नहीं (सत्र दृश्य में j/k)"
+
+msgid "tui.chat.status.not_supported"
+msgstr "चैट: एक्ज़ीक्यूटर नहीं जुड़ा (not_supported)"
+
+msgid "tui.chat.tool.output"
+msgstr "आउटपुट: {output}"
+
+msgid "tui.chat.turn.footer"
+msgstr "── टर्न समाप्त · {reason} · {duration} मि.से."
+
+msgid "tui.chat.turn.header"
+msgstr "── टर्न प्रारंभ · {request}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

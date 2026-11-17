@@ -1190,6 +1190,69 @@ msgstr "المخرجات={output}"
 msgid "tool.call.started"
 msgstr "{tool} · بدأ الاستدعاء · exec={exec} · call={call} · التكرار {iteration}"
 
+msgid "tui.chat.composer.hint"
+msgstr "i اكتب الطلب · Enter إرسال · P الملف · Esc رجوع"
+
+msgid "tui.chat.composer.running"
+msgstr "قيد التشغيل · Esc للإلغاء · الإدخال مجمّد"
+
+msgid "tui.chat.reason.budget"
+msgstr "بلغ حد الميزانية"
+
+msgid "tui.chat.reason.cancel"
+msgstr "أُلغي"
+
+msgid "tui.chat.reason.error"
+msgstr "خطأ"
+
+msgid "tui.chat.reason.limit"
+msgstr "بلغ حد التكرار"
+
+msgid "tui.chat.reason.model_finished"
+msgstr "اكتمل النموذج"
+
+msgid "tui.chat.role.assistant"
+msgstr "المساعد"
+
+msgid "tui.chat.role.tool"
+msgstr "الأداة"
+
+msgid "tui.chat.role.user"
+msgstr "المستخدم"
+
+msgid "tui.chat.status.busy"
+msgstr "المحادثة: دور قيد التشغيل بالفعل (Esc للإلغاء)"
+
+msgid "tui.chat.status.cancel_failed"
+msgstr "فشل الإلغاء: {err}"
+
+msgid "tui.chat.status.cancel_requested"
+msgstr "طُلب الإلغاء: {request}"
+
+msgid "tui.chat.status.empty"
+msgstr "المحادثة: الطلب فارغ"
+
+msgid "tui.chat.status.error"
+msgstr "فشلت المحادثة: {err}"
+
+msgid "tui.chat.status.no_provider"
+msgstr "المحادثة: لا ملف تعريف متاح"
+
+msgid "tui.chat.status.no_session"
+msgstr "المحادثة: لم تُختر جلسة (j/k في عرض الجلسات)"
+
+msgid "tui.chat.status.not_supported"
+msgstr "المحادثة: المنفّذ غير مثبّت (not_supported)"
+
+msgid "tui.chat.tool.output"
+msgstr "الإخراج: {output}"
+
+msgid "tui.chat.turn.footer"
+msgstr "── نهاية الدور · {reason} · {duration} ملّي ثانية"
+
+msgid "tui.chat.turn.header"
+msgstr "── بداية الدور · {request}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

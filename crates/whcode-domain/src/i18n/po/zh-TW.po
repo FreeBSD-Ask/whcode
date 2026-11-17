@@ -1190,6 +1190,69 @@ msgstr "輸出={output}"
 msgid "tool.call.started"
 msgstr "{tool} · 呼叫開始 · exec={exec} · call={call} · 迭代 {iteration}"
 
+msgid "tui.chat.composer.hint"
+msgstr "i 輸入提示詞 · Enter 送出 · P 剖面 · Esc 返回"
+
+msgid "tui.chat.composer.running"
+msgstr "執行中 · Esc 取消 · 輸入已凍結"
+
+msgid "tui.chat.reason.budget"
+msgstr "達預算上限"
+
+msgid "tui.chat.reason.cancel"
+msgstr "已取消"
+
+msgid "tui.chat.reason.error"
+msgstr "出錯"
+
+msgid "tui.chat.reason.limit"
+msgstr "達迭代上限"
+
+msgid "tui.chat.reason.model_finished"
+msgstr "模型完成"
+
+msgid "tui.chat.role.assistant"
+msgstr "助理"
+
+msgid "tui.chat.role.tool"
+msgstr "工具"
+
+msgid "tui.chat.role.user"
+msgstr "用戶"
+
+msgid "tui.chat.status.busy"
+msgstr "對話：已在執行中（Esc 取消）"
+
+msgid "tui.chat.status.cancel_failed"
+msgstr "取消失敗：{err}"
+
+msgid "tui.chat.status.cancel_requested"
+msgstr "已請求取消：{request}"
+
+msgid "tui.chat.status.empty"
+msgstr "對話：提示詞為空"
+
+msgid "tui.chat.status.error"
+msgstr "對話失敗：{err}"
+
+msgid "tui.chat.status.no_provider"
+msgstr "對話：無可用剖面"
+
+msgid "tui.chat.status.no_session"
+msgstr "對話：未選擇會話（會話視圖 j/k 選擇）"
+
+msgid "tui.chat.status.not_supported"
+msgstr "對話：執行器未注入（not_supported）"
+
+msgid "tui.chat.tool.output"
+msgstr "輸出：{output}"
+
+msgid "tui.chat.turn.footer"
+msgstr "── 輪結束 · {reason} · {duration} 毫秒"
+
+msgid "tui.chat.turn.header"
+msgstr "── 輪開始 · {request}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

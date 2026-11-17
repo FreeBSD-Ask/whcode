@@ -1190,6 +1190,69 @@ msgstr "출력={output}"
 msgid "tool.call.started"
 msgstr "{tool} · 호출 시작 · exec={exec} · call={call} · 반복 {iteration}"
 
+msgid "tui.chat.composer.hint"
+msgstr "i 프롬프트 입력 · Enter 전송 · P 프로필 · Esc 돌아가기"
+
+msgid "tui.chat.composer.running"
+msgstr "실행 중 · Esc 취소 · 입력 고정"
+
+msgid "tui.chat.reason.budget"
+msgstr "예산 한도 도달"
+
+msgid "tui.chat.reason.cancel"
+msgstr "취소됨"
+
+msgid "tui.chat.reason.error"
+msgstr "오류"
+
+msgid "tui.chat.reason.limit"
+msgstr "반복 한도 도달"
+
+msgid "tui.chat.reason.model_finished"
+msgstr "모델 완료"
+
+msgid "tui.chat.role.assistant"
+msgstr "어시스턴트"
+
+msgid "tui.chat.role.tool"
+msgstr "도구"
+
+msgid "tui.chat.role.user"
+msgstr "사용자"
+
+msgid "tui.chat.status.busy"
+msgstr "채팅: 이미 실행 중(Esc 취소)"
+
+msgid "tui.chat.status.cancel_failed"
+msgstr "취소 실패: {err}"
+
+msgid "tui.chat.status.cancel_requested"
+msgstr "취소 요청: {request}"
+
+msgid "tui.chat.status.empty"
+msgstr "채팅: 프롬프트가 비어 있음"
+
+msgid "tui.chat.status.error"
+msgstr "채팅 실패: {err}"
+
+msgid "tui.chat.status.no_provider"
+msgstr "채팅: 사용 가능한 프로필 없음"
+
+msgid "tui.chat.status.no_session"
+msgstr "채팅: 세션 미선택(세션 뷰에서 j/k)"
+
+msgid "tui.chat.status.not_supported"
+msgstr "채팅: 실행기 미연결(not_supported)"
+
+msgid "tui.chat.tool.output"
+msgstr "출력: {output}"
+
+msgid "tui.chat.turn.footer"
+msgstr "── 턴 종료 · {reason} · {duration} 밀리초"
+
+msgid "tui.chat.turn.header"
+msgstr "── 턴 시작 · {request}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

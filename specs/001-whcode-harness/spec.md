@@ -680,6 +680,29 @@ taskkill /T /F 口径）（P1）
     （`/api/coherence`）、`whcode-app::surface`（`view.coherence`）；Check 469—470
 
 
+- **FR-796**: TUI 对话流（ADR-087）：`ViewId::Chat` 视图从占位升级为真对话界面——
+  ① Composer 单行输入（剖面名 `P` 键可改，空取注册表首项；Enter 提交）；② turn 经
+  `run_streaming` 在后台线程执行（无常驻线程，随 turn 终止而终止），流式 delta 原位
+  追加渲染，完成后正文以 turn 结果全量替换（delta 通道有损、完成保达）；③ 工具卡由
+  `TurnSignal` 驱动渲染（无信号即无卡，不伪造；写类工具因 TUI v1 无交互审批卡按
+  `approval_unavailable` 结构化失败并如实显示 failed 卡——与 GUI 的登记差异）；
+  ④ Esc 运行中取消（确定性 request_id 预生成并传入 turn，取消行如实标注）；⑤ 历史
+  回放经 `conversation_tail`（进入视图与收口后刷新，turn 运行期间不触库）；
+  ⑥ 提交门控四类结构化拒绝（无执行器／无会话／空提示词／运行中）；⑦ 行缓冲有界
+  （超限丢最旧并登记）；⑧ 十三套语言目录同批可用
+  - 依据：2026-11-18 用户指令“先把 UI 做好”（选项确认落 TUI 对话流）；ADR-087；
+    ADR-056（GUI Phase 2 线程模型同源）；ADR-032（TUI LLM 接线）；
+    `artifacts/fieldtest-2026-11-17.md`（四端对话形态实测背景）
+  - 判据：Given 提交提示词且执行器可用，Then transcript 依序出现轮头／用户行／流式
+    正文／轮尾且正文与 turn 结果一致；Given 运行中按 Esc，Then 取消到达执行器且终止行
+    标注取消；Given 无执行器／无选中会话／空提示词／已在运行中提交，Then 结构化拒绝且
+    不产生请求；Given 工具信号到达，Then 卡片按 `describe` 渲染；Given 历史非空，
+    Then 进入视图回放至多 50 条
+  - 证据：`crates/whcode-tui/src/lib.rs`（Chat 状态机与通道）、`crates/whcode-tui/src/render.rs`
+    （Chat 行渲染）、`crates/whcode-bin/src/llm_provider.rs`（`run_streaming` 适配）、
+    `crates/whcode-app/src/llm.rs`（`generate_request_id` 转 pub）；Check 472—475
+
+
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，
   成功调用才落、失败不落），条目数与单条长度有常量上限且超限拒绝不截断；待办与 SDD 任务

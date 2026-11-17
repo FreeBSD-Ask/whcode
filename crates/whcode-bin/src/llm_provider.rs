@@ -330,6 +330,80 @@ impl whcode_gui::GuiLlmExecutor for TuiLlmExecutor {
     }
 }
 
+/// TUI 对话流适配（ADR-087 决策 1）：同一执行器实现 [`whcode_tui::ChatExecutor`]。
+/// request_id 由调用方预生成并前置传入（确定性取消）；审批闸门 `tui-local` 且
+/// `approvals = None`——写类工具按“无人可问”结构化失败（FR-718），与 GUI 交互
+/// 审批卡的差异在 ADR-087 与 FR-796 显式登记。
+impl whcode_tui::ChatExecutor for TuiLlmExecutor {
+    fn run_streaming(
+        &self,
+        session_id: &str,
+        provider: &str,
+        prompt: &str,
+        request_id: &str,
+        progress: whcode_app::turn::TurnProgress<'_>,
+        observer: Option<whcode_app::turn::TurnObserver<'_>>,
+    ) -> Result<whcode_tui::ChatOutcome, WhError> {
+        let mut guard = self.conn.lock().expect("store 连接锁中毒");
+        let policy = self.approval.to_policy_interactive()?.with_stored_rules(
+            whcode_store::approval_rules::list_rules(&guard)?
+                .into_iter()
+                .map(|row| (row.tool, row.rule)),
+        )?;
+        let mut gate = whcode_app::approval::ApprovalGate::for_store(
+            "tui-local".to_string(),
+            policy,
+            None,
+            self.approval.wait_ms,
+        );
+        let outcome = whcode_app::turn::run_turn_with_approval(
+            &mut guard,
+            &whcode_app::DefaultPolicy,
+            &whcode_app::actor_with_all_capabilities("tui-local"),
+            &self.llm.context(),
+            &whcode_app::turn::TurnRequest {
+                session_id: session_id.to_string(),
+                provider: provider.to_string(),
+                prompt: prompt.to_string(),
+                model: None,
+                max_tokens: None,
+                request_id: Some(request_id.to_string()),
+                iterations_limit: None,
+                budget_tokens: None,
+                workspace_root: Some(self.workspace.clone()),
+                depth: 0,
+            },
+            Some(progress),
+            observer,
+            &mut gate,
+            now_ms(),
+        )?;
+        Ok(whcode_tui::ChatOutcome {
+            text: outcome.text,
+            summary: format!(
+                "provider={} model={} chunks={} completed={} truncated={} request_id={}",
+                outcome.provider,
+                outcome.model,
+                outcome.chunks.len(),
+                outcome.completed,
+                outcome.truncated,
+                outcome.request_id,
+            ),
+            reason: outcome.termination_reason.clone(),
+            completed: outcome.completed,
+            truncated: outcome.truncated,
+        })
+    }
+
+    fn cancel(&self, request_id: &str) -> Result<String, WhError> {
+        whcode_tui::LlmExecutor::cancel(self, request_id)
+    }
+
+    fn profiles(&self) -> Vec<String> {
+        self.profile_names()
+    }
+}
+
 /// Phase 2 硬前提的编译期证明：GUI 后台执行要求执行器与数据源可跨线程（Send + Sync）。
 #[test]
 fn gui_executors_are_send_sync() {

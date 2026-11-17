@@ -11,6 +11,22 @@
 
 ## [Unreleased]
 
+### 新增
+
+- **TUI 对话流（2026-11-18，ADR-087／FR-796，用户指令“先把 UI 做好”）**：`ViewId::Chat`
+  视图从占位升级为真对话界面——Composer 单行输入（`i` 进入、`P` 换剖面、Enter 提交）、
+  turn 后台线程执行（每 turn 一个、无常驻），流式 delta 原位追加渲染，工具卡由
+  `TurnSignal` 经 `tool_call::describe` 渲染（无信号即无卡，不伪造），Esc 以**预生成的
+  确定性 request_id** 取消，历史经 `conversation_tail` 回放（进入视图与下一次提交前），
+  收口后保留转写在屏（与 GUI“收口即刷新”的差异如实登记）。执行器面：`LlmExecutor` 增
+  `run_streaming`（默认回落 `run`），装配根 `TuiLlmExecutor` 双口径实现（同步键位 +
+  `Arc<dyn ChatExecutor>`）；审批闸门 `tui-local` 且 approvals None——写类工具按
+  `approval_unavailable` 结构化失败（GUI 交互审批卡的 TUI 化另批）。i18n 21 键×十三目录
+  同批＋PO 同步。测试：TUI 79 项（新增 4：有界缓冲、四类门控、scripted 流式转写、
+  scripted 取消）、workspace 1137 项全绿；验证链与 coherence pre（反例 0）全绿。已知
+  限制与真模型复审触发见 ADR-087（真实供应商工具卡依赖 P0 解码修复，
+  `artifacts/fieldtest-2026-11-17.md`）。
+
 ### 变更
 
 - **字段测试：真实供应商工具调用链路断裂（2026-11-17/18，P0 发现）**：接 SenseNova 真跑字段测试（沙盒样例库，`local/fieldtest/` 不入库）：需要工具的任务在 `finish_reason=tool_calls` 下**事件流无任何 ToolCall、正文为空、turn 静默按 `model_finished` 终止**；纯文本对照任务完全健康。根因＝协议解码器只读 `delta.content`、不读 `tool_calls`/`tool_use`/`functionCall` 帧，请求侧也无 `role:tool`/`tool_result` 回传装配（`protocols.rs:139` 自认随 P0-2 扩展）；既有工具执行 Check 全部走桩剧本，桩绿≠真通。缺口清单与修复面见 `artifacts/fieldtest-2026-11-17.md`。

@@ -1190,6 +1190,69 @@ msgstr "出力={output}"
 msgid "tool.call.started"
 msgstr "{tool} · 呼び出し開始 · exec={exec} · call={call} · 反復 {iteration}"
 
+msgid "tui.chat.composer.hint"
+msgstr "i プロンプト入力 · Enter 送信 · P プロファイル · Esc 戻る"
+
+msgid "tui.chat.composer.running"
+msgstr "実行中 · Esc で取消 · 入力は凍結"
+
+msgid "tui.chat.reason.budget"
+msgstr "予算上限に到達"
+
+msgid "tui.chat.reason.cancel"
+msgstr "取消済み"
+
+msgid "tui.chat.reason.error"
+msgstr "エラー"
+
+msgid "tui.chat.reason.limit"
+msgstr "反復上限に到達"
+
+msgid "tui.chat.reason.model_finished"
+msgstr "モデル完了"
+
+msgid "tui.chat.role.assistant"
+msgstr "アシスタント"
+
+msgid "tui.chat.role.tool"
+msgstr "ツール"
+
+msgid "tui.chat.role.user"
+msgstr "ユーザー"
+
+msgid "tui.chat.status.busy"
+msgstr "チャット：実行中（Esc で取消）"
+
+msgid "tui.chat.status.cancel_failed"
+msgstr "取消失敗：{err}"
+
+msgid "tui.chat.status.cancel_requested"
+msgstr "取消要求：{request}"
+
+msgid "tui.chat.status.empty"
+msgstr "チャット：プロンプトが空"
+
+msgid "tui.chat.status.error"
+msgstr "チャット失敗：{err}"
+
+msgid "tui.chat.status.no_provider"
+msgstr "チャット：利用可能なプロファイルなし"
+
+msgid "tui.chat.status.no_session"
+msgstr "チャット：セッション未選択（セッションビューで j/k）"
+
+msgid "tui.chat.status.not_supported"
+msgstr "チャット：実行器未接続（not_supported）"
+
+msgid "tui.chat.tool.output"
+msgstr "出力：{output}"
+
+msgid "tui.chat.turn.footer"
+msgstr "── ターン終了 · {reason} · {duration} ミリ秒"
+
+msgid "tui.chat.turn.header"
+msgstr "── ターン開始 · {request}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

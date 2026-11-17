@@ -1190,6 +1190,69 @@ msgstr "вывод={output}"
 msgid "tool.call.started"
 msgstr "{tool} · вызов начат · exec={exec} · call={call} · итерация {iteration}"
 
+msgid "tui.chat.composer.hint"
+msgstr "i ввести запрос · Enter отправить · P профиль · Esc назад"
+
+msgid "tui.chat.composer.running"
+msgstr "выполняется · Esc отмена · ввод заморожен"
+
+msgid "tui.chat.reason.budget"
+msgstr "достигнут лимит бюджета"
+
+msgid "tui.chat.reason.cancel"
+msgstr "отменено"
+
+msgid "tui.chat.reason.error"
+msgstr "ошибка"
+
+msgid "tui.chat.reason.limit"
+msgstr "достигнут предел итераций"
+
+msgid "tui.chat.reason.model_finished"
+msgstr "модель завершила"
+
+msgid "tui.chat.role.assistant"
+msgstr "Ассистент"
+
+msgid "tui.chat.role.tool"
+msgstr "Инструмент"
+
+msgid "tui.chat.role.user"
+msgstr "Пользователь"
+
+msgid "tui.chat.status.busy"
+msgstr "чат: ход уже выполняется (Esc отмена)"
+
+msgid "tui.chat.status.cancel_failed"
+msgstr "отмена не удалась: {err}"
+
+msgid "tui.chat.status.cancel_requested"
+msgstr "отмена запрошена: {request}"
+
+msgid "tui.chat.status.empty"
+msgstr "чат: пустой запрос"
+
+msgid "tui.chat.status.error"
+msgstr "сбой чата: {err}"
+
+msgid "tui.chat.status.no_provider"
+msgstr "чат: нет доступного профиля"
+
+msgid "tui.chat.status.no_session"
+msgstr "чат: сессия не выбрана (j/k в представлении сессий)"
+
+msgid "tui.chat.status.not_supported"
+msgstr "чат: исполнитель не подключён (not_supported)"
+
+msgid "tui.chat.tool.output"
+msgstr "вывод: {output}"
+
+msgid "tui.chat.turn.footer"
+msgstr "── конец хода · {reason} · {duration} мс"
+
+msgid "tui.chat.turn.header"
+msgstr "── начало хода · {request}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

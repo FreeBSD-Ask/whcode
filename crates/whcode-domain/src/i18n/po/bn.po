@@ -1190,6 +1190,69 @@ msgstr "আউটপুট={output}"
 msgid "tool.call.started"
 msgstr "{tool} · কল শুরু · exec={exec} · call={call} · পুনরাবৃত্তি {iteration}"
 
+msgid "tui.chat.composer.hint"
+msgstr "i প্রম্পট লিখুন · Enter পাঠান · P প্রোফাইল · Esc ফিরুন"
+
+msgid "tui.chat.composer.running"
+msgstr "চলছে · Esc বাতিল · ইনপুট স্থগিত"
+
+msgid "tui.chat.reason.budget"
+msgstr "বাজেটের সীমা"
+
+msgid "tui.chat.reason.cancel"
+msgstr "বাতিল করা হয়েছে"
+
+msgid "tui.chat.reason.error"
+msgstr "ত্রুটি"
+
+msgid "tui.chat.reason.limit"
+msgstr "পুনরাবৃত্তির সীমা"
+
+msgid "tui.chat.reason.model_finished"
+msgstr "মডেল সম্পন্ন"
+
+msgid "tui.chat.role.assistant"
+msgstr "সহকারী"
+
+msgid "tui.chat.role.tool"
+msgstr "সরঞ্জাম"
+
+msgid "tui.chat.role.user"
+msgstr "ব্যবহারকারী"
+
+msgid "tui.chat.status.busy"
+msgstr "চ্যাট: টার্ন ইতিমধ্যে চলছে (Esc বাতিল)"
+
+msgid "tui.chat.status.cancel_failed"
+msgstr "বাতিল ব্যর্থ: {err}"
+
+msgid "tui.chat.status.cancel_requested"
+msgstr "বাতিলের অনুরোধ: {request}"
+
+msgid "tui.chat.status.empty"
+msgstr "চ্যাট: প্রম্পট খালি"
+
+msgid "tui.chat.status.error"
+msgstr "চ্যাট ব্যর্থ: {err}"
+
+msgid "tui.chat.status.no_provider"
+msgstr "চ্যাট: কোনো প্রোফাইল নেই"
+
+msgid "tui.chat.status.no_session"
+msgstr "চ্যাট: কোনো সেশন নির্বাচিত নয় (সেশন ভিউতে j/k)"
+
+msgid "tui.chat.status.not_supported"
+msgstr "চ্যাট: এক্সিকিউটর সংযুক্ত নয় (not_supported)"
+
+msgid "tui.chat.tool.output"
+msgstr "আউটপুট: {output}"
+
+msgid "tui.chat.turn.footer"
+msgstr "── টার্ন শেষ · {reason} · {duration} মি.সে."
+
+msgid "tui.chat.turn.header"
+msgstr "── টার্ন শুরু · {request}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

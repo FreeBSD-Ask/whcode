@@ -202,7 +202,23 @@ pub fn draw_snapshot_with_context(
     let mut state = TuiState::new(cols, rows);
     state.handle(UiEvent::Key(view_switch_key(snapshot.view)));
     terminal
-        .draw(|frame| draw_frame(frame, &state, snapshot, session, status, theme, texts))
+        .draw(|frame| {
+            draw_frame(
+                frame,
+                &state,
+                snapshot,
+                session,
+                status,
+                "",
+                &crate::ChatRender {
+                    rows: Vec::new(),
+                    turn_running: false,
+                    scroll_from_end: 0,
+                },
+                theme,
+                texts,
+            )
+        })
         .expect("绘制测试帧");
     terminal.backend().buffer().clone()
 }

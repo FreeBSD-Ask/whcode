@@ -670,12 +670,10 @@ pub(crate) fn validate_request_id(request_id: &str) -> Result<&str, WhError> {
 }
 
 /// 自动请求 ID：`llm-<now>-<hash>`（不含提示词正文，桶号稳定可复用）。
-pub(crate) fn generate_request_id(
-    session: &str,
-    provider: &str,
-    prompt: &str,
-    now_ms: u64,
-) -> String {
+/// 生成请求 ID（ADR-087 升为 `pub`）：前端可在提交前预生成（确定性取消，如 TUI 对话流），
+/// 与 CUI 显式 `--request-id` 同语义；格式与长度校验仍由 turn 入口执行。
+#[must_use]
+pub fn generate_request_id(session: &str, provider: &str, prompt: &str, now_ms: u64) -> String {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     session.hash(&mut hasher);

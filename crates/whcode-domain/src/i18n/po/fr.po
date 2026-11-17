@@ -1190,6 +1190,69 @@ msgstr "sortie={output}"
 msgid "tool.call.started"
 msgstr "{tool} · appel démarré · exec={exec} · call={call} · itération {iteration}"
 
+msgid "tui.chat.composer.hint"
+msgstr "i saisir une invite · Enter envoyer · P profil · Esc retour"
+
+msgid "tui.chat.composer.running"
+msgstr "en cours · Esc pour annuler · saisie figée"
+
+msgid "tui.chat.reason.budget"
+msgstr "limite de budget atteinte"
+
+msgid "tui.chat.reason.cancel"
+msgstr "annulé"
+
+msgid "tui.chat.reason.error"
+msgstr "erreur"
+
+msgid "tui.chat.reason.limit"
+msgstr "limite d'itérations atteinte"
+
+msgid "tui.chat.reason.model_finished"
+msgstr "modèle terminé"
+
+msgid "tui.chat.role.assistant"
+msgstr "Assistant"
+
+msgid "tui.chat.role.tool"
+msgstr "Outil"
+
+msgid "tui.chat.role.user"
+msgstr "Utilisateur"
+
+msgid "tui.chat.status.busy"
+msgstr "chat : un tour est déjà en cours (Esc pour annuler)"
+
+msgid "tui.chat.status.cancel_failed"
+msgstr "échec de l'annulation : {err}"
+
+msgid "tui.chat.status.cancel_requested"
+msgstr "annulation demandée : {request}"
+
+msgid "tui.chat.status.empty"
+msgstr "chat : invite vide"
+
+msgid "tui.chat.status.error"
+msgstr "échec du chat : {err}"
+
+msgid "tui.chat.status.no_provider"
+msgstr "chat : aucun profil disponible"
+
+msgid "tui.chat.status.no_session"
+msgstr "chat : aucune session sélectionnée (j/k dans la vue sessions)"
+
+msgid "tui.chat.status.not_supported"
+msgstr "chat : exécuteur non injecté (not_supported)"
+
+msgid "tui.chat.tool.output"
+msgstr "sortie : {output}"
+
+msgid "tui.chat.turn.footer"
+msgstr "── fin du tour · {reason} · {duration} ms"
+
+msgid "tui.chat.turn.header"
+msgstr "── début du tour · {request}"
+
 msgid "tui.col.id"
 msgstr "ID"
 

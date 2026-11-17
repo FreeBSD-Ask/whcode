@@ -17,6 +17,10 @@ pub enum UiEvent {
     Esc,
     /// Backspace（T177：单行输入回删）。
     Backspace,
+    /// PageUp（ADR-087：Chat 转写上滚）。
+    PageUp,
+    /// PageDown（ADR-087：Chat 转写下滚）。
+    PageDown,
     /// Ctrl-C（中断请求）。
     CtrlC,
     /// 终端尺寸变化。
@@ -50,6 +54,8 @@ pub(crate) fn map_event(event: crossterm::event::Event) -> Option<UiEvent> {
                 KeyCode::Enter => Some(UiEvent::Enter),
                 KeyCode::Esc => Some(UiEvent::Esc),
                 KeyCode::Backspace => Some(UiEvent::Backspace),
+                KeyCode::PageUp => Some(UiEvent::PageUp),
+                KeyCode::PageDown => Some(UiEvent::PageDown),
                 _ => None,
             }
         }

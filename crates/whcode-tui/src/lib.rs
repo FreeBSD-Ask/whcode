@@ -45,7 +45,7 @@ use ratatui::Terminal;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use whcode_app::commands::{CommandExecutor, FrontendCommand};
 use whcode_domain::i18n::{I18n, is_rtl_locale};
 use whcode_domain::{ErrorCode, WhError};
@@ -104,6 +104,10 @@ pub struct RunOptions<'a> {
     /// LLM 执行器（T167/FR-208）：`Some` 时 `llm.run`／`llm.cancel` 可用（三端同语义，
     /// 同步等待完成——与 CUI／Web 的 `llm run` 一致）；`None` 时显式提示 `not_supported`。
     pub llm_executor: Option<&'a dyn LlmExecutor>,
+    /// Chat 对话流执行器（ADR-087）：`Some` 时 Chat 视图可提交流式 turn（后台线程）；
+    /// `None` 时 Chat 提交显式提示 `not_supported`。与 `llm_executor` 可为同一实现
+    /// （装配根以 `Arc` 同时提供两口径）。
+    pub chat_executor: Option<std::sync::Arc<dyn ChatExecutor>>,
 }
 
 /// LLM 执行器抽象（T167）：TUI 键位输入经装配根注入的真实编排（与 CUI/Web 同一
@@ -122,6 +126,382 @@ pub trait LlmExecutor {
     ///
     /// 请求 ID 非法或无活跃调用时返回 [`WhError`]。
     fn cancel(&self, request_id: &str) -> Result<String, WhError>;
+}
+
+// ── Chat 对话流（ADR-087）────────────────────────────────────────────────────
+
+/// Chat 行缓冲上限（有界，NFR-215）：超出丢最旧并继续（对话转写是滚动窗口语义，
+/// 权威历史在 `conversation_tail` 与事件表，不在界面缓冲）。
+pub(crate) const CHAT_BUFFER_MAX: usize = 1000;
+
+/// delta 通道容量（有界；`try_send` 满即丢——流式进度是有损信号，完成消息走独立
+/// 阻塞通道保证送达，最终正文以 turn 结果全量替换兜底）。
+pub(crate) const CHAT_CHANNEL_CAP: usize = 64;
+
+/// 历史回放上限（与 GUI `CHAT_HISTORY_MAX` 同口径，FR-741）。
+pub(crate) const CHAT_HISTORY_MAX: usize = 50;
+
+/// turn 运行期间空闲排空的阻塞上限（毫秒）：保证完成消息及时被消费，同时不显著
+/// 抬高输入延迟（事件循环轮询间隔 250 ms）。
+pub(crate) const CHAT_DRAIN_BLOCK_MS: u64 = 50;
+
+/// Chat 提交结果（ADR-087）：`text` 为 turn 全量正文（完成后替换流式行的权威值），
+/// `summary` 为稳定键值摘要（轮尾行），`reason` 为终止原因稳定码，
+/// `completed`／`truncated` 为结果标志。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChatOutcome {
+    /// turn 全量正文（完成态权威值；弥补 delta 通道丢帧）。
+    pub text: String,
+    /// 稳定键值摘要（`provider=… model=… chunks=… completed=… truncated=… request_id=…`）。
+    pub summary: String,
+    /// 终止原因稳定码（`model_finished`／`limit`／`cancel`／`budget`／`error`）。
+    pub reason: String,
+    /// turn 是否正常完成。
+    pub completed: bool,
+    /// 输出是否被截断。
+    pub truncated: bool,
+}
+
+/// Chat 后台执行器（ADR-087 决策 1）：`Send + Sync`，供每 turn 一次的后台线程调用。
+/// 与 GUI 的 `GuiLlmExecutor` 同形（装配根一者实现两者）；TUI 侧独立定义以维持前端平级。
+pub trait ChatExecutor: Send + Sync {
+    /// 剖面名清单（注册表顺序；未配置注册表时为空）。
+    fn profiles(&self) -> Vec<String>;
+
+    /// 发起流式 turn（**阻塞至 turn 完成**；在调用方的后台线程上执行）。
+    /// `request_id` 由调用方预生成并传入（确定性取消，与 CUI 显式 `--request-id`
+    /// 同语义）；进度与工具观察回调在调用线程同步执行，必须非阻塞。
+    ///
+    /// # Errors
+    ///
+    /// 剖面未注册、凭据缺失或调用失败时返回 [`WhError`]。
+    fn run_streaming(
+        &self,
+        session_id: &str,
+        provider: &str,
+        prompt: &str,
+        request_id: &str,
+        progress: whcode_app::turn::TurnProgress<'_>,
+        observer: Option<whcode_app::turn::TurnObserver<'_>>,
+    ) -> Result<ChatOutcome, WhError>;
+
+    /// 取消同机正在运行的调用。
+    ///
+    /// # Errors
+    ///
+    /// 请求 ID 非法或无活跃调用时返回 [`WhError`]。
+    fn cancel(&self, request_id: &str) -> Result<String, WhError>;
+}
+
+/// 后台线程 → 界面线程的消息（delta 通道；有损）。
+#[derive(Debug, Clone)]
+pub(crate) enum ChatMsg {
+    /// 流式增量（累计块数、增量文本）。
+    Delta(u64, String),
+    /// 工具调用信号（与落表事件 `ToolCallStarted`／`ToolCallFinished` 同义）。
+    Signal(whcode_app::turn::TurnSignal),
+}
+
+/// 渲染帧所需的 Chat 快照（帧路径零触库；从 [`ChatState`] 复制）。
+#[derive(Debug, Clone)]
+pub(crate) struct ChatRender {
+    /// 转写行缓冲。
+    pub rows: Vec<ChatRow>,
+    /// turn 是否运行中（决定流式指示）。
+    pub turn_running: bool,
+    /// 自尾部滚动偏移。
+    pub scroll_from_end: usize,
+}
+
+/// Chat 转写行（结构化数据；本地化在渲染层完成，ADR-087 决策 3）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ChatRow {
+    /// 轮头：请求 ID。
+    TurnHeader { request_id: String },
+    /// 历史回放行（`conversation_tail`，role 为 `user`／`assistant`／`tool`）。
+    History { role: String, text: String },
+    /// 用户提交行。
+    User { text: String },
+    /// 助手正文行（流式期间原位追加；完成后全量替换）。
+    Assistant { text: String },
+    /// 工具卡（结构化投影；无信号即无行——不伪造）。
+    Tool {
+        event: whcode_app::tool_call::ToolCallEvent,
+        finished: bool,
+    },
+    /// 轮尾：终止原因＋耗时＋摘要（或错误）。
+    TurnFooter {
+        reason: String,
+        duration_ms: u64,
+        note: Option<String>,
+    },
+}
+
+/// Chat 视图状态（ADR-087）：转写行缓冲、运行中标志、后台通道。
+pub(crate) struct ChatState {
+    /// 转写行缓冲（有界 [`CHAT_BUFFER_MAX`]，超限丢最旧）。
+    pub rows: Vec<ChatRow>,
+    /// 剖面名（`None`＝用执行器清单首项；`P` 键改写）。
+    pub provider: Option<String>,
+    /// turn 是否在运行（运行期间冻结视图切换与触库动作）。
+    pub turn_running: bool,
+    /// 当前（或最近一次提交的）请求 ID——取消与轮头取值。
+    pub active_request_id: Option<String>,
+    /// 流式助手行的缓冲下标（`None`＝尚无正文）。
+    pub streaming: Option<usize>,
+    /// 本轮开始时刻（轮尾耗时）。
+    pub started_at: Option<Instant>,
+    /// delta 通道接收端（有损）。
+    pub rx: Option<std::sync::mpsc::Receiver<ChatMsg>>,
+    /// 完成通道接收端（阻塞 send 保证送达）。
+    pub done_rx: Option<std::sync::mpsc::Receiver<Result<ChatOutcome, WhError>>>,
+    /// 自尾部的滚动偏移（0＝吸底；PgUp/PgDn 调整，有界）。
+    pub scroll_from_end: usize,
+}
+
+impl ChatState {
+    pub(crate) fn new() -> Self {
+        Self {
+            rows: Vec::new(),
+            provider: None,
+            turn_running: false,
+            active_request_id: None,
+            streaming: None,
+            started_at: None,
+            rx: None,
+            done_rx: None,
+            scroll_from_end: 0,
+        }
+    }
+
+    /// 追加一行并维持缓冲有界（超限丢最旧；流式下标同步左移）。
+    pub(crate) fn push_row(&mut self, row: ChatRow) {
+        if self.rows.len() >= CHAT_BUFFER_MAX {
+            self.rows.remove(0);
+            self.streaming = self.streaming.map(|index| index.saturating_sub(1));
+        }
+        self.rows.push(row);
+    }
+
+    /// 应用流式增量：无正文行则新建，否则原位追加（ADR-087 决策 2）。
+    pub(crate) fn apply_delta(&mut self, _count: u64, delta: &str) {
+        if delta.is_empty() {
+            return;
+        }
+        match self.streaming {
+            Some(index) => {
+                if let Some(ChatRow::Assistant { text }) = self.rows.get_mut(index) {
+                    text.push_str(delta);
+                }
+            }
+            None => {
+                self.push_row(ChatRow::Assistant {
+                    text: delta.to_string(),
+                });
+                self.streaming = Some(self.rows.len() - 1);
+            }
+        }
+    }
+
+    /// 应用工具信号：结构化投影为卡片行（缺 `tool_call_id` 的损坏信号丢弃，
+    /// 不伪造卡片）。
+    pub(crate) fn apply_signal(&mut self, signal: &whcode_app::turn::TurnSignal) {
+        let (kind, payload) = match signal {
+            whcode_app::turn::TurnSignal::ToolStarted {
+                tool_call_id,
+                tool_name,
+                exec_id,
+                iteration,
+            } => (
+                whcode_app::tool_call::TOOL_STARTED,
+                serde_json::json!({
+                    "tool_call_id": tool_call_id,
+                    "tool_name": tool_name,
+                    "exec_id": exec_id,
+                    "iteration": iteration,
+                }),
+            ),
+            whcode_app::turn::TurnSignal::ToolFinished {
+                tool_call_id,
+                exec_id,
+                state,
+                side_effect,
+                output_value,
+                error_code,
+                duration_ms,
+            } => (
+                whcode_app::tool_call::TOOL_FINISHED,
+                serde_json::json!({
+                    "tool_call_id": tool_call_id,
+                    "exec_id": exec_id,
+                    "state": state,
+                    "side_effect": side_effect,
+                    "output_value": output_value,
+                    "error_code": error_code,
+                    "duration_ms": duration_ms,
+                }),
+            ),
+        };
+        let Some(event) = whcode_app::tool_call::describe(kind, &payload.to_string()) else {
+            return;
+        };
+        self.push_row(ChatRow::Tool {
+            event,
+            finished: kind == whcode_app::tool_call::TOOL_FINISHED,
+        });
+    }
+
+    /// 开启一轮：轮头＋用户行，运行标志置位。
+    pub(crate) fn start_turn(&mut self, request_id: &str, prompt: &str) {
+        self.push_row(ChatRow::TurnHeader {
+            request_id: request_id.to_string(),
+        });
+        self.push_row(ChatRow::User {
+            text: prompt.to_string(),
+        });
+        self.turn_running = true;
+        self.active_request_id = Some(request_id.to_string());
+        self.streaming = None;
+        self.started_at = Some(Instant::now());
+        self.scroll_from_end = 0;
+    }
+
+    /// 收口一轮：正文全量替换＋轮尾；运行标志复位（ADR-087 决策 2）。
+    pub(crate) fn finish_turn(&mut self, result: &Result<ChatOutcome, WhError>) {
+        let (reason, note, final_text) = match result {
+            Ok(outcome) => (
+                outcome.reason.clone(),
+                Some(outcome.summary.clone()),
+                Some(outcome.text.clone()),
+            ),
+            Err(err) => ("error".to_string(), Some(err.to_string()), None),
+        };
+        let duration_ms = self
+            .started_at
+            .map(|started| started.elapsed().as_millis() as u64)
+            .unwrap_or(0);
+        if let (Some(index), Some(text)) = (self.streaming, final_text)
+            && let Some(ChatRow::Assistant { text: slot }) = self.rows.get_mut(index)
+        {
+            *slot = text;
+        }
+        self.push_row(ChatRow::TurnFooter {
+            reason,
+            duration_ms,
+            note,
+        });
+        self.turn_running = false;
+        self.streaming = None;
+        self.started_at = None;
+        self.rx = None;
+        self.done_rx = None;
+    }
+
+    /// 转写行渲染为文本（scripted 报告与测试断言共用；本地化键缺失回落原始值）。
+    pub(crate) fn report_lines(&self, texts: &I18n) -> Vec<String> {
+        self.rows
+            .iter()
+            .filter_map(|row| chat_row_text(row, texts))
+            .collect()
+    }
+
+    /// 渲染帧快照（零触库）。
+    pub(crate) fn clone_render(&self) -> ChatRender {
+        ChatRender {
+            rows: self.rows.clone(),
+            turn_running: self.turn_running,
+            scroll_from_end: self.scroll_from_end,
+        }
+    }
+}
+
+/// 单行转写文本（渲染与报告共用；None＝该行不产生文本）。
+fn chat_row_text(row: &ChatRow, texts: &I18n) -> Option<String> {
+    match row {
+        ChatRow::TurnHeader { request_id } => {
+            Some(texts.resolve_fmt("tui.chat.turn.header", &[("request", request_id)]))
+        }
+        ChatRow::History { role, text } => {
+            Some(format!("{} · {text}", chat_role_label(role, texts)))
+        }
+        ChatRow::User { text } => Some(format!("{} · {text}", texts.resolve("tui.chat.role.user"))),
+        ChatRow::Assistant { text } => Some(format!(
+            "{} · {text}",
+            texts.resolve("tui.chat.role.assistant")
+        )),
+        ChatRow::Tool { event, finished } => {
+            let tool = event.tool.as_deref().unwrap_or("?");
+            let exec = event.exec.as_deref().unwrap_or("?");
+            if *finished {
+                let mut line = texts.resolve_fmt(
+                    "tool.call.finished",
+                    &[
+                        ("tool", tool),
+                        ("state", event.state.as_deref().unwrap_or("?")),
+                        ("exec", exec),
+                        ("call", &event.call_id),
+                        ("duration", &event.duration_ms.unwrap_or(0).to_string()),
+                    ],
+                );
+                if let Some(output) = &event.output {
+                    line.push_str(" · ");
+                    line.push_str(
+                        &texts.resolve_fmt("tui.chat.tool.output", &[("output", output)]),
+                    );
+                }
+                if let Some(error) = &event.error {
+                    line.push_str(" · ");
+                    line.push_str(error);
+                }
+                Some(line)
+            } else {
+                Some(texts.resolve_fmt(
+                    "tool.call.started",
+                    &[
+                        ("tool", tool),
+                        ("exec", exec),
+                        ("call", &event.call_id),
+                        ("iteration", &event.iteration.unwrap_or(0).to_string()),
+                    ],
+                ))
+            }
+        }
+        ChatRow::TurnFooter {
+            reason,
+            duration_ms,
+            note,
+        } => {
+            let reason_key = alloc_reason_key(reason);
+            let reason_text = texts.try_resolve(&reason_key).unwrap_or(reason);
+            let mut line = texts.resolve_fmt(
+                "tui.chat.turn.footer",
+                &[
+                    ("reason", reason_text),
+                    ("duration", &duration_ms.to_string()),
+                ],
+            );
+            if let Some(note) = note {
+                line.push_str(" · ");
+                line.push_str(note);
+            }
+            Some(line)
+        }
+    }
+}
+
+/// 终止原因的本地化键（动态键；调用方以 [`I18n::try_resolve`] 区分缺失）。
+fn alloc_reason_key(reason: &str) -> String {
+    format!("tui.chat.reason.{reason}")
+}
+
+/// 历史 role 标签（`user`／`assistant`／`tool` 之外的取值回落原文）。
+fn chat_role_label<'a>(role: &'a str, texts: &'a I18n) -> &'a str {
+    match role {
+        "user" => texts.resolve("tui.chat.role.user"),
+        "assistant" => texts.resolve("tui.chat.role.assistant"),
+        "tool" => texts.resolve("tui.chat.role.tool"),
+        other => other,
+    }
 }
 
 /// TUI 写操作输入模式（T177）：Normal 为只读浏览；Text 收集单行输入
@@ -154,6 +534,10 @@ enum TextKind {
     LlmPrompt,
     /// llm.cancel：请求 ID（`llm run` 输出或 CUI 预置）。
     LlmCancel,
+    /// Chat 对话流提示词（ADR-087：Chat 视图 Composer）。
+    ChatPrompt,
+    /// Chat 对话流剖面名（ADR-087：`P` 键改写，空＝回落清单首项）。
+    ChatProvider,
 }
 
 /// TUI 游标检查间隔（FR-624 量化判据）：≥1000 ms，低频有界。
@@ -213,6 +597,8 @@ pub fn run_with(source: &dyn ViewSource, options: RunOptions<'_>) -> Result<(), 
         source,
         options.command_executor,
         options.llm_executor,
+        options.chat_executor.clone(),
+        &options.texts,
         options.theme,
         cols,
         rows,
@@ -231,6 +617,8 @@ pub fn run_with(source: &dyn ViewSource, options: RunOptions<'_>) -> Result<(), 
         // 脏标记门控：仅脏且未最小化时绘制（T083/T129/T135）。
         if core.render_frame().is_some() {
             let theme = core.theme;
+            let composer = core.composer_line();
+            let chat = core.chat.clone_render();
             terminal
                 .draw(|frame| {
                     draw_frame(
@@ -239,6 +627,8 @@ pub fn run_with(source: &dyn ViewSource, options: RunOptions<'_>) -> Result<(), 
                         &core.snapshot,
                         core.selected_session.as_deref(),
                         &core.status,
+                        &composer,
+                        &chat,
                         theme,
                         &options.texts,
                     )
@@ -282,6 +672,8 @@ pub fn run_scripted_steps(
         source,
         options.command_executor,
         options.llm_executor,
+        options.chat_executor.clone(),
+        &options.texts,
         options.theme,
         0,
         0,
@@ -356,6 +748,10 @@ pub struct ScriptReport {
     pub probes: usize,
     /// 结束时是否处于最小化门控。
     pub minimized: bool,
+    /// 结束时 Chat 视图的转写行（本地化文本；ADR-087 scripted 取证与测试断言用）。
+    pub chat_lines: Vec<String>,
+    /// 结束时 Chat turn 是否仍在运行（ADR-087：收口复位断言用）。
+    pub chat_turn_running: bool,
 }
 
 /// 事件循环核心：状态 + 渲染器 + 视图快照 + 会话选择 + 最小化探测时序（无终端依赖）。
@@ -373,6 +769,12 @@ struct LoopCore<'a> {
     executor: Option<&'a dyn CommandExecutor>,
     /// LLM 执行器（T167）；`None` = llm 动作显式不可用。
     llm_executor: Option<&'a dyn LlmExecutor>,
+    /// Chat 对话流执行器（ADR-087）；`None` = Chat 提交显式不可用。
+    chat_executor: Option<std::sync::Arc<dyn ChatExecutor>>,
+    /// 界面文本层（ADR-087：Chat 状态行的门控与反馈本地化）。
+    texts: &'a I18n,
+    /// Chat 视图状态（转写缓冲／运行标志／后台通道）。
+    chat: ChatState,
     /// 会话清单（每次准备时刷新；供 `j`/`k` 选择与边界钳制）。
     sessions: Vec<SessionRow>,
     /// 会话选择序号（`usize::MAX` 等越界值在准备时钳制为 0）。
@@ -398,10 +800,15 @@ struct LoopCore<'a> {
 }
 
 impl<'a> LoopCore<'a> {
+    /// 构造入参为装配根逐项注入（执行器三口径＋文本层＋主题＋尺寸），与
+    /// `run_turn_with_approval` 同例显式豁免参数数门限（ADR-087）。
+    #[allow(clippy::too_many_arguments)]
     fn new(
         source: &'a dyn ViewSource,
         executor: Option<&'a dyn CommandExecutor>,
         llm_executor: Option<&'a dyn LlmExecutor>,
+        chat_executor: Option<std::sync::Arc<dyn ChatExecutor>>,
+        texts: &'a I18n,
         theme: Theme,
         cols: u16,
         rows: u16,
@@ -417,6 +824,9 @@ impl<'a> LoopCore<'a> {
             theme,
             executor,
             llm_executor,
+            chat_executor,
+            texts,
+            chat: ChatState::new(),
             sessions: Vec::new(),
             session_cursor: 0,
             selected_session: None,
@@ -471,7 +881,28 @@ impl<'a> LoopCore<'a> {
         } else {
             Some(self.session_cursor)
         };
+        // ADR-087：进入（或刷新）Chat 视图时回放历史（准备层边界；turn 运行期间
+        // 不触库，故运行中跳过——转写以内存缓冲为准）。
+        if self.state.view() == ViewId::Chat && !self.chat.turn_running {
+            self.replay_history();
+        }
         self.renderer.handle_event(RenderEvent::DataChanged);
+    }
+
+    /// Chat 历史回放（ADR-087 决策 5）：`conversation_tail`（至多
+    /// [`CHAT_HISTORY_MAX`] 条）替换转写缓冲；数据源不可用返回空（正确的空）。
+    fn replay_history(&mut self) {
+        let tail = self
+            .selected_session
+            .as_deref()
+            .map(|session| self.source.conversation_tail(session, CHAT_HISTORY_MAX))
+            .unwrap_or_default();
+        self.chat.rows = tail
+            .into_iter()
+            .map(|(role, text)| ChatRow::History { role, text })
+            .collect();
+        self.chat.streaming = None;
+        self.chat.scroll_from_end = 0;
     }
 
     /// 输入事件（键/resize）：更新状态并置脏；收到输入即证明窗口可见——若此前处于
@@ -485,17 +916,31 @@ impl<'a> LoopCore<'a> {
             self.renderer.handle_event(RenderEvent::Restored);
         }
         match event {
-            UiEvent::Key('j') if self.input_mode == InputMode::Normal => {
+            // ADR-087：turn 运行期间冻结导航与刷新（触库动作），Esc 之外的动作键
+            // 一律不穿透（详见 on_key_normal 的冻结分支）。
+            UiEvent::Key('j')
+                if self.input_mode == InputMode::Normal && !self.chat.turn_running =>
+            {
                 self.session_cursor = self.session_cursor.saturating_add(1);
                 self.prepare();
             }
-            UiEvent::Key('k') if self.input_mode == InputMode::Normal => {
+            UiEvent::Key('k')
+                if self.input_mode == InputMode::Normal && !self.chat.turn_running =>
+            {
                 self.session_cursor = self.session_cursor.saturating_sub(1);
                 self.prepare();
             }
-            UiEvent::Key('r') if self.input_mode == InputMode::Normal => self.prepare(),
+            UiEvent::Key('r')
+                if self.input_mode == InputMode::Normal && !self.chat.turn_running =>
+            {
+                self.prepare()
+            }
             UiEvent::Resize { .. } => self.state.handle(event),
             _ => self.on_key(event, now),
+        }
+        // ADR-087：输入后即刻排空后台通道（流式增量与完成消息），有内容即置脏。
+        if self.drain_chat(false) {
+            self.renderer.handle_event(RenderEvent::DataChanged);
         }
         self.renderer.handle_event(RenderEvent::DataChanged);
     }
@@ -550,6 +995,33 @@ impl<'a> LoopCore<'a> {
                         }
                         TextKind::LlmCancel => {
                             self.llm_cancel(buffer.trim());
+                            return;
+                        }
+                        TextKind::ChatProvider => {
+                            // ADR-087：剖面名登记（空＝回落执行器清单首项）。
+                            let trimmed = buffer.trim().to_string();
+                            self.chat.provider = if trimmed.is_empty() {
+                                None
+                            } else {
+                                Some(trimmed)
+                            };
+                            self.status = self.texts.resolve_fmt(
+                                "gui.chat.provider",
+                                &[(
+                                    "provider",
+                                    self.chat.provider.as_deref().unwrap_or(
+                                        self.chat_executor
+                                            .as_ref()
+                                            .and_then(|exec| exec.profiles().into_iter().next())
+                                            .as_deref()
+                                            .unwrap_or("?"),
+                                    ),
+                                )],
+                            );
+                            return;
+                        }
+                        TextKind::ChatPrompt => {
+                            self.chat_submit(buffer.trim());
                             return;
                         }
                     };
@@ -612,6 +1084,59 @@ impl<'a> LoopCore<'a> {
     /// 键位避开既有证据键（q/1—6/j/k/r 与 B-05 计数键 a/b，ui-design）。
     fn on_key_normal(&mut self, key: UiEvent, now: Instant) {
         let _ = now;
+        // ADR-087：turn 运行期间冻结全部动作键与视图切换（Esc＝取消除外）——
+        // 写命令与导航都可能触库，而连接锁被后台 turn 持有。
+        if self.chat.turn_running {
+            if key == UiEvent::Esc {
+                self.chat_cancel_running();
+            } else {
+                self.status = self.texts.resolve("tui.chat.composer.running").to_string();
+            }
+            return;
+        }
+        // ADR-087：Chat 视图对话键（i＝进入 Composer、P＝剖面、Esc＝返回会话视图）。
+        if self.state.view() == ViewId::Chat {
+            match key {
+                UiEvent::Key('i') => {
+                    self.input_mode = InputMode::Text {
+                        kind: TextKind::ChatPrompt,
+                        buffer: String::new(),
+                    };
+                    self.status = self.texts.resolve("tui.chat.composer.hint").to_string();
+                    return;
+                }
+                UiEvent::Key('P') => {
+                    self.input_mode = InputMode::Text {
+                        kind: TextKind::ChatProvider,
+                        buffer: String::new(),
+                    };
+                    self.status = self
+                        .texts
+                        .resolve("gui.chat.provider.placeholder")
+                        .to_string();
+                    return;
+                }
+                UiEvent::Esc => {
+                    // 空闲 Esc：返回会话视图（选择会话是对话前置）。
+                    self.state.handle(UiEvent::Key('1'));
+                    if self.snapshot.view != self.state.view() {
+                        self.prepare();
+                    }
+                    return;
+                }
+                UiEvent::PageUp => {
+                    self.chat.scroll_from_end = self.chat.scroll_from_end.saturating_add(1);
+                    self.renderer.handle_event(RenderEvent::DataChanged);
+                    return;
+                }
+                UiEvent::PageDown => {
+                    self.chat.scroll_from_end = self.chat.scroll_from_end.saturating_sub(1);
+                    self.renderer.handle_event(RenderEvent::DataChanged);
+                    return;
+                }
+                _ => {}
+            }
+        }
         match key {
             UiEvent::Key('n') if self.state.view() == ViewId::Sessions => {
                 self.input_mode = InputMode::Text {
@@ -762,6 +1287,149 @@ impl<'a> LoopCore<'a> {
         }
     }
 
+    // ── Chat 对话流（ADR-087）──────────────────────────────────────────────
+
+    /// 提交一轮对话（ADR-087 决策 2/4）：门控四类结构化拒绝；预生成 request_id；
+    /// 后台线程执行流式 turn（delta 有损通道＋完成保达通道）；转写记轮头与用户行。
+    fn chat_submit(&mut self, prompt: &str) {
+        let Some(executor) = self.chat_executor.clone() else {
+            self.status = self
+                .texts
+                .resolve("tui.chat.status.not_supported")
+                .to_string();
+            return;
+        };
+        if self.chat.turn_running {
+            self.status = self.texts.resolve("tui.chat.status.busy").to_string();
+            return;
+        }
+        let Some(session_id) = self.selected_session.clone() else {
+            self.status = self.texts.resolve("tui.chat.status.no_session").to_string();
+            return;
+        };
+        let prompt = prompt.trim();
+        if prompt.is_empty() {
+            self.status = self.texts.resolve("tui.chat.status.empty").to_string();
+            return;
+        }
+        let provider = self
+            .chat
+            .provider
+            .clone()
+            .or_else(|| executor.profiles().into_iter().next());
+        let Some(provider) = provider else {
+            self.status = self
+                .texts
+                .resolve("tui.chat.status.no_provider")
+                .to_string();
+            return;
+        };
+        // 提交前最后一次读历史（连接锁空闲；turn 运行期间不再触库——GUI 同款纪律）。
+        self.replay_history();
+        let request_id =
+            whcode_app::llm::generate_request_id(&session_id, &provider, prompt, now_ms());
+        self.chat.start_turn(&request_id, prompt);
+        let (delta_tx, delta_rx) = std::sync::mpsc::sync_channel::<ChatMsg>(CHAT_CHANNEL_CAP);
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        self.chat.rx = Some(delta_rx);
+        self.chat.done_rx = Some(done_rx);
+        self.status = String::new();
+        let prompt_owned = prompt.to_string();
+        std::thread::spawn(move || {
+            let progress = |count: u64, delta: &str| {
+                // 有界通道 try_send（Fn 每次克隆 Sender）；满即丢——流式进度是有损
+                // 信号，最终正文由完成消息全量替换兜底（ADR-087 决策 2）。
+                let _ = delta_tx
+                    .clone()
+                    .try_send(ChatMsg::Delta(count, delta.to_string()));
+            };
+            let observer = |signal: whcode_app::turn::TurnSignal| {
+                let _ = delta_tx.clone().try_send(ChatMsg::Signal(signal));
+            };
+            let result = executor.run_streaming(
+                &session_id,
+                &provider,
+                &prompt_owned,
+                &request_id,
+                &progress,
+                Some(&observer),
+            );
+            // 完成消息阻塞送达（与 GUI Phase 2 的 oneshot 同语义）。
+            let _ = done_tx.send(result);
+        });
+    }
+
+    /// 取消运行中的一轮（ADR-087 决策 4）：确定性 request_id 直达执行器 cancel。
+    fn chat_cancel_running(&mut self) {
+        let Some(executor) = self.chat_executor.clone() else {
+            self.status = self
+                .texts
+                .resolve("tui.chat.status.not_supported")
+                .to_string();
+            return;
+        };
+        let Some(request_id) = self.chat.active_request_id.clone() else {
+            self.status = self.texts.resolve("gui.chat.no_request").to_string();
+            return;
+        };
+        match executor.cancel(&request_id) {
+            Ok(summary) => {
+                self.status = self
+                    .texts
+                    .resolve_fmt("tui.chat.status.cancel_requested", &[("request", &summary)]);
+            }
+            Err(err) => {
+                self.status = self.texts.resolve_fmt(
+                    "tui.chat.status.cancel_failed",
+                    &[("err", &err.to_string())],
+                );
+            }
+        }
+    }
+
+    /// 排空后台通道（ADR-087 决策 2）：`blocking` 时以
+    /// [`CHAT_DRAIN_BLOCK_MS`] 短阻塞等待首条消息（空闲路径），否则只 `try_recv`
+    /// （输入路径）。返回是否有新内容（供置脏）。
+    fn drain_chat(&mut self, blocking: bool) -> bool {
+        let mut dirty = false;
+        let timeout = std::time::Duration::from_millis(CHAT_DRAIN_BLOCK_MS);
+        // 逐条搬移：先把接收端从状态中取出，处理完再放回（避免同时借用）。
+        if let Some(rx) = self.chat.rx.take() {
+            loop {
+                let received = if blocking && !dirty {
+                    rx.recv_timeout(timeout).ok()
+                } else {
+                    rx.try_recv().ok()
+                };
+                match received {
+                    Some(ChatMsg::Delta(count, delta)) => {
+                        self.chat.apply_delta(count, &delta);
+                        dirty = true;
+                    }
+                    Some(ChatMsg::Signal(signal)) => {
+                        self.chat.apply_signal(&signal);
+                        dirty = true;
+                    }
+                    None => break,
+                }
+            }
+            if self.chat.turn_running {
+                self.chat.rx = Some(rx);
+            }
+        }
+        if let Some(done_rx) = self.chat.done_rx.take() {
+            if let Ok(result) = done_rx.try_recv() {
+                // 收口后保留转写在屏（轮头/轮尾可见）；持久化历史在下一次提交前
+                // 与进入视图时回放（ADR-087 决策 5 的修订口径：避免回放截断转写）。
+                self.chat.finish_turn(&result);
+                dirty = true;
+            } else {
+                self.chat.done_rx = Some(done_rx);
+            }
+        }
+        dirty
+    }
+
     /// 任务视图写动作（retry/abort 作用于选中任务）。
     fn task_action(&mut self, abort: bool) {
         let task_id = self
@@ -881,6 +1549,10 @@ impl<'a> LoopCore<'a> {
     /// 空闲心跳（FR-624/T178）：低频检查持久化游标（间隔 [`CURSOR_CHECK_INTERVAL`]，
     /// 查询 O(1)），仅游标推进时经 prepare 置脏重绘一次；游标未变不置脏（T129）。
     fn on_idle(&mut self, now: Instant) {
+        // ADR-087：turn 运行期间空闲排空后台通道（短阻塞保证完成消息及时消费）。
+        if self.chat.turn_running && self.drain_chat(true) {
+            self.renderer.handle_event(RenderEvent::DataChanged);
+        }
         if now.duration_since(self.last_cursor_check) >= CURSOR_CHECK_INTERVAL {
             self.last_cursor_check = now;
             let cursor = self.source.cursor(self.selected_session.as_deref());
@@ -966,7 +1638,28 @@ impl<'a> LoopCore<'a> {
             skipped_while_minimized: self.skipped,
             probes: self.probes,
             minimized: self.renderer.is_minimized(),
+            chat_lines: self.chat.report_lines(self.texts),
+            chat_turn_running: self.chat.turn_running,
         }
+    }
+
+    /// Composer 行文本（ADR-087）：Chat 视图才产生；运行中显示冻结提示，
+    /// 输入模式显示缓冲，空闲显示键位提示。
+    fn composer_line(&self) -> String {
+        if self.state.view() != ViewId::Chat {
+            return String::new();
+        }
+        if self.chat.turn_running {
+            return self.texts.resolve("tui.chat.composer.running").to_string();
+        }
+        if let InputMode::Text {
+            kind: TextKind::ChatPrompt,
+            buffer,
+        } = &self.input_mode
+        {
+            return format!("> {buffer}_");
+        }
+        self.texts.resolve("tui.chat.composer.hint").to_string()
     }
 }
 
@@ -1250,12 +1943,17 @@ fn column_header(view: ViewId, texts: &I18n, width: usize, rtl: bool) -> String 
 ///
 /// 纯投影：只读 [`ViewSnapshot`] 与 [`TuiState`]，不做查询、不反序列化 JSON（§5.3）；
 /// 帧内分配只与终端尺寸相关（列投影行数 = 主面板高度）。
+/// 帧装配内部签名较宽（状态/快照/会话/双反馈行/Chat 快照/主题/文本层），
+/// 均为同源数据直通——与 `run_turn_with_approval` 同例显式豁免（ADR-087）。
+#[allow(clippy::too_many_arguments)]
 fn draw_frame(
     frame: &mut ratatui::Frame<'_>,
     state: &TuiState,
     snapshot: &ViewSnapshot,
     session: Option<&str>,
     status: &str,
+    composer: &str,
+    chat: &ChatRender,
     theme: Theme,
     texts: &I18n,
 ) {
@@ -1280,17 +1978,19 @@ fn draw_frame(
         return;
     }
 
+    let view = state.view();
+    let composer_height = u16::from(view == ViewId::Chat && !composer.is_empty());
     let status_height = u16::from(!status.is_empty());
     let rows = Layout::vertical([
         Constraint::Length(1),
         Constraint::Min(1),
+        Constraint::Length(composer_height),
         Constraint::Length(status_height),
         Constraint::Length(1),
     ])
     .split(area);
 
     // 1) 顶栏：应用名 + 视图（序号/总数）+ 当前会话。
-    let view = state.view();
     let header = texts.resolve_fmt(
         "tui.title",
         &[
@@ -1307,14 +2007,19 @@ fn draw_frame(
     );
 
     // 2) 中部：导航栏 + 主面板。
-    draw_content(frame, rows[1], snapshot, view, base, texts);
+    draw_content(frame, rows[1], snapshot, view, base, texts, chat);
 
-    // 3) 动作反馈行（仅非空时占一行，不加高帧）。
-    if status_height == 1 {
-        frame.render_widget(Paragraph::new(Line::from(status)).style(base), rows[2]);
+    // 3) Composer 行（仅 Chat 视图占一行）。
+    if composer_height == 1 {
+        frame.render_widget(Paragraph::new(Line::from(composer)).style(base), rows[2]);
     }
 
-    // 4) 键位提示栏：键位 + 窗口尺寸（不显示按键计数——计数不是用户需要的信号）。
+    // 4) 动作反馈行（仅非空时占一行，不加高帧）。
+    if status_height == 1 {
+        frame.render_widget(Paragraph::new(Line::from(status)).style(base), rows[3]);
+    }
+
+    // 5) 键位提示栏：键位 + 窗口尺寸（不显示按键计数——计数不是用户需要的信号）。
     let keybar = texts.resolve_fmt(
         "tui.footer",
         &[
@@ -1322,7 +2027,7 @@ fn draw_frame(
             ("rows", &state.rows().to_string()),
         ],
     );
-    frame.render_widget(Paragraph::new(Line::from(keybar)).style(base), rows[3]);
+    frame.render_widget(Paragraph::new(Line::from(keybar)).style(base), rows[4]);
 }
 
 /// 中部区域：左导航栏（固定宽度，选中项 `>` + 反显）+ 主面板（单线边框、列标题、
@@ -1334,6 +2039,7 @@ fn draw_content(
     view: ViewId,
     base: Style,
     texts: &I18n,
+    chat: &ChatRender,
 ) {
     let rtl = is_rtl_locale(&texts.locale);
     let rail = RAIL_WIDTH.min(area.width.saturating_sub(BODY_MIN_WIDTH));
@@ -1394,6 +2100,29 @@ fn draw_content(
         body_area.height.saturating_sub(2),
     );
     if inner.width == 0 || inner.height == 0 {
+        return;
+    }
+    // ADR-087：Chat 视图渲染转写行（结构化数据 → 本地化文本；自尾部滚动窗口）。
+    if view == ViewId::Chat {
+        let mut texts_rows: Vec<String> = chat
+            .rows
+            .iter()
+            .filter_map(|row| chat_row_text(row, texts))
+            .collect();
+        if chat.turn_running
+            && let Some(last) = texts_rows.last_mut()
+        {
+            last.push_str(" …");
+        }
+        let height = usize::from(inner.height);
+        let end = texts_rows.len().saturating_sub(chat.scroll_from_end);
+        let start = end.saturating_sub(height);
+        let body: Vec<Line<'_>> = texts_rows[start..end]
+            .iter()
+            .map(|text| Line::from(text.as_str()))
+            .collect();
+        let paragraph = Paragraph::new(body).style(base).wrap(Wrap { trim: false });
+        frame.render_widget(paragraph, inner);
         return;
     }
     let content_width = usize::from(inner.width).max(MIN_BODY_CONTENT);
@@ -1493,12 +2222,17 @@ fn push_empty_state<'a>(
 #[cfg(test)]
 mod tests {
     use super::{
-        RunOptions, ScriptStep, UiEvent, VIEW_COUNT, ViewId, run_scripted, run_scripted_steps,
+        CHAT_BUFFER_MAX, ChatExecutor, ChatOutcome, ChatRow, ChatState, LoopCore, RunOptions,
+        ScriptStep, Theme, UiEvent, VIEW_COUNT, ViewId, run_scripted, run_scripted_steps,
     };
+    use crate::EmptyViewSource;
     use crate::tests_support::{
         FakeProbe, buffer_text, draw_snapshot_with_context, fixture_snapshot, render_empty_frame,
         render_fixture_frame, render_snapshot_text, view_switch_key,
     };
+    use std::time::Instant;
+    use whcode_domain::WhError;
+    use whcode_domain::i18n::I18n;
 
     #[test]
     fn scripted_run_consumes_all_events_when_not_quitting() {
@@ -2634,5 +3368,269 @@ mod tests {
         let cancels = llm.cancels.lock().expect("锁");
         assert_eq!(cancels.len(), 1, "取消请求必须到达执行器");
         assert_eq!(cancels[0], "r-1");
+    }
+
+    // ── ADR-087：Chat 对话流 ─────────────────────────────────────────────
+
+    /// Chat 夹具：后台流式执行器（delta 有损、正文以完成消息为权威）。
+    struct FakeChat {
+        /// 取消标记（cancel() 置位；run_streaming 轮询后按 cancel 终止）。
+        cancelled: std::sync::atomic::AtomicBool,
+        /// 取消调用记录。
+        cancels: std::sync::Mutex<Vec<String>>,
+    }
+
+    impl FakeChat {
+        fn new() -> std::sync::Arc<Self> {
+            std::sync::Arc::new(Self {
+                cancelled: std::sync::atomic::AtomicBool::new(false),
+                cancels: std::sync::Mutex::new(Vec::new()),
+            })
+        }
+    }
+
+    impl ChatExecutor for FakeChat {
+        fn profiles(&self) -> Vec<String> {
+            vec!["fake".to_string()]
+        }
+
+        fn run_streaming(
+            &self,
+            _session_id: &str,
+            _provider: &str,
+            _prompt: &str,
+            request_id: &str,
+            progress: whcode_app::turn::TurnProgress<'_>,
+            _observer: Option<whcode_app::turn::TurnObserver<'_>>,
+        ) -> Result<ChatOutcome, WhError> {
+            // 有损模拟：只发半截增量（“你”），最终正文以完成消息全量替换。
+            progress(1, "你");
+            for _ in 0..100 {
+                if self.cancelled.load(std::sync::atomic::Ordering::Relaxed) {
+                    return Ok(ChatOutcome {
+                        text: "你".to_string(),
+                        summary: format!("provider=fake completed=false request_id={request_id}"),
+                        reason: "cancel".to_string(),
+                        completed: false,
+                        truncated: false,
+                    });
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            Ok(ChatOutcome {
+                text: "你好世界（全量替换）".to_string(),
+                summary: format!(
+                    "provider=fake model=fake-1 chunks=2 completed=true truncated=false request_id={request_id}"
+                ),
+                reason: "model_finished".to_string(),
+                completed: true,
+                truncated: false,
+            })
+        }
+
+        fn cancel(&self, request_id: &str) -> Result<String, WhError> {
+            self.cancels
+                .lock()
+                .expect("锁")
+                .push(request_id.to_string());
+            self.cancelled
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+            Ok(format!(
+                "request={request_id} state=cancelled effective=true"
+            ))
+        }
+    }
+
+    /// 行缓冲有界（ADR-087 决策 2／Check 474）：超出 [`CHAT_BUFFER_MAX`] 丢最旧，
+    /// 流式下标同步左移不越界。
+    #[test]
+    fn chat_buffer_max_is_bounded() {
+        let mut chat = ChatState::new();
+        for index in 0..(CHAT_BUFFER_MAX + 50) {
+            chat.push_row(ChatRow::User {
+                text: format!("行{index}"),
+            });
+        }
+        assert_eq!(chat.rows.len(), CHAT_BUFFER_MAX, "缓冲不得超上限");
+        assert_eq!(
+            chat.rows.first(),
+            Some(&ChatRow::User {
+                text: "行50".to_string()
+            }),
+            "最旧的 50 行应被丢弃"
+        );
+    }
+
+    /// Chat 夹具数据源：单会话（供选择与历史回放默认空）。
+    struct ChatSessionSource;
+    impl whcode_app::view_source::ViewSource for ChatSessionSource {
+        fn snapshot(
+            &self,
+            view: ViewId,
+            _session: Option<&str>,
+        ) -> whcode_app::view_source::ViewSnapshot {
+            let mut snapshot = whcode_app::view_source::ViewSnapshot::empty(view);
+            snapshot.sessions.push(crate::views::SessionRow {
+                archived: false,
+                created_at_ms: 0,
+                last_active_at_ms: 0,
+                id: "S-1".to_string(),
+                title: "夹具".to_string(),
+                stage: "plan".to_string(),
+                status: "active".to_string(),
+            });
+            snapshot
+        }
+    }
+
+    /// 提交门控（ADR-087 决策 4／Check 475）：无执行器／无会话／空提示词／运行中
+    /// 四类全部结构化拒绝且不产生请求。
+    #[test]
+    fn chat_submit_gates_reject_structurally() {
+        let texts = I18n::default();
+        // 无执行器：not_supported。
+        let mut core = LoopCore::new(
+            &EmptyViewSource,
+            None,
+            None,
+            None,
+            &texts,
+            Theme::default(),
+            80,
+            24,
+            Instant::now(),
+        );
+        core.chat_submit("你好");
+        assert!(
+            core.status.contains("not_supported"),
+            "无执行器必须显式 not_supported：{}",
+            core.status
+        );
+        // 无会话：EmptyViewSource 无会话清单。
+        let chat = FakeChat::new();
+        let mut core = LoopCore::new(
+            &EmptyViewSource,
+            None,
+            None,
+            Some(chat),
+            &texts,
+            Theme::default(),
+            80,
+            24,
+            Instant::now(),
+        );
+        core.chat_submit("你好");
+        assert!(
+            core.status.contains("会话"),
+            "无会话必须显式拒绝：{}",
+            core.status
+        );
+        // 空提示词：先备好会话与执行器再校验空串。
+        let chat = FakeChat::new();
+        let mut core = LoopCore::new(
+            &ChatSessionSource,
+            None,
+            None,
+            Some(chat),
+            &texts,
+            Theme::default(),
+            80,
+            24,
+            Instant::now(),
+        );
+        core.chat_submit("  ");
+        assert!(
+            core.status.contains("为空"),
+            "空提示词必须显式拒绝：{}",
+            core.status
+        );
+        // 运行中：手动置位运行标志再提交。
+        core.chat.turn_running = true;
+        core.chat_submit("第二条");
+        assert!(
+            core.status.contains("运行中"),
+            "运行中必须显式拒绝：{}",
+            core.status
+        );
+    }
+
+    /// scripted 流式对话（ADR-087 决策 2／Check 472）：轮头→用户→流式→轮尾依序；
+    /// delta 有损时最终正文以完成消息全量替换；Esc 返回会话视图。
+    #[test]
+    fn chat_streaming_scripted_flow_renders_transcript() {
+        let chat = FakeChat::new();
+        let options = RunOptions {
+            chat_executor: Some(chat as std::sync::Arc<dyn ChatExecutor>),
+            ..RunOptions::default()
+        };
+        let mut steps = vec![
+            ScriptStep::Input(UiEvent::Key('7')),
+            ScriptStep::Input(UiEvent::Key('i')),
+            ScriptStep::Input(UiEvent::Key('h')),
+            ScriptStep::Input(UiEvent::Key('i')),
+            ScriptStep::Input(UiEvent::Enter),
+        ];
+        steps.extend(std::iter::repeat_n(ScriptStep::Idle, 12));
+        steps.push(ScriptStep::Input(UiEvent::Esc));
+        let report = run_scripted_steps(&ChatSessionSource, &steps, &options);
+        assert_eq!(report.view, ViewId::Sessions, "Esc 返回会话视图");
+        let lines = &report.chat_lines;
+        assert!(
+            lines.iter().any(|line| line.contains("轮开始")),
+            "轮头必须出现：{lines:?}"
+        );
+        assert!(
+            lines.iter().any(|line| line.contains("用户 · hi")),
+            "用户行必须出现：{lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("你好世界（全量替换）")),
+            "完成消息必须全量替换流式正文：{lines:?}"
+        );
+        assert!(
+            lines.iter().any(|line| line.contains("轮结束")),
+            "轮尾必须出现：{lines:?}"
+        );
+        assert!(
+            lines.iter().any(|line| line.contains("request_id=")),
+            "轮尾摘要须携带 request_id（确定性取消口径）：{lines:?}"
+        );
+    }
+
+    /// 运行中 Esc 取消（ADR-087 决策 4／Check 473）：取消携带预生成 request_id
+    /// 到达执行器，终止行如实标注取消。
+    #[test]
+    fn chat_running_esc_cancels_with_pregenerated_request_id() {
+        let chat = FakeChat::new();
+        let options = RunOptions {
+            chat_executor: Some(std::sync::Arc::clone(&chat) as std::sync::Arc<dyn ChatExecutor>),
+            ..RunOptions::default()
+        };
+        let mut steps = vec![
+            ScriptStep::Input(UiEvent::Key('7')),
+            ScriptStep::Input(UiEvent::Key('i')),
+            ScriptStep::Input(UiEvent::Key('h')),
+            ScriptStep::Input(UiEvent::Key('i')),
+            ScriptStep::Input(UiEvent::Enter),
+            ScriptStep::Idle,
+            ScriptStep::Input(UiEvent::Esc),
+        ];
+        steps.extend(std::iter::repeat_n(ScriptStep::Idle, 12));
+        let report = run_scripted_steps(&ChatSessionSource, &steps, &options);
+        let cancels = chat.cancels.lock().expect("锁");
+        assert_eq!(cancels.len(), 1, "取消必须恰好到达执行器一次");
+        assert!(
+            cancels[0].starts_with("llm-"),
+            "request_id 必须是预生成值（llm- 前缀）：{}",
+            cancels[0]
+        );
+        assert!(
+            report.chat_lines.iter().any(|line| line.contains("已取消")),
+            "终止行须标注取消：{:?}",
+            report.chat_lines
+        );
+        assert!(!report.chat_turn_running, "收口后运行标志必须复位");
     }
 }

@@ -2706,3 +2706,54 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   `COH-M1-06` 通过；非目标＝改动既有条款内容、把方法论升格为判据、新增平台或资源边界。
   **取证（2026-11-17）**：`coherence.py --phase pre` 退出 0（46 条，`COH-M1-06` 满足）；
   `check-adr-limits.py`、`check-docs-style.py`、`check-eol.py` 通过。
+
+## Tasks（2026-11-18 追加）：TUI 对话流重做（ADR-087，用户指令“先把 UI 做好”）
+
+- [x] T376 ADR-087 立项与 FR-796 登记：认知卡、决策（执行器面／线程模型／渲染／交互／
+  历史回放／登记差异）、三重时间与复审触发；`whcode_app::llm::generate_request_id`
+  升为 `pub`（前端预生成 request_id，与 CUI 显式 `--request-id` 同语义）
+  （开工前置：任务认知卡，见 ADR-087 §任务认知卡）
+  **取证（2026-11-18）**：`docs/adr/ADR-087-tui-conversation-flow.md`（含任务认知卡、
+  已知限制与失效条件承载节，`check-adr-limits.py` OK）；FR-796 入 spec（追溯无断链）；
+  `whcode-app::llm::generate_request_id` 升 `pub`；`check-knowing-first.py` OK；
+  计数声明同步（process 表 174/381/475，`check_counts.py` consistent）。
+- [x] T377 执行器面：`whcode_tui::LlmExecutor` 增 `run_streaming`（默认回落 `run`，
+  夹具零改动）；装配根 `TuiLlmExecutor` 覆写——审批闸门 `tui-local`（approvals None，
+  写类工具按“无人可问”结构化失败）、request_id 前置传入、`run_turn_with_approval`
+  ＋progress＋observer 直通（ADR-087 决策 1）
+  （开工前置：任务认知卡，见 ADR-087 §任务认知卡）
+  **取证（2026-11-18）**：`whcode_tui::LlmExecutor::run_streaming`（默认回落 `run`，既有
+  夹具零改动）；`crates/whcode-bin/src/llm_provider.rs` 新增 `impl whcode_tui::ChatExecutor
+  for TuiLlmExecutor`（审批闸门 `tui-local`、approvals None、`TurnRequest.request_id =
+  Some(预生成)`、progress＋observer 直通）；`clippy --all-targets -- -D warnings` 绿。
+- [x] T378 TUI Chat 状态机：提交即线程＋有界双通道（delta 有损 64、完成保达）；
+  `turn_running` 冻结视图切换与触库动作；Esc 取消（确定性 request_id）；提交门控四类
+  结构化拒绝；行缓冲有界 1000（超限丢最旧并登记）；收口后刷新历史与快照（ADR-087 决策 2/4/5）
+  （开工前置：任务认知卡，见 ADR-087 §任务认知卡）
+  **取证（2026-11-18）**：`ChatState`（行缓冲 1000 有界、delta 通道 64 有界、完成通道
+  阻塞送达）；提交即 `std::thread`（每 turn 一个，随 turn 终止而终止）；`turn_running`
+  冻结导航与触库动作；Esc 经预生成 request_id 取消；四类门控拒绝；收口保留转写在屏
+  （决策 5 修订口径已登记 ADR）。测试 `chat_buffer_max_is_bounded`／
+  `chat_submit_gates_reject_structurally` 通过。
+- [x] T379 TUI Chat 渲染：行型（轮头／用户／助手流式原位追加／工具卡 describe／轮尾
+  终止原因＋耗时＋摘要）；composer 单行；四主题 token 复用；`render.rs` Chat 分支
+  （ADR-087 决策 3）
+  （开工前置：任务认知卡，见 ADR-087 §任务认知卡）
+  **取证（2026-11-18）**：`render.rs` 路径实为 `lib.rs` 的 `draw_frame`／`draw_content`——
+  新增 `ViewId::Chat` 分支（转写行→`chat_row_text` 本地化→自尾滚动窗口＋流式省略号）与
+  Composer 行（布局第 3 行）；工具卡经 `tool_call::describe` 复用既有 `tool.call.*` 词条；
+  四主题经 `theme.colors()` 复用；scripted 流式/取消测试断言轮头→用户→流式→轮尾依序。
+- [x] T380 i18n 十三套目录新词条同批＋`i18n-po.py` 同步（ADR-087 决策 6）
+  （开工前置：任务认知卡，见 ADR-087 §任务认知卡）
+  **取证（2026-11-18）**：`local/add_tui_chat_i18n.py` 写入 21 键×13 目录；
+  `i18n-po.py` 重生成 PO；`i18n-po.py --check` 同步；域内目录同键测试随 workspace 通过。
+- [x] T381 测试与取证：单测（缓冲有界、流式追加、Done 全量替换、工具卡配对、Esc 语义、
+  门控）；scripted 自动化（FakeStreamingExecutor：delta→done 排空断言 transcript）；
+  验证链全绿；Check 472—475 取证
+  （开工前置：任务认知卡，见 ADR-087 §任务认知卡）
+  **取证（2026-11-18）**：`cargo test -p whcode-tui` 79 通过（含新增 4 项）；
+  `cargo test --locked --workspace` 1137 通过／0 失败；layering＋layout 各 6 通过；
+  fmt／clippy（-D warnings）／check-frontend-budget／check-eol／check-docs-style／
+  check_counts／traceability／check-knowing-first／i18n-po --check／check-adr-limits／
+  coherence pre（反例 0）全绿。**真模型端到端（工具卡出现）属 P0 解码修复后的复审项
+  （ADR-087 复审触发 3），本轮不冒充。**

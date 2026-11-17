@@ -40,6 +40,7 @@ impl TuiState {
                 None => self.keys_seen += 1,
             },
             UiEvent::Enter | UiEvent::Esc | UiEvent::Backspace => self.keys_seen += 1,
+            UiEvent::PageUp | UiEvent::PageDown => self.keys_seen += 1,
             UiEvent::Resize { cols, rows } => {
                 self.cols = cols;
                 self.rows = rows;
