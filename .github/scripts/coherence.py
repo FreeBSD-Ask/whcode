@@ -490,6 +490,58 @@ def pred_authority_layers(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]
     return (not failures, "；".join(failures[:5]) if failures else "四处权威层级声明一致")
 
 
+def eol_violations(items: list[tuple[str, bytes]]) -> tuple[list[str], list[str]]:
+    """返回（CRLF 文件、BOM 文件）；含 NUL 的二进制跳过。纯函数，供负向自检。"""
+    crlf: list[str] = []
+    bom: list[str] = []
+    for name, data in items:
+        if b"\x00" in data:
+            continue
+        if data.startswith(b"\xef\xbb\xbf"):
+            bom.append(name)
+        if b"\r\n" in data:
+            crlf.append(name)
+    return crlf, bom
+
+
+def pred_eol_tracked(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
+    """只查 git 跟踪文件的行尾与 BOM。
+
+    不委托 `check-eol.py`：该门禁按工作区扫描，会把 CI 中先于它生成的运行期产物
+    （如 `artifacts/ssh-acceptance/*.txt`）算成违规；同一提交在本地绿、CI 红（2026-11-17
+    实测）。跟踪文件集合与运行顺序无关，是“仓库文本卫生”的准确口径；运行期产物由
+    `.gitignore` 与 `clean.py` 管。
+    """
+    completed = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    names = [name for name in completed.stdout.split("\0") if name]
+    items: list[tuple[str, bytes]] = []
+    for name in names:
+        path = ROOT / name
+        if not path.is_file():
+            continue
+        try:
+            items.append((name, path.read_bytes()))
+        except OSError:
+            continue
+    crlf, bom = eol_violations(items)
+    if crlf or bom:
+        detail = f"跟踪文件 CRLF {len(crlf)}、BOM {len(bom)}"
+        if crlf:
+            detail += "；CRLF 前 3：" + "、".join(crlf[:3])
+        if bom:
+            detail += "；BOM 前 3：" + "、".join(bom[:3])
+        return False, detail
+    return True, f"{len(names)} 个跟踪文件无 CRLF 与 BOM"
+
+
 INDEX_FIELD = re.compile(r"index=[^\s，；、]+")
 RUN_INDEX = re.compile(r"run\s+`?\d{6,}")
 SCOPE_FIELD = re.compile(r"scope=")
@@ -592,6 +644,7 @@ DIRECT_PREDICATES = {
     "adr_review_trigger": pred_adr_review_trigger,
     "adr_numbering": pred_adr_numbering,
     "authority_layers": pred_authority_layers,
+    "eol_tracked": pred_eol_tracked,
     "evidence_indexed": pred_evidence_indexed,
     "evidence_scoped": pred_evidence_scoped,
     "positive_coverage": pred_positive_coverage,
@@ -720,7 +773,11 @@ def run(phase: str, independent: bool, strict: bool) -> int:
     ctx.counterexamples = [item for item in results if item.status == "counterexample"]
     coverage_entry = next((entry for entry in axioms if entry.get("id") == "COH-M1-04"), None)
     if coverage_entry is not None:
-        results.append(evaluate_entry(ctx, coverage_entry, axioms))
+        coverage_result = evaluate_entry(ctx, coverage_entry, axioms)
+        results.append(coverage_result)
+        # 覆盖判定的反例也属本次运行的反例集合：否则它只进计数、不进打印与未登记清单。
+        if coverage_result.status == "counterexample":
+            ctx.counterexamples.append(coverage_result)
 
     independent_data = independent_report(ctx) if independent else None
     if independent_data is not None:
@@ -839,6 +896,18 @@ def selftest() -> int:
     expect(ledger == [{"id": "X-1", "axiom": "A1", "evidence": "e", "owner": "o", "exit": "x", "status": "open"}], "台账解析")
     expect(means_tokens("见 `crates/whcode-app/src/lib.rs` 与 `local/x.py`") == ["crates/whcode-app/src/lib.rs"], "手段路径过滤")
     expect(means_tokens("`docs/adr/ADR-*.md` `crates/<crate>/src`") == [], "通配与占位过滤")
+    expect(
+        eol_violations([("ok.md", b"a\n"), ("bad.md", b"a\r\n")]) == (["bad.md"], []),
+        "CRLF 负向探针",
+    )
+    expect(
+        eol_violations([("bom.md", b"\xef\xbb\xbfa\n")]) == ([], ["bom.md"]),
+        "BOM 负向探针",
+    )
+    expect(
+        eol_violations([("bin.dat", b"a\x00\r\n")]) == ([], []),
+        "二进制跳过",
+    )
 
     if failures:
         for item in failures:

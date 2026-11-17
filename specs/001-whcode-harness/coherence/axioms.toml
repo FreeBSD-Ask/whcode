@@ -353,12 +353,12 @@ evaluator = "registered:原文只有局部优先级，缺口 G1 已登记；补�
 [[axiom]]
 id = "COH-H-01"
 axiom = "H"
-statement = "文本文件为 UTF-8 无 BOM、换行 LF"
+statement = "git 跟踪的文本文件为 UTF-8 无 BOM、换行 LF（运行期产物不在此列）"
 source = "AGENTS.md :: 所有文本文件 **UTF-8 无 BOM**"
 tier = "I"
 phase = ["pre", "mid", "end"]
 severity = "hard"
-evaluator = "delegate:check-eol.py"
+evaluator = "direct:eol_tracked"
 
 [[axiom]]
 id = "COH-H-02"
