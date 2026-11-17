@@ -1359,14 +1359,21 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   （入库前报 7 条“未被版本控制”属预期）；
   失败路径在建立期实跑出现（未知谓词、tier 与 evaluator 不相容、锚点缺失、台账字段缺失均
   判红，修正后转绿）；一次实跑发现 Check 316 正文丢失，按 92b7dc3 原文恢复并留更正段。
+  **CI（ADR-037，run `44048114932`，`278e5d6`）**：platform-windows 的融洽性 pre 步骤
+  success（46 条、反例 0），同 job 全量测试与其余门禁全绿；ARM64／FreeBSD／OpenBSD／
+  DragonFly／measurements success；CodeQL run `44048115206` success，Code Scanning 0 open。
+  首次推送（`45c14d9`，run `44039390105`）该步曾红于运行期产物 CRLF，修复见 CHANGELOG
+  修复段与 `278e5d6`。
 - [x] Check 468: [exercised] 三阶段进入流程且声明一致（FR-795／ADR-085）：`AGENTS.md` §2
   必读表第 19 项、§3 标准验证链三相位、§9 第 13 项；`software-engineering-process.md`
   §1.4／§1.5／G0 第 9 项／G3 第 11 项／G4 第 11 项／§3.2／§5／§6；`platform-verification.yml`
   的 docs-gates 与 windows 门禁各含 `coherence.py --phase pre`；spec FR-795、tasks
   T371—T374、Check 467—470 同批登记（来源：spec FR-795／Task T372／ADR-085）——**取证
-  （2026-11-17）**：`check_counts.py`（FR=173 tasks=374 checks=470）、`traceability.py`
+  （2026-11-17）**：`check_counts.py`（FR=173 tasks=375 checks=471）、`traceability.py`
   （断链 0）、`check-knowing-first.py`、`check-adr-limits.py`、`check-standards-baseline.py`、
-  `check-workflows.py` 全部通过；工作流两处 pre 步骤对应命令可直接复跑。
+  `check-workflows.py` 全部通过；工作流两处 pre 步骤对应命令可直接复跑。**CI（run
+  `44048114932`）**：windows 路径的 pre 步骤 success；该次为代码推送，docs-gates 按设计
+  skipped，纯文档路径的 pre 由文档提交自身的运行验证。
 - [x] Check 469: [exercised] 产品求值器与持久化可判定（FR-795／ADR-085）：domain 层 10 条
   规则的正例、缺检查点、重复检查点、超限文本、超限条目、不可用手段、预算未声明、语义恒
   unknown、阶段往返与确定性；store 层登记／读取／计数上限／非法 JSON／计数不一致／空要求
@@ -1392,7 +1399,8 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   失效条件；公理 `COH-M1-06` 在 `pre` 阶段校验四处声明（缺文件或缺关键表述即反例）
   （来源：Task T375／ADR-086）——**取证（2026-11-17）**：`coherence.py --phase pre` 退出 0
   （46 条，`COH-M1-06` 满足）；`check-adr-limits.py`、`check-docs-style.py`、`check-eol.py`
-  通过。**CI 结论待推送后回填（ADR-037，显式缺口，不冒充）。**
+  通过。**CI（run `44048114932`，`278e5d6`）**：platform-windows 的融洽性 pre 步骤 success
+  （`COH-M1-06` 满足）；CodeQL success、Code Scanning 0 open。
 
 ## 追溯缺口登记（2026-10-23）
 
