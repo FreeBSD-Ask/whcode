@@ -13,6 +13,15 @@
 
 ### 修复
 
+- **覆盖率试点被新模块拉回线下（2026-11-17，store 89.72%→90.28%）**：新增的
+  `whcode-store::coherence` 与配套存储代码上线后，dispatch run `44084818854`（`7a7c8dc`）的
+  coverage-pilot 判红：store 9839/10966＝**89.72%**（阈值 90%，app 为 90.33%）。按 Check 448
+  的口径处置——**不改阈值、不加豁免**，补测可达分支 16 项：`preimage::record`／`list` 的
+  输入校验与单文件上限、`backup` 的迁移前提示文案与库文件缺失时不备份、`monitor` 的写者
+  队列容量读取、`coherence` 的库内枚举漂移解析与反例结论往返。duckdb 错误闭包与乐观锁
+  竞争分支仍不可达，未用伪造手段凑数。本地复跑 `check-coverage.py`：app 15620/17292＝
+  90.33%、store 10102/11190＝**90.28%**，`coverage: OK`。
+
 - **融洽性 pre 在 CI 上的两次误报（2026-11-17，`2b6cf2b`／`278e5d6`）**：`COH-H-01` 起初
   委托 `check-eol.py`，把 CI 平台 job 就地重写的 `artifacts/ssh-acceptance/*.txt`（CRLF）
   判成仓库卫生违规；改为只查跟踪文件后，又因读工作树字节，在“已入库文件被运行期改写”
