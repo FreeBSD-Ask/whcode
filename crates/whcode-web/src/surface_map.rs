@@ -68,8 +68,18 @@ pub fn surface_of(method: &str, path: &str) -> Option<&'static str> {
         ("GET", "/api/approvals/rules") => Some("settings.rules.read"),
         ("POST", "/api/approvals/rules") => Some("settings.rules.write"),
         ("POST", "/api/approvals/rules/revoke") => Some("settings.rules.revoke"),
+        // ── T391（ADR-089 批 2）：fork／restore／switch／events.show 翻实现 ──
+        ("POST", "/api/sessions/fork") => Some("session.fork"),
+        ("POST", "/api/sessions/switch") => Some("session.switch"),
+        ("POST", "/api/preimages/restore") => Some("session.restore"),
+        ("GET", "/api/events/show") => Some("events.show"),
+        // ── 孤儿修复：已实现路由补登记（ADR-089 批 2） ─────────────────
+        ("GET", "/api/plan") | ("POST", "/api/plan") => Some("session.plan"),
+        ("GET", "/api/rewind") | ("POST", "/api/rewind") => Some("session.rewind"),
+        ("GET", "/api/preimages") => Some("view.preimages"),
+        ("GET", "/api/deliverables") => Some("view.deliverables"),
+        ("GET", "/api/ledger") => Some("view.ledger"),
         // ── 保留守卫路径（预留／排除；Task 172 统一 501 not_supported） ─
-        (_, "/api/events/show") => Some("events.show"),
         (_, "/api/spec/next") => Some("spec.next"),
         (_, "/api/spec/validate") => Some("spec.validate"),
         (_, "/api/spec/analyze") => Some("spec.analyze"),
@@ -162,6 +172,19 @@ mod tests {
             ("POST", "/api/llm/cancel", "llm.cancel"),
             // 对话历史（T251）：view.chat 读面。
             ("GET", "/api/chat/tail", "view.chat"),
+            // T391（ADR-089 批 2）：fork／restore／switch／events.show 翻实现。
+            ("POST", "/api/sessions/fork", "session.fork"),
+            ("POST", "/api/sessions/switch", "session.switch"),
+            ("POST", "/api/preimages/restore", "session.restore"),
+            ("GET", "/api/events/show", "events.show"),
+            // 孤儿修复：已实现路由补登记。
+            ("GET", "/api/plan", "session.plan"),
+            ("POST", "/api/plan", "session.plan"),
+            ("GET", "/api/rewind", "session.rewind"),
+            ("POST", "/api/rewind", "session.rewind"),
+            ("GET", "/api/preimages", "view.preimages"),
+            ("GET", "/api/deliverables", "view.deliverables"),
+            ("GET", "/api/ledger", "view.ledger"),
         ];
         for (method, path, id) in routes {
             assert_eq!(surface_of(method, path), Some(id), "{method} {path}");
@@ -177,7 +200,7 @@ mod tests {
     #[test]
     fn guarded_paths_map_to_registered_unavailable_surfaces() {
         let guards = [
-            ("GET", "/api/events/show", "events.show"),
+            // events.show 已随 T391 翻实现（入 delivered_routes 列表），守卫清单同步移除。
             ("POST", "/api/spec/next", "spec.next"),
             ("POST", "/api/spec/validate", "spec.validate"),
             ("POST", "/api/spec/analyze", "spec.analyze"),

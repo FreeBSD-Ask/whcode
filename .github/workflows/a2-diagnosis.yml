@@ -114,7 +114,15 @@ jobs:
                 case "$core_file" in /*) ;; *) core_file=$(pwd)/${core_file#./};; esac
               fi
               cd "$repo"
-              echo "$label#$idx rc=$rc" >> "$progress"
+              if [ "$rc" -ne 0 ] && [ -z "${core_file:-}" ]; then
+                # rc≠0 且无核心＝非 A2 指纹的失败（用例失败／构建问题）——不得计入
+                # “正确的空”，逐行 rc 与此标记共同供事后定位（run 44392392417 实测：
+                # 迁移 v16 缺陷使 11 次迭代快速失败，却曾被读成 NOT_REPRODUCED）。
+                echo "$label#$idx rc=$rc（无核心——非 A2 指纹的失败）" >> "$progress"
+                touch "$repo/$out/other-fail.flag"
+              else
+                echo "$label#$idx rc=$rc" >> "$progress"
+              fi
               if [ -n "${core_file:-}" ]; then
                 # 调试器解析：base 镜像的 lldb（若有）→ 仓库 gdb（必存在）→ pkg 装 gdb。
                 bt_tool=""
@@ -180,7 +188,11 @@ jobs:
             echo "phase=done at=$(date -u +%FT%TZ)" >> "$progress"
             bt_count=$(grep -lE '#[0-9]+ ' "$out"/*.bt.txt 2>/dev/null | wc -l | tr -d ' ')
             if [ "$st_crashed$par_crashed" = "nono" ]; then
-              echo "a2_diag_result=NOT_REPRODUCED（本轮全部迭代未复现——正确的空，非前置缺失）" >> "$progress"
+              if [ -f "$out/other-fail.flag" ]; then
+                echo "a2_diag_result=NOT_REPRODUCED_OTHER_FAILURES（A2 指纹未现；但部分迭代因他因失败——非正确的空，逐行 rc 定位）" >> "$progress"
+              else
+                echo "a2_diag_result=NOT_REPRODUCED（本轮全部迭代未复现——正确的空，非前置缺失）" >> "$progress"
+              fi
             elif [ "$bt_count" -gt 0 ]; then
               echo "a2_diag_result=CRASH_REPRODUCED（核心回溯文本 $bt_count 份已随 artifact 上传）" >> "$progress"
             else

@@ -725,6 +725,24 @@ taskkill /T /F 口径）（P1）
     `artifacts/fieldtest2-2026-11-19.md`（真模型 e2e）；Check 478—479
 
 
+- **FR-798**: CUI 写类工具逐次显式授权（P1，ADR-090）：`llm run --approve <范围>`
+  （`workspace-write`／`process`，逗号分隔）授权范围内写类工具经审批闸门 Allow
+  （`run_turn_with_approval` 替换 `run_turn`，审计照常落表）；未授权范围 Ask＋无应答者
+  fail-closed（默认拒绝不变，行为与现状逐字一致）；shell 双闸门不变（`--approve process`
+  仅在 `.whcode/shell.json` 白名单命中时 Allow）；未知范围结构化拒绝；授权为调用级
+  显式动作，不落持久化授权状态（持久化配置登记为后续可选）
+  - 依据：ADR-090（2026-11-19 用户对“P1 写类工具 CLI 审批装配”方向的批准）；
+    字段测试②（读链路已通、写链路 CUI 不可达的实证背景）；ADR-070（shell 双闸门）；
+    ADR-064（审批 broker 四态）
+  - 判据：Given `--approve workspace-write` 且模型声明 write_file，Then 文件真实产生
+    且审批审计落表；Given 无 `--approve`，Then 写类调用 fail-closed 与现状逐字一致；
+    Given 未知范围值，Then 结构化拒绝；Given `--approve process` 而无 shell.json
+    白名单，Then shell 仍 fail-closed
+  - 证据：`crates/whcode-cui/src/cli.rs`（`--approve` 参数）、
+    `crates/whcode-bin/src/cui_dispatch.rs`（授权策略构造与闸门接线）、
+    `artifacts/fieldtest3-2026-11-19.md`（写链路 e2e）；Check 481
+
+
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，
   成功调用才落、失败不落），条目数与单条长度有常量上限且超限拒绝不截断；待办与 SDD 任务

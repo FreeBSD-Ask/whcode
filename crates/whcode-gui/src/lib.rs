@@ -1566,6 +1566,24 @@ fn op_outcome_text(outcome: &whcode_app::commands::CommandOutcome) -> String {
         whcode_app::commands::CommandOutcome::ApprovalRuleRevoked { tool, removed } => {
             format!("approval_rule={tool} removed={removed}")
         }
+        // T391（ADR-089 批 2）：fork／rewind／restore／plan 门面结果的人可读摘要。
+        whcode_app::commands::CommandOutcome::SessionForked(fork) => format!(
+            "forked: {} <- {} at={} events={}",
+            fork.session.id, fork.source_session, fork.forked_at_seq, fork.inherited_events
+        ),
+        whcode_app::commands::CommandOutcome::SessionRewound(view) => format!(
+            "rewound: target={}",
+            view.target_seq.map(|seq| seq.to_string()).unwrap_or("none".into())
+        ),
+        whcode_app::commands::CommandOutcome::PreimageRestorePreview(rows) => {
+            format!("restore preview: files={}", rows.len())
+        }
+        whcode_app::commands::CommandOutcome::PreimageRestored { results } => {
+            format!("restored: files={}", results.len())
+        }
+        whcode_app::commands::CommandOutcome::PlanSet(plan) => {
+            format!("plan_mode={}", plan.active)
+        }
     }
 }
 

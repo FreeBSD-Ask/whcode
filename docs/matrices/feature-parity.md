@@ -29,7 +29,7 @@ T190：新增证书库设置两行）。
 | `session.rename` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-101；ADR-056 |
 | `session.archive` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-101；ADR-056 |
 | `session.delete` | Command | Destructive | 已实现 | 已实现 | 已实现 | 已实现 | FR-101／509；ADR-056 |
-| `session.switch` | Command | Read | 已实现 | 预留 | 预留 | 预留 | FR-102；ADR-089 T390；预留 T392；预留 T393；预留 T391 |
+| `session.switch` | Command | Read | 已实现 | 预留 | 预留 | 已实现 | FR-102；ADR-089 T390/T391；预留 T392；预留 T393 |
 | `task.list` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-103／104 |
 | `task.overview` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-103／104 |
 | `task.show` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-103／104；部分 view_summary_only |
@@ -38,7 +38,7 @@ T190：新增证书库设置两行）。
 | `context.budget` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-105／108 |
 | `events.list` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-202 |
 | `events.export` | Command | Write | 已实现 | 部分 | 部分 | 已实现 | FR-205；部分 command_output_only |
-| `events.show` | Command | Read | 已实现 | 预留 | 部分 | 预留 | FR-202；ADR-089 T390；预留 T392；部分 gui_read_only_v1；预留 T391 |
+| `events.show` | Command | Read | 已实现 | 预留 | 部分 | 已实现 | FR-202；ADR-089 T390/T391；预留 T392；部分 gui_read_only_v1 |
 | `spec.status` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-301—314 |
 | `spec.next` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-301—314；预留 未排期；部分 gui_read_only_v1 |
 | `spec.validate` | Command | Read | 预留 | 预留 | 部分 | 预留 | FR-301—314；预留 未排期；部分 gui_read_only_v1 |
@@ -64,7 +64,7 @@ T190：新增证书库设置两行）。
 | `sdk.serve` | Command | Write | 已实现 | 不提供 | 不提供 | 不提供 | FR-778；T294（出进程 stdio JSON-RPC，机器面——TUI/GUI/Web 交互面不承载）；ADR-071 |
 | `acp.serve` | Command | Write | 已实现 | 不提供 | 不提供 | 不提供 | FR-789；T348（ACP automation-only，审批 fail-closed——request_permission 永不发出）；ADR-081 |
 | `llm.cancel` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-201—208；T167 接线（CUI／Web／TUI 三端）；ADR-056 |
-| `llm.models` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-773／ADR-031 修订 2026-11-13；CUI 无视图面（cui_command_surface），TUI／GUI 未排期 |
+| `llm.models` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-773／ADR-031 修订 2026-11-13；部分 cui_command_surface；预留 T392；预留 T393 |
 | `theme.switch` | Command | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-612／713／625；部分 cui_no_theme |
 | `locale` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-615／625 |
 | `settings.cert.read` | View | Read | 部分 | 部分 | 部分 | 已实现 | FR-626／627、ADR-040 决策 4；部分 web_settings_only、six_view_scope |
@@ -94,13 +94,13 @@ T190：新增证书库设置两行）。
 | `settings.rules.write` | Command | Write | 部分 | 部分 | 部分 | 已实现 | FR-751；部分 cli_local_admin／six_view_scope |
 | `settings.rules.revoke` | Command | Write | 部分 | 部分 | 已实现 | 已实现 | FR-751；部分 cli_local_admin |
 | `session.share` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-752；本机脱敏导出，其余端按 cli_local_admin 排除 |
-| `session.fork` | Command | Write | 已实现 | 预留 | 部分 | 预留 | FR-769／ADR-065；会话分叉，TUI/Web 未排期，GUI 按只读 v1 排除（gui_read_only_v1） |
-| `session.rewind` | Command | Write | 已实现 | 预留 | 预留 | 已实现 | FR-775／ADR-068；对话剪枝（只落边界不删事件），TUI／GUI 未排期 |
-| `session.restore` | Command | Destructive | 已实现 | 预留 | 预留 | 预留 | FR-776／ADR-068；前像恢复（预览＋确认＋审计），Web／TUI／GUI 写面未排期 |
-| `view.preimages` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-776／ADR-068；CUI 无视图面（cui_command_surface），前像清单只读，TUI／GUI 未排期 |
-| `session.plan` | Command | Write | 已实现 | 预留 | 预留 | 已实现 | FR-774／ADR-067；计划模式切换（软引导、不经审批、落 `PlanModeChanged`），TUI／GUI 未排期 |
-| `view.deliverables` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-772／ADR-048 §7.2；CUI 无视图面（cui_command_surface），TUI／GUI 未排期 |
-| `view.coherence` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-795／ADR-085；CUI 无视图面（cui_command_surface），充分性报告只读视图（`GET /api/coherence?session=`），TUI／GUI 未排期 |
+| `session.fork` | Command | Write | 已实现 | 预留 | 部分 | 已实现 | FR-769／ADR-065；T391 Web 接线；预留 T392；部分 gui_read_only_v1 |
+| `session.rewind` | Command | Write | 已实现 | 预留 | 预留 | 已实现 | FR-775／ADR-068；预留 T392；预留 T393 |
+| `session.restore` | Command | Destructive | 已实现 | 预留 | 预留 | 已实现 | FR-776／ADR-068；T391 Web 预览→确认；预留 T392；预留 T393 |
+| `view.preimages` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-776／ADR-068；部分 cui_command_surface；预留 T392；预留 T393 |
+| `session.plan` | Command | Write | 已实现 | 预留 | 预留 | 已实现 | FR-774／ADR-067；预留 T392；预留 T393 |
+| `view.deliverables` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-772／ADR-048 §7.2；部分 cui_command_surface；预留 T392；预留 T393 |
+| `view.coherence` | View | Read | 部分 | 预留 | 预留 | 已实现 | FR-795／ADR-085；部分 cui_command_surface；预留 T392；预留 T393 |
 
 **权限**：全部命令经 `whcode-app::authz` 统一判定（拒绝 `permission_denied` 不可重试，
 FR-604）；四端不得自行推断权限。

@@ -461,7 +461,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
             Support::Reserved { milestone: "T392" },
             Support::Reserved { milestone: "T393" },
-            Support::Reserved { milestone: "T391" },
+            Support::Implemented {
+                anchor: "POST /api/sessions/switch",
+            },
         ],
     },
     // ── task（FR-103／104、FR-401／408） ────────────────────────────────
@@ -661,7 +663,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
-            Support::Reserved { milestone: "T391" },
+            Support::Implemented {
+                anchor: "GET /api/events/show?id=",
+            },
         ],
     },
     // ── spec（FR-301—314；快照判 SessionRead，门禁判 SpecAdvance） ──────
@@ -1863,7 +1867,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
         ],
     },
     // 会话分叉（T282／FR-769／ADR-065）：在 turn 结束边界创建新会话并复制对话历史前缀。
-    // GUI 按只读 v1 排除（写命令，FR-711）；TUI/Web 预留后续批次。
+    // 会话分叉（T282／FR-769／ADR-065）：在 turn 结束边界创建新会话并复制对话历史前缀。
+    // GUI 按只读 v1 排除（写命令，FR-711）；TUI 随 T392 跟进；Web 已随 T391 接线。
     SurfaceEntry {
         id: "session.fork",
         kind: SurfaceKind::Command,
@@ -1876,17 +1881,18 @@ pub const SURFACES: &[SurfaceEntry] = &[
                 anchor: "whcode session fork --session --at-seq",
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T392",
             },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "POST /api/sessions/fork",
             },
         ],
     },
     // 对话剪枝（T288／FR-775／ADR-068）：只落边界、不删事件；用户即决策者。
+    // TUI/GUI 随 T392/T393 跟进；Web 已接线（T288 批次）。
     SurfaceEntry {
         id: "session.rewind",
         kind: SurfaceKind::Command,
@@ -1899,10 +1905,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
                 anchor: "whcode session rewind --session --to-seq",
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T392",
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T393",
             },
             Support::Implemented {
                 anchor: "GET/POST /api/rewind（app::current_rewind／rewind_session）",
@@ -1910,7 +1916,7 @@ pub const SURFACES: &[SurfaceEntry] = &[
         ],
     },
     // 文件前像恢复（T289／FR-776／ADR-068）：破坏族——预览→确认→审计；
-    // v1 只有 CUI 写面，Web 提供只读前像清单（view.preimages）。
+    // CUI 写面已交付；Web 随 T391 接线（预览→确认两段式）；TUI/GUI 随 T392/T393。
     SurfaceEntry {
         id: "session.restore",
         kind: SurfaceKind::Command,
@@ -1923,13 +1929,13 @@ pub const SURFACES: &[SurfaceEntry] = &[
                 anchor: "whcode session restore --session --exec-id（默认 dry-run，--yes 执行）",
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T392",
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T393",
             },
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "POST /api/preimages/restore",
             },
         ],
     },

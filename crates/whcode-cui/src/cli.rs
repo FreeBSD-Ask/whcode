@@ -153,6 +153,11 @@ pub enum LlmCommand {
         /// 追踪级别（off/metadata/redacted/full）。
         #[arg(long, default_value = "redacted")]
         trace_level: String,
+        /// 逐次显式授权范围（逗号分隔：workspace-write／process；ADR-090）。
+        /// 授权后写类工具经审批闸门 Allow（shell 另受 `.whcode/shell.json`
+        /// 白名单约束）；缺省＝现状（写类 fail-closed，默认拒绝不变）。
+        #[arg(long, value_delimiter = ',', default_value = "")]
+        approve: Vec<String>,
     },
     /// 取消同机正在运行的调用（在下一个 chunk 之前生效）。
     Cancel {

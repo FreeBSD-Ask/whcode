@@ -2889,3 +2889,24 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   ——**任务认知卡**：方向＝清零必须由门禁程序判定而非口头；目标＝
   `test_frontend_parity` 扩表全绿＋矩阵无「预留」行；判据＝门禁脚本全绿＋
   计数一致；非目标=不动四态定义与理由码表。
+
+## Tasks（2026-11-19 追加）：CUI 写类工具逐次显式授权（ADR-090，用户批准）
+
+- [x] T397 ADR-090 立项与 FR-798 登记：认知卡、逐次显式授权决策（调用级全有全无、
+  shell 双闸门组合、审计落表）、已知限制与复审触发
+  （开工前置：任务认知卡，见 ADR-090 §任务认知卡）
+  **取证（2026-11-19）**：`docs/adr/ADR-090-cui-per-call-approval.md`（已知限制承载节，
+  `check-adr-limits.py` OK）；FR-798 入 spec（追溯无断链）。
+- [x] T398 CUI 授权装配：`llm run --approve` 参数（逗号分隔范围）＋授权策略构造
+  （授权范围 Allow／未授权 Ask＋无应答者 fail-closed；stored rules 与
+  with_builtin_destructive_ask 叠加；shell 白名单双闸门组合）＋
+  `run_turn_with_approval` 接线（闸门审计照常）；未知范围显式拒绝
+  （ADR-090 决策 1—4）
+  （开工前置：任务认知卡，见 ADR-090 §任务认知卡）
+  **取证（2026-11-19）**：`crates/whcode-cui/src/cli.rs`／`crates/whcode-bin/src/cui_dispatch.rs`
+  实现；clippy（-D warnings）绿；Check 481。
+- [ ] T399 写链路真模型端到端取证：`--approve workspace-write` 下真模型完成一次
+  文件写入全链（授权审计、diff 留痕、文件真实产生）＋未授权回归取证
+  （写类 fail-closed 与现状逐字一致）
+  （开工前置：任务认知卡，见 ADR-090 §任务认知卡；待并行会话 gui WIP 收敛后重建
+  release 取证）

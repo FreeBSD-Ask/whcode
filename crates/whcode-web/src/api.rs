@@ -721,6 +721,18 @@ pub fn handle_request_with_llm(
                 Err(error) => error_response(&error),
             }
         }
+        (Method::Get, "/api/events/show") => {
+            // 单事件查看（T391／FR-202）：按事件 ID 定位，脱敏与三态同列表口径。
+            let Some(event) = query_value("id") else {
+                return error_response(&WhError::invalid_state("缺 id 参数"));
+            };
+            match whcode_app::show_event(conn, &policy, actor, event, TraceLevel::default()) {
+                Ok(detail) => {
+                    HttpResponse::json(200, &serde_json::to_value(&detail).unwrap_or_default())
+                }
+                Err(error) => error_response(&error),
+            }
+        }
         (Method::Get, "/api/deliverables") => {
             // 交付物清单（FR-772／T285）：累加去重、有界（≤200 事件 / ≤200 条），
             // 与 CUI/TUI/GUI 共用 `whcode_app::list_deliverables` 一个口径。
@@ -1001,6 +1013,80 @@ pub fn handle_request_with_llm(
                         }),
                     )
                 }
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/preimages/restore") => {
+            // 前像恢复（T391／FR-776／ADR-068；破坏族）：默认预览（不写工作区、
+            // 不审计），`confirm=true` 才执行；审计失败即不执行（app 层口径）。
+            let result = (|| -> Result<HttpResponse, WhError> {
+                let body = json_body(request)?;
+                let session = body_str(&body, "session")?.to_string();
+                let exec_id = body_str(&body, "exec_id")?.to_string();
+                let confirm = body
+                    .get("confirm")
+                    .map(|_| body_bool(&body, "confirm"))
+                    .transpose();
+                let confirm = match confirm {
+                    Ok(confirm) => confirm.unwrap_or(false),
+                    Err(error) => return Err(error),
+                };
+                let Some(workspace_root) = workspace_root else {
+                    return Err(WhError::invalid_state(
+                        "前像恢复需要工作区根路径（装配根未注入 workspace_root）",
+                    ));
+                };
+                let outcome = whcode_app::execute_command(
+                    conn,
+                    &policy,
+                    actor,
+                    &whcode_app::FrontendCommand::SessionRestore {
+                        session_id: session.clone(),
+                        exec_id: exec_id.clone(),
+                        workspace: workspace_root.to_path_buf(),
+                        confirm,
+                    },
+                )?;
+                Ok(match outcome {
+                    whcode_app::CommandOutcome::PreimageRestorePreview(rows) => HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "dry_run": true,
+                            "session_id": session,
+                            "exec_id": exec_id,
+                            "count": rows.len(),
+                            "preimages": rows.iter().map(|row| serde_json::json!({
+                                "id": row.id,
+                                "path": row.path,
+                                "size_bytes": row.size_bytes,
+                                "has_content": row.content.is_some(),
+                                "skipped_reason": row.skipped_reason,
+                            })).collect::<Vec<_>>(),
+                        }),
+                    ),
+                    whcode_app::CommandOutcome::PreimageRestored { results } => {
+                        HttpResponse::json(
+                            200,
+                            &serde_json::json!({
+                                "schema_version": whcode_domain::SCHEMA_VERSION,
+                                "dry_run": false,
+                                "session_id": session,
+                                "exec_id": exec_id,
+                                "restored": results.iter().map(|(path, action)| serde_json::json!({
+                                    "path": path,
+                                    "action": action,
+                                })).collect::<Vec<_>>(),
+                            }),
+                        )
+                    }
+                    _ => {
+                        return Err(WhError::internal("门面返回形状不符：应为前像恢复结果"));
+                    }
+                })
+            })();
+            match result {
+                Ok(response) => response,
                 Err(error) => error_response(&error),
             }
         }
@@ -1529,6 +1615,79 @@ pub fn handle_request_with_llm(
                     }),
                 ),
                 Ok(_) => error_response(&WhError::internal("门面返回形状不符：应为删除结果")),
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/sessions/fork") => {
+            // 会话分叉（T391／FR-769／ADR-065）：经门面执行，与 CUI/TUI 同一入口。
+            let result = (|| -> Result<HttpResponse, WhError> {
+                let body = json_body(request)?;
+                let session = body_str(&body, "session")?.to_string();
+                let at_seq = body
+                    .get("at_seq")
+                    .and_then(serde_json::Value::as_i64)
+                    .ok_or_else(|| WhError::invalid_state("分叉请求体需要整数字段 at_seq"))?;
+                let title = body
+                    .get("title")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string);
+                let now = now_ms()?;
+                let outcome = whcode_app::execute_command(
+                    conn,
+                    &policy,
+                    actor,
+                    &whcode_app::FrontendCommand::SessionFork {
+                        source_session: session,
+                        at_seq,
+                        title,
+                        now_ms: now,
+                    },
+                )?;
+                let whcode_app::CommandOutcome::SessionForked(fork) = outcome else {
+                    return Err(WhError::internal("门面返回形状不符：应为 SessionForked"));
+                };
+                Ok(HttpResponse::json(
+                    201,
+                    &serde_json::json!({
+                        "schema_version": whcode_domain::SCHEMA_VERSION,
+                        "session": whcode_app::session_value(&fork.session),
+                        "source_session": fork.source_session,
+                        "forked_at_seq": fork.forked_at_seq,
+                        "inherited_events": fork.inherited_events,
+                        "inherited_messages": fork.inherited_messages,
+                    }),
+                ))
+            })();
+            match result {
+                Ok(response) => response,
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/sessions/switch") => {
+            // 会话切换（T391／FR-102）：有界加载——元数据＋概览＋活跃尾部计数＋游标。
+            let result = (|| -> Result<HttpResponse, WhError> {
+                let body = json_body(request)?;
+                let session = body_str(&body, "session")?.to_string();
+                let view = whcode_app::session::switch_session(conn, &policy, actor, &session)?;
+                Ok(HttpResponse::json(
+                    200,
+                    &serde_json::json!({
+                        "schema_version": whcode_domain::SCHEMA_VERSION,
+                        "session": whcode_app::session_value(&view.session),
+                        "overview": view.overview.as_ref().map(|overview| serde_json::json!({
+                            "total": overview.total,
+                            "done": overview.done,
+                            "blocked": overview.blocked,
+                            "refreshed_at_us": overview.refreshed_at_us,
+                        })),
+                        "tail_count": view.tail.len(),
+                        "tail_complete": view.tail_complete,
+                        "event_cursor": view.event_cursor,
+                    }),
+                ))
+            })();
+            match result {
+                Ok(response) => response,
                 Err(error) => error_response(&error),
             }
         }

@@ -426,29 +426,75 @@ fn llm_command(
             max_tokens,
             request_id,
             trace_level,
+            approve,
         } => {
             // 追踪级别是显式输入：未知取值直接拒绝，不静默回落到默认档。
             let trace_level = parse_trace_level(trace_level)?;
             let mut conn = open_db(workspace, config)?;
-            let outcome = whcode_app::turn::run_turn(
-                &mut conn,
-                policy,
-                actor,
-                &context,
-                &whcode_app::turn::TurnRequest {
-                    session_id: session.clone(),
-                    provider: provider.clone(),
-                    prompt: prompt.clone(),
-                    model: model.clone(),
-                    max_tokens: *max_tokens,
-                    request_id: request_id.clone(),
-                    iterations_limit: None,
-                    budget_tokens: None,
-                    workspace_root: Some(workspace.to_path_buf()),
-                    depth: 0,
-                },
-                now_ms()?,
-            )?;
+            // ── 逐次显式授权（ADR-090）：`--approve` 授权范围 → 审批闸门 Allow，
+            // 未授权写类 Ask→无应答者 fail-closed（默认拒绝不变）；shell 额外受
+            // `.whcode/shell.json` 白名单闸门组合约束；闸门审计照常落表。
+            let mut granted_write = false;
+            let mut granted_process = false;
+            for scope in approve {
+                match scope.as_str() {
+                    "workspace-write" => granted_write = true,
+                    "process" => granted_process = true,
+                    other => {
+                        return Err(WhError::invalid_state(format!(
+                            "未知授权范围：{other}（允许 workspace-write／process）"
+                        )));
+                    }
+                }
+            }
+            let mut gate = if granted_write || granted_process {
+                let mut policy = whcode_app::ApprovalPolicy::new(
+                    whcode_domain::approval::ApprovalRule::Allow,
+                    if granted_write {
+                        whcode_domain::approval::ApprovalRule::Allow
+                    } else {
+                        whcode_domain::approval::ApprovalRule::Ask
+                    },
+                )
+                .with_builtin_destructive_ask();
+                if granted_process {
+                    policy = policy
+                        .with_tool_rule("shell", whcode_domain::approval::ApprovalRule::Allow)?;
+                }
+                let stored = whcode_store::approval_rules::list_rules(&conn)?
+                    .into_iter()
+                    .map(|row| (row.tool, row.rule));
+                let policy = policy.with_stored_rules(stored)?;
+                Some(whcode_app::approval::ApprovalGate::for_store(
+                    "cui-local",
+                    policy,
+                    None,
+                    1_000,
+                ))
+            } else {
+                None
+            };
+            let request = whcode_app::turn::TurnRequest {
+                session_id: session.clone(),
+                provider: provider.clone(),
+                prompt: prompt.clone(),
+                model: model.clone(),
+                max_tokens: *max_tokens,
+                request_id: request_id.clone(),
+                iterations_limit: None,
+                budget_tokens: None,
+                workspace_root: Some(workspace.to_path_buf()),
+                depth: 0,
+            };
+            let now = now_ms()?;
+            // 授权模式走带闸门路径（审计照常）；缺省保持 run_turn（行为逐字一致）。
+            let outcome = if let Some(gate) = gate.as_mut() {
+                whcode_app::turn::run_turn_with_approval(
+                    &mut conn, policy, actor, &context, &request, None, None, gate, now,
+                )?
+            } else {
+                whcode_app::turn::run_turn(&mut conn, policy, actor, &context, &request, now)?
+            };
             let mut value = serde_json::to_value(&outcome)
                 .map_err(|err| WhError::internal(format!("LLM 结果序列化失败：{err}")))?;
             value["trace_level"] = json!(trace_level.as_str());

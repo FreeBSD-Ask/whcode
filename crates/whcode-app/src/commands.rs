@@ -73,6 +73,25 @@ pub enum FrontendCommand {
     },
     /// 撤销一条本地审批规则（T258／FR-751；设置页可撤销“记住规则”写下的 allow／deny）。
     ApprovalRuleRevoke { tool: String, now_ms: u64 },
+    /// 分叉会话（T391／FR-769／ADR-065）：在 turn 结束边界复制对话历史前缀到新会话。
+    SessionFork {
+        source_session: String,
+        at_seq: i64,
+        title: Option<String>,
+        now_ms: u64,
+    },
+    /// 回退对话到 turn 边界（T391／FR-775／ADR-068）：只落边界，不删事件。
+    SessionRewind { session_id: String, to_seq: i64 },
+    /// 恢复文件前像（T391／FR-776／ADR-068；破坏族）：`confirm = false` 为预览，
+    /// `true` 才写回工作区并审计。`workspace` 由装配根注入（恢复写的是工作区文件）。
+    SessionRestore {
+        session_id: String,
+        exec_id: String,
+        workspace: std::path::PathBuf,
+        confirm: bool,
+    },
+    /// 切换计划模式（T391／FR-774／ADR-067）：软引导，不经审批，落 `PlanModeChanged`。
+    SessionPlanSet { session_id: String, active: bool },
 }
 
 /// 执行结果（呈现无关；JSON 形状由前端呈现层构造）。
@@ -104,6 +123,16 @@ pub enum CommandOutcome {
         /// 是否确有删除。
         removed: bool,
     },
+    /// 会话分叉结果（FR-769）。
+    SessionForked(whcode_store::ForkOutcome),
+    /// 对话回退结果（FR-775；只落边界）。
+    SessionRewound(crate::rewind::RewindView),
+    /// 前像恢复预览（`confirm = false`；不写工作区、不审计）。
+    PreimageRestorePreview(Vec<whcode_store::preimage::PreimageRow>),
+    /// 前像恢复执行结果（路径 → 动作，FR-776）。
+    PreimageRestored { results: Vec<(String, String)> },
+    /// 计划模式切换结果（FR-774）。
+    PlanSet(crate::plan::PlanView),
 }
 
 /// 执行器抽象（TUI 等“动作 → 门面”注入用；装配根实现持有连接与授权）。
@@ -236,6 +265,54 @@ pub fn execute_command(
                 tool: tool.clone(),
                 removed,
             })
+        }
+        FrontendCommand::SessionFork {
+            source_session,
+            at_seq,
+            title,
+            now_ms,
+        } => {
+            let outcome = crate::session::fork_session(
+                conn,
+                policy,
+                actor,
+                source_session,
+                *at_seq,
+                title.as_deref(),
+                *now_ms,
+            )?;
+            Ok(CommandOutcome::SessionForked(outcome))
+        }
+        FrontendCommand::SessionRewind {
+            session_id,
+            to_seq,
+        } => {
+            let view = crate::rewind_session(conn, policy, actor, session_id, *to_seq)?;
+            Ok(CommandOutcome::SessionRewound(view))
+        }
+        FrontendCommand::SessionRestore {
+            session_id,
+            exec_id,
+            workspace,
+            confirm,
+        } => {
+            if !*confirm {
+                let rows = crate::preimage::preview(conn, policy, actor, session_id, exec_id)?;
+                return Ok(CommandOutcome::PreimageRestorePreview(rows));
+            }
+            let results = crate::preimage::restore(
+                conn,
+                policy,
+                actor,
+                session_id,
+                workspace,
+                exec_id,
+            )?;
+            Ok(CommandOutcome::PreimageRestored { results })
+        }
+        FrontendCommand::SessionPlanSet { session_id, active } => {
+            let view = crate::set_plan(conn, policy, actor, session_id, *active)?;
+            Ok(CommandOutcome::PlanSet(view))
         }
     }
 }
@@ -553,5 +630,154 @@ mod tests {
 
     fn whcode_count(conn: &Connection, sql: &str) -> i64 {
         conn.query_row(sql, [], |row| row.get(0)).expect("计数")
+    }
+
+    /// T391：fork／rewind／plan 经门面执行——与 CUI 同一入口、同码同语义。
+    #[test]
+    fn fork_rewind_and_plan_flow_through_facade() {
+        let mut conn = migrated();
+        let policy = DefaultPolicy;
+        let me = actor();
+        let now = 1_700_000_000_000_u64;
+
+        let outcome = execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::SessionNew {
+                title: "源会话".to_string(),
+                model: None,
+                now_ms: now,
+            },
+        )
+        .expect("新建");
+        let CommandOutcome::Session(row) = outcome else {
+            panic!("应为 Session");
+        };
+        let source = row.id.clone();
+
+        let forked = execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::SessionFork {
+                source_session: source.clone(),
+                at_seq: 0,
+                title: None,
+                now_ms: now,
+            },
+        )
+        .expect("分叉");
+        let CommandOutcome::SessionForked(fork) = forked else {
+            panic!("应为 SessionForked");
+        };
+        assert_eq!(fork.source_session, source);
+        assert_eq!(fork.inherited_events, 0, "空分叉继承零事件");
+        assert!(fork.session.title.contains("fork"), "缺省标题取源标题 (fork)");
+
+        // 回退要求会话有历史：播种一条 TurnFinished 事件（与 store 夹具同源口径）。
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                 kind, payload_json, ts, persistence_level)
+             VALUES (1, 'E-1', ?, NULL, NULL, NULL, 'TurnFinished',
+                     CAST('{}' AS JSON)::VARIANT, current_timestamp, 'redacted')",
+            duckdb::params![source],
+        )
+        .expect("播种事件");
+
+        let rewound = execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::SessionRewind {
+                session_id: source.clone(),
+                to_seq: 0,
+            },
+        )
+        .expect("回退");
+        let CommandOutcome::SessionRewound(view) = rewound else {
+            panic!("应为 SessionRewound");
+        };
+        assert_eq!(view.target_seq, Some(0), "回退到会话起点");
+
+        let planned = execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::SessionPlanSet {
+                session_id: source.clone(),
+                active: true,
+            },
+        )
+        .expect("计划模式");
+        let CommandOutcome::PlanSet(plan) = planned else {
+            panic!("应为 PlanSet");
+        };
+        assert!(plan.active, "计划模式已开启");
+
+        // 无能力调用者同码拒绝（FR-604 与端无关）。
+        for command in [
+            FrontendCommand::SessionFork {
+                source_session: source.clone(),
+                at_seq: 0,
+                title: None,
+                now_ms: now,
+            },
+            FrontendCommand::SessionRewind {
+                session_id: source.clone(),
+                to_seq: 0,
+            },
+            FrontendCommand::SessionPlanSet {
+                session_id: source.clone(),
+                active: false,
+            },
+            FrontendCommand::SessionRestore {
+                session_id: source.clone(),
+                exec_id: "TX-1".to_string(),
+                workspace: std::env::temp_dir(),
+                confirm: false,
+            },
+        ] {
+            let err = execute_command(&mut conn, &policy, &weak(), &command)
+                .expect_err("无能力必须拒绝");
+            assert_eq!(err.code, whcode_domain::ErrorCode::PermissionDenied);
+        }
+    }
+
+    /// T391：前像恢复经门面——预览不写工作区，确认才执行；无前像 `not_found`。
+    #[test]
+    fn restore_previews_before_confirm_and_rejects_missing_exec() {
+        let mut conn = migrated();
+        let policy = DefaultPolicy;
+        let me = actor();
+        let now = 1_700_000_000_000_u64;
+        let outcome = execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::SessionNew {
+                title: "恢复会话".to_string(),
+                model: None,
+                now_ms: now,
+            },
+        )
+        .expect("新建");
+        let CommandOutcome::Session(row) = outcome else {
+            panic!("应为 Session");
+        };
+
+        let err = execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::SessionRestore {
+                session_id: row.id.clone(),
+                exec_id: "TX-404".to_string(),
+                workspace: std::env::temp_dir(),
+                confirm: false,
+            },
+        )
+        .expect_err("无前像必须拒绝");
+        assert_eq!(err.code, whcode_domain::ErrorCode::NotFound);
     }
 }
