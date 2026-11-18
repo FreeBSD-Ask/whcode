@@ -118,4 +118,12 @@ TUI 是交互体验的洼地；字段测试（`artifacts/fieldtest-2026-11-17.md
   毒丸按请求生效，恢复 Gate 文档口径）；②panic 解卷绕窗口内死亡确认不可观测，第二次
   提交按契约 Internal 而非 InvalidState（修复 `4e7dac1`：按 V-106 契约轮询幂等键）。
   复跑 run `44336654355` success。生产行为不变；修复仅测试夹具（cfg(test)）。登记于
-  Check 472—475 取证行。
+  Check 472—475 取证行。- **2026-11-19（GUI 对话取消确定性与轮头对齐，Task T383／Check 477）**：TUI 落地暴露
+  GUI 对话视图的两层取消缺陷——①运行中 request_id 不可知（`chat_cancel` 从完成摘要
+  反解析，运行中摘要尚不存在）；②`update` 顶部冻结门把 `Message::ChatCancel` 吞掉
+  （`_ => {}`），取消按钮在运行中实际不可达——与面板注释“取消经标记目录跨线程生效”
+  不符。修复：`GuiLlmExecutor::run_with_progress` 增 `request_id` 参数（调用方预生成，
+  bin 透传 `TurnRequest`，与 TUI/CUI 同口径）；取消消息穿透冻结门（写标记目录不触库）；
+  运行中转写增轮头行（复用 `tui.chat.turn.header` 词条，零新增键）。测试
+  `chat_cancel_uses_pregenerated_request_id`（桩记录断言：提交→执行器收到同一 ID→
+  取消携带同一 ID→完成后复位）。

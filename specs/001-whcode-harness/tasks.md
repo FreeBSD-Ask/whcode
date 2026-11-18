@@ -2772,3 +2772,15 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   不修 P0 解码、不改 FreeBSD 硬门禁语义、不引入 GNU 工具链、本轮不落修复补丁；
   标准文献启发式研读＝FreeBSD truss(1)／core(5)／lldb(1) 手册要点与 bsd-duckdb.sh
   构建注记，落盘于 workflow 注释与取证 artifacts）
+
+## Tasks（2026-11-19 追加）：GUI 对话取消确定性与轮头对齐（ADR-087 修订）
+
+- [x] T383 GUI 对话取消确定性与轮头对齐（FR-711／ADR-087 修订）：修复两层取消缺陷——
+  `GuiLlmExecutor::run_with_progress` 增 `request_id` 参数（提交前预生成、bin 透传
+  `TurnRequest.request_id`，取消不再从完成摘要反解析）；`Message::ChatCancel` 穿透
+  update 冻结门（标记目录取消不触库）；运行中转写增轮头行（复用 `tui.chat.turn.header`，
+  零新增 i18n 键）；ChatDone 复位 `active_request_id`
+  （开工前置：任务认知卡，见 ADR-087 修订记录 2026-11-19）
+  **取证（2026-11-19）**：`cargo test -p whcode-gui` 36 通过（新增
+  `chat_cancel_uses_pregenerated_request_id`：桩记录断言提交→执行器收到同一 ID→取消
+  携带同一 ID→完成后复位）；clippy（-D warnings）与 fmt 绿；Check 477。

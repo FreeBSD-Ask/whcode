@@ -263,13 +263,15 @@ impl TuiLlmExecutor {
 
 /// GUI 侧适配（ADR-056 Phase 2）：同一执行器实现 GUI 的 [`whcode_gui::GuiLlmExecutor`]。
 /// turn 在调用线程运行（GUI 的后台线程）；审计身份 `gui-local`（与 tui-local 同权，
-/// 区分来源供审计）；进度回调直通 `run_turn_with_progress`。
+/// 区分来源供审计）；进度回调直通 `run_turn_with_progress`；request_id 由调用方
+/// 预生成并前置传入（ADR-087 修订：确定性取消，与 TUI/CUI 同口径）。
 impl whcode_gui::GuiLlmExecutor for TuiLlmExecutor {
     fn run_with_progress(
         &self,
         session_id: &str,
         provider: &str,
         prompt: &str,
+        request_id: &str,
         progress: whcode_app::turn::TurnProgress<'_>,
         observer: Option<whcode_app::turn::TurnObserver<'_>>,
         approvals: Option<&dyn whcode_app::approval::ApprovalAnswerer>,
@@ -299,7 +301,7 @@ impl whcode_gui::GuiLlmExecutor for TuiLlmExecutor {
                 prompt: prompt.to_string(),
                 model: None,
                 max_tokens: None,
-                request_id: None,
+                request_id: Some(request_id.to_string()),
                 iterations_limit: None,
                 budget_tokens: None,
                 workspace_root: Some(self.workspace.clone()),

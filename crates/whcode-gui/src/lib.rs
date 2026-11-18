@@ -199,16 +199,20 @@ impl GuiTheme {
 /// （独立线程 + `Task::stream` 有损进度通道），界面线程仅经 `cancel` 取消。
 pub trait GuiLlmExecutor: Send + Sync {
     /// 发起一次真实调用（**阻塞至 turn 完成**；在调用方的后台线程上执行，不冻结界面）。
-    /// 会话取 GUI 当前选中会话；`progress` 逐块回调累计块数（回调必须非阻塞、有损可接受）。
+    /// 会话取 GUI 当前选中会话；`request_id` 由调用方预生成并传入（确定性取消，
+    /// ADR-087 修订：与 TUI/CUI 显式 `--request-id` 同口径，取消不再从摘要反解析）；
+    /// `progress` 逐块回调累计块数（回调必须非阻塞、有损可接受）。
     ///
     /// # Errors
     ///
     /// 剖面未注册、凭据缺失或调用失败时返回 [`WhError`]。
+    #[allow(clippy::too_many_arguments)]
     fn run_with_progress(
         &self,
         session_id: &str,
         provider: &str,
         prompt: &str,
+        request_id: &str,
         progress: whcode_app::turn::TurnProgress<'_>,
         observer: Option<whcode_app::turn::TurnObserver<'_>>,
         approvals: Option<&dyn whcode_app::approval::ApprovalAnswerer>,
@@ -412,6 +416,9 @@ struct State {
     /// turn 运行中（后台线程持有连接锁）：期间除进度/完成/窗口事件外的一切交互
     /// 冻结在当前画面（数据锁被占用，冻结优于阻塞等待）。
     turn_running: bool,
+    /// 当前 turn 的预生成请求 ID（ADR-087 修订）：取消按钮直达执行器，不再从
+    /// 完成摘要反解析；完成后随 ChatDone 复位。
+    active_request_id: Option<String>,
     /// 当前 turn 的累计块数（进度回调经有损通道送达）。
     chat_progress: u64,
     /// 当前 turn 的流式正文缓冲（FR-741 逐块增量呈现；有界——
@@ -497,6 +504,7 @@ impl State {
             llm,
             turn_running: false,
             chat_progress: 0,
+            active_request_id: None,
             chat_streaming: String::new(),
             chat_history: Vec::new(),
             chat_provider,
@@ -820,6 +828,9 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             }
             // 工具信号与审批必须照常处理：turn 线程可能正阻塞等待决定。
             Message::ToolSignal(signal) => apply_tool_signal(state, signal),
+            // 取消必须穿透冻结门：取消经标记目录跨线程生效（不触库、不取连接锁）；
+            // ADR-087 修订前该消息被冻结吞掉，运行中取消按钮实际不可达。
+            Message::ChatCancel => chat_cancel(state),
             Message::ApprovalPending(request) => {
                 state.approval = Some(request);
                 state.approval_status = None;
@@ -832,6 +843,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             }
             Message::ChatDone(result) => {
                 state.turn_running = false;
+                state.active_request_id = None;
                 state.chat_progress = 0;
                 state.chat_streaming.clear();
                 state.approval = None;
@@ -1321,7 +1333,11 @@ fn chat_submit(state: &mut State) -> Task<Message> {
     let prompt = std::mem::take(&mut state.chat_input);
     // 提交前最后一次读历史（连接锁仍空闲；turn 运行期间不再触库）。
     state.refresh_chat_history();
+    // ADR-087 修订：request_id 提交前预生成（确定性取消），运行中存于状态供
+    // Esc／取消按钮直达执行器，不再从完成摘要反解析。
+    let request_id = whcode_app::llm::generate_request_id(&session, &provider, &prompt, now_ms());
     state.turn_running = true;
+    state.active_request_id = Some(request_id.clone());
     state.chat_progress = 0;
     state.chat_streaming.clear();
     state.tool_cards.clear();
@@ -1351,6 +1367,7 @@ fn chat_submit(state: &mut State) -> Task<Message> {
             &session,
             &provider,
             &prompt,
+            &request_id,
             &progress,
             Some(&observer),
             Some(approvals.as_ref() as &dyn whcode_app::approval::ApprovalAnswerer),
@@ -1368,23 +1385,17 @@ fn chat_submit(state: &mut State) -> Task<Message> {
     Task::stream(progress_rx.chain(signal_rx).chain(done_stream))
 }
 
-/// 取消正在运行的调用（请求 ID 取上次摘要中的 `request_id=…`，与 TUI 同口径）。
+/// 取消正在运行的调用（ADR-087 修订：请求 ID 取提交前预生成的
+/// `active_request_id`——不再从完成摘要反解析，运行中取消才真正可达）。
 fn chat_cancel(state: &mut State) {
     let Some(llm) = state.llm.as_ref() else {
         state.chat_last = Some(state.texts.resolve("gui.chat.not_supported").to_string());
         return;
     };
-    let request_id = state
-        .chat_last
-        .as_deref()
-        .and_then(|text| text.rsplit("request_id=").next())
-        .unwrap_or("")
-        .trim()
-        .to_string();
-    if request_id.is_empty() {
+    let Some(request_id) = state.active_request_id.clone() else {
         state.chat_last = Some(state.texts.resolve("gui.chat.no_request").to_string());
         return;
-    }
+    };
     match llm.cancel(&request_id) {
         Ok(summary) => state.chat_last = Some(summary),
         Err(err) => {
@@ -1779,6 +1790,17 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         body.extend(md_elements(history_text.as_str()));
     }
     if state.turn_running {
+        // ADR-087 修订：轮头行（请求短码）——与 TUI 对话流同一词条，四端口径一致。
+        if let Some(request_id) = state.active_request_id.as_deref() {
+            body.push(rich_line(
+                state
+                    .texts
+                    .resolve_fmt("tui.chat.turn.header", &[("request", request_id)])
+                    .as_str(),
+                false,
+                13.0,
+            ));
+        }
         body.push(rich_line(
             state
                 .texts
@@ -2820,6 +2842,10 @@ mod tests {
     /// Phase 2 测试桩：记录调用的 LLM 执行器（不触库）。
     struct StubLlm {
         fail: bool,
+        /// 收到的 run_with_progress 请求 ID（取消确定性断言用，ADR-087 修订）。
+        sent_requests: std::sync::Mutex<Vec<String>>,
+        /// cancel 收到的请求 ID。
+        cancels: std::sync::Mutex<Vec<String>>,
     }
     impl GuiLlmExecutor for StubLlm {
         fn run_with_progress(
@@ -2827,10 +2853,15 @@ mod tests {
             _session_id: &str,
             _provider: &str,
             _prompt: &str,
+            request_id: &str,
             progress: whcode_app::turn::TurnProgress<'_>,
             observer: Option<whcode_app::turn::TurnObserver<'_>>,
             _approvals: Option<&dyn whcode_app::approval::ApprovalAnswerer>,
         ) -> Result<String, WhError> {
+            self.sent_requests
+                .lock()
+                .expect("锁")
+                .push(request_id.to_string());
             if let Some(observer) = observer {
                 observer(whcode_app::turn::TurnSignal::ToolStarted {
                     tool_call_id: "call-1".to_string(),
@@ -2856,7 +2887,11 @@ mod tests {
             Ok("provider=stub chunks=2 completed=true request_id=R-1".to_string())
         }
 
-        fn cancel(&self, _request_id: &str) -> Result<String, WhError> {
+        fn cancel(&self, request_id: &str) -> Result<String, WhError> {
+            self.cancels
+                .lock()
+                .expect("锁")
+                .push(request_id.to_string());
             Ok("cancelled".to_string())
         }
 
@@ -2865,20 +2900,76 @@ mod tests {
         }
     }
 
-    fn interactive_state(fail: bool) -> State {
+    fn interactive_state_with(llm: std::sync::Arc<StubLlm>) -> State {
         let source: Rc<dyn ViewSource> = Rc::new(whcode_app::view_source::EmptyViewSource);
-        let mut state = State::new(
-            source,
-            I18n::default(),
-            GuiTheme::EinkDay,
-            None,
-            Some(std::sync::Arc::new(StubLlm { fail })),
-        );
+        let mut state = State::new(source, I18n::default(), GuiTheme::EinkDay, None, Some(llm));
         // 预置选中会话（对话提交的前置）。
         state.session_ids = vec!["S-1".to_string()];
         state.selected = Some(0);
         state.chat_input = "提示词".to_string();
         state
+    }
+
+    fn interactive_state(fail: bool) -> State {
+        interactive_state_with(std::sync::Arc::new(StubLlm {
+            fail,
+            sent_requests: std::sync::Mutex::new(Vec::new()),
+            cancels: std::sync::Mutex::new(Vec::new()),
+        }))
+    }
+
+    /// ADR-087 修订（Check 477）：取消使用提交前预生成的 request_id（不再反解析
+    /// 完成摘要），提交即存 active_request_id，完成后复位。
+    #[test]
+    fn chat_cancel_uses_pregenerated_request_id() {
+        let stub = std::sync::Arc::new(StubLlm {
+            fail: false,
+            sent_requests: std::sync::Mutex::new(Vec::new()),
+            cancels: std::sync::Mutex::new(Vec::new()),
+        });
+        let mut state = interactive_state_with(std::sync::Arc::clone(&stub));
+        let _ = update(&mut state, Message::ChatSubmit);
+        assert!(state.turn_running, "提交后必须进入运行态");
+        let request_id = state
+            .active_request_id
+            .clone()
+            .expect("提交必须预生成 request_id");
+        assert!(
+            request_id.starts_with("llm-"),
+            "预生成 ID 格式：{request_id}"
+        );
+        // 执行器登记发生在后台线程——有界轮询等待登记完成再断言（主线程先断言
+        // 会与线程启动竞态，并经毒丸放大为工作线程 panic）。
+        let mut delivered = false;
+        for _ in 0..100 {
+            let sent = stub.sent_requests.lock().expect("锁");
+            if !sent.is_empty() {
+                delivered = true;
+                break;
+            }
+            drop(sent);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(delivered, "执行器未在时限内收到请求");
+        let sent = stub.sent_requests.lock().expect("锁");
+        assert_eq!(
+            sent.as_slice(),
+            [request_id.as_str()],
+            "执行器必须收到同一预生成 ID"
+        );
+        drop(sent);
+        let _ = update(&mut state, Message::ChatCancel);
+        let cancels = stub.cancels.lock().expect("锁");
+        assert_eq!(cancels.len(), 1, "取消恰好一次到达执行器");
+        assert_eq!(cancels[0], request_id, "取消必须携带预生成 ID");
+        drop(cancels);
+        // 完成后复位（Task 不在单测中执行，手动派发 ChatDone）。
+        let _ = update(
+            &mut state,
+            Message::ChatDone(Ok("provider=stub completed=true request_id=R-1".to_string())),
+        );
+        assert!(!state.turn_running, "完成后解除运行态");
+        assert!(state.active_request_id.is_none(), "完成后必须复位请求 ID");
     }
 
     /// Phase 2：ChatDone 正确解除 turn_running 并落结果（成功路径）。
