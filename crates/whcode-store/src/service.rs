@@ -497,10 +497,26 @@ mod tests {
         assert_eq!(err.code, ErrorCode::Internal, "确认前退出须返回内部错误");
         assert!(err.retryable, "结果未知，必须允许按幂等键重试");
 
-        let err = service
-            .submit(event(2, EventKind::StreamingChunk), "k-after")
-            .expect_err("写线程已退出，后续提交必须被拒绝");
-        assert_eq!(err.code, ErrorCode::InvalidState);
+        // 写线程死亡确认是异步的：panic 解卷绕期间请求仍可能被送进通道，此时
+        // submit 按契约返回 Internal（结果未知，按幂等键重试，V-106）；解卷绕完成、
+        // 接收端撤除后才转 InvalidState。断言按生产语义轮询同一幂等键直至确认
+        // （有界 50 次；CI run 44192965656 实测 FreeBSD 解卷绕窗口内瞬时断言会撞
+        // Internal——时序竞态，非行为回归）。
+        let mut confirmed = false;
+        for _ in 0..50 {
+            match service.submit(event(2, EventKind::StreamingChunk), "k-after") {
+                Err(err) if err.code == ErrorCode::InvalidState => {
+                    confirmed = true;
+                    break;
+                }
+                Err(_) => std::thread::sleep(std::time::Duration::from_millis(10)),
+                Ok(_) => panic!("写线程死亡后提交不应成功"),
+            }
+        }
+        assert!(
+            confirmed,
+            "写线程死亡确认超时：后续提交必须转为 InvalidState"
+        );
 
         let err = service.shutdown().expect_err("panic 后的 join 必须报错");
         assert_eq!(err.code, ErrorCode::Internal);
