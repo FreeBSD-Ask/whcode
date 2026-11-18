@@ -1565,6 +1565,11 @@ jobs:
               rc=0
               timeout 900 "$a2_bin" "$@" > "$repo/$out/$prefix-$idx.stdout" 2>&1 || rc=$?
               core_file=$(ls -t ./*.core 2>/dev/null | head -n 1)
+              # 核心路径就地绝对化：下文 cd 回 repo 后再交给调试器（run 44354167222
+              # 实测相对路径在 cd 后失配，bt 空手而归）。
+              if [ -n "${core_file:-}" ]; then
+                case "$core_file" in /*) ;; *) core_file=$(pwd)/${core_file#./};; esac
+              fi
               cd "$repo"
               echo "$label#$idx rc=$rc" >> "$progress"
               if [ -n "${core_file:-}" ]; then
@@ -1582,7 +1587,13 @@ jobs:
                     gdb --batch -ex 'info threads' -ex 'thread apply all bt' \
                       "$a2_bin" "$core_file" > "$repo/$out/$prefix-$idx.bt.txt" 2>&1 || true
                   fi
-                  echo "$label#$idx core=+ bt=captured($bt_tool)" >> "$progress"
+                  # 帧行校验：回溯文件必须含栈帧（#N），否则按取证失败登记——
+                  # 空/纯错误文本不得冒充证据（信号链完备）。
+                  if grep -qE '#[0-9]+ ' "$repo/$out/$prefix-$idx.bt.txt" 2>/dev/null; then
+                    echo "$label#$idx core=+ bt=captured($bt_tool)" >> "$progress"
+                  else
+                    echo "$label#$idx core=+ bt=empty_or_error（回溯文件无帧行）" >> "$progress"
+                  fi
                 else
                   echo "$label#$idx core=+ bt=debugger_unavailable（无 lldb／gdb 可用）" >> "$progress"
                 fi
@@ -1624,7 +1635,7 @@ jobs:
             done
 
             echo "phase=done at=$(date -u +%FT%TZ)" >> "$progress"
-            bt_count=$(ls "$out"/*.bt.txt 2>/dev/null | wc -l | tr -d ' ')
+            bt_count=$(grep -lE '#[0-9]+ ' "$out"/*.bt.txt 2>/dev/null | wc -l | tr -d ' ')
             if [ "$st_crashed$par_crashed" = "nono" ]; then
               echo "a2_diag_result=NOT_REPRODUCED（本轮全部迭代未复现——正确的空，非前置缺失）" >> "$progress"
             elif [ "$bt_count" -gt 0 ]; then
