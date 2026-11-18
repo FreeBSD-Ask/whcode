@@ -2760,11 +2760,13 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
 
 ## Tasks（2026-11-18 追加）：FreeBSD A2 退出路径 SIGSEGV 归因（长线计划 A2，用户批准“先归因，再进 P0”）
 
-- [ ] T382 A2 深取证 lane 与归因：platform-verification 增设 workflow_dispatch 输入
-  `a2_diag` 与 dispatch 专用 job——FreeBSD VM 内构建 whcode-bin 测试二进制，按
-  “全量单线程×8→全量并行×3→16 测试模块过滤单线程×2”三阶段回环复跑，核心转储落 VM
-  本地 /tmp，lldb `bt all` 回溯文本回 artifacts（核心不上传）；既有 push 失败分支 A2
-  块追加“崩即取核心＋回溯”的机会性取证；dispatch 实跑取得栈级证据并给出归因结论
+- [ ] T382 A2 深取证 lane 与归因：新增独立 a2-diagnosis.yml workflow（初版挂
+  platform-verification 的 dispatch 输入与专用 job，2026-11-19 迁出——同名 workflow 的
+  dispatch run 两次被显式取消，独立并发组互不波及）——FreeBSD VM 内构建 whcode-bin
+  测试二进制，按“全量单线程×8→全量并行×3→16 测试模块过滤单线程×2”三阶段回环复跑，
+  核心转储落 VM 本地 /tmp，lldb／gdb `bt all` 回溯文本回 artifacts（核心不上传，
+  回溯须含栈帧行才算 captured）；既有 push 失败分支 A2 块追加“崩即取核心＋回溯”的
+  机会性取证；dispatch 实跑取得栈级证据并给出归因结论
   （故障组件与代码路径），且与既有 truss 观测一致（SEGV_MAPERR addr=0x1068；崩溃窗口
   在测试摘要打印完之后；退出期仍存活的 accept 轮询线程；UMTX SEM2_WAKE EFAULT）
   （任务认知卡：方向＝先归因后修复，用户 2026-11-18 批准；目标＝栈级证据锁定故障

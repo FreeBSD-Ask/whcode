@@ -1459,13 +1459,14 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
 
 ## 第六十三层：FreeBSD A2 退出路径 SIGSEGV 归因取证（2026-11-18，Task T382，长线计划 A2）
 
-- [ ] Check 476: [missing] A2 深取证 lane 可按 workflow_dispatch（输入 `a2_diag`）在
-  FreeBSD VM 产出栈级证据（lldb `bt all` 回溯文本随 artifact `a2-diag-freebsd-deep`
-  上传，核心文件不上传）；归因结论与既有 truss 观测一致（退出路径 SEGV_MAPERR
-  addr=0x1068、崩溃窗口在测试摘要打印之后、退出期存活线程清单）；全部迭代未复现时
-  以迭代次数显式登记“正确的空”（NOT_REPRODUCED），summary 未产出（前置缺失）即红；
-  不得以复跑转绿代替归因（来源：Task T382、ADR-082 dispatch 专项先例、ADR-013
-  FreeBSD 通道）
+- [ ] Check 476: [missing] A2 深取证 workflow（`.github/workflows/a2-diagnosis.yml`，
+  2026-11-19 自 platform-verification 迁出为独立并发组）可按 workflow_dispatch 在
+  FreeBSD VM 产出栈级证据（lldb／gdb 回溯文本随 artifact `a2-diag-freebsd-deep`
+  上传，核心文件不上传，回溯文件须含栈帧行才算 captured）；归因结论与既有 truss
+  观测一致（退出路径 SEGV_MAPERR addr=0x1068、崩溃窗口在测试摘要打印之后、退出期
+  存活线程清单）；全部迭代未复现时以迭代次数显式登记“正确的空”（NOT_REPRODUCED），
+  summary 未产出（前置缺失）即红；不得以复跑转绿代替归因（来源：Task T382、ADR-082
+  dispatch 专项先例、ADR-013 FreeBSD 通道）
 
 - [x] Check 478: [exercised] OpenAI 族真实供应商端到端：真模型声明 read_file →
   事件流出现 ToolCallStarted/Finished（供应商原生 ID）→ 续答引用真实文件内容

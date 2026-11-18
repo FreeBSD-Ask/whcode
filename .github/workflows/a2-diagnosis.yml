@@ -1,0 +1,207 @@
+# A2 深取证专项 workflow（T382，2026-11-19 自 platform-verification 迁出为独立文件）：
+# 归因“whcode-bin 测试二进制退出路径 SIGSEGV”（长线计划 A2）：run 41290577560 首现、
+# 41529766439 复现、44176786717 单线程复跑也崩。truss 已证明崩溃在退出窗口（测试摘要
+# 打印之后，SEGV_MAPERR addr=0x1068），归因需要用户态栈——本 workflow 用核心转储＋
+# lldb／gdb 取 bt all。诊断性质：不设红绿门禁语义，未复现以迭代次数显式登记（区分
+# 正确的空与前置缺失）；只有“证据链缺失”（summary 未产出）才红。
+# 独立文件＝独立并发组：run 44336872860（排队时）与 44369992913（VM 取证中途）两次
+# dispatch run 被显式取消，疑似同名 workflow 的并行会话清理；拆出后互不波及。
+# 机会性取证（push 失败分支崩即取核心）仍在 platform-verification.yml 的 A2 块内。
+name: a2-diagnosis
+
+on:
+  workflow_dispatch:
+
+env:
+  PYTHONUTF8: "1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  freebsd-a2-diag:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: 在 FreeBSD VM 中构建测试二进制并回环取证
+        id: a2_vm
+        uses: vmactions/freebsd-vm@811efaaac0668df8bfb8308c3ec997b5ab50037b # v1.6.0
+        with:
+          # 只写主版本：action 自动取最新 15.x 点版本（与 platform 矩阵同款）。
+          release: "15"
+          usesh: true
+          prepare: |
+            # latest pkg 仓库与 platform 矩阵同源（vmactions 的 QEMU slirp DNS 不支持
+            # pkg+:// 的 SRV 解析，直连 https）；lldb 用于核心回溯。
+            mkdir -p /usr/local/etc/pkg/repos
+            printf 'FreeBSD: {\n  url: "https://pkg.freebsd.org/${ABI}/latest",\n  signature_type: "fingerprints",\n  fingerprints: "/usr/share/keys/pkg"\n}\n' \
+              > /usr/local/etc/pkg/repos/whcode-latest.conf
+            # 不装调试器：FreeBSD latest 仓库无独立 lldb 包（run 44344497893 实测，
+            # pkg 直接失败杀掉 prepare）；调试器在 run 期按 lldb→gdb 链路惰性解析。
+            # 同款网络抖动重试（platform 矩阵 prepare 注释）。
+            pkg_try=1
+            while true; do
+              if pkg update -q && pkg install -y curl cmake ninja python3 pkgconf; then
+                break
+              fi
+              if [ "$pkg_try" -ge 3 ]; then
+                echo "pkg 三次尝试均失败（pkgmir.geo 间歇不可达，属基础设施）"
+                exit 1
+              fi
+              pkg_try=$((pkg_try + 1))
+              sleep 30
+            done
+          run: |
+            # 证据保全（同 platform 矩阵）：脚本主体放子 shell，失败只写标记并 exit 0，
+            # 保证 copyback 发生；由宿主“校验取证证据链”步骤判定 summary 缺失。
+            set +e
+            (
+            set -e
+            repo=$PWD
+            out=artifacts/a2-diag-deep
+            mkdir -p "$out"
+            progress="$out/summary.txt"
+            echo "phase=bootstrap-start at=$(date -u +%FT%TZ)" > "$progress"
+            export HOME=/root
+            export PATH="$HOME/.cargo/bin:$PATH"
+            if [ ! -x "$HOME/.cargo/bin/cargo" ]; then
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+                | sh -s -- -y --profile minimal --default-toolchain 1.100.0
+            fi
+            echo "rustc_version=$(rustc --version)" >> "$progress"
+            echo "phase=toolchain-ok at=$(date -u +%FT%TZ)" >> "$progress"
+
+            # libduckdb.so（DuckDB 2.0.0 源码构建）是链接前置；脚本恒退出 0，读证据裁决。
+            sh .github/scripts/platform-matrix/bsd-duckdb.sh
+            if ! grep -q '^store_gate = GO' artifacts/store-acceptance/freebsd-store.txt; then
+              echo "a2_diag_result=BLOCKED（DuckDB 构建 NO-GO，前置缺失，非崩溃结论）" >> "$progress"
+              exit 0
+            fi
+            . artifacts/store-acceptance/freebsd-duckdb.env
+            echo "phase=duckdb-ok at=$(date -u +%FT%TZ)" >> "$progress"
+
+            # 只构建崩溃目标二进制（whcode-bin 单元测试），不做全 workspace 构建。
+            cargo test --locked -p whcode-bin --bin whcode --no-run
+            a2_bin=$(ls -t target/debug/deps/whcode-* target/debug/build/whcode-bin/*/out/whcode-* 2>/dev/null | grep -v '\.d$' | head -n 1)
+            if [ -z "${a2_bin:-}" ]; then
+              echo "a2_diag_result=BLOCKED（测试二进制未定位）" >> "$progress"
+              exit 0
+            fi
+            case "$a2_bin" in /*) ;; *) a2_bin=$repo/$a2_bin;; esac
+            echo "binary=$a2_bin" >> "$progress"
+            ldd "$a2_bin" >> "$progress" 2>&1 || true
+            echo "phase=build-ok at=$(date -u +%FT%TZ)" >> "$progress"
+
+            # 取证循环：核心落 VM 本地 /tmp/a2cores（不回传），lldb 回溯文本回 artifacts。
+            mkdir -p /tmp/a2cores
+            run_capture() { # $1=模式名 $2=输出前缀 $3=迭代序号；其后为测试二进制参数
+              label="$1"; prefix="$2"; idx="$3"; shift 3
+              cd /tmp/a2cores || return 0
+              rm -f ./*.core
+              rm -f "$repo/$out/crash.flag"
+              rc=0
+              timeout 900 "$a2_bin" "$@" > "$repo/$out/$prefix-$idx.stdout" 2>&1 || rc=$?
+              core_file=$(ls -t ./*.core 2>/dev/null | head -n 1)
+              # 核心路径就地绝对化：下文 cd 回 repo 后再交给调试器（run 44354167222
+              # 实测相对路径在 cd 后失配，bt 空手而归）。
+              if [ -n "${core_file:-}" ]; then
+                case "$core_file" in /*) ;; *) core_file=$(pwd)/${core_file#./};; esac
+              fi
+              cd "$repo"
+              echo "$label#$idx rc=$rc" >> "$progress"
+              if [ -n "${core_file:-}" ]; then
+                # 调试器解析：base 镜像的 lldb（若有）→ 仓库 gdb（必存在）→ pkg 装 gdb。
+                bt_tool=""
+                if command -v lldb >/dev/null 2>&1; then bt_tool=lldb
+                elif command -v gdb >/dev/null 2>&1; then bt_tool=gdb
+                elif pkg install -y gdb >/dev/null 2>&1 && command -v gdb >/dev/null 2>&1; then bt_tool=gdb
+                fi
+                if [ -n "$bt_tool" ]; then
+                  if [ "$bt_tool" = lldb ]; then
+                    lldb --batch --core "$core_file" -o 'thread list' -o 'bt all' -o quit \
+                      -- "$a2_bin" > "$repo/$out/$prefix-$idx.bt.txt" 2>&1 || true
+                  else
+                    gdb --batch -ex 'info threads' -ex 'thread apply all bt' \
+                      "$a2_bin" "$core_file" > "$repo/$out/$prefix-$idx.bt.txt" 2>&1 || true
+                  fi
+                  # 帧行校验：回溯文件必须含栈帧（#N），否则按取证失败登记——
+                  # 空/纯错误文本不得冒充证据（信号链完备）。
+                  if grep -qE '#[0-9]+ ' "$repo/$out/$prefix-$idx.bt.txt" 2>/dev/null; then
+                    echo "$label#$idx core=+ bt=captured($bt_tool)" >> "$progress"
+                  else
+                    echo "$label#$idx core=+ bt=empty_or_error（回溯文件无帧行）" >> "$progress"
+                  fi
+                else
+                  echo "$label#$idx core=+ bt=debugger_unavailable（无 lldb／gdb 可用）" >> "$progress"
+                fi
+                rm -f "$core_file"
+                touch "$repo/$out/crash.flag"
+              fi
+            }
+
+            # 阶段 1：全量单线程 ×8（run 44176786717 实测单线程会崩；崩即停）。
+            echo "phase=st-loop-start at=$(date -u +%FT%TZ)" >> "$progress"
+            st_crashed=no
+            for i in 1 2 3 4 5 6 7 8; do
+              run_capture st st-run "$i" --test-threads=1
+              if [ -f "$out/crash.flag" ]; then st_crashed=yes; break; fi
+            done
+            echo "st_loop_crashed=$st_crashed iterations=$i" >> "$progress"
+
+            # 阶段 2：全量并行（默认并行度）×3。
+            echo "phase=par-loop-start at=$(date -u +%FT%TZ)" >> "$progress"
+            par_crashed=no
+            for i in 1 2 3; do
+              run_capture par par-run "$i"
+              if [ -f "$out/crash.flag" ]; then par_crashed=yes; break; fi
+            done
+            echo "par_loop_crashed=$par_crashed iterations=$i" >> "$progress"
+
+            # 阶段 3：模块二分（16 个测试模块，单线程 ×2／模块）——把故障域缩到模块级。
+            echo "phase=mod-loop-start at=$(date -u +%FT%TZ)" >> "$progress"
+            for f in acp:: cert_probe:: config:: cui_dispatch:: llm_provider:: logging:: \
+              lsp_tool:: runtimes:: sdk:: serve:: shell_tool:: store_source:: tests:: \
+              tls:: tool_call_text:: workspace::; do
+              mod_crashed=no
+              for i in 1 2; do
+                run_capture "mod-$f" "mod-${f%%::*}" "$i" --test-threads=1 "$f"
+                if [ -f "$out/crash.flag" ]; then mod_crashed=yes; break; fi
+              done
+              echo "module=$f crashed=$mod_crashed" >> "$progress"
+              rm -f "$out/crash.flag"
+            done
+
+            echo "phase=done at=$(date -u +%FT%TZ)" >> "$progress"
+            bt_count=$(grep -lE '#[0-9]+ ' "$out"/*.bt.txt 2>/dev/null | wc -l | tr -d ' ')
+            if [ "$st_crashed$par_crashed" = "nono" ]; then
+              echo "a2_diag_result=NOT_REPRODUCED（本轮全部迭代未复现——正确的空，非前置缺失）" >> "$progress"
+            elif [ "$bt_count" -gt 0 ]; then
+              echo "a2_diag_result=CRASH_REPRODUCED（核心回溯文本 $bt_count 份已随 artifact 上传）" >> "$progress"
+            else
+              echo "a2_diag_result=PARTIAL（复现了崩溃但未产出回溯——查 summary 的 bt= 行，属前置缺失）" >> "$progress"
+            fi
+            )
+            exit 0
+
+      - name: 校验取证证据链（summary 缺失即红）
+        if: always()
+        run: |
+          if [ ! -f artifacts/a2-diag-deep/summary.txt ]; then
+            echo "::error title=A2 diag::取证 summary 未产出——证据链缺失，不得视为完成"
+            exit 1
+          fi
+          cat artifacts/a2-diag-deep/summary.txt
+
+      - name: 上传 FreeBSD A2 深取证证据
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: a2-diag-freebsd-deep
+          if-no-files-found: warn
+          path: artifacts/a2-diag-deep/
