@@ -1448,7 +1448,14 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   50 上限；Check 475：`chat_submit_gates_reject_structurally`（四类拒绝）＋写类工具按
   `approval_unavailable` 的装配（approvals None）＋十三目录同键（workspace 测试）。
   `cargo test -p whcode-tui` 79 通过；`cargo test --locked --workspace` 1137 通过；
-  CI 结论待推送后回填（ADR-037 口径）。**真模型端到端工具卡为 P0 修复后的复审项。**
+  **CI 结论（ADR-037 口径，2026-11-19 回填）**：首跑 run `44176786717` 红——FreeBSD
+  全量测试暴露 store 测试夹具两段时序竞态（毒丸检查先于测试 arm：首个提交绕过注入
+  故障被成功提交）；修复一 `34d54a8`（毒丸按请求生效，与 Gate 文档口径一致）；复跑
+  run `44192965656` 红——暴露第二段竞态（panic 解卷绕窗口内死亡确认未可观测，第二次
+  提交按契约返回 Internal 而非 InvalidState）；修复二 `4e7dac1`（死亡确认按生产语义
+  轮询同一幂等键，有界 50 次）；复跑 run `44336654355` **success**（五平台与
+  measurements 全绿）。两段均为测试夹具修复，生产行为（V-106 幂等重试契约）不变。
+  **真模型端到端工具卡为 P0 修复后的复审项（ADR-087 复审触发 3）。**
 
 ## 第六十三层：FreeBSD A2 退出路径 SIGSEGV 归因取证（2026-11-18，Task T382，长线计划 A2）
 

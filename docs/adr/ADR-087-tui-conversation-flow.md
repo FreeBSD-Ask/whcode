@@ -109,3 +109,13 @@ TUI 是交互体验的洼地；字段测试（`artifacts/fieldtest-2026-11-17.md
 
 - 需求：FR-796（spec.md）；任务 T376—T381（tasks.md）；验收 Check 472—475（checklist.md）。
 - 字段测试背景：`artifacts/fieldtest-2026-11-17.md`（P0 断链与本批边界）。
+
+## 修订记录
+
+- **2026-11-19（CI 取证回填与两段测试竞态修复）**：ADR-087 批次 CI 首跑（run
+  `44176786717`）红——FreeBSD 全量测试暴露 `whcode-store` 测试夹具两段时序竞态，与本
+  批产品代码无关：①毒丸检查在循环头先于测试 arm，首个请求绕过注入故障（修复 `34d54a8`：
+  毒丸按请求生效，恢复 Gate 文档口径）；②panic 解卷绕窗口内死亡确认不可观测，第二次
+  提交按契约 Internal 而非 InvalidState（修复 `4e7dac1`：按 V-106 契约轮询幂等键）。
+  复跑 run `44336654355` success。生产行为不变；修复仅测试夹具（cfg(test)）。登记于
+  Check 472—475 取证行。
