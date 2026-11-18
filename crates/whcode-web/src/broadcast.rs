@@ -285,6 +285,7 @@ mod tests {
 
     /// 与本 crate 既有夹具一致（api.rs tests）：直接 include 迁移 SQL——
     /// web 层不得依赖 whcode-store（tests/contract/layering 门禁）。
+    /// v16 起 MESSAGE_COLUMNS 引用工具链路列（T389），夹具必须与生产 schema 全量同构。
     const TEST_MIGRATIONS: &str = concat!(
         include_str!("../../whcode-store/migrations/0001_initial.sql"),
         include_str!("../../whcode-store/migrations/0002_event_trace_indexes.sql"),
@@ -292,6 +293,16 @@ mod tests {
         include_str!("../../whcode-store/migrations/0004_session_id_sequence.sql"),
         include_str!("../../whcode-store/migrations/0005_session_stage.sql"),
         include_str!("../../whcode-store/migrations/0006_events_variant.sql"),
+        include_str!("../../whcode-store/migrations/0007_json_variant.sql"),
+        include_str!("../../whcode-store/migrations/0008_usage_anchor.sql"),
+        include_str!("../../whcode-store/migrations/0009_approval_rules.sql"),
+        include_str!("../../whcode-store/migrations/0010_session_fork.sql"),
+        include_str!("../../whcode-store/migrations/0011_file_preimages.sql"),
+        include_str!("../../whcode-store/migrations/0012_findings.sql"),
+        include_str!("../../whcode-store/migrations/0013_webhook_deliveries.sql"),
+        include_str!("../../whcode-store/migrations/0014_learning_capture.sql"),
+        include_str!("../../whcode-store/migrations/0015_coherence_runs.sql"),
+        include_str!("../../whcode-store/migrations/0016_messages_tool_linkage.sql"),
     );
 
     fn migrated() -> Connection {

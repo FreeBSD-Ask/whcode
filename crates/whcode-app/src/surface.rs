@@ -1208,10 +1208,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
                 reason: ExclusionReason::CuiCommandSurface,
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T392",
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T393",
             },
             Support::Implemented {
                 anchor: "GET /api/llm/models",
@@ -1952,10 +1952,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
                 reason: ExclusionReason::CuiCommandSurface,
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T392",
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T393",
             },
             Support::Implemented {
                 anchor: "GET /api/preimages",
@@ -1976,10 +1976,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
                 anchor: "whcode session plan --session --off",
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T392",
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T393",
             },
             Support::Implemented {
                 anchor: "GET/POST /api/plan（app::current_plan／set_plan）",
@@ -2000,10 +2000,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
                 reason: ExclusionReason::CuiCommandSurface,
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T392",
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T393",
             },
             Support::Implemented {
                 anchor: "GET /api/deliverables",
@@ -2024,10 +2024,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
                 reason: ExclusionReason::CuiCommandSurface,
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T392",
             },
             Support::Reserved {
-                milestone: "未排期",
+                milestone: "T393",
             },
             Support::Implemented {
                 anchor: "GET /api/coherence?session=",

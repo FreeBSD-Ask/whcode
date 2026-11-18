@@ -2310,6 +2310,8 @@ mod tests {
         include_str!("../../whcode-store/migrations/0014_learning_capture.sql"),
         // v15：充分性计算报告（FR-795／ADR-085：`GET /api/coherence` 读 coherence_runs）。
         include_str!("../../whcode-store/migrations/0015_coherence_runs.sql"),
+        // v16（T389）：messages 工具链路两列——MESSAGE_COLUMNS 引用，schema 必须同构。
+        include_str!("../../whcode-store/migrations/0016_messages_tool_linkage.sql"),
     );
 
     fn migrated() -> Connection {
@@ -2735,6 +2737,169 @@ mod tests {
     /// 计划模式路由（T287／FR-774／ADR-067）：从未切换＝关闭且 seq 为 null；
     /// 用户切换落事件并可读回；缺 session 参数 400、缺失会话 404、缺 active 400。
     #[test]
+    /// T391：fork／switch／events.show／restore 四条新路由的正负路径。
+    #[test]
+    fn parity_routes_fork_switch_events_show_restore() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("tester");
+
+        // 建源会话（经既有门面路由）。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/sessions/new",
+                &serde_json::json!({ "title": "分叉源" }),
+            ),
+            &actor,
+        );
+        assert_eq!(response.status, 201);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        let source = body["session"]["id"].as_str().expect("源会话 ID").to_string();
+
+        // fork：201 + 继承零事件；缺 at_seq 拒绝（参数校验不静默）。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/sessions/fork",
+                &serde_json::json!({ "session": source, "at_seq": 0 }),
+            ),
+            &actor,
+        );
+        assert_eq!(response.status, 201);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["source_session"], source.as_str());
+        assert_eq!(body["inherited_events"], 0);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/sessions/fork",
+                &serde_json::json!({ "session": source }),
+            ),
+            &actor,
+        );
+        assert_eq!(response.status, 400, "缺 at_seq 必须拒绝");
+
+        // switch：200 有界加载；不存在会话 404。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/sessions/switch",
+                &serde_json::json!({ "session": source }),
+            ),
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["session"]["id"], source.as_str());
+        assert_eq!(body["tail_count"], 0);
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/sessions/switch",
+                &serde_json::json!({ "session": "S-404" }),
+            ),
+            &actor,
+        );
+        assert_eq!(response.status, 404);
+
+        // events/show：200 单事件（log_only）；缺 id 400；不存在 404。
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                 kind, payload_json, ts, persistence_level)
+             VALUES (1, 'E-1', ?, NULL, NULL, NULL, 'StreamingChunk',
+                     CAST('{}' AS JSON)::VARIANT, current_timestamp, 'redacted')",
+            duckdb::params![source],
+        )
+        .expect("播种事件");
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/events/show?id=E-1", false),
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["event"]["id"], "E-1");
+        assert_eq!(body["state"], "log_only");
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/events/show", false),
+            &actor,
+        );
+        assert_eq!(response.status, 400, "缺 id 必须拒绝");
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/events/show?id=E-404", false),
+            &actor,
+        );
+        assert_eq!(response.status, 404);
+
+        // restore：预览缺工作区路径显式拒绝；有工作区时无前像 404。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/preimages/restore",
+                &serde_json::json!({ "session": source, "exec_id": "TX-1" }),
+            ),
+            &actor,
+        );
+        assert_eq!(response.status, 400, "未注入 workspace_root 必须显式拒绝");
+        let temp = std::env::temp_dir().join("whcode-web-restore-test");
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(&temp).expect("临时工作区");
+        let response = handle_request_with_llm(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/preimages/restore",
+                &serde_json::json!({ "session": source, "exec_id": "TX-404" }),
+            ),
+            &actor,
+            None,
+            "zh-CN",
+            None,
+            None,
+            Some(&temp),
+        );
+        assert_eq!(response.status, 404, "无前像必须 not_found");
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
     fn plan_route_reports_state_and_user_toggle() {
         let mut conn = migrated();
         let actor = actor_with_all_capabilities("tester");
