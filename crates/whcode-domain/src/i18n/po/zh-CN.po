@@ -1172,6 +1172,9 @@ msgstr "会话 {session} · 游标 {from}..{to}（尾部最 {limit} 条）"
 msgid "summary.none"
 msgstr "无"
 
+msgid "summary.preimages"
+msgstr "前像 {session} · 共 {count}"
+
 msgid "summary.spec"
 msgstr "会话 {session} · 阶段 {stage} · 事件游标 {cursor} · 活跃任务 {task}"
 
@@ -1319,6 +1322,9 @@ msgstr "{app}  |  {view} ({index}/{count})"
 msgid "view.chat"
 msgstr "对话"
 
+msgid "view.coherence"
+msgstr "充分性"
+
 msgid "view.context"
 msgstr "上下文"
 
@@ -1330,6 +1336,9 @@ msgstr "事件"
 
 msgid "view.ledger"
 msgstr "台账"
+
+msgid "view.preimages"
+msgstr "文件前像"
 
 msgid "view.sessions"
 msgstr "会话"

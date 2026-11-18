@@ -1172,6 +1172,9 @@ msgstr "セッション {session} · カーソル {from}..{to}（末尾 {limit} 
 msgid "summary.none"
 msgstr "なし"
 
+msgid "summary.preimages"
+msgstr "前期像 {session} · 全{count}件"
+
 msgid "summary.spec"
 msgstr "セッション {session} · ステージ {stage} · カーソル {cursor} · アクティブタスク {task}"
 
@@ -1319,6 +1322,9 @@ msgstr "{app}  |  {view} ({index}/{count})"
 msgid "view.chat"
 msgstr "チャット"
 
+msgid "view.coherence"
+msgstr "十分性"
+
 msgid "view.context"
 msgstr "コンテキスト"
 
@@ -1330,6 +1336,9 @@ msgstr "イベント"
 
 msgid "view.ledger"
 msgstr "台帳"
+
+msgid "view.preimages"
+msgstr "ファイル前期像"
 
 msgid "view.sessions"
 msgstr "セッション"

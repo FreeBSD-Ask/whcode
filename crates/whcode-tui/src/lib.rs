@@ -126,6 +126,19 @@ pub trait LlmExecutor {
     ///
     /// 请求 ID 非法或无活跃调用时返回 [`WhError`]。
     fn cancel(&self, request_id: &str) -> Result<String, WhError>;
+
+    /// 模型目录摘要（T392／`llm.models`）：剖面 × 默认模型 × 可选模型清单。
+    /// 默认显式不支持——未注入 LLM 执行器时 TUI 状态行给出 `not_supported`（FR-620）。
+    ///
+    /// # Errors
+    ///
+    /// 剖面未注册或装配未接线时返回 [`WhError`]。
+    fn model_summary(&self) -> Result<String, WhError> {
+        Err(WhError::new(
+            whcode_domain::ErrorCode::NotSupported,
+            "未注入 LLM 执行器：模型目录不可用（装配根未接线）",
+        ))
+    }
 }
 
 // ── Chat 对话流（ADR-087）────────────────────────────────────────────────────
@@ -538,6 +551,14 @@ enum TextKind {
     ChatPrompt,
     /// Chat 对话流剖面名（ADR-087：`P` 键改写，空＝回落清单首项）。
     ChatProvider,
+    /// 会话分叉第一步：分叉序号（T392／FR-769；0＝空分叉）。
+    ForkAtSeq,
+    /// 对话回退：目标序号（T392／FR-775；0＝会话起点）。
+    RewindToSeq,
+    /// 前像恢复：源工具执行 ID（T392／FR-776；Enter 后进入确认）。
+    RestoreExec,
+    /// 计划模式切换：显式 on/off（T392／FR-774）。
+    PlanSet,
 }
 
 /// TUI 游标检查间隔（FR-624 量化判据）：≥1000 ms，低频有界。
@@ -997,6 +1018,81 @@ impl<'a> LoopCore<'a> {
                             self.llm_cancel(buffer.trim());
                             return;
                         }
+                        TextKind::ForkAtSeq => {
+                            // 会话分叉（T392／FR-769）：序号解析在界面层，执行走门面。
+                            let Some(session_id) = self.selected_session.clone() else {
+                                self.status = "分叉：未选择会话".to_string();
+                                return;
+                            };
+                            match buffer.trim().parse::<i64>() {
+                                Ok(at_seq) if at_seq >= 0 => {
+                                    self.execute(
+                                        FrontendCommand::SessionFork {
+                                            source_session: session_id,
+                                            at_seq,
+                                            title: None,
+                                            now_ms: now_ms(),
+                                        },
+                                        "会话分叉",
+                                    );
+                                }
+                                _ => {
+                                    self.status =
+                                        "分叉：at_seq 必须是非负整数（0＝空分叉）".to_string();
+                                }
+                            }
+                            return;
+                        }
+                        TextKind::RewindToSeq => {
+                            // 对话回退（T392／FR-775）：只落边界，不删事件。
+                            let Some(session_id) = self.selected_session.clone() else {
+                                self.status = "回退：未选择会话".to_string();
+                                return;
+                            };
+                            match buffer.trim().parse::<i64>() {
+                                Ok(to_seq) if to_seq >= 0 => {
+                                    self.execute(
+                                        FrontendCommand::SessionRewind { session_id, to_seq },
+                                        "对话回退",
+                                    );
+                                }
+                                _ => {
+                                    self.status =
+                                        "回退：to_seq 必须是非负整数（0＝会话起点）".to_string();
+                                }
+                            }
+                            return;
+                        }
+                        TextKind::RestoreExec => {
+                            // 前像恢复第一步（T392／FR-776）：先预览，再进入确认。
+                            let Some(session_id) = self.selected_session.clone() else {
+                                self.status = "恢复：未选择会话".to_string();
+                                return;
+                            };
+                            let exec_id = buffer.trim().to_string();
+                            self.restore_preview(&session_id, &exec_id);
+                            return;
+                        }
+                        TextKind::PlanSet => {
+                            // 计划模式切换（T392／FR-774）：显式 on/off，不猜测当前态。
+                            let Some(session_id) = self.selected_session.clone() else {
+                                self.status = "计划模式：未选择会话".to_string();
+                                return;
+                            };
+                            let active = match buffer.trim().to_ascii_lowercase().as_str() {
+                                "on" => true,
+                                "off" => false,
+                                _ => {
+                                    self.status = "计划模式：请输入 on 或 off".to_string();
+                                    return;
+                                }
+                            };
+                            self.execute(
+                                FrontendCommand::SessionPlanSet { session_id, active },
+                                "计划模式",
+                            );
+                            return;
+                        }
                         TextKind::ChatProvider => {
                             // ADR-087：剖面名登记（空＝回落执行器清单首项）。
                             let trimmed = buffer.trim().to_string();
@@ -1217,6 +1313,91 @@ impl<'a> LoopCore<'a> {
                 self.status = format!("主题：{}", self.theme.as_str());
                 self.renderer.handle_event(RenderEvent::DataChanged);
             }
+            UiEvent::Key('F') if self.state.view() == ViewId::Sessions => {
+                // 会话分叉（T392／FR-769）：分叉序号单行输入。
+                if self.selected_session.is_some() {
+                    self.input_mode = InputMode::Text {
+                        kind: TextKind::ForkAtSeq,
+                        buffer: String::new(),
+                    };
+                    self.status = "分叉序号（0＝空分叉；TurnFinished 序号）：_".to_string();
+                } else {
+                    self.status = "分叉：未选择会话".to_string();
+                }
+            }
+            UiEvent::Key('W') if self.state.view() == ViewId::Chat => {
+                // 对话回退（T392／FR-775）：Chat 视图内发起，目标序号单行输入。
+                if self.selected_session.is_some() {
+                    self.input_mode = InputMode::Text {
+                        kind: TextKind::RewindToSeq,
+                        buffer: String::new(),
+                    };
+                    self.status = "回退目标序号（0＝会话起点；TurnFinished 序号）：_".to_string();
+                } else {
+                    self.status = "回退：未选择会话".to_string();
+                }
+            }
+            UiEvent::Key('V') if self.state.view() == ViewId::Preimages => {
+                // 前像恢复（T392／FR-776）：先预览后确认（破坏族两段式）。
+                if self.selected_session.is_some() {
+                    self.input_mode = InputMode::Text {
+                        kind: TextKind::RestoreExec,
+                        buffer: String::new(),
+                    };
+                    self.status = "源工具执行 ID（TX-…；见前像清单）：_".to_string();
+                } else {
+                    self.status = "恢复：未选择会话".to_string();
+                }
+            }
+            UiEvent::Key('P') if self.state.view() != ViewId::Chat => {
+                // 计划模式切换（T392／FR-774）：on/off 单行输入（软引导，不经审批）。
+                if self.selected_session.is_some() {
+                    self.input_mode = InputMode::Text {
+                        kind: TextKind::PlanSet,
+                        buffer: String::new(),
+                    };
+                    self.status = "计划模式（on／off）：_".to_string();
+                } else {
+                    self.status = "计划模式：未选择会话".to_string();
+                }
+            }
+            UiEvent::Key('e') if self.state.view() == ViewId::Events => {
+                // 单事件详情（T392／events.show）：选中事件按 ID 查询（E-<seq>）。
+                let Some(index) = self.snapshot.selected_index else {
+                    self.status = "事件详情：未选择事件".to_string();
+                    return;
+                };
+                let Some(row) = self.snapshot.events.get(index) else {
+                    self.status = "事件详情：选择越界".to_string();
+                    return;
+                };
+                let event_id = format!("E-{}", row.seq);
+                match self.source.event_detail(&event_id) {
+                    Ok(summary) => {
+                        let brief: String = summary.chars().take(200).collect();
+                        self.status = brief;
+                    }
+                    Err(err) => {
+                        self.status = format!("事件详情失败：{err}");
+                    }
+                }
+            }
+            UiEvent::Key('M') => {
+                // 模型目录（T392／llm.models）：执行器摘要（剖面×模型），一行可见。
+                let Some(llm) = self.llm_executor else {
+                    self.status = "llm.models: not_supported（未注入 LLM 执行器）".to_string();
+                    return;
+                };
+                match llm.model_summary() {
+                    Ok(summary) => {
+                        let brief: String = summary.chars().take(300).collect();
+                        self.status = brief;
+                    }
+                    Err(err) => {
+                        self.status = format!("llm.models 失败：{err}");
+                    }
+                }
+            }
             UiEvent::Key('p') => {
                 self.request_confirm(
                     FrontendCommand::PurgeExecute {
@@ -1236,6 +1417,41 @@ impl<'a> LoopCore<'a> {
                 }
             }
         }
+    }
+
+    /// 前像恢复预览（T392／FR-776）：confirm=false 走门面预览，随后进入两段确认。
+    fn restore_preview(&mut self, session_id: &str, exec_id: &str) {
+        let Some(executor) = self.executor else {
+            self.status = "恢复: not_supported（未注入写命令执行器）".to_string();
+            return;
+        };
+        let command = FrontendCommand::SessionRestore {
+            session_id: session_id.to_string(),
+            exec_id: exec_id.to_string(),
+            workspace: std::path::PathBuf::new(),
+            confirm: false,
+        };
+        match executor.execute(command) {
+            Ok(whcode_app::CommandOutcome::PreimageRestorePreview(rows)) => {
+                self.status = format!("恢复预览：{exec_id} 共 {} 个前像——y 确认执行", rows.len());
+                self.input_mode = InputMode::Confirm {
+                    command: FrontendCommand::SessionRestore {
+                        session_id: session_id.to_string(),
+                        exec_id: exec_id.to_string(),
+                        workspace: std::path::PathBuf::new(),
+                        confirm: true,
+                    },
+                    label: "恢复前像".to_string(),
+                };
+            }
+            Ok(_) => {
+                self.status = "恢复预览形状不符（应为预览清单）".to_string();
+            }
+            Err(err) => {
+                self.status = format!("恢复预览失败：{err}");
+            }
+        }
+        let _ = executor; // executor 借用已用于查询；确认阶段重新经 execute 走门面。
     }
 
     /// llm.run（T167）：会话取当前选中会话；剖面名取自状态行（第一步输入的暂存）。
@@ -1838,7 +2054,13 @@ fn view_total(view: ViewId, snapshot: &ViewSnapshot) -> usize {
         ViewId::Sessions => snapshot.sessions.len(),
         ViewId::Tasks => snapshot.tasks.len(),
         ViewId::Events => snapshot.events.len(),
-        ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat | ViewId::Ledger => 0,
+        ViewId::Preimages => snapshot.preimages.len(),
+        ViewId::Context
+        | ViewId::Spec
+        | ViewId::Diff
+        | ViewId::Chat
+        | ViewId::Ledger
+        | ViewId::Coherence => 0,
     }
 }
 
@@ -1892,7 +2114,14 @@ fn layout_columns<'a, F: Fn(usize) -> &'a str>(
             column!(1, 18, false);
             column!(2, flex, false);
         }
-        ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat | ViewId::Ledger => {}
+        // 前像与充分性走文本行路径（无列定义）。
+        ViewId::Context
+        | ViewId::Spec
+        | ViewId::Diff
+        | ViewId::Chat
+        | ViewId::Ledger
+        | ViewId::Preimages
+        | ViewId::Coherence => {}
     }
     if rtl {
         segments.reverse();
@@ -1920,7 +2149,13 @@ fn column_header(view: ViewId, texts: &I18n, width: usize, rtl: bool) -> String 
             "tui.col.retry",
         ],
         ViewId::Events => &["tui.col.seq", "tui.col.kind", "tui.col.summary"],
-        ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat | ViewId::Ledger => &[],
+        ViewId::Context
+        | ViewId::Spec
+        | ViewId::Diff
+        | ViewId::Chat
+        | ViewId::Ledger
+        | ViewId::Preimages
+        | ViewId::Coherence => &[],
     };
     layout_columns(
         view,
@@ -2636,7 +2871,8 @@ mod tests {
             // 键位提示栏（末行）：键位与窗口尺寸。
             let last = lines.last().copied().unwrap_or_default();
             for expected in [
-                &format!("1-{VIEW_COUNT} 视图"),
+                // 十视图（T392）：切换键为 `1`—`9` 与 `0`，词条按此表述。
+                "1-9/0 视图",
                 "j/k 移动",
                 "q 退出",
                 "80x24",
@@ -2668,7 +2904,13 @@ mod tests {
                         assert!(text.contains(&row.kind), "{view:?} 缺类型 {}", row.kind);
                     }
                 }
-                ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat | ViewId::Ledger => {
+                ViewId::Context
+                | ViewId::Spec
+                | ViewId::Diff
+                | ViewId::Chat
+                | ViewId::Ledger
+                | ViewId::Preimages
+                | ViewId::Coherence => {
                     for line in snapshot.render_lines() {
                         assert!(
                             text.contains(line.as_str()),

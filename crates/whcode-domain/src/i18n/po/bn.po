@@ -1172,6 +1172,9 @@ msgstr "সেশন {session} · কার্সর {from}..{to} (শেষে 
 msgid "summary.none"
 msgstr "নেই"
 
+msgid "summary.preimages"
+msgstr "প্রতিরূপ {session} · মোট {count}"
+
 msgid "summary.spec"
 msgstr "সেশন {session} · ধাপ {stage} · কার্সর {cursor} · সক্রিয় কাজ {task}"
 
@@ -1319,6 +1322,9 @@ msgstr "{app}  |  {view} ({index}/{count})"
 msgid "view.chat"
 msgstr "চ্যাট"
 
+msgid "view.coherence"
+msgstr "যথেষ্টতা"
+
 msgid "view.context"
 msgstr "প্রসঙ্গ"
 
@@ -1330,6 +1336,9 @@ msgstr "ইভেন্ট"
 
 msgid "view.ledger"
 msgstr "খতিয়ান"
+
+msgid "view.preimages"
+msgstr "পূর্ববর্তী প্রতিরূপ"
 
 msgid "view.sessions"
 msgstr "সেশন"

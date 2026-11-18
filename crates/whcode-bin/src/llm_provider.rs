@@ -248,6 +248,33 @@ impl whcode_tui::LlmExecutor for TuiLlmExecutor {
             outcome.request_id, outcome.state, outcome.effective
         ))
     }
+
+    /// 模型目录摘要（T392／llm.models）：经应用层同一口径（SessionRead 判权），
+    /// 汇总剖面 × 默认模型 × 可选模型清单；未配置剖面为可操作错误。
+    fn model_summary(&self) -> Result<String, WhError> {
+        let catalogue = whcode_app::llm::model_catalogue(
+            &whcode_app::DefaultPolicy,
+            &whcode_app::actor_with_all_capabilities("tui-local"),
+            &self.llm.context(),
+        )?;
+        let parts: Vec<String> = catalogue
+            .iter()
+            .map(|profile| {
+                let models = if profile.models.is_empty() {
+                    profile.default_model.clone()
+                } else {
+                    profile
+                        .models
+                        .iter()
+                        .map(|entry| entry.id.as_str())
+                        .collect::<Vec<_>>()
+                        .join("|")
+                };
+                format!("{}[{}]:{}", profile.name, profile.protocol, models)
+            })
+            .collect();
+        Ok(parts.join(" · "))
+    }
 }
 
 impl TuiLlmExecutor {

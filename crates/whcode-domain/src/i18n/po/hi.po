@@ -1172,6 +1172,9 @@ msgstr "सत्र {session} · कर्सर {from}..{to} (अंत ≤ {l
 msgid "summary.none"
 msgstr "कुछ नहीं"
 
+msgid "summary.preimages"
+msgstr "प्रतिकृतियाँ {session} · कुल {count}"
+
 msgid "summary.spec"
 msgstr "सत्र {session} · चरण {stage} · कर्सर {cursor} · सक्रिय कार्य {task}"
 
@@ -1319,6 +1322,9 @@ msgstr "{app}  |  {view} ({index}/{count})"
 msgid "view.chat"
 msgstr "चैट"
 
+msgid "view.coherence"
+msgstr "पर्याप्तता"
+
 msgid "view.context"
 msgstr "संदर्भ"
 
@@ -1330,6 +1336,9 @@ msgstr "इवेंट"
 
 msgid "view.ledger"
 msgstr "लेखा"
+
+msgid "view.preimages"
+msgstr "पूर्व प्रतिकृतियाँ"
 
 msgid "view.sessions"
 msgstr "सत्र"

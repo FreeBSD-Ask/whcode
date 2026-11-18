@@ -18,8 +18,8 @@ use std::sync::{Arc, Mutex};
 use duckdb::Connection;
 use whcode_app::tool_call::{TOOL_STARTED, describe};
 use whcode_app::view_source::{
-    CheckpointItem, EventRow, LedgerRow, LedgerSection, SessionRow, TaskRow, ViewId, ViewSnapshot,
-    ViewSource,
+    CheckpointItem, EventRow, LedgerRow, LedgerSection, PreimageItem, SessionRow, TaskRow, ViewId,
+    ViewSnapshot, ViewSource,
 };
 use whcode_app::{Actor, DefaultPolicy, actor_with_all_capabilities};
 use whcode_domain::i18n::I18n;
@@ -78,7 +78,95 @@ impl StoreViewSource {
             ViewId::Chat => Ok(ViewSnapshot::default()),
             // 台账视图（FR-787／FR-794）：待办／交付物／发现／干预四节聚合；无会话时只列跨会话发现。
             ViewId::Ledger => self.build_ledger(session),
+            // 前像清单（T392／FR-776）；充分性报告（T392／FR-795）。
+            ViewId::Preimages => self.build_preimages(session),
+            ViewId::Coherence => self.build_coherence(session),
         }
+    }
+
+    /// 前像清单（T392／FR-776）：新→旧、有界；无会话时显式空态。
+    fn build_preimages(&self, session: Option<&str>) -> Result<ViewSnapshot, WhError> {
+        let Some(session) = session else {
+            return Ok(no_session(ViewId::Preimages, &self.texts));
+        };
+        let rows = whcode_app::list_preimages(
+            &self.conn.lock().expect("store 连接锁中毒"),
+            &self.policy,
+            &self.actor,
+            session,
+            whcode_app::MAX_PREIMAGE_LIST,
+        )?;
+        let mut snapshot = ViewSnapshot::empty(ViewId::Preimages);
+        snapshot.summary = self.texts.resolve_fmt(
+            "summary.preimages",
+            &[("session", session), ("count", &rows.len().to_string())],
+        );
+        snapshot.preimages = rows
+            .into_iter()
+            .map(|row| PreimageItem {
+                id: row.id,
+                exec_id: row.exec_id,
+                path: row.path,
+                size_bytes: row.size_bytes,
+                has_content: row.content.is_some(),
+                skipped_reason: row.skipped_reason,
+            })
+            .collect();
+        Ok(snapshot)
+    }
+
+    /// 充分性报告（T392／FR-795）：最近一次计算的只读文本；无报告为正确的空。
+    fn build_coherence(&self, session: Option<&str>) -> Result<ViewSnapshot, WhError> {
+        let Some(session) = session else {
+            return Ok(no_session(ViewId::Coherence, &self.texts));
+        };
+        let view = whcode_app::latest_coherence(
+            &self.conn.lock().expect("store 连接锁中毒"),
+            &self.policy,
+            &self.actor,
+            session,
+        )?;
+        let mut snapshot = ViewSnapshot::empty(ViewId::Coherence);
+        snapshot.coherence_report = match view {
+            Some(view) => {
+                // 多行文本（准备层生成）：结论、计数、要求文本与反例明细行。
+                let mut lines = vec![
+                    format!(
+                        "{} · 规则 {} · 反例 {} · 未知 {}",
+                        view.verdict.as_str(),
+                        view.total,
+                        view.counterexamples,
+                        view.unknowns
+                    ),
+                    format!("phase={}", view.phase.as_str()),
+                ];
+                if let Some(id) = &view.id {
+                    lines.push(format!("report={id}"));
+                }
+                if !view.requirement.is_empty() {
+                    lines.push(view.requirement.clone());
+                }
+                for detail in &view.details {
+                    lines.push(format!(
+                        "反例 {}: {}",
+                        detail
+                            .get("rule")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("?"),
+                        detail
+                            .get("detail")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("")
+                    ));
+                }
+                lines.join(
+                    "
+",
+                )
+            }
+            None => String::new(),
+        };
+        Ok(snapshot)
     }
 
     /// 持久化事件游标（FR-624/T178）：O(1) 单值查询，供 TUI 低频在线可见检查。
@@ -498,6 +586,27 @@ impl ViewSource for StoreViewSource {
         )
     }
 
+    /// 单事件详情（T392／events.show）：委托应用命令（同一脱敏与三态口径），
+    /// 返回一行摘要文本；错误原样上抛（TUI 状态行显示）。
+    fn event_detail(&self, event_id: &str) -> Result<String, WhError> {
+        let detail = whcode_app::show_event(
+            &self.conn.lock().expect("store 连接锁中毒"),
+            &self.policy,
+            &self.actor,
+            event_id,
+            TraceLevel::default(),
+        )?;
+        Ok(format!(
+            "{} #{} [{}] {} {} {}",
+            detail.event.id,
+            detail.event.seq,
+            detail.event.kind,
+            detail.state.as_str(),
+            detail.trace_level,
+            detail.event.payload_json
+        ))
+    }
+
     fn conversation_tail(&self, session_id: &str, max: usize) -> Vec<(String, String)> {
         // 视图数据尽力而为（trait 契约）：读取失败返回空，不阻塞界面；
         // 错误可见性由命令面承担（与 cursor 的 .ok() 口径一致）。
@@ -581,12 +690,25 @@ impl ViewSource for StoreViewSource {
 /// Check 98 口径——写者服务/单连接为唯一写路径），经 `whcode-app::commands` 门面执行。
 pub struct TuiCommandExecutor {
     conn: Arc<Mutex<Connection>>,
+    /// 工作区根（T392／FR-776）：前像恢复写回工作区文件——装配细节由执行器注入，
+    /// 前端命令不携带路径（`SessionRestore.workspace` 在此统一覆写）。
+    workspace: Option<std::path::PathBuf>,
 }
 
 impl TuiCommandExecutor {
     #[must_use]
     pub fn new(conn: Arc<Mutex<Connection>>) -> Self {
-        Self { conn }
+        Self {
+            conn,
+            workspace: None,
+        }
+    }
+
+    /// 注入工作区根（前像恢复需要；未注入时恢复动作显式失败）。
+    #[must_use]
+    pub fn with_workspace(mut self, workspace: std::path::PathBuf) -> Self {
+        self.workspace = Some(workspace);
+        self
     }
 }
 
@@ -595,6 +717,22 @@ impl whcode_app::commands::CommandExecutor for TuiCommandExecutor {
         &self,
         command: whcode_app::FrontendCommand,
     ) -> Result<whcode_app::CommandOutcome, WhError> {
+        let command = match command {
+            whcode_app::FrontendCommand::SessionRestore {
+                session_id,
+                exec_id,
+                confirm,
+                ..
+            } => whcode_app::FrontendCommand::SessionRestore {
+                session_id,
+                exec_id,
+                workspace: self.workspace.clone().ok_or_else(|| {
+                    WhError::invalid_state("前像恢复需要工作区根（装配根未注入）")
+                })?,
+                confirm,
+            },
+            other => other,
+        };
         let mut conn = self.conn.lock().expect("store 连接锁中毒");
         whcode_app::execute_command(
             &mut conn,

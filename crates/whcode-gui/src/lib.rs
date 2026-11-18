@@ -652,8 +652,9 @@ impl State {
             ViewId::Tasks => self.snapshot.tasks.len(),
             ViewId::Events => self.snapshot.events.len(),
             ViewId::Diff => self.snapshot.diff.len(),
-            ViewId::Context | ViewId::Spec | ViewId::Chat => 0,
+            ViewId::Context | ViewId::Spec | ViewId::Chat | ViewId::Coherence => 0,
             ViewId::Ledger => self.snapshot.ledger.len(),
+            ViewId::Preimages => self.snapshot.preimages.len(),
         }
     }
 
@@ -1573,7 +1574,9 @@ fn op_outcome_text(outcome: &whcode_app::commands::CommandOutcome) -> String {
         ),
         whcode_app::commands::CommandOutcome::SessionRewound(view) => format!(
             "rewound: target={}",
-            view.target_seq.map(|seq| seq.to_string()).unwrap_or("none".into())
+            view.target_seq
+                .map(|seq| seq.to_string())
+                .unwrap_or("none".into())
         ),
         whcode_app::commands::CommandOutcome::PreimageRestorePreview(rows) => {
             format!("restore preview: files={}", rows.len())

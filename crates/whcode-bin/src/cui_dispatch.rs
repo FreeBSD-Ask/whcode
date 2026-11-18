@@ -2795,6 +2795,7 @@ mod tests {
                         max_tokens: None,
                         request_id: None,
                         trace_level: trace.to_string(),
+                        approve: Vec::new(),
                     },
                 },
                 &workspace,

@@ -124,14 +124,13 @@ mod tests {
         assert_eq!((state.cols(), state.rows()), (80, 24), "按键不改变尺寸");
     }
 
-    /// T082：`1`—`6` 依次切换到六视图，且导航键不计入普通按键计数。
+    /// T082／T392：`1`—`9`、`0` 依次切换到十视图，且导航键不计入普通按键计数。
     #[test]
     fn digit_keys_switch_views_in_fixed_order() {
+        let keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
         let mut state = TuiState::new(80, 24);
         assert_eq!(state.view(), ViewId::Sessions, "默认视图为会话");
-        for (offset, view) in ViewId::ALL.into_iter().enumerate() {
-            let key = char::from_digit(u32::try_from(offset + 1).expect("序号在 u32 内"), 10)
-                .expect("十进制数字");
+        for (view, key) in ViewId::ALL.into_iter().zip(keys) {
             state.handle(UiEvent::Key(key));
             assert_eq!(state.view(), view, "键 {key} 应切换到 {view:?}");
         }
@@ -139,15 +138,26 @@ mod tests {
         assert!(!state.quit(), "视图切换不应触发退出");
     }
 
-    /// 非导航键（如 `0`、`9`）仍是普通按键：计数且不改变视图（`1`—`8` 都是导航键，
-    /// 依次为六视图＋对话＋台账）。
+    /// 非导航键仍是普通按键：计数且不改变视图（`1`—`9`、`0` 都是导航键，
+    /// 依次为八视图＋前像＋充分性，T392 扩容）。
     #[test]
     fn non_navigation_digits_do_not_switch_views() {
         let mut state = TuiState::new(80, 24);
         state.handle(UiEvent::Key('3'));
-        state.handle(UiEvent::Key('0'));
-        state.handle(UiEvent::Key('9'));
+        state.handle(UiEvent::Key('a'));
+        state.handle(UiEvent::Key('z'));
         assert_eq!(state.view(), ViewId::Context, "仅 3 切换视图");
-        assert_eq!(state.keys_seen(), 2, "0 与 9 是普通按键");
+        assert_eq!(state.keys_seen(), 2, "a 与 z 是普通按键");
+    }
+
+    /// T392：`9` 与 `0` 切换到前像与充分性视图，且不计入普通按键。
+    #[test]
+    fn digit_keys_nine_and_zero_switch_new_views() {
+        let mut state = TuiState::new(80, 24);
+        state.handle(UiEvent::Key('9'));
+        assert_eq!(state.view(), ViewId::Preimages, "9 → 前像");
+        state.handle(UiEvent::Key('0'));
+        assert_eq!(state.view(), ViewId::Coherence, "0 → 充分性");
+        assert_eq!(state.keys_seen(), 0, "导航键不计入普通按键");
     }
 }

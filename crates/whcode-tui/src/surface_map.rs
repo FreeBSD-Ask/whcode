@@ -45,6 +45,18 @@ pub enum TuiAction {
     LlmRun,
     /// 取消同机正在运行的 LLM 调用（T167：请求 ID 单行输入）。
     LlmCancel,
+    /// 会话分叉（T392／FR-769：分叉序号单行输入）。
+    SessionFork,
+    /// 对话回退（T392／FR-775：目标序号单行输入）。
+    SessionRewind,
+    /// 前像恢复（T392／FR-776：执行 ID 输入→预览→确认）。
+    SessionRestore,
+    /// 计划模式切换（T392／FR-774：on/off 单行输入）。
+    SessionPlanSet,
+    /// 单事件详情（T392／events.show：选中事件按 ID 查询）。
+    EventDetail,
+    /// 模型目录（T392／llm.models：剖面×模型摘要）。
+    ModelCatalogue,
 }
 
 /// 把 TUI 动作映射到登记表 `SurfaceId`（穷尽匹配，无通配臂）。
@@ -65,6 +77,12 @@ pub fn surface_of(action: TuiAction) -> &'static str {
         TuiAction::Purge => "db.purge",
         TuiAction::LlmRun => "llm.run",
         TuiAction::LlmCancel => "llm.cancel",
+        TuiAction::SessionFork => "session.fork",
+        TuiAction::SessionRewind => "session.rewind",
+        TuiAction::SessionRestore => "session.restore",
+        TuiAction::SessionPlanSet => "session.plan",
+        TuiAction::EventDetail => "events.show",
+        TuiAction::ModelCatalogue => "llm.models",
     }
 }
 
@@ -80,6 +98,8 @@ fn view_surface(view: ViewId) -> &'static str {
         ViewId::Diff => "view.diff",
         ViewId::Chat => "view.chat",
         ViewId::Ledger => "view.ledger",
+        ViewId::Preimages => "view.preimages",
+        ViewId::Coherence => "view.coherence",
     }
 }
 
@@ -112,6 +132,16 @@ mod tests {
             TuiAction::Purge,
             TuiAction::LlmRun,
             TuiAction::LlmCancel,
+            // T392（ADR-089 批 3）：fork／rewind／restore／plan／events.show／models。
+            TuiAction::SessionFork,
+            TuiAction::SessionRewind,
+            TuiAction::SessionRestore,
+            TuiAction::SessionPlanSet,
+            TuiAction::EventDetail,
+            TuiAction::ModelCatalogue,
+            // T392：新视图切换（前像＝9、充分性＝0）。
+            TuiAction::ViewSwitch(ViewId::Preimages),
+            TuiAction::ViewSwitch(ViewId::Coherence),
         ];
         for action in actions {
             let id = surface_of(action);
@@ -121,6 +151,34 @@ mod tests {
                 other => panic!("动作 {id} 的 TUI 状态必须是已实现或预留，实际 {other:?}"),
             }
         }
+    }
+
+    /// T392：新交付动作与两视图的 TUI 状态必须是已实现（登记同步）。
+    #[test]
+    fn parity_batch_actions_are_implemented() {
+        for action in [
+            TuiAction::SessionFork,
+            TuiAction::SessionRewind,
+            TuiAction::SessionRestore,
+            TuiAction::SessionPlanSet,
+            TuiAction::EventDetail,
+            TuiAction::ModelCatalogue,
+            TuiAction::ViewSwitch(ViewId::Preimages),
+            TuiAction::ViewSwitch(ViewId::Coherence),
+        ] {
+            let id = surface_of(action);
+            let entry = find(id).expect("已登记");
+            assert!(
+                matches!(entry.support(FrontendId::Tui), Support::Implemented { .. }),
+                "{id} 的 TUI 状态必须为已实现（T392 交付后同步）"
+            );
+        }
+        // view.deliverables 的 TUI 锚点是台账交付物节（不新增切换键）。
+        let deliverables = find("view.deliverables").expect("已登记");
+        assert!(matches!(
+            deliverables.support(FrontendId::Tui),
+            Support::Implemented { .. }
+        ));
     }
 
     /// 视图切换映射到六视图条目（全部已实现）。

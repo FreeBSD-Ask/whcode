@@ -1172,6 +1172,9 @@ msgstr "세션 {session} · 커서 {from}..{to}(끝 {limit}개 이내)"
 msgid "summary.none"
 msgstr "없음"
 
+msgid "summary.preimages"
+msgstr "이전 상태 {session} · 총 {count}"
+
 msgid "summary.spec"
 msgstr "세션 {session} · 단계 {stage} · 커서 {cursor} · 진행 중 작업 {task}"
 
@@ -1319,6 +1322,9 @@ msgstr "{app}  |  {view} ({index}/{count})"
 msgid "view.chat"
 msgstr "대화"
 
+msgid "view.coherence"
+msgstr "충분성"
+
 msgid "view.context"
 msgstr "컨텍스트"
 
@@ -1330,6 +1336,9 @@ msgstr "이벤트"
 
 msgid "view.ledger"
 msgstr "원장"
+
+msgid "view.preimages"
+msgstr "파일 이전 상태"
 
 msgid "view.sessions"
 msgstr "세션"

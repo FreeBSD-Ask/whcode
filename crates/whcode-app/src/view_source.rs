@@ -16,8 +16,8 @@ use std::borrow::Cow;
 use whcode_domain::{ErrorCode, WhError};
 use whcode_store::ContentHit;
 
-/// 视图总数（切换键 1—6 与之一一对应）。
-pub const VIEW_COUNT: usize = 8;
+/// 视图总数（切换键 1—9、0 与之一一对应；T392：前像与充分性两视图入列）。
+pub const VIEW_COUNT: usize = 10;
 
 /// 视图标识（8 个视图，FR-601；台账视图见 FR-787）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -38,6 +38,10 @@ pub enum ViewId {
     Chat,
     /// 台账（待办／交付物／发现／干预；只读聚合，FR-787／FR-794）。
     Ledger,
+    /// 文件前像清单（T392／FR-776／ADR-068；只读）。
+    Preimages,
+    /// 充分性报告（T392／FR-795／ADR-085；只读）。
+    Coherence,
 }
 
 impl ViewId {
@@ -51,6 +55,8 @@ impl ViewId {
         Self::Diff,
         Self::Chat,
         Self::Ledger,
+        Self::Preimages,
+        Self::Coherence,
     ];
 
     /// 稳定标识（配置与切换）。
@@ -65,6 +71,8 @@ impl ViewId {
             Self::Diff => "diff",
             Self::Chat => "chat",
             Self::Ledger => "ledger",
+            Self::Preimages => "preimages",
+            Self::Coherence => "coherence",
         }
     }
 
@@ -80,6 +88,8 @@ impl ViewId {
             Self::Diff => "diff 预览",
             Self::Chat => "对话",
             Self::Ledger => "台账",
+            Self::Preimages => "文件前像",
+            Self::Coherence => "充分性",
         }
     }
 
@@ -95,6 +105,8 @@ impl ViewId {
             Self::Diff => "view.diff",
             Self::Chat => "view.chat",
             Self::Ledger => "view.ledger",
+            Self::Preimages => "view.preimages",
+            Self::Coherence => "view.coherence",
         }
     }
 
@@ -110,6 +122,8 @@ impl ViewId {
             Self::Diff => 6,
             Self::Chat => 7,
             Self::Ledger => 8,
+            Self::Preimages => 9,
+            Self::Coherence => 10,
         }
     }
 
@@ -125,6 +139,8 @@ impl ViewId {
             '6' => Some(Self::Diff),
             '7' => Some(Self::Chat),
             '8' => Some(Self::Ledger),
+            '9' => Some(Self::Preimages),
+            '0' => Some(Self::Coherence),
             _ => None,
         }
     }
@@ -180,6 +196,23 @@ pub struct LedgerRow {
     pub status: String,
     /// 正文（单行；准备层已折叠空白，不含控制字符）。
     pub text: String,
+}
+
+/// 前像清单条目（T392／FR-776；跳过行只带原因不带内容）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PreimageItem {
+    /// 前像 ID。
+    pub id: String,
+    /// 源工具执行 ID。
+    pub exec_id: String,
+    /// 工作区相对路径。
+    pub path: String,
+    /// 字节数。
+    pub size_bytes: i64,
+    /// 是否有内容可恢复。
+    pub has_content: bool,
+    /// 跳过原因（`too_large`／`not_utf8`；正常行为 `None`）。
+    pub skipped_reason: Option<String>,
 }
 
 /// 会话树条目（只读快照）。
@@ -286,6 +319,10 @@ pub struct ViewSnapshot {
     pub context_summary: String,
     /// diff 行（diff 视图）。
     pub diff: Vec<DiffLine>,
+    /// 前像清单（preimages 视图，T392）。
+    pub preimages: Vec<PreimageItem>,
+    /// 充分性报告文本（coherence 视图，T392；准备层生成，帧路径不解析 JSON）。
+    pub coherence_report: String,
     /// 会话视图的选中行（`j`/`k` 选择；`None` 表示无选中）。
     pub selected_index: Option<usize>,
     /// 台账行（台账视图；四节统一渲染单位，FR-787／FR-794）。
@@ -305,6 +342,8 @@ impl ViewSnapshot {
             spec_status: String::new(),
             context_summary: String::new(),
             diff: Vec::new(),
+            preimages: Vec::new(),
+            coherence_report: String::new(),
             selected_index: None,
             ledger: Vec::new(),
         }
@@ -398,6 +437,24 @@ impl ViewSnapshot {
                     format!("{label} {} {}", row.status, row.text)
                 })
                 .collect(),
+            // 前像清单（T392／FR-776）：一行一前像，跳过行显式原因。
+            ViewId::Preimages => self
+                .preimages
+                .iter()
+                .take(remaining)
+                .map(|row| {
+                    let state = if let Some(reason) = &row.skipped_reason {
+                        format!("跳过({reason})")
+                    } else if row.has_content {
+                        "可恢复".to_string()
+                    } else {
+                        "无内容".to_string()
+                    };
+                    format!("{} {} {} {}B", row.exec_id, row.path, state, row.size_bytes)
+                })
+                .collect(),
+            // 充分性报告（T392／FR-795）：准备层生成的文本行。
+            ViewId::Coherence => text_lines(&self.coherence_report, remaining),
         });
         lines
     }
@@ -456,20 +513,27 @@ impl ViewSnapshot {
                     ],
                 })
                 .collect(),
-            ViewId::Context | ViewId::Spec | ViewId::Diff | ViewId::Chat | ViewId::Ledger => {
-                Vec::new()
-            }
+            // 前像与充分性走 render_lines 的文本行路径（无列定义）。
+            ViewId::Context
+            | ViewId::Spec
+            | ViewId::Diff
+            | ViewId::Chat
+            | ViewId::Ledger
+            | ViewId::Preimages
+            | ViewId::Coherence => Vec::new(),
         }
     }
 }
 
-/// 单文本行视图的投影：空文本投影 0 行（帧内显示“暂无数据”，不伪造空行）。
+/// 单文本视图的行投影：按换行拆分为多行（准备层生成的多行文本——如充分性报告——
+/// 每行独立渲染，整段塞进一行会被列宽截断吞掉后续行）。空文本投影 0 行
+/// （帧内显示“暂无数据”，不伪造空行）。`max` 只作行数上界。
 fn text_lines(text: &str, max: usize) -> Vec<String> {
     if max == 0 || text.is_empty() {
-        Vec::new()
-    } else {
-        vec![text.to_string()]
+        return Vec::new();
     }
+    let newline = '\n';
+    text.split(newline).take(max).map(str::to_string).collect()
 }
 
 #[cfg(test)]
@@ -544,13 +608,12 @@ mod tests {
         assert_eq!(ViewId::Diff.title_key(), "view.diff");
     }
 
-    /// 切换键 `1`—`8` 与八视图一一对应（`from_key`/`index`/`ALL` 三者一致）。
+    /// 切换键 `1`—`9`、`0` 与十视图一一对应（`from_key`/`index`/`ALL` 三者一致，T392）。
     #[test]
-    fn switching_keys_map_to_all_eight_views() {
+    fn switching_keys_map_to_all_ten_views() {
+        let keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
         assert_eq!(ViewId::ALL.len(), VIEW_COUNT);
-        for (offset, view) in ViewId::ALL.into_iter().enumerate() {
-            let key = char::from_digit(u32::try_from(offset + 1).expect("序号在 u32 内"), 10)
-                .expect("十进制数字");
+        for (offset, (view, key)) in ViewId::ALL.into_iter().zip(keys).enumerate() {
             assert_eq!(
                 ViewId::from_key(key),
                 Some(view),
@@ -559,7 +622,7 @@ mod tests {
             assert_eq!(view.index(), offset + 1);
             assert!(!view.title().is_empty());
         }
-        for other in ['0', '9', 'a', ' ', '\u{4e2d}'] {
+        for other in ['a', ' ', '\u{4e2d}'] {
             assert_eq!(ViewId::from_key(other), None, "{other:?} 不是视图切换键");
         }
     }
@@ -771,6 +834,21 @@ pub trait ViewSource {
         PanelsSnapshot::default()
     }
 
+    /// 单事件详情（T392／`events.show`）：按事件 ID 返回脱敏摘要文本。
+    /// 默认显式不支持——测试夹具与空数据源返回 `not_supported`（不伪造数据）。
+    ///
+    /// # Errors
+    ///
+    /// 数据源不支持（`not_supported`）、事件不存在（`not_found`）或存储失败时返回
+    /// [`WhError`]。
+    fn event_detail(&self, event_id: &str) -> Result<String, WhError> {
+        let _ = event_id;
+        Err(WhError::new(
+            ErrorCode::NotSupported,
+            "该数据源不支持单事件详情（T392：装配根数据源实现）",
+        ))
+    }
+
     /// 会话内容检索（T319／FR-780）：按消息正文检索，最新命中优先。
     /// 默认显式不支持——GUI 侧栏调用时错误可见，不伪造“无命中”。
     ///
@@ -829,6 +907,8 @@ impl Default for ViewSnapshot {
             spec_status: String::new(),
             context_summary: String::new(),
             diff: Vec::new(),
+            preimages: Vec::new(),
+            coherence_report: String::new(),
             selected_index: None,
             ledger: Vec::new(),
         }

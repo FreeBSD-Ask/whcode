@@ -459,7 +459,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "cui_dispatch::session_command（SessionCommand::Switch）",
             },
-            Support::Reserved { milestone: "T392" },
+            Support::Implemented {
+                anchor: "LoopCore::prepare（j/k 选择经 build_snapshot 有界加载，FR-102）",
+            },
             Support::Reserved { milestone: "T393" },
             Support::Implemented {
                 anchor: "POST /api/sessions/switch",
@@ -659,7 +661,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "cui_dispatch::events_command（EventsCommand::Show）",
             },
-            Support::Reserved { milestone: "T392" },
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（e → ViewSource::event_detail）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
@@ -1207,12 +1211,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::CuiCommandSurface,
             },
-            Support::Reserved {
-                milestone: "T392",
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（M → LlmExecutor::model_summary）",
             },
-            Support::Reserved {
-                milestone: "T393",
-            },
+            Support::Reserved { milestone: "T393" },
             Support::Implemented {
                 anchor: "GET /api/llm/models",
             },
@@ -1880,8 +1882,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "whcode session fork --session --at-seq",
             },
-            Support::Reserved {
-                milestone: "T392",
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（F → FrontendCommand::SessionFork）",
             },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
@@ -1904,12 +1906,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "whcode session rewind --session --to-seq",
             },
-            Support::Reserved {
-                milestone: "T392",
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（W → FrontendCommand::SessionRewind）",
             },
-            Support::Reserved {
-                milestone: "T393",
-            },
+            Support::Reserved { milestone: "T393" },
             Support::Implemented {
                 anchor: "GET/POST /api/rewind（app::current_rewind／rewind_session）",
             },
@@ -1928,12 +1928,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "whcode session restore --session --exec-id（默认 dry-run，--yes 执行）",
             },
-            Support::Reserved {
-                milestone: "T392",
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（V → SessionRestore 预览→确认）",
             },
-            Support::Reserved {
-                milestone: "T393",
-            },
+            Support::Reserved { milestone: "T393" },
             Support::Implemented {
                 anchor: "POST /api/preimages/restore",
             },
@@ -1951,12 +1949,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::CuiCommandSurface,
             },
-            Support::Reserved {
-                milestone: "T392",
+            Support::Implemented {
+                anchor: "LoopCore::prepare（ViewId::Preimages，键 9）",
             },
-            Support::Reserved {
-                milestone: "T393",
-            },
+            Support::Reserved { milestone: "T393" },
             Support::Implemented {
                 anchor: "GET /api/preimages",
             },
@@ -1975,12 +1971,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "whcode session plan --session --off",
             },
-            Support::Reserved {
-                milestone: "T392",
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（P → FrontendCommand::SessionPlanSet）",
             },
-            Support::Reserved {
-                milestone: "T393",
-            },
+            Support::Reserved { milestone: "T393" },
             Support::Implemented {
                 anchor: "GET/POST /api/plan（app::current_plan／set_plan）",
             },
@@ -1999,12 +1993,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::CuiCommandSurface,
             },
-            Support::Reserved {
-                milestone: "T392",
+            Support::Implemented {
+                anchor: "LoopCore::prepare（ViewId::Ledger 交付物节）",
             },
-            Support::Reserved {
-                milestone: "T393",
-            },
+            Support::Reserved { milestone: "T393" },
             Support::Implemented {
                 anchor: "GET /api/deliverables",
             },
@@ -2023,12 +2015,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::CuiCommandSurface,
             },
-            Support::Reserved {
-                milestone: "T392",
+            Support::Implemented {
+                anchor: "LoopCore::prepare（ViewId::Coherence，键 0）",
             },
-            Support::Reserved {
-                milestone: "T393",
-            },
+            Support::Reserved { milestone: "T393" },
             Support::Implemented {
                 anchor: "GET /api/coherence?session=",
             },

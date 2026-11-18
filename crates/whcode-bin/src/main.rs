@@ -519,7 +519,9 @@ fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
         ),
         None => Box::new(whcode_app::view_source::EmptyViewSource),
     };
-    let executor = shared.clone().map(store_source::TuiCommandExecutor::new);
+    let executor = shared
+        .clone()
+        .map(|conn| store_source::TuiCommandExecutor::new(conn).with_workspace(workspace.clone()));
     // LLM 执行器（T167）：与写执行器共享同一条连接；装配失败显式告警但不阻断界面
     // （LLM 缺失只影响 llm 动作，界面以 not_supported 提示降级）。
     let llm_executor = match (&shared, workspace::resolve_workspace(args, &config)) {

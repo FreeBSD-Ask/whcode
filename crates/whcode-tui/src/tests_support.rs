@@ -10,7 +10,9 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
 
-use crate::views::{DiffLine, EventRow, LedgerRow, LedgerSection, SessionRow, TaskRow};
+use crate::views::{
+    DiffLine, EventRow, LedgerRow, LedgerSection, PreimageItem, SessionRow, TaskRow,
+};
 use whcode_domain::i18n::I18n;
 
 use crate::{Theme, TuiState, UiEvent, ViewId, ViewSnapshot, draw_frame};
@@ -44,9 +46,14 @@ impl FakeProbe {
     }
 }
 
-/// 视图切换键（`1`—`6`）。
+/// 视图切换键（`1`—`9`、`0`；第 10 视图取 `0`，T392）。
 pub fn view_switch_key(view: ViewId) -> char {
-    char::from_digit(u32::try_from(view.index()).expect("序号在 u32 内"), 10).expect("十进制数字")
+    let index = view.index();
+    if index == 10 {
+        '0'
+    } else {
+        char::from_digit(u32::try_from(index).expect("序号在 u32 内"), 10).expect("十进制数字")
+    }
 }
 
 /// 六视图的代表性准备层数据（渲染证据夹具）。
@@ -165,6 +172,34 @@ pub fn fixture_snapshot(view: ViewId) -> ViewSnapshot {
                     text: "上下文行".into(),
                 },
             ];
+        }
+        ViewId::Preimages => {
+            snapshot.summary = "前像 S-1 · 共 2 条".into();
+            snapshot.preimages = vec![
+                PreimageItem {
+                    id: "P-1".into(),
+                    exec_id: "TX-100".into(),
+                    path: "src/lib.rs".into(),
+                    size_bytes: 128,
+                    has_content: true,
+                    skipped_reason: None,
+                },
+                PreimageItem {
+                    id: "P-2".into(),
+                    exec_id: "TX-101".into(),
+                    path: "big.bin".into(),
+                    size_bytes: 4_096,
+                    has_content: false,
+                    skipped_reason: Some("too_large".into()),
+                },
+            ];
+        }
+        ViewId::Coherence => {
+            snapshot.coherence_report = "supported · 规则 45 · 反例 1 · 未知 2
+phase=pre
+report=COH-1
+反例 COH-M1-06: 示例"
+                .into();
         }
     }
     snapshot

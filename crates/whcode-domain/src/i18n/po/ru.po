@@ -1172,6 +1172,9 @@ msgstr "Сессия {session} · курсор {from}..{to} (в хвосте н�
 msgid "summary.none"
 msgstr "нет"
 
+msgid "summary.preimages"
+msgstr "Версии {session} · всего {count}"
+
 msgid "summary.spec"
 msgstr "Сессия {session} · этап {stage} · курсор {cursor} · активная задача {task}"
 
@@ -1319,6 +1322,9 @@ msgstr "{app}  |  {view} ({index}/{count})"
 msgid "view.chat"
 msgstr "Диалог"
 
+msgid "view.coherence"
+msgstr "Достаточность"
+
 msgid "view.context"
 msgstr "Контекст"
 
@@ -1330,6 +1336,9 @@ msgstr "События"
 
 msgid "view.ledger"
 msgstr "Журнал"
+
+msgid "view.preimages"
+msgstr "Прежние версии"
 
 msgid "view.sessions"
 msgstr "Сессии"

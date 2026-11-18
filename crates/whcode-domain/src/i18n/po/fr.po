@@ -1172,6 +1172,9 @@ msgstr "Session {session} · curseur {from}..{to} (fin ≤ {limit})"
 msgid "summary.none"
 msgstr "aucun"
 
+msgid "summary.preimages"
+msgstr "Versions {session} · {count} entrées"
+
 msgid "summary.spec"
 msgstr "Session {session} · phase {stage} · curseur {cursor} · tâche active {task}"
 
@@ -1319,6 +1322,9 @@ msgstr "{app}  |  {view} ({index}/{count})"
 msgid "view.chat"
 msgstr "Conversation"
 
+msgid "view.coherence"
+msgstr "Cohérence"
+
 msgid "view.context"
 msgstr "Contexte"
 
@@ -1330,6 +1336,9 @@ msgstr "Événements"
 
 msgid "view.ledger"
 msgstr "Registre"
+
+msgid "view.preimages"
+msgstr "Versions précédentes"
 
 msgid "view.sessions"
 msgstr "Sessions"

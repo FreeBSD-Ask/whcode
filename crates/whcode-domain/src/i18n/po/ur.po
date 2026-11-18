@@ -1172,6 +1172,9 @@ msgstr "سیشن {session} · کرسر {from}..{to} (آخر میں زیادہ س
 msgid "summary.none"
 msgstr "کوئی نہیں"
 
+msgid "summary.preimages"
+msgstr "نقلیں {session} · کل {count}"
+
 msgid "summary.spec"
 msgstr "سیشن {session} · مرحلہ {stage} · کرسر {cursor} · فعال ٹاسک {task}"
 
@@ -1319,6 +1322,9 @@ msgstr "{app}  |  {view} ({index}/{count})"
 msgid "view.chat"
 msgstr "گفتگو"
 
+msgid "view.coherence"
+msgstr "کفایت"
+
 msgid "view.context"
 msgstr "سیاق و سباق"
 
@@ -1330,6 +1336,9 @@ msgstr "ایونٹس"
 
 msgid "view.ledger"
 msgstr "رجسٹر"
+
+msgid "view.preimages"
+msgstr "پچھلی نقلیں"
 
 msgid "view.sessions"
 msgstr "سیشنز"

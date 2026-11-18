@@ -1172,6 +1172,9 @@ msgstr "الجلسة {session} · المؤشر {from}..{to} (الذيل ≤ {lim
 msgid "summary.none"
 msgstr "لا شيء"
 
+msgid "summary.preimages"
+msgstr "النسخ {session} · العدد {count}"
+
 msgid "summary.spec"
 msgstr "الجلسة {session} · المرحلة {stage} · المؤشر {cursor} · المهمة النشطة {task}"
 
@@ -1319,6 +1322,9 @@ msgstr "{app}  |  {view} ({index}/{count})"
 msgid "view.chat"
 msgstr "المحادثة"
 
+msgid "view.coherence"
+msgstr "الاكتمال"
+
 msgid "view.context"
 msgstr "السياق"
 
@@ -1330,6 +1336,9 @@ msgstr "الأحداث"
 
 msgid "view.ledger"
 msgstr "السجل"
+
+msgid "view.preimages"
+msgstr "النسخ السابقة"
 
 msgid "view.sessions"
 msgstr "الجلسات"
