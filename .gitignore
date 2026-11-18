@@ -84,6 +84,8 @@
 !/artifacts/proposal-v3-execution-audit-2026-11-11.md
 # 字段测试报告（2026-11-17/18）：真实供应商端到端代理能力实测，P0 断链取证（根因 file:line）。
 !/artifacts/fieldtest-2026-11-17.md
+# 字段测试②（2026-11-19）：ADR-088 修复后真模型 read_file 全链取证。
+!/artifacts/fieldtest2-2026-11-19.md
 # M0 退出报告是治理交付物（tasks.md T031、§12.2），必须随仓库版本化。
 
 # 工作区数据库与 WAL（运行时产物，不进版本库）

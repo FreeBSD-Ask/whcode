@@ -139,10 +139,7 @@ pub fn summarize(
         task_id: None,
         model: model.to_string(),
         messages: vec![
-            LlmMessage {
-                role: Role::System,
-                content: SUMMARY_INSTRUCTION.to_string(),
-            },
+            LlmMessage::plain(Role::System, SUMMARY_INSTRUCTION),
             LlmMessage::user(transcript.clone()),
         ],
         max_tokens: COMPACTION_SUMMARY_MAX_TOKENS,
@@ -239,12 +236,13 @@ pub fn messages_with_summary(
     }
     let mut out = Vec::with_capacity(fold_start + 1);
     out.extend(messages[..fold_start].iter().cloned());
-    out.push(LlmMessage {
-        role: Role::User,
-        content: format!(
-            "[上下文摘要｜模型生成] {summary}\n（被折叠 {folded} 条消息的原文仍在事件与消息历史中可查）"
+    out.push(LlmMessage::plain(
+        Role::User,
+        format!(
+            "[上下文摘要｜模型生成] {summary}
+（被折叠 {folded} 条消息的原文仍在事件与消息历史中可查）"
         ),
-    });
+    ));
     Some((out, folded))
 }
 
@@ -308,14 +306,8 @@ mod tests {
     fn messages() -> Vec<LlmMessage> {
         vec![
             LlmMessage::user("任务锚点：修复构建"),
-            LlmMessage {
-                role: Role::Assistant,
-                content: "先看日志".to_string(),
-            },
-            LlmMessage {
-                role: Role::Tool,
-                content: "构建失败：缺少依赖".to_string(),
-            },
+            LlmMessage::assistant("先看日志"),
+            LlmMessage::tool_result("call-1", "构建失败：缺少依赖"),
         ]
     }
 
@@ -377,10 +369,7 @@ mod tests {
         let big = "x".repeat(MAX_COMPACTION_INPUT_CHARS * 2);
         let conversation = vec![
             LlmMessage::user("锚点"),
-            LlmMessage {
-                role: Role::Assistant,
-                content: big,
-            },
+            LlmMessage::assistant(big),
             LlmMessage::user("最近的追问"),
         ];
         let provider = RecordingProvider::new(StubProvider::new());
@@ -478,15 +467,6 @@ mod tests {
         assert!(messages_with_summary(&[LlmMessage::user("唯一消息")], "摘要").is_none());
         assert!(messages_with_summary(&messages()[..1], "摘要").is_none());
         // 没有任何 user 消息（无锚点）→ 无折叠边界。
-        assert!(
-            messages_with_summary(
-                &[LlmMessage {
-                    role: Role::Assistant,
-                    content: "只有助手消息".to_string()
-                }],
-                "摘要"
-            )
-            .is_none()
-        );
+        assert!(messages_with_summary(&[LlmMessage::assistant("只有助手消息")], "摘要").is_none());
     }
 }

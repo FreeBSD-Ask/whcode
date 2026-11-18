@@ -57,13 +57,30 @@ impl Role {
     }
 }
 
-/// 单条消息（FR-720）。`content` 为纯文本；工具调用结构化字段由 P0-2 扩展。
+/// 单条消息（FR-720）。`content` 为纯文本；工具调用结构化字段自 ADR-088 起
+/// 由真实协议填充（此前仅桩 Provider 承载，FR-797）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LlmMessage {
     /// 角色。
     pub role: Role,
     /// 正文。
     pub content: String,
+    /// 助手消息声明的工具调用（`Role::Assistant` 且模型请求工具时非空）。
+    pub tool_calls: Vec<LlmToolCall>,
+    /// 工具结果关联的调用 ID（`Role::Tool` 时必须存在——OpenAI 协议
+    /// `role:"tool"` 消息必须携带 `tool_call_id`）。
+    pub tool_call_id: Option<String>,
+}
+
+impl Default for LlmMessage {
+    fn default() -> Self {
+        Self {
+            role: Role::User,
+            content: String::new(),
+            tool_calls: Vec::new(),
+            tool_call_id: None,
+        }
+    }
 }
 
 impl LlmMessage {
@@ -73,6 +90,55 @@ impl LlmMessage {
         Self {
             role: Role::User,
             content: content.into(),
+            tool_calls: Vec::new(),
+            tool_call_id: None,
+        }
+    }
+
+    /// 便捷构造：不带工具调用的 assistant 消息。
+    #[must_use]
+    pub fn assistant(content: impl Into<String>) -> Self {
+        Self {
+            role: Role::Assistant,
+            content: content.into(),
+            tool_calls: Vec::new(),
+            tool_call_id: None,
+        }
+    }
+
+    /// 便捷构造：携带模型工具调用的 assistant 消息（工具流回传的挂载点）。
+    #[must_use]
+    pub fn assistant_with_tool_calls(
+        content: impl Into<String>,
+        tool_calls: Vec<LlmToolCall>,
+    ) -> Self {
+        Self {
+            role: Role::Assistant,
+            content: content.into(),
+            tool_calls,
+            tool_call_id: None,
+        }
+    }
+
+    /// 便捷构造：工具结果消息（携带关联调用 ID）。
+    #[must_use]
+    pub fn tool_result(tool_call_id: impl Into<String>, content: impl Into<String>) -> Self {
+        Self {
+            role: Role::Tool,
+            content: content.into(),
+            tool_calls: Vec::new(),
+            tool_call_id: Some(tool_call_id.into()),
+        }
+    }
+
+    /// 便捷构造：无工具调用上下文的普通消息（system 等既有字面量位点的过渡）。
+    #[must_use]
+    pub fn plain(role: Role, content: impl Into<String>) -> Self {
+        Self {
+            role,
+            content: content.into(),
+            tool_calls: Vec::new(),
+            tool_call_id: None,
         }
     }
 }

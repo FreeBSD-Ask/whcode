@@ -537,6 +537,8 @@ fn run_turn_inner(
             .map(|s| format!("- {}: {}", s.name, s.description))
             .collect();
         messages.push(LlmMessage {
+            tool_calls: Vec::new(),
+            tool_call_id: None,
             role: Role::System,
             content: format!(
                 "可用技能（按需 read_file 读取 .whcode/skills/<name>/SKILL.md）：\n{}",
@@ -548,6 +550,8 @@ fn run_turn_inner(
     // 不调用不可用工具；正确的空 = 无配置时不产生任何消息）。
     if !mcp_notices.is_empty() {
         messages.push(LlmMessage {
+            tool_calls: Vec::new(),
+            tool_call_id: None,
             role: Role::System,
             content: format!(
                 "MCP 服务器状态（本轮可用工具以工具清单为准）：\n{}",
@@ -567,6 +571,8 @@ fn run_turn_inner(
             block.push_str(&format!("\n\n[{server}]\n{text}"));
         }
         messages.push(LlmMessage {
+            tool_calls: Vec::new(),
+            tool_call_id: None,
             role: Role::System,
             content: block,
         });
@@ -575,11 +581,15 @@ fn run_turn_inner(
     // 读取失败按“无法判定”显式告示（不是关闭），模型与用户都能看到状态缺口。
     match crate::plan::is_active(conn, session) {
         Ok(true) => messages.push(LlmMessage {
+            tool_calls: Vec::new(),
+            tool_call_id: None,
             role: Role::System,
             content: whcode_tools::PLAN_GUIDANCE.to_string(),
         }),
         Ok(false) => {}
         Err(err) => messages.push(LlmMessage {
+            tool_calls: Vec::new(),
+            tool_call_id: None,
             role: Role::System,
             content: format!(
                 "计划模式状态读取失败：{err}；本轮按未激活处理（这不是关闭，而是无法判定）"
@@ -587,6 +597,8 @@ fn run_turn_inner(
         }),
     }
     messages.push(LlmMessage {
+        tool_calls: Vec::new(),
+        tool_call_id: None,
         role: Role::User,
         content: prompt.to_string(),
     });
@@ -1088,6 +1100,8 @@ fn run_turn_inner(
             );
             if !step_text.is_empty() {
                 messages.push(LlmMessage {
+                    tool_calls: Vec::new(),
+                    tool_call_id: None,
                     role: Role::Assistant,
                     content: step_text.clone(),
                 });
@@ -1111,10 +1125,12 @@ fn run_turn_inner(
             "finish_reason": step_finish,
             "usage": step_usage_value.completion_payload(),
         );
-        messages.push(LlmMessage {
-            role: Role::Assistant,
-            content: step_text.clone(),
-        });
+        // ADR-088：assistant 消息携带本步模型声明的工具调用——下一迭代请求
+        // 必须能把它序列化回协议（OpenAI 的 tool 消息以其为前置锚点）。
+        messages.push(LlmMessage::assistant_with_tool_calls(
+            step_text.clone(),
+            step_tool_calls.clone(),
+        ));
         persister.flush(conn, &mut pending_events, &messages)?;
         chunks = step_chunks;
         text = step_text;
@@ -1209,10 +1225,10 @@ fn run_turn_inner(
                 "tool_name": tool_call.name,
                 "exec_id": exec_id,
             );
-            messages.push(LlmMessage {
-                role: Role::Tool,
-                content: result_text.clone(),
-            });
+            messages.push(LlmMessage::tool_result(
+                tool_call.id.clone(),
+                result_text.clone(),
+            ));
             // ── 重复调用提醒（T355／FR-790／ADR-044 修订）────────────────────
             // 只有「同工具＋同参数＋**同输出**」才算重复：轮询型调用（输出在变）不打扰；
             // 每个指纹每 turn 至多提醒一次，事件不含参数（避免把工具输入写进事件）。
@@ -1227,7 +1243,7 @@ fn run_turn_inner(
                     "repeats": repeats,
                     "output_unchanged": true,
                 );
-                messages.push(LlmMessage {
+                messages.push(LlmMessage { tool_calls: Vec::new(), tool_call_id: None,
                     role: Role::System,
                     content: format!(
                         "提示（工具重复调用）：{} 已用相同参数调用 {} 次且输出未变化。                         不要重复同一调用——改变参数、换工具，或直接给出结论。",
@@ -1499,6 +1515,8 @@ fn spawn_fail(
     });
     envelope.push(finished);
     messages.push(LlmMessage {
+        tool_calls: Vec::new(),
+        tool_call_id: None,
         role: Role::Tool,
         content: format!("子代理委派被拒绝（{reason}）：{detail}"),
     });
@@ -1693,6 +1711,8 @@ fn handle_spawn_subagent(
                 });
             }
             messages.push(LlmMessage {
+                tool_calls: Vec::new(),
+                tool_call_id: None,
                 role: Role::Tool,
                 content: bound_result_text(format!(
                     "子代理 {} 终止（{}，{} 轮）：\n{}",
@@ -1733,6 +1753,8 @@ fn handle_spawn_subagent(
                 });
             }
             messages.push(LlmMessage {
+                tool_calls: Vec::new(),
+                tool_call_id: None,
                 role: Role::Tool,
                 content: format!("子代理执行失败：{err}"),
             });

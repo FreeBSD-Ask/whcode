@@ -16,9 +16,10 @@
 //! 因此“无用量但带终止原因”的帧先记为待定，等后续用量帧或流结束再产出终结 chunk：
 //! 有真实原因时以先到的真实原因为准，不用合成原因覆盖（FR-206：不丢关键转换）。
 
-use crate::http::protocols::DecodeOutcome;
+use crate::http::protocols::{DecodeOutcome, ToolCallFragment};
 use crate::metering::Usage;
-use crate::provider::LlmChunk;
+use crate::provider::{LlmChunk, LlmToolCall};
+use std::collections::BTreeMap;
 
 /// 供应商未显式终止时使用的兜底终止原因（与 `stop` 区分，便于发现截断，FR-208）。
 pub const EOF_FINISH_REASON: &str = "eof";
@@ -42,6 +43,37 @@ struct PendingFinish {
     reason: String,
 }
 
+/// 单个工具调用的跨片段累积（ADR-088）：id／name 随首片，arguments 跨片拼接。
+#[derive(Debug, Default)]
+struct ToolAccumulator {
+    id: Option<String>,
+    name: Option<String>,
+    arguments: String,
+}
+
+impl ToolAccumulator {
+    fn merge(&mut self, fragment: &ToolCallFragment) {
+        if self.id.is_none() {
+            self.id.clone_from(&fragment.id);
+        }
+        if self.name.is_none() {
+            self.name.clone_from(&fragment.name);
+        }
+        self.arguments.push_str(&fragment.arguments_delta);
+    }
+
+    fn finish(&self) -> Option<LlmToolCall> {
+        // 缺 id 或 name 的不完整调用丢弃——不伪造，完整性由 integrity 口径另行留痕。
+        let id = self.id.clone()?;
+        let name = self.name.clone()?;
+        Some(LlmToolCall {
+            id,
+            name,
+            arguments: self.arguments.clone(),
+        })
+    }
+}
+
 /// 把 [`DecodeOutcome`] 归一为序号连续的 [`LlmChunk`]。
 #[derive(Debug, Default)]
 pub struct ChunkNormalizer {
@@ -49,6 +81,8 @@ pub struct ChunkNormalizer {
     finished: bool,
     pending: Option<PendingFinish>,
     unknown_frames: u64,
+    /// 流式工具调用累积（ADR-088）：按片段 index 聚合，终结 chunk 整体交付。
+    tool_accumulators: BTreeMap<u64, ToolAccumulator>,
 }
 
 impl ChunkNormalizer {
@@ -89,7 +123,11 @@ impl ChunkNormalizer {
                 PushOutcome::Unknown
             }
             DecodeOutcome::Error { message } => PushOutcome::Error(message),
-            DecodeOutcome::Delta { text } => {
+            DecodeOutcome::Delta {
+                text,
+                tool_fragments,
+            } => {
+                self.merge_tool_fragments(tool_fragments);
                 if text.is_empty() {
                     return PushOutcome::Idle;
                 }
@@ -112,7 +150,9 @@ impl ChunkNormalizer {
                 text,
                 reason,
                 usage,
+                tool_fragments,
             } => {
+                self.merge_tool_fragments(tool_fragments);
                 if usage.is_some() {
                     let (text, reason) = match self.pending.take() {
                         Some(pending) => {
@@ -153,6 +193,28 @@ impl ChunkNormalizer {
         Some(self.emit(text, true, None, Some(reason)))
     }
 
+    /// 合并本帧工具调用片段（ADR-088）：按 index 聚合到累积器。
+    fn merge_tool_fragments(&mut self, fragments: Vec<ToolCallFragment>) {
+        for fragment in fragments {
+            self.tool_accumulators
+                .entry(fragment.index)
+                .or_default()
+                .merge(&fragment);
+        }
+    }
+
+    /// 累积器收口：终结 chunk 整体交付工具调用（按 index 升序；缺 id／name 的
+    /// 不完整调用丢弃——不伪造，完整性由 integrity 口径另行留痕）。
+    fn take_tool_calls(&mut self) -> Vec<LlmToolCall> {
+        if self.tool_accumulators.is_empty() {
+            return Vec::new();
+        }
+        std::mem::take(&mut self.tool_accumulators)
+            .into_values()
+            .filter_map(|accum| accum.finish())
+            .collect()
+    }
+
     fn emit(
         &mut self,
         text: String,
@@ -165,13 +227,18 @@ impl ChunkNormalizer {
         if final_chunk {
             self.finished = true;
         }
+        let tool_calls = if final_chunk {
+            self.take_tool_calls()
+        } else {
+            Vec::new()
+        };
         LlmChunk {
             index,
             text,
             final_chunk,
             usage,
             finish_reason,
-            tool_calls: Vec::new(),
+            tool_calls,
         }
     }
 }
@@ -183,6 +250,7 @@ mod tests {
     fn delta(text: &str) -> DecodeOutcome {
         DecodeOutcome::Delta {
             text: text.to_string(),
+            tool_fragments: Vec::new(),
         }
     }
 
@@ -227,6 +295,7 @@ mod tests {
                 text: String::new(),
                 reason: "length".to_string(),
                 usage: None,
+                tool_fragments: Vec::new(),
             }),
             PushOutcome::Idle,
             "无用量时先记为待定终止"
@@ -262,6 +331,7 @@ mod tests {
             text: "末帧".to_string(),
             reason: "end_turn".to_string(),
             usage: None,
+            tool_fragments: Vec::new(),
         });
         let final_chunk = normalizer.finish(EOF_FINISH_REASON).expect("EOF 必须收尾");
         assert!(final_chunk.final_chunk);
@@ -293,6 +363,64 @@ mod tests {
             "协议错误不得静默"
         );
         assert!(!normalizer.is_finished(), "错误不产出终结 chunk");
+    }
+
+    /// ADR-088／FR-797：OpenAI 流式工具调用跨帧累积——id／name 随首片，
+    /// arguments 跨片拼接，终结 chunk（finish_reason=tool_calls）整体交付。
+    #[test]
+    fn openai_tool_call_fragments_accumulate_into_final_chunk() {
+        use crate::http::protocols::ToolCallFragment;
+        let mut normalizer = ChunkNormalizer::new();
+        let fragment =
+            |index: u64, id: Option<&str>, name: Option<&str>, args: &str| ToolCallFragment {
+                index,
+                id: id.map(str::to_string),
+                name: name.map(str::to_string),
+                arguments_delta: args.to_string(),
+            };
+        // 首片：id＋name＋半截参数（无正文——纯工具帧不得产出空 chunk）。
+        match normalizer.push(DecodeOutcome::Delta {
+            text: String::new(),
+            tool_fragments: vec![fragment(0, Some("call-1"), Some("read_file"), "{\"path")],
+        }) {
+            PushOutcome::Idle => {}
+            other => panic!("纯工具帧不得产出 chunk：{other:?}"),
+        }
+        // 次片：参数续拼。
+        match normalizer.push(DecodeOutcome::Delta {
+            text: String::new(),
+            tool_fragments: vec![fragment(0, None, None, "\": \"src/lib.rs\"}")],
+        }) {
+            PushOutcome::Idle => {}
+            other => panic!("纯工具帧不得产出 chunk：{other:?}"),
+        }
+        // 终帧：finish_reason=tool_calls（无用量→待定）；随后的用量帧产出终结
+        // chunk——累积调用必须存活到终结 chunk（真实 OpenAI 流型）。
+        assert_eq!(
+            normalizer.push(DecodeOutcome::DeltaAndFinish {
+                text: String::new(),
+                reason: "tool_calls".to_string(),
+                usage: None,
+                tool_fragments: Vec::new(),
+            }),
+            PushOutcome::Idle,
+            "无用量终止先记待定"
+        );
+        let final_chunk = match normalizer.push(DecodeOutcome::Finish {
+            reason: "stop".to_string(),
+            usage: Some(Usage::provider_reported(10, 5, 0, None, false)),
+        }) {
+            PushOutcome::Chunk(chunk) => chunk,
+            other => panic!("用量帧必须产出终结 chunk：{other:?}"),
+        };
+        assert!(final_chunk.final_chunk);
+        assert_eq!(final_chunk.finish_reason.as_deref(), Some("tool_calls"));
+        let calls = &final_chunk.tool_calls;
+        assert_eq!(calls.len(), 1, "跨帧片段必须聚合成单次调用");
+        assert_eq!(calls[0].id, "call-1");
+        assert_eq!(calls[0].name, "read_file");
+        assert_eq!(calls[0].arguments, r#"{"path": "src/lib.rs"}"#);
+        assert!(normalizer.is_finished());
     }
 
     #[test]

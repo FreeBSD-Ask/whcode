@@ -703,6 +703,28 @@ taskkill /T /F 口径）（P1）
     `crates/whcode-app/src/llm.rs`（`generate_request_id` 转 pub）；Check 472—475
 
 
+- **FR-797**: 真实供应商工具调用端到端（P0，ADR-088）：四族线协议适配器解析并累积
+  模型工具调用帧（OpenAI `delta.tool_calls` 分片、Anthropic `tool_use`＋
+  `input_json_delta`、Gemini `functionCall` 整体——无调用 ID 以函数名合成、Ollama
+  `message.tool_calls`），终结 chunk 整体交付；请求侧按协议装配工具结果回传
+  （OpenAI/Ollama/Cohere `role:"tool"+tool_call_id`、Anthropic `tool_result` 块、
+  Gemini `functionResponse` parts，相邻同角色合并）；turn 循环 assistant 回填携带
+  本步工具调用、结果回填携带关联 ID；OpenAI 族以真实供应商端到端取证（工具事件、
+  真实输出、integrity_gaps=0），Anthropic/Gemini/Ollama 以单元级取证并显式登记
+  （tools 参数格式转换未做，接入真实供应商前补齐）；跨轮工具链路持久化为 T389
+  显式边界
+  - 依据：`artifacts/fieldtest-2026-11-17.md`（P0 断链实证，2026-11-17 用户质询
+    “功能几乎未实现”的判定基础）；ADR-088；ADR-044（turn 编排）／ADR-048（工具系统）
+  - 判据：Given 真实模型声明 read_file 调用，Then 事件流出现 ToolCallStarted/Finished
+    且续答引用真实文件内容（integrity_gaps=0）；Given 跨帧分片，Then arguments 拼接
+    无损且终结 chunk 单次交付；Given assistant 携带工具调用与 tool 结果成对，
+    Then 请求体按协议形状序列化；Given 不完整调用（缺 id/name），Then 丢弃不伪造
+  - 证据：`crates/whcode-llm/src/http/protocols.rs`（解码与请求装配）、
+    `crates/whcode-llm/src/http/chunks.rs`（跨帧累积）、`crates/whcode-llm/src/provider.rs`
+    （LlmMessage 扩展）、`crates/whcode-app/src/turn.rs`（回填接线）、
+    `artifacts/fieldtest2-2026-11-19.md`（真模型 e2e）；Check 478—479
+
+
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，
   成功调用才落、失败不落），条目数与单条长度有常量上限且超限拒绝不截断；待办与 SDD 任务

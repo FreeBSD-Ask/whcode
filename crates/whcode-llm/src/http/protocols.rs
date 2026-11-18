@@ -20,8 +20,12 @@ use crate::provider::{LlmRequest, Role};
 pub enum DecodeOutcome {
     /// 空帧（如 SSE `message_start`），无正文。
     Empty,
-    /// 正文增量。
-    Delta { text: String },
+    /// 正文增量（可携带流式工具调用片段；ADR-088）。
+    Delta {
+        text: String,
+        /// 本帧的工具调用片段（按供应商线格式归一；无则空）。
+        tool_fragments: Vec<ToolCallFragment>,
+    },
     /// 终止（含归一原因与供应商用量）。
     Finish {
         reason: String,
@@ -32,11 +36,28 @@ pub enum DecodeOutcome {
         text: String,
         reason: String,
         usage: Option<Usage>,
+        /// 本帧的工具调用片段（ADR-088）。
+        tool_fragments: Vec<ToolCallFragment>,
     },
     /// 未知事件：跳过但**必须计数**并留完整性标记（FR-206／FR-208；经传输快照暴露）。
     Unknown,
     /// 协议错误事件（SSE `error` 事件等）：转为结构化错误，不得静默。
     Error { message: String },
+}
+
+/// 流式工具调用增量片段（ADR-088／FR-797）：OpenAI `delta.tool_calls` 按 index
+/// 分片送达——id／name 通常随首片（后续片段缺省），arguments 跨片段拼接；
+/// 累积归一在 [`crate::http::chunks::ChunkNormalizer`] 完成，终结 chunk 整体交付。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToolCallFragment {
+    /// 片段序号（OpenAI `index`；同一次响应内从 0 递增）。
+    pub index: u64,
+    /// 调用 ID（通常随首片；后续片段可能缺省）。
+    pub id: Option<String>,
+    /// 工具名（通常随首片）。
+    pub name: Option<String>,
+    /// 参数 JSON 增量（跨片段拼接）。
+    pub arguments_delta: String,
 }
 
 /// 线协议契约（ADR-031；实现为无状态对象，注册表按协议枚举分派）。
@@ -129,14 +150,31 @@ fn messages_flat(request: &LlmRequest) -> Value {
         request
             .messages
             .iter()
-            .map(|m| json!({ "role": m.role.as_str(), "content": m.content }))
+            .map(|m| match m.role {
+                Role::Assistant if !m.tool_calls.is_empty() => json!({
+                    "role": "assistant",
+                    "content": m.content,
+                    "tool_calls": m.tool_calls.iter().map(|call| json!({
+                        "id": call.id,
+                        "type": "function",
+                        "function": { "name": call.name, "arguments": call.arguments },
+                    })).collect::<Vec<_>>(),
+                }),
+                Role::Tool => json!({
+                    "role": "tool",
+                    "tool_call_id": m.tool_call_id.as_deref().unwrap_or_default(),
+                    "content": m.content,
+                }),
+                _ => json!({ "role": m.role.as_str(), "content": m.content }),
+            })
             .collect(),
     )
 }
 
-/// Anthropic 消息映射（FR-720）：system 抽为顶层 `system` 段（换行连接）；
-/// user/assistant 交替进 `messages`；tool 结果以 user 文本消息承载
-/// （tool_result 结构化块需 tool_use_id，随 P0-2 工具接线扩展，见 plan-p0-1 §2.3）。
+/// Anthropic 消息映射（FR-720；ADR-088 结构化升级）：system 抽为顶层 `system`
+/// 段（换行连接）；user/assistant 交替进 `messages`；相邻同角色合并（Anthropic
+/// 要求严格交替）；assistant 的模型工具调用序列化为 `tool_use` 块，tool 结果
+/// 序列化为 user 消息的 `tool_result` 块（按 `tool_use_id` 关联）。
 fn anthropic_messages(request: &LlmRequest) -> (String, Value) {
     let system = request
         .messages
@@ -144,28 +182,66 @@ fn anthropic_messages(request: &LlmRequest) -> (String, Value) {
         .filter(|m| m.role == Role::System)
         .map(|m| m.content.as_str())
         .collect::<Vec<_>>()
-        .join("\n");
-    let messages = Value::Array(
-        request
-            .messages
-            .iter()
-            .filter(|m| m.role != Role::System)
-            .map(|m| {
-                // Anthropic 只接受 user/assistant 交替；tool 结果按 user 承载。
-                let role = if m.role == Role::Assistant {
-                    "assistant"
-                } else {
-                    "user"
-                };
-                json!({ "role": role, "content": m.content })
-            })
-            .collect(),
-    );
-    (system, messages)
+        .join(
+            "
+",
+        );
+    let mut messages: Vec<Value> = Vec::new();
+    for m in request.messages.iter().filter(|m| m.role != Role::System) {
+        let role = if m.role == Role::Assistant {
+            "assistant"
+        } else {
+            "user"
+        };
+        match m.role {
+            Role::Tool => {
+                // tool_result 块必须进 user 消息；连续多条工具结果合并进同一 user。
+                let block = json!({
+                    "type": "tool_result",
+                    "tool_use_id": m.tool_call_id.as_deref().unwrap_or_default(),
+                    "content": m.content,
+                });
+                match messages.last_mut() {
+                    Some(last) if last["role"] == json!("user") && last["content"].is_array() => {
+                        last["content"]
+                            .as_array_mut()
+                            .expect("数组内容")
+                            .push(block);
+                    }
+                    _ => messages.push(json!({ "role": "user", "content": [block] })),
+                }
+            }
+            Role::Assistant if !m.tool_calls.is_empty() => {
+                let mut content = Vec::new();
+                if !m.content.is_empty() {
+                    content.push(json!({ "type": "text", "text": m.content }));
+                }
+                for call in &m.tool_calls {
+                    let input = serde_json::from_str::<Value>(&call.arguments)
+                        .unwrap_or_else(|_| Value::Object(serde_json::Map::new()));
+                    content.push(json!({
+                        "type": "tool_use",
+                        "id": call.id,
+                        "name": call.name,
+                        "input": input,
+                    }));
+                }
+                messages.push(json!({ "role": "assistant", "content": content }));
+            }
+            _ => {
+                // 纯文本消息保持字符串承载（既有测试与可读性口径不变）。
+                messages.push(json!({ "role": role, "content": m.content }));
+            }
+        }
+    }
+    (system, Value::Array(messages))
 }
 
-/// Gemini 内容映射（FR-720）：system 抽为 `systemInstruction`；user→`user`，
-/// assistant/tool→`model`（Gemini 角色词；tool 结果随 P0-2 结构化）。
+/// Gemini 内容映射（FR-720；ADR-088 结构化升级）：system 抽为
+/// `systemInstruction`；user→`user`，assistant/tool→`model`（Gemini 角色词）；
+/// assistant 的模型工具调用序列化为 `functionCall` parts，tool 结果序列化为
+/// `functionResponse` parts（Gemini 无调用 ID，`tool_call_id` 承载函数名）；
+/// 相邻同角色合并。
 fn gemini_contents(request: &LlmRequest) -> (Option<Value>, Value) {
     let system = request
         .messages
@@ -174,22 +250,46 @@ fn gemini_contents(request: &LlmRequest) -> (Option<Value>, Value) {
         .map(|m| json!({ "text": m.content }))
         .collect::<Vec<_>>();
     let system_instruction = (!system.is_empty()).then(|| json!({ "parts": system }));
-    let contents = Value::Array(
-        request
-            .messages
-            .iter()
-            .filter(|m| m.role != Role::System)
-            .map(|m| {
-                let role = if m.role == Role::User {
-                    "user"
-                } else {
-                    "model"
-                };
-                json!({ "role": role, "parts": [{ "text": m.content }] })
-            })
-            .collect(),
-    );
-    (system_instruction, contents)
+    let mut contents: Vec<Value> = Vec::new();
+    for m in request.messages.iter().filter(|m| m.role != Role::System) {
+        let role = if m.role == Role::User {
+            "user"
+        } else {
+            "model"
+        };
+        let mut parts: Vec<Value> = Vec::new();
+        match m.role {
+            Role::Tool => {
+                parts.push(json!({
+                    "functionResponse": {
+                        "name": m.tool_call_id.as_deref().unwrap_or_default(),
+                        "response": { "result": m.content },
+                    }
+                }));
+            }
+            Role::Assistant if !m.tool_calls.is_empty() => {
+                if !m.content.is_empty() {
+                    parts.push(json!({ "text": m.content }));
+                }
+                for call in &m.tool_calls {
+                    let args = serde_json::from_str::<Value>(&call.arguments)
+                        .unwrap_or_else(|_| Value::Object(serde_json::Map::new()));
+                    parts.push(json!({ "functionCall": { "name": call.name, "args": args } }));
+                }
+            }
+            _ => parts.push(json!({ "text": m.content })),
+        }
+        match contents.last_mut() {
+            Some(last) if last["role"] == json!(role) => {
+                last["parts"]
+                    .as_array_mut()
+                    .expect("parts 数组")
+                    .extend(parts);
+            }
+            _ => contents.push(json!({ "role": role, "parts": parts })),
+        }
+    }
+    (system_instruction, Value::Array(contents))
 }
 
 fn extract_usage(
@@ -287,6 +387,39 @@ impl WireProtocol for OpenAi {
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_string();
+        // ADR-088：`delta.tool_calls` 片段提取——id／name 随首片，arguments 跨帧拼接；
+        // 累积归一交给 ChunkNormalizer，终结 chunk 整体交付给 turn 循环。
+        let tool_fragments = choice
+            .get("delta")
+            .and_then(|d| d.get("tool_calls"))
+            .and_then(Value::as_array)
+            .map(|calls| {
+                calls
+                    .iter()
+                    .map(|call| {
+                        let function = call.get("function");
+                        ToolCallFragment {
+                            index: call.get("index").and_then(Value::as_u64).unwrap_or(0),
+                            id: call
+                                .get("id")
+                                .and_then(Value::as_str)
+                                .filter(|value| !value.is_empty())
+                                .map(str::to_string),
+                            name: function
+                                .and_then(|f| f.get("name"))
+                                .and_then(Value::as_str)
+                                .filter(|value| !value.is_empty())
+                                .map(str::to_string),
+                            arguments_delta: function
+                                .and_then(|f| f.get("arguments"))
+                                .and_then(Value::as_str)
+                                .unwrap_or_default()
+                                .to_string(),
+                        }
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         if let Some(reason) = choice.get("finish_reason").and_then(Value::as_str) {
             let usage = value
                 .get("usage")
@@ -295,12 +428,16 @@ impl WireProtocol for OpenAi {
                 text,
                 reason: reason.to_string(),
                 usage,
+                tool_fragments,
             };
         }
-        if text.is_empty() {
+        if text.is_empty() && tool_fragments.is_empty() {
             return DecodeOutcome::Empty;
         }
-        DecodeOutcome::Delta { text }
+        DecodeOutcome::Delta {
+            text,
+            tool_fragments,
+        }
     }
 
     fn error_message(&self, body: &str) -> String {
@@ -366,16 +503,67 @@ impl WireProtocol for Anthropic {
                 .unwrap_or_default()
         });
         match event {
+            // ADR-088：tool_use 块开始——id／name 随首事件到达（index 为块序号）。
+            "content_block_start" => {
+                let block_type = value
+                    .pointer("/content_block/type")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                if block_type != "tool_use" {
+                    return DecodeOutcome::Empty;
+                }
+                let index = value.get("index").and_then(Value::as_u64).unwrap_or(0);
+                let id = value
+                    .pointer("/content_block/id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string();
+                let name = value
+                    .pointer("/content_block/name")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string();
+                DecodeOutcome::Delta {
+                    text: String::new(),
+                    tool_fragments: vec![ToolCallFragment {
+                        index,
+                        id: (!id.is_empty()).then_some(id),
+                        name: (!name.is_empty()).then_some(name),
+                        arguments_delta: String::new(),
+                    }],
+                }
+            }
             "content_block_delta" => {
                 let text = value
                     .pointer("/delta/text")
                     .and_then(Value::as_str)
                     .unwrap_or_default()
                     .to_string();
-                if text.is_empty() {
+                // ADR-088：input_json_delta——tool_use 参数跨事件拼接。
+                let mut tool_fragments = Vec::new();
+                if value.pointer("/delta/type").and_then(Value::as_str) == Some("input_json_delta")
+                {
+                    let partial = value
+                        .pointer("/delta/partial_json")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string();
+                    if !partial.is_empty() {
+                        tool_fragments.push(ToolCallFragment {
+                            index: value.get("index").and_then(Value::as_u64).unwrap_or(0),
+                            id: None,
+                            name: None,
+                            arguments_delta: partial,
+                        });
+                    }
+                }
+                if text.is_empty() && tool_fragments.is_empty() {
                     DecodeOutcome::Empty
                 } else {
-                    DecodeOutcome::Delta { text }
+                    DecodeOutcome::Delta {
+                        tool_fragments,
+                        text,
+                    }
                 }
             }
             "message_delta" => {
@@ -476,17 +664,36 @@ impl WireProtocol for Gemini {
             .get("candidates")
             .and_then(Value::as_array)
             .and_then(|c| c.first());
-        let text = candidate
+        let parts = candidate
             .and_then(|c| c.get("content"))
             .and_then(|c| c.get("parts"))
             .and_then(Value::as_array)
-            .map(|parts| {
-                parts
-                    .iter()
-                    .filter_map(|p| p.get("text").and_then(Value::as_str))
-                    .collect::<String>()
-            })
+            .cloned()
             .unwrap_or_default();
+        let text = parts
+            .iter()
+            .filter_map(|p| p.get("text").and_then(Value::as_str))
+            .collect::<String>();
+        // ADR-088：functionCall part 整体到达（无分片）；Gemini 无调用 ID——
+        // 以函数名合成（回传侧 `tool_call_id` 同样承载函数名，见 gemini_contents）。
+        let tool_fragments = parts
+            .iter()
+            .enumerate()
+            .filter_map(|(position, part)| {
+                let call = part.get("functionCall")?;
+                let name = call.get("name").and_then(Value::as_str)?;
+                let args = call
+                    .get("args")
+                    .cloned()
+                    .unwrap_or(Value::Object(serde_json::Map::new()));
+                Some(ToolCallFragment {
+                    index: u64::try_from(position).unwrap_or(0),
+                    id: Some(name.to_string()),
+                    name: Some(name.to_string()),
+                    arguments_delta: args.to_string(),
+                })
+            })
+            .collect::<Vec<_>>();
         let reason = candidate
             .and_then(|c| c.get("finishReason"))
             .and_then(Value::as_str)
@@ -496,12 +703,29 @@ impl WireProtocol for Gemini {
             .and_then(|u| extract_usage(u, ["promptTokenCount"], ["candidatesTokenCount"]));
         match (text.is_empty(), reason) {
             (false, Some(reason)) => DecodeOutcome::DeltaAndFinish {
+                tool_fragments,
                 text,
                 reason,
                 usage,
             },
-            (false, None) => DecodeOutcome::Delta { text },
+            (false, None) => DecodeOutcome::Delta {
+                tool_fragments,
+                text,
+            },
+            // 文本空但带 functionCall 片段（函数调用常无正文）。
+            (true, Some(reason)) if !tool_fragments.is_empty() => DecodeOutcome::DeltaAndFinish {
+                tool_fragments,
+                text: String::new(),
+                reason,
+                usage,
+            },
             (true, Some(reason)) => DecodeOutcome::Finish { reason, usage },
+            (true, None) if !tool_fragments.is_empty() => DecodeOutcome::DeltaAndFinish {
+                tool_fragments,
+                text: String::new(),
+                reason: "stop".to_string(),
+                usage,
+            },
             (true, None) => {
                 if usage.is_some() {
                     DecodeOutcome::Finish {
@@ -572,12 +796,47 @@ impl WireProtocol for Ollama {
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_string();
+        // ADR-088：Ollama 工具调用随 message.tool_calls 整体到达（OpenAI 形状、
+        // 无 id——以函数名合成，回传侧承载同名）。
+        let tool_fragments = value
+            .pointer("/message/tool_calls")
+            .and_then(Value::as_array)
+            .map(|calls| {
+                calls
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(position, call)| {
+                        let name = call
+                            .pointer("/function/name")
+                            .and_then(Value::as_str)?
+                            .to_string();
+                        let arguments = call
+                            .pointer("/function/arguments")
+                            .cloned()
+                            .unwrap_or(Value::Object(serde_json::Map::new()));
+                        let arguments_delta = match arguments {
+                            Value::String(raw) => raw,
+                            other => other.to_string(),
+                        };
+                        Some(ToolCallFragment {
+                            index: u64::try_from(position).unwrap_or(0),
+                            id: Some(name.clone()),
+                            name: Some(name),
+                            arguments_delta,
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
         let done = value.get("done").and_then(Value::as_bool).unwrap_or(false);
         if !done {
-            if text.is_empty() {
+            if text.is_empty() && tool_fragments.is_empty() {
                 return DecodeOutcome::Empty;
             }
-            return DecodeOutcome::Delta { text };
+            return DecodeOutcome::Delta {
+                tool_fragments,
+                text,
+            };
         }
         let reason = value
             .get("done_reason")
@@ -589,6 +848,7 @@ impl WireProtocol for Ollama {
             .zip(value.get("eval_count"))
             .and_then(|(p, c)| usage(p.clone(), c.clone()));
         DecodeOutcome::DeltaAndFinish {
+            tool_fragments,
             text,
             reason,
             usage,
@@ -657,7 +917,10 @@ impl WireProtocol for Cohere {
                 if text.is_empty() {
                     DecodeOutcome::Empty
                 } else {
-                    DecodeOutcome::Delta { text }
+                    DecodeOutcome::Delta {
+                        tool_fragments: Vec::new(),
+                        text,
+                    }
                 }
             }
             "message-end" => {
@@ -729,11 +992,15 @@ mod tests {
             model: "m".to_string(),
             messages: vec![
                 LlmMessage {
+                    tool_calls: Vec::new(),
+                    tool_call_id: None,
                     role: Role::System,
                     content: "你是测试助手".to_string(),
                 },
                 LlmMessage::user("第一轮"),
                 LlmMessage {
+                    tool_calls: Vec::new(),
+                    tool_call_id: None,
                     role: Role::Assistant,
                     content: "第一轮回复".to_string(),
                 },
@@ -800,6 +1067,8 @@ mod tests {
         // FR-720：system 抽顶层段，user/assistant 交替；tool 按 user 承载（P0-2 结构化）。
         let mut multi = multi_message_request();
         multi.messages.push(crate::provider::LlmMessage {
+            tool_calls: Vec::new(),
+            tool_call_id: None,
             role: crate::provider::Role::Tool,
             content: "工具结果".to_string(),
         });
@@ -818,6 +1087,139 @@ mod tests {
         assert!(
             !value["messages"][0]["content"].as_str().unwrap().is_empty(),
             "正文保留"
+        );
+    }
+
+    /// ADR-088／FR-797：Anthropic tool_use 解码——块开始给 id／name，
+    /// input_json_delta 跨事件拼接，累积后随终结 chunk 交付。
+    #[test]
+    fn anthropic_tool_use_fragments_accumulate_into_final_chunk() {
+        let mut normalizer = crate::http::chunks::ChunkNormalizer::new();
+        let _ = normalizer.push(Anthropic.decode(&Frame {
+            event_name: Some("content_block_start".to_string()),
+            data: r#"{"index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":"read_file"}}"#
+                .to_string(),
+        }));
+        let _ = normalizer.push(
+            Anthropic.decode(&Frame {
+                event_name: Some("content_block_delta".to_string()),
+                data:
+                    r#"{"index":1,"delta":{"type":"input_json_delta","partial_json":"{\"path\":"}}"#
+                        .to_string(),
+            }),
+        );
+        let _ = normalizer.push(
+            Anthropic.decode(&Frame {
+                event_name: Some("content_block_delta".to_string()),
+                data:
+                    r#"{"index":1,"delta":{"type":"input_json_delta","partial_json":"\"a.txt\"}"}}"#
+                        .to_string(),
+            }),
+        );
+        let final_chunk = match normalizer.push(Anthropic.decode(&Frame {
+            event_name: Some("message_delta".to_string()),
+            data: r#"{"delta":{"stop_reason":"tool_use"},"usage":{"input_tokens":9,"output_tokens":4}}"#
+                .to_string(),
+        })) {
+            crate::http::chunks::PushOutcome::Chunk(chunk) => chunk,
+            other => panic!("tool_use 终止必须产出终结 chunk：{other:?}"),
+        };
+        assert_eq!(final_chunk.finish_reason.as_deref(), Some("tool_use"));
+        let calls = &final_chunk.tool_calls;
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].id, "toolu_1");
+        assert_eq!(calls[0].name, "read_file");
+        assert_eq!(calls[0].arguments, r#"{"path":"a.txt"}"#);
+    }
+
+    /// ADR-088／FR-797：Anthropic 请求侧——assistant 的 `tool_use` 块与 tool 结果
+    /// 的 `tool_result` 块（按 tool_use_id 关联）；相邻 tool 结果合并进同一 user。
+    #[test]
+    fn anthropic_request_serializes_tool_use_and_result_blocks() {
+        let mut multi = multi_message_request();
+        multi
+            .messages
+            .push(crate::provider::LlmMessage::assistant_with_tool_calls(
+                "",
+                vec![crate::provider::LlmToolCall {
+                    id: "toolu_9".to_string(),
+                    name: "read_file".to_string(),
+                    arguments: r#"{"path":"a.txt"}"#.to_string(),
+                }],
+            ));
+        multi
+            .messages
+            .push(crate::provider::LlmMessage::tool_result(
+                "toolu_9",
+                "文件内容",
+            ));
+        let body = Anthropic
+            .request_body(&multi, &profile(Protocol::Anthropic))
+            .expect("body");
+        let value: Value = serde_json::from_str(&body).expect("JSON");
+        let assistant = value["messages"]
+            .as_array()
+            .expect("数组")
+            .iter()
+            .find(|m| m["role"] == "assistant" && m["content"].is_array())
+            .expect("assistant 工具消息");
+        assert_eq!(assistant["content"][0]["type"], "tool_use");
+        assert_eq!(assistant["content"][0]["id"], "toolu_9");
+        assert_eq!(assistant["content"][0]["input"]["path"], "a.txt");
+        let tool = value["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["content"].is_array() && m["content"][0]["type"] == "tool_result")
+            .expect("tool_result 消息");
+        assert_eq!(tool["content"][0]["tool_use_id"], "toolu_9");
+        assert_eq!(tool["content"][0]["content"], "文件内容");
+    }
+
+    /// ADR-088／FR-797：Gemini functionCall 解码（无调用 ID——以函数名合成）
+    /// 与请求侧 functionResponse（tool_call_id 承载函数名）。
+    #[test]
+    fn gemini_function_call_decode_and_function_response_request() {
+        let frame = Gemini.decode(&frame(
+            r#"{"candidates":[{"content":{"parts":[{"functionCall":{"name":"read_file","args":{"path":"a.txt"}}}]}}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3}}"#,
+        ));
+        match frame {
+            DecodeOutcome::DeltaAndFinish { tool_fragments, .. } => {
+                assert_eq!(tool_fragments.len(), 1, "functionCall 必须产出片段");
+                assert_eq!(tool_fragments[0].id.as_deref(), Some("read_file"));
+                assert_eq!(tool_fragments[0].name.as_deref(), Some("read_file"));
+            }
+            other => panic!("functionCall 帧不得为空：{other:?}"),
+        }
+        let mut multi = multi_message_request();
+        multi
+            .messages
+            .push(crate::provider::LlmMessage::tool_result(
+                "read_file",
+                "文件内容",
+            ));
+        let body = Gemini
+            .request_body(&multi, &profile(Protocol::Gemini))
+            .expect("body");
+        let value: Value = serde_json::from_str(&body).expect("JSON");
+        let response = value["contents"]
+            .as_array()
+            .expect("contents")
+            .iter()
+            .find(|c| {
+                c["parts"]
+                    .as_array()
+                    .is_some_and(|parts| parts[0].get("functionResponse").is_some())
+            })
+            .expect("functionResponse 内容");
+        assert_eq!(response["role"], "model");
+        assert_eq!(
+            response["parts"][0]["functionResponse"]["name"],
+            "read_file"
+        );
+        assert_eq!(
+            response["parts"][0]["functionResponse"]["response"]["result"],
+            "文件内容"
         );
     }
 
@@ -870,6 +1272,7 @@ mod tests {
         assert_eq!(
             delta,
             DecodeOutcome::Delta {
+                tool_fragments: Vec::new(),
                 text: "你好".to_string()
             }
         );
@@ -879,6 +1282,7 @@ mod tests {
         ));
         match finish {
             DecodeOutcome::DeltaAndFinish {
+                tool_fragments: _,
                 text,
                 reason,
                 usage,
@@ -921,6 +1325,7 @@ mod tests {
         assert_eq!(
             delta,
             DecodeOutcome::Delta {
+                tool_fragments: Vec::new(),
                 text: "段落".to_string()
             }
         );
@@ -954,6 +1359,7 @@ mod tests {
         assert_eq!(
             delta,
             DecodeOutcome::Delta {
+                tool_fragments: Vec::new(),
                 text: "G".to_string()
             }
         );
@@ -975,6 +1381,7 @@ mod tests {
         assert_eq!(
             delta,
             DecodeOutcome::Delta {
+                tool_fragments: Vec::new(),
                 text: "O".to_string()
             }
         );
@@ -984,6 +1391,7 @@ mod tests {
         ));
         match finish {
             DecodeOutcome::DeltaAndFinish {
+                tool_fragments: _,
                 text,
                 reason,
                 usage,
@@ -1011,6 +1419,7 @@ mod tests {
         assert_eq!(
             delta,
             DecodeOutcome::Delta {
+                tool_fragments: Vec::new(),
                 text: "C".to_string()
             }
         );

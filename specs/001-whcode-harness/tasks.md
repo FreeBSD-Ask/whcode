@@ -2784,3 +2784,40 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   **取证（2026-11-19）**：`cargo test -p whcode-gui` 36 通过（新增
   `chat_cancel_uses_pregenerated_request_id`：桩记录断言提交→执行器收到同一 ID→取消
   携带同一 ID→完成后复位）；clippy（-D warnings）与 fmt 绿；Check 477。
+
+## Tasks（2026-11-19 追加）：真实协议工具调用双向接线（ADR-088，P0）
+
+- [x] T384 ADR-088 立项与 FR-797 登记：认知卡、四族解码/装配决策、已知限制
+  （跨轮持久化／tools 参数转换／合成 ID）、三重时间与复审触发
+  （开工前置：任务认知卡，见 ADR-088 §任务认知卡）
+  **取证（2026-11-19）**：`docs/adr/ADR-088-real-protocol-tool-calls.md`（含已知限制
+  承载节，`check-adr-limits.py` OK）；FR-797 入 spec（追溯无断链）。
+- [x] T385 LlmMessage 扩展与 turn 回填接线：`tool_calls`／`tool_call_id` 字段与
+  便捷构造；assistant 回填携带 `step_tool_calls`、工具结果回填携带 `tool_call.id`
+  （ADR-088 决策 1）
+  （开工前置：任务认知卡，见 ADR-088 §任务认知卡）
+  **取证（2026-11-19）**：28 处构造点全量迁移；`cargo test -p whcode-app` 288 通过。
+- [x] T386 OpenAI 族解码与请求装配：`delta.tool_calls` 分片提取＋ChunkNormalizer
+  跨帧累积（BTreeMap 保序、不完整调用丢弃）；`messages_flat` 三分支
+  （ADR-088 决策 2/3）
+  （开工前置：任务认知卡，见 ADR-088 §任务认知卡）
+  **取证（2026-11-19）**：`openai_tool_call_fragments_accumulate_into_final_chunk`
+  （三帧分片拼接＋用量帧收口）、`openai_request_serializes_tool_calls_and_tool_results`
+  两用例；`cargo test -p whcode-llm` 70 通过。
+- [x] T387 Anthropic／Gemini／Ollama 同层补齐：tool_use＋input_json_delta、
+  functionCall（无 ID 合成函数名）、message.tool_calls 解码；tool_result 块／
+  functionResponse parts 装配（相邻合并）（ADR-088 决策 2/3）
+  （开工前置：任务认知卡，见 ADR-088 §任务认知卡）
+  **取证（2026-11-19）**：`anthropic_tool_use_fragments_accumulate_into_final_chunk`、
+  `anthropic_request_serializes_tool_use_and_result_blocks`、
+  `gemini_function_call_decode_and_function_response_request` 三用例；单元级边界
+  （tools 参数转换未做）在 ADR-088 已知限制登记。
+- [x] T388 真模型端到端取证与字段测试②：SenseNova 实跑 read_file 全链（工具事件、
+  真实输出、integrity_gaps=0）；跨轮重载边界实测并登记 T389
+  （开工前置：任务认知卡，见 ADR-088 §任务认知卡）
+  **取证（2026-11-19）**：`artifacts/fieldtest2-2026-11-19.md`（turn 1 全链 GO；
+  turn 2 边界实证）；Check 478。
+- [ ] T389 跨轮工具链路持久化与重载：messages 表增 `tool_call_id` 持久化列
+  （schema v15）＋assistant 工具调用载荷落表＋load_context 重载构造（role:tool
+  带前置 assistant.tool_calls 锚点）；落地后重跑字段测试② turn 2
+  （开工前置：任务认知卡，见 ADR-088 已知限制①；本条为显式边界任务，未开工

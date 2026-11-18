@@ -391,6 +391,8 @@ pub fn fold_messages_for_budget(
     let mut result = Vec::with_capacity(fold_start + 1);
     result.extend(messages[..fold_start].iter().cloned());
     result.push(LlmMessage {
+        tool_calls: Vec::new(),
+        tool_call_id: None,
         role: Role::User,
         content: summary.clone(),
     });
@@ -610,19 +612,13 @@ mod tests {
 #[cfg(test)]
 mod fold_tests {
     use super::fold_messages_for_budget;
-    use whcode_llm::provider::{LlmMessage, Role};
+    use whcode_llm::provider::LlmMessage;
     fn user(text: &str) -> LlmMessage {
-        LlmMessage {
-            role: Role::User,
-            content: text.to_string(),
-        }
+        LlmMessage::user(text)
     }
 
     fn assistant(text: &str) -> LlmMessage {
-        LlmMessage {
-            role: Role::Assistant,
-            content: text.to_string(),
-        }
+        LlmMessage::assistant(text)
     }
 
     #[test]
