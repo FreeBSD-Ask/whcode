@@ -735,9 +735,10 @@ taskkill /T /F 口径）（P1）
     字段测试②（读链路已通、写链路 CUI 不可达的实证背景）；ADR-070（shell 双闸门）；
     ADR-064（审批 broker 四态）
   - 判据：Given `--approve workspace-write` 且模型声明 write_file，Then 文件真实产生
-    且审批审计落表；Given 无 `--approve`，Then 写类调用 fail-closed 与现状逐字一致；
-    Given 未知范围值，Then 结构化拒绝；Given `--approve process` 而无 shell.json
-    白名单，Then shell 仍 fail-closed
+    且审批决策落审计（Allow 也留痕——此前无闸门即无审计）；Given 无 `--approve`，
+    Then 行为与现状逐字一致（无闸门＝写直接执行、无审计——**不是** fail-closed，
+    前提修正见 ADR-090 修订记录）；Given 未知范围值，Then 结构化拒绝；Given
+    `--approve process` 而无 shell.json 白名单，Then shell 仍 Ask→unavailable
   - 证据：`crates/whcode-cui/src/cli.rs`（`--approve` 参数）、
     `crates/whcode-bin/src/cui_dispatch.rs`（授权策略构造与闸门接线）、
     `artifacts/fieldtest3-2026-11-19.md`（写链路 e2e）；Check 481

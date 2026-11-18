@@ -437,7 +437,12 @@ fn llm_command(
             let mut granted_write = false;
             let mut granted_process = false;
             for scope in approve {
-                match scope.as_str() {
+                // 缺省时 clap 的 default_value 产生空串项——空项＝未授权，跳过。
+                let scope = scope.trim();
+                if scope.is_empty() {
+                    continue;
+                }
+                match scope {
                     "workspace-write" => granted_write = true,
                     "process" => granted_process = true,
                     other => {

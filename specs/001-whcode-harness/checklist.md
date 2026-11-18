@@ -1499,12 +1499,14 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   四用例；CI 结论待推送后回填（ADR-037 口径）
 
 - [x] Check 481: [exercised] CUI 写类工具逐次显式授权：`--approve workspace-write`
-  下模型 write_file 经审批闸门 Allow（审计落表）真实产生文件；无 `--approve` 时写类
-  调用 fail-closed 与现状逐字一致（默认拒绝回归）；未知范围结构化拒绝；
-  `--approve process` 无白名单时 shell 仍 fail-closed（双闸门组合）
-  （来源：spec FR-798／Task T398／ADR-090）——**取证（2026-11-19）**：
-  clippy（-D warnings）绿；e2e 取证随 T399（`artifacts/fieldtest3-2026-11-19.md`，
-  待并行会话 gui WIP 收敛后重建 release 取证）；CI 结论随 T399 回填
+  下模型 write_file 经审批闸门 Allow（**审计落表**——此前无闸门即无审计）真实产生
+  文件；无 `--approve` 时行为与现状逐字一致（无闸门＝写直接执行、无审计——前提修正
+  见 ADR-090 修订记录：原“fail-closed”表述失真）；未知范围结构化拒绝；
+  `--approve process` 无白名单时 shell 仍 Ask→unavailable（双闸门组合）
+  （来源：spec FR-798／Task T398／ADR-090 修订）——**取证（2026-11-19）**：
+  `artifacts/fieldtest3-2026-11-19.md`（正例：note.md 逐字写入＋4 工具事件＋审计；
+  现状：无 --approve 时 blocked.md 同样产生——与代码事实一致，四端写姿态不对称
+  显式提交用户裁定）；CI 结论随 T399 回填
 
 - [x] Check 477: [exercised] GUI 对话取消确定性：提交前预生成 request_id（`llm-` 前缀）
   经 `GuiLlmExecutor::run_with_progress` 到达执行器且取消消息携带同一 ID；`ChatCancel`
