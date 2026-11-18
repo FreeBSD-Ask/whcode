@@ -228,6 +228,8 @@ mod tests {
             "DROP INDEX IF EXISTS idx_events_request",
             "DROP INDEX IF EXISTS idx_events_tool_call",
             "DROP INDEX IF EXISTS idx_file_preimages_session",
+            // v16（T389）：messages 两列挂在该索引下，撤列前先撤索引。
+            "DROP INDEX IF EXISTS idx_messages_session_ts_id",
         ] {
             conn.execute(index, []).expect("撤销 events 索引");
         }
@@ -236,6 +238,9 @@ mod tests {
             "ALTER TABLE sessions DROP COLUMN parent_id",
             "ALTER TABLE sessions DROP COLUMN forked_at_seq",
             "ALTER TABLE sessions DROP COLUMN inherited_event_count",
+            // v16（T389）：工具链路两列与索引一起撤销，保证迁移可重复应用。
+            "ALTER TABLE messages DROP COLUMN tool_call_id",
+            "ALTER TABLE messages DROP COLUMN tool_calls_json",
         ] {
             conn.execute(column, []).expect("撤销 v10 加列");
         }
