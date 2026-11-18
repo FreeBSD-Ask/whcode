@@ -776,16 +776,25 @@ jobs:
                   if [ -n "${core_file:-}" ]; then
                     echo "core_dumped=$core_file" >> "$a2_repo_pwd/artifacts/a2-diag/single-thread.txt"
                     bt_written=no
-                    if command -v lldb >/dev/null 2>&1 || pkg install -y lldb >/dev/null 2>&1; then
+                    bt_tool=""
+                    if command -v lldb >/dev/null 2>&1; then bt_tool=lldb
+                    elif command -v gdb >/dev/null 2>&1; then bt_tool=gdb
+                    elif pkg install -y gdb >/dev/null 2>&1 && command -v gdb >/dev/null 2>&1; then bt_tool=gdb
+                    fi
+                    if [ "$bt_tool" = lldb ]; then
                       lldb --batch --core "$core_file" -o 'thread list' -o 'bt all' -o quit \
                         -- "$a2_bin_abs" > "$a2_repo_pwd/artifacts/a2-diag/core-bt.txt" 2>&1 || true
                       bt_written=yes
+                    elif [ "$bt_tool" = gdb ]; then
+                      gdb --batch -ex 'info threads' -ex 'thread apply all bt' \
+                        "$a2_bin_abs" "$core_file" > "$a2_repo_pwd/artifacts/a2-diag/core-bt.txt" 2>&1 || true
+                      bt_written=yes
                     fi
                     if [ "$bt_written" = yes ]; then
-                      echo "core_bt=artifacts/a2-diag/core-bt.txt" >> "$a2_repo_pwd/artifacts/a2-diag/single-thread.txt"
+                      echo "core_bt=artifacts/a2-diag/core-bt.txt($bt_tool)" >> "$a2_repo_pwd/artifacts/a2-diag/single-thread.txt"
                       rm -f "$core_file"
                     else
-                      echo "core_bt=lldb_unavailable（核心保留于 /tmp/a2cores，本轮不回传）" \
+                      echo "core_bt=debugger_unavailable（无 lldb／gdb，核心保留于 /tmp/a2cores 本轮不回传）" \
                         >> "$a2_repo_pwd/artifacts/a2-diag/single-thread.txt"
                     fi
                   else
@@ -1502,7 +1511,9 @@ jobs:
             printf 'FreeBSD: {\n  url: "https://pkg.freebsd.org/${ABI}/latest",\n  signature_type: "fingerprints",\n  fingerprints: "/usr/share/keys/pkg"\n}\n' \
               > /usr/local/etc/pkg/repos/whcode-latest.conf
             pkg update -q
-            pkg install -y curl cmake ninja python3 pkgconf lldb
+            # 不装调试器：FreeBSD latest 仓库无独立 lldb 包（run 44344497893 实测，
+            # pkg 直接失败杀掉 prepare）；调试器在 run 期按 lldb→gdb 链路惰性解析。
+            pkg install -y curl cmake ninja python3 pkgconf
           run: |
             # 证据保全（同 platform 矩阵）：脚本主体放子 shell，失败只写标记并 exit 0，
             # 保证 copyback 发生；由宿主“校验取证证据链”步骤判定 summary 缺失。
@@ -1557,12 +1568,23 @@ jobs:
               cd "$repo"
               echo "$label#$idx rc=$rc" >> "$progress"
               if [ -n "${core_file:-}" ]; then
-                if command -v lldb >/dev/null 2>&1; then
-                  lldb --batch --core "$core_file" -o 'thread list' -o 'bt all' -o quit \
-                    -- "$a2_bin" > "$repo/$out/$prefix-$idx.bt.txt" 2>&1 || true
-                  echo "$label#$idx core=+ bt=captured" >> "$progress"
+                # 调试器解析：base 镜像的 lldb（若有）→ 仓库 gdb（必存在）→ pkg 装 gdb。
+                bt_tool=""
+                if command -v lldb >/dev/null 2>&1; then bt_tool=lldb
+                elif command -v gdb >/dev/null 2>&1; then bt_tool=gdb
+                elif pkg install -y gdb >/dev/null 2>&1 && command -v gdb >/dev/null 2>&1; then bt_tool=gdb
+                fi
+                if [ -n "$bt_tool" ]; then
+                  if [ "$bt_tool" = lldb ]; then
+                    lldb --batch --core "$core_file" -o 'thread list' -o 'bt all' -o quit \
+                      -- "$a2_bin" > "$repo/$out/$prefix-$idx.bt.txt" 2>&1 || true
+                  else
+                    gdb --batch -ex 'info threads' -ex 'thread apply all bt' \
+                      "$a2_bin" "$core_file" > "$repo/$out/$prefix-$idx.bt.txt" 2>&1 || true
+                  fi
+                  echo "$label#$idx core=+ bt=captured($bt_tool)" >> "$progress"
                 else
-                  echo "$label#$idx core=+ bt=lldb_unavailable（核心留在 /tmp/a2cores）" >> "$progress"
+                  echo "$label#$idx core=+ bt=debugger_unavailable（无 lldb／gdb 可用）" >> "$progress"
                 fi
                 rm -f "$core_file"
                 touch "$repo/$out/crash.flag"
@@ -1602,10 +1624,13 @@ jobs:
             done
 
             echo "phase=done at=$(date -u +%FT%TZ)" >> "$progress"
+            bt_count=$(ls "$out"/*.bt.txt 2>/dev/null | wc -l | tr -d ' ')
             if [ "$st_crashed$par_crashed" = "nono" ]; then
               echo "a2_diag_result=NOT_REPRODUCED（本轮全部迭代未复现——正确的空，非前置缺失）" >> "$progress"
+            elif [ "$bt_count" -gt 0 ]; then
+              echo "a2_diag_result=CRASH_REPRODUCED（核心回溯文本 $bt_count 份已随 artifact 上传）" >> "$progress"
             else
-              echo "a2_diag_result=CRASH_REPRODUCED（核心回溯文本已随 artifact 上传）" >> "$progress"
+              echo "a2_diag_result=PARTIAL（复现了崩溃但未产出回溯——查 summary 的 bt= 行，属前置缺失）" >> "$progress"
             fi
             )
             exit 0
