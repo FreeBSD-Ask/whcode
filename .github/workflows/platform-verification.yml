@@ -616,13 +616,26 @@ jobs:
             mkdir -p /usr/local/etc/pkg/repos
             printf 'FreeBSD: {\n  url: "https://pkg.freebsd.org/${ABI}/latest",\n  signature_type: "fingerprints",\n  fingerprints: "/usr/share/keys/pkg"\n}\n' \
               > /usr/local/etc/pkg/repos/whcode-latest.conf
-            pkg update -q
-            # GUI 编译期系统依赖（run 40159516841 的 25 个编译错误即缺这组包，
+            # pkg 镜像（pkg.freebsd.org 经 geo 跳转 pkgmir.geo）对 GitHub 段间歇不可达：
+            # run 44354167222／44361953748 两连红均死于 packagesite／meta.txz 拉取失败
+            # （同 run 并行 lane 的 pkg 却成功＝瞬时抖动）。三次退避重试吸收之。
+            # 包清单为 GUI 编译期系统依赖（run 40159516841 的 25 个编译错误即缺这组包，
             # 不是 iced 不支持 BSD）：iced→winit→x11/xkbcommon；字体栈→fontconfig/
             # freetype2；软件光栅 present→libX11。全部来自 ports／latest pkg。
-            pkg install -y curl cmake ninja python3 pkgconf \
-              libX11 libXcursor libXrandr libXi libxkbcommon \
-              fontconfig freetype2 wayland
+            pkg_try=1
+            while true; do
+              if pkg update -q && pkg install -y curl cmake ninja python3 pkgconf \
+                libX11 libXcursor libXrandr libXi libxkbcommon \
+                fontconfig freetype2 wayland; then
+                break
+              fi
+              if [ "$pkg_try" -ge 3 ]; then
+                echo "pkg 三次尝试均失败（pkgmir.geo 间歇不可达，属基础设施）"
+                exit 1
+              fi
+              pkg_try=$((pkg_try + 1))
+              sleep 30
+            done
           run: |
             # 证据保全（2026-11-03）：vmactions 的 copyback（rsync 回宿主）是 action
             # 内部的**后置步骤**，VM 脚本非零退出会让它被跳过——run 41529766439 实测：
@@ -1510,10 +1523,21 @@ jobs:
             mkdir -p /usr/local/etc/pkg/repos
             printf 'FreeBSD: {\n  url: "https://pkg.freebsd.org/${ABI}/latest",\n  signature_type: "fingerprints",\n  fingerprints: "/usr/share/keys/pkg"\n}\n' \
               > /usr/local/etc/pkg/repos/whcode-latest.conf
-            pkg update -q
             # 不装调试器：FreeBSD latest 仓库无独立 lldb 包（run 44344497893 实测，
             # pkg 直接失败杀掉 prepare）；调试器在 run 期按 lldb→gdb 链路惰性解析。
-            pkg install -y curl cmake ninja python3 pkgconf
+            # 同款网络抖动重试（platform 矩阵 prepare 注释）。
+            pkg_try=1
+            while true; do
+              if pkg update -q && pkg install -y curl cmake ninja python3 pkgconf; then
+                break
+              fi
+              if [ "$pkg_try" -ge 3 ]; then
+                echo "pkg 三次尝试均失败（pkgmir.geo 间歇不可达，属基础设施）"
+                exit 1
+              fi
+              pkg_try=$((pkg_try + 1))
+              sleep 30
+            done
           run: |
             # 证据保全（同 platform 矩阵）：脚本主体放子 shell，失败只写标记并 exit 0，
             # 保证 copyback 发生；由宿主“校验取证证据链”步骤判定 summary 缺失。
