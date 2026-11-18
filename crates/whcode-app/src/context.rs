@@ -13,6 +13,7 @@
 
 use duckdb::Connection;
 use whcode_domain::{ErrorCode, WhError};
+use whcode_llm::provider::{LlmMessage, LlmToolCall};
 use whcode_store::query::{self, MessageCursor};
 
 use crate::authz::{Actor, Capability, Policy, require};
@@ -65,6 +66,96 @@ fn invalid(context: impl Into<String>) -> WhError {
 /// # Errors
 ///
 /// 权限拒绝或存储失败时返回 [`WhError`]。
+/// 跨轮历史注入（T389／FR-797／ADR-088）：按预算装载会话尾部消息为请求视图。
+///
+/// 与 [`load_context`] 的差异：`load_context` 是表口径压力信号（正序、预算耗尽即截），
+/// 本函数是**请求视图**——取**最近的**历史（倒序装载到预算耗尽为止，再转正序），
+/// 供 turn 循环在装配 system 消息之后、新 prompt 之前注入；assistant 的模型工具
+/// 调用与 tool 结果按落表链路成对重载（`tool_calls_json`／`tool_call_id`）。
+/// 剪枝边界与 [`load_context`] 同口径（被剪掉的消息不进历史）；tool_calls_json
+/// 解析失败按无调用处理（不伪造链路，落表侧有 integrity 通道）。
+///
+/// # Errors
+///
+/// 查询失败返回 [`WhError`]。
+pub fn history_messages(
+    conn: &Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    session_id: &str,
+    budget_tokens: usize,
+) -> Result<Vec<LlmMessage>, WhError> {
+    require(policy, actor, Capability::SessionRead)?;
+    let boundary = crate::rewind::active_boundary(conn, session_id)?;
+    let mut collected: Vec<(i64, String, LlmMessage)> = Vec::new();
+    let mut consumed = 0usize;
+    let mut cursor: Option<MessageCursor> = None;
+    loop {
+        let page = query::messages_page(
+            conn,
+            session_id,
+            whcode_store::Direction::Backward,
+            cursor.take(),
+            CONTEXT_PAGE_SIZE,
+        )?;
+        if page.items.is_empty() {
+            break;
+        }
+        for message in &page.items {
+            if let Some(seq) = crate::rewind::message_seq(&message.id)
+                && !crate::rewind::seq_is_active(seq, boundary)
+            {
+                continue;
+            }
+            let tokens = message.token_count.unwrap_or(0).max(0) as usize;
+            if consumed + tokens > budget_tokens {
+                // 预算耗尽：更早的历史不再装载（尾部优先）。
+                return Ok(finish_seed(std::mem::take(&mut collected)));
+            }
+            consumed += tokens;
+            cursor = Some(MessageCursor {
+                ts_us: message.ts_us,
+                id: message.id.clone(),
+            });
+            collected.push((message.ts_us, message.id.clone(), message_to_llm(&message)));
+        }
+    }
+    Ok(finish_seed(collected))
+}
+
+/// 把倒序收集的历史转正序（收集时自带时间与 ID，按原顺序反转即可）。
+fn finish_seed(collected: Vec<(i64, String, LlmMessage)>) -> Vec<LlmMessage> {
+    let mut items: Vec<LlmMessage> = collected
+        .into_iter()
+        .map(|(_, _, message)| message)
+        .collect();
+    items.reverse();
+    items
+}
+
+/// 单条消息行 → 请求消息（含工具链路重载；解析失败按无调用处理，不伪造）。
+fn message_to_llm(message: &whcode_store::MessageRow) -> LlmMessage {
+    match message.role.as_str() {
+        "tool" => LlmMessage::tool_result(
+            message.tool_call_id.clone().unwrap_or_default(),
+            message.content_ref.clone(),
+        ),
+        "assistant" => {
+            let calls: Vec<LlmToolCall> = message
+                .tool_calls_json
+                .as_deref()
+                .and_then(|raw| serde_json::from_str(raw).ok())
+                .unwrap_or_default();
+            if calls.is_empty() {
+                LlmMessage::assistant(message.content_ref.clone())
+            } else {
+                LlmMessage::assistant_with_tool_calls(message.content_ref.clone(), calls)
+            }
+        }
+        _ => LlmMessage::user(message.content_ref.clone()),
+    }
+}
+
 pub fn load_context(
     conn: &Connection,
     policy: &dyn Policy,
@@ -606,6 +697,103 @@ mod tests {
                 .expect("无指针")
                 .is_none()
         );
+    }
+}
+
+#[cfg(test)]
+mod history_tests {
+    use super::history_messages;
+    use whcode_llm::provider::{LlmMessage, Role};
+    use whcode_store::turn::{TurnEventDraft, TurnMessageDraft, append_turn};
+
+    fn migrated() -> duckdb::Connection {
+        let conn = duckdb::Connection::open_in_memory().expect("内存库");
+        whcode_store::apply_migrations(&conn).expect("迁移");
+        conn
+    }
+
+    /// T389／FR-797：历史注入按落表链路成对重载——assistant 携带模型工具调用，
+    /// tool 消息携带关联 ID；空会话为正确的空。
+    #[test]
+    fn history_seeds_tool_linkage_pairs() {
+        let mut conn = migrated();
+        whcode_store::directory::create_session_with_id(
+            &mut conn,
+            "S-1",
+            "工具链路",
+            "active",
+            1_000,
+        )
+        .expect("创建会话");
+        let drafts = [
+            TurnMessageDraft {
+                role: "user",
+                content: "读文件".to_string(),
+                token_count: Some(2),
+                parent_id: None,
+                tool_call_id: None,
+                tool_calls_json: None,
+            },
+            TurnMessageDraft {
+                role: "assistant",
+                content: String::new(),
+                token_count: Some(1),
+                parent_id: None,
+                tool_call_id: None,
+                tool_calls_json: Some(
+                    r#"[{"id":"call-1","name":"read_file","arguments":"{}"}]"#.to_string(),
+                ),
+            },
+            TurnMessageDraft {
+                role: "tool",
+                content: "文件内容".to_string(),
+                token_count: Some(4),
+                parent_id: None,
+                tool_call_id: Some("call-1".to_string()),
+                tool_calls_json: None,
+            },
+        ];
+        let events = Vec::new();
+        append_turn(&mut conn, "S-1", &events, &drafts).expect("落表");
+        let policy = crate::authz::DefaultPolicy;
+        let actor = crate::authz::actor_with_all_capabilities("tester");
+        let history = history_messages(&conn, &policy, &actor, "S-1", 4_000).expect("装载");
+        assert_eq!(history.len(), 3, "三条历史全部装载");
+        assert_eq!(history[0].role, Role::User);
+        assert_eq!(history[1].role, Role::Assistant);
+        assert_eq!(history[1].tool_calls.len(), 1, "assistant 重载声明调用");
+        assert_eq!(history[1].tool_calls[0].id, "call-1");
+        assert_eq!(history[2].role, Role::Tool);
+        assert_eq!(
+            history[2].tool_call_id.as_deref(),
+            Some("call-1"),
+            "tool 结果重载关联 ID"
+        );
+    }
+
+    /// T389：预算尾部语义——预算只够最近两条时，最早一条不进历史（正确的空）。
+    #[test]
+    fn history_budget_keeps_recent_tail() {
+        let mut conn = migrated();
+        whcode_store::directory::create_session_with_id(&mut conn, "S-2", "尾部", "active", 1_000)
+            .expect("创建会话");
+        let drafts: Vec<TurnMessageDraft> = (0..3)
+            .map(|_index| TurnMessageDraft {
+                role: "user",
+                content: "x".repeat(40),
+                token_count: Some(10),
+                parent_id: None,
+                tool_call_id: None,
+                tool_calls_json: None,
+            })
+            .collect();
+        let events = Vec::new();
+        append_turn(&mut conn, "S-2", &events, &drafts).expect("落表");
+        let policy = crate::authz::DefaultPolicy;
+        let actor = crate::authz::actor_with_all_capabilities("tester");
+        let history = history_messages(&conn, &policy, &actor, "S-2", 20).expect("装载");
+        assert_eq!(history.len(), 2, "预算 20 只装两条最近历史");
+        assert_eq!(history[0].role, Role::User);
     }
 }
 

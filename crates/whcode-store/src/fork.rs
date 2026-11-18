@@ -277,8 +277,8 @@ pub fn fork_session(
         let new_seq = base;
         let inserted = tx
             .execute(
-                "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
-                 SELECT ?, ?, role, content_ref, token_count, ts, parent_id
+                "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts,                  parent_id, tool_call_id, tool_calls_json)
+                 SELECT ?, ?, role, content_ref, token_count, ts, parent_id,                  tool_call_id, tool_calls_json
                  FROM messages WHERE id = ?",
                 params![format!("MSG-{new_seq}"), new_id, origin],
             )
@@ -346,8 +346,8 @@ mod tests {
 
     fn message(conn: &Connection, seq: i64, role: &str, content: &str) {
         conn.execute(
-            "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
-             VALUES (?, 'S-9001', ?, ?, 0, epoch_ms(?), NULL)",
+            "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts,                  parent_id, tool_call_id, tool_calls_json)
+             VALUES (?, 'S-9001', ?, ?, 0, epoch_ms(?), NULL, NULL, NULL)",
             params![format!("MSG-{seq}"), role, content, 1000 + seq],
         )
         .expect("消息");
@@ -519,6 +519,8 @@ mod tests {
             &outcome.session.id,
             &draft,
             &[TurnMessageDraft {
+                tool_call_id: None,
+                tool_calls_json: None,
                 role: "user",
                 content: "分叉后第一问".to_string(),
                 token_count: Some(8),

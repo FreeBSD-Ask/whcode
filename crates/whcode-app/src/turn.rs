@@ -224,6 +224,12 @@ impl TurnPersister {
                 // turn 自身的输出增长（R2 引入、重构中丢失，本批恢复并回归固化）。
                 token_count: Some((m.content.chars().count() as i64 / 4).max(1)),
                 parent_id: None,
+                // T389／ADR-088：工具链路落表——tool 消息携带关联 ID，assistant
+                // 携带模型声明的调用数组（JSON 文本，落 VARIANT 列）。
+                tool_call_id: m.tool_call_id.clone(),
+                tool_calls_json: (!m.tool_calls.is_empty())
+                    .then(|| serde_json::to_string(&m.tool_calls).ok())
+                    .flatten(),
             })
             .collect();
         append_turn(conn, &self.session, pending_events, &message_drafts)?;
@@ -596,6 +602,23 @@ fn run_turn_inner(
             ),
         }),
     }
+    let mut seeded_history: usize = 0;
+    // ── 跨轮历史注入（T389／FR-797／ADR-088）────────────────────────────
+    // system 消息之后、新 prompt 之前装载会话尾部历史（预算内取最近）；
+    // 工具链路按落表字段成对重载（assistant.tool_calls → role:tool）。
+    // 装载失败不阻断 turn（历史不可得按单轮处理——错误的空比崩溃可操作）。
+    let history_seed_error: Option<WhError> =
+        match crate::context::history_messages(conn, policy, actor, session, budget_tokens) {
+            Ok(history) => {
+                seeded_history = history.len();
+                messages.extend(history);
+                None
+            }
+            Err(err) => Some(err),
+        };
+    // 持久化指针基线＝当前 Vec 长度（system 每轮重派生不落表；历史已落表）——
+    // 之后的增量（新 prompt、assistant、tool 结果）才由 flush 写入。
+    let already_persisted_len = messages.len();
     messages.push(LlmMessage {
         tool_calls: Vec::new(),
         tool_call_id: None,
@@ -605,7 +628,7 @@ fn run_turn_inner(
     let mut pending_events: Vec<TurnEventDraft> = Vec::new();
     let mut persister = TurnPersister {
         session: session.to_string(),
-        persisted: 0,
+        persisted: already_persisted_len,
     };
     let mut envelope: Vec<Value> = Vec::new();
     let mut iterations: u32 = 0;
@@ -639,6 +662,16 @@ fn run_turn_inner(
         }};
     }
 
+    // ── 历史装载失败：可观测缺口显式事件（T389——错误的空不静默）──────
+    if let Some(err) = &history_seed_error {
+        emit!(
+            EventKind::ContextState,
+            "iteration": 0,
+            "budget_tokens": budget_tokens,
+            "history_seed_failed": true,
+            "error_code": err.code.as_str(),
+        );
+    }
     // ── turn 边界先落（T270／FR-760／ADR-060 项 G）──────────────────────
     // 先于任何模型调用与消息落表单独提交：崩溃时 turn 边界可见，未成对即按 interrupted 判定。
     // 单独一次事务（不含消息草稿），不与后续迭代事件同批——这是本条的判据。
@@ -3858,6 +3891,73 @@ description: 指南
     /// T287／FR-774：模型进入计划模式 → 落一条 `PlanModeChanged`（source=model）；
     /// 下一 turn 收到引导段（软引导，不阻止工具）。
     #[test]
+    /// T389／FR-797／ADR-088：第二轮请求必须注入第一轮历史（含工具链路成对）——
+    /// assistant 声明调用、tool 结果带关联 ID、两轮 user 俱全（多轮工具记忆）。
+    #[test]
+    fn second_turn_seeds_history_with_tool_linkage() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("turn-test");
+        let policy = DefaultPolicy;
+        let registry = registry();
+        let dir = temp_dir("history-seed");
+        let requests = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let factory1 = RecordingFactory {
+            provider: RecordingProvider {
+                inner: StubProvider::with_script(vec![
+                    StubStep {
+                        chunks: vec!["读取文件".to_string()],
+                        finish_reason: "tool_call".to_string(),
+                        tool_calls: vec![LlmToolCall {
+                            id: "call-1".to_string(),
+                            name: "read_file".to_string(),
+                            arguments: r#"{"path":"src/lib.rs"}"#.to_string(),
+                        }],
+                    },
+                    StubStep::simple("读完了", "stop"),
+                ]),
+                requests: std::sync::Arc::clone(&requests),
+            },
+        };
+        let ctx1 = context(&registry, &factory1, &dir);
+        let id = session(&mut conn);
+        let mut req1 = request(&id, "读一下文件");
+        req1.workspace_root = Some(dir.clone());
+        run_turn(&mut conn, &policy, &actor, &ctx1, &req1, 41).expect("第一轮");
+
+        // 第二轮：纯文本步；其请求消息必须包含第一轮的 user/assistant/tool 链路。
+        let factory2 = RecordingFactory {
+            provider: RecordingProvider {
+                inner: StubProvider::with_script(vec![StubStep::simple("记住了", "stop")]),
+                requests: std::sync::Arc::clone(&requests),
+            },
+        };
+        let ctx2 = context(&registry, &factory2, &dir);
+        let req2 = request(&id, "刚才读了什么");
+        run_turn(&mut conn, &policy, &actor, &ctx2, &req2, 42).expect("第二轮");
+
+        let captured = requests.lock().expect("请求记录锁");
+        // 第一轮 2 次模型步（工具步＋续答步）＋第二轮 1 次＝3 条请求记录。
+        assert!(captured.len() >= 3, "记录数：{}", captured.len());
+        let second_run = &captured[2];
+        let has_user1 = second_run
+            .iter()
+            .any(|m| m.role == Role::User && m.content == "读一下文件");
+        let has_assistant_call = second_run.iter().any(|m| {
+            m.role == Role::Assistant && m.tool_calls.iter().any(|call| call.id == "call-1")
+        });
+        let has_tool_result = second_run
+            .iter()
+            .any(|m| m.role == Role::Tool && m.tool_call_id.as_deref() == Some("call-1"));
+        let has_user2 = second_run
+            .iter()
+            .any(|m| m.role == Role::User && m.content == "刚才读了什么");
+        assert!(has_user1, "第一轮 user 必须在第二轮请求中");
+        assert!(has_assistant_call, "assistant 工具调用必须成对重载");
+        assert!(has_tool_result, "tool 结果必须携带关联 ID 重载");
+        assert!(has_user2, "新 prompt 必须在历史之后");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     fn plan_mode_activation_records_state_and_injects_guidance_next_turn() {
         let mut conn = migrated();
         let actor = actor_with_all_capabilities("turn-test");

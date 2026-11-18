@@ -778,6 +778,8 @@ mod tests {
                 },
             ],
             &[whcode_store::TurnMessageDraft {
+                tool_call_id: None,
+                tool_calls_json: None,
                 role: "assistant",
                 content: "边界轮回复".to_string(),
                 token_count: Some(6),

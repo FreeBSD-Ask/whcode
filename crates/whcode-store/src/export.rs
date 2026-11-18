@@ -825,8 +825,8 @@ mod tests {
             .expect("插入事件");
         }
         conn.execute(
-            "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
-             VALUES ('M-1', ?, 'user', 'ref', 7, current_timestamp, NULL)",
+            "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts,                  parent_id, tool_call_id, tool_calls_json)
+             VALUES ('M-1', ?, 'user', 'ref', 7, current_timestamp, NULL, NULL, NULL)",
             params![session_id],
         )
         .expect("插入消息");
@@ -983,6 +983,8 @@ mod tests {
                 },
             ],
             &[TurnMessageDraft {
+                tool_call_id: None,
+                tool_calls_json: None,
                 role: "assistant",
                 content: "边界轮回复".to_string(),
                 token_count: Some(6),

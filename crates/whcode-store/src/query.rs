@@ -98,6 +98,10 @@ pub struct MessageRow {
     pub ts_us: i64,
     /// 父消息 ID。
     pub parent_id: Option<String>,
+    /// 工具结果关联的调用 ID（T389／ADR-088；非 tool 消息为 `None`）。
+    pub tool_call_id: Option<String>,
+    /// assistant 声明的工具调用数组（JSON 文本；无则 `None`）。
+    pub tool_calls_json: Option<String>,
 }
 
 /// 消息页。
@@ -132,8 +136,7 @@ const EVENT_COLUMNS: &str = "seq, id, session_id, task_id, request_id, tool_call
      CAST(CAST(payload_json AS JSON) AS VARCHAR) AS payload_json, epoch_us(ts), \
      persistence_level";
 
-const MESSAGE_COLUMNS: &str =
-    "id, session_id, role, content_ref, token_count, epoch_us(ts), parent_id";
+const MESSAGE_COLUMNS: &str = "id, session_id, role, content_ref, token_count, epoch_us(ts),     parent_id, tool_call_id, CAST(CAST(tool_calls_json AS JSON) AS VARCHAR) AS tool_calls_json_text";
 
 /// 查询某会话的事件页。
 ///
@@ -423,6 +426,8 @@ pub fn messages_page(
                 token_count: row.get(4)?,
                 ts_us: row.get(5)?,
                 parent_id: row.get(6)?,
+                tool_call_id: row.get(7)?,
+                tool_calls_json: row.get(8)?,
             })
         })
         .map_err(query_err)?;

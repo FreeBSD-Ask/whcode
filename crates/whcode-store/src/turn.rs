@@ -156,6 +156,11 @@ pub struct TurnMessageDraft {
     pub token_count: Option<i64>,
     /// 父消息（可空）。
     pub parent_id: Option<String>,
+    /// 工具结果关联的调用 ID（T389／ADR-088：`role == "tool"` 时携带）。
+    pub tool_call_id: Option<String>,
+    /// assistant 声明的工具调用数组（JSON 文本；T389：`role == "assistant"`
+    /// 且模型请求工具时携带，落 VARIANT 列）。
+    pub tool_calls_json: Option<String>,
 }
 
 /// 追加结果：本次事务分配到的 seq（事件与消息混排，升序）。
@@ -264,8 +269,8 @@ pub fn append_turn(
     for message in messages {
         seq += 1;
         tx.execute(
-            "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
-             VALUES (?, ?, ?, ?, ?, current_timestamp, ?)",
+            "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts,              parent_id, tool_call_id, tool_calls_json)
+             VALUES (?, ?, ?, ?, ?, current_timestamp, ?, ?,              CAST(? AS JSON)::VARIANT)",
             duckdb::params![
                 format!("MSG-{seq}"),
                 session,
@@ -273,6 +278,8 @@ pub fn append_turn(
                 message.content,
                 message.token_count,
                 message.parent_id,
+                message.tool_call_id,
+                message.tool_calls_json,
             ],
         )
         .map_err(|err| turn_err("写入 turn 消息", err))?;
@@ -285,6 +292,63 @@ pub fn append_turn(
 
 #[cfg(test)]
 mod tests {
+    /// T389／FR-797：工具链路写读往返——tool 消息携带 tool_call_id、assistant
+    /// 携带 tool_calls_json，messages_page 原样读回（schema v16 列）。
+    #[test]
+    fn tool_linkage_roundtrips_through_messages() {
+        let mut conn = migrated();
+        crate::directory::create_session_with_id(&mut conn, "S-1", "工具链路", "active", 1_000)
+            .expect("创建会话");
+        let drafts = [
+            TurnMessageDraft {
+                role: "user",
+                content: "读文件".to_string(),
+                token_count: Some(2),
+                parent_id: None,
+                tool_call_id: None,
+                tool_calls_json: None,
+            },
+            TurnMessageDraft {
+                role: "assistant",
+                content: String::new(),
+                token_count: Some(1),
+                parent_id: None,
+                tool_call_id: None,
+                tool_calls_json: Some(
+                    r#"[{"id":"call-1","name":"read_file","arguments":"{}"}]"#.to_string(),
+                ),
+            },
+            TurnMessageDraft {
+                role: "tool",
+                content: "文件内容".to_string(),
+                token_count: Some(4),
+                parent_id: None,
+                tool_call_id: Some("call-1".to_string()),
+                tool_calls_json: None,
+            },
+        ];
+        let events = Vec::new();
+        append_turn(&mut conn, "S-1", &events, &drafts).expect("落表");
+        let page = crate::query::messages_page(&conn, "S-1", crate::Direction::Forward, None, 50)
+            .expect("读回");
+        assert_eq!(page.items.len(), 3);
+        // VARIANT 列会规范化 JSON 键序——断言用结构化比较（键序无关）。
+        let calls: Vec<Value> = serde_json::from_str(
+            page.items[1]
+                .tool_calls_json
+                .as_deref()
+                .expect("tool_calls_json"),
+        )
+        .expect("JSON");
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0]["id"], "call-1");
+        assert_eq!(calls[0]["name"], "read_file");
+        assert_eq!(calls[0]["arguments"], "{}");
+        assert_eq!(page.items[2].tool_call_id.as_deref(), Some("call-1"));
+        assert_eq!(page.items[0].tool_calls_json, None);
+        assert_eq!(page.items[0].tool_call_id, None);
+    }
+
     use super::*;
     use serde_json::json;
     use whcode_domain::ErrorCode;
@@ -387,12 +451,16 @@ mod tests {
             ],
             &[
                 TurnMessageDraft {
+                    tool_call_id: None,
+                    tool_calls_json: None,
                     role: "user",
                     content: "你好".to_string(),
                     token_count: Some(1),
                     parent_id: None,
                 },
                 TurnMessageDraft {
+                    tool_call_id: None,
+                    tool_calls_json: None,
                     role: "assistant",
                     content: "回复".to_string(),
                     token_count: Some(1),
@@ -452,6 +520,8 @@ mod tests {
             "S-x",
             &[],
             &[TurnMessageDraft {
+                tool_call_id: None,
+                tool_calls_json: None,
                 role: "system",
                 content: "s".to_string(),
                 token_count: None,
@@ -506,6 +576,8 @@ mod tests {
                 payload: json!({ "n": 2 }),
             }],
             &[TurnMessageDraft {
+                tool_call_id: None,
+                tool_calls_json: None,
                 role: "assistant",
                 content: "y".repeat(MAX_TURN_MESSAGE_BYTES + 1),
                 token_count: None,

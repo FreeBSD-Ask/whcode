@@ -144,7 +144,7 @@ impl LlmMessage {
 }
 
 /// 模型声明的工具调用（FR-718/FR-724；P0-1 由 StubProvider 剧本产生，真实协议解析属 P0-2）。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LlmToolCall {
     /// 调用 ID（回传 `role: tool` 结果时关联）。
     pub id: String,
