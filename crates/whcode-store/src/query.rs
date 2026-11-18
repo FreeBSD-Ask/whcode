@@ -238,6 +238,36 @@ pub fn events_page(
     Ok(EventPage { items, next })
 }
 
+/// 按事件 ID 取单条事件（`events.show` 数据面，T390）；未找到返回 `Ok(None)`。
+///
+/// # Errors
+///
+/// 数据库查询失败时返回 [`WhError`]。
+pub fn event_by_id(conn: &Connection, event_id: &str) -> Result<Option<EventRow>, WhError> {
+    let sql = format!("SELECT {EVENT_COLUMNS} FROM events WHERE id = ?");
+    let mut stmt = conn.prepare(&sql).map_err(query_err)?;
+    let mut rows = stmt
+        .query_map([Value::Text(event_id.to_string())], |row| {
+            Ok(EventRow {
+                seq: row.get(0)?,
+                id: row.get(1)?,
+                session_id: row.get(2)?,
+                task_id: row.get(3)?,
+                request_id: row.get(4)?,
+                tool_call_id: row.get(5)?,
+                kind: row.get(6)?,
+                payload_json: row.get(7)?,
+                ts_us: row.get(8)?,
+                persistence_level: row.get(9)?,
+            })
+        })
+        .map_err(query_err)?;
+    match rows.next() {
+        Some(row) => Some(row.map_err(query_err)).transpose(),
+        None => Ok(None),
+    }
+}
+
 /// 工作区事件游标：`events.seq` 的当前最大值；空表为 0。
 ///
 /// 快照 `event_cursor`（FR-314）与断线补拉（FR-605）的基线；主键索引取最大键。

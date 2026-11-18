@@ -235,6 +235,75 @@ pub fn events_export(
     })
 }
 
+/// 单事件详情（`events.show`，T390／FR-202）：载荷按追踪级别脱敏，上下文三态
+/// 与列表同源（同一 fold surface，避免单查口径与列表口径分叉）。
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct EventDetail {
+    /// 事件 schema 版本。
+    pub schema_version: u32,
+    /// 事件行（载荷已按级别处理）。
+    pub event: EventRow,
+    /// 上下文三态。
+    pub state: EventContextState,
+    /// 本次查看的追踪级别。
+    pub trace_level: String,
+    /// 是否已脱敏（`redacted` 级别为真）。
+    pub redacted: bool,
+}
+
+/// 查看单条事件（T390／FR-202）：按事件 ID 定位，脱敏口径与 [`events_export`]
+/// 同源；事件不存在返回 `not_found`（含事件 ID 与可操作提示）。
+///
+/// # Errors
+///
+/// 权限拒绝、事件不存在、载荷损坏或存储失败时返回 [`WhError`]。
+pub fn show_event(
+    conn: &Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    event_id: &str,
+    level: TraceLevel,
+) -> Result<EventDetail, WhError> {
+    require(policy, actor, Capability::SessionRead)?;
+    let mut event = query::event_by_id(conn, event_id)?.ok_or_else(|| {
+        WhError::new(
+            ErrorCode::NotFound,
+            format!("事件不存在：{event_id}；用 events list 查看现存事件序号与 ID 后重试"),
+        )
+    })?;
+    if matches!(
+        level,
+        TraceLevel::Redacted | TraceLevel::Metadata | TraceLevel::Off
+    ) {
+        let payload = serde_json::from_str::<serde_json::Value>(&event.payload_json)
+            .map_err(|err| WhError::parse_error(format!("事件 {} 载荷损坏：{err}", event.id)))?;
+        event.payload_json = match level {
+            TraceLevel::Off => "{}".to_string(),
+            other => {
+                let sanitized = trace::sanitize(&payload, other)
+                    .payload
+                    .unwrap_or_else(|| "{}".into());
+                sanitized.to_string()
+            }
+        };
+    }
+    // 单事件的会话归属决定三态判定范围（无归属事件按空会话处理：log_only）。
+    let session = event.session_id.clone().unwrap_or_default();
+    let (states, _) =
+        classify_context_states(conn, policy, actor, &session, std::slice::from_ref(&event))?;
+    let state = states
+        .first()
+        .map(|entry| entry.state)
+        .unwrap_or(EventContextState::LogOnly);
+    Ok(EventDetail {
+        schema_version: whcode_domain::SCHEMA_VERSION,
+        event,
+        state,
+        trace_level: level.as_str().to_string(),
+        redacted: level == TraceLevel::Redacted,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -545,5 +614,90 @@ mod tests {
             )
             .expect("行数");
         assert_eq!(counts_before, counts_after, "分类不得写入任何表");
+    }
+
+    /// T390／events.show：单事件按 ID 定位；redacted 级别秘密不得出现；
+    /// 三态与列表同源（孪生窗口内 current）。
+    #[test]
+    fn show_event_returns_redacted_detail_with_context_state() {
+        let conn = migrated();
+        create_session_with_id(&conn, "S-1", "单事件", "active", 1_000).expect("创建");
+        seed_events(&conn, "S-1");
+        let policy = DefaultPolicy;
+        let actor = actor_with_all_capabilities("tester");
+
+        let detail =
+            show_event(&conn, &policy, &actor, "E-1", TraceLevel::Redacted).expect("单事件查看");
+        assert_eq!(detail.event.id, "E-1");
+        assert_eq!(detail.event.seq, 1);
+        assert!(detail.redacted);
+        assert_eq!(detail.trace_level, "redacted");
+        assert!(
+            !detail.event.payload_json.contains("sk-secret1"),
+            "redacted 下秘密不得出现：{}",
+            detail.event.payload_json
+        );
+        assert!(detail.event.payload_json.contains("正文"), "普通内容保留");
+        assert_eq!(detail.state, EventContextState::LogOnly, "无孪生→log_only");
+
+        let full = show_event(&conn, &policy, &actor, "E-1", TraceLevel::Full).expect("full");
+        assert!(full.event.payload_json.contains("sk-secret1"), "full 原样");
+    }
+
+    /// T390／events.show：不存在的事件必须 `not_found` 且可操作；越权 `permission_denied`。
+    #[test]
+    fn show_event_rejects_missing_event_and_denies_without_capability() {
+        let conn = migrated();
+        create_session_with_id(&conn, "S-1", "单事件", "active", 1_000).expect("创建");
+        seed_events(&conn, "S-1");
+        let policy = DefaultPolicy;
+        let actor = actor_with_all_capabilities("tester");
+
+        let err = show_event(&conn, &policy, &actor, "E-404", TraceLevel::Redacted)
+            .expect_err("不存在必须拒绝");
+        assert_eq!(err.code, ErrorCode::NotFound);
+        let message = err.to_string();
+        assert!(message.contains("E-404"), "错误须含事件 ID：{message}");
+        assert!(message.contains("events list"), "错误须给出可操作提示");
+
+        let weak = Actor::new("weak", []);
+        let err = show_event(&conn, &policy, &weak, "E-1", TraceLevel::Redacted)
+            .expect_err("无能力必须拒绝");
+        assert_eq!(err.code, ErrorCode::PermissionDenied);
+        assert!(!err.retryable, "权限拒绝不可重试");
+    }
+
+    /// T390／events.show：有消息孪生且在窗口内的事件标 current（与列表口径同源）。
+    #[test]
+    fn show_event_classifies_current_state_via_model_window() {
+        let conn = migrated();
+        create_session_with_id(&conn, "S-1", "单事件三态", "active", 1_000).expect("创建");
+        for seq in 1..=2 {
+            conn.execute(
+                "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                     kind, payload_json, ts, persistence_level)
+                 VALUES (?, ?, ?, NULL, NULL, NULL, 'StreamingChunk', CAST('{}' AS JSON)::VARIANT,
+                         current_timestamp, 'redacted')",
+                params![seq, format!("E-{seq}"), "S-1"],
+            )
+            .expect("插入事件");
+        }
+        conn.execute(
+            "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
+             VALUES ('MSG-2', 'S-1', 'user', 'ref-2', 100, current_timestamp, NULL)",
+            [],
+        )
+        .expect("插入消息");
+        let policy = DefaultPolicy;
+        let actor = actor_with_all_capabilities("tester");
+
+        let detail = show_event(&conn, &policy, &actor, "E-2", TraceLevel::Full).expect("查看");
+        assert_eq!(
+            detail.state,
+            EventContextState::Current,
+            "窗口内孪生→current"
+        );
+        let orphan = show_event(&conn, &policy, &actor, "E-1", TraceLevel::Full).expect("查看");
+        assert_eq!(orphan.state, EventContextState::LogOnly);
     }
 }

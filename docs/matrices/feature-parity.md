@@ -29,7 +29,7 @@ T190：新增证书库设置两行）。
 | `session.rename` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-101；ADR-056 |
 | `session.archive` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-101；ADR-056 |
 | `session.delete` | Command | Destructive | 已实现 | 已实现 | 已实现 | 已实现 | FR-101／509；ADR-056 |
-| `session.switch` | Command | Read | 预留 | 预留 | 预留 | 预留 | FR-102；预留 未排期 |
+| `session.switch` | Command | Read | 已实现 | 预留 | 预留 | 预留 | FR-102；ADR-089 T390；预留 T392；预留 T393；预留 T391 |
 | `task.list` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-103／104 |
 | `task.overview` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-103／104 |
 | `task.show` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-103／104；部分 view_summary_only |
@@ -38,7 +38,7 @@ T190：新增证书库设置两行）。
 | `context.budget` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-105／108 |
 | `events.list` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-202 |
 | `events.export` | Command | Write | 已实现 | 部分 | 部分 | 已实现 | FR-205；部分 command_output_only |
-| `events.show` | Command | Read | 预留 | 预留 | 部分 | 预留 | FR-202；预留 未排期；部分 gui_read_only_v1 |
+| `events.show` | Command | Read | 已实现 | 预留 | 部分 | 预留 | FR-202；ADR-089 T390；预留 T392；部分 gui_read_only_v1；预留 T391 |
 | `spec.status` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-301—314 |
 | `spec.next` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-301—314；预留 未排期；部分 gui_read_only_v1 |
 | `spec.validate` | Command | Read | 预留 | 预留 | 部分 | 预留 | FR-301—314；预留 未排期；部分 gui_read_only_v1 |

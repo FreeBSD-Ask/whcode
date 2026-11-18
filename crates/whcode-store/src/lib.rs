@@ -125,7 +125,7 @@ pub use search::{
 
 pub use query::{
     Direction, EventCursor, EventPage, EventRow, MAX_PAGE_SIZE, MessageCursor, MessagePage,
-    MessageRow, events_page, latest_seq, messages_page,
+    MessageRow, event_by_id, events_page, latest_seq, messages_page,
 };
 pub use schema::{STORE_SCHEMA_VERSION, TABLE_COUNT, apply_migrations, checksum, schema_version};
 pub use service::WriterService;

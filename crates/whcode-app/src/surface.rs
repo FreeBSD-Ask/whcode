@@ -446,7 +446,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
-    // 应用层 switch_session 已交付（FR-102），四端接线均未排期。
+    // 应用层 switch_session 已交付（FR-102）；T390 CUI 接线，TUI/GUI/Web 随
+    // ADR-089 批次跟进。
     SurfaceEntry {
         id: "session.switch",
         kind: SurfaceKind::Command,
@@ -455,18 +456,12 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "cui_dispatch::session_command（SessionCommand::Switch）",
             },
-            Support::Reserved {
-                milestone: "未排期",
-            },
-            Support::Reserved {
-                milestone: "未排期",
-            },
-            Support::Reserved {
-                milestone: "未排期",
-            },
+            Support::Reserved { milestone: "T392" },
+            Support::Reserved { milestone: "T393" },
+            Support::Reserved { milestone: "T391" },
         ],
     },
     // ── task（FR-103／104、FR-401／408） ────────────────────────────────
@@ -649,7 +644,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
-    // 应用层单事件接口未交付；GUI 按 FR-711 登记排除。
+    // 单事件接口已交付（app::show_event，T390）：CUI 已接线；TUI/GUI/Web 随
+    // ADR-089 批次跟进（GUI 读面按 FR-711 v1 排除，见 ADR-089 复审项）。
     SurfaceEntry {
         id: "events.show",
         kind: SurfaceKind::Command,
@@ -658,18 +654,14 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "cui_dispatch::events_command（EventsCommand::Show）",
             },
-            Support::Reserved {
-                milestone: "未排期",
-            },
+            Support::Reserved { milestone: "T392" },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
-            Support::Reserved {
-                milestone: "未排期",
-            },
+            Support::Reserved { milestone: "T391" },
         ],
     },
     // ── spec（FR-301—314；快照判 SessionRead，门禁判 SpecAdvance） ──────

@@ -2817,7 +2817,73 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   （开工前置：任务认知卡，见 ADR-088 §任务认知卡）
   **取证（2026-11-19）**：`artifacts/fieldtest2-2026-11-19.md`（turn 1 全链 GO；
   turn 2 边界实证）；Check 478。
-- [ ] T389 跨轮工具链路持久化与重载：messages 表增 `tool_call_id` 持久化列
-  （schema v15）＋assistant 工具调用载荷落表＋load_context 重载构造（role:tool
-  带前置 assistant.tool_calls 锚点）；落地后重跑字段测试② turn 2
-  （开工前置：任务认知卡，见 ADR-088 已知限制①；本条为显式边界任务，未开工
+- [x] T389 跨轮工具链路持久化与重载：messages 表增 `tool_call_id` 持久化列
+  （schema **v16**）＋assistant 工具调用载荷落表（VARIANT，ADR-036 口径）＋
+  历史注入 turn 循环（`history_messages` 倒序尾部装载＋剪枝边界同口径；system 每轮
+  重派生不落表；持久化指针以注入后基线起算）；落地后重跑字段测试②——多轮工具记忆
+  端到端成立（新会话 turn 2 正确复述上一轮工具调用）
+  （开工前置：任务认知卡，见 ADR-088 已知限制①；原显式边界任务随本批收口）
+  **取证（2026-11-19）**：`artifacts/fieldtest2-2026-11-19.md` 附节（S-2 两轮全链）；
+  store 往返 `tool_linkage_roundtrips_through_messages`（VARIANT 键序规范化→结构化
+  断言）、历史注入 `history_seeds_tool_linkage_pairs`／`history_budget_keeps_recent_tail`、
+  turn 级 `second_turn_seeds_history_with_tool_linkage`；fork/export 复制链路同步补列；
+  Check 480。
+## Tasks（2026-11-19 追加）：四端对等全量清零（ADR-089，用户指令「实现多种界面的功能对等」）
+
+> 范围＝对等矩阵 17 面 49 格「预留」全部清零：A 类（app 已交付、缺前端锚点）＋
+> B 类（spec.* 五命令与 runtime.* 四命令能力交付）。正当排除（理由码）不动。
+> 设计与失效条件见 ADR-089。
+
+- [ ] T390 A 类 app 补口与 CUI 接线（FR-202／102）：app 新增单事件查询
+  `events::show_event`（按事件 ID、脱敏与列表同源）；CUI `events show` 与
+  `session switch` 子命令接线（`switch_session` 已有）；登记表 `events.show`／
+  `session.switch` 的 CUI 翻转＋矩阵再生
+  ——**任务认知卡**：方向＝CUI 不能停在「应用层已交付、接线未排期」的口头预留；
+  目标＝`whcode events show --event`／`whcode session switch --session` 真实出数；
+  判据＝CUI 测试正负路径＋surface 翻转＋矩阵行同步；非目标＝不动其他端登记。
+- [ ] T391 A 类写面门面扩展与 Web 路由（FR-769／774／775／776）：FrontendCommand
+  新增 SessionFork／SessionRewind／SessionRestore／SessionPlanSet 四变体（统一门面）；
+  Web 新路由 `POST /api/sessions/fork`、`POST /api/preimages/restore`（预览→确认）、
+  `POST /api/sessions/switch`、`GET /api/events/show`；surface_map 补孤儿登记
+  （plan／rewind／preimages／deliverables／ledger）；Web 登记翻转＋矩阵再生
+  ——**任务认知卡**：方向＝Web 写面必须走与 TUI/GUI 同一门面而非旁路；目标＝
+  四条新路由＋守卫→501 的面全部翻转为真实实现；判据＝api 测试正负路径＋
+  `web_routes_resolve_to_implemented_surfaces` 扩表通过；非目标＝不动证书库族。
+- [ ] T392 A 类 TUI 接线（FR-601／772／787／795／773）：ViewId 扩容（Preimages=`9`、
+  Coherence=`0`，VIEW_COUNT 8→10）；`view.deliverables` TUI 锚点＝台账交付物节；
+  键位接线：`s` 切换会话、`e` 事件详情、`M` 模型目录、`F` 分叉、`W` 回退、`V`
+  前像恢复（预览→确认）、计划模式切换（键位以键位表测试为准）；TUI 登记翻转＋
+  矩阵再生
+  ——**任务认知卡**：方向＝TUI 是对等缺口最多的端（9 面）；目标＝预留清零且
+  键位表测试钉死无冲突；判据＝TUI 测试＋surface_map 测试＋矩阵行同步；
+  非目标＝不改既有键位（q/1—8/j/k/r/n/m/d/A/R/X/p/t/L/C/i/P/Esc/a/b）。
+- [ ] T393 A 类 GUI 接线（FR-711／769—776）：前像与充分性两视图渲染（数字键经
+  ViewId::ALL 自动扩展）；同套写动作经 OpMode（输入→预览→确认）；`view.deliverables`
+  GUI 锚点＝台账视图交付物节；GUI 登记翻转＋矩阵再生＋写白名单测试同步
+  ——**任务认知卡**：方向＝GUI 交互对等不等于视图照抄，经既有 OpMode 机制；
+  目标＝session.fork/rewind/restore/plan、view.preimages/coherence/deliverables、
+  llm.models、session.switch、events.show 的 GUI 锚点真实可达；判据＝GUI 测试＋
+  surface_map 测试＋矩阵行同步；非目标=不扩 ADR-056 写白名单至 spec.*。
+- [ ] T394 B 类 spec.* 五命令交付（FR-301—314、307—312）：app `spec.rs`（工作区
+  specs/ 产物装载→TransitionContext／validate／analyze／converge）＋CUI/TUI/Web
+  接线（Web 用预登记守卫路由翻实现）；GUI 保持 `gui_read_only_v1` 排除；
+  登记翻转＋矩阵再生
+  ——**任务认知卡**：方向＝SDD 门禁从「库内函数」到「四端可执行命令」；目标＝
+  spec next/validate/analyze/converge/force-advance 三端真实可执行、门禁失败
+  语义与审计同源；判据＝app 正负路径测试（V-201—206 对应）＋三端接线测试＋
+  矩阵同步；非目标=自定义工作流配置文件装载（ADR-089 已知限制 1）。
+- [ ] T395 B 类 runtime.* 四命令交付（FR-701—710，M8 提前）：store v17
+  `runtime_state` 表；app `runtime_mgmt.rs`（status/enable/disable/install，
+  js/bsdshell 拒绝启用；install 只做本地 payload 四重校验）；新能力
+  `runtime.manage`；CUI/Web 接线（守卫路由翻实现）；TUI/GUI 保持
+  `six_view_scope` 排除；登记翻转＋矩阵再生
+  ——**任务认知卡**：方向＝运行时启用状态从不可见配置变为可查询可审计可撤销；
+  目标＝四命令 CUI/Web 真实执行、enable 落库＋审计、拒绝项结构化错误；
+  判据＝迁移测试（v17）＋app 正负路径＋CUI/Web 接线测试＋矩阵同步；
+  非目标=不做网络下载（ADR-089 已知限制 2）、不改默认关闭策略。
+- [ ] T396 对等收口（FR-619—621）：矩阵零预留核验＋对等契约门禁扩表（新路由
+  正向、新面负向）＋check_counts/traceability 同步＋CHANGELOG 与契约文档
+  （cui-cli/app-service）修订
+  ——**任务认知卡**：方向＝清零必须由门禁程序判定而非口头；目标＝
+  `test_frontend_parity` 扩表全绿＋矩阵无「预留」行；判据＝门禁脚本全绿＋
+  计数一致；非目标=不动四态定义与理由码表。

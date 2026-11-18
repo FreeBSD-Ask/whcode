@@ -79,7 +79,7 @@ pub use context::{
     load_context, load_summary_pointer,
 };
 pub use deliverables::{Deliverable, DeliverableView, list as list_deliverables};
-pub use events::{EventsExport, events_export};
+pub use events::{EventContextState, EventDetail, EventsExport, events_export, show_event};
 pub use findings::{
     DEFAULT_FINDING_LIMIT, FindingDraft, list_finding_rows, move_finding, record_finding,
 };

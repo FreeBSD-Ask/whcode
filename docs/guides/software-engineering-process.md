@@ -48,7 +48,7 @@
 | 项 | 当前值 | 出处 |
 |---|---|---|
 | 需求 | 175 条 FR 定义；NFR-101—107、NFR-201—222；31 项验收（V-001—V-007、V-101—V-110、V-201—V-207、V-301—V-307） | `specs/001-whcode-harness/spec.md` |
-| 任务 | 389 条（T001—T389，编号连续；T389 为显式边界任务） | `specs/001-whcode-harness/tasks.md` |
+| 任务 | 396 条（T001—T396，编号连续；T390—396 为并行批次在途登记） | `specs/001-whcode-harness/tasks.md` |
 | 验收检查点 | Check 1—479 | `specs/001-whcode-harness/checklist.md` |
 | 可执行结构门禁 | `layering`、`layout` 两个契约测试 | `tests/contract/test_layering.rs`、`tests/contract/test_layout.rs` |
 | 测试规模 | 2026-11-08 全量运行 1038 例通过、0 失败、16 例 `#[ignore]`（实验性与长跑用例，运行方式见用例注释） | `cargo test --locked --workspace` 输出 |
@@ -206,7 +206,7 @@ G5：预发布标签序列 `v0.1.0-m0`—`v0.1.0-m0.6` 后，`v0.1.0` 于 2026-1
 | 产物 | `spec.md` 的 FR/NFR；`specs/001-whcode-harness/checklists/requirements.md`；`tasks.md`；`checklist.md`；必要时 ADR |
 | 退出判据 | 1）每条 FR 有稳定编号、P0/P1、可测判据、证据位置、归属里程碑；2）每条 FR 至少有一个任务与一个 Check；3）未验证项标 `[待验证]` 且有退出条件；4）无实现细节绑定（架构约束除外，须 ADR）；5）需求质量清单通过；6）每条需求有可执行的证伪条件；7）需求与文档标注假设、适用范围与复审日期；8）每条 FR 从认知卡目标派生，手段未写成需求；存量已勾选任务以其来源 FR/Check/实现记录为最小“知”证据 |
 | 评审方式 | 需求工程抽查（见 `docs/guides/requirements-engineering.md`）；`checklists/requirements.md` 逐条核对；AI 代理反向找“孤儿需求/断链/不可测判据”；用户对范围与优先级批准 |
-| 当前证据 | 175 条 FR 定义、389 条任务、479 项 Check；FR-611—FR-618、FR-711—FR-717、FR-619—FR-625、FR-626／627、FR-718—724、FR-725—729、FR-730—737、FR-738、FR-739—753、FR-754—764、FR-765、FR-766、FR-767—FR-776、FR-777、FR-778、FR-779、FR-780、FR-781、FR-782、FR-783、FR-784、FR-785、FR-786、FR-787、FR-788、FR-789、FR-790、FR-791、FR-792、FR-793、FR-794、FR-795、FR-796、FR-797 已登记 |
+| 当前证据 | 175 条 FR 定义、396 条任务、479 项 Check；FR-611—FR-618、FR-711—FR-717、FR-619—FR-625、FR-626／627、FR-718—724、FR-725—729、FR-730—737、FR-738、FR-739—753、FR-754—764、FR-765、FR-766、FR-767—FR-776、FR-777、FR-778、FR-779、FR-780、FR-781、FR-782、FR-783、FR-784、FR-785、FR-786、FR-787、FR-788、FR-789、FR-790、FR-791、FR-792、FR-793、FR-794、FR-795、FR-796、FR-797 已登记 |
 | 缺口 | 无正式 CR 表单编号；无独立需求属性表（来源、稳定性、验证方法以行内标注替代） |
 
 ### 3.3 G2 设计基线

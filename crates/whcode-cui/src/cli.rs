@@ -195,6 +195,12 @@ pub enum SessionCommand {
         #[arg(long)]
         session: String,
     },
+    /// 切换会话（有界加载：元数据＋概览＋活跃尾部＋游标，FR-102）。
+    Switch {
+        /// 会话 ID。
+        #[arg(long)]
+        session: String,
+    },
     /// 导出会话分享包（本地脱敏文件，无上传）。
     Share {
         /// 会话 ID。

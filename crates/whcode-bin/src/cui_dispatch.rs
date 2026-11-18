@@ -904,6 +904,38 @@ fn session_command(
             let row = whcode_app::show_session(&conn, policy, actor, session)?;
             Ok((session_json(&row), session_record(&row, texts)))
         }
+        SessionCommand::Switch { session } => {
+            // 会话切换（FR-102／T390）：有界加载——元数据＋概览＋活跃尾部＋游标。
+            let conn = open_db(workspace, config)?;
+            let view = whcode_app::session::switch_session(&conn, policy, actor, session)?;
+            let value = json!({
+                "session": row_value(&view.session),
+                "overview": view.overview.as_ref().map(|overview| json!({
+                    "total": overview.total,
+                    "done": overview.done,
+                    "blocked": overview.blocked,
+                    "refreshed_at_us": overview.refreshed_at_us,
+                })),
+                "tail_count": view.tail.len(),
+                "tail_complete": view.tail_complete,
+                "event_cursor": view.event_cursor,
+            });
+            let styler = human_styler(texts);
+            let title = texts.resolve_fmt("cui.record.session", &[("session", session)]);
+            let human = styler.record(
+                Some(&title),
+                &[
+                    (texts.resolve("tui.col.stage"), view.session.stage.as_str()),
+                    (
+                        texts.resolve("tui.col.status"),
+                        view.session.status.as_str(),
+                    ),
+                    ("tail", &view.tail.len().to_string()),
+                    ("cursor", &view.event_cursor.to_string()),
+                ],
+            );
+            Ok((value, human))
+        }
         SessionCommand::Share { session, out } => {
             let conn = open_db(workspace, config)?;
             let export = whcode_app::share::export_session(
@@ -1408,10 +1440,33 @@ fn events_command(
                 Ok((value, human))
             }
         },
-        EventsCommand::Show { event } => Err(not_supported(
-            "events.show",
-            &format!("events show {event} 未接线：单事件按 ID 查询的应用服务接口未提供"),
-        )),
+        EventsCommand::Show { event } => {
+            // 单事件查看（FR-202／T390）：按事件 ID 定位，脱敏与三态标注同列表口径。
+            let conn = open_db(workspace, config)?;
+            let detail =
+                whcode_app::show_event(&conn, policy, actor, event, TraceLevel::default())?;
+            let value = serde_json::to_value(&detail)
+                .map_err(|err| WhError::internal(format!("事件详情序列化失败：{err}")))?;
+            let payload_brief = {
+                let raw = detail.event.payload_json.as_str();
+                let brief: String = raw.chars().take(160).collect();
+                if raw.chars().count() > 160 {
+                    format!("{brief}…（截断；完整载荷见 JSON）")
+                } else {
+                    brief
+                }
+            };
+            let human = format!(
+                "{} #{} [{}] {} {} {}",
+                detail.event.id,
+                detail.event.seq,
+                detail.event.kind,
+                detail.state.as_str(),
+                detail.trace_level,
+                payload_brief
+            );
+            Ok((value, human))
+        }
     }
 }
 
@@ -2430,14 +2485,6 @@ mod tests {
         let workspace = temp_workspace("registry-details");
         let cases = [
             (
-                Command::Events {
-                    command: EventsCommand::Show {
-                        event: "E-1".into(),
-                    },
-                },
-                "events.show",
-            ),
-            (
                 Command::Spec {
                     command: SpecCommand::Next {
                         session: "S-1".into(),
@@ -2542,6 +2589,128 @@ mod tests {
         let _ = std::fs::remove_dir_all(&workspace);
     }
 
+    /// T390／events.show：CUI 正向接线——按事件 ID 出详情，redacted 级别秘密不出现；
+    /// 不存在的事件 `not_found`（退出码 60）。
+    #[test]
+    fn events_show_is_wired_with_redaction_and_notfound() {
+        let workspace = temp_workspace("events-show");
+        let texts = whcode_domain::i18n::I18n::default();
+        let created = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "单事件".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("创建会话");
+        let session = created.0["session"]["id"].as_str().expect("会话 ID");
+
+        // 直接经 store 播种一条带秘密的事件（与 events_export 测试同源口径）。
+        let db = workspace.join(crate::workspace::WORKSPACE_DB_FILE);
+        let conn = duckdb::Connection::open(&db).expect("打开工作区库");
+        whcode_store::apply_migrations(&conn).expect("迁移");
+        conn.execute(
+            "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                 kind, payload_json, ts, persistence_level)
+             VALUES (1, 'E-1', ?, NULL, NULL, NULL, 'StreamingChunk',
+                     CAST(? AS JSON)::VARIANT, current_timestamp, 'redacted')",
+            duckdb::params![session, r#"{"api_key":"sk-secret9","note":"正文"}"#],
+        )
+        .expect("插入事件");
+        drop(conn);
+
+        let (value, human) = execute(
+            &Command::Events {
+                command: EventsCommand::Show {
+                    event: "E-1".into(),
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("单事件查看");
+        assert_eq!(value["event"]["id"], "E-1");
+        assert_eq!(value["state"], "log_only", "无孪生→log_only");
+        assert_eq!(value["trace_level"], "redacted");
+        let serialized = serde_json::to_string(&value).expect("序列化");
+        assert!(
+            !serialized.contains("sk-secret9"),
+            "redacted 级别秘密不得出现：{serialized}"
+        );
+        assert!(serialized.contains("正文"), "普通内容保留");
+        assert!(human.contains("E-1"), "人类可读行含事件 ID：{human}");
+
+        let err = execute(
+            &Command::Events {
+                command: EventsCommand::Show {
+                    event: "E-404".into(),
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect_err("不存在必须拒绝");
+        assert_eq!(err.code, ErrorCode::NotFound);
+        assert_eq!(error_exit_code(&err), 60);
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    /// T390／session.switch：CUI 有界加载切换（FR-102）——元数据＋概览＋尾部计数＋
+    /// 游标；不存在的会话 `not_found`。
+    #[test]
+    fn session_switch_is_wired_with_bounded_load() {
+        let workspace = temp_workspace("session-switch");
+        let texts = whcode_domain::i18n::I18n::default();
+        let created = execute(
+            &Command::Session {
+                command: SessionCommand::New {
+                    title: "切换目标".into(),
+                    model: None,
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("创建会话");
+        let session = created.0["session"]["id"]
+            .as_str()
+            .expect("会话 ID")
+            .to_string();
+
+        let (value, human) = execute(
+            &Command::Session {
+                command: SessionCommand::Switch {
+                    session: session.clone(),
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("切换会话");
+        assert_eq!(value["session"]["id"], session.as_str());
+        assert!(value["overview"].is_null(), "空会话概览为正确的空");
+        assert_eq!(value["tail_count"], 0, "空会话尾部为零");
+        assert_eq!(value["tail_complete"], true);
+        assert!(human.contains("cursor"), "人类可读行含游标：{human}");
+
+        let err = execute(
+            &Command::Session {
+                command: SessionCommand::Switch {
+                    session: "S-404".into(),
+                },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect_err("不存在必须拒绝");
+        assert_eq!(err.code, ErrorCode::NotFound);
+        assert_eq!(error_exit_code(&err), 60);
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
     /// `llm run`／`llm cancel`（T167）：CUI 已接线，前置校验与取消语义可观测；
     /// 不依赖 `WHCODE_LLM_PROFILES` 的路径（未知会话／空提示词／未知追踪级别／未知请求）。
     #[test]
@@ -2620,7 +2789,6 @@ mod tests {
         for argv in [
             vec!["runtime", "status", "--name", "js"],
             vec!["spec", "next", "--session", "S-1"],
-            vec!["events", "show", "--event", "E-1"],
         ] {
             let mut json_args = vec![base[0], base[1], "--json"];
             json_args.extend_from_slice(&argv);
@@ -2834,7 +3002,7 @@ mod tests {
     fn cui_and_web_unavailable_details_share_registry() {
         let mut conn = duckdb::Connection::open_in_memory().expect("内存库");
         for (method, path, id) in [
-            ("GET", "/api/events/show", "events.show"),
+            // events.show 的 CUI 已随 T390 翻转为已实现（Web 随 T391 跟进后同样出列表）。
             ("POST", "/api/spec/next", "spec.next"),
             ("POST", "/api/spec/force-advance", "spec.force-advance"),
             ("GET", "/api/runtimes/status", "runtime.status"),
