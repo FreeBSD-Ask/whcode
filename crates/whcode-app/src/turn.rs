@@ -602,7 +602,6 @@ fn run_turn_inner(
             ),
         }),
     }
-    let mut seeded_history: usize = 0;
     // ── 跨轮历史注入（T389／FR-797／ADR-088）────────────────────────────
     // system 消息之后、新 prompt 之前装载会话尾部历史（预算内取最近）；
     // 工具链路按落表字段成对重载（assistant.tool_calls → role:tool）。
@@ -610,7 +609,6 @@ fn run_turn_inner(
     let history_seed_error: Option<WhError> =
         match crate::context::history_messages(conn, policy, actor, session, budget_tokens) {
             Ok(history) => {
-                seeded_history = history.len();
                 messages.extend(history);
                 None
             }

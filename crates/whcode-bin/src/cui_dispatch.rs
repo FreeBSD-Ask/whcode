@@ -452,33 +452,46 @@ fn llm_command(
                     }
                 }
             }
-            let mut gate = if granted_write || granted_process {
-                let mut policy = whcode_app::ApprovalPolicy::new(
-                    whcode_domain::approval::ApprovalRule::Allow,
-                    if granted_write {
-                        whcode_domain::approval::ApprovalRule::Allow
-                    } else {
-                        whcode_domain::approval::ApprovalRule::Ask
-                    },
-                )
-                .with_builtin_destructive_ask();
-                if granted_process {
-                    policy = policy
-                        .with_tool_rule("shell", whcode_domain::approval::ApprovalRule::Allow)?;
-                }
-                let stored = whcode_store::approval_rules::list_rules(&conn)?
+            // ── 四端写姿态统一（ADR-090 修订，用户裁定：CUI 默认闸门＋审计）──
+            // 闸门恒建（规则默认 Allow——执行行为不变，写调用审计从此落表）；
+            // stored rules 照常叠加（用户配置的 ask 规则在 CUI 生效）；`--approve`
+            // 为操作者逐次宣告——在 stored 之后应用（操作者即应答者，覆盖 ask）；
+            // shell 仍受白名单闸门组合约束。plan 退出与破坏性内置 ask 不变。
+            let tool_registry = whcode_tools::ToolRegistry::new();
+            let mut approval_policy = whcode_app::ApprovalPolicy::new(
+                whcode_domain::approval::ApprovalRule::Allow,
+                whcode_domain::approval::ApprovalRule::Allow,
+            )
+            .with_builtin_destructive_ask()
+            .with_stored_rules(
+                whcode_store::approval_rules::list_rules(&conn)?
                     .into_iter()
-                    .map(|row| (row.tool, row.rule));
-                let policy = policy.with_stored_rules(stored)?;
-                Some(whcode_app::approval::ApprovalGate::for_store(
-                    "cui-local",
-                    policy,
-                    None,
-                    1_000,
-                ))
-            } else {
-                None
-            };
+                    .map(|row| (row.tool, row.rule)),
+            )?;
+            if granted_write {
+                for descriptor in tool_registry.descriptors() {
+                    if descriptor.side_effect_scope
+                        == whcode_tools::SideEffectScope::WorkspaceWrite
+                    {
+                        approval_policy = approval_policy.with_tool_rule(
+                            descriptor.name,
+                            whcode_domain::approval::ApprovalRule::Allow,
+                        )?;
+                    }
+                }
+            }
+            if granted_process {
+                approval_policy = approval_policy.with_tool_rule(
+                    "shell",
+                    whcode_domain::approval::ApprovalRule::Allow,
+                )?;
+            }
+            let mut gate = whcode_app::approval::ApprovalGate::for_store(
+                "cui-local",
+                approval_policy,
+                None,
+                1_000,
+            );
             let request = whcode_app::turn::TurnRequest {
                 session_id: session.clone(),
                 provider: provider.clone(),
@@ -492,14 +505,18 @@ fn llm_command(
                 depth: 0,
             };
             let now = now_ms()?;
-            // 授权模式走带闸门路径（审计照常）；缺省保持 run_turn（行为逐字一致）。
-            let outcome = if let Some(gate) = gate.as_mut() {
-                whcode_app::turn::run_turn_with_approval(
-                    &mut conn, policy, actor, &context, &request, None, None, gate, now,
-                )?
-            } else {
-                whcode_app::turn::run_turn(&mut conn, policy, actor, &context, &request, now)?
-            };
+            // 四端写姿态统一：CUI 恒走带闸门路径（执行不变，审计从此落表）。
+            let outcome = whcode_app::turn::run_turn_with_approval(
+                &mut conn,
+                policy,
+                actor,
+                &context,
+                &request,
+                None,
+                None,
+                &mut gate,
+                now,
+            )?;
             let mut value = serde_json::to_value(&outcome)
                 .map_err(|err| WhError::internal(format!("LLM 结果序列化失败：{err}")))?;
             value["trace_level"] = json!(trace_level.as_str());

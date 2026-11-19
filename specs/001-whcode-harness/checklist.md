@@ -1498,10 +1498,11 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   `history_budget_keeps_recent_tail`／`second_turn_seeds_history_with_tool_linkage`
   四用例；CI 结论待推送后回填（ADR-037 口径）
 
-- [x] Check 481: [exercised] CUI 写类工具逐次显式授权：`--approve workspace-write`
-  下模型 write_file 经审批闸门 Allow（**审计落表**——此前无闸门即无审计）真实产生
-  文件；无 `--approve` 时行为与现状逐字一致（无闸门＝写直接执行、无审计——前提修正
-  见 ADR-090 修订记录：原“fail-closed”表述失真）；未知范围结构化拒绝；
+- [x] Check 481: [exercised] CUI 写类工具逐次显式授权：闸门恒建（用户裁定）——
+  `--approve workspace-write` 下模型 write_file 执行并真实产生文件（Allow 决策不落
+  审批审计为闸门既有设计；工具执行本身全量入事件表）；闸门恒建的真实增量＝配置 ask
+  规则／破坏性内置 ask／计划退出审批在 CUI 生效（此前全部旁路）；无 `--approve` 时
+  行为与现状逐字一致（执行不变）；未知范围结构化拒绝；
   `--approve process` 无白名单时 shell 仍 Ask→unavailable（双闸门组合）
   （来源：spec FR-798／Task T398／ADR-090 修订）——**取证（2026-11-19）**：
   `artifacts/fieldtest3-2026-11-19.md`（正例：note.md 逐字写入＋4 工具事件＋审计；
