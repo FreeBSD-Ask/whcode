@@ -57,6 +57,16 @@ pub enum TuiAction {
     EventDetail,
     /// 模型目录（T392／llm.models：剖面×模型摘要）。
     ModelCatalogue,
+    /// SDD 阶段推进（T394／spec.next，Spec 视图 `n`）。
+    SpecNext,
+    /// 产物校验（T394／spec.validate，Spec 视图 `v`）。
+    SpecValidate,
+    /// Analyze 检查（T394／spec.analyze，Spec 视图 `z`）。
+    SpecAnalyze,
+    /// Converge 核对（T394／spec.converge，Spec 视图 `o`）。
+    SpecConverge,
+    /// 人工强制放行（T394／spec.force-advance，Spec 视图 `F` 两步输入）。
+    SpecForceAdvance,
 }
 
 /// 把 TUI 动作映射到登记表 `SurfaceId`（穷尽匹配，无通配臂）。
@@ -83,6 +93,11 @@ pub fn surface_of(action: TuiAction) -> &'static str {
         TuiAction::SessionPlanSet => "session.plan",
         TuiAction::EventDetail => "events.show",
         TuiAction::ModelCatalogue => "llm.models",
+        TuiAction::SpecNext => "spec.next",
+        TuiAction::SpecValidate => "spec.validate",
+        TuiAction::SpecAnalyze => "spec.analyze",
+        TuiAction::SpecConverge => "spec.converge",
+        TuiAction::SpecForceAdvance => "spec.force-advance",
     }
 }
 
@@ -142,6 +157,12 @@ mod tests {
             // T392：新视图切换（前像＝9、充分性＝0）。
             TuiAction::ViewSwitch(ViewId::Preimages),
             TuiAction::ViewSwitch(ViewId::Coherence),
+            // T394：spec.* 五命令。
+            TuiAction::SpecNext,
+            TuiAction::SpecValidate,
+            TuiAction::SpecAnalyze,
+            TuiAction::SpecConverge,
+            TuiAction::SpecForceAdvance,
         ];
         for action in actions {
             let id = surface_of(action);

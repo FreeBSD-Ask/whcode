@@ -1695,6 +1695,9 @@ fn op_outcome_text(outcome: &whcode_app::commands::CommandOutcome) -> String {
         whcode_app::commands::CommandOutcome::PlanSet(plan) => {
             format!("plan_mode={}", plan.active)
         }
+        whcode_app::commands::CommandOutcome::SpecAdvanced(row) => {
+            format!("session={} stage={}", row.id, row.stage)
+        }
     }
 }
 

@@ -939,6 +939,117 @@ pub fn handle_request_with_llm(
                 Err(error) => error_response(&error),
             }
         }
+        // ── SDD 门禁命令（T394／FR-307—312／ADR-089 批 5） ──────────────
+        // 读面经 GET；写面经 POST。validate/analyze/next/force-advance 需要
+        // 工作区根（specs/ 产物装载）；未注入时显式 invalid_state（不伪造）。
+        (Method::Get, "/api/spec/validate") => {
+            let result = (|| -> Result<HttpResponse, WhError> {
+                let Some(session) = query_value("session") else {
+                    return Err(WhError::invalid_state("缺 session 参数"));
+                };
+                let workspace = workspace_root.ok_or_else(|| {
+                    WhError::invalid_state("spec.validate 需要工作区根（装配根未注入）")
+                })?;
+                let view = whcode_app::spec_validate(conn, &policy, actor, session, workspace)?;
+                Ok(HttpResponse::json(
+                    200,
+                    &serde_json::to_value(&view).unwrap_or_default(),
+                ))
+            })();
+            match result {
+                Ok(response) => response,
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Get, "/api/spec/analyze") => {
+            let result = (|| -> Result<HttpResponse, WhError> {
+                let Some(session) = query_value("session") else {
+                    return Err(WhError::invalid_state("缺 session 参数"));
+                };
+                let workspace = workspace_root.ok_or_else(|| {
+                    WhError::invalid_state("spec.analyze 需要工作区根（装配根未注入）")
+                })?;
+                let view = whcode_app::analyze_view(conn, &policy, actor, session, workspace)?;
+                Ok(HttpResponse::json(
+                    200,
+                    &serde_json::to_value(&view).unwrap_or_default(),
+                ))
+            })();
+            match result {
+                Ok(response) => response,
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Get, "/api/spec/converge") => {
+            let Some(session) = query_value("session") else {
+                return error_response(&WhError::invalid_state("缺 session 参数"));
+            };
+            match whcode_app::converge_view(conn, &policy, actor, session) {
+                Ok(view) => {
+                    HttpResponse::json(200, &serde_json::to_value(&view).unwrap_or_default())
+                }
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/spec/next") => {
+            let result = (|| -> Result<HttpResponse, WhError> {
+                let body = json_body(request)?;
+                let session = body_str(&body, "session")?.to_string();
+                let to = body.get("to").and_then(serde_json::Value::as_str);
+                let workspace = workspace_root.ok_or_else(|| {
+                    WhError::invalid_state("spec.next 需要工作区根（装配根未注入）")
+                })?;
+                let row = whcode_app::spec_next(conn, &policy, actor, &session, workspace, to)?;
+                Ok(HttpResponse::json(
+                    200,
+                    &serde_json::json!({
+                        "schema_version": whcode_domain::SCHEMA_VERSION,
+                        "session_id": row.id,
+                        "stage": row.stage,
+                        "advanced": true,
+                    }),
+                ))
+            })();
+            match result {
+                Ok(response) => response,
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/spec/force-advance") => {
+            let result = (|| -> Result<HttpResponse, WhError> {
+                let body = json_body(request)?;
+                let session = body_str(&body, "session")?.to_string();
+                let to = body_str(&body, "to")?.to_string();
+                let reason = body_str(&body, "reason")?.to_string();
+                let workspace = workspace_root.ok_or_else(|| {
+                    WhError::invalid_state("spec.force-advance 需要工作区根（装配根未注入）")
+                })?;
+                let row = whcode_app::force_advance_view(
+                    conn,
+                    &policy,
+                    actor,
+                    &session,
+                    workspace,
+                    &to,
+                    &reason,
+                    now_ms()?,
+                )?;
+                Ok(HttpResponse::json(
+                    200,
+                    &serde_json::json!({
+                        "schema_version": whcode_domain::SCHEMA_VERSION,
+                        "session_id": row.id,
+                        "stage": row.stage,
+                        "forced": true,
+                        "note": "人工越过门禁已留审计（actor/reason/跳过门禁/产物版本/时间戳，FR-312）",
+                    }),
+                ))
+            })();
+            match result {
+                Ok(response) => response,
+                Err(error) => error_response(&error),
+            }
+        }
         (Method::Get, "/api/plan") => {
             // 计划模式状态（T287／FR-774／ADR-067）：最新一条 `PlanModeChanged` 即当前值；
             // 从未切换＝关闭且 `seq` 为 null（正确的空，不用 404 冒充不存在）。
@@ -1065,21 +1176,19 @@ pub fn handle_request_with_llm(
                             })).collect::<Vec<_>>(),
                         }),
                     ),
-                    whcode_app::CommandOutcome::PreimageRestored { results } => {
-                        HttpResponse::json(
-                            200,
-                            &serde_json::json!({
-                                "schema_version": whcode_domain::SCHEMA_VERSION,
-                                "dry_run": false,
-                                "session_id": session,
-                                "exec_id": exec_id,
-                                "restored": results.iter().map(|(path, action)| serde_json::json!({
-                                    "path": path,
-                                    "action": action,
-                                })).collect::<Vec<_>>(),
-                            }),
-                        )
-                    }
+                    whcode_app::CommandOutcome::PreimageRestored { results } => HttpResponse::json(
+                        200,
+                        &serde_json::json!({
+                            "schema_version": whcode_domain::SCHEMA_VERSION,
+                            "dry_run": false,
+                            "session_id": session,
+                            "exec_id": exec_id,
+                            "restored": results.iter().map(|(path, action)| serde_json::json!({
+                                "path": path,
+                                "action": action,
+                            })).collect::<Vec<_>>(),
+                        }),
+                    ),
                     _ => {
                         return Err(WhError::internal("门面返回形状不符：应为前像恢复结果"));
                     }
@@ -2737,6 +2846,160 @@ mod tests {
     /// 计划模式路由（T287／FR-774／ADR-067）：从未切换＝关闭且 seq 为 null；
     /// 用户切换落事件并可读回；缺 session 参数 400、缺失会话 404、缺 active 400。
     #[test]
+    /// T394：spec.* 五命令路由——converge 只读计算；validate/next 需工作区根
+    /// （未注入显式 400）；next 缺体 400；force-advance 正向落审计。
+    #[test]
+    fn spec_gate_routes_validate_and_advance() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("tester");
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status, stage)
+             VALUES ('S-G', '门禁', current_timestamp, current_timestamp, 'active', 'specify')",
+            [],
+        )
+        .expect("创建");
+        let temp = std::env::temp_dir().join("whcode-web-spec-test");
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(temp.join("specs")).expect("specs 目录");
+        std::fs::write(
+            temp.join("specs").join("spec.md"),
+            "# Spec
+
+## Requirements
+
+- **REQ-001**: 需求甲
+",
+        )
+        .expect("写 spec.md");
+
+        // converge（GET，只读）：空任务 → 全零且 converged。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/spec/converge?session=S-G", false),
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["converged"], true);
+
+        // validate（GET）缺工作区根 → 400 显式拒绝。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/spec/validate?session=S-G", false),
+            &actor,
+        );
+        assert_eq!(response.status, 400);
+
+        // validate（GET）带工作区根：specify 需 spec.md → 通过。
+        let response = handle_request_with_llm(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/spec/validate?session=S-G", false),
+            &actor,
+            None,
+            "zh-CN",
+            None,
+            None,
+            Some(&temp),
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["passed"], true);
+
+        // next（POST）缺体 → 400；带体沿状态机推进 specify → clarify。
+        let response = handle_request_with_llm(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(Method::Post, "/api/spec/next", &serde_json::json!({})),
+            &actor,
+            None,
+            "zh-CN",
+            None,
+            None,
+            Some(&temp),
+        );
+        assert_eq!(response.status, 400);
+        let response = handle_request_with_llm(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/spec/next",
+                &serde_json::json!({ "session": "S-G" }),
+            ),
+            &actor,
+            None,
+            "zh-CN",
+            None,
+            None,
+            Some(&temp),
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["stage"], "clarify");
+
+        // force-advance（POST）缺 reason → 拒绝；带 reason → 推进＋审计。
+        let response = handle_request_with_llm(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/spec/force-advance",
+                &serde_json::json!({ "session": "S-G", "to": "plan", "reason": " " }),
+            ),
+            &actor,
+            None,
+            "zh-CN",
+            None,
+            None,
+            Some(&temp),
+        );
+        assert_eq!(response.status, 400);
+        let response = handle_request_with_llm(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/spec/force-advance",
+                &serde_json::json!({ "session": "S-G", "to": "plan", "reason": "用户显式放行" }),
+            ),
+            &actor,
+            None,
+            "zh-CN",
+            None,
+            None,
+            Some(&temp),
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["stage"], "plan");
+        let audits: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM audit WHERE action = 'gate_override'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("审计计数");
+        assert_eq!(audits, 1, "强制放行必须落审计（FR-312）");
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
     /// T391：fork／switch／events.show／restore 四条新路由的正负路径。
     #[test]
     fn parity_routes_fork_switch_events_show_restore() {
@@ -2758,7 +3021,10 @@ mod tests {
         );
         assert_eq!(response.status, 201);
         let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
-        let source = body["session"]["id"].as_str().expect("源会话 ID").to_string();
+        let source = body["session"]["id"]
+            .as_str()
+            .expect("源会话 ID")
+            .to_string();
 
         // fork：201 + 继承零事件；缺 at_seq 拒绝（参数校验不静默）。
         let response = handle_request(

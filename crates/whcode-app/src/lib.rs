@@ -56,6 +56,7 @@ pub mod session;
 pub mod share;
 pub mod skills;
 pub mod snapshot;
+pub mod spec;
 pub mod stage_role;
 pub mod surface;
 pub mod task;
@@ -109,6 +110,10 @@ pub use residency::{ResidencyManager, ResidencyState, UnloadedSession, idle_unlo
 pub use rewind::{RewindView, current as current_rewind, rewind as rewind_session};
 pub use search::{
     CONTENT_SEARCH_DEFAULT_LIMIT, ContentHit, ContentSearchQuery, search_session_content,
+};
+pub use spec::{
+    AnalyzeView, ConvergeDifference, ConvergeView, ValidateView, WorkspaceArtifacts, analyze_view,
+    converge_view, force_advance_view, next as spec_next, validate as spec_validate,
 };
 
 pub use session::{

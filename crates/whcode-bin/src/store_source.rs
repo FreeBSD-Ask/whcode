@@ -586,6 +586,75 @@ impl ViewSource for StoreViewSource {
         )
     }
 
+    /// SDD 门禁读面（T394）：委托应用命令（同一产物装载与门禁口径），摘要文本。
+    fn spec_gate_summary(&self, session: &str, kind: &str) -> Result<String, WhError> {
+        let conn = self.conn.lock().expect("store 连接锁中毒");
+        let Some(workspace) = self.workspace.as_deref() else {
+            return Err(WhError::invalid_state(
+                "SDD 门禁读面需要工作区根（装配根未注入）",
+            ));
+        };
+        let text = match kind {
+            "validate" => {
+                let view = whcode_app::spec_validate(
+                    &conn,
+                    &self.policy,
+                    &self.actor,
+                    session,
+                    workspace,
+                )?;
+                if view.passed {
+                    format!("校验通过（阶段 {}）", view.stage)
+                } else {
+                    let missing: Vec<String> = view
+                        .artifacts
+                        .iter()
+                        .filter(|a| !a.present || !a.clean)
+                        .map(|a| a.name.to_string())
+                        .collect();
+                    format!("校验未通过（阶段 {}）：{}", view.stage, missing.join(", "))
+                }
+            }
+            "analyze" => {
+                let view =
+                    whcode_app::analyze_view(&conn, &self.policy, &self.actor, session, workspace)?;
+                if view.passed {
+                    "Analyze 通过（五类缺陷皆空）".to_string()
+                } else {
+                    format!(
+                        "Analyze 未通过：遗漏 {} · 孤儿 {} · 无效引用 {} · 环 {} · 覆盖不足 {}",
+                        view.missing_requirements.len(),
+                        view.orphan_tasks.len(),
+                        view.invalid_refs.len(),
+                        view.cycles.len(),
+                        view.uncovered_acceptance.len()
+                    )
+                }
+            }
+            "converge" => {
+                let view = whcode_app::converge_view(&conn, &self.policy, &self.actor, session)?;
+                if view.converged {
+                    format!(
+                        "收敛通过（pass {} · fail {} · not_tested {}）",
+                        view.passed, view.failed, view.not_tested
+                    )
+                } else {
+                    format!(
+                        "未收敛（pass {} · fail {} · not_tested {}）——差异 {} 项（V-205）",
+                        view.passed,
+                        view.failed,
+                        view.not_tested,
+                        view.differences.len()
+                    )
+                }
+            }
+            other => {
+                return Err(WhError::invalid_state(format!("未知门禁读面：{other}")));
+            }
+        };
+        Ok(text)
+    }
+
     /// 单事件详情（T392／events.show）：委托应用命令（同一脱敏与三态口径），
     /// 返回一行摘要文本；错误原样上抛（TUI 状态行显示）。
     fn event_detail(&self, event_id: &str) -> Result<String, WhError> {
@@ -704,6 +773,13 @@ impl TuiCommandExecutor {
         }
     }
 
+    /// 注入的工作区根（spec 门禁命令与前像恢复共用；未注入显式失败）。
+    fn workspace(&self) -> Result<std::path::PathBuf, WhError> {
+        self.workspace
+            .clone()
+            .ok_or_else(|| WhError::invalid_state("写命令需要工作区根（装配根未注入）"))
+    }
+
     /// 注入工作区根（前像恢复需要；未注入时恢复动作显式失败）。
     #[must_use]
     pub fn with_workspace(mut self, workspace: std::path::PathBuf) -> Self {
@@ -726,10 +802,26 @@ impl whcode_app::commands::CommandExecutor for TuiCommandExecutor {
             } => whcode_app::FrontendCommand::SessionRestore {
                 session_id,
                 exec_id,
-                workspace: self.workspace.clone().ok_or_else(|| {
-                    WhError::invalid_state("前像恢复需要工作区根（装配根未注入）")
-                })?,
+                workspace: self.workspace()?,
                 confirm,
+            },
+            whcode_app::FrontendCommand::SpecNext { session_id, to, .. } => {
+                whcode_app::FrontendCommand::SpecNext {
+                    session_id,
+                    to,
+                    workspace: self.workspace()?,
+                }
+            }
+            whcode_app::FrontendCommand::SpecForceAdvance {
+                session_id,
+                to,
+                reason,
+                ..
+            } => whcode_app::FrontendCommand::SpecForceAdvance {
+                session_id,
+                to,
+                reason,
+                workspace: self.workspace()?,
             },
             other => other,
         };

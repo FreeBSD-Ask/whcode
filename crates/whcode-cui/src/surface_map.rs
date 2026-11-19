@@ -193,6 +193,7 @@ mod tests {
             Command::Spec {
                 command: SpecCommand::Next {
                     session: "S".into(),
+                    to: None,
                 },
             },
             Command::Spec {
@@ -334,6 +335,7 @@ mod tests {
                 max_tokens: None,
                 request_id: None,
                 trace_level: "redacted".into(),
+                approve: Vec::new(),
             },
         }
     }
@@ -356,6 +358,7 @@ mod tests {
             Command::Spec {
                 command: SpecCommand::Next {
                     session: "S".into(),
+                    to: None,
                 },
             },
             Command::Spec {

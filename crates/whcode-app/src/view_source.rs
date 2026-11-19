@@ -849,6 +849,20 @@ pub trait ViewSource {
         ))
     }
 
+    /// SDD 门禁读面摘要（T394）：`kind` 取 `validate`／`analyze`／`converge`，
+    /// 返回人类可读摘要文本（帧路径不解析 JSON）。默认显式不支持。
+    ///
+    /// # Errors
+    ///
+    /// 数据源不支持（`not_supported`）、会话不存在或产物读取失败时返回 [`WhError`]。
+    fn spec_gate_summary(&self, session: &str, kind: &str) -> Result<String, WhError> {
+        let _ = (session, kind);
+        Err(WhError::new(
+            ErrorCode::NotSupported,
+            "该数据源不支持 SDD 门禁读面（T394：装配根数据源实现）",
+        ))
+    }
+
     /// 会话内容检索（T319／FR-780）：按消息正文检索，最新命中优先。
     /// 默认显式不支持——GUI 侧栏调用时错误可见，不伪造“无命中”。
     ///

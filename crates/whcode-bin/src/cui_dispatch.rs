@@ -10,7 +10,7 @@
 //! 会话定位：契约 §1 要求显式 `--session`/`--task`——**不设隐式"当前会话"**，
 //! 避免脚本路径依赖隐藏状态。
 //!
-//! 保留命令（`events show`、`spec next/validate/analyze/converge/force-advance`、
+//! 已接线保留命令随批次翻转（events show＝T390、spec 门禁命令＝T394）；其余保留（
 //! `runtime status/enable/disable/install`）：统一返回 `not_supported`（退出码 55，
 //! FR-620、ADR-032），details 由登记表（`whcode_app::surface`）驱动——`surface_id`、
 //! 本端状态与里程碑/理由码；不静默成功、不伪装成 404 语义；`serve`/`doctor` 由主入口处理。
@@ -470,8 +470,7 @@ fn llm_command(
             )?;
             if granted_write {
                 for descriptor in tool_registry.descriptors() {
-                    if descriptor.side_effect_scope
-                        == whcode_tools::SideEffectScope::WorkspaceWrite
+                    if descriptor.side_effect_scope == whcode_tools::SideEffectScope::WorkspaceWrite
                     {
                         approval_policy = approval_policy.with_tool_rule(
                             descriptor.name,
@@ -481,10 +480,8 @@ fn llm_command(
                 }
             }
             if granted_process {
-                approval_policy = approval_policy.with_tool_rule(
-                    "shell",
-                    whcode_domain::approval::ApprovalRule::Allow,
-                )?;
+                approval_policy = approval_policy
+                    .with_tool_rule("shell", whcode_domain::approval::ApprovalRule::Allow)?;
             }
             let mut gate = whcode_app::approval::ApprovalGate::for_store(
                 "cui-local",
@@ -507,15 +504,7 @@ fn llm_command(
             let now = now_ms()?;
             // 四端写姿态统一：CUI 恒走带闸门路径（执行不变，审计从此落表）。
             let outcome = whcode_app::turn::run_turn_with_approval(
-                &mut conn,
-                policy,
-                actor,
-                &context,
-                &request,
-                None,
-                None,
-                &mut gate,
-                now,
+                &mut conn, policy, actor, &context, &request, None, None, &mut gate, now,
             )?;
             let mut value = serde_json::to_value(&outcome)
                 .map_err(|err| WhError::internal(format!("LLM 结果序列化失败：{err}")))?;
@@ -1439,28 +1428,106 @@ fn spec_command(
             );
             Ok((value, human))
         }
-        // SDD 门禁命令（FR-307—312）：应用层已交付但前端接线未排期（登记表预留），
-        // 统一 not_supported（退出码 55），不伪装成 404 或静默成功。
-        SpecCommand::Next { .. } => Err(not_supported(
-            "spec.next",
-            "spec 门禁命令需 SDD 产物工作区上下文（specs/ 与 workflow 配置加载）——接线未排期",
-        )),
-        SpecCommand::Validate { .. } => Err(not_supported(
-            "spec.validate",
-            "spec 门禁命令需 SDD 产物工作区上下文（specs/ 与 workflow 配置加载）——接线未排期",
-        )),
-        SpecCommand::Analyze { .. } => Err(not_supported(
-            "spec.analyze",
-            "spec 门禁命令需 SDD 产物工作区上下文（specs/ 与 workflow 配置加载）——接线未排期",
-        )),
-        SpecCommand::Converge { .. } => Err(not_supported(
-            "spec.converge",
-            "spec 门禁命令需 SDD 产物工作区上下文（specs/ 与 workflow 配置加载）——接线未排期",
-        )),
-        SpecCommand::ForceAdvance { .. } => Err(not_supported(
-            "spec.force-advance",
-            "spec 门禁命令需 SDD 产物工作区上下文（specs/ 与 workflow 配置加载）——接线未排期",
-        )),
+        // SDD 门禁命令（T394／FR-307—312）：应用层编排已交付，工作区 specs/ 产物
+        // 装载 → 解析 → 门禁判定（四端同源，FR-314）。门禁失败保持 gate_failed 语义。
+        SpecCommand::Next { session, to } => {
+            let conn = open_db(workspace, config)?;
+            let row =
+                whcode_app::spec_next(&conn, policy, actor, session, workspace, to.as_deref())?;
+            Ok((
+                json!({
+                    "session_id": row.id,
+                    "stage": row.stage,
+                    "advanced": true,
+                }),
+                format!("阶段推进 → {}", row.stage),
+            ))
+        }
+        SpecCommand::Validate { session } => {
+            let conn = open_db(workspace, config)?;
+            let view = whcode_app::spec_validate(&conn, policy, actor, session, workspace)?;
+            let human = if view.passed {
+                format!("校验通过（阶段 {}）", view.stage)
+            } else {
+                let missing: Vec<String> = view
+                    .artifacts
+                    .iter()
+                    .filter(|a| !a.present || !a.clean)
+                    .map(|a| a.name.to_string())
+                    .collect();
+                format!("校验未通过（阶段 {}）：{}", view.stage, missing.join(", "))
+            };
+            let value = serde_json::to_value(&view)
+                .map_err(|err| WhError::internal(format!("校验视图序列化失败：{err}")))?;
+            Ok((value, human))
+        }
+        SpecCommand::Analyze { session } => {
+            let conn = open_db(workspace, config)?;
+            let view = whcode_app::analyze_view(&conn, policy, actor, session, workspace)?;
+            let human = if view.passed {
+                "Analyze 通过（五类缺陷皆空）".to_string()
+            } else {
+                format!(
+                    "Analyze 未通过：遗漏 {} · 孤儿 {} · 无效引用 {} · 环 {} · 覆盖不足 {}",
+                    view.missing_requirements.len(),
+                    view.orphan_tasks.len(),
+                    view.invalid_refs.len(),
+                    view.cycles.len(),
+                    view.uncovered_acceptance.len()
+                )
+            };
+            let value = serde_json::to_value(&view)
+                .map_err(|err| WhError::internal(format!("分析视图序列化失败：{err}")))?;
+            Ok((value, human))
+        }
+        SpecCommand::Converge { session } => {
+            let conn = open_db(workspace, config)?;
+            let view = whcode_app::converge_view(&conn, policy, actor, session)?;
+            let human = if view.converged {
+                format!(
+                    "收敛通过（pass {} · fail {} · not_tested {}）",
+                    view.passed, view.failed, view.not_tested
+                )
+            } else {
+                format!(
+                    "未收敛（pass {} · fail {} · not_tested {}）——差异 {} 项（V-205：不静默完成）",
+                    view.passed,
+                    view.failed,
+                    view.not_tested,
+                    view.differences.len()
+                )
+            };
+            let value = serde_json::to_value(&view)
+                .map_err(|err| WhError::internal(format!("收敛视图序列化失败：{err}")))?;
+            Ok((value, human))
+        }
+        SpecCommand::ForceAdvance {
+            session,
+            to,
+            reason,
+        } => {
+            let conn = open_db(workspace, config)?;
+            let row = whcode_app::force_advance_view(
+                &conn,
+                policy,
+                actor,
+                session,
+                workspace,
+                to,
+                reason,
+                now_ms()?,
+            )?;
+            Ok((
+                json!({
+                    "session_id": row.id,
+                    "stage": row.stage,
+                    "forced": true,
+                    "reason": reason,
+                    "note": "人工越过门禁已留审计（actor/reason/跳过门禁/产物版本/时间戳，FR-312）",
+                }),
+                format!("强制放行 → {}（已留审计）", row.stage),
+            ))
+        }
     }
 }
 
@@ -2523,16 +2590,9 @@ mod tests {
     #[test]
     fn unwired_commands_fail_explicitly() {
         let workspace = temp_workspace("unwired");
-        for command in [
-            Command::Runtime {
-                command: RuntimeCommand::Status { name: "js".into() },
-            },
-            Command::Spec {
-                command: SpecCommand::Next {
-                    session: "S-1".into(),
-                },
-            },
-        ] {
+        for command in [Command::Runtime {
+            command: RuntimeCommand::Status { name: "js".into() },
+        }] {
             let err = execute(&command, &workspace, &whcode_domain::i18n::I18n::default())
                 .expect_err("必须显式失败");
             assert!(
@@ -2551,49 +2611,8 @@ mod tests {
     #[test]
     fn unavailable_commands_carry_registry_details() {
         let workspace = temp_workspace("registry-details");
+        // spec.* 五命令已随 T394 翻实现（移出保留面清单）；runtime.* 待 T395。
         let cases = [
-            (
-                Command::Spec {
-                    command: SpecCommand::Next {
-                        session: "S-1".into(),
-                    },
-                },
-                "spec.next",
-            ),
-            (
-                Command::Spec {
-                    command: SpecCommand::Validate {
-                        session: "S-1".into(),
-                    },
-                },
-                "spec.validate",
-            ),
-            (
-                Command::Spec {
-                    command: SpecCommand::Analyze {
-                        session: "S-1".into(),
-                    },
-                },
-                "spec.analyze",
-            ),
-            (
-                Command::Spec {
-                    command: SpecCommand::Converge {
-                        session: "S-1".into(),
-                    },
-                },
-                "spec.converge",
-            ),
-            (
-                Command::Spec {
-                    command: SpecCommand::ForceAdvance {
-                        session: "S-1".into(),
-                        to: "plan".into(),
-                        reason: "r".into(),
-                    },
-                },
-                "spec.force-advance",
-            ),
             (
                 Command::Runtime {
                     command: RuntimeCommand::Status { name: "js".into() },
@@ -2855,10 +2874,7 @@ mod tests {
         let workspace = temp_workspace("exit-55");
         let workspace_arg = workspace.display().to_string();
         let base = ["--workspace", workspace_arg.as_str()];
-        for argv in [
-            vec!["runtime", "status", "--name", "js"],
-            vec!["spec", "next", "--session", "S-1"],
-        ] {
+        for argv in [vec!["runtime", "status", "--name", "js"]] {
             let mut json_args = vec![base[0], base[1], "--json"];
             json_args.extend_from_slice(&argv);
             assert_eq!(
@@ -3071,9 +3087,8 @@ mod tests {
     fn cui_and_web_unavailable_details_share_registry() {
         let mut conn = duckdb::Connection::open_in_memory().expect("内存库");
         for (method, path, id) in [
-            // events.show 的 CUI 已随 T390 翻转为已实现（Web 随 T391 跟进后同样出列表）。
-            ("POST", "/api/spec/next", "spec.next"),
-            ("POST", "/api/spec/force-advance", "spec.force-advance"),
+            // events.show／spec.* 的 CUI 已随 T390/T394 翻实现；runtime.* 待 T395。
+            ("POST", "/api/runtimes/disable", "runtime.disable"),
             ("GET", "/api/runtimes/status", "runtime.status"),
             // llm.run 已随 T167 在双端翻转为已实现，故取仍预留的 runtime 写面作样本。
             ("POST", "/api/runtimes/enable", "runtime.enable"),

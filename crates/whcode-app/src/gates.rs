@@ -52,7 +52,7 @@ fn gate_failed(message: String, gate: &str, details: serde_json::Value) -> WhErr
 /// 权限拒绝、非法转换（`invalid_state`）、门禁未通过（`gate_failed`，V-202/V-203）、
 /// 会话不存在或存储失败时返回 [`WhError`]。
 pub fn request_transition(
-    conn: &mut Connection,
+    conn: &Connection,
     policy: &dyn Policy,
     actor: &Actor,
     session_id: &str,
@@ -125,7 +125,7 @@ pub struct ForceAdvance<'a> {
 /// 权限拒绝、`reason` 为空、非法转换或审计写入失败时返回 [`WhError`]；
 /// **审计失败时转换不得生效**（`AuditSink` 契约）。
 pub fn force_advance(
-    conn: &mut Connection,
+    conn: &Connection,
     policy: &dyn Policy,
     actor: &Actor,
     workflow: &WorkflowConfig,

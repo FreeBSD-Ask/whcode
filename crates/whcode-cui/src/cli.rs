@@ -347,11 +347,14 @@ pub enum SpecCommand {
         #[arg(long)]
         session: String,
     },
-    /// 下一阶段。
+    /// 下一阶段（缺省沿状态机成功转换推进；`--to` 显式指定目标，FR-308）。
     Next {
         /// 会话 ID。
         #[arg(long)]
         session: String,
+        /// 目标阶段（缺省取状态机后继）。
+        #[arg(long)]
+        to: Option<String>,
     },
     /// 校验产物。
     Validate {

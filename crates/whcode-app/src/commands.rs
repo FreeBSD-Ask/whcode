@@ -92,6 +92,20 @@ pub enum FrontendCommand {
     },
     /// 切换计划模式（T391／FR-774／ADR-067）：软引导，不经审批，落 `PlanModeChanged`。
     SessionPlanSet { session_id: String, active: bool },
+    /// SDD 阶段推进（T394／FR-307/308）：`to` 缺省沿状态机后继；门禁输入由
+    /// 工作区 specs/ 产物解析提供（app::spec）。`workspace` 由执行器注入（TUI）。
+    SpecNext {
+        session_id: String,
+        to: Option<String>,
+        workspace: std::path::PathBuf,
+    },
+    /// 人工强制越过门禁（T394／FR-312）：reason 必填，审计完整要素。
+    SpecForceAdvance {
+        session_id: String,
+        to: String,
+        reason: String,
+        workspace: std::path::PathBuf,
+    },
 }
 
 /// 执行结果（呈现无关；JSON 形状由前端呈现层构造）。
@@ -133,6 +147,8 @@ pub enum CommandOutcome {
     PreimageRestored { results: Vec<(String, String)> },
     /// 计划模式切换结果（FR-774）。
     PlanSet(crate::plan::PlanView),
+    /// SDD 阶段推进结果（FR-308；返回推进后的会话行）。
+    SpecAdvanced(whcode_store::SessionRow),
 }
 
 /// 执行器抽象（TUI 等“动作 → 门面”注入用；装配根实现持有连接与授权）。
@@ -283,10 +299,7 @@ pub fn execute_command(
             )?;
             Ok(CommandOutcome::SessionForked(outcome))
         }
-        FrontendCommand::SessionRewind {
-            session_id,
-            to_seq,
-        } => {
+        FrontendCommand::SessionRewind { session_id, to_seq } => {
             let view = crate::rewind_session(conn, policy, actor, session_id, *to_seq)?;
             Ok(CommandOutcome::SessionRewound(view))
         }
@@ -300,21 +313,50 @@ pub fn execute_command(
                 let rows = crate::preimage::preview(conn, policy, actor, session_id, exec_id)?;
                 return Ok(CommandOutcome::PreimageRestorePreview(rows));
             }
-            let results = crate::preimage::restore(
-                conn,
-                policy,
-                actor,
-                session_id,
-                workspace,
-                exec_id,
-            )?;
+            let results =
+                crate::preimage::restore(conn, policy, actor, session_id, workspace, exec_id)?;
             Ok(CommandOutcome::PreimageRestored { results })
         }
         FrontendCommand::SessionPlanSet { session_id, active } => {
             let view = crate::set_plan(conn, policy, actor, session_id, *active)?;
             Ok(CommandOutcome::PlanSet(view))
         }
+        FrontendCommand::SpecNext {
+            session_id,
+            to,
+            workspace,
+        } => {
+            let row = crate::spec::next(conn, policy, actor, session_id, workspace, to.as_deref())?;
+            Ok(CommandOutcome::SpecAdvanced(row))
+        }
+        FrontendCommand::SpecForceAdvance {
+            session_id,
+            to,
+            reason,
+            workspace,
+        } => {
+            let row = crate::spec::force_advance_view(
+                conn,
+                policy,
+                actor,
+                session_id,
+                workspace,
+                to,
+                reason,
+                now_ms_field(),
+            )?;
+            Ok(CommandOutcome::SpecAdvanced(row))
+        }
     }
+}
+
+/// 门面内取时钟（SpecForceAdvance 的审计时间戳；与各前端 `now_ms` 注入同源）。
+fn now_ms_field() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX)
+        })
 }
 
 #[cfg(test)]
@@ -673,7 +715,10 @@ mod tests {
         };
         assert_eq!(fork.source_session, source);
         assert_eq!(fork.inherited_events, 0, "空分叉继承零事件");
-        assert!(fork.session.title.contains("fork"), "缺省标题取源标题 (fork)");
+        assert!(
+            fork.session.title.contains("fork"),
+            "缺省标题取源标题 (fork)"
+        );
 
         // 回退要求会话有历史：播种一条 TurnFinished 事件（与 store 夹具同源口径）。
         conn.execute(
@@ -738,8 +783,8 @@ mod tests {
                 confirm: false,
             },
         ] {
-            let err = execute_command(&mut conn, &policy, &weak(), &command)
-                .expect_err("无能力必须拒绝");
+            let err =
+                execute_command(&mut conn, &policy, &weak(), &command).expect_err("无能力必须拒绝");
             assert_eq!(err.code, whcode_domain::ErrorCode::PermissionDenied);
         }
     }

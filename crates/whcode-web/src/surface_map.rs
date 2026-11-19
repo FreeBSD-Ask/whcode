@@ -79,12 +79,13 @@ pub fn surface_of(method: &str, path: &str) -> Option<&'static str> {
         ("GET", "/api/preimages") => Some("view.preimages"),
         ("GET", "/api/deliverables") => Some("view.deliverables"),
         ("GET", "/api/ledger") => Some("view.ledger"),
+        // ── T394（ADR-089 批 5）：spec.* 五命令翻实现 ───────────────────
+        ("GET", "/api/spec/validate") => Some("spec.validate"),
+        ("GET", "/api/spec/analyze") => Some("spec.analyze"),
+        ("GET", "/api/spec/converge") => Some("spec.converge"),
+        ("POST", "/api/spec/next") => Some("spec.next"),
+        ("POST", "/api/spec/force-advance") => Some("spec.force-advance"),
         // ── 保留守卫路径（预留／排除；Task 172 统一 501 not_supported） ─
-        (_, "/api/spec/next") => Some("spec.next"),
-        (_, "/api/spec/validate") => Some("spec.validate"),
-        (_, "/api/spec/analyze") => Some("spec.analyze"),
-        (_, "/api/spec/converge") => Some("spec.converge"),
-        (_, "/api/spec/force-advance") => Some("spec.force-advance"),
         (_, "/api/runtimes/status") => Some("runtime.status"),
         (_, "/api/runtimes/enable") => Some("runtime.enable"),
         (_, "/api/runtimes/disable") => Some("runtime.disable"),
@@ -185,6 +186,12 @@ mod tests {
             ("GET", "/api/preimages", "view.preimages"),
             ("GET", "/api/deliverables", "view.deliverables"),
             ("GET", "/api/ledger", "view.ledger"),
+            // T394（ADR-089 批 5）：spec.* 五命令翻实现。
+            ("GET", "/api/spec/validate", "spec.validate"),
+            ("GET", "/api/spec/analyze", "spec.analyze"),
+            ("GET", "/api/spec/converge", "spec.converge"),
+            ("POST", "/api/spec/next", "spec.next"),
+            ("POST", "/api/spec/force-advance", "spec.force-advance"),
         ];
         for (method, path, id) in routes {
             assert_eq!(surface_of(method, path), Some(id), "{method} {path}");
@@ -200,12 +207,7 @@ mod tests {
     #[test]
     fn guarded_paths_map_to_registered_unavailable_surfaces() {
         let guards = [
-            // events.show 已随 T391 翻实现（入 delivered_routes 列表），守卫清单同步移除。
-            ("POST", "/api/spec/next", "spec.next"),
-            ("POST", "/api/spec/validate", "spec.validate"),
-            ("POST", "/api/spec/analyze", "spec.analyze"),
-            ("POST", "/api/spec/converge", "spec.converge"),
-            ("POST", "/api/spec/force-advance", "spec.force-advance"),
+            // events.show／spec.* 已随 T391/T394 翻实现；runtime.* 待 T395。
             ("GET", "/api/runtimes/status", "runtime.status"),
             ("POST", "/api/runtimes/enable", "runtime.enable"),
             ("POST", "/api/runtimes/disable", "runtime.disable"),

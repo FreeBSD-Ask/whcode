@@ -559,6 +559,10 @@ enum TextKind {
     RestoreExec,
     /// 计划模式切换：显式 on/off（T392／FR-774）。
     PlanSet,
+    /// 强制放行理由（T394／FR-312：reason 必填；暂存目标阶段）。
+    SpecForceReason,
+    /// 强制放行目标阶段（T394：第一步输入）。
+    SpecTarget,
 }
 
 /// TUI 游标检查间隔（FR-624 量化判据）：≥1000 ms，低频有界。
@@ -1093,6 +1097,49 @@ impl<'a> LoopCore<'a> {
                             );
                             return;
                         }
+                        TextKind::SpecTarget => {
+                            // 强制放行第一步：暂存目标阶段于状态行，进入 reason 输入。
+                            let target = buffer.trim().to_string();
+                            if target.is_empty() {
+                                self.status = "目标阶段为空：已取消".to_string();
+                                return;
+                            }
+                            self.input_mode = InputMode::Text {
+                                kind: TextKind::SpecForceReason,
+                                buffer: String::new(),
+                            };
+                            self.status = format!(
+                                "强制放行 → {target}：理由（FR-312 必填）：_（Enter 提交）"
+                            );
+                            return;
+                        }
+                        TextKind::SpecForceReason => {
+                            // 第二步：reason 必填；目标阶段从状态行回取。
+                            let status_snapshot = std::mem::take(&mut self.status);
+                            let Some(target) = status_snapshot
+                                .strip_prefix("强制放行 → ")
+                                .and_then(|rest| rest.split('：').next())
+                                .map(str::to_string)
+                            else {
+                                self.status =
+                                    "强制放行：缺少目标阶段（请重新按 F 发起）".to_string();
+                                return;
+                            };
+                            let Some(session_id) = self.selected_session.clone() else {
+                                self.status = "强制放行：未选择会话".to_string();
+                                return;
+                            };
+                            self.execute(
+                                FrontendCommand::SpecForceAdvance {
+                                    session_id,
+                                    to: target,
+                                    reason: buffer.trim().to_string(),
+                                    workspace: std::path::PathBuf::new(),
+                                },
+                                "强制放行",
+                            );
+                            return;
+                        }
                         TextKind::ChatProvider => {
                             // ADR-087：剖面名登记（空＝回落执行器清单首项）。
                             let trimmed = buffer.trim().to_string();
@@ -1382,6 +1429,52 @@ impl<'a> LoopCore<'a> {
                     }
                 }
             }
+            // T394（ADR-089 批 5）：Spec 视图门禁命令键位（FR-314 四端同源）。
+            UiEvent::Key('v') if self.state.view() == ViewId::Spec => {
+                match self.spec_gate("validate") {
+                    Ok(text) => self.status = text,
+                    Err(err) => self.status = format!("spec.validate 失败：{err}"),
+                }
+            }
+            UiEvent::Key('z') if self.state.view() == ViewId::Spec => {
+                match self.spec_gate("analyze") {
+                    Ok(text) => self.status = text,
+                    Err(err) => self.status = format!("spec.analyze 失败：{err}"),
+                }
+            }
+            UiEvent::Key('o') if self.state.view() == ViewId::Spec => {
+                match self.spec_gate("converge") {
+                    Ok(text) => self.status = text,
+                    Err(err) => self.status = format!("spec.converge 失败：{err}"),
+                }
+            }
+            UiEvent::Key('n') if self.state.view() == ViewId::Spec => {
+                // spec.next（写面走门面）：目标缺省沿状态机后继。
+                if self.selected_session.is_some() {
+                    self.execute(
+                        FrontendCommand::SpecNext {
+                            session_id: self.selected_session.clone().unwrap_or_default(),
+                            to: None,
+                            workspace: std::path::PathBuf::new(),
+                        },
+                        "阶段推进",
+                    );
+                } else {
+                    self.status = "阶段推进：未选择会话".to_string();
+                }
+            }
+            UiEvent::Key('F') if self.state.view() == ViewId::Spec => {
+                // force-advance 两步：目标阶段 → reason（FR-312 必填）。
+                if self.selected_session.is_some() {
+                    self.input_mode = InputMode::Text {
+                        kind: TextKind::SpecTarget,
+                        buffer: String::new(),
+                    };
+                    self.status = "强制放行目标阶段（如 clarify／plan）：_".to_string();
+                } else {
+                    self.status = "强制放行：未选择会话".to_string();
+                }
+            }
             UiEvent::Key('M') => {
                 // 模型目录（T392／llm.models）：执行器摘要（剖面×模型），一行可见。
                 let Some(llm) = self.llm_executor else {
@@ -1417,6 +1510,14 @@ impl<'a> LoopCore<'a> {
                 }
             }
         }
+    }
+
+    /// SDD 门禁读面（T394）：validate／analyze／converge 经数据源摘要。
+    fn spec_gate(&mut self, kind: &str) -> Result<String, whcode_domain::WhError> {
+        let Some(session) = self.selected_session.clone() else {
+            return Err(whcode_domain::WhError::invalid_state("未选择会话"));
+        };
+        self.source.spec_gate_summary(&session, kind)
     }
 
     /// 前像恢复预览（T392／FR-776）：confirm=false 走门面预览，随后进入两段确认。

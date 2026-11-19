@@ -40,11 +40,11 @@ T190：新增证书库设置两行）。
 | `events.export` | Command | Write | 已实现 | 部分 | 部分 | 已实现 | FR-205；部分 command_output_only |
 | `events.show` | Command | Read | 已实现 | 已实现 | 部分 | 已实现 | FR-202；ADR-089 T390/T391/T392；部分 gui_read_only_v1 |
 | `spec.status` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-301—314 |
-| `spec.next` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-301—314；预留 未排期；部分 gui_read_only_v1 |
-| `spec.validate` | Command | Read | 预留 | 预留 | 部分 | 预留 | FR-301—314；预留 未排期；部分 gui_read_only_v1 |
-| `spec.analyze` | Command | Read | 预留 | 预留 | 部分 | 预留 | FR-301—314；预留 未排期；部分 gui_read_only_v1 |
-| `spec.converge` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-301—314；预留 未排期；部分 gui_read_only_v1 |
-| `spec.force-advance` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-301—314；预留 未排期；部分 gui_read_only_v1 |
+| `spec.next` | Command | Write | 已实现 | 已实现 | 部分 | 已实现 | FR-301—314；T394 三端接线（GUI 保持门禁排除）；部分 gui_read_only_v1 |
+| `spec.validate` | Command | Read | 已实现 | 已实现 | 部分 | 已实现 | FR-301—314；T394 三端接线；部分 gui_read_only_v1 |
+| `spec.analyze` | Command | Read | 已实现 | 已实现 | 部分 | 已实现 | FR-301—314；T394 三端接线；部分 gui_read_only_v1 |
+| `spec.converge` | Command | Read | 已实现 | 已实现 | 部分 | 已实现 | FR-301—314；T394 三端接线（converge 为只读计算，ADR-089 限制）；部分 gui_read_only_v1 |
+| `spec.force-advance` | Command | Write | 已实现 | 已实现 | 部分 | 已实现 | FR-301—314；T394 三端接线（reason 必填＋审计）；部分 gui_read_only_v1 |
 | `db.purge` | Command | Destructive | 已实现 | 已实现 | 已实现 | 已实现 | FR-507—510；ADR-056 |
 | `db.stats` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-507—510；部分 cli_local_admin |
 | `db.check` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-507—510；部分 cli_local_admin |

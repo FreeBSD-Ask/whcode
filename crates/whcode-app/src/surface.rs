@@ -706,17 +706,17 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "cui_dispatch::spec_command（SpecCommand::Next）",
             },
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（n → FrontendCommand::SpecNext）",
             },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "POST /api/spec/next",
             },
         ],
     },
@@ -728,17 +728,17 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "cui_dispatch::spec_command（SpecCommand::Validate）",
             },
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（v → spec_gate_summary）",
             },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "GET /api/spec/validate",
             },
         ],
     },
@@ -750,17 +750,17 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "cui_dispatch::spec_command（SpecCommand::Analyze）",
             },
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（z → spec_gate_summary）",
             },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "GET /api/spec/analyze",
             },
         ],
     },
@@ -768,21 +768,21 @@ pub const SURFACES: &[SurfaceEntry] = &[
         id: "spec.converge",
         kind: SurfaceKind::Command,
         capability: Capability::SpecAdvance,
-        effect: EffectClass::Write,
+        effect: EffectClass::Read,
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "cui_dispatch::spec_command（SpecCommand::Converge）",
             },
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（o → spec_gate_summary）",
             },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "GET /api/spec/converge",
             },
         ],
     },
@@ -794,17 +794,17 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::ReasonRequired,
         audited: true,
         frontends: [
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "cui_dispatch::spec_command（SpecCommand::ForceAdvance）",
             },
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "LoopCore::on_key_normal（F → SpecForceAdvance 两步输入）",
             },
             Support::Excluded {
                 reason: ExclusionReason::GuiReadOnlyV1,
             },
-            Support::Reserved {
-                milestone: "未排期",
+            Support::Implemented {
+                anchor: "POST /api/spec/force-advance",
             },
         ],
     },
