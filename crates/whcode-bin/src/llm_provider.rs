@@ -357,6 +357,31 @@ impl whcode_gui::GuiLlmExecutor for TuiLlmExecutor {
     fn profiles(&self) -> Vec<String> {
         self.profile_names()
     }
+
+    fn model_summary(&self) -> Result<String, WhError> {
+        let catalogue = whcode_app::llm::model_catalogue(
+            &whcode_app::DefaultPolicy,
+            &whcode_app::actor_with_all_capabilities("gui-local"),
+            &self.llm.context(),
+        )?;
+        let parts: Vec<String> = catalogue
+            .iter()
+            .map(|profile| {
+                let models = if profile.models.is_empty() {
+                    profile.default_model.clone()
+                } else {
+                    profile
+                        .models
+                        .iter()
+                        .map(|entry| entry.id.as_str())
+                        .collect::<Vec<_>>()
+                        .join("|")
+                };
+                format!("{}[{}]:{}", profile.name, profile.protocol, models)
+            })
+            .collect();
+        Ok(parts.join(" · "))
+    }
 }
 
 /// TUI 对话流适配（ADR-087 决策 1）：同一执行器实现 [`whcode_tui::ChatExecutor`]。

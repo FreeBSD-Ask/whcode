@@ -227,6 +227,19 @@ pub trait GuiLlmExecutor: Send + Sync {
 
     /// 可选剖面名清单（注册表顺序；对话视图显示与默认选择用）。
     fn profiles(&self) -> Vec<String>;
+
+    /// 模型目录摘要（T393／llm.models）：剖面 × 默认模型 × 可选模型清单。
+    /// 默认显式不支持——未接线时错误可见（FR-620），不伪造目录。
+    ///
+    /// # Errors
+    ///
+    /// 剖面未注册或装配未接线时返回 [`WhError`]。
+    fn model_summary(&self) -> Result<String, WhError> {
+        Err(WhError::new(
+            whcode_domain::ErrorCode::NotSupported,
+            "未注入 LLM 执行器：模型目录不可用（装配根未接线）",
+        ))
+    }
 }
 
 /// GUI 侧审批应答面（T256／FR-745）：把待审批请求推给界面，再同步等待界面决定。
@@ -307,6 +320,14 @@ enum OpMode {
     SessionDelete,
     /// 清理预览已出，待确认（`before_ms` 冻结于预览时点）。
     Purge { before_ms: i64 },
+    /// 会话分叉（T393／FR-769）：输入即分叉序号（0＝空分叉）。
+    SessionFork,
+    /// 对话回退（T393／FR-775）：输入即目标序号（0＝会话起点）。
+    SessionRewind,
+    /// 前像恢复（T393／FR-776）：预览→确认两段式，`exec_id` 由预览阶段冻结。
+    SessionRestore { exec_id: String },
+    /// 计划模式（T393／FR-774）：输入即 on／off。
+    SessionPlanSet,
 }
 
 /// 启动参数。
@@ -355,6 +376,8 @@ enum Message {
     // —— 会话/任务/清理操作（ADR-056）——
     /// 操作面板输入（标题／任务 ID）。
     OpInputChanged(String),
+    /// 模型目录（T393／llm.models）：拉取剖面×模型摘要显示在对话视图。
+    ShowModels,
     /// 打开操作面板（新建／重命名；破坏性命令先进入预览态）。
     OpStart(OpMode),
     /// 破坏性命令：先预览（confirm=false，不写库）。
@@ -431,6 +454,8 @@ struct State {
     chat_provider: String,
     /// 对话视图：提示词输入。
     chat_input: String,
+    /// 模型目录摘要（T393／llm.models；`None`＝未请求）。
+    model_status: Option<String>,
     /// 对话视图：最近一次结果摘要或错误（不复制模型正文）。
     chat_last: Option<String>,
     /// 操作面板模式（`None` = 关闭）。
@@ -509,6 +534,7 @@ impl State {
             chat_history: Vec::new(),
             chat_provider,
             chat_input: String::new(),
+            model_status: None,
             chat_last: None,
             op_mode: None,
             op_input: String::new(),
@@ -1016,6 +1042,16 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::ChatInputChanged(value) => state.chat_input = value,
         Message::ChatSubmit => return chat_submit(state),
         Message::ChatCancel => chat_cancel(state),
+        Message::ShowModels => {
+            state.model_status = match state.llm.as_ref() {
+                Some(llm) => Some(match llm.model_summary() {
+                    Ok(summary) => summary,
+                    Err(err) => format!("llm.models 失败：{err}"),
+                }),
+                None => Some("llm.models: not_supported（未注入 LLM 执行器）".to_string()),
+            };
+            return Task::none();
+        }
         Message::OpInputChanged(value) => state.op_input = value,
         Message::OpStart(mode) => {
             state.op_mode = Some(mode);
@@ -1455,7 +1491,30 @@ fn op_preview(state: &mut State) {
             before_ms,
             now_ms: now,
         }),
-        OpMode::SessionNew | OpMode::SessionRename => return,
+        // T393：fork／rewind／plan 无预览语义（Confirmation::None），输入即确认；
+        // restore 走破坏族两段式（预览不写工作区）。
+        OpMode::SessionNew
+        | OpMode::SessionRename
+        | OpMode::SessionFork
+        | OpMode::SessionRewind
+        | OpMode::SessionPlanSet { .. } => return,
+        OpMode::SessionRestore { exec_id } => {
+            if exec_id.is_empty() {
+                // 首次预览：取输入并冻结执行 ID（确认阶段不再重读）。
+                let taken = std::mem::take(&mut state.op_input);
+                state.op_mode = Some(OpMode::SessionRestore {
+                    exec_id: taken.clone(),
+                });
+                executor.execute(FrontendCommand::SessionRestore {
+                    session_id: session,
+                    exec_id: taken,
+                    workspace: std::path::PathBuf::new(),
+                    confirm: false,
+                })
+            } else {
+                return;
+            }
+        }
     };
     match outcome {
         Ok(result) => {
@@ -1507,6 +1566,55 @@ fn op_confirm(state: &mut State) {
             confirm: true,
             now_ms: now,
         },
+        OpMode::SessionFork => {
+            let at_seq = std::mem::take(&mut state.op_input);
+            let Ok(at_seq) = at_seq.trim().parse::<i64>() else {
+                state.op_mode = None;
+                state.op_feedback = Some("分叉序号必须是非负整数（0＝空分叉）".to_string());
+                return;
+            };
+            FrontendCommand::SessionFork {
+                source_session: state.selected_session().unwrap_or_default(),
+                at_seq,
+                title: None,
+                now_ms: now,
+            }
+        }
+        OpMode::SessionRewind => {
+            let to_seq = std::mem::take(&mut state.op_input);
+            let Ok(to_seq) = to_seq.trim().parse::<i64>() else {
+                state.op_mode = None;
+                state.op_feedback = Some("回退序号必须是非负整数（0＝会话起点）".to_string());
+                return;
+            };
+            FrontendCommand::SessionRewind {
+                session_id: state.selected_session().unwrap_or_default(),
+                to_seq,
+            }
+        }
+        OpMode::SessionRestore { exec_id } => FrontendCommand::SessionRestore {
+            session_id: state.selected_session().unwrap_or_default(),
+            // 执行 ID 由预览阶段冻结（FR-776：确认执行与预览同一目标）。
+            exec_id,
+            workspace: std::path::PathBuf::new(),
+            confirm: true,
+        },
+        OpMode::SessionPlanSet => {
+            let active_input = std::mem::take(&mut state.op_input);
+            let active = match active_input.trim().to_ascii_lowercase().as_str() {
+                "on" => true,
+                "off" => false,
+                _ => {
+                    state.op_mode = None;
+                    state.op_feedback = Some("计划模式：请输入 on 或 off".to_string());
+                    return;
+                }
+            };
+            FrontendCommand::SessionPlanSet {
+                session_id: state.selected_session().unwrap_or_default(),
+                active,
+            }
+        }
     };
     execute(state, command);
 }
@@ -1790,6 +1898,14 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     ))
     .on_press_maybe(state.turn_running.then_some(Message::ChatCancel))
     .padding(6);
+    // 模型目录（T393／llm.models）：只读视图动作，经执行器摘要。
+    let models = button(rich_line(
+        state.texts.resolve("gui.chat.models"),
+        false,
+        14.0,
+    ))
+    .on_press(Message::ShowModels)
+    .padding(6);
     // 正文区（FR-741）：历史（缓存快照，仅最近 CHAT_HISTORY_RENDER 条）→
     // 运行中＝进度行＋流式增量（markdown 最小集投影，有界）；完成后＝最近结果投影；
     // 未选会话＝提示。条目格式“[role] 正文”（状态不依赖颜色，ui-design §3）。
@@ -1942,12 +2058,15 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         false,
         13.0,
     ));
+    if let Some(models) = state.model_status.as_deref() {
+        body.push(rich_line(models, true, 12.0));
+    }
     column![
         rich_line(provider_label, false, 14.0),
         provider_input,
         row(mirrored_order(
             is_rtl_locale(&state.texts.locale),
-            vec![input.into(), send.into(), cancel.into()],
+            vec![input.into(), send.into(), cancel.into(), models.into()],
         ))
         .spacing(8),
         scrollable(column(body)).height(Length::Fill),
@@ -2016,6 +2135,25 @@ fn op_buttons(state: &State) -> Element<'_, Message> {
                     before_ms: purge_cutoff_ms(),
                 }),
             ),
+            // T393（ADR-089 批 4）：fork／rewind／restore／plan 写面对等入口。
+            item(
+                state.texts.resolve("gui.op.fork"),
+                Message::OpStart(OpMode::SessionFork),
+            ),
+            item(
+                state.texts.resolve("gui.op.rewind"),
+                Message::OpStart(OpMode::SessionRewind),
+            ),
+            item(
+                state.texts.resolve("gui.op.preimage"),
+                Message::OpStart(OpMode::SessionRestore {
+                    exec_id: String::new(),
+                }),
+            ),
+            item(
+                state.texts.resolve("gui.op.plan"),
+                Message::OpStart(OpMode::SessionPlanSet),
+            ),
         ],
     ))
     .spacing(6)
@@ -2032,11 +2170,20 @@ fn op_panel(state: &State) -> Element<'_, Message> {
     let mode = state.op_mode.clone().unwrap_or(OpMode::SessionNew);
     let needs_input = matches!(
         mode,
-        OpMode::SessionNew | OpMode::SessionRename | OpMode::Purge { .. }
+        OpMode::SessionNew
+            | OpMode::SessionRename
+            | OpMode::Purge { .. }
+            | OpMode::SessionFork
+            | OpMode::SessionRewind
+            | OpMode::SessionRestore { .. }
+            | OpMode::SessionPlanSet
     );
     let destructive = matches!(
         mode,
-        OpMode::SessionArchive { .. } | OpMode::SessionDelete | OpMode::Purge { .. }
+        OpMode::SessionArchive { .. }
+            | OpMode::SessionDelete
+            | OpMode::Purge { .. }
+            | OpMode::SessionRestore { .. }
     );
     let placeholder = match mode {
         OpMode::SessionNew | OpMode::SessionRename => state.texts.resolve("gui.op.input.title"),
@@ -3030,6 +3177,34 @@ mod tests {
                 .is_some_and(|text| text.contains("失败")),
             "失败必须可见：{:?}",
             state.chat_last
+        );
+    }
+
+    /// T393（llm.models）：ShowModels 经执行器拉取摘要；未接线执行器显式 not_supported。
+    #[test]
+    fn show_models_records_summary_or_explicit_unsupported() {
+        // interactive_state 注入 StubLlm（未实现 model_summary → 默认 not_supported）。
+        let mut state = interactive_state(false);
+        let _ = update(&mut state, Message::ShowModels);
+        assert!(
+            state
+                .model_status
+                .as_deref()
+                .is_some_and(|text| text.contains("not_supported")),
+            "未接线的执行器必须显式 not_supported：{:?}",
+            state.model_status
+        );
+        // 无执行器：同样显式不可用（不伪造目录）。
+        let mut state = interactive_state(false);
+        state.llm = None;
+        let _ = update(&mut state, Message::ShowModels);
+        assert!(
+            state
+                .model_status
+                .as_deref()
+                .is_some_and(|text| text.contains("not_supported")),
+            "无执行器必须显式 not_supported：{:?}",
+            state.model_status
         );
     }
 

@@ -647,6 +647,9 @@ msgstr "گفتگو کے ایونٹس محفوظ ہو جاتے ہیں — مکم�
 msgid "gui.chat.last"
 msgstr "پچھلا نتیجہ: {summary}"
 
+msgid "gui.chat.models"
+msgstr "ماڈل فہرست"
+
 msgid "gui.chat.no_request"
 msgstr "منسوخ کرنے کے لیے کوئی ریکویسٹ ID نہیں (پہلے ایک ٹرن بھیجیں)"
 
@@ -716,6 +719,9 @@ msgstr "حذف کریں"
 msgid "gui.op.error"
 msgstr "کارروائی ناکام رہی"
 
+msgid "gui.op.fork"
+msgstr "سیشن منقسم"
+
 msgid "gui.op.input.days"
 msgstr "صفائی کی آخری حد (دنوں میں)"
 
@@ -728,6 +734,12 @@ msgstr "نیا"
 msgid "gui.op.not_supported"
 msgstr "کمانڈ ایگزیکیوٹر منسلک نہیں (not_supported)"
 
+msgid "gui.op.plan"
+msgstr "پلان موڈ"
+
+msgid "gui.op.preimage"
+msgstr "پچھلی نقلیں بحال"
+
 msgid "gui.op.preview"
 msgstr "پیش منظر"
 
@@ -739,6 +751,9 @@ msgstr "نام بدلیں"
 
 msgid "gui.op.restore"
 msgstr "بحال کریں"
+
+msgid "gui.op.rewind"
+msgstr "گفتگو واپس"
 
 msgid "gui.session.archived"
 msgstr "آرکائیو شدہ"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "(کوئی ڈیٹا نہیں)"
 
 msgid "tui.footer"
-msgstr "1-8 مناظر  j/k حرکت  r تازہ کریں  t تھیم  q اختتام  |  {cols}x{rows}"
+msgstr "1-9/0 مناظر  j/k حرکت  r تازہ کریں  t تھیم  q اختتام  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "کوئی سیشن نہیں"

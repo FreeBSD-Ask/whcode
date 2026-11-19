@@ -647,6 +647,9 @@ msgstr "تُحفظ أحداث الجولات في قاعدة البيانات �
 msgid "gui.chat.last"
 msgstr "آخر نتيجة: {summary}"
 
+msgid "gui.chat.models"
+msgstr "النماذج"
+
 msgid "gui.chat.no_request"
 msgstr "لا يوجد معرّف طلب لإلغائه (أرسل جولة أولًا)"
 
@@ -716,6 +719,9 @@ msgstr "حذف"
 msgid "gui.op.error"
 msgstr "فشلت العملية"
 
+msgid "gui.op.fork"
+msgstr "تفريط الجلسة"
+
 msgid "gui.op.input.days"
 msgstr "أيام حد التفريغ"
 
@@ -728,6 +734,12 @@ msgstr "جديد"
 msgid "gui.op.not_supported"
 msgstr "منفّذ الأوامر غير موصول (not_supported)"
 
+msgid "gui.op.plan"
+msgstr "وضع الخطة"
+
+msgid "gui.op.preimage"
+msgstr "استعادة النسخ السابقة"
+
 msgid "gui.op.preview"
 msgstr "معاينة"
 
@@ -739,6 +751,9 @@ msgstr "إعادة تسمية"
 
 msgid "gui.op.restore"
 msgstr "استعادة"
+
+msgid "gui.op.rewind"
+msgstr "إرجاع الحوار"
 
 msgid "gui.session.archived"
 msgstr "مؤرشفة"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "(لا بيانات)"
 
 msgid "tui.footer"
-msgstr "1-8 طرق عرض  j/k للتنقل  r للتحديث  t للسمة  q للخروج  |  {cols}x{rows}"
+msgstr "1-9/0 طرق عرض  j/k للتنقل  r للتحديث  t للسمة  q للخروج  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "لا جلسة"

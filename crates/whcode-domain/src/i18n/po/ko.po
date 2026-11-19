@@ -647,6 +647,9 @@ msgstr "대화 이벤트는 저장됩니다. 전체 기록은 이벤트 보기�
 msgid "gui.chat.last"
 msgstr "최근 결과: {summary}"
 
+msgid "gui.chat.models"
+msgstr "모델 목록"
+
 msgid "gui.chat.no_request"
 msgstr "취소할 요청 ID가 없습니다(먼저 한 턴을 보내십시오)"
 
@@ -716,6 +719,9 @@ msgstr "삭제"
 msgid "gui.op.error"
 msgstr "작업에 실패했습니다"
 
+msgid "gui.op.fork"
+msgstr "세션 분기"
+
 msgid "gui.op.input.days"
 msgstr "정리 기준 일수"
 
@@ -728,6 +734,12 @@ msgstr "새로 만들기"
 msgid "gui.op.not_supported"
 msgstr "명령 실행기가 연결되지 않았습니다(not_supported)"
 
+msgid "gui.op.plan"
+msgstr "계획 모드"
+
+msgid "gui.op.preimage"
+msgstr "이전 상태 복원"
+
 msgid "gui.op.preview"
 msgstr "미리보기"
 
@@ -739,6 +751,9 @@ msgstr "이름 변경"
 
 msgid "gui.op.restore"
 msgstr "복원"
+
+msgid "gui.op.rewind"
+msgstr "대화 되돌리기"
 
 msgid "gui.session.archived"
 msgstr "보관"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "(데이터 없음)"
 
 msgid "tui.footer"
-msgstr "1-8 보기  j/k 이동  r 새로 고침  t 테마  q 종료  |  {cols}x{rows}"
+msgstr "1-9/0 보기  j/k 이동  r 새로 고침  t 테마  q 종료  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "선택한 세션 없음"

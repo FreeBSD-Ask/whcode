@@ -647,6 +647,9 @@ msgstr "對話事件已寫入資料庫，完整歷程請見「事件」檢視"
 msgid "gui.chat.last"
 msgstr "上次結果：{summary}"
 
+msgid "gui.chat.models"
+msgstr "模型目錄"
+
 msgid "gui.chat.no_request"
 msgstr "沒有可取消的請求 ID（請先送出一輪對話）"
 
@@ -716,6 +719,9 @@ msgstr "刪除"
 msgid "gui.op.error"
 msgstr "操作失敗"
 
+msgid "gui.op.fork"
+msgstr "分叉會話"
+
 msgid "gui.op.input.days"
 msgstr "清除截止天數"
 
@@ -728,6 +734,12 @@ msgstr "新增"
 msgid "gui.op.not_supported"
 msgstr "指令執行器尚未接線（not_supported）"
 
+msgid "gui.op.plan"
+msgstr "計劃模式"
+
+msgid "gui.op.preimage"
+msgstr "檔案前像"
+
 msgid "gui.op.preview"
 msgstr "預覽"
 
@@ -739,6 +751,9 @@ msgstr "重新命名"
 
 msgid "gui.op.restore"
 msgstr "還原"
+
+msgid "gui.op.rewind"
+msgstr "對話回退"
 
 msgid "gui.session.archived"
 msgstr "封存"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "（尚無資料）"
 
 msgid "tui.footer"
-msgstr "1-8 檢視  j/k 移動  r 重新整理  t 主題  q 結束  |  {cols}x{rows}"
+msgstr "1-9/0 檢視  j/k 移動  r 重新整理  t 主題  q 結束  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "未選取工作階段"

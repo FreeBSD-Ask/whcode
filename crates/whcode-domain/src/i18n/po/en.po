@@ -647,6 +647,9 @@ msgstr "Turn events are persisted - see the Events view for full history"
 msgid "gui.chat.last"
 msgstr "Last result: {summary}"
 
+msgid "gui.chat.models"
+msgstr "Models"
+
 msgid "gui.chat.no_request"
 msgstr "No request ID to cancel (send a turn first)"
 
@@ -716,6 +719,9 @@ msgstr "Delete"
 msgid "gui.op.error"
 msgstr "Operation failed"
 
+msgid "gui.op.fork"
+msgstr "Fork session"
+
 msgid "gui.op.input.days"
 msgstr "Purge cutoff days"
 
@@ -728,6 +734,12 @@ msgstr "New"
 msgid "gui.op.not_supported"
 msgstr "Command executor not wired (not_supported)"
 
+msgid "gui.op.plan"
+msgstr "Plan mode"
+
+msgid "gui.op.preimage"
+msgstr "Restore preimage"
+
 msgid "gui.op.preview"
 msgstr "Preview"
 
@@ -739,6 +751,9 @@ msgstr "Rename"
 
 msgid "gui.op.restore"
 msgstr "Restore"
+
+msgid "gui.op.rewind"
+msgstr "Rewind chat"
 
 msgid "gui.session.archived"
 msgstr "Archived"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "(no data)"
 
 msgid "tui.footer"
-msgstr "1-8 views  j/k move  r refresh  t theme  q quit  |  {cols}x{rows}"
+msgstr "1-9/0 views  j/k move  r refresh  t theme  q quit  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "no session"

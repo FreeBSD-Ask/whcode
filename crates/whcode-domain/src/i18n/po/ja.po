@@ -647,6 +647,9 @@ msgstr "ターンのイベントは保存済みです。全履歴は「イベン
 msgid "gui.chat.last"
 msgstr "前回の結果：{summary}"
 
+msgid "gui.chat.models"
+msgstr "モデル一覧"
+
 msgid "gui.chat.no_request"
 msgstr "キャンセルできるリクエスト ID がありません（先にターンを送信してください）"
 
@@ -716,6 +719,9 @@ msgstr "削除"
 msgid "gui.op.error"
 msgstr "操作に失敗しました"
 
+msgid "gui.op.fork"
+msgstr "セッション分岐"
+
 msgid "gui.op.input.days"
 msgstr "パージ対象の日数"
 
@@ -728,6 +734,12 @@ msgstr "新規"
 msgid "gui.op.not_supported"
 msgstr "コマンド実行器が未接続です（not_supported）"
 
+msgid "gui.op.plan"
+msgstr "計画モード"
+
+msgid "gui.op.preimage"
+msgstr "前期像復元"
+
 msgid "gui.op.preview"
 msgstr "プレビュー"
 
@@ -739,6 +751,9 @@ msgstr "名前変更"
 
 msgid "gui.op.restore"
 msgstr "復元"
+
+msgid "gui.op.rewind"
+msgstr "会話巻き戻し"
 
 msgid "gui.session.archived"
 msgstr "アーカイブ"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "（データなし）"
 
 msgid "tui.footer"
-msgstr "1-8 ビュー  j/k 移動  r 更新  t テーマ  q 終了  |  {cols}x{rows}"
+msgstr "1-9/0 ビュー  j/k 移動  r 更新  t テーマ  q 終了  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "セッション未選択"

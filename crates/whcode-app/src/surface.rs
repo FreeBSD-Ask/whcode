@@ -462,7 +462,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::prepare（j/k 选择经 build_snapshot 有界加载，FR-102）",
             },
-            Support::Reserved { milestone: "T393" },
+            Support::Implemented {
+                anchor: "State::prepare（会话选择经 build_snapshot 有界加载，FR-102）",
+            },
             Support::Implemented {
                 anchor: "POST /api/sessions/switch",
             },
@@ -1214,7 +1216,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（M → LlmExecutor::model_summary）",
             },
-            Support::Reserved { milestone: "T393" },
+            Support::Implemented {
+                anchor: "chat_panel（Message::ShowModels → GuiLlmExecutor::model_summary）",
+            },
             Support::Implemented {
                 anchor: "GET /api/llm/models",
             },
@@ -1885,8 +1889,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（F → FrontendCommand::SessionFork）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "whcode_gui::State::op_confirm（OpMode::SessionFork，ADR-056 批 4）",
             },
             Support::Implemented {
                 anchor: "POST /api/sessions/fork",
@@ -1909,7 +1913,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（W → FrontendCommand::SessionRewind）",
             },
-            Support::Reserved { milestone: "T393" },
+            Support::Implemented {
+                anchor: "whcode_gui::State::op_confirm（OpMode::SessionRewind，ADR-056 批 4）",
+            },
             Support::Implemented {
                 anchor: "GET/POST /api/rewind（app::current_rewind／rewind_session）",
             },
@@ -1931,7 +1937,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（V → SessionRestore 预览→确认）",
             },
-            Support::Reserved { milestone: "T393" },
+            Support::Implemented {
+                anchor: "whcode_gui::State::op_confirm（OpMode::SessionRestore 预览→确认，ADR-056 批 4）",
+            },
             Support::Implemented {
                 anchor: "POST /api/preimages/restore",
             },
@@ -1952,7 +1960,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::prepare（ViewId::Preimages，键 9）",
             },
-            Support::Reserved { milestone: "T393" },
+            Support::Implemented {
+                anchor: "State::prepare（ViewId::Preimages）",
+            },
             Support::Implemented {
                 anchor: "GET /api/preimages",
             },
@@ -1974,7 +1984,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（P → FrontendCommand::SessionPlanSet）",
             },
-            Support::Reserved { milestone: "T393" },
+            Support::Implemented {
+                anchor: "whcode_gui::State::op_confirm（OpMode::SessionPlanSet，ADR-056 批 4）",
+            },
             Support::Implemented {
                 anchor: "GET/POST /api/plan（app::current_plan／set_plan）",
             },
@@ -1996,7 +2008,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::prepare（ViewId::Ledger 交付物节）",
             },
-            Support::Reserved { milestone: "T393" },
+            Support::Implemented {
+                anchor: "State::prepare（ViewId::Ledger 交付物节）",
+            },
             Support::Implemented {
                 anchor: "GET /api/deliverables",
             },
@@ -2018,7 +2032,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::prepare（ViewId::Coherence，键 0）",
             },
-            Support::Reserved { milestone: "T393" },
+            Support::Implemented {
+                anchor: "State::prepare（ViewId::Coherence）",
+            },
             Support::Implemented {
                 anchor: "GET /api/coherence?session=",
             },

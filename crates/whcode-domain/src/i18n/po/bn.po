@@ -647,6 +647,9 @@ msgstr "প্রতিটি টার্নের ইভেন্ট সংর
 msgid "gui.chat.last"
 msgstr "শেষ ফলাফল: {summary}"
 
+msgid "gui.chat.models"
+msgstr "মডেল তালিকা"
+
 msgid "gui.chat.no_request"
 msgstr "বাতিল করার মতো কোনো অনুরোধ ID নেই (আগে একটি টার্ন পাঠান)"
 
@@ -716,6 +719,9 @@ msgstr "মুছুন"
 msgid "gui.op.error"
 msgstr "অপারেশন ব্যর্থ হয়েছে"
 
+msgid "gui.op.fork"
+msgstr "সেশন ফর্ক"
+
 msgid "gui.op.input.days"
 msgstr "পার্জের সময়সীমা (দিন)"
 
@@ -728,6 +734,12 @@ msgstr "নতুন"
 msgid "gui.op.not_supported"
 msgstr "কমান্ড এক্সিকিউটর সংযুক্ত নয় (not_supported)"
 
+msgid "gui.op.plan"
+msgstr "পরিকল্পনা মোড"
+
+msgid "gui.op.preimage"
+msgstr "পূর্ববর্তী প্রতিরূপ পুনরুদ্ধার"
+
 msgid "gui.op.preview"
 msgstr "প্রিভিউ"
 
@@ -739,6 +751,9 @@ msgstr "নাম পরিবর্তন"
 
 msgid "gui.op.restore"
 msgstr "পুনরুদ্ধার"
+
+msgid "gui.op.rewind"
+msgstr "সংলাপ রিওয়াইন্ড"
 
 msgid "gui.session.archived"
 msgstr "আর্কাইভকৃত"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "(কোনো তথ্য নেই)"
 
 msgid "tui.footer"
-msgstr "1-8 ভিউ  j/k সরান  r রিফ্রেশ  t থিম  q প্রস্থান  |  {cols}x{rows}"
+msgstr "1-9/0 ভিউ  j/k সরান  r রিফ্রেশ  t থিম  q প্রস্থান  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "সেশন নেই"

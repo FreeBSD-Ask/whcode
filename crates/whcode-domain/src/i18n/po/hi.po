@@ -647,6 +647,9 @@ msgstr "हर दौर के इवेंट डेटाबेस में 
 msgid "gui.chat.last"
 msgstr "पिछला परिणाम: {summary}"
 
+msgid "gui.chat.models"
+msgstr "मॉडल सूची"
+
 msgid "gui.chat.no_request"
 msgstr "रद्द करने के लिए कोई अनुरोध ID नहीं (पहले एक दौर भेजें)"
 
@@ -716,6 +719,9 @@ msgstr "हटाएँ"
 msgid "gui.op.error"
 msgstr "ऑपरेशन विफल रहा"
 
+msgid "gui.op.fork"
+msgstr "सत्र द्विभाजन"
+
 msgid "gui.op.input.days"
 msgstr "सफ़ाई की दिन-सीमा"
 
@@ -728,6 +734,12 @@ msgstr "नया"
 msgid "gui.op.not_supported"
 msgstr "कमांड निष्पादक जोड़ा नहीं गया (not_supported)"
 
+msgid "gui.op.plan"
+msgstr "योजना मोड"
+
+msgid "gui.op.preimage"
+msgstr "पूर्व प्रतिकृति पुनर्स्थापन"
+
 msgid "gui.op.preview"
 msgstr "पूर्वावलोकन"
 
@@ -739,6 +751,9 @@ msgstr "नाम बदलें"
 
 msgid "gui.op.restore"
 msgstr "बहाल करें"
+
+msgid "gui.op.rewind"
+msgstr "संवाद पुनःस्थापन"
 
 msgid "gui.session.archived"
 msgstr "आर्काइव किए गए"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "(कोई डेटा नहीं)"
 
 msgid "tui.footer"
-msgstr "1-8 दृश्य  j/k चलें  r ताज़ा करें  t थीम  q बाहर निकलें  |  {cols}x{rows}"
+msgstr "1-9/0 दृश्य  j/k चलें  r ताज़ा करें  t थीम  q बाहर निकलें  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "कोई सत्र नहीं"

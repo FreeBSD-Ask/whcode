@@ -32,6 +32,16 @@ pub enum GuiAction {
     OpenPanels,
     /// 撤销一条本地审批规则（面板内按钮；FR-751）。
     RevokeRule,
+    /// 会话分叉（T393／FR-769：分叉序号输入面板）。
+    SessionFork,
+    /// 对话回退（T393／FR-775：目标序号输入面板）。
+    SessionRewind,
+    /// 前像恢复（T393／FR-776：执行 ID 输入→预览→确认）。
+    SessionRestore,
+    /// 计划模式切换（T393／FR-774：on／off 输入面板）。
+    SessionPlanSet,
+    /// 模型目录（T393／llm.models：对话视图按钮）。
+    ModelCatalogue,
     /// 退出（`q`／Esc）。
     Quit,
 }
@@ -46,6 +56,11 @@ pub fn surface_of(action: GuiAction) -> &'static str {
         GuiAction::CycleTheme => "theme.switch",
         GuiAction::OpenPanels => "settings.subagents",
         GuiAction::RevokeRule => "settings.rules.revoke",
+        GuiAction::SessionFork => "session.fork",
+        GuiAction::SessionRewind => "session.rewind",
+        GuiAction::SessionRestore => "session.restore",
+        GuiAction::SessionPlanSet => "session.plan",
+        GuiAction::ModelCatalogue => "llm.models",
         GuiAction::Quit => "app.quit",
     }
 }
@@ -89,6 +104,11 @@ mod tests {
             GuiAction::CycleTheme,
             GuiAction::OpenPanels,
             GuiAction::RevokeRule,
+            GuiAction::SessionFork,
+            GuiAction::SessionRewind,
+            GuiAction::SessionRestore,
+            GuiAction::SessionPlanSet,
+            GuiAction::ModelCatalogue,
             GuiAction::Quit,
         ];
         for action in actions {
@@ -134,7 +154,7 @@ mod tests {
     /// 白名单外的写/破坏性面不得在 GUI 出现已实现（如 `spec.*` 门禁操作、`settings.cert.write`）。
     #[test]
     fn gui_implemented_surfaces_are_reads_or_whitelisted_writes() {
-        const WRITES: [&str; 10] = [
+        const WRITES: [&str; 14] = [
             "session.new",
             "session.rename",
             "session.archive",
@@ -145,6 +165,11 @@ mod tests {
             "llm.run",
             "llm.cancel",
             "settings.rules.revoke",
+            // T393（ADR-089 批 4）：fork／rewind／restore／plan 写面入白名单。
+            "session.fork",
+            "session.rewind",
+            "session.restore",
+            "session.plan",
         ];
         for entry in SURFACES {
             if !matches!(entry.support(FrontendId::Gui), Support::Implemented { .. }) {

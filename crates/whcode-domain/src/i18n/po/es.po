@@ -647,6 +647,9 @@ msgstr "Los eventos de cada turno se guardan: el historial completo está en la 
 msgid "gui.chat.last"
 msgstr "Último resultado: {summary}"
 
+msgid "gui.chat.models"
+msgstr "Modelos"
+
 msgid "gui.chat.no_request"
 msgstr "No hay ningún ID de solicitud que cancelar (envíe antes un turno)"
 
@@ -716,6 +719,9 @@ msgstr "Eliminar"
 msgid "gui.op.error"
 msgstr "La operación falló"
 
+msgid "gui.op.fork"
+msgstr "Bifurcar sesión"
+
 msgid "gui.op.input.days"
 msgstr "Días de antigüedad para purgar"
 
@@ -728,6 +734,12 @@ msgstr "Nueva"
 msgid "gui.op.not_supported"
 msgstr "Ejecutor de comandos no conectado (not_supported)"
 
+msgid "gui.op.plan"
+msgstr "Modo plan"
+
+msgid "gui.op.preimage"
+msgstr "Restaurar versiones"
+
 msgid "gui.op.preview"
 msgstr "Vista previa"
 
@@ -739,6 +751,9 @@ msgstr "Renombrar"
 
 msgid "gui.op.restore"
 msgstr "Restaurar"
+
+msgid "gui.op.rewind"
+msgstr "Rebobinar chat"
 
 msgid "gui.session.archived"
 msgstr "Archivadas"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "(sin datos)"
 
 msgid "tui.footer"
-msgstr "1-8 vistas  j/k mover  r actualizar  t tema  q salir  |  {cols}x{rows}"
+msgstr "1-9/0 vistas  j/k mover  r actualizar  t tema  q salir  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "sin sesión"

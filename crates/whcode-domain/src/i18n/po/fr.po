@@ -647,6 +647,9 @@ msgstr "Les événements de tour sont persistés — voir la vue « Événements
 msgid "gui.chat.last"
 msgstr "Dernier résultat : {summary}"
 
+msgid "gui.chat.models"
+msgstr "Modèles"
+
 msgid "gui.chat.no_request"
 msgstr "Aucun identifiant de requête à annuler (envoyer d'abord un tour)"
 
@@ -716,6 +719,9 @@ msgstr "Supprimer"
 msgid "gui.op.error"
 msgstr "Échec de l'opération"
 
+msgid "gui.op.fork"
+msgstr "Bifurquer la session"
+
 msgid "gui.op.input.days"
 msgstr "Jours avant purge"
 
@@ -728,6 +734,12 @@ msgstr "Nouveau"
 msgid "gui.op.not_supported"
 msgstr "Exécuteur de commandes non câblé (not_supported)"
 
+msgid "gui.op.plan"
+msgstr "Mode plan"
+
+msgid "gui.op.preimage"
+msgstr "Restaurer les versions"
+
 msgid "gui.op.preview"
 msgstr "Aperçu"
 
@@ -739,6 +751,9 @@ msgstr "Renommer"
 
 msgid "gui.op.restore"
 msgstr "Restaurer"
+
+msgid "gui.op.rewind"
+msgstr "Rembobiner"
 
 msgid "gui.session.archived"
 msgstr "Archivées"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "(aucune donnée)"
 
 msgid "tui.footer"
-msgstr "1-8 vues  j/k déplacer  r actualiser  t thème  q quitter  |  {cols}x{rows}"
+msgstr "1-9/0 vues  j/k déplacer  r actualiser  t thème  q quitter  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "aucune session"

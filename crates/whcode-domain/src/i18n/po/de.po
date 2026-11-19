@@ -647,6 +647,9 @@ msgstr "Turn-Ereignisse werden dauerhaft gespeichert – die vollständige Histo
 msgid "gui.chat.last"
 msgstr "Letztes Ergebnis: {summary}"
 
+msgid "gui.chat.models"
+msgstr "Modelle"
+
 msgid "gui.chat.no_request"
 msgstr "Keine Anfrage-ID zum Abbrechen (zuerst einen Turn senden)"
 
@@ -716,6 +719,9 @@ msgstr "Löschen"
 msgid "gui.op.error"
 msgstr "Vorgang fehlgeschlagen"
 
+msgid "gui.op.fork"
+msgstr "Sitzung gabeln"
+
 msgid "gui.op.input.days"
 msgstr "Aufbewahrungstage bis zur Bereinigung"
 
@@ -728,6 +734,12 @@ msgstr "Neu"
 msgid "gui.op.not_supported"
 msgstr "Befehls-Executor nicht angebunden (not_supported)"
 
+msgid "gui.op.plan"
+msgstr "Planmodus"
+
+msgid "gui.op.preimage"
+msgstr "Vorgängerversionen"
+
 msgid "gui.op.preview"
 msgstr "Vorschau"
 
@@ -739,6 +751,9 @@ msgstr "Umbenennen"
 
 msgid "gui.op.restore"
 msgstr "Wiederherstellen"
+
+msgid "gui.op.rewind"
+msgstr "Chat zurücksetzen"
 
 msgid "gui.session.archived"
 msgstr "Archiviert"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "(keine Daten)"
 
 msgid "tui.footer"
-msgstr "1-8 Ansichten  j/k bewegen  r aktualisieren  t Design  q beenden  |  {cols}x{rows}"
+msgstr "1-9/0 Ansichten  j/k bewegen  r aktualisieren  t Design  q beenden  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "keine Sitzung"

@@ -647,6 +647,9 @@ msgstr "对话事件已入库——完整历史见「事件」视图（按会话
 msgid "gui.chat.last"
 msgstr "上次结果：{summary}"
 
+msgid "gui.chat.models"
+msgstr "模型目录"
+
 msgid "gui.chat.no_request"
 msgstr "没有可取消的请求 ID（先发送一轮对话）"
 
@@ -716,6 +719,9 @@ msgstr "删除"
 msgid "gui.op.error"
 msgstr "操作失败"
 
+msgid "gui.op.fork"
+msgstr "分叉会话"
+
 msgid "gui.op.input.days"
 msgstr "清理截止天数"
 
@@ -728,6 +734,12 @@ msgstr "新建"
 msgid "gui.op.not_supported"
 msgstr "写执行器未接入（not_supported）"
 
+msgid "gui.op.plan"
+msgstr "计划模式"
+
+msgid "gui.op.preimage"
+msgstr "前像恢复"
+
 msgid "gui.op.preview"
 msgstr "预览"
 
@@ -739,6 +751,9 @@ msgstr "重命名"
 
 msgid "gui.op.restore"
 msgstr "恢复"
+
+msgid "gui.op.rewind"
+msgstr "对话回退"
 
 msgid "gui.session.archived"
 msgstr "归档"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "（暂无数据）"
 
 msgid "tui.footer"
-msgstr "1-8 视图  j/k 移动  r 刷新  t 主题  q 退出  |  {cols}x{rows}"
+msgstr "1-9/0 视图  j/k 移动  r 刷新  t 主题  q 退出  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "未选择会话"

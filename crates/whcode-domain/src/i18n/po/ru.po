@@ -647,6 +647,9 @@ msgstr "Реплики диалога сохраняются в базе — п�
 msgid "gui.chat.last"
 msgstr "Последний результат: {summary}"
 
+msgid "gui.chat.models"
+msgstr "Модели"
+
 msgid "gui.chat.no_request"
 msgstr "Нет идентификатора запроса для отмены (сначала отправить реплику)"
 
@@ -716,6 +719,9 @@ msgstr "Удалить"
 msgid "gui.op.error"
 msgstr "Не удалось выполнить операцию"
 
+msgid "gui.op.fork"
+msgstr "Ветка сессии"
+
 msgid "gui.op.input.days"
 msgstr "Порог очистки, дней"
 
@@ -728,6 +734,12 @@ msgstr "Создать"
 msgid "gui.op.not_supported"
 msgstr "Исполнитель команд не подключён (not_supported)"
 
+msgid "gui.op.plan"
+msgstr "Режим плана"
+
+msgid "gui.op.preimage"
+msgstr "Восстановление версий"
+
 msgid "gui.op.preview"
 msgstr "Предпросмотр"
 
@@ -739,6 +751,9 @@ msgstr "Переименовать"
 
 msgid "gui.op.restore"
 msgstr "Восстановить"
+
+msgid "gui.op.rewind"
+msgstr "Откат диалога"
 
 msgid "gui.session.archived"
 msgstr "Архив"
@@ -1290,7 +1305,7 @@ msgid "tui.empty"
 msgstr "(нет данных)"
 
 msgid "tui.footer"
-msgstr "1-8 видов  j/k переход  r обновить  t тема  q выход  |  {cols}x{rows}"
+msgstr "1-9/0 видов  j/k переход  r обновить  t тема  q выход  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "сессия не выбрана"
