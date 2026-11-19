@@ -17,25 +17,25 @@ MCP stdio/HTTP（ADR-054/055）、压缩折叠（ADR-051）、子代理（ADR-05
 
 | 能力 | DSH 证据 | WHCode 现状 | 建议落点 | ADR 要求 |
 |---|---|---|---|---|
-| 工具级审批 broker（四态：允许一次/拒绝/撤销/无人可问） | `ApprovalOutcome` 封闭四值＋fail-closed（域 C；`packages/interaction/user-approval/src/index.ts`） | 仅命令级 `Capability`；T255 未做 | `whcode-app` 新增 approval 模块；GUI/Web 四态交互卡 | 挂 ADR-057 B3；类型层先定四态 |
-| 模型生成摘要（压缩） | `compaction/start|summary|end`＋锁＋usage（域 E） | `fold_messages_for_budget` 只写“折叠 N 条” | `whcode-app/src/context.rs` 增摘要调用；失败回退到现有折叠 | 修订 ADR-051；须定摘要失败与成本上限 |
-| 失败模型尝试持久化 | `assistant/attempt` 不进模型历史但可审计（域 A） | 失败只落 `RuntimeTerminated(error)` | `events` 表新增 kind；同步事件上限与清理 | 修订 ADR-044 §事件表 |
-| 单工具超时 | 工具声明 `timeoutMs`，guard 执行（域 B） | 只有跨进程取消 | `execute_tool_call` 内 deadline 检查 | 挂 ADR-048 修订 |
-| 用量锚点计量 | token-meter 优先复用供应商 usage（域 E/K） | 字符启发式估算 | `metering.rs` 存最近成功 usage | 修订 ADR-025/051 口径 |
+| 工具级审批 broker（四态：允许一次/拒绝/撤销/无人可问） | `ApprovalOutcome` 封闭四值＋fail-closed（域 C；`packages/interaction/user-approval/src/index.ts`） | **已落地（2026-11-20 复核）**：封闭四态 broker＋fail-closed，等待预算硬上限，`approval_asked`／`approval_decided` 审计成对（T264／FR-754，锚点 `crates/whcode-app/src/approval.rs`）；接线见 ADR-064；CUI 逐次授权见 ADR-090 | `whcode-app` 新增 approval 模块；GUI/Web 四态交互卡 | 挂 ADR-057 B3；类型层先定四态 |
+| 模型生成摘要（压缩） | `compaction/start|summary|end`＋锁＋usage（域 E） | **已落地（2026-11-20 复核）**：独立请求身份＋显式预算＋失败一次回退结构折叠＋孤儿锁可检测（T265／FR-755，锚点 `crates/whcode-app/src/compaction.rs`） | `whcode-app/src/context.rs` 增摘要调用；失败回退到现有折叠 | 修订 ADR-051；须定摘要失败与成本上限 |
+| 失败模型尝试持久化 | `assistant/attempt` 不进模型历史但可审计（域 A） | **已落地（2026-11-20 复核）**：`EventKind::AssistantAttempt`（T266／FR-756，不进模型历史只留审计事实） | `events` 表新增 kind；同步事件上限与清理 | 修订 ADR-044 §事件表 |
+| 单工具超时 | 工具声明 `timeoutMs`，guard 执行（域 B） | **已落地（2026-11-20 复核）**：工具声明 `timeout_ms`＋deadline 检查（锚点 `crates/whcode-tools/src/registry.rs`） | `execute_tool_call` 内 deadline 检查 | 挂 ADR-048 修订 |
+| 用量锚点计量 | token-meter 优先复用供应商 usage（域 E/K） | **已落地（2026-11-20 复核）**：流式增量优先取供应商 usage，缺失才回退估算（锚点 `crates/whcode-app/src/llm.rs`） | `metering.rs` 存最近成功 usage | 修订 ADR-025/051 口径 |
 
 ## P2：增强（视里程碑排期）
 
 | 能力 | DSH 证据 | WHCode 现状 | 建议落点 | ADR 要求 |
 |---|---|---|---|---|
-| 会话分叉（精确边界） | `fork(boundary)` 拒绝半截 turn＋`inheritedEventCount`（域 D） | 无 | `whcode-app` 会话命令；边界必须对齐 `turn/end` | 另立 ADR；须定事件复制上限 |
-| 计划模式（软引导＋人复核退出） | `plan/mode` 事件＋`exit_plan_mode`（域 G） | 无 | `turn.rs` 系统提示段＋一次确认 | 挂 ADR-057 B2；写清“不强制” |
-| 会话 todo 工具 | `todo/write` 整表替换、log-only（域 G） | 无 | `whcode-tools` 新工具＋`events` 新 kind | 明确与 SDD 任务表互不替代 |
-| 交付物记录 | `present`＋`workspace-changes`（域 B） | 无 | 工具层 `deliverables` 事件；GUI/Web 卡片 | 挂 ADR-057 B5 |
-| 重复调用提醒 | 连续 3/5/8 次注入提醒（域 B） | 无 | 事件式提醒（不注入模型） | 无（事件级） |
-| 溢出落盘（spill） | 头尾保留＋地址，保存失败保持内联（域 B） | 64 KiB 截断 | `whcode-tools` 溢出策略 | 须定保留期与上限 |
-| 模型目录 | `listModels`＋badge（域 K） | profile 静态声明 | profile 增可选 `models[]`；GUI/Web 选择器 | 修订 ADR-031 |
-| 基准进 PR 门禁 | 八组基准＋内存压力通道（域 S） | `bench baseline` 仅手动 | 选 turn 首 token/切换/历史页三项进 CI | 修订 ADR-025；噪声取中位 |
-| 文档生成与新鲜度校验 | `gen-tool-catalog`＋`verify-cordis-catalog`（域 P） | 无 | 从 `provider_manifest()` 生成工具目录，脚本校验 | 修订 ADR-045 |
+| 会话分叉（精确边界） | `fork(boundary)` 拒绝半截 turn＋`inheritedEventCount`（域 D） | **已落地（2026-11-20 复核）**：ADR-065 | `whcode-app` 会话命令；边界必须对齐 `turn/end` | 另立 ADR；须定事件复制上限 |
+| 计划模式（软引导＋人复核退出） | `plan/mode` 事件＋`exit_plan_mode`（域 G） | **已落地（2026-11-20 复核）**：ADR-067 | `turn.rs` 系统提示段＋一次确认 | 挂 ADR-057 B2；写清“不强制” |
+| 会话 todo 工具 | `todo/write` 整表替换、log-only（域 G） | **已落地（2026-11-20 复核）**：ADR-048 修订，log-only | `whcode-tools` 新工具＋`events` 新 kind | 明确与 SDD 任务表互不替代 |
+| 交付物记录 | `present`＋`workspace-changes`（域 B） | **已落地（2026-11-20 复核）**：ADR-048 §7.2 | 工具层 `deliverables` 事件；GUI/Web 卡片 | 挂 ADR-057 B5 |
+| 重复调用提醒 | 连续 3/5/8 次注入提醒（域 B） | **已落地（2026-11-20 复核）**：ADR-044 修订，事件式不注入模型 | 事件式提醒（不注入模型） | 无（事件级） |
+| 溢出落盘（spill） | 头尾保留＋地址，保存失败保持内联（域 B） | **未做（2026-11-20 复核）**：仍 64 KiB 截断（`MAX_TOOL_OUTPUT_BYTES`）；已落地的是内存压力实验通道（ADR-025 修订），非工具输出 spill | `whcode-tools` 溢出策略 | 须定保留期与上限 |
+| 模型目录 | `listModels`＋badge（域 K） | **已落地（2026-11-20 复核）**：ADR-031 修订 | profile 增可选 `models[]`；GUI/Web 选择器 | 修订 ADR-031 |
+| 基准进 PR 门禁 | 八组基准＋内存压力通道（域 S） | **已落地（2026-11-20 复核）**：ADR-075 PR 基准回归门禁；内存压力通道见 FR-792／ADR-025 修订 | 选 turn 首 token/切换/历史页三项进 CI | 修订 ADR-025；噪声取中位 |
+| 文档生成与新鲜度校验 | `gen-tool-catalog`＋`verify-cordis-catalog`（域 P） | **已落地（2026-11-20 复核）**：ADR-045 修订 | 从 `provider_manifest()` 生成工具目录，脚本校验 | 修订 ADR-045 |
 
 ## P3：远期（仅记录，不排期）
 
@@ -74,12 +74,37 @@ MCP stdio/HTTP（ADR-054/055）、压缩折叠（ADR-051）、子代理（ADR-05
 - **WHCode 应保持的既有优势**：规格追溯与 ADR、单文件库＋校验和、审计表、资源数值与
   长时门禁、原生 GUI、默认安全、五协议内置。
 - **相对 ZCode 研究的判定修正**：MCP、技能、子代理、压缩折叠、流式重试均已从“缺失”变成
-  “已实现”（域 I/H/F/E/K §3）；仍未补的是压缩的**语义摘要**、审批的**工具粒度**、
-  以及全部设备/协作面。
+  “已实现”（域 I/H/F/E/K §3）；2026-11-20 复核：压缩的**语义摘要**与审批的**工具粒度**
+  也已补齐（见下方复核记录）；仍未补的是设备/协作面，以及并行批、中途投喂、spill 等
+  执行面余项。
+
+## 复核记录（2026-11-20）
+
+触发条件：本文复审触发第 2 条（“WHCode 完成 ADR-057 B2—B5 → 重判 P1 表的现状列”）已满足，
+且 ADR-058—ADR-090 批次大幅推进，按承诺重判并落账。证据口径：本轮逐项回到 `crates/**` 源码
+与 ADR 正文，锚点写在上方两表现状列；`N2 凭据引用化` 本轮未复查，维持原判定（`[待验证]`）。
+
+- **P1 五项全部落地**：四态审批 broker、模型生成摘要、失败尝试持久化、单工具超时、
+  usage 锚点计量——现状列已逐行更新。
+- **P2 九项落地八项**：分叉、计划模式、todo、交付物、重复提醒、模型目录、PR 基准门禁、
+  文档校验；唯一未做＝**spill 溢出落盘**（仍 64 KiB 截断）。
+- **overview §4 矩阵重判**：DSH 领先 20 行中 4 行翻转为同构（B3 交付物、C1 工具审批、
+  D1 分叉、E2 语义压缩）；7 行改善为部分（G1 计划/todo 已补而 Goal CAS＋定时缺、
+  I2 出进程 SDK＋ACP 已补而类型驱动网关缺、L2 三态分类＋关键词检索已补而 FTS 缺、
+  O2 脱敏本地导出已补而 LiveShare 缺、P1 PR 基准＋覆盖率试点已补而 per-file 100% 不采纳、
+  Q1 shell＋LSP 四查询已补而 PTY/工作流缺、C2 强度评估与上报已补而真沙箱缺）。
+  即同构 13、DSH 领先 16、WHCode 领先 11。
+- **余项清单（重排后，落地均须先立 ADR）**：B2 并行批/守卫、A3 中途投喂四档与步前拦截、
+  spill 溢出落盘、L2 全文检索第二步（FTS 级）、G 域 Goal CAS 与宿主级定时、I 域类型驱动
+  API 网关、C 域真沙箱（须与资源铁律整体重议）、O 域远程执行世界迁移、R 域设备面
+  （P3 记录不排期）。
+- **防御性反例复核**：全部维持；webhook 反例被反向超越——WHCode 以幂等键＋去重＋有界
+  重试交付（ADR-079），DSH 的重复投递问题在 WHCode 侧不存在。
 
 ## 复审触发
 
 - DSH 上游发布 `0.3.x` 或 `1.0.0`（破坏性变更窗口）→ 重读域 A/J/E 的对应源码；
+  （执行记录：2026-11-20 已按第 2 条重判 P1 表现状列，见复核记录）
 - WHCode 完成 ADR-057 B2—B5 → 重判 P1 表的“现状”列；
 - WHCode 接入 shell 工具或运行时默认启用 → 重判域 C/Q/S 的沙箱与资源结论；
 - 任一 `[待验证]` 项取得证据 → 更新对应域 §5 与本文相关行。
