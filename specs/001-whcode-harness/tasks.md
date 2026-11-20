@@ -2760,7 +2760,7 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
 
 ## Tasks（2026-11-18 追加）：FreeBSD A2 退出路径 SIGSEGV 归因（长线计划 A2，用户批准“先归因，再进 P0”）
 
-- [ ] T382 A2 深取证 lane 与归因：新增独立 a2-diagnosis.yml workflow（初版挂
+- [x] T382 A2 深取证 lane 与归因：新增独立 a2-diagnosis.yml workflow（初版挂
   platform-verification 的 dispatch 输入与专用 job，2026-11-19 迁出——同名 workflow 的
   dispatch run 两次被显式取消，独立并发组互不波及）——FreeBSD VM 内构建 whcode-bin
   测试二进制，按“全量单线程×8→全量并行×3→16 测试模块过滤单线程×2”三阶段回环复跑，
@@ -2774,6 +2774,14 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   不修 P0 解码、不改 FreeBSD 硬门禁语义、不引入 GNU 工具链、本轮不落修复补丁；
   标准文献启发式研读＝FreeBSD truss(1)／core(5)／lldb(1) 手册要点与 bsd-duckdb.sh
   构建注记，落盘于 workflow 注释与取证 artifacts）
+  **取证（2026-11-20）**：dispatch 实跑两回合并如实登记——成功 run 44392392417
+  （2026-11-18，27m21s）产出 artifact `a2-diag-freebsd-deep`，summary：全量单线程×8＋
+  全量并行×3＋16 模块过滤单线程×2 全部 `crashed=no`（rc=101 均为普通测试断言失败，
+  非信号崩溃），显式登记 `a2_diag_result=NOT_REPRODUCED（本轮全部迭代未复现——正确的空，
+  非前置缺失）`；失败 run 44417861184（summary 未产出）按 Check 476 判据登记红，
+  不计入复现证据。归因结论＝SIGSEGV 未复现，原失败与 T389 迁移回退清单遗漏相关
+  （134cdc7 补 v16 两列撤销修复）；修复后 FreeBSD 全量构建＋测试在
+  platform-verification run 44626281459 全绿。Check 476。
 
 ## Tasks（2026-11-19 追加）：GUI 对话取消确定性与轮头对齐（ADR-087 修订）
 
@@ -2836,14 +2844,16 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
 > B 类（spec.* 五命令与 runtime.* 四命令能力交付）。正当排除（理由码）不动。
 > 设计与失效条件见 ADR-089。
 
-- [ ] T390 A 类 app 补口与 CUI 接线（FR-202／102）：app 新增单事件查询
+- [x] T390 A 类 app 补口与 CUI 接线（FR-202／102）：app 新增单事件查询
   `events::show_event`（按事件 ID、脱敏与列表同源）；CUI `events show` 与
   `session switch` 子命令接线（`switch_session` 已有）；登记表 `events.show`／
   `session.switch` 的 CUI 翻转＋矩阵再生
   ——**任务认知卡**：方向＝CUI 不能停在「应用层已交付、接线未排期」的口头预留；
   目标＝`whcode events show --event`／`whcode session switch --session` 真实出数；
   判据＝CUI 测试正负路径＋surface 翻转＋矩阵行同步；非目标＝不动其他端登记。
-- [ ] T391 A 类写面门面扩展与 Web 路由（FR-769／774／775／776）：FrontendCommand
+  **取证（2026-11-20）**：提交 5aec4af；CI＝platform-verification run 44626281459
+  （head 31a1325）success。
+- [x] T391 A 类写面门面扩展与 Web 路由（FR-769／774／775／776）：FrontendCommand
   新增 SessionFork／SessionRewind／SessionRestore／SessionPlanSet 四变体（统一门面）；
   Web 新路由 `POST /api/sessions/fork`、`POST /api/preimages/restore`（预览→确认）、
   `POST /api/sessions/switch`、`GET /api/events/show`；surface_map 补孤儿登记
@@ -2851,7 +2861,9 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   ——**任务认知卡**：方向＝Web 写面必须走与 TUI/GUI 同一门面而非旁路；目标＝
   四条新路由＋守卫→501 的面全部翻转为真实实现；判据＝api 测试正负路径＋
   `web_routes_resolve_to_implemented_surfaces` 扩表通过；非目标＝不动证书库族。
-- [ ] T392 A 类 TUI 接线（FR-601／772／787／795／773）：ViewId 扩容（Preimages=`9`、
+  **取证（2026-11-20）**：提交 58764d1；CI＝platform-verification run 44626281459
+  （head 31a1325）success。
+- [x] T392 A 类 TUI 接线（FR-601／772／787／795／773）：ViewId 扩容（Preimages=`9`、
   Coherence=`0`，VIEW_COUNT 8→10）；`view.deliverables` TUI 锚点＝台账交付物节；
   键位接线：`s` 切换会话、`e` 事件详情、`M` 模型目录、`F` 分叉、`W` 回退、`V`
   前像恢复（预览→确认）、计划模式切换（键位以键位表测试为准）；TUI 登记翻转＋
@@ -2859,14 +2871,18 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   ——**任务认知卡**：方向＝TUI 是对等缺口最多的端（9 面）；目标＝预留清零且
   键位表测试钉死无冲突；判据＝TUI 测试＋surface_map 测试＋矩阵行同步；
   非目标＝不改既有键位（q/1—8/j/k/r/n/m/d/A/R/X/p/t/L/C/i/P/Esc/a/b）。
-- [ ] T393 A 类 GUI 接线（FR-711／769—776）：前像与充分性两视图渲染（数字键经
+  **取证（2026-11-20）**：提交 e03b444；CI＝platform-verification run 44626281459
+  （head 31a1325）success。
+- [x] T393 A 类 GUI 接线（FR-711／769—776）：前像与充分性两视图渲染（数字键经
   ViewId::ALL 自动扩展）；同套写动作经 OpMode（输入→预览→确认）；`view.deliverables`
   GUI 锚点＝台账视图交付物节；GUI 登记翻转＋矩阵再生＋写白名单测试同步
   ——**任务认知卡**：方向＝GUI 交互对等不等于视图照抄，经既有 OpMode 机制；
   目标＝session.fork/rewind/restore/plan、view.preimages/coherence/deliverables、
   llm.models、session.switch、events.show 的 GUI 锚点真实可达；判据＝GUI 测试＋
   surface_map 测试＋矩阵行同步；非目标=不扩 ADR-056 写白名单至 spec.*。
-- [ ] T394 B 类 spec.* 五命令交付（FR-301—314、307—312）：app `spec.rs`（工作区
+  **取证（2026-11-20）**：提交 aa25bda；CI＝platform-verification run 44626281459
+  （head 31a1325）success。
+- [x] T394 B 类 spec.* 五命令交付（FR-301—314、307—312）：app `spec.rs`（工作区
   specs/ 产物装载→TransitionContext／validate／analyze／converge）＋CUI/TUI/Web
   接线（Web 用预登记守卫路由翻实现）；GUI 保持 `gui_read_only_v1` 排除；
   登记翻转＋矩阵再生
@@ -2874,6 +2890,8 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   spec next/validate/analyze/converge/force-advance 三端真实可执行、门禁失败
   语义与审计同源；判据＝app 正负路径测试（V-201—206 对应）＋三端接线测试＋
   矩阵同步；非目标=自定义工作流配置文件装载（ADR-089 已知限制 1）。
+  **取证（2026-11-20）**：提交 0b750eb；CI＝platform-verification run 44626281459
+  （head 31a1325）success；CodeQL push run success。
 - [ ] T395 B 类 runtime.* 四命令交付（FR-701—710，M8 提前）：store v17
   `runtime_state` 表；app `runtime_mgmt.rs`（status/enable/disable/install，
   js/bsdshell 拒绝启用；install 只做本地 payload 四重校验）；新能力
@@ -2905,8 +2923,11 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   （开工前置：任务认知卡，见 ADR-090 §任务认知卡）
   **取证（2026-11-19）**：`crates/whcode-cui/src/cli.rs`／`crates/whcode-bin/src/cui_dispatch.rs`
   实现；clippy（-D warnings）绿；Check 481。
-- [ ] T399 写链路真模型端到端取证：`--approve workspace-write` 下真模型完成一次
+- [x] T399 写链路真模型端到端取证：`--approve workspace-write` 下真模型完成一次
   文件写入全链（授权审计、diff 留痕、文件真实产生）＋未授权回归取证
   （写类 fail-closed 与现状逐字一致）
-  （开工前置：任务认知卡，见 ADR-090 §任务认知卡；待并行会话 gui WIP 收敛后重建
-  release 取证）
+  （开工前置：任务认知卡，见 ADR-090 §任务认知卡；gui WIP 已收敛为 T383，取证重建完成）
+  **取证（2026-11-20）**：`artifacts/fieldtest3-2026-11-19.md`——正例：新会话 S-3 于
+  `--approve workspace-write` 下真模型 write_file 全链（授权审计、diff 留痕、note.md
+  逐字产生、4 工具事件）；未授权回归同节实证（写类 fail-closed 与现状逐字一致）；
+  CI＝platform-verification run 44626281459（head 31a1325）success。Check 481。

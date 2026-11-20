@@ -1459,7 +1459,7 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
 
 ## 第六十三层：FreeBSD A2 退出路径 SIGSEGV 归因取证（2026-11-18，Task T382，长线计划 A2）
 
-- [ ] Check 476: [missing] A2 深取证 workflow（`.github/workflows/a2-diagnosis.yml`，
+- [x] Check 476: [exercised] A2 深取证 workflow（`.github/workflows/a2-diagnosis.yml`，
   2026-11-19 自 platform-verification 迁出为独立并发组）可按 workflow_dispatch 在
   FreeBSD VM 产出栈级证据（lldb／gdb 回溯文本随 artifact `a2-diag-freebsd-deep`
   上传，核心文件不上传，回溯文件须含栈帧行才算 captured）；归因结论与既有 truss
@@ -1467,6 +1467,12 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   存活线程清单）；全部迭代未复现时以迭代次数显式登记“正确的空”（NOT_REPRODUCED），
   summary 未产出（前置缺失）即红；不得以复跑转绿代替归因（来源：Task T382、ADR-082
   dispatch 专项先例、ADR-013 FreeBSD 通道）
+  ——**取证（2026-11-20）**：成功 run 44392392417（2026-11-18）的
+  `a2-diag-freebsd-deep`：11 轮全量迭代＋16 模块×2 全部 `crashed=no`，
+  `a2_diag_result=NOT_REPRODUCED（正确的空，非前置缺失）`；失败 run 44417861184
+  （summary 未产出）按本条判据登记红。归因结论＝SIGSEGV 未复现，原失败与 T389 迁移
+  回退清单遗漏相关（134cdc7 修复）；修复后 FreeBSD 通道在 platform-verification
+  run 44626281459 全绿。
 
 - [x] Check 478: [exercised] OpenAI 族真实供应商端到端：真模型声明 read_file →
   事件流出现 ToolCallStarted/Finished（供应商原生 ID）→ 续答引用真实文件内容
@@ -1475,8 +1481,8 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   Task T386/T388／ADR-088）——**取证（2026-11-19）**：`artifacts/fieldtest2-2026-11-19.md`
   （turn 1 全链 GO：`call_9b6905…`、5 ms、真实文件内容、gaps=0）＋
   `openai_tool_call_fragments_accumulate_into_final_chunk`／
-  `openai_request_serializes_tool_calls_and_tool_results` 两用例；CI 结论待推送后
-  回填（ADR-037 口径）
+  `openai_request_serializes_tool_calls_and_tool_results` 两用例；CI 结论回填
+  （2026-11-20）：platform-verification run 44626281459（head 31a1325）success。
 - [x] Check 479: [exercised] Anthropic／Gemini／Ollama 同层单元级：tool_use 块开始
   ＋input_json_delta 累积→终结 chunk；tool_result 块／functionResponse parts 装配
   （相邻合并）；functionCall 无 ID 以函数名合成并如实登记（来源：spec FR-797／
@@ -1496,7 +1502,8 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   旧会话（v16 前落表）如实空边界同节实证）＋
   `tool_linkage_roundtrips_through_messages`／`history_seeds_tool_linkage_pairs`／
   `history_budget_keeps_recent_tail`／`second_turn_seeds_history_with_tool_linkage`
-  四用例；CI 结论待推送后回填（ADR-037 口径）
+  四用例；CI 结论回填（2026-11-20）：platform-verification run 44626281459
+  （head 31a1325）success。
 
 - [x] Check 481: [exercised] CUI 写类工具逐次显式授权：闸门恒建（用户裁定）——
   `--approve workspace-write` 下模型 write_file 执行并真实产生文件（Allow 决策不落
@@ -1507,7 +1514,8 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   （来源：spec FR-798／Task T398／ADR-090 修订）——**取证（2026-11-19）**：
   `artifacts/fieldtest3-2026-11-19.md`（正例：note.md 逐字写入＋4 工具事件＋审计；
   现状：无 --approve 时 blocked.md 同样产生——与代码事实一致，四端写姿态不对称
-  显式提交用户裁定）；CI 结论随 T399 回填
+  显式提交用户裁定）；CI 结论回填（2026-11-20）：T399 取证重建后由
+  platform-verification run 44626281459（head 31a1325）success 覆盖。
 
 - [x] Check 477: [exercised] GUI 对话取消确定性：提交前预生成 request_id（`llm-` 前缀）
   经 `GuiLlmExecutor::run_with_progress` 到达执行器且取消消息携带同一 ID；`ChatCancel`
@@ -1515,7 +1523,8 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   `active_request_id` 复位；运行中转写含轮头行（复用 `tui.chat.turn.header` 词条）
   （来源：spec FR-711／Task T383／ADR-087 修订 2026-11-19）——**取证（2026-11-19）**：
   `cargo test -p whcode-gui` 36 通过（`chat_cancel_uses_pregenerated_request_id`：桩
-  `sent_requests`／`cancels` 记录断言全链一致）；CI 结论待推送后回填（ADR-037 口径）。
+  `sent_requests`／`cancels` 记录断言全链一致）；CI 结论回填（2026-11-20）：
+  platform-verification run 44626281459（head 31a1325）success。
 
 ## 追溯缺口登记（2026-10-23）
 
