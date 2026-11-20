@@ -2905,7 +2905,7 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   -p whcode-bin --lib` 全绿（`runtime_mgmt` 正负路径含 js／bsdshell 拒绝与哈希
   不一致；`runtime_state` 适配既有列）；Web 四路由在 `cargo test -p whcode-web
   --lib` 内覆盖；矩阵四行 TUI 预留→six_view_scope 排除（零预留）。
-  **CI 缺口登记（ADR-037）**：本批提交尚未在 GitHub Actions 运行，结论待回填。
+  **CI（ADR-037）**：platform-verification run 44802221370（head e55c22a）与CodeQL 修复批 run 44815872609（head 3549cdb）均 success——Windows amd64／ARM64、FreeBSD 硬门禁、OpenBSD／DragonFly 均 success；CodeQL run 44802220412／44815871643 success；`check-code-scanning.py` 报 0 条 open（2026-11-21 复核）。
 - [x] T396 对等收口（FR-619—621）：矩阵零预留核验＋对等契约门禁扩表（新路由
   正向、新面负向）＋check_counts/traceability 同步＋CHANGELOG 与契约文档
   （cui-cli/app-service）修订
@@ -2915,7 +2915,7 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   **取证（2026-11-21）**：矩阵 `grep -c "| 预留 |"` = 0；`cargo test -p
   whcode-tests --test frontend_parity` 通过（全 SURFACES 遍历＋登记表零预留
   断言）；`check_counts.py` 一致；契约文档 §2.3／§2.4 与 cui-cli 接线说明已修订。
-  **CI 缺口登记（ADR-037）**：同上，待回填。
+  **CI（ADR-037）**：platform-verification run 44802221370（head e55c22a）与CodeQL 修复批 run 44815872609（head 3549cdb）均 success——Windows amd64／ARM64、FreeBSD 硬门禁、OpenBSD／DragonFly 均 success；CodeQL run 44802220412／44815871643 success；`check-code-scanning.py` 报 0 条 open（2026-11-21 复核）。
 
 ## Tasks（2026-11-19 追加）：CUI 写类工具逐次显式授权（ADR-090，用户批准）
 

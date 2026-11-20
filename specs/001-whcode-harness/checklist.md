@@ -1533,8 +1533,7 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   路径才探测子进程（界面路径不探测）；CUI 四臂接线＋`runtime.manage` 能力；Web
   四路由（守卫改真实实现）；TUI／GUI 按 `six_view_scope` 排除——**取证
   （2026-11-21）**：`cargo test -p whcode-app -p whcode-store -p whcode-cui
-  -p whcode-bin -p whcode-web --lib` 全绿；矩阵四行 TUI 翻转；**CI 缺口登记
-  （ADR-037）**：本批未在 GitHub Actions 运行，结论待回填。
+  -p whcode-bin -p whcode-web --lib` 全绿；矩阵四行 TUI 翻转；**CI（ADR-037）**：platform-verification run 44802221370（head e55c22a）与CodeQL 修复批 run 44815872609（head 3549cdb）均 success——Windows amd64／ARM64、FreeBSD 硬门禁、OpenBSD／DragonFly 均 success；CodeQL run 44802220412／44815871643 success；`check-code-scanning.py` 报 0 条 open（2026-11-21 复核）。
 - [x] Check 483: [exercised] 四端对等零预留（T396／FR-619—621／ADR-032）：登记表
   全表无 `Reserved`（全 SURFACES × 四前端遍历断言）；矩阵零「预留」行且由登记表
   校验；不可用语义仍由登记表驱动（CUI `not_supported` 信封 details 回读登记状态、
@@ -1542,7 +1541,7 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   `six_view_scope` 理由码显式排除，不伪装已实现——**取证（2026-11-21）**：
   `cargo test -p whcode-tests --test frontend_parity`（10 通过）、
   `cargo test -p whcode-app --lib surface::`（零预留断言）、`check_counts.py`
-  一致；**CI 缺口登记（ADR-037）**：同上。
+  一致；**CI（ADR-037）**：platform-verification run 44802221370（head e55c22a）与CodeQL 修复批 run 44815872609（head 3549cdb）均 success——Windows amd64／ARM64、FreeBSD 硬门禁、OpenBSD／DragonFly 均 success；CodeQL run 44802220412／44815871643 success；`check-code-scanning.py` 报 0 条 open（2026-11-21 复核）。
 
 ## 追溯缺口登记（2026-10-23）
 

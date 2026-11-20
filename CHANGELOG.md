@@ -29,8 +29,8 @@
   结构化拒绝；install 只做本地 payload 哈希比对，不联网）。
   TUI／GUI 的 `runtime.*` 按 `six_view_scope` 显式排除，与 `db.*` 本地管理族同口径。
   取证：`cargo test --workspace` 全绿（66 个测试二进制）、`clippy -D warnings` 与
-  `fmt --check` 通过、`check_counts`／`traceability` 一致、Check 482—483；CI 结论
-  待回填（ADR-037）。
+  `fmt --check` 通过、`check_counts`／`traceability` 一致、Check 482—483；platform-verification run 44802221370（head e55c22a）与 CodeQL 修复批 run
+  44815872609（head 3549cdb）success，Code Scanning 0 条 open（2026-11-21 复核）。
 - **TUI 对话流（2026-11-18，ADR-087／FR-796，用户指令“先把 UI 做好”）**：`ViewId::Chat`
   视图从占位升级为真对话界面——Composer 单行输入（`i` 进入、`P` 换剖面、Enter 提交）、
   turn 后台线程执行（每 turn 一个、无常驻），流式 delta 原位追加渲染，工具卡由
