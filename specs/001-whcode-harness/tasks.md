@@ -2892,21 +2892,30 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   矩阵同步；非目标=自定义工作流配置文件装载（ADR-089 已知限制 1）。
   **取证（2026-11-20）**：提交 0b750eb；CI＝platform-verification run 44626281459
   （head 31a1325）success；CodeQL push run success。
-- [ ] T395 B 类 runtime.* 四命令交付（FR-701—710，M8 提前）：store v17
-  `runtime_state` 表；app `runtime_mgmt.rs`（status/enable/disable/install，
-  js/bsdshell 拒绝启用；install 只做本地 payload 四重校验）；新能力
-  `runtime.manage`；CUI/Web 接线（守卫路由翻实现）；TUI/GUI 保持
-  `six_view_scope` 排除；登记翻转＋矩阵再生
+- [x] T395 B 类 runtime.* 四命令交付（FR-701—710，M8 提前）：store 适配
+  `0001_initial.sql` 既有 `runtime_state` 骨架表（不新增迁移，schema 仍 v16）；
+  app `runtime_mgmt.rs`（status/enable/disable/install，js/bsdshell 拒绝启用；
+  install 只做本地 payload 哈希比对）；新能力 `runtime.manage`；CUI/Web 接线
+  （守卫路由翻实现）；TUI/GUI 按 `six_view_scope` 排除；登记翻转＋矩阵再生
   ——**任务认知卡**：方向＝运行时启用状态从不可见配置变为可查询可审计可撤销；
   目标＝四命令 CUI/Web 真实执行、enable 落库＋审计、拒绝项结构化错误；
-  判据＝迁移测试（v17）＋app 正负路径＋CUI/Web 接线测试＋矩阵同步；
+  判据＝runtime_state 读写往返＋app 正负路径＋CUI/Web 接线测试＋矩阵同步；
   非目标=不做网络下载（ADR-089 已知限制 2）、不改默认关闭策略。
-- [ ] T396 对等收口（FR-619—621）：矩阵零预留核验＋对等契约门禁扩表（新路由
+  **取证（2026-11-21）**：`cargo test -p whcode-app -p whcode-store -p whcode-cui
+  -p whcode-bin --lib` 全绿（`runtime_mgmt` 正负路径含 js／bsdshell 拒绝与哈希
+  不一致；`runtime_state` 适配既有列）；Web 四路由在 `cargo test -p whcode-web
+  --lib` 内覆盖；矩阵四行 TUI 预留→six_view_scope 排除（零预留）。
+  **CI 缺口登记（ADR-037）**：本批提交尚未在 GitHub Actions 运行，结论待回填。
+- [x] T396 对等收口（FR-619—621）：矩阵零预留核验＋对等契约门禁扩表（新路由
   正向、新面负向）＋check_counts/traceability 同步＋CHANGELOG 与契约文档
   （cui-cli/app-service）修订
   ——**任务认知卡**：方向＝清零必须由门禁程序判定而非口头；目标＝
   `test_frontend_parity` 扩表全绿＋矩阵无「预留」行；判据＝门禁脚本全绿＋
   计数一致；非目标=不动四态定义与理由码表。
+  **取证（2026-11-21）**：矩阵 `grep -c "| 预留 |"` = 0；`cargo test -p
+  whcode-tests --test frontend_parity` 通过（全 SURFACES 遍历＋登记表零预留
+  断言）；`check_counts.py` 一致；契约文档 §2.3／§2.4 与 cui-cli 接线说明已修订。
+  **CI 缺口登记（ADR-037）**：同上，待回填。
 
 ## Tasks（2026-11-19 追加）：CUI 写类工具逐次显式授权（ADR-090，用户批准）
 

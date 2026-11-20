@@ -80,17 +80,19 @@ ADR-065／067／068、FR-102／201—208／301—314／601—625／701—710／7
 
 ### C. runtime.* 四命令（运行时管理，M8 提前）
 
-- store schema v17：新增 `runtime_state` 表（`name` 主键、`enabled`、
-  `installed_version`、`installed_hash`、`updated_at_ms`）——运行时启用状态的唯一
-  持久化点，空闲态不新增常驻资源（一行一运行时，四行封顶）。
+- store：**复用** `0001_initial.sql` 里已存在的 `runtime_state` 骨架表
+  （`name`／`enabled`／`backend`／`version`／`installed_at`／`payload_path`），
+  不新增迁移、不提升 schema 版本——运行时启用状态的唯一持久化点，空闲态不新增
+  常驻资源（一行一运行时，四行封顶）。`whcode-store::runtime_state` 只做适配。
 - app 新增 `runtime_mgmt.rs`：
   - `runtime.status`：声明＋可选探测＋持久化状态（与 `runtime.list` 同形）。
   - `runtime.enable`／`disable`：写 `runtime_state`＋审计（`AuditAction` 复用既有
     写动作）；`js`／`bsdshell` 拒绝启用（结构化错误：js 内置引擎不交付 ADR-024
     决策 1；bsdshell M7 延后 ADR-013）——不伪造「已启用」。
-  - `runtime.install`：只接受**本地 payload**（来源白名单 `SourceAllowlist`、版本、
-    哈希 `fnv64`、平台兼容四重校验，FR-703），校验通过落 `runtime_state` 安装列；
-    不做网络下载（资源优先、安全优先：隐式联网属暗黑模式禁项）。
+  - `runtime.install`：只接受**本地 payload**，先做 `fnv64` 哈希比对（声明值
+    与本地文件不一致即拒绝），通过后登记版本与 payload 路径；不做网络下载
+    （资源优先、安全优先：隐式联网属暗黑模式禁项）。来源白名单与平台兼容的
+    执行面校验随 M8 执行链路（见已知限制 6）。
 - 新能力 `Capability::RuntimeManage`（稳定名 `runtime.manage`），入
   `KNOWN_CAPABILITIES` 与 `actor_with_all_capabilities`；CUI/Web 装配根 actor
   即全能力调用者，行为不变。
@@ -122,8 +124,12 @@ ADR-065／067／068、FR-102／201—208／301—314／601—625／701—710／7
 4. **TUI `view.deliverables` 复用台账视图**：交付物节随 FR-787 交付，若后续台账
    结构变化导致交付物节消失，该锚点失效——判定命令
    `cargo test -p whcode-tui ledger`，红即复审。
-5. **键位可用性**：新增键位避开既有证据键（q/1—8/j/k/r/n/m/d/A/R/X/p/t/L/C/i/P/
+5. **键位可用性**：新增键位避开既有证据键（q/1—8/j/k/r/m/d/A/R/X/p/t/L/C/i/P/
    Esc/a/b）；实现批次内以 TUI 键位表测试钉死，冲突即改键并在矩阵锚点同步。
+6. **runtime.install 只做哈希比对**：来源白名单（`SourceAllowlist`）与平台兼容
+   校验未在 install 路径执行，留给 M8 执行链路。失效条件：`cargo test -p
+   whcode-app runtime` 出现要求来源/平台校验的用例，或用户提出离线载荷信任需求
+   → 补校验与该维度测试。
 
 ## 替代方案
 
@@ -137,7 +143,8 @@ ADR-065／067／068、FR-102／201—208／301—314／601—625／701—710／7
 
 ## 影响
 
-- store schema v16→v17（新增 1 表，21→22 表）；`TABLE_COUNT` 同步。
+- store：无新增迁移（`runtime_state` 复用既有骨架表，schema 仍为 v16，
+  `TABLE_COUNT` 不变）。
 - `Capability` 新增 `RuntimeManage`；`KNOWN_CAPABILITIES` 16→17。
 - `ViewId` 8→10；TUI/GUI 视图切换键扩至 `9`/`0`；对等矩阵 17 行翻转＋再生。
 - FrontendCommand 新增 4 变体；ViewSource 新增读面方法；Web 新增 4 路由。
@@ -170,3 +177,15 @@ ADR-065／067／068、FR-102／201—208／301—314／601—625／701—710／7
 - FR：102、201—208、301—314、601—625、701—710、769—776、787、795
 - ADR：009、013、024、032、056、065、067、068、070、085
 - 任务：T390—T396（specs/001-whcode-harness/tasks.md 追加）
+
+## 修订记录
+
+- **2026-11-21（T395/T396 收口，以磁盘事实修正）**：
+  1. `runtime_state` 由“新表 v17”改为**复用既有骨架表**——`0001_initial.sql` 已有
+     同名表（列集合不同），新建 0017 迁移会与之冲突；schema 维持 v16，
+     `TABLE_COUNT` 不变。
+  2. `runtime.install` 的四重校验收窄为「本地 payload 哈希比对＋登记」；来源
+     白名单与平台兼容校验登记为已知限制 6，不保留未经实现的声明。
+  3. TUI 的 `runtime.*` 由历史 `Reserved { M8 }` 对齐为本节已声明的
+     `six_view_scope` 排除——「预留」是矩阵中唯一代表缺口的状态，ADR 决策与登记
+     表必须一致（`cargo test -p whcode-app surface` 全表零预留断言钉死）。

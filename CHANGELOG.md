@@ -13,6 +13,24 @@
 
 ### 新增
 
+- **四端对等全量清零（2026-11-20/21，ADR-089／FR-619—621／T390—T396）**：对等矩阵
+  49 格「预留」全部清偿，登记表 `SURFACES` 全表零 `Reserved`（四前端遍历断言），
+  「已实现」与「正当排除」两种状态首次覆盖全部能力面。
+  A 类接线：`session.switch`／`fork`／`rewind`／`restore`（两段式预览→确认）、
+  `session.plan`、`events.show`、`llm.models`、`view.preimages`／`view.coherence`
+  ／`view.deliverables` 在 CUI／TUI／GUI／Web 四端落地同一业务语义（TUI 键位
+  `s`／`F`／`W`／`V`／`e`／`M`，视图数字键扩至 `9`／`0`；GUI 经 `OpMode`；Web 经
+  既有 `/api/*` 路由）。
+  B 类交付：SDD 门禁命令面 `spec.next|validate|analyze|converge|force-advance`
+  （新模块 `whcode-app::spec`，工作区 `specs/` 产物显式提供门禁输入，FR-313 禁止
+  推断；GUI 保持 `gui_read_only_v1` 排除）与运行时管理
+  `runtime.status|enable|disable|install`（新模块 `whcode-app::runtime_mgmt`，
+  启用状态落 `runtime_state` 表并记审计，新能力 `runtime.manage`；`js`／`bsdshell`
+  结构化拒绝；install 只做本地 payload 哈希比对，不联网）。
+  TUI／GUI 的 `runtime.*` 按 `six_view_scope` 显式排除，与 `db.*` 本地管理族同口径。
+  取证：`cargo test --workspace` 全绿（66 个测试二进制）、`clippy -D warnings` 与
+  `fmt --check` 通过、`check_counts`／`traceability` 一致、Check 482—483；CI 结论
+  待回填（ADR-037）。
 - **TUI 对话流（2026-11-18，ADR-087／FR-796，用户指令“先把 UI 做好”）**：`ViewId::Chat`
   视图从占位升级为真对话界面——Composer 单行输入（`i` 进入、`P` 换剖面、Enter 提交）、
   turn 后台线程执行（每 turn 一个、无常驻），流式 delta 原位追加渲染，工具卡由
@@ -32,6 +50,21 @@
 - **字段测试：真实供应商工具调用链路断裂（2026-11-17/18，P0 发现）**：接 SenseNova 真跑字段测试（沙盒样例库，`local/fieldtest/` 不入库）：需要工具的任务在 `finish_reason=tool_calls` 下**事件流无任何 ToolCall、正文为空、turn 静默按 `model_finished` 终止**；纯文本对照任务完全健康。根因＝协议解码器只读 `delta.content`、不读 `tool_calls`/`tool_use`/`functionCall` 帧，请求侧也无 `role:tool`/`tool_result` 回传装配（`protocols.rs:139` 自认随 P0-2 扩展）；既有工具执行 Check 全部走桩剧本，桩绿≠真通。缺口清单与修复面见 `artifacts/fieldtest-2026-11-17.md`。
 
 ### 修复
+
+- **两个测试从未运行（2026-11-21）**：`whcode-app/src/turn.rs` 的
+  `plan_mode_activation_records_state_and_injects_guidance_next_turn` 与
+  `whcode-web/src/api.rs` 的 `plan_route_reports_state_and_user_toggle` 在插入新测试
+  时丢失 `#[test]` 属性、文档注释错位到相邻函数上（编译器只报 dead_code，本地
+  全绿掩盖了覆盖缺口）。补回属性、把注释归位，两个用例均通过。
+- **测试夹具 schema 落后（2026-11-21）**：T389 给 `messages` 增两列后，
+  `whcode-cui::TEST_MIGRATIONS`、`test_json_envelope`、`test_tui_cui_parity`、
+  `test_web_security_defaults` 与 Web 两处 `TEST_MIGRATIONS` 仍停在 0006／0015，
+  任何触达 `messages_page` 的读取路径报
+  `Referenced column "tool_call_id" not found`。统一补齐到 0016（夹具与 store
+  查询同构，不改查询）。
+- **Web spec 路由用例互踩临时目录（2026-11-21）**：`spec_gate_routes_validate_and_advance`
+  使用固定临时目录名，全量并行时被他进程清理导致 `passed=false`；改按
+  pid＋序号命名，单独跑与全量跑结果一致。
 
 - **多提交推送被误判为纯文档（2026-11-17）**：`platform-verification.yml` 的 `triage`
   用 `git diff HEAD~1 HEAD` 判定，只看得到**最后一次提交**；一次推送若前面是代码、末条是

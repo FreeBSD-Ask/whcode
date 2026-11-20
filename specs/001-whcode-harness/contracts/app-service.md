@@ -121,6 +121,40 @@ turn 编排器另发 `ContextState`（预算）、`ToolCallStarted/Finished`（F
 过渡期 `state=unknown`）与 `RuntimeTerminated`（`termination_reason` 五稳定名）；
 旧小写名（`llm.request_started` 等）废弃（ADR-044 决策 7）。
 
+### 2.3 SDD 门禁命令面：`spec.*`（T394、FR-301—314、ADR-089）
+
+应用层入口为 `whcode_app::spec`，工作区产物装载（`specs/spec.md`、`tasks.md`、
+`plan.md`、`constitution.md`）与门禁计算共用同一份解析器：
+
+| 函数 | 语义 |
+|---|---|
+| `validate` | 按当前阶段必需产物判定存在性与解析洁净度；只读，返回 `ValidateView` |
+| `analyze_view` | 五类缺陷（需求／任务断链、澄清未决、验收缺失、依赖环、plan 引用无效） |
+| `converge_view` | 收敛判据（未完成任务、未覆盖验收、未决澄清）；只读 |
+| `next` / `force_advance_view` | 沿 `default_workflow()` 转换；`force_advance_view` 要求 `reason` 且写审计 |
+
+门禁输入（高优未决澄清、分析通过性、宪法存在性）由产物显式构造为 `TransitionContext`，
+**不从库内状态推断**（FR-313）。校验失败返回 `GateFailed`，非法转换返回 `InvalidState`
+（两者不混用）。CUI／TUI／Web 已登记为已实现；GUI 保持 `gui_read_only_v1` 排除。
+
+### 2.4 运行时管理：`runtime.*`（T395、FR-701—710、ADR-089）
+
+应用层入口为 `whcode_app::runtime_mgmt`，清单与启用策略是单一事实源（`whcode-bin`
+的 `runtimes` 模块改为 re-export）：
+
+| 函数 | 语义 |
+|---|---|
+| `inventory` | 四项声明（js／python／gitbash／bsdshell）与能力等级；`probe=true` 才探测子进程 |
+| `status` | 声明＋可选探测＋持久化状态（`runtime_state` 表） |
+| `enable` / `disable` | 写 `enabled` 并记审计（`AuditAction::RuntimeConfigChange`）；可撤销 |
+| `install` | 本地 payload 的 `fnv64` 哈希比对先于登记；不联网（ADR-089 已知限制 2） |
+
+`js` 与 `bsdshell` 的结构化拒绝（ADR-024／ADR-013）在 `ensure_installable` 统一给出，
+错误 details 携带理由码，不伪造启用状态。新能力 `Capability::RuntimeManage`
+（稳定名 `runtime.manage`）。接线范围：CUI 与 Web；TUI／GUI 按 `six_view_scope` 排除。
+启用状态只表达“装配开关”，不代表解释器可用——执行路径仍按探测结果返回
+`runtime_unavailable`（FR-710）。
+
 ## 3. 状态快照（四端同源）
 
 字段与语义见 [state-snapshot.md](./state-snapshot.md)；快照必须携带 `schema_version`、`event_cursor`，使前端可用游标增量补齐（FR-202/605）。

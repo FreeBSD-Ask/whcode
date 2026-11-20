@@ -60,7 +60,15 @@ whcode
 - `context budget` 输出与 `whcode_app::load_context` 同源：JSON 含 `schema_version`、预算、
   来源、截断原因与游标（FR-105／108）。
 - `runtime list` 输出与 Web `/api/runtimes` 同形（`schema_version`、`wired`、`runtimes`，
-  状态名不翻译）；`runtime status|enable|disable|install` 为预留命令。
+  状态名不翻译）。`runtime status|enable|disable|install` 随 T395 交付（FR-701—710）：
+  `status` 读声明＋本机探测＋持久化状态；`enable`／`disable` 写 `runtime_state` 并审计；
+  `install` 只接受本地 payload（`--version --hash --payload`），哈希比对通过才登记，
+  不做网络下载（ADR-089 已知限制）。`js` 与 `bsdshell` 的结构化拒绝理由随错误 details
+  返回。TUI／GUI 按 `six_view_scope` 排除（ADR-089 §C），不因命令面可用而宣称可管理。
+- `spec next|validate|analyze|converge|force-advance` 随 T394 交付（FR-301—314）：
+  `next`／`force-advance` 走同一状态机与审计（后者 `--reason` 必填）；`validate`
+  `/`analyze`／`converge` 只读计算，需 `--workspace` 定位 `specs/` 产物；门禁输入
+  由产物显式提供，不从库内状态推断（FR-313）。GUI 保持 `gui_read_only_v1` 排除。
 - `webhook status`／`webhook deliver`（P6.4／FR-788／ADR-079）：配置来自
   `<workspace>/.whcode/webhooks.json`（显式 opt-in；未配置＝零端点＝零请求，`status` 明确
   输出 `configured: false`，`deliver` 计划 0 条）。`status` 输出端点计数、三态计数
