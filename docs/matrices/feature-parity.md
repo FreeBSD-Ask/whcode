@@ -56,10 +56,10 @@ T190：新增证书库设置两行）。
 | `webhook.status` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-788；部分 cli_local_admin |
 | `webhook.deliver` | Command | Write | 已实现 | 部分 | 部分 | 部分 | FR-788；部分 cli_local_admin（dry-run→`--yes`，ADR-079） |
 | `runtime.list` | Command | Read | 已实现 | 部分 | 部分 | 已实现 | FR-701—710；部分 six_view_scope |
-| `runtime.status` | Command | Read | 预留 | 预留 | 部分 | 预留 | FR-701—710；预留 M8；部分 six_view_scope |
-| `runtime.enable` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-701—710；预留 M8；部分 six_view_scope |
-| `runtime.disable` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-701—710；预留 M8；部分 six_view_scope |
-| `runtime.install` | Command | Write | 预留 | 预留 | 部分 | 预留 | FR-701—710；预留 M8；部分 six_view_scope |
+| `runtime.status` | Command | Read | 已实现 | 部分 | 部分 | 已实现 | FR-701—710；T395 CUI/Web 接线（M8 提前，ADR-089）；部分 six_view_scope（TUI/GUI） |
+| `runtime.enable` | Command | Write | 已实现 | 部分 | 部分 | 已实现 | FR-701—710；T395 CUI/Web 接线；部分 six_view_scope（TUI/GUI） |
+| `runtime.disable` | Command | Write | 已实现 | 部分 | 部分 | 已实现 | FR-701—710；T395 CUI/Web 接线；部分 six_view_scope（TUI/GUI） |
+| `runtime.install` | Command | Write | 已实现 | 部分 | 部分 | 已实现 | FR-701—710；T395 CUI/Web 接线（本地 payload 哈希比对）；部分 six_view_scope（TUI/GUI） |
 | `llm.run` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-201—208；T167 接线（CUI／Web／TUI 三端，TUI 剖面→提示词两步输入）；ADR-056 |
 | `sdk.serve` | Command | Write | 已实现 | 不提供 | 不提供 | 不提供 | FR-778；T294（出进程 stdio JSON-RPC，机器面——TUI/GUI/Web 交互面不承载）；ADR-071 |
 | `acp.serve` | Command | Write | 已实现 | 不提供 | 不提供 | 不提供 | FR-789；T348（ACP automation-only，审批 fail-closed——request_permission 永不发出）；ADR-081 |

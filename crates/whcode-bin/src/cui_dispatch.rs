@@ -163,7 +163,7 @@ fn dispatch_code(args: &[String]) -> i32 {
     let texts = crate::load_texts(&locale, locale_source);
     let argv = std::iter::once("whcode".to_string()).chain(args.iter().cloned());
     let cli = match parse_outcome(argv, Some(&texts)) {
-        ParseOutcome::Command(cli) => cli,
+        ParseOutcome::Command(cli) => *cli,
         ParseOutcome::Display(text) => {
             print!("{text}");
             return 0;
@@ -262,6 +262,27 @@ fn confirm_flags(dry_run: bool, yes: bool) -> Result<bool, WhError> {
 
 /// 执行一条命令：返回 (JSON 数据, 人类可读文本)。
 fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, String), WhError> {
+    // FR-619／FR-620：先登记后接线——命令所映射的登记面若在本端为预留或不适用，
+    // 统一在此返回 not_supported（退出码 55），不在各命令实现里各写一份拒绝。
+    // 本轮预留面已清零；机制保留为 tripwire，新增预留面自动获得同一语义。
+    let surface_id = whcode_cui::surface_map::surface_of(command);
+    if let Some(entry) = whcode_app::surface::find(surface_id) {
+        match entry.support(whcode_app::surface::FrontendId::Cui) {
+            whcode_app::surface::Support::Reserved { milestone } => {
+                return Err(not_supported(
+                    surface_id,
+                    &format!("{surface_id} 在 CUI 端预留（里程碑 {milestone}）"),
+                ));
+            }
+            whcode_app::surface::Support::NotApplicable => {
+                return Err(not_supported(
+                    surface_id,
+                    &format!("{surface_id} 在 CUI 端不适用"),
+                ));
+            }
+            _ => {}
+        }
+    }
     let config = config_for(workspace);
     let actor = local_actor();
     let policy = policy();
@@ -335,7 +356,7 @@ fn execute(command: &Command, workspace: &Path, texts: &I18n) -> Result<(Value, 
         // 凭据与取消），装配根只注入 Provider 工厂与取消目录（ADR-031 决策 1）。
         Command::Llm { command } => llm_command(command, workspace, &config, &policy, &actor),
         Command::Font { command } => font_command(command, texts),
-        Command::Runtime { command } => runtime_command(command),
+        Command::Runtime { command } => runtime_command(command, workspace, &policy, &actor),
         Command::Serve { .. } => Err(not_wired(
             "serve 由主入口装配：使用 `whcode serve --web [--bind …] [--workspace …]`",
         )),
@@ -593,7 +614,12 @@ fn context_command(
 /// `runtime` 命令（FR-701—710；T173）：`list` 与 Web `GET /api/runtimes` 同形
 /// （schema_version/wired/runtimes，能力等级名不翻译）；其余子命令属 M8，
 /// 统一 `not_supported`（退出码 55，FR-620）。清单来自声明读取，不触库。
-fn runtime_command(command: &RuntimeCommand) -> Result<(Value, String), WhError> {
+fn runtime_command(
+    command: &RuntimeCommand,
+    workspace: &Path,
+    policy: &DefaultPolicy,
+    actor: &Actor,
+) -> Result<(Value, String), WhError> {
     match command {
         RuntimeCommand::List => {
             // 界面路径不探测子进程（probe=false，Check 101）：只展示声明与不支持项。
@@ -604,22 +630,80 @@ fn runtime_command(command: &RuntimeCommand) -> Result<(Value, String), WhError>
             });
             Ok((value, crate::runtimes::summary(false)))
         }
-        RuntimeCommand::Status { name } => Err(not_supported(
-            "runtime.status",
-            &format!("runtime status {name} 属运行时装配开关（M8），当前不伪造启用状态"),
-        )),
-        RuntimeCommand::Enable { name } => Err(not_supported(
-            "runtime.enable",
-            &format!("runtime enable {name} 属运行时装配开关（M8），当前不伪造启用状态"),
-        )),
-        RuntimeCommand::Disable { name } => Err(not_supported(
-            "runtime.disable",
-            &format!("runtime disable {name} 属运行时装配开关（M8），当前不伪造启用状态"),
-        )),
-        RuntimeCommand::Install { name } => Err(not_supported(
-            "runtime.install",
-            &format!("runtime install {name} 属运行时装配开关（M8），当前不伪造启用状态"),
-        )),
+        // T395（ADR-089 批 6）：管理命令面翻实现——状态落 runtime_state 表＋审计；
+        // js/bsdshell 结构化拒绝（不伪造启用）；status 显式命令路径允许探测。
+        RuntimeCommand::Status { name } => {
+            let conn = open_db(workspace, &config_for(workspace))?;
+            let view = whcode_app::runtime_status(&conn, policy, actor, name, true)?;
+            let human = format!(
+                "{} [{}] enabled={} version={}{}",
+                view.name,
+                view.capability,
+                view.enabled,
+                if view.version.is_empty() {
+                    "未安装"
+                } else {
+                    &view.version
+                },
+                view.available
+                    .map(|available| if available {
+                        " · 可用"
+                    } else {
+                        " · 不可用"
+                    })
+                    .unwrap_or_default(),
+            );
+            let value = serde_json::to_value(&view)
+                .map_err(|err| WhError::internal(format!("运行时状态序列化失败：{err}")))?;
+            Ok((value, human))
+        }
+        RuntimeCommand::Enable { name } => {
+            let conn = open_db(workspace, &config_for(workspace))?;
+            let view = whcode_app::runtime_enable(&conn, policy, actor, name, now_ms()?)?;
+            Ok((
+                serde_json::to_value(&view)
+                    .map_err(|err| WhError::internal(format!("运行时状态序列化失败：{err}")))?,
+                format!(
+                    "{} 已启用（enable 只写状态；可用性取决于本机解释器/payload）",
+                    view.name
+                ),
+            ))
+        }
+        RuntimeCommand::Disable { name } => {
+            let conn = open_db(workspace, &config_for(workspace))?;
+            let view = whcode_app::runtime_disable(&conn, policy, actor, name, now_ms()?)?;
+            Ok((
+                serde_json::to_value(&view)
+                    .map_err(|err| WhError::internal(format!("运行时状态序列化失败：{err}")))?,
+                format!("{} 已停用", view.name),
+            ))
+        }
+        RuntimeCommand::Install {
+            name,
+            version,
+            hash,
+            payload,
+        } => {
+            let conn = open_db(workspace, &config_for(workspace))?;
+            let view = whcode_app::runtime_install(
+                &conn,
+                policy,
+                actor,
+                name,
+                version,
+                hash,
+                Path::new(payload),
+                now_ms()?,
+            )?;
+            Ok((
+                serde_json::to_value(&view)
+                    .map_err(|err| WhError::internal(format!("运行时状态序列化失败：{err}")))?,
+                format!(
+                    "{} 安装已登记（version={}；哈希比对通过，FR-703）",
+                    view.name, view.version
+                ),
+            ))
+        }
     }
 }
 
@@ -2032,7 +2116,7 @@ mod tests {
         not_supported,
     };
     use std::path::PathBuf;
-    use whcode_app::surface::{self, FrontendId, Support};
+    use whcode_app::surface::{self, FrontendId};
     use whcode_cui::cli::{
         Command, ContextCommand, EventsCommand, FontCommand, LlmCommand, RuntimeCommand,
         SessionCommand, SpecCommand, TaskCommand,
@@ -2586,93 +2670,42 @@ mod tests {
         let _ = std::fs::remove_dir_all(&workspace);
     }
 
-    /// 保留命令显式失败（不静默成功）：not_supported 语义（FR-620，退出码 55）。
+    /// T395／ADR-089 批 6：runtime 管理命令 CUI 正向接线——status 出结构化状态
+    /// （js 能力等级可见、默认关闭）；enable js 结构化拒绝（不伪造启用，ADR-024）。
     #[test]
-    fn unwired_commands_fail_explicitly() {
-        let workspace = temp_workspace("unwired");
-        for command in [Command::Runtime {
-            command: RuntimeCommand::Status { name: "js".into() },
-        }] {
-            let err = execute(&command, &workspace, &whcode_domain::i18n::I18n::default())
-                .expect_err("必须显式失败");
-            assert!(
-                err.message.contains("未实现"),
-                "错误必须标注未实现：{}",
-                err.message
-            );
-            assert_eq!(err.code, ErrorCode::NotSupported, "保留命令统一 55 语义");
-            assert_eq!(error_exit_code(&err), 55);
-        }
-        let _ = std::fs::remove_dir_all(&workspace);
-    }
+    fn runtime_management_commands_are_wired() {
+        let workspace = temp_workspace("runtime-mgmt");
+        let texts = whcode_domain::i18n::I18n::default();
 
-    /// 全部保留命令的 details 由登记表驱动（FR-620）：surface_id、CUI 端状态、
-    /// 预留里程碑/排除理由码，与 `whcode_app::surface` 一致——不硬编码第二份清单。
-    #[test]
-    fn unavailable_commands_carry_registry_details() {
-        let workspace = temp_workspace("registry-details");
-        // spec.* 五命令已随 T394 翻实现（移出保留面清单）；runtime.* 待 T395。
-        let cases = [
-            (
-                Command::Runtime {
-                    command: RuntimeCommand::Status { name: "js".into() },
-                },
-                "runtime.status",
-            ),
-            (
-                Command::Runtime {
-                    command: RuntimeCommand::Enable { name: "js".into() },
-                },
-                "runtime.enable",
-            ),
-            (
-                Command::Runtime {
-                    command: RuntimeCommand::Disable { name: "js".into() },
-                },
-                "runtime.disable",
-            ),
-            (
-                Command::Runtime {
-                    command: RuntimeCommand::Install { name: "js".into() },
-                },
-                "runtime.install",
-            ),
-        ];
-        for (command, expected_id) in cases {
-            let err = execute(&command, &workspace, &whcode_domain::i18n::I18n::default())
-                .expect_err("保留命令必须显式失败");
-            assert_eq!(error_exit_code(&err), 55, "{expected_id} 退出码 55");
-            let envelope = error_envelope(&err);
-            assert_eq!(envelope.code, "not_supported", "{expected_id}");
-            assert_eq!(
-                envelope.schema_version,
-                whcode_domain::SCHEMA_VERSION,
-                "错误信封必须带 schema_version"
-            );
-            assert!(!envelope.retryable, "{expected_id} 不可重试");
-            assert_eq!(
-                envelope.details["surface_id"], expected_id,
-                "details.surface_id 必须来自命令映射的登记面"
-            );
-            // 状态与里程碑/理由码以登记表为准（CUI 端）。
-            let entry = surface::find(expected_id)
-                .unwrap_or_else(|| panic!("{expected_id} 未登记（not_supported 只认登记面）"));
-            let support = entry.support(FrontendId::Cui);
-            assert_eq!(
-                envelope.details["state"],
-                support.state_code(),
-                "{expected_id} 的 state 必须取登记表状态码"
-            );
-            match support {
-                Support::Reserved { milestone } => {
-                    assert_eq!(envelope.details["milestone"], *milestone);
-                }
-                Support::Excluded { reason } => {
-                    assert_eq!(envelope.details["reason_code"], reason.as_str());
-                }
-                other => panic!("{expected_id} 的 CUI 状态不应为 {other:?}"),
-            }
-        }
+        let (value, human) = execute(
+            &Command::Runtime {
+                command: RuntimeCommand::Status { name: "js".into() },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect("运行时状态");
+        assert_eq!(value["name"], "js");
+        assert_eq!(value["capability"], "restricted");
+        assert_eq!(value["enabled"], false, "表空＝默认关闭（FR-704）");
+        assert!(human.contains("js"), "人类可读行含运行时名：{human}");
+
+        // enable js：结构化拒绝（不是 not_supported 退出码 55，而是 invalid_state）。
+        let err = execute(
+            &Command::Runtime {
+                command: RuntimeCommand::Enable { name: "js".into() },
+            },
+            &workspace,
+            &texts,
+        )
+        .expect_err("js 启用必须拒绝");
+        assert_eq!(err.code, ErrorCode::InvalidState);
+        assert!(
+            err.message.contains("ADR-024"),
+            "拒绝必须指向决策依据：{}",
+            err.message
+        );
+
         let _ = std::fs::remove_dir_all(&workspace);
     }
 
@@ -2868,31 +2901,25 @@ mod tests {
         let _ = std::fs::remove_dir_all(&workspace);
     }
 
-    /// `--json` 错误路径：保留命令经完整调度输出 not_supported 信封并返回 55。
+    /// FR-620 退出码语义（机制级）：`not_supported` 错误在 CUI 侧统一映射为 55。
+    /// T390—T395 把全部保留命令翻实现后，命令面不再有 not_supported 样本——
+    /// 本测试改为直接验证「错误 → 退出码」映射与登记表详情构造，防止语义回归。
     #[test]
-    fn unavailable_commands_exit_55_via_dispatch() {
-        let workspace = temp_workspace("exit-55");
-        let workspace_arg = workspace.display().to_string();
-        let base = ["--workspace", workspace_arg.as_str()];
-        for argv in [vec!["runtime", "status", "--name", "js"]] {
-            let mut json_args = vec![base[0], base[1], "--json"];
-            json_args.extend_from_slice(&argv);
-            assert_eq!(
-                dispatch_code(&args(&json_args)),
-                55,
-                "--json 路径退出码 55：{argv:?}"
-            );
-            // 文本路径同样显式给工作区：装配根会在工作区建出站证书库（T191），
-            // 不给 --workspace 时会落到进程当前目录并污染源码树。
-            let mut text_args = vec![base[0], base[1]];
-            text_args.extend_from_slice(&argv);
-            assert_eq!(
-                dispatch_code(&args(&text_args)),
-                55,
-                "文本路径退出码 55：{argv:?}"
-            );
-        }
-        let _ = std::fs::remove_dir_all(&workspace);
+    fn not_supported_maps_to_exit_55_with_registry_details() {
+        let error = not_supported("spec.next", "机制级样本");
+        assert_eq!(error.code, ErrorCode::NotSupported);
+        assert!(!error.retryable, "not_supported 不可重试（FR-620）");
+        assert_eq!(error_exit_code(&error), 55, "CUI 退出码必须为 55");
+        let envelope = error_envelope(&error);
+        assert_eq!(envelope.code, "not_supported");
+        assert_eq!(envelope.details["surface_id"], "spec.next");
+        // 已实现面：details 带 state（不伪造里程碑／理由码）。
+        assert_eq!(envelope.details["state"], "implemented");
+        // 未登记面：只有 surface_id，不伪造 state（装配错误信号）。
+        let unknown = not_supported("no.such.surface", "未登记样本");
+        let envelope = error_envelope(&unknown);
+        assert_eq!(envelope.details["surface_id"], "no.such.surface");
+        assert!(envelope.details.get("state").is_none());
     }
 
     /// `runtime list`（T173）：与 Web `GET /api/runtimes` 同形——顶层与条目字段集合
@@ -3080,68 +3107,56 @@ mod tests {
         let _ = std::fs::remove_dir_all(&workspace);
     }
 
-    /// 同一 SurfaceId 的不可用语义在 CUI 与 Web 同源（FR-620）：Web 守卫返回
-    /// 501 not_supported 信封，CUI 返回 55 not_supported 信封——details 的
-    /// surface_id/state 一致（同一登记表条目驱动，当前守卫面双端均预留）。
+    /// FR-620：不可用信封由登记表驱动（同源，不硬编码第二份清单）。
+    /// 四态按前端分别登记（`task.show` 在 CUI 已实现、Web 排除属正当差异），
+    /// 因此断言的是「details 回读该前端登记值」与「状态码落在四态词表内」，
+    /// 而不是两端状态码相同。
     #[test]
     fn cui_and_web_unavailable_details_share_registry() {
-        let mut conn = duckdb::Connection::open_in_memory().expect("内存库");
-        for (method, path, id) in [
-            // events.show／spec.* 的 CUI 已随 T390/T394 翻实现；runtime.* 待 T395。
-            ("POST", "/api/runtimes/disable", "runtime.disable"),
-            ("GET", "/api/runtimes/status", "runtime.status"),
-            // llm.run 已随 T167 在双端翻转为已实现，故取仍预留的 runtime 写面作样本。
-            ("POST", "/api/runtimes/enable", "runtime.enable"),
-        ] {
-            // Web 侧：守卫 → 501 + not_supported 信封。
-            let request = whcode_web::api::HttpRequest {
-                method: if method == "GET" {
-                    whcode_web::api::Method::Get
-                } else {
-                    whcode_web::api::Method::Post
-                },
-                path: path.to_string(),
-                headers: vec![("origin".to_string(), "http://127.0.0.1".to_string())],
-                body: Vec::new(),
-            };
-            let response = whcode_web::api::handle_request(
-                &mut conn,
-                false,
-                None,
-                &whcode_web::security::ALLOWED_ORIGINS,
-                &request,
-                &local_actor(),
-            );
-            assert_eq!(response.status, 501, "{path} 守卫必须 501");
-            let web: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
-            assert_eq!(web["code"], "not_supported", "{path}");
-            assert_eq!(web["retryable"], false, "{path}");
-            assert_eq!(web["schema_version"], whcode_domain::SCHEMA_VERSION);
-            assert_eq!(web["details"]["surface_id"], id, "{path}");
-
-            // CUI 侧：同一 surface_id 的 not_supported 错误信封。
-            let err = not_supported(id, "对等测试");
-            let envelope = error_envelope(&err);
-            assert_eq!(envelope.code, "not_supported", "{id}");
-            assert_eq!(envelope.details["surface_id"], id, "{id}");
+        for entry in surface::SURFACES {
+            let envelope = error_envelope(&not_supported(entry.id, "对等测试"));
+            assert_eq!(envelope.details["surface_id"], entry.id);
             assert_eq!(
-                envelope.details["state"], web["details"]["state"],
-                "{id} 的 details.state 在 CUI 与 Web 必须一致（同一登记表面）"
+                envelope.details["state"],
+                entry.support(FrontendId::Cui).state_code(),
+                "{} 的 details.state 必须回读 CUI 登记状态",
+                entry.id
             );
-            assert_eq!(
-                envelope.details["state"], "reserved",
-                "{id} 当前在双端均登记为预留"
-            );
+            for frontend in [FrontendId::Cui, FrontendId::Web] {
+                let code = entry.support(frontend).state_code();
+                assert!(
+                    [
+                        "implemented",
+                        "partial",
+                        "reserved",
+                        "excluded",
+                        "not_applicable"
+                    ]
+                    .contains(&code),
+                    "{} 的 {frontend:?} 状态码 {code} 不在四态词表内",
+                    entry.id
+                );
+            }
         }
     }
 
-    /// not_supported 的登记面必须已登记且 CUI 端为预留/排除（防装配漂移的负向 tripwire）。
+    /// registry_details 与登记表逐面一致（防装配漂移的 tripwire）：
+    /// 状态码取 CUI 端登记值；未登记面不伪造状态（缺 state 即装配错误信号）。
     #[test]
     fn registry_details_reflect_registry_state() {
+        // runtime.status 已随 T395 翻实现：state 必须是 implemented，且不写里程碑。
         let details = super::registry_details("runtime.status");
         assert_eq!(details["surface_id"], "runtime.status");
-        assert_eq!(details["state"], "reserved");
-        assert_eq!(details["milestone"], "M8");
+        assert_eq!(details["state"], "implemented");
+        assert!(details.get("milestone").is_none(), "已实现面不写里程碑");
+
+        // 排除面：state 与理由码同源（examples：cli_local_admin 族）。
+        let details = super::registry_details("db.stats");
+        let entry = surface::find("db.stats").expect("已登记");
+        assert_eq!(
+            details["state"],
+            entry.support(FrontendId::Cui).state_code()
+        );
 
         // 未登记面：不伪造状态（缺 state 即装配错误信号）。
         let details = super::registry_details("no.such.surface");

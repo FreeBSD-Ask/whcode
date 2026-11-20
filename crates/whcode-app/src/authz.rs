@@ -49,6 +49,8 @@ pub enum Capability {
     ApprovalRuleRead,
     /// 修改本地审批规则（FR-745／FR-751；撤销即删除）。
     ApprovalRuleWrite,
+    /// 管理可选执行运行时（T395／FR-701—710；status/enable/disable/install）。
+    RuntimeManage,
 }
 
 impl Capability {
@@ -72,6 +74,7 @@ impl Capability {
             Self::SettingsCertWrite => "settings.cert.write",
             Self::ApprovalRuleRead => "approval.rule.read",
             Self::ApprovalRuleWrite => "approval.rule.write",
+            Self::RuntimeManage => "runtime.manage",
         }
     }
 }
@@ -162,6 +165,7 @@ pub fn actor_with_all_capabilities(id: &str) -> Actor {
             Capability::SettingsCertWrite,
             Capability::ApprovalRuleRead,
             Capability::ApprovalRuleWrite,
+            Capability::RuntimeManage,
         ],
     )
 }

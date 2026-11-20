@@ -6509,6 +6509,7 @@ dependencies = [
  "whcode-llm",
  "whcode-mcp",
  "whcode-platform",
+ "whcode-runtime",
  "whcode-speckit",
  "whcode-store",
  "whcode-tools",

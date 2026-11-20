@@ -117,7 +117,7 @@ pub fn history_messages(
                 ts_us: message.ts_us,
                 id: message.id.clone(),
             });
-            collected.push((message.ts_us, message.id.clone(), message_to_llm(&message)));
+            collected.push((message.ts_us, message.id.clone(), message_to_llm(message)));
         }
     }
     Ok(finish_seed(collected))
@@ -703,8 +703,8 @@ mod tests {
 #[cfg(test)]
 mod history_tests {
     use super::history_messages;
-    use whcode_llm::provider::{LlmMessage, Role};
-    use whcode_store::turn::{TurnEventDraft, TurnMessageDraft, append_turn};
+    use whcode_llm::provider::Role;
+    use whcode_store::turn::{TurnMessageDraft, append_turn};
 
     fn migrated() -> duckdb::Connection {
         let conn = duckdb::Connection::open_in_memory().expect("内存库");
@@ -717,14 +717,8 @@ mod history_tests {
     #[test]
     fn history_seeds_tool_linkage_pairs() {
         let mut conn = migrated();
-        whcode_store::directory::create_session_with_id(
-            &mut conn,
-            "S-1",
-            "工具链路",
-            "active",
-            1_000,
-        )
-        .expect("创建会话");
+        whcode_store::directory::create_session_with_id(&conn, "S-1", "工具链路", "active", 1_000)
+            .expect("创建会话");
         let drafts = [
             TurnMessageDraft {
                 role: "user",
@@ -775,7 +769,7 @@ mod history_tests {
     #[test]
     fn history_budget_keeps_recent_tail() {
         let mut conn = migrated();
-        whcode_store::directory::create_session_with_id(&mut conn, "S-2", "尾部", "active", 1_000)
+        whcode_store::directory::create_session_with_id(&conn, "S-2", "尾部", "active", 1_000)
             .expect("创建会话");
         let drafts: Vec<TurnMessageDraft> = (0..3)
             .map(|_index| TurnMessageDraft {

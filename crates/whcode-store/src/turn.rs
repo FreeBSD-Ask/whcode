@@ -297,7 +297,7 @@ mod tests {
     #[test]
     fn tool_linkage_roundtrips_through_messages() {
         let mut conn = migrated();
-        crate::directory::create_session_with_id(&mut conn, "S-1", "工具链路", "active", 1_000)
+        crate::directory::create_session_with_id(&conn, "S-1", "工具链路", "active", 1_000)
             .expect("创建会话");
         let drafts = [
             TurnMessageDraft {

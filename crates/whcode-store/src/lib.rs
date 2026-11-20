@@ -51,6 +51,7 @@ pub mod preimage;
 pub mod purge;
 pub mod query;
 pub mod rewind;
+pub mod runtime_state;
 pub mod schema;
 pub mod search;
 pub mod service;
@@ -126,6 +127,10 @@ pub use search::{
 pub use query::{
     Direction, EventCursor, EventPage, EventRow, MAX_PAGE_SIZE, MessageCursor, MessagePage,
     MessageRow, event_by_id, events_page, latest_seq, messages_page,
+};
+pub use runtime_state::{
+    RuntimeStateRow, get as get_runtime_state, list as list_runtime_states,
+    set_enabled as set_runtime_enabled, set_installed as set_runtime_installed,
 };
 pub use schema::{STORE_SCHEMA_VERSION, TABLE_COUNT, apply_migrations, checksum, schema_version};
 pub use service::WriterService;

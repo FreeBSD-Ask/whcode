@@ -3886,9 +3886,6 @@ description: 指南
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// T287／FR-774：模型进入计划模式 → 落一条 `PlanModeChanged`（source=model）；
-    /// 下一 turn 收到引导段（软引导，不阻止工具）。
-    #[test]
     /// T389／FR-797／ADR-088：第二轮请求必须注入第一轮历史（含工具链路成对）——
     /// assistant 声明调用、tool 结果带关联 ID、两轮 user 俱全（多轮工具记忆）。
     #[test]
@@ -3956,6 +3953,9 @@ description: 指南
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// T287／FR-774：模型进入计划模式 → 落一条 `PlanModeChanged`（source=model）；
+    /// 下一 turn 收到引导段（软引导，不阻止工具）。
+    #[test]
     fn plan_mode_activation_records_state_and_injects_guidance_next_turn() {
         let mut conn = migrated();
         let actor = actor_with_all_capabilities("turn-test");

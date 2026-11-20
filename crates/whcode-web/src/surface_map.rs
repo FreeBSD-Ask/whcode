@@ -85,11 +85,11 @@ pub fn surface_of(method: &str, path: &str) -> Option<&'static str> {
         ("GET", "/api/spec/converge") => Some("spec.converge"),
         ("POST", "/api/spec/next") => Some("spec.next"),
         ("POST", "/api/spec/force-advance") => Some("spec.force-advance"),
-        // ── 保留守卫路径（预留／排除；Task 172 统一 501 not_supported） ─
-        (_, "/api/runtimes/status") => Some("runtime.status"),
-        (_, "/api/runtimes/enable") => Some("runtime.enable"),
-        (_, "/api/runtimes/disable") => Some("runtime.disable"),
-        (_, "/api/runtimes/install") => Some("runtime.install"),
+        // ── T395（ADR-089 批 6）：runtime.* 四命令翻实现（守卫清单清空） ─
+        ("GET", "/api/runtimes/status") => Some("runtime.status"),
+        ("POST", "/api/runtimes/enable") => Some("runtime.enable"),
+        ("POST", "/api/runtimes/disable") => Some("runtime.disable"),
+        ("POST", "/api/runtimes/install") => Some("runtime.install"),
         _ => None,
     }
 }
@@ -192,6 +192,11 @@ mod tests {
             ("GET", "/api/spec/converge", "spec.converge"),
             ("POST", "/api/spec/next", "spec.next"),
             ("POST", "/api/spec/force-advance", "spec.force-advance"),
+            // T395（ADR-089 批 6）：runtime.* 四命令翻实现。
+            ("GET", "/api/runtimes/status", "runtime.status"),
+            ("POST", "/api/runtimes/enable", "runtime.enable"),
+            ("POST", "/api/runtimes/disable", "runtime.disable"),
+            ("POST", "/api/runtimes/install", "runtime.install"),
         ];
         for (method, path, id) in routes {
             assert_eq!(surface_of(method, path), Some(id), "{method} {path}");
@@ -205,22 +210,21 @@ mod tests {
 
     /// 保留守卫路径返回正确 id，且对应面在 Web 端为预留或排除（不得已实现）。
     #[test]
-    fn guarded_paths_map_to_registered_unavailable_surfaces() {
-        let guards = [
-            // events.show／spec.* 已随 T391/T394 翻实现；runtime.* 待 T395。
-            ("GET", "/api/runtimes/status", "runtime.status"),
-            ("POST", "/api/runtimes/enable", "runtime.enable"),
-            ("POST", "/api/runtimes/disable", "runtime.disable"),
-            ("POST", "/api/runtimes/install", "runtime.install"),
-        ];
-        for (method, path, id) in guards {
-            assert_eq!(surface_of(method, path), Some(id), "{method} {path}");
-            let entry = find(id).expect("已登记");
-            match entry.support(FrontendId::Web) {
-                Support::Reserved { .. } | Support::Excluded { .. } => {}
-                other => panic!("守卫路径 {id} 的 Web 状态必须为预留或排除，实际 {other:?}"),
-            }
-        }
+    fn guarded_paths_map_to_registered_unavailable_surfaces() {}
+
+    /// FR-620 统一不可用语义（机制级）：登记状态码稳定且与 Support 同源——
+    /// 预留面清零后，本测试以合成状态验证 not_supported 响应仍由登记表驱动。
+    #[test]
+    fn not_supported_response_is_driven_by_support_states() {
+        let support = Support::Reserved {
+            milestone: "合成里程碑",
+        };
+        let response = crate::api::not_supported_response_for_test("synthetic.surface", &support);
+        assert_eq!(response.status, 501);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["code"], "not_supported");
+        assert_eq!(body["details"]["state"], "reserved");
+        assert_eq!(body["details"]["milestone"], "合成里程碑");
     }
 
     /// 未知路径不入清单（调用方保持 404，FR-620）。

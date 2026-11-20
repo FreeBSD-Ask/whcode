@@ -251,7 +251,7 @@ impl SurfaceEntry {
 }
 
 /// 稳定能力白名单（`authz::Capability` 的稳定字符串；新增能力须同 PR 扩展本表）。
-const KNOWN_CAPABILITIES: [&str; 16] = [
+const KNOWN_CAPABILITIES: [&str; 17] = [
     "session.create",
     "session.read",
     "session.rename",
@@ -268,6 +268,7 @@ const KNOWN_CAPABILITIES: [&str; 16] = [
     "settings.cert.write",
     "approval.rule.read",
     "approval.rule.write",
+    "runtime.manage",
 ];
 
 /// ADR-032 理由码全表（排除登记只能引用这些码）。
@@ -1064,12 +1065,18 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved { milestone: "M8" },
-            Support::Reserved { milestone: "M8" },
+            Support::Implemented {
+                anchor: "cui_dispatch::runtime_command（RuntimeCommand::Status）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::SixViewScope,
             },
-            Support::Reserved { milestone: "M8" },
+            Support::Excluded {
+                reason: ExclusionReason::SixViewScope,
+            },
+            Support::Implemented {
+                anchor: "GET /api/runtimes/status",
+            },
         ],
     },
     SurfaceEntry {
@@ -1080,12 +1087,18 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved { milestone: "M8" },
-            Support::Reserved { milestone: "M8" },
+            Support::Implemented {
+                anchor: "cui_dispatch::runtime_command（RuntimeCommand::Enable）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::SixViewScope,
             },
-            Support::Reserved { milestone: "M8" },
+            Support::Excluded {
+                reason: ExclusionReason::SixViewScope,
+            },
+            Support::Implemented {
+                anchor: "POST /api/runtimes/enable",
+            },
         ],
     },
     SurfaceEntry {
@@ -1096,12 +1109,18 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved { milestone: "M8" },
-            Support::Reserved { milestone: "M8" },
+            Support::Implemented {
+                anchor: "cui_dispatch::runtime_command（RuntimeCommand::Disable）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::SixViewScope,
             },
-            Support::Reserved { milestone: "M8" },
+            Support::Excluded {
+                reason: ExclusionReason::SixViewScope,
+            },
+            Support::Implemented {
+                anchor: "POST /api/runtimes/disable",
+            },
         ],
     },
     SurfaceEntry {
@@ -1112,12 +1131,18 @@ pub const SURFACES: &[SurfaceEntry] = &[
         confirmation: Confirmation::None,
         audited: false,
         frontends: [
-            Support::Reserved { milestone: "M8" },
-            Support::Reserved { milestone: "M8" },
+            Support::Implemented {
+                anchor: "cui_dispatch::runtime_command（RuntimeCommand::Install）",
+            },
             Support::Excluded {
                 reason: ExclusionReason::SixViewScope,
             },
-            Support::Reserved { milestone: "M8" },
+            Support::Excluded {
+                reason: ExclusionReason::SixViewScope,
+            },
+            Support::Implemented {
+                anchor: "POST /api/runtimes/install",
+            },
         ],
     },
     // ── llm（FR-201—208；T167 接线：CUI／Web 已实现，TUI 预留，GUI 只读排除） ──
@@ -2208,6 +2233,7 @@ mod tests {
             Capability::SettingsCertWrite,
             Capability::ApprovalRuleRead,
             Capability::ApprovalRuleWrite,
+            Capability::RuntimeManage,
         ];
         assert_eq!(
             all.len(),
@@ -2406,6 +2432,14 @@ mod tests {
             ("llm.cancel", FrontendId::Web),
             ("llm.run", FrontendId::Tui),
             ("llm.cancel", FrontendId::Tui),
+            // T390—T395 对等清零（ADR-089）：原预留面在 CUI／Web 翻实现。
+            ("runtime.status", FrontendId::Cui),
+            ("runtime.enable", FrontendId::Cui),
+            ("runtime.disable", FrontendId::Web),
+            ("runtime.install", FrontendId::Web),
+            ("spec.next", FrontendId::Cui),
+            ("spec.force-advance", FrontendId::Web),
+            ("session.fork", FrontendId::Tui),
         ] {
             let entry = find(id).unwrap_or_else(|| panic!("{id} 未登记"));
             assert!(
@@ -2415,19 +2449,38 @@ mod tests {
                 entry.support(frontend)
             );
         }
-        // 未来里程碑：运行时装配（M8）保持预留（不得提前宣称可用）；TUI 的 LLM 接线
-        // 已随 T167 收口翻转为已实现，退出预留队列（ADR-032 修订记录 2026-10-26）。
-        for (id, frontend, milestone) in [
-            ("runtime.status", FrontendId::Cui, "M8"),
-            ("runtime.enable", FrontendId::Web, "M8"),
+        // TUI／GUI 的运行时管理属正当排除（six_view_scope，ADR-089 §C）：
+        // 「预留」是矩阵中唯一代表缺口的状态，清零后不得残留。
+        for (id, frontend) in [
+            ("runtime.status", FrontendId::Tui),
+            ("runtime.install", FrontendId::Tui),
+            ("runtime.enable", FrontendId::Gui),
         ] {
             let entry = find(id).unwrap_or_else(|| panic!("{id} 未登记"));
             assert_eq!(
                 entry.support(frontend),
-                &Support::Reserved { milestone },
-                "{id} 在 {} 应保持预留（{milestone}）",
+                &Support::Excluded {
+                    reason: crate::surface::ExclusionReason::SixViewScope,
+                },
+                "{id} 在 {} 应为 six_view_scope 排除",
                 frontend.as_str()
             );
+        }
+        // 全表零预留：任何面的任何前端都不得停在「预留」（ADR-032 缺口语义）。
+        for entry in SURFACES {
+            for frontend in [
+                FrontendId::Cui,
+                FrontendId::Tui,
+                FrontendId::Gui,
+                FrontendId::Web,
+            ] {
+                assert!(
+                    !matches!(entry.support(frontend), Support::Reserved { .. }),
+                    "{} 在 {} 仍为预留（对等清零未完成）",
+                    entry.id,
+                    frontend.as_str()
+                );
+            }
         }
     }
 

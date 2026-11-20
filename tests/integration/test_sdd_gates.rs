@@ -45,7 +45,7 @@ fn v201_constitution_violation_fails_gate() {
 /// V-202：未解决高优先级澄清项 → Plan 转换被应用服务拒绝。
 #[test]
 fn v202_unresolved_clarification_blocks_plan() {
-    let mut conn = migrated();
+    let conn = migrated();
     create_session_with_id(&conn, "S-1", "V-202", "active", 1_000).expect("创建");
     let workflow = whcode_speckit::default_workflow();
     let actor = actor_with_all_capabilities("tester");
@@ -68,7 +68,7 @@ fn v202_unresolved_clarification_blocks_plan() {
         constitution_passed: true,
     };
     request_transition(
-        &mut conn,
+        &conn,
         &DefaultPolicy,
         &actor,
         "S-1",
@@ -83,7 +83,7 @@ fn v202_unresolved_clarification_blocks_plan() {
         constitution_passed: true,
     };
     let err = request_transition(
-        &mut conn,
+        &conn,
         &DefaultPolicy,
         &actor,
         "S-1",
@@ -99,7 +99,7 @@ fn v202_unresolved_clarification_blocks_plan() {
 /// V-203：Analyze 检出五类缺陷 → 未通过阻止 Implement。
 #[test]
 fn v203_analyze_detects_five_defects_and_blocks_implement() {
-    let mut conn = migrated();
+    let conn = migrated();
     create_session_with_id(&conn, "S-1", "V-203", "active", 1_000).expect("创建");
     let workflow = whcode_speckit::default_workflow();
     let actor = actor_with_all_capabilities("tester");
@@ -136,7 +136,7 @@ fn v203_analyze_detects_five_defects_and_blocks_implement() {
         }
         let next = workflow.next_stage(from).expect("下一阶段");
         session = request_transition(
-            &mut conn,
+            &conn,
             &DefaultPolicy,
             &actor,
             "S-1",
@@ -147,7 +147,7 @@ fn v203_analyze_detects_five_defects_and_blocks_implement() {
         .expect("合法推进");
     }
     let err = request_transition(
-        &mut conn,
+        &conn,
         &DefaultPolicy,
         &actor,
         "S-1",
@@ -206,14 +206,14 @@ fn v205_failed_acceptance_produces_differences() {
 /// V-206：`force-advance --reason` → 审计含 actor/reason/跳过门禁/产物版本/时间戳。
 #[test]
 fn v206_force_advance_audits_full_elements() {
-    let mut conn = migrated();
+    let conn = migrated();
     create_session_with_id(&conn, "S-1", "V-206", "active", 1_000).expect("创建");
     let workflow = whcode_speckit::default_workflow();
     let actor = actor_with_all_capabilities("tester");
     let sink = CollectingAuditSink::new();
 
     let session = force_advance(
-        &mut conn,
+        &conn,
         &DefaultPolicy,
         &actor,
         &workflow,

@@ -2,9 +2,10 @@
 //!
 //! 对 [`crate::cli::Command`] 全变体的**穷尽映射**（无通配臂）：新增命令变体若未映射
 //! 即编译失败，保证“先登记后接线”（FR-619 判据）。映射目标是
-//! [`whcode_app::surface::SURFACES`] 的稳定 `SurfaceId`；保留／未接线命令（`run`、
-//! `events show`、`spec next/validate/analyze/converge/force-advance`、`runtime *`）
-//! 映射到其预留 `SurfaceId`，由 Task 172 统一返回 `not_supported`（退出码 55）。
+//! [`whcode_app::surface::SURFACES`] 的稳定 `SurfaceId`；仅某些前端适用或被正当
+//! 排除的面（如 `webhook.*`、`sdk.serve`）照常映射，状态由登记表裁量。
+//! 预留面已随 T390—T395 清零；若将来重新出现预留面，仍由 `not_supported`
+//! （退出码 55）统一承载语义。
 //!
 //! 说明：顶层 `status` 与 `spec status` 同为 FR-314 状态快照面（同一应用服务
 //! `build_snapshot`），故都映射 `spec.status`。
@@ -286,7 +287,12 @@ mod tests {
                 command: RuntimeCommand::Disable { name: "js".into() },
             },
             Command::Runtime {
-                command: RuntimeCommand::Install { name: "js".into() },
+                command: RuntimeCommand::Install {
+                    name: "js".into(),
+                    version: "1.0.0".into(),
+                    hash: "fnv64:0".into(),
+                    payload: "payload.bin".into(),
+                },
             },
             Command::Font {
                 command: crate::cli::FontCommand::Install {
@@ -348,9 +354,10 @@ mod tests {
         }
     }
 
-    /// 保留命令映射到其预留面（状态为预留，而非伪装已实现）。
+    /// 原保留命令已随 T390—T395 清零：映射到的面在 CUI 端为已实现
+    /// （登记翻转与接线一致，不残留预留样本）。
     #[test]
-    fn retained_commands_map_to_reserved_surfaces() {
+    fn former_retained_commands_map_to_implemented_surfaces() {
         let reserved = [
             Command::Events {
                 command: EventsCommand::Show { event: "E".into() },
@@ -369,15 +376,20 @@ mod tests {
                 },
             },
             Command::Runtime {
-                command: RuntimeCommand::Install { name: "js".into() },
+                command: RuntimeCommand::Install {
+                    name: "js".into(),
+                    version: "1.0.0".into(),
+                    hash: "fnv64:0".into(),
+                    payload: "payload.bin".into(),
+                },
             },
         ];
         for command in &reserved {
             let id = surface_of(command);
             let entry = find(id).expect("已登记");
             assert!(
-                matches!(entry.support(FrontendId::Cui), Support::Reserved { .. }),
-                "{id} 的 CUI 状态必须为预留"
+                matches!(entry.support(FrontendId::Cui), Support::Implemented { .. }),
+                "{id} 的 CUI 状态必须为已实现（T390—T395 清零）"
             );
         }
     }

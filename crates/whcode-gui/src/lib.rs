@@ -1497,7 +1497,7 @@ fn op_preview(state: &mut State) {
         | OpMode::SessionRename
         | OpMode::SessionFork
         | OpMode::SessionRewind
-        | OpMode::SessionPlanSet { .. } => return,
+        | OpMode::SessionPlanSet => return,
         OpMode::SessionRestore { exec_id } => {
             if exec_id.is_empty() {
                 // 首次预览：取输入并冻结执行 ID（确认阶段不再重读）。

@@ -51,6 +51,7 @@ pub mod queue;
 pub mod replay;
 pub mod residency;
 pub mod rewind;
+pub mod runtime_mgmt;
 pub mod search;
 pub mod session;
 pub mod share;
@@ -108,6 +109,10 @@ pub use queue::BoundedQueue;
 pub use replay::{REPLAY_PAGE_LIMIT, ReplayPage, replay_since};
 pub use residency::{ResidencyManager, ResidencyState, UnloadedSession, idle_unload_due};
 pub use rewind::{RewindView, current as current_rewind, rewind as rewind_session};
+pub use runtime_mgmt::{
+    RuntimeEntry, RuntimeStatusView, disable as runtime_disable, enable as runtime_enable,
+    install as runtime_install, inventory as runtime_inventory, status as runtime_status,
+};
 pub use search::{
     CONTENT_SEARCH_DEFAULT_LIMIT, ContentHit, ContentSearchQuery, search_session_content,
 };

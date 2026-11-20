@@ -15,6 +15,7 @@ whcode-tools = { path = "../whcode-tools" }
 # 事件导出经 llm 追踪层脱敏（FR-205）；llm 为同层领域服务（ADR-018 同口径）。
 whcode-llm = { path = "../whcode-llm" }
 # 门禁编排经 speckit 状态机与工作流配置（FR-307/308）；speckit 为同层领域服务。
+whcode-runtime = { path = "../whcode-runtime" }
 whcode-speckit = { path = "../whcode-speckit" }
 # MCP 客户端最小集（FR-736/737、ADR-054）；mcp 为同层领域服务（进程/环境治理在 platform/runtime）。
 whcode-mcp = { path = "../whcode-mcp" }

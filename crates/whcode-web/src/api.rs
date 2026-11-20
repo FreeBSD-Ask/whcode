@@ -392,6 +392,12 @@ fn is_self_probe(host: &str, port: u16, listen: Option<&(String, u16)>) -> bool 
 /// details 由登记表驱动（`surface_id` + Web 端状态码 + 里程碑/理由码）；message 只
 /// 说明“能力未在该端提供”与里程碑/理由码，**不回显内部路径细节**（路径可经登记表
 /// 公开查询，不作为错误正文）。
+/// 测试辅助（FR-620 机制级验证用）：私有响应构造器的可见出口。
+#[cfg(test)]
+pub(crate) fn not_supported_response_for_test(surface_id: &str, support: &Support) -> HttpResponse {
+    not_supported_response(surface_id, support)
+}
+
 fn not_supported_response(surface_id: &str, support: &Support) -> HttpResponse {
     let mut details = serde_json::json!({
         "surface_id": surface_id,
@@ -1137,11 +1143,8 @@ pub fn handle_request_with_llm(
                 let confirm = body
                     .get("confirm")
                     .map(|_| body_bool(&body, "confirm"))
-                    .transpose();
-                let confirm = match confirm {
-                    Ok(confirm) => confirm.unwrap_or(false),
-                    Err(error) => return Err(error),
-                };
+                    .transpose()?
+                    .unwrap_or(false);
                 let Some(workspace_root) = workspace_root else {
                     return Err(WhError::invalid_state(
                         "前像恢复需要工作区根路径（装配根未注入 workspace_root）",
@@ -1459,6 +1462,77 @@ pub fn handle_request_with_llm(
                         HttpResponse::json(200, &serde_json::to_value(&export).unwrap_or_default())
                     }
                 }
+                Err(error) => error_response(&error),
+            }
+        }
+        // ── 运行时管理（T395／FR-701—710／ADR-089 批 6） ────────────────
+        // status 显式命令路径允许探测（probe=true）；enable/disable/install 走
+        // runtime_state 持久化＋审计；js/bsdshell 结构化拒绝（不伪造启用）。
+        (Method::Get, "/api/runtimes/status") => {
+            let Some(name) = query_value("name") else {
+                return error_response(&WhError::invalid_state("缺 name 参数"));
+            };
+            match whcode_app::runtime_status(conn, &policy, actor, name, true) {
+                Ok(view) => {
+                    HttpResponse::json(200, &serde_json::to_value(&view).unwrap_or_default())
+                }
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/runtimes/enable") => {
+            let result = (|| -> Result<HttpResponse, WhError> {
+                let body = json_body(request)?;
+                let name = body_str(&body, "name")?.to_string();
+                let view = whcode_app::runtime_enable(conn, &policy, actor, &name, now_ms()?)?;
+                Ok(HttpResponse::json(
+                    200,
+                    &serde_json::to_value(&view).unwrap_or_default(),
+                ))
+            })();
+            match result {
+                Ok(response) => response,
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/runtimes/disable") => {
+            let result = (|| -> Result<HttpResponse, WhError> {
+                let body = json_body(request)?;
+                let name = body_str(&body, "name")?.to_string();
+                let view = whcode_app::runtime_disable(conn, &policy, actor, &name, now_ms()?)?;
+                Ok(HttpResponse::json(
+                    200,
+                    &serde_json::to_value(&view).unwrap_or_default(),
+                ))
+            })();
+            match result {
+                Ok(response) => response,
+                Err(error) => error_response(&error),
+            }
+        }
+        (Method::Post, "/api/runtimes/install") => {
+            let result = (|| -> Result<HttpResponse, WhError> {
+                let body = json_body(request)?;
+                let name = body_str(&body, "name")?.to_string();
+                let version = body_str(&body, "version")?.to_string();
+                let hash = body_str(&body, "hash")?.to_string();
+                let payload = body_str(&body, "payload")?.to_string();
+                let view = whcode_app::runtime_install(
+                    conn,
+                    &policy,
+                    actor,
+                    &name,
+                    &version,
+                    &hash,
+                    std::path::Path::new(&payload),
+                    now_ms()?,
+                )?;
+                Ok(HttpResponse::json(
+                    200,
+                    &serde_json::to_value(&view).unwrap_or_default(),
+                ))
+            })();
+            match result {
+                Ok(response) => response,
                 Err(error) => error_response(&error),
             }
         }
@@ -2843,9 +2917,6 @@ mod tests {
         );
     }
 
-    /// 计划模式路由（T287／FR-774／ADR-067）：从未切换＝关闭且 seq 为 null；
-    /// 用户切换落事件并可读回；缺 session 参数 400、缺失会话 404、缺 active 400。
-    #[test]
     /// T394：spec.* 五命令路由——converge 只读计算；validate/next 需工作区根
     /// （未注入显式 400）；next 缺体 400；force-advance 正向落审计。
     #[test]
@@ -2858,7 +2929,11 @@ mod tests {
             [],
         )
         .expect("创建");
-        let temp = std::env::temp_dir().join("whcode-web-spec-test");
+        // 临时目录按 pid＋序号唯一：并行测试进程共用 TMP 时不互删（夹具隔离）。
+        static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let temp =
+            std::env::temp_dir().join(format!("whcode-web-spec-test-{}-{seq}", std::process::id()));
         let _ = std::fs::remove_dir_all(&temp);
         std::fs::create_dir_all(temp.join("specs")).expect("specs 目录");
         std::fs::write(
@@ -3166,6 +3241,130 @@ mod tests {
         let _ = std::fs::remove_dir_all(&temp);
     }
 
+    /// T395（FR-701—710／ADR-089）：runtime.* 四路由——status 读声明＋持久化状态；
+    /// enable／disable 往返可撤销；js 结构化拒绝（ADR-024）；install 只做本地 payload
+    /// 哈希比对，不一致即拒绝、未知运行时 NotFound（不伪造启用）。
+    #[test]
+    fn runtime_routes_report_toggle_and_reject_unsupported() {
+        let mut conn = migrated();
+        let actor = actor_with_all_capabilities("tester");
+
+        // 缺 name 参数 → 400（参数缺失显式失败，不猜默认运行时）。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/runtimes/status", false),
+            &actor,
+        );
+        assert_eq!(response.status, 400);
+
+        // python：默认关闭、未安装（正确的空值，不是缺失信号）。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &request(Method::Get, "/api/runtimes/status?name=python", false),
+            &actor,
+        );
+        assert_eq!(response.status, 200);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["name"], "python");
+        assert_eq!(body["enabled"], false);
+        assert_eq!(body["version"], "");
+
+        // enable → enabled=true，且落库（再次查询仍为 true）。
+        for (path, expected) in [
+            ("/api/runtimes/enable", true),
+            ("/api/runtimes/disable", false),
+        ] {
+            let response = handle_request(
+                &mut conn,
+                false,
+                None,
+                &security::ALLOWED_ORIGINS,
+                &method_with_json(Method::Post, path, &serde_json::json!({ "name": "python" })),
+                &actor,
+            );
+            assert_eq!(response.status, 200, "{path}");
+            let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+            assert_eq!(body["enabled"], expected, "{path}");
+        }
+
+        // js 拒绝启用：结构化 invalid_state，消息指明 ADR-024（不伪造已启用）。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/runtimes/enable",
+                &serde_json::json!({ "name": "js" }),
+            ),
+            &actor,
+        );
+        assert_eq!(response.status, 400);
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["code"], "invalid_state");
+        assert!(
+            body["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("ADR-024")),
+            "拒绝理由须可操作：{body}"
+        );
+
+        // 未知运行时：NotFound 语义（400 + not_found）。
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/runtimes/disable",
+                &serde_json::json!({ "name": "no-such-runtime" }),
+            ),
+            &actor,
+        );
+        assert_eq!(response.status, 404);
+
+        // install：哈希不一致即拒绝（校验先于登记）。
+        static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir =
+            std::env::temp_dir().join(format!("whcode-web-runtime-{}-{seq}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("临时目录");
+        let payload = dir.join("payload.bin");
+        std::fs::write(&payload, b"runtime payload").expect("写 payload");
+        let response = handle_request(
+            &mut conn,
+            false,
+            None,
+            &security::ALLOWED_ORIGINS,
+            &method_with_json(
+                Method::Post,
+                "/api/runtimes/install",
+                &serde_json::json!({
+                    "name": "python",
+                    "version": "1.0.0",
+                    "hash": "0000000000000000",
+                    "payload": payload.to_string_lossy(),
+                }),
+            ),
+            &actor,
+        );
+        assert_eq!(response.status, 400, "哈希不一致必须拒绝");
+        let body: serde_json::Value = serde_json::from_slice(&response.body).expect("JSON");
+        assert_eq!(body["code"], "invalid_state");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 计划模式路由（T287／FR-774／ADR-067）：从未切换＝关闭且 seq 为 null；
+    /// 用户切换落事件并可读回；缺 session 参数 400、缺失会话 404、缺 active 400。
+    #[test]
     fn plan_route_reports_state_and_user_toggle() {
         let mut conn = migrated();
         let actor = actor_with_all_capabilities("tester");

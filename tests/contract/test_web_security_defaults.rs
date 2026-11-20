@@ -95,6 +95,16 @@ fn web_error_envelope_matches_cui() {
         include_str!("../../crates/whcode-store/migrations/0004_session_id_sequence.sql"),
         include_str!("../../crates/whcode-store/migrations/0005_session_stage.sql"),
         include_str!("../../crates/whcode-store/migrations/0006_events_variant.sql"),
+        include_str!("../../crates/whcode-store/migrations/0007_json_variant.sql"),
+        include_str!("../../crates/whcode-store/migrations/0008_usage_anchor.sql"),
+        include_str!("../../crates/whcode-store/migrations/0009_approval_rules.sql"),
+        include_str!("../../crates/whcode-store/migrations/0010_session_fork.sql"),
+        include_str!("../../crates/whcode-store/migrations/0011_file_preimages.sql"),
+        include_str!("../../crates/whcode-store/migrations/0012_findings.sql"),
+        include_str!("../../crates/whcode-store/migrations/0013_webhook_deliveries.sql"),
+        include_str!("../../crates/whcode-store/migrations/0014_learning_capture.sql"),
+        include_str!("../../crates/whcode-store/migrations/0015_coherence_runs.sql"),
+        include_str!("../../crates/whcode-store/migrations/0016_messages_tool_linkage.sql"),
     ))
     .expect("迁移");
     let actor = whcode_app::actor_with_all_capabilities("tester");

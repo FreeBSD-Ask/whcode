@@ -22,9 +22,9 @@
 use std::path::Path;
 
 use duckdb::Connection;
-use whcode_domain::{AuditAction, AuditRecord, AuditSink, ErrorCode, WhError};
+use whcode_domain::{AuditAction, AuditRecord, ErrorCode, WhError};
 use whcode_speckit::parser::parse_artifact;
-use whcode_speckit::workflow::{SddStage, WorkflowConfig, default_workflow};
+use whcode_speckit::workflow::{SddStage, default_workflow};
 use whcode_speckit::{
     AcceptanceResult, AcceptanceStatus, IdRegistry, ParseReport, analyze, converge,
 };
@@ -442,6 +442,7 @@ pub fn next(
 /// # Errors
 ///
 /// 权限拒绝、`reason` 为空、非法转换或审计失败时返回 [`WhError`]。
+#[allow(clippy::too_many_arguments)]
 pub fn force_advance_view(
     conn: &Connection,
     policy: &dyn Policy,
@@ -476,15 +477,13 @@ fn transition_context(artifacts: &WorkspaceArtifacts) -> Result<TransitionContex
         .filter(|entry| entry.high_priority && !entry.resolved)
         .map(|entry| entry.id.clone())
         .collect();
-    for report in [&tasks_report] {
-        unresolved_high_priority.extend(
-            report
-                .clarifications
-                .iter()
-                .filter(|entry| entry.high_priority && !entry.resolved)
-                .map(|entry| entry.id.clone()),
-        );
-    }
+    unresolved_high_priority.extend(
+        tasks_report
+            .clarifications
+            .iter()
+            .filter(|entry| entry.high_priority && !entry.resolved)
+            .map(|entry| entry.id.clone()),
+    );
     // Analyze 通过性：对当前产物集跑同一五类缺陷检出（与 spec.analyze 同一 fold）。
     let analysis = analyze_view_of(&spec, &tasks_report, artifacts)?;
     let constitution_passed = artifacts.constitution.is_some();

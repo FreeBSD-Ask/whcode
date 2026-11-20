@@ -466,19 +466,36 @@ fn permission_denial_through_facade_is_uniform() {
     assert!(!err.retryable, "权限拒绝不可重试（FR-604）");
 }
 
-/// FR-620：预留面在两端状态码同源（not_supported details 的共享键）。
-/// `llm.run` 已随 T167 在 CUI／Web 翻转为已实现，故取仍预留的面作样本。
+/// FR-620：不可用语义由同一登记表派生。T390—T395 清零全部预留面后，
+/// 本测试遍历登记表：每个面的 CUI／Web 状态码必须落在同一四态词表内；
+/// 「双端同为排除」时状态码必须相同（理由码按前端各自登记，故只比状态码）。
 #[test]
 fn reserved_surfaces_drive_both_frontend_unavailable_semantics() {
-    for id in ["spec.force-advance", "runtime.status", "spec.next"] {
-        let entry = find(id).unwrap_or_else(|| panic!("{id} 未登记"));
+    for entry in whcode_app::surface::SURFACES {
         let cui = entry.support(FrontendId::Cui);
         let web = entry.support(FrontendId::Web);
-        assert_eq!(
-            cui.state_code(),
-            web.state_code(),
-            "{id} 两端状态码必须同源"
-        );
+        for code in [cui.state_code(), web.state_code()] {
+            assert!(
+                [
+                    "implemented",
+                    "partial",
+                    "reserved",
+                    "excluded",
+                    "not_applicable"
+                ]
+                .contains(&code),
+                "{} 的状态码 {code} 不在四态词表内",
+                entry.id
+            );
+        }
+        if matches!(cui, Support::Excluded { .. }) && matches!(web, Support::Excluded { .. }) {
+            assert_eq!(
+                cui.state_code(),
+                web.state_code(),
+                "{} 双端排除的状态码必须同源",
+                entry.id
+            );
+        }
     }
 }
 

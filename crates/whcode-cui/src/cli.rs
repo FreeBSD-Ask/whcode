@@ -503,11 +503,20 @@ pub enum RuntimeCommand {
         #[arg(long)]
         name: String,
     },
-    /// 安装 payload。
+    /// 安装 payload（本地文件；FR-703 哈希比对先于登记，T395）。
     Install {
         /// 运行时名。
         #[arg(long)]
         name: String,
+        /// 版本号。
+        #[arg(long)]
+        version: String,
+        /// 声明的内容哈希（fnv64，与应用层本地计算比对）。
+        #[arg(long)]
+        hash: String,
+        /// 本地 payload 文件路径（不做网络下载，ADR-089 限制）。
+        #[arg(long)]
+        payload: String,
     },
 }
 
@@ -571,8 +580,8 @@ where
 /// 解析结果（装配根用：区分帮助输出与用法错误，退出码语义见 contracts/cui-cli.md §3）。
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParseOutcome {
-    /// 解析成功。
-    Command(Cli),
+    /// 解析成功（`Cli` 装箱：命令枚举体量大，与 `Display`／`Usage` 差异控制在阈值内）。
+    Command(Box<Cli>),
     /// `--help` / `--version`：原样打印后以成功退出。
     Display(String),
     /// 用法错误：打印后以 `EXIT_USAGE`（2）退出。
@@ -597,7 +606,7 @@ where
     match command.try_get_matches_from(args) {
         Ok(matches) => {
             let cli = Cli::from_arg_matches(&matches).expect("derive 命令树与匹配项同构");
-            ParseOutcome::Command(cli)
+            ParseOutcome::Command(Box::new(cli))
         }
         Err(err) => match err.kind() {
             ErrorKind::DisplayHelp

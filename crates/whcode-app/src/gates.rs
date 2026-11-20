@@ -227,7 +227,7 @@ mod tests {
             constitution_passed: true,
         };
         let err = request_transition(
-            &mut conn,
+            &conn,
             &DefaultPolicy,
             &actor,
             "S-1",
@@ -246,7 +246,7 @@ mod tests {
         // 解决后放行。
         context.unresolved_high_priority.clear();
         let session = request_transition(
-            &mut conn,
+            &conn,
             &DefaultPolicy,
             &actor,
             "S-1",
@@ -271,7 +271,7 @@ mod tests {
         };
 
         let err = request_transition(
-            &mut conn,
+            &conn,
             &DefaultPolicy,
             &actor,
             "S-1",
@@ -290,7 +290,7 @@ mod tests {
             constitution_passed: true,
         };
         let session = request_transition(
-            &mut conn,
+            &conn,
             &DefaultPolicy,
             &actor,
             "S-1",
@@ -304,7 +304,7 @@ mod tests {
 
     #[test]
     fn force_advance_requires_reason_and_audits_full_elements() {
-        let mut conn = Connection::open_in_memory().expect("内存库");
+        let conn = Connection::open_in_memory().expect("内存库");
         apply_migrations(&conn).expect("迁移");
         create_session_with_id(&conn, "S-1", "门禁", "active", 1_000).expect("创建");
         let workflow = default_workflow();
@@ -313,7 +313,7 @@ mod tests {
 
         // 无 reason 必须拒绝（FR-312）。
         let err = force_advance(
-            &mut conn,
+            &conn,
             &DefaultPolicy,
             &actor,
             &workflow,
@@ -331,7 +331,7 @@ mod tests {
 
         // 有 reason：审计含 actor/reason/跳过门禁/产物版本/时间戳（V-206）。
         let session = force_advance(
-            &mut conn,
+            &conn,
             &DefaultPolicy,
             &actor,
             &workflow,
@@ -363,7 +363,7 @@ mod tests {
 
         // 非法转换仍拒绝（强制放行也须为状态机定义的转换，FR-308）。
         let err = force_advance(
-            &mut conn,
+            &conn,
             &DefaultPolicy,
             &actor,
             &workflow,

@@ -56,6 +56,56 @@ fn migrated() -> Connection {
             "../../crates/whcode-store/migrations/0006_events_variant.sql"
         ))
     })
+    .and_then(|_| {
+        conn.execute_batch(include_str!(
+            "../../crates/whcode-store/migrations/0007_json_variant.sql"
+        ))
+    })
+    .and_then(|_| {
+        conn.execute_batch(include_str!(
+            "../../crates/whcode-store/migrations/0008_usage_anchor.sql"
+        ))
+    })
+    .and_then(|_| {
+        conn.execute_batch(include_str!(
+            "../../crates/whcode-store/migrations/0009_approval_rules.sql"
+        ))
+    })
+    .and_then(|_| {
+        conn.execute_batch(include_str!(
+            "../../crates/whcode-store/migrations/0010_session_fork.sql"
+        ))
+    })
+    .and_then(|_| {
+        conn.execute_batch(include_str!(
+            "../../crates/whcode-store/migrations/0011_file_preimages.sql"
+        ))
+    })
+    .and_then(|_| {
+        conn.execute_batch(include_str!(
+            "../../crates/whcode-store/migrations/0012_findings.sql"
+        ))
+    })
+    .and_then(|_| {
+        conn.execute_batch(include_str!(
+            "../../crates/whcode-store/migrations/0013_webhook_deliveries.sql"
+        ))
+    })
+    .and_then(|_| {
+        conn.execute_batch(include_str!(
+            "../../crates/whcode-store/migrations/0014_learning_capture.sql"
+        ))
+    })
+    .and_then(|_| {
+        conn.execute_batch(include_str!(
+            "../../crates/whcode-store/migrations/0015_coherence_runs.sql"
+        ))
+    })
+    .and_then(|_| {
+        conn.execute_batch(include_str!(
+            "../../crates/whcode-store/migrations/0016_messages_tool_linkage.sql"
+        ))
+    })
     .expect("迁移");
     conn
 }
