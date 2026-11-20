@@ -71,12 +71,8 @@ mod tests {
             .probe("not a host name", 443, &material)
             .expect_err("非法主机名必须拒绝（不做网络访问）");
         assert_eq!(err.code, ErrorCode::ParseError);
-        assert!(err.message.contains("主机"), "{}", err.message);
-        assert!(
-            !err.message.contains("PRIVATE KEY"),
-            "错误消息不得含私钥：{}",
-            err.message
-        );
+        assert!(err.message.contains("主机"), "非法主机名的错误须指明主机");
+        assert!(!err.message.contains("PRIVATE KEY"), "错误消息不得含私钥");
     }
 
     /// 空信任集拒绝（不关闭校验、不回落）：`builtin` 档位不得以空信任集握手。
@@ -91,6 +87,9 @@ mod tests {
             .probe("127.0.0.1", 443, &material)
             .expect_err("空信任集必须拒绝");
         assert_eq!(err.code, ErrorCode::InvalidState);
-        assert!(err.message.contains("ca-builtin.pem"), "{}", err.message);
+        assert!(
+            err.message.contains("ca-builtin.pem"),
+            "空信任集的错误须指明信任根文件"
+        );
     }
 }

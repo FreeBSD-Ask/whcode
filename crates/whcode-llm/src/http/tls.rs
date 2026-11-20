@@ -926,7 +926,7 @@ mod tests {
         let oversized = "A".repeat(MAX_ROOT_PEM_BYTES + 1);
         let err = load_roots(TrustMode::Builtin, &oversized, "").expect_err("超过字节上限必须拒绝");
         assert_eq!(err.code, ErrorCode::ParseError);
-        assert!(err.message.contains("上限"), "{}", err.message);
+        assert!(err.message.contains("上限"), "超过字节上限的错误须说明上限");
 
         for label in ["PRIVATE KEY", "ENCRYPTED PRIVATE KEY", "EC PRIVATE KEY"] {
             let pem = format!(
@@ -935,7 +935,10 @@ mod tests {
             );
             let err = load_roots(TrustMode::Builtin, &pem, "").expect_err("含私钥块必须拒绝");
             assert_eq!(err.code, ErrorCode::ParseError, "{label}");
-            assert!(err.message.contains("私钥"), "{}", err.message);
+            assert!(
+                err.message.contains("私钥"),
+                "含私钥块的 PEM 必须报私钥相关错误"
+            );
         }
 
         let broken = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n";
@@ -943,8 +946,7 @@ mod tests {
         assert_eq!(err.code, ErrorCode::ParseError);
         assert!(
             err.message.contains("无法作为信任根解析"),
-            "{}",
-            err.message
+            "不可解析的 DER 须报「无法作为信任根解析」"
         );
 
         let err = load_roots(TrustMode::Builtin, &pki.ca_pem, "not a pem\n")
@@ -952,8 +954,7 @@ mod tests {
         assert_eq!(err.code, ErrorCode::ParseError);
         assert!(
             err.message.contains("不含任何 CERTIFICATE 块"),
-            "{}",
-            err.message
+            "非空但无证书块的文件须报「不含任何 CERTIFICATE 块」"
         );
 
         let empty =
@@ -963,7 +964,10 @@ mod tests {
 
         let err = load_roots(TrustMode::Builtin, "", "").expect_err("空内置副本不得以空信任集启动");
         assert_eq!(err.code, ErrorCode::InvalidState);
-        assert!(err.message.contains("reset"), "{}", err.message);
+        assert!(
+            err.message.contains("reset"),
+            "空内置副本的错误须说明 reset"
+        );
 
         // 份数上限：单文件字节上限（1 MiB）先于 2048 份触发，故经注入的系统库读取器验证。
         let repeated = vec![pki.ca_der.clone(); MAX_ROOT_CERTS + 1];

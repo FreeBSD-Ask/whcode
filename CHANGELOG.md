@@ -51,6 +51,12 @@
 
 ### 修复
 
+- **Code Scanning：21 条 `rust/cleartext-logging` 清零（2026-11-21）**：CodeQL 以命名
+  启发式判定敏感来源，测试断言消息里插值 `err.message`（证书／会话派生值）被判为
+  “把派生值写入日志”。按 §5.2 口径改为静态文案（断言只写固定说明，诊断需要值时
+  先降为 bool）；涉及 `whcode-app::cert`、`whcode-llm::http::tls`、
+  `whcode-bin::cert_probe`、`whcode-bin::cui_dispatch` 四处测试。生产逻辑未改。
+  告警创建于 2026-11-20T15:45（前一批推送的 CodeQL 分析），本批修复后由重新分析消除。
 - **两个测试从未运行（2026-11-21）**：`whcode-app/src/turn.rs` 的
   `plan_mode_activation_records_state_and_injects_guidance_next_turn` 与
   `whcode-web/src/api.rs` 的 `plan_route_reports_state_and_user_toggle` 在插入新测试

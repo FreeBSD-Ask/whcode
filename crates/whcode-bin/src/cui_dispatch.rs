@@ -3538,7 +3538,10 @@ mod tests {
         )
         .expect_err("未知事件类型必须报错");
         assert_eq!(err.code, ErrorCode::InvalidState);
-        assert!(err.message.contains("webhook 配置"), "{}", err.message);
+        assert!(
+            err.message.contains("webhook 配置"),
+            "未知事件类型的错误须指明配置文件"
+        );
 
         let err = execute(
             &Command::Webhook {

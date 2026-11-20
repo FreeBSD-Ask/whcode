@@ -2690,7 +2690,10 @@ mod tests {
         )
         .expect_err("空内置未确认必须拒绝");
         assert_eq!(err.code, ErrorCode::InvalidState);
-        assert!(err.message.contains("confirm"), "{}", err.message);
+        assert!(
+            err.message.contains("confirm"),
+            "破坏性操作必须要求显式确认"
+        );
         assert_eq!(
             std::fs::read(paths.builtin_ca()).expect("读取"),
             original_builtin
@@ -2778,7 +2781,10 @@ mod tests {
 
         std::fs::remove_file(paths.builtin_ca()).expect("删除内置副本");
         let err = trust_material(&paths).expect_err("内置副本缺失必须报错");
-        assert!(err.message.contains("ca-builtin.pem"), "{}", err.message);
+        assert!(
+            err.message.contains("ca-builtin.pem"),
+            "内置副本缺失的错误须指明文件"
+        );
     }
 
     /// 单份 DER 证书描述：主题、SAN、ISO8601 到期与 DER SHA-256；坏 DER 拒绝。
@@ -2840,7 +2846,7 @@ mod tests {
         )
         .expect_err("超限必须拒绝");
         assert_eq!(err.code, ErrorCode::ParseError);
-        assert!(err.message.contains("上限"), "{}", err.message);
+        assert!(err.message.contains("上限"), "超限输入的错误须说明上限");
         assert_eq!(
             std::fs::read(paths.builtin_ca()).expect("读取"),
             original,
@@ -2860,7 +2866,7 @@ mod tests {
         )
         .expect_err("空内置未确认必须拒绝");
         assert_eq!(err.code, ErrorCode::InvalidState);
-        assert!(err.message.contains("confirm"), "{}", err.message);
+        assert!(err.message.contains("confirm"), "清空内置必须要求显式确认");
         assert_eq!(std::fs::read(paths.builtin_ca()).expect("读取"), original);
 
         let err = write_ca(
@@ -2876,7 +2882,7 @@ mod tests {
         )
         .expect_err("空内置即使确认也必须拒绝");
         assert_eq!(err.code, ErrorCode::ParseError);
-        assert!(err.message.contains("不得为空"), "{}", err.message);
+        assert!(err.message.contains("不得为空"), "确认后仍为空必须拒绝");
         assert_eq!(std::fs::read(paths.builtin_ca()).expect("读取"), original);
 
         let private_key = format!(
@@ -2896,7 +2902,10 @@ mod tests {
         )
         .expect_err("私钥块必须拒绝");
         assert_eq!(err.code, ErrorCode::ParseError);
-        assert!(err.message.contains("私钥"), "{}", err.message);
+        assert!(
+            err.message.contains("私钥"),
+            "含私钥块的 PEM 必须报私钥相关错误"
+        );
         assert_eq!(std::fs::read(paths.builtin_ca()).expect("读取"), original);
 
         let wrong_label = format!(
@@ -2918,8 +2927,7 @@ mod tests {
         assert_eq!(err.code, ErrorCode::ParseError);
         assert!(
             err.message.contains("仅允许 CERTIFICATE"),
-            "{}",
-            err.message
+            "非 CERTIFICATE 块必须报「仅允许 CERTIFICATE」"
         );
         assert_eq!(std::fs::read(paths.builtin_ca()).expect("读取"), original);
 
@@ -3041,7 +3049,7 @@ mod tests {
         );
         let err = read_server_material(&paths).expect_err("证书超限必须报错");
         assert_eq!(err.code, ErrorCode::ParseError);
-        assert!(err.message.contains("上限"), "{}", err.message);
+        assert!(err.message.contains("上限"), "证书超限的错误须说明上限");
 
         // 私钥超限（初始化会修复上一轮的不可用证书）。
         initialize(&workspace);
@@ -3051,7 +3059,7 @@ mod tests {
         );
         let err = read_server_material(&paths).expect_err("私钥超限必须报错");
         assert_eq!(err.code, ErrorCode::ParseError);
-        assert!(err.message.contains("上限"), "{}", err.message);
+        assert!(err.message.contains("上限"), "私钥超限的错误须说明上限");
     }
 
     /// 外部服务端材料写入：未确认拒绝、确认后替换并标记重启、写审计。
@@ -3198,7 +3206,7 @@ mod tests {
         )
         .expect_err("入站 off 未确认必须拒绝");
         assert_eq!(err.code, ErrorCode::InvalidState);
-        assert!(err.message.contains("confirm"), "{}", err.message);
+        assert!(err.message.contains("confirm"), "关闭入站必须要求显式确认");
         assert_eq!(std::fs::read(paths.settings()).expect("读取"), original);
         assert_eq!(audit_count(&conn), 0);
 
@@ -3259,7 +3267,10 @@ mod tests {
         );
         let err = load_settings(&paths).expect_err("非法 schema 必须报错");
         assert_eq!(err.code, ErrorCode::ParseError);
-        assert!(err.message.contains("schema_version"), "{}", err.message);
+        assert!(
+            err.message.contains("schema_version"),
+            "非法 schema 的错误须指明字段"
+        );
         let status = status(&paths, NOW_MS).expect("状态容错");
         assert!(
             status
@@ -3301,7 +3312,7 @@ mod tests {
             original_builtin,
             "审计失败必须恢复原字节"
         );
-        assert!(err.message.contains("回滚"), "{}", err.message);
+        assert!(err.message.contains("回滚"), "审计失败必须报回滚");
         assert_eq!(audit_count(&conn), 0);
 
         let err = update_settings(
@@ -3323,7 +3334,7 @@ mod tests {
             original_settings,
             "审计失败必须恢复原设置"
         );
-        assert!(err.message.contains("回滚"), "{}", err.message);
+        assert!(err.message.contains("回滚"), "审计失败必须报回滚（设置）");
 
         let original_cert = std::fs::read(paths.server_cert()).expect("原始证书");
         let original_key = std::fs::read(paths.server_key()).expect("原始私钥");
