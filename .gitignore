@@ -1,4 +1,6 @@
 /.workbuddy-ai
+# 智能体会话数据（记忆与日志）：本地工作状态，不入库（与上一行同口径）。
+/.workbuddy
 
 # Rust 构建产物与本地验证产物（tasks.md T006）
 /target
