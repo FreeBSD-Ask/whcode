@@ -740,6 +740,9 @@ msgstr "حذف کریں"
 msgid "gui.op.error"
 msgstr "کارروائی ناکام رہی"
 
+msgid "gui.op.export"
+msgstr "واقعات برآمد کریں"
+
 msgid "gui.op.fork"
 msgstr "سیشن منقسم"
 

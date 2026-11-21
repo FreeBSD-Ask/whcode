@@ -37,7 +37,7 @@ T190：新增证书库设置两行）。
 | `task.abort` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-401／408；ADR-056 |
 | `context.budget` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-105／108 |
 | `events.list` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-202 |
-| `events.export` | Command | Write | 已实现 | 部分 | 部分 | 已实现 | FR-205；部分 command_output_only |
+| `events.export` | Command | Write | 已实现 | 部分 | 已实现 | 已实现 | FR-205／800；部分 command_output_only（TUI）；GUI 经 ADR-092 批 3 有界文本呈现＋手动保存 |
 | `events.show` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-202、FR-799；ADR-089 T390/T391/T392；GUI 经 ADR-091 翻转 |
 | `spec.status` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-301—314 |
 | `spec.next` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-301—314、FR-800；T394 三端接线；GUI 经 ADR-092 翻转（OpMode::SpecNext） |
@@ -91,7 +91,7 @@ T190：新增证书库设置两行）。
 | `settings.skills` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-750；部分 cui_command_surface／six_view_scope |
 | `settings.mcp` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-750；部分 cui_command_surface／six_view_scope |
 | `settings.rules.read` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-751；部分 cui_command_surface／six_view_scope |
-| `settings.rules.write` | Command | Write | 部分 | 部分 | 部分 | 已实现 | FR-751；部分 cli_local_admin／six_view_scope |
+| `settings.rules.write` | Command | Write | 部分 | 部分 | 已实现 | 已实现 | FR-751／800；部分 cli_local_admin（CUI／TUI）；GUI 经 ADR-092 批 3 高级面板写入，审计同源 |
 | `settings.rules.revoke` | Command | Write | 部分 | 部分 | 已实现 | 已实现 | FR-751；部分 cli_local_admin |
 | `session.share` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-752；本机脱敏导出，其余端按 cli_local_admin 排除 |
 | `session.fork` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-769／ADR-065；T391 Web、T392 TUI、T393 GUI OpMode（ADR-056 批 4 白名单） |

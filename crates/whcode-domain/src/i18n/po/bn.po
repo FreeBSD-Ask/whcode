@@ -740,6 +740,9 @@ msgstr "মুছুন"
 msgid "gui.op.error"
 msgstr "অপারেশন ব্যর্থ হয়েছে"
 
+msgid "gui.op.export"
+msgstr "ইভেন্ট রপ্তানি"
+
 msgid "gui.op.fork"
 msgstr "সেশন ফর্ক"
 

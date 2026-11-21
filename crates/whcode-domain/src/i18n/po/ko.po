@@ -740,6 +740,9 @@ msgstr "삭제"
 msgid "gui.op.error"
 msgstr "작업에 실패했습니다"
 
+msgid "gui.op.export"
+msgstr "이벤트 내보내기"
+
 msgid "gui.op.fork"
 msgstr "세션 분기"
 

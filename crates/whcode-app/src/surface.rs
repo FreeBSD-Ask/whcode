@@ -643,8 +643,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::CommandOutputOnly,
             },
-            Support::Excluded {
-                reason: ExclusionReason::CommandOutputOnly,
+            // ADR-092／FR-800 批 3：GUI 以有界文本呈现＋手动保存（无保存对话框依赖）。
+            Support::Implemented {
+                anchor: "whcode_gui::State::op_confirm（OpMode::EventsExport，ADR-092）",
             },
             Support::Implemented {
                 anchor: "GET /api/events/export?format=json|jsonl",
@@ -1852,8 +1853,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::CliLocalAdmin,
             },
-            Support::Excluded {
-                reason: ExclusionReason::SixViewScope,
+            // ADR-092／FR-800 批 3：GUI 高级面板写入审批规则（审计由 app 落表）。
+            Support::Implemented {
+                anchor: "whcode_gui::State::op_confirm（OpMode::ApprovalRuleWrite，ADR-092）",
             },
             Support::Implemented {
                 anchor: "POST /api/approvals/rules",

@@ -740,6 +740,9 @@ msgstr "حذف"
 msgid "gui.op.error"
 msgstr "فشلت العملية"
 
+msgid "gui.op.export"
+msgstr "تصدير الأحداث"
+
 msgid "gui.op.fork"
 msgstr "تفريط الجلسة"
 

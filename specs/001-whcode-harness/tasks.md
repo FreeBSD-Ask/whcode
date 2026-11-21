@@ -3023,10 +3023,29 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   `cargo clippy --workspace --all-targets -- -D warnings` 与 `cargo fmt --all --check` 通过。
   CI 结论按 ADR-037 待回填。
 - [ ] T407 批次三：`settings.rules.write`／`events.export` 经 `commands.rs` 新增变体
-  入 GUI（原生保存对话框、有界输出、路径确认）；`settings.cert.read`／`settings.cert.write`
-  重审 ADR-040 决策 4 后入 GUI 证书设置面（降档确认、审计同源、不含私钥）；
-  四面登记翻转与矩阵同步。取证待批次回填。
+  入 GUI；`settings.cert.read`／`settings.cert.write` 重审 ADR-040 决策 4 后入 GUI
+  证书设置面（降档确认、审计同源、不含私钥）；四面登记翻转与矩阵同步。
   （开工前置：任务认知卡，见 ADR-092 §任务认知卡）
+  **前半进度（2026-11-21，rules.write／events.export）**：`FrontendCommand::ApprovalRuleWrite`
+  ／`EventsExport`＋`CommandOutcome::ApprovalRuleWritten`／`EventsExported` 与门面分派；
+  两面登记翻转为 `Implemented`（GUI 锚点 `whcode_gui::State::op_confirm`）；GUI 高级面板
+  写入按钮（`工具名|allow|deny`，ask 拒绝记住）与事件视图导出按钮（`起始序号|条数`，
+  默认 0|1000、Redacted）；写白名单 19→21；矩阵两行同步；13 套 i18n 补 `gui.op.export`。
+  **取证（本地）**：`cargo test -p whcode-app --lib rule_write_and_events_export`
+  （正向、弱权限同码拒绝、有界与脱敏、越界 limit 拒绝）、`frontend_parity` 10、
+  `clippy --workspace -D warnings` 全绿。
+  **偏离登记（0 信任：以磁盘事实为准）**：ADR-092 表格写“events.export 走原生保存对话框”，
+  但 `whcode-gui` 无 `rfd` 等对话框依赖、`Cargo.lock` 亦无命中；新增依赖须走 ADR 修订并
+  复核 ADR-027 预算。本半批采用**有界文本呈现＋手动保存**（`CommandOutcome::EventsExported`
+  返回数据、GUI 只显示有界摘要，不回显正文），不新增依赖、不触碰 ADR-026／027；
+  在 ADR-092 修订记录中如实登记该措辞偏离。
+  **未完成（证书两面，需用户决策）**：`settings.cert.read`／`settings.cert.write` 的 GUI 翻转
+  需解决两处结构性冲突——① `execute_command` 签名无 `CertPaths`／`CertAudit`，55 个调用点，
+  扩展签名影响面过大；② 证书面为 Destructive＋私钥安全面，须先修订 ADR-040 决策 4
+  的“Web-only”正文（不可逆安全决策）。建议路径：装配根 `TuiCommandExecutor::execute`
+  以 `CertPaths::for_workspace(workspace)`＋`StoreAudit` 拦截证书命令（门面注入实现，不改
+  55 处调用），读面经 `ViewSource` 增 `TlsStatus` 只读接口（不含私钥）；须用户批准后再实施。
+  T407 保持未勾选。
 - [ ] T408 收口：三批全链门禁（fmt／clippy／test、layering／layout、counts／traceability、
   coherence pre/mid/end、文档／i18n／前端预算／ADR 限制）与 ADR-027 资源复核；
   CHANGELOG／契约文档同步；CI 结论按 ADR-037 取证或登记缺口。取证待收口回填。

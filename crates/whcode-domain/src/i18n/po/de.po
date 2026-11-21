@@ -740,6 +740,9 @@ msgstr "Löschen"
 msgid "gui.op.error"
 msgstr "Vorgang fehlgeschlagen"
 
+msgid "gui.op.export"
+msgstr "Ereignisse exportieren"
+
 msgid "gui.op.fork"
 msgstr "Sitzung gabeln"
 

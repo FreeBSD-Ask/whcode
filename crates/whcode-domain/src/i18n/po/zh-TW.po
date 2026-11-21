@@ -740,6 +740,9 @@ msgstr "刪除"
 msgid "gui.op.error"
 msgstr "操作失敗"
 
+msgid "gui.op.export"
+msgstr "匯出事件"
+
 msgid "gui.op.fork"
 msgstr "分叉會話"
 

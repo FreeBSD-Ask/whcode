@@ -358,6 +358,10 @@ enum OpMode {
     /// 登记本地 payload（ADR-092／FR-800 批 2）：`name` 冻结后输入
     /// `版本|哈希|本地路径` 三段（路径可含 `|` 取最后两段为哈希与路径）。
     RuntimeInstall { name: String },
+    /// 写入审批规则（ADR-092／FR-800 批 3）：输入 `工具名|allow|deny`。
+    ApprovalRuleWrite,
+    /// 导出事件（ADR-092／FR-800 批 3）：输入 `after_seq|limit`，有界文本呈现。
+    EventsExport,
 }
 
 /// 启动参数。
@@ -1652,7 +1656,9 @@ fn op_preview(state: &mut State) {
         | OpMode::SpecNext
         | OpMode::RuntimeEnable { .. }
         | OpMode::RuntimeDisable { .. }
-        | OpMode::RuntimeInstall { .. } => return,
+        | OpMode::RuntimeInstall { .. }
+        | OpMode::ApprovalRuleWrite
+        | OpMode::EventsExport => return,
         // ADR-092：spec.force-advance 两步——首步（to=None）把输入冻结为目标阶段；
         // 次步由 OpConfirm 读取 reason。首步不产生预览 outcome（Confirmation::ReasonRequired）。
         OpMode::SpecForceAdvance { to: None } => {
@@ -1844,6 +1850,55 @@ fn op_confirm(state: &mut State) {
                 now_ms: now_ms(),
             }
         }
+        // ADR-092／FR-800 批 3：审批规则写入——`工具名|allow|deny`（Ask 由门面拒绝）。
+        OpMode::ApprovalRuleWrite => {
+            let input = std::mem::take(&mut state.op_input);
+            let parts: Vec<&str> = input.split('|').map(str::trim).collect();
+            if parts.len() != 2 || parts[0].is_empty() {
+                state.op_feedback = Some("规则：请按“工具名|allow|deny”填写".to_string());
+                return;
+            }
+            let Some(rule) = whcode_domain::approval::ApprovalRule::parse(parts[1]) else {
+                state.op_feedback = Some("规则：仅 allow／deny（ask 不支持记住）".to_string());
+                return;
+            };
+            if rule == whcode_domain::approval::ApprovalRule::Ask {
+                state.op_feedback = Some("规则：ask 不支持记住，请选 allow／deny".to_string());
+                return;
+            }
+            FrontendCommand::ApprovalRuleWrite {
+                tool: parts[0].to_string(),
+                rule,
+                now_ms: now_ms(),
+            }
+        }
+        // ADR-092／FR-800 批 3：事件导出——`after_seq|limit`（默认 0|1000，有界）。
+        OpMode::EventsExport => {
+            let input = std::mem::take(&mut state.op_input);
+            let parts: Vec<&str> = input.split('|').map(str::trim).collect();
+            let (after, limit) = if input.trim().is_empty() {
+                (0_i64, 1000_usize)
+            } else if parts.len() != 2 {
+                state.op_feedback = Some("导出：请按“起始序号|条数”填写（留空取默认）".to_string());
+                return;
+            } else {
+                let Ok(after) = parts[0].parse::<i64>() else {
+                    state.op_feedback = Some("导出：起始序号须为整数".to_string());
+                    return;
+                };
+                let Ok(limit) = parts[1].parse::<usize>() else {
+                    state.op_feedback = Some("导出：条数须为正整数".to_string());
+                    return;
+                };
+                (after, limit)
+            };
+            FrontendCommand::EventsExport {
+                session_id: state.selected_session().unwrap_or_default(),
+                after_seq: after,
+                limit,
+                level: whcode_domain::trace::TraceLevel::Redacted,
+            }
+        }
     };
     execute(state, command);
 }
@@ -1932,6 +1987,19 @@ fn op_outcome_text(outcome: &whcode_app::commands::CommandOutcome) -> String {
             format!(
                 "runtime={} enabled={} version={}",
                 view.name, view.enabled, view.version
+            )
+        }
+        // ADR-092／FR-800 批 3：审批规则写入／事件导出（有界摘要，不回显正文）。
+        whcode_app::commands::CommandOutcome::ApprovalRuleWritten { tool, rule } => {
+            format!("approval_rule={tool} rule={}", rule.as_str())
+        }
+        whcode_app::commands::CommandOutcome::EventsExported(export) => {
+            format!(
+                "export: events={} states={} trace={} redacted={}",
+                export.events.len(),
+                export.states.len(),
+                export.trace_level,
+                export.redacted
             )
         }
     }
@@ -2581,6 +2649,35 @@ fn runtime_controls(state: &State) -> Element<'_, Message> {
     .into()
 }
 
+/// 事件视图导出按钮（ADR-092／FR-800 批 3）：有界文本呈现＋手动保存；无原生
+/// 保存对话框依赖（不新增 crate，ADR-026／027 不变），在 ADR-092 如实登记偏离。
+fn events_controls(state: &State) -> Element<'_, Message> {
+    let enabled = state.executor.is_some();
+    let theme = state.theme;
+    let button =
+        button(rich_line(state.texts.resolve("gui.op.export"), false, 13.0)).padding([4, 8]);
+    let button = if enabled {
+        button.on_press(Message::OpStart(OpMode::EventsExport))
+    } else {
+        button
+    };
+    let button = button.style(move |_t, _s| {
+        let (background, foreground) = theme.colors();
+        button::Style {
+            background: Some(Background::Color(background)),
+            text_color: foreground,
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: true,
+        }
+    });
+    row(mirrored_order(
+        is_rtl_locale(&state.texts.locale),
+        vec![button.into()],
+    ))
+    .into()
+}
+
 /// 运行时视图正文（ADR-092／FR-800 批 2）：声明清单行 + 选中状态；无定时器，
 /// 清单在 prepare 阶段按需读取（probe=false），选中才读状态。
 fn runtime_body(state: &State) -> Element<'_, Message> {
@@ -2649,6 +2746,8 @@ fn op_panel(state: &State) -> Element<'_, Message> {
             | OpMode::SpecNext
             | OpMode::SpecForceAdvance { .. }
             | OpMode::RuntimeInstall { .. }
+            | OpMode::ApprovalRuleWrite
+            | OpMode::EventsExport
     );
     let destructive = matches!(
         mode,
@@ -2998,7 +3097,16 @@ fn view(state: &State) -> Element<'_, Message> {
             .into(),
             ViewId::Diff => diff_body(state),
             // ADR-091／FR-799：Events 支持选中详情；Spec 支持门禁摘要。
-            ViewId::Events => read_detail_body(state),
+            ViewId::Events if state.op_mode.is_some() => column![
+                op_panel(state),
+                events_controls(state),
+                read_detail_body(state)
+            ]
+            .spacing(8)
+            .into(),
+            ViewId::Events => column![events_controls(state), read_detail_body(state)]
+                .spacing(8)
+                .into(),
             // ADR-092／FR-800：Spec 视图接入阶段推进与强制放行写面。
             ViewId::Spec if state.op_mode.is_some() => column![
                 op_panel(state),
@@ -3209,8 +3317,18 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
         }
     }
 
-    // 审批规则（FR-751）：tokens 来自本地表；撤销即写 `permission_change` 审计。
+    // 审批规则（FR-751／ADR-092 批 3）：tokens 来自本地表；撤销即写 `permission_change` 审计；
+    // 写入经 OpMode::ApprovalRuleWrite（工具名|allow|deny，ask 不支持记住）。
     body = body.push(heading("settings.panels.rules.title"));
+    body = body.push(
+        button(rich_line(
+            state.texts.resolve("settings.approvals.save"),
+            false,
+            12.0,
+        ))
+        .on_press(Message::OpStart(OpMode::ApprovalRuleWrite))
+        .padding([2, 6]),
+    );
     if let Some(error) = state.panels.error.as_deref()
         && state.panels.rules.is_empty()
     {
@@ -4251,6 +4369,8 @@ mod tests {
             "gui.op.runtime.enable",
             "gui.op.runtime.disable",
             "gui.op.runtime.install",
+            // ADR-092／FR-800 批 3：事件导出按钮。
+            "gui.op.export",
         ];
         for (locale, _) in whcode_domain::i18n::BUILTIN_LOCALES {
             let texts = I18n::load(locale, whcode_domain::i18n::LocaleSource::Explicit);

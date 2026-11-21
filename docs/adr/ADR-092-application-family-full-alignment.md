@@ -30,7 +30,7 @@ ADR-026 的铁律是**原生渲染、禁止浏览器套壳**，其“只读 v1�
 | `runtime.disable` | `six_view_scope` | Write | 二 | 同上 |
 | `runtime.install` | `six_view_scope` | Write | 二 | 同上；只接受本地 payload，哈希比对，不联网（ADR-089 限制保留） |
 | `settings.rules.write` | `six_view_scope` | Write | 三 | `commands.rs` 增 `FrontendCommand::ApprovalRuleWrite`；GUI 高级面板接线 |
-| `events.export` | `command_output_only` | Write | 三 | `commands.rs` 增导出命令；GUI 走原生保存对话框，保留有界输出与路径确认 |
+| `events.export` | `command_output_only` | Write | 三 | `commands.rs` 增导出命令；GUI 采用**有界文本呈现＋手动保存**（修订记录 2026-11-21：原写“原生保存对话框”，但 `whcode-gui` 与 `Cargo.lock` 均无对话框依赖，新增依赖须走 ADR 修订并复核 ADR-027 预算；故以 `CommandOutcome::EventsExported` 返回有界数据、GUI 只显摘要不回显正文，不新增依赖、不触碰 ADR-026／027） |
 | `settings.cert.read` | `six_view_scope` | Read | 三 | 重审 ADR-040 决策 4；GUI 证书设置面按需读取状态（不含私钥） |
 | `settings.cert.write` | `gui_read_only_v1` | Destructive | 三 | 修订 ADR-040；GUI 证书设置面经门面写，降档须确认、写审计 |
 
@@ -63,3 +63,23 @@ ADR-026 的铁律是**原生渲染、禁止浏览器套壳**，其“只读 v1�
 1. **批次一**：`view.changes` 正名 + `spec.next`／`spec.force-advance` 接线（现成门面，风险最低）。
 2. **批次二**：runtime 六面（`ViewSource` 接口 + 第 11 视图 + 门面三变体）。
 3. **批次三**：`settings.rules.write`、`events.export`、证书两面（ADR-040 重审）。
+
+## 修订记录
+
+### 2026-11-21：批次三前半落地与两处偏离登记（0 信任，以磁盘事实为准）
+
+- **完成**：批次三前半（`settings.rules.write`、`events.export`）经 `FrontendCommand::
+  ApprovalRuleWrite`／`EventsExport` 入 GUI；登记表与矩阵翻转、写白名单扩容、13 套 i18n
+  与门面正反向测试全绿。
+- **偏离 1（events.export 呈现形态）**：原表写“GUI 走原生保存对话框”，实测 `whcode-gui`
+  依赖表与 `Cargo.lock` 均无对话框 crate（“原生保存对话框”作为系统集成能力见 ADR-026
+  第 51 行，但本仓库未引入）。按 ADR-027 资源余量很小、新增依赖须走 ADR 修订，改为
+  `CommandOutcome::EventsExported` 返回有界数据、GUI 显有界摘要并提示用户手动保存；
+  不回显正文、不新增依赖、不触碰两条硬约束。上表与本记录同步修正该措辞。
+- **偏离 2（证书两面待决）**：`settings.cert.read`／`settings.cert.write` 的 GUI 翻转尚未
+  实施。`execute_command` 签名无 `CertPaths`／`CertAudit`，55 个调用点使签名扩展影响面过大；
+  证书面为 Destructive＋私钥安全面，须先修订 ADR-040 决策 4 的“Web-only”正文（不可逆
+  安全决策）。建议路径：装配根 `TuiCommandExecutor::execute` 以
+  `CertPaths::for_workspace(workspace)`＋`StoreAudit` 拦截证书命令（门面注入实现，不改
+  55 处调用），读面经 `ViewSource` 增 `TlsStatus` 只读接口（不含私钥）。须用户明确批准
+  后再实施；未批准前两面维持 Web-only，不伪造对等。

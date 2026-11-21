@@ -740,6 +740,9 @@ msgstr "Eliminar"
 msgid "gui.op.error"
 msgstr "La operación falló"
 
+msgid "gui.op.export"
+msgstr "Exportar eventos"
+
 msgid "gui.op.fork"
 msgstr "Bifurcar sesión"
 

@@ -740,6 +740,9 @@ msgstr "हटाएँ"
 msgid "gui.op.error"
 msgstr "ऑपरेशन विफल रहा"
 
+msgid "gui.op.export"
+msgstr "घटनाएँ निर्यात करें"
+
 msgid "gui.op.fork"
 msgstr "सत्र द्विभाजन"
 

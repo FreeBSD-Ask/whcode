@@ -740,6 +740,9 @@ msgstr "Delete"
 msgid "gui.op.error"
 msgstr "Operation failed"
 
+msgid "gui.op.export"
+msgstr "Export events"
+
 msgid "gui.op.fork"
 msgstr "Fork session"
 

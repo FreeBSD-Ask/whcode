@@ -19,6 +19,8 @@
 
 use duckdb::Connection;
 use whcode_domain::WhError;
+use whcode_domain::approval::ApprovalRule;
+use whcode_domain::trace::TraceLevel;
 use whcode_store::{PurgeCriteria, PurgePreview, PurgeProtection, PurgeResult, tasks::TaskRow};
 
 use crate::authz::Actor;
@@ -119,6 +121,21 @@ pub enum FrontendCommand {
         payload: std::path::PathBuf,
         now_ms: u64,
     },
+    /// 写入/记住一条工具审批规则（ADR-092／FR-800 批 3）：`rule` 仅 Allow/Deny，
+    /// Web `POST /api/approvals/rules` 同口径（拒绝 Ask）；审计由 app 落表。
+    ApprovalRuleWrite {
+        tool: String,
+        rule: ApprovalRule,
+        now_ms: u64,
+    },
+    /// 导出会话事件（ADR-092／FR-800 批 3）：有界分页，脱敏口径与 CUI/Web 同构；
+    /// GUI 侧以文本呈现＋手动保存（无原生保存对话框依赖，见 ADR-092 登记）。
+    EventsExport {
+        session_id: String,
+        after_seq: i64,
+        limit: usize,
+        level: TraceLevel,
+    },
 }
 
 /// 执行结果（呈现无关；JSON 形状由前端呈现层构造）。
@@ -164,6 +181,10 @@ pub enum CommandOutcome {
     SpecAdvanced(whcode_store::SessionRow),
     /// 运行时管理结果（T406／FR-800；声明＋探测状态合并）。
     RuntimeStatus(crate::runtime_mgmt::RuntimeStatusView),
+    /// 审批规则写入结果（T407／FR-800）。
+    ApprovalRuleWritten { tool: String, rule: ApprovalRule },
+    /// 事件导出结果（T407／FR-800；有界、脱敏）。
+    EventsExported(crate::EventsExport),
 }
 
 /// 执行器抽象（TUI 等“动作 → 门面”注入用；装配根实现持有连接与授权）。
@@ -380,6 +401,23 @@ pub fn execute_command(
             let view =
                 crate::runtime_install(conn, policy, actor, name, version, hash, payload, *now_ms)?;
             Ok(CommandOutcome::RuntimeStatus(view))
+        }
+        FrontendCommand::ApprovalRuleWrite { tool, rule, now_ms } => {
+            crate::approval_rules::remember_rule(conn, policy, actor, tool, *rule, *now_ms)?;
+            Ok(CommandOutcome::ApprovalRuleWritten {
+                tool: tool.clone(),
+                rule: *rule,
+            })
+        }
+        FrontendCommand::EventsExport {
+            session_id,
+            after_seq,
+            limit,
+            level,
+        } => {
+            let export =
+                crate::events_export(conn, policy, actor, session_id, *after_seq, *limit, *level)?;
+            Ok(CommandOutcome::EventsExported(export))
         }
     }
 }
@@ -858,5 +896,108 @@ mod tests {
         )
         .expect_err("无前像必须拒绝");
         assert_eq!(err.code, whcode_domain::ErrorCode::NotFound);
+    }
+
+    /// ADR-092／FR-800 批 3：审批规则写入与事件导出经门面——正向、权限拒绝、
+    /// 导出有界与脱敏口径（弱权限同码拒绝）。
+    #[test]
+    fn rule_write_and_events_export_through_facade() {
+        let mut conn = migrated();
+        let policy = DefaultPolicy;
+        let me = actor();
+        let now = 1_700_000_000_100_u64;
+
+        // 审批规则写入：allow 正向；弱权限 permission_denied。
+        let ok = execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::ApprovalRuleWrite {
+                tool: "shell".to_string(),
+                rule: ApprovalRule::Allow,
+                now_ms: now,
+            },
+        )
+        .expect("写入规则");
+        assert!(matches!(
+            ok,
+            CommandOutcome::ApprovalRuleWritten { tool, rule }
+                if tool == "shell" && rule == ApprovalRule::Allow
+        ));
+        let err = execute_command(
+            &mut conn,
+            &policy,
+            &weak(),
+            &FrontendCommand::ApprovalRuleWrite {
+                tool: "shell".to_string(),
+                rule: ApprovalRule::Deny,
+                now_ms: now,
+            },
+        )
+        .expect_err("弱权限不得写规则");
+        assert_eq!(err.code, whcode_domain::ErrorCode::PermissionDenied);
+
+        // 事件导出：先建会话，导出行有界且标脱敏；弱权限拒绝；越界 limit 拒绝。
+        let session = match execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::SessionNew {
+                title: "导出会话".to_string(),
+                model: None,
+                now_ms: now,
+            },
+        )
+        .expect("新建")
+        {
+            CommandOutcome::Session(row) => row,
+            other => panic!("应为 Session：{other:?}"),
+        };
+        let export = execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::EventsExport {
+                session_id: session.id.clone(),
+                after_seq: 0,
+                limit: 10,
+                level: TraceLevel::Redacted,
+            },
+        )
+        .expect("导出");
+        match export {
+            CommandOutcome::EventsExported(view) => {
+                assert_eq!(view.session_id, session.id);
+                assert!(view.events.len() <= 10, "导出必须有界");
+                assert!(view.redacted, "Redacted 级别须自注脱敏");
+            }
+            other => panic!("应为 EventsExported：{other:?}"),
+        }
+        let err = execute_command(
+            &mut conn,
+            &policy,
+            &weak(),
+            &FrontendCommand::EventsExport {
+                session_id: session.id.clone(),
+                after_seq: 0,
+                limit: 10,
+                level: TraceLevel::Redacted,
+            },
+        )
+        .expect_err("弱权限不得导出");
+        assert_eq!(err.code, whcode_domain::ErrorCode::PermissionDenied);
+        let err = execute_command(
+            &mut conn,
+            &policy,
+            &me,
+            &FrontendCommand::EventsExport {
+                session_id: session.id,
+                after_seq: 0,
+                limit: 1001,
+                level: TraceLevel::Redacted,
+            },
+        )
+        .expect_err("越界 limit 必须拒绝");
+        assert_eq!(err.code, whcode_domain::ErrorCode::InvalidState);
     }
 }

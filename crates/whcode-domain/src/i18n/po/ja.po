@@ -740,6 +740,9 @@ msgstr "削除"
 msgid "gui.op.error"
 msgstr "操作に失敗しました"
 
+msgid "gui.op.export"
+msgstr "イベント書き出し"
+
 msgid "gui.op.fork"
 msgstr "セッション分岐"
 
