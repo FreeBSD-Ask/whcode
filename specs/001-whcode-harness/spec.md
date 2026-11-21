@@ -762,6 +762,21 @@ taskkill /T /F 口径）（P1）
     `crates/whcode-app/src/surface.rs`（4 行 GUI 状态翻转）、
     `tests/contract/test_frontend_parity.rs`（矩阵逐行一致）；Check 484—485
 
+- **FR-800**: 应用族剩余 12 面对齐（P1，ADR-092）：Web 已实现而 GUI 标“部分”的
+  12 面按风险分级收敛或正名——`view.changes` 的显式刷新（`r` 键）由排除正名为已实现
+  （FR-714 仍禁周期定时器）；`spec.next`／`spec.force-advance` 复用既有命令门面入 GUI；
+  runtime 六面经 `ViewSource` 读接口＋GUI 第 11 视图与 `FrontendCommand` 三变体收敛；
+  `settings.rules.write`／`events.export` 经命令门面新增变体入 GUI；
+  `settings.cert.read`／`settings.cert.write` 重审 ADR-040 决策 4 后入 GUI 证书设置面。
+  全部写面经 `whcode-app::commands` 门面与 `Capability` 判定，不新增绕过路径；
+  不触碰 ADR-026 原生铁律与 ADR-027 资源预算
+  - 依据：ADR-092；判定报告 `artifacts/gui-web-parity-assessment-2026-11-21.md`；
+    ADR-032／056／089／091；FR-619—621；ADR-026／027
+  - 判据：每面有真实前端锚点与正向／失败路径测试；四端对等矩阵逐行一致；
+    GUI 资源不超 ADR-027 预算；证书写面降档须确认并写审计；运行时安装不联网
+  - 证据：`crates/whcode-app/src/commands.rs`、`crates/whcode-app/src/view_source.rs`、
+    `crates/whcode-gui/src/lib.rs`、`tests/contract/test_frontend_parity.rs`；Check 487
+
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

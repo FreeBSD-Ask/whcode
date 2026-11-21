@@ -2992,3 +2992,25 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   手段（后置）＝两个纯函数转换＋请求体接线＋单测。
   **取证（2026-11-21）**：`cargo test -p whcode-llm --lib`（74 通过，新增 4 用例）；
   ADR-088 修订记录与 FR-797 描述同步；Check 486。CI 结论按 ADR-037 待回填。
+
+## Tasks（2026-11-21 追加）：应用族剩余 12 面对齐（ADR-092，用户批准）
+
+- [ ] T405（FR-800）批次一：`view.changes` 正名（`r` 键显式刷新由 `Excluded(GuiManualRefresh)`
+  翻为 `Implemented`，FR-714 定时器禁令不变）＋`spec.next`／`spec.force-advance`
+  经既有 `FrontendCommand` 入 GUI（workspace 注入、reason 必填、审计同源）；
+  登记表与矩阵同步、契约测试、十三套 i18n。取证待批次回填。
+  （开工前置：任务认知卡，见 ADR-092 §任务认知卡）
+- [ ] T406 批次二：runtime 六面——`ViewSource` 增 runtime 读接口＋装配根实现；
+  GUI 第 11 视图（`VIEW_COUNT` 10→11，键位与穷尽 match 同步）；`commands.rs`
+  增 `FrontendCommand::RuntimeEnable`／`Disable`／`Install`（`RuntimeManage` 能力＋审计；
+  install 只做本地 payload 哈希比对，不联网）；六面登记翻转与矩阵同步。取证待批次回填。
+  （开工前置：任务认知卡，见 ADR-092 §任务认知卡）
+- [ ] T407 批次三：`settings.rules.write`／`events.export` 经 `commands.rs` 新增变体
+  入 GUI（原生保存对话框、有界输出、路径确认）；`settings.cert.read`／`settings.cert.write`
+  重审 ADR-040 决策 4 后入 GUI 证书设置面（降档确认、审计同源、不含私钥）；
+  四面登记翻转与矩阵同步。取证待批次回填。
+  （开工前置：任务认知卡，见 ADR-092 §任务认知卡）
+- [ ] T408 收口：三批全链门禁（fmt／clippy／test、layering／layout、counts／traceability、
+  coherence pre/mid/end、文档／i18n／前端预算／ADR 限制）与 ADR-027 资源复核；
+  CHANGELOG／契约文档同步；CI 结论按 ADR-037 取证或登记缺口。取证待收口回填。
+  （开工前置：任务认知卡，见 ADR-092 §任务认知卡）
