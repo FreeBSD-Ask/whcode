@@ -776,6 +776,15 @@ msgstr "बहाल करें"
 msgid "gui.op.rewind"
 msgstr "संवाद पुनःस्थापन"
 
+msgid "gui.op.runtime.disable"
+msgstr "अक्षम करें"
+
+msgid "gui.op.runtime.enable"
+msgstr "सक्षम करें"
+
+msgid "gui.op.runtime.install"
+msgstr "पेलोड दर्ज करें"
+
 msgid "gui.op.spec.force"
 msgstr "गेट पार करें"
 
@@ -1332,7 +1341,7 @@ msgid "tui.empty"
 msgstr "(कोई डेटा नहीं)"
 
 msgid "tui.footer"
-msgstr "1-9/0 दृश्य  j/k चलें  r ताज़ा करें  t थीम  q बाहर निकलें  |  {cols}x{rows}"
+msgstr "1-9/0/- दृश्य  j/k चलें  r ताज़ा करें  t थीम  q बाहर निकलें  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "कोई सत्र नहीं"
@@ -1381,6 +1390,9 @@ msgstr "लेखा"
 
 msgid "view.preimages"
 msgstr "पूर्व प्रतिकृतियाँ"
+
+msgid "view.runtime"
+msgstr "रनटाइम"
 
 msgid "view.sessions"
 msgstr "सत्र"

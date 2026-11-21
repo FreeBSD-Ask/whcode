@@ -776,6 +776,15 @@ msgstr "復元"
 msgid "gui.op.rewind"
 msgstr "会話巻き戻し"
 
+msgid "gui.op.runtime.disable"
+msgstr "無効化"
+
+msgid "gui.op.runtime.enable"
+msgstr "有効化"
+
+msgid "gui.op.runtime.install"
+msgstr "payload 登録"
+
 msgid "gui.op.spec.force"
 msgstr "強制通過"
 
@@ -1332,7 +1341,7 @@ msgid "tui.empty"
 msgstr "（データなし）"
 
 msgid "tui.footer"
-msgstr "1-9/0 ビュー  j/k 移動  r 更新  t テーマ  q 終了  |  {cols}x{rows}"
+msgstr "1-9/0/- ビュー  j/k 移動  r 更新  t テーマ  q 終了  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "セッション未選択"
@@ -1381,6 +1390,9 @@ msgstr "台帳"
 
 msgid "view.preimages"
 msgstr "ファイル前期像"
+
+msgid "view.runtime"
+msgstr "ランタイム"
 
 msgid "view.sessions"
 msgstr "セッション"

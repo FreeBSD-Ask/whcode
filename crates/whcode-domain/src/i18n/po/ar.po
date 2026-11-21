@@ -776,6 +776,15 @@ msgstr "استعادة"
 msgid "gui.op.rewind"
 msgstr "إرجاع الحوار"
 
+msgid "gui.op.runtime.disable"
+msgstr "تعطيل"
+
+msgid "gui.op.runtime.enable"
+msgstr "تمكين"
+
+msgid "gui.op.runtime.install"
+msgstr "تثبيت الحمولة"
+
 msgid "gui.op.spec.force"
 msgstr "تجاوز البوابة"
 
@@ -1332,7 +1341,7 @@ msgid "tui.empty"
 msgstr "(لا بيانات)"
 
 msgid "tui.footer"
-msgstr "1-9/0 طرق عرض  j/k للتنقل  r للتحديث  t للسمة  q للخروج  |  {cols}x{rows}"
+msgstr "1-9/0/- طرق عرض  j/k للتنقل  r للتحديث  t للسمة  q للخروج  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "لا جلسة"
@@ -1381,6 +1390,9 @@ msgstr "السجل"
 
 msgid "view.preimages"
 msgstr "النسخ السابقة"
+
+msgid "view.runtime"
+msgstr "بيئات التشغيل"
 
 msgid "view.sessions"
 msgstr "الجلسات"

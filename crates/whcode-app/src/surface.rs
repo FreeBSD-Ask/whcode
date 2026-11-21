@@ -1051,8 +1051,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::SixViewScope,
             },
-            Support::Excluded {
-                reason: ExclusionReason::SixViewScope,
+            // ADR-092／FR-800 批 2：GUI 第 11 视图按需读取声明清单（不探测）。
+            Support::Implemented {
+                anchor: "whcode_gui::State::prepare（ViewId::Runtime → ViewSource::runtime_entries）",
             },
             Support::Implemented {
                 anchor: "GET /api/runtimes",
@@ -1073,8 +1074,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::SixViewScope,
             },
-            Support::Excluded {
-                reason: ExclusionReason::SixViewScope,
+            // ADR-092／FR-800 批 2：GUI 运行时视图选中行的状态（probe=false）。
+            Support::Implemented {
+                anchor: "whcode_gui::State::runtime_status（ViewSource::runtime_status_view）",
             },
             Support::Implemented {
                 anchor: "GET /api/runtimes/status",
@@ -1095,8 +1097,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::SixViewScope,
             },
-            Support::Excluded {
-                reason: ExclusionReason::SixViewScope,
+            // ADR-092／FR-800 批 2：GUI 运行时视图启用按钮（审计由 app 落表）。
+            Support::Implemented {
+                anchor: "whcode_gui::State::op_confirm（OpMode::RuntimeEnable，ADR-092）",
             },
             Support::Implemented {
                 anchor: "POST /api/runtimes/enable",
@@ -1117,8 +1120,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::SixViewScope,
             },
-            Support::Excluded {
-                reason: ExclusionReason::SixViewScope,
+            // ADR-092／FR-800 批 2：GUI 运行时视图停用按钮（可撤销）。
+            Support::Implemented {
+                anchor: "whcode_gui::State::op_confirm（OpMode::RuntimeDisable，ADR-092）",
             },
             Support::Implemented {
                 anchor: "POST /api/runtimes/disable",
@@ -1139,8 +1143,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::SixViewScope,
             },
-            Support::Excluded {
-                reason: ExclusionReason::SixViewScope,
+            // ADR-092／FR-800 批 2：GUI 运行时视图安装按钮（仅本地 payload 哈希比对，不联网）。
+            Support::Implemented {
+                anchor: "whcode_gui::State::op_confirm（OpMode::RuntimeInstall，ADR-092）",
             },
             Support::Implemented {
                 anchor: "POST /api/runtimes/install",
@@ -2069,6 +2074,29 @@ pub const SURFACES: &[SurfaceEntry] = &[
             },
         ],
     },
+    // ADR-092／FR-800 批 2：运行时视图（T406，第 11 视图；只读，写面经命令面板）。
+    SurfaceEntry {
+        id: "view.runtime",
+        kind: SurfaceKind::View,
+        capability: Capability::SessionRead,
+        effect: EffectClass::Read,
+        confirmation: Confirmation::None,
+        audited: false,
+        frontends: [
+            Support::Excluded {
+                reason: ExclusionReason::CuiCommandSurface,
+            },
+            Support::Implemented {
+                anchor: "ViewId::Runtime（侧栏切换；清单经 runtime_command List）",
+            },
+            Support::Implemented {
+                anchor: "State::prepare（ViewId::Runtime → ViewSource::runtime_entries）",
+            },
+            Support::Implemented {
+                anchor: "GET /api/runtimes",
+            },
+        ],
+    },
 ];
 
 /// 按 SurfaceId 查找登记条目。
@@ -2289,9 +2317,11 @@ mod tests {
                 // 交付物清单（T285／FR-772）：Web 实现，TUI／GUI 未排期。
                 "view.deliverables",
                 // 充分性报告（FR-795／ADR-085）：Web 只读，TUI／GUI 未排期。
-                "view.coherence"
+                "view.coherence",
+                // 运行时视图（FR-800／ADR-092 批 2）：GUI 第 11 视图。
+                "view.runtime"
             ],
-            "视图面条目为模型目录 + 证书设置页 + 八视图 + 检查点浏览 + 在线可见 + B4 面板 + 前像 + 交付物 + 充分性报告（FR-601／622／624／748／749—751／772／773／776／795、ADR-040／085）"
+            "视图面条目为模型目录 + 证书设置页 + 八视图 + 检查点浏览 + 在线可见 + B4 面板 + 前像 + 交付物 + 充分性 + 运行时（FR-601／622／624／748／749—751／772／773／776／795／800、ADR-040／085／092）"
         );
     }
 
@@ -2453,12 +2483,12 @@ mod tests {
                 entry.support(frontend)
             );
         }
-        // TUI／GUI 的运行时管理属正当排除（six_view_scope，ADR-089 §C）：
+        // TUI 的运行时管理属正当排除（six_view_scope，ADR-089 §C）：
         // 「预留」是矩阵中唯一代表缺口的状态，清零后不得残留。
+        // ADR-092／FR-800 批 2：runtime.enable 等三面的 GUI 已翻转为已实现，不再入排除表。
         for (id, frontend) in [
             ("runtime.status", FrontendId::Tui),
             ("runtime.install", FrontendId::Tui),
-            ("runtime.enable", FrontendId::Gui),
         ] {
             let entry = find(id).unwrap_or_else(|| panic!("{id} 未登记"));
             assert_eq!(

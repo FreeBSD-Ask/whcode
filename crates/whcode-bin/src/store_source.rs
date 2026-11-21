@@ -81,6 +81,9 @@ impl StoreViewSource {
             // 前像清单（T392／FR-776）；充分性报告（T392／FR-795）。
             ViewId::Preimages => self.build_preimages(session),
             ViewId::Coherence => self.build_coherence(session),
+            // 运行时视图（T406／FR-800）：清单与状态经 ViewSource 独立读接口按需获取，
+            // 快照为空（帧路径不触库、不探测）。
+            ViewId::Runtime => Ok(ViewSnapshot::empty(ViewId::Runtime)),
         }
     }
 
@@ -751,6 +754,20 @@ impl ViewSource for StoreViewSource {
             }
         }
         snapshot
+    }
+
+    /// 运行时清单（T406／FR-800）：声明清单，界面刷新路径不探测（probe=false）。
+    fn runtime_entries(&self) -> Vec<whcode_app::runtime_mgmt::RuntimeEntry> {
+        whcode_app::runtime_inventory(false)
+    }
+
+    /// 运行时状态（T406／FR-800）：界面口径 probe=false；不启动子进程。
+    fn runtime_status_view(
+        &self,
+        name: &str,
+    ) -> Result<whcode_app::runtime_mgmt::RuntimeStatusView, WhError> {
+        let conn = self.conn.lock().expect("store 连接锁中毒");
+        whcode_app::runtime_status(&conn, &self.policy, &self.actor, name, false)
     }
 }
 

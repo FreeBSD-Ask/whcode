@@ -89,13 +89,14 @@ fn view_surface(view: ViewId) -> &'static str {
         ViewId::Ledger => "view.ledger",
         ViewId::Preimages => "view.preimages",
         ViewId::Coherence => "view.coherence",
+        ViewId::Runtime => "view.runtime",
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use whcode_app::surface::{EffectClass, ExclusionReason, FrontendId, SURFACES, Support, find};
+    use whcode_app::surface::{EffectClass, FrontendId, SURFACES, Support, find};
 
     /// 全动作断言：映射存在且 GUI 端状态与登记表一致。
     #[test]
@@ -168,7 +169,7 @@ mod tests {
     /// 白名单外的写/破坏性面不得在 GUI 出现已实现，如 `settings.cert.write`。
     #[test]
     fn gui_implemented_surfaces_are_reads_or_whitelisted_writes() {
-        const WRITES: [&str; 16] = [
+        const WRITES: [&str; 19] = [
             "session.new",
             "session.rename",
             "session.archive",
@@ -187,6 +188,10 @@ mod tests {
             // ADR-092／FR-800 批 1：SDD 阶段推进两面入白名单（reason 必填＋审计同源）。
             "spec.next",
             "spec.force-advance",
+            // ADR-092／FR-800 批 2：运行时管理三面入白名单（审计由 app 落表，不联网）。
+            "runtime.enable",
+            "runtime.disable",
+            "runtime.install",
         ];
         for entry in SURFACES {
             if !matches!(entry.support(FrontendId::Gui), Support::Implemented { .. }) {
@@ -264,12 +269,15 @@ mod tests {
             let id = surface_of(action);
             assert!(find(id).is_some(), "{id} 必须已登记");
         }
+        // ADR-092／FR-800 批 2：runtime.list 的 GUI 面已由排除翻转为已实现，
+        // 该测试保留“其余动作仍在范围内”的语义，不再断言 runtime.list 排除。
         let runtime = find("runtime.list").expect("runtime.list 已登记");
-        assert_eq!(
-            runtime.support(FrontendId::Gui),
-            &Support::Excluded {
-                reason: ExclusionReason::SixViewScope
-            }
+        assert!(
+            matches!(
+                runtime.support(FrontendId::Gui),
+                Support::Implemented { .. }
+            ),
+            "runtime.list 的 GUI 面应已实现（ADR-092 批 2）"
         );
     }
 

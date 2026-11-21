@@ -16,8 +16,9 @@ use std::borrow::Cow;
 use whcode_domain::{ErrorCode, WhError};
 use whcode_store::ContentHit;
 
-/// 视图总数（切换键 1—9、0 与之一一对应；T392：前像与充分性两视图入列）。
-pub const VIEW_COUNT: usize = 10;
+/// 视图总数（切换键 1—9、0 与之一一对应；T392：前像与充分性两视图；
+/// T406／ADR-092：运行时视图入列）。
+pub const VIEW_COUNT: usize = 11;
 
 /// 视图标识（8 个视图，FR-601；台账视图见 FR-787）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -42,6 +43,8 @@ pub enum ViewId {
     Preimages,
     /// 充分性报告（T392／FR-795／ADR-085；只读）。
     Coherence,
+    /// 运行时清单与状态（T406／FR-800／ADR-092；只读视图，写面经命令面板）。
+    Runtime,
 }
 
 impl ViewId {
@@ -57,6 +60,7 @@ impl ViewId {
         Self::Ledger,
         Self::Preimages,
         Self::Coherence,
+        Self::Runtime,
     ];
 
     /// 稳定标识（配置与切换）。
@@ -73,6 +77,7 @@ impl ViewId {
             Self::Ledger => "ledger",
             Self::Preimages => "preimages",
             Self::Coherence => "coherence",
+            Self::Runtime => "runtime",
         }
     }
 
@@ -90,6 +95,7 @@ impl ViewId {
             Self::Ledger => "台账",
             Self::Preimages => "文件前像",
             Self::Coherence => "充分性",
+            Self::Runtime => "运行时",
         }
     }
 
@@ -107,6 +113,7 @@ impl ViewId {
             Self::Ledger => "view.ledger",
             Self::Preimages => "view.preimages",
             Self::Coherence => "view.coherence",
+            Self::Runtime => "view.runtime",
         }
     }
 
@@ -124,6 +131,7 @@ impl ViewId {
             Self::Ledger => 8,
             Self::Preimages => 9,
             Self::Coherence => 10,
+            Self::Runtime => 11,
         }
     }
 
@@ -141,6 +149,8 @@ impl ViewId {
             '8' => Some(Self::Ledger),
             '9' => Some(Self::Preimages),
             '0' => Some(Self::Coherence),
+            // 第 11 视图（T406／FR-800）：数字键已用尽，取 `-`（GUI 侧栏亦可切换）。
+            '-' => Some(Self::Runtime),
             _ => None,
         }
     }
@@ -455,6 +465,9 @@ impl ViewSnapshot {
                 .collect(),
             // 充分性报告（T392／FR-795）：准备层生成的文本行。
             ViewId::Coherence => text_lines(&self.coherence_report, remaining),
+            // 运行时视图（T406／FR-800）：清单与状态经 ViewSource::runtime_entries／
+            // runtime_status_view 独立读取，不塞入六视图快照（帧路径不触库）。
+            ViewId::Runtime => Vec::new(),
         });
         lines
     }
@@ -520,7 +533,8 @@ impl ViewSnapshot {
             | ViewId::Chat
             | ViewId::Ledger
             | ViewId::Preimages
-            | ViewId::Coherence => Vec::new(),
+            | ViewId::Coherence
+            | ViewId::Runtime => Vec::new(),
         }
     }
 }
@@ -874,6 +888,31 @@ pub trait ViewSource {
         Err(WhError::new(
             ErrorCode::NotSupported,
             "该数据源不支持会话内容检索（T319：装配根数据源实现）",
+        ))
+    }
+
+    /// 运行时清单（T406／FR-800／ADR-092）：返回声明清单，**不探测**（界面刷新路径
+    /// 禁止启动子进程，与 doctor／TUI 摘要同口径；探测只在显式 status 命令路径）。
+    /// 默认空——不提供该能力的视图源与测试夹具零改动，界面显式提示“暂无数据”。
+    fn runtime_entries(&self) -> Vec<crate::runtime_mgmt::RuntimeEntry> {
+        Vec::new()
+    }
+
+    /// 单个运行时状态（T406／FR-800）：`probe=false` 界面口径，不启动子进程。
+    /// 默认显式不支持——不伪造启用状态。
+    ///
+    /// # Errors
+    ///
+    /// 数据源不支持（`not_supported`）、未登记运行时（`not_found`）或存储失败时返回
+    /// [`WhError`]。
+    fn runtime_status_view(
+        &self,
+        name: &str,
+    ) -> Result<crate::runtime_mgmt::RuntimeStatusView, WhError> {
+        let _ = name;
+        Err(WhError::new(
+            ErrorCode::NotSupported,
+            "该数据源不支持运行时状态（T406：装配根数据源实现）",
         ))
     }
 }

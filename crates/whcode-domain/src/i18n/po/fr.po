@@ -776,6 +776,15 @@ msgstr "Restaurer"
 msgid "gui.op.rewind"
 msgstr "Rembobiner"
 
+msgid "gui.op.runtime.disable"
+msgstr "Désactiver"
+
+msgid "gui.op.runtime.enable"
+msgstr "Activer"
+
+msgid "gui.op.runtime.install"
+msgstr "Installer le payload"
+
 msgid "gui.op.spec.force"
 msgstr "Forcer le passage"
 
@@ -1332,7 +1341,7 @@ msgid "tui.empty"
 msgstr "(aucune donnée)"
 
 msgid "tui.footer"
-msgstr "1-9/0 vues  j/k déplacer  r actualiser  t thème  q quitter  |  {cols}x{rows}"
+msgstr "1-9/0/- vues  j/k déplacer  r actualiser  t thème  q quitter  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "aucune session"
@@ -1381,6 +1390,9 @@ msgstr "Registre"
 
 msgid "view.preimages"
 msgstr "Versions précédentes"
+
+msgid "view.runtime"
+msgstr "Environnements d'exécution"
 
 msgid "view.sessions"
 msgstr "Sessions"

@@ -46,13 +46,15 @@ impl FakeProbe {
     }
 }
 
-/// 视图切换键（`1`—`9`、`0`；第 10 视图取 `0`，T392）。
+/// 视图切换键（`1`—`9`、`0`；第 10 视图取 `0`，T392；第 11 视图取 `-`，T406）。
 pub fn view_switch_key(view: ViewId) -> char {
     let index = view.index();
-    if index == 10 {
-        '0'
-    } else {
-        char::from_digit(u32::try_from(index).expect("序号在 u32 内"), 10).expect("十进制数字")
+    match index {
+        10 => '0',
+        11 => '-',
+        _ => {
+            char::from_digit(u32::try_from(index).expect("序号在 u32 内"), 10).expect("十进制数字")
+        }
     }
 }
 
@@ -201,6 +203,8 @@ report=COH-1
 反例 COH-M1-06: 示例"
                 .into();
         }
+        // ADR-092／FR-800 批 2：运行时视图无快照行（数据经 ViewSource 独立读接口）。
+        ViewId::Runtime => {}
     }
     snapshot
 }

@@ -3008,11 +3008,20 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   设计判定：`spec.force-advance` 的 `confirmation=ReasonRequired` 且门面无预览形态，
   不纳入 destructive（避免与 CUI／Web/TUI 的 ReasonRequired 语义冲突）；Check 487 部分。
   CI 结论按 ADR-037 待回填。
-- [ ] T406 批次二：runtime 六面——`ViewSource` 增 runtime 读接口＋装配根实现；
-  GUI 第 11 视图（`VIEW_COUNT` 10→11，键位与穷尽 match 同步）；`commands.rs`
-  增 `FrontendCommand::RuntimeEnable`／`Disable`／`Install`（`RuntimeManage` 能力＋审计；
-  install 只做本地 payload 哈希比对，不联网）；六面登记翻转与矩阵同步。取证待批次回填。
+- [x] T406 批次二：runtime 六面——`ViewSource` 增 `runtime_entries`／`runtime_status_view`
+  读接口＋`StoreViewSource` 实现（probe=false，界面路径不探测）；GUI 第 11 视图
+  `ViewId::Runtime`（`VIEW_COUNT` 10→11，`as_str`／`title`／`title_key`／`index`／
+  `ViewSnapshot` 两处／四端 view_surface 穷尽 match 同步，TUI 测试夹具同步）；
+  `commands.rs` 增 `FrontendCommand::RuntimeEnable`／`Disable`／`Install`＋`CommandOutcome::RuntimeStatus`
+  与穷尽分派（能力／审计由 `runtime_mgmt` 内部落表；install 仅本地 payload 哈希比对，不联网）；
+  六面登记翻转＋新增 `view.runtime` View 行与矩阵同步、13 套 i18n。
   （开工前置：任务认知卡，见 ADR-092 §任务认知卡）
+  **取证（2026-11-21，本地）**：`cargo test -p whcode-gui --lib`（42 通过，新增
+  `runtime_view_reads_and_write_surfaces_positive_failure`：清单按需读取、选中 probe=false
+  读状态、enable/disable 门面形状、install 三段解析与不足段失败不执行）；
+  `cargo test -p whcode-tests --test frontend_parity`（10 通过，矩阵新增行与六面翻转一致）；
+  `cargo clippy --workspace --all-targets -- -D warnings` 与 `cargo fmt --all --check` 通过。
+  CI 结论按 ADR-037 待回填。
 - [ ] T407 批次三：`settings.rules.write`／`events.export` 经 `commands.rs` 新增变体
   入 GUI（原生保存对话框、有界输出、路径确认）；`settings.cert.read`／`settings.cert.write`
   重审 ADR-040 决策 4 后入 GUI 证书设置面（降档确认、审计同源、不含私钥）；

@@ -2161,7 +2161,8 @@ fn view_total(view: ViewId, snapshot: &ViewSnapshot) -> usize {
         | ViewId::Diff
         | ViewId::Chat
         | ViewId::Ledger
-        | ViewId::Coherence => 0,
+        | ViewId::Coherence
+        | ViewId::Runtime => 0,
     }
 }
 
@@ -2222,7 +2223,8 @@ fn layout_columns<'a, F: Fn(usize) -> &'a str>(
         | ViewId::Chat
         | ViewId::Ledger
         | ViewId::Preimages
-        | ViewId::Coherence => {}
+        | ViewId::Coherence
+        | ViewId::Runtime => {}
     }
     if rtl {
         segments.reverse();
@@ -2256,7 +2258,8 @@ fn column_header(view: ViewId, texts: &I18n, width: usize, rtl: bool) -> String 
         | ViewId::Chat
         | ViewId::Ledger
         | ViewId::Preimages
-        | ViewId::Coherence => &[],
+        | ViewId::Coherence
+        | ViewId::Runtime => &[],
     };
     layout_columns(
         view,
@@ -2972,8 +2975,8 @@ mod tests {
             // 键位提示栏（末行）：键位与窗口尺寸。
             let last = lines.last().copied().unwrap_or_default();
             for expected in [
-                // 十视图（T392）：切换键为 `1`—`9` 与 `0`，词条按此表述。
-                "1-9/0 视图",
+                // 十一视图（T392／T406）：切换键为 `1`—`9`、`0` 与 `-`，词条按此表述。
+                "1-9/0/- 视图",
                 "j/k 移动",
                 "q 退出",
                 "80x24",
@@ -3011,7 +3014,8 @@ mod tests {
                 | ViewId::Chat
                 | ViewId::Ledger
                 | ViewId::Preimages
-                | ViewId::Coherence => {
+                | ViewId::Coherence
+                | ViewId::Runtime => {
                     for line in snapshot.render_lines() {
                         assert!(
                             text.contains(line.as_str()),

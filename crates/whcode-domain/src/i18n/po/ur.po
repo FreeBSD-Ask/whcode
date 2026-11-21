@@ -776,6 +776,15 @@ msgstr "بحال کریں"
 msgid "gui.op.rewind"
 msgstr "گفتگو واپس"
 
+msgid "gui.op.runtime.disable"
+msgstr "غیر فعال کریں"
+
+msgid "gui.op.runtime.enable"
+msgstr "فعال کریں"
+
+msgid "gui.op.runtime.install"
+msgstr "پے لوڈ رجسٹر کریں"
+
 msgid "gui.op.spec.force"
 msgstr "گیٹ عبور کریں"
 
@@ -1332,7 +1341,7 @@ msgid "tui.empty"
 msgstr "(کوئی ڈیٹا نہیں)"
 
 msgid "tui.footer"
-msgstr "1-9/0 مناظر  j/k حرکت  r تازہ کریں  t تھیم  q اختتام  |  {cols}x{rows}"
+msgstr "1-9/0/- مناظر  j/k حرکت  r تازہ کریں  t تھیم  q اختتام  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "کوئی سیشن نہیں"
@@ -1381,6 +1390,9 @@ msgstr "رجسٹر"
 
 msgid "view.preimages"
 msgstr "پچھلی نقلیں"
+
+msgid "view.runtime"
+msgstr "رن ٹائمز"
 
 msgid "view.sessions"
 msgstr "سیشنز"

@@ -106,6 +106,19 @@ pub enum FrontendCommand {
         reason: String,
         workspace: std::path::PathBuf,
     },
+    /// 启用运行时（T406／FR-800）：审计由 `runtime_mgmt::enable` 落表。
+    RuntimeEnable { name: String, now_ms: u64 },
+    /// 停用运行时（T406／FR-800）：可撤销，审计由 `runtime_mgmt::disable` 落表。
+    RuntimeDisable { name: String, now_ms: u64 },
+    /// 登记本地 payload 安装（T406／FR-800）：仅本地文件哈希比对，不联网；
+    /// `payload` 为本地路径，装配根可覆写为工作区内路径。
+    RuntimeInstall {
+        name: String,
+        version: String,
+        hash: String,
+        payload: std::path::PathBuf,
+        now_ms: u64,
+    },
 }
 
 /// 执行结果（呈现无关；JSON 形状由前端呈现层构造）。
@@ -149,6 +162,8 @@ pub enum CommandOutcome {
     PlanSet(crate::plan::PlanView),
     /// SDD 阶段推进结果（FR-308；返回推进后的会话行）。
     SpecAdvanced(whcode_store::SessionRow),
+    /// 运行时管理结果（T406／FR-800；声明＋探测状态合并）。
+    RuntimeStatus(crate::runtime_mgmt::RuntimeStatusView),
 }
 
 /// 执行器抽象（TUI 等“动作 → 门面”注入用；装配根实现持有连接与授权）。
@@ -346,6 +361,25 @@ pub fn execute_command(
                 now_ms_field(),
             )?;
             Ok(CommandOutcome::SpecAdvanced(row))
+        }
+        FrontendCommand::RuntimeEnable { name, now_ms } => {
+            let view = crate::runtime_enable(conn, policy, actor, name, *now_ms)?;
+            Ok(CommandOutcome::RuntimeStatus(view))
+        }
+        FrontendCommand::RuntimeDisable { name, now_ms } => {
+            let view = crate::runtime_disable(conn, policy, actor, name, *now_ms)?;
+            Ok(CommandOutcome::RuntimeStatus(view))
+        }
+        FrontendCommand::RuntimeInstall {
+            name,
+            version,
+            hash,
+            payload,
+            now_ms,
+        } => {
+            let view =
+                crate::runtime_install(conn, policy, actor, name, version, hash, payload, *now_ms)?;
+            Ok(CommandOutcome::RuntimeStatus(view))
         }
     }
 }

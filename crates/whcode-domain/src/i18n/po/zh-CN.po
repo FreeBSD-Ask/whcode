@@ -776,6 +776,15 @@ msgstr "恢复"
 msgid "gui.op.rewind"
 msgstr "对话回退"
 
+msgid "gui.op.runtime.disable"
+msgstr "停用"
+
+msgid "gui.op.runtime.enable"
+msgstr "启用"
+
+msgid "gui.op.runtime.install"
+msgstr "登记 payload"
+
 msgid "gui.op.spec.force"
 msgstr "强制放行"
 
@@ -1332,7 +1341,7 @@ msgid "tui.empty"
 msgstr "（暂无数据）"
 
 msgid "tui.footer"
-msgstr "1-9/0 视图  j/k 移动  r 刷新  t 主题  q 退出  |  {cols}x{rows}"
+msgstr "1-9/0/- 视图  j/k 移动  r 刷新  t 主题  q 退出  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "未选择会话"
@@ -1381,6 +1390,9 @@ msgstr "台账"
 
 msgid "view.preimages"
 msgstr "文件前像"
+
+msgid "view.runtime"
+msgstr "运行时"
 
 msgid "view.sessions"
 msgstr "会话"

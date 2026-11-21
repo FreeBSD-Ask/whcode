@@ -776,6 +776,15 @@ msgstr "Wiederherstellen"
 msgid "gui.op.rewind"
 msgstr "Chat zurücksetzen"
 
+msgid "gui.op.runtime.disable"
+msgstr "Deaktivieren"
+
+msgid "gui.op.runtime.enable"
+msgstr "Aktivieren"
+
+msgid "gui.op.runtime.install"
+msgstr "Payload registrieren"
+
 msgid "gui.op.spec.force"
 msgstr "Gate überschreiben"
 
@@ -1332,7 +1341,7 @@ msgid "tui.empty"
 msgstr "(keine Daten)"
 
 msgid "tui.footer"
-msgstr "1-9/0 Ansichten  j/k bewegen  r aktualisieren  t Design  q beenden  |  {cols}x{rows}"
+msgstr "1-9/0/- Ansichten  j/k bewegen  r aktualisieren  t Design  q beenden  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "keine Sitzung"
@@ -1381,6 +1390,9 @@ msgstr "Register"
 
 msgid "view.preimages"
 msgstr "Vorherige Versionen"
+
+msgid "view.runtime"
+msgstr "Laufzeitumgebungen"
 
 msgid "view.sessions"
 msgstr "Sitzungen"

@@ -12,7 +12,7 @@
 （理由码见“依据／理由”列）；预留＝未排期（里程碑见“依据／理由”列）；不提供＝本端不适用
 （依据见登记表条目注释）。
 
-**最后更新**：2026-11-21（ADR-092／FR-800 批 1：`view.changes` 由排除正名为已实现——`r` 键显式刷新为真实 GUI 锚点，FR-714 定时器禁令不变；`spec.next`／`spec.force-advance` 两面 GUI 由“部分”翻转为“已实现”——经 `OpMode` 操作面板与理由必填入写面白名单。判定报告 `artifacts/gui-web-parity-assessment-2026-11-21.md`）。历史：2026-11-21（ADR-091／FR-799：4 个 Read 面 events.show／spec.validate／spec.analyze／spec.converge 的 GUI 状态由“部分”翻转为“已实现”——原 GUI 写命令排除理由码的适用范围收窄为 Write／Destructive；GUI 交互见 `crates/whcode-gui/src/lib.rs`）。历史：2026-11-15（P6.4：新增 `webhook.status`／`webhook.deliver`——出站幂等投递的 CUI 命令面，其余三端不适用；FR-788／ADR-079）。历史：2026-11-15（T340—T342：新增 `view.ledger`——台账视图，待办／交付物／发现三节只读聚合，TUI 与 GUI 已实现；T347 补齐 Web 的 `GET /api/ledger`；FR-787）。历史：2026-11-14（T294：新增 `sdk.serve`——出进程 stdio JSON-RPC 机器面，CUI 已实现、其余三端不适用；ADR-071/FR-778）。历史：2026-11-06（T252：主题层扩展为六套——whcode-day/whcode-night 新增并冻结，
+**最后更新**：2026-11-21（ADR-092／FR-800 批 2：runtime 六面 GUI 由“部分”翻转为“已实现”——第 11 视图 `view.runtime` 按需读取清单（probe=false），`enable`／`disable`／`install` 经命令门面执行、审计由 app 落表、install 仅本地 payload 哈希比对不联网；新增 `view.runtime` View 行。批 1：`view.changes` 由排除正名为已实现——`r` 键显式刷新为真实 GUI 锚点，FR-714 定时器禁令不变；`spec.next`／`spec.force-advance` 两面 GUI 由“部分”翻转为“已实现”。判定报告 `artifacts/gui-web-parity-assessment-2026-11-21.md`）。历史：2026-11-21（ADR-091／FR-799：4 个 Read 面 events.show／spec.validate／spec.analyze／spec.converge 的 GUI 状态由“部分”翻转为“已实现”——原 GUI 写命令排除理由码的适用范围收窄为 Write／Destructive；GUI 交互见 `crates/whcode-gui/src/lib.rs`）。历史：2026-11-15（P6.4：新增 `webhook.status`／`webhook.deliver`——出站幂等投递的 CUI 命令面，其余三端不适用；FR-788／ADR-079）。历史：2026-11-15（T340—T342：新增 `view.ledger`——台账视图，待办／交付物／发现三节只读聚合，TUI 与 GUI 已实现；T347 补齐 Web 的 `GET /api/ledger`；FR-787）。历史：2026-11-14（T294：新增 `sdk.serve`——出进程 stdio JSON-RPC 机器面，CUI 已实现、其余三端不适用；ADR-071/FR-778）。历史：2026-11-06（T252：主题层扩展为六套——whcode-day/whcode-night 新增并冻结，
 默认主题切 `whcode-night`，用户批准；ADR-057/FR-739/FR-740）。历史：2026-11-17（用户指令：zcode 系全部改为 whcode 前缀——主题更名 whcode-day/night、工作区配置 `.zcode/*` 更名 `.whcode/*`，冻结色值不变）。历史：2026-10-26（T167 收口：
 `llm.run`／`llm.cancel` 的 TUI 翻转为已实现——`L`／`C` 键位，剖面名→提示词两步输入，
 经 `llm_provider::TuiLlmExecutor` 真实编排；三端 CUI／TUI／Web 均 `Implemented`；
@@ -55,11 +55,11 @@ T190：新增证书库设置两行）。
 | `db.explain` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-507—510；部分 cli_local_admin |
 | `webhook.status` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-788；部分 cli_local_admin |
 | `webhook.deliver` | Command | Write | 已实现 | 部分 | 部分 | 部分 | FR-788；部分 cli_local_admin（dry-run→`--yes`，ADR-079） |
-| `runtime.list` | Command | Read | 已实现 | 部分 | 部分 | 已实现 | FR-701—710；部分 six_view_scope |
-| `runtime.status` | Command | Read | 已实现 | 部分 | 部分 | 已实现 | FR-701—710；T395 CUI/Web 接线（M8 提前，ADR-089）；部分 six_view_scope（TUI/GUI） |
-| `runtime.enable` | Command | Write | 已实现 | 部分 | 部分 | 已实现 | FR-701—710；T395 CUI/Web 接线；部分 six_view_scope（TUI/GUI） |
-| `runtime.disable` | Command | Write | 已实现 | 部分 | 部分 | 已实现 | FR-701—710；T395 CUI/Web 接线；部分 six_view_scope（TUI/GUI） |
-| `runtime.install` | Command | Write | 已实现 | 部分 | 部分 | 已实现 | FR-701—710；T395 CUI/Web 接线（本地 payload 哈希比对）；部分 six_view_scope（TUI/GUI） |
+| `runtime.list` | Command | Read | 已实现 | 部分 | 已实现 | 已实现 | FR-701—710、FR-800；部分 six_view_scope（TUI）；GUI 第 11 视图按需读取 |
+| `runtime.status` | Command | Read | 已实现 | 部分 | 已实现 | 已实现 | FR-701—710、FR-800；T395 CUI/Web 接线；部分 six_view_scope（TUI）；GUI probe=false |
+| `runtime.enable` | Command | Write | 已实现 | 部分 | 已实现 | 已实现 | FR-701—710、FR-800；T395 CUI/Web 接线；部分 six_view_scope（TUI）；GUI 经 ADR-092 批 2 |
+| `runtime.disable` | Command | Write | 已实现 | 部分 | 已实现 | 已实现 | FR-701—710、FR-800；T395 CUI/Web 接线；部分 six_view_scope（TUI）；GUI 经 ADR-092 批 2 |
+| `runtime.install` | Command | Write | 已实现 | 部分 | 已实现 | 已实现 | FR-701—710、FR-800；T395 CUI/Web 接线（本地 payload 哈希比对）；部分 six_view_scope（TUI）；GUI 不联网 |
 | `llm.run` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-201—208；T167 接线（CUI／Web／TUI 三端，TUI 剖面→提示词两步输入）；ADR-056 |
 | `sdk.serve` | Command | Write | 已实现 | 不提供 | 不提供 | 不提供 | FR-778；T294（出进程 stdio JSON-RPC，机器面——TUI/GUI/Web 交互面不承载）；ADR-071 |
 | `acp.serve` | Command | Write | 已实现 | 不提供 | 不提供 | 不提供 | FR-789；T348（ACP automation-only，审批 fail-closed——request_permission 永不发出）；ADR-081 |
@@ -101,6 +101,7 @@ T190：新增证书库设置两行）。
 | `session.plan` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-774／ADR-067；T392 TUI on/off、T393 GUI OpMode |
 | `view.deliverables` | View | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-772／ADR-048 §7.2；部分 cui_command_surface；T392/T393 台账交付物节 |
 | `view.coherence` | View | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-795／ADR-085；部分 cui_command_surface；T392 键 0、T393 GUI 视图 |
+| `view.runtime` | View | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-800／ADR-092 批 2；部分 cui_command_surface；T406 第 11 视图，清单经 ViewSource 按需读取 |
 
 **权限**：全部命令经 `whcode-app::authz` 统一判定（拒绝 `permission_denied` 不可重试，
 FR-604）；四端不得自行推断权限。

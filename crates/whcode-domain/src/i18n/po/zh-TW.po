@@ -776,6 +776,15 @@ msgstr "還原"
 msgid "gui.op.rewind"
 msgstr "對話回退"
 
+msgid "gui.op.runtime.disable"
+msgstr "停用"
+
+msgid "gui.op.runtime.enable"
+msgstr "啟用"
+
+msgid "gui.op.runtime.install"
+msgstr "登錄 payload"
+
 msgid "gui.op.spec.force"
 msgstr "強制放行"
 
@@ -1332,7 +1341,7 @@ msgid "tui.empty"
 msgstr "（尚無資料）"
 
 msgid "tui.footer"
-msgstr "1-9/0 檢視  j/k 移動  r 重新整理  t 主題  q 結束  |  {cols}x{rows}"
+msgstr "1-9/0/- 檢視  j/k 移動  r 重新整理  t 主題  q 結束  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "未選取工作階段"
@@ -1381,6 +1390,9 @@ msgstr "台帳"
 
 msgid "view.preimages"
 msgstr "檔案前像"
+
+msgid "view.runtime"
+msgstr "執行時"
 
 msgid "view.sessions"
 msgstr "工作階段"

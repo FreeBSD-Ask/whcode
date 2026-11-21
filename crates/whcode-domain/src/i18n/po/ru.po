@@ -776,6 +776,15 @@ msgstr "Восстановить"
 msgid "gui.op.rewind"
 msgstr "Откат диалога"
 
+msgid "gui.op.runtime.disable"
+msgstr "Отключить"
+
+msgid "gui.op.runtime.enable"
+msgstr "Включить"
+
+msgid "gui.op.runtime.install"
+msgstr "Установить payload"
+
 msgid "gui.op.spec.force"
 msgstr "Принудительный переход"
 
@@ -1332,7 +1341,7 @@ msgid "tui.empty"
 msgstr "(нет данных)"
 
 msgid "tui.footer"
-msgstr "1-9/0 видов  j/k переход  r обновить  t тема  q выход  |  {cols}x{rows}"
+msgstr "1-9/0/- видов  j/k переход  r обновить  t тема  q выход  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "сессия не выбрана"
@@ -1381,6 +1390,9 @@ msgstr "Журнал"
 
 msgid "view.preimages"
 msgstr "Прежние версии"
+
+msgid "view.runtime"
+msgstr "Среды выполнения"
 
 msgid "view.sessions"
 msgstr "Сессии"

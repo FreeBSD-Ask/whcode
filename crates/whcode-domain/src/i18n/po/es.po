@@ -776,6 +776,15 @@ msgstr "Restaurar"
 msgid "gui.op.rewind"
 msgstr "Rebobinar chat"
 
+msgid "gui.op.runtime.disable"
+msgstr "Desactivar"
+
+msgid "gui.op.runtime.enable"
+msgstr "Activar"
+
+msgid "gui.op.runtime.install"
+msgstr "Instalar payload"
+
 msgid "gui.op.spec.force"
 msgstr "Forzar avance"
 
@@ -1332,7 +1341,7 @@ msgid "tui.empty"
 msgstr "(sin datos)"
 
 msgid "tui.footer"
-msgstr "1-9/0 vistas  j/k mover  r actualizar  t tema  q salir  |  {cols}x{rows}"
+msgstr "1-9/0/- vistas  j/k mover  r actualizar  t tema  q salir  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "sin sesión"
@@ -1381,6 +1390,9 @@ msgstr "Registro"
 
 msgid "view.preimages"
 msgstr "Versiones previas"
+
+msgid "view.runtime"
+msgstr "Entornos de ejecución"
 
 msgid "view.sessions"
 msgstr "Sesiones"

@@ -351,6 +351,13 @@ enum OpMode {
     /// 人工强制越过门禁（ADR-092／FR-800）：`spec.force-advance`，两步——
     /// 先输入目标阶段冻结于 `to`，再输入必填 reason 后经门面执行。
     SpecForceAdvance { to: Option<String> },
+    /// 启用运行时（ADR-092／FR-800 批 2）：`name` 由选中行冻结。
+    RuntimeEnable { name: String },
+    /// 停用运行时（ADR-092／FR-800 批 2）：`name` 由选中行冻结。
+    RuntimeDisable { name: String },
+    /// 登记本地 payload（ADR-092／FR-800 批 2）：`name` 冻结后输入
+    /// `版本|哈希|本地路径` 三段（路径可含 `|` 取最后两段为哈希与路径）。
+    RuntimeInstall { name: String },
 }
 
 /// 启动参数。
@@ -440,6 +447,9 @@ enum Message {
     EventDetail(usize),
     /// Spec 门禁摘要（`v`／`z`／`o`；`kind` 取 validate／analyze／converge）。
     SpecGate(&'static str),
+    // —— ADR-092／FR-800 批 2 运行时视图——
+    /// 选中运行时行（按下标索引 `runtime_entries`）；随后读取其状态（probe=false）。
+    RuntimeSelect(usize),
     /// 字符键（门控在 update：对话视图／操作面板打开时忽略全局快捷键）。
     Key(char),
 }
@@ -531,6 +541,13 @@ struct State {
     event_detail: Option<String>,
     /// Spec 门禁摘要文本（`v`／`z`／`o`，经 `spec_gate_summary`；有界 200 字符）。
     spec_summary: Option<String>,
+    // —— ADR-092／FR-800 批 2 运行时视图（按需读取，无定时器）——
+    /// 运行时声明清单（`runtime_entries`，probe=false；`None`＝尚未读取）。
+    runtime_entries: Option<Vec<whcode_app::runtime_mgmt::RuntimeEntry>>,
+    /// 运行时视图选中行下标；`None` = 未选择。
+    runtime_selected: Option<usize>,
+    /// 选中运行时状态（`runtime_status_view`，probe=false）。
+    runtime_status: Option<whcode_app::runtime_mgmt::RuntimeStatusView>,
 }
 
 impl State {
@@ -593,6 +610,9 @@ impl State {
             event_selected: None,
             event_detail: None,
             spec_summary: None,
+            runtime_entries: None,
+            runtime_selected: None,
+            runtime_status: None,
         }
     }
 
@@ -653,6 +673,21 @@ impl State {
         }
         if self.view == ViewId::Chat {
             self.refresh_chat_history();
+        }
+        if self.view == ViewId::Runtime {
+            // 声明清单按需读取（probe=false，不启动子进程；无定时器）。
+            self.runtime_entries = Some(self.source.runtime_entries());
+        }
+    }
+
+    /// 读取选中运行时状态（ADR-092／FR-800 批 2；probe=false，显式选中才读，不探测）。
+    fn runtime_status(&mut self, name: &str) {
+        match self.source.runtime_status_view(name) {
+            Ok(view) => self.runtime_status = Some(view),
+            Err(err) => {
+                self.runtime_status = None;
+                self.op_feedback = Some(format!("{}: {err}", self.texts.resolve("gui.op.error")));
+            }
         }
     }
 
@@ -716,7 +751,9 @@ impl State {
             ViewId::Tasks => self.snapshot.tasks.len(),
             ViewId::Events => self.snapshot.events.len(),
             ViewId::Diff => self.snapshot.diff.len(),
-            ViewId::Context | ViewId::Spec | ViewId::Chat | ViewId::Coherence => 0,
+            ViewId::Context | ViewId::Spec | ViewId::Chat | ViewId::Coherence | ViewId::Runtime => {
+                0
+            }
             ViewId::Ledger => self.snapshot.ledger.len(),
             ViewId::Preimages => self.snapshot.preimages.len(),
         }
@@ -1041,6 +1078,11 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                     }
                     return Task::none();
                 }
+                // ADR-092／FR-800 批 2：第 11 视图（数字键已用尽，取 `-`）。
+                '-' => {
+                    let _ = update(state, Message::SelectView(ViewId::Runtime));
+                    return Task::none();
+                }
                 'j' => {
                     let _ = update(state, Message::NextSession);
                     return Task::none();
@@ -1128,6 +1170,17 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::OpPreview => op_preview(state),
         Message::OpConfirm => op_confirm(state),
+        Message::RuntimeSelect(index) => {
+            let name = state
+                .runtime_entries
+                .as_ref()
+                .and_then(|entries| entries.get(index))
+                .map(|entry| entry.name.clone());
+            if let Some(name) = name {
+                state.runtime_selected = Some(index);
+                state.runtime_status(&name);
+            }
+        }
         Message::OpCancel => {
             state.op_mode = None;
             state.op_input.clear();
@@ -1596,7 +1649,10 @@ fn op_preview(state: &mut State) {
         | OpMode::SessionFork
         | OpMode::SessionRewind
         | OpMode::SessionPlanSet
-        | OpMode::SpecNext => return,
+        | OpMode::SpecNext
+        | OpMode::RuntimeEnable { .. }
+        | OpMode::RuntimeDisable { .. }
+        | OpMode::RuntimeInstall { .. } => return,
         // ADR-092：spec.force-advance 两步——首步（to=None）把输入冻结为目标阶段；
         // 次步由 OpConfirm 读取 reason。首步不产生预览 outcome（Confirmation::ReasonRequired）。
         OpMode::SpecForceAdvance { to: None } => {
@@ -1762,6 +1818,32 @@ fn op_confirm(state: &mut State) {
                 workspace: std::path::PathBuf::new(),
             }
         }
+        // ADR-092／FR-800 批 2：运行时启用／停用（name 由选中行冻结，审计由门面落表）。
+        OpMode::RuntimeEnable { name } => FrontendCommand::RuntimeEnable {
+            name,
+            now_ms: now_ms(),
+        },
+        OpMode::RuntimeDisable { name } => FrontendCommand::RuntimeDisable {
+            name,
+            now_ms: now_ms(),
+        },
+        // ADR-092／FR-800 批 2：本地 payload 登记——输入 `版本|哈希|本地路径`，
+        // 仅哈希比对不联网（FR-703）；三段皆必填，路径原样保留（不拼工作区）。
+        OpMode::RuntimeInstall { name } => {
+            let input = std::mem::take(&mut state.op_input);
+            let parts: Vec<&str> = input.split('|').map(str::trim).collect();
+            if parts.len() != 3 || parts.iter().any(|part| part.is_empty()) {
+                state.op_feedback = Some("安装：请按“版本|哈希|本地路径”填写三段".to_string());
+                return;
+            }
+            FrontendCommand::RuntimeInstall {
+                name,
+                version: parts[0].to_string(),
+                hash: parts[1].to_string(),
+                payload: std::path::PathBuf::from(parts[2]),
+                now_ms: now_ms(),
+            }
+        }
     };
     execute(state, command);
 }
@@ -1844,6 +1926,13 @@ fn op_outcome_text(outcome: &whcode_app::commands::CommandOutcome) -> String {
         }
         whcode_app::commands::CommandOutcome::SpecAdvanced(row) => {
             format!("session={} stage={}", row.id, row.stage)
+        }
+        // ADR-092／FR-800 批 2：运行时管理结果（不回显凭据，仅稳定名与状态）。
+        whcode_app::commands::CommandOutcome::RuntimeStatus(view) => {
+            format!(
+                "runtime={} enabled={} version={}",
+                view.name, view.enabled, view.version
+            )
         }
     }
 }
@@ -2431,6 +2520,115 @@ fn spec_controls(state: &State) -> Element<'_, Message> {
     .into()
 }
 
+/// 运行时视图写命令按钮（ADR-092／FR-800 批 2）：启用／停用／登记本地 payload。
+/// 无选中行或无执行器时不响应（不静默成功）；install 需要选中行冻结 name。
+fn runtime_controls(state: &State) -> Element<'_, Message> {
+    let enabled = state.executor.is_some() && state.runtime_selected.is_some();
+    let selected = state
+        .runtime_entries
+        .as_ref()
+        .and_then(|entries| state.runtime_selected.and_then(|i| entries.get(i)))
+        .map(|entry| entry.name.clone());
+    let item = |label: String, message: Option<Message>| -> Element<'_, Message> {
+        let theme = state.theme;
+        let button = button(rich_line(&label, false, 13.0)).padding([4, 8]);
+        match message {
+            Some(message) if enabled => button.on_press(message).style(move |_t, _s| {
+                let (background, foreground) = theme.colors();
+                button::Style {
+                    background: Some(Background::Color(background)),
+                    text_color: foreground,
+                    border: Border::default(),
+                    shadow: Shadow::default(),
+                    snap: true,
+                }
+            }),
+            _ => button.style(move |_t, _s| {
+                let (background, foreground) = theme.colors();
+                button::Style {
+                    background: Some(Background::Color(background)),
+                    text_color: foreground,
+                    border: Border::default(),
+                    shadow: Shadow::default(),
+                    snap: true,
+                }
+            }),
+        }
+        .into()
+    };
+    row(mirrored_order(
+        is_rtl_locale(&state.texts.locale),
+        vec![
+            item(
+                state.texts.resolve("gui.op.runtime.enable").to_string(),
+                selected
+                    .clone()
+                    .map(|name| Message::OpStart(OpMode::RuntimeEnable { name })),
+            ),
+            item(
+                state.texts.resolve("gui.op.runtime.disable").to_string(),
+                selected
+                    .clone()
+                    .map(|name| Message::OpStart(OpMode::RuntimeDisable { name })),
+            ),
+            item(
+                state.texts.resolve("gui.op.runtime.install").to_string(),
+                selected.map(|name| Message::OpStart(OpMode::RuntimeInstall { name })),
+            ),
+        ],
+    ))
+    .spacing(6)
+    .into()
+}
+
+/// 运行时视图正文（ADR-092／FR-800 批 2）：声明清单行 + 选中状态；无定时器，
+/// 清单在 prepare 阶段按需读取（probe=false），选中才读状态。
+fn runtime_body(state: &State) -> Element<'_, Message> {
+    let mut rows = column![].spacing(2);
+    match state.runtime_entries.as_ref() {
+        None => rows = rows.push(rich_line(state.texts.resolve("tui.empty"), false, 13.0)),
+        Some(entries) if entries.is_empty() => {
+            rows = rows.push(rich_line(state.texts.resolve("tui.empty"), false, 13.0));
+        }
+        Some(entries) => {
+            for (index, entry) in entries.iter().enumerate() {
+                let marker = if state.runtime_selected == Some(index) {
+                    "> "
+                } else {
+                    "  "
+                };
+                let label = format!(
+                    "{marker}{} [{}] default={} {}",
+                    entry.name, entry.capability, entry.default_enabled, entry.enable_requirement
+                );
+                rows = rows.push(
+                    button(rich_line(label.as_str(), false, 12.0))
+                        .on_press(Message::RuntimeSelect(index))
+                        .padding([2, 6]),
+                );
+            }
+        }
+    }
+    if let Some(view) = state.runtime_status.as_ref() {
+        rows = rows.push(rich_line(
+            &format!(
+                "{}: enabled={} version={} available={}",
+                view.name,
+                view.enabled,
+                if view.version.is_empty() {
+                    "-"
+                } else {
+                    &view.version
+                },
+                view.available.map_or("?".to_string(), |v| v.to_string())
+            ),
+            false,
+            12.0,
+        ));
+    }
+    scrollable(rows.height(Length::Fill)).into()
+}
+
 /// 清理截止：默认早于 30 天（预览面板可改天数——op_input 即天数文本）。
 fn purge_cutoff_ms() -> i64 {
     now_ms() as i64 - 30 * 24 * 60 * 60 * 1000
@@ -2450,6 +2648,7 @@ fn op_panel(state: &State) -> Element<'_, Message> {
             | OpMode::SessionPlanSet
             | OpMode::SpecNext
             | OpMode::SpecForceAdvance { .. }
+            | OpMode::RuntimeInstall { .. }
     );
     let destructive = matches!(
         mode,
@@ -2809,6 +3008,17 @@ fn view(state: &State) -> Element<'_, Message> {
             .spacing(8)
             .into(),
             ViewId::Spec => column![spec_controls(state), read_detail_body(state)]
+                .spacing(8)
+                .into(),
+            // ADR-092／FR-800 批 2：运行时视图接入清单、状态与写面按钮。
+            ViewId::Runtime if state.op_mode.is_some() => column![
+                op_panel(state),
+                runtime_controls(state),
+                runtime_body(state)
+            ]
+            .spacing(8)
+            .into(),
+            ViewId::Runtime => column![runtime_controls(state), runtime_body(state)]
                 .spacing(8)
                 .into(),
             _ => read_body(state, false),
@@ -4036,6 +4246,11 @@ mod tests {
             // ADR-092／FR-800 批 1：Spec 写面按钮（十三套目录均须有译文，不得回退键名）。
             "gui.op.spec.next",
             "gui.op.spec.force",
+            // ADR-092／FR-800 批 2：运行时视图标题与写面按钮。
+            "view.runtime",
+            "gui.op.runtime.enable",
+            "gui.op.runtime.disable",
+            "gui.op.runtime.install",
         ];
         for (locale, _) in whcode_domain::i18n::BUILTIN_LOCALES {
             let texts = I18n::load(locale, whcode_domain::i18n::LocaleSource::Explicit);
@@ -4159,6 +4374,174 @@ mod tests {
             }
             other => panic!("force 形状不符：{other:?}"),
         }
+    }
+
+    /// ADR-092／FR-800 批 2：运行时视图——清单按需读取（probe=false）、选中读状态、
+    /// 三写面经门面（enable/disable/install），install 三段解析与失败路径不执行。
+    #[test]
+    fn runtime_view_reads_and_write_surfaces_positive_failure() {
+        use std::cell::RefCell;
+
+        struct RuntimeSource;
+        impl ViewSource for RuntimeSource {
+            fn snapshot(&self, view: ViewId, _session: Option<&str>) -> ViewSnapshot {
+                ViewSnapshot::empty(view)
+            }
+            fn runtime_entries(&self) -> Vec<whcode_app::runtime_mgmt::RuntimeEntry> {
+                vec![whcode_app::runtime_mgmt::RuntimeEntry {
+                    name: "python".to_string(),
+                    capability: "restricted",
+                    available: None, // 界面口径不探测
+                    unsupported: vec![],
+                    default_enabled: false,
+                    enable_requirement: "需显式 opt-in",
+                }]
+            }
+            fn runtime_status_view(
+                &self,
+                name: &str,
+            ) -> Result<whcode_app::runtime_mgmt::RuntimeStatusView, WhError> {
+                if name != "python" {
+                    return Err(WhError::invalid_state("未登记运行时"));
+                }
+                Ok(whcode_app::runtime_mgmt::RuntimeStatusView {
+                    schema_version: whcode_domain::SCHEMA_VERSION,
+                    name: name.to_string(),
+                    capability: "restricted",
+                    available: None,
+                    unsupported: vec![],
+                    enabled: false,
+                    version: String::new(),
+                    payload_path: None,
+                    default_enabled: false,
+                    enable_requirement: "需显式 opt-in".to_string(),
+                })
+            }
+        }
+        struct CaptureExecutor {
+            calls: Rc<RefCell<Vec<FrontendCommand>>>,
+        }
+        impl CommandExecutor for CaptureExecutor {
+            fn execute(
+                &self,
+                command: FrontendCommand,
+            ) -> Result<whcode_app::commands::CommandOutcome, WhError> {
+                self.calls.borrow_mut().push(command);
+                Ok(whcode_app::commands::CommandOutcome::RuntimeStatus(
+                    whcode_app::runtime_mgmt::RuntimeStatusView {
+                        schema_version: whcode_domain::SCHEMA_VERSION,
+                        name: "python".to_string(),
+                        capability: "restricted",
+                        available: None,
+                        unsupported: vec![],
+                        enabled: true,
+                        version: "3.12".to_string(),
+                        payload_path: None,
+                        default_enabled: false,
+                        enable_requirement: "需显式 opt-in".to_string(),
+                    },
+                ))
+            }
+        }
+
+        let calls = Rc::new(RefCell::new(Vec::new()));
+        let executor: Rc<dyn CommandExecutor> = Rc::new(CaptureExecutor {
+            calls: Rc::clone(&calls),
+        });
+        let source: Rc<dyn ViewSource> = Rc::new(RuntimeSource);
+        let mut state = State::new(
+            source,
+            I18n::default(),
+            GuiTheme::EinkDay,
+            Some(executor),
+            None,
+        );
+
+        // 正向：切到运行时视图，清单按需读取；选中行读状态（probe=false）。
+        let _ = update(&mut state, Message::SelectView(ViewId::Runtime));
+        assert_eq!(state.runtime_entries.as_ref().map(Vec::len), Some(1));
+        assert!(state.runtime_status.is_none(), "未选中不得伪造状态");
+        let _ = update(&mut state, Message::RuntimeSelect(0));
+        assert_eq!(state.runtime_selected, Some(0));
+        assert_eq!(
+            state.runtime_status.as_ref().map(|v| v.name.as_str()),
+            Some("python")
+        );
+        assert!(
+            state
+                .runtime_status
+                .as_ref()
+                .is_some_and(|v| v.available.is_none())
+        );
+
+        // 正向：enable / disable 经门面（name 由选中行冻结）。
+        let _ = update(
+            &mut state,
+            Message::OpStart(OpMode::RuntimeEnable {
+                name: "python".into(),
+            }),
+        );
+        let _ = update(&mut state, Message::OpConfirm);
+        assert!(
+            matches!(calls.borrow().last(), Some(FrontendCommand::RuntimeEnable { name, .. }) if name == "python")
+        );
+        let _ = update(
+            &mut state,
+            Message::OpStart(OpMode::RuntimeDisable {
+                name: "python".into(),
+            }),
+        );
+        let _ = update(&mut state, Message::OpConfirm);
+        assert!(
+            matches!(calls.borrow().last(), Some(FrontendCommand::RuntimeDisable { name, .. }) if name == "python")
+        );
+
+        // 失败路径：install 三段不足不发命令，且反馈可见。
+        let before = calls.borrow().len();
+        let _ = update(
+            &mut state,
+            Message::OpStart(OpMode::RuntimeInstall {
+                name: "python".into(),
+            }),
+        );
+        let _ = update(&mut state, Message::OpInputChanged("3.12|abc".into()));
+        let _ = update(&mut state, Message::OpConfirm);
+        assert_eq!(calls.borrow().len(), before, "install 段数不足不得发命令");
+        assert!(
+            state
+                .op_feedback
+                .as_deref()
+                .unwrap_or_default()
+                .contains("版本"),
+            "{:?}",
+            state.op_feedback
+        );
+
+        // 正向：install 三段完整，本地路径原样传递（不联网）。
+        let _ = update(
+            &mut state,
+            Message::OpInputChanged("3.12|abc|C:/tmp/payload.bin".into()),
+        );
+        let _ = update(&mut state, Message::OpConfirm);
+        match calls.borrow().last().expect("install 应发命令") {
+            FrontendCommand::RuntimeInstall {
+                name,
+                version,
+                hash,
+                payload,
+                ..
+            } => {
+                assert_eq!(name, "python");
+                assert_eq!(version, "3.12");
+                assert_eq!(hash, "abc");
+                assert_eq!(payload.to_string_lossy(), "C:/tmp/payload.bin");
+            }
+            other => panic!("install 形状不符：{other:?}"),
+        }
+
+        // 失败路径：未登记运行时状态读取显式错误，不伪造启用。
+        let err = state.source.runtime_status_view("nope");
+        assert!(err.is_err(), "未登记运行时必须报错");
     }
 
     /// ADR-091／FR-799：GUI 读面详情（events.show / spec.*）——正向、失败、有界、

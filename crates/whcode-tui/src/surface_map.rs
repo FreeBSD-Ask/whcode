@@ -115,6 +115,7 @@ fn view_surface(view: ViewId) -> &'static str {
         ViewId::Ledger => "view.ledger",
         ViewId::Preimages => "view.preimages",
         ViewId::Coherence => "view.coherence",
+        ViewId::Runtime => "view.runtime",
     }
 }
 

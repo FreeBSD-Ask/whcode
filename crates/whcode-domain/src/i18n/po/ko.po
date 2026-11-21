@@ -776,6 +776,15 @@ msgstr "복원"
 msgid "gui.op.rewind"
 msgstr "대화 되돌리기"
 
+msgid "gui.op.runtime.disable"
+msgstr "비활성화"
+
+msgid "gui.op.runtime.enable"
+msgstr "활성화"
+
+msgid "gui.op.runtime.install"
+msgstr "페이로드 등록"
+
 msgid "gui.op.spec.force"
 msgstr "강제 통과"
 
@@ -1332,7 +1341,7 @@ msgid "tui.empty"
 msgstr "(데이터 없음)"
 
 msgid "tui.footer"
-msgstr "1-9/0 보기  j/k 이동  r 새로 고침  t 테마  q 종료  |  {cols}x{rows}"
+msgstr "1-9/0/- 보기  j/k 이동  r 새로 고침  t 테마  q 종료  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "선택한 세션 없음"
@@ -1381,6 +1390,9 @@ msgstr "원장"
 
 msgid "view.preimages"
 msgstr "파일 이전 상태"
+
+msgid "view.runtime"
+msgstr "런타임"
 
 msgid "view.sessions"
 msgstr "세션"

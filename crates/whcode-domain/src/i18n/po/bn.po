@@ -776,6 +776,15 @@ msgstr "পুনরুদ্ধার"
 msgid "gui.op.rewind"
 msgstr "সংলাপ রিওয়াইন্ড"
 
+msgid "gui.op.runtime.disable"
+msgstr "নিষ্ক্রিয় করুন"
+
+msgid "gui.op.runtime.enable"
+msgstr "সক্রিয় করুন"
+
+msgid "gui.op.runtime.install"
+msgstr "পেলোড নিবন্ধন"
+
 msgid "gui.op.spec.force"
 msgstr "গেট অতিক্রম"
 
@@ -1332,7 +1341,7 @@ msgid "tui.empty"
 msgstr "(কোনো তথ্য নেই)"
 
 msgid "tui.footer"
-msgstr "1-9/0 ভিউ  j/k সরান  r রিফ্রেশ  t থিম  q প্রস্থান  |  {cols}x{rows}"
+msgstr "1-9/0/- ভিউ  j/k সরান  r রিফ্রেশ  t থিম  q প্রস্থান  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "সেশন নেই"
@@ -1381,6 +1390,9 @@ msgstr "খতিয়ান"
 
 msgid "view.preimages"
 msgstr "পূর্ববর্তী প্রতিরূপ"
+
+msgid "view.runtime"
+msgstr "রানটাইম"
 
 msgid "view.sessions"
 msgstr "সেশন"
