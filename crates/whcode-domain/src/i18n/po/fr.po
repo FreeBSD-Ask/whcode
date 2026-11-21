@@ -1082,6 +1082,21 @@ msgstr "certificats racines du système : {value}"
 msgid "settings.outbound.title"
 msgstr "Confiance HTTPS sortante"
 
+msgid "settings.panels.cert.ca.reset"
+msgstr "Réinitialiser la CA intégrée"
+
+msgid "settings.panels.cert.ca.write"
+msgstr "Écrire une CA supplémentaire"
+
+msgid "settings.panels.cert.modes"
+msgstr "Définir les modes"
+
+msgid "settings.panels.cert.regenerate"
+msgstr "Régénérer le certificat serveur"
+
+msgid "settings.panels.cert.title"
+msgstr "Certificats"
+
 msgid "settings.panels.empty"
 msgstr "Rien ici (vide correct)."
 

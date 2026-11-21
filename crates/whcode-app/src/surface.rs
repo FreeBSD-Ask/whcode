@@ -1320,8 +1320,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::WebSettingsOnly,
             },
-            Support::Excluded {
-                reason: ExclusionReason::SixViewScope,
+            // ADR-092／FR-800 批 3（ADR-040 决策 4 修订）：GUI 高级面板按需读证书状态（不含私钥）。
+            Support::Implemented {
+                anchor: "whcode_gui::State::refresh_panels（ViewSource::tls_status）",
             },
             Support::Implemented {
                 anchor: "GET /api/certs（/api/certs/ca、/api/certs/server、POST /api/certs/verify）",
@@ -1342,8 +1343,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Excluded {
                 reason: ExclusionReason::WebSettingsOnly,
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            // ADR-092／FR-800 批 3：GUI 证书面经门面写（降档确认＋审计，私钥不回显）。
+            Support::Implemented {
+                anchor: "whcode_gui::State::op_confirm（OpMode::CertWrite，ADR-092）",
             },
             Support::Implemented {
                 anchor: "POST /api/certs/modes｜/api/certs/ca｜/api/certs/ca/reset｜\
@@ -2330,7 +2332,7 @@ mod tests {
     /// ADR-040 决策 4：证书设置两格仅在 Web 实现；CUI／TUI 按 `web_settings_only` 排除、
     /// GUI 按 `six_view_scope`／`gui_read_only_v1` 排除；写面为破坏族且强制审计。
     #[test]
-    fn cert_settings_are_web_only_with_declared_reasons() {
+    fn cert_settings_are_cui_tui_excluded_and_gui_web_implemented() {
         let read = find("settings.cert.read").expect("settings.cert.read 已登记");
         assert_eq!(read.kind, SurfaceKind::View);
         assert_eq!(read.capability, Capability::SettingsCertRead);
@@ -2345,12 +2347,11 @@ mod tests {
                 "{frontend:?} 必须按 web_settings_only 排除"
             );
         }
-        assert_eq!(
+        // ADR-092／FR-800 批 3：GUI 读面已翻转（高级面板按需读，不含私钥）。
+        assert!(matches!(
             read.support(FrontendId::Gui),
-            &Support::Excluded {
-                reason: ExclusionReason::SixViewScope
-            }
-        );
+            Support::Implemented { anchor } if !anchor.is_empty()
+        ));
         assert!(matches!(
             read.support(FrontendId::Web),
             Support::Implemented { anchor } if !anchor.is_empty()
@@ -2370,12 +2371,18 @@ mod tests {
                 }
             );
         }
-        assert_eq!(
+        // ADR-092／FR-800 批 3：GUI 写面已翻转，但 Destructive／PreviewConfirm／审计属性保留。
+        assert!(matches!(
             write.support(FrontendId::Gui),
-            &Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1
-            }
+            Support::Implemented { anchor } if !anchor.is_empty()
+        ));
+        assert_eq!(write.effect, EffectClass::Destructive, "证书写面仍是破坏族");
+        assert_eq!(
+            write.confirmation,
+            Confirmation::PreviewConfirm,
+            "降档须确认"
         );
+        assert!(write.audited, "证书变更必须写 tls_config_change 审计");
         assert!(matches!(
             write.support(FrontendId::Web),
             Support::Implemented { anchor } if !anchor.is_empty()

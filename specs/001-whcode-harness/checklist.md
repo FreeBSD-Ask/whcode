@@ -1563,7 +1563,7 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   仅单元级取证，无真实供应商凭据不冒充平台结论。**取证（2026-11-21）**：
   `cargo test -p whcode-llm --lib`（74 通过，新增 4 用例：两族形状断言、非法 tools 拒绝、
   None 不产键）；CI 待回填。
-- [ ] Check 487: [exercised] 应用族剩余 12 面对齐（T405—T408／FR-800／ADR-092）：
+- [x] Check 487: [exercised] 应用族剩余 12 面对齐（T405—T408／FR-800／ADR-092）：
   12 面逐项有真实锚点、正向与失败路径测试；四端对等矩阵逐行一致；GUI 资源不超
   ADR-027 预算；证书写面降档须确认并写审计；运行时安装不联网；原生铁律与资源预算
   不放松。分三批取证，逐批回填。
@@ -1574,8 +1574,15 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   **批次二进度（2026-11-21，T406）**：runtime 六面 GUI 翻转＋新增 `view.runtime`，
   `ViewSource` 增两读接口（probe=false）、三写命令经门面（install 本地哈希不联网）；
   `cargo test -p whcode-gui --lib`（42 通过，含运行时视图新测）、`frontend_parity`
-  （10 通过）、`clippy -D warnings` 全工作区零告警。批次三（rules.write／events.export／
-  证书两面）与收口未完成，本 Check 保持未勾选。
+  （10 通过）、`clippy -D warnings` 全工作区零告警。
+  **批次三进度（2026-11-21，T407）**：`rules.write`／`events.export` 经门面入 GUI；
+  证书两面经 ADR-040 决策 4 修订后入 GUI 高级面板——读面不含私钥、写面降档须确认＋审计同源，
+  私钥上传不在 GUI（Web-only，如实登记）；四面登记翻转与矩阵同步，13 套 i18n 补齐；
+  `cargo test -p whcode-gui --lib`（44 通过，含证书面板新测）、`whcode-app --lib`
+  （含门面正反向与证书上下文要求）、`frontend_parity` 10、clippy/fmt 全绿。
+  **偏离登记**：events.export 无原生保存对话框依赖，改为有界文本＋手动保存；证书私钥上传
+  不在 GUI 提供——均在 ADR-092／ADR-040 修订记录如实说明，不伪造全能力对等。
+  CI 结论按 ADR-037 待回填。
 
 ## 追溯缺口登记（2026-10-23）
 

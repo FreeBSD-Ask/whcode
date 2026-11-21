@@ -1082,6 +1082,21 @@ msgstr "system root certificates: {value}"
 msgid "settings.outbound.title"
 msgstr "Outbound HTTPS trust"
 
+msgid "settings.panels.cert.ca.reset"
+msgstr "Reset built-in CA"
+
+msgid "settings.panels.cert.ca.write"
+msgstr "Write extra CA"
+
+msgid "settings.panels.cert.modes"
+msgstr "Set modes"
+
+msgid "settings.panels.cert.regenerate"
+msgstr "Regenerate server cert"
+
+msgid "settings.panels.cert.title"
+msgstr "Certificates"
+
 msgid "settings.panels.empty"
 msgstr "Nothing here (a correct empty)."
 

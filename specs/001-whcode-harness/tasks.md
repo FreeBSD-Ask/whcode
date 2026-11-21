@@ -3022,7 +3022,7 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   `cargo test -p whcode-tests --test frontend_parity`（10 通过，矩阵新增行与六面翻转一致）；
   `cargo clippy --workspace --all-targets -- -D warnings` 与 `cargo fmt --all --check` 通过。
   CI 结论按 ADR-037 待回填。
-- [ ] T407 批次三：`settings.rules.write`／`events.export` 经 `commands.rs` 新增变体
+- [x] T407 批次三：`settings.rules.write`／`events.export` 经 `commands.rs` 新增变体
   入 GUI；`settings.cert.read`／`settings.cert.write` 重审 ADR-040 决策 4 后入 GUI
   证书设置面（降档确认、审计同源、不含私钥）；四面登记翻转与矩阵同步。
   （开工前置：任务认知卡，见 ADR-092 §任务认知卡）
@@ -3039,13 +3039,20 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   复核 ADR-027 预算。本半批采用**有界文本呈现＋手动保存**（`CommandOutcome::EventsExported`
   返回数据、GUI 只显示有界摘要，不回显正文），不新增依赖、不触碰 ADR-026／027；
   在 ADR-092 修订记录中如实登记该措辞偏离。
-  **未完成（证书两面，需用户决策）**：`settings.cert.read`／`settings.cert.write` 的 GUI 翻转
-  需解决两处结构性冲突——① `execute_command` 签名无 `CertPaths`／`CertAudit`，55 个调用点，
-  扩展签名影响面过大；② 证书面为 Destructive＋私钥安全面，须先修订 ADR-040 决策 4
-  的“Web-only”正文（不可逆安全决策）。建议路径：装配根 `TuiCommandExecutor::execute`
-  以 `CertPaths::for_workspace(workspace)`＋`StoreAudit` 拦截证书命令（门面注入实现，不改
-  55 处调用），读面经 `ViewSource` 增 `TlsStatus` 只读接口（不含私钥）；须用户批准后再实施。
-  T407 保持未勾选。
+  **后半完成（2026-11-21，证书两面，用户批准继续）**：用户批准 ADR-040 决策 4 修订后，
+  `ViewSource` 增 `tls_status()` 只读接口（`TlsStatus` 不含私钥，`key_present` 仅存在性），
+  装配根 `StoreViewSource` 以 `CertPaths::for_workspace` 实现；写面经
+  `FrontendCommand::CertWrite(CertWriteAction)` 5 子动作，装配根
+  `TuiCommandExecutor::execute_cert_write` 注入 `CertPaths`＋`StoreAudit` 委托 `cert::*`
+  （不改 `execute_command` 55 处调用），纯门面入口显式 `NotSupported`；
+  GUI 高级面板按需读状态＋4 写动作（SetModes／WriteCa／ResetCa／RegenerateServer），
+  **私钥上传 `WriteServer` 不在 GUI 提供**（避免凭据进入输入控件／截图，Web-only，如实登记为
+  部分覆盖）；写白名单 21→22；矩阵两行同步；13 套 i18n 补证书面板 5 键；
+  ADR-040 决策 4 正文与修订记录同步。
+  **取证（本地）**：`cargo test -p whcode-gui --lib cert_panel_reads`
+  （读状态、降档须确认、确认后发命令、空源不伪造）、`cargo test -p whcode-app --lib
+  cert_write_requires_assembly_root_context`、`frontend_parity` 10（篡改自测锚点改用
+  仍存在的 `web_settings_only`）、clippy/fmt 全绿。
 - [ ] T408 收口：三批全链门禁（fmt／clippy／test、layering／layout、counts／traceability、
   coherence pre/mid/end、文档／i18n／前端预算／ADR 限制）与 ADR-027 资源复核；
   CHANGELOG／契约文档同步；CI 结论按 ADR-037 取证或登记缺口。取证待收口回填。

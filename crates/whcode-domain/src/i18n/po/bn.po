@@ -1082,6 +1082,21 @@ msgstr "সিস্টেম রুট সার্টিফিকেট: {valu
 msgid "settings.outbound.title"
 msgstr "আউটবাউন্ড HTTPS ট্রাস্ট"
 
+msgid "settings.panels.cert.ca.reset"
+msgstr "অন্তর্নির্মিত CA রিসেট"
+
+msgid "settings.panels.cert.ca.write"
+msgstr "অতিরিক্ত CA লিখুন"
+
+msgid "settings.panels.cert.modes"
+msgstr "মোড নির্ধারণ"
+
+msgid "settings.panels.cert.regenerate"
+msgstr "সার্ভার সার্টিফিকেট পুনরায় তৈরি"
+
+msgid "settings.panels.cert.title"
+msgstr "সার্টিফিকেট"
+
 msgid "settings.panels.empty"
 msgstr "কিছু নেই (সঠিক শূন্য)।"
 

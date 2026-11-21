@@ -915,6 +915,20 @@ pub trait ViewSource {
             "该数据源不支持运行时状态（T406：装配根数据源实现）",
         ))
     }
+
+    /// 证书库状态（T407／FR-800／ADR-092 修订）：返回 `TlsStatus`，**不含私钥内容**
+    /// （`ServerCertStatus` 只报 `key_present: bool`，见 `tls.rs`）。默认显式不支持——
+    /// 测试夹具与空数据源不伪造证书状态。
+    ///
+    /// # Errors
+    ///
+    /// 数据源不支持（`not_supported`）或证书库读取失败时返回 [`WhError`]。
+    fn tls_status(&self) -> Result<whcode_domain::TlsStatus, WhError> {
+        Err(WhError::new(
+            ErrorCode::NotSupported,
+            "该数据源不支持证书状态（T407：装配根数据源实现）",
+        ))
+    }
 }
 
 /// 高级面板快照（只读纯数据；准备阶段生成，帧路径不触库）。

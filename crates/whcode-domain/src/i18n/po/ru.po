@@ -1082,6 +1082,21 @@ msgstr "корневых сертификатов в системном хран
 msgid "settings.outbound.title"
 msgstr "Доверие для исходящего HTTPS"
 
+msgid "settings.panels.cert.ca.reset"
+msgstr "Сбросить встроенный CA"
+
+msgid "settings.panels.cert.ca.write"
+msgstr "Записать дополнительный CA"
+
+msgid "settings.panels.cert.modes"
+msgstr "Установить режимы"
+
+msgid "settings.panels.cert.regenerate"
+msgstr "Перегенерировать сертификат сервера"
+
+msgid "settings.panels.cert.title"
+msgstr "Сертификаты"
+
 msgid "settings.panels.empty"
 msgstr "Здесь пусто (корректная пустота)."
 

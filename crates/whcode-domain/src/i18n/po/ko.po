@@ -1082,6 +1082,21 @@ msgstr "시스템 루트 인증서: {value}"
 msgid "settings.outbound.title"
 msgstr "아웃바운드 HTTPS 신뢰"
 
+msgid "settings.panels.cert.ca.reset"
+msgstr "기본 CA 재설정"
+
+msgid "settings.panels.cert.ca.write"
+msgstr "추가 CA 쓰기"
+
+msgid "settings.panels.cert.modes"
+msgstr "모드 설정"
+
+msgid "settings.panels.cert.regenerate"
+msgstr "서버 인증서 재생성"
+
+msgid "settings.panels.cert.title"
+msgstr "인증서"
+
 msgid "settings.panels.empty"
 msgstr "항목이 없습니다(올바른 빈 상태)."
 

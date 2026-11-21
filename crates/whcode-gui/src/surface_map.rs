@@ -169,7 +169,7 @@ mod tests {
     /// 白名单外的写/破坏性面不得在 GUI 出现已实现，如 `settings.cert.write`。
     #[test]
     fn gui_implemented_surfaces_are_reads_or_whitelisted_writes() {
-        const WRITES: [&str; 21] = [
+        const WRITES: [&str; 22] = [
             "session.new",
             "session.rename",
             "session.archive",
@@ -195,6 +195,8 @@ mod tests {
             // ADR-092／FR-800 批 3：审批规则写入与事件导出入白名单。
             "settings.rules.write",
             "events.export",
+            // ADR-092／FR-800 批 3：证书写面入白名单（Destructive，降档确认＋审计）。
+            "settings.cert.write",
         ];
         for entry in SURFACES {
             if !matches!(entry.support(FrontendId::Gui), Support::Implemented { .. }) {

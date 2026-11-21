@@ -1082,6 +1082,21 @@ msgstr "سسٹم کے روٹ سرٹیفکیٹس: {value}"
 msgid "settings.outbound.title"
 msgstr "آؤٹ بانڈ HTTPS اعتماد"
 
+msgid "settings.panels.cert.ca.reset"
+msgstr "بلٹ اِن CA ری سیٹ کریں"
+
+msgid "settings.panels.cert.ca.write"
+msgstr "اضافی CA لکھیں"
+
+msgid "settings.panels.cert.modes"
+msgstr "موڈز مقرر کریں"
+
+msgid "settings.panels.cert.regenerate"
+msgstr "سرور سرٹیفکیٹ دوبارہ بنائیں"
+
+msgid "settings.panels.cert.title"
+msgstr "سرٹیفکیٹ"
+
 msgid "settings.panels.empty"
 msgstr "کچھ نہیں (درست خالی)۔"
 

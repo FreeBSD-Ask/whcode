@@ -1082,6 +1082,21 @@ msgstr "Wurzelzertifikate des Systems: {value}"
 msgid "settings.outbound.title"
 msgstr "Vertrauen für ausgehendes HTTPS"
 
+msgid "settings.panels.cert.ca.reset"
+msgstr "Integrierte CA zurücksetzen"
+
+msgid "settings.panels.cert.ca.write"
+msgstr "Zusätzliche CA schreiben"
+
+msgid "settings.panels.cert.modes"
+msgstr "Modi festlegen"
+
+msgid "settings.panels.cert.regenerate"
+msgstr "Serverzertifikat neu erzeugen"
+
+msgid "settings.panels.cert.title"
+msgstr "Zertifikate"
+
 msgid "settings.panels.empty"
 msgstr "Nichts vorhanden (korrekt leer)."
 

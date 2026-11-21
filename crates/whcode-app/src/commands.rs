@@ -20,6 +20,7 @@
 use duckdb::Connection;
 use whcode_domain::WhError;
 use whcode_domain::approval::ApprovalRule;
+use whcode_domain::tls::{InboundMode, TrustMode};
 use whcode_domain::trace::TraceLevel;
 use whcode_store::{PurgeCriteria, PurgePreview, PurgeProtection, PurgeResult, tasks::TaskRow};
 
@@ -136,6 +137,46 @@ pub enum FrontendCommand {
         limit: usize,
         level: TraceLevel,
     },
+    /// 证书库写操作（ADR-092／FR-800 批 3，ADR-040 决策 4 修订）：5 个子动作，
+    /// 全部经装配根注入 `CertPaths`＋`StoreAudit`；降档必填 confirm，审计由 app 落表，
+    /// 私钥材料只在此帧内存活、不进入日志／事件（不回显）。
+    CertWrite(CertWriteAction),
+}
+
+/// 证书库写动作（T407／FR-800）：与 Web `/api/certs/*` 5 个写接口同口径。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CertWriteAction {
+    /// 设置出站信任／入站档位；`confirm` 对入站 off（降档）必填。
+    SetModes {
+        outbound: TrustMode,
+        inbound: InboundMode,
+        confirm: bool,
+        now_ms: u64,
+    },
+    /// 写入 CA 证书 PEM；写空内置 CA（降档）须 `confirm`。
+    WriteCa {
+        kind: crate::cert::CaKind,
+        pem: String,
+        confirm: bool,
+        now_ms: u64,
+    },
+    /// 重置 CA 为内置副本（不要求 confirm，Web 同口径）。
+    ResetCa {
+        kind: crate::cert::CaKind,
+        now_ms: u64,
+    },
+    /// 上传外部服务端证书＋未加密私钥；`confirm` 必填（降档／敏感）。
+    WriteServer {
+        cert_pem: String,
+        key_pem: String,
+        confirm: bool,
+        now_ms: u64,
+    },
+    /// 重新生成自签服务端证书（SAN 列表）。
+    RegenerateServer {
+        required_sans: Vec<String>,
+        now_ms: u64,
+    },
 }
 
 /// 执行结果（呈现无关；JSON 形状由前端呈现层构造）。
@@ -185,6 +226,8 @@ pub enum CommandOutcome {
     ApprovalRuleWritten { tool: String, rule: ApprovalRule },
     /// 事件导出结果（T407／FR-800；有界、脱敏）。
     EventsExported(crate::EventsExport),
+    /// 证书写操作结果（T407／FR-800；`TlsStatus` 不含私钥内容；Box 避免大枚举变体）。
+    CertWritten(Box<whcode_domain::TlsStatus>),
 }
 
 /// 执行器抽象（TUI 等“动作 → 门面”注入用；装配根实现持有连接与授权）。
@@ -419,6 +462,12 @@ pub fn execute_command(
                 crate::events_export(conn, policy, actor, session_id, *after_seq, *limit, *level)?;
             Ok(CommandOutcome::EventsExported(export))
         }
+        // 证书写操作需工作区 `CertPaths`＋`CertAudit`，由装配根 `TuiCommandExecutor`
+        // 注入后直接委托 `whcode_app::cert::*`（本门面不持有工作区上下文）。
+        FrontendCommand::CertWrite(_) => Err(WhError::new(
+            whcode_domain::ErrorCode::NotSupported,
+            "证书写操作须经装配根门面执行（注入 CertPaths/CertAudit），此入口不接受",
+        )),
     }
 }
 
@@ -999,5 +1048,23 @@ mod tests {
         )
         .expect_err("越界 limit 必须拒绝");
         assert_eq!(err.code, whcode_domain::ErrorCode::InvalidState);
+    }
+
+    /// ADR-092／FR-800 批 3：证书写命令在纯门面入口显式拒绝——需装配根注入
+    /// CertPaths/CertAudit，不在此入口伪造成功（0 信任）。
+    #[test]
+    fn cert_write_requires_assembly_root_context() {
+        let mut conn = migrated();
+        let err = execute_command(
+            &mut conn,
+            &DefaultPolicy,
+            &actor(),
+            &FrontendCommand::CertWrite(CertWriteAction::ResetCa {
+                kind: crate::cert::CaKind::Builtin,
+                now_ms: 1_700_000_000_200,
+            }),
+        )
+        .expect_err("证书写须经装配根门面，不接受纯门面入口");
+        assert_eq!(err.code, whcode_domain::ErrorCode::NotSupported);
     }
 }

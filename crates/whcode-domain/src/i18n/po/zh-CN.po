@@ -1082,6 +1082,21 @@ msgstr "系统库根证书数：{value}"
 msgid "settings.outbound.title"
 msgstr "出站 HTTPS 信任"
 
+msgid "settings.panels.cert.ca.reset"
+msgstr "重置内置 CA"
+
+msgid "settings.panels.cert.ca.write"
+msgstr "写入追加 CA"
+
+msgid "settings.panels.cert.modes"
+msgstr "设置档位"
+
+msgid "settings.panels.cert.regenerate"
+msgstr "重新生成服务端证书"
+
+msgid "settings.panels.cert.title"
+msgstr "证书库"
+
 msgid "settings.panels.empty"
 msgstr "暂无条目（正确的空）。"
 

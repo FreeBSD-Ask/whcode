@@ -1082,6 +1082,21 @@ msgstr "システムのルート証明書：{value}"
 msgid "settings.outbound.title"
 msgstr "送信側 HTTPS の信頼設定"
 
+msgid "settings.panels.cert.ca.reset"
+msgstr "組み込み CA をリセット"
+
+msgid "settings.panels.cert.ca.write"
+msgstr "追加 CA を書き込む"
+
+msgid "settings.panels.cert.modes"
+msgstr "モード設定"
+
+msgid "settings.panels.cert.regenerate"
+msgstr "サーバー証明書を再生成"
+
+msgid "settings.panels.cert.title"
+msgstr "証明書"
+
 msgid "settings.panels.empty"
 msgstr "項目はありません（正しい空）。"
 

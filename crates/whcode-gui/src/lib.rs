@@ -362,6 +362,22 @@ enum OpMode {
     ApprovalRuleWrite,
     /// 导出事件（ADR-092／FR-800 批 3）：输入 `after_seq|limit`，有界文本呈现。
     EventsExport,
+    /// 证书写操作（ADR-092／FR-800 批 3，ADR-040 决策 4 修订）：以输入框指定动作。
+    /// 私钥上传（WriteServer）不在 GUI 提供——避免凭据进入输入控件（0 信任／安全底线）。
+    CertWrite(CertWriteUiAction),
+}
+
+/// GUI 证书写动作（ADR-092 批 3）：只列不将私钥内容带入 GUI 状态的动作。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CertWriteUiAction {
+    /// 设置档位：输入 `builtin|builtin|false`（出站|入站|确认降档）。
+    SetModes,
+    /// 写入追加 CA（仅公钥 PEM 文本，不含私钥）。
+    WriteExtraCa,
+    /// 重置内置 CA。
+    ResetBuiltinCa,
+    /// 重新生成自签服务端证书。
+    RegenerateServer,
 }
 
 /// 启动参数。
@@ -552,6 +568,8 @@ struct State {
     runtime_selected: Option<usize>,
     /// 选中运行时状态（`runtime_status_view`，probe=false）。
     runtime_status: Option<whcode_app::runtime_mgmt::RuntimeStatusView>,
+    /// 证书库状态（ADR-092 批 3；高级面板打开时按需读取，不含私钥）。
+    tls_status: Option<whcode_domain::TlsStatus>,
 }
 
 impl State {
@@ -617,6 +635,7 @@ impl State {
             runtime_entries: None,
             runtime_selected: None,
             runtime_status: None,
+            tls_status: None,
         }
     }
 
@@ -1290,6 +1309,9 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
 /// 高级面板取数（准备阶段；调用方保证连接锁空闲）。
 fn refresh_panels(state: &mut State) {
     state.panels = state.source.panels(state.selected_session().as_deref());
+    // ADR-092／FR-800 批 3：证书状态按需读取（不探测网络、不含私钥）。
+    // 数据源不支持时保持 None（面板显式提示，不伪造证书状态）。
+    state.tls_status = state.source.tls_status().ok();
 }
 
 /// 工具信号 → 卡片状态（T256／FR-743）。Started 建卡（“运行中”），Finished 落终态、
@@ -1658,7 +1680,8 @@ fn op_preview(state: &mut State) {
         | OpMode::RuntimeDisable { .. }
         | OpMode::RuntimeInstall { .. }
         | OpMode::ApprovalRuleWrite
-        | OpMode::EventsExport => return,
+        | OpMode::EventsExport
+        | OpMode::CertWrite { .. } => return,
         // ADR-092：spec.force-advance 两步——首步（to=None）把输入冻结为目标阶段；
         // 次步由 OpConfirm 读取 reason。首步不产生预览 outcome（Confirmation::ReasonRequired）。
         OpMode::SpecForceAdvance { to: None } => {
@@ -1899,6 +1922,71 @@ fn op_confirm(state: &mut State) {
                 level: whcode_domain::trace::TraceLevel::Redacted,
             }
         }
+        // ADR-092／FR-800 批 3：证书写（不含私钥上传——避免凭据进入输入控件）。
+        OpMode::CertWrite(action) => {
+            let input = std::mem::take(&mut state.op_input);
+            let now = now_ms();
+            use whcode_app::commands::CertWriteAction;
+            let cert_action = match action {
+                CertWriteUiAction::SetModes => {
+                    let parts: Vec<&str> = input.split('|').map(str::trim).collect();
+                    if parts.len() != 3 {
+                        state.op_feedback = Some(
+                            "档位：请按“出站|入站|确认”填写（如 builtin|builtin|false）"
+                                .to_string(),
+                        );
+                        return;
+                    }
+                    let Ok(outbound) = whcode_domain::TrustMode::parse(parts[0]) else {
+                        state.op_feedback = Some("档位：出站须为 builtin／system".to_string());
+                        return;
+                    };
+                    let inbound = match parts[1] {
+                        "builtin" => whcode_domain::InboundMode::Builtin,
+                        "external" => whcode_domain::InboundMode::External,
+                        "off" => whcode_domain::InboundMode::Off,
+                        _ => {
+                            state.op_feedback =
+                                Some("档位：入站须为 builtin／external／off".to_string());
+                            return;
+                        }
+                    };
+                    let confirm = matches!(parts[2], "true" | "yes" | "1");
+                    if inbound == whcode_domain::InboundMode::Off && !confirm {
+                        state.op_feedback =
+                            Some("降档到明文 HTTP 须显式确认（第三段 true）".to_string());
+                        return;
+                    }
+                    CertWriteAction::SetModes {
+                        outbound,
+                        inbound,
+                        confirm,
+                        now_ms: now,
+                    }
+                }
+                CertWriteUiAction::WriteExtraCa => {
+                    if input.trim().is_empty() {
+                        state.op_feedback = Some("CA：PEM 内容不能为空".to_string());
+                        return;
+                    }
+                    CertWriteAction::WriteCa {
+                        kind: whcode_app::cert::CaKind::Extra,
+                        pem: input,
+                        confirm: false,
+                        now_ms: now,
+                    }
+                }
+                CertWriteUiAction::ResetBuiltinCa => CertWriteAction::ResetCa {
+                    kind: whcode_app::cert::CaKind::Builtin,
+                    now_ms: now,
+                },
+                CertWriteUiAction::RegenerateServer => CertWriteAction::RegenerateServer {
+                    required_sans: Vec::new(),
+                    now_ms: now,
+                },
+            };
+            FrontendCommand::CertWrite(cert_action)
+        }
     };
     execute(state, command);
 }
@@ -2000,6 +2088,15 @@ fn op_outcome_text(outcome: &whcode_app::commands::CommandOutcome) -> String {
                 export.states.len(),
                 export.trace_level,
                 export.redacted
+            )
+        }
+        // ADR-092／FR-800 批 3：证书写结果只显示档位与重启提示，不回显 PEM／私钥。
+        whcode_app::commands::CommandOutcome::CertWritten(status) => {
+            format!(
+                "cert: outbound={} inbound={} restart_required={}",
+                status.outbound.mode.as_str(),
+                status.inbound.mode.as_str(),
+                status.restart_required
             )
         }
     }
@@ -2748,6 +2845,7 @@ fn op_panel(state: &State) -> Element<'_, Message> {
             | OpMode::RuntimeInstall { .. }
             | OpMode::ApprovalRuleWrite
             | OpMode::EventsExport
+            | OpMode::CertWrite { .. }
     );
     let destructive = matches!(
         mode,
@@ -3357,6 +3455,45 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
                 .spacing(8),
             );
         }
+    }
+
+    // 证书库（ADR-092／FR-800 批 3，ADR-040 决策 4 修订）：按需读状态（不含私钥），
+    // 写操作经门面，私钥上传不在 GUI 提供（避免凭据进入输入控件）。
+    body = body.push(heading("settings.panels.cert.title"));
+    match state.tls_status.as_ref() {
+        None => body = body.push(rich_line(state.texts.resolve("tui.empty"), false, 12.0)),
+        Some(tls) => {
+            let summary = format!(
+                "{} / {} · cert={} key={} · restart={}",
+                tls.outbound.mode.as_str(),
+                tls.inbound.mode.as_str(),
+                tls.inbound.cert_present,
+                tls.inbound.key_present,
+                tls.restart_required
+            );
+            body = body.push(rich_line(summary.as_str(), false, 12.0));
+        }
+    }
+    for (label, action) in [
+        ("settings.panels.cert.modes", CertWriteUiAction::SetModes),
+        (
+            "settings.panels.cert.ca.write",
+            CertWriteUiAction::WriteExtraCa,
+        ),
+        (
+            "settings.panels.cert.ca.reset",
+            CertWriteUiAction::ResetBuiltinCa,
+        ),
+        (
+            "settings.panels.cert.regenerate",
+            CertWriteUiAction::RegenerateServer,
+        ),
+    ] {
+        body = body.push(
+            button(rich_line(state.texts.resolve(label), false, 12.0))
+                .on_press(Message::OpStart(OpMode::CertWrite(action)))
+                .padding([2, 6]),
+        );
     }
 
     scrollable(body)
@@ -4369,8 +4506,13 @@ mod tests {
             "gui.op.runtime.enable",
             "gui.op.runtime.disable",
             "gui.op.runtime.install",
-            // ADR-092／FR-800 批 3：事件导出按钮。
+            // ADR-092／FR-800 批 3：事件导出按钮与证书面板。
             "gui.op.export",
+            "settings.panels.cert.title",
+            "settings.panels.cert.modes",
+            "settings.panels.cert.ca.write",
+            "settings.panels.cert.ca.reset",
+            "settings.panels.cert.regenerate",
         ];
         for (locale, _) in whcode_domain::i18n::BUILTIN_LOCALES {
             let texts = I18n::load(locale, whcode_domain::i18n::LocaleSource::Explicit);
@@ -4662,6 +4804,129 @@ mod tests {
         // 失败路径：未登记运行时状态读取显式错误，不伪造启用。
         let err = state.source.runtime_status_view("nope");
         assert!(err.is_err(), "未登记运行时必须报错");
+    }
+
+    /// ADR-092／FR-800 批 3：证书面——读状态不含私钥、写经门面（降档确认），
+    /// 私钥上传不在 GUI（OpMode 无 WriteServer 变体）。
+    #[test]
+    fn cert_panel_reads_public_state_and_write_requires_confirm() {
+        use std::cell::RefCell;
+
+        struct CertSource;
+        impl ViewSource for CertSource {
+            fn snapshot(&self, view: ViewId, _session: Option<&str>) -> ViewSnapshot {
+                ViewSnapshot::empty(view)
+            }
+            fn tls_status(&self) -> Result<whcode_domain::TlsStatus, WhError> {
+                Ok(whcode_domain::TlsStatus {
+                    schema_version: whcode_domain::SETTINGS_SCHEMA_VERSION,
+                    outbound: whcode_domain::OutboundStatus {
+                        mode: whcode_domain::TrustMode::Builtin,
+                        source: "builtin".to_string(),
+                        builtin: None,
+                        extra: None,
+                        system_root_count: None,
+                        effective_root_count: Some(0),
+                    },
+                    inbound: whcode_domain::ServerCertStatus {
+                        mode: whcode_domain::InboundMode::Builtin,
+                        cert_present: true,
+                        key_present: true, // 只报存在性，不含内容
+                        subject: None,
+                        sans: vec![],
+                        not_before: None,
+                        not_after: None,
+                        sha256: None,
+                        days_remaining: None,
+                    },
+                    restart_required: false,
+                    notes: vec![],
+                })
+            }
+        }
+        struct CaptureExecutor {
+            calls: Rc<RefCell<Vec<FrontendCommand>>>,
+        }
+        impl CommandExecutor for CaptureExecutor {
+            fn execute(
+                &self,
+                command: FrontendCommand,
+            ) -> Result<whcode_app::commands::CommandOutcome, WhError> {
+                self.calls.borrow_mut().push(command);
+                Err(WhError::invalid_state("测试执行器不落证书文件"))
+            }
+        }
+
+        let calls = Rc::new(RefCell::new(Vec::new()));
+        let executor: Rc<dyn CommandExecutor> = Rc::new(CaptureExecutor {
+            calls: Rc::clone(&calls),
+        });
+        let source: Rc<dyn ViewSource> = Rc::new(CertSource);
+        let mut state = State::new(
+            source,
+            I18n::default(),
+            GuiTheme::EinkDay,
+            Some(executor),
+            None,
+        );
+
+        // 正向：刷新面板时读证书状态（不含私钥内容）。
+        let _ = update(&mut state, Message::RefreshPanels);
+        assert!(state.tls_status.is_some(), "证书状态应已读取");
+        assert!(
+            state
+                .tls_status
+                .as_ref()
+                .is_some_and(|v| v.inbound.key_present)
+        );
+
+        // 失败路径：降档到 off 未确认不得发命令。
+        let _ = update(
+            &mut state,
+            Message::OpStart(OpMode::CertWrite(CertWriteUiAction::SetModes)),
+        );
+        let _ = update(
+            &mut state,
+            Message::OpInputChanged("builtin|off|false".into()),
+        );
+        let _ = update(&mut state, Message::OpConfirm);
+        assert!(calls.borrow().is_empty(), "未确认的降档不得发命令");
+        assert!(
+            state
+                .op_feedback
+                .as_deref()
+                .unwrap_or_default()
+                .contains("确认"),
+            "{:?}",
+            state.op_feedback
+        );
+
+        // 正向：显式确认后发 SetModes 命令。
+        let _ = update(
+            &mut state,
+            Message::OpInputChanged("builtin|off|true".into()),
+        );
+        let _ = update(&mut state, Message::OpConfirm);
+        match calls.borrow().last().expect("确认后应发命令") {
+            FrontendCommand::CertWrite(whcode_app::commands::CertWriteAction::SetModes {
+                inbound,
+                confirm,
+                ..
+            }) => {
+                assert_eq!(*inbound, whcode_domain::InboundMode::Off);
+                assert!(*confirm);
+            }
+            other => panic!("证书写形状不符：{other:?}"),
+        }
+
+        // 空数据源：证书状态不伪造（保持 None）。
+        let empty: Rc<dyn ViewSource> = Rc::new(whcode_app::view_source::EmptyViewSource);
+        let mut empty_state = State::new(empty, I18n::default(), GuiTheme::EinkDay, None, None);
+        let _ = update(&mut empty_state, Message::RefreshPanels);
+        assert!(
+            empty_state.tls_status.is_none(),
+            "不支持的数据源不得伪造证书状态"
+        );
     }
 
     /// ADR-091／FR-799：GUI 读面详情（events.show / spec.*）——正向、失败、有界、

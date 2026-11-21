@@ -105,7 +105,7 @@ HTTPS”。本 ADR 因此不接受二选一，而是把证书做成**可见、�
   约束，握手在既有 `REQUEST_IDLE_TIMEOUT`（5 s）内未完成即关闭；**不新增常驻线程**，
   不为每次握手创建线程（NFR-211／215）。
 
-### 4. 编辑面：Web 设置页 + 受控 API + 四端登记
+### 4. 编辑面：Web 设置页 + 受控 API + 四端登记（2026-11-21 修订：GUI 入面）
 
 - **页面**：`/settings/certs`（服务端直出 + 原生 ESM，纳入 FR-618 预算；无 JS 时显示
   只读状态与文件路径）。
@@ -120,13 +120,18 @@ HTTPS”。本 ADR 因此不接受二选一，而是把证书做成**可见、�
 - **私钥只进不出**：响应任何字段都不含私钥或其内容；下载面只提供证书链与指纹。
 - **连通性校验**：`POST /api/certs/verify` 以当前出站信任完成一次握手，**同步**执行，
   单次最多阻塞服务循环 2 秒，不发送任何凭据。
-- **四端登记**（ADR-032 单表口径）：
+- **四端登记**（ADR-032 单表口径；2026-11-21 经 ADR-092／FR-800 修订 GUI 一列）：
 
   | 能力 | Web | CUI／TUI | GUI |
   |---|---|---|---|
-  | `settings.cert.read`／`settings.cert.write` | `Implemented`（`/settings/certs`、`/api/certs/*`） | `Excluded`：`web_settings_only` | `Excluded`：`gui_read_only_v1`／`six_view_scope` |
+  | `settings.cert.read`／`settings.cert.write` | `Implemented`（`/settings/certs`、`/api/certs/*`） | `Excluded`：`web_settings_only` | `Implemented`（高级面板：按需读状态＋经门面写；私钥上传仍仅 Web） |
 
   被排除端调用返回 `not_supported`（CUI 退出码 55、Web 侧 501 同码信封）。
+  GUI 列的修订理由：ADR-092 判定放宽 GUI 写面不触碰 ADR-026 原生铁律；界面读只取
+  `TlsStatus`（私钥只报存在性），写经装配根注入 `CertPaths`＋`StoreAudit` 委托 app 层，
+  降档仍须 `confirm`、审计仍写 `tls_config_change`。**上传外部私钥（`WriteServer`）不在
+  GUI 提供**——避免凭据进入输入控件与截图／日志；该子动作保持 Web-only，如实登记为
+  部分覆盖，不伪造全能力对等。
 
 ### 5. 依赖逐项批准表
 
@@ -357,3 +362,23 @@ HTTPS”。本 ADR 因此不接受二选一，而是把证书做成**可见、�
 - **证据位置**：`artifacts/tls-2026-10-25/check-274-277.md`（Check 274—277 逐条复核，
   含命令与实测值）。行为性结论（握手、浏览器信任、资源预算）仍以 Check 278—288 的
   实测为准，本条不据此宣称已取证。
+
+## 实现落地补记（2026-11-21，ADR-092／FR-800 批 3：GUI 证书面）
+
+- **决策 4 修订**：GUI 一列由 `Excluded`（`gui_read_only_v1`／`six_view_scope`）改为
+  `Implemented`（高级面板）；CUI／TUI 仍 `web_settings_only`。修订由用户批准
+  ADR-092 “放宽全部剩余面”触发，不触碰 ADR-026 原生铁律与 ADR-027 资源预算。
+- **读面**：`ViewSource::tls_status()` 返回 `whcode_domain::TlsStatus`，只含档位、证书
+  存在性（`key_present: bool`）与指纹；**不返回私钥内容**（`tls.rs:214—235` 口径不变）。
+  装配根 `StoreViewSource` 以 `CertPaths::for_workspace(workspace)` 只读构造，不初始化
+  密钥材料（`ensure_outbound_initialized` 不调用）。
+- **写面**：`FrontendCommand::CertWrite(CertWriteAction)` 的 5 个子动作由装配根
+  `TuiCommandExecutor::execute_cert_write` 注入 `CertPaths`＋`StoreAudit` 后委托
+  `whcode_app::cert::*`（不改 `execute_command` 的 55 处调用）。降档（`off`、空内置 CA、
+  外部私钥）仍须 `confirm=true`，审计仍写 `tls_config_change`，失败回滚文件。
+- **覆盖边界（如实登记）**：GUI 提供 `SetModes`／`WriteCa`（追加 CA 公钥 PEM）／
+  `ResetCa`／`RegenerateServer` 四动作；**上传外部私钥 `WriteServer` 不进 GUI**——
+  避免凭据进入输入控件／截图／日志，该子动作保持 Web-only，为已知的部分覆盖，
+  不伪造全能力对等。`record` 审计由 app 层保证，前端不重复落表。
+- **测试与取证**：门面层新增 `CertWrite` 分派显式 `NotSupported`（需装配根上下文），
+  GUI 写白名单 22 面；13 套 i18n 补证书面板 5 键；CI 结论按 ADR-037 待回填。

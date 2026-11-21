@@ -769,6 +769,20 @@ impl ViewSource for StoreViewSource {
         let conn = self.conn.lock().expect("store 连接锁中毒");
         whcode_app::runtime_status(&conn, &self.policy, &self.actor, name, false)
     }
+
+    /// 证书库状态（T407／FR-800）：工作区证书目录只读状态，不含私钥内容。
+    fn tls_status(&self) -> Result<whcode_domain::TlsStatus, WhError> {
+        let Some(workspace) = self.workspace.as_deref() else {
+            return Err(WhError::invalid_state(
+                "证书状态需要工作区根（装配根未注入）",
+            ));
+        };
+        let paths = whcode_app::cert::CertPaths::for_workspace(workspace);
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(0));
+        whcode_app::cert::status(&paths, now_ms)
+    }
 }
 
 /// TUI/GUI 写命令执行器（T177/FR-623、ADR-056 Phase 2）：与视图数据源共享同一条
@@ -803,6 +817,76 @@ impl TuiCommandExecutor {
         self.workspace = Some(workspace);
         self
     }
+
+    /// 证书写操作（ADR-092／FR-800 批 3，ADR-040 决策 4 修订）：装配根持有工作区与连接，
+    /// 构造 `CertPaths`＋`StoreAudit` 后委托 app 层 `cert::*`（降档确认与审计由 app 保证，
+    /// 私钥材料只在本帧存活，不写日志／事件）。见 `FrontendCommand::CertWrite` 注释。
+    fn execute_cert_write(
+        &self,
+        action: whcode_app::commands::CertWriteAction,
+    ) -> Result<whcode_app::CommandOutcome, WhError> {
+        use whcode_app::commands::CertWriteAction;
+        let workspace = self.workspace()?;
+        let paths = whcode_app::cert::CertPaths::for_workspace(&workspace);
+        let conn = self.conn.lock().expect("store 连接锁中毒");
+        let policy = DefaultPolicy;
+        let actor = whcode_app::actor_with_all_capabilities("tui-local");
+        let audit = whcode_app::cert::StoreAudit;
+        let status = match action {
+            CertWriteAction::SetModes {
+                outbound,
+                inbound,
+                confirm,
+                now_ms,
+            } => whcode_app::cert::update_settings(
+                &conn,
+                &paths,
+                &policy,
+                &actor,
+                &audit,
+                whcode_domain::TlsSettings {
+                    schema_version: whcode_domain::SETTINGS_SCHEMA_VERSION,
+                    outbound,
+                    inbound,
+                },
+                confirm,
+                now_ms,
+            )?,
+            CertWriteAction::WriteCa {
+                kind,
+                pem,
+                confirm,
+                now_ms,
+            } => whcode_app::cert::write_ca(
+                &conn, &paths, &policy, &actor, &audit, kind, &pem, confirm, now_ms,
+            )?,
+            CertWriteAction::ResetCa { kind, now_ms } => {
+                whcode_app::cert::reset_ca(&conn, &paths, &policy, &actor, &audit, kind, now_ms)?
+            }
+            CertWriteAction::WriteServer {
+                cert_pem,
+                key_pem,
+                confirm,
+                now_ms,
+            } => whcode_app::cert::write_server_cert(
+                &conn, &paths, &policy, &actor, &audit, &cert_pem, &key_pem, confirm, now_ms,
+            )?,
+            CertWriteAction::RegenerateServer {
+                required_sans,
+                now_ms,
+            } => whcode_app::cert::regenerate_server_cert(
+                &conn,
+                &paths,
+                &policy,
+                &actor,
+                &audit,
+                &required_sans,
+                false,
+                now_ms,
+            )?,
+        };
+        Ok(whcode_app::CommandOutcome::CertWritten(Box::new(status)))
+    }
 }
 
 impl whcode_app::commands::CommandExecutor for TuiCommandExecutor {
@@ -810,6 +894,10 @@ impl whcode_app::commands::CommandExecutor for TuiCommandExecutor {
         &self,
         command: whcode_app::FrontendCommand,
     ) -> Result<whcode_app::CommandOutcome, WhError> {
+        // 证书写操作由装配根注入 CertPaths/CertAudit（门面不持有工作区上下文）。
+        if let whcode_app::FrontendCommand::CertWrite(action) = command {
+            return self.execute_cert_write(action);
+        }
         let command = match command {
             whcode_app::FrontendCommand::SessionRestore {
                 session_id,

@@ -76,10 +76,9 @@ ADR-026 的铁律是**原生渲染、禁止浏览器套壳**，其“只读 v1�
   第 51 行，但本仓库未引入）。按 ADR-027 资源余量很小、新增依赖须走 ADR 修订，改为
   `CommandOutcome::EventsExported` 返回有界数据、GUI 显有界摘要并提示用户手动保存；
   不回显正文、不新增依赖、不触碰两条硬约束。上表与本记录同步修正该措辞。
-- **偏离 2（证书两面待决）**：`settings.cert.read`／`settings.cert.write` 的 GUI 翻转尚未
-  实施。`execute_command` 签名无 `CertPaths`／`CertAudit`，55 个调用点使签名扩展影响面过大；
-  证书面为 Destructive＋私钥安全面，须先修订 ADR-040 决策 4 的“Web-only”正文（不可逆
-  安全决策）。建议路径：装配根 `TuiCommandExecutor::execute` 以
-  `CertPaths::for_workspace(workspace)`＋`StoreAudit` 拦截证书命令（门面注入实现，不改
-  55 处调用），读面经 `ViewSource` 增 `TlsStatus` 只读接口（不含私钥）。须用户明确批准
-  后再实施；未批准前两面维持 Web-only，不伪造对等。
+- **证书两面（用户批准后完成）**：`settings.cert.read`／`settings.cert.write` 已入 GUI
+  高级面板。用户明确批准 ADR-040 决策 4 修订后，装配根 `TuiCommandExecutor::
+  execute_cert_write` 以 `CertPaths::for_workspace`＋`StoreAudit` 注入（不改 55 处
+  `execute_command` 调用），读面经 `ViewSource::tls_status()`（`TlsStatus` 不含私钥）。
+  **私钥上传 `WriteServer` 保持 Web-only**（避免凭据进入 GUI 输入控件／截图），为已知的
+  部分覆盖，不伪造全能力对等；ADR-040 决策 4 正文与修订记录已同步。

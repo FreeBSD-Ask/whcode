@@ -1082,6 +1082,21 @@ msgstr "सिस्टम के रूट प्रमाण-पत्र: {va
 msgid "settings.outbound.title"
 msgstr "आउटबाउंड HTTPS का भरोसा"
 
+msgid "settings.panels.cert.ca.reset"
+msgstr "अंतर्निहित CA रीसेट करें"
+
+msgid "settings.panels.cert.ca.write"
+msgstr "अतिरिक्त CA लिखें"
+
+msgid "settings.panels.cert.modes"
+msgstr "मोड सेट करें"
+
+msgid "settings.panels.cert.regenerate"
+msgstr "सर्वर प्रमाणपत्र पुनः बनाएँ"
+
+msgid "settings.panels.cert.title"
+msgstr "प्रमाणपत्र"
+
 msgid "settings.panels.empty"
 msgstr "कुछ नहीं (सही खाली)।"
 

@@ -1082,6 +1082,21 @@ msgstr "شهادات جذور النظام: {value}"
 msgid "settings.outbound.title"
 msgstr "الثقة في HTTPS الصادر"
 
+msgid "settings.panels.cert.ca.reset"
+msgstr "إعادة ضبط CA المدمجة"
+
+msgid "settings.panels.cert.ca.write"
+msgstr "كتابة شهادة CA إضافية"
+
+msgid "settings.panels.cert.modes"
+msgstr "ضبط الأوضاع"
+
+msgid "settings.panels.cert.regenerate"
+msgstr "إعادة إنشاء شهادة الخادم"
+
+msgid "settings.panels.cert.title"
+msgstr "الشهادات"
+
 msgid "settings.panels.empty"
 msgstr "لا شيء هنا (فراغ سليم)."
 

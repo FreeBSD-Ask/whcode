@@ -220,7 +220,8 @@ fn tampered_matrix_is_rejected() {
         !matrix_problems(&flipped).is_empty(),
         "状态符号被篡改后校验必须失败"
     );
-    let reason_flipped = matrix.replacen("gui_read_only_v1", "made_up_reason", 1);
+    // ADR-092 批 3 后 gui_read_only_v1 已从矩阵移除；改用仍存在的理由码作篡改锚点。
+    let reason_flipped = matrix.replacen("web_settings_only", "made_up_reason", 1);
     assert_ne!(reason_flipped, matrix, "理由码篡改锚点必须命中");
     assert!(
         !matrix_problems(&reason_flipped).is_empty(),

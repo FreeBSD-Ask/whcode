@@ -1082,6 +1082,21 @@ msgstr "系統根憑證數量：{value}"
 msgid "settings.outbound.title"
 msgstr "對外 HTTPS 信任"
 
+msgid "settings.panels.cert.ca.reset"
+msgstr "重設內建 CA"
+
+msgid "settings.panels.cert.ca.write"
+msgstr "寫入追加 CA"
+
+msgid "settings.panels.cert.modes"
+msgstr "設定檔位"
+
+msgid "settings.panels.cert.regenerate"
+msgstr "重新產生服務端憑證"
+
+msgid "settings.panels.cert.title"
+msgstr "憑證庫"
+
 msgid "settings.panels.empty"
 msgstr "尚無項目（正確的空）。"
 
