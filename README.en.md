@@ -27,8 +27,11 @@ application service.
 Version `0.1.0` (released 2026-11-16). See [CHANGELOG.md](./CHANGELOG.md) for changes and known limitations.
 
 M0 to M6, M8 and four-front-end parity are implemented, and the M7 SSH server is in place.
-The 5.5-hour stability run for M9 has no qualifying data yet, and the client wiring for a real
-LLM provider is not delivered. Per-item progress, reasons for unfinished work and evidence
+Stability (NFR-204) was closed by a 24-hour local deep inspection under the ADR-025 amendment
+(2026-11-02, `verdict=pass`); the real LLM provider client is wired across all four front ends
+(T162–T167), with Anthropic/Gemini tool-argument conversion closed on 2026-11-21 (ADR-088
+revision) but unit-level evidence only, as no real credentials or endpoints exist for those two.
+Per-item progress, reasons for unfinished work and evidence
 locations are in the [project status snapshot](./docs/guides/project-status.md). The
 authoritative ledgers are [tasks.md](./specs/001-whcode-harness/tasks.md) and
 [checklist.md](./specs/001-whcode-harness/checklist.md); known limitations are in

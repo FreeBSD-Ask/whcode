@@ -35,6 +35,9 @@
 
 # NFR 预算测量报告与安全复查记录是 ADR-025／Check 115/123 的判定依据，随仓库版本化。
 !/artifacts/nfr-budget-report.json
+# 资源铁律 X6 复测（2026-11-21，本机 1M 事件 extreme_scale：峰值 RSS 244.2 MB / 预算 512 MB；
+# 报告由 measure-resources.py 生成，含测量纪律字段。CI 每周专项仍为权威口径。）
+!/artifacts/resource-report-2026-11-21.json
 !/artifacts/security-review-2026-10-24.md
 
 # 四端对等门禁证据（FR-621／Check 任务 T180）。

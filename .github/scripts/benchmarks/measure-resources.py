@@ -23,6 +23,7 @@ import argparse
 import ctypes
 import ctypes.wintypes as wintypes
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -74,10 +75,19 @@ def compute_executable(target: str) -> pathlib.Path | None:
     )
     if build.returncode != 0:
         return None
+    # 常规布局：target/<profile>/deps/<target>-<hash>.exe。
     candidates = sorted(
         (ROOT / "target" / "debug" / "deps").glob(f"{target}-*.exe"),
         key=lambda path: path.stat().st_mtime,
     )
+    if not candidates:
+        # 回退布局（2026-11-21 本机实测）：部分环境的测试可执行文件落在
+        # target/debug/build/<pkg>/<hash>/out/<target>-<hash>.exe（与 build script 同目录层级），
+        # 而非 deps/。CI 走常规布局、行为不变；此分支只保证本地复现不误报“构建失败”。
+        candidates = sorted(
+            (ROOT / "target" / "debug" / "build").glob(f"*/{'*'}/out/{target}-*.exe"),
+            key=lambda path: path.stat().st_mtime,
+        )
     return candidates[-1] if candidates else None
 
 
@@ -101,12 +111,21 @@ def measure(target: str) -> dict:
     kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
     psapi = ctypes.windll.psapi  # type: ignore[attr-defined]
     started = time.monotonic()
+    # 动态库可见性（2026-11-21）：测试可执行文件在 build/<pkg>/<hash>/out/ 布局下与
+    # duckdb.dll 不同目录，缺 PATH 会以 0xC0000135 瞬退、采到 2 个空样本并误判 RSS 达标。
+    # 统一前置 target/debug（及 deps）到 PATH——常规 deps/ 布局下是同目录冗余，无副作用。
+    env = dict(os.environ)
+    dll_dirs = [ROOT / "target" / "debug", ROOT / "target" / "debug" / "deps"]
+    env["PATH"] = os.pathsep.join(
+        [str(p) for p in dll_dirs] + ([env["PATH"]] if env.get("PATH") else [])
+    )
     process = subprocess.Popen(
         [str(executable)],
         cwd=ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        env=env,
     )
     handle = kernel32.OpenProcess(
         PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, process.pid

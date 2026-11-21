@@ -20,8 +20,10 @@ Rust 原生、本地优先的 LLM 编码 Harness：数据落在一个 DuckDB 文
 
 版本 `0.1.0`（2026-11-16 发布）；变更与已知限制见 [CHANGELOG.md](./CHANGELOG.md)。
 
-M0—M6、M8 与四端对等收口已实现，M7 SSH 服务端已实现。M9 的 5.5 小时稳定性长跑
-尚无合格数据，真实 LLM 供应商的客户端装配未交付。逐项进度、未完成原因与证据位置见
+M0—M6、M8 与四端对等收口已实现，M7 SSH 服务端已实现。稳定性（NFR-204）按 ADR-025 增补
+以 24 小时本机深检收口（2026-11-02，`verdict=通过`）；真实 LLM 供应商客户端已接四端
+（T162—T167），其中 Anthropic／Gemini 的工具参数转换于 2026-11-21 收口（ADR-088 修订），
+但无该两家的真实凭据与端点、仅单元级取证。逐项进度、未完成原因与证据位置见
 [项目状态快照](./docs/guides/project-status.md)，权威账本是
 [tasks.md](./specs/001-whcode-harness/tasks.md) 与
 [checklist.md](./specs/001-whcode-harness/checklist.md)，已知限制见

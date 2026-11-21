@@ -1,0 +1,28 @@
+{
+  "task": "资源铁律 M1/C4 测量",
+  "date": "2026-11-21",
+  "platform": "windows-amd64",
+  "budget": {
+    "peak_rss_mb_per_process": 512,
+    "source": "docs/guides/resource-budget.md M1"
+  },
+  "measurement": {
+    "method": "Win32 GetProcessMemoryInfo / GetProcessTimes，50 ms 轮询（持有进程句柄）",
+    "note": "仅 Windows 验收平台；跨平台数据未取得（ADR-013）；零样本判为未取得信号"
+  },
+  "results": [
+    {
+      "target": "extreme_scale",
+      "measured": true,
+      "passed": true,
+      "wall_s": 720.7,
+      "samples": 14289,
+      "peak_rss_mb": 244.2,
+      "cpu_s": 724.23,
+      "within_budget": true,
+      "reason": "",
+      "stdout_tail": ""
+    }
+  ],
+  "violations": []
+}

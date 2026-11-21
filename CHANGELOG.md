@@ -96,6 +96,16 @@
 
 ### 修复
 
+- **资源测量脚本的两处本地失配（2026-11-21，ADR-027／资源铁律 X6 复核中发现）**：
+  ① 测试可执行文件在 `target/<profile>/build/<pkg>/<hash>/out/` 布局下落盘时，
+  `compute_executable` 只在 `deps/` 下 glob，本地误报“构建失败：未产出测试可执行文件”；
+  ② 该布局下 `duckdb.dll` 与 exe 不同目录，子进程缺 PATH 会以 `0xC0000135` 瞬退——
+  脚本采到 2 个样本后按 2.3 MB 记账，**接近零样本误判**（判据要求零样本不等于达标）。
+  两处分别加查找回退与前置 `target/debug` 到 PATH（常规 `deps/` 布局行为不变，CI 调用面未改）。
+  复现证据：`--test extreme_scale`（1M 事件）峰值 RSS **244.2 MB**（预算 512 MB）、
+  样本 14289、wall 720.7 s、退出码 0（X2—X5 断言同轮全过），报告
+  `artifacts/resource-report-2026-11-21.json`。**权威口径仍是 ADR-082 每周专项**，
+  本地一次复现不替代 CI 周运行（ADR-037）。
 - **Code Scanning：21 条 `rust/cleartext-logging` 清零（2026-11-21）**：CodeQL 以命名
   启发式判定敏感来源，测试断言消息里插值 `err.message`（证书／会话派生值）被判为
   “把派生值写入日志”。按 §5.2 口径改为静态文案（断言只写固定说明，诊断需要值时

@@ -3067,7 +3067,15 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   `end --strict` unregistered 0（5 条存量 soft 反例已登记）。CHANGELOG／ADR-040／ADR-092／
   矩阵／13 套 i18n 已同步；四提交 `5f430cb`／`f81440c`／`cf97fe8`／`5a42417`。
   **未取得（显式登记）**：CI 结论（GitHub Actions 日志与 artifact）按 ADR-037 待云端回填；
-  `extreme_scale`（1M 事件）按 ADR-082 由每周专项覆盖。
+  1M 事件 `extreme_scale` 的**权威口径仍是 ADR-082 每周专项**——本机已补一次复现（见下），
+  不替代 CI 周运行。
+  **资源铁律 X6 本地复现（2026-11-21，已取得）**：`measure-resources.py --test extreme_scale`
+  实测峰值 RSS **244.2 MB**（预算 512 MB）、样本 14289、wall 720.7 s、退出码 0
+  （X2 全序翻页 O(1)／X3 聚合秒级／X4 极限清理／X5 极限切换断言同轮全过）；
+  报告 `artifacts/resource-report-2026-11-21.json`。同轮修复测量脚本两处本地失配：
+  测试可执行文件在 `build/<pkg>/<hash>/out/` 布局下的查找回退、以及 `duckdb.dll`
+  的 PATH 可见性（缺 PATH 会 0xC0000135 瞬退、采到 2 个空样本并误判“峰值 RSS 2.3 MB”，
+  属零样本误判风险，已改为前置 `target/debug` 到 PATH）。
   **ADR-027 资源复核（2026-11-21 补测，已取得）**：`gui-probe.py --resources-only`（新增
   开关，默认完整模式不变）在本机 release、DPI 2.0、1100×900、空闲 10 s 实测——RSS 81.9 MB
   （≤96 通过）、私有 46.9 MB（≤80 通过）、线程 **28**（>24，**未通过**，与 2026-11-03
