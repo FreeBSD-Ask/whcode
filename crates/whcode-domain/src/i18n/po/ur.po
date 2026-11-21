@@ -701,6 +701,27 @@ msgstr "پیغام کے متن میں تلاش… (Enter سے چلائیں)"
 msgid "gui.content.run"
 msgstr "تلاش"
 
+msgid "gui.detail.failed"
+msgstr "تفصیل پڑھنے میں ناکامی"
+
+msgid "gui.detail.hint.events"
+msgstr "سطر منتخب کریں یا واقعے کی تفصیل کے لیے e دبائیں"
+
+msgid "gui.detail.hint.spec"
+msgstr "گیٹ خلاصے کے لیے v تصدیق / z تجزیہ / o ہم آہنگی دبائیں"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "انتخاب حد سے باہر"
+
+msgid "gui.detail.no_session"
+msgstr "کوئی سیشن منتخب نہیں"
+
+msgid "gui.detail.none"
+msgstr "ابھی کوئی تفصیل نہیں"
+
+msgid "gui.detail.panel"
+msgstr "تفصیلات"
+
 msgid "gui.kpi.count"
 msgstr "سیشنز {sessions} · ویو کی قطاریں {rows}"
 

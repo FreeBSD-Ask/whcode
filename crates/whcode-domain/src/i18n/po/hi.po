@@ -701,6 +701,27 @@ msgstr "संदेश मुख्य भाग में खोजें… (
 msgid "gui.content.run"
 msgstr "खोजें"
 
+msgid "gui.detail.failed"
+msgstr "विवरण पढ़ने में विफल"
+
+msgid "gui.detail.hint.events"
+msgstr "पंक्ति चुनें या घटना विवरण के लिए e दबाएँ"
+
+msgid "gui.detail.hint.spec"
+msgstr "गेट सारांश के लिए v मान्य / z विश्लेषण / o अभिसरण दबाएँ"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "चयन सीमा से बाहर"
+
+msgid "gui.detail.no_session"
+msgstr "कोई सत्र चयनित नहीं"
+
+msgid "gui.detail.none"
+msgstr "अभी कोई विवरण नहीं"
+
+msgid "gui.detail.panel"
+msgstr "विवरण"
+
 msgid "gui.kpi.count"
 msgstr "सत्र {sessions} · दृश्य में {rows} पंक्तियाँ"
 

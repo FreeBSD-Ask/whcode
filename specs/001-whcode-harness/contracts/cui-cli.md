@@ -68,7 +68,9 @@ whcode
 - `spec next|validate|analyze|converge|force-advance` 随 T394 交付（FR-301—314）：
   `next`／`force-advance` 走同一状态机与审计（后者 `--reason` 必填）；`validate`
   `/`analyze`／`converge` 只读计算，需 `--workspace` 定位 `specs/` 产物；门禁输入
-  由产物显式提供，不从库内状态推断（FR-313）。GUI 保持 `gui_read_only_v1` 排除。
+  由产物显式提供，不从库内状态推断（FR-313）。GUI 写面 `next`／`force-advance` 保持
+  `gui_read_only_v1` 排除；只读面 `validate`／`analyze`／`converge` 经 ADR-091 翻转
+  （`v`／`z`／`o` 键显示摘要）。
 - `webhook status`／`webhook deliver`（P6.4／FR-788／ADR-079）：配置来自
   `<workspace>/.whcode/webhooks.json`（显式 opt-in；未配置＝零端点＝零请求，`status` 明确
   输出 `configured: false`，`deliver` 计划 0 条）。`status` 输出端点计数、三态计数

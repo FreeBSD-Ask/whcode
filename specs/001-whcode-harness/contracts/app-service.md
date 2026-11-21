@@ -135,7 +135,9 @@ turn 编排器另发 `ContextState`（预算）、`ToolCallStarted/Finished`（F
 
 门禁输入（高优未决澄清、分析通过性、宪法存在性）由产物显式构造为 `TransitionContext`，
 **不从库内状态推断**（FR-313）。校验失败返回 `GateFailed`，非法转换返回 `InvalidState`
-（两者不混用）。CUI／TUI／Web 已登记为已实现；GUI 保持 `gui_read_only_v1` 排除。
+（两者不混用）。CUI／TUI／Web 已登记为已实现；GUI 的写面 `next`／`force-advance` 保持
+`gui_read_only_v1` 排除，只读面 `validate`／`analyze`／`converge` 经 ADR-091／FR-799
+翻转为已实现（GUI 经 `v`／`z`／`o` 键显示门禁摘要，与 TUI 同口径）。
 
 ### 2.4 运行时管理：`runtime.*`（T395、FR-701—710、ADR-089）
 

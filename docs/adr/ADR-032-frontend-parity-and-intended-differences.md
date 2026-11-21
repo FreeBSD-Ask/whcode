@@ -43,7 +43,7 @@
 
 | 理由码 | 适用范围 | 锚点 | 理由与承担者 | 复审触发 |
 |---|---|---|---|---|
-| `GUI_READ_ONLY_V1` | GUI 全部写命令 | FR-711／ADR-026／ADR-027 | v1 先固定资源与可验证性；写能力缺口由 CUI／TUI／Web 承担 | GUI 写需求立项或 FR-711 修订 |
+| `GUI_READ_ONLY_V1` | GUI 的 Write／Destructive 面（2026-11-21 修订：原“全部写命令”口径收窄；4 个 Read 面 events.show／spec.validate／spec.analyze／spec.converge 经 ADR-091 翻转，不再引用本码） | FR-711／ADR-026／ADR-027／ADR-091 | v1 先固定资源与可验证性；写能力缺口由 CUI／TUI／Web 承担 | GUI 写需求立项或 FR-711 修订 |
 | `CLI_LOCAL_ADMIN` | db 维护、font、serve、doctor、bench | FR-507—510、FR-717、ADR-019、ADR-028 | 文件路径、本机注册与传输入口属本地管理；远程暴露扩大攻击面 | Web 远程管理需求 + 威胁模型与认证方案 |
 | `CUI_COMMAND_SURFACE` | 六视图与 diff 浏览 | FR-602、ADR-019 | CUI 是稳定命令与 JSON 输出面，不是屏幕视图 | CUI 需要结构化视图命令时 |
 | `VIEW_SUMMARY_ONLY` | task show 五类详情 | FR-103／104、ADR-009 | 视图面共享“查询任务”能力，详情深度是交互差异；CUI 保留深查 | 视图面需要完整详情时 |
@@ -244,3 +244,12 @@
   视觉语言与关键交互形态（对话流、工具卡、审批流、diff）升级为对等判据；
   TUI／CUI 与其余范围仍按本 ADR 五维（业务能力、权限检查、状态迁移、错误语义、
   可审计性）不变。登记：FR-739—753／T249—T263／Check 344—358（主账本）。
+
+- **2026-11-21（用户批准 ADR-091）**：`GUI_READ_ONLY_V1` 适用范围由“GUI 全部写命令”
+  收窄为“GUI 的 Write／Destructive 面”。4 个 `EffectClass::Read` 面
+  （events.show、spec.validate、spec.analyze、spec.converge）因理由码与效果类别矛盾，
+  GUI 状态由 `Excluded(gui_read_only_v1)` 翻转为 `Implemented`（锚点指向 GUI 读面交互函数）；
+  `spec.next`／`spec.force-advance`／`settings.cert.write` 仍引用本码。判定依据
+  `artifacts/gui-web-parity-assessment-2026-11-21.md`（16 面逐项）；实现见 ADR-091。
+  受校验矩阵 `docs/matrices/feature-parity.md` 四行同步由“部分”转“已实现”，
+  契约测试 `tests/contract/test_frontend_parity.rs` 逐行比对通过。

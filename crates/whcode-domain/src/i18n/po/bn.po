@@ -701,6 +701,27 @@ msgstr "বার্তার মূল অংশে অনুসন্ধান
 msgid "gui.content.run"
 msgstr "অনুসন্ধান"
 
+msgid "gui.detail.failed"
+msgstr "বিশদ পড়তে ব্যর্থ"
+
+msgid "gui.detail.hint.events"
+msgstr "সারি নির্বাচন করুন বা ইভেন্টের বিশদের জন্য e টিপুন"
+
+msgid "gui.detail.hint.spec"
+msgstr "গেট সারাংশের জন্য v বৈধ / z বিশ্লেষণ / o অভিসার টিপুন"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "নির্বাচন সীমার বাইরে"
+
+msgid "gui.detail.no_session"
+msgstr "কোনো সেশন নির্বাচন করা হয়নি"
+
+msgid "gui.detail.none"
+msgstr "এখনো কোনো বিশদ নেই"
+
+msgid "gui.detail.panel"
+msgstr "বিশদ"
+
 msgid "gui.kpi.count"
 msgstr "সেশন {sessions} · ভিউতে {rows} সারি"
 

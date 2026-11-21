@@ -701,6 +701,27 @@ msgstr "会话正文检索…（Enter 执行）"
 msgid "gui.content.run"
 msgstr "检索"
 
+msgid "gui.detail.failed"
+msgstr "详情读取失败"
+
+msgid "gui.detail.hint.events"
+msgstr "点击行或按 e 查看事件详情"
+
+msgid "gui.detail.hint.spec"
+msgstr "按 v 校验／z 分析／o 收敛查看门禁摘要"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "选择越界"
+
+msgid "gui.detail.no_session"
+msgstr "未选择会话"
+
+msgid "gui.detail.none"
+msgstr "尚未查看详情"
+
+msgid "gui.detail.panel"
+msgstr "详情"
+
 msgid "gui.kpi.count"
 msgstr "会话 {sessions} · 当前视图 {rows} 条"
 

@@ -701,6 +701,27 @@ msgstr "بحث في نص الرسائل… (Enter للتنفيذ)"
 msgid "gui.content.run"
 msgstr "بحث"
 
+msgid "gui.detail.failed"
+msgstr "فشل قراءة التفاصيل"
+
+msgid "gui.detail.hint.events"
+msgstr "اختر صفاً أو اضغط e لعرض تفاصيل الحدث"
+
+msgid "gui.detail.hint.spec"
+msgstr "اضغط v للتحقق / z للتحليل / o للتقارب لعرض ملخص البوابة"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "التحديد خارج النطاق"
+
+msgid "gui.detail.no_session"
+msgstr "لا توجد جلسة محددة"
+
+msgid "gui.detail.none"
+msgstr "لا توجد تفاصيل بعد"
+
+msgid "gui.detail.panel"
+msgstr "التفاصيل"
+
 msgid "gui.kpi.count"
 msgstr "الجلسات {sessions} · صفوف العرض {rows}"
 

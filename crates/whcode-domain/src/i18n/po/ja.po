@@ -701,6 +701,27 @@ msgstr "メッセージ本文を検索…（Enter で実行）"
 msgid "gui.content.run"
 msgstr "検索"
 
+msgid "gui.detail.failed"
+msgstr "詳細の読み取り失敗"
+
+msgid "gui.detail.hint.events"
+msgstr "行を選択または e キーでイベント詳細"
+
+msgid "gui.detail.hint.spec"
+msgstr "v 検証 / z 分析 / o 収束 でゲート概要"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "選択が範囲外です"
+
+msgid "gui.detail.no_session"
+msgstr "セッションが未選択です"
+
+msgid "gui.detail.none"
+msgstr "詳細はまだありません"
+
+msgid "gui.detail.panel"
+msgstr "詳細"
+
 msgid "gui.kpi.count"
 msgstr "セッション {sessions} · 表示行 {rows}"
 

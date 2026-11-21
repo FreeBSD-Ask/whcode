@@ -667,8 +667,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（e → ViewSource::event_detail）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "events_body／detail_panel（e → ViewSource::event_detail，ADR-091）",
             },
             Support::Implemented {
                 anchor: "GET /api/events/show?id=",
@@ -735,8 +735,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（v → spec_gate_summary）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "detail_panel（v → spec_gate_summary validate，ADR-091）",
             },
             Support::Implemented {
                 anchor: "GET /api/spec/validate",
@@ -757,8 +757,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（z → spec_gate_summary）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "detail_panel（z → spec_gate_summary analyze，ADR-091）",
             },
             Support::Implemented {
                 anchor: "GET /api/spec/analyze",
@@ -779,8 +779,8 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（o → spec_gate_summary）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            Support::Implemented {
+                anchor: "detail_panel（o → spec_gate_summary converge，ADR-091）",
             },
             Support::Implemented {
                 anchor: "GET /api/spec/converge",

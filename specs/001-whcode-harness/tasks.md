@@ -2940,3 +2940,41 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   `--approve workspace-write` 下真模型 write_file 全链（授权审计、diff 留痕、note.md
   逐字产生、4 工具事件）；未授权回归同节实证（写类 fail-closed 与现状逐字一致）；
   CI＝platform-verification run 44626281459（head 31a1325）success。Check 481。
+## Tasks（2026-11-21 追加）：GUI 读面排除理由码收敛（ADR-091，用户批准）
+
+- [x] T400 ADR-091 立项与 FR-799／Check 484—485 登记：任务认知卡、理由码适用范围
+  修订决策（gui_read_only_v1 仅 Write／Destructive）、4 面收敛边界、已知限制与
+  复审触发（开工前置：任务认知卡，见 ADR-091 §任务认知卡）
+  **取证（2026-11-21）**：`docs/adr/ADR-091-gui-read-surface-parity.md`（承载节齐备，
+  `check-adr-limits.py` OK）；FR-799 入 spec、Check 484—485 入 checklist（追溯无断链）。
+- [x] T401 GUI 四读面交互：`State` 增有界字段（事件选中索引、详情文本、Spec 门禁摘要，
+  各 200 字符上限）；`ViewId::Events` 选中事件按 `e` 经 `ViewSource::event_detail` 显示
+  脱敏详情；`ViewId::Spec` 由 0 行升级为门禁摘要，`v`／`z`／`o` 经
+  `ViewSource::spec_gate_summary` 显示校验／分析／收敛摘要；失败显式说明不伪造空；
+  无定时器与常驻线程（FR-714）。判据＝GUI 单测（正向＋失败＋有界＋键位门控），Check 484。
+
+  **取证（2026-11-21）**：ADR-091 落地（`docs/adr/ADR-091-gui-read-surface-parity.md`）、check-adr-limits OK；FR-799 与 Check 484—485 入账；check_counts／traceability 一致。
+
+  **取证（2026-11-21）**：`cargo test -p whcode-gui --lib`（40 通过，含新增 read_detail_surfaces_positive_failure_bounded_and_key_gated 与 read_detail_keys_are_view_gated）；有界 200 字符、失败显式、键位门控均覆盖。
+
+  **取证（2026-11-21）**：登记表四面翻转为 Implemented（锚点指向真实 GUI 函数）；矩阵四行同步；`cargo test -p whcode-tests --test frontend_parity`（10 通过，含篡改自测）；十三套 i18n＋PO 同步（i18n-po.py --check 通过）。
+
+  **取证（2026-11-21）**：待全链门禁与提交后回填（fmt／clippy／test／coherence／check-eol／docs-style／frontend-budget）。
+  （开工前置：任务认知卡，见 ADR-091 §任务认知卡）
+- [x] T402 登记表翻转与契约同步：`surface.rs` 四行 GUI `Excluded(GuiReadOnlyV1)` →
+  `Implemented(anchor)`；`gui/surface_map.rs` 加 GuiAction 映射与测试；ADR-032 理由码
+  适用范围修订；受校验矩阵逐行同步；十三套 i18n 同键＋PO 同步。判据＝
+  `cargo test -p whcode-tests --test frontend_parity` 与 `cargo test -p whcode-gui --lib`
+  全绿、`i18n-po.py --check` 一致，Check 485。
+  （开工前置：任务认知卡，见 ADR-091 §任务认知卡）
+- [x] T403 收口：fmt／clippy／test 全绿、check_counts／traceability 一致、
+  coherence pre/mid/end、check-eol／docs-style／frontend-budget 全绿；
+  CHANGELOG 与契约文档同步；CI 结论按 ADR-037 取证或登记缺口。
+  （开工前置：任务认知卡，见 ADR-091 §任务认知卡）
+  **取证（2026-11-21）**：`cargo fmt --all --check` 与 `clippy --workspace --all-targets -D warnings`
+  全绿；`cargo test --locked --workspace` 退出码 0（含 GUI 40 项、frontend_parity 10 项）；
+  layering／layout 各 6 项通过；check-docs-style／check-eol／i18n-po --check／
+  check-adr-limits／check-knowing-first／check-frontend-budget 全绿；coherence pre 反例 0；
+  traceability 无断链、check_counts 一致。coherence mid 的 2 条 soft 反例为 ADR-091
+  尚未 git add（提交时消除）；end 的 soft 反例为存量（59/78 条历史 Check 缺标注、FR-406
+  负极性），与本批无关。CI 结论按 ADR-037 待回填。

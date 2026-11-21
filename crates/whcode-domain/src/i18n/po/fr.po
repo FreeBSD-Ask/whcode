@@ -701,6 +701,27 @@ msgstr "Rechercher dans le corps des messages… (Entrée pour exécuter)"
 msgid "gui.content.run"
 msgstr "Rechercher"
 
+msgid "gui.detail.failed"
+msgstr "Échec de la lecture des détails"
+
+msgid "gui.detail.hint.events"
+msgstr "Sélectionnez une ligne ou appuyez sur e pour le détail de l'événement"
+
+msgid "gui.detail.hint.spec"
+msgstr "Appuyez sur v valider / z analyser / o converger pour le résumé de la porte"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "Sélection hors limites"
+
+msgid "gui.detail.no_session"
+msgstr "Aucune session sélectionnée"
+
+msgid "gui.detail.none"
+msgstr "Aucun détail pour l'instant"
+
+msgid "gui.detail.panel"
+msgstr "Détails"
+
 msgid "gui.kpi.count"
 msgstr "Sessions {sessions} · lignes de la vue {rows}"
 

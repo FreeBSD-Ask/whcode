@@ -701,6 +701,27 @@ msgstr "Buscar en el cuerpo de mensajes… (Enter para ejecutar)"
 msgid "gui.content.run"
 msgstr "Buscar"
 
+msgid "gui.detail.failed"
+msgstr "Error al leer el detalle"
+
+msgid "gui.detail.hint.events"
+msgstr "Seleccione una fila o pulse e para ver el detalle del evento"
+
+msgid "gui.detail.hint.spec"
+msgstr "Pulse v validar / z analizar / o converger para el resumen de la puerta"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "Selección fuera de rango"
+
+msgid "gui.detail.no_session"
+msgstr "No hay sesión seleccionada"
+
+msgid "gui.detail.none"
+msgstr "Aún no hay detalle"
+
+msgid "gui.detail.panel"
+msgstr "Detalle"
+
 msgid "gui.kpi.count"
 msgstr "Sesiones {sessions} · filas en la vista {rows}"
 

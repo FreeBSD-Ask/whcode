@@ -701,6 +701,27 @@ msgstr "Search message bodies… (Enter to run)"
 msgid "gui.content.run"
 msgstr "Search"
 
+msgid "gui.detail.failed"
+msgstr "Detail read failed"
+
+msgid "gui.detail.hint.events"
+msgstr "Select a row or press e for event detail"
+
+msgid "gui.detail.hint.spec"
+msgstr "Press v validate / z analyze / o converge for gate summary"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "Selection out of range"
+
+msgid "gui.detail.no_session"
+msgstr "No session selected"
+
+msgid "gui.detail.none"
+msgstr "No detail yet"
+
+msgid "gui.detail.panel"
+msgstr "Detail"
+
 msgid "gui.kpi.count"
 msgstr "Sessions {sessions} · view rows {rows}"
 

@@ -701,6 +701,27 @@ msgstr "메시지 본문 검색…(Enter 실행)"
 msgid "gui.content.run"
 msgstr "검색"
 
+msgid "gui.detail.failed"
+msgstr "상세 읽기 실패"
+
+msgid "gui.detail.hint.events"
+msgstr "행을 선택하거나 e 키로 이벤트 상세 보기"
+
+msgid "gui.detail.hint.spec"
+msgstr "v 검증 / z 분석 / o 수렴 으로 게이트 요약 보기"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "선택 범위 초과"
+
+msgid "gui.detail.no_session"
+msgstr "세션이 선택되지 않음"
+
+msgid "gui.detail.none"
+msgstr "아직 상세 내용 없음"
+
+msgid "gui.detail.panel"
+msgstr "상세"
+
 msgid "gui.kpi.count"
 msgstr "세션 {sessions} · 보기 행 {rows}"
 

@@ -743,6 +743,24 @@ taskkill /T /F 口径）（P1）
     `crates/whcode-bin/src/cui_dispatch.rs`（授权策略构造与闸门接线）、
     `artifacts/fieldtest3-2026-11-19.md`（写链路 e2e）；Check 481
 
+- **FR-799**: GUI 读面排除理由码收敛（P1，ADR-091）：`events.show`、
+  `spec.validate`、`spec.analyze`、`spec.converge` 四个 Read 面在 GUI 端由
+  `gui_read_only_v1` 排除翻转为已实现（该理由码适用范围修订为仅 Write／Destructive 面）。
+  GUI 提供事件详情（`e` 键，经 `ViewSource::event_detail`）与 Spec 门禁摘要
+  （`v`／`z`／`o` 键，经 `ViewSource::spec_gate_summary`），复用 TUI 同语义读接口；
+  详情与摘要文本各有界（200 字符上限），无数据源或读取失败时显式说明，不伪造空结果；
+  不引入周期定时器或常驻线程（FR-714）
+  - 依据：ADR-091（2026-11-21 用户“全部批准，立刻开发”）；判定报告
+    `artifacts/gui-web-parity-assessment-2026-11-21.md`（16 面分类）；ADR-032 理由码全表；
+    ADR-089（spec.* 只读计算口径）；FR-619—621（四端对等五维）
+  - 判据：Given GUI 事件视图选中事件并按 `e`，Then 显示与 CUI `events show` 同脱敏口径
+    的详情摘要；Given Spec 视图按 `v`／`z`／`o`，Then 显示与 TUI 同门禁口径的校验／分析／
+    收敛摘要；Given 数据源不支持或读取失败，Then 显示结构化说明且不伪造数据；
+    Given 文本超 200 字符，Then 截断并注明；四端对等契约测试全绿
+  - 证据：`crates/whcode-gui/src/lib.rs`（State 有界字段与键位）、
+    `crates/whcode-app/src/surface.rs`（4 行 GUI 状态翻转）、
+    `tests/contract/test_frontend_parity.rs`（矩阵逐行一致）；Check 484—485
+
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

@@ -701,6 +701,27 @@ msgstr "會話正文檢索…（Enter 執行）"
 msgid "gui.content.run"
 msgstr "檢索"
 
+msgid "gui.detail.failed"
+msgstr "詳情讀取失敗"
+
+msgid "gui.detail.hint.events"
+msgstr "點擊行或按 e 查看事件詳情"
+
+msgid "gui.detail.hint.spec"
+msgstr "按 v 校驗／z 分析／o 收斂查看門禁摘要"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "選擇越界"
+
+msgid "gui.detail.no_session"
+msgstr "未選擇工作階段"
+
+msgid "gui.detail.none"
+msgstr "尚未查看詳情"
+
+msgid "gui.detail.panel"
+msgstr "詳情"
+
 msgid "gui.kpi.count"
 msgstr "工作階段 {sessions} · 目前檢視 {rows} 列"
 

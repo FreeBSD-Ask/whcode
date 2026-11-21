@@ -701,6 +701,27 @@ msgstr "Поиск по телу сообщений… (Enter — выполни
 msgid "gui.content.run"
 msgstr "Найти"
 
+msgid "gui.detail.failed"
+msgstr "Ошибка чтения сведений"
+
+msgid "gui.detail.hint.events"
+msgstr "Выберите строку или нажмите e для сведений о событии"
+
+msgid "gui.detail.hint.spec"
+msgstr "Нажмите v проверка / z анализ / o сходимость для сводки шлюза"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "Выбор вне диапазона"
+
+msgid "gui.detail.no_session"
+msgstr "Сессия не выбрана"
+
+msgid "gui.detail.none"
+msgstr "Подробностей пока нет"
+
+msgid "gui.detail.panel"
+msgstr "Подробности"
+
 msgid "gui.kpi.count"
 msgstr "Сессий {sessions} · строк в представлении {rows}"
 

@@ -307,6 +307,23 @@ struct ToolCard {
 /// 工具卡上限（视图有界；超出移除最早的一张）。
 const MAX_TOOL_CARDS: usize = 20;
 
+/// 读面详情／门禁摘要文本上限（ADR-091／FR-799）：事件详情与 Spec 门禁摘要各
+/// 200 字符（与 TUI 事件详情的 `chars().take(200)` 同口径）；超出在字符边界截断
+/// 并注明，不伪造完整内容。字段有界且无定时器（FR-714）。
+const READ_DETAIL_TEXT_MAX: usize = 200;
+
+/// 把详情／摘要文本裁到 `READ_DETAIL_TEXT_MAX` 字符（按字符边界，避免切断 UTF-8）；
+/// 超出时附加截断注明，不伪造完整内容（ADR-091／FR-799）。
+fn truncate_detail(text: &str) -> String {
+    let mut chars = text.chars();
+    let kept: String = chars.by_ref().take(READ_DETAIL_TEXT_MAX).collect();
+    if chars.next().is_some() {
+        format!("{kept}…（已截断）")
+    } else {
+        kept
+    }
+}
+
 /// 会话操作面板的当前状态（ADR-056；破坏性命令两段式）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum OpMode {
@@ -412,6 +429,11 @@ enum Message {
     SessionArchivedToggled(bool),
     /// Esc：有面板时取消面板，否则退出。
     EscapeKey,
+    // —— ADR-091／FR-799 读面详情——
+    /// 事件详情（按 `snapshot.events` 下标；`e` 键，经 `ViewSource::event_detail`）。
+    EventDetail(usize),
+    /// Spec 门禁摘要（`v`／`z`／`o`；`kind` 取 validate／analyze／converge）。
+    SpecGate(&'static str),
     /// 字符键（门控在 update：对话视图／操作面板打开时忽略全局快捷键）。
     Key(char),
 }
@@ -496,6 +518,13 @@ struct State {
     panels: PanelsSnapshot,
     /// 面板反馈行（撤销结果或错误）。
     panel_status: Option<String>,
+    // —— ADR-091／FR-799 读面详情（有界，无定时器）——
+    /// 事件视图选中行（按 `snapshot.events` 下标）；`None` = 未选择。
+    event_selected: Option<usize>,
+    /// 事件详情文本（`e` 键，经 `ViewSource::event_detail`；有界 200 字符）。
+    event_detail: Option<String>,
+    /// Spec 门禁摘要文本（`v`／`z`／`o`，经 `spec_gate_summary`；有界 200 字符）。
+    spec_summary: Option<String>,
 }
 
 impl State {
@@ -555,6 +584,9 @@ impl State {
             panels_open: false,
             panels: PanelsSnapshot::default(),
             panel_status: None,
+            event_selected: None,
+            event_detail: None,
+            spec_summary: None,
         }
     }
 
@@ -1023,6 +1055,24 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                     let _ = update(state, Message::TogglePanels);
                     return Task::none();
                 }
+                // ADR-091／FR-799 读面详情键位（按视图门控，避开全局键位）。
+                'e' if state.view == ViewId::Events => {
+                    let index = state.event_selected.unwrap_or(0);
+                    let _ = update(state, Message::EventDetail(index));
+                    return Task::none();
+                }
+                'v' if state.view == ViewId::Spec => {
+                    let _ = update(state, Message::SpecGate("validate"));
+                    return Task::none();
+                }
+                'z' if state.view == ViewId::Spec => {
+                    let _ = update(state, Message::SpecGate("analyze"));
+                    return Task::none();
+                }
+                'o' if state.view == ViewId::Spec => {
+                    let _ = update(state, Message::SpecGate("converge"));
+                    return Task::none();
+                }
                 'q' => return iced::exit(),
                 _ => return Task::none(),
             }
@@ -1074,6 +1124,36 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                 .map(|task| state.source.checkpoints(task))
                 .unwrap_or_default();
             state.checkpoint_task = task;
+            return Task::none();
+        }
+        // —— ADR-091／FR-799 读面详情（有界、按需查询、无定时器）——
+        Message::EventDetail(index) => {
+            state.event_selected = Some(index);
+            state.event_detail = Some(match state.snapshot.events.get(index) {
+                None => state
+                    .texts
+                    .resolve("gui.detail.index_out_of_range")
+                    .to_string(),
+                Some(row) => {
+                    let event_id = format!("E-{}", row.seq);
+                    match state.source.event_detail(&event_id) {
+                        Ok(summary) => truncate_detail(&summary),
+                        Err(err) => {
+                            format!("{}：{}", state.texts.resolve("gui.detail.failed"), err)
+                        }
+                    }
+                }
+            });
+            return Task::none();
+        }
+        Message::SpecGate(kind) => {
+            state.spec_summary = Some(match state.selected_session() {
+                None => state.texts.resolve("gui.detail.no_session").to_string(),
+                Some(session) => match state.source.spec_gate_summary(&session, kind) {
+                    Ok(summary) => truncate_detail(&summary),
+                    Err(err) => format!("{}：{}", state.texts.resolve("gui.detail.failed"), err),
+                },
+            });
             return Task::none();
         }
         Message::TogglePanels => {
@@ -1871,6 +1951,78 @@ fn read_body(state: &State, mono: bool) -> Element<'_, Message> {
     }
 }
 
+/// 事件视图正文（ADR-091／FR-799）：每行可点击选中并取详情；选中态用 `> ` 前缀
+/// （与 `ViewSnapshot::render_lines` 同源视觉语法，不依赖颜色）。
+fn events_body(state: &State) -> Element<'_, Message> {
+    let theme = state.theme;
+    let lines: Vec<Element<'_, Message>> = state
+        .snapshot
+        .events
+        .iter()
+        .enumerate()
+        .take(200)
+        .map(|(index, row)| {
+            let marker = if state.event_selected == Some(index) {
+                "> "
+            } else {
+                "  "
+            };
+            let label = format!("{marker}{} {} {}", row.seq, row.kind, row.summary);
+            button(rich_line(&label, false, 15.0))
+                .on_press(Message::EventDetail(index))
+                .width(Length::Fill)
+                .padding([2, 6])
+                .style(move |_theme, _status| {
+                    sidebar_style(theme, state.event_selected == Some(index))
+                })
+                .into()
+        })
+        .collect();
+    if lines.is_empty() {
+        rich_line(state.texts.resolve("tui.empty"), false, 16.0)
+    } else {
+        scrollable(column(lines).spacing(2))
+            .style(move |_, _| state.theme.scrollbar())
+            .height(Length::Fill)
+            .into()
+    }
+}
+
+/// 读面详情区（ADR-091／FR-799）：`events.show` 与 Spec 门禁摘要的 GUI 呈现。/// 数据在准备/按键时按需查询（无定时器、无常驻线程），渲染只读缓存字段。
+fn detail_panel(state: &State) -> Element<'_, Message> {
+    let label = state.texts.resolve("gui.detail.panel");
+    let hint = match state.view {
+        ViewId::Events => state.texts.resolve("gui.detail.hint.events"),
+        ViewId::Spec => state.texts.resolve("gui.detail.hint.spec"),
+        _ => "",
+    };
+    let text = match state.view {
+        ViewId::Events => state.event_detail.as_deref(),
+        ViewId::Spec => state.spec_summary.as_deref(),
+        _ => None,
+    };
+    let body = match text {
+        Some(value) => value.to_string(),
+        None => state.texts.resolve("gui.detail.none").to_string(),
+    };
+    column![
+        rich_line(label, false, 14.0),
+        rich_line(hint, false, 12.0),
+        rich_line(body.as_str(), false, 13.0),
+    ]
+    .spacing(3)
+    .into()
+}
+
+/// 读面正文（ADR-091）：Events 用可点击行＋详情；Spec 用只读正文＋门禁摘要。
+fn read_detail_body(state: &State) -> Element<'_, Message> {
+    let main = match state.view {
+        ViewId::Events => events_body(state),
+        _ => read_body(state, false),
+    };
+    column![main, detail_panel(state)].spacing(8).into()
+}
+
 /// 对话视图（ADR-056）：剖面 + 提示词 + 发送/取消 + 最近结果。
 fn chat_panel(state: &State) -> Element<'_, Message> {
     let provider_input = text_input(
@@ -2528,6 +2680,8 @@ fn view(state: &State) -> Element<'_, Message> {
             .spacing(8)
             .into(),
             ViewId::Diff => diff_body(state),
+            // ADR-091／FR-799：Events 支持选中详情、Spec 支持门禁摘要。
+            ViewId::Events | ViewId::Spec => read_detail_body(state),
             _ => read_body(state, false),
         }
     };
@@ -3757,5 +3911,122 @@ mod tests {
                 assert_ne!(texts.resolve(key), *key, "{locale} 缺 {key}");
             }
         }
+    }
+
+    /// ADR-091／FR-799：GUI 读面详情（events.show / spec.*）——正向、失败、有界、
+    /// 键位门控。数据源默认不支持时显式说明，不伪造空结果。
+    #[test]
+    fn read_detail_surfaces_positive_failure_bounded_and_key_gated() {
+        struct DetailSource {
+            long: bool,
+            fail: bool,
+        }
+        impl ViewSource for DetailSource {
+            fn snapshot(&self, view: ViewId, session: Option<&str>) -> ViewSnapshot {
+                let mut snapshot = ViewSnapshot::empty(view);
+                if view == ViewId::Events {
+                    snapshot.events.push(whcode_app::view_source::EventRow {
+                        seq: 7,
+                        kind: "session.new".to_string(),
+                        summary: "会话创建".to_string(),
+                    });
+                }
+                let _ = session;
+                snapshot
+            }
+            fn event_detail(&self, event_id: &str) -> Result<String, WhError> {
+                if self.fail {
+                    return Err(WhError::new(
+                        whcode_domain::ErrorCode::NotFound,
+                        "事件不存在",
+                    ));
+                }
+                Ok(if self.long {
+                    "长".repeat(READ_DETAIL_TEXT_MAX + 50)
+                } else {
+                    format!("事件详情 {event_id}")
+                })
+            }
+            fn spec_gate_summary(&self, session: &str, kind: &str) -> Result<String, WhError> {
+                if self.fail {
+                    return Err(WhError::new(
+                        whcode_domain::ErrorCode::InvalidState,
+                        "产物读取失败",
+                    ));
+                }
+                Ok(format!("{session}/{kind} 摘要"))
+            }
+        }
+
+        // 正向：事件详情与三类门禁摘要可读。
+        let source: Rc<dyn ViewSource> = Rc::new(DetailSource {
+            long: false,
+            fail: false,
+        });
+        let mut state = State::new(source, I18n::default(), GuiTheme::EinkDay, None, None);
+        state.session_ids = vec!["S-1".to_string()];
+        state.selected = Some(0);
+        let _ = update(&mut state, Message::SelectView(ViewId::Events));
+        let _ = update(&mut state, Message::EventDetail(0));
+        assert_eq!(state.event_selected, Some(0));
+        assert!(state.event_detail.as_deref().unwrap().contains("E-7"));
+        for kind in ["validate", "analyze", "converge"] {
+            let _ = update(&mut state, Message::SpecGate(kind));
+            assert!(state.spec_summary.as_deref().unwrap().contains(kind));
+        }
+
+        // 失败路径：错误显式说明，不伪造空。
+        let source: Rc<dyn ViewSource> = Rc::new(DetailSource {
+            long: false,
+            fail: true,
+        });
+        let mut state = State::new(source, I18n::default(), GuiTheme::EinkDay, None, None);
+        state.session_ids = vec!["S-1".to_string()];
+        state.selected = Some(0);
+        let _ = update(&mut state, Message::SelectView(ViewId::Events));
+        let _ = update(&mut state, Message::EventDetail(0));
+        assert!(state.event_detail.as_deref().unwrap().contains("失败"));
+        let _ = update(&mut state, Message::SpecGate("validate"));
+        assert!(state.spec_summary.as_deref().unwrap().contains("失败"));
+
+        // 有界：超 200 字符按字符边界截断并注明。
+        let source: Rc<dyn ViewSource> = Rc::new(DetailSource {
+            long: true,
+            fail: false,
+        });
+        let mut state = State::new(source, I18n::default(), GuiTheme::EinkDay, None, None);
+        let _ = update(&mut state, Message::SelectView(ViewId::Events));
+        let _ = update(&mut state, Message::EventDetail(0));
+        let detail = state.event_detail.as_deref().unwrap();
+        assert!(detail.contains("已截断"), "超限必须注明截断");
+        assert!(detail.chars().count() <= READ_DETAIL_TEXT_MAX + 10);
+
+        // 无数据源：event_detail 默认返回 not_supported，显式说明。
+        let source: Rc<dyn ViewSource> = Rc::new(whcode_app::view_source::EmptyViewSource);
+        let mut state = State::new(source, I18n::default(), GuiTheme::EinkDay, None, None);
+        let _ = update(&mut state, Message::EventDetail(0));
+        assert!(state.event_detail.is_some(), "失败也要写状态，不留空");
+    }
+
+    /// ADR-091／FR-799：键位门控——e 仅 Events 视图、v/z/o 仅 Spec 视图生效；
+    /// 其他视图的同类字符键不改变详情状态。
+    #[test]
+    fn read_detail_keys_are_view_gated() {
+        let source: Rc<dyn ViewSource> = Rc::new(whcode_app::view_source::EmptyViewSource);
+        let mut state = State::new(source, I18n::default(), GuiTheme::EinkDay, None, None);
+        // 会话视图下按 e / v / z / o 均不改变详情字段。
+        for key in ['e', 'v', 'z', 'o'] {
+            let _ = update(&mut state, Message::Key(key));
+        }
+        assert!(state.event_detail.is_none());
+        assert!(state.spec_summary.is_none());
+        // 切到 Events 视图后 e 生效（默认选中 0）。
+        let _ = update(&mut state, Message::SelectView(ViewId::Events));
+        let _ = update(&mut state, Message::Key('e'));
+        assert!(state.event_detail.is_some(), "Events 视图 e 必须触发详情");
+        // 切到 Spec 视图后 v/z/o 生效。
+        let _ = update(&mut state, Message::SelectView(ViewId::Spec));
+        let _ = update(&mut state, Message::Key('v'));
+        assert!(state.spec_summary.is_some(), "Spec 视图 v 必须触发门禁摘要");
     }
 }

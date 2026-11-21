@@ -13,6 +13,18 @@
 
 ### 新增
 
+- **GUI 读面排除理由码收敛（2026-11-21，ADR-091／FR-799／T400—T403）**：
+  判定报告 `artifacts/gui-web-parity-assessment-2026-11-21.md` 对 Web 已实现而 GUI
+  标“部分”的 16 面逐项核验——9 面硬约束（含 `settings.rules.write`、`view.changes`）
+  与 3 面需新增能力维持登记；4 个 Read 面（`events.show`、`spec.validate`、
+  `spec.analyze`、`spec.converge`）因被 `gui_read_only_v1`（定义为“GUI 全部写命令”）
+  误排除，GUI 状态翻转为已实现。`gui_read_only_v1` 适用范围收窄为 Write／Destructive
+  （ADR-032 修订记录）。GUI 新增事件详情（`e` 键／行点击，经 `ViewSource::event_detail`）
+  与 Spec 门禁摘要（`v`／`z`／`o`，经 `spec_gate_summary`），文本有界 200 字符、
+  失败显式说明、无定时器与常驻线程（FR-714）。十三套 i18n 同键＋PO 同步。
+  取证：`cargo test -p whcode-gui --lib`（40 通过）、
+  `cargo test -p whcode-tests --test frontend_parity`（10 通过）、Check 484—485；
+  CI 结论按 ADR-037 待回填。
 - **四端对等全量清零（2026-11-20/21，ADR-089／FR-619—621／T390—T396）**：对等矩阵
   49 格「预留」全部清偿，登记表 `SURFACES` 全表零 `Reserved`（四前端遍历断言），
   「已实现」与「正当排除」两种状态首次覆盖全部能力面。

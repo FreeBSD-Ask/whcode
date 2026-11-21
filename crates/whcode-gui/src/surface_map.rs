@@ -42,6 +42,12 @@ pub enum GuiAction {
     SessionPlanSet,
     /// 模型目录（T393／llm.models：对话视图按钮）。
     ModelCatalogue,
+    /// 事件详情（ADR-091／FR-799：`e` 键／事件行点击 → events.show）。
+    EventDetail,
+    /// Spec 门禁摘要（ADR-091／FR-799：`v`／`z`／`o` → spec.* 只读面）。
+    SpecGateValidate,
+    SpecGateAnalyze,
+    SpecGateConverge,
     /// 退出（`q`／Esc）。
     Quit,
 }
@@ -61,6 +67,10 @@ pub fn surface_of(action: GuiAction) -> &'static str {
         GuiAction::SessionRestore => "session.restore",
         GuiAction::SessionPlanSet => "session.plan",
         GuiAction::ModelCatalogue => "llm.models",
+        GuiAction::EventDetail => "events.show",
+        GuiAction::SpecGateValidate => "spec.validate",
+        GuiAction::SpecGateAnalyze => "spec.analyze",
+        GuiAction::SpecGateConverge => "spec.converge",
         GuiAction::Quit => "app.quit",
     }
 }
@@ -109,6 +119,10 @@ mod tests {
             GuiAction::SessionRestore,
             GuiAction::SessionPlanSet,
             GuiAction::ModelCatalogue,
+            GuiAction::EventDetail,
+            GuiAction::SpecGateValidate,
+            GuiAction::SpecGateAnalyze,
+            GuiAction::SpecGateConverge,
             GuiAction::Quit,
         ];
         for action in actions {
@@ -254,5 +268,27 @@ mod tests {
                 reason: ExclusionReason::SixViewScope
             }
         );
+    }
+
+    /// ADR-091／FR-799：4 个 Read 面的 GUI 状态必须是已实现（锚点指向真实函数），
+    /// 且经 GuiAction 可达；锁定翻转不回退。
+    #[test]
+    fn gui_read_surfaces_are_implemented_and_reachable() {
+        for (action, id) in [
+            (GuiAction::EventDetail, "events.show"),
+            (GuiAction::SpecGateValidate, "spec.validate"),
+            (GuiAction::SpecGateAnalyze, "spec.analyze"),
+            (GuiAction::SpecGateConverge, "spec.converge"),
+        ] {
+            assert_eq!(surface_of(action), id);
+            let entry = find(id).unwrap_or_else(|| panic!("{id} 未登记"));
+            assert_eq!(entry.effect, EffectClass::Read, "{id} 必须是 Read 面");
+            match entry.support(FrontendId::Gui) {
+                Support::Implemented { anchor } => {
+                    assert!(!anchor.is_empty(), "{id} 的 GUI 锚点不得为空");
+                }
+                other => panic!("{id} 的 GUI 状态异常：{other:?}"),
+            }
+        }
     }
 }

@@ -701,6 +701,27 @@ msgstr "Nachrichten texte durchsuchen… (Enter zum Ausführen)"
 msgid "gui.content.run"
 msgstr "Suchen"
 
+msgid "gui.detail.failed"
+msgstr "Details konnten nicht gelesen werden"
+
+msgid "gui.detail.hint.events"
+msgstr "Zeile auswählen oder e drücken für Ereignisdetails"
+
+msgid "gui.detail.hint.spec"
+msgstr "v Validierung / z Analyse / o Konvergenz für Gate-Zusammenfassung drücken"
+
+msgid "gui.detail.index_out_of_range"
+msgstr "Auswahl außerhalb des Bereichs"
+
+msgid "gui.detail.no_session"
+msgstr "Keine Sitzung ausgewählt"
+
+msgid "gui.detail.none"
+msgstr "Noch keine Details"
+
+msgid "gui.detail.panel"
+msgstr "Details"
+
 msgid "gui.kpi.count"
 msgstr "Sitzungen {sessions} · Zeilen in der Ansicht {rows}"
 
