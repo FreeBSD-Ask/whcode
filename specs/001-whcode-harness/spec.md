@@ -711,7 +711,8 @@ taskkill /T /F 口径）（P1）
   Gemini `functionResponse` parts，相邻同角色合并）；turn 循环 assistant 回填携带
   本步工具调用、结果回填携带关联 ID；OpenAI 族以真实供应商端到端取证（工具事件、
   真实输出、integrity_gaps=0），Anthropic/Gemini/Ollama 以单元级取证并显式登记
-  （tools 参数格式转换未做，接入真实供应商前补齐）；跨轮工具链路持久化为 T389
+  （tools 参数格式转换于 2026-11-21 由 T404 补齐：Anthropic `input_schema`／Gemini
+  `functionDeclarations`，单元级取证；未接真实供应商，见 ADR-088 修订记录）；跨轮工具链路持久化为 T389
   显式边界
   - 依据：`artifacts/fieldtest-2026-11-17.md`（P0 断链实证，2026-11-17 用户质询
     “功能几乎未实现”的判定基础）；ADR-088；ADR-044（turn 编排）／ADR-048（工具系统）

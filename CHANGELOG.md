@@ -59,6 +59,13 @@
 
 ### 变更
 
+- **Anthropic／Gemini tools 参数格式转换（2026-11-21，ADR-088 修订／FR-797／T404）**：
+  收口 ADR-088 已知限制 2。turn 侧 OpenAI 形状工具清单仍为单一事实源；协议层新增
+  `anthropic_tools`（转 `input_schema`）与 `gemini_tools`（转 `functionDeclarations`），
+  缺 `function.name` 显式拒绝，不静默丢弃、不伪造空声明；OpenAI／Ollama／Cohere
+  行为零变化。取证：`cargo test -p whcode-llm --lib`（74 通过，新增 4 用例）。
+  边界：无 Anthropic／Gemini 真实凭据与端点，仅单元级取证，不冒充平台结论（ADR-088
+  复审触发 2 保持有效）。Check 486；CI 结论按 ADR-037 待回填。
 - **字段测试：真实供应商工具调用链路断裂（2026-11-17/18，P0 发现）**：接 SenseNova 真跑字段测试（沙盒样例库，`local/fieldtest/` 不入库）：需要工具的任务在 `finish_reason=tool_calls` 下**事件流无任何 ToolCall、正文为空、turn 静默按 `model_finished` 终止**；纯文本对照任务完全健康。根因＝协议解码器只读 `delta.content`、不读 `tool_calls`/`tool_use`/`functionCall` 帧，请求侧也无 `role:tool`/`tool_result` 回传装配（`protocols.rs:139` 自认随 P0-2 扩展）；既有工具执行 Check 全部走桩剧本，桩绿≠真通。缺口清单与修复面见 `artifacts/fieldtest-2026-11-17.md`。
 
 ### 修复

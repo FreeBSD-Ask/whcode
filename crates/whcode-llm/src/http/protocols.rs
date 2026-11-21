@@ -171,6 +171,81 @@ fn messages_flat(request: &LlmRequest) -> Value {
     )
 }
 
+/// 从 turn 侧 OpenAI 形状的 tools 数组中提取单项 `(name, description, parameters)`。
+///
+/// 输入形状（唯一事实源：`whcode_app::turn` 的 `tool_manifest`）：
+/// `[{"type":"function","function":{"name","description","parameters"}}]`
+///
+/// 缺 `function.name` 或名为空时显式拒绝（不静默丢弃、不伪造空声明）；用途是
+/// ADR-088 已知限制 2 的收口——Anthropic／Gemini 请求侧 tools 参数转换。
+fn openai_tool_declarations(tools: &Value) -> Result<Vec<(String, String, Value)>, WhError> {
+    let array = tools.as_array().ok_or_else(|| {
+        whcode_domain::WhError::invalid_state("tools 参数必须是数组（OpenAI 兼容形状）")
+    })?;
+    array
+        .iter()
+        .map(|entry| {
+            let function = entry
+                .get("function")
+                .ok_or_else(|| whcode_domain::WhError::invalid_state("tools 项缺 function 字段"))?;
+            let name = function
+                .get("name")
+                .and_then(Value::as_str)
+                .filter(|name| !name.is_empty())
+                .ok_or_else(|| {
+                    whcode_domain::WhError::invalid_state("tools 项缺 function.name 或为空")
+                })?
+                .to_string();
+            let description = function
+                .get("description")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let parameters = function
+                .get("parameters")
+                .cloned()
+                .unwrap_or_else(|| json!({}));
+            Ok((name, description, parameters))
+        })
+        .collect()
+}
+
+/// Anthropic tools 参数：OpenAI 形状 → Anthropic 原生形状
+/// `[{"name","description","input_schema"}]`（ADR-088 已知限制 2）。
+fn anthropic_tools(tools: &Value) -> Result<Value, WhError> {
+    let declarations = openai_tool_declarations(tools)?;
+    Ok(Value::Array(
+        declarations
+            .into_iter()
+            .map(|(name, description, parameters)| {
+                json!({
+                    "name": name,
+                    "description": description,
+                    "input_schema": parameters,
+                })
+            })
+            .collect(),
+    ))
+}
+
+/// Gemini tools 参数：OpenAI 形状 → Gemini 原生形状
+/// `[{"functionDeclarations":[{"name","description","parameters"}]}]`
+/// （ADR-088 已知限制 2；camelCase 与 Gemini API 一致）。
+fn gemini_tools(tools: &Value) -> Result<Value, WhError> {
+    let declarations = openai_tool_declarations(tools)?;
+    let functions: Vec<Value> = declarations
+        .into_iter()
+        .map(|(name, description, parameters)| {
+            json!({
+                "name": name,
+                "description": description,
+                "parameters": parameters,
+            })
+        })
+        .collect();
+    Ok(json!([{ "functionDeclarations": functions }]))
+}
+
 /// Anthropic 消息映射（FR-720；ADR-088 结构化升级）：system 抽为顶层 `system`
 /// 段（换行连接）；user/assistant 交替进 `messages`；相邻同角色合并（Anthropic
 /// 要求严格交替）；assistant 的模型工具调用序列化为 `tool_use` 块，tool 结果
@@ -485,6 +560,9 @@ impl WireProtocol for Anthropic {
         if !system.is_empty() {
             body["system"] = json!(system);
         }
+        if let Some(tools) = &request.tools {
+            body["tools"] = anthropic_tools(tools)?;
+        }
         body_string(merge_extra(body, &profile.extra_body)?)
     }
 
@@ -643,6 +721,9 @@ impl WireProtocol for Gemini {
         });
         if let Some(instruction) = system_instruction {
             body["systemInstruction"] = instruction;
+        }
+        if let Some(tools) = &request.tools {
+            body["tools"] = gemini_tools(tools)?;
         }
         body_string(merge_extra(body, &profile.extra_body)?)
     }
@@ -1457,6 +1538,93 @@ mod tests {
             value.get("tools").is_none(),
             "tools: None 时不得产生 tools 键"
         );
+    }
+
+    /// ADR-088 已知限制 2：Anthropic tools 参数转换（OpenAI 形状 → Anthropic 原生）。
+    #[test]
+    fn anthropic_request_body_converts_tools_to_native_shape() {
+        let mut req = request();
+        req.tools = Some(serde_json::json!([
+            { "type": "function", "function": {
+                "name": "read_file", "description": "读取文件",
+                "parameters": { "type": "object", "properties": { "path": { "type": "string" } } }
+            } }
+        ]));
+        let body = Anthropic
+            .request_body(&req, &profile(Protocol::Anthropic))
+            .expect("body");
+        let value: Value = serde_json::from_str(&body).expect("JSON");
+        assert_eq!(value["tools"][0]["name"], "read_file");
+        assert_eq!(value["tools"][0]["description"], "读取文件");
+        assert_eq!(value["tools"][0]["input_schema"]["type"], "object");
+        assert!(
+            value["tools"][0].get("function").is_none(),
+            "Anthropic 形状不得残留 OpenAI 的 function 包装"
+        );
+    }
+
+    /// ADR-088 已知限制 2：Gemini tools 参数转换（functionDeclarations，camelCase）。
+    #[test]
+    fn gemini_request_body_converts_tools_to_function_declarations() {
+        let mut req = request();
+        req.tools = Some(serde_json::json!([
+            { "type": "function", "function": {
+                "name": "read_file", "description": "读取文件",
+                "parameters": { "type": "object" }
+            } }
+        ]));
+        let body = Gemini
+            .request_body(&req, &profile(Protocol::Gemini))
+            .expect("body");
+        let value: Value = serde_json::from_str(&body).expect("JSON");
+        assert_eq!(
+            value["tools"][0]["functionDeclarations"][0]["name"],
+            "read_file"
+        );
+        assert_eq!(
+            value["tools"][0]["functionDeclarations"][0]["description"],
+            "读取文件"
+        );
+        assert_eq!(
+            value["tools"][0]["functionDeclarations"][0]["parameters"]["type"],
+            "object"
+        );
+    }
+
+    /// 失败路径：tools 缺 function.name 时显式拒绝，不静默丢弃、不伪造空声明。
+    #[test]
+    fn anthropic_and_gemini_reject_malformed_tools() {
+        let mut req = request();
+        req.tools = Some(serde_json::json!([
+            { "type": "function", "function": { "description": "无名工具" } }
+        ]));
+        assert!(
+            Anthropic
+                .request_body(&req, &profile(Protocol::Anthropic))
+                .is_err(),
+            "Anthropic 必须拒绝缺 name 的 tools 项"
+        );
+        assert!(
+            Gemini
+                .request_body(&req, &profile(Protocol::Gemini))
+                .is_err(),
+            "Gemini 必须拒绝缺 name 的 tools 项"
+        );
+    }
+
+    /// tools: None 时 Anthropic/Gemini 也不产生 tools 键（与 OpenAI 同语义）。
+    #[test]
+    fn anthropic_and_gemini_omit_tools_when_none() {
+        for protocol in [Protocol::Anthropic, Protocol::Gemini] {
+            let body = registry(protocol)
+                .request_body(&request(), &profile(protocol))
+                .expect("body");
+            let value: Value = serde_json::from_str(&body).expect("JSON");
+            assert!(
+                value.get("tools").is_none(),
+                "{protocol:?} 不应产生 tools 键"
+            );
+        }
     }
 
     #[test]

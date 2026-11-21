@@ -60,8 +60,9 @@
 - **已知限制**：①跨轮工具链路未持久化（messages 表无 tool_call_id 列）——重载后
   role:tool 无前置锚点，本批以“下一轮上下文不含上一轮消息”的既有口径回避（字段
   测试② turn 2 实证），多轮工具记忆属 T389；②Anthropic/Gemini 的 tools 参数格式
-  转换未做（turn 侧 tools 为 OpenAI 形状）——接入真实 Anthropic/Gemini 供应商前
-  必须补齐；③Gemini/Ollama 的调用 ID 为合成（函数名），供应商侧无真 ID。
+  转换于 2026-11-21 由 T404 补齐（见修订记录）——现为单元级取证，**未接入真实
+  Anthropic/Gemini 供应商**，不得据此宣称平台结论；③Gemini/Ollama 的调用 ID 为
+  合成（函数名），供应商侧无真 ID。
 - **将来失效条件与复审触发（绑定命令＋判定）**：
   1. T389 落地后重跑字段测试② turn 2——模型应能复述上一轮工具调用；
   2. 接入任一 Anthropic/Gemini 真实供应商时，先补 tools 参数转换并重跑单元取证；
@@ -100,3 +101,15 @@
 
 - 需求：FR-797；任务 T384—T389；验收 Check 478—479。
 - 字段测试：`fieldtest-2026-11-17.md`（断链实证）→ `fieldtest2-2026-11-19.md`（修复实证）。
+
+## 修订记录
+
+- **2026-11-21（T404，用户“继续功能开发”方向确认）**：已知限制 2 收口——补齐
+  Anthropic／Gemini 请求侧 tools 参数格式转换。turn 侧 OpenAI 形状
+  （`[{type:function, function:{name,description,parameters}}]`）仍为单一事实源；
+  `protocols.rs` 新增 `anthropic_tools`（→ `[{name,description,input_schema}]`）与
+  `gemini_tools`（→ `[{functionDeclarations:[...]}]`），缺 `function.name` 显式拒绝
+  （不静默丢弃、不伪造空声明）。OpenAI／Ollama／Cohere 行为零变化。
+  取证：whcode-llm 74 项单测（新增 4：两族形状断言、非法 tools 拒绝、None 不产键）。
+  **边界**：无 Anthropic／Gemini 真实凭据与端点，仅单元级取证，不冒充平台结论；
+  复审触发 2 保持有效——接入真实供应商时仍须重跑单元取证并做真模型 e2e。

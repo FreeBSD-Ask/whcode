@@ -2978,3 +2978,17 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   traceability 无断链、check_counts 一致。coherence mid 的 2 条 soft 反例为 ADR-091
   尚未 git add（提交时消除）；end 的 soft 反例为存量（59/78 条历史 Check 缺标注、FR-406
   负极性），与本批无关。CI 结论按 ADR-037 待回填。
+
+## Tasks（2026-11-21 追加）：ADR-088 已知限制 2 收口（tools 参数格式转换）
+
+- [x] T404 Anthropic／Gemini tools 参数格式转换（FR-797／ADR-088 修订）：turn 侧
+  OpenAI 形状保持单一事实源；`protocols.rs` 新增 `anthropic_tools`（→ `input_schema`）
+  与 `gemini_tools`（→ `functionDeclarations`），缺 `function.name` 显式拒绝；
+  OpenAI／Ollama／Cohere 行为零变化；仅单元级取证，无真实供应商凭据不冒充平台结论。
+  **任务认知卡**：方向＝补 ADR-088 已知限制 2（请求侧 tools 参数格式）；目标＝两族
+  转换的单元级取证全绿；用户意图＝“继续功能开发”选项确认补 tools 参数转换；
+  非目标＝不改 turn 侧工具清单形状、不接真实供应商、不改 decode 侧、不碰其他三族；
+  现有证据＝ADR-088 已知限制 2、protocols.rs OpenAI 请求构造、FR-797、Check 478—479；
+  手段（后置）＝两个纯函数转换＋请求体接线＋单测。
+  **取证（2026-11-21）**：`cargo test -p whcode-llm --lib`（74 通过，新增 4 用例）；
+  ADR-088 修订记录与 FR-797 描述同步；Check 486。CI 结论按 ADR-037 待回填。
