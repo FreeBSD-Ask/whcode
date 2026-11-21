@@ -776,6 +776,12 @@ msgstr "Wiederherstellen"
 msgid "gui.op.rewind"
 msgstr "Chat zurücksetzen"
 
+msgid "gui.op.spec.force"
+msgstr "Gate überschreiben"
+
+msgid "gui.op.spec.next"
+msgstr "Nächste Stufe"
+
 msgid "gui.session.archived"
 msgstr "Archiviert"
 

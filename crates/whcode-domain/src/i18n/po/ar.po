@@ -776,6 +776,12 @@ msgstr "استعادة"
 msgid "gui.op.rewind"
 msgstr "إرجاع الحوار"
 
+msgid "gui.op.spec.force"
+msgstr "تجاوز البوابة"
+
+msgid "gui.op.spec.next"
+msgstr "المرحلة التالية"
+
 msgid "gui.session.archived"
 msgstr "مؤرشفة"
 

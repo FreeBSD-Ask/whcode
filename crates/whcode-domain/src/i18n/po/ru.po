@@ -776,6 +776,12 @@ msgstr "Восстановить"
 msgid "gui.op.rewind"
 msgstr "Откат диалога"
 
+msgid "gui.op.spec.force"
+msgstr "Принудительный переход"
+
+msgid "gui.op.spec.next"
+msgstr "Следующий этап"
+
 msgid "gui.session.archived"
 msgstr "Архив"
 

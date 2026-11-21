@@ -776,6 +776,12 @@ msgstr "পুনরুদ্ধার"
 msgid "gui.op.rewind"
 msgstr "সংলাপ রিওয়াইন্ড"
 
+msgid "gui.op.spec.force"
+msgstr "গেট অতিক্রম"
+
+msgid "gui.op.spec.next"
+msgstr "পরবর্তী পর্যায়"
+
 msgid "gui.session.archived"
 msgstr "আর্কাইভকৃত"
 

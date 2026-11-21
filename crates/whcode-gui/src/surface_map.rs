@@ -164,11 +164,11 @@ mod tests {
         }
     }
 
-    /// ADR-056：GUI 已实现条目 = 读面 ∪ 白名单写面（对话 + 会话/任务/清理命令）；
-    /// 白名单外的写/破坏性面不得在 GUI 出现已实现（如 `spec.*` 门禁操作、`settings.cert.write`）。
+    /// ADR-056／092：GUI 已实现条目 = 读面 ∪ 白名单写面（对话、会话/任务/清理与 SDD 阶段推进）。
+    /// 白名单外的写/破坏性面不得在 GUI 出现已实现，如 `settings.cert.write`。
     #[test]
     fn gui_implemented_surfaces_are_reads_or_whitelisted_writes() {
-        const WRITES: [&str; 14] = [
+        const WRITES: [&str; 16] = [
             "session.new",
             "session.rename",
             "session.archive",
@@ -184,6 +184,9 @@ mod tests {
             "session.rewind",
             "session.restore",
             "session.plan",
+            // ADR-092／FR-800 批 1：SDD 阶段推进两面入白名单（reason 必填＋审计同源）。
+            "spec.next",
+            "spec.force-advance",
         ];
         for entry in SURFACES {
             if !matches!(entry.support(FrontendId::Gui), Support::Implemented { .. }) {
@@ -208,17 +211,17 @@ mod tests {
         }
     }
 
-    /// Task 179：自动刷新登记为 `gui_manual_refresh`（显式 `r` 刷新为其 GUI 形态）。
+    /// ADR-092／FR-800：view.changes 由排除正名为已实现——`r` 键显式刷新是真实
+    /// GUI 锚点；FR-714 禁止周期定时器不变（无自动刷新，不伪造“在线可见”）。
     #[test]
-    fn online_visibility_is_registered_as_manual_refresh() {
+    fn online_visibility_is_registered_as_explicit_refresh() {
         let entry = find("view.changes").expect("view.changes 已登记");
-        assert_eq!(
+        assert!(matches!(
             entry.support(FrontendId::Gui),
-            &Support::Excluded {
-                reason: ExclusionReason::GuiManualRefresh
-            }
-        );
+            Support::Implemented { anchor } if anchor.contains("GuiAction::Refresh")
+        ));
         assert_eq!(surface_of(GuiAction::Refresh), "view.changes");
+        assert_eq!(entry.effect, EffectClass::Read);
     }
 
     /// Task 179：四主题入口与 FR-713 一致——`t` 键循环四套精确色值主题，不要求重启。

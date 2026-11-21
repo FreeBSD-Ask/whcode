@@ -776,6 +776,12 @@ msgstr "Restaurer"
 msgid "gui.op.rewind"
 msgstr "Rembobiner"
 
+msgid "gui.op.spec.force"
+msgstr "Forcer le passage"
+
+msgid "gui.op.spec.next"
+msgstr "Étape suivante"
+
 msgid "gui.session.archived"
 msgstr "Archivées"
 

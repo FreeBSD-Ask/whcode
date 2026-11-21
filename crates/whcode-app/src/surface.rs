@@ -713,8 +713,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（n → FrontendCommand::SpecNext）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            // ADR-092／FR-800：Spec 视图 n 键＋操作面板按钮经门面推进。
+            Support::Implemented {
+                anchor: "whcode_gui::State::op_confirm（OpMode::SpecNext，ADR-092）",
             },
             Support::Implemented {
                 anchor: "POST /api/spec/next",
@@ -801,8 +802,9 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_key_normal（F → SpecForceAdvance 两步输入）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiReadOnlyV1,
+            // ADR-092／FR-800：Spec 视图 F 键＋操作面板按钮；reason 必填、审计同源。
+            Support::Implemented {
+                anchor: "whcode_gui::State::op_confirm（OpMode::SpecForceAdvance，ADR-092）",
             },
             Support::Implemented {
                 anchor: "POST /api/spec/force-advance",
@@ -1730,8 +1732,10 @@ pub const SURFACES: &[SurfaceEntry] = &[
             Support::Implemented {
                 anchor: "LoopCore::on_idle（≥1000 ms 游标检查，推进才重绘）",
             },
-            Support::Excluded {
-                reason: ExclusionReason::GuiManualRefresh,
+            // ADR-092／FR-800：r 键显式刷新是 view.changes 的真实 GUI 锚点，
+            // 由排除正名为已实现；FR-714 禁止周期定时器不变（仍无自动刷新）。
+            Support::Implemented {
+                anchor: "GuiAction::Refresh（r 键显式刷新，无定时器，ADR-092）",
             },
             Support::Implemented { anchor: "GET /ws" },
         ],

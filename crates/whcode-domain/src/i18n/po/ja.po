@@ -776,6 +776,12 @@ msgstr "復元"
 msgid "gui.op.rewind"
 msgstr "会話巻き戻し"
 
+msgid "gui.op.spec.force"
+msgstr "強制通過"
+
+msgid "gui.op.spec.next"
+msgstr "次の段階へ"
+
 msgid "gui.session.archived"
 msgstr "アーカイブ"
 

@@ -776,6 +776,12 @@ msgstr "還原"
 msgid "gui.op.rewind"
 msgstr "對話回退"
 
+msgid "gui.op.spec.force"
+msgstr "強制放行"
+
+msgid "gui.op.spec.next"
+msgstr "推進階段"
+
 msgid "gui.session.archived"
 msgstr "封存"
 

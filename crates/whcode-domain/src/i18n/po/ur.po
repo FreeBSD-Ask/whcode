@@ -776,6 +776,12 @@ msgstr "بحال کریں"
 msgid "gui.op.rewind"
 msgstr "گفتگو واپس"
 
+msgid "gui.op.spec.force"
+msgstr "گیٹ عبور کریں"
+
+msgid "gui.op.spec.next"
+msgstr "اگلا مرحلہ"
+
 msgid "gui.session.archived"
 msgstr "آرکائیو شدہ"
 

@@ -776,6 +776,12 @@ msgstr "Restore"
 msgid "gui.op.rewind"
 msgstr "Rewind chat"
 
+msgid "gui.op.spec.force"
+msgstr "Force advance"
+
+msgid "gui.op.spec.next"
+msgstr "Next stage"
+
 msgid "gui.session.archived"
 msgstr "Archived"
 

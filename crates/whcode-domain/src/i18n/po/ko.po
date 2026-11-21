@@ -776,6 +776,12 @@ msgstr "복원"
 msgid "gui.op.rewind"
 msgstr "대화 되돌리기"
 
+msgid "gui.op.spec.force"
+msgstr "강제 통과"
+
+msgid "gui.op.spec.next"
+msgstr "다음 단계"
+
 msgid "gui.session.archived"
 msgstr "보관"
 

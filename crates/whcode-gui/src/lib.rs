@@ -345,6 +345,12 @@ enum OpMode {
     SessionRestore { exec_id: String },
     /// 计划模式（T393／FR-774）：输入即 on／off。
     SessionPlanSet,
+    /// SDD 阶段推进（ADR-092／FR-800）：`spec.next`，无预览，输入为目标阶段
+    /// （空＝沿状态机后继）；经命令门面执行。
+    SpecNext,
+    /// 人工强制越过门禁（ADR-092／FR-800）：`spec.force-advance`，两步——
+    /// 先输入目标阶段冻结于 `to`，再输入必填 reason 后经门面执行。
+    SpecForceAdvance { to: Option<String> },
 }
 
 /// 启动参数。
@@ -1073,6 +1079,18 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                     let _ = update(state, Message::SpecGate("converge"));
                     return Task::none();
                 }
+                // ADR-092／FR-800：Spec 写面键位（与 TUI 同语义，按视图门控）。
+                'n' if state.view == ViewId::Spec => {
+                    let _ = update(state, Message::OpStart(OpMode::SpecNext));
+                    return Task::none();
+                }
+                'F' if state.view == ViewId::Spec => {
+                    let _ = update(
+                        state,
+                        Message::OpStart(OpMode::SpecForceAdvance { to: None }),
+                    );
+                    return Task::none();
+                }
                 'q' => return iced::exit(),
                 _ => return Task::none(),
             }
@@ -1577,7 +1595,24 @@ fn op_preview(state: &mut State) {
         | OpMode::SessionRename
         | OpMode::SessionFork
         | OpMode::SessionRewind
-        | OpMode::SessionPlanSet => return,
+        | OpMode::SessionPlanSet
+        | OpMode::SpecNext => return,
+        // ADR-092：spec.force-advance 两步——首步（to=None）把输入冻结为目标阶段；
+        // 次步由 OpConfirm 读取 reason。首步不产生预览 outcome（Confirmation::ReasonRequired）。
+        OpMode::SpecForceAdvance { to: None } => {
+            let taken = std::mem::take(&mut state.op_input);
+            if taken.trim().is_empty() {
+                state.op_feedback = Some("强制放行：目标阶段不能为空".to_string());
+                return;
+            }
+            state.op_mode = Some(OpMode::SpecForceAdvance {
+                to: Some(taken.trim().to_string()),
+            });
+            state.op_input.clear();
+            state.op_feedback = Some("强制放行：请输入理由（reason）后确认".to_string());
+            return;
+        }
+        OpMode::SpecForceAdvance { to: Some(_) } => return,
         OpMode::SessionRestore { exec_id } => {
             if exec_id.is_empty() {
                 // 首次预览：取输入并冻结执行 ID（确认阶段不再重读）。
@@ -1693,6 +1728,38 @@ fn op_confirm(state: &mut State) {
             FrontendCommand::SessionPlanSet {
                 session_id: state.selected_session().unwrap_or_default(),
                 active,
+            }
+        }
+        // ADR-092／FR-800：spec.next 经门面推进（输入为空＝沿状态机后继）。
+        OpMode::SpecNext => {
+            let to_input = std::mem::take(&mut state.op_input);
+            let to = if to_input.trim().is_empty() {
+                None
+            } else {
+                Some(to_input.trim().to_string())
+            };
+            FrontendCommand::SpecNext {
+                session_id: state.selected_session().unwrap_or_default(),
+                to,
+                workspace: std::path::PathBuf::new(),
+            }
+        }
+        // ADR-092／FR-800：spec.force-advance 理由必填（FR-312），审计由门面落表。
+        OpMode::SpecForceAdvance { to } => {
+            let reason = std::mem::take(&mut state.op_input);
+            if reason.trim().is_empty() {
+                state.op_feedback = Some("强制放行：理由不能为空".to_string());
+                return;
+            }
+            let Some(to) = to else {
+                state.op_feedback = Some("强制放行：缺少目标阶段".to_string());
+                return;
+            };
+            FrontendCommand::SpecForceAdvance {
+                session_id: state.selected_session().unwrap_or_default(),
+                to,
+                reason: reason.trim().to_string(),
+                workspace: std::path::PathBuf::new(),
             }
         }
     };
@@ -2315,6 +2382,55 @@ fn op_buttons(state: &State) -> Element<'_, Message> {
     .into()
 }
 
+/// Spec 视图写命令按钮（ADR-092／FR-800）：阶段推进与强制放行（reason 必填）。
+/// 无执行器时按钮不响应（与 op_buttons 同口径，不静默成功）。
+fn spec_controls(state: &State) -> Element<'_, Message> {
+    let enabled = state.executor.is_some();
+    let item = |label: &str, message: Message| -> Element<'_, Message> {
+        let theme = state.theme;
+        let button = button(rich_line(label, false, 13.0)).padding([4, 8]);
+        if enabled {
+            button.on_press(message).style(move |_t, _s| {
+                let (background, foreground) = theme.colors();
+                button::Style {
+                    background: Some(Background::Color(background)),
+                    text_color: foreground,
+                    border: Border::default(),
+                    shadow: Shadow::default(),
+                    snap: true,
+                }
+            })
+        } else {
+            button.style(move |_t, _s| {
+                let (background, foreground) = theme.colors();
+                button::Style {
+                    background: Some(Background::Color(background)),
+                    text_color: foreground,
+                    border: Border::default(),
+                    shadow: Shadow::default(),
+                    snap: true,
+                }
+            })
+        }
+        .into()
+    };
+    row(mirrored_order(
+        is_rtl_locale(&state.texts.locale),
+        vec![
+            item(
+                state.texts.resolve("gui.op.spec.next"),
+                Message::OpStart(OpMode::SpecNext),
+            ),
+            item(
+                state.texts.resolve("gui.op.spec.force"),
+                Message::OpStart(OpMode::SpecForceAdvance { to: None }),
+            ),
+        ],
+    ))
+    .spacing(6)
+    .into()
+}
+
 /// 清理截止：默认早于 30 天（预览面板可改天数——op_input 即天数文本）。
 fn purge_cutoff_ms() -> i64 {
     now_ms() as i64 - 30 * 24 * 60 * 60 * 1000
@@ -2332,6 +2448,8 @@ fn op_panel(state: &State) -> Element<'_, Message> {
             | OpMode::SessionRewind
             | OpMode::SessionRestore { .. }
             | OpMode::SessionPlanSet
+            | OpMode::SpecNext
+            | OpMode::SpecForceAdvance { .. }
     );
     let destructive = matches!(
         mode,
@@ -2680,8 +2798,19 @@ fn view(state: &State) -> Element<'_, Message> {
             .spacing(8)
             .into(),
             ViewId::Diff => diff_body(state),
-            // ADR-091／FR-799：Events 支持选中详情、Spec 支持门禁摘要。
-            ViewId::Events | ViewId::Spec => read_detail_body(state),
+            // ADR-091／FR-799：Events 支持选中详情；Spec 支持门禁摘要。
+            ViewId::Events => read_detail_body(state),
+            // ADR-092／FR-800：Spec 视图接入阶段推进与强制放行写面。
+            ViewId::Spec if state.op_mode.is_some() => column![
+                op_panel(state),
+                spec_controls(state),
+                read_detail_body(state)
+            ]
+            .spacing(8)
+            .into(),
+            ViewId::Spec => column![spec_controls(state), read_detail_body(state)]
+                .spacing(8)
+                .into(),
             _ => read_body(state, false),
         }
     };
@@ -3904,12 +4033,131 @@ mod tests {
             "settings.panels.state.failed",
             "settings.approvals.empty",
             "settings.approvals.revoke",
+            // ADR-092／FR-800 批 1：Spec 写面按钮（十三套目录均须有译文，不得回退键名）。
+            "gui.op.spec.next",
+            "gui.op.spec.force",
         ];
         for (locale, _) in whcode_domain::i18n::BUILTIN_LOCALES {
             let texts = I18n::load(locale, whcode_domain::i18n::LocaleSource::Explicit);
             for key in KEYS {
                 assert_ne!(texts.resolve(key), *key, "{locale} 缺 {key}");
             }
+        }
+    }
+
+    /// ADR-092／FR-800 批 1：Spec 写面经按钮／键位入 GUI——正向（空输入沿后继、
+    /// 带目标、reason 必填）、失败（空目标／空 reason 不执行）、键位门控（仅 Spec 视图）。
+    /// 以命令记录断言门面形状；落库与审计由 whcode-app 单点保证，本端不伪造。
+    #[test]
+    fn spec_write_surfaces_positive_failure_and_key_gated() {
+        use std::cell::RefCell;
+
+        struct CaptureExecutor {
+            calls: Rc<RefCell<Vec<FrontendCommand>>>,
+        }
+        impl CommandExecutor for CaptureExecutor {
+            fn execute(
+                &self,
+                command: FrontendCommand,
+            ) -> Result<whcode_app::commands::CommandOutcome, WhError> {
+                self.calls.borrow_mut().push(command);
+                Ok(whcode_app::commands::CommandOutcome::PlanSet(
+                    whcode_app::PlanView {
+                        active: false,
+                        seq: None,
+                    },
+                ))
+            }
+        }
+        let calls = Rc::new(RefCell::new(Vec::new()));
+        let executor: Rc<dyn CommandExecutor> = Rc::new(CaptureExecutor {
+            calls: Rc::clone(&calls),
+        });
+        let source: Rc<dyn ViewSource> = Rc::new(whcode_app::view_source::EmptyViewSource);
+        let mut state = State::new(
+            source,
+            I18n::default(),
+            GuiTheme::EinkDay,
+            Some(executor),
+            None,
+        );
+        state.session_ids = vec!["S-1".to_string()];
+        state.selected = Some(0);
+
+        // 键位门控：非 Spec 视图按 n／F 不进入写模式。
+        let _ = update(&mut state, Message::SelectView(ViewId::Events));
+        let _ = update(&mut state, Message::Key('n'));
+        assert!(state.op_mode.is_none(), "非 Spec 视图 n 不得触发写面");
+        let _ = update(&mut state, Message::Key('F'));
+        assert!(state.op_mode.is_none(), "非 Spec 视图 F 不得触发写面");
+
+        // 正向 1：spec.next 空输入＝沿状态机后继（to=None）。
+        let _ = update(&mut state, Message::SelectView(ViewId::Spec));
+        let _ = update(&mut state, Message::Key('n'));
+        assert!(matches!(state.op_mode, Some(OpMode::SpecNext)));
+        let _ = update(&mut state, Message::OpConfirm);
+        match calls.borrow().last().expect("next 应发命令") {
+            FrontendCommand::SpecNext { to: None, .. } => {}
+            other => panic!("空输入应发 to=None，实际 {other:?}"),
+        }
+        assert!(state.op_mode.is_none(), "成功后退出操作面板");
+
+        // 正向 2：spec.next 带目标阶段（to=Some）。
+        let _ = update(&mut state, Message::Key('n'));
+        let _ = update(&mut state, Message::OpInputChanged("plan".into()));
+        let _ = update(&mut state, Message::OpConfirm);
+        match calls.borrow().last().expect("next 应发命令") {
+            FrontendCommand::SpecNext { to: Some(to), .. } if to == "plan" => {}
+            other => panic!("带目标应发 to=plan，实际 {other:?}"),
+        }
+
+        // 正向 3：spec.force-advance 两步——首步冻结目标、次步读 reason。
+        let before = calls.borrow().len();
+        let _ = update(&mut state, Message::Key('F'));
+        assert!(matches!(
+            state.op_mode,
+            Some(OpMode::SpecForceAdvance { to: None })
+        ));
+        let _ = update(&mut state, Message::OpInputChanged(String::new()));
+        let _ = update(&mut state, Message::OpPreview);
+        assert!(
+            state
+                .op_feedback
+                .as_deref()
+                .unwrap_or_default()
+                .contains("不能为空"),
+            "空目标须显式拒绝：{:?}",
+            state.op_feedback
+        );
+        assert_eq!(calls.borrow().len(), before, "空目标不得发命令");
+
+        let _ = update(&mut state, Message::OpInputChanged("plan".into()));
+        let _ = update(&mut state, Message::OpPreview);
+        assert!(matches!(
+            state.op_mode,
+            Some(OpMode::SpecForceAdvance { to: Some(_) })
+        ));
+        let _ = update(&mut state, Message::OpInputChanged(String::new()));
+        let _ = update(&mut state, Message::OpConfirm);
+        assert_eq!(calls.borrow().len(), before, "空 reason 不得发命令");
+        assert!(
+            state
+                .op_feedback
+                .as_deref()
+                .unwrap_or_default()
+                .contains("理由"),
+            "空 reason 须显式拒绝：{:?}",
+            state.op_feedback
+        );
+
+        let _ = update(&mut state, Message::OpInputChanged("人工放行".into()));
+        let _ = update(&mut state, Message::OpConfirm);
+        match calls.borrow().last().expect("force 应发命令") {
+            FrontendCommand::SpecForceAdvance { to, reason, .. } => {
+                assert_eq!(to, "plan");
+                assert_eq!(reason, "人工放行");
+            }
+            other => panic!("force 形状不符：{other:?}"),
         }
     }
 

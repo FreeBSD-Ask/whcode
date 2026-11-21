@@ -1567,6 +1567,11 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   12 面逐项有真实锚点、正向与失败路径测试；四端对等矩阵逐行一致；GUI 资源不超
   ADR-027 预算；证书写面降档须确认并写审计；运行时安装不联网；原生铁律与资源预算
   不放松。分三批取证，逐批回填。
+  **批次一进度（2026-11-21，T405）**：3 面（`view.changes` 正名、`spec.next`、
+  `spec.force-advance`）登记翻转为 `Implemented`、矩阵三行同步、十三套 i18n 键齐；
+  `cargo test -p whcode-gui --lib`（41 通过，含写面正向／失败／键位门控新测）、
+  `cargo test -p whcode-tests --test frontend_parity`（10 通过）。批次二（runtime 六面）、
+  批次三（rules.write／events.export／证书两面）与收口未完成，本 Check 保持未勾选。
 
 ## 追溯缺口登记（2026-10-23）
 

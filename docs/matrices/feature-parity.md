@@ -12,7 +12,7 @@
 （理由码见“依据／理由”列）；预留＝未排期（里程碑见“依据／理由”列）；不提供＝本端不适用
 （依据见登记表条目注释）。
 
-**最后更新**：2026-11-21（ADR-091／FR-799：4 个 Read 面 events.show／spec.validate／spec.analyze／spec.converge 的 GUI 状态由“部分”翻转为“已实现”——原 GUI 写命令排除理由码的适用范围收窄为 Write／Destructive；GUI 交互见 `crates/whcode-gui/src/lib.rs`。判定报告 `artifacts/gui-web-parity-assessment-2026-11-21.md`）。历史：2026-11-15（P6.4：新增 `webhook.status`／`webhook.deliver`——出站幂等投递的 CUI 命令面，其余三端不适用；FR-788／ADR-079）。历史：2026-11-15（T340—T342：新增 `view.ledger`——台账视图，待办／交付物／发现三节只读聚合，TUI 与 GUI 已实现；T347 补齐 Web 的 `GET /api/ledger`；FR-787）。历史：2026-11-14（T294：新增 `sdk.serve`——出进程 stdio JSON-RPC 机器面，CUI 已实现、其余三端不适用；ADR-071/FR-778）。历史：2026-11-06（T252：主题层扩展为六套——whcode-day/whcode-night 新增并冻结，
+**最后更新**：2026-11-21（ADR-092／FR-800 批 1：`view.changes` 由排除正名为已实现——`r` 键显式刷新为真实 GUI 锚点，FR-714 定时器禁令不变；`spec.next`／`spec.force-advance` 两面 GUI 由“部分”翻转为“已实现”——经 `OpMode` 操作面板与理由必填入写面白名单。判定报告 `artifacts/gui-web-parity-assessment-2026-11-21.md`）。历史：2026-11-21（ADR-091／FR-799：4 个 Read 面 events.show／spec.validate／spec.analyze／spec.converge 的 GUI 状态由“部分”翻转为“已实现”——原 GUI 写命令排除理由码的适用范围收窄为 Write／Destructive；GUI 交互见 `crates/whcode-gui/src/lib.rs`）。历史：2026-11-15（P6.4：新增 `webhook.status`／`webhook.deliver`——出站幂等投递的 CUI 命令面，其余三端不适用；FR-788／ADR-079）。历史：2026-11-15（T340—T342：新增 `view.ledger`——台账视图，待办／交付物／发现三节只读聚合，TUI 与 GUI 已实现；T347 补齐 Web 的 `GET /api/ledger`；FR-787）。历史：2026-11-14（T294：新增 `sdk.serve`——出进程 stdio JSON-RPC 机器面，CUI 已实现、其余三端不适用；ADR-071/FR-778）。历史：2026-11-06（T252：主题层扩展为六套——whcode-day/whcode-night 新增并冻结，
 默认主题切 `whcode-night`，用户批准；ADR-057/FR-739/FR-740）。历史：2026-11-17（用户指令：zcode 系全部改为 whcode 前缀——主题更名 whcode-day/night、工作区配置 `.zcode/*` 更名 `.whcode/*`，冻结色值不变）。历史：2026-10-26（T167 收口：
 `llm.run`／`llm.cancel` 的 TUI 翻转为已实现——`L`／`C` 键位，剖面名→提示词两步输入，
 经 `llm_provider::TuiLlmExecutor` 真实编排；三端 CUI／TUI／Web 均 `Implemented`；
@@ -40,11 +40,11 @@ T190：新增证书库设置两行）。
 | `events.export` | Command | Write | 已实现 | 部分 | 部分 | 已实现 | FR-205；部分 command_output_only |
 | `events.show` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-202、FR-799；ADR-089 T390/T391/T392；GUI 经 ADR-091 翻转 |
 | `spec.status` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-301—314 |
-| `spec.next` | Command | Write | 已实现 | 已实现 | 部分 | 已实现 | FR-301—314；T394 三端接线（GUI 保持门禁排除）；部分 gui_read_only_v1 |
+| `spec.next` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-301—314、FR-800；T394 三端接线；GUI 经 ADR-092 翻转（OpMode::SpecNext） |
 | `spec.validate` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-301—314、FR-799；T394 三端接线；GUI 经 ADR-091 翻转 |
 | `spec.analyze` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-301—314、FR-799；T394 三端接线；GUI 经 ADR-091 翻转 |
 | `spec.converge` | Command | Read | 已实现 | 已实现 | 已实现 | 已实现 | FR-301—314、FR-799；T394 接线（converge 只读计算）；GUI 经 ADR-091 翻转 |
-| `spec.force-advance` | Command | Write | 已实现 | 已实现 | 部分 | 已实现 | FR-301—314；T394 三端接线（reason 必填＋审计）；部分 gui_read_only_v1 |
+| `spec.force-advance` | Command | Write | 已实现 | 已实现 | 已实现 | 已实现 | FR-301—314、FR-800；T394 三端接线；GUI 经 ADR-092 翻转（reason 必填＋审计） |
 | `db.purge` | Command | Destructive | 已实现 | 已实现 | 已实现 | 已实现 | FR-507—510；ADR-056 |
 | `db.stats` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-507—510；部分 cli_local_admin |
 | `db.check` | Command | Read | 已实现 | 部分 | 部分 | 部分 | FR-507—510；部分 cli_local_admin |
@@ -86,7 +86,7 @@ T190：新增证书库设置两行）。
 | `view.chat` | View | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-711；部分 cui_command_surface（Web 经 llm API） |
 | `view.ledger` | View | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-787；部分 cui_command_surface（Web 经 `GET /api/ledger`，T347） |
 | `view.checkpoints` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-748；部分 cui_command_surface／six_view_scope |
-| `view.changes` | View | Read | 部分 | 已实现 | 部分 | 已实现 | FR-605／624；部分 cui_request_only、gui_manual_refresh |
+| `view.changes` | View | Read | 部分 | 已实现 | 已实现 | 已实现 | FR-605／624、FR-800；部分 cui_request_only；GUI 经 ADR-092 正名为显式刷新（GuiAction::Refresh） |
 | `settings.subagents` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-749；部分 cui_command_surface／six_view_scope |
 | `settings.skills` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-750；部分 cui_command_surface／six_view_scope |
 | `settings.mcp` | View | Read | 部分 | 部分 | 已实现 | 已实现 | FR-750；部分 cui_command_surface／six_view_scope |

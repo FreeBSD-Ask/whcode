@@ -776,6 +776,12 @@ msgstr "बहाल करें"
 msgid "gui.op.rewind"
 msgstr "संवाद पुनःस्थापन"
 
+msgid "gui.op.spec.force"
+msgstr "गेट पार करें"
+
+msgid "gui.op.spec.next"
+msgstr "अगला चरण"
+
 msgid "gui.session.archived"
 msgstr "आर्काइव किए गए"
 

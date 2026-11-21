@@ -2995,11 +2995,19 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
 
 ## Tasks（2026-11-21 追加）：应用族剩余 12 面对齐（ADR-092，用户批准）
 
-- [ ] T405（FR-800）批次一：`view.changes` 正名（`r` 键显式刷新由 `Excluded(GuiManualRefresh)`
+- [x] T405（FR-800）批次一：`view.changes` 正名（`r` 键显式刷新由 `Excluded(GuiManualRefresh)`
   翻为 `Implemented`，FR-714 定时器禁令不变）＋`spec.next`／`spec.force-advance`
-  经既有 `FrontendCommand` 入 GUI（workspace 注入、reason 必填、审计同源）；
-  登记表与矩阵同步、契约测试、十三套 i18n。取证待批次回填。
+  经既有 `FrontendCommand` 入 GUI（workspace 由装配根 `TuiCommandExecutor::with_workspace`
+  注入，reason 必填、审计同源）；登记表与矩阵同步、契约测试、十三套 i18n。
   （开工前置：任务认知卡，见 ADR-092 §任务认知卡）
+  **取证（2026-11-21，本地）**：`cargo fmt --all --check`、`cargo clippy -p whcode-gui
+  --all-targets -- -D warnings`（修重复匹配臂后零告警）；`cargo test -p whcode-gui --lib`
+  （41 通过，新增 `spec_write_surfaces_positive_failure_and_key_gated`：空输入沿后继、
+  带目标、reason 必填、空目标／空 reason 不执行、键位门控）；`cargo test -p whcode-tests
+  --test frontend_parity`（10 通过，矩阵三行同步）；`i18n-po.py --check`（13 套键齐）。
+  设计判定：`spec.force-advance` 的 `confirmation=ReasonRequired` 且门面无预览形态，
+  不纳入 destructive（避免与 CUI／Web/TUI 的 ReasonRequired 语义冲突）；Check 487 部分。
+  CI 结论按 ADR-037 待回填。
 - [ ] T406 批次二：runtime 六面——`ViewSource` 增 runtime 读接口＋装配根实现；
   GUI 第 11 视图（`VIEW_COUNT` 10→11，键位与穷尽 match 同步）；`commands.rs`
   增 `FrontendCommand::RuntimeEnable`／`Disable`／`Install`（`RuntimeManage` 能力＋审计；
