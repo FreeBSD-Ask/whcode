@@ -10,10 +10,12 @@
 //! 会话定位：契约 §1 要求显式 `--session`/`--task`——**不设隐式"当前会话"**，
 //! 避免脚本路径依赖隐藏状态。
 //!
-//! 已接线保留命令随批次翻转（events show＝T390、spec 门禁命令＝T394）；其余保留（
-//! `runtime status/enable/disable/install`）：统一返回 `not_supported`（退出码 55，
-//! FR-620、ADR-032），details 由登记表（`whcode_app::surface`）驱动——`surface_id`、
-//! 本端状态与里程碑/理由码；不静默成功、不伪装成 404 语义；`serve`/`doctor` 由主入口处理。
+//! 已接线命令随批次翻转（`events show`＝T390、spec 门禁命令＝T394、runtime 四命令＝T395、
+//! `session switch/share/fork/restore/rewind/plan` 与 `db checkpoint/restore` 随各自批次）。
+//! **当前无「已声明未接线」命令**；`not_supported`（退出码 55，FR-620、ADR-032）机制保留为
+//! tripwire——命令映射面若在本端为预留或不适用，details 由登记表（`whcode_app::surface`）
+//! 驱动：`surface_id`、本端状态与里程碑/理由码；不静默成功、不伪装成 404 语义；
+//! `serve`/`doctor` 由主入口处理。
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

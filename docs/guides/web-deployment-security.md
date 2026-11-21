@@ -189,9 +189,11 @@ python -c "import secrets; print(secrets.token_urlsafe(32))" > .\token.txt
   返回 **HTTP 501** + JSON 信封 `code=not_supported`、`retryable=false`，`details` 含
   `surface_id`、`state` 与 `milestone`／`reason_code`；**未登记路径仍为 404**。
   守卫位于认证与 Origin 检查**之后**（`crates/whcode-web/src/api.rs`）。
-- 证书设置在 CUI／TUI／GUI 端登记为 `Excluded`（理由码 `WEB_SETTINGS_ONLY`／
-  `GUI_READ_ONLY_V1`）。三端当前没有对应命令或界面动作，调用入口不存在；CUI 的
-  `not_supported` 守卫（退出码 55）要求命令先映射到登记面，`settings.cert.*` 尚无映射。
+- 证书设置：CUI／TUI 端登记为 `Excluded`（理由码 `WEB_SETTINGS_ONLY`），GUI 端自 2026-11-21
+  起为 `Implemented`（ADR-040 决策 4 修订：高级面板按需读状态、经装配根注入
+  `CertPaths`＋`StoreAudit` 写，降档须确认并写 `tls_config_change` 审计；**上传外部私钥
+  仍仅 Web**）。CUI／TUI 的 `not_supported` 守卫（退出码 55）要求命令先映射到登记面，
+  该二端当前无 `settings.cert.*` 命令映射，调用入口不存在。
 
 ## 7. 资源与有界性
 

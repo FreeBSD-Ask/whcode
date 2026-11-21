@@ -109,18 +109,22 @@ whcode doctor [--json]              # 环境与配置自检
 
 ## 9. 实现状态（2026-10-25 LLM 接线）
 
-已接线（真实执行，退出码见 §1）：
-`session new/list/show/rename/archive/delete`、`status`、`task list/show/retry/abort`、
-`events list/export`（json/jsonl）、`context budget`、`runtime list`、`spec status`、
-`db stats/check/purge/compact/archive/explain`、`llm run`／`llm cancel`
-（T162—T167；真实 HTTP 仅在启用 `http` feature 的构建中装配，关闭时返回 `not_supported`；
-TUI／GUI 仍为 `Reserved`，不得据本节宣称四端可用）。
+已接线（真实执行，退出码见 §1；**当前无「已声明未接线」命令**）：
+`session new/list/search/show/switch/share/fork/restore/rewind/plan/rename/archive/delete`、
+`status`、`task list/show/retry/abort`、`events list/show/export`（json/jsonl）、
+`context budget`、`runtime list/status/enable/disable/install`、
+`spec status/next/validate/analyze/converge/force-advance`、
+`db stats/check/purge/compact/checkpoint/restore/archive/explain`、
+`font install/status/uninstall`、`webhook status/deliver`、`llm run`／`llm cancel`、
+`sdk serve`／`acp serve`（机器面）、`serve`／`doctor`（由主入口处理）。
+`llm run`／`cancel` 的真实 HTTP 仅在启用 `http` feature 的构建中装配，关闭时返回
+`not_supported`；四端均已接线（T162—T167＋ADR-056），不再有「TUI／GUI 仍为 Reserved」
+的保留面。
 
-未接线（显式失败，退出码 `55` + `not_supported` 信封，不静默成功）：
-`session switch`（会话切换，FR-102 预留未排期）、`events show`（按 ID 查询接口未提供）、
-`spec next/validate/analyze/converge/force-advance`（需 SDD 产物工作区上下文）、
-`runtime status/enable/disable/install`（运行时装配开关属 M8）、
-`db checkpoint`（压缩内部步骤，不单独公开）。
+`not_supported`（退出码 `55` + `not_supported` 信封，不静默成功）**机制保留为 tripwire**：
+命令所映射的登记面若在本端登记为预留或不适用，即由此路径拒绝——details 由登记表
+（`whcode_app::surface`）驱动（`surface_id`、本端状态与里程碑／理由码）。2026-11-21
+起全表零「预留」，故正常运行时不出现该拒绝；新增预留面会自动获得同一语义。
 
 同命令一致性：读命令见 `tests/contract/test_tui_cui_parity.rs`
 （CUI 视图 vs Web `/api/*` 同数据）；写命令四端同源 `whcode-app::commands` 门面，
