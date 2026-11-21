@@ -13,6 +13,22 @@
 
 ### 新增
 
+- **应用族剩余 12 面对齐（2026-11-21，ADR-092／FR-800／T405—T408）**：Web 已实现而 GUI
+  标“部分”的 12 面按风险分三批收敛——批 1 `view.changes` 由排除正名为显式刷新（`r` 键，
+  FR-714 定时器禁令不变）、`spec.next`／`spec.force-advance` 入 GUI 写面白名单；批 2
+  runtime 六面入 GUI，新增第 11 视图 `ViewId::Runtime`（键 `-`），`ViewSource` 增
+  `runtime_entries`／`runtime_status_view` 读接口（界面刷新 `probe=false`，不启子进程），
+  三写命令经门面（install 仅本地 payload 哈希比对，不联网）；批 3 `rules.write`／
+  `events.export` 与证书两面入 GUI——证书读面 `TlsStatus` 不含私钥、写面经装配根注入
+  `CertPaths`＋`StoreAudit` 委托 `cert::*`（降档确认＋`tls_config_change` 审计），
+  **私钥上传保持 Web-only**（避免凭据进入 GUI 输入控件，如实登记为部分覆盖）。
+  登记表与受校验矩阵同步翻转，13 套 i18n 补齐，ADR-040 决策 4 修订（GUI 由
+  `Excluded` 改为 `Implemented`）。偏离登记：`events.export` 无原生保存对话框依赖，
+  改为有界文本＋手动保存（不新增依赖、不触碰 ADR-026／027）。
+  取证：四提交（`5f430cb`／`f81440c`／`cf97fe8`／`5a42417`），
+  `cargo test --locked --workspace`（跳过 ADR-082 极限用例、66 组全绿）、
+  `frontend_parity` 10、`whcode-gui --lib` 43、clippy/fmt 全绿、coherence mid/end 通过；
+  CI 结论按 ADR-037 待回填。详见 `artifacts/adr092-implementation-review-2026-11-21.md`。
 - **GUI 读面排除理由码收敛（2026-11-21，ADR-091／FR-799／T400—T403）**：
   判定报告 `artifacts/gui-web-parity-assessment-2026-11-21.md` 对 Web 已实现而 GUI
   标“部分”的 16 面逐项核验——9 面硬约束（含 `settings.rules.write`、`view.changes`）

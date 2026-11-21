@@ -3053,7 +3053,20 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   （读状态、降档须确认、确认后发命令、空源不伪造）、`cargo test -p whcode-app --lib
   cert_write_requires_assembly_root_context`、`frontend_parity` 10（篡改自测锚点改用
   仍存在的 `web_settings_only`）、clippy/fmt 全绿。
-- [ ] T408 收口：三批全链门禁（fmt／clippy／test、layering／layout、counts／traceability、
+- [x] T408 收口：三批全链门禁（fmt／clippy／test、layering／layout、counts／traceability、
   coherence pre/mid/end、文档／i18n／前端预算／ADR 限制）与 ADR-027 资源复核；
-  CHANGELOG／契约文档同步；CI 结论按 ADR-037 取证或登记缺口。取证待收口回填。
+  CHANGELOG／契约文档同步；CI 结论按 ADR-037 取证或登记缺口。
   （开工前置：任务认知卡，见 ADR-092 §任务认知卡）
+  **取证（2026-11-21，本地）**：`cargo fmt --all --check`、`cargo clippy --workspace
+  --all-targets -- -D warnings`、`cargo test --locked --workspace`（跳过 ADR-082 极限用例，
+  `--test-threads=4` 共 66 组全绿）、`layering`／`layout` 各 6、`frontend_parity` 10、
+  `check_counts.py`（FR 178／任务 409／Check 487 一致）、`traceability.py`（无断链）、
+  `check-knowing-first.py`、`check-eol.py`、`check-docs-style.py`、`i18n-po.py --check`、
+  `check-workflows.py`、`check-actions.py`、`check-adr-limits.py`、`check-frontend-budget.py`
+  全通过；`coherence pre` 反例 0、`mid --independent` disagreements 0、
+  `end --strict` unregistered 0（5 条存量 soft 反例已登记）。CHANGELOG／ADR-040／ADR-092／
+  矩阵／13 套 i18n 已同步；四提交 `5f430cb`／`f81440c`／`cf97fe8`／`5a42417`。
+  **未取得（显式登记）**：CI 结论（GitHub Actions 日志与 artifact）按 ADR-037 待云端回填；
+  `extreme_scale`（1M 事件）按 ADR-082 由每周专项覆盖；ADR-027 实机资源探针（RSS≤96 MB／
+  线程≤24／句柄≤256／CPU≤0.2%）本机未测，标 `[待验证]`——本批仅以前端预算门禁与单测取证，
+  不以静态推断冒充平台结论。详见 `artifacts/adr092-implementation-review-2026-11-21.md`。
