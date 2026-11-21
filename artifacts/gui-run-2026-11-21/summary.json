@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "exe": "D:\\WHCode\\target\\release\\whcode.exe",
+  "workspace": "C:\\Users\\ykla\\AppData\\Local\\Temp\\whcode-gui-run-e47_cmbz",
+  "themes": [
+    {
+      "theme": "eink-day",
+      "focus_initial": false,
+      "dpi_scale": 2.0,
+      "default_client_size": [
+        2400,
+        1600
+      ],
+      "fitted_client_size": [
+        1100,
+        900
+      ],
+      "title_initial": "WHCode Coding Harness  |  Sessions (1/11)",
+      "screenshots": false,
+      "resources": {
+        "working_set_mb": 81.9,
+        "private_mb": 46.9,
+        "threads": 28,
+        "handles": 251,
+        "idle_cpu_single_core_pct": 0.0
+      },
+      "title_after_keys": "WHCode Coding Harness  |  Sessions (1/11)",
+      "title_after_diff": "WHCode Coding Harness  |  Sessions (1/11)",
+      "theme_cycle": {
+        "skipped": true,
+        "reason": "资源专用模式（--resources-only）：无截屏权限，未做像素归类",
+        "keys_delivered": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "title_after_cycle": "WHCode Coding Harness  |  Sessions (1/11)"
+      },
+      "minimized_iconic": true,
+      "minimized": {
+        "cpu_single_core_pct": 0.0,
+        "cpu_seconds_delta": 0.0
+      },
+      "focus_after_restore": false,
+      "title_after_restore": "WHCode Coding Harness  |  Sessions (1/11)",
+      "quit_key_delivered": false,
+      "exit_code": "未退出（超时）"
+    },
+    {
+      "theme": "eink-night",
+      "focus_initial": false,
+      "dpi_scale": 2.0,
+      "default_client_size": [
+        2400,
+        1600
+      ],
+      "fitted_client_size": [
+        1100,
+        900
+      ],
+      "title_initial": "WHCode Coding Harness  |  Sessions (1/11)",
+      "screenshots": false,
+      "title_after_keys": "WHCode Coding Harness  |  Sessions (1/11)",
+      "title_after_diff": "WHCode Coding Harness  |  Sessions (1/11)",
+      "theme_cycle": {
+        "skipped": true,
+        "reason": "资源专用模式（--resources-only）：无截屏权限，未做像素归类",
+        "keys_delivered": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "title_after_cycle": "WHCode Coding Harness  |  Sessions (1/11)"
+      },
+      "quit_key_delivered": false,
+      "exit_code": "未退出（超时）"
+    },
+    {
+      "theme": "amoled-night",
+      "focus_initial": false,
+      "dpi_scale": 2.0,
+      "default_client_size": [
+        2400,
+        1600
+      ],
+      "fitted_client_size": [
+        1100,
+        900
+      ],
+      "title_initial": "WHCode Coding Harness  |  Sessions (1/11)",
+      "screenshots": false,
+      "title_after_keys": "WHCode Coding Harness  |  Sessions (1/11)",
+      "title_after_diff": "WHCode Coding Harness  |  Sessions (1/11)",
+      "theme_cycle": {
+        "skipped": true,
+        "reason": "资源专用模式（--resources-only）：无截屏权限，未做像素归类",
+        "keys_delivered": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "title_after_cycle": "WHCode Coding Harness  |  Sessions (1/11)"
+      },
+      "quit_key_delivered": false,
+      "exit_code": "未退出（超时）"
+    },
+    {
+      "theme": "terminal-green",
+      "focus_initial": false,
+      "dpi_scale": 2.0,
+      "default_client_size": [
+        2400,
+        1600
+      ],
+      "fitted_client_size": [
+        1100,
+        900
+      ],
+      "title_initial": "WHCode Coding Harness  |  Sessions (1/11)",
+      "screenshots": false,
+      "title_after_keys": "WHCode Coding Harness  |  Sessions (1/11)",
+      "title_after_diff": "WHCode Coding Harness  |  Sessions (1/11)",
+      "theme_cycle": {
+        "skipped": true,
+        "reason": "资源专用模式（--resources-only）：无截屏权限，未做像素归类",
+        "keys_delivered": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "title_after_cycle": "WHCode Coding Harness  |  Sessions (1/11)"
+      },
+      "quit_key_delivered": false,
+      "exit_code": "未退出（超时）"
+    }
+  ]
+}

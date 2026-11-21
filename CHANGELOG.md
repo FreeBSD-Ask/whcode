@@ -75,6 +75,16 @@
 
 ### 变更
 
+- **GUI 探测脚本支持非交互会话取资源证据（2026-11-21，ADR-027 修订记录）**：
+  `gui-probe.py` 新增 `--resources-only`——ADR-027 预算判据（RSS／私有／线程／句柄／CPU）
+  与像素无关，但原脚本在无桌面直流访问权时会因 `ImageGrab` 报 `screen grab failed`
+  在首帧中断，连带丢失资源证据。新开关下只取资源与按键证据，像素／主题色值断言显式
+  `theme_cycle.skipped = true`（不冒充通过），失败判据降为「起得来、采到样本」（零样本
+  仍判失败）。**默认路径不变**（不传开关即原完整模式），CI `desktop` job 行为不受影响。
+  取证：本机 release 复测第 11 视图构建——RSS 81.9 MB（≤96）、私有 46.9 MB（≤80）、
+  线程 **28**（>24，ADR-042 方案 A 后存量缺口，四批新增未引入增长）、句柄 251
+  （≤256，余量 5 登记观察）、空闲 CPU 0.0%（≤0.2%）；标题 `Sessions (1/11)` 确认第 11
+  视图生效。证据 `artifacts/gui-run-2026-11-21/`；CI 结论按 ADR-037 待回填。
 - **Anthropic／Gemini tools 参数格式转换（2026-11-21，ADR-088 修订／FR-797／T404）**：
   收口 ADR-088 已知限制 2。turn 侧 OpenAI 形状工具清单仍为单一事实源；协议层新增
   `anthropic_tools`（转 `input_schema`）与 `gemini_tools`（转 `functionDeclarations`），

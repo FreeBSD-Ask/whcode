@@ -342,6 +342,7 @@ def run_theme(
     theme: str,
     out_dir: pathlib.Path,
     measure_resources: bool,
+    screenshots: bool = True,
 ) -> dict[str, object]:
     env = dict(os.environ, WHCODE_UI_THEME=theme)
     process = subprocess.Popen(
@@ -391,16 +392,22 @@ def run_theme(
         time.sleep(1.0)
 
         result["title_initial"] = window_title(hwnd)
-        shot = out_dir / f"gui-{theme}.png"
-        image, box = grab_client(hwnd, shot)
-        result["client_box"] = box
-        result["client_on_screen"] = on_screen(box)
-        if image is None:
-            result["error"] = "初始截图失败：客户端区域为空"
-            return result
-        result["screenshot"] = str(shot)
-        result["client_size"] = [image.width, image.height]
-        result["pixels"] = pixel_stats(image)
+        if screenshots:
+            shot = out_dir / f"gui-{theme}.png"
+            image, box = grab_client(hwnd, shot)
+            result["client_box"] = box
+            result["client_on_screen"] = on_screen(box)
+            if image is None:
+                result["error"] = "初始截图失败：客户端区域为空"
+                return result
+            result["screenshot"] = str(shot)
+            result["client_size"] = [image.width, image.height]
+            result["pixels"] = pixel_stats(image)
+        else:
+            # 资源专用模式（--resources-only）：非交互会话（无桌面直流访问权）无法截屏，
+            # 但 ADR-027 预算判据是 RSS／私有／线程／句柄／CPU，与像素无关——分开取证，
+            # 不因拿不到像素而连带放弃资源证据。
+            result["screenshots"] = False
 
         # FR-712：空闲基准必须在注入任何按键之前采样（交互后的句柄数不代表空闲态）
         if measure_resources:
@@ -420,13 +427,15 @@ def run_theme(
         press(VK_R, hwnd)
         time.sleep(1.0)
         result["title_after_keys"] = window_title(hwnd)
-        grab_client(hwnd, out_dir / f"gui-{theme}-view3.png")
+        if screenshots:
+            grab_client(hwnd, out_dir / f"gui-{theme}-view3.png")
 
         # 等宽字体证据：diff 预览使用 JetBrains Mono（拉丁）+ Sarasa Mono SC（CJK）
         press(VK_6, hwnd)
         time.sleep(0.8)
         result["title_after_diff"] = window_title(hwnd)
-        grab_client(hwnd, out_dir / f"gui-{theme}-diff.png")
+        if screenshots:
+            grab_client(hwnd, out_dir / f"gui-{theme}-diff.png")
         press(VK_3, hwnd)
         time.sleep(0.5)
 
@@ -441,31 +450,43 @@ def run_theme(
         ]
         actual_themes: list[str | None] = []
         observed: list[dict[str, float]] = []
-        for step in range(1, len(THEMES) + 1):
-            if not press(VK_T, hwnd):
-                actual_themes.append(None)
-                observed.append({})
-                continue
-            expected_theme = expected_themes[step - 1]
-            seen: str | None = None
-            detail: dict[str, float] = {}
-            deadline = time.time() + 6
-            while time.time() < deadline:
-                time.sleep(0.4)
-                image, _ = grab_client(hwnd, out_dir / f"gui-{theme}-theme{step}.png")
-                if image is None:
+        if not screenshots:
+            # 资源专用模式：仍按四次 `t` 走完主题循环（验证按键不使应用退出），
+            # 但不做像素归类——主题色值断言需像素证据，此处显式 skip，不冒充通过。
+            delivered = [press(VK_T, hwnd) for _ in range(len(THEMES))]
+            time.sleep(0.5)
+            result["theme_cycle"] = {
+                "skipped": True,
+                "reason": "资源专用模式（--resources-only）：无截屏权限，未做像素归类",
+                "keys_delivered": delivered,
+                "title_after_cycle": window_title(hwnd),
+            }
+        else:
+            for step in range(1, len(THEMES) + 1):
+                if not press(VK_T, hwnd):
+                    actual_themes.append(None)
+                    observed.append({})
                     continue
-                seen, detail = classify_theme(image)
-                if seen == expected_theme:
-                    break
-            actual_themes.append(seen)
-            observed.append(detail)
-        result["theme_cycle"] = {
-            "expected_themes": expected_themes,
-            "actual_themes": actual_themes,
-            "observed_ratios": observed,
-            "ok": actual_themes == expected_themes,
-        }
+                expected_theme = expected_themes[step - 1]
+                seen: str | None = None
+                detail: dict[str, float] = {}
+                deadline = time.time() + 6
+                while time.time() < deadline:
+                    time.sleep(0.4)
+                    image, _ = grab_client(hwnd, out_dir / f"gui-{theme}-theme{step}.png")
+                    if image is None:
+                        continue
+                    seen, detail = classify_theme(image)
+                    if seen == expected_theme:
+                        break
+                actual_themes.append(seen)
+                observed.append(detail)
+            result["theme_cycle"] = {
+                "expected_themes": expected_themes,
+                "actual_themes": actual_themes,
+                "observed_ratios": observed,
+                "ok": actual_themes == expected_themes,
+            }
 
         if measure_resources:
             # FR-714：最小化期间必须停止绘制（实测 CPU 增量 + 还原后一次重绘）
@@ -483,15 +504,16 @@ def run_theme(
             result["focus_after_restore"] = focus(hwnd)
             time.sleep(1.0)
             result["title_after_restore"] = window_title(hwnd)
-            restored = out_dir / f"gui-{theme}-restored.png"
-            image, box = grab_client(hwnd, restored)
-            result["restored_client_box"] = box
-            result["restored_on_screen"] = on_screen(box)
-            if image is None:
-                result["restored_error"] = "还原后截图失败：客户端区域为空"
-            else:
-                result["restored_screenshot"] = str(restored)
-                result["restored_pixels"] = pixel_stats(image)
+            if screenshots:
+                restored = out_dir / f"gui-{theme}-restored.png"
+                image, box = grab_client(hwnd, restored)
+                result["restored_client_box"] = box
+                result["restored_on_screen"] = on_screen(box)
+                if image is None:
+                    result["restored_error"] = "还原后截图失败：客户端区域为空"
+                else:
+                    result["restored_screenshot"] = str(restored)
+                    result["restored_pixels"] = pixel_stats(image)
 
         result["quit_key_delivered"] = press(VK_Q, hwnd)
         try:
@@ -517,6 +539,15 @@ def main() -> int:
         help="留空则每次新建临时工作区（跑完删除），保证截图内容可复现",
     )
     parser.add_argument("--out", default=str(REPO / "artifacts" / "gui-run-2026-10-23"))
+    parser.add_argument(
+        "--resources-only",
+        action="store_true",
+        help=(
+            "只取资源/按键证据，跳过全部截屏与像素断言。用于非交互会话"
+            "（无桌面直流访问权，PIL 报 screen grab failed）：ADR-027 预算判据"
+            "（RSS/私有/线程/句柄/CPU）与像素无关，可独立取证；主题色值仍须完整模式。"
+        ),
+    )
     args = parser.parse_args()
 
     exe = pathlib.Path(args.exe)
@@ -538,7 +569,14 @@ def main() -> int:
     results = []
     try:
         for theme in THEMES:
-            outcome = run_theme(exe, workspace, theme, out_dir, measure_resources=theme == "eink-day")
+            outcome = run_theme(
+                exe,
+                workspace,
+                theme,
+                out_dir,
+                measure_resources=theme == "eink-day",
+                screenshots=not args.resources_only,
+            )
             results.append(outcome)
             print(json.dumps(outcome, ensure_ascii=False))
         report["themes"] = results
@@ -548,15 +586,37 @@ def main() -> int:
             json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
         )
         print(f"证据写入 {summary}")
-        failures = [
-            item
-            for item in results
-            if "error" in item
-            or item.get("exit_code") != 0
-            or not item.get("theme_cycle", {}).get("ok", False)
-            or item.get("focus_initial") is False
-            or item.get("focus_after_restore") is False
-        ]
+        def theme_ok(item: dict[str, object]) -> bool:
+            cycle = item.get("theme_cycle", {})
+            # 资源专用模式显式 skip 像素归类：不计失败，也不冒充通过（报告里带 skipped 标记）。
+            if cycle.get("skipped") is True:
+                return True
+            return bool(cycle.get("ok", False))
+
+        if args.resources_only:
+            # 资源专用模式：无桌面交互权时焦点/按键/正常退出均不可达，这些不是本模式判据；
+            # 只要求「起得来、采到样本」——样本数为 0 仍判失败（零样本不等于达标）。
+            failures = [
+                item
+                for item in results
+                if "error" in item
+                or (item.get("theme") == "eink-day" and "resources" not in item)
+            ]
+            print(
+                "资源专用模式：交互断言（焦点/按键/正常退出）未作判据，"
+                "像素与主题色值未取证；ADR-027 预算以 resources 字段判定。",
+                file=sys.stderr,
+            )
+        else:
+            failures = [
+                item
+                for item in results
+                if "error" in item
+                or item.get("exit_code") != 0
+                or not theme_ok(item)
+                or item.get("focus_initial") is False
+                or item.get("focus_after_restore") is False
+            ]
         if failures:
             names = "、".join(str(item.get("theme")) for item in failures)
             print(f"未达标主题：{names}（详见 summary.json）", file=sys.stderr)

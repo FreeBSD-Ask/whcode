@@ -68,6 +68,9 @@
 !/artifacts/memory-limit-large-payload.json
 # GUI 运行时证据（CI desktop job，四主题截图 + summary + README；Check 251／252、ADR-027）。
 !/artifacts/gui-run-2026-11-03/
+# GUI 资源复测（2026-11-21，本机非交互会话，`--resources-only`）：仅 RSS/私有/线程/句柄/CPU，
+# 无截屏与像素（ADR-027 预算复测，11 视图；见目录内 README）。
+!/artifacts/gui-run-2026-11-21/
 # 四端界面现代化证据（ADR-041）：TUI 帧预算与 Web 前端预算基线；新产物同目录追加。
 !/artifacts/ui-modern-2026-10-25/
 # Phase 1 治理尾批证据（2026-11-08）：覆盖率试点测量与真 API 冒烟结果（T273／T275）。

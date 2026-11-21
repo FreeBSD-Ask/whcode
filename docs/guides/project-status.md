@@ -1,24 +1,24 @@
-# 项目状态快照（2026-11-16）
+# 项目状态快照（2026-11-21）
 
 本页是**带日期的状态快照**，供了解进度用。权威账本始终是
 [`tasks.md`](../../specs/001-whcode-harness/tasks.md)（任务勾选）与
 [`checklist.md`](../../specs/001-whcode-harness/checklist.md)（验收检查点）。
 两者与 `spec.md` 的 FR 三方追溯由 `python .github/scripts/traceability.py` 与
-`check_counts.py` 在 CI 中强制；本页数字来自这两个文件在 2026-11-16 的实测统计，
+`check_counts.py` 在 CI 中强制；本页数字来自这两个文件在 2026-11-21 的实测统计，
 过期即失效，不得引用为验收结论。CI 结论以最新 run 为准，本页不写“当前红／绿”。
 
 ## 总量
 
 | 项 | 数量 |
 |---|---|
-| 功能需求 FR | 174 |
-| 任务 | 382（已完成 381，未完成 1——T382 A2 归因取证在途） |
-| 验收检查点 | 476（已取证 475，missing 1——Check 476 随 T382 A2 归因取证在途） |
+| 功能需求 FR | 178 |
+| 任务 | 408（全部已完成） |
+| 验收检查点 | 487（全部已取证） |
 
-证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 426、
-outcome-supported 49、missing 1（Check 476 在途）。ADR-060 Phase 1、proposal-v3 的 P1.9／P1.10／P2.2b／P3.3／
-P5.2／P5.3／P5.6／P6.2—P6.4／P7.1—P7.4 均已收口，最近批次（Check 462—463，主题与配置
-更名＋FreeBSD 交付目标落地）的取证见
+证据态分布（ADR-046，`python .github/scripts/check_counts.py` 实测）：exercised 438、
+outcome-supported 49、missing 0、unobserved 0。ADR-060 Phase 1、proposal-v3 的 P1.9／P1.10／P2.2b／P3.3／
+P5.2／P5.3／P5.6／P6.2—P6.4／P7.1—P7.4 均已收口，最近批次（Check 482—487，ADR-089 对等
+清零与 ADR-092 应用族 12 面对齐）的取证见
 `checklist.md` 与 `CHANGELOG.md`。
 并行会话在途（截至本快照）：无（工作树干净，未入账 WIP 已清空）。
 proposal-v3 全部 45 条提案的执行态比对见
@@ -30,15 +30,16 @@ P2.2b／P3.3／P5.x／P6.x／P7.1／P7.2 的进展见 `CHANGELOG.md`，本表不
 ## 四端能力面
 
 `docs/matrices/feature-parity.md` 为受校验产物（来源 `whcode-app::surface::SURFACES`），
-共 **78 条**能力面（60 Command＋18 View）；状态符号为 已实现、部分、预留，
-每端另有 1—2 行“不提供”（该端按理由码排除）：
+共 **80 条**能力面（60 Command＋20 View）；状态符号为 已实现、部分、不提供，
+**全表零“预留”**（ADR-089 清零后由 `delivered_surfaces_are_implemented_and_pending_keep_milestones`
+断言保持）：
 
-| 端 | 已实现 | 部分 | 预留 | 不提供 |
-|---|---|---|---|---|
-| CUI | 43 | 22 | 11 | 2 |
-| TUI | 28 | 28 | 18 | 4 |
-| GUI | 34 | 34 | 7 | 3 |
-| Web | 44 | 17 | 13 | 4 |
+| 端 | 已实现 | 部分 | 不提供 |
+|---|---|---|---|
+| CUI | 54 | 24 | 2 |
+| TUI | 44 | 32 | 4 |
+| GUI | 60 | 17 | 3 |
+| Web | 59 | 17 | 4 |
 
 ## 里程碑
 
@@ -50,13 +51,14 @@ P2.2b／P3.3／P5.x／P6.x／P7.1／P7.2 的进展见 `CHANGELOG.md`，本表不
 | M8 可选执行运行时 | 实现完成，feature 默认关闭 |
 | M9 优化与发布 | 已交付：兼容矩阵、运行时清单、热点优化（T115）、发布包与指南；稳定性（NFR-204）以 24h 深检收口通过（T116/Check 116/195，2026-11-02） |
 | Phase 13 跨里程碑收尾 | 已完成（安全复查、quickstart 全流程、追溯审计） |
-| 四端对等（FR-619—625） | 已完成（ADR-032）；65 条能力登记表（2026-11-11 实测）为单一事实源 |
+| 四端对等（FR-619—625） | 已完成（ADR-032）；80 条能力登记表（2026-11-21 实测）为单一事实源，全表零“预留”（ADR-089） |
 | Phase 24 ZCode 全量体验对齐（ADR-057） | 已完成：立项任务 T244—T263 共 20 项全部转勾（B5 结题 T263 于 2026-11-11 收口）；治理与工程批次 T264—T275（ADR-060 Phase 1）、T276—T279、T280—T281 亦全部转勾 |
-| ADR-059 路线 Phase 2（proposal-v3） | 部分交付：P3.4 迁移前备份（T280，ADR-063）、P7.4 工具目录（T281）已收口；P3.1 会话分叉在途但未入账；其余按 proposal-v3 §6 排序待开工 |
+| ADR-059 路线 Phase 2（proposal-v3） | 部分交付：P3.4 迁移前备份（T280，ADR-063）、P7.4 工具目录（T281）已收口；P3.1 会话分叉（T282，ADR-065）已收口；其余按 proposal-v3 §6 排序待开工 |
+| 应用族剩余 12 面对齐（ADR-092／FR-800） | 已完成（T405—T408，2026-11-21 分四批交付）：`view.changes` 正名、`spec.next`／`force-advance`、runtime 六面＋第 11 视图、`rules.write`／`events.export`、证书两面（ADR-040 决策 4 修订）的 GUI 面全部翻转为已实现；两处如实登记的部分覆盖——`events.export` 以有界文本＋手动保存替代原生保存对话框，证书私钥上传保持 Web-only |
 
 ## 未完成项与原因
 
-当前账本余 T369 一项（FreeBSD 包 CI 实跑取证回填，外部条件：需推送 tag 或手动触发）；
+当前账本**无未完成任务、无 missing 检查点**（`check_counts.py`：tasks 408／checks 487 全勾）；
 以下条目是仍开放的观察项、平台缺口与历史收口记录。
 
 - **FreeBSD 构建交付与品牌更名（2026-11-17，用户批准）**：ADR-083 把 FreeBSD 在硬门禁证据
@@ -82,7 +84,9 @@ P2.2b／P3.3／P5.x／P6.x／P7.1／P7.2 的进展见 `CHANGELOG.md`，本表不
   ADR-027 的复审触发已命中（“`theme_cycle.ok` 或资源预算失守即复审”）；本机 release 复现命令
   见 `docs/guides/project-status.md` 的 GUI 空闲线程条目。**不作 GUI 结论**：交互式主题切换的
   人工证据仍按 V-003 口径（Check 24／130）认定；托管 runner 的非交互会话截图时序不稳是
-  待归因的候因，未改写预算或判据。
+  待归因的候因，未改写预算或判据。**2026-11-21 说明**：本机复测同样无桌面截屏权限
+  （`ImageGrab` 报 `screen grab failed`），该轮只取资源证据（`--resources-only`），
+  `theme_cycle` 标记 `skipped`——本条仍开放，未因该轮通过而收口。
 - **稳定性（NFR-204，已收口）**：T116/Check 116/195。5.5h CI 窗口对 0.5 MB/h 无分辨力（run 40529349945 无权判定）后按 ADR-025 升级 24h 本机深检——287 样本、多口径一致负斜率（warmup_ols −0.3551、phase_aligned −0.2681、稳态 −1.24）、线程/句柄无持续增长，**verdict=通过**（2026-11-02）；判据增补见 ADR-025 修订记录；证据 `artifacts/nfr204-verdict-24h-2026-11-02.md`。
 - **真实 LLM 供应商（已接四端）**：T162—T167 完成。T162—T166 通过 77 项 `http` 测试与
   本地回环端到端（`artifacts/llm-e2e-2026-10-25.md`）；T167 于 2026-10-26 收口——CUI／Web／
@@ -106,6 +110,13 @@ P2.2b／P3.3／P5.x／P6.x／P7.1／P7.2 的进展见 `CHANGELOG.md`，本表不
   （可能为高 DPI 渲染路径或本机 16 核的运行时线程池规模差异），**不作为结论**、也不据此
   改预算。复查方式：`python .github/scripts/gui-probe.py --exe target/release/whcode.exe
   --out artifacts/gui-run-<date>`，比较 `resources.threads` 与 `dpi_scale`／核数。
+  **2026-11-21 复测（ADR-092 四批后，第 11 视图构建）**：同夹具（本机 release、DPI 2.0、
+  1100×900、空闲 10 s）**再次实测 28 线程**——四批新增（runtime 视图／证书面板／事件导出／
+  规则写入）**未引入线程增长**，残余仍是 ADR-042 方案 A 后的存量缺口；同轮 RSS 81.9 MB
+  （≤96）、私有 46.9 MB（≤80）、句柄 **251**（≤256，余量仅 5，登记为观察项）、
+  空闲 CPU 0.0%（≤0.2%）。窗口标题实测 `Sessions (1/11)`，确认第 11 视图生效。
+  证据 `artifacts/gui-run-2026-11-21/`。该轮以新增的 `--resources-only` 开关取证
+  （非交互会话无截屏权限，像素／主题色值显式跳过，不冒充通过；默认完整模式行为不变）。
 - **ADR 未决项**：无。ADR-058（turn 执行移出 serve 循环线程，WS 逐块增量转发）于
   2026-11-06 经用户「批准开发」转**已批准（附条件）**；条件 M1 复绿（`942dd14`）、
   M2 鉴权前置、M3 计数原子化、M4 busy 语义、M5 有损通道、M9 帧字段、M11 构造器收敛已
@@ -126,7 +137,8 @@ P2.2b／P3.3／P5.x／P6.x／P7.1／P7.2 的进展见 `CHANGELOG.md`，本表不
 - SDD 门禁：Constitution、spec/tasks 解析与纠偏、门禁强制与 force-advance 审计、双向追溯。
 - LLM：Provider 语义、四级追踪与脱敏、传输层事件；真实 HTTP 客户端与 CUI／TUI／GUI／Web
   四端调用均已接通（T167＋ADR-056）。
-- GUI：七视图（含对话）接真实数据、六套主题（amoled-night／eink-day／eink-night／
+- GUI：十一视图（含对话、台账、前像、充分性、运行时）接真实数据、证书库面板（公开状态，
+  不含私钥）、六套主题（amoled-night／eink-day／eink-night／
   terminal-green／whcode-day／whcode-night，whcode 系（原 zcode 系，2026-11-17 更名）
   2026-11-06 冻结，默认 `whcode-night`）、
   脏标记零重绘、最小化挂起与恢复；对话与写命令已接线（ADR-056 四端功能对等）；

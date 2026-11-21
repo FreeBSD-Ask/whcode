@@ -3067,6 +3067,12 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   `end --strict` unregistered 0（5 条存量 soft 反例已登记）。CHANGELOG／ADR-040／ADR-092／
   矩阵／13 套 i18n 已同步；四提交 `5f430cb`／`f81440c`／`cf97fe8`／`5a42417`。
   **未取得（显式登记）**：CI 结论（GitHub Actions 日志与 artifact）按 ADR-037 待云端回填；
-  `extreme_scale`（1M 事件）按 ADR-082 由每周专项覆盖；ADR-027 实机资源探针（RSS≤96 MB／
-  线程≤24／句柄≤256／CPU≤0.2%）本机未测，标 `[待验证]`——本批仅以前端预算门禁与单测取证，
-  不以静态推断冒充平台结论。详见 `artifacts/adr092-implementation-review-2026-11-21.md`。
+  `extreme_scale`（1M 事件）按 ADR-082 由每周专项覆盖。
+  **ADR-027 资源复核（2026-11-21 补测，已取得）**：`gui-probe.py --resources-only`（新增
+  开关，默认完整模式不变）在本机 release、DPI 2.0、1100×900、空闲 10 s 实测——RSS 81.9 MB
+  （≤96 通过）、私有 46.9 MB（≤80 通过）、线程 **28**（>24，**未通过**，与 2026-11-03
+  本机记录同值，属 ADR-042 方案 A 后存量缺口，四批新增未引入线程增长）、句柄 251
+  （≤256 通过，余量 5 已登记为观察项）、空闲 CPU 0.0%（≤0.2% 通过）；窗口标题实测
+  `Sessions (1/11)` 确认第 11 视图生效。证据 `artifacts/gui-run-2026-11-21/`。
+  像素／主题色值／焦点／正常退出码本轮未取证（非交互会话无截屏权限），不冒充通过。
+  详见 `artifacts/adr092-implementation-review-2026-11-21.md`。
