@@ -835,6 +835,17 @@ taskkill /T /F 口径）（P1）
     `crates/whcode-app/src/turn.rs`（每步重算与告示）、单测
     `tool_manifest_skips_broken_servers`；Check 492
 
+- **FR-806**: 上下文组成分解（P2，ADR-098）：快照 `context.breakdown` 给出
+  `compact_summary`／`conversation`（两者之和严格等于 `estimated_tokens`）与
+  `tool_schemas`（默认九件注册表估算，标注近似）；**system 提示不落 messages 表
+  （`turn.rs:214` 过滤），不在分解内，须在 note 显式标注**，不得伪造该分类
+  - 依据：ADR-098；ADR-094；`contracts/state-snapshot.md` §2；
+    `research/zcode-comparison` 的 Context Composition
+  - 判据：Given 会话有摘要与对话，Then 两类之和 == estimated_tokens；Given 任一快照，
+    Then breakdown.note 同时说明工具侧近似与 system 未覆盖；Given 旧读者，Then 忽略新键不报错
+  - 证据：`crates/whcode-app/src/snapshot.rs`（分类累加、默认注册表估算）、单测
+    `snapshot_context_breakdown_sums_to_total`；Check 493
+
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

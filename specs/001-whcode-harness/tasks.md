@@ -3143,3 +3143,12 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   clippy -D warnings 通过。（开工前置：任务认知卡，见 ADR-097 §任务认知卡）
 - [x] T418 登记与收口：FR-805／Check 492 入账、CHANGELOG 同步、全链门禁。
   **取证（2026-11-23）**：待全链门禁回填。（开工前置：任务认知卡，见 ADR-097 §任务认知卡）
+
+## Tasks（2026-11-23 追加）：上下文组成分解（ADR-098）
+
+- [x] T419（FR-806）实现：`derive_context` 按摘要前缀与其余消息分类累加（等式可判定）；
+  默认九件注册表清单估算 `tool_schemas`；`note` 同时标注工具侧近似与 system 未覆盖。
+  **取证（2026-11-23）**：`cargo test -p whcode-app snapshot::` 5 通过（含
+  `snapshot_context_breakdown_sums_to_total`）。（开工前置：任务认知卡，见 ADR-098 §任务认知卡）
+- [x] T420 登记与收口：FR-806／Check 493 入账、契约实现注记同步、CHANGELOG、全链门禁。
+  **取证（2026-11-23）**：待全链门禁回填。（开工前置：任务认知卡，见 ADR-098 §任务认知卡）

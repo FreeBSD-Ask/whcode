@@ -61,5 +61,10 @@
   （`full`／`restricted`／`shell_only`）与可用性；未启用者仍列出，快照是状态视图，
   “未启用者不得出现在可执行工具列表”由工具层承担。
 
+`context.breakdown`（ADR-098）：`compact_summary` 与 `conversation` 两类之和严格等于
+`estimated_tokens`；`tool_schemas` 为默认九件注册表估算（不参与等式，`note` 标注近似）。
+**`system` 提示不落 `messages` 表**（`turn.rs:214` 过滤），故不在分解内——`note` 必须
+同时说明该缺口，读者不得把 `breakdown` 之和理解为全部上下文。
+
 限制：`llm` 状态来自已落盘事件（非实时进度），`context` 是估算 token（非供应商计数），
 `runtimes.available` 在 `probe=false` 下为 `None`（静态清单）。

@@ -13,6 +13,12 @@
 
 ### 变更
 
+- **上下文组成分解（2026-11-23，ADR-098／FR-806／T419—T420）**：快照 `context` 增
+  `breakdown`——`compact_summary` 与 `conversation` 两类之和**严格等于** `estimated_tokens`；
+  `tool_schemas` 为默认九件注册表估算并标注近似。**system 提示不落 messages 表**
+  （`turn.rs:214` 过滤），不在分解内，`note` 显式标注该缺口，不伪造分类。依据
+  `research/zcode-comparison` 的 Context Composition（11 细类/7 粗类）。取证：
+  `snapshot_context_breakdown_sums_to_total`（断言等式、tool_schemas>0、无 system 分类）。
 - **准入工具清单按步重算（2026-11-23，ADR-097／FR-805／T417—T418）**：turn 内每一步的
   `tools` 此前是 turn 开始时的快照——某 MCP 服务器在步 2 调用失败（`broken`）后，步 3 仍
   发送其全部工具定义，模型会继续调用必然失败的工具。现 `McpManager::tool_manifest` 跳过
