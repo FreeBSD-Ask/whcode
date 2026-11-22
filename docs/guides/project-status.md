@@ -58,7 +58,8 @@ P2.2b／P3.3／P5.x／P6.x／P7.1／P7.2 的进展见 `CHANGELOG.md`，本表不
 
 ## 未完成项与原因
 
-当前账本**无未完成任务、无 missing 检查点**（`check_counts.py`：tasks 408／checks 487 全勾）；
+当前账本**无未完成任务、无 missing 检查点**（`check_counts.py`：tasks 410／checks 488 全勾；
+FR 179；2026-11-22 经 ADR-091／092／093 与 ADR-088 修订、T404—T410 递增）；
 以下条目是仍开放的观察项、平台缺口与历史收口记录。
 
 - **FreeBSD 构建交付与品牌更名（2026-11-17，用户批准）**：ADR-083 把 FreeBSD 在硬门禁证据
