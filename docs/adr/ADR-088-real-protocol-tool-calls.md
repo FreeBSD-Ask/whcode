@@ -57,14 +57,18 @@
 
 ## 已知限制与失效条件（复审触发，绑定命令＋判定）
 
-- **已知限制**：①跨轮工具链路未持久化（messages 表无 tool_call_id 列）——重载后
-  role:tool 无前置锚点，本批以“下一轮上下文不含上一轮消息”的既有口径回避（字段
-  测试② turn 2 实证），多轮工具记忆属 T389；②Anthropic/Gemini 的 tools 参数格式
+- **已知限制**：①跨轮工具链路持久化已由 T389 交付（schema v16 的 `messages.tool_call_id`
+  列＋assistant 工具调用载荷 `tool_calls_json`＋历史注入 turn 循环；见 fieldtest2
+  2026-11-19 第三轮复验，S-2 会话 turn 2 复述上一轮 `src/stats.rs` 工具调用）——此限制
+  已关闭，不再是未决缺口；②Anthropic/Gemini 的 tools 参数格式
   转换于 2026-11-21 由 T404 补齐（见修订记录）——现为单元级取证，**未接入真实
   Anthropic/Gemini 供应商**，不得据此宣称平台结论；③Gemini/Ollama 的调用 ID 为
   合成（函数名），供应商侧无真 ID。
 - **将来失效条件与复审触发（绑定命令＋判定）**：
-  1. T389 落地后重跑字段测试② turn 2——模型应能复述上一轮工具调用；
+  1. T389 落地后重跑字段测试② turn 2——**已满足**：fieldtest2 2026-11-19 第三轮
+     复验，新会话 S-2 的 turn 2 经历史注入复述上一轮工具读取的 `src/stats.rs`，
+     `prompt_tokens = 1949` 含工具链路；单测 `second_turn_seeds_history_with_tool_linkage`
+     断言第二轮请求含 user／assistant(tool_calls)／tool(关联 ID)／新 prompt 四类；
   2. 接入任一 Anthropic/Gemini 真实供应商时，先补 tools 参数转换并重跑单元取证；
   3. `cargo test -p whcode-llm` 任一协议测试失败 → 回滚对应解码分支。
 
@@ -113,3 +117,11 @@
   取证：whcode-llm 74 项单测（新增 4：两族形状断言、非法 tools 拒绝、None 不产键）。
   **边界**：无 Anthropic／Gemini 真实凭据与端点，仅单元级取证，不冒充平台结论；
   复审触发 2 保持有效——接入真实供应商时仍须重跑单元取证并做真模型 e2e。
+
+- **2026-11-22（文档失同步修复，物质—意识条款）**：已知限制 1 原称“跨轮工具链路
+  未持久化、多轮工具记忆属 T389”，与磁盘事实不符——T389 已交付（schema v16 的
+  `messages.tool_call_id`／`tool_calls_json` 列＋历史注入），Check 480 已取证，
+  `artifacts/fieldtest2-2026-11-19.md` §附第三轮实证 turn 2 复述上一轮工具调用。
+  本轮把限制 1 标记为已关闭、复审触发 1 标记为已满足，不改动任何代码与登记状态。
+  限制 2（两族 tools 参数转换仅单元级、无真凭据）与限制 3（Gemini/Ollama 调用 ID
+  合成）维持不变。
