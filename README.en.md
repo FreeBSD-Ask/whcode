@@ -24,7 +24,7 @@ application service.
 
 ## Status
 
-Version `0.1.0` (released 2026-11-16). See [CHANGELOG.md](./CHANGELOG.md) for changes and known limitations.
+Version `0.1.1` (release candidate 2026-11-22; CI evidence pending). See [CHANGELOG.md](./CHANGELOG.md) for changes and known limitations.
 
 M0 to M6, M8 and four-front-end parity are implemented, and the M7 SSH server is in place.
 Stability (NFR-204) was closed by a 24-hour local deep inspection under the ADR-025 amendment

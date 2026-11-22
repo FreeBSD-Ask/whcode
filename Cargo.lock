@@ -6495,7 +6495,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-app"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "duckdb",
  "rcgen",
@@ -6518,7 +6518,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-bin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "duckdb",
  "rcgen",
@@ -6543,7 +6543,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-cui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "duckdb",
@@ -6556,7 +6556,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-domain"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6565,7 +6565,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-gui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "iced",
  "whcode-app",
@@ -6574,7 +6574,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-llm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rcgen",
  "rustls",
@@ -6588,7 +6588,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-lsp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6598,7 +6598,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-mcp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6610,7 +6610,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-platform"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "crossterm",
  "whcode-domain",
@@ -6618,7 +6618,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-runtime"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "boa_engine",
  "serde",
@@ -6629,7 +6629,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-speckit"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6638,7 +6638,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-ssh"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "duckdb",
  "rand 0.10.3",
@@ -6650,7 +6650,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-store"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "duckdb",
  "serde",
@@ -6661,7 +6661,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-tests"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "duckdb",
  "serde",
@@ -6681,7 +6681,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-tools"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6690,7 +6690,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-tui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "crossterm",
  "ratatui",
@@ -6702,7 +6702,7 @@ dependencies = [
 
 [[package]]
 name = "whcode-web"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "duckdb",
  "serde_json",

@@ -4,8 +4,10 @@
 执行并留证；任一条不满足即停止发布（不得以“已知问题”跳过，只能先修、先登记或按
 ADR 修改判据）。
 
-**适用版本**：`0.1.0`（M0 工程侧基线；此前预发布标签为 `v0.1.0-m0`—`v0.1.0-m0.6`）。
-**发布动作**：推送 `v0.1.0` 标签触发 `.github/workflows/build-release.yml`。
+**适用版本**：`0.1.1`（发布候选，2026-11-22；工程侧基线 M0＋四端对等全量对齐；
+此前正式标签为 `v0.1.0`，预发布 `v0.1.0-m0`—`v0.1.0-m0.8`）。
+**发布动作**：推送 `v0.1.1` 标签触发 `.github/workflows/build-release.yml`。
+**证据状态**：工程侧账本与本地门禁全绿；CI 平台矩阵与发布构建证据待 run 号回填（ADR-037）。
 
 ## 1. 版本与账本一致
 
@@ -81,7 +83,46 @@ ADR 修改判据）。
    现象。交互式主题切换的人工证据仍按 V-003 口径认定，托管 runner 的非交互会话截图时序
    为待归因候因；ADR-027 复审触发已命中，未改写预算或判据（ADR-082 不改变其周期）。
 
-## 6.1 本版发布记录（v0.1.0，2026-11-17）
+### 6.0 四项限制的处置状态（v0.1.1，2026-11-22 用户“解决 3 的限制”）
+
+上述 §6 七条已知限制中，四条被点名要求处理。逐项核查结论如下——**四项均为外部条件，
+本机不可解；“解决”在此语境的诚实含义是把前置、承担者与退出条件写清，不伪造通过**
+（宪法原则“不伪造”“山洞”）：
+
+| 限制 | 本机核查事实 | 能否本机解决 | 退出条件与承担者 |
+|---|---|---|---|
+| V-004 外部 SSH 节点 | M7 服务端与回环已 GO（run 41481740766）；跨机节点需真实外部 BSD 主机，本机无可连节点 | 否——需外部节点 | 用户在 ADR-013 口径下提供至少一台外部 BSD 节点并执行 `ssh-acceptance`，证据落 artifacts；承担者＝用户／平台负责人 |
+| Anthropic/Gemini 真凭据 | `local/sensenova.env` 仅 SenseNova；无该两家 API key 与端点；ADR-088 修订已把 tools 参数转换做单元级取证 | 否——需凭据与端点 | 用户提供凭据后，按 ADR-088 复审触发 2 重跑单元取证并做真模型 e2e；承担者＝用户／LLM 接入者 |
+| A2 FreeBSD 退出路径 SIGSEGV | run 41290577560/41529766439 首现并复现，取证管线（truss-parallel／单线程复跑／VM 标记）已接线；间歇性、并行压力下退出路径崩溃 | 否——需 FreeBSD runner 复现 | 下一次 FreeBSD CI 复现时取 `truss-parallel.log` 定位 atexit／库析构顺序并修复；承担者＝平台负责人；未修复前按 monitoring 判读红，不改写门禁 |
+| 桌面主题循环判红（托管 runner） | weekly desktop job run 43855538365 `theme_cycle.ok` 四主题 false（空帧截图）；本机无截屏与按键注入权限（资源专用模式同款限制） | 否——需 runner 交互桌面 | 在有交互桌面的 runner 上重跑 `gui-probe.py` 完整模式，按 V-003 人工证据口径认定；承担者＝CI／GUI 负责人；ADR-027 复审触发已命中但未改写预算 |
+
+四项均不构成 v0.1.1 发布的本地阻断（本机门禁全绿、账本全勾），但必须在发布说明中如实列出，
+不得表述为已解决。
+
+## 6.1 本版发布记录（v0.1.1，2026-11-22，发布候选）
+
+| 项 | 事实 |
+|---|---|
+| 版本 | `Cargo.toml` 工作区版本 0.1.1；README 中英两套版本行一致 |
+| 账本 | FR 179／任务 410／Check 488 全勾；`counts consistent`、追溯无断链 |
+| 本版范围 | 四端对等全量对齐（ADR-089/091/092）、真实协议工具调用（ADR-088 及修订）、
+  GUI 线程预算收敛（ADR-093，空闲 28→22 满足 FR-712）、CUI 写类授权（ADR-090）等，
+  详见 CHANGELOG `## [0.1.1]` 节 |
+| 本地门禁 | fmt、clippy（`-D warnings`）、workspace 全量测试、layering/layout、
+  counts/traceability/knowing-first/adr-limits/docs-style/eol/i18n/frontend-budget、
+  coherence pre(反例 0)/mid(0) 全绿；GUI 线程 22≤24、吞吐 4194.0/s≥2000（单机样本，R-12） |
+| 标签 | `v0.1.1`（待推送；本机 main 领先 origin 17 提交） |
+| 验收链证据 | **待回填**：`platform-verification.yml` run 号（含 Windows amd64 验收、
+  FreeBSD 硬门禁、ARM64/NetBSD 证据；A2 间歇项按 monitoring 判读） |
+| 发布构建 | **待回填**：`build-release.yml` run 号（amd64/arm64 zip＋sha256、
+  freebsd-amd64.tar.gz＋sha256 六件产物，ADR-083） |
+| Code Scanning | 0 条 open（2026-11-21 复核）；CI 每周复核保持 |
+| 本机安装验证 | `artifacts/install-verify-windows-amd64.txt`（2026-11-16，gnullvm）——
+  v0.1.1 产物需随发布构建重新执行 `package-windows.py --verify` |
+
+v0.1.0 的发布记录为历史事实，移至 §6.2，不改写。
+
+## 6.2 历史发布记录（v0.1.0，2026-11-17）
 
 | 项 | 事实 |
 |---|---|

@@ -25,7 +25,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 # 分工（重要，勿混用两个概念）：
 #   - 本字段 = **MSRV**（最低可用 rustc 下限）：2026-11-14 经用户指令升至 1.100
