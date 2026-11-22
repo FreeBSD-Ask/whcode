@@ -13,6 +13,15 @@
 
 ### 变更
 
+- **会话全文检索（2026-11-23，ADR-099／FR-807／T421—T422）**：用户批准 FTS 并明确发行包
+  体积不设限。DuckDB `fts` 扩展随包分发（`fetch-duckdb.py` 下载 `.gz`、按 sha256 与字节数
+  校验、解压到 `vendor/duckdb/<ver>/<target>/`，离线 `LOAD` 绝对路径）；新增
+  `search_messages_ranked`——扩展可用时按 `match_bm25` 排序，否则**回退**子串检索并返回
+  `ranked=false`（不报错、不冒充排序）。索引以迁移 0017 的 `fts_index_meta`（schema v17）
+  记录 `max(ts)` 与行数，无新消息时零成本跳过重建；该表登记为导出排除（本机派生状态）。
+  实测：`fts_available=true`（扩展 46,990,358 字节，`.gz` 14,751,504 字节、sha256
+  `d5328ff…`）；store 200 测试通过。**未完成**：四端接线、FreeBSD/ARM64 扩展哈希、中文
+  分词质量实测（T422）。
 - **上下文组成分解（2026-11-23，ADR-098／FR-806／T419—T420）**：快照 `context` 增
   `breakdown`——`compact_summary` 与 `conversation` 两类之和**严格等于** `estimated_tokens`；
   `tool_schemas` 为默认九件注册表估算并标注近似。**system 提示不落 messages 表**

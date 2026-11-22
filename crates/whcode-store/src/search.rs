@@ -97,6 +97,135 @@ pub fn snippet_around(content: &str, needle: &str) -> String {
 /// # Errors
 ///
 /// 搜索词为空/超长、`limit` 为 0 或数据库查询失败时返回 [`WhError`]。
+/// fts 扩展候选路径（ADR-099）：`vendor/duckdb/<ver>/<target>/fts.duckdb_extension`。
+///
+/// 一次构建只对应一个平台，故取首个存在者；`/vendor` 不入库，由 `fetch-duckdb.py` 获取。
+fn fts_extension_candidates() -> Vec<std::path::PathBuf> {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let vendor = root.join("vendor/duckdb");
+    let mut out = Vec::new();
+    let Ok(versions) = std::fs::read_dir(&vendor) else {
+        return out;
+    };
+    for version in versions.flatten() {
+        let Ok(targets) = std::fs::read_dir(version.path()) else {
+            continue;
+        };
+        for target in targets.flatten() {
+            let candidate = target.path().join("fts.duckdb_extension");
+            if candidate.is_file() {
+                out.push(candidate);
+            }
+        }
+    }
+    out
+}
+
+/// fts 扩展是否可用（ADR-099）：按 vendor 路径 → 已安装的 `fts` 顺序尝试 `LOAD`。
+///
+/// 失败不报错——调用方据此回退到 [`search_messages`] 的 `contains` 路径。
+#[must_use]
+pub fn fts_available(conn: &Connection) -> bool {
+    for path in fts_extension_candidates() {
+        let escaped = path.display().to_string().replace('\'', "''");
+        if conn.execute_batch(&format!("LOAD '{escaped}'")).is_ok() {
+            return true;
+        }
+    }
+    conn.execute_batch("LOAD fts").is_ok()
+}
+
+/// 索引时效：`(max(ts) 微秒, 行数)`。
+fn messages_stamp(conn: &Connection) -> Result<(i64, i64), WhError> {
+    conn.query_row(
+        "SELECT COALESCE(epoch_us(max(ts)), 0), count(*) FROM messages",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .map_err(search_err)
+}
+
+/// 确保 fts 索引覆盖当前消息（ADR-099）：无新消息时零成本跳过，否则表级重建。
+///
+/// `create_fts_index` 是表级操作（DuckDB 无会话级增量接口），重建成本随消息量线性。
+fn ensure_fts_index(conn: &Connection) -> Result<(), WhError> {
+    let (max_ts_us, rows) = messages_stamp(conn)?;
+    let fresh: Option<(i64, i64)> = conn
+        .query_row(
+            "SELECT indexed_max_ts_us, indexed_rows FROM fts_index_meta WHERE id = 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .ok();
+    if fresh == Some((max_ts_us, rows)) {
+        return Ok(());
+    }
+    conn.execute_batch("PRAGMA create_fts_index('messages', 'id', 'content_ref', overwrite=1)")
+        .map_err(search_err)?;
+    conn.execute("DELETE FROM fts_index_meta WHERE id = 1", [])
+        .map_err(search_err)?;
+    conn.execute(
+        "INSERT INTO fts_index_meta (id, indexed_max_ts_us, indexed_rows, updated_at)
+         VALUES (1, ?, ?, current_timestamp)",
+        duckdb::params![max_ts_us, rows],
+    )
+    .map_err(search_err)?;
+    Ok(())
+}
+
+/// 相关度排序检索（ADR-099）：fts 可用且索引就绪时按 `match_bm25` 排序，
+/// 否则回退 [`search_messages`]。返回 `(命中, 是否按相关度排序)`——
+/// `false` 表示走了子串回退路径，调用方须如实展示，不得冒充排序结果。
+///
+/// # Errors
+///
+/// 搜索词为空/超长、limit 为 0 或存储失败时返回 [`WhError`]。
+pub fn search_messages_ranked(
+    conn: &Connection,
+    needle: &str,
+    limit: usize,
+) -> Result<(Vec<ContentHit>, bool), WhError> {
+    let needle_trimmed = needle.trim();
+    if needle_trimmed.is_empty() || needle_trimmed.chars().count() > MAX_SEARCH_NEEDLE_CHARS {
+        // 复用 search_messages 的校验与错误文案（单一出处）。
+        let _ = search_messages(conn, needle, limit)?;
+    }
+    if limit == 0 {
+        let _ = search_messages(conn, needle, limit)?;
+    }
+    if !fts_available(conn) || ensure_fts_index(conn).is_err() {
+        return Ok((search_messages(conn, needle, limit)?, false));
+    }
+    let limit = limit.min(MAX_SEARCH_LIMIT);
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, session_id, title, role, content FROM (
+                 SELECT m.id AS id, m.session_id AS session_id, s.title AS title,
+                        m.role AS role, m.content_ref AS content,
+                        fts_main_messages.match_bm25(m.id, ?) AS score
+                 FROM messages m JOIN sessions s ON s.id = m.session_id
+             ) WHERE score IS NOT NULL
+             ORDER BY score DESC, id DESC
+             LIMIT ?",
+        )
+        .map_err(search_err)?;
+    let mut rows = stmt
+        .query([&needle_trimmed as &dyn duckdb::ToSql, &(limit as i64)])
+        .map_err(search_err)?;
+    let mut hits = Vec::new();
+    while let Some(row) = rows.next().map_err(search_err)? {
+        let content: String = row.get(4).map_err(search_err)?;
+        hits.push(ContentHit {
+            message_id: row.get(0).map_err(search_err)?,
+            session_id: row.get(1).map_err(search_err)?,
+            session_title: row.get(2).map_err(search_err)?,
+            role: row.get(3).map_err(search_err)?,
+            snippet: snippet_around(&content, needle_trimmed),
+        });
+    }
+    Ok((hits, true))
+}
+
 pub fn search_messages(
     conn: &Connection,
     needle: &str,
@@ -281,5 +410,58 @@ mod tests {
                 .expect("检索")
                 .is_empty()
         );
+    }
+    /// ADR-099：fts 可用时按相关度排序；不可用时回退子串路径且 ranked=false。
+    #[test]
+    fn ranked_search_prefers_relevance_and_falls_back() {
+        let conn = fixture();
+        let session = create_session(&conn, "检索", None, "active", 1_000).expect("会话");
+        insert_message(&conn, "M-1", &session.id, "user", "alpha beta gamma", 1_001);
+        insert_message(&conn, "M-2", &session.id, "user", "alpha", 1_002);
+        insert_message(&conn, "M-3", &session.id, "user", "无关内容", 1_003);
+
+        let (hits, ranked) = search_messages_ranked(&conn, "alpha", 10).expect("检索");
+        assert!(!hits.is_empty(), "应命中含 alpha 的消息");
+        assert!(
+            hits.iter().all(|h| h.message_id != "M-3"),
+            "无关消息不得命中：{hits:?}"
+        );
+        // 本机 vendor 存在扩展时 ranked 为 true；缺失时为 false（两条路径都必须正确）。
+        if ranked {
+            // 相关度：M-2（仅 alpha，短文档）通常高于 M-1（含更多词）。
+            assert_eq!(hits[0].message_id, "M-2", "相关度排序应把短文档排前");
+        } else {
+            // 回退路径按时间倒序：M-2 比 M-1 新。
+            assert_eq!(hits[0].message_id, "M-2");
+        }
+    }
+
+    /// ADR-099：无扩展时 `fts_available` 为 false 且回退不报错（本机若无 vendor 扩展则走此分支）。
+    #[test]
+    fn fts_fallback_is_not_an_error() {
+        let conn = fixture();
+        let session = create_session(&conn, "回退", None, "active", 1_000).expect("会话");
+        insert_message(&conn, "M-9", &session.id, "user", "fallback needle", 1_001);
+        let (hits, _ranked) = search_messages_ranked(&conn, "needle", 5).expect("不得报错");
+        assert_eq!(hits.len(), 1);
+    }
+    /// ADR-099：确认 vendor 扩展被加载（本机存在时应为 true），并验证索引可创建。
+    #[test]
+    fn fts_extension_is_loaded_from_vendor() {
+        let conn = fixture();
+        let available = fts_available(&conn);
+        println!("fts_available = {available}");
+        if available {
+            ensure_fts_index(&conn).expect("索引应可创建");
+            let (max_ts, rows) = messages_stamp(&conn).expect("戳记");
+            let meta: (i64, i64) = conn
+                .query_row(
+                    "SELECT indexed_max_ts_us, indexed_rows FROM fts_index_meta WHERE id = 1",
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .expect("meta");
+            assert_eq!(meta, (max_ts, rows), "索引戳记须与当前消息一致");
+        }
     }
 }

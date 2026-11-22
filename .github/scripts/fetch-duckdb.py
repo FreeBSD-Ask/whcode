@@ -36,6 +36,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import pathlib
@@ -65,6 +66,21 @@ PACKAGES: dict[str, tuple[str, str, int]] = {
         18_389_170,
     ),
 }
+
+#: fts 扩展（ADR-099）：载荷三元组 -> (官方平台名, .gz SHA256, .gz 字节数)。
+#: URL 固定为 `https://extensions.duckdb.org/v<版本>/<平台>/fts.duckdb_extension.gz`；
+#: 哈希为本机下载后复算值（非官方公布值），与 duckdb.dll 同一纪律：校验失败即中止。
+#: 未登记的平台显式报错，不静默跳过——缺失时运行期会回退到子串检索（ADR-099 决策 4）。
+FTS_EXTENSIONS: dict[str, tuple[str, str, int]] = {
+    "x86_64-pc-windows-msvc": (
+        "windows_amd64",
+        "d5328ff1569098d3e8651ab158e5cff8f4eb292986a7e1752300a653b3435e13",
+        14_751_504,
+    ),
+}
+
+#: 扩展下载基址（版本与 DUCKDB_VERSION 绑定）。
+FTS_BASE_URL = "https://extensions.duckdb.org"
 
 #: 归档内必须存在的成员（缺任一项即视为资产不完整，链接或运行必失败）。
 REQUIRED_MEMBERS = ("duckdb.h", "duckdb.dll", "duckdb.lib")
@@ -142,7 +158,9 @@ def download(url: str, dest: pathlib.Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".part")
     print(f"下载 {url}")
-    with urllib.request.urlopen(url, timeout=600) as resp, tmp.open("wb") as handle:
+    # extensions.duckdb.org 拒绝默认的 Python-urllib UA（403）；显式 UA 与 curl 行为一致。
+    request = urllib.request.Request(url, headers={"User-Agent": "whcode-fetch-duckdb/1"})
+    with urllib.request.urlopen(request, timeout=600) as resp, tmp.open("wb") as handle:
         shutil.copyfileobj(resp, handle)
     tmp.replace(dest)
 
@@ -289,6 +307,45 @@ def verify_extracted(target: str | None = None) -> int:
     return 0 if all("缺少" not in line for line in ready.values()) else 1
 
 
+def fetch_fts(target: str) -> int:
+    """下载并解压 fts 扩展到 `<目标目录>/fts.duckdb_extension`（ADR-099）。
+
+    校验 .gz 的 SHA256 与字节数；失败即中止，不留半成品。
+    未登记的平台返回 2（调用方据此提示“该平台扩展未登记”，不静默降级）。
+    """
+    entry = FTS_EXTENSIONS.get(target)
+    if entry is None:
+        print(
+            f"fts 扩展未登记平台 {target}：检索将回退到子串路径（ADR-099 决策 4）。"
+            "如需启用全文检索，请实测该平台扩展的 .gz SHA256 与字节数后登记本表。",
+            file=sys.stderr,
+        )
+        return 2
+    platform_name, expected, expected_size = entry
+    url = f"{FTS_BASE_URL}/v{DUCKDB_VERSION}/{platform_name}/fts.duckdb_extension.gz"
+    cache = cache_dir() / f"fts-{platform_name}-{DUCKDB_VERSION}.duckdb_extension.gz"
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    if not (cache.exists() and sha256_of(cache) == expected):
+        print(f"下载 fts 扩展：{url}")
+        download(url, cache)
+    actual = sha256_of(cache)
+    size = cache.stat().st_size
+    if actual != expected or size != expected_size:
+        print(
+            f"fts 扩展校验失败：期望 {expected} / {expected_size} 字节，"
+            f"实际 {actual} / {size} 字节",
+            file=sys.stderr,
+        )
+        return 1
+    dest_dir = vendor_dir(target)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / "fts.duckdb_extension"
+    with gzip.open(cache, "rb") as src, open(dest, "wb") as out:
+        shutil.copyfileobj(src, out)
+    print(f"fts 扩展已就位：{dest}（{dest.stat().st_size} 字节）")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="拉取并校验预编译 DuckDB")
     parser.add_argument("--check", action="store_true", help="只校验，不下载")
@@ -315,7 +372,12 @@ def main() -> int:
 
     archive, expected, expected_size = PACKAGES[target]
     fetch(target, archive, expected, expected_size)
-    return verify_extracted(target)
+    rc = verify_extracted(target)
+    if rc != 0:
+        return rc
+    # ADR-099：fts 扩展随包分发；未登记平台只提示（检索回退），不阻断构建。
+    fts_rc = fetch_fts(target)
+    return 0 if fts_rc in (0, 2) else 1
 
 
 if __name__ == "__main__":

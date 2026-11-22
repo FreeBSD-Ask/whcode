@@ -3152,3 +3152,15 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   `snapshot_context_breakdown_sums_to_total`）。（开工前置：任务认知卡，见 ADR-098 §任务认知卡）
 - [x] T420 登记与收口：FR-806／Check 493 入账、契约实现注记同步、CHANGELOG、全链门禁。
   **取证（2026-11-23）**：待全链门禁回填。（开工前置：任务认知卡，见 ADR-098 §任务认知卡）
+
+## Tasks（2026-11-23 追加）：会话全文检索（ADR-099）
+
+- [x] T421（FR-807）实现：迁移 0017 `fts_index_meta`（schema v17、TABLE_COUNT 22、
+  导出排除登记）；`fts_available`／`ensure_fts_index`／`search_messages_ranked`；
+  app 层 `search_session_content_ranked`；fetch 脚本扩展下载（.gz 校验→解压→就位，
+  UA 修复、双调用缺陷修正）。**取证（2026-11-23）**：`cargo test -p whcode-store`
+  200 通过（含 3 个 FTS 测试）；`fts_available=true` 实测；fetch 脚本端到端实测通过。
+  （开工前置：任务认知卡，见 ADR-099 §任务认知卡）
+- [ ] T422 四端接线与平台扩展：CUI／GUI／Web 检索入口暴露 `ranked` 标记；FreeBSD／ARM64
+  扩展哈希实测登记；中文分词质量实测。**未完成**——需实测与四端改动，单独批次。
+  （开工前置：任务认知卡，见 ADR-099 §任务认知卡）

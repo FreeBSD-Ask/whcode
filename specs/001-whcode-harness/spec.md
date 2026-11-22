@@ -846,6 +846,18 @@ taskkill /T /F 口径）（P1）
   - 证据：`crates/whcode-app/src/snapshot.rs`（分类累加、默认注册表估算）、单测
     `snapshot_context_breakdown_sums_to_total`；Check 493
 
+- **FR-807**: 会话全文检索（P2，ADR-099，用户批准且明确体积不设限）：fts 扩展随包分发
+  （`fetch-duckdb.py` 下载并按 sha256 校验），离线 `LOAD`；`search_messages_ranked` 在扩展
+  可用时按 `match_bm25` 排序，否则**回退**子串检索并返回 `ranked=false`；索引以
+  `fts_index_meta`（schema v17）记录时效，无新消息时零成本跳过重建
+  - 依据：ADR-099；ADR-076（FTS 延后项收口）；`research/dsh-comparison` 域 L
+  - 判据：Given 扩展就位，Then `fts_available=true`、索引可建、相关度排序生效；
+    Given 扩展缺失，Then 检索仍可用且 `ranked=false`（不报错、不冒充排序）；
+    Given 无新消息，Then 不重建索引（meta 戳记相等即跳过）
+  - 证据：`crates/whcode-store/src/search.rs`（`fts_available`／`ensure_fts_index`／
+    `search_messages_ranked`）、迁移 0017、`.github/scripts/fetch-duckdb.py`（扩展分发）；
+    Check 494
+
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，
