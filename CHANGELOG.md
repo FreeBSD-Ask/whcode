@@ -11,7 +11,17 @@
 
 ## [Unreleased]
 
-（暂无条目；发布时由 v0.1.1 节归档。）
+### 变更
+
+- **状态快照三字段真实数据（2026-11-22，ADR-094／FR-802／T411—T412）**：
+  `contracts/state-snapshot.md` §2 声明的 `context`／`llm`／`runtimes` 三字段此前恒为
+  `None`／空 map，代码注释仍标“M3/M8 未实现”（里程碑早已交付）——按“物质—意识”
+  条款改为同源派生：`context` 经 `history_messages` 与 `estimate_tokens` 给出预算、
+  估算 token 与截断原因；`llm` 从 `events.request_id` 与 `TurnStarted`/`TurnFinished`
+  派生请求 ID、状态与耗时；`runtimes` 从 `inventory` × `runtime_state` 派生启用状态与
+  能力等级。不改 `build_snapshot` 签名、不新增配置与写操作，四端自动同源（V-207）。
+  取证：`cargo test -p whcode-app snapshot::` 4 通过（含新增事件派生测试）；
+  Check 489；CI 待回填。
 
 ## [0.1.1] — 2026-11-22（四端对等全量对齐＋真实工具链收口）
 

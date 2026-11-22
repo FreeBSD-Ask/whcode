@@ -12,10 +12,10 @@
 //! | `session.stage` | 已实现（M4/T080：数据库真实值，四端同源） | `sessions.stage`（v5） |
 //! | `overview` | 已实现，**最终一致**（预聚合表，`refreshed_at` 指示滞后） | `session_overview` |
 //! | `active_task` | 已实现（最近更新的 `running` 任务） | `tasks` |
-//! | `context` | `None`——上下文预算属 M3（T060+） | — |
-//! | `llm` | `None`——LLM 状态属 M3（T056+） | — |
+//! | `context` | 已实现（ADR-094：历史 token 估算＋预算＋截断原因） | `messages`＋`context.rs` |
+//! | `llm` | 已实现（ADR-094：事件派生的请求 ID／状态／耗时） | `events`（request_id／ts_ms） |
 //! | `event_cursor` | 已实现（工作区 `events.seq` 最大值） | `events` |
-//! | `runtimes` | 空 map——运行时属 M8（FR-704） | — |
+//! | `runtimes` | 已实现（ADR-094：清单×启用状态×能力等级） | `runtime_state`＋`whcode-runtime::inventory` |
 //!
 //! 边界：只读；快照不产生任何写操作（ADR-003/005：变更必须经应用服务命令）。
 
@@ -23,13 +23,17 @@ use std::collections::BTreeMap;
 
 use duckdb::Connection;
 use serde::Serialize;
+use serde_json::json;
 use whcode_domain::WhError;
 use whcode_store::directory;
 use whcode_store::overview as overview_store;
 use whcode_store::query;
+use whcode_store::runtime_state;
 use whcode_store::tasks;
 
 use crate::authz::{Actor, Capability, Policy, require};
+use crate::context::history_messages;
+use crate::turn::DEFAULT_TURN_BUDGET_TOKENS;
 
 /// 快照 schema 版本；字段契约变更须经兼容审查（contracts/state-snapshot.md §2）。
 pub const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
@@ -82,14 +86,117 @@ pub struct StateSnapshot {
     pub overview: Option<OverviewSnapshot>,
     /// 当前活跃任务；无 `running` 任务时为 `None`。
     pub active_task: Option<ActiveTaskSnapshot>,
-    /// 上下文预算字段；M3 未实现，恒为 `None`（契约占位）。
+    /// 上下文预算字段（ADR-094：历史 token 估算、预算与截断原因；四端同源）。
     pub context: Option<serde_json::Value>,
-    /// LLM 状态字段；M3 未实现，恒为 `None`（契约占位）。
+    /// LLM 状态字段（ADR-094：事件派生的请求 ID／状态／耗时；无活动为 `None`）。
     pub llm: Option<serde_json::Value>,
     /// 持久化事件游标（断线补拉基线，FR-202/605）。
     pub event_cursor: i64,
-    /// 各运行时启用状态；M8 未实现，恒为空 map（FR-704）。
+    /// 各运行时启用状态与能力等级（ADR-094：清单×`runtime_state`）。
     pub runtimes: BTreeMap<String, serde_json::Value>,
+}
+
+/// 上下文字段（ADR-094）：历史 token 估算、预算与截断原因。
+///
+/// 复用 `history_messages` 的同一剪枝口径（尾部优先、rewind 边界）；`truncated` 由
+/// "实际装入 token < 会话全部消息 token"判定，为真时附可查原因，符合契约 §2。
+fn derive_context(
+    conn: &Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    session_id: &str,
+) -> Result<serde_json::Value, WhError> {
+    let budget = DEFAULT_TURN_BUDGET_TOKENS;
+    let loaded = history_messages(conn, policy, actor, session_id, budget)?;
+    let estimated_tokens: usize = loaded
+        .iter()
+        .map(|message| crate::context::estimate_tokens(&message.content))
+        .sum();
+
+    // 全量 token 和（含被 rewind 边界排除的消息之前的完整历史），用于判定是否发生
+    // 预算截断；查询有界聚合，不取回正文。
+    let total_tokens: i64 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(token_count), 0) FROM messages WHERE session_id = ?",
+            [session_id],
+            |row| row.get(0),
+        )
+        .map_err(|err| {
+            WhError::new(
+                whcode_domain::ErrorCode::IoError,
+                format!("读取会话 token 总量失败：{err}"),
+            )
+        })?;
+    let total_tokens = total_tokens.max(0) as usize;
+    let truncated = total_tokens > budget;
+    let mut value = json!({
+        "estimated_tokens": estimated_tokens,
+        "budget": budget,
+        "truncated": truncated,
+    });
+    if truncated {
+        value["truncate_reason"] = json!("budget_exceeded");
+    }
+    Ok(value)
+}
+
+/// LLM 状态字段（ADR-094）：从已落盘事件派生最近的请求 ID／状态／耗时。
+///
+/// 不读内存态——快照须跨端/跨进程同源（FR-314/V-207）。`TurnStarted` 与
+/// `TurnFinished` 按 `request_id` 配对，耗时取两者 `epoch_us(ts)` 差；无配对时按
+/// `streaming` 处理（已开始未结束），无事件时返回 `None`（无 LLM 活动）。
+fn derive_llm(conn: &Connection, session_id: &str) -> Result<Option<serde_json::Value>, WhError> {
+    let started: Option<(String, i64)> = conn
+        .query_row(
+            "SELECT request_id, epoch_us(ts) / 1000 FROM events
+             WHERE session_id = ? AND kind = 'TurnStarted' AND request_id IS NOT NULL
+             ORDER BY seq DESC LIMIT 1",
+            [session_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+        )
+        .ok();
+    let Some((request_id, started_ms)) = started else {
+        return Ok(None);
+    };
+    let finished_ms: Option<i64> = conn
+        .query_row(
+            "SELECT epoch_us(ts) / 1000 FROM events
+             WHERE session_id = ? AND kind = 'TurnFinished' AND request_id = ?
+             ORDER BY seq DESC LIMIT 1",
+            [session_id, request_id.as_str()],
+            |row| row.get(0),
+        )
+        .ok();
+    let (state, elapsed_ms) = match finished_ms {
+        Some(end) => ("completed", (end - started_ms).max(0)),
+        None => ("streaming", 0),
+    };
+    Ok(Some(json!({
+        "request_id": request_id,
+        "state": state,
+        "elapsed_ms": elapsed_ms,
+    })))
+}
+
+/// 运行时字段（ADR-094）：静态清单×持久化启用状态×能力等级（FR-702/704）。
+///
+/// 用 `inventory(false)` 不触发外部探测（快照只读、无副作用）；快照是状态视图，
+/// 未启用者仍列出，执行工具列表的过滤由工具层承担（契约 §2）。
+fn derive_runtimes(conn: &Connection) -> Result<BTreeMap<String, serde_json::Value>, WhError> {
+    let mut result = BTreeMap::new();
+    for entry in crate::runtime_mgmt::inventory(false) {
+        let state = runtime_state::get(conn, &entry.name)?;
+        result.insert(
+            entry.name.clone(),
+            json!({
+                "enabled": state.as_ref().is_some_and(|row| row.enabled),
+                "capability": entry.capability,
+                "available": entry.available,
+                "default_enabled": entry.default_enabled,
+            }),
+        );
+    }
+    Ok(result)
 }
 
 /// 生成指定会话的状态快照。
@@ -136,10 +243,10 @@ pub fn build_snapshot(
         },
         overview,
         active_task,
-        context: None,
-        llm: None,
+        context: Some(derive_context(conn, policy, actor, session_id)?),
+        llm: derive_llm(conn, session_id)?,
         event_cursor,
-        runtimes: BTreeMap::new(),
+        runtimes: derive_runtimes(conn)?,
     })
 }
 
@@ -231,9 +338,26 @@ mod tests {
         assert_eq!(active.retry_count, 1);
 
         assert_eq!(snapshot.event_cursor, 42, "游标须与 events 表一致");
-        assert!(snapshot.context.is_none(), "上下文属 M3，显式 None");
-        assert!(snapshot.llm.is_none(), "LLM 属 M3，显式 None");
-        assert!(snapshot.runtimes.is_empty(), "运行时属 M8，显式空");
+
+        // ADR-094：三字段由同源函数派生，不再恒占位（契约 §2）。
+        let context = snapshot.context.clone().expect("context 已实现");
+        assert_eq!(context["budget"], DEFAULT_TURN_BUDGET_TOKENS);
+        assert_eq!(context["estimated_tokens"], 0, "夹具无消息");
+        assert_eq!(context["truncated"], false);
+        assert!(
+            snapshot.llm.is_none(),
+            "夹具只有 SessionStarted，无 TurnStarted → 无 LLM 活动"
+        );
+        assert!(
+            snapshot.runtimes.contains_key("js") && snapshot.runtimes.contains_key("python"),
+            "runtimes 来自四项静态清单，未启用也列出（快照是状态视图）"
+        );
+        let js = &snapshot.runtimes["js"];
+        assert_eq!(js["enabled"], false, "无 runtime_state 行 → 未启用");
+        assert!(
+            js.get("capability").is_some() && js.get("available").is_some(),
+            "契约 §2：可用性与能力等级均在快照中"
+        );
 
         // JSON 序列化字段名与契约一致（snake_case：total_tasks / event_cursor）。
         let json = serde_json::to_value(&snapshot).expect("序列化");
@@ -276,5 +400,46 @@ mod tests {
         .expect_err("无能力必须拒绝");
         assert_eq!(err.code, whcode_domain::ErrorCode::PermissionDenied);
         assert!(!err.retryable);
+    }
+
+    /// ADR-094：llm 字段从已落盘事件派生——streaming（started 无 finished）
+    /// 与 completed（配对 finished），耗时取 ts 差；四端同源由 build_snapshot 保证。
+    #[test]
+    fn snapshot_llm_state_derives_from_events() {
+        let conn = migrated();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-llm', 'LLM', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("会话");
+
+        let insert_event = |seq: i64, id: &str, kind: &str, request_id: Option<&str>| {
+            conn.execute(
+                "INSERT INTO events (seq, id, session_id, task_id, request_id, tool_call_id,
+                                     kind, payload_json, ts, persistence_level)
+                 VALUES (?, ?, 'S-llm', NULL, ?, NULL, ?, CAST('{}' AS JSON)::VARIANT,
+                         current_timestamp, 'redacted')",
+                duckdb::params![seq, id, request_id, kind],
+            )
+            .expect("事件");
+        };
+        let policy = DefaultPolicy;
+        let actor = actor_with_all_capabilities("tester");
+
+        // 仅 started → streaming，elapsed 0。
+        insert_event(1, "E-1", "TurnStarted", Some("R-1"));
+        let snapshot = build_snapshot(&conn, &policy, &actor, "S-llm").expect("快照");
+        let llm = snapshot.llm.clone().expect("有 LLM 活动");
+        assert_eq!(llm["request_id"], "R-1");
+        assert_eq!(llm["state"], "streaming");
+        assert_eq!(llm["elapsed_ms"], 0);
+
+        // 配对 finished → completed（当前事件实现下 elapsed 为同秒差 ≥0）。
+        insert_event(2, "E-2", "TurnFinished", Some("R-1"));
+        let snapshot = build_snapshot(&conn, &policy, &actor, "S-llm").expect("快照");
+        let llm = snapshot.llm.clone().expect("有 LLM 活动");
+        assert_eq!(llm["state"], "completed");
+        assert!(llm["elapsed_ms"].as_i64().is_some_and(|v| v >= 0));
     }
 }

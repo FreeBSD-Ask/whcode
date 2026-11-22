@@ -790,6 +790,18 @@ taskkill /T /F 口径）（P1）
   - 证据：`crates/whcode-bin/src/config.rs`（DB 专用常量）、`workspace.rs`（连接参数）、
     `crates/whcode-bin/src/bench.rs`（夹具同步）、改动前后基线与 GUI 资源报告；Check 488
 
+- **FR-802**: 状态快照三字段真实数据（P1，ADR-094）：`contracts/state-snapshot.md` §2
+  声明的 `context`／`llm`／`runtimes` 三字段由占位改为同源派生真实数据——`context`
+  经 `history_messages` 与 `estimate_tokens` 计算预算/估算 token/截断原因；`llm`
+  从 `events` 的 `request_id` 与 `TurnStarted`/`TurnFinished` 派生请求 ID/状态/耗时；
+  `runtimes` 从 `whcode-runtime::inventory` 与 `runtime_state` 派生启用状态与能力等级；
+  不新增配置、不改 `build_snapshot` 签名、不引入写操作，四端经同一函数自动同源（V-207）
+  - 依据：ADR-094；`contracts/state-snapshot.md` §2；FR-314／V-207；ADR-003/005
+  - 判据：Given 会话有历史消息，Then context.estimated_tokens 与预算/截断语义一致；
+    Given TurnStarted 无 TurnFinished，Then llm.state=streaming；配对后 completed；
+    Given 任一运行时，Then runtimes 含启用状态与能力等级；四端读取同一快照值
+  - 证据：`crates/whcode-app/src/snapshot.rs`（三派生函数与单测）；Check 489
+
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

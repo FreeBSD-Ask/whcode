@@ -3096,3 +3096,13 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   （线程 ≤24／句柄 ≤256／RSS ≤96 MB）；全链门禁与 CI 缺口登记；取证落 artifacts。
   **取证（2026-11-22，本机）**：吞吐中位 4123.3→4194.0 条/秒（≥2000，差异 1.7% 在噪声带内，不宣称提速）；GUI 空闲线程 28→22（≤24，ADR-042 遗留缺口闭合）、句柄 251→245、RSS 81.9→81.3 MB、CPU 0.0%；证据 artifacts/adr093-baseline-{before,after}.json 与 artifacts/gui-run-2026-11-22/summary.json、artifacts/adr093-db-thread-verification-2026-11-22.md。限制：探针无截屏/按键注入（同 11-21），像素与键位未取证；单机样本不构成预算冻结，CI 按 ADR-037 待回填。
   （开工前置：任务认知卡，见 ADR-093 §任务认知卡）
+
+## Tasks（2026-11-22 追加）：状态快照三字段真实数据（ADR-094）
+
+- [x] T411（FR-802）状态快照三字段派生：context（history_messages＋estimate_tokens＋
+  截断原因）、llm（events.request_id 与 TurnStarted/Finished 派生）、runtimes（inventory×
+  runtime_state）；不改签名、不新增配置、不引入写操作。**取证（2026-11-22）**：
+  `cargo test -p whcode-app snapshot::` 4 通过（含 snapshot_llm_state_derives_from_events）；
+  clippy -D warnings 通过。（开工前置：任务认知卡，见 ADR-094 §任务认知卡）
+- [x] T412 登记与收口：FR-802／Check 489 入账、契约与 CHANGELOG 同步、全链门禁与
+  CI 缺口登记。**取证（2026-11-22）**：待全链门禁回填。（开工前置：任务认知卡，见 ADR-094 §任务认知卡）

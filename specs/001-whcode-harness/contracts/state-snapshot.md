@@ -45,3 +45,21 @@
 - 三端显示同一阶段、门禁结果与产物版本（V-207）
 - `event_cursor` 补齐后前端状态与快照一致（V-103）
 - 断线期间产生的更改在重连后可见（FR-605）
+
+## 5. 实现注记（ADR-094，2026-11-22）
+
+`context`／`llm`／`runtimes` 三字段由 `whcode-app::build_snapshot` 同源派生，四端
+（CUI/TUI/Web/SSH）经同一函数取值，不在前端填充：
+
+- `context`：`history_messages`（尾部优先、rewind 边界、budget 剪枝）装入的历史，
+  按 `estimate_tokens` 累加得 `estimated_tokens`；`budget` 取 `DEFAULT_TURN_BUDGET_TOKENS`，
+  `truncated` 由全量 token 和是否超预算判定，为真时附 `truncate_reason`。
+- `llm`：从 `events` 的 `request_id` 与 `TurnStarted`/`TurnFinished` 派生，不读内存态
+  （跨端一致）；`state` 为 `streaming`（仅 started）或 `completed`（配对 finished），
+  `elapsed_ms` 取两者 `epoch_us(ts)` 差；无事件为 `None`（无 LLM 活动）。
+- `runtimes`：`inventory(false)` 静态清单 × `runtime_state` 启用状态，附能力等级
+  （`full`／`restricted`／`shell_only`）与可用性；未启用者仍列出，快照是状态视图，
+  “未启用者不得出现在可执行工具列表”由工具层承担。
+
+限制：`llm` 状态来自已落盘事件（非实时进度），`context` 是估算 token（非供应商计数），
+`runtimes.available` 在 `probe=false` 下为 `None`（静态清单）。
