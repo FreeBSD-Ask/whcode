@@ -12,13 +12,19 @@ use whcode_app::approval::{
 };
 use whcode_domain::approval::{ApprovalRule, MAX_APPROVAL_ID_LEN};
 use whcode_domain::{CheckpointPolicy, TraceLevel, WhError};
-use whcode_platform::{paths, resources};
+use whcode_platform::paths;
 use whcode_tui::Theme;
 
 /// DuckDB 缓冲管理器默认内存上限（MiB），§5.4。
 pub const DEFAULT_MEMORY_LIMIT_MB: u32 = 192;
 /// DuckDB 缓冲管理器候选最大内存上限（MiB），§5.4。
 pub const CANDIDATE_MAX_MEMORY_LIMIT_MB: u32 = 384;
+
+/// DuckDB 连接线程预算（ADR-093，ADR-042 A′ 路径）：默认 `threads`／`async_threads`
+/// 恒为 1，使 GUI 空闲线程由 28 收敛至 FR-712 的 ≤24。仅约束 DB 连接；
+/// `whcode-platform::thread_budget` 与 runtime worker 并发不变。用户可在配置中显式
+/// 覆盖 `db.threads`，常量只改默认值。
+pub const DB_CONNECTION_THREAD_BUDGET: u32 = 1;
 
 /// UI 配置（FR-612）：主题经配置选择（`ui.theme`），可被环境变量 `WHCODE_UI_THEME` 覆盖。
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -38,7 +44,7 @@ pub struct DbConfig {
     pub memory_limit_mb: u32,
     /// `memory_limit` 的候选上限（MiB），由用户配置决定是否使用。
     pub max_memory_limit_mb: u32,
-    /// `threads`：初始不高于 `min(4, 可用物理核数)`。
+    /// `threads`：默认 1（ADR-093／DB_CONNECTION_THREAD_BUDGET）；用户可显式覆盖。
     pub threads: u32,
     /// `temp_directory`：工作区专用临时目录，启动时须检查可写性与磁盘余量。
     pub temp_directory: PathBuf,
@@ -199,12 +205,11 @@ impl Config {
     #[must_use]
     pub fn for_workspace(workspace_path: impl Into<PathBuf>) -> Self {
         let workspace_path = workspace_path.into();
-        let cores = resources::available_physical_cores();
         Self {
             db: DbConfig {
                 memory_limit_mb: DEFAULT_MEMORY_LIMIT_MB,
                 max_memory_limit_mb: CANDIDATE_MAX_MEMORY_LIMIT_MB,
-                threads: resources::thread_budget(cores),
+                threads: DB_CONNECTION_THREAD_BUDGET,
                 temp_directory: paths::workspace_temp_dir(&workspace_path),
                 max_temp_directory_size_mb: None,
             },
@@ -324,10 +329,10 @@ mod tests {
         let config = Config::for_workspace("D:/ws");
         assert_eq!(config.db.memory_limit_mb, 192);
         assert_eq!(config.db.max_memory_limit_mb, 384);
-        let cores = resources::available_physical_cores();
-        // 断言精确值而非上界：`threads` 必须是 min(4, 可用并行度)，硬编码为 1 也应被抓住。
-        assert_eq!(config.db.threads, resources::thread_budget(cores));
-        assert!(config.db.threads <= 4);
+        // ADR-093：DB 线程默认恒为 1（FR-712 收敛）；runtime worker 的
+        // resources::thread_budget 不受影响，另由 platform 测试覆盖。
+        assert_eq!(config.db.threads, DB_CONNECTION_THREAD_BUDGET);
+        assert_eq!(config.db.threads, 1);
         assert_eq!(config.trace.default_level, TraceLevel::Redacted);
         assert_eq!(config.db.temp_directory, PathBuf::from("D:/ws").join("tmp"));
         assert_eq!(config.db.max_temp_directory_size_mb, None);

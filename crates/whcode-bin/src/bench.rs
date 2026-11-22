@@ -274,10 +274,9 @@ pub struct Aggregate {
 pub fn measure(options: &BaselineOptions) -> Result<BaselineReport, WhError> {
     let options = BaselineOptions::validated(options.events, options.repeat)?;
     let workspace = TempWorkspace::create()?;
-    let threads_budget = std::thread::available_parallelism()
-        .map(std::num::NonZeroUsize::get)
-        .unwrap_or(1)
-        .min(4);
+    // ADR-093（ADR-042 A′ 路径）：基准夹具与产品装配同口径，DB 连接 threads/async_threads
+    // 恒为 1（FR-712 线程收敛）；runtime worker 的 thread_budget 不变（与本夹具无关）。
+    let threads_budget = 1_usize;
     let payload_text = "x".repeat(PAYLOAD_TEXT_BYTES);
     let payload_bytes = serde_json::to_vec(&json!({ "text": &payload_text }))
         .map_err(|err| WhError::internal(format!("基准 payload 序列化失败：{err}")))?
@@ -465,10 +464,11 @@ pub fn measure(options: &BaselineOptions) -> Result<BaselineReport, WhError> {
             "memory_limit 仅约束 DuckDB 缓冲管理器，不代表 WHCode 进程 RSS 上限（§5.2）"
                 .to_string(),
             format!(
-                "固定夹具的数据库参数为 memory_limit={MEMORY_LIMIT}、threads=min(4, 逻辑核数)、\
-                 async_threads=threads（ADR-042 配置收敛，2026-10-26 起）：\
+                "固定夹具的数据库参数为 memory_limit={MEMORY_LIMIT}、threads=1、\
+                 async_threads=1（ADR-093／ADR-042 A′ 路径，2026-11-22 起；此前为 \
+                 min(4, 逻辑核数)，见 ADR-042 方案 A）：\
                  本机 192MB + 4 线程在写入约 1000 条时触发 DuckDB OOM，故采用 §5.4 候选最大值；\
-                 该取值经 ADR-025 随预算一并冻结（NFR-210 以 192 MB 为当前口径）"
+                 threads 收敛到 1 须同口径复测 NFR-210 ≥2000 条/秒（ADR-025 决策 2）"
             ),
         ],
     };

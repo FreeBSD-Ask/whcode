@@ -75,6 +75,13 @@
 
 ### 变更
 
+- **DB 连接线程预算收敛（2026-11-22，ADR-093／FR-801／T409—T410）**：ADR-042 遗留的
+  GUI 空闲线程缺口（28 > FR-712 预算 24）按 A′ 路径闭合——DuckDB 连接的 `threads`／
+  `async_threads` 默认由 `min(4, 核数)` 收敛为 1；`resources::thread_budget` 与
+  runtime worker 并发不变；用户显式 `db.threads` 仍透传。同夹具实测：线程 28→22、
+  句柄 251→245、RSS 81.9→81.3 MB、空闲 CPU 0.0%；吞吐中位 4123.3→4194.0 条/秒
+  （≥2000，差异 1.7% 在噪声带内，不宣称提速）。Check 488；单机样本不构成预算冻结
+  （R-12），CI 按 ADR-037 待复核。证据 `artifacts/adr093-db-thread-verification-2026-11-22.md`。
 - **GUI 探测脚本支持非交互会话取资源证据（2026-11-21，ADR-027 修订记录）**：
   `gui-probe.py` 新增 `--resources-only`——ADR-027 预算判据（RSS／私有／线程／句柄／CPU）
   与像素无关，但原脚本在无桌面直流访问权时会因 `ImageGrab` 报 `screen grab failed`

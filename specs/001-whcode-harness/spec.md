@@ -777,6 +777,19 @@ taskkill /T /F 口径）（P1）
   - 证据：`crates/whcode-app/src/commands.rs`、`crates/whcode-app/src/view_source.rs`、
     `crates/whcode-gui/src/lib.rs`、`tests/contract/test_frontend_parity.rs`；Check 487
 
+- **FR-801**: DB 连接线程预算收敛（P1，ADR-093，ADR-042 A′ 路径）：DuckDB 连接的
+  `threads`／`async_threads` 默认值由 `min(4, 可用并行度)` 收敛为 1，使 GUI 空闲线程
+  从 28 降至 ≤24、满足 FR-712／ADR-027 硬预算；`resources::thread_budget` 与
+  `whcode-runtime::worker` 的并发上限不变；基准夹具与产品装配同口径（ADR-025 决策 2）；
+  改动后须同夹具复测 NFR-210 吞吐 ≥2000 条/秒，不达标即回退，不放宽预算、不伪造达标
+  - 依据：ADR-093；ADR-042 结论 2 的 A′ 路径；ADR-025 夹具纪律；FR-712／NFR-210；
+    改动前基线 `artifacts/adr093-baseline-before.json`（吞吐中位 4123.3/s）
+  - 判据：Given GUI 空闲（1200×800，10 s），Then 线程 ≤24、句柄 ≤256、RSS ≤96 MB；
+    Given `whcode bench baseline --repeat 3`，Then 吞吐中位 ≥2000 条/秒；
+    Given 用户显式配置 `db.threads`，Then 该值透传不被常量覆盖；runtime worker 并发不变
+  - 证据：`crates/whcode-bin/src/config.rs`（DB 专用常量）、`workspace.rs`（连接参数）、
+    `crates/whcode-bin/src/bench.rs`（夹具同步）、改动前后基线与 GUI 资源报告；Check 488
+
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

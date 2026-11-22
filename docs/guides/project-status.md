@@ -117,6 +117,13 @@ P2.2b／P3.3／P5.x／P6.x／P7.1／P7.2 的进展见 `CHANGELOG.md`，本表不
   空闲 CPU 0.0%（≤0.2%）。窗口标题实测 `Sessions (1/11)`，确认第 11 视图生效。
   证据 `artifacts/gui-run-2026-11-21/`。该轮以新增的 `--resources-only` 开关取证
   （非交互会话无截屏权限，像素／主题色值显式跳过，不冒充通过；默认完整模式行为不变）。
+  **2026-11-22 缺口闭合（ADR-093／FR-801，A′ 路径）**：DB 连接 `threads`／`async_threads`
+  默认收敛为 1（runtime worker 的 `thread_budget` 不变），同夹具实测线程 **28→22**
+  （≤24，FR-712 首次达标）、句柄 251→245、RSS 81.9→81.3 MB、空闲 CPU 0.0%；
+  吞吐中位 4123.3→4194.0 条/秒（≥2000，差异 1.7% 在噪声带内，不宣称提速）。
+  证据 `artifacts/gui-run-2026-11-22/`、`artifacts/adr093-baseline-{before,after}.json`、
+  `artifacts/adr093-db-thread-verification-2026-11-22.md`。限制：单机样本不构成预算冻结
+  （R-12），CI 按 ADR-037 待复核；探针为资源专用模式，像素与键位未取证。
 - **ADR 未决项**：无。ADR-058（turn 执行移出 serve 循环线程，WS 逐块增量转发）于
   2026-11-06 经用户「批准开发」转**已批准（附条件）**；条件 M1 复绿（`942dd14`）、
   M2 鉴权前置、M3 计数原子化、M4 busy 语义、M5 有损通道、M9 帧字段、M11 构造器收敛已

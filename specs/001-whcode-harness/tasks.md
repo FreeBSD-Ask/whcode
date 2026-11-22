@@ -3084,3 +3084,15 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   `Sessions (1/11)` 确认第 11 视图生效。证据 `artifacts/gui-run-2026-11-21/`。
   像素／主题色值／焦点／正常退出码本轮未取证（非交互会话无截屏权限），不冒充通过。
   详见 `artifacts/adr092-implementation-review-2026-11-21.md`。
+
+## Tasks（2026-11-22 追加）：DB 连接线程预算收敛（ADR-093，用户批准）
+
+- [x] T409（FR-801）DB 线程预算实现：config.rs 新增 DB 专用常量 1（不动
+  resources::thread_budget／runtime worker）；workspace.rs 连接参数、bench.rs 夹具同步；
+  用户显式 db.threads 透传；相关测试断言更新。取证待复测回填。
+  **取证（2026-11-22）**：`DB_CONNECTION_THREAD_BUDGET=1` 落地于 config.rs；workspace.rs 经 config.db.threads 同设 threads/async_threads；bench.rs 夹具同步；resources::thread_budget 与 runtime worker 不变；bin crate 编译通过、config 单测 12/12。
+  （开工前置：任务认知卡，见 ADR-093 §任务认知卡）
+- [x] T410 复测与收口：release 基准前后对比（NFR-210 ≥2000/s）与 GUI 资源探针
+  （线程 ≤24／句柄 ≤256／RSS ≤96 MB）；全链门禁与 CI 缺口登记；取证落 artifacts。
+  **取证（2026-11-22，本机）**：吞吐中位 4123.3→4194.0 条/秒（≥2000，差异 1.7% 在噪声带内，不宣称提速）；GUI 空闲线程 28→22（≤24，ADR-042 遗留缺口闭合）、句柄 251→245、RSS 81.9→81.3 MB、CPU 0.0%；证据 artifacts/adr093-baseline-{before,after}.json 与 artifacts/gui-run-2026-11-22/summary.json、artifacts/adr093-db-thread-verification-2026-11-22.md。限制：探针无截屏/按键注入（同 11-21），像素与键位未取证；单机样本不构成预算冻结，CI 按 ADR-037 待回填。
+  （开工前置：任务认知卡，见 ADR-093 §任务认知卡）
