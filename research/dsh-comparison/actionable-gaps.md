@@ -110,6 +110,36 @@ MCP stdio/HTTP（ADR-054/055）、压缩折叠（ADR-051）、子代理（ADR-05
 - **防御性反例复核**：全部维持；webhook 反例被反向超越——WHCode 以幂等键＋去重＋有界
   重试交付（ADR-079），DSH 的重复投递问题在 WHCode 侧不存在。
 
+## 增量复核（2026-11-23，上游 diff 驱动）
+
+**基线变化**：`fcc0ad4`（2026-11-04，`0.2.2-rc.1`）→ `4b399c3`（2026-11-22，`0.2.3-alpha.2`），
+2 628 提交、8 655 文件变更（含整仓格式化、测试快照与依赖锁）。以下只记影响本清单判定的项，
+变更主题取自上游 `.agents/notes/implemented/**` 新增笔记（117 篇，筛选与本目录 19 域相关者）。
+
+| 变更 | 上游状态 | 对判定的影响 |
+|---|---|---|
+| **延迟系统重建**（`2026-11-09-deferred-system-compaction.md`，域 E）：压缩只摘要既有对话，系统提示的重建推迟到下一次模型尝试，由装配按当前源（含未提交改动）解析；`compaction/summary` 事件在准入投影里标记 pending rebuild | implemented | **不构成新差距**。WHCode 无“系统源注册表／分段装配”概念——系统提示在 turn 开始时组装、压缩只折叠消息，不存在“旧系统提示残留”问题。记录为语义差异，不新增建议 |
+| **工具可达性与初始披露**（`2026-11-18-tool-reachability-and-initial-disclosure.md`，域 B/A）：工具按可达性 `native`／`program`／`both` 与初始披露 `none`／`name`／`summary`／`full` 两维描述；授权（`restrict()`／`when`）与可达性分离 | **proposed（未实现）** | **强化**下方“准入工具集按步失效”：上游正从“每步全量披露”转向“按步解析＋分级披露”。只作方向印证，**不得引作“DSH 已实现”**；WHCode 若做，先做“按步重解析”，披露分级留作后续 |
+| **子代理模型选择实时化**（`2026-11-17-live-subagent-model-selection-setting.md`，域 F）：`allowedRoutes()` 每次调用读 volatile 设置，不再把 allowlist 快照进会话；录制的 `subagent/model-selection-policy` 仅为旧日志校验保留、无代码读取 | implemented | **记录为设计原则**：若 WHCode 未来给 `spawn_subagent` 加模型路由，应“每次调用读当前设置”，不得快照进会话（快照会让编辑对运行中会话失效，且重放不能复原授权） |
+| 上下文用量分解（域 E/M）：`buildContextUsageSnapshot` 在请求前算 7 类分解，供 UI 圆环与 debug 日志 | 既有（本快照前已存在） | 无变化；与 ZCode 的 Context Composition 对比见下节“跨书交叉” |
+
+**维持原判定**：P1 五项、P2 八项已落地状态不变；“可采纳未落地”仍为三项（准入工具集按步失效、
+steer 有界通道、FTS），其中第一项经本轮上游 diff 得到方向印证。spill、并行批、Goal CAS、
+宿主级定时、类型驱动网关、真沙箱维持“不采纳（当前）”。
+
+## 跨书交叉（2026-11-23）
+
+两份上游在**工具清单动态性**上给出一致信号，值得合并为一条建议：
+
+- DSH：`preStep()` 每步 `tools.resolve()`，准入集本步 `finally` 中 dispose（域 A §2.2）。
+- ZCode：`apps/zcode-cli/docs/design/v2/loop/prompt-snapshot.md` 明确“**工具列表不记录**，
+  每请求从当前 registry 准备”——理由是 MCP 中途连接会改变工具集，固定清单反而破坏
+  prompt cache 前缀。
+
+WHCode 现状：`turn.rs:516` 在 turn 开始时装配一次 `tool_manifest`，循环内克隆使用。
+两个参照实现都选择“按请求/按步重解析”，且各自给出独立理由（DSH：准入时效；ZCode：
+MCP 动态性）。这使该建议从“可选优化”升为“与 MCP 语义一致性相关”的项。
+
 ## 复审触发
 
 - DSH 上游发布 `0.3.x` 或 `1.0.0`（破坏性变更窗口）→ 重读域 A/J/E 的对应源码；

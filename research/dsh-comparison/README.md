@@ -2,9 +2,12 @@
 
 - **目录性质**：外部参照与调研证据（ADR-045）；**不构成 ADR 或实施承诺**。采纳任何一项需走
   WHCode G0—G5 门禁并落到 `specs/` 或 ADR。
-- **DSH 证据**：源码浅克隆于 `local/dsh-src`（**不入库**），commit
-  `fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`（2026-11-04），deepseek-ai/deepseek-harness，
-  MIT，版本 `0.2.2-rc.1`，TypeScript pnpm monorepo（Node ≥ 24.9），基于 Cordis 全插件框架，
+- **DSH 证据**：源码浅克隆于 `local/dsh-src`（**不入库**）。成文基线 commit
+  `fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`（2026-11-04，`0.2.2-rc.1`）；
+  **2026-11-23 刷新至 `4b399c39a6d1479cd84ca591b4d7c88e24d38a96`（2026-11-22，
+  `0.2.3-alpha.2`）**，上游 2628 个提交、8 655 个文件变更（含整仓格式化与测试快照），
+  增量判定见 `actionable-gaps.md` 的“2026-11-23 增量复核”。deepseek-ai/deepseek-harness，
+  MIT，TypeScript pnpm monorepo（Node ≥ 24.9），基于 Cordis 全插件框架，
   developer preview（上游明示会有破坏性变更）。引用以相对克隆根的 `path:line` 定位。
 - **WHCode 证据**：本仓库 `crates/**`、`specs/001-whcode-harness/`、`docs/adr/`；
   实现状态以 `tasks.md` 勾选 + 磁盘代码为准（两者不一致时以代码为准并登记）。
