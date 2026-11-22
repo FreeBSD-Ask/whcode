@@ -802,6 +802,16 @@ taskkill /T /F 口径）（P1）
     Given 任一运行时，Then runtimes 含启用状态与能力等级；四端读取同一快照值
   - 证据：`crates/whcode-app/src/snapshot.rs`（三派生函数与单测）；Check 489
 
+- **FR-803**: 审批规则随工作区导出/导入（P1，ADR-095，ADR-080 §6 缺口收口）：
+  `approval_rules` 纳入 `EXPORT_TABLES` 与 `TABLE_KEY_COLUMNS`，备份与迁移不再静默丢失
+  审批规则；新增 `OPTIONAL_TABLES` 兼容机制——旧导出文件缺该表时按无规则导入（不报错），
+  既有表缺失仍拒绝；不递增导出格式版本、不改导入冲突语义（V-106）
+  - 依据：ADR-095；ADR-080 §6；V-106；导出格式 v1
+  - 判据：Given 含审批规则的工作区导出再导入，Then 规则逐条保留；Given 旧文件缺该表，
+    Then 导入成功且规则为空（如实）；Given 旧文件缺既有表，Then 拒绝并指明表名
+  - 证据：`crates/whcode-store/src/export.rs`（清单、`OPTIONAL_TABLES`、三处兼容分支、
+    两个新测试）；Check 490
+
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

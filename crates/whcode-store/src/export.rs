@@ -5,7 +5,9 @@
 //!
 //! ## 范围
 //!
-//! 导出 14 张业务表（[`EXPORT_TABLES`]）；**不含** [`EXCLUDED_TABLES`]：
+//! 导出 15 张业务表（[`EXPORT_TABLES`]）；其中 `approval_rules` 列入
+//! [`OPTIONAL_TABLES`]——旧导出文件缺该表时按无规则导入，不报错（ADR-095）。
+//! **不含** [`EXCLUDED_TABLES`]：
 //!
 //! - `audit`：安全审计随原库保留，不随导出文件扩散（§10.3）；
 //! - `runtime_state`：机器本地运行时配置，不属于工作区数据；
@@ -74,7 +76,22 @@ pub const EXPORT_TABLES: &[&str] = &[
     // 学习捕获干预台账（P2.4／FR-794／ADR-083）：跨会话的干预记录与自动判定的 outcome，
     // 属工作区数据（与 findings 同口径）。
     "interventions",
+    // 审批规则（ADR-095，ADR-080 §6 缺口收口）：工作区级安全配置，导出丢失会让原本
+    // deny 的工具回落到默认策略。属可选表——旧导出文件缺该表时按无规则导入。
+    "approval_rules",
 ];
+
+/// 允许在导出文件中缺失的表（向后兼容，ADR-095）。
+///
+/// 旧版本（v0.1.1 及更早）导出不含这些表；导入时按“无数据”处理而不是报错。
+/// **新版本导出一律包含**；既有表缺失仍视为文件损坏并报错，不得宽容。
+pub const OPTIONAL_TABLES: &[&str] = &["approval_rules"];
+
+/// 表是否允许在导出文件中缺失（ADR-095）。
+#[must_use]
+pub fn is_optional_table(table: &str) -> bool {
+    OPTIONAL_TABLES.contains(&table)
+}
 
 /// 明确排除的表及理由见模块文档。
 pub const EXCLUDED_TABLES: &[&str] = &[
@@ -104,6 +121,7 @@ pub const TABLE_KEY_COLUMNS: &[(&str, &[&str])] = &[
     ("messages", &["id"]),
     ("context_windows", &["id"]),
     ("session_overview", &["session_id"]),
+    ("approval_rules", &["tool"]),
 ];
 
 /// 导出文件清单。
@@ -626,8 +644,13 @@ pub fn import_workspace(
 
     for table in EXPORT_TABLES {
         let Some(rows) = file.tables.get(*table) else {
+            // ADR-095：旧文件缺可选表时按无数据导入，既有表缺失仍报错。
+            if is_optional_table(table) {
+                continue;
+            }
             return Err(invalid(&format!("导出文件缺少表 {table}")));
         };
+        // 表存在则校验和必须存在：否则可绕过完整性校验（不得按可选表宽容）。
         let Some(checksums) = file.chunk_checksums.get(*table) else {
             return Err(invalid(&format!("导出文件缺少表 {table} 的分块校验和")));
         };
@@ -652,10 +675,13 @@ pub fn import_workspace(
     }
 
     for &(table, key_columns) in TABLE_KEY_COLUMNS {
-        let rows = file
-            .tables
-            .get(table)
-            .ok_or_else(|| invalid(&format!("导出文件缺少表 {table}")))?;
+        let Some(rows) = file.tables.get(table) else {
+            // ADR-095：可选表缺失时无冲突可查（与校验循环同口径）。
+            if is_optional_table(table) {
+                continue;
+            }
+            return Err(invalid(&format!("导出文件缺少表 {table}")));
+        };
         let catalog = table_columns(conn, table)?;
         check_columns_match(table, rows, &catalog)?;
         for column in key_columns {
@@ -682,10 +708,13 @@ pub fn import_workspace(
         .map_err(|err| export_err("开始导入事务", err))?;
     let mut inserted = BTreeMap::new();
     for table in EXPORT_TABLES {
-        let rows = file
-            .tables
-            .get(*table)
-            .ok_or_else(|| invalid(&format!("导出文件缺少表 {table}")))?;
+        let Some(rows) = file.tables.get(*table) else {
+            // ADR-095：可选表缺失时跳过插入（ImportReport 不含该键，如实反映文件没有）。
+            if is_optional_table(table) {
+                continue;
+            }
+            return Err(invalid(&format!("导出文件缺少表 {table}")));
+        };
         if rows.is_empty() {
             inserted.insert((*table).to_string(), 0);
             continue;
@@ -1190,5 +1219,126 @@ mod tests {
         // 未迁移库：三表不存在，视为空。
         let raw = Connection::open_in_memory().expect("内存库");
         assert!(!has_any_workspace_data(&raw).expect("未迁移库视为空"));
+    }
+
+    /// ADR-095：审批规则随导出/导入往返保留（ADR-080 §6 缺口收口）。
+    #[test]
+    fn export_import_round_trip_preserves_approval_rules() {
+        let source = migrated();
+        seed_workspace(&source, "S-1", 2);
+        crate::approval_rules::upsert_rule(
+            &source,
+            "shell",
+            whcode_domain::ApprovalRule::Deny,
+            1_000,
+        )
+        .expect("写审批规则");
+        let path = temp_path("approval-rules");
+        let report = export_workspace(&source, &path, "tester", 1_700_000_000_000).expect("导出");
+        assert_eq!(
+            report.manifest.counts.get("approval_rules"),
+            Some(&1),
+            "审批规则须进入导出清单（ADR-095）"
+        );
+
+        let mut target = migrated();
+        import_workspace(&mut target, &path, Some(&report.content_hash)).expect("导入");
+        let rules = crate::approval_rules::list_rules(&target).expect("读规则");
+        assert_eq!(rules.len(), 1, "往返后规则不得丢失");
+        assert_eq!(rules[0].tool, "shell");
+        assert_eq!(rules[0].rule, whcode_domain::ApprovalRule::Deny);
+    }
+
+    /// ADR-095：旧导出文件缺 `approval_rules` 表时可导入（按无规则）；既有表缺失仍报错。
+    #[test]
+    fn import_accepts_legacy_file_without_optional_table() {
+        let source = migrated();
+        seed_workspace(&source, "S-1", 2);
+        crate::approval_rules::upsert_rule(
+            &source,
+            "shell",
+            whcode_domain::ApprovalRule::Deny,
+            1_000,
+        )
+        .expect("写审批规则");
+        let path = temp_path("legacy-optional");
+        export_workspace(&source, &path, "tester", 1_700_000_000_000).expect("导出");
+
+        // 模拟旧版本文件：移除可选表及其校验和与计数（内容已变，哈希不再匹配）。
+        let mut file = read_file_json(&path);
+        for section in ["tables", "chunk_checksums"] {
+            file[section]
+                .as_object_mut()
+                .expect(section)
+                .remove("approval_rules");
+        }
+        file["manifest"]["counts"]
+            .as_object_mut()
+            .expect("counts")
+            .remove("approval_rules");
+        write_file_json(&path, &file);
+
+        let mut target = migrated();
+        let import = import_workspace(&mut target, &path, None).expect("旧文件应可导入");
+        assert_eq!(import.inserted.get("events"), Some(&2), "既有表照常导入");
+        assert!(
+            !import.inserted.contains_key("approval_rules"),
+            "文件中没有该表 → ImportReport 不出现该键（如实反映）"
+        );
+        assert!(
+            crate::approval_rules::list_rules(&target)
+                .expect("读规则")
+                .is_empty(),
+            "旧文件无规则 → 导入后为空，不伪造恢复"
+        );
+
+        // 既有表缺失仍须报错（可选机制不得宽容既有表）。
+        let mut broken = read_file_json(&path);
+        broken["tables"]
+            .as_object_mut()
+            .expect("tables")
+            .remove("events");
+        broken["chunk_checksums"]
+            .as_object_mut()
+            .expect("checksums")
+            .remove("events");
+        broken["manifest"]["counts"]
+            .as_object_mut()
+            .expect("counts")
+            .remove("events");
+        write_file_json(&path, &broken);
+        let mut fresh = migrated();
+        let err = import_workspace(&mut fresh, &path, None).expect_err("缺既有表必须拒绝");
+        assert!(
+            err.message.contains("events"),
+            "错误须指明缺失的表：{}",
+            err.message
+        );
+
+        // 可选表“存在但校验和缺失”必须拒绝：否则可绕过完整性校验（ADR-095）。
+        let source2 = migrated();
+        seed_workspace(&source2, "S-2", 2);
+        crate::approval_rules::upsert_rule(
+            &source2,
+            "shell",
+            whcode_domain::ApprovalRule::Deny,
+            1_000,
+        )
+        .expect("写审批规则");
+        let path2 = temp_path("optional-without-checksum");
+        export_workspace(&source2, &path2, "tester", 1_700_000_000_000).expect("导出");
+        let mut partial = read_file_json(&path2);
+        partial["chunk_checksums"]
+            .as_object_mut()
+            .expect("checksums")
+            .remove("approval_rules");
+        write_file_json(&path2, &partial);
+        let mut target2 = migrated();
+        let err = import_workspace(&mut target2, &path2, None).expect_err("缺校验和必须拒绝");
+        assert!(
+            err.message.contains("approval_rules") && err.message.contains("校验和"),
+            "错误须指明可选表缺校验和：{}",
+            err.message
+        );
     }
 }

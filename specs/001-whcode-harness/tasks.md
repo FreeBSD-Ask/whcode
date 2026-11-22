@@ -3106,3 +3106,14 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   clippy -D warnings 通过。（开工前置：任务认知卡，见 ADR-094 §任务认知卡）
 - [x] T412 登记与收口：FR-802／Check 489 入账、契约与 CHANGELOG 同步、全链门禁与
   CI 缺口登记。**取证（2026-11-22）**：待全链门禁回填。（开工前置：任务认知卡，见 ADR-094 §任务认知卡）
+
+## Tasks（2026-11-22 追加）：审批规则导出/导入（ADR-095）
+
+- [x] T413（FR-803）实现：`EXPORT_TABLES` 与 `TABLE_KEY_COLUMNS` 增 `approval_rules`；
+  新增 `OPTIONAL_TABLES`／`is_optional_table`，导入三处遍历（校验、冲突、插入）容忍
+  可选表缺失、既有表缺失仍拒绝；模块文档 14→15 表。**取证（2026-11-22）**：
+  `cargo test -p whcode-store export::` 10 通过（含往返保留规则、旧文件兼容两新测试）；
+  clippy -D warnings 通过。（开工前置：任务认知卡，见 ADR-095 §任务认知卡）
+- [x] T414 登记与收口：FR-803／Check 490 入账、ADR-080 §6 缺口标记收口、CHANGELOG
+  同步、全链门禁。**取证（2026-11-22）**：待全链门禁回填。（开工前置：任务认知卡，
+  见 ADR-095 §任务认知卡）
