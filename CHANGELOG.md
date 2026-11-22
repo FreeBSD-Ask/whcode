@@ -13,6 +13,16 @@
 
 ### 变更
 
+- **A2 根因修复：serve loop 测试线程有序停止（2026-11-22，ADR-096／FR-804／T415—T416）**：
+  长期 monitoring 的 A2（`whcode-bin` 测试二进制在 FreeBSD 退出路径 SIGSEGV）根因定位——
+  core backtrace 显示崩溃线程 `serve-loop-test` 栈顶在 `libduckdb.so` 的
+  `__hash_table<...duckdb::LiteralInfo...>::find`；根因是两个测试基建函数 spawn 无限循环
+  `serve_loop` 后丢弃 `JoinHandle`，进程退出时线程仍查询 DuckDB 静态注册表、与静态析构
+  竞争。修复：`serve_loop` 增可选 `shutdown`（生产传 `None` 语义不变），
+  `TestServer`／`TlsTestServer` 在 `Drop` 中置位并 join。CI 复验（run `45034312153`）：
+  `platform-freebsd` success，`156 passed; 0 failed` 后无 SIGSEGV（对照失败 run
+  `45028018422` 同 156 passed 后 signal 11）。A2 间歇性，保留 monitoring 观察，不据单次
+  绿宣称统计意义上的修复。取证 `artifacts/a2-root-cause-2026-11-22.md`（本地）。
 - **审批规则随导出/导入（2026-11-22，ADR-095／FR-803／T413—T414）**：ADR-080 §6 自登记
   缺口收口——`approval_rules` 此前既不在 `EXPORT_TABLES` 也不在 `EXCLUDED_TABLES`，
   备份/迁移会静默丢失审批规则（原本 `deny` 的工具恢复后回落到默认策略，属安全倒退）。

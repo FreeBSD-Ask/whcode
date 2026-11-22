@@ -3126,6 +3126,10 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   `serve-loop-test`、栈顶 `libduckdb.so` `LiteralInfo` hash 表 find）；`cargo test
   -p whcode-bin serve::` 40 通过、5.58 s 无死锁。**限制**：本机不复现 A2，不能据本地绿
   宣称修复；须 FreeBSD CI 判定。（开工前置：任务认知卡，见 ADR-096 §任务认知卡）
-- [ ] T416 复验与收口：push 后 FreeBSD `platform-freebsd` 结论回填；若仍红且栈顶为
+- [x] T416 复验与收口：push 后 FreeBSD `platform-freebsd` 结论回填；若仍红且栈顶为
   `serve-loop-test` 则重开定位（ADR-096 复审触发 1）；A2 行状态同步、全链门禁。
+  **取证（2026-11-22，CI）**：run `45034312153` 的 `platform-freebsd` success——
+  `156 passed; 0 failed` 后无 SIGSEGV、无 `FREEBSD_GATE_FAILED`、`phase=done`；
+  对照 run `45028018422` 同 156 passed 后 signal 11。首次有根因解释的绿；A2 间歇性，
+  保留 monitoring 观察，不宣称统计意义上的修复。
   （开工前置：任务认知卡，见 ADR-096 §任务认知卡）

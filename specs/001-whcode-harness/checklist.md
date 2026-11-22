@@ -1601,10 +1601,14 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   export_import_round_trip_preserves_approval_rules 与
   import_accepts_legacy_file_without_optional_table）；clippy -D warnings 通过。
 
-- [ ] Check 491: [exercised] serve loop 测试线程有序停止（T415—T416／FR-804／ADR-096）：
+- [x] Check 491: [exercised] serve loop 测试线程有序停止（T415—T416／FR-804／ADR-096）：
   `serve_loop` 可选 `shutdown`（生产 None）；`TestServer`／`TlsTestServer` Drop 置位并
-  join；本地 serve 测试 40 通过、无死锁。**FreeBSD CI 复验待回填**（本机 A2 不复现，
-  不得据本地绿宣称 A2 已修复）。
+  join；本地 serve 测试 40 通过、无死锁。**取证（2026-11-22，CI）**：含修复提交
+  `32b5ac9` 的 `platform-verification` run `45034312153` 中 `platform-freebsd` **success**
+  ——`156 passed; 0 failed; 2 ignored` 后**无 SIGSEGV**、无 `FREEBSD_GATE_FAILED`、
+  `phase=workspace-tests-ok`／`phase=done`；对照失败 run `45028018422` 同为 156 passed
+  但随后 `signal: 11`。判读：首次“有根因解释的绿”（此前两次不复现无法解释机制）；
+  A2 属间歇性，保留 monitoring 观察后续是否复现，不据此宣称统计意义上的修复。
 
 ## 追溯缺口登记（2026-10-23）
 
