@@ -823,6 +823,18 @@ taskkill /T /F 口径）（P1）
   - 证据：`crates/whcode-bin/src/serve.rs`（可选信号、`Drop`、`Deref`）、
     `local/a2-diag-45028018422/core-bt.txt`（根因）、serve 测试 40 通过；Check 491
 
+- **FR-805**: 准入工具清单按步重算（P1，ADR-097）：turn 内每一步的 `tools` 反映当步真实
+  可用工具——MCP 会话失效（`is_broken()`）后其工具自本步起不再投影，并以 system 消息
+  告示一次；内置工具清单按 turn 开始时的注册表快照；不新增主动探测、不做披露分级、
+  不改审批语义
+  - 依据：ADR-097；ADR-044／048／054；`research/dsh-comparison` 2026-11-23 跨书交叉
+  - 判据：Given 某 MCP 服务器在步 N 调用失败置 broken，Then 步 N+1 的 tools 不含其工具
+    且有一条告示；Given 无 MCP 配置，Then 清单与改动前一致（正确的空）；Given 多服务器，
+    Then 仅失效者的工具被摘除
+  - 证据：`crates/whcode-mcp/src/manager.rs`（清单过滤、`broken_servers()`）、
+    `crates/whcode-app/src/turn.rs`（每步重算与告示）、单测
+    `tool_manifest_skips_broken_servers`；Check 492
+
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

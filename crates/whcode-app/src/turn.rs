@@ -513,14 +513,12 @@ fn run_turn_inner(
     // 连接失败逐服务器记录，以 system 消息显式告示（不静默，区分正确的空与错误的空）。
     let mut mcp_manager =
         whcode_mcp::McpManager::connect_workspace(request.workspace_root.as_deref())?;
-    let mut tool_manifest = serde_json::Value::Array(tool_registry.provider_manifest());
+    // ADR-097：内置清单按 turn 开始时的注册表快照（注册表在 turn 内不变）；
+    // MCP 部分每步重算（见循环内），此处只收集一次性的连接告示。
+    let builtin_manifest = tool_registry.provider_manifest();
     let mut mcp_notices: Vec<String> = Vec::new();
     if !mcp_manager.is_empty() || !mcp_manager.connect_errors().is_empty() {
         let manifest = mcp_manager.tool_manifest();
-        let Some(entries) = tool_manifest.as_array_mut() else {
-            return Err(WhError::internal("工具清单不是数组"));
-        };
-        entries.extend(manifest.entries);
         for (server, error) in mcp_manager.connect_errors() {
             mcp_notices.push(format!("- 服务器 {server} 连接失败：{error}"));
         }
@@ -630,6 +628,9 @@ fn run_turn_inner(
     };
     let mut envelope: Vec<Value> = Vec::new();
     let mut iterations: u32 = 0;
+    // ADR-097：已告示过的失效 MCP 服务器（每台只告示一次，避免逐步重复）。
+    let mut announced_broken: std::collections::BTreeSet<String> =
+        std::collections::BTreeSet::new();
     let mut chunks: Vec<LlmChunkView> = Vec::new();
     let mut text = String::new();
     let mut finish_reason = None;
@@ -948,6 +949,28 @@ fn run_turn_inner(
         let iteration = iterations;
         iterations += 1;
 
+        // ── ADR-097：每步重算准入工具清单 ──────────────────────────────
+        // 内置部分沿用 turn 快照；MCP 部分重新投影——会话失效（is_broken）的服务器
+        // 自本步起不再提供工具，并以 system 告示一次（不静默、不重复）。
+        let mut step_manifest = serde_json::Value::Array(builtin_manifest.clone());
+        if !mcp_manager.is_empty() {
+            let mcp = mcp_manager.tool_manifest();
+            if let Some(entries) = step_manifest.as_array_mut() {
+                entries.extend(mcp.entries);
+            }
+            for server in mcp_manager.broken_servers() {
+                if announced_broken.insert(server.clone()) {
+                    messages.push(LlmMessage {
+                        tool_calls: Vec::new(),
+                        tool_call_id: None,
+                        role: Role::System,
+                        content: format!(
+                            "- MCP 服务器 {server} 会话已失效，其工具自本步起不再提供"
+                        ),
+                    });
+                }
+            }
+        }
         // ── 模型 step（chunk/正文上限沿用 llm.rs 常量）───────────────────
         let started = Instant::now();
         let llm_request = LlmRequest {
@@ -956,7 +979,7 @@ fn run_turn_inner(
             task_id: None,
             model: model.clone(),
             messages: messages.clone(),
-            tools: Some(tool_manifest.clone()),
+            tools: Some(step_manifest),
             max_tokens,
             timeout: Some(total),
         };

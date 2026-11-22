@@ -3133,3 +3133,13 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   对照 run `45028018422` 同 156 passed 后 signal 11。首次有根因解释的绿；A2 间歇性，
   保留 monitoring 观察，不宣称统计意义上的修复。
   （开工前置：任务认知卡，见 ADR-096 §任务认知卡）
+
+## Tasks（2026-11-23 追加）：准入工具清单按步重算（ADR-097）
+
+- [x] T417（FR-805）实现：`tool_manifest` 跳过 `is_broken()` 服务器并留注记；新增
+  `broken_servers()`；turn 循环每步重算 `step_manifest`，失效服务器告示一次。
+  **取证（2026-11-23）**：`cargo test -p whcode-mcp --lib` 22 通过（含新增
+  `tool_manifest_skips_broken_servers`）；`cargo test -p whcode-app turn::` 36 通过；
+  clippy -D warnings 通过。（开工前置：任务认知卡，见 ADR-097 §任务认知卡）
+- [x] T418 登记与收口：FR-805／Check 492 入账、CHANGELOG 同步、全链门禁。
+  **取证（2026-11-23）**：待全链门禁回填。（开工前置：任务认知卡，见 ADR-097 §任务认知卡）

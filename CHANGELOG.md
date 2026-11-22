@@ -13,6 +13,13 @@
 
 ### 变更
 
+- **准入工具清单按步重算（2026-11-23，ADR-097／FR-805／T417—T418）**：turn 内每一步的
+  `tools` 此前是 turn 开始时的快照——某 MCP 服务器在步 2 调用失败（`broken`）后，步 3 仍
+  发送其全部工具定义，模型会继续调用必然失败的工具。现 `McpManager::tool_manifest` 跳过
+  失效服务器并留注记，turn 循环每步重算清单，失效以 system 消息告示一次；内置清单沿用
+  turn 快照，不新增主动探测、不做披露分级、不改审批语义。依据 `research/dsh-comparison`
+  的跨书交叉（DSH 每步 resolve、ZCode 每请求从 registry 准备）。取证：
+  `tool_manifest_skips_broken_servers`、turn 测试 36 通过。
 - **A2 根因修复：serve loop 测试线程有序停止（2026-11-22，ADR-096／FR-804／T415—T416）**：
   长期 monitoring 的 A2（`whcode-bin` 测试二进制在 FreeBSD 退出路径 SIGSEGV）根因定位——
   core backtrace 显示崩溃线程 `serve-loop-test` 栈顶在 `libduckdb.so` 的
