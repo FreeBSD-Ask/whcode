@@ -505,6 +505,7 @@ fn serve_web(
         security,
         tls_config,
         Some(workspace),
+        None,
     )
 }
 
@@ -712,6 +713,7 @@ fn serve_loop(
     security: ServeSecurity,
     tls: Option<Arc<ServerConfig>>,
     workspace_root: Option<&Path>,
+    shutdown: Option<&AtomicBool>,
 ) -> Result<(), WhError> {
     listener.set_nonblocking(true).map_err(|err| {
         WhError::new(ErrorCode::IoError, format!("监听套接字非阻塞化失败：{err}"))
@@ -731,6 +733,12 @@ fn serve_loop(
     // 同 tick 多请求共用陈旧计数会超发（评审 M3），所以判定与递增必须不可分割。
     let active_turns = Arc::new(AtomicUsize::new(0));
     loop {
+        // ADR-096：可选停止信号（仅测试基建注入；生产传 `None`，语义不变）。
+        // 测试线程必须在进程退出前有序退出——否则仍在 DuckDB 静态注册表上查询，
+        // 与静态析构竞争（A2 SIGSEGV 根因）。
+        if shutdown.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+            return Ok(());
+        }
         let mut progressed = false;
         accept_ready(&listener, &mut clients, &mut progressed, tls.as_ref());
         // 连接槽（ADR-058）：turn 工作线程持锁时为 `None`——静态资产照常服务，
@@ -2529,7 +2537,7 @@ mod tests {
     };
     use crate::tls;
     use crate::workspace::WORKSPACE_DB_FILE;
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
     use whcode_app::cert::{CertPaths, load_settings};
     use whcode_app::{Actor, actor_with_all_capabilities};
@@ -3304,6 +3312,20 @@ mod tests {
         addr: SocketAddr,
         /// 测试侧连接：直接 INSERT 事件驱动广播。
         conn: Connection,
+        /// ADR-096：停止标志与线程句柄。Drop 时置位并 join——serve_loop 线程若在
+        /// 进程退出时仍运行，会与 DuckDB 静态注册表析构竞争（A2 SIGSEGV 根因）。
+        shutdown: Arc<AtomicBool>,
+        handle: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl Drop for TestServer {
+        fn drop(&mut self) {
+            // 句柄被移交（如 TlsTestServer）时不在此停服，由接收方负责。
+            if let Some(handle) = self.handle.take() {
+                self.shutdown.store(true, Ordering::Relaxed);
+                let _ = handle.join();
+            }
+        }
     }
 
     /// 明文档位测试服务器（`--tls off` 的既有语义回归）。
@@ -3319,7 +3341,9 @@ mod tests {
         let addr = listener.local_addr().expect("读取端口");
         let actor = actor_with_all_capabilities("test-web");
         let security = ServeSecurity::loopback();
-        std::thread::Builder::new()
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let thread_flag = Arc::clone(&shutdown);
+        let handle = std::thread::Builder::new()
             .name("serve-loop-test".into())
             .spawn(move || {
                 let _ = serve_loop(
@@ -3329,10 +3353,16 @@ mod tests {
                     security,
                     tls,
                     None,
+                    Some(&thread_flag),
                 );
             })
             .expect("启动服务器线程");
-        TestServer { addr, conn }
+        TestServer {
+            addr,
+            conn,
+            shutdown,
+            handle: Some(handle),
+        }
     }
 
     /// 测试用自签证书与私钥（运行期生成，不写入仓库、不进日志）。
@@ -3345,21 +3375,27 @@ mod tests {
     }
 
     /// TLS 测试服务器（服务循环与明文测试共用同一实现，只多一份 `ServerConfig`）。
+    /// 内嵌 `TestServer` 以复用其 Drop（有序停服）；`Deref` 让 `server.addr`／
+    /// `server.conn` 的使用点保持不变。
     struct TlsTestServer {
-        addr: SocketAddr,
-        conn: Connection,
+        inner: TestServer,
         /// 叶子证书（客户端信任根）。
         cert: CertificateDer<'static>,
+    }
+
+    impl std::ops::Deref for TlsTestServer {
+        type Target = TestServer;
+        fn deref(&self) -> &TestServer {
+            &self.inner
+        }
     }
 
     fn spawn_tls_test_server() -> TlsTestServer {
         let (cert_pem, key_pem) = test_material();
         let cert = CertificateDer::from_pem_slice(cert_pem.as_bytes()).expect("证书 DER");
         let config = tls::server_config(&cert_pem, &key_pem).expect("TLS 服务端配置");
-        let server = spawn_loop_server(Some(config));
         TlsTestServer {
-            addr: server.addr,
-            conn: server.conn,
+            inner: spawn_loop_server(Some(config)),
             cert,
         }
     }
@@ -4525,7 +4561,9 @@ mod tests {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("绑定随机端口");
         let addr = listener.local_addr().expect("读取端口");
         let actor = actor_with_all_capabilities("test-web");
-        std::thread::Builder::new()
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let thread_flag = Arc::clone(&shutdown);
+        let handle = std::thread::Builder::new()
             .name("serve-loop-test".into())
             .spawn(move || {
                 let _ = serve_loop(
@@ -4535,10 +4573,16 @@ mod tests {
                     security,
                     None,
                     None,
+                    Some(&thread_flag),
                 );
             })
             .expect("启动服务器线程");
-        TestServer { addr, conn }
+        TestServer {
+            addr,
+            conn,
+            shutdown,
+            handle: Some(handle),
+        }
     }
 
     /// 一次阻塞式 HTTP 探测：返回（状态行, 体, 头原文）。

@@ -3117,3 +3117,15 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
 - [x] T414 登记与收口：FR-803／Check 490 入账、ADR-080 §6 缺口标记收口、CHANGELOG
   同步、全链门禁。**取证（2026-11-22）**：待全链门禁回填。（开工前置：任务认知卡，
   见 ADR-095 §任务认知卡）
+
+## Tasks（2026-11-22 追加）：A2 根因修复（ADR-096）
+
+- [x] T415（FR-804）实现：`serve_loop` 增可选 `shutdown`（生产传 None）；`TestServer` 增
+  `shutdown`／`handle` 并在 Drop 置位 join；`TlsTestServer` 内嵌 `TestServer`＋Deref。
+  **取证（2026-11-22，本机）**：根因见 `local/a2-diag-45028018422/core-bt.txt`（崩溃线程
+  `serve-loop-test`、栈顶 `libduckdb.so` `LiteralInfo` hash 表 find）；`cargo test
+  -p whcode-bin serve::` 40 通过、5.58 s 无死锁。**限制**：本机不复现 A2，不能据本地绿
+  宣称修复；须 FreeBSD CI 判定。（开工前置：任务认知卡，见 ADR-096 §任务认知卡）
+- [ ] T416 复验与收口：push 后 FreeBSD `platform-freebsd` 结论回填；若仍红且栈顶为
+  `serve-loop-test` 则重开定位（ADR-096 复审触发 1）；A2 行状态同步、全链门禁。
+  （开工前置：任务认知卡，见 ADR-096 §任务认知卡）

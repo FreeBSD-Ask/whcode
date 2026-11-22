@@ -812,6 +812,17 @@ taskkill /T /F 口径）（P1）
   - 证据：`crates/whcode-store/src/export.rs`（清单、`OPTIONAL_TABLES`、三处兼容分支、
     两个新测试）；Check 490
 
+- **FR-804**: serve loop 测试线程有序停止（P1，ADR-096，A2 根因修复）：测试基建创建的
+  `serve-loop-test` 线程此前丢弃 `JoinHandle`、`serve_loop` 无限循环，进程退出时与
+  DuckDB 静态注册表析构竞争致 SIGSEGV；`serve_loop` 增可选 `shutdown` 信号（生产传
+  `None`，语义不变），`TestServer`／`TlsTestServer` 在 `Drop` 中置位并 join
+  - 依据：ADR-096；A2（`docs/guides/long-line-plan.md`）；NFR-211；ADR-037
+  - 判据：Given 任一使用测试服务器的用例结束，Then 服务线程已退出并被 join（无泄漏）；
+    Given 生产装配，Then `serve_loop` 传 `None`、无限循环语义不变；Given 修复后
+    FreeBSD CI，Then `platform-freebsd` 绿且 core 栈顶不再为 `serve-loop-test`
+  - 证据：`crates/whcode-bin/src/serve.rs`（可选信号、`Drop`、`Deref`）、
+    `local/a2-diag-45028018422/core-bt.txt`（根因）、serve 测试 40 通过；Check 491
+
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，
