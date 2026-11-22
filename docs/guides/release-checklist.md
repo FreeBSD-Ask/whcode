@@ -112,15 +112,30 @@ ADR 修改判据）。
   counts/traceability/knowing-first/adr-limits/docs-style/eol/i18n/frontend-budget、
   coherence pre(反例 0)/mid(0) 全绿；GUI 线程 22≤24、吞吐 4194.0/s≥2000（单机样本，R-12） |
 | 标签 | `v0.1.1`（annotated → 提交 `a313a88`，2026-11-22 19:34+08:00 推送） |
-| 验收链证据 | **运行中**：`platform-verification` run `45022965966`（main push 触发，
-  2026-11-22T12:34:15Z，含 Windows amd64 验收、FreeBSD 硬门禁、ARM64/NetBSD 证据；
-  A2 间歇项按 monitoring 判读）。结论待回填，不冒充通过（ADR-037） |
-| 发布构建 | **运行中**：`build-release` run `45022997717`（v0.1.1 tag 触发，
-  2026-11-22T12:34:37Z；amd64/arm64 zip＋sha256、freebsd-amd64.tar.gz＋sha256 六件产物，
-  ADR-083）。结论待回填 |
+| 验收链证据 | `platform-verification` run `45022965966`（main push，12:34:15Z）：**run 级
+  `cancelled`（被后续文档 push 的并发组取消），但 7 个实际执行的 job 全部 success**——
+  `platform-windows`（唯一验收目标，12:56:04Z）、`platform-freebsd`（硬门禁，13:18:11Z）、
+  `platform-windows-arm64`、`platform-openbsd`、`platform-dragonfly`、`measurements`、
+  `triage`；其余 7 job 按登记 skipped。按 ADR-037 以 job 级结论为准，run 级 cancelled
+  如实标注、不冒充“run 全绿”；被取消的 job 为 skipped，不影响已完成的硬门禁证据 |
+| 发布构建 | `build-release` run `45022997717`（v0.1.1 tag，12:34:37Z）：**success**——
+  `package-amd64-release`／`package-arm64-release`／`package-amd64-debug`／
+  `package-freebsd-amd64-release`／`release` 五 job 全绿。六件产物齐备：
+  `whcode-0.1.1-windows-amd64.zip`（33,690,627 B＋sha256）、
+  `whcode-0.1.1-windows-arm64.zip`（31,718,716 B＋sha256）、
+  `whcode-0.1.1-freebsd-amd64.tar.gz`（39,461,203 B＋sha256，ADR-083） |
+| 文档分流 | `platform-verification` run `45023643811`（4aef0d3 文档 push）：`triage`＋
+  `docs-gates` success，其余 skipped（ADR-082 分流口径成立） |
 | Code Scanning | 0 条 open（2026-11-21 复核）；CI 每周复核保持 |
-| 本机安装验证 | `artifacts/install-verify-windows-amd64.txt`（2026-11-16，gnullvm）——
-  v0.1.1 产物需随发布构建重新执行 `package-windows.py --verify` |
+| 安装验证（CI） | `build-release` 的 `package-amd64-release` job 内含
+  `package-windows.py --target … --verify --record`，job success ⇒ CI 侧验证通过；
+  记录在 runner artifact `install-verify-windows-amd64.txt` |
+| 本机安装验证 | `artifacts/install-verify-windows-amd64.txt`（2026-11-22T13:29:18Z，
+  gnullvm，三条命令退出 0、临时工作区库文件 798720 字节实际生成）。**口径说明**：
+  `package-windows.py --verify` 会先由本机重新打包（`build_package`）再验证，故记录中的
+  zip 为 34,720,301 B／sha256 `8500d1ba…`；CI Release 产物为 33,690,627 B／sha256 见
+  `whcode-0.1.1-windows-amd64.zip.sha256`，两者不是同一字节流。本机记录证明**本机构建路径
+  可安装**，CI 产物的安装验证以 CI job 为准，不混用两份证据 |
 
 v0.1.0 的发布记录为历史事实，移至 §6.2，不改写。
 
