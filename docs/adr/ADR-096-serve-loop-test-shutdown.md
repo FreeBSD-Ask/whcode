@@ -1,17 +1,17 @@
 # ADR-096：serve loop 测试线程有序停止——A2 SIGSEGV 根因修复
 
-- **状态**：已批准（2026-11-22，用户"继续"；A2 长期 monitoring 项的根因定位与修复）
+- **状态**：已批准（2026-11-22，用户“继续”；A2 长期 monitoring 项的根因定位与修复）
 - **关联**：A2（`docs/guides/long-line-plan.md`）；ADR-037（CI 证据）；FR-793；NFR-211
 - **证据**：`artifacts` 之外的 CI artifact `a2-diag-freebsd`（run `45028018422`），
   本地留存 `local/a2-diag-45028018422/`（core-bt.txt／parallel-run.txt／truss-parallel.log）
 
 ## 任务认知卡
 
-- **方向**：定位并修复 A2——`whcode-bin` 测试二进制在 FreeBSD 上"全部用例通过后退出路径 SIGSEGV"。
+- **方向**：定位并修复 A2——`whcode-bin` 测试二进制在 FreeBSD 上“全部用例通过后退出路径 SIGSEGV”。
 - **目标**：根因可复现、可判定；修复后 FreeBSD `platform-freebsd` job 绿，且不引入线程泄漏或死锁。
 - **用户意图**：用户要求继续推进；A2 是长期 monitoring 项，本次复现提供了 core backtrace，具备定位条件。
 - **非目标／边界**：不改生产 `serve_loop` 的无限循环语义（生产传 `None`）；不改测试用例的断言；
-  不关闭或跳过任何测试；不以"重跑通过"代替根因修复。
+  不关闭或跳过任何测试；不以“重跑通过”代替根因修复。
 - **现有证据（决定性）**：run `45028018422` 的 `core-bt.txt` 显示崩溃线程名为
   `serve-loop-test`，栈顶在 `libduckdb.so` 的
   `__hash_table<...duckdb::LiteralInfo...>::find` +242，`stop reason = signal SIGSEGV`；
@@ -49,7 +49,7 @@
 ## 理由与约束
 
 - 为何改生产函数签名：`serve_loop` 是私有函数，调用点仅 3 处（1 生产 + 2 测试）；
-  可选参数不改变生产行为，且比在测试侧"轮询等待线程自然退出"可靠。
+  可选参数不改变生产行为，且比在测试侧“轮询等待线程自然退出”可靠。
 - 为何用 `Drop` 而非显式 `stop()`：测试点 20+ 处，显式调用易漏；`Drop` 与作用域绑定，
   漏不掉。
 - 承担者：bin 测试基建维护者；生产无感。
@@ -69,9 +69,9 @@
   （`--no-fail-fast`、单线程复跑、`truss -f`、VM 失败标记保全）。
 - **现在证据**：core backtrace 的崩溃线程名与栈顶；`156 passed` 后 signal 11；
   `parallel-run.txt` 的 `process killed, signal = 11`。
-- **已知限制与失效条件**：①本机（Windows）A2 本不复现，本地只能证明"无回归、无死锁"，
+- **已知限制与失效条件**：①本机（Windows）A2 本不复现，本地只能证明“无回归、无死锁”，
   **不能证明 FreeBSD 已修复**——修复结论须由后续 FreeBSD CI 判定；②若其他测试也存在
-  "spawn 线程后丢弃句柄"的模式，可能仍有个别崩溃点，需按同一方法排查；③`Drop` 中的
+  “spawn 线程后丢弃句柄”的模式，可能仍有个别崩溃点，需按同一方法排查；③`Drop` 中的
   `join` 若遇线程内死锁会阻塞测试，需靠 `IDLE_PARK` 上界与超时保护。
 - **复审触发**：①修复 push 后 `platform-freebsd` 仍红且 core 栈顶为 `serve-loop-test` →
   说明还有别的存活线程或析构路径，重开定位；②`serve_loop` 增加其他调用点 → 检查是否
