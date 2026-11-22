@@ -111,11 +111,13 @@ ADR 修改判据）。
 | 本地门禁 | fmt、clippy（`-D warnings`）、workspace 全量测试、layering/layout、
   counts/traceability/knowing-first/adr-limits/docs-style/eol/i18n/frontend-budget、
   coherence pre(反例 0)/mid(0) 全绿；GUI 线程 22≤24、吞吐 4194.0/s≥2000（单机样本，R-12） |
-| 标签 | `v0.1.1`（待推送；本机 main 领先 origin 17 提交） |
-| 验收链证据 | **待回填**：`platform-verification.yml` run 号（含 Windows amd64 验收、
-  FreeBSD 硬门禁、ARM64/NetBSD 证据；A2 间歇项按 monitoring 判读） |
-| 发布构建 | **待回填**：`build-release.yml` run 号（amd64/arm64 zip＋sha256、
-  freebsd-amd64.tar.gz＋sha256 六件产物，ADR-083） |
+| 标签 | `v0.1.1`（annotated → 提交 `a313a88`，2026-11-22 19:34+08:00 推送） |
+| 验收链证据 | **运行中**：`platform-verification` run `45022965966`（main push 触发，
+  2026-11-22T12:34:15Z，含 Windows amd64 验收、FreeBSD 硬门禁、ARM64/NetBSD 证据；
+  A2 间歇项按 monitoring 判读）。结论待回填，不冒充通过（ADR-037） |
+| 发布构建 | **运行中**：`build-release` run `45022997717`（v0.1.1 tag 触发，
+  2026-11-22T12:34:37Z；amd64/arm64 zip＋sha256、freebsd-amd64.tar.gz＋sha256 六件产物，
+  ADR-083）。结论待回填 |
 | Code Scanning | 0 条 open（2026-11-21 复核）；CI 每周复核保持 |
 | 本机安装验证 | `artifacts/install-verify-windows-amd64.txt`（2026-11-16，gnullvm）——
   v0.1.1 产物需随发布构建重新执行 `package-windows.py --verify` |
