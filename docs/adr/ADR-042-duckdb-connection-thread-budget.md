@@ -101,3 +101,16 @@ GUI 探针输出：`local/gui-thread-after-adr042-2026-10-26.txt`（两次独立
      DuckDB 移出 GUI 进程，须新 ADR。
 3. 本 ADR 第 2 节决策第 2 条继续有效：预算不静默放宽；在 A′ 或 P1 落地前，
    GUI 资源判据的线程项保持未通过。
+
+### 2026-11-22 补充：A′ 已由 ADR-093 落地（上文为历史事实，保留不改写）
+
+上文第 2、3 条记录的“28 > 24 未通过”“A′ 尚未实施”是 2026-10-26 当时的状态。
+用户以“不计成本最佳答案执行”授权后，ADR-093 已实施 A′ 的精确化版本——**仅**把
+DuckDB 连接的 `threads`／`async_threads` 默认收敛为 1，`whcode-platform::thread_budget`
+与 runtime worker 并发不变，用户显式 `db.threads` 仍透传。同夹具实测：GUI 空闲线程
+**28→22**（≤24，FR-712 通过）、句柄 251→245、RSS 81.9→81.3 MB；吞吐中位
+4123.3→4194.0 条/秒（≥2000，差异 1.7% 在噪声带内，不宣称提速）。
+证据 `artifacts/adr093-baseline-{before,after}.json`、`artifacts/gui-run-2026-11-22/`、
+`artifacts/adr093-db-thread-verification-2026-11-22.md`。
+因此本 ADR 的线程缺口已闭合；P1 进程拆分不再是 FR-712 达标的前置。单机样本不构成
+预算冻结（R-12），CI 按 ADR-037 待复核。
