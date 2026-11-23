@@ -74,7 +74,7 @@ def layout_state(page: Page) -> dict[str, object]:
             const rect = (el) => {
                 if (!el) return null;
                 const r = el.getBoundingClientRect();
-                return { x: r.x, right: r.right, width: r.width };
+                return { x: r.x, y: r.y, right: r.right, width: r.width, height: r.height };
             };
             const main = document.querySelector('#view-sessions .split__main');
             const side = document.querySelector('#view-sessions .split__side');
@@ -223,13 +223,16 @@ def run(base_url: str, evidence: Path) -> int:
             f"side_x={None if rtl['side'] is None else rtl['side']['x']} "
             f"main_x={None if rtl['main'] is None else rtl['main']['x']}",
         )
+        # ADR-102 把 #tabs 从顶部横排改为侧栏纵向（flex column）：
+        # RTL 镜像的是 x 轴，tab 的 DOM 顺序仍对应 y 递增；原横向断言（x 反转）
+        # 在纵向布局下恒为 false（first_x == last_x），属验收脚本过时，改按 y 判定。
         checks.record(
-            "RTL 元素级镜像：tab 行序反转",
+            "RTL 元素级镜像：纵向 tab 顺序不变",
             rtl["first"] is not None
             and rtl["last"] is not None
-            and rtl["first"]["x"] > rtl["last"]["x"],
-            f"first_x={None if rtl['first'] is None else rtl['first']['x']} "
-            f"last_x={None if rtl['last'] is None else rtl['last']['x']}",
+            and rtl["first"]["y"] < rtl["last"]["y"],
+            f"first_y={None if rtl['first'] is None else rtl['first']['y']} "
+            f"last_y={None if rtl['last'] is None else rtl['last']['y']}",
         )
         page.screenshot(path=str(evidence.parent / "rtl-layout.png"), full_page=True)
 
@@ -244,12 +247,12 @@ def run(base_url: str, evidence: Path) -> int:
             f"side_x={None if ltr['side'] is None else ltr['side']['x']}",
         )
         checks.record(
-            "LTR 对照：tab 行序不变",
+            "LTR 对照：纵向 tab 顺序不变",
             ltr["first"] is not None
             and ltr["last"] is not None
-            and ltr["first"]["x"] < ltr["last"]["x"],
-            f"first_x={None if ltr['first'] is None else ltr['first']['x']} "
-            f"last_x={None if ltr['last'] is None else ltr['last']['x']}",
+            and ltr["first"]["y"] < ltr["last"]["y"],
+            f"first_y={None if ltr['first'] is None else ltr['first']['y']} "
+            f"last_y={None if ltr['last'] is None else ltr['last']['y']}",
         )
 
         time.sleep(0.5)
