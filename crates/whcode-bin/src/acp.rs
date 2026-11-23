@@ -402,6 +402,7 @@ impl AcpGateway for AppAcpGateway {
                 budget_tokens: None,
                 workspace_root: Some(self.workspace.clone()),
                 depth: 0,
+                steer: None,
             },
             None,
             observer,

@@ -420,6 +420,7 @@ impl SdkGateway for AppSdkGateway {
                 budget_tokens: None,
                 workspace_root: Some(self.workspace.clone()),
                 depth: 0,
+                steer: None,
             },
             now_ms(),
         )?;

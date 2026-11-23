@@ -1389,7 +1389,7 @@ mod tests {
             DecodeOutcome::Error {
                 message: "配额超限".to_string()
             },
-            "协议错误不得静默（FR-210）"
+            "协议错误不得静默"
         );
         assert_eq!(
             OpenAi.error_message(r#"{"error":{"message":"bad key"}}"#),
@@ -1427,7 +1427,7 @@ mod tests {
         assert_eq!(
             Anthropic.request_path(&base),
             "/gateway/anthropic/v1/messages",
-            "网关变体经路径剖面覆盖（FR-209）"
+            "网关变体经路径剖面覆盖"
         );
         assert_eq!(Anthropic.extra_headers()[0].0, "anthropic-version");
     }
@@ -1634,7 +1634,7 @@ mod tests {
         let body = OpenAi.request_body(&request(), &profile).expect("body");
         let value: Value = serde_json::from_str(&body).expect("JSON");
         assert_eq!(value["temperature"], 0.2);
-        assert_eq!(value["max_tokens"], 8, "同键以剖面为准（FR-209）");
+        assert_eq!(value["max_tokens"], 8, "同键以剖面为准");
     }
 
     #[test]

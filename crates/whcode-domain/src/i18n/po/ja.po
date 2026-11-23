@@ -629,6 +629,9 @@ msgstr "承認待ち"
 msgid "gui.approval.tool"
 msgstr "ツール"
 
+msgid "gui.chat.back"
+msgstr "会話に戻る"
+
 msgid "gui.chat.cancel"
 msgstr "キャンセル"
 
@@ -647,8 +650,14 @@ msgstr "ターンのイベントは保存済みです。全履歴は「イベン
 msgid "gui.chat.last"
 msgstr "前回の結果：{summary}"
 
+msgid "gui.chat.model.choose"
+msgstr "モデルを選択"
+
 msgid "gui.chat.models"
 msgstr "モデル一覧"
+
+msgid "gui.chat.new"
+msgstr "新しい会話"
 
 msgid "gui.chat.no_request"
 msgstr "キャンセルできるリクエスト ID がありません（先にターンを送信してください）"
@@ -659,6 +668,9 @@ msgstr "セッションが未選択です。セッションビューで選択し
 msgid "gui.chat.not_supported"
 msgstr "LLM 実行器が未接続です（not_supported）"
 
+msgid "gui.chat.pick_session"
+msgstr "セッションを選ぶ"
+
 msgid "gui.chat.progress"
 msgstr "生成中：{chunks} チャンク…"
 
@@ -666,13 +678,19 @@ msgid "gui.chat.prompt.placeholder"
 msgstr "プロンプトを入力し、Enter で送信"
 
 msgid "gui.chat.provider"
-msgstr "LLM プロファイル：{provider}"
+msgstr "モデル"
 
 msgid "gui.chat.provider.placeholder"
 msgstr "プロファイル名"
 
 msgid "gui.chat.send"
 msgstr "送信"
+
+msgid "gui.chat.slash.help"
+msgstr "Commands: /new /rename /archive /unarchive /delete /models /theme /help"
+
+msgid "gui.chat.slash.unknown"
+msgstr "Unknown command: /{name}"
 
 msgid "gui.checkpoints.degraded"
 msgstr "ロールバックは未実装です（参照のみ）"
@@ -722,8 +740,47 @@ msgstr "詳細はまだありません"
 msgid "gui.detail.panel"
 msgstr "詳細"
 
+msgid "gui.file.at"
+msgstr "@ ファイル"
+
+msgid "gui.file.empty"
+msgstr "一致するファイルなし"
+
+msgid "gui.file.filter"
+msgstr "ファイルパスを検索"
+
+msgid "gui.footer"
+msgstr "左側をクリックするか Tab でビューを切り替え  |  {session}  |  {theme}"
+
 msgid "gui.kpi.count"
-msgstr "セッション {sessions} · 表示行 {rows}"
+msgstr "{sessions} セッション"
+
+msgid "gui.model.add"
+msgstr "モデルを追加"
+
+msgid "gui.model.base_url"
+msgstr "エンドポイント（https://…）"
+
+msgid "gui.model.credential"
+msgstr "API キーの環境変数"
+
+msgid "gui.model.model_id"
+msgstr "モデル ID"
+
+msgid "gui.model.name"
+msgstr "名前"
+
+msgid "gui.model.no_editor"
+msgstr "モデル書き込み面が未接続（not_supported）"
+
+msgid "gui.model.save"
+msgstr "保存"
+
+msgid "gui.model.save_failed"
+msgstr "保存に失敗しました：{error}"
+
+msgid "gui.model.saved"
+msgstr "{path} に保存しました。再起動後にモデル一覧へ表示されます"
 
 msgid "gui.op.archive"
 msgstr "アーカイブ"
@@ -824,6 +881,30 @@ msgstr "最近"
 msgid "gui.session.sort.title"
 msgstr "タイトル"
 
+msgid "gui.sidebar.collapse"
+msgstr "折りたたむ"
+
+msgid "gui.sidebar.empty"
+msgstr "セッションはまだありません"
+
+msgid "gui.sidebar.expand"
+msgstr "展開"
+
+msgid "gui.sidebar.group.project"
+msgstr "プロジェクト"
+
+msgid "gui.sidebar.group.sessions"
+msgstr "セッション"
+
+msgid "gui.sidebar.group.settings"
+msgstr "設定"
+
+msgid "gui.sidebar.group.views"
+msgstr "ビュー"
+
+msgid "gui.sidebar.new_session"
+msgstr "新しいセッション"
+
 msgid "gui.status.theme"
 msgstr "テーマ：{theme}"
 
@@ -835,6 +916,18 @@ msgstr "再試行 {count} 回"
 
 msgid "gui.task.retry"
 msgstr "再試行"
+
+msgid "gui.time.days"
+msgstr "{n} 日前"
+
+msgid "gui.time.hours"
+msgstr "{n} 時間前"
+
+msgid "gui.time.minutes"
+msgstr "{n} 分前"
+
+msgid "gui.time.now"
+msgstr "たった今"
 
 msgid "gui.tool.running"
 msgstr "実行中"
@@ -1359,7 +1452,7 @@ msgid "tui.empty"
 msgstr "（データなし）"
 
 msgid "tui.footer"
-msgstr "1-9/0/- ビュー  j/k 移動  r 更新  t テーマ  q 終了  |  {cols}x{rows}"
+msgstr "Tab/1-9 ビュー  j/k 移動  r 更新  t テーマ  q 終了  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "セッション未選択"

@@ -18,6 +18,8 @@
 //!   tool_not_wired）全部以 [`EventKind::RuntimeTerminated`] 事件显式落表（FR-718）；
 //!   截断/流中断按 `error` 终止并保留 `truncated`/`integrity_gaps` 证据（FR-208）。
 
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use serde::Serialize;
@@ -84,6 +86,65 @@ impl TerminationReason {
     }
 }
 
+/// turn 中途投喂的有界队列（ADR-100）。
+///
+/// 调用方持有 handle 并在另一线程 `send`；turn 循环每步开始前取一条。
+/// 满则拒绝（不阻塞、不丢弃已有）；队列随 handle 最后一次引用释放而消失，不跨 turn 保留。
+#[derive(Debug, Clone, Default)]
+pub struct SteerHandle {
+    queue: Arc<Mutex<VecDeque<String>>>,
+}
+
+/// 投喂队列容量（ADR-100）：足以容纳少量纠偏，又不让内存随交互频次增长。
+pub const STEER_QUEUE_CAPACITY: usize = 4;
+
+impl SteerHandle {
+    /// 新建空队列。
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            queue: Arc::new(Mutex::new(VecDeque::new())),
+        }
+    }
+
+    /// 追加一条投喂；空文本或队列已满时返回 `invalid_state`（拒绝，不阻塞、不丢弃已有）。
+    ///
+    /// # Errors
+    ///
+    /// 文本为空、队列已满或锁中毒（内部一致性破坏）时返回 [`WhError`]。
+    pub fn send(&self, text: impl Into<String>) -> Result<(), WhError> {
+        let text = text.into();
+        if text.trim().is_empty() {
+            return Err(WhError::invalid_state("投喂内容不能为空"));
+        }
+        let mut queue = self
+            .queue
+            .lock()
+            .map_err(|_| WhError::internal("steer 队列锁中毒"))?;
+        if queue.len() >= STEER_QUEUE_CAPACITY {
+            return Err(WhError::invalid_state("投喂队列已满"));
+        }
+        queue.push_back(text);
+        Ok(())
+    }
+
+    /// 取走至多一条（每步一次）；锁中毒视为无投喂（降级，不阻断 turn）。
+    fn drain_one(&self) -> Option<String> {
+        self.queue.lock().ok()?.pop_front()
+    }
+}
+
+// TurnRequest 派生 PartialEq/Eq 所需：按队列内容比较（各自 clone 后比，避免双锁死锁）。
+impl PartialEq for SteerHandle {
+    fn eq(&self, other: &Self) -> bool {
+        let a = self.queue.lock().map(|q| q.clone()).unwrap_or_default();
+        let b = other.queue.lock().map(|q| q.clone()).unwrap_or_default();
+        a == b
+    }
+}
+
+impl Eq for SteerHandle {}
+
 /// `llm turn` 的请求（`llm run` 字段 + turn 专属可调项）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TurnRequest {
@@ -108,6 +169,8 @@ pub struct TurnRequest {
     pub workspace_root: Option<PathBuf>,
     /// 嵌套深度（0 = 顶层 turn；子代理 = 父深度 + 1；ADR-052 §2.3 深度上限 1）。
     pub depth: u32,
+    /// 可选的中途投喂队列（ADR-100）；`None` 时行为与引入前一致。
+    pub steer: Option<SteerHandle>,
 }
 
 /// turn 的结果（信封；`LlmRunOutcome` 的 turn 扩展，四端适配属 T210）。
@@ -949,6 +1012,27 @@ fn run_turn_inner(
         let iteration = iterations;
         iterations += 1;
 
+        // ── ADR-100：每步开始前取至多一条中途投喂 ─────────────────────
+        // 前缀后作为 user 消息进入模型历史，由 TurnPersister 下次 flush 落表（不单独写
+        // messages）；事件 log-only 只承载步号与字符数，不含正文。无投喂时是“正确的空”，
+        // 不产生事件。队列随 TurnRequest 生命周期，不跨 turn 保留。
+        if let Some(steer) = &request.steer
+            && let Some(text) = steer.drain_one()
+        {
+            let text_chars = text.chars().count() as u64;
+            messages.push(LlmMessage {
+                tool_calls: Vec::new(),
+                tool_call_id: None,
+                role: Role::User,
+                content: format!("[用户在执行中追加] {text}"),
+            });
+            emit!(
+                EventKind::SteerAccepted,
+                "step": iteration,
+                "text_chars": text_chars,
+            );
+        }
+
         // ── ADR-097：每步重算准入工具清单 ──────────────────────────────
         // 内置部分沿用 turn 快照；MCP 部分重新投影——会话失效（is_broken）的服务器
         // 自本步起不再提供工具，并以 system 告示一次（不静默、不重复）。
@@ -1682,6 +1766,7 @@ fn handle_spawn_subagent(
         budget_tokens: request.budget_tokens,
         workspace_root: request.workspace_root.clone(),
         depth: request.depth + 1,
+        steer: None,
     };
     // 运行期观察信号（T258／FR-749）：GUI 在委派期间与普通工具卡同路径显示“运行中”。
     if let Some(observer) = observer {
@@ -2676,6 +2761,7 @@ mod tests {
             budget_tokens: None,
             workspace_root: None,
             depth: 0,
+            steer: None,
         }
     }
 
@@ -4629,7 +4715,34 @@ mod subagent_tests {
             budget_tokens: None,
             workspace_root: None,
             depth,
+            steer: None,
         }
+    }
+
+    #[test]
+    fn steer_handle_send_rejects_empty_and_enforces_capacity() {
+        let handle = crate::turn::SteerHandle::new();
+        assert!(handle.send("   ").is_err(), "空白投喂须拒绝");
+        for index in 0..crate::turn::STEER_QUEUE_CAPACITY {
+            handle
+                .send(format!("投喂-{index}"))
+                .expect("容量内投喂须成功");
+        }
+        assert!(
+            handle.send("溢出").is_err(),
+            "满队列须拒绝（不阻塞、不丢弃已有）"
+        );
+        assert_eq!(handle.drain_one().as_deref(), Some("投喂-0"), "先入先出");
+        assert!(
+            handle.send("补位").is_ok(),
+            "取出一条后须可再投喂（容量按当前长度）"
+        );
+    }
+
+    #[test]
+    fn steer_handle_drain_one_is_empty_when_unset() {
+        let handle = crate::turn::SteerHandle::new();
+        assert_eq!(handle.drain_one(), None, "无投喂是正确的空，不产生事件");
     }
 
     #[test]

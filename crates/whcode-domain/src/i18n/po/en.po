@@ -629,6 +629,9 @@ msgstr "Pending approval"
 msgid "gui.approval.tool"
 msgstr "Tool"
 
+msgid "gui.chat.back"
+msgstr "Back to chat"
+
 msgid "gui.chat.cancel"
 msgstr "Cancel"
 
@@ -647,8 +650,14 @@ msgstr "Turn events are persisted - see the Events view for full history"
 msgid "gui.chat.last"
 msgstr "Last result: {summary}"
 
+msgid "gui.chat.model.choose"
+msgstr "Choose model"
+
 msgid "gui.chat.models"
 msgstr "Models"
+
+msgid "gui.chat.new"
+msgstr "New chat"
 
 msgid "gui.chat.no_request"
 msgstr "No request ID to cancel (send a turn first)"
@@ -659,6 +668,9 @@ msgstr "No session selected - select one in the Sessions view (j/k)"
 msgid "gui.chat.not_supported"
 msgstr "LLM executor not wired (not_supported)"
 
+msgid "gui.chat.pick_session"
+msgstr "Choose a session"
+
 msgid "gui.chat.progress"
 msgstr "Generating: {chunks} chunks…"
 
@@ -666,13 +678,19 @@ msgid "gui.chat.prompt.placeholder"
 msgstr "Type prompt, Enter to send"
 
 msgid "gui.chat.provider"
-msgstr "LLM profile: {provider}"
+msgstr "Model"
 
 msgid "gui.chat.provider.placeholder"
 msgstr "profile name"
 
 msgid "gui.chat.send"
 msgstr "Send"
+
+msgid "gui.chat.slash.help"
+msgstr "Commands: /new /rename /archive /unarchive /delete /models /theme /help"
+
+msgid "gui.chat.slash.unknown"
+msgstr "Unknown command: /{name}"
 
 msgid "gui.checkpoints.degraded"
 msgstr "Rollback not implemented (browse only)"
@@ -722,8 +740,47 @@ msgstr "No detail yet"
 msgid "gui.detail.panel"
 msgstr "Detail"
 
+msgid "gui.file.at"
+msgstr "@ Files"
+
+msgid "gui.file.empty"
+msgstr "No matching files"
+
+msgid "gui.file.filter"
+msgstr "Search file path"
+
+msgid "gui.footer"
+msgstr "Click the sidebar or press Tab to switch views  |  {session}  |  {theme}"
+
 msgid "gui.kpi.count"
-msgstr "Sessions {sessions} · view rows {rows}"
+msgstr "{sessions} sessions"
+
+msgid "gui.model.add"
+msgstr "Add model"
+
+msgid "gui.model.base_url"
+msgstr "Endpoint (https://...)"
+
+msgid "gui.model.credential"
+msgstr "API key env var"
+
+msgid "gui.model.model_id"
+msgstr "Model ID"
+
+msgid "gui.model.name"
+msgstr "Name"
+
+msgid "gui.model.no_editor"
+msgstr "Model editor not wired (not_supported)"
+
+msgid "gui.model.save"
+msgstr "Save"
+
+msgid "gui.model.save_failed"
+msgstr "Save failed: {error}"
+
+msgid "gui.model.saved"
+msgstr "Saved to {path}; appears in the model list after restart"
 
 msgid "gui.op.archive"
 msgstr "Archive"
@@ -824,6 +881,30 @@ msgstr "Recent"
 msgid "gui.session.sort.title"
 msgstr "Title"
 
+msgid "gui.sidebar.collapse"
+msgstr "Hide"
+
+msgid "gui.sidebar.empty"
+msgstr "No sessions yet"
+
+msgid "gui.sidebar.expand"
+msgstr "Show"
+
+msgid "gui.sidebar.group.project"
+msgstr "Project"
+
+msgid "gui.sidebar.group.sessions"
+msgstr "Sessions"
+
+msgid "gui.sidebar.group.settings"
+msgstr "Settings"
+
+msgid "gui.sidebar.group.views"
+msgstr "Views"
+
+msgid "gui.sidebar.new_session"
+msgstr "New session"
+
 msgid "gui.status.theme"
 msgstr "Theme: {theme}"
 
@@ -835,6 +916,18 @@ msgstr "Retries {count}"
 
 msgid "gui.task.retry"
 msgstr "Retry"
+
+msgid "gui.time.days"
+msgstr "{n}d ago"
+
+msgid "gui.time.hours"
+msgstr "{n}h ago"
+
+msgid "gui.time.minutes"
+msgstr "{n}m ago"
+
+msgid "gui.time.now"
+msgstr "just now"
 
 msgid "gui.tool.running"
 msgstr "Running"
@@ -1359,7 +1452,7 @@ msgid "tui.empty"
 msgstr "(no data)"
 
 msgid "tui.footer"
-msgstr "1-9/0/- views  j/k move  r refresh  t theme  q quit  |  {cols}x{rows}"
+msgstr "Tab/1-9 views  j/k move  r refresh  t theme  q quit  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "no session"

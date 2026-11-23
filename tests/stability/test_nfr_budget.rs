@@ -387,6 +387,7 @@ fn p72_turn_first_token_latency() {
         budget_tokens: None,
         workspace_root: None,
         depth: 0,
+        steer: None,
     };
 
     // 预热两次（首次含连接页缓存、审批与通道初始化，不进样本）。

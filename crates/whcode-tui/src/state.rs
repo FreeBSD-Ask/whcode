@@ -6,6 +6,20 @@
 use crate::event::UiEvent;
 use crate::views::ViewId;
 
+/// 视图环序切换（ADR-102）：`step` 为正前进、为负后退，到端点回绕。
+///
+/// 让用户不必记忆“数字 ↔ 视图”的映射：`Tab` 逐屏扫过，看到目标停下即可。
+/// 映射缺失时退回首视图（`ALL` 非空，实际不可达）。
+fn cycle_view(view: ViewId, step: isize) -> ViewId {
+    let count = ViewId::ALL.len() as isize;
+    let current = ViewId::ALL
+        .iter()
+        .position(|item| *item == view)
+        .unwrap_or(0) as isize;
+    let next = (current + step).rem_euclid(count) as usize;
+    ViewId::ALL.get(next).copied().unwrap_or(view)
+}
+
 /// 最小 TUI 状态（含当前视图选择，T082）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TuiState {
@@ -29,12 +43,14 @@ impl TuiState {
         }
     }
 
-    /// 处理一个事件：`q` 与 Ctrl-C 请求退出；`1`—`6` 切换视图（导航键，不计入普通
-    /// 按键）；`Resize` 更新尺寸；其余字符键仅计数（Enter/Esc/Backspace 由写操作
-    /// 模式在 LoopCore 消费，Normal 态落到计数）。
+    /// 处理一个事件：`q` 与 Ctrl-C 请求退出；`1`—`9`／`0`／`-` 直达视图、`Tab`／`Shift+Tab`
+    /// 顺序切换（ADR-102：不要求用户记忆数字与视图的对应）；`Resize` 更新尺寸；其余字符键
+    /// 仅计数（Enter/Esc/Backspace 由写操作模式在 LoopCore 消费，Normal 态落到计数）。
     pub fn handle(&mut self, event: UiEvent) {
         match event {
             UiEvent::Key('q') | UiEvent::CtrlC => self.quit = true,
+            UiEvent::Tab => self.view = cycle_view(self.view, 1),
+            UiEvent::BackTab => self.view = cycle_view(self.view, -1),
             UiEvent::Key(key) => match ViewId::from_key(key) {
                 Some(view) => self.view = view,
                 None => self.keys_seen += 1,
@@ -112,6 +128,28 @@ mod tests {
         assert_eq!(state.rows(), 50);
         assert!(!state.quit(), "resize 不应触发退出");
         assert_eq!(state.view(), ViewId::Sessions, "resize 不应改变视图");
+    }
+
+    /// ADR-102：Tab 顺序前进、Shift+Tab 后退，到端点回绕；不要求用户记忆数字映射。
+    #[test]
+    fn tab_cycles_views_in_order_and_wraps() {
+        let mut state = TuiState::new(80, 24);
+        assert_eq!(state.view(), ViewId::Sessions);
+        state.handle(UiEvent::Tab);
+        assert_eq!(state.view(), ViewId::Tasks, "Tab 前进一格");
+        for _ in 0..(ViewId::ALL.len() - 2) {
+            state.handle(UiEvent::Tab);
+        }
+        assert_eq!(state.view(), ViewId::Runtime, "Tab 走到末视图");
+        state.handle(UiEvent::Tab);
+        assert_eq!(state.view(), ViewId::Sessions, "末视图再 Tab 回绕到首视图");
+        state.handle(UiEvent::BackTab);
+        assert_eq!(
+            state.view(),
+            ViewId::Runtime,
+            "首视图 Shift+Tab 回绕到末视图"
+        );
+        assert_eq!(state.keys_seen(), 0, "导航键不计入普通按键");
     }
 
     #[test]

@@ -137,7 +137,19 @@ impl ServeLlm {
                 Ok(registry) => (Some(registry), None),
                 Err(err) => (None, Some(err.message)),
             },
-            Err(err) => (None, Some(err.message)),
+            Err(err) => {
+                // 回落（ADR-102）：工作区根下的 `profiles.json` 也可直接生效——
+                // GUI 的「添加模型」写的就是这个文件，否则加完永远加载不到。
+                let fallback = workspace.join(PROFILES_FILE);
+                if fallback.is_file() {
+                    match ProviderRegistry::load(&fallback) {
+                        Ok(registry) => (Some(registry), None),
+                        Err(load_err) => (None, Some(load_err.message)),
+                    }
+                } else {
+                    (None, Some(err.message))
+                }
+            }
         };
         Ok(Self {
             registry,
@@ -221,6 +233,7 @@ impl whcode_tui::LlmExecutor for TuiLlmExecutor {
                 budget_tokens: None,
                 workspace_root: Some(self.workspace.clone()),
                 depth: 0,
+                steer: None,
             },
             now_ms(),
         )?;
@@ -333,6 +346,7 @@ impl whcode_gui::GuiLlmExecutor for TuiLlmExecutor {
                 budget_tokens: None,
                 workspace_root: Some(self.workspace.clone()),
                 depth: 0,
+                steer: None,
             },
             Some(progress),
             observer,
@@ -426,6 +440,7 @@ impl whcode_tui::ChatExecutor for TuiLlmExecutor {
                 budget_tokens: None,
                 workspace_root: Some(self.workspace.clone()),
                 depth: 0,
+                steer: None,
             },
             Some(progress),
             observer,
@@ -465,6 +480,196 @@ fn gui_executors_are_send_sync() {
     assert_send_sync::<TuiLlmExecutor>();
     assert_send_sync::<crate::store_source::TuiCommandExecutor>();
     assert_send_sync::<crate::store_source::StoreViewSource>();
+}
+
+/// 工作区默认模型配置文件（ADR-102：`WHCODE_LLM_PROFILES` 未设置时的回落）。
+pub const PROFILES_FILE: &str = "profiles.json";
+
+/// 模型配置写面（ADR-102）：把表单草稿追加进 `profiles.json`。
+///
+/// GUI 只经本类型碰文件（ADR-003）；写入前用加载器同一解析器校验，写临时文件再
+/// rename，避免半截 JSON 让下次启动读不到模型。
+pub struct StoreModelEditor {
+    path: std::path::PathBuf,
+}
+
+impl StoreModelEditor {
+    /// 目标文件：`WHCODE_LLM_PROFILES` 指定的路径，否则工作区根的 `profiles.json`。
+    #[must_use]
+    pub fn for_workspace(workspace: &std::path::Path) -> Self {
+        let path = profiles_path_from_env().unwrap_or_else(|_| workspace.join(PROFILES_FILE));
+        Self { path }
+    }
+
+    fn load_root(&self) -> Result<serde_json::Value, WhError> {
+        if !self.path.exists() {
+            return Ok(serde_json::json!({ "profiles": [] }));
+        }
+        let raw = std::fs::read_to_string(&self.path).map_err(|err| {
+            WhError::invalid_state(format!(
+                "模型配置文件不可读（{}）：{err}",
+                self.path.display()
+            ))
+        })?;
+        let value: serde_json::Value = serde_json::from_str(&raw).map_err(|err| {
+            WhError::invalid_state(format!(
+                "模型配置文件不是合法 JSON（{}）：{err}",
+                self.path.display()
+            ))
+        })?;
+        if value.is_array() {
+            return Ok(serde_json::json!({ "profiles": value }));
+        }
+        Ok(value)
+    }
+}
+
+impl whcode_gui::ModelEditor for StoreModelEditor {
+    fn add(&self, draft: &whcode_gui::ModelDraft) -> Result<String, WhError> {
+        let name = draft.name.trim();
+        if name.is_empty() {
+            return Err(WhError::invalid_state("模型名称不能为空"));
+        }
+        if !whcode_gui::MODEL_PROTOCOLS.contains(&draft.protocol.as_str()) {
+            return Err(WhError::invalid_state(format!(
+                "未知协议：{}",
+                draft.protocol
+            )));
+        }
+        if draft.base_url.trim().is_empty() {
+            return Err(WhError::invalid_state("端点不能为空"));
+        }
+        if draft.model.trim().is_empty() {
+            return Err(WhError::invalid_state("模型标识不能为空"));
+        }
+        let credential = draft.credential_env.trim();
+        let auth = match draft.protocol.as_str() {
+            "ollama" => serde_json::json!({ "type": "none" }),
+            "anthropic" => {
+                if credential.is_empty() {
+                    return Err(WhError::invalid_state("Anthropic 需要密钥环境变量名"));
+                }
+                serde_json::json!({
+                    "type": "header",
+                    "name": "x-api-key",
+                    "credential": { "env": credential }
+                })
+            }
+            "gemini" => {
+                if credential.is_empty() {
+                    return Err(WhError::invalid_state("Gemini 需要密钥环境变量名"));
+                }
+                serde_json::json!({
+                    "type": "query",
+                    "name": "key",
+                    "credential": { "env": credential }
+                })
+            }
+            _ => {
+                if credential.is_empty() {
+                    return Err(WhError::invalid_state("该协议需要密钥环境变量名"));
+                }
+                serde_json::json!({
+                    "type": "bearer",
+                    "credential": { "env": credential }
+                })
+            }
+        };
+        let mut root = self.load_root()?;
+        let profiles = root
+            .get_mut("profiles")
+            .and_then(serde_json::Value::as_array_mut)
+            .ok_or_else(|| WhError::invalid_state("模型配置文件缺少 profiles 数组"))?;
+        if profiles
+            .iter()
+            .any(|item| item.get("name").and_then(serde_json::Value::as_str) == Some(name))
+        {
+            return Err(WhError::invalid_state(format!("模型名已存在：{name}")));
+        }
+        profiles.push(serde_json::json!({
+            "name": name,
+            "protocol": draft.protocol,
+            "base_url": draft.base_url.trim(),
+            "model": draft.model.trim(),
+            "auth": auth,
+        }));
+        let text = serde_json::to_string_pretty(&root)
+            .map_err(|err| WhError::invalid_state(format!("序列化模型配置失败：{err}")))?;
+        // 用加载器同一解析器校验（端点合法性、协议字段完整性都在这里）。
+        ProviderRegistry::from_json(&text)?;
+        let tmp = self.path.with_extension("json.tmp");
+        std::fs::write(&tmp, &text).map_err(|err| {
+            WhError::invalid_state(format!("写入临时文件失败（{}）：{err}", tmp.display()))
+        })?;
+        std::fs::rename(&tmp, &self.path).map_err(|err| {
+            WhError::invalid_state(format!(
+                "替换模型配置文件失败（{}）：{err}",
+                self.path.display()
+            ))
+        })?;
+        Ok(self.path.display().to_string())
+    }
+}
+
+#[cfg(test)]
+mod model_editor_tests {
+    use super::*;
+    use whcode_gui::ModelEditor as _;
+
+    fn draft(name: &str) -> whcode_gui::ModelDraft {
+        whcode_gui::ModelDraft {
+            name: name.to_string(),
+            protocol: "openai".to_string(),
+            base_url: "https://api.example.com".to_string(),
+            model: "gpt-4o-mini".to_string(),
+            credential_env: "TEST_API_KEY".to_string(),
+        }
+    }
+
+    /// ADR-102：写面把草稿追加进 profiles.json，并且能被加载器同一解析器接受。
+    #[test]
+    fn appends_model_and_rejects_duplicate() {
+        let dir = std::env::temp_dir().join(format!("whcode-model-editor-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("建目录");
+        let editor = StoreModelEditor {
+            path: dir.join("profiles.json"),
+        };
+        let saved = editor.add(&draft("local-test")).expect("首次添加应成功");
+        let raw = std::fs::read_to_string(&saved).expect("读回配置");
+        assert!(raw.contains("local-test"), "{raw}");
+        assert!(raw.contains("TEST_API_KEY"), "{raw}");
+        assert!(
+            ProviderRegistry::from_json(&raw).is_ok(),
+            "写出的配置必须能被加载器接受"
+        );
+        let err = editor.add(&draft("local-test")).expect_err("重名必须拒绝");
+        assert!(err.message.contains("已存在"), "{err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// ADR-102：空名／空端点／Ollama 免密钥等校验分支。
+    #[test]
+    fn rejects_incomplete_drafts() {
+        let dir =
+            std::env::temp_dir().join(format!("whcode-model-editor-b-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("建目录");
+        let editor = StoreModelEditor {
+            path: dir.join("profiles.json"),
+        };
+        let mut empty_name = draft("");
+        assert!(editor.add(&empty_name).is_err());
+        empty_name.name = "x".to_string();
+        empty_name.base_url = String::new();
+        assert!(editor.add(&empty_name).is_err());
+        let mut local = draft("ollama-local");
+        local.protocol = "ollama".to_string();
+        local.base_url = "http://127.0.0.1:11434".to_string();
+        local.credential_env = String::new();
+        assert!(editor.add(&local).is_ok(), "Ollama 不应要求密钥变量名");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
 
 #[cfg(test)]

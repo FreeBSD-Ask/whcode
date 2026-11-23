@@ -25,7 +25,7 @@
 //! - [`cert`]：工作区证书库编排（初始化、保真刷新、CA 读取／写入／重置、自签证书生成、
 //!   外部证书对校验、状态投影与变更审计）。
 //!
-//! 待交付：SDD 门禁编排（M4，T068+）。
+//! SDD 门禁编排见模块文档与 `docs/matrices/`；能力清单由 [`surface`] 单一登记。
 
 pub mod approval;
 pub mod approval_rules;

@@ -629,6 +629,9 @@ msgstr "Ожидает одобрения"
 msgid "gui.approval.tool"
 msgstr "Инструмент"
 
+msgid "gui.chat.back"
+msgstr "Назад к диалогу"
+
 msgid "gui.chat.cancel"
 msgstr "Отменить"
 
@@ -647,8 +650,14 @@ msgstr "Реплики диалога сохраняются в базе — п�
 msgid "gui.chat.last"
 msgstr "Последний результат: {summary}"
 
+msgid "gui.chat.model.choose"
+msgstr "Выбрать модель"
+
 msgid "gui.chat.models"
 msgstr "Модели"
+
+msgid "gui.chat.new"
+msgstr "Новый диалог"
 
 msgid "gui.chat.no_request"
 msgstr "Нет идентификатора запроса для отмены (сначала отправить реплику)"
@@ -659,6 +668,9 @@ msgstr "Сессия не выбрана — выбрать её в предст
 msgid "gui.chat.not_supported"
 msgstr "Исполнитель LLM не подключён (not_supported)"
 
+msgid "gui.chat.pick_session"
+msgstr "Выбрать сеанс"
+
 msgid "gui.chat.progress"
 msgstr "Генерация: {chunks} фрагм…"
 
@@ -666,13 +678,19 @@ msgid "gui.chat.prompt.placeholder"
 msgstr "Ввести запрос, Enter — отправить"
 
 msgid "gui.chat.provider"
-msgstr "Профиль LLM: {provider}"
+msgstr "Модель"
 
 msgid "gui.chat.provider.placeholder"
 msgstr "имя профиля"
 
 msgid "gui.chat.send"
 msgstr "Отправить"
+
+msgid "gui.chat.slash.help"
+msgstr "Commands: /new /rename /archive /unarchive /delete /models /theme /help"
+
+msgid "gui.chat.slash.unknown"
+msgstr "Unknown command: /{name}"
 
 msgid "gui.checkpoints.degraded"
 msgstr "Откат не реализован (только просмотр)"
@@ -722,8 +740,47 @@ msgstr "Подробностей пока нет"
 msgid "gui.detail.panel"
 msgstr "Подробности"
 
+msgid "gui.file.at"
+msgstr "@ Файлы"
+
+msgid "gui.file.empty"
+msgstr "Нет файлов"
+
+msgid "gui.file.filter"
+msgstr "Поиск пути"
+
+msgid "gui.footer"
+msgstr "Нажмите слева или Tab, чтобы переключить вид  |  {session}  |  {theme}"
+
 msgid "gui.kpi.count"
-msgstr "Сессий {sessions} · строк в представлении {rows}"
+msgstr "Сеансов: {sessions}"
+
+msgid "gui.model.add"
+msgstr "Добавить модель"
+
+msgid "gui.model.base_url"
+msgstr "Эндпоинт (https://…)"
+
+msgid "gui.model.credential"
+msgstr "Переменная окружения с ключом"
+
+msgid "gui.model.model_id"
+msgstr "ID модели"
+
+msgid "gui.model.name"
+msgstr "Название"
+
+msgid "gui.model.no_editor"
+msgstr "Запись моделей не подключена (not_supported)"
+
+msgid "gui.model.save"
+msgstr "Сохранить"
+
+msgid "gui.model.save_failed"
+msgstr "Не удалось сохранить: {error}"
+
+msgid "gui.model.saved"
+msgstr "Сохранено в {path}; появится в списке после перезапуска"
 
 msgid "gui.op.archive"
 msgstr "Архивировать"
@@ -824,6 +881,30 @@ msgstr "Недавние"
 msgid "gui.session.sort.title"
 msgstr "По заголовку"
 
+msgid "gui.sidebar.collapse"
+msgstr "Скрыть"
+
+msgid "gui.sidebar.empty"
+msgstr "Сеансов пока нет"
+
+msgid "gui.sidebar.expand"
+msgstr "Показать"
+
+msgid "gui.sidebar.group.project"
+msgstr "Проект"
+
+msgid "gui.sidebar.group.sessions"
+msgstr "Сеансы"
+
+msgid "gui.sidebar.group.settings"
+msgstr "Настройки"
+
+msgid "gui.sidebar.group.views"
+msgstr "Виды"
+
+msgid "gui.sidebar.new_session"
+msgstr "Новый сеанс"
+
 msgid "gui.status.theme"
 msgstr "Тема: {theme}"
 
@@ -835,6 +916,18 @@ msgstr "Повторов: {count}"
 
 msgid "gui.task.retry"
 msgstr "Повторить"
+
+msgid "gui.time.days"
+msgstr "{n} дн назад"
+
+msgid "gui.time.hours"
+msgstr "{n} ч назад"
+
+msgid "gui.time.minutes"
+msgstr "{n} мин назад"
+
+msgid "gui.time.now"
+msgstr "только что"
 
 msgid "gui.tool.running"
 msgstr "Выполняется"
@@ -1359,7 +1452,7 @@ msgid "tui.empty"
 msgstr "(нет данных)"
 
 msgid "tui.footer"
-msgstr "1-9/0/- видов  j/k переход  r обновить  t тема  q выход  |  {cols}x{rows}"
+msgstr "Tab/1-9 видов  j/k переход  r обновить  t тема  q выход  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "сессия не выбрана"

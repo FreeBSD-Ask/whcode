@@ -629,6 +629,9 @@ msgstr "بانتظار الموافقة"
 msgid "gui.approval.tool"
 msgstr "الأداة"
 
+msgid "gui.chat.back"
+msgstr "العودة إلى المحادثة"
+
 msgid "gui.chat.cancel"
 msgstr "إلغاء"
 
@@ -647,8 +650,14 @@ msgstr "تُحفظ أحداث الجولات في قاعدة البيانات �
 msgid "gui.chat.last"
 msgstr "آخر نتيجة: {summary}"
 
+msgid "gui.chat.model.choose"
+msgstr "اختر النموذج"
+
 msgid "gui.chat.models"
 msgstr "النماذج"
+
+msgid "gui.chat.new"
+msgstr "محادثة جديدة"
 
 msgid "gui.chat.no_request"
 msgstr "لا يوجد معرّف طلب لإلغائه (أرسل جولة أولًا)"
@@ -659,6 +668,9 @@ msgstr "لا توجد جلسة محددة — اختر واحدة في عرض ا
 msgid "gui.chat.not_supported"
 msgstr "منفّذ LLM غير موصول (not_supported)"
 
+msgid "gui.chat.pick_session"
+msgstr "اختر جلسة"
+
 msgid "gui.chat.progress"
 msgstr "جارٍ التوليد: {chunks} كتل…"
 
@@ -666,13 +678,19 @@ msgid "gui.chat.prompt.placeholder"
 msgstr "اكتب طلبك ثم اضغط Enter للإرسال"
 
 msgid "gui.chat.provider"
-msgstr "ملف تعريف النموذج (LLM): {provider}"
+msgstr "النموذج"
 
 msgid "gui.chat.provider.placeholder"
 msgstr "اسم ملف التعريف"
 
 msgid "gui.chat.send"
 msgstr "إرسال"
+
+msgid "gui.chat.slash.help"
+msgstr "Commands: /new /rename /archive /unarchive /delete /models /theme /help"
+
+msgid "gui.chat.slash.unknown"
+msgstr "Unknown command: /{name}"
 
 msgid "gui.checkpoints.degraded"
 msgstr "التراجع غير منفَّذ (التصفح فقط)"
@@ -722,8 +740,47 @@ msgstr "لا توجد تفاصيل بعد"
 msgid "gui.detail.panel"
 msgstr "التفاصيل"
 
+msgid "gui.file.at"
+msgstr "@ ملفات"
+
+msgid "gui.file.empty"
+msgstr "لا ملفات مطابقة"
+
+msgid "gui.file.filter"
+msgstr "ابحث عن مسار"
+
+msgid "gui.footer"
+msgstr "انقر على اليسار أو اضغط Tab لتبديل العرض  |  {session}  |  {theme}"
+
 msgid "gui.kpi.count"
-msgstr "الجلسات {sessions} · صفوف العرض {rows}"
+msgstr "{sessions} جلسات"
+
+msgid "gui.model.add"
+msgstr "إضافة نموذج"
+
+msgid "gui.model.base_url"
+msgstr "نقطة النهاية (https://…)"
+
+msgid "gui.model.credential"
+msgstr "متغير بيئة المفتاح"
+
+msgid "gui.model.model_id"
+msgstr "معرّف النموذج"
+
+msgid "gui.model.name"
+msgstr "الاسم"
+
+msgid "gui.model.no_editor"
+msgstr "كتابة النموذج غير موصولة (not_supported)"
+
+msgid "gui.model.save"
+msgstr "حفظ"
+
+msgid "gui.model.save_failed"
+msgstr "فشل الحفظ: {error}"
+
+msgid "gui.model.saved"
+msgstr "تم الحفظ في {path}؛ سيظهر في قائمة النماذج بعد إعادة التشغيل"
 
 msgid "gui.op.archive"
 msgstr "أرشفة"
@@ -824,6 +881,30 @@ msgstr "الأحدث"
 msgid "gui.session.sort.title"
 msgstr "العنوان"
 
+msgid "gui.sidebar.collapse"
+msgstr "إخفاء"
+
+msgid "gui.sidebar.empty"
+msgstr "لا توجد جلسات بعد"
+
+msgid "gui.sidebar.expand"
+msgstr "إظهار"
+
+msgid "gui.sidebar.group.project"
+msgstr "المشروع"
+
+msgid "gui.sidebar.group.sessions"
+msgstr "الجلسات"
+
+msgid "gui.sidebar.group.settings"
+msgstr "الإعدادات"
+
+msgid "gui.sidebar.group.views"
+msgstr "العروض"
+
+msgid "gui.sidebar.new_session"
+msgstr "جلسة جديدة"
+
 msgid "gui.status.theme"
 msgstr "السمة: {theme}"
 
@@ -835,6 +916,18 @@ msgstr "محاولات {count}"
 
 msgid "gui.task.retry"
 msgstr "إعادة المحاولة"
+
+msgid "gui.time.days"
+msgstr "قبل {n} يوم"
+
+msgid "gui.time.hours"
+msgstr "قبل {n} ساعة"
+
+msgid "gui.time.minutes"
+msgstr "قبل {n} دقيقة"
+
+msgid "gui.time.now"
+msgstr "الآن"
 
 msgid "gui.tool.running"
 msgstr "قيد التنفيذ"
@@ -1359,7 +1452,7 @@ msgid "tui.empty"
 msgstr "(لا بيانات)"
 
 msgid "tui.footer"
-msgstr "1-9/0/- طرق عرض  j/k للتنقل  r للتحديث  t للسمة  q للخروج  |  {cols}x{rows}"
+msgstr "Tab/1-9 طرق عرض  j/k للتنقل  r للتحديث  t للسمة  q للخروج  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "لا جلسة"

@@ -1,0 +1,138 @@
+# 规则符号注册表：四套编号的单一事实源（ADR-101）
+#
+# 背景：同一批推理规则曾在三处用同名编号指不同命题——
+#   docs/analysis/software-engineering-logic-sufficiency.md §4.2 的 R1—R8（门禁合成、追溯闭包、…）；
+#   docs/guides/axiom-system.md §3 的 R1—R7（判定、Hoare 对应、…）；
+#   axioms.toml 的 COH-R4/R5/R6/R8（沿用 analysis 语义）。
+# 本表把两套推理规则拆成不重叠的命名空间：R1—R8 归 inference，CR1—CR7 归 coherence。
+# 权威层级：本表属公理层（ADR-086），条款与本表冲突时以本表为准。
+
+schema = 1
+updated = "2026-11-23"
+purpose = "规则符号单一事实源；消解 R 编号语义分叉"
+
+# 推理规则命名空间：以数理逻辑充分性分析文档为准。
+# axioms.toml 的 COH-R4/R5/R6/R8 沿用本命名空间语义。
+[[rule]]
+id = "R1"
+namespace = "inference"
+meaning = "门禁合成"
+canonical_source = "docs/analysis/software-engineering-logic-sufficiency.md :: | R1 | 门禁合成"
+codified_as = []
+
+[[rule]]
+id = "R2"
+namespace = "inference"
+meaning = "追溯闭包"
+canonical_source = "docs/analysis/software-engineering-logic-sufficiency.md :: | R2 | 追溯闭包"
+codified_as = []
+
+[[rule]]
+id = "R3"
+namespace = "inference"
+meaning = "证据单调"
+canonical_source = "docs/analysis/software-engineering-logic-sufficiency.md :: | R3 | 证据单调"
+codified_as = []
+
+[[rule]]
+id = "R4"
+namespace = "inference"
+meaning = "禁跳与例外"
+canonical_source = "docs/analysis/software-engineering-logic-sufficiency.md :: | R4 | 禁跳与例外"
+codified_as = ["COH-R4-01"]
+
+[[rule]]
+id = "R5"
+namespace = "inference"
+meaning = "未知不回放"
+canonical_source = "docs/analysis/software-engineering-logic-sufficiency.md :: | R5 | 未知不回放"
+codified_as = ["COH-R5-01"]
+
+[[rule]]
+id = "R6"
+namespace = "inference"
+meaning = "信号链"
+canonical_source = "docs/analysis/software-engineering-logic-sufficiency.md :: | R6 | 信号链"
+codified_as = ["COH-R6-01"]
+
+[[rule]]
+id = "R7"
+namespace = "inference"
+meaning = "评审独立"
+canonical_source = "docs/analysis/software-engineering-logic-sufficiency.md :: | R7 | 评审独立"
+codified_as = []
+
+[[rule]]
+id = "R8"
+namespace = "inference"
+meaning = "冲突优先"
+canonical_source = "docs/analysis/software-engineering-logic-sufficiency.md :: | R8 | 冲突优先"
+codified_as = ["COH-R8-01"]
+
+# 融洽性推理规则命名空间：原 axiom-system.md §3 的 R1—R7 改名 CR1—CR7。
+# 与本表 R1—R8 语义不同，禁止互换。改名后 axiom-system.md 不得再出现裸 R1—R8。
+[[rule]]
+id = "CR1"
+namespace = "coherence"
+meaning = "判定"
+canonical_source = "docs/guides/axiom-system.md :: **CR1（判定）**"
+codified_as = []
+
+[[rule]]
+id = "CR2"
+namespace = "coherence"
+meaning = "Hoare 对应"
+canonical_source = "docs/guides/axiom-system.md :: **CR2（Hoare 对应）**"
+codified_as = []
+
+[[rule]]
+id = "CR3"
+namespace = "coherence"
+meaning = "追溯闭合"
+canonical_source = "docs/guides/axiom-system.md :: **CR3（追溯闭合）**"
+codified_as = []
+
+[[rule]]
+id = "CR4"
+namespace = "coherence"
+meaning = "降级"
+canonical_source = "docs/guides/axiom-system.md :: **CR4（降级）**"
+codified_as = []
+
+[[rule]]
+id = "CR5"
+namespace = "coherence"
+meaning = "登记"
+canonical_source = "docs/guides/axiom-system.md :: **CR5（登记）**"
+codified_as = []
+
+[[rule]]
+id = "CR6"
+namespace = "coherence"
+meaning = "充分"
+canonical_source = "docs/guides/axiom-system.md :: **CR6（充分）**"
+codified_as = []
+
+[[rule]]
+id = "CR7"
+namespace = "coherence"
+meaning = "外部性"
+canonical_source = "docs/guides/axiom-system.md :: **CR7（外部性）**"
+codified_as = []
+
+# 命名空间边界：axiom-system.md 是 coherence 命名空间的唯一书写域，
+# 该文档内禁止出现裸 R1—R8（inference 命名空间）。
+# 越界指把 inference 编号当作本域规则条目使用（加粗定义或 **R#（…）** 形式），
+# 不指说明文字中带范围破折号或“语义不同”限定词的命名空间引用（如“R1—R8 语义不同”）。
+[[guard]]
+document = "docs/guides/axiom-system.md"
+forbidden = "inference"
+pattern = "\\*\\*R[1-8]（|`(?:FR-|)R[1-8]`"
+require_all = ["CR1", "CR2", "CR3", "CR4", "CR5", "CR6", "CR7"]
+
+# analysis 文档是 inference 命名空间的唯一书写域；允许出现 R1—R8，禁止出现 CR1—CR7。
+[[guard]]
+document = "docs/analysis/software-engineering-logic-sufficiency.md"
+forbidden = "coherence"
+pattern = "(?<![A-Za-z0-9])CR[1-7](?![0-9])"
+require_all = ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"]

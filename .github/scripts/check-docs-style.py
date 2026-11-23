@@ -49,6 +49,19 @@ EMOJI = re.compile(
 CJK = re.compile(r"[\u4e00-\u9fff]")
 STRAIGHT_QUOTE = re.compile(r'"')
 
+#: 过期状态声称（ADR-101 支柱四）：crate 头注释里的阶段性状态快照。
+#: 只列高精度固定串——业务边界的“未实现/不支持”是合法运行时语义，不在本表。
+#: 状态统一由 spec/tasks/checklist 与 `docs/matrices/` 承载，代码头注释不维护快照。
+STALE_STATUS_CLAIMS = (
+    "当前状态：骨架",
+    "骨架阶段：",
+    "骨架，功能未实现",
+    "存储基座起步",
+    "待交付：SDD",
+    "未实现事项明确标记",
+    "只读 v1",
+)
+
 #: 套话与欧化句式：高精度列表，每项都能直接改写而不损信息。
 AI_CLICHES = (
     "值得一提的是",
@@ -148,6 +161,10 @@ def check() -> list[tuple[str, int, str, str]]:
                 violations.append((str(path), number, "表情符号", match.group()))
             if prose_rules and CJK.search(prose) and STRAIGHT_QUOTE.search(prose):
                 violations.append((str(path), number, "中文直引号", '"'))
+            if path.suffix == ".rs":
+                for claim in STALE_STATUS_CLAIMS:
+                    if claim in prose:
+                        violations.append((str(path), number, "过期状态声称", claim))
             if prose_rules:
                 for cliche in AI_CLICHES:
                     if cliche in prose:

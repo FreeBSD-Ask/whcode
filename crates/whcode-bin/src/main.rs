@@ -1,17 +1,14 @@
-//! # whcode 主程序（骨架阶段 + M0 最小 TUI 闭环）
+//! # whcode 主程序
 //!
 //! 主程序、配置加载、日志初始化与 feature 装配（任务书 §6.2 `whcode-bin`）。
 //!
-//! **当前状态：骨架。** 可用入口：`--version`、`doctor [--config PATH] [--json]`、
-//! `bench baseline --out PATH [--events N] [--repeat R]`（tasks.md T027、V-006）、
-//! `serve --web [--bind 127.0.0.1:PORT] [--workspace DIR]`（M6 装配：静态前端 +
-//! `/api/*`，默认仅回环）；无子命令时按平台默认启动界面——**Windows 默认 GUI**
-//! （`whcode gui`，FR-711／ADR-027），其他平台为 TUI；`--tui`／`--cli`／`--gui`
-//! 可显式指定入口（2026-10-25 用户指令）。完整命令面自 M2 起（tasks.md T046+）迁移至
-//! `whcode-cui` 并由本程序装配。
+//! 入口：`--version`、`doctor [--json]`、`bench baseline --out PATH`、
+//! `serve --web/--ssh [选项]`、`gui`；无子命令时按平台默认启动界面——Windows 默认 GUI
+//! （FR-711／ADR-027），其他平台为 TUI；`--tui`／`--cli`／`--gui` 可显式指定入口。
+//! 完整命令面由 `whcode-cui` 定义，本程序负责装配与调度。
 //!
-//! 未实现事项明确标记（宪法原则 VII / §15）：DuckDB 存取 M1/T032+；命令面 M2/T046+；
-//! SDD 门禁 M4/T068+；Web/SSH M6—M7；运行时 M8/T100+。
+//! 能力清单与四端差异的权威来源为 `whcode-app::surface::SURFACES` 与 `docs/matrices/`，
+//! 本处不维护状态快照；运行时 `not_supported` 语义见各模块与 `ErrorCode::NotSupported`。
 
 mod acp;
 mod bench;
@@ -400,6 +397,8 @@ fn launch_interactive(args: &[String]) -> ExitCode {
     let FrontendParts {
         theme,
         texts,
+        workspace_name: _,
+        workspace: _,
         source,
         executor,
         llm_executor,
@@ -436,13 +435,15 @@ fn launch_interactive(args: &[String]) -> ExitCode {
     }
 }
 
-/// `whcode gui`：原生桌面 GUI（只读 v1，FR-711／ADR-027）。
+/// `whcode gui`：原生桌面 GUI（FR-711／ADR-027）。
 ///
 /// 与 TUI 共用同一只读快照（`whcode_app::view_source`）：GUI 自身不触库，主题沿用配置。
 fn gui_command(args: &[String]) -> ExitCode {
     let FrontendParts {
         theme,
         texts,
+        workspace_name,
+        workspace,
         source,
         executor,
         llm_executor,
@@ -455,11 +456,17 @@ fn gui_command(args: &[String]) -> ExitCode {
     let options = whcode_gui::RunOptions {
         theme: gui_theme,
         texts,
+        workspace: workspace_name,
+        model_editor: Some(std::rc::Rc::new(
+            crate::llm_provider::StoreModelEditor::for_workspace(&workspace),
+        )),
         command_executor: executor
             .map(|item| Box::new(item) as Box<dyn whcode_app::commands::CommandExecutor>),
         llm_executor: llm_executor.map(|item| {
             std::sync::Arc::new(item) as std::sync::Arc<dyn whcode_gui::GuiLlmExecutor>
         }),
+        // ADR-102：GUI 文件索引装配尚未接入，显式 `None`（按钮禁用，不静默无响应）。
+        file_index: None,
     };
     match whcode_gui::run(source, options) {
         Ok(()) => ExitCode::SUCCESS,
@@ -475,6 +482,10 @@ fn gui_command(args: &[String]) -> ExitCode {
 struct FrontendParts {
     theme: whcode_tui::Theme,
     texts: whcode_domain::i18n::I18n,
+    /// 工作区目录名（GUI 侧栏「项目」分区显示）。
+    workspace_name: String,
+    /// 工作区路径（GUI 模型写面定位 `profiles.json`）。
+    workspace: std::path::PathBuf,
     source: Box<dyn whcode_app::view_source::ViewSource>,
     executor: Option<store_source::TuiCommandExecutor>,
     llm_executor: Option<crate::llm_provider::TuiLlmExecutor>,
@@ -490,8 +501,23 @@ fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
         }
     };
     let theme = config.effective_theme();
-    // 文本层（FR-615）：显式配置 → LANG/LC_ALL → 默认 zh-CN；PO 覆盖内建，en 回退由 I18n 负责。
-    let (locale, locale_source) = whcode_domain::i18n::detect_locale(None);
+    // 文本层（FR-615）：显式 `--lang` → 配置 `ui.locale` → `WHCODE_UI_LOCALE` →
+    // LANG/LC_ALL → 默认 zh-CN；PO 覆盖内建，en 回退由 I18n 负责。
+    //
+    // 修复（2026-11-23，ADR-102 实跑发现）：此前只调 `detect_locale(None)`，把
+    // `--lang` 与配置文件里的语言一并忽略，`whcode gui --lang zh-CN` 不生效。
+    let (detected, locale_source) = whcode_domain::i18n::detect_locale(None);
+    let locale = match whcode_cui::cli::prescan_lang(args) {
+        Ok(Some(explicit)) => explicit,
+        _ => {
+            let configured = config.effective_locale();
+            if configured == detected {
+                detected
+            } else {
+                configured
+            }
+        }
+    };
     let texts = load_texts(&locale, locale_source);
     let workspace = match workspace::resolve_workspace(args, &config) {
         Ok(workspace) => workspace,
@@ -538,9 +564,15 @@ fn prepare_frontend(args: &[String]) -> Result<FrontendParts, ExitCode> {
         }
         _ => None,
     };
+    let workspace_name = workspace
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| workspace.display().to_string());
     Ok(FrontendParts {
         theme,
         texts,
+        workspace_name,
+        workspace: workspace.clone(),
         source,
         executor,
         llm_executor,

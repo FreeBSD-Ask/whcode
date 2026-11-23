@@ -629,6 +629,9 @@ msgstr "待審批"
 msgid "gui.approval.tool"
 msgstr "工具"
 
+msgid "gui.chat.back"
+msgstr "返回對話"
+
 msgid "gui.chat.cancel"
 msgstr "取消"
 
@@ -647,8 +650,14 @@ msgstr "對話事件已寫入資料庫，完整歷程請見「事件」檢視"
 msgid "gui.chat.last"
 msgstr "上次結果：{summary}"
 
+msgid "gui.chat.model.choose"
+msgstr "選擇模型"
+
 msgid "gui.chat.models"
 msgstr "模型目錄"
+
+msgid "gui.chat.new"
+msgstr "開始新對話"
 
 msgid "gui.chat.no_request"
 msgstr "沒有可取消的請求 ID（請先送出一輪對話）"
@@ -659,6 +668,9 @@ msgstr "未選取工作階段——請先在「工作階段」檢視以 j/k 選�
 msgid "gui.chat.not_supported"
 msgstr "LLM 執行器尚未接線（not_supported）"
 
+msgid "gui.chat.pick_session"
+msgstr "去選擇會話"
+
 msgid "gui.chat.progress"
 msgstr "產生中：{chunks} 個片段…"
 
@@ -666,13 +678,19 @@ msgid "gui.chat.prompt.placeholder"
 msgstr "輸入提示詞，按 Enter 送出"
 
 msgid "gui.chat.provider"
-msgstr "模型設定檔：{provider}"
+msgstr "模型"
 
 msgid "gui.chat.provider.placeholder"
-msgstr "設定檔名稱"
+msgstr "模型名稱"
 
 msgid "gui.chat.send"
 msgstr "送出"
+
+msgid "gui.chat.slash.help"
+msgstr "可用指令：/new /rename /archive /unarchive /delete /models /theme /help"
+
+msgid "gui.chat.slash.unknown"
+msgstr "未知指令：/{name}"
 
 msgid "gui.checkpoints.degraded"
 msgstr "尚未實作復原（僅可瀏覽）"
@@ -722,8 +740,47 @@ msgstr "尚未查看詳情"
 msgid "gui.detail.panel"
 msgstr "詳情"
 
+msgid "gui.file.at"
+msgstr "@ 檔案"
+
+msgid "gui.file.empty"
+msgstr "沒有符合的檔案"
+
+msgid "gui.file.filter"
+msgstr "搜尋檔案路徑"
+
+msgid "gui.footer"
+msgstr "點擊左側或按 Tab 切換檢視  |  {session}  |  {theme}"
+
 msgid "gui.kpi.count"
-msgstr "工作階段 {sessions} · 目前檢視 {rows} 列"
+msgstr "{sessions} 個會話"
+
+msgid "gui.model.add"
+msgstr "新增模型"
+
+msgid "gui.model.base_url"
+msgstr "端點（https://…）"
+
+msgid "gui.model.credential"
+msgstr "金鑰環境變數名"
+
+msgid "gui.model.model_id"
+msgstr "模型標識"
+
+msgid "gui.model.name"
+msgstr "名稱"
+
+msgid "gui.model.no_editor"
+msgstr "模型寫面未接入（not_supported）"
+
+msgid "gui.model.save"
+msgstr "儲存"
+
+msgid "gui.model.save_failed"
+msgstr "儲存失敗：{error}"
+
+msgid "gui.model.saved"
+msgstr "已儲存到 {path}；重新啟動後出現在模型清單"
 
 msgid "gui.op.archive"
 msgstr "封存"
@@ -824,6 +881,30 @@ msgstr "最近"
 msgid "gui.session.sort.title"
 msgstr "標題"
 
+msgid "gui.sidebar.collapse"
+msgstr "收起"
+
+msgid "gui.sidebar.empty"
+msgstr "還沒有會話"
+
+msgid "gui.sidebar.expand"
+msgstr "展開"
+
+msgid "gui.sidebar.group.project"
+msgstr "專案"
+
+msgid "gui.sidebar.group.sessions"
+msgstr "會話"
+
+msgid "gui.sidebar.group.settings"
+msgstr "設定"
+
+msgid "gui.sidebar.group.views"
+msgstr "檢視"
+
+msgid "gui.sidebar.new_session"
+msgstr "建立新會話"
+
 msgid "gui.status.theme"
 msgstr "主題：{theme}"
 
@@ -835,6 +916,18 @@ msgstr "已重試 {count} 次"
 
 msgid "gui.task.retry"
 msgstr "重試"
+
+msgid "gui.time.days"
+msgstr "{n} 天前"
+
+msgid "gui.time.hours"
+msgstr "{n} 小時前"
+
+msgid "gui.time.minutes"
+msgstr "{n} 分鐘前"
+
+msgid "gui.time.now"
+msgstr "剛剛"
 
 msgid "gui.tool.running"
 msgstr "執行中"
@@ -1263,7 +1356,7 @@ msgid "tool.call.started"
 msgstr "{tool} · 呼叫開始 · exec={exec} · call={call} · 迭代 {iteration}"
 
 msgid "tui.chat.composer.hint"
-msgstr "i 輸入提示詞 · Enter 送出 · P 剖面 · Esc 返回"
+msgstr "i 輸入提示詞 · Enter 送出 · P 模型 · Esc 返回"
 
 msgid "tui.chat.composer.running"
 msgstr "執行中 · Esc 取消 · 輸入已凍結"
@@ -1308,7 +1401,7 @@ msgid "tui.chat.status.error"
 msgstr "對話失敗：{err}"
 
 msgid "tui.chat.status.no_provider"
-msgstr "對話：無可用剖面"
+msgstr "對話：無可用模型"
 
 msgid "tui.chat.status.no_session"
 msgstr "對話：未選擇會話（會話視圖 j/k 選擇）"
@@ -1359,7 +1452,7 @@ msgid "tui.empty"
 msgstr "（尚無資料）"
 
 msgid "tui.footer"
-msgstr "1-9/0/- 檢視  j/k 移動  r 重新整理  t 主題  q 結束  |  {cols}x{rows}"
+msgstr "Tab/1-9 檢視  j/k 移動  r 重新整理  t 主題  q 結束  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "未選取工作階段"
@@ -1545,13 +1638,13 @@ msgid "web.export.jsonl"
 msgstr "匯出 JSONL"
 
 msgid "web.models.empty"
-msgstr "此剖面未宣告模型目錄，使用剖面預設模型"
+msgstr "此模型未宣告模型清單，使用預設模型"
 
 msgid "web.models.model"
 msgstr "模型"
 
 msgid "web.models.profile"
-msgstr "剖面"
+msgstr "模型"
 
 msgid "web.recovering"
 msgstr "回復中…"

@@ -858,6 +858,19 @@ taskkill /T /F 口径）（P1）
     `search_messages_ranked`）、迁移 0017、`.github/scripts/fetch-duckdb.py`（扩展分发）；
     Check 494
 
+- **FR-808**: turn 中途投喂（P2，ADR-100）：用户可在 turn 执行中追加至多一条消息，在下一步
+  开始前生效；投喂经有界队列（容量 `STEER_QUEUE_CAPACITY=4`），空文本或队列满时显式拒绝
+  （不阻塞、不丢弃已有），不新增线程、不跨 turn 保留；追加内容以 `[用户在执行中追加]` 前缀
+  进入模型历史并由 `TurnPersister` 下次 flush 落表；`SteerAccepted` 事件为 log-only，只承载
+  步号与字符数，不含正文
+  - 依据：ADR-100；`research/dsh-comparison/domain-A-agent-core-loop.md` §4.4（只取 steer，
+    不复制四档与 pre-step 钩子）
+  - 判据：Given 无投喂，Then 每步不产生 SteerAccepted 事件（正确的空）；Given 队列有一条，
+    Then 下一步 messages 追加前缀消息且事件含 step 与 text_chars；Given 队列满或空文本，
+    Then send 返回 invalid_state 且已有消息不丢；Given 事件导出，Then 不含投喂正文
+  - 证据：`crates/whcode-app/src/turn.rs`（`SteerHandle`／主循环 drain）、
+    `crates/whcode-domain/src/event.rs`（`SteerAccepted`）；Check 498
+
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，
@@ -894,7 +907,7 @@ taskkill /T /F 口径）（P1）
 - **FR-403**: 任务状态变化、关键事件和检查点引用必须在同一数据库事务内提交（P0）
 - **FR-404**: 恢复时加载检查点引用的元数据、产物与上下文游标；完整历史按需读取（P0）
 - **FR-405**: 定时、按步骤和危险操作前可触发检查点；间隔与保留数量可配置（P0）
-- **FR-406**: 子任务支持依赖图；并行调度为 P1，须在状态和写入一致性测试通过后实现（P1）
+- **FR-406**: 子任务支持依赖图；并行调度为 P1，须在状态和写入一致性测试通过后实现（P1）[polarity=conditional；延后能力，验收判据为“前置条件未满足时不得声称已交付”，见 Check 172]
 - **FR-407**: 提供轮询兜底；轮询只读快照，不独占或阻塞写者服务（P0）
 - **FR-408**: 单个可重试任务失败不得使整个会话丢失；不可恢复错误向上传播（P0）
 - **FR-409**: 子进程被终止/超时/主进程崩溃时，记录终止原因、退出状态、stderr 尾部和执行状态（P0）

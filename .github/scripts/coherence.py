@@ -36,6 +36,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 AXIOMS_PATH = ROOT / "specs/001-whcode-harness/coherence/axioms.toml"
+SYMBOLS_PATH = ROOT / "specs/001-whcode-harness/coherence/symbols.toml"
 LEDGER_PATH = ROOT / "specs/001-whcode-harness/coherence/counterexamples.md"
 REPORT_DIR = ROOT / "artifacts/coherence"
 SPEC_PATH = ROOT / "specs/001-whcode-harness/spec.md"
@@ -469,6 +470,205 @@ def pred_adr_numbering(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
     return True, f"ADR 1—{numbers[-1]} 编号连续"
 
 
+def load_symbols() -> dict:
+    """加载规则符号注册表；文件缺失返回空表，由谓词判为反例（不伪造通过）。"""
+    if not SYMBOLS_PATH.is_file():
+        return {}
+    with SYMBOLS_PATH.open("rb") as handle:
+        return tomllib.load(handle)
+
+
+def symbol_violations(symbols: dict, docs: dict[str, str]) -> list[str]:
+    """符号命名空间 purity 检查（纯函数，供负向自检）。
+
+    规则：
+      1. 每个 rule 的 canonical_source 锚点须在目标文件中逐字命中；
+      2. 每个 guard 文档中不得出现 forbidden 命名空间的编号；
+      3. 每个 guard 文档的 require_all 编号须全部在场。
+    """
+    failures: list[str] = []
+    rules = symbols.get("rule", [])
+    ids = {str(item.get("id", "")) for item in rules}
+    if not rules:
+        return ["符号注册表无 rule 条目"]
+
+    for item in rules:
+        ident = str(item.get("id", "<无 id>"))
+        source = str(item.get("canonical_source", ""))
+        namespace = str(item.get("namespace", ""))
+        if namespace not in ("inference", "coherence"):
+            failures.append(f"{ident} namespace 非法：{namespace}")
+        if " :: " not in source:
+            failures.append(f"{ident} canonical_source 缺锚点分隔符")
+            continue
+        name, needle = source.split(" :: ", 1)
+        text = docs.get(name.strip())
+        if text is None:
+            failures.append(f"{ident} 规范源文档未载入：{name.strip()}")
+        elif needle.strip() not in text:
+            failures.append(f"{ident} 规范锚点未命中：{needle.strip()}")
+
+    for guard in symbols.get("guard", []):
+        document = str(guard.get("document", ""))
+        text = docs.get(document)
+        if text is None:
+            failures.append(f"guard 文档未载入：{document}")
+            continue
+        pattern = str(guard.get("pattern", ""))
+        forbidden = str(guard.get("forbidden", ""))
+        try:
+            hits = set(re.findall(pattern, text))
+        except re.error as exc:
+            failures.append(f"guard 正则非法（{document}）：{exc}")
+            hits = set()
+        if hits:
+            failures.append(f"{document} 含越界命名空间编号（{forbidden}）：" + "、".join(sorted(hits)))
+        for required in guard.get("require_all", []):
+            ident = str(required)
+            if ident not in ids:
+                failures.append(f"{document} require_all 引用未注册符号：{ident}")
+            elif not re.search(rf"(?<![A-Za-z0-9]){re.escape(ident)}(?![0-9])", text):
+                failures.append(f"{document} 缺规范编号：{ident}")
+    return failures
+
+
+def pred_symbol_unambiguous(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
+    """ADR-101：R/CR 编号在各自书写域内唯一，锚点可定位。"""
+    symbols = load_symbols()
+    if not symbols:
+        return False, "symbols.toml 缺失或为空"
+    docs: dict[str, str] = {}
+    seen_paths: set[str] = set()
+    for item in symbols.get("rule", []):
+        source = str(item.get("canonical_source", ""))
+        if " :: " in source:
+            seen_paths.add(source.split(" :: ", 1)[0].strip())
+    for guard in symbols.get("guard", []):
+        seen_paths.add(str(guard.get("document", "")))
+    for name in seen_paths:
+        path = ROOT / name
+        docs[name] = ctx.text(path) if path.is_file() else ""
+    failures = symbol_violations(symbols, docs)
+    if failures:
+        return False, "；".join(failures[:5])
+    return True, f"{len(symbols.get('rule', []))} 个符号锚点与命名空间边界一致"
+
+
+def orphan_adr_ids(adr_numbers: dict[int, Path], ledger_text: str) -> list[int]:
+    """已跟踪 ADR 若在三份账本（spec/tasks/checklist）零引用即为孤立（纯函数）。"""
+    return sorted(
+        number
+        for number, path in adr_numbers.items()
+        if f"ADR-{number:03d}" not in ledger_text
+        and path.stem not in ledger_text
+    )
+
+
+def implies_fr_violations(checks: list[tuple[int, bool, str, str | None]], spec_fr: set[str]) -> list[str]:
+    """Check 的 implies_fr 声明须指向在档 FR 且本 Check 确实引用它（纯函数）。"""
+    failures: list[str] = []
+    for number, _checked, body, _state in checks:
+        # 剔除声明本身，检查判据正文是否另有该 FR 引用（否则声明自证，不构成蕴含）。
+        prose = re.sub(r"implies_fr=FR-\d{3}", "", body)
+        for declared in re.findall(r"implies_fr=(FR-\d{3})", body):
+            ident = declared.removeprefix("FR-")
+            if ident not in spec_fr:
+                failures.append(f"Check {number} 的 {declared} 在 spec 不存在")
+            elif declared not in prose:
+                failures.append(f"Check {number} 声明 {declared} 但判据正文未另有引用")
+    return failures
+
+
+def pred_implies_fr(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
+    """判据蕴含字段一致性（ADR-101 支柱五）。"""
+    spec_fr = {value.removeprefix("FR-") for value in set(FR_HEAD.findall(ctx.spec))}
+    failures = implies_fr_violations(check_blocks(ctx.checklist), spec_fr)
+    if failures:
+        return False, "；".join(failures[:5])
+    declared = sum(
+        len(re.findall(r"implies_fr=FR-\d{3}", body))
+        for _n, _c, body, _s in check_blocks(ctx.checklist)
+    )
+    return True, f"{declared} 条 implies_fr 声明均指向在档 FR 且正文自洽"
+
+
+def pred_orphan_adr(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
+    """原子提交门禁（ADR-101 支柱三）：已入库 ADR 必须被账本引用。
+
+    未跟踪文件不在此列——它们不是仓库规范的一部分，由 COH-CE-009 一类台账条目单独登记。
+    """
+    completed = subprocess.run(
+        ["git", "ls-files", "docs/adr/ADR-*.md"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    tracked = {Path(line).name for line in completed.stdout.splitlines() if line.strip()}
+    mapping = {
+        number: path
+        for number, path in adr_files().items()
+        if path.name in tracked
+    }
+    # 合法账本：三份主账本 ＋ constitution ＋ 决策矩阵 ＋ 其他 ADR 正文。
+    # 只认三份主账本会把被 constitution 与源码规则引用的 ADR-008 误判为孤立。
+    ledger_parts = [ctx.spec, ctx.tasks, ctx.checklist]
+    for name in (".specify/memory/constitution.md",):
+        path = ROOT / name
+        if path.is_file():
+            ledger_parts.append(ctx.text(path))
+    for path in (ROOT / "docs/matrices").glob("*.md"):
+        ledger_parts.append(ctx.text(path))
+    for number, path in adr_files().items():
+        if number not in mapping:
+            ledger_parts.append(ctx.text(path))
+    orphans = orphan_adr_ids(mapping, "\n".join(ledger_parts))
+    if orphans:
+        return False, "孤立 ADR：" + "、".join(f"ADR-{n:03d}" for n in orphans[:10])
+    return True, f"{len(mapping)} 份已跟踪 ADR 均被账本引用"
+
+
+def phantom_fr_in_source(source_text: dict[str, str], spec_fr: set[str]) -> list[str]:
+    """源码注释引用的 FR 若不在 spec 集合即为幻影（纯函数）。"""
+    found: set[str] = set()
+    # 负向后顾排除 NFR-xxx（否则 "NFR-215" 会被误截为 "FR-215"）。
+    pattern = re.compile(r"(?<!N)FR-(\d{3})")
+    for name, text in source_text.items():
+        for matched in pattern.findall(text):
+            if matched not in spec_fr:
+                found.add(f"{name}:FR-{matched}")
+    return sorted(found)
+
+
+def pred_phantom_fr(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
+    """源码 FR 引用须在 spec 在档（ADR-101 支柱三）。
+
+    仅看 git 已跟踪源码；未跟踪工作树内容由台账登记，不使 pre 硬阻断在建工作。
+    """
+    completed = subprocess.run(
+        ["git", "ls-files", "crates/**/*.rs"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    tracked = [line for line in completed.stdout.splitlines() if line.strip()]
+    source_text: dict[str, str] = {}
+    for name in tracked:
+        path = ROOT / name
+        if path.is_file():
+            source_text[name] = ctx.text(path)
+    spec_fr = {value.removeprefix("FR-") for value in set(FR_HEAD.findall(ctx.spec))}
+    phantoms = phantom_fr_in_source(source_text, spec_fr)
+    if phantoms:
+        return False, "幻影 FR 引用：" + "、".join(phantoms[:10])
+    return True, f"已跟踪源码引用的 FR 均在 spec 在档（{len(spec_fr)} 条）"
+
+
 def pred_authority_layers(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
     """ADR-086：四处声明必须同时在场且指向同一层级。"""
     checks = [
@@ -626,6 +826,9 @@ def positive_fr_negative_checks(ctx: Context) -> list[tuple[str, list[int]]]:
     blocks = list(check_blocks(ctx.checklist))
     results: list[tuple[str, list[int]]] = []
     for fr_id, fr_text in fr_blocks(ctx.spec):
+        # 显式极性字段优先（ADR-101 支柱五）：条件性延后能力由负极性 Check 合法覆盖。
+        if "polarity=conditional" in fr_text or "polarity=negative" in fr_text:
+            continue
         if any(token in fr_text for token in NEGATIVE_FR_TOKENS):
             continue
         covers = [(number, body) for number, _checked, body, _state in blocks if fr_id in body]
@@ -681,6 +884,10 @@ DIRECT_PREDICATES = {
     "adr_review_trigger": pred_adr_review_trigger,
     "adr_numbering": pred_adr_numbering,
     "authority_layers": pred_authority_layers,
+    "symbol_unambiguous": pred_symbol_unambiguous,
+    "orphan_adr": pred_orphan_adr,
+    "phantom_fr": pred_phantom_fr,
+    "implies_fr": pred_implies_fr,
     "eol_tracked": pred_eol_tracked,
     "evidence_indexed": pred_evidence_indexed,
     "evidence_scoped": pred_evidence_scoped,
@@ -953,6 +1160,77 @@ def selftest() -> int:
     expect(
         parse_eol_entry("i/lf    w/missing   -text\tdata.bin") == ("lf", "missing", "data.bin"),
         "行尾记录解析（工作树缺失）",
+    )
+
+    # 符号命名空间负向自检（ADR-101）：注入裸 R4 与缺锚点须被捕获。
+    probe_symbols = {
+        "rule": [
+            {
+                "id": "R4",
+                "namespace": "inference",
+                "canonical_source": "a.md :: | R4 | 禁跳与例外",
+            },
+            {
+                "id": "CR4",
+                "namespace": "coherence",
+                "canonical_source": "b.md :: **CR4（降级）**",
+            },
+        ],
+        "guard": [
+            {
+                "document": "b.md",
+                "forbidden": "inference",
+                "pattern": r"\*\*R[1-8]（|`(?:FR-|)R[1-8]`",
+                "require_all": ["CR4"],
+            }
+        ],
+    }
+    expect(
+        symbol_violations(probe_symbols, {"a.md": "| R4 | 禁跳与例外", "b.md": "**CR4（降级）**"}) == [],
+        "符号命名空间正向探针",
+    )
+    dirty_docs = {"a.md": "| R4 | 禁跳与例外", "b.md": "**CR4（降级）** 与 **R4（禁跳）** 不同"}
+    expect(
+        any("越界命名空间" in item for item in symbol_violations(probe_symbols, dirty_docs)),
+        "裸 R4 越界负向探针",
+    )
+    broken_anchor = dict(probe_symbols)
+    broken_anchor["rule"] = [
+        {**probe_symbols["rule"][0], "canonical_source": "a.md :: 不存在的锚点"},
+        probe_symbols["rule"][1],
+    ]
+    expect(
+        any("规范锚点未命中" in item for item in symbol_violations(broken_anchor, {"a.md": "| R4 | 禁跳与例外", "b.md": "**CR4（降级）**"})),
+        "符号锚点缺失负向探针",
+    )
+
+    # 判据蕴含字段负向自检（ADR-101 支柱五）。
+    probe_checks = [(1, True, "覆盖 FR-101（implies_fr=FR-101）", None)]
+    expect(implies_fr_violations(probe_checks, {"101"}) == [], "implies_fr 正向探针")
+    expect(
+        len(implies_fr_violations(probe_checks, set())) == 1,
+        "implies_fr 幻影 FR 负向探针",
+    )
+    expect(
+        len(implies_fr_violations([(2, True, "implies_fr=FR-999（无正文引用）", None)], {"999"})) == 1,
+        "implies_fr 正文不自洽负向探针",
+    )
+
+    # 原子提交门禁负向自检（ADR-101 支柱三）。
+    adr_map = {1: Path("docs/adr/ADR-001-x.md"), 2: Path("docs/adr/ADR-002-y.md")}
+    expect(orphan_adr_ids(adr_map, "见 ADR-001") == [2], "孤立 ADR 负向探针")
+    expect(orphan_adr_ids(adr_map, "ADR-001 与 ADR-002") == [], "孤立 ADR 正向探针")
+    expect(
+        phantom_fr_in_source({"a.rs": "// FR-999"}, {"101"}) == ["a.rs:FR-999"],
+        "幻影 FR 负向探针",
+    )
+    expect(
+        phantom_fr_in_source({"a.rs": "// FR-101"}, {"101"}) == [],
+        "幻影 FR 正向探针",
+    )
+    expect(
+        phantom_fr_in_source({"a.rs": "// NFR-215"}, {"101"}) == [],
+        "NFR 前缀不误报探针",
     )
 
     if failures:

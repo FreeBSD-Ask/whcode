@@ -2450,6 +2450,7 @@ pub fn turn_request_from_body(
         budget_tokens: None,
         workspace_root: workspace_root.map(std::path::Path::to_path_buf),
         depth: 0,
+        steer: None,
     })
 }
 

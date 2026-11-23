@@ -171,16 +171,16 @@ msgid "cli.llm.run.about"
 msgstr "发起一次真实调用（同步；流式增量在结束时以有界序列输出）。"
 
 msgid "cli.llm.run.max-tokens"
-msgstr "覆盖剖面 `max_tokens`。"
+msgstr "覆盖模型的 `max_tokens`。"
 
 msgid "cli.llm.run.model"
-msgstr "覆盖剖面模型标识。"
+msgstr "覆盖模型标识。"
 
 msgid "cli.llm.run.prompt"
 msgstr "提示词正文（不写入事件与日志）。"
 
 msgid "cli.llm.run.provider"
-msgstr "剖面名（显式选择，ADR-031 决策 4）。"
+msgstr "模型名称（显式选择，ADR-031 决策 4）。"
 
 msgid "cli.llm.run.request-id"
 msgstr "预置请求 ID（`llm cancel` 的键；缺省按参数生成）。"
@@ -629,6 +629,9 @@ msgstr "待审批"
 msgid "gui.approval.tool"
 msgstr "工具"
 
+msgid "gui.chat.back"
+msgstr "返回对话"
+
 msgid "gui.chat.cancel"
 msgstr "取消"
 
@@ -647,8 +650,14 @@ msgstr "对话事件已入库——完整历史见「事件」视图（按会话
 msgid "gui.chat.last"
 msgstr "上次结果：{summary}"
 
+msgid "gui.chat.model.choose"
+msgstr "选择模型"
+
 msgid "gui.chat.models"
 msgstr "模型目录"
+
+msgid "gui.chat.new"
+msgstr "开始新对话"
 
 msgid "gui.chat.no_request"
 msgstr "没有可取消的请求 ID（先发送一轮对话）"
@@ -659,6 +668,9 @@ msgstr "未选择会话——先在会话视图选择（j/k）"
 msgid "gui.chat.not_supported"
 msgstr "LLM 执行器未接入（not_supported）"
 
+msgid "gui.chat.pick_session"
+msgstr "去选择会话"
+
 msgid "gui.chat.progress"
 msgstr "生成中：{chunks} 块…"
 
@@ -666,13 +678,19 @@ msgid "gui.chat.prompt.placeholder"
 msgstr "输入提示词，Enter 发送"
 
 msgid "gui.chat.provider"
-msgstr "对话剖面：{provider}"
+msgstr "模型"
 
 msgid "gui.chat.provider.placeholder"
-msgstr "剖面名"
+msgstr "模型名称"
 
 msgid "gui.chat.send"
 msgstr "发送"
+
+msgid "gui.chat.slash.help"
+msgstr "可用命令：/new /rename /archive /unarchive /delete /models /theme /help"
+
+msgid "gui.chat.slash.unknown"
+msgstr "未知命令：/{name}"
 
 msgid "gui.checkpoints.degraded"
 msgstr "回滚未实现（仅浏览）"
@@ -722,8 +740,47 @@ msgstr "尚未查看详情"
 msgid "gui.detail.panel"
 msgstr "详情"
 
+msgid "gui.file.at"
+msgstr "@ 文件"
+
+msgid "gui.file.empty"
+msgstr "没有匹配的文件"
+
+msgid "gui.file.filter"
+msgstr "搜索文件路径"
+
+msgid "gui.footer"
+msgstr "点击左侧或按 Tab 切换视图  |  {session}  |  {theme}"
+
 msgid "gui.kpi.count"
-msgstr "会话 {sessions} · 当前视图 {rows} 条"
+msgstr "{sessions} 个会话"
+
+msgid "gui.model.add"
+msgstr "添加模型"
+
+msgid "gui.model.base_url"
+msgstr "端点（https://…）"
+
+msgid "gui.model.credential"
+msgstr "密钥环境变量名"
+
+msgid "gui.model.model_id"
+msgstr "模型标识"
+
+msgid "gui.model.name"
+msgstr "名称"
+
+msgid "gui.model.no_editor"
+msgstr "模型写面未接入（not_supported）"
+
+msgid "gui.model.save"
+msgstr "保存"
+
+msgid "gui.model.save_failed"
+msgstr "保存失败：{error}"
+
+msgid "gui.model.saved"
+msgstr "已保存到 {path}；重启后出现在模型列表"
 
 msgid "gui.op.archive"
 msgstr "归档"
@@ -824,6 +881,30 @@ msgstr "最近"
 msgid "gui.session.sort.title"
 msgstr "标题"
 
+msgid "gui.sidebar.collapse"
+msgstr "收起"
+
+msgid "gui.sidebar.empty"
+msgstr "还没有会话"
+
+msgid "gui.sidebar.expand"
+msgstr "展开"
+
+msgid "gui.sidebar.group.project"
+msgstr "项目"
+
+msgid "gui.sidebar.group.sessions"
+msgstr "会话"
+
+msgid "gui.sidebar.group.settings"
+msgstr "设置"
+
+msgid "gui.sidebar.group.views"
+msgstr "视图"
+
+msgid "gui.sidebar.new_session"
+msgstr "新建会话"
+
 msgid "gui.status.theme"
 msgstr "主题：{theme}"
 
@@ -835,6 +916,18 @@ msgstr "重试 {count} 次"
 
 msgid "gui.task.retry"
 msgstr "重试"
+
+msgid "gui.time.days"
+msgstr "{n} 天前"
+
+msgid "gui.time.hours"
+msgstr "{n} 小时前"
+
+msgid "gui.time.minutes"
+msgstr "{n} 分钟前"
+
+msgid "gui.time.now"
+msgstr "刚刚"
 
 msgid "gui.tool.running"
 msgstr "运行中"
@@ -1263,7 +1356,7 @@ msgid "tool.call.started"
 msgstr "{tool} · 调用开始 · exec={exec} · call={call} · 迭代 {iteration}"
 
 msgid "tui.chat.composer.hint"
-msgstr "i 输入提示词 · Enter 提交 · P 剖面 · Esc 返回"
+msgstr "i 输入提示词 · Enter 提交 · P 模型 · Esc 返回"
 
 msgid "tui.chat.composer.running"
 msgstr "运行中 · Esc 取消 · 输入已冻结"
@@ -1308,7 +1401,7 @@ msgid "tui.chat.status.error"
 msgstr "对话失败：{err}"
 
 msgid "tui.chat.status.no_provider"
-msgstr "对话：无可用剖面"
+msgstr "对话：无可用模型"
 
 msgid "tui.chat.status.no_session"
 msgstr "对话：未选择会话（会话视图 j/k 选择）"
@@ -1359,7 +1452,7 @@ msgid "tui.empty"
 msgstr "（暂无数据）"
 
 msgid "tui.footer"
-msgstr "1-9/0/- 视图  j/k 移动  r 刷新  t 主题  q 退出  |  {cols}x{rows}"
+msgstr "Tab/1-9 视图  j/k 移动  r 刷新  t 主题  q 退出  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "未选择会话"
@@ -1545,13 +1638,13 @@ msgid "web.export.jsonl"
 msgstr "导出 JSONL"
 
 msgid "web.models.empty"
-msgstr "该剖面未声明模型目录，使用剖面默认模型"
+msgstr "该模型未声明模型列表，使用默认模型"
 
 msgid "web.models.model"
 msgstr "模型"
 
 msgid "web.models.profile"
-msgstr "剖面"
+msgstr "模型"
 
 msgid "web.recovering"
 msgstr "恢复中…"

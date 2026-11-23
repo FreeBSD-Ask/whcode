@@ -629,6 +629,9 @@ msgstr "स्वीकृति लंबित"
 msgid "gui.approval.tool"
 msgstr "टूल"
 
+msgid "gui.chat.back"
+msgstr "चैट पर लौटें"
+
 msgid "gui.chat.cancel"
 msgstr "रद्द करें"
 
@@ -647,8 +650,14 @@ msgstr "हर दौर के इवेंट डेटाबेस में 
 msgid "gui.chat.last"
 msgstr "पिछला परिणाम: {summary}"
 
+msgid "gui.chat.model.choose"
+msgstr "मॉडल चुनें"
+
 msgid "gui.chat.models"
 msgstr "मॉडल सूची"
+
+msgid "gui.chat.new"
+msgstr "नई चैट"
 
 msgid "gui.chat.no_request"
 msgstr "रद्द करने के लिए कोई अनुरोध ID नहीं (पहले एक दौर भेजें)"
@@ -659,6 +668,9 @@ msgstr "कोई सत्र नहीं चुना गया - पहल�
 msgid "gui.chat.not_supported"
 msgstr "LLM निष्पादक जोड़ा नहीं गया (not_supported)"
 
+msgid "gui.chat.pick_session"
+msgstr "सत्र चुनें"
+
 msgid "gui.chat.progress"
 msgstr "बन रहा है: {chunks} खंड…"
 
@@ -666,13 +678,19 @@ msgid "gui.chat.prompt.placeholder"
 msgstr "प्रॉम्प्ट लिखें, भेजने के लिए Enter दबाएँ"
 
 msgid "gui.chat.provider"
-msgstr "LLM प्रोफ़ाइल: {provider}"
+msgstr "मॉडल"
 
 msgid "gui.chat.provider.placeholder"
 msgstr "प्रोफ़ाइल का नाम"
 
 msgid "gui.chat.send"
 msgstr "भेजें"
+
+msgid "gui.chat.slash.help"
+msgstr "Commands: /new /rename /archive /unarchive /delete /models /theme /help"
+
+msgid "gui.chat.slash.unknown"
+msgstr "Unknown command: /{name}"
 
 msgid "gui.checkpoints.degraded"
 msgstr "रोलबैक बनाया नहीं गया (सिर्फ़ ब्राउज़िंग)"
@@ -722,8 +740,47 @@ msgstr "अभी कोई विवरण नहीं"
 msgid "gui.detail.panel"
 msgstr "विवरण"
 
+msgid "gui.file.at"
+msgstr "@ फ़ाइलें"
+
+msgid "gui.file.empty"
+msgstr "कोई मेल नहीं"
+
+msgid "gui.file.filter"
+msgstr "फ़ाइल पथ खोजें"
+
+msgid "gui.footer"
+msgstr "बाईं ओर क्लिक करें या Tab दबाकर दृश्य बदलें  |  {session}  |  {theme}"
+
 msgid "gui.kpi.count"
-msgstr "सत्र {sessions} · दृश्य में {rows} पंक्तियाँ"
+msgstr "{sessions} सत्र"
+
+msgid "gui.model.add"
+msgstr "मॉडल जोड़ें"
+
+msgid "gui.model.base_url"
+msgstr "एंडपॉइंट (https://…)"
+
+msgid "gui.model.credential"
+msgstr "API कुंजी env वैरिएबल"
+
+msgid "gui.model.model_id"
+msgstr "मॉडल आईडी"
+
+msgid "gui.model.name"
+msgstr "नाम"
+
+msgid "gui.model.no_editor"
+msgstr "मॉडल लेखन जुड़ा नहीं (not_supported)"
+
+msgid "gui.model.save"
+msgstr "सहेजें"
+
+msgid "gui.model.save_failed"
+msgstr "सहेजना विफल: {error}"
+
+msgid "gui.model.saved"
+msgstr "{path} में सहेजा गया; पुनः आरंभ के बाद सूची में दिखेगा"
 
 msgid "gui.op.archive"
 msgstr "आर्काइव करें"
@@ -824,6 +881,30 @@ msgstr "हालिया"
 msgid "gui.session.sort.title"
 msgstr "शीर्षक"
 
+msgid "gui.sidebar.collapse"
+msgstr "छिपाएँ"
+
+msgid "gui.sidebar.empty"
+msgstr "अभी कोई सत्र नहीं"
+
+msgid "gui.sidebar.expand"
+msgstr "दिखाएँ"
+
+msgid "gui.sidebar.group.project"
+msgstr "प्रोजेक्ट"
+
+msgid "gui.sidebar.group.sessions"
+msgstr "सत्र"
+
+msgid "gui.sidebar.group.settings"
+msgstr "सेटिंग्स"
+
+msgid "gui.sidebar.group.views"
+msgstr "दृश्य"
+
+msgid "gui.sidebar.new_session"
+msgstr "नया सत्र"
+
 msgid "gui.status.theme"
 msgstr "थीम: {theme}"
 
@@ -835,6 +916,18 @@ msgstr "पुनः प्रयास {count}"
 
 msgid "gui.task.retry"
 msgstr "पुनः प्रयास करें"
+
+msgid "gui.time.days"
+msgstr "{n} दिन पहले"
+
+msgid "gui.time.hours"
+msgstr "{n} घंटे पहले"
+
+msgid "gui.time.minutes"
+msgstr "{n} मिनट पहले"
+
+msgid "gui.time.now"
+msgstr "अभी"
 
 msgid "gui.tool.running"
 msgstr "चल रहा है"
@@ -1359,7 +1452,7 @@ msgid "tui.empty"
 msgstr "(कोई डेटा नहीं)"
 
 msgid "tui.footer"
-msgstr "1-9/0/- दृश्य  j/k चलें  r ताज़ा करें  t थीम  q बाहर निकलें  |  {cols}x{rows}"
+msgstr "Tab/1-9 दृश्य  j/k चलें  r ताज़ा करें  t थीम  q बाहर निकलें  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "कोई सत्र नहीं"

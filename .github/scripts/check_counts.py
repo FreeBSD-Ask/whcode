@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 import pathlib
 import re
 import sys
@@ -122,7 +124,11 @@ def check_check_number_continuity(checklist: str) -> list[str]:
     return failures
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="计数一致性门禁：FR/任务/Check 实际数与文档声明一致")
+    parser.add_argument("--json", action="store_true", help="输出机器可读计数（schema counts/v1）")
+    args = parser.parse_args(argv)
+
     spec = SPEC.read_text(encoding="utf-8")
     tasks = TASKS.read_text(encoding="utf-8")
     checklist = CHECKLIST.read_text(encoding="utf-8")
@@ -174,19 +180,26 @@ def main() -> int:
     expect(r"Check 1—(\d+) 中仍有", process, "checks", "process Check 口径")
     expect(r"(\d+) 条 FR 定义", process, "fr", "process FR 数")
 
-    print(
-        f"actual: FR={actual['fr']} tasks={actual['tasks']} checks={actual['checks']}"
-    )
-    print(
-        "evidence states: "
-        + " ".join(f"{k}={state_dist.get(k, 0)}" for k in EVIDENCE_STATES)
-    )
-    if failures:
+    if args.json:
+        # 机器可读单一事实源（ADR-101 支柱二）：账本数字引用此处，不再手填。
+        payload = {
+            "schema": "counts/v1",
+            "actual": actual,
+            "evidence_states": {key: state_dist.get(key, 0) for key in EVIDENCE_STATES},
+            "failures": failures,
+        }
+        print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+    else:
+        print(
+            f"actual: FR={actual['fr']} tasks={actual['tasks']} checks={actual['checks']}"
+        )
+        print(
+            "evidence states: "
+            + " ".join(f"{k}={state_dist.get(k, 0)}" for k in EVIDENCE_STATES)
+        )
         for item in failures:
             print(f"FAIL: {item}", file=sys.stderr)
-        return 1
-    print("counts consistent")
-    return 0
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

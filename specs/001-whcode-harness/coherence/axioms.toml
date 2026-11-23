@@ -14,7 +14,12 @@
 # 约束（由 COH-M1-01 判定）：tier I 不得只写 registered；tier IV 只能是 registered。
 
 schema = 1
-updated = "2026-11-17"
+updated = "2026-11-23"
+
+# 规则符号命名空间（ADR-101）：本表 COH-R4/R5/R6/R8 沿用 inference 命名空间
+# （docs/analysis/software-engineering-logic-sufficiency.md §4.2 的 R1—R8 语义）。
+# docs/guides/axiom-system.md §3 的 CR1—CR7 属 coherence 命名空间，语义不同，禁止互换。
+# 规范 ID、别名与书写域见同目录 symbols.toml，由 COH-M1-07 判定。
 
 # ---------------- M 元公理：审计审计自身 ----------------
 
@@ -506,3 +511,49 @@ tier = "I"
 phase = ["pre", "mid", "end"]
 severity = "hard"
 evaluator = "direct:authority_layers"
+
+# ---------------- 符号命名空间（ADR-101，2026-11-23） ----------------
+
+[[axiom]]
+id = "COH-M1-07"
+axiom = "M"
+statement = "R 与 CR 编号在各自身份书写域内唯一且锚点可定位，axiom-system.md 不出现裸 R1—R8"
+source = "specs/001-whcode-harness/coherence/symbols.toml :: 规则符号注册表：四套编号的单一事实源"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:symbol_unambiguous"
+
+# ---------------- 原子提交门禁（ADR-101 支柱三，2026-11-23） ----------------
+
+[[axiom]]
+id = "COH-M1-08"
+axiom = "M"
+statement = "已入库 ADR 被 spec／tasks／checklist 至少一处引用，未跟踪草稿不在此列"
+source = "docs/adr/ADR-101-rule-symbol-single-source.md :: 原子提交门禁"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:orphan_adr"
+
+[[axiom]]
+id = "COH-A6-03"
+axiom = "A6"
+statement = "已跟踪源码注释引用的 FR 在 spec 在档，幻影引用须登记"
+source = "docs/adr/ADR-101-rule-symbol-single-source.md :: FR 幻影引用"
+tier = "I"
+phase = ["mid", "end"]
+severity = "soft"
+evaluator = "direct:phantom_fr"
+
+# ---------------- 判据蕴含字段（ADR-101 支柱五，2026-11-23） ----------------
+
+[[axiom]]
+id = "COH-A2-06"
+axiom = "A2"
+statement = "Check 的 implies_fr 声明指向在档 FR 且该 Check 正文确实引用它"
+source = "docs/adr/ADR-101-rule-symbol-single-source.md :: 判据蕴含升级"
+tier = "I"
+phase = ["pre", "mid", "end"]
+severity = "hard"
+evaluator = "direct:implies_fr"

@@ -60,6 +60,8 @@ pub enum EventKind {
     SessionRewound,
     /// 重复调用提醒（T355／FR-790／ADR-044 修订；只承载工具名与次数，不含参数）。
     ToolCallRepeated,
+    /// turn 中途投喂被采纳（ADR-100／FR-808；log-only，只承载步号与字符数，不含正文）。
+    SteerAccepted,
 }
 
 impl EventKind {
@@ -87,6 +89,7 @@ impl EventKind {
             Self::PlanModeChanged => "PlanModeChanged",
             Self::SessionRewound => "SessionRewound",
             Self::ToolCallRepeated => "ToolCallRepeated",
+            Self::SteerAccepted => "SteerAccepted",
         }
     }
 
@@ -113,6 +116,7 @@ impl EventKind {
         Self::PlanModeChanged,
         Self::SessionRewound,
         Self::ToolCallRepeated,
+        Self::SteerAccepted,
     ];
 
     /// 解析稳定名；未知取值返回 `None`（由调用方决定报错口径，不静默取默认）。
@@ -148,7 +152,9 @@ impl EventKind {
                 EventCriticality::Content
             }
             // 重复调用提醒是建议性诊断：丢失不改变任何状态（可从相邻工具事件重建）。
-            Self::ProgressChanged | Self::ToolCallRepeated => EventCriticality::DisplaySnapshot,
+            Self::ProgressChanged | Self::ToolCallRepeated | Self::SteerAccepted => {
+                EventCriticality::DisplaySnapshot
+            }
         }
     }
 }

@@ -7,10 +7,15 @@
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <header class="app-bar">
-    <h1 id="app-title" data-i18n="app.title">旺皇大模型执行框架</h1>
-    <nav id="tabs" role="tablist">
+<body class="shell">
+  <!-- ADR-102：ZCode 形制——左侧栏（品牌＋视图导航＋主题）＋主区（标题＋内容＋状态）。
+       视图切换不再依赖顶部横排 tab 的数字键记忆；侧栏文字标签常驻可见。 -->
+  <aside class="sidebar">
+    <div class="sidebar__brand">
+      <span class="sidebar__logo" aria-hidden="true"></span>
+      <h1 id="app-title" data-i18n="app.title">旺皇大模型执行框架</h1>
+    </div>
+    <nav id="tabs" role="tablist" aria-orientation="vertical" aria-label="视图">
       <button id="tab-sessions" data-tab="sessions" role="tab" aria-controls="view-sessions" aria-selected="true" tabindex="0" data-i18n="web.tab.sessions">会话</button>
       <button id="tab-tasks" data-tab="tasks" role="tab" aria-controls="view-tasks" aria-selected="false" tabindex="-1" data-i18n="web.tab.tasks">任务</button>
       <button id="tab-history" data-tab="history" role="tab" aria-controls="view-history" aria-selected="false" tabindex="-1" data-i18n="web.tab.history">历史</button>
@@ -19,21 +24,29 @@
       <button id="tab-spec" data-tab="spec" role="tab" aria-controls="view-spec" aria-selected="false" tabindex="-1" data-i18n="web.tab.spec">SDD</button>
       <button id="tab-maintenance" data-tab="maintenance" role="tab" aria-controls="view-maintenance" aria-selected="false" tabindex="-1" data-i18n="web.tab.maintenance">维护</button>
     </nav>
-    <nav id="app-links" class="app-bar__nav">
-      <a href="/settings/certs" data-i18n="settings.link">证书设置</a>
-    </nav>
-    <div class="app-bar__theme">
-      <label for="theme-select" data-i18n="web.theme.label">主题</label>
-      <select id="theme-select">
-        <option value="" data-i18n="web.theme.default">默认</option>
-        <option value="eink-day">eink-day</option>
-        <option value="eink-night">eink-night</option>
-        <option value="amoled-night">amoled-night</option>
-        <option value="terminal-green">terminal-green</option>
-      </select>
+    <div class="sidebar__foot">
+      <nav id="app-links" class="app-bar__nav">
+        <a href="/settings/certs" data-i18n="settings.link">证书设置</a>
+      </nav>
+      <div class="app-bar__theme">
+        <label for="theme-select" data-i18n="web.theme.label">主题</label>
+        <select id="theme-select">
+          <option value="" data-i18n="web.theme.default">默认</option>
+          <option value="whcode-day">whcode-day</option>
+          <option value="whcode-night">whcode-night</option>
+          <option value="eink-day">eink-day</option>
+          <option value="eink-night">eink-night</option>
+          <option value="amoled-night">amoled-night</option>
+          <option value="terminal-green">terminal-green</option>
+        </select>
+      </div>
     </div>
-  </header>
-  <main id="main" aria-live="polite">
+  </aside>
+  <div class="workspace">
+    <header class="app-bar">
+      <h2 id="view-title" class="app-bar__title">会话</h2>
+    </header>
+    <main id="main" aria-live="polite">
     <!-- WHCODE_INITIAL_VIEW -->
     <section id="view-sessions" role="tabpanel" aria-labelledby="tab-sessions" tabindex="0">
       <div class="split">
@@ -116,6 +129,7 @@
     <span id="event-cursor"></span>
     <span id="action-status" role="status"></span>
   </footer>
+  </div>
   <script type="module" src="app.js"></script>
 </body>
 </html>

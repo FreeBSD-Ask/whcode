@@ -2,14 +2,16 @@
 //!
 //! DuckDB schema、迁移、单写者服务、读取连接、事务、清理与导出（§4.5、§7）。
 //!
-//! **当前状态：M1 存储基座起步。** DuckDB 原生依赖已按 T022 引入，采用**官方预编译动态库**
-//! （非源码构建）：由 `.github/scripts/fetch-duckdb.py` 拉取并校验 SHA256，构建期经 `DUCKDB_LIB_DIR`
-//! 指向 `vendor/duckdb/<version>/`（不入库）。平台结论见 `docs/adr/ADR-DB-BUILD.md`。
+//! DuckDB 原生依赖采用**官方预编译动态库**（非源码构建）：由 `.github/scripts/fetch-duckdb.py`
+//! 拉取并校验 SHA256，构建期经 `DUCKDB_LIB_DIR` 指向 `vendor/duckdb/<version>/`（不入库）。
+//! 平台结论见 `docs/adr/ADR-DB-BUILD.md`。表数量与 schema 版本的权威来源为 [`schema`]
+//! 的 `STORE_SCHEMA_VERSION`／`TABLE_COUNT` 常量，本处不维护状态快照。
 //!
 //! 已交付：
 //! - [`smoke`]：M0 数据库冒烟（创建 / 事务写读 / 关闭重启 / 迁移，T022、V-002）；
 //! - [`writer`]：事件写者引擎（幂等键 / 批次阈值 / 关键事件确认 / 错误传播，T026、V-005）；
-//! - [`schema`]：16 表版本化 schema 与可重复迁移（T032/T033；v2/v3 查询索引；FR-501）；
+//! - [`schema`]：版本化 schema 与可重复迁移（T032/T033；查询索引；FR-501；当前表数与版本以
+//!   `schema::TABLE_COUNT`／`schema::STORE_SCHEMA_VERSION` 为准）；
 //! - [`service`]：写者服务（单写线程 + 有界通道 + 同步确认，T034、FR-502/503、ADR-017）；
 //! - [`query`]：稳定全序 + 双向游标分页（T035、FR-504、§7.2）；
 //! - [`indexes`]：必需索引注册表与完整性检查（T036、§7.2）；

@@ -112,7 +112,7 @@ fn tui_actions_resolve_to_registered_surfaces() {
     }
 }
 
-/// FR-621 正向：GUI 清单全部解析且不包含任何写命令面（只读 v1，FR-711）。
+/// FR-621 正向：GUI 清单全部解析且不包含任何写命令面（FR-711）。
 #[test]
 fn gui_actions_stay_read_only() {
     use whcode_gui::surface_map::{GuiAction, surface_of};

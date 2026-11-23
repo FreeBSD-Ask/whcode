@@ -629,6 +629,9 @@ msgstr "Genehmigung ausstehend"
 msgid "gui.approval.tool"
 msgstr "Werkzeug"
 
+msgid "gui.chat.back"
+msgstr "Zurück zum Chat"
+
 msgid "gui.chat.cancel"
 msgstr "Abbrechen"
 
@@ -647,8 +650,14 @@ msgstr "Turn-Ereignisse werden dauerhaft gespeichert – die vollständige Histo
 msgid "gui.chat.last"
 msgstr "Letztes Ergebnis: {summary}"
 
+msgid "gui.chat.model.choose"
+msgstr "Modell wählen"
+
 msgid "gui.chat.models"
 msgstr "Modelle"
+
+msgid "gui.chat.new"
+msgstr "Neuer Chat"
 
 msgid "gui.chat.no_request"
 msgstr "Keine Anfrage-ID zum Abbrechen (zuerst einen Turn senden)"
@@ -659,6 +668,9 @@ msgstr "Keine Sitzung ausgewählt – zuerst in der Sitzungsansicht auswählen (
 msgid "gui.chat.not_supported"
 msgstr "LLM-Executor nicht angebunden (not_supported)"
 
+msgid "gui.chat.pick_session"
+msgstr "Sitzung wählen"
+
 msgid "gui.chat.progress"
 msgstr "Wird generiert: {chunks} Blöcke…"
 
@@ -666,13 +678,19 @@ msgid "gui.chat.prompt.placeholder"
 msgstr "Prompt eingeben, Enter sendet"
 
 msgid "gui.chat.provider"
-msgstr "LLM-Profil: {provider}"
+msgstr "Modell"
 
 msgid "gui.chat.provider.placeholder"
 msgstr "Profilname"
 
 msgid "gui.chat.send"
 msgstr "Senden"
+
+msgid "gui.chat.slash.help"
+msgstr "Commands: /new /rename /archive /unarchive /delete /models /theme /help"
+
+msgid "gui.chat.slash.unknown"
+msgstr "Unknown command: /{name}"
 
 msgid "gui.checkpoints.degraded"
 msgstr "Rollback nicht implementiert (nur Ansicht)"
@@ -722,8 +740,47 @@ msgstr "Noch keine Details"
 msgid "gui.detail.panel"
 msgstr "Details"
 
+msgid "gui.file.at"
+msgstr "@ Dateien"
+
+msgid "gui.file.empty"
+msgstr "Keine passenden Dateien"
+
+msgid "gui.file.filter"
+msgstr "Dateipfad suchen"
+
+msgid "gui.footer"
+msgstr "Links klicken oder Tab drücken, um Ansichten zu wechseln  |  {session}  |  {theme}"
+
 msgid "gui.kpi.count"
-msgstr "Sitzungen {sessions} · Zeilen in der Ansicht {rows}"
+msgstr "{sessions} Sitzungen"
+
+msgid "gui.model.add"
+msgstr "Modell hinzufügen"
+
+msgid "gui.model.base_url"
+msgstr "Endpunkt (https://…)"
+
+msgid "gui.model.credential"
+msgstr "API-Key-Umgebungsvariable"
+
+msgid "gui.model.model_id"
+msgstr "Modell-ID"
+
+msgid "gui.model.name"
+msgstr "Name"
+
+msgid "gui.model.no_editor"
+msgstr "Modell-Schreibfläche nicht angebunden (not_supported)"
+
+msgid "gui.model.save"
+msgstr "Speichern"
+
+msgid "gui.model.save_failed"
+msgstr "Speichern fehlgeschlagen: {error}"
+
+msgid "gui.model.saved"
+msgstr "Gespeichert unter {path}; erscheint nach Neustart in der Modellliste"
 
 msgid "gui.op.archive"
 msgstr "Archivieren"
@@ -824,6 +881,30 @@ msgstr "Zuletzt"
 msgid "gui.session.sort.title"
 msgstr "Titel"
 
+msgid "gui.sidebar.collapse"
+msgstr "Ausblenden"
+
+msgid "gui.sidebar.empty"
+msgstr "Noch keine Sitzungen"
+
+msgid "gui.sidebar.expand"
+msgstr "Anzeigen"
+
+msgid "gui.sidebar.group.project"
+msgstr "Projekt"
+
+msgid "gui.sidebar.group.sessions"
+msgstr "Sitzungen"
+
+msgid "gui.sidebar.group.settings"
+msgstr "Einstellungen"
+
+msgid "gui.sidebar.group.views"
+msgstr "Ansichten"
+
+msgid "gui.sidebar.new_session"
+msgstr "Neue Sitzung"
+
 msgid "gui.status.theme"
 msgstr "Design: {theme}"
 
@@ -835,6 +916,18 @@ msgstr "Wiederholungen {count}"
 
 msgid "gui.task.retry"
 msgstr "Wiederholen"
+
+msgid "gui.time.days"
+msgstr "vor {n} Tagen"
+
+msgid "gui.time.hours"
+msgstr "vor {n} Std."
+
+msgid "gui.time.minutes"
+msgstr "vor {n} Min."
+
+msgid "gui.time.now"
+msgstr "gerade eben"
 
 msgid "gui.tool.running"
 msgstr "Läuft"
@@ -1359,7 +1452,7 @@ msgid "tui.empty"
 msgstr "(keine Daten)"
 
 msgid "tui.footer"
-msgstr "1-9/0/- Ansichten  j/k bewegen  r aktualisieren  t Design  q beenden  |  {cols}x{rows}"
+msgstr "Tab/1-9 Ansichten  j/k bewegen  r aktualisieren  t Design  q beenden  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "keine Sitzung"

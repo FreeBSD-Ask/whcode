@@ -629,6 +629,9 @@ msgstr "منظوری زیر التوا"
 msgid "gui.approval.tool"
 msgstr "ٹول"
 
+msgid "gui.chat.back"
+msgstr "چیٹ پر واپس"
+
 msgid "gui.chat.cancel"
 msgstr "منسوخ کریں"
 
@@ -647,8 +650,14 @@ msgstr "گفتگو کے ایونٹس محفوظ ہو جاتے ہیں — مکم�
 msgid "gui.chat.last"
 msgstr "پچھلا نتیجہ: {summary}"
 
+msgid "gui.chat.model.choose"
+msgstr "ماڈل منتخب کریں"
+
 msgid "gui.chat.models"
 msgstr "ماڈل فہرست"
+
+msgid "gui.chat.new"
+msgstr "نئی چیٹ"
 
 msgid "gui.chat.no_request"
 msgstr "منسوخ کرنے کے لیے کوئی ریکویسٹ ID نہیں (پہلے ایک ٹرن بھیجیں)"
@@ -659,6 +668,9 @@ msgstr "کوئی سیشن منتخب نہیں — پہلے سیشنز ویو م�
 msgid "gui.chat.not_supported"
 msgstr "LLM ایگزیکیوٹر منسلک نہیں (not_supported)"
 
+msgid "gui.chat.pick_session"
+msgstr "سیشن منتخب کریں"
+
 msgid "gui.chat.progress"
 msgstr "تیار ہو رہا ہے: {chunks} حصے…"
 
@@ -666,13 +678,19 @@ msgid "gui.chat.prompt.placeholder"
 msgstr "پرامپٹ لکھیں، بھیجنے کے لیے Enter دبائیں"
 
 msgid "gui.chat.provider"
-msgstr "LLM پروفائل: {provider}"
+msgstr "ماڈل"
 
 msgid "gui.chat.provider.placeholder"
 msgstr "پروفائل کا نام"
 
 msgid "gui.chat.send"
 msgstr "بھیجیں"
+
+msgid "gui.chat.slash.help"
+msgstr "Commands: /new /rename /archive /unarchive /delete /models /theme /help"
+
+msgid "gui.chat.slash.unknown"
+msgstr "Unknown command: /{name}"
 
 msgid "gui.checkpoints.degraded"
 msgstr "رول بیک ابھی نہیں بنایا گیا (صرف براؤزنگ)"
@@ -722,8 +740,47 @@ msgstr "ابھی کوئی تفصیل نہیں"
 msgid "gui.detail.panel"
 msgstr "تفصیلات"
 
+msgid "gui.file.at"
+msgstr "@ فائلیں"
+
+msgid "gui.file.empty"
+msgstr "کوئی فائل نہیں"
+
+msgid "gui.file.filter"
+msgstr "فائل路径 تلاش کریں"
+
+msgid "gui.footer"
+msgstr "بائیں طرف کلک کریں یا Tab دبا کر منظر بدلیں  |  {session}  |  {theme}"
+
 msgid "gui.kpi.count"
-msgstr "سیشنز {sessions} · ویو کی قطاریں {rows}"
+msgstr "{sessions} سیشنز"
+
+msgid "gui.model.add"
+msgstr "ماڈل شامل کریں"
+
+msgid "gui.model.base_url"
+msgstr "اینڈپوائنٹ (https://…)"
+
+msgid "gui.model.credential"
+msgstr "API کلید env متغیر"
+
+msgid "gui.model.model_id"
+msgstr "ماڈل شناخت"
+
+msgid "gui.model.name"
+msgstr "نام"
+
+msgid "gui.model.no_editor"
+msgstr "ماڈل تحریر منسلک نہیں (not_supported)"
+
+msgid "gui.model.save"
+msgstr "محفوظ کریں"
+
+msgid "gui.model.save_failed"
+msgstr "محفوظ ناکام: {error}"
+
+msgid "gui.model.saved"
+msgstr "{path} میں محفوظ؛ دوبارہ آغاز پر فہرست میں ظاہر ہوگا"
 
 msgid "gui.op.archive"
 msgstr "آرکائیو"
@@ -824,6 +881,30 @@ msgstr "حالیہ"
 msgid "gui.session.sort.title"
 msgstr "عنوان"
 
+msgid "gui.sidebar.collapse"
+msgstr "چھپائیں"
+
+msgid "gui.sidebar.empty"
+msgstr "ابھی کوئی سیشن نہیں"
+
+msgid "gui.sidebar.expand"
+msgstr "دکھائیں"
+
+msgid "gui.sidebar.group.project"
+msgstr "پروجیکٹ"
+
+msgid "gui.sidebar.group.sessions"
+msgstr "سیشنز"
+
+msgid "gui.sidebar.group.settings"
+msgstr "ترتیبات"
+
+msgid "gui.sidebar.group.views"
+msgstr "مناظر"
+
+msgid "gui.sidebar.new_session"
+msgstr "نیا سیشن"
+
 msgid "gui.status.theme"
 msgstr "تھیم: {theme}"
 
@@ -835,6 +916,18 @@ msgstr "دوبارہ کوششیں {count}"
 
 msgid "gui.task.retry"
 msgstr "دوبارہ کوشش"
+
+msgid "gui.time.days"
+msgstr "{n} دن پہلے"
+
+msgid "gui.time.hours"
+msgstr "{n} گھنٹے پہلے"
+
+msgid "gui.time.minutes"
+msgstr "{n} منٹ پہلے"
+
+msgid "gui.time.now"
+msgstr "ابھی"
 
 msgid "gui.tool.running"
 msgstr "چل رہا ہے"
@@ -1359,7 +1452,7 @@ msgid "tui.empty"
 msgstr "(کوئی ڈیٹا نہیں)"
 
 msgid "tui.footer"
-msgstr "1-9/0/- مناظر  j/k حرکت  r تازہ کریں  t تھیم  q اختتام  |  {cols}x{rows}"
+msgstr "Tab/1-9 مناظر  j/k حرکت  r تازہ کریں  t تھیم  q اختتام  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "کوئی سیشن نہیں"

@@ -808,11 +808,7 @@ mod tests {
     fn protocol_parse_lists_all_five() {
         assert_eq!(Protocol::parse("openai"), Some(Protocol::OpenAi));
         assert_eq!(Protocol::parse("cohere"), Some(Protocol::Cohere));
-        assert_eq!(
-            Protocol::parse("bedrock"),
-            None,
-            "未注册协议返回 None（FR-209）"
-        );
+        assert_eq!(Protocol::parse("bedrock"), None, "未注册协议返回 None");
         assert_eq!(Protocol::all().len(), 5);
     }
 

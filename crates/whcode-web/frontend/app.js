@@ -745,6 +745,11 @@ function selectTab(name, options = {}) {
     tab.setAttribute("aria-selected", selected ? "true" : "false");
     tab.tabIndex = selected ? 0 : -1;
   }
+  // ADR-102：顶栏标题跟随当前视图——侧栏标签是导航主入口，标题只作位置提示。
+  const titleNode = document.getElementById("view-title");
+  if (titleNode) {
+    titleNode.textContent = (target.textContent || "").trim();
+  }
   for (const section of document.querySelectorAll("main section")) {
     section.hidden = section.id !== `view-${name}`;
   }

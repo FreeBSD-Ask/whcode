@@ -22,7 +22,9 @@ use iced::futures::StreamExt;
 use iced::futures::channel::mpsc;
 use iced::futures::channel::oneshot;
 use iced::keyboard::{Key, key};
-use iced::widget::{button, column, container, rich_text, row, scrollable, span, text, text_input};
+use iced::widget::{
+    button, column, container, pick_list, rich_text, row, scrollable, span, text, text_input,
+};
 use iced::{
     Background, Border, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme,
     window,
@@ -307,6 +309,10 @@ struct ToolCard {
 /// 工具卡上限（视图有界；超出移除最早的一张）。
 const MAX_TOOL_CARDS: usize = 20;
 
+/// 侧栏会话列表上限（ADR-102 功能对齐）：侧栏只承载最近的一页，超出显示剩余计数，
+/// 完整目录仍在「会话」视图——帧路径有界，不因会话数增长拖慢重绘。
+const SIDEBAR_SESSION_ROWS: usize = 14;
+
 /// 读面详情／门禁摘要文本上限（ADR-091／FR-799）：事件详情与 Spec 门禁摘要各
 /// 200 字符（与 TUI 事件详情的 `chars().take(200)` 同口径）；超出在字符边界截断
 /// 并注明，不伪造完整内容。字段有界且无定时器（FR-714）。
@@ -380,11 +386,50 @@ enum CertWriteUiAction {
     RegenerateServer,
 }
 
-/// 启动参数。
+/// 添加模型表单的草稿（字段与 `profiles.json` 的必填项一致）。
+#[derive(Debug, Clone, Default)]
+pub struct ModelDraft {
+    /// 模型名（唯一，`profiles[].name`）。
+    pub name: String,
+    /// 协议族：`openai`／`anthropic`／`gemini`／`ollama`／`cohere`。
+    pub protocol: String,
+    /// 端点源（`https://host[:port]`）。
+    pub base_url: String,
+    /// 模型标识（`profiles[].model`）。
+    pub model: String,
+    /// 密钥环境变量名（Ollama 等无鉴权协议可留空）。
+    pub credential_env: String,
+}
+
+/// 已注册协议（与 `whcode_llm::http::profile::Protocol` 同名小写形式）。
+pub const MODEL_PROTOCOLS: [&str; 5] = ["openai", "anthropic", "gemini", "ollama", "cohere"];
+
+/// 模型配置写面（由装配根注入）。
+///
+/// GUI 自身不碰文件系统（ADR-003／§5.3）：增删模型经本 trait 落到装配根的配置文件。
+/// 工作区文件索引（由装配根注入）。
+///
+/// composer 的「@ 文件」用它列出候选路径并插入提示词；GUI 自身不遍历文件系统。
+pub trait FileIndex {
+    /// 按相对路径子串匹配（大小写不敏感），有界返回。
+    fn files(&self, needle: &str, limit: usize) -> Vec<String>;
+}
+
+pub trait ModelEditor {
+    /// 追加一个模型并落盘；返回写入的配置文件路径。
+    ///
+    /// # Errors
+    ///
+    /// 名称重复、端点非法、凭据变量名为空（有鉴权协议）、文件不可写时返回可操作错误。
+    fn add(&self, draft: &ModelDraft) -> Result<String, WhError>;
+}
+
 #[derive(Default)]
 pub struct RunOptions {
     /// 主题（FR-612）。
     pub theme: GuiTheme,
+    /// 工作区目录名（侧栏「项目」分区显示；ZCode 侧栏同样按项目组织任务）。
+    pub workspace: String,
     /// 界面文本层（FR-615）：默认 zh-CN + en 回退。
     pub texts: I18n,
     /// 写命令执行器（FR-623/ADR-056）：`Some` 时会话/任务/清理写操作可用；`None` 时
@@ -393,13 +438,30 @@ pub struct RunOptions {
     /// LLM 执行器（ADR-056 Phase 2）：`Some` 时对话视图可用（后台线程执行）；`None`
     /// 时显式提示 `not_supported`。`Arc` 以便克隆进阻塞线程。
     pub llm_executor: Option<std::sync::Arc<dyn GuiLlmExecutor>>,
+    /// 模型配置写面（`None` = 装配未接入：表单可填但保存显式提示不可用）。
+    pub model_editor: Option<Rc<dyn ModelEditor>>,
+    /// 工作区文件索引（「@ 文件」候选；`None` = 未接入，按钮显式禁用）。
+    pub file_index: Option<Rc<dyn FileIndex>>,
+}
+
+/// 添加模型表单的文本字段。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ModelField {
+    Name,
+    BaseUrl,
+    Model,
+    Credential,
 }
 
 /// 界面消息（按键、窗口事件与控件回调产生；无定时器）。
 #[derive(Debug, Clone)]
 enum Message {
     SelectView(ViewId),
+    /// ADR-102：顺序切换视图（`Tab` 前进、`Shift+Tab` 后退），免记数字键。
+    CycleView(i32),
     NextSession,
+    /// ADR-102 功能对齐：点击侧栏任务行直接选中该会话并进入对话（ZCode 行为）。
+    SelectSession(usize),
     PrevSession,
     Refresh,
     CycleTheme,
@@ -428,6 +490,26 @@ enum Message {
     OpInputChanged(String),
     /// 模型目录（T393／llm.models）：拉取剖面×模型摘要显示在对话视图。
     ShowModels,
+    // —— 添加模型（ADR-102 修正：让「添加模型」在界面上真实存在）——
+    /// 打开添加模型表单。
+    OpenModelForm,
+    /// 关闭添加模型表单（不写文件）。
+    CloseModelForm,
+    /// 表单文本字段变更（名称／端点／模型／密钥变量名）。
+    ModelFieldChanged(ModelField, String),
+    /// 表单协议变更（openai／anthropic／gemini／ollama／cohere）。
+    ModelProtocolChanged(String),
+    /// 保存模型（写配置文件；失败显式提示原因）。
+    SaveModel,
+    // —— @ 文件（ADR-102 功能对齐）——
+    /// 打开文件候选面板（列出工作区文件）。
+    OpenFilePicker,
+    /// 文件候选的过滤词变更。
+    FileQueryChanged(String),
+    /// 把候选路径插入提示词末尾。
+    InsertFile(String),
+    /// 关闭文件候选面板。
+    CloseFilePicker,
     /// 打开操作面板（新建／重命名；破坏性命令先进入预览态）。
     OpStart(OpMode),
     /// 破坏性命令：先预览（confirm=false，不写库）。
@@ -536,6 +618,21 @@ struct State {
     session_show_archived: bool,
     /// 未过滤的会话行（目录视图的原始集合；过滤/排序只作用于快照副本）。
     all_sessions: Vec<ViewSessionRow>,
+    /// 侧栏常驻会话目录（ADR-102 功能对齐）：过滤＋排序后的结果，任何视图下都在，
+    /// 与主区当前快照解耦——ZCode 的侧栏任务列表同样常驻。
+    sidebar_sessions: Vec<ViewSessionRow>,
+    /// 工作区目录名（侧栏「项目」分区；空串表示装配未提供）。
+    workspace_name: String,
+    /// 模型配置写面（`None` = 未接入，保存时显式提示）。
+    model_editor: Option<Rc<dyn ModelEditor>>,
+    /// 添加模型表单（`Some` = 表单打开）。
+    model_form: Option<ModelDraft>,
+    /// 表单反馈（保存成功路径或失败原因）。
+    model_form_status: Option<String>,
+    /// 工作区文件索引（`None` = 未接入）。
+    file_index: Option<Rc<dyn FileIndex>>,
+    /// 文件候选面板：过滤词与命中（`Some` = 面板打开）。
+    file_picker: Option<(String, Vec<String>)>,
     /// 最近一次查看的检查点（FR-748；空＝尚未查看）。
     checkpoints: Vec<CheckpointItem>,
     /// 检查点所属任务。
@@ -580,24 +677,34 @@ impl State {
         executor: Option<Rc<dyn CommandExecutor>>,
         llm: Option<std::sync::Arc<dyn GuiLlmExecutor>>,
     ) -> Self {
-        let snapshot = source.snapshot(ViewId::Sessions, None);
-        let session_ids = snapshot
+        // 侧栏目录常驻（Sessions 快照），主区按默认视图取自己的快照（ADR-102）。
+        let sessions_snapshot = source.snapshot(ViewId::Sessions, None);
+        let session_ids = sessions_snapshot
             .sessions
             .iter()
             .map(|row| row.id.clone())
             .collect::<Vec<_>>();
+        let sidebar_sessions = sessions_snapshot.sessions.clone();
+        let snapshot = source.snapshot(ViewId::Chat, None);
         let chat_provider = llm
             .as_ref()
             .and_then(|llm| llm.profiles().into_iter().next())
             .unwrap_or_default();
-        Self {
+        let mut state = Self {
             source,
             texts,
             theme,
-            view: ViewId::Sessions,
+            view: ViewId::Chat,
             selected: None,
             session_ids,
             snapshot,
+            sidebar_sessions,
+            workspace_name: String::new(),
+            model_editor: None,
+            model_form: None,
+            model_form_status: None,
+            file_index: None,
+            file_picker: None,
             size: WINDOW_SIZE,
             executor,
             llm,
@@ -636,7 +743,11 @@ impl State {
             runtime_selected: None,
             runtime_status: None,
             tls_status: None,
-        }
+        };
+        // 初始化即走一次准备层：默认进入对话时历史缓存与侧栏目录都要就位
+        // （ADR-102：不能等用户第一次点击才填内容）。
+        state.prepare();
+        state
     }
 
     /// 目录视图重建（FR-746）：过滤 → 排序 → 分组序，并同步 `session_ids`
@@ -668,10 +779,13 @@ impl State {
                 })
                 .then_with(|| left.id.cmp(&right.id))
         });
-        self.snapshot.sessions = rows;
+        self.sidebar_sessions = rows.clone();
+        if self.view == ViewId::Sessions {
+            self.snapshot.sessions = rows;
+        }
+        // 选中下标以侧栏目录为准（主区可能是对话等非会话视图，其快照不含目录）。
         self.session_ids = self
-            .snapshot
-            .sessions
+            .sidebar_sessions
             .iter()
             .map(|row| row.id.clone())
             .collect();
@@ -690,10 +804,9 @@ impl State {
         self.snapshot = self
             .source
             .snapshot(self.view, self.selected_session().as_deref());
-        if self.view == ViewId::Sessions {
-            self.all_sessions = self.snapshot.sessions.clone();
-            self.apply_session_view();
-        }
+        // 侧栏目录常驻：切视图是低频路径，这里多取一次会话快照换取侧栏始终有内容。
+        self.all_sessions = self.source.snapshot(ViewId::Sessions, None).sessions;
+        self.apply_session_view();
         if self.view == ViewId::Chat {
             self.refresh_chat_history();
         }
@@ -741,7 +854,7 @@ impl State {
         )
     }
 
-    /// 顶栏会话行：未选择时显示显式占位（不渲染空串）。
+    /// 会话标识（状态栏用）：未选择时显示显式占位（不渲染空串）。
     fn session_label(&self) -> String {
         match self.selected_session() {
             Some(id) => self
@@ -751,50 +864,41 @@ impl State {
         }
     }
 
-    /// KPI 条（T199）：优先使用准备层摘要（任务视图含总计/完成/阻塞），否则给出可得计数。
-    ///
-    /// 不新增查询：计数只来自已准备的快照与会话清单——帧路径不触库（§5.3）。
-    fn kpi(&self) -> String {
-        if !self.snapshot.summary.is_empty() {
-            return self.snapshot.summary.clone();
-        }
-        self.texts.resolve_fmt(
-            "gui.kpi.count",
-            &[
-                ("sessions", &self.session_ids.len().to_string()),
-                ("rows", &self.snapshot_rows().to_string()),
-            ],
-        )
+    /// 顶栏标题（ADR-102）：当前会话标题；没有会话时是「开始新对话」。
+    /// 可用模型清单（LLM 执行器的剖面名；无执行器或未配置时为空）。
+    fn model_options(&self) -> Vec<String> {
+        self.llm
+            .as_ref()
+            .map(|llm| llm.profiles())
+            .unwrap_or_default()
     }
 
-    /// 当前视图的数据条数（文本视图无行数概念，记 0）。
-    fn snapshot_rows(&self) -> usize {
-        match self.view {
-            ViewId::Sessions => self.snapshot.sessions.len(),
-            ViewId::Tasks => self.snapshot.tasks.len(),
-            ViewId::Events => self.snapshot.events.len(),
-            ViewId::Diff => self.snapshot.diff.len(),
-            ViewId::Context | ViewId::Spec | ViewId::Chat | ViewId::Coherence | ViewId::Runtime => {
-                0
-            }
-            ViewId::Ledger => self.snapshot.ledger.len(),
-            ViewId::Preimages => self.snapshot.preimages.len(),
-        }
+    fn current_session_title(&self) -> String {
+        self.selected
+            .and_then(|index| self.sidebar_sessions.get(index))
+            .map(|row| row.title.clone())
+            .unwrap_or_else(|| self.texts.resolve("gui.chat.new").to_string())
+    }
+
+    /// 顶栏副标题：会话阶段与状态；无会话时为空（不占位）。
+    fn current_session_meta(&self) -> String {
+        self.selected
+            .and_then(|index| self.sidebar_sessions.get(index))
+            .map(|row| format!("{} · {}", row.stage, row.status))
+            .unwrap_or_default()
     }
 
     /// 状态栏：键位提示 + 窗口尺寸 + 当前主题（与 TUI 同一批词条）。
     fn footer(&self) -> String {
-        let hints = self.texts.resolve_fmt(
-            "tui.footer",
+        // ADR-102：底栏说「怎么操作」与当前主题；窗口尺寸对用户无操作含义，
+        // 不再复用 TUI 的 cols／rows 模板（终端族与应用族文案分离）。
+        self.texts.resolve_fmt(
+            "gui.footer",
             &[
-                ("cols", &format!("{:.0}", self.size.width)),
-                ("rows", &format!("{:.0}", self.size.height)),
+                ("theme", self.theme.name()),
+                ("session", &self.session_label()),
             ],
-        );
-        let theme = self
-            .texts
-            .resolve_fmt("gui.status.theme", &[("theme", self.theme.name())]);
-        format!("{hints}    {theme}")
+        )
     }
 }
 
@@ -811,22 +915,32 @@ pub fn run(source: Box<dyn ViewSource>, options: RunOptions) -> iced::Result {
     let RunOptions {
         theme,
         texts,
+        workspace,
         command_executor,
         llm_executor,
+        model_editor,
+        file_index,
     } = options;
     // 执行器以 Rc 共享进状态闭包（iced 的状态构造器要求可重复调用；Rc 克隆即可）。
     let executor_shared: Option<Rc<dyn CommandExecutor>> = command_executor.map(Rc::from);
     let llm_shared: Option<std::sync::Arc<dyn GuiLlmExecutor>> = llm_executor;
+    let model_editor_shared: Option<Rc<dyn ModelEditor>> = model_editor;
+    let file_index_shared: Option<Rc<dyn FileIndex>> = file_index;
 
     let mut app = iced::application(
         move || {
-            State::new(
+            let mut state = State::new(
                 Rc::clone(&source),
                 texts.clone(),
                 theme,
                 executor_shared.clone(),
                 llm_shared.clone(),
-            )
+            );
+            // 侧栏项目名与模型写面在构造后注入（State::new 签名不变，测试不动）。
+            state.workspace_name = workspace.clone();
+            state.model_editor = model_editor_shared.clone();
+            state.file_index = file_index_shared.clone();
+            state
         },
         update,
         view,
@@ -1048,6 +1162,32 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             state.prepare();
             return Task::none();
         }
+        // ADR-102：Tab 环序切换（-1 后退、+1 前进），到端点回绕。
+        // 输入态（操作面板／对话输入）与 turn 运行期间不切换——键盘归输入控件。
+        Message::CycleView(step) => {
+            if state.op_mode.is_some() || state.view == ViewId::Chat || state.turn_running {
+                return Task::none();
+            }
+            let count = ViewId::ALL.len() as i32;
+            let current = ViewId::ALL
+                .iter()
+                .position(|item| *item == state.view)
+                .unwrap_or(0) as i32;
+            let next = (current + step).rem_euclid(count);
+            if let Some(view) = ViewId::ALL.get(next as usize).copied() {
+                state.view = view;
+                state.prepare();
+            }
+            return Task::none();
+        }
+        Message::SelectSession(index) => {
+            if index < state.session_ids.len() {
+                state.selected = Some(index);
+                state.view = ViewId::Chat;
+                state.prepare();
+            }
+            return Task::none();
+        }
         Message::NextSession => {
             if !state.session_ids.is_empty() {
                 state.selected = Some(
@@ -1183,6 +1323,81 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                 }),
                 None => Some("llm.models: not_supported（未注入 LLM 执行器）".to_string()),
             };
+            return Task::none();
+        }
+        // —— 添加模型（ADR-102）——
+        Message::OpenModelForm => {
+            state.model_form = Some(ModelDraft::default());
+            state.model_form_status = None;
+            return Task::none();
+        }
+        Message::CloseModelForm => {
+            state.model_form = None;
+            state.model_form_status = None;
+            return Task::none();
+        }
+        Message::ModelFieldChanged(field, value) => {
+            if let Some(draft) = state.model_form.as_mut() {
+                match field {
+                    ModelField::Name => draft.name = value,
+                    ModelField::BaseUrl => draft.base_url = value,
+                    ModelField::Model => draft.model = value,
+                    ModelField::Credential => draft.credential_env = value,
+                }
+            }
+            return Task::none();
+        }
+        Message::ModelProtocolChanged(value) => {
+            if let Some(draft) = state.model_form.as_mut() {
+                draft.protocol = value;
+            }
+            return Task::none();
+        }
+        Message::SaveModel => {
+            let Some(draft) = state.model_form.clone() else {
+                return Task::none();
+            };
+            let Some(editor) = state.model_editor.clone() else {
+                state.model_form_status =
+                    Some(state.texts.resolve("gui.model.no_editor").to_string());
+                return Task::none();
+            };
+            state.model_form_status = Some(match editor.add(&draft) {
+                Ok(path) => {
+                    state.model_form = None;
+                    state
+                        .texts
+                        .resolve_fmt("gui.model.saved", &[("path", &path)])
+                }
+                Err(err) => state
+                    .texts
+                    .resolve_fmt("gui.model.save_failed", &[("error", &err.to_string())]),
+            });
+            return Task::none();
+        }
+        Message::OpenFilePicker => {
+            if let Some(index) = state.file_index.clone() {
+                state.file_picker = Some((String::new(), index.files("", 20)));
+            }
+            return Task::none();
+        }
+        Message::FileQueryChanged(query) => {
+            if let Some(index) = state.file_index.clone() {
+                let hits = index.files(&query, 20);
+                state.file_picker = Some((query, hits));
+            }
+            return Task::none();
+        }
+        Message::InsertFile(path) => {
+            if !state.chat_input.is_empty() && !state.chat_input.ends_with(' ') {
+                state.chat_input.push(' ');
+            }
+            state.chat_input.push_str(&path);
+            state.file_picker = None;
+            return Task::none();
+        }
+        Message::CloseFilePicker => {
+            state.file_picker = None;
             return Task::none();
         }
         Message::OpInputChanged(value) => state.op_input = value,
@@ -1527,6 +1742,39 @@ fn md_elements(text: &str) -> Vec<Element<'static, Message>> {
 /// 进度经有界通道 `try_send` 送达（满即丢弃——进度是有损信号）；完成消息经 oneshot
 /// 保证送达。执行期间 `turn_running` 冻结其余交互。
 fn chat_submit(state: &mut State) -> Task<Message> {
+    // 斜杠命令（ADR-102 功能对齐）：GUI 本地动作，不经模型、不写事件。
+    // ZCode composer 支持 `/` 唤起命令；这里给出等价的最小命令集，全部对应既有动作。
+    let typed = state.chat_input.trim().to_string();
+    if let Some(rest) = typed.strip_prefix('/') {
+        let name = rest.split_whitespace().next().unwrap_or_default();
+        let action = match name {
+            "new" => Some(Message::OpStart(OpMode::SessionNew)),
+            "rename" => Some(Message::OpStart(OpMode::SessionRename)),
+            "archive" => Some(Message::OpStart(OpMode::SessionArchive { archived: true })),
+            "unarchive" => Some(Message::OpStart(OpMode::SessionArchive { archived: false })),
+            "delete" => Some(Message::OpStart(OpMode::SessionDelete)),
+            "models" => Some(Message::ShowModels),
+            "theme" => Some(Message::CycleTheme),
+            "help" => None,
+            _ => {
+                state.chat_input.clear();
+                state.chat_last = Some(
+                    state
+                        .texts
+                        .resolve_fmt("gui.chat.slash.unknown", &[("name", name)]),
+                );
+                return Task::none();
+            }
+        };
+        state.chat_input.clear();
+        match action {
+            Some(message) => return update(state, message),
+            None => {
+                state.chat_last = Some(state.texts.resolve("gui.chat.slash.help").to_string());
+                return Task::none();
+            }
+        }
+    }
     let Some(llm) = state.llm.clone() else {
         state.chat_last = Some(state.texts.resolve("gui.chat.not_supported").to_string());
         return Task::none();
@@ -2126,11 +2374,17 @@ fn handle_event(
 ) -> Option<Message> {
     match event {
         iced::Event::Window(window::Event::Resized(size)) => Some(Message::Resized(size)),
-        iced::Event::Keyboard(iced::keyboard::Event::KeyPressed { key, .. }) => match key {
-            Key::Named(key::Named::Escape) => Some(Message::EscapeKey),
-            Key::Character(character) => Some(Message::Key(character.chars().next()?)),
-            _ => None,
-        },
+        iced::Event::Keyboard(iced::keyboard::Event::KeyPressed { key, modifiers, .. }) => {
+            match key {
+                // ADR-102：Tab 环序切换视图（Shift+Tab 反向）；输入态由 update 侧门控拦截。
+                Key::Named(key::Named::Tab) => {
+                    Some(Message::CycleView(if modifiers.shift() { -1 } else { 1 }))
+                }
+                Key::Named(key::Named::Escape) => Some(Message::EscapeKey),
+                Key::Character(character) => Some(Message::Key(character.chars().next()?)),
+                _ => None,
+            }
+        }
         _ => None,
     }
 }
@@ -2140,21 +2394,24 @@ fn handle_event(
 /// 命中按最新优先、有界（默认 20 条）。输入焦点语义与侧栏过滤一致：数字键在输入框
 /// 聚焦时仍会触发全局视图切换（既有行为，本批不改）。
 fn content_search_panel(state: &State) -> Element<'_, Message> {
+    let theme = state.theme;
     let input = text_input(
         state.texts.resolve("gui.content.placeholder"),
         state.content_query.as_str(),
     )
     .on_input(Message::ContentSearchChanged)
     .on_submit(Message::ContentSearchSubmit)
-    .padding(4)
-    .width(Length::Fill);
+    .padding([6, 8])
+    .width(Length::Fill)
+    .style(move |_theme, status| field_style(theme, status));
     let run = button(rich_line(
         state.texts.resolve("gui.content.run"),
         false,
         12.0,
     ))
     .on_press(Message::ContentSearchSubmit)
-    .padding([2, 6]);
+    .padding([5, 9])
+    .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
     let mut panel = column![row!(input, run).spacing(4)].spacing(4);
     if let Some(status) = &state.content_status {
         panel = panel.push(rich_line(status, false, 12.0));
@@ -2169,7 +2426,6 @@ fn content_search_panel(state: &State) -> Element<'_, Message> {
     panel.into()
 }
 
-/// 侧栏条目样式：只用主题两色（选中反显），不引入灰色、边框或阴影（ADR-041）。
 /// whcode 系色值解析（FR-740 单一事实源）：从 `theme_tokens` 冻结 hex 构建 iced 颜色。
 /// 冻结值合法性由 `whcode-domain::theme_tokens` 测试保证，此处只做不可失败解析的
 /// 显式收口（失败即冻结值被改动，属编译期常量缺陷，panic 信息可定位）。
@@ -2187,31 +2443,510 @@ fn whcode_colors(tokens: whcode_domain::theme_tokens::ThemeTokens) -> (Color, Co
     )
 }
 
-fn sidebar_style(theme: GuiTheme, selected: bool) -> button::Style {
+/// 解析 `#RRGGBB` 或 `rgba(r,g,b,a)` 为 iced 颜色（ADR-102 扩展语义色板用）。
+///
+/// 冻结值合法性由 `whcode-domain::theme_tokens` 的测试保证；此处只做不可失败收口，
+/// 非法输入退化为透明（渲染不得 panic）。
+fn token_color_any(value: &str) -> Color {
+    if let Some((r, g, b)) = whcode_domain::theme_tokens::parse_rgb(value) {
+        return Color::from_rgb8(r, g, b);
+    }
+    let inner = value
+        .strip_prefix("rgba(")
+        .and_then(|rest| rest.strip_suffix(')'))
+        .unwrap_or_default();
+    let parts: Vec<f32> = inner
+        .split(',')
+        .filter_map(|part| part.trim().parse().ok())
+        .collect();
+    match parts.as_slice() {
+        [r, g, b, a] => Color::from_rgba(*r / 255.0, *g / 255.0, *b / 255.0, *a),
+        _ => Color::TRANSPARENT,
+    }
+}
+
+/// 主题的扩展语义色板；四套铁律主题（eink／amoled／terminal-green）无此表，返回 `None`
+/// 并回退既有纯反色观感（ADR-102：新增不覆盖）。
+fn ui_palette(theme: GuiTheme) -> Option<&'static whcode_domain::theme_tokens::UiPalette> {
+    match theme {
+        GuiTheme::WhcodeDay => Some(whcode_domain::theme_tokens::WHCODE_DAY.ui),
+        GuiTheme::WhcodeNight => Some(whcode_domain::theme_tokens::WHCODE_NIGHT.ui),
+        _ => None,
+    }
+}
+
+/// 侧栏条目样式（ADR-102）：选中用 `card_selected` 圆角块、悬停用弱表面、未选中透明；
+/// 文字选中为主前景、未选中为次级前景。
+/// 四套铁律主题无扩展色板时保持原纯反色（不改变其观感）。
+fn sidebar_style(theme: GuiTheme, selected: bool, status: button::Status) -> button::Style {
     let (background, foreground) = theme.colors();
+    if ui_palette(theme).is_none() {
+        return button::Style {
+            background: Some(Background::Color(if selected {
+                foreground
+            } else {
+                background
+            })),
+            text_color: if selected { background } else { foreground },
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: true,
+        };
+    }
+    let colors = control_colors(theme);
+    let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
+    let fill = if selected {
+        colors.card_selected
+    } else if hovered {
+        colors.ghost_hover
+    } else {
+        Color::TRANSPARENT
+    };
     button::Style {
-        background: Some(Background::Color(if selected {
-            foreground
-        } else {
-            background
-        })),
-        text_color: if selected { background } else { foreground },
-        border: Border::default(),
+        background: Some(Background::Color(fill)),
+        text_color: if selected { foreground } else { colors.subtle },
+        border: iced::border::rounded(f32::from(whcode_domain::theme_tokens::spec::RADIUS_LG)),
         shadow: Shadow::default(),
         snap: true,
     }
 }
 
-/// 侧栏条目：可点击切换视图（只读消息），保留 `1—6` 键位。
-fn sidebar_button(state: &State, item: ViewId) -> Element<'_, Message> {
-    let selected = state.view == item;
-    let label = format!("{} {}", item.index(), state.texts.resolve(item.title_key()));
-    let theme = state.theme;
-    button(rich_line(&label, false, 16.0))
-        .on_press(Message::SelectView(item))
+/// 控件强调级别（ADR-102 应用族视觉语言）：主操作填充、次操作描边、弱操作文字色。
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Emphasis {
+    /// 主操作：`primary` 填充 + `primary_foreground` 文字。
+    Primary,
+    /// 次操作：`secondary` 填充 + 1px 描边。
+    Secondary,
+    /// 弱操作：透明底，悬停出 `surface_hover`。
+    Ghost,
+}
+
+/// 控件配色。whcode 系取 `theme_tokens` 冻结语义色板；四套铁律主题回退
+/// 「背景＋前景」双色（边框也取前景，不引入色板外色值，守住 ADR-041 决策 2）。
+struct ControlColors {
+    primary: Color,
+    primary_foreground: Color,
+    secondary: Color,
+    ghost_hover: Color,
+    border: Color,
+    border_hover: Color,
+    text: Color,
+    subtle: Color,
+    card: Color,
+    input: Color,
+    input_focused: Color,
+    selection: Color,
+    tag: Color,
+    card_selected: Color,
+}
+
+fn control_colors(theme: GuiTheme) -> ControlColors {
+    let (background, foreground) = theme.colors();
+    let tokens = match theme {
+        GuiTheme::WhcodeDay => Some(whcode_domain::theme_tokens::WHCODE_DAY),
+        GuiTheme::WhcodeNight => Some(whcode_domain::theme_tokens::WHCODE_NIGHT),
+        _ => None,
+    };
+    let Some(tokens) = tokens else {
+        // 四套铁律主题：层级只由反显表达（ADR-041 决策 2）。
+        return ControlColors {
+            primary: foreground,
+            primary_foreground: background,
+            secondary: background,
+            ghost_hover: foreground,
+            border: foreground,
+            border_hover: foreground,
+            text: foreground,
+            subtle: foreground,
+            card: background,
+            input: background,
+            input_focused: background,
+            selection: foreground,
+            tag: background,
+            card_selected: foreground,
+        };
+    };
+    let ui = tokens.ui;
+    ControlColors {
+        primary: token_color_any(ui.primary),
+        primary_foreground: token_color_any(ui.primary_foreground),
+        secondary: token_color_any(ui.secondary),
+        ghost_hover: token_color_any(tokens.surface_hover),
+        border: token_color_any(tokens.border),
+        border_hover: token_color_any(tokens.border_hover),
+        text: foreground,
+        subtle: token_color_any(ui.foreground_subtle),
+        card: token_color_any(tokens.card),
+        input: token_color_any(ui.input),
+        input_focused: token_color_any(ui.input_focused),
+        selection: token_color_any(tokens.selected),
+        tag: token_color_any(ui.tag),
+        card_selected: token_color_any(ui.card_selected),
+    }
+}
+
+/// 控件圆角（`md`：按钮与输入框；ZCode 的 `--radius-md` 同档）。
+fn control_radius() -> iced::border::Radius {
+    iced::border::radius(f32::from(whcode_domain::theme_tokens::spec::RADIUS_MD))
+}
+
+/// 操作按钮样式（ADR-102）：默认／悬停／按下／禁用四态都有可见反馈，
+/// 让「哪里可点」由填充与描边表达，而不是靠用户记忆键位。
+fn control_button_style(
+    theme: GuiTheme,
+    emphasis: Emphasis,
+    status: button::Status,
+) -> button::Style {
+    let colors = control_colors(theme);
+    let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
+    let disabled = matches!(status, button::Status::Disabled);
+    let radius = control_radius();
+    let (fill, text_color, border) = match emphasis {
+        Emphasis::Primary => (
+            if disabled {
+                colors.secondary
+            } else {
+                colors.primary
+            },
+            if disabled {
+                colors.subtle
+            } else {
+                colors.primary_foreground
+            },
+            Border {
+                color: Color::TRANSPARENT,
+                width: 0.0,
+                radius,
+            },
+        ),
+        Emphasis::Secondary => (
+            if hovered {
+                colors.ghost_hover
+            } else {
+                colors.secondary
+            },
+            colors.text,
+            Border {
+                color: if hovered {
+                    colors.border_hover
+                } else {
+                    colors.border
+                },
+                width: 1.0,
+                radius,
+            },
+        ),
+        Emphasis::Ghost => (
+            if hovered {
+                colors.ghost_hover
+            } else {
+                Color::TRANSPARENT
+            },
+            if disabled { colors.subtle } else { colors.text },
+            Border {
+                color: Color::TRANSPARENT,
+                width: 0.0,
+                radius,
+            },
+        ),
+    };
+    button::Style {
+        background: Some(Background::Color(fill)),
+        text_color,
+        border,
+        shadow: Shadow::default(),
+        snap: true,
+    }
+}
+
+/// 卡片容器样式（ADR-102）：`card` 底 + 1px `border` + `xl` 圆角。
+/// 不用投影：ZCode 的 elevation 在原生渲染里以边框＋底纹近似（预算中性）。
+fn card_style(theme: GuiTheme) -> container::Style {
+    let colors = control_colors(theme);
+    container::Style {
+        text_color: None,
+        background: Some(Background::Color(colors.card)),
+        border: Border {
+            color: colors.border,
+            width: 1.0,
+            radius: iced::border::radius(f32::from(whcode_domain::theme_tokens::spec::RADIUS_XL)),
+        },
+        shadow: Shadow::default(),
+        snap: true,
+    }
+}
+
+/// 1px 分隔线（ADR-102 细粒度对齐）：ZCode 的顶栏有 `border-b`、状态栏有上边线，
+/// iced 的 Border 四边同宽，故用 1px 空容器画单边线。
+fn hairline<'a>(theme: GuiTheme) -> Element<'a, Message> {
+    let color = control_colors(theme).border;
+    container(column![])
         .width(Length::Fill)
-        .padding([6, 8])
-        .style(move |_theme, _status| sidebar_style(theme, selected))
+        .height(Length::Fixed(1.0))
+        .style(move |_theme| container::Style {
+            background: Some(Background::Color(color)),
+            ..container::Style::default()
+        })
+        .into()
+}
+
+/// 主输入区外壳样式（ADR-102）：`card` 底 + 1px 边框 + `2xl` 圆角。
+///
+/// ZCode DESIGN：普通输入是 `rounded-lg`，只有「主聊天输入壳」是获批的 `rounded-2xl` 例外。
+fn composer_style(theme: GuiTheme) -> container::Style {
+    let colors = control_colors(theme);
+    container::Style {
+        text_color: None,
+        background: Some(Background::Color(colors.card)),
+        border: Border {
+            color: colors.border,
+            width: 1.0,
+            radius: iced::border::radius(f32::from(whcode_domain::theme_tokens::spec::RADIUS_2XL)),
+        },
+        shadow: Shadow::default(),
+        snap: true,
+    }
+}
+
+/// 侧栏面板样式（ADR-102）：`sidebar` 底 + 1px 边框 + `xl` 圆角——ZCode 的侧栏
+/// 是一块独立面板，靠边框与主区分隔（四套铁律主题无边框，保持原观感）。
+fn sidebar_panel_style(theme: GuiTheme) -> container::Style {
+    let colors = control_colors(theme);
+    let tokens = match theme {
+        GuiTheme::WhcodeDay => Some(whcode_domain::theme_tokens::WHCODE_DAY),
+        GuiTheme::WhcodeNight => Some(whcode_domain::theme_tokens::WHCODE_NIGHT),
+        _ => None,
+    };
+    let Some(tokens) = tokens else {
+        return container::Style {
+            text_color: None,
+            background: None,
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: true,
+        };
+    };
+    container::Style {
+        text_color: None,
+        background: Some(Background::Color(token_color_any(tokens.sidebar))),
+        border: Border {
+            color: colors.border,
+            width: 1.0,
+            radius: iced::border::radius(f32::from(whcode_domain::theme_tokens::spec::RADIUS_XL)),
+        },
+        shadow: Shadow::default(),
+        snap: true,
+    }
+}
+
+/// 输入框样式（ADR-102）：`input` 底 + 1px 边框；聚焦换 `input_focused` 底与
+/// `primary` 边框——聚焦位置一眼可辨。
+fn field_style(theme: GuiTheme, status: text_input::Status) -> text_input::Style {
+    let colors = control_colors(theme);
+    let focused = matches!(status, text_input::Status::Focused { .. });
+    let hovered = matches!(
+        status,
+        text_input::Status::Hovered | text_input::Status::Focused { is_hovered: true }
+    );
+    text_input::Style {
+        background: Background::Color(if focused {
+            colors.input_focused
+        } else {
+            colors.input
+        }),
+        border: Border {
+            color: if focused {
+                colors.primary
+            } else if hovered {
+                colors.border_hover
+            } else {
+                colors.border
+            },
+            width: 1.0,
+            radius: control_radius(),
+        },
+        icon: colors.subtle,
+        placeholder: colors.subtle,
+        value: colors.text,
+        selection: colors.selection,
+    }
+}
+
+/// 快捷键徽章／状态标记样式（ADR-102）：`tag` 底 + `sm` 圆角，用于行内状态标记
+/// （如会话的「归档」），不做键位提示——键位不再是界面元素。
+fn badge_style(theme: GuiTheme) -> container::Style {
+    let colors = control_colors(theme);
+    container::Style {
+        text_color: Some(colors.subtle),
+        background: Some(Background::Color(colors.tag)),
+        border: Border {
+            color: colors.border,
+            width: 1.0,
+            radius: iced::border::radius(f32::from(whcode_domain::theme_tokens::spec::RADIUS_SM)),
+        },
+        shadow: Shadow::default(),
+        snap: true,
+    }
+}
+
+/// 侧栏分组标题（ADR-102 功能对齐）：ZCode 的分区语义（任务／项目／视图），
+/// 用小号次级前景色，只做分组不做交互。
+fn sidebar_section<'a>(state: &'a State, key: &'static str) -> Element<'a, Message> {
+    let subtle = control_colors(state.theme).subtle;
+    container(colored_line(state.texts.resolve(key), false, 12.0, subtle))
+        .padding([4, 10])
+        .width(Length::Fill)
+        .into()
+}
+
+/// 会话详情标签（ADR-102）：只在**选中具体会话**后出现。
+///
+/// 事件／diff／Spec／任务这些是「这个会话」的诊断面，不是全局导航——用户明确要求不要
+/// 塞进侧栏。未选会话（空态）时整行不出现，界面只剩对话与输入。
+fn session_tabs(state: &State) -> Option<Element<'_, Message>> {
+    if state.selected.is_none() || state.panels_open {
+        return None;
+    }
+    let theme = state.theme;
+    let tab = |item: ViewId| -> Element<'_, Message> {
+        let selected = state.view == item;
+        let emphasis = if selected {
+            Emphasis::Secondary
+        } else {
+            Emphasis::Ghost
+        };
+        button(rich_line(
+            state.texts.resolve(item.title_key()),
+            false,
+            12.0,
+        ))
+        .on_press(Message::SelectView(item))
+        .padding([4, 9])
+        .style(move |_theme, status| control_button_style(theme, emphasis, status))
+        .into()
+    };
+    let split = ViewId::ALL.len().div_ceil(2);
+    let first: Vec<Element<'_, Message>> = ViewId::ALL[..split].iter().map(|i| tab(*i)).collect();
+    let second: Vec<Element<'_, Message>> = ViewId::ALL[split..].iter().map(|i| tab(*i)).collect();
+    Some(
+        column![row(first).spacing(4), row(second).spacing(4)]
+            .spacing(4)
+            .into(),
+    )
+}
+
+/// 相对更新时间（侧栏任务行右侧）：与 ZCode 任务行一致显示「多久前更新」。
+///
+/// 只在重绘时读一次系统时间——不建定时器（FR-714）。
+fn relative_time_label(state: &State, then_ms: i64) -> String {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as i64)
+        .unwrap_or(then_ms);
+    let minutes = (now_ms - then_ms).max(0) / 60_000;
+    if minutes < 1 {
+        return state.texts.resolve("gui.time.now").to_string();
+    }
+    if minutes < 60 {
+        return state
+            .texts
+            .resolve_fmt("gui.time.minutes", &[("n", &minutes.to_string())]);
+    }
+    let hours = minutes / 60;
+    if hours < 24 {
+        return state
+            .texts
+            .resolve_fmt("gui.time.hours", &[("n", &hours.to_string())]);
+    }
+    state
+        .texts
+        .resolve_fmt("gui.time.days", &[("n", &(hours / 24).to_string())])
+}
+
+/// 侧栏标题截断（字符边界，避免 UTF-8 截断 panic）；侧栏宽度有限，长标题必有省略号。
+fn sidebar_title(text: &str) -> String {
+    const MAX: usize = 18;
+    let mut out: String = text.chars().take(MAX).collect();
+    if text.chars().count() > MAX {
+        out.push('…');
+    }
+    out
+}
+
+/// 侧栏任务行（ADR-102 功能对齐）：会话标题 + 选中竖条，点击直接进入对话。
+///
+/// 这是 ZCode 侧栏「任务列表」的等价物——侧栏承载**真实数据**（有哪些会话），
+/// 不再是内部视图的目录。
+fn sidebar_session(state: &State, index: usize) -> Element<'_, Message> {
+    let theme = state.theme;
+    let selected = state.selected == Some(index);
+    let raw = state
+        .sidebar_sessions
+        .get(index)
+        .map(|row| row.title.as_str())
+        .unwrap_or_default();
+    let title = if raw.trim().is_empty() {
+        state
+            .sidebar_sessions
+            .get(index)
+            .map(|row| row.id.clone())
+            .unwrap_or_else(|| format!("{index}"))
+    } else {
+        sidebar_title(raw)
+    };
+    let bar_color = if selected {
+        control_colors(theme).text
+    } else {
+        Color::TRANSPARENT
+    };
+    let bar = container(column![])
+        .width(Length::Fixed(2.0))
+        // 固定行高：`Fill` 会向父容器要剩余高度，把每个会话行撑成一大块空白。
+        .height(Length::Fixed(16.0))
+        .style(move |_theme| container::Style {
+            background: Some(Background::Color(bar_color)),
+            border: Border {
+                color: Color::TRANSPARENT,
+                width: 0.0,
+                radius: iced::border::radius(1.0_f32),
+            },
+            ..container::Style::default()
+        });
+    let stamp = state
+        .sidebar_sessions
+        .get(index)
+        .map(|row| relative_time_label(state, row.last_active_at_ms))
+        .unwrap_or_default();
+    let body = row![
+        bar,
+        container(rich_line(&title, false, 14.0)).width(Length::Fill),
+        colored_line(&stamp, false, 10.0, control_colors(theme).subtle),
+    ]
+    .spacing(6)
+    .align_y(iced::Alignment::Center);
+    let body = if state
+        .sidebar_sessions
+        .get(index)
+        .is_some_and(|row| row.archived)
+    {
+        body.push(
+            container(rich_line(
+                state.texts.resolve("gui.session.archived"),
+                false,
+                10.0,
+            ))
+            .padding([1, 4])
+            .style(move |_theme| badge_style(theme)),
+        )
+    } else {
+        body
+    };
+    button(body)
+        .on_press(Message::SelectSession(index))
+        .width(Length::Fill)
+        .padding([4, 10])
+        .style(move |_theme, status| sidebar_style(theme, selected, status))
         .into()
 }
 
@@ -2293,8 +3028,8 @@ fn events_body(state: &State) -> Element<'_, Message> {
                 .on_press(Message::EventDetail(index))
                 .width(Length::Fill)
                 .padding([2, 6])
-                .style(move |_theme, _status| {
-                    sidebar_style(theme, state.event_selected == Some(index))
+                .style(move |_theme, status| {
+                    sidebar_style(theme, state.event_selected == Some(index), status)
                 })
                 .into()
         })
@@ -2345,14 +3080,160 @@ fn read_detail_body(state: &State) -> Element<'_, Message> {
 }
 
 /// 对话视图（ADR-056）：剖面 + 提示词 + 发送/取消 + 最近结果。
-fn chat_panel(state: &State) -> Element<'_, Message> {
-    let provider_input = text_input(
-        state.texts.resolve("gui.chat.provider.placeholder"),
-        state.chat_provider.as_str(),
+/// 文件候选面板（ADR-102「@ 文件」）：过滤框 + 有界候选列表，点击插入提示词。
+fn file_picker_panel(state: &State) -> Element<'_, Message> {
+    let theme = state.theme;
+    let (query, hits) = state.file_picker.clone().unwrap_or_default();
+    let input = text_input(state.texts.resolve("gui.file.filter"), query.as_str())
+        .on_input(Message::FileQueryChanged)
+        .padding([6, 8])
+        .width(Length::Fill)
+        .style(move |_theme, status| field_style(theme, status));
+    let mut list = column![].spacing(2);
+    if hits.is_empty() {
+        list = list.push(colored_line(
+            state.texts.resolve("gui.file.empty"),
+            false,
+            12.0,
+            control_colors(theme).subtle,
+        ));
+    }
+    for hit in hits {
+        let label = hit.clone();
+        list = list.push(
+            button(rich_line(&label, true, 12.0))
+                .on_press(Message::InsertFile(hit))
+                .width(Length::Fill)
+                .padding([3, 8])
+                .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status)),
+        );
+    }
+    let close = button(rich_line(state.texts.resolve("gui.op.cancel"), false, 12.0))
+        .on_press(Message::CloseFilePicker)
+        .padding([4, 10])
+        .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
+    container(
+        column![
+            row![container(input).width(Length::Fill), close]
+                .spacing(6)
+                .align_y(iced::Alignment::Center),
+            scrollable(list).height(Length::Fixed(170.0)),
+        ]
+        .spacing(6),
     )
-    .on_input(Message::ChatProviderChanged)
-    .padding(6)
-    .width(Length::Fill);
+    .padding(10)
+    .width(Length::Fill)
+    .style(move |_theme| card_style(theme))
+    .into()
+}
+
+/// 添加模型表单（ADR-102）：名称／协议／端点／模型标识／密钥变量名，保存写
+/// `profiles.json`（由装配根的 [`ModelEditor`] 落盘，GUI 自身不触文件系统）。
+fn model_form_panel(state: &State) -> Element<'_, Message> {
+    let theme = state.theme;
+    let draft = state.model_form.clone().unwrap_or_default();
+    let field = |placeholder: &str, value: &str, kind: ModelField| {
+        text_input(placeholder, value)
+            .on_input(move |text| Message::ModelFieldChanged(kind, text))
+            .padding([6, 8])
+            .width(Length::Fill)
+            .style(move |_theme, status| field_style(theme, status))
+    };
+    let protocol_options: Vec<String> = MODEL_PROTOCOLS
+        .iter()
+        .map(|item| (*item).to_string())
+        .collect();
+    let protocol = pick_list(
+        protocol_options,
+        Some(draft.protocol.clone()),
+        Message::ModelProtocolChanged,
+    )
+    .padding([4, 8])
+    .text_size(12.0)
+    .width(Length::Fixed(130.0));
+    let save = button(rich_line(
+        state.texts.resolve("gui.model.save"),
+        false,
+        13.0,
+    ))
+    .on_press(Message::SaveModel)
+    .padding([6, 12])
+    .style(move |_theme, status| control_button_style(theme, Emphasis::Primary, status));
+    let cancel = button(rich_line(state.texts.resolve("gui.op.cancel"), false, 13.0))
+        .on_press(Message::CloseModelForm)
+        .padding([6, 12])
+        .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
+    let mut body = column![
+        rich_line(state.texts.resolve("gui.model.add"), false, 14.0),
+        row(mirrored_order(
+            is_rtl_locale(&state.texts.locale),
+            vec![
+                field(
+                    state.texts.resolve("gui.model.name"),
+                    draft.name.as_str(),
+                    ModelField::Name,
+                )
+                .into(),
+                protocol.into(),
+            ],
+        ))
+        .spacing(6),
+        row(mirrored_order(
+            is_rtl_locale(&state.texts.locale),
+            vec![
+                field(
+                    state.texts.resolve("gui.model.base_url"),
+                    draft.base_url.as_str(),
+                    ModelField::BaseUrl,
+                )
+                .into(),
+                field(
+                    state.texts.resolve("gui.model.model_id"),
+                    draft.model.as_str(),
+                    ModelField::Model,
+                )
+                .into(),
+            ],
+        ))
+        .spacing(6),
+        field(
+            state.texts.resolve("gui.model.credential"),
+            draft.credential_env.as_str(),
+            ModelField::Credential,
+        ),
+        row(mirrored_order(
+            is_rtl_locale(&state.texts.locale),
+            vec![save.into(), cancel.into()],
+        ))
+        .spacing(6),
+    ]
+    .spacing(6);
+    if let Some(status) = state.model_form_status.as_deref() {
+        body = body.push(colored_line(
+            status,
+            false,
+            12.0,
+            control_colors(theme).subtle,
+        ));
+    }
+    container(body)
+        .padding(12)
+        .width(Length::Fill)
+        .style(move |_theme| card_style(theme))
+        .into()
+}
+
+fn chat_panel(state: &State) -> Element<'_, Message> {
+    let theme = state.theme;
+    // 模型：从注册表里选（ADR-102 修正）——此前是自由文本，用户既看不见有哪些模型，
+    // 也无从添加。选项来自 LLM 执行器的剖面清单。
+    let model_options = state.model_options();
+    let model_selected = (!state.chat_provider.is_empty()).then(|| state.chat_provider.clone());
+    let model_picker = pick_list(model_options, model_selected, Message::ChatProviderChanged)
+        .placeholder(state.texts.resolve("gui.chat.model.choose"))
+        .padding([4, 8])
+        .text_size(12.0)
+        .width(Length::Fixed(210.0));
     let provider_label = state.texts.resolve("gui.chat.provider");
     let input = text_input(
         state.texts.resolve("gui.chat.prompt.placeholder"),
@@ -2360,20 +3241,24 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     )
     .on_input(Message::ChatInputChanged)
     .on_submit(Message::ChatSubmit)
-    .padding(6)
-    .width(Length::Fill);
+    .padding([6, 8])
+    .width(Length::Fill)
+    .style(move |_theme, status| field_style(theme, status));
     // turn 运行中：发送禁用（面板开新 turn 会与连接锁竞争）、取消保持可用
     // （取消经标记目录跨线程生效，不触库）；状态行呈现运行进度或最近结果。
+    // 发送是主操作（ADR-102 `primary` 填充），取消与模型目录为次／弱操作。
     let send = button(rich_line(state.texts.resolve("gui.chat.send"), false, 14.0))
         .on_press_maybe((!state.turn_running && state.llm.is_some()).then_some(Message::ChatSubmit))
-        .padding(6);
+        .padding([7, 14])
+        .style(move |_theme, status| control_button_style(theme, Emphasis::Primary, status));
     let cancel = button(rich_line(
         state.texts.resolve("gui.chat.cancel"),
         false,
         14.0,
     ))
     .on_press_maybe(state.turn_running.then_some(Message::ChatCancel))
-    .padding(6);
+    .padding([7, 14])
+    .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
     // 模型目录（T393／llm.models）：只读视图动作，经执行器摘要。
     let models = button(rich_line(
         state.texts.resolve("gui.chat.models"),
@@ -2381,7 +3266,21 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         14.0,
     ))
     .on_press(Message::ShowModels)
-    .padding(6);
+    .padding([7, 14])
+    .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
+    let pick_file = button(rich_line(state.texts.resolve("gui.file.at"), false, 14.0))
+        .on_press_maybe(
+            state
+                .file_index
+                .is_some()
+                .then_some(Message::OpenFilePicker),
+        )
+        .padding([7, 14])
+        .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
+    let add_model = button(rich_line(state.texts.resolve("gui.model.add"), false, 14.0))
+        .on_press(Message::OpenModelForm)
+        .padding([7, 14])
+        .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
     // 正文区（FR-741）：历史（缓存快照，仅最近 CHAT_HISTORY_RENDER 条）→
     // 运行中＝进度行＋流式增量（markdown 最小集投影，有界）；完成后＝最近结果投影；
     // 未选会话＝提示。条目格式“[role] 正文”（状态不依赖颜色，ui-design §3）。
@@ -2427,13 +3326,9 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         ));
         body.extend(md_elements(state.chat_streaming.as_str()));
     } else {
-        match state.chat_last.as_deref() {
-            Some(text) => body.extend(md_elements(text)),
-            None => {
-                if state.chat_history.is_empty() {
-                    body.push(rich_line(state.texts.resolve("gui.chat.hint"), false, 14.0));
-                }
-            }
+        // 空态由下方居中的欢迎块承担（ADR-102：不留一片空白，也不把提示塞进对话流）。
+        if let Some(text) = state.chat_last.as_deref() {
+            body.extend(md_elements(text));
         }
     }
     // 工具卡（T256／FR-743）：本次对话的工具调用状态、输出与实测时长。卡片数有界
@@ -2537,18 +3432,91 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     if let Some(models) = state.model_status.as_deref() {
         body.push(rich_line(models, true, 12.0));
     }
-    column![
-        rich_line(provider_label, false, 14.0),
-        provider_input,
-        row(mirrored_order(
-            is_rtl_locale(&state.texts.locale),
-            vec![input.into(), send.into(), cancel.into(), models.into()],
+    // ADR-102 主界面对齐（ZCode composer 形制）：对话流占满上方，输入区固定在底部；
+    // 输入框满宽，发送／取消／模型在下一行——不再把输入框挤在按钮中间。
+    let subtle = control_colors(state.theme).subtle;
+    // 空态判定看「有没有对话内容」，不看 body 是否为空——提示行也会进 body，
+    // 用 body.is_empty() 会让欢迎块永远不出现（实测：左上角一行提示 + 大片空白）。
+    let empty = state.chat_history.is_empty()
+        && state.chat_last.is_none()
+        && state.chat_streaming.is_empty()
+        && !state.turn_running;
+    let conversation: Element<'_, Message> = if empty {
+        // ZCode 空态：居中欢迎语 + 一个可点入口，而不是左上角一行提示加大片空白。
+        let chooser = button(rich_line(
+            state.texts.resolve("gui.chat.pick_session"),
+            false,
+            13.0,
         ))
+        .on_press(Message::SelectView(ViewId::Sessions))
+        .padding([7, 14])
+        .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
+        container(
+            column![
+                rich_line(state.texts.resolve("gui.chat.new"), false, 20.0),
+                colored_line(state.texts.resolve("gui.chat.hint"), false, 13.0, subtle),
+                chooser,
+            ]
+            .spacing(10)
+            .align_x(iced::Alignment::Center),
+        )
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
+    } else {
+        scrollable(column(body)).height(Length::Fill).into()
+    };
+    // ZCode composer：输入框与操作同在一个圆角卡片里——上为输入、下为模型与按钮，
+    // 发送在最右（主操作），不再是三行分离控件。
+    let composer_theme = state.theme;
+    let rtl = is_rtl_locale(&state.texts.locale);
+    let composer = container(
+        column![
+            // 第一行：输入框 + 发送（发送在输入框右端，ZCode 形态）。
+            row(mirrored_order(
+                rtl,
+                vec![container(input).width(Length::Fill).into(), send.into(),],
+            ))
+            .spacing(8)
+            .align_y(iced::Alignment::Center),
+            // 第二行：模型选择（左）与次要动作（右）。
+            row(mirrored_order(
+                rtl,
+                vec![
+                    colored_line(provider_label, false, 11.0, subtle),
+                    model_picker.into(),
+                    container(column![]).width(Length::Fill).into(),
+                    pick_file.into(),
+                    models.into(),
+                    add_model.into(),
+                    cancel.into(),
+                ],
+            ))
+            .spacing(6)
+            .align_y(iced::Alignment::Center),
+        ]
         .spacing(8),
-        scrollable(column(body)).height(Length::Fill),
-    ]
-    .spacing(8)
-    .into()
+    )
+    .padding(12)
+    .width(Length::Fill)
+    .style(move |_theme| composer_style(composer_theme));
+    let mut stack = column![conversation];
+    if state.model_form.is_some() {
+        stack = stack.push(model_form_panel(state));
+    }
+    if state.file_picker.is_some() {
+        stack = stack.push(file_picker_panel(state));
+    }
+    // 保存成功后的提示（表单已关闭时也要能看到结果与路径）。
+    if state.model_form.is_none()
+        && let Some(status) = state.model_form_status.as_deref()
+    {
+        stack = stack.push(colored_line(status, false, 12.0, subtle));
+    }
+    stack = stack.push(composer);
+    stack.spacing(10).into()
 }
 
 /// 会话操作按钮行（Sessions 视图；执行器未接入时按钮显式禁用提示走反馈行）。
@@ -2556,34 +3524,20 @@ fn op_buttons(state: &State) -> Element<'_, Message> {
     let enabled = state.executor.is_some();
     let item = |label: &str, message: Message| -> Element<'_, Message> {
         let theme = state.theme;
-        let button = button(rich_line(label, false, 13.0)).padding([4, 8]);
+        let item = button(rich_line(label, false, 13.0))
+            .padding([5, 9])
+            .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
         if enabled {
-            button.on_press(message).style(move |_t, _s| {
-                let (background, foreground) = theme.colors();
-                button::Style {
-                    background: Some(Background::Color(background)),
-                    text_color: foreground,
-                    border: Border::default(),
-                    shadow: Shadow::default(),
-                    snap: true,
-                }
-            })
+            item.on_press(message).into()
         } else {
-            button.style(move |_t, _s| {
-                let (background, foreground) = theme.colors();
-                button::Style {
-                    background: Some(Background::Color(background)),
-                    text_color: foreground,
-                    border: Border::default(),
-                    shadow: Shadow::default(),
-                    snap: true,
-                }
-            })
+            // 执行器未接入：按钮保持可见但落到 Disabled 态（不静默无响应）。
+            item.into()
         }
-        .into()
     };
-    row(mirrored_order(
-        is_rtl_locale(&state.texts.locale),
+    // 两行排布（ADR-102）：十个动作在一行会超出窗口右边界（实测 Plan mode 被裁掉）。
+    let rtl = is_rtl_locale(&state.texts.locale);
+    let primary_row = row(mirrored_order(
+        rtl,
         vec![
             item(
                 state.texts.resolve("gui.op.new"),
@@ -2605,6 +3559,12 @@ fn op_buttons(state: &State) -> Element<'_, Message> {
                 state.texts.resolve("gui.op.delete"),
                 Message::OpStart(OpMode::SessionDelete),
             ),
+        ],
+    ))
+    .spacing(6);
+    let secondary_row = row(mirrored_order(
+        rtl,
+        vec![
             item(
                 state.texts.resolve("gui.op.purge"),
                 Message::OpStart(OpMode::Purge {
@@ -2632,7 +3592,22 @@ fn op_buttons(state: &State) -> Element<'_, Message> {
             ),
         ],
     ))
-    .spacing(6)
+    .spacing(6);
+    let buttons = column![primary_row, secondary_row].spacing(6);
+    if enabled {
+        return buttons.into();
+    }
+    // 按钮全灰时显式说明原因（ADR-102：可点与不可点都要有可见理由，不静默无响应）。
+    column![
+        buttons,
+        colored_line(
+            state.texts.resolve("gui.op.not_supported"),
+            false,
+            12.0,
+            control_colors(state.theme).subtle,
+        )
+    ]
+    .spacing(4)
     .into()
 }
 
@@ -2642,31 +3617,14 @@ fn spec_controls(state: &State) -> Element<'_, Message> {
     let enabled = state.executor.is_some();
     let item = |label: &str, message: Message| -> Element<'_, Message> {
         let theme = state.theme;
-        let button = button(rich_line(label, false, 13.0)).padding([4, 8]);
+        let item = button(rich_line(label, false, 13.0))
+            .padding([5, 9])
+            .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
         if enabled {
-            button.on_press(message).style(move |_t, _s| {
-                let (background, foreground) = theme.colors();
-                button::Style {
-                    background: Some(Background::Color(background)),
-                    text_color: foreground,
-                    border: Border::default(),
-                    shadow: Shadow::default(),
-                    snap: true,
-                }
-            })
+            item.on_press(message).into()
         } else {
-            button.style(move |_t, _s| {
-                let (background, foreground) = theme.colors();
-                button::Style {
-                    background: Some(Background::Color(background)),
-                    text_color: foreground,
-                    border: Border::default(),
-                    shadow: Shadow::default(),
-                    snap: true,
-                }
-            })
+            item.into()
         }
-        .into()
     };
     row(mirrored_order(
         is_rtl_locale(&state.texts.locale),
@@ -2696,30 +3654,13 @@ fn runtime_controls(state: &State) -> Element<'_, Message> {
         .map(|entry| entry.name.clone());
     let item = |label: String, message: Option<Message>| -> Element<'_, Message> {
         let theme = state.theme;
-        let button = button(rich_line(&label, false, 13.0)).padding([4, 8]);
+        let item = button(rich_line(&label, false, 13.0))
+            .padding([5, 9])
+            .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
         match message {
-            Some(message) if enabled => button.on_press(message).style(move |_t, _s| {
-                let (background, foreground) = theme.colors();
-                button::Style {
-                    background: Some(Background::Color(background)),
-                    text_color: foreground,
-                    border: Border::default(),
-                    shadow: Shadow::default(),
-                    snap: true,
-                }
-            }),
-            _ => button.style(move |_t, _s| {
-                let (background, foreground) = theme.colors();
-                button::Style {
-                    background: Some(Background::Color(background)),
-                    text_color: foreground,
-                    border: Border::default(),
-                    shadow: Shadow::default(),
-                    snap: true,
-                }
-            }),
+            Some(message) if enabled => item.on_press(message).into(),
+            _ => item.into(),
         }
-        .into()
     };
     row(mirrored_order(
         is_rtl_locale(&state.texts.locale),
@@ -2751,23 +3692,14 @@ fn runtime_controls(state: &State) -> Element<'_, Message> {
 fn events_controls(state: &State) -> Element<'_, Message> {
     let enabled = state.executor.is_some();
     let theme = state.theme;
-    let button =
-        button(rich_line(state.texts.resolve("gui.op.export"), false, 13.0)).padding([4, 8]);
+    let button = button(rich_line(state.texts.resolve("gui.op.export"), false, 13.0))
+        .padding([5, 9])
+        .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
     let button = if enabled {
         button.on_press(Message::OpStart(OpMode::EventsExport))
     } else {
         button
     };
-    let button = button.style(move |_t, _s| {
-        let (background, foreground) = theme.colors();
-        button::Style {
-            background: Some(Background::Color(background)),
-            text_color: foreground,
-            border: Border::default(),
-            shadow: Shadow::default(),
-            snap: true,
-        }
-    });
     row(mirrored_order(
         is_rtl_locale(&state.texts.locale),
         vec![button.into()],
@@ -2860,13 +3792,15 @@ fn op_panel(state: &State) -> Element<'_, Message> {
         _ => "",
     };
     let mut panel = column![];
+    let theme = state.theme;
     if needs_input {
         panel = panel.push(
             text_input(placeholder, state.op_input.as_str())
                 .on_input(Message::OpInputChanged)
                 .on_submit(Message::OpConfirm)
-                .padding(6)
-                .width(Length::Fill),
+                .padding([6, 8])
+                .width(Length::Fill)
+                .style(move |_theme, status| field_style(theme, status)),
         );
     }
     let mut actions: Vec<Element<'_, Message>> = Vec::new();
@@ -2878,7 +3812,8 @@ fn op_panel(state: &State) -> Element<'_, Message> {
                 13.0,
             ))
             .on_press(Message::OpPreview)
-            .padding([4, 8])
+            .padding([5, 10])
+            .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status))
             .into(),
         );
         actions.push(
@@ -2888,7 +3823,8 @@ fn op_panel(state: &State) -> Element<'_, Message> {
                 13.0,
             ))
             .on_press(Message::OpConfirm)
-            .padding([4, 8])
+            .padding([5, 10])
+            .style(move |_theme, status| control_button_style(theme, Emphasis::Primary, status))
             .into(),
         );
     } else {
@@ -2899,14 +3835,16 @@ fn op_panel(state: &State) -> Element<'_, Message> {
                 13.0,
             ))
             .on_press(Message::OpConfirm)
-            .padding([4, 8])
+            .padding([5, 10])
+            .style(move |_theme, status| control_button_style(theme, Emphasis::Primary, status))
             .into(),
         );
     }
     actions.push(
         button(rich_line(state.texts.resolve("gui.op.cancel"), false, 13.0))
             .on_press(Message::OpCancel)
-            .padding([4, 8])
+            .padding([5, 10])
+            .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status))
             .into(),
     );
     panel = panel.push(row(mirrored_order(is_rtl_locale(&state.texts.locale), actions)).spacing(6));
@@ -2957,18 +3895,25 @@ fn checkpoint_panel(state: &State) -> Element<'_, Message> {
 /// 侧栏控件（FR-746）：搜索、排序三键、归档分段开关。全部本地作用于已准备的
 /// 快照（不触库）；无控件时（窄窗口以外的场景）仍可用既有键盘导航。
 fn session_controls(state: &State) -> Element<'_, Message> {
+    let theme = state.theme;
     let search = text_input(
         state.texts.resolve("gui.session.search"),
         state.session_filter.as_str(),
     )
     .on_input(Message::SessionFilterChanged)
-    .padding(4)
-    .width(Length::Fill);
+    .padding([6, 8])
+    .width(Length::Fill)
+    .style(move |_theme, status| field_style(theme, status));
     let sort_button = |sort: SessionSort, key: &'static str| {
         let label = if state.session_sort == sort {
             "• "
         } else {
             ""
+        };
+        let emphasis = if state.session_sort == sort {
+            Emphasis::Secondary
+        } else {
+            Emphasis::Ghost
         };
         button(rich_line(
             &format!("{label}{}", state.texts.resolve(key)),
@@ -2976,7 +3921,8 @@ fn session_controls(state: &State) -> Element<'_, Message> {
             12.0,
         ))
         .on_press(Message::SessionSortChanged(sort))
-        .padding([2, 6])
+        .padding([4, 8])
+        .style(move |_theme, status| control_button_style(theme, emphasis, status))
     };
     let archived = button(rich_line(
         &format!(
@@ -2994,7 +3940,8 @@ fn session_controls(state: &State) -> Element<'_, Message> {
     .on_press(Message::SessionArchivedToggled(
         !state.session_show_archived,
     ))
-    .padding([2, 6]);
+    .padding([4, 8])
+    .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
     row(mirrored_order(
         is_rtl_locale(&state.texts.locale),
         vec![
@@ -3100,6 +4047,7 @@ fn task_body(state: &State) -> Element<'_, Message> {
 /// 任务行按钮（Tasks 视图）：每行 retry/abort（与 TUI 的 R/X 同语义，ADR-056）。
 fn task_buttons(state: &State) -> Element<'_, Message> {
     let rtl = is_rtl_locale(&state.texts.locale);
+    let theme = state.theme;
     let mut rows = column![].spacing(2);
     for (index, task) in state.snapshot.tasks.iter().take(50).enumerate() {
         let label = format!("{} {} {}", task.id, task.status.as_str(), task.title);
@@ -3109,21 +4057,24 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
             12.0,
         ))
         .on_press(Message::TaskRetry(index))
-        .padding([2, 6]);
+        .padding([4, 8])
+        .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
         let abort = button(rich_line(
             state.texts.resolve("gui.task.abort"),
             false,
             12.0,
         ))
         .on_press(Message::TaskAbort(index))
-        .padding([2, 6]);
+        .padding([4, 8])
+        .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
         let points = button(rich_line(
             state.texts.resolve("gui.checkpoints.open"),
             false,
             12.0,
         ))
         .on_press(Message::TaskCheckpoints(index))
-        .padding([2, 6]);
+        .padding([4, 8])
+        .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
         rows = rows.push(
             row(mirrored_order(
                 rtl,
@@ -3144,27 +4095,130 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
 }
 
 fn view(state: &State) -> Element<'_, Message> {
-    let mut items: Vec<Element<'_, Message>> = ViewId::ALL
-        .iter()
-        .map(|item| sidebar_button(state, *item))
-        .collect();
+    // ADR-102 功能对齐（ZCode 侧栏组织）：顶部「新建会话」主操作 → 「视图」分区 →
+    // 「设置」分区。文字是功能名，右侧数字是该功能的数据条数，不再是内部键位。
+    let action_theme = state.theme;
+    let new_session = button(rich_line(
+        state.texts.resolve("gui.sidebar.new_session"),
+        false,
+        14.0,
+    ))
+    .on_press_maybe(
+        state
+            .executor
+            .is_some()
+            .then_some(Message::OpStart(OpMode::SessionNew)),
+    )
+    .width(Length::Fill)
+    .padding([8, 10])
+    .style(move |_theme, status| control_button_style(action_theme, Emphasis::Primary, status));
+
+    let mut items: Vec<Element<'_, Message>> = vec![new_session.into()];
+    // 「会话」分区：真实会话列表（ZCode 侧栏任务列表的等价物）。
+    items.push(sidebar_section(state, "gui.sidebar.group.sessions"));
+    if state.sidebar_sessions.is_empty() {
+        let subtle = control_colors(state.theme).subtle;
+        items.push(
+            container(colored_line(
+                state.texts.resolve("gui.sidebar.empty"),
+                false,
+                12.0,
+                subtle,
+            ))
+            .padding([4, 8])
+            .width(Length::Fill)
+            .into(),
+        );
+    } else {
+        let shown = state.sidebar_sessions.len().min(SIDEBAR_SESSION_ROWS);
+        for index in 0..shown {
+            items.push(sidebar_session(state, index));
+        }
+        if state.sidebar_sessions.len() > shown {
+            let subtle = control_colors(state.theme).subtle;
+            items.push(
+                container(colored_line(
+                    &format!("+{}", state.sidebar_sessions.len() - shown),
+                    false,
+                    11.0,
+                    subtle,
+                ))
+                .padding([2, 8])
+                .width(Length::Fill)
+                .into(),
+            );
+        }
+    }
+    // 归档开关（ZCode 的「归档任务」等价物）。
+    let archive_theme = state.theme;
+    let archive_label = format!(
+        "{}: {}",
+        state.texts.resolve("gui.session.archived"),
+        if state.session_show_archived {
+            state.texts.resolve("gui.session.on")
+        } else {
+            state.texts.resolve("gui.session.off")
+        }
+    );
+    items.push(
+        button(rich_line(&archive_label, false, 12.0))
+            .on_press(Message::SessionArchivedToggled(
+                !state.session_show_archived,
+            ))
+            .width(Length::Fill)
+            .padding([5, 8])
+            .style(move |_theme, status| {
+                control_button_style(archive_theme, Emphasis::Ghost, status)
+            })
+            .into(),
+    );
+    // 「项目」分区：当前工作区（ZCode 侧栏按项目组织任务；本仓库单工作区，故为一行）。
+    items.push(sidebar_section(state, "gui.sidebar.group.project"));
+    let project_theme = state.theme;
+    let project_label = if state.workspace_name.is_empty() {
+        "—".to_string()
+    } else {
+        sidebar_title(&state.workspace_name)
+    };
+    items.push(
+        container(colored_line(
+            &project_label,
+            false,
+            12.0,
+            control_colors(project_theme).subtle,
+        ))
+        .padding([4, 8])
+        .width(Length::Fill)
+        .into(),
+    );
+
+    items.push(sidebar_section(state, "gui.sidebar.group.settings"));
+
     let panel_selected = state.panels_open;
     let panel_theme = state.theme;
     items.push(
         button(rich_line(
             state.texts.resolve("settings.panels.open"),
             false,
-            16.0,
+            14.0,
         ))
         .on_press(Message::TogglePanels)
         .width(Length::Fill)
-        .padding([6, 8])
-        .style(move |_theme, _status| sidebar_style(panel_theme, panel_selected))
+        .padding([7, 8])
+        .style(move |_theme, status| sidebar_style(panel_theme, panel_selected, status))
         .into(),
     );
-    let sidebar = container(column(items).spacing(4))
-        .width(Length::Fixed(200.0))
-        .height(Length::Fill);
+    // 固定 264（ZCode 的默认与最小宽度相同，不随窗口收窄）。
+    let sidebar_theme = state.theme;
+    let sidebar_width = f32::from(whcode_domain::theme_tokens::spec::SIDEBAR_WIDTH);
+    let sidebar = container(column![
+        container(rich_line("WHCode", false, 15.0)).padding([4, 6]),
+        column(items).spacing(2),
+    ])
+    .padding(8)
+    .width(Length::Fixed(sidebar_width))
+    .height(Length::Fill)
+    .style(move |_theme| sidebar_panel_style(sidebar_theme));
 
     let body: Element<'_, Message> = if state.panels_open {
         panels_panel(state)
@@ -3231,35 +4285,107 @@ fn view(state: &State) -> Element<'_, Message> {
         }
     };
 
-    // 顶栏：视图标题（20）+ 当前会话（13）；其下为 KPI 条与正文；底部状态栏。
-    let title_key = if state.panels_open {
-        "settings.panels.title"
-    } else {
-        state.view.title_key()
+    // 顶栏（ZCode 形制）：左侧当前会话标题（无会话则「开始新对话」），右侧少量动作；
+    // 不再有视图标签行与 KPI 条——主区只讲当前对话这一件事。
+    let main_theme = state.theme;
+    let subtle = control_colors(main_theme).subtle;
+    let title_text = state.current_session_title();
+    let meta_text = state.current_session_meta();
+    let mut title_col = column![rich_line(&title_text, false, 18.0)].spacing(2);
+    if !meta_text.is_empty() {
+        title_col = title_col.push(colored_line(&meta_text, false, 13.0, subtle));
+    }
+
+    let mut actions: Vec<Element<'_, Message>> = Vec::new();
+    // 选中会话后的行级动作（ZCode 任务行的重命名／归档／删除菜单，这里放在顶栏，
+    // 因为 iced 没有右键菜单；动作与 ZCode 同名同义）。
+    if state.selected.is_some() && !state.panels_open {
+        let quick = |key: &'static str, message: Message| -> Element<'_, Message> {
+            button(rich_line(state.texts.resolve(key), false, 12.0))
+                .on_press(message)
+                .padding([4, 8])
+                .style(move |_theme, status| {
+                    control_button_style(main_theme, Emphasis::Ghost, status)
+                })
+                .into()
+        };
+        actions.push(quick(
+            "gui.op.rename",
+            Message::OpStart(OpMode::SessionRename),
+        ));
+        actions.push(quick(
+            "gui.op.archive",
+            Message::OpStart(OpMode::SessionArchive { archived: true }),
+        ));
+        actions.push(quick(
+            "gui.op.delete",
+            Message::OpStart(OpMode::SessionDelete),
+        ));
+    }
+    if state.view != ViewId::Chat {
+        // 进入诊断视图后必须能一键回到对话（否则用户会卡在诊断页）。
+        actions.push(
+            button(rich_line(state.texts.resolve("gui.chat.back"), false, 13.0))
+                .on_press(Message::SelectView(ViewId::Chat))
+                .padding([5, 10])
+                .style(move |_theme, status| {
+                    control_button_style(main_theme, Emphasis::Secondary, status)
+                })
+                .into(),
+        );
+    }
+    // 顶栏右侧常驻「设置」入口（ZCode 也在顶栏给设置）。
+    actions.push(
+        button(rich_line(
+            state.texts.resolve("gui.sidebar.group.settings"),
+            false,
+            13.0,
+        ))
+        .on_press(Message::TogglePanels)
+        .padding([5, 10])
+        .style(move |_theme, status| control_button_style(main_theme, Emphasis::Ghost, status))
+        .into(),
+    );
+    let header = row(mirrored_order(
+        is_rtl_locale(&state.texts.locale),
+        std::iter::once(title_col.width(Length::Fill).into())
+            .chain(actions)
+            .collect(),
+    ))
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
+
+    let body = match session_tabs(state) {
+        Some(tabs) => column![tabs, body].spacing(10).into(),
+        None => body,
     };
-    let header = column![
-        rich_line(state.texts.resolve(title_key), false, 20.0),
-        rich_line(state.session_label().as_str(), false, 13.0),
-    ]
-    .spacing(4);
+    let card = container(
+        column![header, hairline(main_theme), body]
+            .spacing(12)
+            .height(Length::Fill),
+    )
+    .padding(16)
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .style(move |_theme| card_style(main_theme));
 
     let main = column![
-        header,
-        rich_line(state.kpi().as_str(), false, 13.0),
-        body,
-        rich_line(state.footer().as_str(), false, 13.0),
+        card,
+        hairline(main_theme),
+        colored_line(state.footer().as_str(), false, 12.0, subtle),
     ]
-    .spacing(12)
-    .width(Length::Fill);
+    .spacing(6)
+    .width(Length::Fill)
+    .height(Length::Fill);
 
     // 外壳行序镜像（FR-766／T279）：RTL 时导航栏在右、主面板在左。
     let shell = if is_rtl_locale(&state.texts.locale) {
-        row![main, sidebar].spacing(16)
+        row![main, sidebar].spacing(8)
     } else {
-        row![sidebar, main].spacing(16)
+        row![sidebar, main].spacing(8)
     };
     container(shell)
-        .padding(12)
+        .padding(8)
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
@@ -3440,13 +4566,17 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
     } else {
         for rule in &state.panels.rules {
             let label = format!("{} · {}", rule.tool, rule.rule.as_str());
+            let revoke_theme = state.theme;
             let revoke = button(rich_line(
                 state.texts.resolve("settings.approvals.revoke"),
                 false,
                 12.0,
             ))
-            .padding([2, 6])
-            .on_press(Message::RevokeRule(rule.tool.clone()));
+            .padding([4, 8])
+            .on_press(Message::RevokeRule(rule.tool.clone()))
+            .style(move |_theme, status| {
+                control_button_style(revoke_theme, Emphasis::Ghost, status)
+            });
             body = body.push(
                 row(mirrored_order(
                     rtl,
@@ -3638,6 +4768,82 @@ mod tests {
         assert!(!is_cjk('—'));
     }
 
+    /// 单会话测试源（ADR-102 后默认进入对话）：选中会话必须来自真实快照路径，
+    /// 手工塞 `session_ids` 会被 `prepare()` 按数据源覆盖——测试也走同一路径。
+    struct SingleSessionSource;
+
+    impl ViewSource for SingleSessionSource {
+        fn snapshot(&self, view: ViewId, _session: Option<&str>) -> ViewSnapshot {
+            let mut snapshot = ViewSnapshot::empty(view);
+            if view == ViewId::Sessions {
+                snapshot.sessions = vec![ViewSessionRow {
+                    id: "S-1".to_string(),
+                    title: "测试会话".to_string(),
+                    stage: "specify".to_string(),
+                    status: "active".to_string(),
+                    archived: false,
+                    created_at_ms: 1,
+                    last_active_at_ms: 1,
+                }];
+            }
+            snapshot
+        }
+    }
+
+    /// ADR-102：添加模型表单链路——打开、填字段、保存关闭并给出保存位置。
+    #[test]
+    fn model_form_opens_fills_and_saves() {
+        struct StubEditor;
+        impl ModelEditor for StubEditor {
+            fn add(&self, draft: &ModelDraft) -> Result<String, WhError> {
+                Ok(format!("/tmp/{}", draft.name))
+            }
+        }
+        let source: Rc<dyn ViewSource> = Rc::new(SingleSessionSource);
+        let mut state = State::new(source, I18n::default(), GuiTheme::EinkDay, None, None);
+        state.model_editor = Some(Rc::new(StubEditor));
+        assert!(state.model_editor.is_some());
+        let _ = update(&mut state, Message::OpenModelForm);
+        assert!(state.model_form.is_some(), "点击后表单必须打开");
+        let _ = update(
+            &mut state,
+            Message::ModelFieldChanged(ModelField::Name, "m1".into()),
+        );
+        let _ = update(
+            &mut state,
+            Message::ModelFieldChanged(ModelField::BaseUrl, "https://x".into()),
+        );
+        let _ = update(
+            &mut state,
+            Message::ModelFieldChanged(ModelField::Model, "gpt".into()),
+        );
+        let _ = update(
+            &mut state,
+            Message::ModelFieldChanged(ModelField::Credential, "KEY".into()),
+        );
+        let _ = update(&mut state, Message::SaveModel);
+        assert!(state.model_form.is_none(), "保存成功后表单关闭");
+        assert!(
+            state
+                .model_form_status
+                .as_deref()
+                .unwrap_or_default()
+                .contains("m1"),
+            "必须显示保存位置：{:?}",
+            state.model_form_status
+        );
+    }
+
+    /// ADR-102 主界面对齐：打开即对话（ZCode 行为），侧栏目录与主区视图解耦。
+    #[test]
+    fn defaults_to_chat_with_sidebar_sessions() {
+        let source: Rc<dyn ViewSource> = Rc::new(SingleSessionSource);
+        let state = State::new(source, I18n::default(), GuiTheme::EinkDay, None, None);
+        assert_eq!(state.view, ViewId::Chat, "默认视图必须是对话");
+        assert_eq!(state.sidebar_sessions.len(), 1, "侧栏目录必须常驻");
+        assert_eq!(state.session_ids, vec!["S-1".to_string()]);
+    }
+
     /// 空数据源状态（T199 顶栏/KPI/状态栏取证；不触库）。
     fn empty_state() -> State {
         let source: Rc<dyn ViewSource> = Rc::new(whcode_app::view_source::EmptyViewSource);
@@ -3703,7 +4909,7 @@ mod tests {
             state.title()
         );
         assert!(
-            state.title().contains(&format!("会话 (1/{VIEW_COUNT})")),
+            state.title().contains(&format!("对话 (7/{VIEW_COUNT})")),
             "标题须含视图序号：{}",
             state.title()
         );
@@ -3718,23 +4924,10 @@ mod tests {
             state.footer()
         );
         assert!(
-            state.footer().contains("1200x800"),
-            "状态栏须显示窗口尺寸：{}",
+            state.footer().contains("Tab"),
+            "状态栏须给出视图切换的可操作提示：{}",
             state.footer()
         );
-    }
-
-    /// T199：KPI 条优先准备层摘要（任务视图含总计/完成/阻塞），否则回落可得计数。
-    #[test]
-    fn kpi_prefers_prepared_summary_then_counts() {
-        let mut state = empty_state();
-        assert!(
-            state.kpi().contains("会话 0"),
-            "空态 KPI 须给出可得计数：{}",
-            state.kpi()
-        );
-        state.snapshot.summary = "会话 S-1 · 总计 3 · 完成 2 · 阻塞 1".to_string();
-        assert_eq!(state.kpi(), state.snapshot.summary);
     }
 
     /// T199：侧栏选中态只用主题两色（反显），不引入灰色、边框或阴影。
@@ -3747,14 +4940,85 @@ mod tests {
             GuiTheme::TerminalGreen,
         ] {
             let (background, foreground) = theme.colors();
-            let selected = sidebar_style(theme, true);
+            let selected = sidebar_style(theme, true, button::Status::Active);
             assert_eq!(selected.background, Some(Background::Color(foreground)));
             assert_eq!(selected.text_color, background);
-            let normal = sidebar_style(theme, false);
+            let normal = sidebar_style(theme, false, button::Status::Active);
             assert_eq!(normal.background, Some(Background::Color(background)));
             assert_eq!(normal.text_color, foreground);
             assert_eq!(normal.border, Border::default(), "侧栏不得加边框");
             assert_eq!(normal.shadow, Shadow::default(), "侧栏不得加阴影");
+        }
+    }
+
+    /// ADR-102：whcode 系控件三档强调必须有可见差异（主操作填充、次操作描边、
+    /// 弱操作透明），否则「哪里可点」又退回靠记忆键位。
+    #[test]
+    fn control_emphasis_levels_are_visually_distinct() {
+        let theme = GuiTheme::WhcodeNight;
+        let tokens = whcode_domain::theme_tokens::WHCODE_NIGHT;
+        let ui = tokens.ui;
+        let primary = control_button_style(theme, Emphasis::Primary, button::Status::Active);
+        let secondary = control_button_style(theme, Emphasis::Secondary, button::Status::Active);
+        let ghost = control_button_style(theme, Emphasis::Ghost, button::Status::Active);
+        assert_eq!(
+            primary.background,
+            Some(Background::Color(token_color_any(ui.primary))),
+            "主操作必须有填充"
+        );
+        assert_eq!(primary.text_color, token_color_any(ui.primary_foreground));
+        assert_eq!(
+            secondary.background,
+            Some(Background::Color(token_color_any(tokens.ui.secondary)))
+        );
+        assert!(secondary.border.width > 0.0, "次操作必须有描边");
+        assert_eq!(
+            ghost.background,
+            Some(Background::Color(Color::TRANSPARENT))
+        );
+        assert_eq!(ghost.border.width, 0.0, "弱操作默认无边框");
+    }
+
+    /// ADR-102：聚焦态边框换 `primary`，聚焦位置可辨。
+    ///
+    /// 实测口径：ZCode `zai-dark` 的 `--color-input` 与 `--color-input-focused` 同值
+    /// （#2b2b2b），聚焦差异只由边框承担——断言按真实 token 写，不假设底色必然变化。
+    #[test]
+    fn field_style_marks_focus() {
+        let theme = GuiTheme::WhcodeNight;
+        let tokens = whcode_domain::theme_tokens::WHCODE_NIGHT;
+        let active = field_style(theme, text_input::Status::Active);
+        let focused = field_style(theme, text_input::Status::Focused { is_hovered: false });
+        assert_eq!(active.border.color, token_color_any(tokens.border));
+        assert_eq!(focused.border.color, token_color_any(tokens.ui.primary));
+        assert_ne!(
+            active.border.color, focused.border.color,
+            "聚焦边框必须与默认边框不同，否则焦点不可见"
+        );
+        assert!(
+            focused.border.width > 0.0,
+            "聚焦边框必须有宽度，否则颜色差异不可见"
+        );
+    }
+
+    /// ADR-041 守住：四套铁律主题仍只用主题两色，不引入第三色值。
+    #[test]
+    fn iron_themes_keep_two_color_discipline() {
+        for theme in [
+            GuiTheme::EinkDay,
+            GuiTheme::EinkNight,
+            GuiTheme::AmoledNight,
+            GuiTheme::TerminalGreen,
+        ] {
+            let (_, foreground) = theme.colors();
+            let style = control_button_style(theme, Emphasis::Secondary, button::Status::Active);
+            assert_eq!(
+                style.border.color, foreground,
+                "边框必须是前景色，不得引入第三色值"
+            );
+            let card = card_style(theme);
+            assert_eq!(card.border.color, foreground);
+            assert_eq!(card.shadow, Shadow::default(), "铁律主题不得加阴影");
         }
     }
 
@@ -3820,10 +5084,9 @@ mod tests {
     }
 
     fn interactive_state_with(llm: std::sync::Arc<StubLlm>) -> State {
-        let source: Rc<dyn ViewSource> = Rc::new(whcode_app::view_source::EmptyViewSource);
+        let source: Rc<dyn ViewSource> = Rc::new(SingleSessionSource);
         let mut state = State::new(source, I18n::default(), GuiTheme::EinkDay, None, Some(llm));
-        // 预置选中会话（对话提交的前置）。
-        state.session_ids = vec!["S-1".to_string()];
+        // 预置选中会话（对话提交的前置；目录来自数据源快照）。
         state.selected = Some(0);
         state.chat_input = "提示词".to_string();
         state
@@ -4045,7 +5308,19 @@ mod tests {
                 view: ViewId,
                 _session: Option<&str>,
             ) -> whcode_app::view_source::ViewSnapshot {
-                whcode_app::view_source::ViewSnapshot::empty(view)
+                let mut snapshot = whcode_app::view_source::ViewSnapshot::empty(view);
+                if view == ViewId::Sessions {
+                    snapshot.sessions = vec![ViewSessionRow {
+                        id: "S-1".to_string(),
+                        title: "历史测试".to_string(),
+                        stage: "specify".to_string(),
+                        status: "active".to_string(),
+                        archived: false,
+                        created_at_ms: 1,
+                        last_active_at_ms: 1,
+                    }];
+                }
+                snapshot
             }
             fn conversation_tail(&self, session_id: &str, max: usize) -> Vec<(String, String)> {
                 assert_eq!(session_id, "S-1");
@@ -4059,7 +5334,6 @@ mod tests {
         let source: std::rc::Rc<dyn whcode_app::view_source::ViewSource> =
             std::rc::Rc::new(HistorySource);
         let mut state = State::new(source, I18n::default(), GuiTheme::default(), None, None);
-        state.session_ids = vec!["S-1".to_string()];
         state.selected = Some(0);
         let _ = update(&mut state, Message::SelectView(ViewId::Chat));
         assert_eq!(state.chat_history.len(), 2, "进入对话视图必须刷新历史缓存");
@@ -4078,7 +5352,7 @@ mod tests {
         let _ = update(&mut state, Message::SelectView(ViewId::Tasks));
         let _ = update(&mut state, Message::Refresh);
         let _ = update(&mut state, Message::ChatProgress(9, String::new()));
-        assert_eq!(state.view, ViewId::Sessions, "运行中不得切换视图");
+        assert_eq!(state.view, ViewId::Chat, "运行中不得切换视图");
         assert_eq!(state.chat_progress, 9, "进度必须更新");
         assert!(state.turn_running, "进度不得解除运行态");
     }
@@ -4550,7 +5824,7 @@ mod tests {
         let executor: Rc<dyn CommandExecutor> = Rc::new(CaptureExecutor {
             calls: Rc::clone(&calls),
         });
-        let source: Rc<dyn ViewSource> = Rc::new(whcode_app::view_source::EmptyViewSource);
+        let source: Rc<dyn ViewSource> = Rc::new(SingleSessionSource);
         let mut state = State::new(
             source,
             I18n::default(),
@@ -4558,7 +5832,6 @@ mod tests {
             Some(executor),
             None,
         );
-        state.session_ids = vec!["S-1".to_string()];
         state.selected = Some(0);
 
         // 键位门控：非 Spec 视图按 n／F 不进入写模式。
@@ -4940,6 +6213,17 @@ mod tests {
         impl ViewSource for DetailSource {
             fn snapshot(&self, view: ViewId, session: Option<&str>) -> ViewSnapshot {
                 let mut snapshot = ViewSnapshot::empty(view);
+                if view == ViewId::Sessions {
+                    snapshot.sessions = vec![ViewSessionRow {
+                        id: "S-1".to_string(),
+                        title: "详情测试".to_string(),
+                        stage: "specify".to_string(),
+                        status: "active".to_string(),
+                        archived: false,
+                        created_at_ms: 1,
+                        last_active_at_ms: 1,
+                    }];
+                }
                 if view == ViewId::Events {
                     snapshot.events.push(whcode_app::view_source::EventRow {
                         seq: 7,
@@ -4980,7 +6264,6 @@ mod tests {
             fail: false,
         });
         let mut state = State::new(source, I18n::default(), GuiTheme::EinkDay, None, None);
-        state.session_ids = vec!["S-1".to_string()];
         state.selected = Some(0);
         let _ = update(&mut state, Message::SelectView(ViewId::Events));
         let _ = update(&mut state, Message::EventDetail(0));
@@ -4997,7 +6280,6 @@ mod tests {
             fail: true,
         });
         let mut state = State::new(source, I18n::default(), GuiTheme::EinkDay, None, None);
-        state.session_ids = vec!["S-1".to_string()];
         state.selected = Some(0);
         let _ = update(&mut state, Message::SelectView(ViewId::Events));
         let _ = update(&mut state, Message::EventDetail(0));

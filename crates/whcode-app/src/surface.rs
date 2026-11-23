@@ -42,7 +42,7 @@ pub enum FrontendId {
     Cui,
     /// 终端界面（视图面，FR-601）。
     Tui,
-    /// 原生桌面 GUI（只读 v1，FR-711）。
+    /// 原生桌面 GUI（FR-711；动作范围以登记表为准）。
     Gui,
     /// 原生 Web UI（FR-603）。
     Web,
@@ -1912,7 +1912,7 @@ pub const SURFACES: &[SurfaceEntry] = &[
     },
     // 会话分叉（T282／FR-769／ADR-065）：在 turn 结束边界创建新会话并复制对话历史前缀。
     // 会话分叉（T282／FR-769／ADR-065）：在 turn 结束边界创建新会话并复制对话历史前缀。
-    // GUI 按只读 v1 排除（写命令，FR-711）；TUI 随 T392 跟进；Web 已随 T391 接线。
+    // GUI 按面登记表排除（写命令，FR-711）；TUI 随 T392 跟进；Web 已随 T391 接线。
     SurfaceEntry {
         id: "session.fork",
         kind: SurfaceKind::Command,

@@ -249,7 +249,7 @@ impl Config {
     ///
     /// 目录不可写时返回 `io_error`（`retryable = true`，修复权限后重试有效）。
     pub fn check_temp_directory(&self) -> Result<(), WhError> {
-        // 骨架阶段：目录自动创建属 M1 工作区初始化任务（T032/T047）；此处只做可写性判定。
+        // 此处只做可写性判定；目录创建由工作区初始化流程负责（T032/T047）。
         if !self.db.temp_directory.is_dir() {
             return Err(WhError::new(
                 whcode_domain::ErrorCode::IoError,

@@ -1,9 +1,9 @@
-//! # GUI 只读动作 → SurfaceId 清单（Task 170.3／Task 179；FR-711、ADR-032）
+//! # GUI 动作 → SurfaceId 清单（Task 170.3／179／ADR-056；FR-711、ADR-032）
 //!
-//! 原生 GUI 为**只读 v1**（FR-711／ADR-026／ADR-027）：本清单只含读动作——视图切换
-//! （`1`—`6`）、会话选择（`j`／`k`）、显式刷新（`r`）、主题循环（`t`）、退出（`q`／Esc）。
-//! 全部写命令按登记表排除：业务写命令理由码 `gui_read_only_v1`，本地管理命令为
-//! `cli_local_admin`（对等基线表逐行口径），运行时管理为 `six_view_scope`。
+//! 原生 GUI 的动作集合与四端差异以 `whcode-app::surface::SURFACES` 为单一事实源
+//! （FR-711／ADR-026／ADR-027）：读动作（视图切换、会话选择、显式刷新、主题循环、退出）
+//! 与按登记表白名单放行的写动作均在该表登记；被排除的面保留理由码。
+//! 本模块是纯数据映射，动作全集以 crate 内 `GuiAction` 枚举为准。
 //!
 //! 刷新语义（Task 179.2）：GUI 无定时器与自动刷新，`view.changes` 在 GUI 登记为
 //! `gui_manual_refresh`——`r` 键的显式刷新是该面的 GUI 形态（FR-711／714）。
@@ -136,7 +136,7 @@ mod tests {
         }
     }
 
-    /// Task 179：GUI 清单不含任何写／破坏性动作（只读 v1，FR-711）。
+    /// Task 179：该清单条目不含写／破坏性动作（FR-711）。
     #[test]
     fn gui_actions_never_reach_write_or_destructive_surfaces() {
         let actions = [

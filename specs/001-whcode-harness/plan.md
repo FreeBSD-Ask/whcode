@@ -30,7 +30,7 @@
 
 **Constraints**: 单写者事务一致性与检查点同事务提交（FR-403/ADR-007）；有界队列与满载语义（§5.3、§7.3）；历史注入有界（FR-105/FR-505）；Web 默认仅监听 127.0.0.1（FR-606）；秘密默认脱敏（FR-203）；运行时子进程隔离（ADR-008）；不承诺跨组件 exactly-once（§0.3-8）；桌面 GUI 若实现必须原生、禁止浏览器套壳（ADR-026）
 
-**Scale/Scope**: 14 个 crate、14 张核心表、86 条 FR 定义、NFR-101—107 与 NFR-201—222、里程碑 M0—M10、31 项验收 V-001—V-307、14 项待决策 D-01—D-14（另有 2026-10-23 新增的 D-15 GUI 形态铁律，见 `docs/matrices/decisions.md`）、12 项登记风险 R-01—R-12（来源追溯见 spec.md）
+**Scale/Scope**: 16 个 crate、22 张核心表（schema v17）、NFR-101—107 与 NFR-201—222、里程碑 M0—M9（D-15 另列）、31 项验收 V-001—V-307、14 项待决策 D-01—D-14（另有 2026-10-23 新增的 D-15 GUI 形态铁律，见 `docs/matrices/decisions.md`）、12 项登记风险 R-01—R-12（来源追溯见 spec.md）。FR／任务／Check 的当前数量以机器为准：`python .github/scripts/check_counts.py --json`（2026-11-23 实跑为 FR=185／任务=422／Check=494）；本段不再手写这三个数，避免历史快照漂移（ADR-101 支柱二）。旧的「86 条 FR／14 个 crate／里程碑 M0—M10」为 2026-11 初快照，已并入机器事实源。
 
 ## Constitution Check
 

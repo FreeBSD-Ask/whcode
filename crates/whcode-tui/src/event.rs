@@ -21,6 +21,10 @@ pub enum UiEvent {
     PageUp,
     /// PageDown（ADR-087：Chat 转写下滚）。
     PageDown,
+    /// Tab（ADR-102：顺序切换到下一视图）。
+    Tab,
+    /// Shift+Tab（ADR-102：顺序切换到上一视图）。
+    BackTab,
     /// Ctrl-C（中断请求）。
     CtrlC,
     /// 终端尺寸变化。
@@ -56,6 +60,8 @@ pub(crate) fn map_event(event: crossterm::event::Event) -> Option<UiEvent> {
                 KeyCode::Backspace => Some(UiEvent::Backspace),
                 KeyCode::PageUp => Some(UiEvent::PageUp),
                 KeyCode::PageDown => Some(UiEvent::PageDown),
+                KeyCode::Tab => Some(UiEvent::Tab),
+                KeyCode::BackTab => Some(UiEvent::BackTab),
                 _ => None,
             }
         }

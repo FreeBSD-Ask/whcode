@@ -4,8 +4,7 @@
 //! 即编译失败，保证“先登记后接线”（FR-619 判据）。映射目标是
 //! [`whcode_app::surface::SURFACES`] 的稳定 `SurfaceId`；仅某些前端适用或被正当
 //! 排除的面（如 `webhook.*`、`sdk.serve`）照常映射，状态由登记表裁量。
-//! 预留面已随 T390—T395 清零；若将来重新出现预留面，仍由 `not_supported`
-//! （退出码 55）统一承载语义。
+//! 若出现被某前端排除的面，仍由 `not_supported`（退出码 55）统一承载语义。
 //!
 //! 说明：顶层 `status` 与 `spec status` 同为 FR-314 状态快照面（同一应用服务
 //! `build_snapshot`），故都映射 `spec.status`。

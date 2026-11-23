@@ -3164,3 +3164,102 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
 - [ ] T422 四端接线与平台扩展：CUI／GUI／Web 检索入口暴露 `ranked` 标记；FreeBSD／ARM64
   扩展哈希实测登记；中文分词质量实测。**未完成**——需实测与四端改动，单独批次。
   （开工前置：任务认知卡，见 ADR-099 §任务认知卡）
+
+## Tasks（2026-11-23 追加）：规则符号单一事实源与治理重构（ADR-101）
+
+- [x] T423（ADR-101 支柱一／二）建立符号注册表与计数机器事实源：新建
+  `coherence/symbols.toml`（R1—R8 inference／CR1—CR7 coherence 双命名空间）；`axiom-system.md`
+  §3 与 T5 改用 CR 前缀；`coherence.py` 增 `symbol_unambiguous` 谓词与负向自检、COH-M1-07
+  硬条目；`check_counts.py --json` 输出 counts/v1；`plan.md` 数字改机器引用；台账 evidence
+  去硬编码。**取证（2026-11-23）**：`--selftest` OK；`--phase pre` total=50／counterexample=0；
+  `check_counts.py --json` 返回 FR=185／任务=422／Check=494。
+  （开工前置：任务认知卡，见 ADR-101 §任务认知卡）
+- [x] T424（ADR-101 支柱三／四）原子提交门禁与状态注释清零：`coherence.py` 增
+  `orphan_adr`／`phantom_fr` 谓词与 COH-M1-08／COH-A6-03 条目；`check-docs-style.py` 增
+  过期状态声称模式；7 个 crate 头注释清理；登记 COH-CE-009／010。**取证**：`--phase mid`
+  幻影 FR 反例精确为 4 处（含用户未提交工作树中的一处幻影编号）；文风门禁无违规；EOL 零违规；
+  `cargo check --workspace` 通过。
+  （开工前置：任务认知卡，见 ADR-101 §任务认知卡）
+- [x] T425（ADR-101 支柱五）判据蕴含升级：FR-406 显式标 `polarity=conditional`；
+  Check 172 增 `polarity=negative`／`implies_fr=FR-406`；`coherence.py` 增 `implies_fr`
+  一致性谓词与 COH-A2-06 硬条目；COH-CE-006／007 销号。**取证**：`--phase mid` 的
+  COH-A2-04／A2-05 由反例转 satisfied，counterexample 由 6 降至 4；`traceability.py` 零断链。
+  （开工前置：任务认知卡，见 ADR-101 §任务认知卡）
+- [x] T426（FR-808／ADR-100）turn 中途投喂主循环接线与规格闭环：主循环每步开始前
+  `drain_one()` 取一条投喂，前缀后作为 user 消息进入模型历史，`SteerAccepted` 事件
+  log-only（只含 step 与字符数）；补齐 7 处 `TurnRequest` 构造点的 `steer: None`；
+  `spec.md` 立 FR-808、消除 LLM 模块 4 处历史幻影 FR 引用；新增 SteerHandle 两个行为测试。
+  **取证**：`cargo check -p whcode-app --all-targets` 与 `clippy -p whcode-app --all-targets -D warnings`
+  通过（drain_one 已被使用、dead_code 消失）；`traceability.py` 零断链（含 FR-808）。
+  **未取得**：`cargo test` 因本机缺 llvm-mingw 链接器阻塞（环境前置，见 ADR-101 与 Check 498）。
+  （开工前置：任务认知卡，见 ADR-100 §任务认知卡）
+- [x] T427（ADR-102／FR-711／FR-739／FR-740）ZCode UI 视觉与导航 1:1：①`theme_tokens` 扩为
+  完整语义色板（32 项）与视觉规格常量（圆角／字号／间距／侧栏宽）；②GUI 侧栏改 ZCode 形制
+  （圆角条目、悬停、选中底色、快捷键徽章、品牌头、260px）；③新增 `Tab`／`Shift+Tab` 环序
+  切换（GUI＋TUI），视图名与键位同排可见；④Web 首页改侧栏工作区布局并套用扩展 token；
+  ⑤`tui.footer` 十三套文案改为 `Tab/1-9`。**取证**：`check-frontend-budget.py` 通过
+  （CSS gzip 4149 B ≤ 20480、JS 10809 B ≤ 51200、DOM 98 ≤ 2000）；`i18n-po.py --check` 同步；
+  `coherence.py --phase pre` 零反例。**未取得**：`cargo check`／`clippy`／`test` 因缺
+  llvm-mingw 链接器阻塞（同 T426），Rust 侧改动未经本机编译验证，按 ADR-037 以 CI 为准。
+  （开工前置：任务认知卡，见 ADR-102 §任务认知卡）
+- [x] T428（ADR-102／FR-711／FR-741）GUI 原生控件视觉层与操作可发现性：①新增
+  `Emphasis`（Primary／Secondary／Ghost）三档按钮样式，填充／描边／悬停三态可见；
+  ②`field_style` 输入框聚焦换底换边框；③`card_style` 内容卡与 `sidebar_panel_style`
+  侧栏面板（`xl` 圆角＋1px 边框）；④侧栏条目加选中状态竖条与键位徽章；⑤顶栏常驻
+  高级面板入口；⑥对话空态给「去选择会话」按钮；⑦执行器未接入时按钮行下方显式说明
+  `not_supported`；⑧底栏改 `gui.footer`（操作提示＋主题，十三套同步），不再显示窗口
+  尺寸；⑨窄窗口侧栏收窄到 `SIDEBAR_MIN`。**取证**：新增三个单测
+  （`control_emphasis_levels_are_visually_distinct`／`field_style_marks_focus`／
+  `iron_themes_keep_two_color_discipline`）；`i18n-po.py --check` 同步；
+  `check-eol.py` 零违规；`check-docs-style.py` 无违规；`coherence.py --phase pre` 零反例。
+  **未取得**：`cargo check`／`clippy`／`test` 因缺 llvm-mingw 链接器阻塞（同 T426／T427），
+  Rust 侧仅经 `cargo fmt` 语法解析与 iced 0.14 源码逐项 API 核对，按 ADR-037 以 CI 为准。
+  （开工前置：任务认知卡，见 ADR-102 §任务认知卡）
+
+- [x] T429（ADR-102／FR-711／FR-741／FR-746）GUI 侧栏与主界面功能对齐（ZCode 组织）：
+  ①侧栏不再是内部视图目录，改为「新建会话（主操作）＋会话分区（真实会话列表，可点进入对话）
+  ＋归档开关＋设置分区」；②主区顶部改视图标签行（两排文字标签），承担原侧栏的视图切换；
+  ③默认视图改为对话（打开即对话，ZCode 行为），侧栏目录（`sidebar_sessions`）与主区快照解耦，
+  `prepare()` 在任意视图下都刷新侧栏目录；④主区对话区改为「对话流在上、composer 固定在下」
+  （输入框满宽，发送／取消／模型在下一行）；⑤会话操作按钮分两行（修 Plan mode 被右边界裁切）；
+  ⑥KPI 由「Sessions N · view rows M」改为「N 个会话」，去掉技术词；⑦侧栏条目去掉 1—9 键位
+  数字（用户明确否定键位与界面的关联）。**取证（2026-11-23，本机实跑）**：
+  `cargo clippy -p whcode-gui --all-targets -- -D warnings` 通过；`cargo test -p whcode-gui`
+  47 passed（含新增 `defaults_to_chat_with_sidebar_sessions`）；`cargo build -p whcode-bin`
+  成功并以 llvm-mingw 链接器本地运行 GUI 截图取证（`artifacts/gui-zcode-main-2026-11-23.png`、
+  `artifacts/gui-zcode-sidebar-2026-11-23.png`）；`i18n-po.py --check` 同步。
+  说明：本机 llvm-mingw 20261104 原本已在工具缓存中（路径含 `ykla`，此前误记为缺失），
+  未安装任何 GNU 组件。
+  （开工前置：任务认知卡，见 ADR-102 §任务认知卡）
+- [x] T430（ADR-102／FR-711／FR-741／FR-773）模型选择与添加、诊断视图迁入会话：
+  ①composer 的模型由自由文本改为**下拉选择**（选项来自 LLM 执行器剖面清单）；②新增
+  「添加模型」表单（名称／协议／端点／模型标识／密钥变量名），经注入的 `ModelEditor`
+  写面落盘到 `WHCODE_LLM_PROFILES` 或工作区 `profiles.json`（原子写：临时文件 + rename，
+  写入前用 `ProviderRegistry::from_json` 同规则校验）；③`ServeLlm::from_env` 增加工作区
+  `profiles.json` 回落，否则「添加」写出的文件永远加载不到；④侧栏删除「视图」折叠目录，
+  改为**选中会话后**在主区出现的会话详情标签（事件／diff／Spec／任务等不再占全局导航）。
+  **取证（2026-11-23，本机实跑）**：`cargo clippy -p whcode-gui -p whcode-bin --all-targets
+  -D warnings` 通过；`cargo test -p whcode-gui` 47 passed（新增 `model_form_opens_fills_and_saves`）；
+  `cargo test -p whcode-bin --bin whcode model_editor` 2 passed（追加/重名/空字段/Ollama 免密钥）；
+  `cargo build -p whcode-bin` 成功，在工作区放 `profiles.json` 后 GUI 实跑截图
+  `artifacts/gui-model-picker-2026-11-23.png` 显示模型下拉已列出「本地 Ollama」、「添加模型」
+  按钮可见、侧栏无视图目录、未选会话时不出现会话详情标签。
+  **未取得**：表单「点击打开」仅由单测覆盖（`Message::OpenModelForm`），本机 PostMessage 合成
+  点击未被 iced 接受，渲染外观未经人工目视；保存后执行器注册表不热更新，界面提示「重启后出现在
+  模型列表」。
+  （开工前置：任务认知卡，见 ADR-102 §任务认知卡）
+- [x] T431（ADR-102／FR-711／FR-741／FR-746）细粒度对齐：尺寸规格与具体功能项：
+  ①侧栏宽度改 264（ZCode `WORKSPACE_SIDEBAR_DEFAULT_WIDTH_PX`／`_MIN_WIDTH_PX` 同为 264），
+  移除窄窗收窄；②侧栏分组标题 12px／内距 `px-2.5 py-1`，任务行 14px／内距 `px-2.5 py-1`；
+  ③任务行右侧加**相对更新时间**（刚刚／N 分钟前／N 小时前／N 天前，四档，十三套文案）；
+  ④选中会话后顶栏出现该会话的**重命名／归档／删除**（ZCode 任务行菜单动作，iced 无右键菜单
+  故落在顶栏）；⑤顶栏标题 18px／副标题 13px（`text-ui-xl`／`caption`）；⑥composer 改
+  `rounded-2xl`（DESIGN 明确主聊天输入壳是 2xl 例外），发送按钮与输入框同排右端，模型选择移到
+  第二行左侧；⑦顶栏下方与状态栏上方各加 1px 分隔线（ZCode `border-b`）；⑧外壳外边距 12→8、
+  面板间隙 16→8。
+  **取证（2026-11-23，本机实跑）**：clippy（gui＋bin，-D warnings）通过；`cargo test -p whcode-gui`
+  47 passed；构建后 GUI 实跑截图 `artifacts/gui-align-2026-11-23.png`（侧栏 264、任务行右侧
+  「1 分钟前」、顶栏与状态栏各有分隔线、composer 大圆角且发送在输入框右端）。
+  **仍与 ZCode 有差距（如实登记）**：侧栏顶部无项目切换器；任务行无悬停式行内菜单（动作在顶栏）；
+  无附件／@文件／斜杠命令；无用量面板。
+  （开工前置：任务认知卡，见 ADR-102 §任务认知卡）

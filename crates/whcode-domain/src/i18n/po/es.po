@@ -629,6 +629,9 @@ msgstr "Aprobación pendiente"
 msgid "gui.approval.tool"
 msgstr "Herramienta"
 
+msgid "gui.chat.back"
+msgstr "Volver al chat"
+
 msgid "gui.chat.cancel"
 msgstr "Cancelar"
 
@@ -647,8 +650,14 @@ msgstr "Los eventos de cada turno se guardan: el historial completo está en la 
 msgid "gui.chat.last"
 msgstr "Último resultado: {summary}"
 
+msgid "gui.chat.model.choose"
+msgstr "Elegir modelo"
+
 msgid "gui.chat.models"
 msgstr "Modelos"
+
+msgid "gui.chat.new"
+msgstr "Nueva conversación"
 
 msgid "gui.chat.no_request"
 msgstr "No hay ningún ID de solicitud que cancelar (envíe antes un turno)"
@@ -659,6 +668,9 @@ msgstr "Ninguna sesión seleccionada: seleccione una en la vista Sesiones (j/k)"
 msgid "gui.chat.not_supported"
 msgstr "Ejecutor del LLM no conectado (not_supported)"
 
+msgid "gui.chat.pick_session"
+msgstr "Elegir una sesión"
+
 msgid "gui.chat.progress"
 msgstr "Generando: {chunks} fragmentos…"
 
@@ -666,13 +678,19 @@ msgid "gui.chat.prompt.placeholder"
 msgstr "Escriba un mensaje y pulse Intro para enviar"
 
 msgid "gui.chat.provider"
-msgstr "Perfil del LLM: {provider}"
+msgstr "Modelo"
 
 msgid "gui.chat.provider.placeholder"
 msgstr "nombre del perfil"
 
 msgid "gui.chat.send"
 msgstr "Enviar"
+
+msgid "gui.chat.slash.help"
+msgstr "Commands: /new /rename /archive /unarchive /delete /models /theme /help"
+
+msgid "gui.chat.slash.unknown"
+msgstr "Unknown command: /{name}"
 
 msgid "gui.checkpoints.degraded"
 msgstr "Reversión no implementada (solo consulta)"
@@ -722,8 +740,47 @@ msgstr "Aún no hay detalle"
 msgid "gui.detail.panel"
 msgstr "Detalle"
 
+msgid "gui.file.at"
+msgstr "@ Archivos"
+
+msgid "gui.file.empty"
+msgstr "Sin archivos"
+
+msgid "gui.file.filter"
+msgstr "Buscar ruta"
+
+msgid "gui.footer"
+msgstr "Haga clic a la izquierda o pulse Tab para cambiar de vista  |  {session}  |  {theme}"
+
 msgid "gui.kpi.count"
-msgstr "Sesiones {sessions} · filas en la vista {rows}"
+msgstr "{sessions} sesiones"
+
+msgid "gui.model.add"
+msgstr "Añadir modelo"
+
+msgid "gui.model.base_url"
+msgstr "Extremo (https://…)"
+
+msgid "gui.model.credential"
+msgstr "Variable de entorno de clave"
+
+msgid "gui.model.model_id"
+msgstr "ID del modelo"
+
+msgid "gui.model.name"
+msgstr "Nombre"
+
+msgid "gui.model.no_editor"
+msgstr "Escritura de modelo no conectada (not_supported)"
+
+msgid "gui.model.save"
+msgstr "Guardar"
+
+msgid "gui.model.save_failed"
+msgstr "Error al guardar: {error}"
+
+msgid "gui.model.saved"
+msgstr "Guardado en {path}; aparece en la lista tras reiniciar"
 
 msgid "gui.op.archive"
 msgstr "Archivar"
@@ -824,6 +881,30 @@ msgstr "Recientes"
 msgid "gui.session.sort.title"
 msgstr "Título"
 
+msgid "gui.sidebar.collapse"
+msgstr "Ocultar"
+
+msgid "gui.sidebar.empty"
+msgstr "Aún no hay sesiones"
+
+msgid "gui.sidebar.expand"
+msgstr "Mostrar"
+
+msgid "gui.sidebar.group.project"
+msgstr "Proyecto"
+
+msgid "gui.sidebar.group.sessions"
+msgstr "Sesiones"
+
+msgid "gui.sidebar.group.settings"
+msgstr "Ajustes"
+
+msgid "gui.sidebar.group.views"
+msgstr "Vistas"
+
+msgid "gui.sidebar.new_session"
+msgstr "Nueva sesión"
+
 msgid "gui.status.theme"
 msgstr "Tema: {theme}"
 
@@ -835,6 +916,18 @@ msgstr "Reintentos {count}"
 
 msgid "gui.task.retry"
 msgstr "Reintentar"
+
+msgid "gui.time.days"
+msgstr "hace {n} d"
+
+msgid "gui.time.hours"
+msgstr "hace {n} h"
+
+msgid "gui.time.minutes"
+msgstr "hace {n} min"
+
+msgid "gui.time.now"
+msgstr "ahora mismo"
 
 msgid "gui.tool.running"
 msgstr "En ejecución"
@@ -1359,7 +1452,7 @@ msgid "tui.empty"
 msgstr "(sin datos)"
 
 msgid "tui.footer"
-msgstr "1-9/0/- vistas  j/k mover  r actualizar  t tema  q salir  |  {cols}x{rows}"
+msgstr "Tab/1-9 vistas  j/k mover  r actualizar  t tema  q salir  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "sin sesión"

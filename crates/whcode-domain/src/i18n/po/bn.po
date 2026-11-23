@@ -629,6 +629,9 @@ msgstr "অনুমোদন অপেক্ষমাণ"
 msgid "gui.approval.tool"
 msgstr "টুল"
 
+msgid "gui.chat.back"
+msgstr "চ্যাটে ফিরুন"
+
 msgid "gui.chat.cancel"
 msgstr "বাতিল"
 
@@ -647,8 +650,14 @@ msgstr "প্রতিটি টার্নের ইভেন্ট সংর
 msgid "gui.chat.last"
 msgstr "শেষ ফলাফল: {summary}"
 
+msgid "gui.chat.model.choose"
+msgstr "মডেল বাছুন"
+
 msgid "gui.chat.models"
 msgstr "মডেল তালিকা"
+
+msgid "gui.chat.new"
+msgstr "নতুন চ্যাট"
 
 msgid "gui.chat.no_request"
 msgstr "বাতিল করার মতো কোনো অনুরোধ ID নেই (আগে একটি টার্ন পাঠান)"
@@ -659,6 +668,9 @@ msgstr "কোনো সেশন নির্বাচিত নেই — স�
 msgid "gui.chat.not_supported"
 msgstr "LLM এক্সিকিউটর সংযুক্ত নয় (not_supported)"
 
+msgid "gui.chat.pick_session"
+msgstr "সেশন বাছুন"
+
 msgid "gui.chat.progress"
 msgstr "তৈরি হচ্ছে: {chunks} খণ্ড…"
 
@@ -666,13 +678,19 @@ msgid "gui.chat.prompt.placeholder"
 msgstr "প্রম্পট লিখুন, Enter দিলে পাঠানো হবে"
 
 msgid "gui.chat.provider"
-msgstr "LLM প্রোফাইল: {provider}"
+msgstr "মডেল"
 
 msgid "gui.chat.provider.placeholder"
 msgstr "প্রোফাইলের নাম"
 
 msgid "gui.chat.send"
 msgstr "পাঠান"
+
+msgid "gui.chat.slash.help"
+msgstr "Commands: /new /rename /archive /unarchive /delete /models /theme /help"
+
+msgid "gui.chat.slash.unknown"
+msgstr "Unknown command: /{name}"
 
 msgid "gui.checkpoints.degraded"
 msgstr "rollback তৈরি হয়নি (কেবল দেখা যায়)"
@@ -722,8 +740,47 @@ msgstr "এখনো কোনো বিশদ নেই"
 msgid "gui.detail.panel"
 msgstr "বিশদ"
 
+msgid "gui.file.at"
+msgstr "@ ফাইল"
+
+msgid "gui.file.empty"
+msgstr "কোনো ফাইল নেই"
+
+msgid "gui.file.filter"
+msgstr "ফাইল পথ খুঁজুন"
+
+msgid "gui.footer"
+msgstr "বাম দিকে ক্লিক করুন বা Tab চেপে ভিউ বদলান  |  {session}  |  {theme}"
+
 msgid "gui.kpi.count"
-msgstr "সেশন {sessions} · ভিউতে {rows} সারি"
+msgstr "{sessions}টি সেশন"
+
+msgid "gui.model.add"
+msgstr "মডেল যোগ করুন"
+
+msgid "gui.model.base_url"
+msgstr "এন্ডপয়েন্ট (https://…)"
+
+msgid "gui.model.credential"
+msgstr "API কী env ভেরিয়েবল"
+
+msgid "gui.model.model_id"
+msgstr "মডেল আইডি"
+
+msgid "gui.model.name"
+msgstr "নাম"
+
+msgid "gui.model.no_editor"
+msgstr "মডেল লেখা সংযুক্ত নয় (not_supported)"
+
+msgid "gui.model.save"
+msgstr "সংরক্ষণ"
+
+msgid "gui.model.save_failed"
+msgstr "সংরক্ষণ ব্যর্থ: {error}"
+
+msgid "gui.model.saved"
+msgstr "{path}-এ সংরক্ষিত; পুনরায় চালুর পর তালিকায় দেখা যাবে"
 
 msgid "gui.op.archive"
 msgstr "আর্কাইভ"
@@ -824,6 +881,30 @@ msgstr "সাম্প্রতিক"
 msgid "gui.session.sort.title"
 msgstr "শিরোনাম"
 
+msgid "gui.sidebar.collapse"
+msgstr "লুকান"
+
+msgid "gui.sidebar.empty"
+msgstr "এখনও কোনো সেশন নেই"
+
+msgid "gui.sidebar.expand"
+msgstr "দেখান"
+
+msgid "gui.sidebar.group.project"
+msgstr "প্রজেক্ট"
+
+msgid "gui.sidebar.group.sessions"
+msgstr "সেশন"
+
+msgid "gui.sidebar.group.settings"
+msgstr "সেটিংস"
+
+msgid "gui.sidebar.group.views"
+msgstr "ভিউ"
+
+msgid "gui.sidebar.new_session"
+msgstr "নতুন সেশন"
+
 msgid "gui.status.theme"
 msgstr "থিম: {theme}"
 
@@ -835,6 +916,18 @@ msgstr "পুনরায় চেষ্টা {count} বার"
 
 msgid "gui.task.retry"
 msgstr "পুনরায় চেষ্টা"
+
+msgid "gui.time.days"
+msgstr "{n} দিন আগে"
+
+msgid "gui.time.hours"
+msgstr "{n} ঘণ্টা আগে"
+
+msgid "gui.time.minutes"
+msgstr "{n} মিনিট আগে"
+
+msgid "gui.time.now"
+msgstr "এইমাত্র"
 
 msgid "gui.tool.running"
 msgstr "চলছে"
@@ -1359,7 +1452,7 @@ msgid "tui.empty"
 msgstr "(কোনো তথ্য নেই)"
 
 msgid "tui.footer"
-msgstr "1-9/0/- ভিউ  j/k সরান  r রিফ্রেশ  t থিম  q প্রস্থান  |  {cols}x{rows}"
+msgstr "Tab/1-9 ভিউ  j/k সরান  r রিফ্রেশ  t থিম  q প্রস্থান  |  {cols}x{rows}"
 
 msgid "tui.header.none"
 msgstr "সেশন নেই"

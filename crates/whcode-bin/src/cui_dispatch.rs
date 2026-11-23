@@ -523,6 +523,7 @@ fn llm_command(
                 budget_tokens: None,
                 workspace_root: Some(workspace.to_path_buf()),
                 depth: 0,
+                steer: None,
             };
             let now = now_ms()?;
             // 四端写姿态统一：CUI 恒走带闸门路径（执行不变，审计从此落表）。
