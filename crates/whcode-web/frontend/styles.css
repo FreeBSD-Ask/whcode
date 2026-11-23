@@ -66,6 +66,13 @@
   --text-xl: 18px;
   --sidebar-width: 260px;
   --content-max: 880px;
+  /* ADR-102／DSH 分配：侧栏几何、右栏比例、中栏保底（空间不足时按序降级）。 */
+  --sidebar-min: 264px;
+  --sidebar-max: 360px;
+  --sidebar-rail: 56px;
+  --right-panel: 0px;
+  --right-panel-min: 300px;
+  --content-min: 400px;
 }
 [data-theme="eink-night"] {
   --bg: #000000;
@@ -335,9 +342,53 @@ body.shell { flex-direction: row; }
 /* ── 主区 ───────────────────────────────────────────────────────────── */
 .workspace {
   flex: 1;
-  min-width: 0;
+  min-width: var(--content-min);
   display: flex;
   flex-direction: column;
+}
+
+/* ── 三栏骨架（DSH AppFrame 分配）─────────────────────────────────────
+   中栏优先：空间不足时先把右栏缩至 --right-panel-min，再隐藏右栏，
+   最后才允许中栏低于保底宽度。右栏默认关闭（--right-panel: 0）。 */
+.right-panel {
+  flex: 0 0 var(--right-panel);
+  width: var(--right-panel);
+  min-width: 0;
+  border-inline-start: 1px solid var(--border);
+  background: var(--panel);
+  overflow: auto;
+}
+body:has(.right-panel:empty) .right-panel { display: none; }
+
+/* 降级①：视口不足侧栏+中栏保底+右栏 300 时，右栏先缩至 300px。 */
+@media (max-width: 1280px) {
+  .right-panel { --right-panel: min(var(--right-panel), 300px); }
+}
+/* 降级②：再不足则关闭右栏，保中栏 400px。 */
+@media (max-width: 1100px) {
+  .right-panel { display: none; }
+}
+/* 降级③：<1024px 自动收起侧栏，留 56px 轨道。 */
+@media (max-width: 1023px) {
+  .sidebar { width: var(--sidebar-rail); flex-basis: var(--sidebar-rail); }
+  .sidebar__brand h1,
+  .sidebar__foot,
+  #tabs button span.label { display: none; }
+  #tabs button { width: var(--sidebar-rail); justify-content: center; }
+}
+/* <768px：模态抽屉（不占列宽），由 app.js 的 data-drawer 控制。 */
+@media (max-width: 767px) {
+  body.shell { flex-direction: column; }
+  .sidebar {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 20;
+    width: var(--sidebar-min);
+    transform: translateX(-100%);
+    transition: transform 160ms ease;
+  }
+  body[data-drawer="open"] .sidebar { transform: none; }
 }
 .app-bar {
   display: flex;

@@ -657,7 +657,7 @@ msgid "gui.chat.models"
 msgstr "模型目录"
 
 msgid "gui.chat.new"
-msgstr "开始新对话"
+msgstr "新建会话"
 
 msgid "gui.chat.no_request"
 msgstr "没有可取消的请求 ID（先发送一轮对话）"
@@ -1719,13 +1719,13 @@ msgid "web.session.show_archived"
 msgstr "含归档"
 
 msgid "web.session.sort"
-msgstr "排序"
+msgstr "排序方式"
 
 msgid "web.session.sort.created"
 msgstr "创建时间"
 
 msgid "web.session.sort.last_active"
-msgstr "最近活跃"
+msgstr "按活动时间"
 
 msgid "web.session.sort.title"
 msgstr "标题"
@@ -1740,13 +1740,13 @@ msgid "web.tab.context"
 msgstr "上下文"
 
 msgid "web.tab.diff"
-msgstr "diff"
+msgstr "Diff"
 
 msgid "web.tab.history"
 msgstr "历史"
 
 msgid "web.tab.maintenance"
-msgstr "维护"
+msgstr "归档管理"
 
 msgid "web.tab.sessions"
 msgstr "会话"
