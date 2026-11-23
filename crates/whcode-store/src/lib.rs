@@ -120,8 +120,8 @@ pub use purge::{
     set_archived,
 };
 pub use search::{
-    ContentHit, MAX_SEARCH_LIMIT, MAX_SEARCH_NEEDLE_CHARS, SNIPPET_CHARS, search_messages,
-    snippet_around,
+    ContentHit, MAX_SEARCH_LIMIT, MAX_SEARCH_NEEDLE_CHARS, SNIPPET_CHARS, fts_available,
+    search_messages, search_messages_ranked, snippet_around,
 };
 
 pub use query::{

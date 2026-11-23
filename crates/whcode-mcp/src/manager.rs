@@ -190,12 +190,33 @@ impl McpManager {
         &self.connect_errors
     }
 
+    /// 会话已失效的服务器名（ADR-097；按 BTreeMap 序，确定性输出）。
+    ///
+    /// 供 turn 层在清单变化时追加一次告示——失效事实对模型可见，不静默。
+    #[must_use]
+    pub fn broken_servers(&self) -> Vec<String> {
+        self.servers
+            .iter()
+            .filter(|(_, server)| server.session.is_broken())
+            .map(|(name, _)| name.clone())
+            .collect()
+    }
+
     /// 投影合并清单（BTreeMap 服务器序 + 工具名字典序，确定性输出）。
+    ///
+    /// ADR-097：跳过会话已失效（`is_broken()`）的服务器——其工具自本步起不再投影，
+    /// 避免模型继续调用必然失败的工具。失效由传输层在真实失败时置位，本方法不做探测。
     #[must_use]
     pub fn tool_manifest(&self) -> McpManifest {
         let mut manifest = McpManifest::default();
         let mut used = 0usize;
         'outer: for (server_name, server) in &self.servers {
+            if server.session.is_broken() {
+                manifest
+                    .notes
+                    .push(format!("服务器 {server_name} 会话已失效，其工具未投影"));
+                continue;
+            }
             let mut tools: Vec<&McpTool> = server.tools.iter().collect();
             tools.sort_by(|a, b| a.name.cmp(&b.name));
             for tool in tools {
@@ -523,5 +544,51 @@ mod tests {
         assert_eq!(errors[0].0, "dead");
         assert!(!errors[0].1.is_empty(), "失败原因可定位");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+    /// ADR-097：会话失效的服务器，其工具不再进入清单；`broken_servers()` 报出。
+    #[test]
+    fn tool_manifest_skips_broken_servers() {
+        let server = |session: McpSession, tool: &str| ConnectedServer {
+            session,
+            tools: vec![McpTool {
+                name: tool.to_string(),
+                description: format!("{tool} 说明"),
+                input_schema: json!({"type": "object"}),
+            }],
+            tools_truncated: false,
+            resources: false,
+            instructions: None,
+            timeout: Duration::from_secs(1),
+            max_output_bytes: 4096,
+        };
+        let mut manager = McpManager::default();
+        manager.servers.insert(
+            "alive".to_string(),
+            server(McpSession::alive_for_test(), "a"),
+        );
+        manager.servers.insert(
+            "dead".to_string(),
+            server(McpSession::broken_for_test(), "b"),
+        );
+
+        let manifest = manager.tool_manifest();
+        let joined: Vec<String> = manifest.entries.iter().map(ToString::to_string).collect();
+        assert!(
+            joined.iter().any(|e| e.contains("mcp__alive__a")),
+            "存活服务器工具应在清单内：{joined:?}"
+        );
+        assert!(
+            !joined.iter().any(|e| e.contains("mcp__dead__b")),
+            "失效服务器工具不得进清单：{joined:?}"
+        );
+        assert!(
+            manifest
+                .notes
+                .iter()
+                .any(|n| n.contains("dead") && n.contains("失效")),
+            "失效须留注记（不静默）：{:?}",
+            manifest.notes
+        );
+        assert_eq!(manager.broken_servers(), vec!["dead".to_string()]);
     }
 }

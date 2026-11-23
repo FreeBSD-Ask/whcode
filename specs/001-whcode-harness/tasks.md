@@ -3133,3 +3133,34 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   对照 run `45028018422` 同 156 passed 后 signal 11。首次有根因解释的绿；A2 间歇性，
   保留 monitoring 观察，不宣称统计意义上的修复。
   （开工前置：任务认知卡，见 ADR-096 §任务认知卡）
+
+## Tasks（2026-11-23 追加）：准入工具清单按步重算（ADR-097）
+
+- [x] T417（FR-805）实现：`tool_manifest` 跳过 `is_broken()` 服务器并留注记；新增
+  `broken_servers()`；turn 循环每步重算 `step_manifest`，失效服务器告示一次。
+  **取证（2026-11-23）**：`cargo test -p whcode-mcp --lib` 22 通过（含新增
+  `tool_manifest_skips_broken_servers`）；`cargo test -p whcode-app turn::` 36 通过；
+  clippy -D warnings 通过。（开工前置：任务认知卡，见 ADR-097 §任务认知卡）
+- [x] T418 登记与收口：FR-805／Check 492 入账、CHANGELOG 同步、全链门禁。
+  **取证（2026-11-23）**：待全链门禁回填。（开工前置：任务认知卡，见 ADR-097 §任务认知卡）
+
+## Tasks（2026-11-23 追加）：上下文组成分解（ADR-098）
+
+- [x] T419（FR-806）实现：`derive_context` 按摘要前缀与其余消息分类累加（等式可判定）；
+  默认九件注册表清单估算 `tool_schemas`；`note` 同时标注工具侧近似与 system 未覆盖。
+  **取证（2026-11-23）**：`cargo test -p whcode-app snapshot::` 5 通过（含
+  `snapshot_context_breakdown_sums_to_total`）。（开工前置：任务认知卡，见 ADR-098 §任务认知卡）
+- [x] T420 登记与收口：FR-806／Check 493 入账、契约实现注记同步、CHANGELOG、全链门禁。
+  **取证（2026-11-23）**：待全链门禁回填。（开工前置：任务认知卡，见 ADR-098 §任务认知卡）
+
+## Tasks（2026-11-23 追加）：会话全文检索（ADR-099）
+
+- [x] T421（FR-807）实现：迁移 0017 `fts_index_meta`（schema v17、TABLE_COUNT 22、
+  导出排除登记）；`fts_available`／`ensure_fts_index`／`search_messages_ranked`；
+  app 层 `search_session_content_ranked`；fetch 脚本扩展下载（.gz 校验→解压→就位，
+  UA 修复、双调用缺陷修正）。**取证（2026-11-23）**：`cargo test -p whcode-store`
+  200 通过（含 3 个 FTS 测试）；`fts_available=true` 实测；fetch 脚本端到端实测通过。
+  （开工前置：任务认知卡，见 ADR-099 §任务认知卡）
+- [ ] T422 四端接线与平台扩展：CUI／GUI／Web 检索入口暴露 `ranked` 标记；FreeBSD／ARM64
+  扩展哈希实测登记；中文分词质量实测。**未完成**——需实测与四端改动，单独批次。
+  （开工前置：任务认知卡，见 ADR-099 §任务认知卡）

@@ -105,6 +105,40 @@ pub trait Transport: Send {
     fn pid(&self) -> u32;
 }
 
+/// 测试用空传输（ADR-097 清单过滤单测）：所有协议操作返回错误、读为 EOF。
+#[cfg(test)]
+struct NullTransport;
+
+#[cfg(test)]
+impl Transport for NullTransport {
+    fn write_message(
+        &mut self,
+        _line: &str,
+        _timeout: Duration,
+        _cancel: Option<CancelFlag>,
+    ) -> Result<(), WhError> {
+        Err(WhError::internal("NullTransport 不支持写入"))
+    }
+
+    fn read_message(&mut self, _cap: usize) -> Result<Option<String>, WhError> {
+        Ok(None)
+    }
+
+    fn abort_handle(&self) -> Arc<dyn Fn() + Send + Sync> {
+        Arc::new(|| {})
+    }
+
+    fn eof_kind(&mut self, _cancel: Option<CancelFlag>) -> EofKind {
+        EofKind::Closed
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn pid(&self) -> u32 {
+        0
+    }
+}
+
 /// 瞬态看门狗：轮询（deadline / 取消 / done），到点调用终止句柄解锁阻塞读。
 struct Watchdog {
     done: Arc<AtomicBool>,
@@ -528,6 +562,37 @@ impl McpSession {
     #[must_use]
     pub fn is_broken(&self) -> bool {
         self.broken
+    }
+
+    /// 测试辅助：构造一个已失效的会话（ADR-097 清单过滤的单测需要，
+    /// 真实失效只能由传输失败触发，无法在单测中稳定复现）。
+    #[cfg(test)]
+    pub(crate) fn broken_for_test() -> Self {
+        Self {
+            server_name: "test-broken".to_string(),
+            transport: Box::new(NullTransport),
+            next_id: 1,
+            initialized: true,
+            broken: true,
+            notifications_seen: 0,
+            instructions: None,
+            resources: false,
+        }
+    }
+
+    /// 测试辅助：构造一个正常会话（对照 broken_for_test）。
+    #[cfg(test)]
+    pub(crate) fn alive_for_test() -> Self {
+        Self {
+            server_name: "test-alive".to_string(),
+            transport: Box::new(NullTransport),
+            next_id: 1,
+            initialized: true,
+            broken: false,
+            notifications_seen: 0,
+            instructions: None,
+            resources: false,
+        }
     }
 
     /// 入站通知计数（诊断用）。

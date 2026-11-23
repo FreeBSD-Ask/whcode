@@ -1,5 +1,14 @@
 # 总览：ZCode × WHCode 定位与技术栈
 
+> **状态：历史快照（2026-11-23 标注，superseded）。** 本目录基于 ZCode commit
+> `3c5b227`（2026-10-20）成文于 2026-10-28；2026-11-23 刷新至 `fec9759`（v3.18.2，2026-11-13）。此后 WHCode 已交付 ADR-044—096，
+> 文中 P0／P1 的“WHCode 现状”列**几乎全部失效**——例如“工具系统仅 62 行声明”现为
+> `crates/whcode-tools` 4 407 行、“全仓无 MCP 引用”现为 `crates/whcode-mcp` 2 743 行、
+> “无子代理”现为 `spawn_subagent` 工具、“压缩未接线”现为 `turn.rs` 的
+> `CompactionSummary` 链路。**现状判定以 `research/dsh-comparison/actionable-gaps.md`
+> 的 2026-11-20 复核记录为准**；本目录仅作 ZCode 侧实现证据的历史参照，不得据其
+> “WHCode 现状”列开工。
+
 > 本文件是 `research/zcode-comparison/` 的总览篇。分域深度报告见 `domain-{A..P}-*.md`。
 
 ## 1. 定位与技术栈总览
@@ -34,6 +43,19 @@
 14. 模型轨迹/白板/Todo UI、Claude 原生会话导入、model-option-map 请求体补丁编译
 15. 架构治理的文件级约束（maxFileLines 800 / forbidCycles 自动检查）（域 P）
 16. 凭据 AES-256-GCM 静态加密（enc:v1:）（域 N）
+17. **Prompt Snapshot**（v3.18 系列，`apps/zcode-cli/docs/design/v2/loop/prompt-snapshot.md`）：
+    每会话记录 system blocks 快照并持续重发，使 provider prompt cache 前缀在冷恢复后不因
+    CLI 升级而失效；**工具列表不记录**——每请求从当前 registry 准备（MCP 中途连接会改变
+    工具集，固定清单反而破坏前缀）。2026-11-23 刷新时新增。
+18. **Context Composition**（`apps/zcode-cli/docs/design/v2/model/context-composition.md`）：
+    把每次模型请求的上下文按 11 个细类别（system_prompt／meta_user_context／skills／
+    tool_prompt／system_tool_schemas／mcp_tool_schemas／app_tool_schemas／
+    deferred_tool_schemas／reminders／compact_summary／messages）分解，投影到 7 个粗类别；
+    只给类别与大小不给正文，支持发送前预演（draft-preview），变化通知只带修订号。
+    2026-11-23 刷新时新增。
+19. **工具可达性与分级披露**（`ToolSchema.deferLoading` 的延伸）：工具按可达性
+    （native／program／both）与初始披露（none／name／summary／full）两个维度描述。
+    2026-11-23 刷新时新增。
 
 **WHCode 独有**（ZCode 无对应物）：
 1. 规格驱动门禁（GateId 四类 + StageTransition + force_advance reason 必填审计）（域 G）

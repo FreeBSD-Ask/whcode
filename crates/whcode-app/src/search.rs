@@ -9,7 +9,9 @@
 
 use duckdb::Connection;
 use whcode_domain::WhError;
-use whcode_store::{MAX_SEARCH_LIMIT, MAX_SEARCH_NEEDLE_CHARS, search_messages};
+use whcode_store::{
+    MAX_SEARCH_LIMIT, MAX_SEARCH_NEEDLE_CHARS, search_messages, search_messages_ranked,
+};
 
 pub use whcode_store::ContentHit;
 
@@ -51,6 +53,34 @@ pub fn search_session_content(
     }
     let limit = query.limit.clamp(1, MAX_SEARCH_LIMIT);
     search_messages(conn, needle, limit)
+}
+
+/// 相关度排序检索（ADR-099）：fts 扩展可用时按 `match_bm25` 排序，否则回退子串检索。
+///
+/// 返回 `(命中, 是否按相关度排序)`——`false` 表示走了回退路径，调用方须如实展示，
+/// 不得把子串结果冒充为排序结果。
+///
+/// # Errors
+///
+/// 与 [`search_session_content`] 同：权限、入参、存储失败。
+pub fn search_session_content_ranked(
+    conn: &Connection,
+    policy: &dyn Policy,
+    actor: &Actor,
+    query: &ContentSearchQuery,
+) -> Result<(Vec<ContentHit>, bool), WhError> {
+    require(policy, actor, Capability::SessionRead)?;
+    let needle = query.needle.trim();
+    if needle.is_empty() {
+        return Err(WhError::invalid_state("搜索词不能为空"));
+    }
+    if needle.chars().count() > MAX_SEARCH_NEEDLE_CHARS {
+        return Err(WhError::invalid_state(format!(
+            "搜索词超过 {MAX_SEARCH_NEEDLE_CHARS} 字符"
+        )));
+    }
+    let limit = query.limit.clamp(1, MAX_SEARCH_LIMIT);
+    search_messages_ranked(conn, needle, limit)
 }
 
 #[cfg(test)]

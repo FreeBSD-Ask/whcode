@@ -157,6 +157,18 @@
 - 索引：`(status, updated_at, idempotency_key)`
 - 导出：**不在** `EXPORT_TABLES`，登记于 `EXCLUDED_TABLES`（机器本地投递状态，重建即可）
 
+### fts_index_meta
+
+FTS 索引时效（ADR-099／FR-807，schema v17）。
+
+- 字段：`id, indexed_max_ts_us, indexed_rows, updated_at`
+- 约束：单行表，`id` 主键且 `CHECK (id = 1)`；`indexed_max_ts_us` 为建索引时的
+  `epoch_us(max(messages.ts))`，`indexed_rows` 为当时 `count(*)`
+- 校验：检索前比对当前 `(max_ts_us, rows)`——相等即跳过重建（零成本），否则执行
+  `PRAGMA create_fts_index('messages','id','content_ref', overwrite=1)` 并更新本行
+- 导出：**不在** `EXPORT_TABLES`，登记于 `EXCLUDED_TABLES`（索引不随导出迁移，
+  导入后按需重建）
+
 ### schema_migrations
 - 字段：`version, applied_at, checksum`
 - 约束：迁移可审计且不可重复误执行（§7.1）

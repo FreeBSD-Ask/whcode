@@ -13,6 +13,28 @@
 
 ### 变更
 
+- **会话全文检索（2026-11-23，ADR-099／FR-807／T421—T422）**：用户批准 FTS 并明确发行包
+  体积不设限。DuckDB `fts` 扩展随包分发（`fetch-duckdb.py` 下载 `.gz`、按 sha256 与字节数
+  校验、解压到 `vendor/duckdb/<ver>/<target>/`，离线 `LOAD` 绝对路径）；新增
+  `search_messages_ranked`——扩展可用时按 `match_bm25` 排序，否则**回退**子串检索并返回
+  `ranked=false`（不报错、不冒充排序）。索引以迁移 0017 的 `fts_index_meta`（schema v17）
+  记录 `max(ts)` 与行数，无新消息时零成本跳过重建；该表登记为导出排除（本机派生状态）。
+  实测：`fts_available=true`（扩展 46,990,358 字节，`.gz` 14,751,504 字节、sha256
+  `d5328ff…`）；store 200 测试通过。**未完成**：四端接线、FreeBSD/ARM64 扩展哈希、中文
+  分词质量实测（T422）。
+- **上下文组成分解（2026-11-23，ADR-098／FR-806／T419—T420）**：快照 `context` 增
+  `breakdown`——`compact_summary` 与 `conversation` 两类之和**严格等于** `estimated_tokens`；
+  `tool_schemas` 为默认九件注册表估算并标注近似。**system 提示不落 messages 表**
+  （`turn.rs:214` 过滤），不在分解内，`note` 显式标注该缺口，不伪造分类。依据
+  `research/zcode-comparison` 的 Context Composition（11 细类/7 粗类）。取证：
+  `snapshot_context_breakdown_sums_to_total`（断言等式、tool_schemas>0、无 system 分类）。
+- **准入工具清单按步重算（2026-11-23，ADR-097／FR-805／T417—T418）**：turn 内每一步的
+  `tools` 此前是 turn 开始时的快照——某 MCP 服务器在步 2 调用失败（`broken`）后，步 3 仍
+  发送其全部工具定义，模型会继续调用必然失败的工具。现 `McpManager::tool_manifest` 跳过
+  失效服务器并留注记，turn 循环每步重算清单，失效以 system 消息告示一次；内置清单沿用
+  turn 快照，不新增主动探测、不做披露分级、不改审批语义。依据 `research/dsh-comparison`
+  的跨书交叉（DSH 每步 resolve、ZCode 每请求从 registry 准备）。取证：
+  `tool_manifest_skips_broken_servers`、turn 测试 36 通过。
 - **A2 根因修复：serve loop 测试线程有序停止（2026-11-22，ADR-096／FR-804／T415—T416）**：
   长期 monitoring 的 A2（`whcode-bin` 测试二进制在 FreeBSD 退出路径 SIGSEGV）根因定位——
   core backtrace 显示崩溃线程 `serve-loop-test` 栈顶在 `libduckdb.so` 的

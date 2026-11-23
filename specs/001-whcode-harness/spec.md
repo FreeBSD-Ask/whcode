@@ -823,6 +823,41 @@ taskkill /T /F 口径）（P1）
   - 证据：`crates/whcode-bin/src/serve.rs`（可选信号、`Drop`、`Deref`）、
     `local/a2-diag-45028018422/core-bt.txt`（根因）、serve 测试 40 通过；Check 491
 
+- **FR-805**: 准入工具清单按步重算（P1，ADR-097）：turn 内每一步的 `tools` 反映当步真实
+  可用工具——MCP 会话失效（`is_broken()`）后其工具自本步起不再投影，并以 system 消息
+  告示一次；内置工具清单按 turn 开始时的注册表快照；不新增主动探测、不做披露分级、
+  不改审批语义
+  - 依据：ADR-097；ADR-044／048／054；`research/dsh-comparison` 2026-11-23 跨书交叉
+  - 判据：Given 某 MCP 服务器在步 N 调用失败置 broken，Then 步 N+1 的 tools 不含其工具
+    且有一条告示；Given 无 MCP 配置，Then 清单与改动前一致（正确的空）；Given 多服务器，
+    Then 仅失效者的工具被摘除
+  - 证据：`crates/whcode-mcp/src/manager.rs`（清单过滤、`broken_servers()`）、
+    `crates/whcode-app/src/turn.rs`（每步重算与告示）、单测
+    `tool_manifest_skips_broken_servers`；Check 492
+
+- **FR-806**: 上下文组成分解（P2，ADR-098）：快照 `context.breakdown` 给出
+  `compact_summary`／`conversation`（两者之和严格等于 `estimated_tokens`）与
+  `tool_schemas`（默认九件注册表估算，标注近似）；**system 提示不落 messages 表
+  （`turn.rs:214` 过滤），不在分解内，须在 note 显式标注**，不得伪造该分类
+  - 依据：ADR-098；ADR-094；`contracts/state-snapshot.md` §2；
+    `research/zcode-comparison` 的 Context Composition
+  - 判据：Given 会话有摘要与对话，Then 两类之和 == estimated_tokens；Given 任一快照，
+    Then breakdown.note 同时说明工具侧近似与 system 未覆盖；Given 旧读者，Then 忽略新键不报错
+  - 证据：`crates/whcode-app/src/snapshot.rs`（分类累加、默认注册表估算）、单测
+    `snapshot_context_breakdown_sums_to_total`；Check 493
+
+- **FR-807**: 会话全文检索（P2，ADR-099，用户批准且明确体积不设限）：fts 扩展随包分发
+  （`fetch-duckdb.py` 下载并按 sha256 校验），离线 `LOAD`；`search_messages_ranked` 在扩展
+  可用时按 `match_bm25` 排序，否则**回退**子串检索并返回 `ranked=false`；索引以
+  `fts_index_meta`（schema v17）记录时效，无新消息时零成本跳过重建
+  - 依据：ADR-099；ADR-076（FTS 延后项收口）；`research/dsh-comparison` 域 L
+  - 判据：Given 扩展就位，Then `fts_available=true`、索引可建、相关度排序生效；
+    Given 扩展缺失，Then 检索仍可用且 `ranked=false`（不报错、不冒充排序）；
+    Given 无新消息，Then 不重建索引（meta 戳记相等即跳过）
+  - 证据：`crates/whcode-store/src/search.rs`（`fts_available`／`ensure_fts_index`／
+    `search_messages_ranked`）、迁移 0017、`.github/scripts/fetch-duckdb.py`（扩展分发）；
+    Check 494
+
 
 - **FR-771**: 会话待办工具：模型可整表替换本会话待办清单（`pending`／`in_progress`／
   `completed` 三态，条目无 id 与优先级），清单以 `TodoUpdated` 事件持久化（log-only，

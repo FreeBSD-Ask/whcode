@@ -1,5 +1,14 @@
 # ZCode × WHCode 差异比较研究（research/zcode-comparison/）
 
+> **状态：历史快照（2026-11-23 标注，superseded）。** 本目录基于 ZCode commit
+> `3c5b227`（2026-10-20）成文于 2026-10-28；2026-11-23 刷新至 `fec9759`（v3.18.2，2026-11-13）。此后 WHCode 已交付 ADR-044—096，
+> 文中 P0／P1 的“WHCode 现状”列**几乎全部失效**——例如“工具系统仅 62 行声明”现为
+> `crates/whcode-tools` 4 407 行、“全仓无 MCP 引用”现为 `crates/whcode-mcp` 2 743 行、
+> “无子代理”现为 `spawn_subagent` 工具、“压缩未接线”现为 `turn.rs` 的
+> `CompactionSummary` 链路。**现状判定以 `research/dsh-comparison/actionable-gaps.md`
+> 的 2026-11-20 复核记录为准**；本目录仅作 ZCode 侧实现证据的历史参照，不得据其
+> “WHCode 现状”列开工。
+
 - **目录性质**：外部参照与调研证据（ADR-045）；**不构成 ADR 或实施承诺**；采纳任何一项需走
   WHCode G0—G5 门禁并落到 `specs/` 或 ADR。
 - **ZCode 证据**：源码浅克隆于 `local/zcode-src`（**不入库**），commit

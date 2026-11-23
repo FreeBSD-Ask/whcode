@@ -108,10 +108,27 @@ fn derive_context(
 ) -> Result<serde_json::Value, WhError> {
     let budget = DEFAULT_TURN_BUDGET_TOKENS;
     let loaded = history_messages(conn, policy, actor, session_id, budget)?;
-    let estimated_tokens: usize = loaded
-        .iter()
-        .map(|message| crate::context::estimate_tokens(&message.content))
-        .sum();
+    // ADR-098：按消息侧类别累加（与 estimated_tokens 同源同函数，保证等式可判定）。
+    // 注意：system 消息不落 messages 表（turn.rs:214 过滤），故不设 system 分类——
+    // 快照无法分解 system 提示，该缺口在 breakdown.note 显式标注，不伪造估算。
+    let mut compact_summary = 0usize;
+    let mut conversation = 0usize;
+    for message in &loaded {
+        let tokens = crate::context::estimate_tokens(&message.content);
+        if message.content.starts_with("[上下文摘要") {
+            compact_summary += tokens;
+        } else {
+            conversation += tokens;
+        }
+    }
+    let estimated_tokens = compact_summary + conversation;
+
+    // 工具定义单列：默认九件注册表估算（快照不知道 turn 实际装配，故标注近似）。
+    let tool_schemas = whcode_tools::registry_with_optional_tools(None, None, None)
+        .ok()
+        .and_then(|registry| serde_json::to_string(&registry.provider_manifest()).ok())
+        .map(|json| crate::context::estimate_tokens(&json))
+        .unwrap_or(0);
 
     // 全量 token 和（含被 rewind 边界排除的消息之前的完整历史），用于判定是否发生
     // 预算截断；查询有界聚合，不取回正文。
@@ -133,6 +150,14 @@ fn derive_context(
         "estimated_tokens": estimated_tokens,
         "budget": budget,
         "truncated": truncated,
+        // ADR-098：组成分解。前三类之和严格等于 estimated_tokens；tool_schemas 为
+        // 默认九件注册表估算，不参与等式（turn 实际清单可能含 shell/LSP/技能/MCP）。
+        "breakdown": {
+            "compact_summary": compact_summary,
+            "conversation": conversation,
+            "tool_schemas": tool_schemas,
+            "note": "tool_schemas 为默认九件注册表估算（turn 实际清单可能含 shell/LSP/技能/MCP，未计入）；system 提示在 turn 内组装、不落 messages 表，故不在本分解内",
+        },
     });
     if truncated {
         value["truncate_reason"] = json!("budget_exceeded");
@@ -441,5 +466,55 @@ mod tests {
         let llm = snapshot.llm.clone().expect("有 LLM 活动");
         assert_eq!(llm["state"], "completed");
         assert!(llm["elapsed_ms"].as_i64().is_some_and(|v| v >= 0));
+    }
+    /// ADR-098：breakdown 前三类之和严格等于 estimated_tokens；tool_schemas 单列且标注近似。
+    #[test]
+    fn snapshot_context_breakdown_sums_to_total() {
+        let conn = migrated();
+        conn.execute(
+            "INSERT INTO sessions (id, title, created_at, last_active_at, status)
+             VALUES ('S-bd', '分解', current_timestamp, current_timestamp, 'active')",
+            [],
+        )
+        .expect("会话");
+        for (id, role, content, ts) in [
+            ("M-1", "assistant", "助手回复内容", 1_000.0),
+            ("M-2", "user", "用户问题正文", 1_001.0),
+            ("M-3", "user", "[上下文摘要｜模型生成] 摘要正文", 1_002.0),
+        ] {
+            conn.execute(
+                "INSERT INTO messages (id, session_id, role, content_ref, token_count, ts, parent_id)
+                 VALUES (?, 'S-bd', ?, ?, NULL, to_timestamp(?), NULL)",
+                duckdb::params![id, role, content, ts / 1000.0],
+            )
+            .expect("消息");
+        }
+
+        let policy = DefaultPolicy;
+        let actor = actor_with_all_capabilities("tester");
+        let snapshot = build_snapshot(&conn, &policy, &actor, "S-bd").expect("快照");
+        let ctx = snapshot.context.expect("context");
+        let b = &ctx["breakdown"];
+        let sum = b["compact_summary"].as_u64().expect("summary");
+        let conv = b["conversation"].as_u64().expect("conversation");
+        assert!(sum > 0, "摘要应单独归类：{b}");
+        assert!(conv > 0, "对话应计入：{b}");
+        assert_eq!(
+            ctx["estimated_tokens"].as_u64().expect("total"),
+            sum + conv,
+            "两类之和必须等于 estimated_tokens（ADR-098 等式约束）"
+        );
+        assert!(
+            b.get("system_messages").is_none(),
+            "system 不落库，不得伪造该分类"
+        );
+        assert!(
+            b["tool_schemas"].as_u64().expect("tools") > 0,
+            "默认九件注册表估算应大于 0"
+        );
+        assert!(
+            b["note"].as_str().expect("note").contains("默认九件"),
+            "工具侧必须标注为近似"
+        );
     }
 }
