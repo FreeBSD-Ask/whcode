@@ -561,11 +561,19 @@ mod tests {
             let is_day = theme.name == "whcode-day";
             assert_eq!(
                 palette.success_surface,
-                if is_day { "#eaf7ee" } else { "rgba(70,191,114,0.16)" }
+                if is_day {
+                    "#eaf7ee"
+                } else {
+                    "rgba(70,191,114,0.16)"
+                }
             );
             assert_eq!(
                 palette.interaction_confirmation_surface,
-                if is_day { "#eaf7ee" } else { "rgba(70,191,114,0.16)" }
+                if is_day {
+                    "#eaf7ee"
+                } else {
+                    "rgba(70,191,114,0.16)"
+                }
             );
         }
     }
