@@ -23,7 +23,7 @@
 | scope | 对象 | 再生成方式 |
 |---|---|---|
 | `target` | 仓库 `target/` 与 `git worktree list` 登记的每个工作树的 `target/` | `cargo build --locked` |
-| `temp` | 系统 TEMP 下 `whcode-*`／`wt-probe-*` 残留（目录与文件） | 测试重跑自然重建 |
+| `temp` | 系统 TEMP 下 `whcode-*`／`wt-probe-*` 残留（目录与文件），[`TEMP_KEEP_ALWAYS`] 列出的长期工具链缓存除外 | 测试重跑自然重建 |
 | `stray` | 仓库内 `*.tmp/*.bak/*.orig/*.rej/*~/*.log` 与根 `whcode.duckdb*` | 不应存在（存在即误操作产物） |
 | `script` | `local/` 下匹配 [`SCRIPT_DELETE_PATTERNS`] 的临时脚本与运行日志 | 均为一次性工作产物，不再生（长期工具与凭据在 [`SCRIPT_KEEP_ALWAYS`] 显式保留） |
 | `cache` | 仓库内 `__pycache__/` 与 `*.pyc`（Python 解释器缓存） | 下次运行脚本自动重建 |
@@ -56,6 +56,12 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 
 #: 系统 TEMP 下本项目的测试残留前缀（与 crates/tests 里的临时目录命名对应）。
 TEMP_PREFIXES = ("whcode-", "wt-probe-")
+
+#: 系统 TEMP 下匹配前缀但不得清理的长期对象（与 local/ 的 SCRIPT_KEEP_ALWAYS 同口径）。
+#: `whcode-toolcache` 是 setup-windows-llvm.py 解包的 llvm-mingw 工具链与校验 zip：
+#: 2026-11-23 实测上游清华镜像 1.100.0 gnullvm 返回 404，删除即无法重建，
+#: 后续所有 cargo build/test 均会失去链接器。前缀扫描会误命中，故显式豁免。
+TEMP_KEEP_ALWAYS = ("whcode-toolcache",)
 
 #: 仓库内垃圾文件模式（stray）。git 跟踪文件恒不清理。
 STRAY_PATTERNS = ["*.tmp", "*.bak", "*.orig", "*.rej", "*~", "*.log"]
@@ -212,6 +218,8 @@ def scan_temp(now: float) -> list[dict[str, object]]:
     for entry in sorted(temp.glob("whcode-*")) + sorted(temp.glob("wt-probe-*")):
         if not entry.is_dir() and not entry.is_file():
             continue
+        if entry.name in TEMP_KEEP_ALWAYS:
+            continue  # 长期工具链缓存：不可重建，误删会失去构建能力
         try:
             age = now - entry.stat().st_mtime
         except OSError:
