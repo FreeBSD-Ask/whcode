@@ -398,7 +398,7 @@ mod tests {
     /// `ALL` 与解析：清单覆盖全部类型，稳定名往返一致（webhook 配置校验依赖它）。
     #[test]
     fn event_kind_all_covers_every_variant_and_parses_back() {
-        assert_eq!(EventKind::ALL.len(), 21, "新增事件类型必须同步 ALL");
+        assert_eq!(EventKind::ALL.len(), 22, "新增事件类型必须同步 ALL");
         for kind in EventKind::ALL {
             assert_eq!(EventKind::parse(kind.as_str()), Some(*kind));
         }

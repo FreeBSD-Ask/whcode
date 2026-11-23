@@ -2976,8 +2976,8 @@ mod tests {
             // 键位提示栏（末行）：键位与窗口尺寸。
             let last = lines.last().copied().unwrap_or_default();
             for expected in [
-                // 十一视图（T392／T406）：切换键为 `1`—`9`、`0` 与 `-`，词条按此表述。
-                "1-9/0/- 视图",
+                // ADR-102：新增 Tab/Shift+Tab 环序切换，`1`—`9` 直达保留；底栏文案随之更新。
+                "Tab/1-9 视图",
                 "j/k 移动",
                 "q 退出",
                 "80x24",

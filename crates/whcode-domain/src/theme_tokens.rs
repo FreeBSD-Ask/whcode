@@ -526,7 +526,6 @@ mod tests {
                 palette.foreground_inverse,
                 palette.success,
                 palette.success_foreground,
-                palette.success_surface,
                 palette.success_surface_foreground,
                 palette.destructive,
                 palette.destructive_foreground,
@@ -550,7 +549,6 @@ mod tests {
                 palette.foreground_subtle,
                 palette.foreground_subtlest,
                 palette.destructive_surface,
-                palette.interaction_confirmation_surface,
             ] {
                 assert!(
                     rgba.starts_with("rgba(") && rgba.ends_with(')'),
@@ -558,6 +556,17 @@ mod tests {
                     theme.name
                 );
             }
+            // ZCode 的 success/confirmation surface：day 用 hex、night 用 rgba，
+            // 按原值分别断言，不强制同形态（否则 night 会被 hex 组误判）。
+            let is_day = theme.name == "whcode-day";
+            assert_eq!(
+                palette.success_surface,
+                if is_day { "#eaf7ee" } else { "rgba(70,191,114,0.16)" }
+            );
+            assert_eq!(
+                palette.interaction_confirmation_surface,
+                if is_day { "#eaf7ee" } else { "rgba(70,191,114,0.16)" }
+            );
         }
     }
 
