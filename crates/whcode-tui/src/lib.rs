@@ -2709,7 +2709,7 @@ mod tests {
                         target_archived: *archived,
                     },
                     FrontendCommand::SessionArchive { .. } => CommandOutcome::Session(row),
-                    other => panic!("归档流程不应执行其他命令：{other:?}"),
+                    _other => panic!("归档流程不应执行其他命令"),
                 };
                 self.0.borrow_mut().push(command);
                 Ok(outcome)
@@ -2750,7 +2750,7 @@ mod tests {
             &options,
         );
         let sent = executor.0.borrow();
-        assert_eq!(sent.len(), 2, "先预览再执行：{sent:?}");
+        assert_eq!(sent.len(), 2, "先预览再执行：必须恰好两步");
         assert!(
             matches!(
                 sent[0],
