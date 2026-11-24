@@ -501,17 +501,19 @@ mod tests {
             1_002,
         );
 
-        assert!(
-            fts_available(&conn),
-            "本机须有 fts 扩展才能验证 tokenizer 行为"
-        );
+        // 能力分支（ADR-099 决策 4）：ARM64/FreeBSD 无 fts 扩展（实测下载失败／404），
+        // 不得硬断言 fts_available —— 那样会把“能力缺失”误判为“功能回归”。
+        let fts = fts_available(&conn);
         for needle in ["防火墙", "配置", "FreeBSD", "防火墙规则"] {
             let (hits, ranked) =
                 search_messages_ranked(&conn, needle, 5).expect("中文检索不得报错");
             assert!(
                 hits.iter().any(|h| h.message_id == "M-CN-1"),
-                "opensearch tokenizer 下 {needle:?} 须命中无空格长句；ranked={ranked}"
+                "{needle:?} 须命中无空格长句（fts={fts} ranked={ranked}）"
             );
+            if fts {
+                assert!(ranked, "{needle:?}：fts 可用时须按相关度排序");
+            }
         }
         // 不相关内容不得因逐字切分而误命中（防火墙 不应出现在 M-CN-2）。
         let (hits, _) = search_messages_ranked(&conn, "防火墙", 5).expect("检索");
