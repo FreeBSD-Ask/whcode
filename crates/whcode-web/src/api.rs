@@ -671,7 +671,9 @@ pub fn handle_request_with_llm(
             let limit = query_value("limit")
                 .and_then(|raw| raw.parse::<usize>().ok())
                 .unwrap_or(whcode_app::CONTENT_SEARCH_DEFAULT_LIMIT);
-            match whcode_app::search_session_content(
+            // ADR-099／T422：用 ranked 入口，响应如实标注是否按相关度排序——
+            // 扩展缺失或中文分词无命中时回退子串，ranked=false，不冒充排序结果。
+            match whcode_app::search_session_content_ranked(
                 conn,
                 &policy,
                 actor,
@@ -680,7 +682,7 @@ pub fn handle_request_with_llm(
                     limit,
                 },
             ) {
-                Ok(hits) => {
+                Ok((hits, ranked)) => {
                     let items: Vec<serde_json::Value> = hits
                         .iter()
                         .map(|hit| {
@@ -699,6 +701,7 @@ pub fn handle_request_with_llm(
                             "schema_version": whcode_domain::SCHEMA_VERSION,
                             "hits": items,
                             "count": hits.len(),
+                            "ranked": ranked,
                         }),
                     )
                 }
@@ -3737,6 +3740,12 @@ mod tests {
                 .as_str()
                 .unwrap_or_default()
                 .contains("WAL")
+        );
+        // ADR-099／T422：ranked 必须存在且为布尔——检索排序方式对调用方可见，
+        // 不得把子串回退结果冒充为相关度排序（ranked=true）。
+        assert!(
+            matches!(body["ranked"], serde_json::Value::Bool(_)),
+            "响应须带 ranked 布尔标记：{body}"
         );
 
         // 缺 q 是参数错误（不静默返回全量）。

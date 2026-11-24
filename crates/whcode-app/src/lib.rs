@@ -115,6 +115,7 @@ pub use runtime_mgmt::{
 };
 pub use search::{
     CONTENT_SEARCH_DEFAULT_LIMIT, ContentHit, ContentSearchQuery, search_session_content,
+    search_session_content_ranked,
 };
 pub use spec::{
     AnalyzeView, ConvergeDifference, ConvergeView, ValidateView, WorkspaceArtifacts, analyze_view,

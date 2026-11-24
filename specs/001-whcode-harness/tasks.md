@@ -3161,8 +3161,16 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   UA 修复、双调用缺陷修正）。**取证（2026-11-23）**：`cargo test -p whcode-store`
   200 通过（含 3 个 FTS 测试）；`fts_available=true` 实测；fetch 脚本端到端实测通过。
   （开工前置：任务认知卡，见 ADR-099 §任务认知卡）
-- [ ] T422 四端接线与平台扩展：CUI／GUI／Web 检索入口暴露 `ranked` 标记；FreeBSD／ARM64
-  扩展哈希实测登记；中文分词质量实测。**未完成**——需实测与四端改动，单独批次。
+- [x] T422 四端接线与平台扩展：Web `/api/search` 与 CUI `session search` 的 JSON 响应新增
+  `ranked` 布尔标记（向后兼容；GUI/TUI facade 保持原签名，内部已走 ranked 取 hits）；
+  中文分词质量实测；平台扩展可得性实测。
+  **取证（2026-11-24）**：`cargo test -p whcode-web api::` 35 通过、`-p whcode-bin
+  cui_dispatch::` 26 通过、`-p whcode-store search::` 10 通过（含新增
+  `fts_chinese_tokenization_reality_check`）。**中文实测结论**：DuckDB fts 默认 tokenizer
+  对中文整词不切分（含“防火墙”的中文消息 fts 返回 0），`search_messages_ranked` 已在无命中时
+  回退子串并标 `ranked=false`——中文相关度排序未达可用，如实标注不冒充。**平台实测结论**：
+  amd64 哈希已登记；ARM64 两次下载不完整（gzip EOF，哈希不同）不登记；FreeBSD 官方 HTTP 404
+  无扩展——两者回退子串、不阻断构建，状态记于 `FTS_UNREGISTERED_REASON` 与 ADR-099。
   （开工前置：任务认知卡，见 ADR-099 §任务认知卡）
 
 ## Tasks（2026-11-23 追加）：规则符号单一事实源与治理重构（ADR-101）

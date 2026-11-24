@@ -79,6 +79,18 @@ FTS_EXTENSIONS: dict[str, tuple[str, str, int]] = {
     ),
 }
 
+#: 未登记平台的已知状态（T422 取证，2026-11-24）——**不是欠账，是外部事实**：
+#: - `aarch64-pc-windows-msvc`：官方有 URL，但本机两次下载均不完整（gzip EOFError，
+#:   3.80 MB／3.60 MB，_amd64 为 14.75 MB），且两次 sha256 不同——下载通道不可信。
+#:   在取得完整包并复算哈希前不登记，fetch_fts 返回 2 → 运行期回退子串检索。
+#: - freebsd_amd64：官方 URL 返回 **HTTP 404**（响应体是 HTML 错误页），该平台无 fts 扩展；
+#:   FreeBSD 为硬门禁平台，检索按 ADR-099 决策 4 回退，不阻断构建。
+#: 复审触发：DuckDB 升级，或下载通道稳定后重取并复算哈希。
+FTS_UNREGISTERED_REASON: dict[str, str] = {
+    "aarch64-pc-windows-msvc": "官方包下载不完整（gzip EOF，两次哈希不同），待完整复算",
+    "freebsd_amd64": "官方无该平台扩展（HTTP 404），运行期按 ADR-099 回退子串检索",
+}
+
 #: 扩展下载基址（版本与 DUCKDB_VERSION 绑定）。
 FTS_BASE_URL = "https://extensions.duckdb.org"
 
@@ -315,9 +327,10 @@ def fetch_fts(target: str) -> int:
     """
     entry = FTS_EXTENSIONS.get(target)
     if entry is None:
+        reason = FTS_UNREGISTERED_REASON.get(target, "未取得完整包与哈希")
         print(
-            f"fts 扩展未登记平台 {target}：检索将回退到子串路径（ADR-099 决策 4）。"
-            "如需启用全文检索，请实测该平台扩展的 .gz SHA256 与字节数后登记本表。",
+            f"fts 扩展未登记平台 {target}：{reason}；"
+            "检索将回退到子串路径（ADR-099 决策 4），不阻断构建。",
             file=sys.stderr,
         )
         return 2

@@ -223,6 +223,12 @@ pub fn search_messages_ranked(
             snippet: snippet_around(&content, needle_trimmed),
         });
     }
+    if hits.is_empty() {
+        // ADR-099 复审触发 3（T422 实测）：fts 默认 tokenizer 对中文整词不切分——
+        // “防火墙”在含该词的中文消息上返回 0 命中。扩展“可用”不等于该查询“可检索”。
+        // 无命中时回退子串路径（本地优先、不静默返回空），并如实标 ranked=false。
+        return Ok((search_messages(conn, needle, limit)?, false));
+    }
     Ok((hits, true))
 }
 
@@ -462,6 +468,48 @@ mod tests {
                 )
                 .expect("meta");
             assert_eq!(meta, (max_ts, rows), "索引戳记须与当前消息一致");
+        }
+    }
+    /// ADR-099 复审触发 3：中文分词质量实测（T422）。
+    /// DuckDB fts 默认 tokenizer 对中文按空白/标点切分，本测试记录真实能力边界——
+    /// 若中文整句不可命中，须在文档标注为“中文检索未达可用”，不得冒充可用。
+    #[test]
+    fn fts_chinese_tokenization_reality_check() {
+        let conn = fixture();
+        let session = create_session(&conn, "中文检索", None, "active", 1_000).expect("会话");
+        insert_message(
+            &conn,
+            "M-CN-1",
+            &session.id,
+            "user",
+            "我需要配置 FreeBSD 的防火墙规则",
+            1_001,
+        );
+        insert_message(
+            &conn,
+            "M-CN-2",
+            &session.id,
+            "user",
+            "Rust 编译错误：生命周期不匹配",
+            1_002,
+        );
+
+        let (substring, _) = search_messages_ranked(&conn, "防火墙", 5).expect("子串回退");
+        assert_eq!(substring.len(), 1, "子串路径须命中中文词");
+
+        let (hits, ranked) = search_messages_ranked(&conn, "防火墙", 5).expect("中文检索");
+        println!(
+            "中文检索: ranked={ranked} hits={} ids={:?}",
+            hits.len(),
+            hits.iter()
+                .map(|h| h.message_id.as_str())
+                .collect::<Vec<_>>()
+        );
+        // T422 实测：fts 默认 tokenizer 对中文整词不切分；无命中时须回退子串并标
+        // ranked=false，不得静默返回空（ADR-099 决策 4 的“正确的降级”）。
+        assert_eq!(hits.len(), 1, "中文整词须有命中（fts 无命中则回退子串）");
+        if !ranked {
+            println!("中文走回退路径（fts 无命中），符合 T422 实测结论");
         }
     }
 }

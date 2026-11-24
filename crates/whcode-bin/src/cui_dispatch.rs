@@ -1017,7 +1017,8 @@ fn session_command(
         SessionCommand::Search { query, limit } => {
             // 内容检索（P3.3／ADR-076）：只读、有界；片段正文不写日志。
             let conn = open_db(workspace, config)?;
-            let hits = whcode_app::search_session_content(
+            // ADR-099／T422：如实标注排序方式（fts 无命中回退子串时 ranked=false）。
+            let (hits, ranked) = whcode_app::search_session_content_ranked(
                 &conn,
                 policy,
                 actor,
@@ -1039,7 +1040,7 @@ fn session_command(
                 })
                 .collect();
             Ok((
-                json!({ "hits": values, "count": hits.len() }),
+                json!({ "hits": values, "count": hits.len(), "ranked": ranked }),
                 search_hits_table(&hits, texts),
             ))
         }
@@ -2323,6 +2324,10 @@ mod tests {
         .expect("检索");
         assert_eq!(value["count"], 1, "{value}");
         assert_eq!(value["hits"][0]["session_id"], id);
+        assert!(
+            matches!(value["ranked"], serde_json::Value::Bool(_)),
+            "CUI JSON 须带 ranked 排序标记：{value}"
+        );
         assert!(human.contains("WAL"), "人类输出须含命中片段：{human}");
 
         let err = execute(

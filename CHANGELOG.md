@@ -13,6 +13,13 @@
 
 ### 变更
 
+- **FTS 收口（2026-11-24，T422）**：Web `/api/search` 与 CUI `session search` 响应新增
+  `ranked` 布尔标记（排序方式对调用方可见，不把子串回退冒充相关度排序）；GUI/TUI facade
+  保持原签名。**中文分词实测**：DuckDB fts 默认 tokenizer 对中文整词不切分（含“防火墙”的
+  消息 fts 返回 0），`search_messages_ranked` 无命中时回退子串并标 `ranked=false`——中文
+  相关度排序未达可用，如实标注。**平台扩展实测**：amd64 已登记；ARM64 两次下载不完整
+  （gzip EOF、哈希不同）不登记；FreeBSD 官方 HTTP 404 无扩展——两者回退子串、不阻断构建，
+  状态记于 `FTS_UNREGISTERED_REASON` 与 ADR-099。T422 勾选。
 - **会话全文检索（2026-11-23，ADR-099／FR-807／T421—T422）**：用户批准 FTS 并明确发行包
   体积不设限。DuckDB `fts` 扩展随包分发（`fetch-duckdb.py` 下载 `.gz`、按 sha256 与字节数
   校验、解压到 `vendor/duckdb/<ver>/<target>/`，离线 `LOAD` 绝对路径）；新增
