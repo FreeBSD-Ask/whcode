@@ -37,7 +37,7 @@ use whcode_domain::{ErrorCode, WhError};
 /// 运行时启用状态（T395／FR-701—710／ADR-089）复用 `0001_initial.sql` 里的
 /// `runtime_state` 骨架表，不新增迁移、不提升版本：口径为“适配既有表结构”，
 /// 而非新的 schema 演进。
-pub const STORE_SCHEMA_VERSION: u32 = 17;
+pub const STORE_SCHEMA_VERSION: u32 = 18;
 
 /// 正式表数量（含 `schema_migrations`）。
 pub const TABLE_COUNT: usize = 22;
@@ -59,6 +59,7 @@ const MIGRATION_0014: &str = include_str!("../migrations/0014_learning_capture.s
 const MIGRATION_0015: &str = include_str!("../migrations/0015_coherence_runs.sql");
 const MIGRATION_0016: &str = include_str!("../migrations/0016_messages_tool_linkage.sql");
 const MIGRATION_0017: &str = include_str!("../migrations/0017_fts_index_meta.sql");
+const MIGRATION_0018: &str = include_str!("../migrations/0018_fts_tokenizer_refresh.sql");
 
 /// 版本化迁移清单；新增版本时追加，不修改历史 SQL。
 const MIGRATIONS: &[(u32, &str)] = &[
@@ -79,6 +80,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (15, MIGRATION_0015),
     (16, MIGRATION_0016),
     (17, MIGRATION_0017),
+    (18, MIGRATION_0018),
 ];
 
 fn store_err(context: &str, err: duckdb::Error) -> WhError {

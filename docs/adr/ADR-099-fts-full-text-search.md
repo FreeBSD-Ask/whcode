@@ -34,15 +34,17 @@
 2. **加载**：store 层新增 `fts_available(conn) -> bool`——先尝试 `LOAD '<vendor 路径>'`，
    失败再试 `LOAD fts`（用户已安装时），两者皆失败返回 false。结果在进程内按连接缓存
    （避免每次检索重复尝试）。
-3. **索引**：新增 `fts_index_meta(session_id, indexed_max_ts)` 表（迁移 0012），记录每会话
-   已索引到的 `max(messages.ts)`。检索前若 `max(ts) > indexed_max_ts` 或索引不存在，
-   执行 `PRAGMA create_fts_index('messages','id','content_ref', overwrite=1)` 并更新 meta。
+3. **索引**：新增 `fts_index_meta(id, indexed_max_ts_us, indexed_rows, updated_at)` 单行表
+   （迁移 0017），记录建索引时的 `epoch_us(max(ts))` 与行数。检索前若戳记不等或索引不存在，
+   执行 `PRAGMA create_fts_index('messages','id','content_ref', overwrite=1,
+   tokenizer='opensearch_standard')` 并更新 meta（tokenizer 参数见 T422 复审；迁移 0018
+   删除旧 meta 强制以新 tokenizer 重建）。
 4. **检索**：新增 `search_messages_ranked(conn, needle, limit)`——扩展可用时用
    `fts_main_messages.match_bm25` 排序（按分数降序，同分按时间倒序），返回同一
    `ContentHit` 结构；扩展不可用或索引失败时**回退** `search_messages`（并在返回值
    标注 `ranked: false`，不静默改变语义）。
 5. **有界性**：沿用 `MAX_SEARCH_NEEDLE_CHARS`／`MAX_SEARCH_LIMIT`／`SNIPPET_CHARS`；
-   索引重建按会话范围（`create_fts_index` 是表级——本 ADR 接受全表重建，见限制）。
+   `create_fts_index` 是表级操作——本 ADR 接受全表重建，见限制。
 
 ## 理由与约束
 
@@ -70,20 +72,24 @@
   扩展 44.8 MB、带 sha256；`/vendor` 已忽略，扩展可走同一分发路径。
 - **已知限制与失效条件**：①`create_fts_index` 为表级全量重建，大库（>100 万消息）时
   单次重建可能达数秒——按 ADR-076 复审触发（消息 >100 万且检索 p95 >200 ms）再评估增量；
-  ②**中文分词实测（2026-11-24，T422）**：DuckDB fts 默认 tokenizer 对中文整词不切分——
-  含“防火墙”的中文消息在 fts 路径返回 0 命中。`search_messages_ranked` 已在无命中时
-  **回退子串检索并标 `ranked=false`**（不静默返回空）；中文相关度排序**未达可用**，
-  不冒充 fts 能力。③扩展版本必须与 DuckDB 2.0.0 精确匹配，升级 DuckDB 须同步换扩展；
+  ②**中文分词实测与修订（2026-11-25，T422 复审，更正 11-24 结论）**：11-24 曾判定
+  “中文相关度排序未达可用”，**该结论错误**。真实根因是默认 unicode tokenizer **按空白
+  切分**——无空格中文长句（“我需要配置FreeBSD的防火墙规则”）整体成一个 token，故
+  “防火墙”等子串 0 命中；并非中文本身不可索引。实测 `tokenizer='opensearch_standard'`
+  按字符切分后，中文/ASCII 子串（防火墙、配置、FreeBSD、防火墙规则）在无空格长句内
+  **全部命中且 ranked=true**。建索引已显式指定该 tokenizer；迁移 0018 删除旧 meta
+  强制重建，避免旧库继续用旧 tokenizer。③扩展版本必须与 DuckDB 2.0.0 精确匹配，
+  升级 DuckDB 须同步换扩展；
   ④**平台扩展实测（2026-11-24，T422）**：amd64 已登记（`.gz` 14,751,504 字节、
   sha256 `d5328ff1…`）；`windows_arm64` 官方 URL 可访问但两次下载均不完整（gzip EOF，
   3.80／3.60 MB 且哈希不同）——**下载通道不可信，未登记哈希**；`freebsd_amd64`
   官方返回 **HTTP 404**（无该平台扩展）。两者运行期按决策 4 回退子串检索，不阻断构建；
   状态记于 `fetch-duckdb.py` 的 `FTS_UNREGISTERED_REASON`，取得完整包后复审。
 - **复审触发**：①`cargo test -p whcode-store search::` 失败→回退；②DuckDB 版本升级→
-  重取扩展并复测；③**中文 tokenizer 定制**（T422 已实测为不达可用，当前以上述回退和解；
-  若中文检索成为主场景，须评估自定义 tokenizer 或外部索引，另立 ADR）；④索引重建
-  耗时超过检索预算→改为增量或按会话分表；⑤ARM64 下载通道稳定、或 FreeBSD 官方提供扩展→
-  复算哈希并登记 `FTS_EXTENSIONS`。
+  重取扩展并复测 tokenizer 行为（opensearch_standard 是否仍可用）；③逐字切分使 BM25
+  评分偏向长文档/高频字，若实测排序质量不佳→评估中文分词插件或外部索引，另立 ADR；
+  ④索引重建耗时超过检索预算→改为增量或按会话分表；⑤ARM64 下载通道稳定、或 FreeBSD
+  官方提供扩展→复算哈希并登记 `FTS_EXTENSIONS`。
 
 ## 影响
 

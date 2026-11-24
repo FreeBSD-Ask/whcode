@@ -13,6 +13,13 @@
 
 ### 变更
 
+- **中文检索更正（2026-11-25，T422 复审）**：11-24 曾登记“中文相关度排序未达可用”，
+  该结论**错误**，现更正。真实根因是 DuckDB fts 默认 unicode tokenizer 按空白切分，
+  无空格中文长句整体成一个 token，故中文子串 0 命中；并非中文不可索引。实测
+  `tokenizer='opensearch_standard'` 后中文/ASCII 子串（防火墙、配置、FreeBSD）在无空格
+  长句内全部命中且 ranked=true。建索引已显式指定该 tokenizer；迁移 0018 删除旧 meta
+  强制以新 tokenizer 重建。回归测试 `fts_chinese_substring_hits_with_opensearch_tokenizer`
+  固化该能力。schema v17→v18。
 - **FTS 收口（2026-11-24，T422）**：Web `/api/search` 与 CUI `session search` 响应新增
   `ranked` 布尔标记（排序方式对调用方可见，不把子串回退冒充相关度排序）；GUI/TUI facade
   保持原签名。**中文分词实测**：DuckDB fts 默认 tokenizer 对中文整词不切分（含“防火墙”的

@@ -160,7 +160,12 @@ fn ensure_fts_index(conn: &Connection) -> Result<(), WhError> {
     if fresh == Some((max_ts_us, rows)) {
         return Ok(());
     }
-    conn.execute_batch("PRAGMA create_fts_index('messages', 'id', 'content_ref', overwrite=1)")
+    // ADR-099 修订（T422 复审）：默认 unicode tokenizer 按空白切分，中文无空格长句
+    // 整体成一个 token，导致“防火墙”等中文子串 0 命中。实测 opensearch_standard
+    // 按 Unicode 字符切分（中文逐字），中文/ASCII 子串均可命中，故显式指定。
+    conn.execute_batch(
+        "PRAGMA create_fts_index('messages', 'id', 'content_ref', overwrite=1, tokenizer='opensearch_standard')",
+    )
         .map_err(search_err)?;
     conn.execute("DELETE FROM fts_index_meta WHERE id = 1", [])
         .map_err(search_err)?;
@@ -470,19 +475,21 @@ mod tests {
             assert_eq!(meta, (max_ts, rows), "索引戳记须与当前消息一致");
         }
     }
-    /// ADR-099 复审触发 3：中文分词质量实测（T422）。
-    /// DuckDB fts 默认 tokenizer 对中文按空白/标点切分，本测试记录真实能力边界——
-    /// 若中文整句不可命中，须在文档标注为“中文检索未达可用”，不得冒充可用。
+    /// ADR-099 修订／T422 复审：中文检索能力（opensearch_standard tokenizer）。
+    ///
+    /// 默认 unicode tokenizer 按空白切分——无空格中文长句整体成一个 token，
+    /// “防火墙”等子串 0 命中；指定 opensearch_standard 后按字符切分，子串可命中。
     #[test]
-    fn fts_chinese_tokenization_reality_check() {
+    fn fts_chinese_substring_hits_with_opensearch_tokenizer() {
         let conn = fixture();
         let session = create_session(&conn, "中文检索", None, "active", 1_000).expect("会话");
+        // 无空格长句：旧 tokenizer 下整串一个 token，任何子串都 0 命中。
         insert_message(
             &conn,
             "M-CN-1",
             &session.id,
             "user",
-            "我需要配置 FreeBSD 的防火墙规则",
+            "我需要配置FreeBSD的防火墙规则",
             1_001,
         );
         insert_message(
@@ -494,22 +501,23 @@ mod tests {
             1_002,
         );
 
-        let (substring, _) = search_messages_ranked(&conn, "防火墙", 5).expect("子串回退");
-        assert_eq!(substring.len(), 1, "子串路径须命中中文词");
-
-        let (hits, ranked) = search_messages_ranked(&conn, "防火墙", 5).expect("中文检索");
-        println!(
-            "中文检索: ranked={ranked} hits={} ids={:?}",
-            hits.len(),
-            hits.iter()
-                .map(|h| h.message_id.as_str())
-                .collect::<Vec<_>>()
+        assert!(
+            fts_available(&conn),
+            "本机须有 fts 扩展才能验证 tokenizer 行为"
         );
-        // T422 实测：fts 默认 tokenizer 对中文整词不切分；无命中时须回退子串并标
-        // ranked=false，不得静默返回空（ADR-099 决策 4 的“正确的降级”）。
-        assert_eq!(hits.len(), 1, "中文整词须有命中（fts 无命中则回退子串）");
-        if !ranked {
-            println!("中文走回退路径（fts 无命中），符合 T422 实测结论");
+        for needle in ["防火墙", "配置", "FreeBSD", "防火墙规则"] {
+            let (hits, ranked) =
+                search_messages_ranked(&conn, needle, 5).expect("中文检索不得报错");
+            assert!(
+                hits.iter().any(|h| h.message_id == "M-CN-1"),
+                "opensearch tokenizer 下 {needle:?} 须命中无空格长句；ranked={ranked}"
+            );
         }
+        // 不相关内容不得因逐字切分而误命中（防火墙 不应出现在 M-CN-2）。
+        let (hits, _) = search_messages_ranked(&conn, "防火墙", 5).expect("检索");
+        assert!(
+            hits.iter().all(|h| h.message_id != "M-CN-2"),
+            "不相关内容不得命中：{hits:?}"
+        );
     }
 }

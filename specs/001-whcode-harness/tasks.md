@@ -3166,9 +3166,11 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   中文分词质量实测；平台扩展可得性实测。
   **取证（2026-11-24）**：`cargo test -p whcode-web api::` 35 通过、`-p whcode-bin
   cui_dispatch::` 26 通过、`-p whcode-store search::` 10 通过（含新增
-  `fts_chinese_tokenization_reality_check`）。**中文实测结论**：DuckDB fts 默认 tokenizer
-  对中文整词不切分（含“防火墙”的中文消息 fts 返回 0），`search_messages_ranked` 已在无命中时
-  回退子串并标 `ranked=false`——中文相关度排序未达可用，如实标注不冒充。**平台实测结论**：
+  `fts_chinese_tokenization_reality_check`）。**中文实测结论（2026-11-25 更正，原 11-24
+  结论错误）**：真实根因是默认 unicode tokenizer 按空白切分，无空格中文长句整体成一个
+  token 致子串 0 命中；指定 `tokenizer='opensearch_standard'` 后中文/ASCII 子串在无空格
+  长句内全部命中且 ranked=true，中文检索**达可用**（迁移 0018 强制旧库重建，见 T432）。
+  **平台实测结论**：
   amd64 哈希已登记；ARM64 两次下载不完整（gzip EOF，哈希不同）不登记；FreeBSD 官方 HTTP 404
   无扩展——两者回退子串、不阻断构建，状态记于 `FTS_UNREGISTERED_REASON` 与 ADR-099。
   （开工前置：任务认知卡，见 ADR-099 §任务认知卡）
@@ -3271,3 +3273,13 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   **仍与 ZCode 有差距（如实登记）**：侧栏顶部无项目切换器；任务行无悬停式行内菜单（动作在顶栏）；
   无附件／@文件／斜杠命令；无用量面板。
   （开工前置：任务认知卡，见 ADR-102 §任务认知卡）
+
+## Tasks（2026-11-25 追加）：FTS 中文 tokenizer 更正（ADR-099 修订）
+
+- [x] T432（FR-807／ADR-099 修订）更正 T422 中文结论并升级 tokenizer：实测默认 unicode
+  tokenizer 按空白切分导致无空格中文长句子串 0 命中；建索引显式指定
+  `tokenizer='opensearch_standard'`；迁移 0018（schema v18）删除旧 meta 强制重建；
+  回归测试改为断言中文子串命中且 ranked=true；ADR-099／CHANGELOG／tasks 同步更正。
+  **取证（2026-11-25）**：`cargo test -p whcode-store search::` 10 通过（含
+  `fts_chinese_substring_hits_with_opensearch_tokenizer`）。
+  （开工前置：任务认知卡，见 ADR-099 §任务认知卡）

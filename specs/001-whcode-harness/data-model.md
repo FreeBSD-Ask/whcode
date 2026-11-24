@@ -159,13 +159,16 @@
 
 ### fts_index_meta
 
-FTS 索引时效（ADR-099／FR-807，schema v17）。
+FTS 索引时效（ADR-099／FR-807，schema v17；v18 增 tokenizer 刷新迁移）。
 
 - 字段：`id, indexed_max_ts_us, indexed_rows, updated_at`
 - 约束：单行表，`id` 主键且 `CHECK (id = 1)`；`indexed_max_ts_us` 为建索引时的
   `epoch_us(max(messages.ts))`，`indexed_rows` 为当时 `count(*)`
 - 校验：检索前比对当前 `(max_ts_us, rows)`——相等即跳过重建（零成本），否则执行
-  `PRAGMA create_fts_index('messages','id','content_ref', overwrite=1)` 并更新本行
+  `PRAGMA create_fts_index('messages','id','content_ref', overwrite=1,
+  tokenizer='opensearch_standard')` 并更新本行（tokenizer 见 ADR-099 T422 复审）
+- 迁移 0018（schema v18）：删除本表单行，强制旧库以新 tokenizer 重建索引；
+  表结构不变，`TABLE_COUNT` 仍为 22
 - 导出：**不在** `EXPORT_TABLES`，登记于 `EXCLUDED_TABLES`（索引不随导出迁移，
   导入后按需重建）
 
