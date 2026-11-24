@@ -15,6 +15,7 @@ mod bench;
 mod cert_probe;
 mod config;
 mod cui_dispatch;
+mod file_index;
 mod llm_provider;
 mod logging;
 mod lsp_tool;
@@ -465,8 +466,11 @@ fn gui_command(args: &[String]) -> ExitCode {
         llm_executor: llm_executor.map(|item| {
             std::sync::Arc::new(item) as std::sync::Arc<dyn whcode_gui::GuiLlmExecutor>
         }),
-        // ADR-102：GUI 文件索引装配尚未接入，显式 `None`（按钮禁用，不静默无响应）。
-        file_index: None,
+        // ADR-102 第六批「仍缺」项收口：注入工作区文件索引，使「@ 文件」可用
+        // （有界遍历、跳过构建/版本控制目录、不跟随符号链接）。
+        file_index: Some(std::rc::Rc::new(
+            crate::file_index::WorkspaceFileIndex::new(&workspace),
+        )),
     };
     match whcode_gui::run(source, options) {
         Ok(()) => ExitCode::SUCCESS,

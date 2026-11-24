@@ -20,9 +20,9 @@
       <button id="tab-tasks" data-tab="tasks" role="tab" aria-controls="view-tasks" aria-selected="false" tabindex="-1" data-i18n="web.tab.tasks">任务</button>
       <button id="tab-history" data-tab="history" role="tab" aria-controls="view-history" aria-selected="false" tabindex="-1" data-i18n="web.tab.history">历史</button>
       <button id="tab-context" data-tab="context" role="tab" aria-controls="view-context" aria-selected="false" tabindex="-1" data-i18n="web.tab.context">上下文</button>
-      <button id="tab-diff" data-tab="diff" role="tab" aria-controls="view-diff" aria-selected="false" tabindex="-1" data-i18n="web.tab.diff">diff</button>
+      <button id="tab-diff" data-tab="diff" role="tab" aria-controls="view-diff" aria-selected="false" tabindex="-1" data-i18n="web.tab.diff">Diff</button>
       <button id="tab-spec" data-tab="spec" role="tab" aria-controls="view-spec" aria-selected="false" tabindex="-1" data-i18n="web.tab.spec">SDD</button>
-      <button id="tab-maintenance" data-tab="maintenance" role="tab" aria-controls="view-maintenance" aria-selected="false" tabindex="-1" data-i18n="web.tab.maintenance">维护</button>
+      <button id="tab-maintenance" data-tab="maintenance" role="tab" aria-controls="view-maintenance" aria-selected="false" tabindex="-1" data-i18n="web.tab.maintenance">归档管理</button>
     </nav>
     <div class="sidebar__foot">
       <nav id="app-links" class="app-bar__nav">
@@ -54,9 +54,9 @@
           <div id="session-filter" class="toolbar" role="search">
             <label for="session-search" data-i18n="web.session.search">搜索标题或 ID</label>
             <input id="session-search" type="search" maxlength="128">
-            <label for="session-sort" data-i18n="web.session.sort">排序</label>
+            <label for="session-sort" data-i18n="web.session.sort">排序方式</label>
             <select id="session-sort">
-              <option value="last_active" data-i18n="web.session.sort.last_active">最近活跃</option>
+              <option value="last_active" data-i18n="web.session.sort.last_active">按活动时间</option>
               <option value="created" data-i18n="web.session.sort.created">创建时间</option>
               <option value="title" data-i18n="web.session.sort.title">标题</option>
             </select>
@@ -74,10 +74,10 @@
         </div>
         <aside id="session-actions" class="split__side panel stack">
           <input id="session-rename-title" maxlength="200" data-i18n-placeholder="web.session.rename_placeholder" placeholder="新标题">
-          <button id="session-rename" type="button" data-i18n="web.session.rename">重命名</button>
-          <button id="session-archive" type="button" data-i18n="web.session.archive_preview">归档预览</button>
+          <button id="session-rename" type="button" class="ghost" data-i18n="web.session.rename">重命名</button>
+          <button id="session-archive" type="button" class="ghost" data-i18n="web.session.archive_preview">归档预览</button>
           <button id="session-archive-confirm" type="button" disabled data-i18n="web.session.archive_confirm">确认归档</button>
-          <button id="session-delete-preview" type="button" data-i18n="web.session.delete_preview">删除预览</button>
+          <button id="session-delete-preview" type="button" class="ghost" data-i18n="web.session.delete_preview">删除预览</button>
           <button id="session-delete-confirm" type="button" disabled data-i18n="web.session.delete_confirm">确认删除</button>
         </aside>
       </div>

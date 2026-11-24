@@ -253,3 +253,33 @@ Ollama 免密钥）；构建后在工作区放 `profiles.json`，GUI 实跑截�
 ②任务行没有悬停式行内菜单与未读点；③composer 无附件／图片／@文件／斜杠命令／权限模式；
 ④无用量面板与远程设备；⑤字体依赖系统是否装 Inter／JetBrains Mono（FR-716 按族名取用）。
 
+
+## 落地记录（2026-11-25 第七批：@ 文件索引接入 + Web 视觉层级）
+
+用户指令「继续全ui界面ui对齐」。本批收口第六批登记的两项缺口，并把 Web 的控件层级补齐。
+
+- **GUI「@ 文件」真正可用**（第六批仍缺项 ③ 的一部分）：`FileIndex` trait 此前**无任何实现**，
+  `RunOptions.file_index` 恒为 `None`，按钮虽在但恒禁用。新增
+  `crates/whcode-bin/src/file_index.rs` 的 `WorkspaceFileIndex`——深度上限 8、条目上限 4000、
+  单次返回上限 50，跳过 `.git`／`target`／`node_modules`／`vendor`／`.whcode`／`dist`／
+  `build`／`.cache`，**不跟随符号链接**（防逃逸）；匹配为大小写不敏感子串，短路径优先
+  以贴合“顶层文件更可能被引用”。装配根注入，GUI 仍不触碰文件系统（分层门禁不变）。
+- **Web 控件三档**：`button.primary`（填充）／默认（描边，等价 ZCode outline）／
+  `button.ghost`（透明，悬停显影）。**未设 `button.secondary`**——默认 button 已是描边档，
+  再加一档无法与它区分，属形式冗余。接入点：会话重命名／归档预览／删除预览改 ghost
+  （弱操作），新建保持 submit（主操作）。
+- **Web 空态样式** `.empty`：居中、`fg-subtle`、虚线边框 + `xl` 圆角（ZCode 空列表同形制）。
+- **Web 静态文案与 i18n 同步**：`diff`→`Diff`、`维护`→`归档管理`、`排序`→`排序方式`、
+  `最近活跃`→`按活动时间`。运行时本由 i18n 覆盖，但静态 HTML 与目录不一致会误导无 JS
+  读者与检索，故一并对齐。
+
+**有意差异（登记，不作“已对齐”宣称）**：①侧栏项目切换器——WHCode 单工作区（每次运行绑定
+一个根），多项目下拉无对应能力，不造空壳；②任务行悬停式行内菜单与未读点——iced 无悬停菜单，
+动作已等价落在顶栏（第六批），未读点需“已读”状态而库中无此字段；③用量面板与远程设备——
+无对应能力。
+
+**验证（本机）**：`cargo test -p whcode-bin file_index::` 2 通过（子串大小写、跳过构建目录、
+limit 有界）；`clippy --workspace --all-targets -D warnings` 通过；`cargo test --locked
+--workspace` 通过；`check-frontend-budget` 通过（CSS gzip 5237 B / 20480、DOM 99）；
+`web-ui-check.py`（playwright，1280x800）`WEB_TABLIST_GATE=GO`；counts／traceability／
+docs-style／EOL／coherence pre（反例 0）全绿。

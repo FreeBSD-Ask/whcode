@@ -512,6 +512,24 @@ button.primary {
 }
 button[type="submit"]:hover,
 button.primary:hover { opacity: 0.88; }
+/* 三档强调与 GUI 的 Emphasis 对应：primary 填充、默认即 outline（次级）、ghost 弱操作。
+   不另设 secondary —— 默认 button 已是描边档，再设一档只会与它难以区分。 */
+/* 弱操作：透明底，悬停才显影（对应 GUI Emphasis::Ghost）。 */
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+button.ghost:hover { background: var(--surface-hover); border-color: transparent; }
+/* 空态：居中、次要前景、留白（ZCode 空列表同形制）。 */
+.empty {
+  margin: var(--space-5) 0;
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--fg-subtle);
+  font-size: var(--text-sm);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-xl);
+}
 input,
 select,
 textarea {
