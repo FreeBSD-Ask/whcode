@@ -315,3 +315,42 @@ counts／traceability／docs-style／EOL／coherence pre（反例 0）全绿。
 2026-11-23 曾成功产出截图）。因此**字号下调后的实际观感未验证**：11→10 与 15→14 会使
 相应文字变小，是否影响可读性需在可用桌面环境复跑 `gui-probe.py` 后判定。若判定偏小，
 回退方式为只改常量值（`spec` 七级），不动调用点——这正是本批带来的可调性。
+
+## 落地记录（2026-11-25 第九批：间距体系校准）
+
+承接第八批（字号），本批校准间距——同一类漂移：`spec` 只有五档（4/8/12/16/24），
+GUI 实际用到 1/2/3/4/5/6/7/8/10/12/16，其中 **7 个值不在档位内**，且 118 处
+`padding`／`spacing` 全为字面量。
+
+**决策：扩展档位而非消除差异**。ZCode 用 Tailwind 的 0.5 步进（`space-0.5/1.5/2.5`），
+WHCode 的五档无法覆盖侧栏条目间隙（2）与 `px-2.5`（10）这类真实需求。故在 `spec` 增
+`SPACE_0_5(2)`／`SPACE_1_5(6)`／`SPACE_2_5(10)`，并新增 `SPACE_SCALE` 全集常量
+（2/4/6/8/10/12/16/24）；1／3／5／7 登记为**亚网格微调**（图标基线对齐、1px 描边补偿），
+允许字面量并在 spec 注释写明理由。
+
+**动作**：
+
+1. `spec` 增三档与 `SPACE_SCALE`；GUI 增 `SP_*`（u16，供 `padding`）与 `SPF_*`
+   （f32，供 `spacing`——`Pixels: From<f32>`，`padding` 才收 u16）。
+2. **等值替换 118 处**：`4→SP_1`、`8→SP_2`、`12→SP_3`、`16→SP_4`、`2→SP_0_5`、
+   `6→SP_1_5`、`10→SP_2_5`——值不变，**零视觉风险**。
+3. **归位 11 处游离值**：按钮内距 `[5,9]→[4,8]`（ZCode `py-1 px-2`）、
+   `[7,14]→[6,12]`（`py-1.5 px-3`），变化 1—2px。
+4. Web 同步：CSS 增 `--space-0-5/1-5/2-5`，两处 `2px` 改 `var(--space-0-5)`，
+   至此 Web 零硬编码间距。
+5. 新增守卫 `spacing_uses_spec_scale_or_registered_micro_adjustments`（档位断言 +
+   静态扫描 `padding`／`spacing`），并修正其误报（`SPF_0_5` 里的 `0` 曾被当字面量）。
+   该守卫**实际拦下 1 处漏网** `[SP_1, 9]`；同时发现字号守卫漏检**跨行形态**，
+   已补「向上回看 6 行」的检查，并据此修掉 7 处跨行字号（含游离值 `11.0`）。
+
+**验证（本机）**：`cargo test -p whcode-gui --all-targets` 49 通过（含两个守卫）；
+`clippy --workspace --all-targets -D warnings` 通过；`check-frontend-budget` 通过
+（CSS gzip 5318 B / 20480）；`cargo test -p whcode-tests --test layout` 6 通过；
+counts／traceability／docs-style／EOL／coherence pre（反例 0）全绿。
+
+**未取得（如实登记）**：视觉验证仍不可用（`ImageGrab` 报 `screen grab failed`，环境限制
+持续）。第 3 项「归位 11 处游离值」的 1—2px 变化**未经视觉确认**；若观感偏紧，改
+`spec::SPACE_*` 常量即可回退，不动调用点。第八批的字号观感同样待验。
+
+**附带清理**：仓库根出现 `whcode.duckdb`（12 KB 空库，0 会话/0 消息，时间戳与误启动
+`whcode gui --help` 吻合）及其 WAL，触发 `test_layout` 的根文件门禁；确认为本人操作残留后删除。

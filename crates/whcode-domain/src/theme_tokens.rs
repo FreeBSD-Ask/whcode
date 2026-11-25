@@ -173,12 +173,27 @@ pub mod spec {
     pub const UI_FONT_2XS: u16 = UI_FONT_BASE - 5;
 
     /// 间距基准（px）：4 的倍数，五档常用节奏。
+    /// 间距基准（4px 网格，对应 Tailwind `space-1`）。
     pub const SPACE_UNIT: u16 = 4;
+    /// 亚网格档（Tailwind `space-0.5`）：侧栏条目间隙、细竖条等紧凑场景。
+    pub const SPACE_0_5: u16 = 2;
     pub const SPACE_1: u16 = 4;
+    /// 亚网格档（Tailwind `space-1.5`）：行内元素间的紧凑间隙。
+    pub const SPACE_1_5: u16 = 6;
     pub const SPACE_2: u16 = 8;
+    /// 亚网格档（Tailwind `space-2.5`）：ZCode 侧栏条目内距 `px-2.5` 即 10。
+    pub const SPACE_2_5: u16 = 10;
     pub const SPACE_3: u16 = 12;
     pub const SPACE_4: u16 = 16;
     pub const SPACE_5: u16 = 24;
+
+    /// 允许的间距取值全集（含亚网格档）。
+    ///
+    /// 1／3／5／7 不在本表：它们是图标基线对齐与 1px 描边补偿的**亚像素微调**，
+    /// 属实现细节而非设计节奏，允许在调用点写字面量并注明用途。
+    pub const SPACE_SCALE: &[u16] = &[
+        SPACE_0_5, SPACE_1, SPACE_1_5, SPACE_2, SPACE_2_5, SPACE_3, SPACE_4, SPACE_5,
+    ];
 
     /// Elevation 三档（CSS 阴影串；GUI 以边框＋底纹近似，不绘制投影）。
     pub const SHADOW_SM: &str = "0 1px 3px rgb(0 0 0 / 4%)";

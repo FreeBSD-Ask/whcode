@@ -58,6 +58,23 @@ const FONT_JETBRAINS: &[u8] = include_bytes!("../assets/fonts/JetBrainsMono-Regu
 const FONT_SARASA: &[u8] = include_bytes!("../assets/fonts/SarasaMonoSC-Regular.subset.ttf");
 
 /// GUI 主题（六套：既有四套铁律精确色值 FR-612／FR-713；whcode 系 FR-739 为
+/// GUI 间距（u16 形态，取自 `theme_tokens::spec`；1／3／5／7 为亚网格微调，允许字面量）。
+const SP_0_5: u16 = whcode_domain::theme_tokens::spec::SPACE_0_5;
+const SP_1: u16 = whcode_domain::theme_tokens::spec::SPACE_1;
+const SP_1_5: u16 = whcode_domain::theme_tokens::spec::SPACE_1_5;
+const SP_2: u16 = whcode_domain::theme_tokens::spec::SPACE_2;
+const SP_2_5: u16 = whcode_domain::theme_tokens::spec::SPACE_2_5;
+const SP_3: u16 = whcode_domain::theme_tokens::spec::SPACE_3;
+const SP_4: u16 = whcode_domain::theme_tokens::spec::SPACE_4;
+
+/// GUI 间距的 f32 形态（`spacing` 接受 `Into<Pixels>`，`Pixels: From<f32>`）。
+const SPF_0_5: f32 = SP_0_5 as f32;
+const SPF_1: f32 = SP_1 as f32;
+const SPF_1_5: f32 = SP_1_5 as f32;
+const SPF_2: f32 = SP_2 as f32;
+const SPF_2_5: f32 = SP_2_5 as f32;
+const SPF_3: f32 = SP_3 as f32;
+
 /// GUI 字号（f32 形态，唯一取自 `theme_tokens::spec` 的七级体系）。
 ///
 /// ADR-102 校准：此前散落 11／15／20 三个**不在七级内**的字面量，且改动 spec 常量
@@ -2412,7 +2429,7 @@ fn content_search_panel(state: &State) -> Element<'_, Message> {
     )
     .on_input(Message::ContentSearchChanged)
     .on_submit(Message::ContentSearchSubmit)
-    .padding([6, 8])
+    .padding([SP_1_5, SP_2])
     .width(Length::Fill)
     .style(move |_theme, status| field_style(theme, status));
     let run = button(rich_line(
@@ -2421,9 +2438,9 @@ fn content_search_panel(state: &State) -> Element<'_, Message> {
         FONT_SM,
     ))
     .on_press(Message::ContentSearchSubmit)
-    .padding([5, 9])
+    .padding([SP_1, SP_2])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
-    let mut panel = column![row!(input, run).spacing(4)].spacing(4);
+    let mut panel = column![row!(input, run).spacing(SPF_1)].spacing(SPF_1);
     if let Some(status) = &state.content_status {
         panel = panel.push(rich_line(status, false, FONT_SM));
     }
@@ -2811,7 +2828,7 @@ fn sidebar_section<'a>(state: &'a State, key: &'static str) -> Element<'a, Messa
         FONT_SM,
         subtle,
     ))
-    .padding([4, 10])
+    .padding([SP_1, SP_2_5])
     .width(Length::Fill)
     .into()
 }
@@ -2835,10 +2852,10 @@ fn session_tabs(state: &State) -> Option<Element<'_, Message>> {
         button(rich_line(
             state.texts.resolve(item.title_key()),
             false,
-            12.0,
+            FONT_SM,
         ))
         .on_press(Message::SelectView(item))
-        .padding([4, 9])
+        .padding([SP_1, SP_2])
         .style(move |_theme, status| control_button_style(theme, emphasis, status))
         .into()
     };
@@ -2846,8 +2863,8 @@ fn session_tabs(state: &State) -> Option<Element<'_, Message>> {
     let first: Vec<Element<'_, Message>> = ViewId::ALL[..split].iter().map(|i| tab(*i)).collect();
     let second: Vec<Element<'_, Message>> = ViewId::ALL[split..].iter().map(|i| tab(*i)).collect();
     Some(
-        column![row(first).spacing(4), row(second).spacing(4)]
-            .spacing(4)
+        column![row(first).spacing(SPF_1), row(second).spacing(SPF_1)]
+            .spacing(SPF_1)
             .into(),
     )
 }
@@ -2939,7 +2956,7 @@ fn sidebar_session(state: &State, index: usize) -> Element<'_, Message> {
         container(rich_line(&title, false, FONT_BASE)).width(Length::Fill),
         colored_line(&stamp, false, FONT_XS, control_colors(theme).subtle),
     ]
-    .spacing(6)
+    .spacing(SPF_1_5)
     .align_y(iced::Alignment::Center);
     let body = if state
         .sidebar_sessions
@@ -2952,7 +2969,7 @@ fn sidebar_session(state: &State, index: usize) -> Element<'_, Message> {
                 false,
                 FONT_XS,
             ))
-            .padding([1, 4])
+            .padding([1, SP_1])
             .style(move |_theme| badge_style(theme)),
         )
     } else {
@@ -2961,7 +2978,7 @@ fn sidebar_session(state: &State, index: usize) -> Element<'_, Message> {
     button(body)
         .on_press(Message::SelectSession(index))
         .width(Length::Fill)
-        .padding([4, 10])
+        .padding([SP_1, SP_2_5])
         .style(move |_theme, status| sidebar_style(theme, selected, status))
         .into()
 }
@@ -2995,13 +3012,15 @@ fn diff_body(state: &State) -> Element<'_, Message> {
                 FONT_BASE,
                 color,
             );
-            row(mirrored_order(rtl, vec![bar, body])).spacing(8).into()
+            row(mirrored_order(rtl, vec![bar, body]))
+                .spacing(SPF_2)
+                .into()
         })
         .collect();
     if lines.is_empty() {
         return rich_line(state.texts.resolve("tui.empty"), true, FONT_LG);
     }
-    scrollable(column(lines).spacing(2))
+    scrollable(column(lines).spacing(SPF_0_5))
         .style(move |_, _| state.theme.scrollbar())
         .height(Length::Fill)
         .into()
@@ -3020,7 +3039,7 @@ fn read_body(state: &State, mono: bool) -> Element<'_, Message> {
                     .map(|line| rich_line(line.as_str(), mono, FONT_LG))
                     .collect::<Vec<_>>(),
             )
-            .spacing(4),
+            .spacing(SPF_1),
         )
         .style(move |_, _| state.theme.scrollbar())
         .height(Length::Fill)
@@ -3048,7 +3067,7 @@ fn events_body(state: &State) -> Element<'_, Message> {
             button(rich_line(&label, false, FONT_BASE))
                 .on_press(Message::EventDetail(index))
                 .width(Length::Fill)
-                .padding([2, 6])
+                .padding([SP_0_5, SP_1_5])
                 .style(move |_theme, status| {
                     sidebar_style(theme, state.event_selected == Some(index), status)
                 })
@@ -3058,7 +3077,7 @@ fn events_body(state: &State) -> Element<'_, Message> {
     if lines.is_empty() {
         rich_line(state.texts.resolve("tui.empty"), false, FONT_LG)
     } else {
-        scrollable(column(lines).spacing(2))
+        scrollable(column(lines).spacing(SPF_0_5))
             .style(move |_, _| state.theme.scrollbar())
             .height(Length::Fill)
             .into()
@@ -3097,7 +3116,7 @@ fn read_detail_body(state: &State) -> Element<'_, Message> {
         ViewId::Events => events_body(state),
         _ => read_body(state, false),
     };
-    column![main, detail_panel(state)].spacing(8).into()
+    column![main, detail_panel(state)].spacing(SPF_2).into()
 }
 
 /// 对话视图（ADR-056）：剖面 + 提示词 + 发送/取消 + 最近结果。
@@ -3107,10 +3126,10 @@ fn file_picker_panel(state: &State) -> Element<'_, Message> {
     let (query, hits) = state.file_picker.clone().unwrap_or_default();
     let input = text_input(state.texts.resolve("gui.file.filter"), query.as_str())
         .on_input(Message::FileQueryChanged)
-        .padding([6, 8])
+        .padding([SP_1_5, SP_2])
         .width(Length::Fill)
         .style(move |_theme, status| field_style(theme, status));
-    let mut list = column![].spacing(2);
+    let mut list = column![].spacing(SPF_0_5);
     if hits.is_empty() {
         list = list.push(colored_line(
             state.texts.resolve("gui.file.empty"),
@@ -3125,7 +3144,7 @@ fn file_picker_panel(state: &State) -> Element<'_, Message> {
             button(rich_line(&label, true, FONT_SM))
                 .on_press(Message::InsertFile(hit))
                 .width(Length::Fill)
-                .padding([3, 8])
+                .padding([3, SP_2])
                 .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status)),
         );
     }
@@ -3135,18 +3154,18 @@ fn file_picker_panel(state: &State) -> Element<'_, Message> {
         FONT_SM,
     ))
     .on_press(Message::CloseFilePicker)
-    .padding([4, 10])
+    .padding([SP_1, SP_2_5])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
     container(
         column![
             row![container(input).width(Length::Fill), close]
-                .spacing(6)
+                .spacing(SPF_1_5)
                 .align_y(iced::Alignment::Center),
             scrollable(list).height(Length::Fixed(170.0)),
         ]
-        .spacing(6),
+        .spacing(SPF_1_5),
     )
-    .padding(10)
+    .padding(SP_2_5)
     .width(Length::Fill)
     .style(move |_theme| card_style(theme))
     .into()
@@ -3160,7 +3179,7 @@ fn model_form_panel(state: &State) -> Element<'_, Message> {
     let field = |placeholder: &str, value: &str, kind: ModelField| {
         text_input(placeholder, value)
             .on_input(move |text| Message::ModelFieldChanged(kind, text))
-            .padding([6, 8])
+            .padding([SP_1_5, SP_2])
             .width(Length::Fill)
             .style(move |_theme, status| field_style(theme, status))
     };
@@ -3173,7 +3192,7 @@ fn model_form_panel(state: &State) -> Element<'_, Message> {
         Some(draft.protocol.clone()),
         Message::ModelProtocolChanged,
     )
-    .padding([4, 8])
+    .padding([SP_1, SP_2])
     .text_size(FONT_SM)
     .width(Length::Fixed(130.0));
     let save = button(rich_line(
@@ -3182,7 +3201,7 @@ fn model_form_panel(state: &State) -> Element<'_, Message> {
         FONT_CAPTION,
     ))
     .on_press(Message::SaveModel)
-    .padding([6, 12])
+    .padding([SP_1_5, SP_3])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Primary, status));
     let cancel = button(rich_line(
         state.texts.resolve("gui.op.cancel"),
@@ -3190,7 +3209,7 @@ fn model_form_panel(state: &State) -> Element<'_, Message> {
         FONT_CAPTION,
     ))
     .on_press(Message::CloseModelForm)
-    .padding([6, 12])
+    .padding([SP_1_5, SP_3])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
     let mut body = column![
         rich_line(state.texts.resolve("gui.model.add"), false, FONT_BASE),
@@ -3206,7 +3225,7 @@ fn model_form_panel(state: &State) -> Element<'_, Message> {
                 protocol.into(),
             ],
         ))
-        .spacing(6),
+        .spacing(SPF_1_5),
         row(mirrored_order(
             is_rtl_locale(&state.texts.locale),
             vec![
@@ -3224,7 +3243,7 @@ fn model_form_panel(state: &State) -> Element<'_, Message> {
                 .into(),
             ],
         ))
-        .spacing(6),
+        .spacing(SPF_1_5),
         field(
             state.texts.resolve("gui.model.credential"),
             draft.credential_env.as_str(),
@@ -3234,9 +3253,9 @@ fn model_form_panel(state: &State) -> Element<'_, Message> {
             is_rtl_locale(&state.texts.locale),
             vec![save.into(), cancel.into()],
         ))
-        .spacing(6),
+        .spacing(SPF_1_5),
     ]
-    .spacing(6);
+    .spacing(SPF_1_5);
     if let Some(status) = state.model_form_status.as_deref() {
         body = body.push(colored_line(
             status,
@@ -3246,7 +3265,7 @@ fn model_form_panel(state: &State) -> Element<'_, Message> {
         ));
     }
     container(body)
-        .padding(12)
+        .padding(SP_3)
         .width(Length::Fill)
         .style(move |_theme| card_style(theme))
         .into()
@@ -3260,7 +3279,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     let model_selected = (!state.chat_provider.is_empty()).then(|| state.chat_provider.clone());
     let model_picker = pick_list(model_options, model_selected, Message::ChatProviderChanged)
         .placeholder(state.texts.resolve("gui.chat.model.choose"))
-        .padding([4, 8])
+        .padding([SP_1, SP_2])
         .text_size(FONT_SM)
         .width(Length::Fixed(210.0));
     let provider_label = state.texts.resolve("gui.chat.provider");
@@ -3270,7 +3289,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     )
     .on_input(Message::ChatInputChanged)
     .on_submit(Message::ChatSubmit)
-    .padding([6, 8])
+    .padding([SP_1_5, SP_2])
     .width(Length::Fill)
     .style(move |_theme, status| field_style(theme, status));
     // turn 运行中：发送禁用（面板开新 turn 会与连接锁竞争）、取消保持可用
@@ -3282,7 +3301,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         FONT_BASE,
     ))
     .on_press_maybe((!state.turn_running && state.llm.is_some()).then_some(Message::ChatSubmit))
-    .padding([7, 14])
+    .padding([SP_1_5, SP_3])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Primary, status));
     let cancel = button(rich_line(
         state.texts.resolve("gui.chat.cancel"),
@@ -3290,7 +3309,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         FONT_BASE,
     ))
     .on_press_maybe(state.turn_running.then_some(Message::ChatCancel))
-    .padding([7, 14])
+    .padding([SP_1_5, SP_3])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
     // 模型目录（T393／llm.models）：只读视图动作，经执行器摘要。
     let models = button(rich_line(
@@ -3299,7 +3318,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         FONT_BASE,
     ))
     .on_press(Message::ShowModels)
-    .padding([7, 14])
+    .padding([SP_1_5, SP_3])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
     let pick_file = button(rich_line(
         state.texts.resolve("gui.file.at"),
@@ -3312,7 +3331,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
             .is_some()
             .then_some(Message::OpenFilePicker),
     )
-    .padding([7, 14])
+    .padding([SP_1_5, SP_3])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
     let add_model = button(rich_line(
         state.texts.resolve("gui.model.add"),
@@ -3320,7 +3339,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         FONT_BASE,
     ))
     .on_press(Message::OpenModelForm)
-    .padding([7, 14])
+    .padding([SP_1_5, SP_3])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
     // 正文区（FR-741）：历史（缓存快照，仅最近 CHAT_HISTORY_RENDER 条）→
     // 运行中＝进度行＋流式增量（markdown 最小集投影，有界）；完成后＝最近结果投影；
@@ -3351,7 +3370,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
                     .resolve_fmt("tui.chat.turn.header", &[("request", request_id)])
                     .as_str(),
                 false,
-                13.0,
+                FONT_CAPTION,
             ));
         }
         body.push(rich_line(
@@ -3424,12 +3443,12 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
             body.push(rich_line(
                 &format!("{}: {reason}", state.texts.resolve("gui.approval.reason")),
                 false,
-                12.0,
+                FONT_SM,
             ));
         }
         let answer_button = |key: &'static str, answer| {
             button(rich_line(state.texts.resolve(key), false, FONT_CAPTION))
-                .padding([4, 8])
+                .padding([SP_1, SP_2])
                 .on_press(Message::ApprovalDecide(answer))
         };
         body.push(
@@ -3458,7 +3477,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
                     .into(),
                 ],
             ))
-            .spacing(8)
+            .spacing(SPF_2)
             .into(),
         );
     }
@@ -3490,7 +3509,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
             FONT_CAPTION,
         ))
         .on_press(Message::SelectView(ViewId::Sessions))
-        .padding([7, 14])
+        .padding([SP_1_5, SP_3])
         .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
         container(
             column![
@@ -3503,7 +3522,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
                 ),
                 chooser,
             ]
-            .spacing(10)
+            .spacing(SPF_2_5)
             .align_x(iced::Alignment::Center),
         )
         .center_x(Length::Fill)
@@ -3525,7 +3544,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
                 rtl,
                 vec![container(input).width(Length::Fill).into(), send.into(),],
             ))
-            .spacing(8)
+            .spacing(SPF_2)
             .align_y(iced::Alignment::Center),
             // 第二行：模型选择（左）与次要动作（右）。
             row(mirrored_order(
@@ -3540,12 +3559,12 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
                     cancel.into(),
                 ],
             ))
-            .spacing(6)
+            .spacing(SPF_1_5)
             .align_y(iced::Alignment::Center),
         ]
-        .spacing(8),
+        .spacing(SPF_2),
     )
-    .padding(12)
+    .padding(SP_3)
     .width(Length::Fill)
     .style(move |_theme| composer_style(composer_theme));
     let mut stack = column![conversation];
@@ -3562,7 +3581,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         stack = stack.push(colored_line(status, false, FONT_SM, subtle));
     }
     stack = stack.push(composer);
-    stack.spacing(10).into()
+    stack.spacing(SPF_2_5).into()
 }
 
 /// 会话操作按钮行（Sessions 视图；执行器未接入时按钮显式禁用提示走反馈行）。
@@ -3571,7 +3590,7 @@ fn op_buttons(state: &State) -> Element<'_, Message> {
     let item = |label: &str, message: Message| -> Element<'_, Message> {
         let theme = state.theme;
         let item = button(rich_line(label, false, FONT_CAPTION))
-            .padding([5, 9])
+            .padding([SP_1, SP_2])
             .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
         if enabled {
             item.on_press(message).into()
@@ -3607,7 +3626,7 @@ fn op_buttons(state: &State) -> Element<'_, Message> {
             ),
         ],
     ))
-    .spacing(6);
+    .spacing(SPF_1_5);
     let secondary_row = row(mirrored_order(
         rtl,
         vec![
@@ -3638,8 +3657,8 @@ fn op_buttons(state: &State) -> Element<'_, Message> {
             ),
         ],
     ))
-    .spacing(6);
-    let buttons = column![primary_row, secondary_row].spacing(6);
+    .spacing(SPF_1_5);
+    let buttons = column![primary_row, secondary_row].spacing(SPF_1_5);
     if enabled {
         return buttons.into();
     }
@@ -3653,7 +3672,7 @@ fn op_buttons(state: &State) -> Element<'_, Message> {
             control_colors(state.theme).subtle,
         )
     ]
-    .spacing(4)
+    .spacing(SPF_1)
     .into()
 }
 
@@ -3664,7 +3683,7 @@ fn spec_controls(state: &State) -> Element<'_, Message> {
     let item = |label: &str, message: Message| -> Element<'_, Message> {
         let theme = state.theme;
         let item = button(rich_line(label, false, FONT_CAPTION))
-            .padding([5, 9])
+            .padding([SP_1, SP_2])
             .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
         if enabled {
             item.on_press(message).into()
@@ -3685,7 +3704,7 @@ fn spec_controls(state: &State) -> Element<'_, Message> {
             ),
         ],
     ))
-    .spacing(6)
+    .spacing(SPF_1_5)
     .into()
 }
 
@@ -3701,7 +3720,7 @@ fn runtime_controls(state: &State) -> Element<'_, Message> {
     let item = |label: String, message: Option<Message>| -> Element<'_, Message> {
         let theme = state.theme;
         let item = button(rich_line(&label, false, FONT_CAPTION))
-            .padding([5, 9])
+            .padding([SP_1, SP_2])
             .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
         match message {
             Some(message) if enabled => item.on_press(message).into(),
@@ -3729,7 +3748,7 @@ fn runtime_controls(state: &State) -> Element<'_, Message> {
             ),
         ],
     ))
-    .spacing(6)
+    .spacing(SPF_1_5)
     .into()
 }
 
@@ -3743,7 +3762,7 @@ fn events_controls(state: &State) -> Element<'_, Message> {
         false,
         FONT_CAPTION,
     ))
-    .padding([5, 9])
+    .padding([SP_1, SP_2])
     .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
     let button = if enabled {
         button.on_press(Message::OpStart(OpMode::EventsExport))
@@ -3760,7 +3779,7 @@ fn events_controls(state: &State) -> Element<'_, Message> {
 /// 运行时视图正文（ADR-092／FR-800 批 2）：声明清单行 + 选中状态；无定时器，
 /// 清单在 prepare 阶段按需读取（probe=false），选中才读状态。
 fn runtime_body(state: &State) -> Element<'_, Message> {
-    let mut rows = column![].spacing(2);
+    let mut rows = column![].spacing(SPF_0_5);
     match state.runtime_entries.as_ref() {
         None => {
             rows = rows.push(rich_line(
@@ -3790,7 +3809,7 @@ fn runtime_body(state: &State) -> Element<'_, Message> {
                 rows = rows.push(
                     button(rich_line(label.as_str(), false, FONT_SM))
                         .on_press(Message::RuntimeSelect(index))
-                        .padding([2, 6]),
+                        .padding([SP_0_5, SP_1_5]),
                 );
             }
         }
@@ -3858,7 +3877,7 @@ fn op_panel(state: &State) -> Element<'_, Message> {
             text_input(placeholder, state.op_input.as_str())
                 .on_input(Message::OpInputChanged)
                 .on_submit(Message::OpConfirm)
-                .padding([6, 8])
+                .padding([SP_1_5, SP_2])
                 .width(Length::Fill)
                 .style(move |_theme, status| field_style(theme, status)),
         );
@@ -3872,7 +3891,7 @@ fn op_panel(state: &State) -> Element<'_, Message> {
                 FONT_CAPTION,
             ))
             .on_press(Message::OpPreview)
-            .padding([5, 10])
+            .padding([5, SP_2_5])
             .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status))
             .into(),
         );
@@ -3883,7 +3902,7 @@ fn op_panel(state: &State) -> Element<'_, Message> {
                 FONT_CAPTION,
             ))
             .on_press(Message::OpConfirm)
-            .padding([5, 10])
+            .padding([5, SP_2_5])
             .style(move |_theme, status| control_button_style(theme, Emphasis::Primary, status))
             .into(),
         );
@@ -3895,7 +3914,7 @@ fn op_panel(state: &State) -> Element<'_, Message> {
                 FONT_CAPTION,
             ))
             .on_press(Message::OpConfirm)
-            .padding([5, 10])
+            .padding([5, SP_2_5])
             .style(move |_theme, status| control_button_style(theme, Emphasis::Primary, status))
             .into(),
         );
@@ -3907,20 +3926,21 @@ fn op_panel(state: &State) -> Element<'_, Message> {
             FONT_CAPTION,
         ))
         .on_press(Message::OpCancel)
-        .padding([5, 10])
+        .padding([5, SP_2_5])
         .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status))
         .into(),
     );
-    panel = panel.push(row(mirrored_order(is_rtl_locale(&state.texts.locale), actions)).spacing(6));
+    panel = panel
+        .push(row(mirrored_order(is_rtl_locale(&state.texts.locale), actions)).spacing(SPF_1_5));
     if let Some(feedback) = state.op_feedback.as_deref() {
         panel = panel.push(rich_line(feedback, false, FONT_CAPTION));
     }
-    panel.spacing(6).into()
+    panel.spacing(SPF_1_5).into()
 }
 
 /// 检查点面板（FR-748）：列表＋差分摘要；回滚未实现时显式标注“仅浏览”。
 fn checkpoint_panel(state: &State) -> Element<'_, Message> {
-    let mut body = column![].spacing(2);
+    let mut body = column![].spacing(SPF_0_5);
     body = body.push(rich_line(
         state.texts.resolve("gui.checkpoints.title"),
         false,
@@ -3965,7 +3985,7 @@ fn session_controls(state: &State) -> Element<'_, Message> {
         state.session_filter.as_str(),
     )
     .on_input(Message::SessionFilterChanged)
-    .padding([6, 8])
+    .padding([SP_1_5, SP_2])
     .width(Length::Fill)
     .style(move |_theme, status| field_style(theme, status));
     let sort_button = |sort: SessionSort, key: &'static str| {
@@ -3982,10 +4002,10 @@ fn session_controls(state: &State) -> Element<'_, Message> {
         button(rich_line(
             &format!("{label}{}", state.texts.resolve(key)),
             false,
-            12.0,
+            FONT_SM,
         ))
         .on_press(Message::SessionSortChanged(sort))
-        .padding([4, 8])
+        .padding([SP_1, SP_2])
         .style(move |_theme, status| control_button_style(theme, emphasis, status))
     };
     let archived = button(rich_line(
@@ -4004,7 +4024,7 @@ fn session_controls(state: &State) -> Element<'_, Message> {
     .on_press(Message::SessionArchivedToggled(
         !state.session_show_archived,
     ))
-    .padding([4, 8])
+    .padding([SP_1, SP_2])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
     row(mirrored_order(
         is_rtl_locale(&state.texts.locale),
@@ -4016,7 +4036,7 @@ fn session_controls(state: &State) -> Element<'_, Message> {
             archived.into(),
         ],
     ))
-    .spacing(4)
+    .spacing(SPF_1)
     .into()
 }
 
@@ -4056,7 +4076,7 @@ fn session_body(state: &State) -> Element<'_, Message> {
                 .map(|line| rich_line(&line, false, FONT_BASE))
                 .collect::<Vec<_>>(),
         )
-        .spacing(2),
+        .spacing(SPF_0_5),
     )
     .style(move |_, _| state.theme.scrollbar())
     .height(Length::Fill)
@@ -4101,7 +4121,7 @@ fn task_body(state: &State) -> Element<'_, Message> {
                 .map(|line| rich_line(&line, true, FONT_BASE))
                 .collect::<Vec<_>>(),
         )
-        .spacing(2),
+        .spacing(SPF_0_5),
     )
     .style(move |_, _| state.theme.scrollbar())
     .height(Length::Fill)
@@ -4112,7 +4132,7 @@ fn task_body(state: &State) -> Element<'_, Message> {
 fn task_buttons(state: &State) -> Element<'_, Message> {
     let rtl = is_rtl_locale(&state.texts.locale);
     let theme = state.theme;
-    let mut rows = column![].spacing(2);
+    let mut rows = column![].spacing(SPF_0_5);
     for (index, task) in state.snapshot.tasks.iter().take(50).enumerate() {
         let label = format!("{} {} {}", task.id, task.status.as_str(), task.title);
         let retry = button(rich_line(
@@ -4121,7 +4141,7 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
             FONT_SM,
         ))
         .on_press(Message::TaskRetry(index))
-        .padding([4, 8])
+        .padding([SP_1, SP_2])
         .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
         let abort = button(rich_line(
             state.texts.resolve("gui.task.abort"),
@@ -4129,7 +4149,7 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
             FONT_SM,
         ))
         .on_press(Message::TaskAbort(index))
-        .padding([4, 8])
+        .padding([SP_1, SP_2])
         .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
         let points = button(rich_line(
             state.texts.resolve("gui.checkpoints.open"),
@@ -4137,7 +4157,7 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
             FONT_SM,
         ))
         .on_press(Message::TaskCheckpoints(index))
-        .padding([4, 8])
+        .padding([SP_1, SP_2])
         .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
         rows = rows.push(
             row(mirrored_order(
@@ -4149,7 +4169,7 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
                     points.into(),
                 ],
             ))
-            .spacing(6),
+            .spacing(SPF_1_5),
         );
     }
     if state.snapshot.tasks.is_empty() {
@@ -4178,7 +4198,7 @@ fn view(state: &State) -> Element<'_, Message> {
             .then_some(Message::OpStart(OpMode::SessionNew)),
     )
     .width(Length::Fill)
-    .padding([8, 10])
+    .padding([SP_2, SP_2_5])
     .style(move |_theme, status| control_button_style(action_theme, Emphasis::Primary, status));
 
     let mut items: Vec<Element<'_, Message>> = vec![new_session.into()];
@@ -4193,7 +4213,7 @@ fn view(state: &State) -> Element<'_, Message> {
                 FONT_SM,
                 subtle,
             ))
-            .padding([4, 8])
+            .padding([SP_1, SP_2])
             .width(Length::Fill)
             .into(),
         );
@@ -4208,10 +4228,10 @@ fn view(state: &State) -> Element<'_, Message> {
                 container(colored_line(
                     &format!("+{}", state.sidebar_sessions.len() - shown),
                     false,
-                    11.0,
+                    FONT_XS,
                     subtle,
                 ))
-                .padding([2, 8])
+                .padding([SP_0_5, SP_2])
                 .width(Length::Fill)
                 .into(),
             );
@@ -4234,7 +4254,7 @@ fn view(state: &State) -> Element<'_, Message> {
                 !state.session_show_archived,
             ))
             .width(Length::Fill)
-            .padding([5, 8])
+            .padding([5, SP_2])
             .style(move |_theme, status| {
                 control_button_style(archive_theme, Emphasis::Ghost, status)
             })
@@ -4255,7 +4275,7 @@ fn view(state: &State) -> Element<'_, Message> {
             FONT_SM,
             control_colors(project_theme).subtle,
         ))
-        .padding([4, 8])
+        .padding([SP_1, SP_2])
         .width(Length::Fill)
         .into(),
     );
@@ -4272,7 +4292,7 @@ fn view(state: &State) -> Element<'_, Message> {
         ))
         .on_press(Message::TogglePanels)
         .width(Length::Fill)
-        .padding([7, 8])
+        .padding([7, SP_2])
         .style(move |_theme, status| sidebar_style(panel_theme, panel_selected, status))
         .into(),
     );
@@ -4280,10 +4300,10 @@ fn view(state: &State) -> Element<'_, Message> {
     let sidebar_theme = state.theme;
     let sidebar_width = f32::from(whcode_domain::theme_tokens::spec::SIDEBAR_WIDTH);
     let sidebar = container(column![
-        container(rich_line("WHCode", false, FONT_BASE)).padding([4, 6]),
-        column(items).spacing(2),
+        container(rich_line("WHCode", false, FONT_BASE)).padding([SP_1, SP_1_5]),
+        column(items).spacing(SPF_0_5),
     ])
-    .padding(8)
+    .padding(SP_2)
     .width(Length::Fixed(sidebar_width))
     .height(Length::Fill)
     .style(move |_theme| sidebar_panel_style(sidebar_theme));
@@ -4297,7 +4317,7 @@ fn view(state: &State) -> Element<'_, Message> {
             ViewId::Ledger => read_body(state, false),
             ViewId::Sessions if state.op_mode.is_some() => {
                 column![op_panel(state), read_body(state, false)]
-                    .spacing(8)
+                    .spacing(SPF_2)
                     .into()
             }
             ViewId::Sessions => column![
@@ -4306,14 +4326,14 @@ fn view(state: &State) -> Element<'_, Message> {
                 content_search_panel(state),
                 session_body(state)
             ]
-            .spacing(8)
+            .spacing(SPF_2)
             .into(),
             ViewId::Tasks => column![
                 task_buttons(state),
                 task_body(state),
                 checkpoint_panel(state)
             ]
-            .spacing(8)
+            .spacing(SPF_2)
             .into(),
             ViewId::Diff => diff_body(state),
             // ADR-091／FR-799：Events 支持选中详情；Spec 支持门禁摘要。
@@ -4322,10 +4342,10 @@ fn view(state: &State) -> Element<'_, Message> {
                 events_controls(state),
                 read_detail_body(state)
             ]
-            .spacing(8)
+            .spacing(SPF_2)
             .into(),
             ViewId::Events => column![events_controls(state), read_detail_body(state)]
-                .spacing(8)
+                .spacing(SPF_2)
                 .into(),
             // ADR-092／FR-800：Spec 视图接入阶段推进与强制放行写面。
             ViewId::Spec if state.op_mode.is_some() => column![
@@ -4333,10 +4353,10 @@ fn view(state: &State) -> Element<'_, Message> {
                 spec_controls(state),
                 read_detail_body(state)
             ]
-            .spacing(8)
+            .spacing(SPF_2)
             .into(),
             ViewId::Spec => column![spec_controls(state), read_detail_body(state)]
-                .spacing(8)
+                .spacing(SPF_2)
                 .into(),
             // ADR-092／FR-800 批 2：运行时视图接入清单、状态与写面按钮。
             ViewId::Runtime if state.op_mode.is_some() => column![
@@ -4344,10 +4364,10 @@ fn view(state: &State) -> Element<'_, Message> {
                 runtime_controls(state),
                 runtime_body(state)
             ]
-            .spacing(8)
+            .spacing(SPF_2)
             .into(),
             ViewId::Runtime => column![runtime_controls(state), runtime_body(state)]
-                .spacing(8)
+                .spacing(SPF_2)
                 .into(),
             _ => read_body(state, false),
         }
@@ -4359,7 +4379,7 @@ fn view(state: &State) -> Element<'_, Message> {
     let subtle = control_colors(main_theme).subtle;
     let title_text = state.current_session_title();
     let meta_text = state.current_session_meta();
-    let mut title_col = column![rich_line(&title_text, false, FONT_XL)].spacing(2);
+    let mut title_col = column![rich_line(&title_text, false, FONT_XL)].spacing(SPF_0_5);
     if !meta_text.is_empty() {
         title_col = title_col.push(colored_line(&meta_text, false, FONT_CAPTION, subtle));
     }
@@ -4371,7 +4391,7 @@ fn view(state: &State) -> Element<'_, Message> {
         let quick = |key: &'static str, message: Message| -> Element<'_, Message> {
             button(rich_line(state.texts.resolve(key), false, FONT_SM))
                 .on_press(message)
-                .padding([4, 8])
+                .padding([SP_1, SP_2])
                 .style(move |_theme, status| {
                     control_button_style(main_theme, Emphasis::Ghost, status)
                 })
@@ -4399,7 +4419,7 @@ fn view(state: &State) -> Element<'_, Message> {
                 FONT_CAPTION,
             ))
             .on_press(Message::SelectView(ViewId::Chat))
-            .padding([5, 10])
+            .padding([5, SP_2_5])
             .style(move |_theme, status| {
                 control_button_style(main_theme, Emphasis::Secondary, status)
             })
@@ -4414,7 +4434,7 @@ fn view(state: &State) -> Element<'_, Message> {
             FONT_CAPTION,
         ))
         .on_press(Message::TogglePanels)
-        .padding([5, 10])
+        .padding([5, SP_2_5])
         .style(move |_theme, status| control_button_style(main_theme, Emphasis::Ghost, status))
         .into(),
     );
@@ -4424,19 +4444,19 @@ fn view(state: &State) -> Element<'_, Message> {
             .chain(actions)
             .collect(),
     ))
-    .spacing(8)
+    .spacing(SPF_2)
     .align_y(iced::Alignment::Center);
 
     let body = match session_tabs(state) {
-        Some(tabs) => column![tabs, body].spacing(10).into(),
+        Some(tabs) => column![tabs, body].spacing(SPF_2_5).into(),
         None => body,
     };
     let card = container(
         column![header, hairline(main_theme), body]
-            .spacing(12)
+            .spacing(SPF_3)
             .height(Length::Fill),
     )
-    .padding(16)
+    .padding(SP_4)
     .width(Length::Fill)
     .height(Length::Fill)
     .style(move |_theme| card_style(main_theme));
@@ -4446,18 +4466,18 @@ fn view(state: &State) -> Element<'_, Message> {
         hairline(main_theme),
         colored_line(state.footer().as_str(), false, FONT_SM, subtle),
     ]
-    .spacing(6)
+    .spacing(SPF_1_5)
     .width(Length::Fill)
     .height(Length::Fill);
 
     // 外壳行序镜像（FR-766／T279）：RTL 时导航栏在右、主面板在左。
     let shell = if is_rtl_locale(&state.texts.locale) {
-        row![main, sidebar].spacing(8)
+        row![main, sidebar].spacing(SPF_2)
     } else {
-        row![sidebar, main].spacing(8)
+        row![sidebar, main].spacing(SPF_2)
     };
     container(shell)
-        .padding(8)
+        .padding(SP_2)
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
@@ -4496,7 +4516,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
         )
     };
     let heading = |key: &'static str| rich_line(state.texts.resolve(key), false, FONT_LG);
-    let mut body = column![].spacing(6);
+    let mut body = column![].spacing(SPF_1_5);
 
     body = body.push(
         button(rich_line(
@@ -4504,7 +4524,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
             false,
             FONT_CAPTION,
         ))
-        .padding([2, 8])
+        .padding([SP_0_5, SP_2])
         .on_press(Message::RefreshPanels),
     );
     if let Some(status) = state.panel_status.as_deref() {
@@ -4564,7 +4584,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
                         &[("count", &skill.issues.len().to_string())],
                     ),
                     false,
-                    11.0,
+                    FONT_XS,
                 ));
             }
         }
@@ -4613,7 +4633,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
                         &[("tools", &server.tools.join(", "))],
                     ),
                     false,
-                    11.0,
+                    FONT_XS,
                 ));
             }
         }
@@ -4629,7 +4649,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
             FONT_SM,
         ))
         .on_press(Message::OpStart(OpMode::ApprovalRuleWrite))
-        .padding([2, 6]),
+        .padding([SP_0_5, SP_1_5]),
     );
     if let Some(error) = state.panels.error.as_deref()
         && state.panels.rules.is_empty()
@@ -4650,7 +4670,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
                 false,
                 FONT_SM,
             ))
-            .padding([4, 8])
+            .padding([SP_1, SP_2])
             .on_press(Message::RevokeRule(rule.tool.clone()))
             .style(move |_theme, status| {
                 control_button_style(revoke_theme, Emphasis::Ghost, status)
@@ -4660,7 +4680,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
                     rtl,
                     vec![rich_line(label.as_str(), true, FONT_CAPTION), revoke.into()],
                 ))
-                .spacing(8),
+                .spacing(SPF_2),
             );
         }
     }
@@ -4700,7 +4720,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
         body = body.push(
             button(rich_line(state.texts.resolve(label), false, FONT_SM))
                 .on_press(Message::OpStart(OpMode::CertWrite(action)))
-                .padding([2, 6]),
+                .padding([SP_0_5, SP_1_5]),
         );
     }
 
@@ -4712,6 +4732,52 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    /// ADR-102 校准守卫：GUI 间距必须落在 `spec::SPACE_SCALE`，或为登记在案的亚网格微调。
+    ///
+    /// 1／3／5／7 是图标基线对齐与 1px 描边补偿的亚像素微调（spec 注释已登记），
+    /// 其余取值一律须走 `SP_*` 常量——否则改 spec 不会生效，重演字号那类漂移。
+    #[test]
+    fn spacing_uses_spec_scale_or_registered_micro_adjustments() {
+        use whcode_domain::theme_tokens::spec;
+        assert_eq!(
+            spec::SPACE_SCALE,
+            &[2, 4, 6, 8, 10, 12, 16, 24],
+            "间距档位变更须同步本守卫与 CSS 的 --space-* 变量"
+        );
+        const MICRO: [u16; 4] = [1, 3, 5, 7];
+        let source = include_str!("lib.rs");
+        for (index, line) in source.lines().enumerate() {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("//") || trimmed.starts_with("///") {
+                continue;
+            }
+            for call in [".padding(", ".spacing("] {
+                let Some(start) = line.find(call) else {
+                    continue;
+                };
+                let rest = &line[start + call.len()..];
+                let Some(end) = rest.find(')') else { continue };
+                for arg in rest[..end].split(',') {
+                    let arg = arg.trim().trim_start_matches('[').trim_end_matches(']');
+                    // 常量引用（SP_x／SPF_x）里的数字不是字面量，跳过。
+                    if arg.starts_with("SP_") || arg.starts_with("SPF_") {
+                        continue;
+                    }
+                    let Ok(value) = arg.parse::<u16>() else {
+                        continue;
+                    };
+                    assert!(
+                        spec::SPACE_SCALE.contains(&value) || MICRO.contains(&value),
+                        "第 {} 行间距 {value} 不在 SPACE_SCALE 或微调白名单：{line}",
+                        index + 1
+                    );
+                }
+            }
+        }
+    }
+
     /// ADR-102 校准守卫：GUI 字号必须全部来自 spec 七级别名常量，不得回潮为字面量。
     ///
     /// 校准前散落 11／15／20 三个不在七级内的值，且 62 处为硬编码——改 spec 不生效。
@@ -4750,9 +4816,22 @@ mod tests {
                 index + 1
             );
         }
+        // 跨行形态：字号单独成行（rich_line 后换行、再写 false、再写字号、再闭合），
+        // 按行扫描会漏——向上回看 6 行是否处于 rich_line／colored_line 调用中。
+        let lines: Vec<&str> = source.lines().collect();
+        for (index, line) in lines.iter().enumerate() {
+            let token = line.trim().trim_end_matches(',');
+            if token.parse::<f32>().is_err() {
+                continue;
+            }
+            let context = lines[index.saturating_sub(6)..index].join(" ");
+            assert!(
+                !(context.contains("rich_line(") || context.contains("colored_line(")),
+                "第 {} 行出现跨行字号字面量 {token}，须改用 FONT_* 常量",
+                index + 1
+            );
+        }
     }
-
-    use super::*;
 
     /// RTL 行序镜像（FR-766／T279）：LTR 保持登记序；RTL 反转；空行序恒空。
     #[test]
