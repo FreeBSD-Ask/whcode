@@ -337,6 +337,9 @@ pub struct ViewSnapshot {
     pub selected_index: Option<usize>,
     /// 台账行（台账视图；四节统一渲染单位，FR-787／FR-794）。
     pub ledger: Vec<LedgerRow>,
+    /// 当前会话是否处于计划模式（ADR-102 composer 切换器；`plan::is_active` 的只读镜像）。
+    /// 无会话时为 `false`——与 `plan` 模块“从未切换过视为关闭”的口径一致。
+    pub plan_active: bool,
 }
 
 impl ViewSnapshot {
@@ -356,6 +359,7 @@ impl ViewSnapshot {
             coherence_report: String::new(),
             selected_index: None,
             ledger: Vec::new(),
+            plan_active: false,
         }
     }
 
@@ -978,6 +982,7 @@ impl Default for ViewSnapshot {
             coherence_report: String::new(),
             selected_index: None,
             ledger: Vec::new(),
+            plan_active: false,
         }
     }
 }

@@ -532,6 +532,8 @@ enum Message {
     // —— @ 文件（ADR-102 功能对齐）——
     /// 打开文件候选面板（列出工作区文件）。
     OpenFilePicker,
+    /// 切换计划模式（ADR-102 composer 切换器；读 `snapshot.plan_active` 取反）。
+    PlanToggle,
     /// 文件候选的过滤词变更。
     FileQueryChanged(String),
     /// 把候选路径插入提示词末尾。
@@ -1401,6 +1403,21 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                     .texts
                     .resolve_fmt("gui.model.save_failed", &[("error", &err.to_string())]),
             });
+            return Task::none();
+        }
+        Message::PlanToggle => {
+            let Some(session) = state.selected_session() else {
+                state.op_feedback = Some(state.texts.resolve("gui.chat.none").to_string());
+                return Task::none();
+            };
+            let next = !state.snapshot.plan_active;
+            execute(
+                state,
+                FrontendCommand::SessionPlanSet {
+                    session_id: session,
+                    active: next,
+                },
+            );
             return Task::none();
         }
         Message::OpenFilePicker => {
@@ -3282,6 +3299,31 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         .padding([SP_1, SP_2])
         .text_size(FONT_SM)
         .width(Length::Fixed(210.0));
+    // 计划模式切换器（ADR-102：ZCode 把权限模式放在 composer 内，一眼可见当前态）。
+    // 状态取自 `snapshot.plan_active`（`plan::is_active` 的只读镜像），不本地缓存，
+    // 避免与命令层真实状态漂移。
+    let plan_active = state.snapshot.plan_active;
+    let plan_label = state.texts.resolve(if plan_active {
+        "gui.plan.on"
+    } else {
+        "gui.plan.off"
+    });
+    let plan_toggle = button(rich_line(plan_label, false, FONT_SM))
+        .on_press_maybe(
+            (!state.turn_running && state.executor.is_some()).then_some(Message::PlanToggle),
+        )
+        .padding([SP_1, SP_2])
+        .style(move |_theme, status| {
+            control_button_style(
+                theme,
+                if plan_active {
+                    Emphasis::Secondary
+                } else {
+                    Emphasis::Ghost
+                },
+                status,
+            )
+        });
     let provider_label = state.texts.resolve("gui.chat.provider");
     let input = text_input(
         state.texts.resolve("gui.chat.prompt.placeholder"),
@@ -3552,6 +3594,8 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
                 vec![
                     colored_line(provider_label, false, FONT_XS, subtle),
                     model_picker.into(),
+                    // 计划模式紧随模型选择（ZCode 权限模式同位置）。
+                    plan_toggle.into(),
                     container(column![]).width(Length::Fill).into(),
                     pick_file.into(),
                     models.into(),

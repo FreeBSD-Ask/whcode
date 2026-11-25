@@ -851,6 +851,12 @@ msgstr "تجاوز البوابة"
 msgid "gui.op.spec.next"
 msgstr "المرحلة التالية"
 
+msgid "gui.plan.off"
+msgstr "وضع الخطة: معطّل"
+
+msgid "gui.plan.on"
+msgstr "وضع الخطة: مفعّل"
+
 msgid "gui.session.archived"
 msgstr "مؤرشفة"
 

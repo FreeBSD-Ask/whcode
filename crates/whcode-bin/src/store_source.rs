@@ -558,7 +558,7 @@ const LEDGER_INTERVENTION_LIMIT: usize = 20;
 
 impl ViewSource for StoreViewSource {
     fn snapshot(&self, view: ViewId, session: Option<&str>) -> ViewSnapshot {
-        match self.build(view, session) {
+        let mut snapshot = match self.build(view, session) {
             Ok(snapshot) => snapshot,
             Err(err) => {
                 // 显式失败：摘要行写明错误（不伪造数据，不静默为空）。
@@ -568,7 +568,14 @@ impl ViewSource for StoreViewSource {
                     .resolve_fmt("error.datasource", &[("error", &err.to_string())]);
                 snapshot
             }
+        };
+        // ADR-102 composer 计划模式切换器：状态与会话相关、与视图无关，故在此统一填充。
+        // 读失败按“关闭”处理——它是辅助显示，不阻断主流程；真实切换仍由命令层裁决。
+        if let Some(session) = session {
+            let conn = self.conn.lock().expect("store 连接锁中毒");
+            snapshot.plan_active = whcode_app::plan::is_active(&conn, session).unwrap_or(false);
         }
+        snapshot
     }
 
     fn cursor(&self, _session: Option<&str>) -> Option<i64> {

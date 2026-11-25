@@ -851,6 +851,12 @@ msgstr "Forzar avance"
 msgid "gui.op.spec.next"
 msgstr "Etapa siguiente"
 
+msgid "gui.plan.off"
+msgstr "Modo plan: desactivado"
+
+msgid "gui.plan.on"
+msgstr "Modo plan: activado"
+
 msgid "gui.session.archived"
 msgstr "Archivadas"
 

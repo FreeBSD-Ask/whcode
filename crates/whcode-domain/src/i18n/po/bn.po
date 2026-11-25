@@ -851,6 +851,12 @@ msgstr "গেট অতিক্রম"
 msgid "gui.op.spec.next"
 msgstr "পরবর্তী পর্যায়"
 
+msgid "gui.plan.off"
+msgstr "পরিকল্পনা মোড: বন্ধ"
+
+msgid "gui.plan.on"
+msgstr "পরিকল্পনা মোড: চালু"
+
 msgid "gui.session.archived"
 msgstr "আর্কাইভকৃত"
 

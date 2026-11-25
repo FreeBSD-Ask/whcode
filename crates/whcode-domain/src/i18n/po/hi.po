@@ -851,6 +851,12 @@ msgstr "गेट पार करें"
 msgid "gui.op.spec.next"
 msgstr "अगला चरण"
 
+msgid "gui.plan.off"
+msgstr "योजना मोड: बंद"
+
+msgid "gui.plan.on"
+msgstr "योजना मोड: चालू"
+
 msgid "gui.session.archived"
 msgstr "आर्काइव किए गए"
 

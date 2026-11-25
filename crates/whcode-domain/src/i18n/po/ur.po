@@ -851,6 +851,12 @@ msgstr "گیٹ عبور کریں"
 msgid "gui.op.spec.next"
 msgstr "اگلا مرحلہ"
 
+msgid "gui.plan.off"
+msgstr "پلان موڈ: آف"
+
+msgid "gui.plan.on"
+msgstr "پلان موڈ: آن"
+
 msgid "gui.session.archived"
 msgstr "آرکائیو شدہ"
 

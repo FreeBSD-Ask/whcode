@@ -851,6 +851,12 @@ msgstr "Принудительный переход"
 msgid "gui.op.spec.next"
 msgstr "Следующий этап"
 
+msgid "gui.plan.off"
+msgstr "Режим плана: выкл"
+
+msgid "gui.plan.on"
+msgstr "Режим плана: вкл"
+
 msgid "gui.session.archived"
 msgstr "Архив"
 

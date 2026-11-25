@@ -354,3 +354,33 @@ counts／traceability／docs-style／EOL／coherence pre（反例 0）全绿。
 
 **附带清理**：仓库根出现 `whcode.duckdb`（12 KB 空库，0 会话/0 消息，时间戳与误启动
 `whcode gui --help` 吻合）及其 WAL，触发 `test_layout` 的根文件门禁；确认为本人操作残留后删除。
+
+## 落地记录（2026-11-25 第十批：composer 计划模式切换器）
+
+第六批登记的「composer 无权限模式」本批收口。核查后确认：斜杠命令**已实现**（8 条，
+`chat_submit` 的 `/` 前缀解析），@ 文件已在第七批接通；真正缺的是**计划模式的可见状态**——
+它此前只在会话操作行以「打开输入面板、输入 on/off」的文本交互存在，且状态仅回显在
+`op_feedback` 文本里（`plan_mode=true`），用户无法一眼看出当前是否开启。
+
+**数据来源**：`whcode_app::plan::is_active(conn, session)`（读最新 `PlanModeChanged` 事件，
+无事件即关闭）。这是可靠只读来源，故做**真切换器**而非「打开设置」入口。
+
+**实现**：
+
+1. `ViewSnapshot` 增 `plan_active: bool`——`snapshot()` 层统一填充（状态与会话相关、
+   与视图无关），读失败按关闭处理（辅助显示，不阻断主流程；真实切换仍由命令层裁决）。
+2. GUI 新增 `Message::PlanToggle`：读 `snapshot.plan_active` 取反，经
+   `FrontendCommand::SessionPlanSet` 执行；成功后 `execute()` 既有的 `prepare()` 刷新快照，
+   状态自动更新——**不本地缓存**，避免与命令层漂移。
+3. composer 第二行在模型选择之后插入切换器（ZCode 权限模式同位置）：开启态用
+   `Emphasis::Secondary`、关闭态 `Emphasis::Ghost`，文案 `gui.plan.on`／`gui.plan.off`
+   （13 套同步，基于各语言既有 `gui.op.plan` 译文组合，非新造术语）。
+4. turn 运行中或执行器未接入时禁用（与发送按钮同口径）。
+
+**验证（本机）**：`cargo test -p whcode-gui --all-targets` 49 通过；
+`cargo test -p whcode-domain` 90 通过；`clippy --workspace --all-targets -D warnings` 通过；
+`i18n-po --check` 同步；counts／traceability／docs-style／coherence pre（反例 0）全绿。
+
+**未取得（如实登记）**：切换器的**实际点击与状态回显未做端到端验证**——`ImageGrab` 仍报
+`screen grab failed`（环境限制持续三批）。逻辑路径（读状态→取反→执行→prepare 刷新）
+已在代码层闭合，但「点击后按钮文案确实翻转」未经界面确认。

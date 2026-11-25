@@ -851,6 +851,12 @@ msgstr "Force advance"
 msgid "gui.op.spec.next"
 msgstr "Next stage"
 
+msgid "gui.plan.off"
+msgstr "Plan mode: off"
+
+msgid "gui.plan.on"
+msgstr "Plan mode: on"
+
 msgid "gui.session.archived"
 msgstr "Archived"
 

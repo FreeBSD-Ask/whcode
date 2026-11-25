@@ -851,6 +851,12 @@ msgstr "強制放行"
 msgid "gui.op.spec.next"
 msgstr "推進階段"
 
+msgid "gui.plan.off"
+msgstr "計劃模式：關"
+
+msgid "gui.plan.on"
+msgstr "計劃模式：開"
+
 msgid "gui.session.archived"
 msgstr "封存"
 

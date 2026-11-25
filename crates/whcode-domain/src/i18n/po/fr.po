@@ -851,6 +851,12 @@ msgstr "Forcer le passage"
 msgid "gui.op.spec.next"
 msgstr "Étape suivante"
 
+msgid "gui.plan.off"
+msgstr "Mode plan : désactivé"
+
+msgid "gui.plan.on"
+msgstr "Mode plan : activé"
+
 msgid "gui.session.archived"
 msgstr "Archivées"
 

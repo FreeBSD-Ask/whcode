@@ -851,6 +851,12 @@ msgstr "Gate überschreiben"
 msgid "gui.op.spec.next"
 msgstr "Nächste Stufe"
 
+msgid "gui.plan.off"
+msgstr "Planmodus: aus"
+
+msgid "gui.plan.on"
+msgstr "Planmodus: an"
+
 msgid "gui.session.archived"
 msgstr "Archiviert"
 

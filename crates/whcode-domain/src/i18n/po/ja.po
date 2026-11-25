@@ -851,6 +851,12 @@ msgstr "強制通過"
 msgid "gui.op.spec.next"
 msgstr "次の段階へ"
 
+msgid "gui.plan.off"
+msgstr "計画モード：オフ"
+
+msgid "gui.plan.on"
+msgstr "計画モード：オン"
+
 msgid "gui.session.archived"
 msgstr "アーカイブ"
 

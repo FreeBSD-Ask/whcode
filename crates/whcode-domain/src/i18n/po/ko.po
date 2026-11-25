@@ -851,6 +851,12 @@ msgstr "강제 통과"
 msgid "gui.op.spec.next"
 msgstr "다음 단계"
 
+msgid "gui.plan.off"
+msgstr "계획 모드: 꺼짐"
+
+msgid "gui.plan.on"
+msgstr "계획 모드: 켜짐"
+
 msgid "gui.session.archived"
 msgstr "보관"
 
