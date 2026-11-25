@@ -58,6 +58,17 @@ const FONT_JETBRAINS: &[u8] = include_bytes!("../assets/fonts/JetBrainsMono-Regu
 const FONT_SARASA: &[u8] = include_bytes!("../assets/fonts/SarasaMonoSC-Regular.subset.ttf");
 
 /// GUI 主题（六套：既有四套铁律精确色值 FR-612／FR-713；whcode 系 FR-739 为
+/// GUI 字号（f32 形态，唯一取自 `theme_tokens::spec` 的七级体系）。
+///
+/// ADR-102 校准：此前散落 11／15／20 三个**不在七级内**的字面量，且改动 spec 常量
+/// 不会生效。现统一为别名常量——改 spec 即全局生效，代码里不再出现字号字面量。
+const FONT_XS: f32 = whcode_domain::theme_tokens::spec::UI_FONT_XS as f32;
+const FONT_SM: f32 = whcode_domain::theme_tokens::spec::UI_FONT_SM as f32;
+const FONT_CAPTION: f32 = whcode_domain::theme_tokens::spec::UI_FONT_CAPTION as f32;
+const FONT_BASE: f32 = whcode_domain::theme_tokens::spec::UI_FONT_BASE as f32;
+const FONT_LG: f32 = whcode_domain::theme_tokens::spec::UI_FONT_LG as f32;
+const FONT_XL: f32 = whcode_domain::theme_tokens::spec::UI_FONT_XL as f32;
+
 /// 2026-11-06 用户新增并批准冻结，色值源 `whcode_domain::theme_tokens`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum GuiTheme {
@@ -1734,7 +1745,7 @@ fn md_elements(text: &str) -> Vec<Element<'static, Message>> {
         elements.push(rich_text(spans).into());
     }
     if md_project(text).len() > CHAT_RENDER_MAX_LINES {
-        elements.push(rich_line("…", false, 13.0));
+        elements.push(rich_line("…", false, FONT_CAPTION));
     }
     elements
 }
@@ -2407,20 +2418,20 @@ fn content_search_panel(state: &State) -> Element<'_, Message> {
     let run = button(rich_line(
         state.texts.resolve("gui.content.run"),
         false,
-        12.0,
+        FONT_SM,
     ))
     .on_press(Message::ContentSearchSubmit)
     .padding([5, 9])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
     let mut panel = column![row!(input, run).spacing(4)].spacing(4);
     if let Some(status) = &state.content_status {
-        panel = panel.push(rich_line(status, false, 12.0));
+        panel = panel.push(rich_line(status, false, FONT_SM));
     }
     for hit in state.content_hits.iter().take(20) {
         panel = panel.push(rich_line(
             &format!("[{}] {} {}", hit.session_id, hit.role, hit.snippet),
             false,
-            12.0,
+            FONT_SM,
         ));
     }
     panel.into()
@@ -2794,10 +2805,15 @@ fn badge_style(theme: GuiTheme) -> container::Style {
 /// 用小号次级前景色，只做分组不做交互。
 fn sidebar_section<'a>(state: &'a State, key: &'static str) -> Element<'a, Message> {
     let subtle = control_colors(state.theme).subtle;
-    container(colored_line(state.texts.resolve(key), false, 12.0, subtle))
-        .padding([4, 10])
-        .width(Length::Fill)
-        .into()
+    container(colored_line(
+        state.texts.resolve(key),
+        false,
+        FONT_SM,
+        subtle,
+    ))
+    .padding([4, 10])
+    .width(Length::Fill)
+    .into()
 }
 
 /// 会话详情标签（ADR-102）：只在**选中具体会话**后出现。
@@ -2920,8 +2936,8 @@ fn sidebar_session(state: &State, index: usize) -> Element<'_, Message> {
         .unwrap_or_default();
     let body = row![
         bar,
-        container(rich_line(&title, false, 14.0)).width(Length::Fill),
-        colored_line(&stamp, false, 10.0, control_colors(theme).subtle),
+        container(rich_line(&title, false, FONT_BASE)).width(Length::Fill),
+        colored_line(&stamp, false, FONT_XS, control_colors(theme).subtle),
     ]
     .spacing(6)
     .align_y(iced::Alignment::Center);
@@ -2934,7 +2950,7 @@ fn sidebar_session(state: &State, index: usize) -> Element<'_, Message> {
             container(rich_line(
                 state.texts.resolve("gui.session.archived"),
                 false,
-                10.0,
+                FONT_XS,
             ))
             .padding([1, 4])
             .style(move |_theme| badge_style(theme)),
@@ -2973,12 +2989,17 @@ fn diff_body(state: &State) -> Element<'_, Message> {
                     ..container::Style::default()
                 })
                 .into();
-            let body = colored_line(&format!("{}{}", line.marker, line.text), true, 15.0, color);
+            let body = colored_line(
+                &format!("{}{}", line.marker, line.text),
+                true,
+                FONT_BASE,
+                color,
+            );
             row(mirrored_order(rtl, vec![bar, body])).spacing(8).into()
         })
         .collect();
     if lines.is_empty() {
-        return rich_line(state.texts.resolve("tui.empty"), true, 16.0);
+        return rich_line(state.texts.resolve("tui.empty"), true, FONT_LG);
     }
     scrollable(column(lines).spacing(2))
         .style(move |_, _| state.theme.scrollbar())
@@ -2990,13 +3011,13 @@ fn diff_body(state: &State) -> Element<'_, Message> {
 fn read_body(state: &State, mono: bool) -> Element<'_, Message> {
     let lines = state.snapshot.render_lines_limited(500);
     if lines.is_empty() {
-        rich_line(state.texts.resolve("tui.empty"), mono, 16.0)
+        rich_line(state.texts.resolve("tui.empty"), mono, FONT_LG)
     } else {
         scrollable(
             column(
                 lines
                     .into_iter()
-                    .map(|line| rich_line(line.as_str(), mono, 16.0))
+                    .map(|line| rich_line(line.as_str(), mono, FONT_LG))
                     .collect::<Vec<_>>(),
             )
             .spacing(4),
@@ -3024,7 +3045,7 @@ fn events_body(state: &State) -> Element<'_, Message> {
                 "  "
             };
             let label = format!("{marker}{} {} {}", row.seq, row.kind, row.summary);
-            button(rich_line(&label, false, 15.0))
+            button(rich_line(&label, false, FONT_BASE))
                 .on_press(Message::EventDetail(index))
                 .width(Length::Fill)
                 .padding([2, 6])
@@ -3035,7 +3056,7 @@ fn events_body(state: &State) -> Element<'_, Message> {
         })
         .collect();
     if lines.is_empty() {
-        rich_line(state.texts.resolve("tui.empty"), false, 16.0)
+        rich_line(state.texts.resolve("tui.empty"), false, FONT_LG)
     } else {
         scrollable(column(lines).spacing(2))
             .style(move |_, _| state.theme.scrollbar())
@@ -3062,9 +3083,9 @@ fn detail_panel(state: &State) -> Element<'_, Message> {
         None => state.texts.resolve("gui.detail.none").to_string(),
     };
     column![
-        rich_line(label, false, 14.0),
-        rich_line(hint, false, 12.0),
-        rich_line(body.as_str(), false, 13.0),
+        rich_line(label, false, FONT_BASE),
+        rich_line(hint, false, FONT_SM),
+        rich_line(body.as_str(), false, FONT_CAPTION),
     ]
     .spacing(3)
     .into()
@@ -3094,24 +3115,28 @@ fn file_picker_panel(state: &State) -> Element<'_, Message> {
         list = list.push(colored_line(
             state.texts.resolve("gui.file.empty"),
             false,
-            12.0,
+            FONT_SM,
             control_colors(theme).subtle,
         ));
     }
     for hit in hits {
         let label = hit.clone();
         list = list.push(
-            button(rich_line(&label, true, 12.0))
+            button(rich_line(&label, true, FONT_SM))
                 .on_press(Message::InsertFile(hit))
                 .width(Length::Fill)
                 .padding([3, 8])
                 .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status)),
         );
     }
-    let close = button(rich_line(state.texts.resolve("gui.op.cancel"), false, 12.0))
-        .on_press(Message::CloseFilePicker)
-        .padding([4, 10])
-        .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
+    let close = button(rich_line(
+        state.texts.resolve("gui.op.cancel"),
+        false,
+        FONT_SM,
+    ))
+    .on_press(Message::CloseFilePicker)
+    .padding([4, 10])
+    .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
     container(
         column![
             row![container(input).width(Length::Fill), close]
@@ -3149,22 +3174,26 @@ fn model_form_panel(state: &State) -> Element<'_, Message> {
         Message::ModelProtocolChanged,
     )
     .padding([4, 8])
-    .text_size(12.0)
+    .text_size(FONT_SM)
     .width(Length::Fixed(130.0));
     let save = button(rich_line(
         state.texts.resolve("gui.model.save"),
         false,
-        13.0,
+        FONT_CAPTION,
     ))
     .on_press(Message::SaveModel)
     .padding([6, 12])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Primary, status));
-    let cancel = button(rich_line(state.texts.resolve("gui.op.cancel"), false, 13.0))
-        .on_press(Message::CloseModelForm)
-        .padding([6, 12])
-        .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
+    let cancel = button(rich_line(
+        state.texts.resolve("gui.op.cancel"),
+        false,
+        FONT_CAPTION,
+    ))
+    .on_press(Message::CloseModelForm)
+    .padding([6, 12])
+    .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
     let mut body = column![
-        rich_line(state.texts.resolve("gui.model.add"), false, 14.0),
+        rich_line(state.texts.resolve("gui.model.add"), false, FONT_BASE),
         row(mirrored_order(
             is_rtl_locale(&state.texts.locale),
             vec![
@@ -3212,7 +3241,7 @@ fn model_form_panel(state: &State) -> Element<'_, Message> {
         body = body.push(colored_line(
             status,
             false,
-            12.0,
+            FONT_SM,
             control_colors(theme).subtle,
         ));
     }
@@ -3232,7 +3261,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     let model_picker = pick_list(model_options, model_selected, Message::ChatProviderChanged)
         .placeholder(state.texts.resolve("gui.chat.model.choose"))
         .padding([4, 8])
-        .text_size(12.0)
+        .text_size(FONT_SM)
         .width(Length::Fixed(210.0));
     let provider_label = state.texts.resolve("gui.chat.provider");
     let input = text_input(
@@ -3247,14 +3276,18 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     // turn 运行中：发送禁用（面板开新 turn 会与连接锁竞争）、取消保持可用
     // （取消经标记目录跨线程生效，不触库）；状态行呈现运行进度或最近结果。
     // 发送是主操作（ADR-102 `primary` 填充），取消与模型目录为次／弱操作。
-    let send = button(rich_line(state.texts.resolve("gui.chat.send"), false, 14.0))
-        .on_press_maybe((!state.turn_running && state.llm.is_some()).then_some(Message::ChatSubmit))
-        .padding([7, 14])
-        .style(move |_theme, status| control_button_style(theme, Emphasis::Primary, status));
+    let send = button(rich_line(
+        state.texts.resolve("gui.chat.send"),
+        false,
+        FONT_BASE,
+    ))
+    .on_press_maybe((!state.turn_running && state.llm.is_some()).then_some(Message::ChatSubmit))
+    .padding([7, 14])
+    .style(move |_theme, status| control_button_style(theme, Emphasis::Primary, status));
     let cancel = button(rich_line(
         state.texts.resolve("gui.chat.cancel"),
         false,
-        14.0,
+        FONT_BASE,
     ))
     .on_press_maybe(state.turn_running.then_some(Message::ChatCancel))
     .padding([7, 14])
@@ -3263,24 +3296,32 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     let models = button(rich_line(
         state.texts.resolve("gui.chat.models"),
         false,
-        14.0,
+        FONT_BASE,
     ))
     .on_press(Message::ShowModels)
     .padding([7, 14])
     .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
-    let pick_file = button(rich_line(state.texts.resolve("gui.file.at"), false, 14.0))
-        .on_press_maybe(
-            state
-                .file_index
-                .is_some()
-                .then_some(Message::OpenFilePicker),
-        )
-        .padding([7, 14])
-        .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
-    let add_model = button(rich_line(state.texts.resolve("gui.model.add"), false, 14.0))
-        .on_press(Message::OpenModelForm)
-        .padding([7, 14])
-        .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
+    let pick_file = button(rich_line(
+        state.texts.resolve("gui.file.at"),
+        false,
+        FONT_BASE,
+    ))
+    .on_press_maybe(
+        state
+            .file_index
+            .is_some()
+            .then_some(Message::OpenFilePicker),
+    )
+    .padding([7, 14])
+    .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status));
+    let add_model = button(rich_line(
+        state.texts.resolve("gui.model.add"),
+        false,
+        FONT_BASE,
+    ))
+    .on_press(Message::OpenModelForm)
+    .padding([7, 14])
+    .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
     // 正文区（FR-741）：历史（缓存快照，仅最近 CHAT_HISTORY_RENDER 条）→
     // 运行中＝进度行＋流式增量（markdown 最小集投影，有界）；完成后＝最近结果投影；
     // 未选会话＝提示。条目格式“[role] 正文”（状态不依赖颜色，ui-design §3）。
@@ -3290,7 +3331,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         body.push(rich_line(
             &format!("…（更早 {skipped} 条已省略）"),
             false,
-            12.0,
+            FONT_SM,
         ));
     }
     let history_start = state.chat_history.len().saturating_sub(CHAT_HISTORY_RENDER);
@@ -3335,7 +3376,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     // （`MAX_TOOL_CARDS`），状态文本不依赖颜色（ui-design §3）。
     if !state.tool_cards.is_empty() {
         let title = state.texts.resolve("gui.tool.title");
-        body.push(rich_line(title, false, 13.0));
+        body.push(rich_line(title, false, FONT_CAPTION));
         for card in &state.tool_cards {
             let status = card.state.as_deref().map_or_else(
                 || state.texts.resolve("gui.tool.running").to_string(),
@@ -3348,19 +3389,19 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
             if let Some(code) = card.error_code.as_deref() {
                 line.push_str(&format!(" · {code}"));
             }
-            body.push(rich_line(&line, true, 12.0));
-            body.push(rich_line(&card.exec_id, true, 11.0));
+            body.push(rich_line(&line, true, FONT_SM));
+            body.push(rich_line(&card.exec_id, true, FONT_XS));
             if let Some(output) = card.output.as_deref() {
                 // 输出有界：卡片只呈现前 200 字符（完整结果在事件表与 tool 消息里）。
                 let shown: String = output.chars().take(200).collect();
-                body.push(rich_line(&shown, false, 11.0));
+                body.push(rich_line(&shown, false, FONT_XS));
             }
         }
     }
     // 四态审批（T256／FR-745）：turn 线程阻塞等待，决定经审批面回传。
     if let Some(request) = state.approval.as_ref() {
         let heading = state.texts.resolve("gui.approval.title");
-        body.push(rich_line(heading, false, 14.0));
+        body.push(rich_line(heading, false, FONT_BASE));
         body.push(rich_line(
             &format!(
                 "{}: {}",
@@ -3387,7 +3428,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
             ));
         }
         let answer_button = |key: &'static str, answer| {
-            button(rich_line(state.texts.resolve(key), false, 13.0))
+            button(rich_line(state.texts.resolve(key), false, FONT_CAPTION))
                 .padding([4, 8])
                 .on_press(Message::ApprovalDecide(answer))
         };
@@ -3422,15 +3463,15 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         );
     }
     if let Some(status) = state.approval_status.as_deref() {
-        body.push(rich_line(status, false, 12.0));
+        body.push(rich_line(status, false, FONT_SM));
     }
     body.push(rich_line(
         state.texts.resolve("gui.chat.history.hint"),
         false,
-        13.0,
+        FONT_CAPTION,
     ));
     if let Some(models) = state.model_status.as_deref() {
-        body.push(rich_line(models, true, 12.0));
+        body.push(rich_line(models, true, FONT_SM));
     }
     // ADR-102 主界面对齐（ZCode composer 形制）：对话流占满上方，输入区固定在底部；
     // 输入框满宽，发送／取消／模型在下一行——不再把输入框挤在按钮中间。
@@ -3446,15 +3487,20 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
         let chooser = button(rich_line(
             state.texts.resolve("gui.chat.pick_session"),
             false,
-            13.0,
+            FONT_CAPTION,
         ))
         .on_press(Message::SelectView(ViewId::Sessions))
         .padding([7, 14])
         .style(move |_theme, status| control_button_style(theme, Emphasis::Secondary, status));
         container(
             column![
-                rich_line(state.texts.resolve("gui.chat.new"), false, 20.0),
-                colored_line(state.texts.resolve("gui.chat.hint"), false, 13.0, subtle),
+                rich_line(state.texts.resolve("gui.chat.new"), false, FONT_XL),
+                colored_line(
+                    state.texts.resolve("gui.chat.hint"),
+                    false,
+                    FONT_CAPTION,
+                    subtle
+                ),
                 chooser,
             ]
             .spacing(10)
@@ -3485,7 +3531,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
             row(mirrored_order(
                 rtl,
                 vec![
-                    colored_line(provider_label, false, 11.0, subtle),
+                    colored_line(provider_label, false, FONT_XS, subtle),
                     model_picker.into(),
                     container(column![]).width(Length::Fill).into(),
                     pick_file.into(),
@@ -3513,7 +3559,7 @@ fn chat_panel(state: &State) -> Element<'_, Message> {
     if state.model_form.is_none()
         && let Some(status) = state.model_form_status.as_deref()
     {
-        stack = stack.push(colored_line(status, false, 12.0, subtle));
+        stack = stack.push(colored_line(status, false, FONT_SM, subtle));
     }
     stack = stack.push(composer);
     stack.spacing(10).into()
@@ -3524,7 +3570,7 @@ fn op_buttons(state: &State) -> Element<'_, Message> {
     let enabled = state.executor.is_some();
     let item = |label: &str, message: Message| -> Element<'_, Message> {
         let theme = state.theme;
-        let item = button(rich_line(label, false, 13.0))
+        let item = button(rich_line(label, false, FONT_CAPTION))
             .padding([5, 9])
             .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
         if enabled {
@@ -3603,7 +3649,7 @@ fn op_buttons(state: &State) -> Element<'_, Message> {
         colored_line(
             state.texts.resolve("gui.op.not_supported"),
             false,
-            12.0,
+            FONT_SM,
             control_colors(state.theme).subtle,
         )
     ]
@@ -3617,7 +3663,7 @@ fn spec_controls(state: &State) -> Element<'_, Message> {
     let enabled = state.executor.is_some();
     let item = |label: &str, message: Message| -> Element<'_, Message> {
         let theme = state.theme;
-        let item = button(rich_line(label, false, 13.0))
+        let item = button(rich_line(label, false, FONT_CAPTION))
             .padding([5, 9])
             .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
         if enabled {
@@ -3654,7 +3700,7 @@ fn runtime_controls(state: &State) -> Element<'_, Message> {
         .map(|entry| entry.name.clone());
     let item = |label: String, message: Option<Message>| -> Element<'_, Message> {
         let theme = state.theme;
-        let item = button(rich_line(&label, false, 13.0))
+        let item = button(rich_line(&label, false, FONT_CAPTION))
             .padding([5, 9])
             .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
         match message {
@@ -3692,9 +3738,13 @@ fn runtime_controls(state: &State) -> Element<'_, Message> {
 fn events_controls(state: &State) -> Element<'_, Message> {
     let enabled = state.executor.is_some();
     let theme = state.theme;
-    let button = button(rich_line(state.texts.resolve("gui.op.export"), false, 13.0))
-        .padding([5, 9])
-        .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
+    let button = button(rich_line(
+        state.texts.resolve("gui.op.export"),
+        false,
+        FONT_CAPTION,
+    ))
+    .padding([5, 9])
+    .style(move |_t, status| control_button_style(theme, Emphasis::Secondary, status));
     let button = if enabled {
         button.on_press(Message::OpStart(OpMode::EventsExport))
     } else {
@@ -3712,9 +3762,19 @@ fn events_controls(state: &State) -> Element<'_, Message> {
 fn runtime_body(state: &State) -> Element<'_, Message> {
     let mut rows = column![].spacing(2);
     match state.runtime_entries.as_ref() {
-        None => rows = rows.push(rich_line(state.texts.resolve("tui.empty"), false, 13.0)),
+        None => {
+            rows = rows.push(rich_line(
+                state.texts.resolve("tui.empty"),
+                false,
+                FONT_CAPTION,
+            ))
+        }
         Some(entries) if entries.is_empty() => {
-            rows = rows.push(rich_line(state.texts.resolve("tui.empty"), false, 13.0));
+            rows = rows.push(rich_line(
+                state.texts.resolve("tui.empty"),
+                false,
+                FONT_CAPTION,
+            ));
         }
         Some(entries) => {
             for (index, entry) in entries.iter().enumerate() {
@@ -3728,7 +3788,7 @@ fn runtime_body(state: &State) -> Element<'_, Message> {
                     entry.name, entry.capability, entry.default_enabled, entry.enable_requirement
                 );
                 rows = rows.push(
-                    button(rich_line(label.as_str(), false, 12.0))
+                    button(rich_line(label.as_str(), false, FONT_SM))
                         .on_press(Message::RuntimeSelect(index))
                         .padding([2, 6]),
                 );
@@ -3809,7 +3869,7 @@ fn op_panel(state: &State) -> Element<'_, Message> {
             button(rich_line(
                 state.texts.resolve("gui.op.preview"),
                 false,
-                13.0,
+                FONT_CAPTION,
             ))
             .on_press(Message::OpPreview)
             .padding([5, 10])
@@ -3820,7 +3880,7 @@ fn op_panel(state: &State) -> Element<'_, Message> {
             button(rich_line(
                 state.texts.resolve("gui.op.confirm"),
                 false,
-                13.0,
+                FONT_CAPTION,
             ))
             .on_press(Message::OpConfirm)
             .padding([5, 10])
@@ -3832,7 +3892,7 @@ fn op_panel(state: &State) -> Element<'_, Message> {
             button(rich_line(
                 state.texts.resolve("gui.op.confirm"),
                 false,
-                13.0,
+                FONT_CAPTION,
             ))
             .on_press(Message::OpConfirm)
             .padding([5, 10])
@@ -3841,15 +3901,19 @@ fn op_panel(state: &State) -> Element<'_, Message> {
         );
     }
     actions.push(
-        button(rich_line(state.texts.resolve("gui.op.cancel"), false, 13.0))
-            .on_press(Message::OpCancel)
-            .padding([5, 10])
-            .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status))
-            .into(),
+        button(rich_line(
+            state.texts.resolve("gui.op.cancel"),
+            false,
+            FONT_CAPTION,
+        ))
+        .on_press(Message::OpCancel)
+        .padding([5, 10])
+        .style(move |_theme, status| control_button_style(theme, Emphasis::Ghost, status))
+        .into(),
     );
     panel = panel.push(row(mirrored_order(is_rtl_locale(&state.texts.locale), actions)).spacing(6));
     if let Some(feedback) = state.op_feedback.as_deref() {
-        panel = panel.push(rich_line(feedback, false, 13.0));
+        panel = panel.push(rich_line(feedback, false, FONT_CAPTION));
     }
     panel.spacing(6).into()
 }
@@ -3860,33 +3924,33 @@ fn checkpoint_panel(state: &State) -> Element<'_, Message> {
     body = body.push(rich_line(
         state.texts.resolve("gui.checkpoints.title"),
         false,
-        14.0,
+        FONT_BASE,
     ));
     if state.checkpoint_task.is_none() {
         body = body.push(rich_line(
             state.texts.resolve("gui.checkpoints.hint"),
             false,
-            12.0,
+            FONT_SM,
         ));
         return body.into();
     }
     body = body.push(rich_line(
         state.texts.resolve("gui.checkpoints.degraded"),
         false,
-        12.0,
+        FONT_SM,
     ));
     if state.checkpoints.is_empty() {
         body = body.push(rich_line(
             state.texts.resolve("gui.checkpoints.empty"),
             false,
-            12.0,
+            FONT_SM,
         ));
     }
     for point in state.checkpoints.iter().take(50) {
         body = body.push(rich_line(
             &format!("#{} {} {}", point.step, point.id, point.summary),
             true,
-            12.0,
+            FONT_SM,
         ));
     }
     scrollable(body).height(Length::Fixed(160.0)).into()
@@ -3983,13 +4047,13 @@ fn session_body(state: &State) -> Element<'_, Message> {
         ));
     }
     if lines.is_empty() {
-        return rich_line(state.texts.resolve("tui.empty"), false, 16.0);
+        return rich_line(state.texts.resolve("tui.empty"), false, FONT_LG);
     }
     scrollable(
         column(
             lines
                 .into_iter()
-                .map(|line| rich_line(&line, false, 15.0))
+                .map(|line| rich_line(&line, false, FONT_BASE))
                 .collect::<Vec<_>>(),
         )
         .spacing(2),
@@ -4028,13 +4092,13 @@ fn task_body(state: &State) -> Element<'_, Message> {
         ));
     }
     if state.snapshot.tasks.is_empty() {
-        return rich_line(state.texts.resolve("tui.empty"), false, 16.0);
+        return rich_line(state.texts.resolve("tui.empty"), false, FONT_LG);
     }
     scrollable(
         column(
             lines
                 .into_iter()
-                .map(|line| rich_line(&line, true, 14.0))
+                .map(|line| rich_line(&line, true, FONT_BASE))
                 .collect::<Vec<_>>(),
         )
         .spacing(2),
@@ -4054,7 +4118,7 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
         let retry = button(rich_line(
             state.texts.resolve("gui.task.retry"),
             false,
-            12.0,
+            FONT_SM,
         ))
         .on_press(Message::TaskRetry(index))
         .padding([4, 8])
@@ -4062,7 +4126,7 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
         let abort = button(rich_line(
             state.texts.resolve("gui.task.abort"),
             false,
-            12.0,
+            FONT_SM,
         ))
         .on_press(Message::TaskAbort(index))
         .padding([4, 8])
@@ -4070,7 +4134,7 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
         let points = button(rich_line(
             state.texts.resolve("gui.checkpoints.open"),
             false,
-            12.0,
+            FONT_SM,
         ))
         .on_press(Message::TaskCheckpoints(index))
         .padding([4, 8])
@@ -4079,7 +4143,7 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
             row(mirrored_order(
                 rtl,
                 vec![
-                    rich_line(label.as_str(), false, 13.0),
+                    rich_line(label.as_str(), false, FONT_CAPTION),
                     retry.into(),
                     abort.into(),
                     points.into(),
@@ -4089,7 +4153,11 @@ fn task_buttons(state: &State) -> Element<'_, Message> {
         );
     }
     if state.snapshot.tasks.is_empty() {
-        rows = rows.push(rich_line(state.texts.resolve("tui.empty"), false, 13.0));
+        rows = rows.push(rich_line(
+            state.texts.resolve("tui.empty"),
+            false,
+            FONT_CAPTION,
+        ));
     }
     scrollable(rows.height(Length::Fill)).into()
 }
@@ -4101,7 +4169,7 @@ fn view(state: &State) -> Element<'_, Message> {
     let new_session = button(rich_line(
         state.texts.resolve("gui.sidebar.new_session"),
         false,
-        14.0,
+        FONT_BASE,
     ))
     .on_press_maybe(
         state
@@ -4122,7 +4190,7 @@ fn view(state: &State) -> Element<'_, Message> {
             container(colored_line(
                 state.texts.resolve("gui.sidebar.empty"),
                 false,
-                12.0,
+                FONT_SM,
                 subtle,
             ))
             .padding([4, 8])
@@ -4161,7 +4229,7 @@ fn view(state: &State) -> Element<'_, Message> {
         }
     );
     items.push(
-        button(rich_line(&archive_label, false, 12.0))
+        button(rich_line(&archive_label, false, FONT_SM))
             .on_press(Message::SessionArchivedToggled(
                 !state.session_show_archived,
             ))
@@ -4184,7 +4252,7 @@ fn view(state: &State) -> Element<'_, Message> {
         container(colored_line(
             &project_label,
             false,
-            12.0,
+            FONT_SM,
             control_colors(project_theme).subtle,
         ))
         .padding([4, 8])
@@ -4200,7 +4268,7 @@ fn view(state: &State) -> Element<'_, Message> {
         button(rich_line(
             state.texts.resolve("settings.panels.open"),
             false,
-            14.0,
+            FONT_BASE,
         ))
         .on_press(Message::TogglePanels)
         .width(Length::Fill)
@@ -4212,7 +4280,7 @@ fn view(state: &State) -> Element<'_, Message> {
     let sidebar_theme = state.theme;
     let sidebar_width = f32::from(whcode_domain::theme_tokens::spec::SIDEBAR_WIDTH);
     let sidebar = container(column![
-        container(rich_line("WHCode", false, 15.0)).padding([4, 6]),
+        container(rich_line("WHCode", false, FONT_BASE)).padding([4, 6]),
         column(items).spacing(2),
     ])
     .padding(8)
@@ -4291,9 +4359,9 @@ fn view(state: &State) -> Element<'_, Message> {
     let subtle = control_colors(main_theme).subtle;
     let title_text = state.current_session_title();
     let meta_text = state.current_session_meta();
-    let mut title_col = column![rich_line(&title_text, false, 18.0)].spacing(2);
+    let mut title_col = column![rich_line(&title_text, false, FONT_XL)].spacing(2);
     if !meta_text.is_empty() {
-        title_col = title_col.push(colored_line(&meta_text, false, 13.0, subtle));
+        title_col = title_col.push(colored_line(&meta_text, false, FONT_CAPTION, subtle));
     }
 
     let mut actions: Vec<Element<'_, Message>> = Vec::new();
@@ -4301,7 +4369,7 @@ fn view(state: &State) -> Element<'_, Message> {
     // 因为 iced 没有右键菜单；动作与 ZCode 同名同义）。
     if state.selected.is_some() && !state.panels_open {
         let quick = |key: &'static str, message: Message| -> Element<'_, Message> {
-            button(rich_line(state.texts.resolve(key), false, 12.0))
+            button(rich_line(state.texts.resolve(key), false, FONT_SM))
                 .on_press(message)
                 .padding([4, 8])
                 .style(move |_theme, status| {
@@ -4325,13 +4393,17 @@ fn view(state: &State) -> Element<'_, Message> {
     if state.view != ViewId::Chat {
         // 进入诊断视图后必须能一键回到对话（否则用户会卡在诊断页）。
         actions.push(
-            button(rich_line(state.texts.resolve("gui.chat.back"), false, 13.0))
-                .on_press(Message::SelectView(ViewId::Chat))
-                .padding([5, 10])
-                .style(move |_theme, status| {
-                    control_button_style(main_theme, Emphasis::Secondary, status)
-                })
-                .into(),
+            button(rich_line(
+                state.texts.resolve("gui.chat.back"),
+                false,
+                FONT_CAPTION,
+            ))
+            .on_press(Message::SelectView(ViewId::Chat))
+            .padding([5, 10])
+            .style(move |_theme, status| {
+                control_button_style(main_theme, Emphasis::Secondary, status)
+            })
+            .into(),
         );
     }
     // 顶栏右侧常驻「设置」入口（ZCode 也在顶栏给设置）。
@@ -4339,7 +4411,7 @@ fn view(state: &State) -> Element<'_, Message> {
         button(rich_line(
             state.texts.resolve("gui.sidebar.group.settings"),
             false,
-            13.0,
+            FONT_CAPTION,
         ))
         .on_press(Message::TogglePanels)
         .padding([5, 10])
@@ -4372,7 +4444,7 @@ fn view(state: &State) -> Element<'_, Message> {
     let main = column![
         card,
         hairline(main_theme),
-        colored_line(state.footer().as_str(), false, 12.0, subtle),
+        colored_line(state.footer().as_str(), false, FONT_SM, subtle),
     ]
     .spacing(6)
     .width(Length::Fill)
@@ -4416,21 +4488,27 @@ fn mcp_state_key(status: McpStatus) -> &'static str {
 /// 帧路径只消费 [`PanelsSnapshot`]（准备阶段生成）；不查询、不序列化、不 spawn。
 fn panels_panel(state: &State) -> Element<'_, Message> {
     let rtl = is_rtl_locale(&state.texts.locale);
-    let empty = || rich_line(state.texts.resolve("settings.panels.empty"), false, 13.0);
-    let heading = |key: &'static str| rich_line(state.texts.resolve(key), false, 16.0);
+    let empty = || {
+        rich_line(
+            state.texts.resolve("settings.panels.empty"),
+            false,
+            FONT_CAPTION,
+        )
+    };
+    let heading = |key: &'static str| rich_line(state.texts.resolve(key), false, FONT_LG);
     let mut body = column![].spacing(6);
 
     body = body.push(
         button(rich_line(
             state.texts.resolve("settings.panels.refresh"),
             false,
-            13.0,
+            FONT_CAPTION,
         ))
         .padding([2, 8])
         .on_press(Message::RefreshPanels),
     );
     if let Some(status) = state.panel_status.as_deref() {
-        body = body.push(rich_line(status, false, 13.0));
+        body = body.push(rich_line(status, false, FONT_CAPTION));
     }
 
     // 子代理运行（FR-749）：状态 + 产出摘要 + 终止原因/轮数/时长。
@@ -4460,9 +4538,9 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
             if let Some(code) = run.error_code.as_deref() {
                 line.push_str(&format!(" · {code}"));
             }
-            body = body.push(rich_line(&line, true, 12.0));
+            body = body.push(rich_line(&line, true, FONT_SM));
             if let Some(summary) = run.output_summary.as_deref() {
-                body = body.push(rich_line(summary, false, 12.0));
+                body = body.push(rich_line(summary, false, FONT_SM));
             }
         }
     }
@@ -4476,9 +4554,9 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
             body = body.push(rich_line(
                 &format!("{} — {}", skill.name, skill.description),
                 false,
-                13.0,
+                FONT_CAPTION,
             ));
-            body = body.push(rich_line(&skill.path, true, 11.0));
+            body = body.push(rich_line(&skill.path, true, FONT_XS));
             if !skill.issues.is_empty() {
                 body = body.push(rich_line(
                     &state.texts.resolve_fmt(
@@ -4492,18 +4570,18 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
         }
     }
     for warning in state.panels.skill_warnings.iter().take(8) {
-        body = body.push(rich_line(warning, false, 11.0));
+        body = body.push(rich_line(warning, false, FONT_XS));
     }
 
     // MCP 服务器（FR-750）：配置态 + 超时/输出上限 + 事件窗口内观测到的工具。
     body = body.push(heading("settings.panels.mcp.title"));
     if let Some(error) = state.panels.mcp_error.as_deref() {
-        body = body.push(rich_line(error, false, 12.0));
+        body = body.push(rich_line(error, false, FONT_SM));
     } else if !state.panels.mcp_configured {
         body = body.push(rich_line(
             state.texts.resolve("settings.panels.mcp.unconfigured"),
             false,
-            13.0,
+            FONT_CAPTION,
         ));
     } else if state.panels.mcp.is_empty() {
         body = body.push(empty());
@@ -4548,7 +4626,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
         button(rich_line(
             state.texts.resolve("settings.approvals.save"),
             false,
-            12.0,
+            FONT_SM,
         ))
         .on_press(Message::OpStart(OpMode::ApprovalRuleWrite))
         .padding([2, 6]),
@@ -4556,12 +4634,12 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
     if let Some(error) = state.panels.error.as_deref()
         && state.panels.rules.is_empty()
     {
-        body = body.push(rich_line(error, false, 12.0));
+        body = body.push(rich_line(error, false, FONT_SM));
     } else if state.panels.rules.is_empty() {
         body = body.push(rich_line(
             state.texts.resolve("settings.approvals.empty"),
             false,
-            13.0,
+            FONT_CAPTION,
         ));
     } else {
         for rule in &state.panels.rules {
@@ -4570,7 +4648,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
             let revoke = button(rich_line(
                 state.texts.resolve("settings.approvals.revoke"),
                 false,
-                12.0,
+                FONT_SM,
             ))
             .padding([4, 8])
             .on_press(Message::RevokeRule(rule.tool.clone()))
@@ -4580,7 +4658,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
             body = body.push(
                 row(mirrored_order(
                     rtl,
-                    vec![rich_line(label.as_str(), true, 13.0), revoke.into()],
+                    vec![rich_line(label.as_str(), true, FONT_CAPTION), revoke.into()],
                 ))
                 .spacing(8),
             );
@@ -4591,7 +4669,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
     // 写操作经门面，私钥上传不在 GUI 提供（避免凭据进入输入控件）。
     body = body.push(heading("settings.panels.cert.title"));
     match state.tls_status.as_ref() {
-        None => body = body.push(rich_line(state.texts.resolve("tui.empty"), false, 12.0)),
+        None => body = body.push(rich_line(state.texts.resolve("tui.empty"), false, FONT_SM)),
         Some(tls) => {
             let summary = format!(
                 "{} / {} · cert={} key={} · restart={}",
@@ -4601,7 +4679,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
                 tls.inbound.key_present,
                 tls.restart_required
             );
-            body = body.push(rich_line(summary.as_str(), false, 12.0));
+            body = body.push(rich_line(summary.as_str(), false, FONT_SM));
         }
     }
     for (label, action) in [
@@ -4620,7 +4698,7 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
         ),
     ] {
         body = body.push(
-            button(rich_line(state.texts.resolve(label), false, 12.0))
+            button(rich_line(state.texts.resolve(label), false, FONT_SM))
                 .on_press(Message::OpStart(OpMode::CertWrite(action)))
                 .padding([2, 6]),
         );
@@ -4634,6 +4712,46 @@ fn panels_panel(state: &State) -> Element<'_, Message> {
 
 #[cfg(test)]
 mod tests {
+    /// ADR-102 校准守卫：GUI 字号必须全部来自 spec 七级别名常量，不得回潮为字面量。
+    ///
+    /// 校准前散落 11／15／20 三个不在七级内的值，且 62 处为硬编码——改 spec 不生效。
+    /// 本测试在编译期常量上做**值域断言**，并静态扫描源码禁止字号字面量（含游离值）。
+    #[test]
+    fn font_sizes_come_only_from_spec_scale() {
+        use whcode_domain::theme_tokens::spec;
+        let scale = [
+            f32::from(spec::UI_FONT_2XS),
+            f32::from(spec::UI_FONT_XS),
+            f32::from(spec::UI_FONT_SM),
+            f32::from(spec::UI_FONT_CAPTION),
+            f32::from(spec::UI_FONT_BASE),
+            f32::from(spec::UI_FONT_LG),
+            f32::from(spec::UI_FONT_XL),
+        ];
+        for value in [FONT_XS, FONT_SM, FONT_CAPTION, FONT_BASE, FONT_LG, FONT_XL] {
+            assert!(
+                scale.contains(&value),
+                "GUI 字号 {value} 不在 spec 七级内：{scale:?}"
+            );
+        }
+        // 静态扫描：rich_line／colored_line 的字号位与 text_size 不得出现小数字面量。
+        let source = include_str!("lib.rs");
+        for (index, line) in source.lines().enumerate() {
+            if line.trim_start().starts_with("//") || line.contains("assert") {
+                continue;
+            }
+            let suspicious = (line.contains("rich_line(") || line.contains("colored_line("))
+                && line
+                    .split(',')
+                    .any(|part| part.trim().trim_end_matches(')').parse::<f32>().is_ok());
+            assert!(
+                !suspicious,
+                "第 {} 行出现字号字面量，须改用 FONT_* 常量：{line}",
+                index + 1
+            );
+        }
+    }
+
     use super::*;
 
     /// RTL 行序镜像（FR-766／T279）：LTR 保持登记序；RTL 反转；空行序恒空。

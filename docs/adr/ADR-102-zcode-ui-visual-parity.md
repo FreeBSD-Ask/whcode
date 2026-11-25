@@ -283,3 +283,35 @@ limit 有界）；`clippy --workspace --all-targets -D warnings` 通过；`cargo
 --workspace` 通过；`check-frontend-budget` 通过（CSS gzip 5237 B / 20480、DOM 99）；
 `web-ui-check.py`（playwright，1280x800）`WEB_TABLIST_GATE=GO`；counts／traceability／
 docs-style／EOL／coherence pre（反例 0）全绿。
+
+## 落地记录（2026-11-25 第八批：字号体系校准）
+
+用户指令「继续 ui 校准」。本批针对**常量与渲染漂移**：`spec` 定义了七级字号，但 GUI 里
+存在三个**不在七级内**的字面量，且改动常量不会生效。
+
+**取证（校准前）**：GUI 引用 `spec` 仅 7 处（全为圆角/侧栏宽度），字号全部硬编码，
+分布为 13.0×19、12.0×19、14.0×8、16.0×7、**11.0×4**、**15.0×3**、**20.0×1**、18.0×1、
+10.0×2——其中 11／15／20 三个值不属于七级（9/10/12/13/14/16/18）。
+
+**校准动作**：
+
+1. 新增 f32 别名常量 `FONT_XS／SM／CAPTION／BASE／LG／XL`，全部 `as f32` 取自
+   `theme_tokens::spec`；改 spec 即全局生效。
+2. 游离值归入最近档位：`11.0→FONT_XS(10)`、`15.0→FONT_BASE(14)`、`20.0→FONT_XL(18)`。
+   归入依据：11 用于元数据/路径/警告（辅助文字，XS 恰当）；15 用于对话正文与诊断视图行
+   （ZCode main reading text 为 base 14）；20 用于对话空态标题（XL 18）。
+3. 全部字号字面量（共 104 处）替换为常量，源码中不再出现字号字面量。
+4. 新增守卫测试 `font_sizes_come_only_from_spec_scale`：值域断言（六个常量必须落在七级内）
+   + 静态扫描（`rich_line`／`colored_line` 字号位与 `text_size` 不得出现小数字面量），
+   防止回潮。该测试在本批**实际拦下 4 处漏网**（含 `colored_line(..., 10.0, subtle)`
+   这类“字号后仍有参数”的形态），说明守卫有效而非摆设。
+
+**验证（本机）**：`cargo test -p whcode-gui --all-targets` 48 通过（含守卫）；
+`clippy --workspace --all-targets -D warnings` 通过；`cargo build -p whcode-bin` 成功；
+counts／traceability／docs-style／EOL／coherence pre（反例 0）全绿。
+
+**未取得（如实登记）**：视觉验证未完成——`gui-probe.py` 与 `PIL.ImageGrab` 均报
+`screen grab failed`，当前会话无可用的桌面捕获（环境限制，非代码问题；同一脚本在
+2026-11-23 曾成功产出截图）。因此**字号下调后的实际观感未验证**：11→10 与 15→14 会使
+相应文字变小，是否影响可读性需在可用桌面环境复跑 `gui-probe.py` 后判定。若判定偏小，
+回退方式为只改常量值（`spec` 七级），不动调用点——这正是本批带来的可调性。
