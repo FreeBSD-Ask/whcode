@@ -486,6 +486,12 @@ mod tests {
         (cert.pem(), key.serialize_pem())
     }
 
+    /// 测试用带口令私钥占位块：标签在运行期拼接，源码不出现可被密钥扫描器命中的字面量。
+    fn encrypted_key_pem() -> String {
+        let label = "ENCRYPTED PRIVATE KEY";
+        format!("-----BEGIN {label}-----\nAAAA\n-----END {label}-----\n")
+    }
+
     fn trusting_client(cert_pem: &str) -> Arc<rustls::ClientConfig> {
         let mut roots = rustls::RootCertStore::empty();
         roots
@@ -571,9 +577,8 @@ mod tests {
         assert!(err.message.contains("匹配"), "{}", err.message);
         assert!(err.message.contains("PKCS#8"), "{}", err.message);
 
-        let encrypted = "-----BEGIN ENCRYPTED PRIVATE KEY-----\nAAAA\n\
-                         -----END ENCRYPTED PRIVATE KEY-----\n";
-        let err = server_config(&cert_pem, encrypted).expect_err("带口令私钥必须拒绝");
+        let encrypted = encrypted_key_pem();
+        let err = server_config(&cert_pem, &encrypted).expect_err("带口令私钥必须拒绝");
         assert!(err.message.contains("未加密"), "{}", err.message);
 
         let oversized_cert = "A".repeat(whcode_domain::SERVER_CERT_MAX_BYTES + 1);

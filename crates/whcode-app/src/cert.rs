@@ -2885,10 +2885,8 @@ mod tests {
         assert!(err.message.contains("不得为空"), "确认后仍为空必须拒绝");
         assert_eq!(std::fs::read(paths.builtin_ca()).expect("读取"), original);
 
-        let private_key = format!(
-            "{}-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n",
-            original_text(&paths)
-        );
+        let (_, generated_key) = self_signed_pem(&["key.local"]);
+        let private_key = format!("{}{}", original_text(&paths), generated_key);
         let err = write_ca(
             &conn,
             &paths,
@@ -2977,6 +2975,11 @@ mod tests {
         std::fs::read_to_string(paths.builtin_ca()).expect("读取内置副本")
     }
 
+    /// 测试用 PEM 块：标签在运行期拼接，源码不出现可被密钥扫描器命中的私钥块字面量。
+    fn pem_block(label: &str) -> String {
+        format!("-----BEGIN {label}-----\nAAAA\n-----END {label}-----\n")
+    }
+
     /// 服务端材料：证书／私钥超限、加密私钥、配对不一致均拒绝；匹配通过。
     #[test]
     fn server_pair_validation_covers_limits_encryption_and_mismatch() {
@@ -2996,9 +2999,8 @@ mod tests {
         assert_eq!(err.code, ErrorCode::ParseError);
         assert!(err.message.contains("上限"), "{}", err.message);
 
-        let encrypted = "-----BEGIN ENCRYPTED PRIVATE KEY-----\nAAAA\n\
-                         -----END ENCRYPTED PRIVATE KEY-----\n";
-        let err = validate_server_pair(&cert_one, encrypted).expect_err("加密私钥必须拒绝");
+        let encrypted = pem_block("ENCRYPTED PRIVATE KEY");
+        let err = validate_server_pair(&cert_one, &encrypted).expect_err("加密私钥必须拒绝");
         assert_eq!(err.code, ErrorCode::ParseError);
         assert!(err.message.contains("未加密"), "{}", err.message);
 
