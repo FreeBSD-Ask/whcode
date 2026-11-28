@@ -6,11 +6,15 @@
 # check-actions.py／check-workflows.py 门禁同源，分析行为可审计、可复现。
 #
 # 语言对齐 default setup 的覆盖面（不缩水）：rust（主代码）＋ javascript（whcode-web
-# 前端静态资产）＋ actions（工作流安全查询）。仓库无 TypeScript 源文件，不声明 ts。
-# actions 语言在 CodeQL 2.16+ 受支持，v4.39.5 对应 bundle 2.27.x 覆盖。
+# 前端静态资产）＋ actions（工作流安全查询）。仓库无 TypeScript 源文件，故 javascript
+# 分析同时覆盖 js 与 ts 后缀。
 #
-# 查询集 default 与 default setup 相同；不做任何 threat-model 放宽（AGENTS §5.2）。
-# 告警零 open 铁律不变：修复只能来自代码修复 + CodeQL 重新分析（AGENTS §5.2）。
+# category 与 default setup 原分析完全一致（/language:rust、
+# /language:javascript-typescript、/language:actions）：GitHub 以「同一 category 的新
+# 分析不再报告」关闭旧告警——这是「代码修复 + 重新分析消除」的合法路径，不是 dismiss。
+#
+# 查询集 security-extended 对齐 default setup 的 query_suite=extended；威胁模型为
+# advanced setup 默认 remote（收窄经用户批准，见 ADR-103／AGENTS §5.2）。
 name: codeql
 
 on:
@@ -35,12 +39,23 @@ env:
 
 jobs:
   analyze:
-    name: analyze-rust-and-js
+    name: analyze-${{ matrix.language }}
     runs-on: windows-latest
     timeout-minutes: 120
     permissions:
       contents: read
       security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: rust
+            category: /language:rust
+            build_mode: none
+          - language: javascript
+            category: /language:javascript-typescript
+          - language: actions
+            category: /language:actions
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -50,21 +65,24 @@ jobs:
       - name: CI action 版本门禁（最新版本 + 固定 SHA）
         run: python .github/scripts/check-actions.py
 
-      - name: 安装 llvm-mingw 与 gnullvm 工具链
+      # rust 的 build-mode none 无需工具链与 DuckDB 载荷；其余语言的提取也不构建。
+      - name: 安装 llvm-mingw 与 gnullvm 工具链（仅 rust）
+        if: matrix.language == 'rust'
         run: python .github/scripts/setup-windows-llvm.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 拉取 DuckDB 载荷
+      - name: 拉取 DuckDB 载荷（仅 rust）
+        if: matrix.language == 'rust'
         run: python .github/scripts/fetch-duckdb.py
 
       - uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         with:
-          languages: rust, javascript, actions
-          build-mode: none
-          # 对齐 default setup 的 query_suite=extended，告警覆盖面不缩水。
+          languages: ${{ matrix.language }}
+          # build-mode 仅对 rust 显式声明（js/actions 不接受该输入，空值按未设置处理）。
+          build-mode: ${{ matrix.build_mode }}
           queries: security-extended
 
       - uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         with:
-          category: "/language:rust,javascript"
+          category: ${{ matrix.category }}
