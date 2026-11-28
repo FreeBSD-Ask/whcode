@@ -35,7 +35,10 @@
   告警的 source 全部属本地模型（`temp_dir` 603、`current_dir` 42、`env::var(_os)` 11、
   `entry.path()` 3、文件读取 13、`current_exe` 3、stdin 1 等），该类别在 remote 模型下
   不再产生。**此变化属分析范围收窄，不表述为
-  修复**；本地源类别的代码级收口另行推进（见下条）。`check-actions.py` 同步修复：
+  修复**；本地源类别的代码级收口另行推进（见下条）。工作流按语言拆分 matrix、category
+  与 default setup 原名一致（`/language:rust` 等）；推送后三语言分析 run `46115541210`
+  全部 success，旧告警经新分析自动转 `fixed`（679 closed 全 fixed、0 dismissed），
+  `check-code-scanning.py` 报 GO。`check-actions.py` 同步修复：
   `uses:` 正则支持三层路径（`owner/repo/sub@SHA`，此前 `github/codeql-action/init@…`
   整体漏扫）并登记该 action。
 - **CodeQL 告警代码级收口（2026-11-28，AGENTS §5.2）**：按官方查询模型逐类修复并保留

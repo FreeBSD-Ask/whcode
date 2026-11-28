@@ -3290,7 +3290,9 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   （`state: not-configured` 已确认）；`check-actions.py` 修复三层 `uses:` 路径正则并登记
   action；威胁模型收窄为 advanced 默认 `remote`（用户批准，AGENTS §5.2 已登记不得
   表述为“已修复”）。**取证（本地）**：`check-actions.py`／`check-workflows.py` 离线通过。
-  **未取得**：工作流首次运行的 CI 分析与 code scanning GO（待回填，Check 505 未勾）。
+  **取证（2026-11-28 推送后）**：run `46115541210` 三语言 job 全部 success；
+  `check-code-scanning.py` 报 GO；旧 683 条经新分析自动转 `fixed`（679 closed 全 fixed、
+  0 dismissed）。
 
 - [x] T434（AGENTS §5.2／2026-11-28 用户指令）CodeQL 存量告警代码级收口：
   683 条 open 告警按官方查询模型逐类处置——`..` 清洗覆盖 `temp_dir`/`current_dir` 全部
