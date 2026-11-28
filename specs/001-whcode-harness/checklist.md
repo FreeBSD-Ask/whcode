@@ -1724,13 +1724,14 @@ CodeQL success，Code Scanning 0 open（`check-code-scanning.py` 推送后复核
   强制旧库重建。**取证（2026-11-25）**：`cargo test -p whcode-store search::` 10 通过
   （含 `fts_chinese_substring_hits_with_opensearch_tokenizer`）。
 
-- [ ] Check 505: [present] Code Scanning 切换 advanced setup（T433／ADR-103／AGENTS §5.2）：
-  新增 `.github/workflows/codeql.yml`（`github/codeql-action` v4.39.5 固定 SHA，rust＋
-  javascript，`build-mode: none`，`security-extended`），API 关闭 default setup
-  （`state: not-configured` 已复核）；`check-actions.py` 修复三层 `uses:` 路径匹配并登记
-  action；威胁模型收窄为默认 `remote` 经用户批准。**判据**：离线 `check-actions.py` 与
-  `check-workflows.py` 通过；工作流首次运行产生 code scanning 分析且
-  `check-code-scanning.py` 报 GO。**未取得**：工作流首次推送运行的 CI 结论待回填。
+- [x] Check 505: [exercised] Code Scanning 切换 advanced setup（T433／ADR-103／AGENTS §5.2）：
+  新增 `.github/workflows/codeql.yml`（`github/codeql-action` v4.39.5 固定 SHA，matrix
+  rust／javascript／actions 三语言，category 与 default setup 原名一致，`security-extended`，
+  rust 用 `build-mode: none`），API 关闭 default setup（`state: not-configured` 已复核）；
+  `check-actions.py` 修复三层 `uses:` 路径匹配并登记 action；威胁模型收窄为默认 `remote`
+  经用户批准。**取证（2026-11-28 推送后复核）**：工作流 run `46115541210` 三 job 全部
+  success（analyze-rust／analyze-javascript／analyze-actions）；`check-code-scanning.py`
+  报 `GO`（0 条 open）；旧 683 条经新分析自动转 `fixed`（679 closed 全 fixed、0 dismissed）。
 
 - [x] Check 506: [exercised] CodeQL 存量告警代码级收口（T434／ADR-103／AGENTS §5.2）：
   683 条 open 告警（path 656／log 11／cmd 6／deser 10）按官方查询模型逐类处置——
