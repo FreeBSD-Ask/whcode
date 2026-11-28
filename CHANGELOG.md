@@ -13,6 +13,14 @@
 
 ### 变更
 
+- **SonarCloud 全项目分析与 CI／脚本修补（2026-11-28，用户登录后补跑）**：CLI 1.13.1 连接
+  SonarCloud（org `freebsd-ask`，项目 `FreeBSD-Ask_whcode`）；既有分析 revision `e039b51`
+  覆盖 316 文件、127,613 行，93 条未解决（50 vulnerabilities、35 bugs、8 code smells），
+  PR #17 质量门 OK（新代码三项 A、0 条）。8 条已修：`a2-diagnosis` 与 `platform-verification`
+  的 `curl | sh` 改用固定版本＋SHA256 校验的 rustup-init；`clean.py` 临时目录扫描跳过符号
+  链接；三个表单输入补 `aria-label`。其余 85 条为误报、本地操作者／代理边界或非安全技术债，
+  逐类判定见 `docs/analysis/2026-11-28-multi-tool-security-scan.md` §3.7；前端 28 条
+  Promise 缺陷登记为技术债。
 - **Semgrep 全仓扫描与两处 CI 修补（2026-11-28，用户指令）**：仓库外隔离环境安装
   `semgrep==1.136.0`，548 条规则跑 830 个跟踪文件，首轮 93 条、修补后 90 条。真实问题 3 条已修：
   Dependabot 两个更新项补 7 天冷却期；FreeBSD 发布步骤不再 `curl | sh.rustup.rs`，改为固定
