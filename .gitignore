@@ -111,6 +111,9 @@
 # 过渡期双忽略：script/ 已更名 local/（2026-10-24），防并行会话按旧名复建
 /script/
 
+# Mimosa 插件的本机 hook 状态与扫描标记（2026-11-28 用户指令；内容不入库）
+*.mimosa*
+
 # Python 解释器缓存（.github/scripts/ 与 script/ 下的脚本执行时生成；不得进 .github/scripts/ 子目录白名单）
 __pycache__/
 *.pyc
