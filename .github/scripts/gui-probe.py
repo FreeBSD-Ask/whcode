@@ -235,7 +235,11 @@ def sample(pid: int) -> dict[str, float]:
         "}} | ConvertTo-Json -Compress"
     ).format(pid=pid)
     out = subprocess.run(
-        ["powershell", "-NoProfile", "-Command", script], capture_output=True, text=True, check=True
+        ["powershell", "-NoProfile", "-Command", script],
+        shell=False,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     return json.loads(out.stdout.strip())
 
@@ -331,6 +335,7 @@ def seed_sessions(exe: pathlib.Path, workspace: pathlib.Path) -> None:
     ):
         subprocess.run(
             [str(exe), "--workspace", str(workspace), "session", "new", "--title", title],
+            shell=False,
             capture_output=True,
             check=False,
         )
@@ -347,6 +352,7 @@ def run_theme(
     env = dict(os.environ, WHCODE_UI_THEME=theme)
     process = subprocess.Popen(
         [str(exe), "gui", "--workspace", str(workspace)],
+        shell=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

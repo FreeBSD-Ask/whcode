@@ -113,6 +113,7 @@ def run_captured(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
     """子进程不带控制台句柄（CI 上 pwsh 会把控制台句柄传进来，Popen 句柄会失效）。"""
     kwargs.setdefault("capture_output", True)
     kwargs.setdefault("text", True)
+    kwargs["shell"] = False  # 命令列表直接 exec，参数不参与 shell 解析
     return subprocess.run(cmd, **kwargs)
 
 
@@ -212,6 +213,7 @@ def measure_serve_concurrent_readers(events: int, readers: int, rounds: int) -> 
             str(ws),
         ],
         cwd=ROOT,
+        shell=False,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -288,6 +290,7 @@ def measure_bench_write(events: int, repeat: int) -> dict:
             str(repeat),
         ],
         cwd=ROOT,
+        shell=False,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

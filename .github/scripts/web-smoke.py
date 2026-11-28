@@ -69,6 +69,7 @@ def main() -> int:
     # 先建一个会话，/api/status 与 /api/events 需要 session 参数。
     seed = subprocess.run(
         [str(exe), "--workspace", str(workspace), "session", "new", "--title", "冒烟", "--json"],
+        shell=False,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -91,6 +92,7 @@ def main() -> int:
     base = f"https://127.0.0.1:{port}"
     process = subprocess.Popen(
         [str(exe), "serve", "--web", "--bind", f"127.0.0.1:{port}", "--workspace", str(workspace)],
+        shell=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

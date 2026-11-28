@@ -120,6 +120,9 @@ class Context:
         key = (script, args)
         if key in self._delegates:
             return self._delegates[key]
+        if not re.fullmatch(r"[A-Za-z0-9_-]+\.py", script):
+            self._delegates[key] = (False, f"门禁脚本名非法：{script}")
+            return self._delegates[key]
         path = ROOT / ".github/scripts" / script
         if not path.is_file():
             self._delegates[key] = (False, f"门禁脚本不存在：.github/scripts/{script}")
@@ -128,6 +131,7 @@ class Context:
             completed = subprocess.run(
                 [sys.executable, str(path), *args],
                 cwd=ROOT,
+                shell=False,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
@@ -600,6 +604,7 @@ def pred_orphan_adr(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
     completed = subprocess.run(
         ["git", "ls-files", "docs/adr/ADR-*.md"],
         cwd=ROOT,
+        shell=False,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -650,6 +655,7 @@ def pred_phantom_fr(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
     completed = subprocess.run(
         ["git", "ls-files", "crates/**/*.rs"],
         cwd=ROOT,
+        shell=False,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -729,6 +735,7 @@ def pred_eol_tracked(ctx: Context, _axioms: list[dict]) -> tuple[bool, str]:
     completed = subprocess.run(
         ["git", "ls-files", "--eol", "-z"],
         cwd=ROOT,
+        shell=False,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -771,6 +778,7 @@ def _index_blob(name: str) -> bytes | None:
     completed = subprocess.run(
         ["git", "show", f":{name}"],
         cwd=ROOT,
+        shell=False,
         capture_output=True,
         check=False,
     )
@@ -956,6 +964,7 @@ def reverse_tracked_means(ctx: Context) -> dict:
     completed = subprocess.run(
         ["git", "ls-files"],
         cwd=ROOT,
+        shell=False,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -983,6 +992,7 @@ def git_state() -> tuple[str, bool]:
     head = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"],
         cwd=ROOT,
+        shell=False,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -991,6 +1001,7 @@ def git_state() -> tuple[str, bool]:
     status = subprocess.run(
         ["git", "status", "--porcelain"],
         cwd=ROOT,
+        shell=False,
         capture_output=True,
         text=True,
         encoding="utf-8",

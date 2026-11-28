@@ -29,6 +29,7 @@ DEFAULT_EXE = REPO / "target" / "release" / "whcode.exe"
 def run(args: list[str], timeout: float = 60.0) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         args,
+        shell=False,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -79,6 +80,7 @@ def main() -> int:
         non_tty = subprocess.run(
             [str(exe), "--workspace", workspace],
             stdin=subprocess.DEVNULL,
+            shell=False,
             capture_output=True,
             text=True,
             encoding="utf-8",

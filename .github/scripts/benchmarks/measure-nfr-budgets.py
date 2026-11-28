@@ -161,6 +161,7 @@ def run_captured(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
     再因顺序变化踩同一个坑。
     """
     kwargs.setdefault("stdin", subprocess.DEVNULL)
+    kwargs["shell"] = False  # 命令列表直接 exec，参数不参与 shell 解析
     return subprocess.run(cmd, **kwargs)
 
 
@@ -229,7 +230,7 @@ def measure_nfr201() -> dict:
     process = subprocess.Popen(
         [str(EXE), "serve", "--web", "--tls", "off", "--bind", f"127.0.0.1:{port}",
          "--workspace", str(ws)],
-        cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        cwd=ROOT, shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
         if not wait_port(port):
@@ -274,7 +275,7 @@ def measure_nfr202() -> dict:
     process = subprocess.Popen(
         [str(EXE), "serve", "--web", "--tls", "off", "--bind", f"127.0.0.1:{port}",
          "--workspace", str(ws)],
-        cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        cwd=ROOT, shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
         if not wait_port(port):
@@ -435,7 +436,7 @@ def measure_nfr206() -> dict:
     def run_case(filter_name: str) -> tuple[subprocess.Popen, str]:
         process = subprocess.Popen(
             [test_exe, filter_name, "--ignored", "--exact", "--nocapture"],
-            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            cwd=ROOT, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
         )
         handle = open_process(process.pid)
         counters = PROCESS_MEMORY_COUNTERS()

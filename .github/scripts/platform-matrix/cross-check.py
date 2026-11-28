@@ -74,6 +74,7 @@ def installed_targets() -> set[str]:
         return set()
     result = subprocess.run(
         [exe, "target", "list", "--installed"],
+        shell=False,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -90,6 +91,7 @@ def run_cargo(cargo: str, args: list[str]) -> dict:
         completed = subprocess.run(
             command,
             cwd=REPO_ROOT,
+            shell=False,
             capture_output=True,
             text=True,
             encoding="utf-8",

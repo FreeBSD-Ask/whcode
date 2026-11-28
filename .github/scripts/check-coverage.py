@@ -57,7 +57,7 @@ def run_cov(root: pathlib.Path) -> str:
     ]
     for crate in PILOT_CRATES:
         command.extend(["-p", crate])
-    proc = subprocess.run(command, cwd=root, capture_output=True, text=True)
+    proc = subprocess.run(command, cwd=root, shell=False, capture_output=True, text=True)
     if proc.returncode != 0:
         tail = (proc.stderr or proc.stdout).strip().splitlines()[-8:]
         raise SystemExit(

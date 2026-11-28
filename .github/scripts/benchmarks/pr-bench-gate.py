@@ -122,6 +122,7 @@ def run_fixture(filter_name: str) -> tuple[str, int]:
         command,
         cwd=REPO_ROOT,
         env=env,
+        shell=False,
         capture_output=True,
         text=True,
         encoding="utf-8",

@@ -25,6 +25,7 @@ import ctypes.wintypes as wintypes
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import time
@@ -32,6 +33,9 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 BUDGET_RSS_MB = 512
 POLL_SECONDS = 0.05
+
+#: 测试目标名白名单：该值参与 `cargo test --test` 与可执行文件 glob，必须拒绝元字符。
+TEST_NAME_RE = re.compile(r"[A-Za-z0-9_]+")
 
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_VM_READ = 0x0010
@@ -70,6 +74,7 @@ def compute_executable(target: str) -> pathlib.Path | None:
     build = subprocess.run(
         ["cargo", "test", "--locked", "--no-run", "--test", target],
         cwd=ROOT,
+        shell=False,
         capture_output=True,
         text=True,
     )
@@ -122,6 +127,7 @@ def measure(target: str) -> dict:
     process = subprocess.Popen(
         [str(executable)],
         cwd=ROOT,
+        shell=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -193,6 +199,10 @@ def main() -> int:
     if not targets:
         print("无测试目标")
         return 1
+    for target in targets:
+        if not TEST_NAME_RE.fullmatch(target):
+            print(f"非法测试目标名：{target!r}（只允许字母、数字与下划线）", file=sys.stderr)
+            return 2
 
     results = []
     for target in targets:

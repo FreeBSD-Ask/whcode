@@ -32,6 +32,7 @@ import hashlib
 import os
 import pathlib
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -55,6 +56,9 @@ RELEASE_URL = (
 
 #: rustup 工具链名：版本锁 1.100.0（ADR-069），主机三元组 gnullvm（ADR-073）。
 RUSTUP_TOOLCHAIN = "1.100.0-x86_64-pc-windows-gnullvm"
+
+#: 工具链名与目标三元组的白名单：两者都作为 rustup 的独立参数传入，拒绝前导 `-` 与分隔符。
+RUSTUP_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 #: 必须存在的驱动（缺任一项即视为解包不完整）。
 REQUIRED_BINARIES = ("x86_64-w64-mingw32-clang.exe", "x86_64-w64-mingw32-clang++.exe")
@@ -176,6 +180,7 @@ def ensure_rustup_toolchain(toolchain: str) -> None:
         raise RuntimeError("未找到 rustup：gnullvm 工具链需由 rustup 安装（ADR-073）")
     listed = subprocess.run(
         [rustup, "toolchain", "list"],
+        shell=False,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -199,6 +204,7 @@ def ensure_rustup_toolchain(toolchain: str) -> None:
             "--component",
             "clippy",
         ],
+        shell=False,
         check=False,
     )
     if install.returncode != 0:
@@ -214,6 +220,7 @@ def ensure_target(toolchain: str, target: str | None) -> None:
         raise RuntimeError("未找到 rustup：目标 std 需由 rustup 安装（ADR-074）")
     add = subprocess.run(
         [rustup, "target", "add", target, "--toolchain", toolchain],
+        shell=False,
         check=False,
     )
     if add.returncode != 0:
@@ -262,6 +269,10 @@ def main() -> int:
         return fail(f"本脚本只为 Windows 平台准备工具链，当前为 {platform.platform()}（ADR-013）")
 
     toolchain = args.rustup_toolchain
+    if not RUSTUP_NAME_RE.fullmatch(toolchain):
+        return fail(f"--rustup-toolchain 含非法字符：{toolchain}")
+    if args.rustup_target is not None and not RUSTUP_NAME_RE.fullmatch(args.rustup_target):
+        return fail(f"--rustup-target 含非法字符：{args.rustup_target}")
     try:
         archive = ensure_archive(args.mirror)
         bin_dir = install_toolchain_dir(archive)

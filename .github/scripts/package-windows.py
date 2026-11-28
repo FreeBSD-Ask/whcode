@@ -133,6 +133,7 @@ def rustc_host_triple() -> str | None:
         return None
     proc = subprocess.run(
         [rustc, "-vV"],
+        shell=False,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -306,6 +307,7 @@ def build_package(out_dir: pathlib.Path, target: str) -> tuple[pathlib.Path, lis
     if executable_here:
         stamp = subprocess.run(
             [str(staging / "whcode.exe"), "--version"],
+            shell=False,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -320,6 +322,7 @@ def build_package(out_dir: pathlib.Path, target: str) -> tuple[pathlib.Path, lis
     rustc = (
         subprocess.run(
             [rustc_path, "-vV"],
+            shell=False,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -398,6 +401,7 @@ def run_command(argv: list[str], cwd: pathlib.Path) -> dict[str, object]:
         completed = subprocess.run(
             argv,
             cwd=str(cwd),
+            shell=False,
             capture_output=True,
             text=True,
             encoding="utf-8",

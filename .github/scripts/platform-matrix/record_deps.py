@@ -64,6 +64,7 @@ def capture(args: list[str], timeout: int = 1800) -> tuple[str, str, int]:
         completed = subprocess.run(
             args,
             cwd=REPO_ROOT,
+            shell=False,
             capture_output=True,
             text=True,
             encoding="utf-8",
