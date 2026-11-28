@@ -13,6 +13,21 @@
 
 ### 变更
 
+- **Semgrep 全仓扫描与两处 CI 修补（2026-11-28，用户指令）**：仓库外隔离环境安装
+  `semgrep==1.136.0`，548 条规则跑 830 个跟踪文件，首轮 93 条、修补后 90 条。真实问题 3 条已修：
+  Dependabot 两个更新项补 7 天冷却期；FreeBSD 发布步骤不再 `curl | sh.rustup.rs`，改为固定
+  版本 `rustup-init` 1.29.3（FreeBSD x86_64）＋SHA256 校验后执行。其余 87 条为 INFO 级通用
+  建议或经反证的误报；主会话复核另记一条未修 high：工作区 `.whcode/mcp.json` 每轮自动连接并
+  执行其命令、无工作区信任确认（`crates/whcode-app/src/turn.rs:578`），修复需 ADR 与四端
+  确认交互。四工具覆盖与判定见 `docs/analysis/2026-11-28-multi-tool-security-scan.md`。
+- **Mimosa 全量深扫与 triage（2026-11-28，用户指令）**：主密封扫描 250 文件上限之外，按目录补跑
+  22 次密封扫描，覆盖工作树内全部 283 个受支持源文件（245 `.rs`、4 `.js`、34 `.py`）；去重后
+  64 条唯一发现逐条判定（high 57、medium 6、low 1）。62 条为测试夹具、浏览器同源请求、本地
+  操作者 `--config` 路径、常量 URL 与同名符号解析造成的误报；2 条真实问题已修：
+  `requirements-dev.txt` 四份依赖改为精确版本加 SHA256 哈希锁（`pip download --require-hashes`
+  在 win_amd64 的 cp312／cp313 实跑通过），`AGENTS.md` 删除重复禁令行。报告与逐条反证见
+  `docs/analysis/2026-11-28-mimosa-deep-scan-triage.md`；Semgrep 第二意见另在仓库外隔离
+  环境完成，结果并入四工具报告。
 - **Code Scanning 切换 advanced setup（2026-11-28，用户指令）**：新增
   `.github/workflows/codeql.yml`（`github/codeql-action` v4.39.5 固定 SHA，rust＋javascript，
   `build-mode: none`，`security-extended`），并经 API 关闭 default setup。**威胁模型由
