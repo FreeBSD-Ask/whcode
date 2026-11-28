@@ -1,0 +1,70 @@
+# Code Scanning（advanced setup，2026-11-28 用户指令：default setup → 仓库自管工作流）。
+#
+# 背景：default setup 由 GitHub 托管，规则与模型随 GitHub 侧推送更新（2026-11-28 一次
+# 更新批量产生 683 条 open 告警，版本与查询集不可由仓库控制）。advanced setup 把
+# CodeQL 版本收进本仓库 CI 铁律（§5.1：最新 release + 固定 commit SHA），与
+# check-actions.py／check-workflows.py 门禁同源，分析行为可审计、可复现。
+#
+# 语言对齐 default setup 的覆盖面（不缩水）：rust（主代码）＋ javascript（whcode-web
+# 前端静态资产）＋ actions（工作流安全查询）。仓库无 TypeScript 源文件，不声明 ts。
+# actions 语言在 CodeQL 2.16+ 受支持，v4.39.5 对应 bundle 2.27.x 覆盖。
+#
+# 查询集 default 与 default setup 相同；不做任何 threat-model 放宽（AGENTS §5.2）。
+# 告警零 open 铁律不变：修复只能来自代码修复 + CodeQL 重新分析（AGENTS §5.2）。
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # 每周一 02:00 UTC，与 default setup 的 weekly 节奏对齐。
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  analyze:
+    name: analyze-rust-and-js
+    runs-on: windows-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 工作流语义门禁
+        run: python .github/scripts/check-workflows.py
+
+      - name: CI action 版本门禁（最新版本 + 固定 SHA）
+        run: python .github/scripts/check-actions.py
+
+      - name: 安装 llvm-mingw 与 gnullvm 工具链
+        run: python .github/scripts/setup-windows-llvm.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 拉取 DuckDB 载荷
+        run: python .github/scripts/fetch-duckdb.py
+
+      - uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+        with:
+          languages: rust, javascript, actions
+          build-mode: none
+          # 对齐 default setup 的 query_suite=extended，告警覆盖面不缩水。
+          queries: security-extended
+
+      - uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+        with:
+          category: "/language:rust,javascript"

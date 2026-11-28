@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-16",
+  "checked_at": "2026-11-28",
   "source": "GitHub API releases/latest；无 release 时取最高语义化 tag；SHA 由 commits/{tag} 解析",
   "actions": {
     "actions/cache": {
@@ -21,6 +21,10 @@
     "cross-platform-actions/action": {
       "version": "v1.8.0",
       "sha": "30cde56b87a128507bebea9531205087890ee360"
+    },
+    "github/codeql-action": {
+      "version": "v4.39.5",
+      "sha": "915412ff23e8b7659517e607487dbeae018f2934"
     },
     "vmactions/freebsd-vm": {
       "version": "v1.6.0",

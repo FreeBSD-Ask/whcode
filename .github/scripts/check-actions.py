@@ -35,8 +35,11 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 MANIFEST = ROOT / ".github" / "scripts" / "action-versions.json"
 API = "https://api.github.com/repos/{repo}/{endpoint}"
 USE_PATTERN = re.compile(
-    r"uses:\s*([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@(\S+)(?:\s*#\s*(\S+))?"
+    r"uses:\s*([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)(?:/[A-Za-z0-9_.-]+)?@(\S+)(?:\s*#\s*(\S+))?"
 )
+# 语义化版本 tag（含前导 v）；github/codeql-action 的 bundle 快照 tag
+# （codeql-bundle-vX.Y.Z）不是 action 语义版本，不作清单登记版本。
+SEMVER_TAG_PATTERN = re.compile(r"^v?\d+(\.\d+)*$")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 FLOATING_REFS = {"main", "master", "HEAD"}
 
@@ -76,14 +79,19 @@ def version_key(tag: str) -> tuple[int, ...]:
 def latest_tag(repo: str) -> str:
     try:
         release = request_json(repo, "releases/latest")
-        return str(release["tag_name"])
+        tag = str(release["tag_name"])
+        if SEMVER_TAG_PATTERN.match(tag):
+            return tag
     except urllib.error.HTTPError as error:
         if error.code != 404:
             raise
+    # releases/latest 不是语义化版本（如 bundle 快照 tag）或 404：取 tags 里
+    # 最高的语义化版本（tags 按创建时间降序，最新语义化 tag 必在前 100 个内）。
     tags = request_json(repo, "tags?per_page=100")
-    if not tags:
-        raise RuntimeError(f"{repo} 没有 release 也没有 tag")
-    return max((str(tag["name"]) for tag in tags), key=version_key)
+    semver_tags = [str(tag["name"]) for tag in tags if SEMVER_TAG_PATTERN.match(str(tag["name"]))]
+    if not semver_tags:
+        raise RuntimeError(f"{repo} 没有 release 也没有语义化版本 tag")
+    return max(semver_tags, key=version_key)
 
 
 def tag_sha(repo: str, tag: str) -> str:

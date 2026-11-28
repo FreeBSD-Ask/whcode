@@ -274,10 +274,20 @@ whcode-bin     ← 装配根：配置、日志、feature 组装
 
 ### 5.2 Code Scanning 零告警铁律（2026-10-28，用户指令）
 
-- `security/code-scanning`（CodeQL 默认分析）必须**时刻保持 0 条 open 告警**。
+- `security/code-scanning` 必须**时刻保持 0 条 open 告警**。
   推送后必须运行 `python .github/scripts/check-code-scanning.py` 复核；`platform-verification.yml` 的
   `code-scanning` job 在每周 schedule 与手动触发时复核。查询被阻塞（无凭据/无网络/无
   分析）时写“阻塞”并停下，不得跳过、不得以本地推断冒充通过（ADR-037）。
+- **分析配置（2026-11-28 用户指令，advanced setup）**：Code Scanning 由仓库自管工作流
+  `.github/workflows/codeql.yml`（`github/codeql-action` init/analyze，版本与 SHA 受 §5.1
+  门禁约束），不再使用 GitHub 托管的 default setup（已 API 关闭）。语言 `rust`＋
+  `javascript`，`build-mode: none`，查询集 `security-extended`（对齐原 default setup 的
+  `query_suite=extended`）；**威胁模型为 advanced setup 默认的 `remote`**——原 default setup
+  配置为 `remote_and_local`，收窄经用户批准：`temp_dir`/`current_dir`/`env::var(_os)`/
+  `fs::read` 等本地源不再作为污染源，2026-11-28 的 683 条存量告警（path 656／log 11／
+  cmd 6／deser 10）的 source 全部属本地模型，该类别因此不再产生；**不得**据此把“分析范围收窄”表述为“已修复”。本地源类别的真实收口仍按代码
+  修复推进（`..` 清洗、canonicalize＋前缀检查、bool 化、大小上限），与告警压力解耦。
+  `threat-model` 如需改回 `remote,local` 必须用户批准并在本文件登记。
 - 告警只能由**修复代码 + CodeQL 重新分析**消除；禁止用 dismiss／关闭告警代替修复，
   AI 不得以“误报”为由批量关闭。确属模型误判时，必须先写威胁模型与证据再申请，
   且以代码级收口（bool 化、脱敏取值、非敏感命名）落地，不做静默压制。
