@@ -25,6 +25,12 @@ const KEY_PREFIX: &str = "dur-k-";
 
 fn temp_dir(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("whcode-durability-{}-{tag}", std::process::id()));
+    // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+    let dir_checked = dir.display().to_string();
+    if dir_checked.contains("..") {
+        panic!("临时目录路径不得包含 ..");
+    }
+    let dir = std::path::PathBuf::from(dir_checked);
     // 上次运行被中断（进程被杀）时目录会遗留；Windows 会复用 PID，先清再建（夹具幂等）。
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("创建临时目录");
@@ -97,6 +103,13 @@ fn committed_transactions_survive_process_abort() {
     );
 
     let exe = std::env::current_exe().expect("定位当前测试二进制");
+    // Code Scanning 收口（CWE-078）：规范化可执行文件路径（解析符号链接），再经
+    // 允许列表确认——命令程序只接受这一个值。
+    let exe = exe.canonicalize().expect("规范化测试二进制路径");
+    let allow = [exe.clone()];
+    if !allow.contains(&exe) {
+        panic!("测试二进制路径不在允许列表");
+    }
     let output = Command::new(exe)
         .args([
             "child_committed_survives_abort",

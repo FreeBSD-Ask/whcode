@@ -3283,3 +3283,20 @@ measurements 全绿），CodeQL success，Code Scanning 0 open。
   **取证（2026-11-25）**：`cargo test -p whcode-store search::` 10 通过（含
   `fts_chinese_substring_hits_with_opensearch_tokenizer`）。
   （开工前置：任务认知卡，见 ADR-099 §任务认知卡）
+
+- [x] T433（AGENTS §5.2／2026-11-28 用户指令）Code Scanning 切换 advanced setup：
+  新增 `.github/workflows/codeql.yml`（`github/codeql-action` v4.39.5 固定 SHA，rust＋
+  javascript＋actions，`build-mode: none`，`security-extended`）；API 关闭 default setup
+  （`state: not-configured` 已确认）；`check-actions.py` 修复三层 `uses:` 路径正则并登记
+  action；威胁模型收窄为 advanced 默认 `remote`（用户批准，AGENTS §5.2 已登记不得
+  表述为“已修复”）。**取证（本地）**：`check-actions.py`／`check-workflows.py` 离线通过。
+  **未取得**：工作流首次运行的 CI 分析与 code scanning GO（待回填，Check 505 未勾）。
+
+- [x] T434（AGENTS §5.2／2026-11-28 用户指令）CodeQL 存量告警代码级收口：
+  683 条 open 告警按官方查询模型逐类处置——`..` 清洗覆盖 `temp_dir`/`current_dir` 全部
+  派生路径构造（40+ 文件）；生产 env 流非法即拒绝/回退静态值；`entry.path()` 遍历项
+  清洗；`current_exe`→`Command` canonicalize＋允许列表；日志外泄面 bool 化或换行剥离；
+  MCP/webhook/字体 settings 反序列化入口补字节上限。**取证（2026-11-28 本机）**：
+  `cargo fmt --check`、`clippy -D warnings`、`cargo check --workspace --tests` 全绿；
+  测试见 Check 506。**未取得**：`unsafe-deserialization` 查询无 sanitizer 建模（len 上限
+  不消警，属模型限制），该类别由 threat model 范围处置并如实登记。

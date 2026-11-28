@@ -986,6 +986,12 @@ mod tests {
     #[test]
     fn server_e2e_happy_path_and_rejections() {
         let workspace = std::env::temp_dir().join(format!("whcode-acp-e2e-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let workspace_checked = workspace.display().to_string();
+        if workspace_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let workspace = std::path::PathBuf::from(workspace_checked);
         let _ = std::fs::remove_dir_all(&workspace);
         std::fs::create_dir_all(&workspace).expect("临时工作区");
         let gateway: Arc<dyn AcpGateway> = Arc::new(StubGateway {
@@ -1044,6 +1050,12 @@ mod tests {
     fn server_e2e_rejects_injection_and_supports_cancellation() {
         let workspace =
             std::env::temp_dir().join(format!("whcode-acp-e2e2-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let workspace_checked = workspace.display().to_string();
+        if workspace_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let workspace = std::path::PathBuf::from(workspace_checked);
         let _ = std::fs::remove_dir_all(&workspace);
         std::fs::create_dir_all(&workspace).expect("临时工作区");
         let gateway: Arc<dyn AcpGateway> = Arc::new(StubGateway {

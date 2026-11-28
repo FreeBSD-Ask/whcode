@@ -33,6 +33,11 @@ fn main() {
     let Ok(raw_lib_dir) = env::var("DUCKDB_LIB_DIR") else {
         return;
     };
+    // Code Scanning 收口：构建期环境给出的路径字符串含 ".." 时忽略该设置。
+    if raw_lib_dir.contains("..") {
+        println!("cargo:warning=DUCKDB_LIB_DIR 不应包含 ..，忽略该设置");
+        return;
+    }
     let lib_dir = resolve_lib_dir(&raw_lib_dir);
 
     // 只处理 Windows 形态的载荷；其他平台没有该文件，跳过复制（不做平台判定）。
@@ -87,6 +92,10 @@ fn workspace_root() -> PathBuf {
     let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") else {
         return PathBuf::from(".");
     };
+    // Code Scanning 收口：路径字符串含 ".." 时退回当前目录（不跟随遍历序列）。
+    if manifest_dir.contains("..") {
+        return PathBuf::from(".");
+    }
     let mut dir = PathBuf::from(manifest_dir);
     loop {
         let manifest = dir.join("Cargo.toml");
@@ -112,6 +121,12 @@ fn workspace_root() -> PathBuf {
 /// 识别失败返回 `None`（跳过复制，不影响编译）。
 fn profile_dirs() -> Option<(PathBuf, PathBuf, PathBuf)> {
     let out_dir = PathBuf::from(env::var("OUT_DIR").ok()?);
+    // Code Scanning 收口：路径字符串含 ".." 时放弃识别（跳过复制，不影响编译）。
+    let out_dir_str = out_dir.display().to_string();
+    if out_dir_str.contains("..") {
+        return None;
+    }
+    let out_dir = PathBuf::from(out_dir_str);
     if out_dir.file_name()? != "out" {
         return None;
     }

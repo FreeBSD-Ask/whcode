@@ -383,6 +383,12 @@ mod tests {
 
         let payload =
             std::env::temp_dir().join(format!("whcode-rt-payload-{}.txt", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let payload_checked = payload.display().to_string();
+        if payload_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let payload = std::path::PathBuf::from(payload_checked);
         std::fs::write(&payload, b"payload-bytes").expect("写 payload");
         let declared = fnv64(b"payload-bytes");
 

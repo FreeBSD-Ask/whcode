@@ -194,6 +194,12 @@ mod tests {
             let seq = DIR_SEQ.fetch_add(1, Ordering::Relaxed);
             let path =
                 std::env::temp_dir().join(format!("whcode-ssh-trust-{}-{seq}", std::process::id()));
+            // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+            let path_checked = path.display().to_string();
+            if path_checked.contains("..") {
+                panic!("临时目录路径不得包含 ..");
+            }
+            let path = std::path::PathBuf::from(path_checked);
             std::fs::create_dir_all(&path).expect("创建临时目录");
             Self { path }
         }
@@ -230,10 +236,8 @@ mod tests {
             .expect("校验");
         assert_eq!(verdict, HostKeyVerdict::Trusted);
         let text = std::fs::read_to_string(hosts.path()).expect("读取信任文件");
-        assert!(
-            text.contains("[127.0.0.1]:2200 SHA256:"),
-            "记录形如 [host]:port SHA256:…：{text}"
-        );
+        let recorded = text.contains("[127.0.0.1]:2200 SHA256:");
+        assert!(recorded, "信任文件应记录 [host]:port SHA256 形式的条目");
 
         // 分支三：同主机换成另一把密钥 → Mismatch（携带行号与期望指纹）。
         let attacker = ed25519_key();

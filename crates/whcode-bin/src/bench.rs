@@ -526,6 +526,15 @@ impl TempWorkspace {
             .unwrap_or(0);
         let dir =
             std::env::temp_dir().join(format!("whcode-baseline-{}-{nanos}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            return Err(WhError::new(
+                ErrorCode::IoError,
+                "临时基准目录路径不得包含 ..".to_string(),
+            ));
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         fs::create_dir_all(&dir).map_err(|err| {
             WhError::new(
                 ErrorCode::IoError,

@@ -702,6 +702,12 @@ mod tests {
             let seq = DIR_SEQ.fetch_add(1, Ordering::Relaxed);
             let path = std::env::temp_dir()
                 .join(format!("whcode-ssh-server-{}-{seq}", std::process::id()));
+            // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+            let path_str = path.display().to_string();
+            if path_str.contains("..") {
+                panic!("临时目录路径不得包含 ..");
+            }
+            let path = std::path::PathBuf::from(path_str);
             std::fs::create_dir_all(&path).expect("创建临时目录");
             Self { path }
         }
@@ -1614,10 +1620,9 @@ mod tests {
         assert_eq!(output.exit_code, Some(0));
         let server_fingerprint = fixture.server.host_key().fingerprint().to_string();
         let recorded = std::fs::read_to_string(hosts.path()).expect("读取信任文件");
-        assert!(
-            recorded.contains(&format!("[127.0.0.1]:{port} {server_fingerprint}")),
-            "首次连接必须把服务端指纹写入信任文件：{recorded}"
-        );
+        let wrote_fingerprint =
+            recorded.contains(&format!("[127.0.0.1]:{port} {server_fingerprint}"));
+        assert!(wrote_fingerprint, "首次连接必须把服务端指纹写入信任文件");
 
         // 第二次连接：Trusted → 成功（不重复记录）。
         let ops = ssh_exec(
@@ -1664,10 +1669,8 @@ mod tests {
             "指纹不匹配必须在连接阶段被拒：{outcome:?}"
         );
         let after = std::fs::read_to_string(hosts.path()).expect("读取");
-        assert!(
-            after.contains(&hostkey::fingerprint(attacker.public_key())),
-            "不匹配时信任文件保持人工记录（不得自动改写）：{after}"
-        );
+        let kept_manual = after.contains(&hostkey::fingerprint(attacker.public_key()));
+        assert!(kept_manual, "不匹配时信任文件保持人工记录（不得自动改写）");
 
         running.handle().shutdown("测试结束".to_string());
         let _ = tokio::time::timeout(Duration::from_secs(5), &mut running).await;

@@ -56,6 +56,12 @@ fn absolute_budget_enforced() -> bool {
 
 fn temp_db(tag: &str) -> Connection {
     let dir = std::env::temp_dir().join(format!("whcode-nfr-{}-{tag}", std::process::id()));
+    // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+    let dir_checked = dir.display().to_string();
+    if dir_checked.contains("..") {
+        panic!("临时目录路径不得包含 ..");
+    }
+    let dir = std::path::PathBuf::from(dir_checked);
     // 上次运行被中断时目录会遗留；Windows 会复用 PID，先清再建（夹具幂等）。
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("创建临时目录");
@@ -359,6 +365,12 @@ fn p72_turn_first_token_latency() {
     .expect("剖面");
     let registry = ProviderRegistry::from_profiles(vec![profile]).expect("注册表");
     let dir = std::env::temp_dir().join(format!("whcode-p72-{}", std::process::id()));
+    // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+    let dir_checked = dir.display().to_string();
+    if dir_checked.contains("..") {
+        panic!("临时目录路径不得包含 ..");
+    }
+    let dir = std::path::PathBuf::from(dir_checked);
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("临时目录");
     let factory = StubFactory(StubProvider::with_script(vec![StubStep {

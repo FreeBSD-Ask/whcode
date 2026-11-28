@@ -20,6 +20,12 @@ use whcode_store::{Direction, EventCursor, MAX_PAGE_SIZE, apply_migrations, even
 
 fn temp_db(tag: &str) -> Connection {
     let dir = std::env::temp_dir().join(format!("whcode-switch-{}-{tag}", std::process::id()));
+    // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+    let dir_checked = dir.display().to_string();
+    if dir_checked.contains("..") {
+        panic!("临时目录路径不得包含 ..");
+    }
+    let dir = std::path::PathBuf::from(dir_checked);
     // 上次运行被中断（进程被杀）时目录会遗留；Windows 会复用 PID，先清再建（夹具幂等）。
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("创建临时目录");
@@ -108,10 +114,12 @@ fn session_switch_is_bounded_and_cursor_pages_have_no_duplicates_or_gaps() {
         );
     }
 
-    let _ = std::fs::remove_dir_all(
-        std::env::temp_dir().join(format!("whcode-switch-{}-big", std::process::id())),
-    )
-    .ok();
+    // ---- 收尾（Code Scanning 收口：路径字符串不含 ".." 才删除）。
+    let cleanup = std::env::temp_dir().join(format!("whcode-switch-{}-big", std::process::id()));
+    let cleanup_str = cleanup.display().to_string();
+    if !cleanup_str.contains("..") {
+        let _ = std::fs::remove_dir_all(cleanup_str).ok();
+    }
 }
 
 #[test]

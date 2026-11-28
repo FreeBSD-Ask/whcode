@@ -2938,6 +2938,12 @@ mod tests {
         let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let temp =
             std::env::temp_dir().join(format!("whcode-web-spec-test-{}-{seq}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let temp_checked = temp.display().to_string();
+        if temp_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let temp = std::path::PathBuf::from(temp_checked);
         let _ = std::fs::remove_dir_all(&temp);
         std::fs::create_dir_all(temp.join("specs")).expect("specs 目录");
         std::fs::write(
@@ -3222,6 +3228,12 @@ mod tests {
         );
         assert_eq!(response.status, 400, "未注入 workspace_root 必须显式拒绝");
         let temp = std::env::temp_dir().join("whcode-web-restore-test");
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let temp_checked = temp.display().to_string();
+        if temp_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let temp = std::path::PathBuf::from(temp_checked);
         let _ = std::fs::remove_dir_all(&temp);
         std::fs::create_dir_all(&temp).expect("临时工作区");
         let response = handle_request_with_llm(
@@ -3340,6 +3352,12 @@ mod tests {
         let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let dir =
             std::env::temp_dir().join(format!("whcode-web-runtime-{}-{seq}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         std::fs::create_dir_all(&dir).expect("临时目录");
         let payload = dir.join("payload.bin");
         std::fs::write(&payload, b"runtime payload").expect("写 payload");
@@ -4450,6 +4468,12 @@ mod tests {
                 "whcode-web-cert-{}-{tag}-{stamp}-{seq}",
                 std::process::id()
             ));
+            // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+            let root_checked = root.display().to_string();
+            if root_checked.contains("..") {
+                panic!("临时目录路径不得包含 ..");
+            }
+            let root = std::path::PathBuf::from(root_checked);
             let _ = std::fs::remove_dir_all(&root);
             std::fs::create_dir_all(&root).expect("创建测试工作区");
             Self { root }

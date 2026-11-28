@@ -18,6 +18,12 @@ use whcode_store::{
 
 fn temp_db(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("whcode-space-{}-{tag}", std::process::id()));
+    // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+    let dir_checked = dir.display().to_string();
+    if dir_checked.contains("..") {
+        panic!("临时目录路径不得包含 ..");
+    }
+    let dir = std::path::PathBuf::from(dir_checked);
     // 上次运行被中断（进程被杀）时目录会遗留；Windows 会复用 PID，先清再建（夹具幂等）。
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("创建临时目录");

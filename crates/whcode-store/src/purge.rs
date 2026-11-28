@@ -919,6 +919,12 @@ mod tests {
 
         // 导出/导入面同样不携带审计：EXCLUDED_TABLES 含 audit，导出文件无该键。
         let dir = std::env::temp_dir().join(format!("whcode-audit-export-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("临时目录");
         let out = dir.join("export.json");

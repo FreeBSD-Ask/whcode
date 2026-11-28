@@ -202,6 +202,12 @@ mod tests {
             let seq = DIR_SEQ.fetch_add(1, Ordering::Relaxed);
             let path = std::env::temp_dir()
                 .join(format!("whcode-ssh-hostkey-{}-{seq}", std::process::id()));
+            // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+            let path_str = path.display().to_string();
+            if path_str.contains("..") {
+                panic!("临时目录路径不得包含 ..");
+            }
+            let path = std::path::PathBuf::from(path_str);
             std::fs::create_dir_all(&path).expect("创建临时目录");
             Self { path }
         }

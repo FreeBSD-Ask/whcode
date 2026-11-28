@@ -87,6 +87,12 @@ mod tests {
             .map_or(0, |elapsed| elapsed.as_nanos());
         let dir =
             std::env::temp_dir().join(format!("whcode-host-test-{}-{stamp}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         std::fs::create_dir_all(&dir).expect("创建测试临时目录");
         dir.join(format!("{tag}.pem"))
     }

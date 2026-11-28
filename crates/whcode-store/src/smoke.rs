@@ -277,8 +277,13 @@ mod tests {
 
     #[test]
     fn missing_parent_directory_is_reported_as_io_error() {
-        let db = std::env::temp_dir()
-            .join(format!("whcode-smoke-{}-absent", std::process::id()))
+        let dir = std::env::temp_dir().join(format!("whcode-smoke-{}-absent", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_str = dir.display().to_string();
+        if dir_str.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let db = std::path::PathBuf::from(dir_str)
             .join("nested")
             .join("smoke.duckdb");
         let err = run(&db).expect_err("父目录不存在必须失败");

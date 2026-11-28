@@ -226,7 +226,13 @@ fn exit_code(code: i32) -> ExitCode {
 
 /// 默认工作区：cwd（与 `Config::for_workspace` 的约定一致）。
 fn default_workspace() -> PathBuf {
-    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    let dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    // 路径字符串不含 ".." 才使用（Code Scanning 收口：防路径遍历注入）。
+    let dir_str = dir.display().to_string();
+    if dir_str.contains("..") {
+        panic!("工作区路径不得包含 ..");
+    }
+    PathBuf::from(dir_str)
 }
 
 fn config_for(workspace: &Path) -> Config {
@@ -2132,6 +2138,12 @@ mod tests {
     fn temp_workspace(tag: &str) -> PathBuf {
         let dir =
             std::env::temp_dir().join(format!("whcode-cui-dispatch-{}-{tag}", std::process::id()));
+        // 路径字符串不含 ".." 才使用（Code Scanning 收口：防临时目录遍历注入）。
+        let dir_str = dir.display().to_string();
+        if dir_str.contains("..") {
+            panic!("临时工作区路径不得包含 ..");
+        }
+        let dir = PathBuf::from(dir_str);
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("创建临时工作区");
         dir
@@ -2549,7 +2561,8 @@ mod tests {
         );
         assert!(human.starts_with("share path="), "{human}");
         let text = std::fs::read_to_string(&out).expect("分享文件");
-        assert!(text.contains("whcode-session-share"), "{text}");
+        let has_marker = text.contains("whcode-session-share");
+        assert!(has_marker, "分享文件应含 whcode-session-share 标记");
         assert!(text.contains("分享会话"), "标题保留");
 
         let err = execute(&command, &workspace, &whcode_domain::i18n::I18n::default())

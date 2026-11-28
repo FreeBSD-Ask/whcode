@@ -251,6 +251,15 @@ fn write_input_file(input: &str) -> Result<TempInputFile, WhError> {
         std::process::id(),
         SEQ.fetch_add(1, Ordering::Relaxed)
     ));
+    // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+    let path_checked = path.display().to_string();
+    if path_checked.contains("..") {
+        return Err(WhError::new(
+            ErrorCode::IoError,
+            "gitbash stdin 临时文件路径不得包含 ..".to_string(),
+        ));
+    }
+    let path = std::path::PathBuf::from(path_checked);
     std::fs::write(&path, input.as_bytes()).map_err(|err| {
         WhError::new(
             ErrorCode::IoError,
@@ -786,6 +795,12 @@ mod tests {
             return;
         }
         let ws = std::env::temp_dir().join(format!("whcode-execute-in-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let ws_checked = ws.display().to_string();
+        if ws_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let ws = std::path::PathBuf::from(ws_checked);
         let _ = std::fs::remove_dir_all(&ws);
         std::fs::create_dir_all(&ws).expect("建工作区夹具");
         let provider = GitBashProvider::default();

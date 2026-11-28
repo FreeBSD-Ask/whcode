@@ -570,6 +570,12 @@ mod tests {
         static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let dir = std::env::temp_dir().join(format!("whcode-spec-{}-{seq}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("specs")).expect("建 specs 目录");
         for (name, content) in files {

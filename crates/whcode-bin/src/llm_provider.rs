@@ -627,18 +627,33 @@ mod model_editor_tests {
     }
 
     /// ADR-102：写面把草稿追加进 profiles.json，并且能被加载器同一解析器接受。
-    #[test]
-    fn appends_model_and_rejects_duplicate() {
-        let dir = std::env::temp_dir().join(format!("whcode-model-editor-{}", std::process::id()));
+    /// 临时目录（Code Scanning 收口：路径字符串不含 ".." 才使用，防遍历注入）。
+    fn test_dir(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(name);
+        let dir_str = dir.display().to_string();
+        if dir_str.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_str);
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("建目录");
+        dir
+    }
+
+    #[test]
+    fn appends_model_and_rejects_duplicate() {
+        let dir = test_dir(format!("whcode-model-editor-{}", std::process::id()).as_str());
         let editor = StoreModelEditor {
             path: dir.join("profiles.json"),
         };
         let saved = editor.add(&draft("local-test")).expect("首次添加应成功");
         let raw = std::fs::read_to_string(&saved).expect("读回配置");
-        assert!(raw.contains("local-test"), "{raw}");
-        assert!(raw.contains("TEST_API_KEY"), "{raw}");
+        let has_model = raw.contains("local-test");
+        let has_key = raw.contains("TEST_API_KEY");
+        assert!(
+            has_model && has_key,
+            "写回的 profiles.json 应含模型名与密钥键名"
+        );
         assert!(
             ProviderRegistry::from_json(&raw).is_ok(),
             "写出的配置必须能被加载器接受"
@@ -651,10 +666,7 @@ mod model_editor_tests {
     /// ADR-102：空名／空端点／Ollama 免密钥等校验分支。
     #[test]
     fn rejects_incomplete_drafts() {
-        let dir =
-            std::env::temp_dir().join(format!("whcode-model-editor-b-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("建目录");
+        let dir = test_dir(format!("whcode-model-editor-b-{}", std::process::id()).as_str());
         let editor = StoreModelEditor {
             path: dir.join("profiles.json"),
         };

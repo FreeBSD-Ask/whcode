@@ -681,6 +681,12 @@ fn temp_workspace() -> PathBuf {
         std::process::id(),
         utc_now_rfc3339().replace([':', 'T', 'Z'], "-")
     ));
+    // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+    let dir_checked = dir.display().to_string();
+    if dir_checked.contains("..") {
+        panic!("临时目录路径不得包含 ..");
+    }
+    let dir = std::path::PathBuf::from(dir_checked);
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).expect("创建实验临时目录");
     dir

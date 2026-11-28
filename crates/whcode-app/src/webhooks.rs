@@ -30,6 +30,9 @@ use crate::authz::{Actor, Capability, Policy, require};
 pub const CONFIG_RELATIVE_PATH: &str = ".whcode/webhooks.json";
 
 /// 端点数量上限。
+/// 配置文件字节上限（CWE-502：反序列化输入必须有界）。
+pub const MAX_CONFIG_BYTES: usize = 256 * 1024;
+
 pub const MAX_ENDPOINTS: usize = 8;
 
 /// 端点名与凭据环境变量名的字符上限。
@@ -176,6 +179,13 @@ pub fn load_config(workspace: &Path) -> Result<WebhookConfig, WhError> {
             ));
         }
     };
+    // 有界读取（CWE-502 DoS 防御）：配置超过上限直接拒绝，不进入反序列化。
+    if text.len() > MAX_CONFIG_BYTES {
+        return Err(config_err(
+            &path,
+            format!("配置超过 {MAX_CONFIG_BYTES} 字节上限"),
+        ));
+    }
     let file: ConfigFile =
         serde_json::from_str(&text).map_err(|err| config_err(&path, err.to_string()))?;
     validate(&path, file)
@@ -670,6 +680,12 @@ mod tests {
 
     fn workspace_with(tag: &str, config: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("whcode-webhook-{}-{tag}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join(".whcode")).expect("创建 .whcode");
         std::fs::write(dir.join(".whcode/webhooks.json"), config).expect("写配置");

@@ -2607,6 +2607,12 @@ mod tests {
     fn ssh_assembly_fails_closed_without_authorized_keys() {
         use crate::config::Config;
         let dir = std::env::temp_dir().join(format!("whcode-serve-ssh-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("建临时工作区");
         let config = Config::for_workspace(&dir);
@@ -2931,6 +2937,12 @@ mod tests {
 
         // 接线：临时工作区证书库初始化后 200，状态可见且不含私钥。
         let dir = std::env::temp_dir().join(format!("whcode-serve-cert-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("建临时工作区");
         let paths = CertPaths::for_workspace(&dir);
@@ -3012,6 +3024,12 @@ mod tests {
         // 接线：摘要含证书库路径与重启标记；任何字段都不含私钥内容。
         let dir =
             std::env::temp_dir().join(format!("whcode-serve-settings-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("建临时工作区");
         let paths = CertPaths::for_workspace(&dir);
@@ -4343,6 +4361,12 @@ mod tests {
                 "whcode-serve-tls-{}-{tag}-{stamp}-{seq}",
                 std::process::id()
             ));
+            // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+            let path_checked = path.display().to_string();
+            if path_checked.contains("..") {
+                panic!("临时目录路径不得包含 ..");
+            }
+            let path = std::path::PathBuf::from(path_checked);
             let _ = std::fs::remove_dir_all(&path);
             std::fs::create_dir_all(&path).expect("创建测试目录");
             Self { path }
@@ -5694,6 +5718,12 @@ mod tests {
         use whcode_domain::approval::ApprovalRule;
 
         let dir = std::env::temp_dir().join(format!("whcode-serve-policy-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let mut config = Config::for_workspace(&dir);
         let none = std::iter::empty::<(String, ApprovalRule)>();
 

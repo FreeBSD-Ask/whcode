@@ -264,6 +264,12 @@ mod tests {
 
     fn temp_dir(tag: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!("whcode-share-{tag}-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let path_checked = path.display().to_string();
+        if path_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let path = std::path::PathBuf::from(path_checked);
         let _ = std::fs::remove_dir_all(&path);
         std::fs::create_dir_all(&path).expect("建临时目录");
         path

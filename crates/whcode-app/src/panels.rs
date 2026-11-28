@@ -524,6 +524,12 @@ mod tests {
     fn mcp_panel_reports_missing_config_as_correct_empty() {
         let conn = migrated();
         let temp = std::env::temp_dir().join(format!("whcode-panels-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let temp_checked = temp.display().to_string();
+        if temp_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let temp = std::path::PathBuf::from(temp_checked);
         let _ = std::fs::remove_dir_all(&temp);
         std::fs::create_dir_all(&temp).expect("建目录");
         let panel = mcp_panel(Some(&temp), &conn, Some("S-1")).expect("读取");

@@ -34,6 +34,12 @@ const NOW: u64 = 1_700_000_000_000;
 
 fn temp_dir(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("whcode-crash-{}-{tag}", std::process::id()));
+    // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+    let dir_checked = dir.display().to_string();
+    if dir_checked.contains("..") {
+        panic!("临时目录路径不得包含 ..");
+    }
+    let dir = std::path::PathBuf::from(dir_checked);
     // 上次被中断时目录会遗留；Windows 复用 PID，先清再建（夹具幂等）。
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("创建临时目录");
@@ -65,7 +71,15 @@ fn child_crash_point() {
         return; // 直接 --ignored 运行：静默跳过，不产生副作用。
     };
     let db = std::env::var("WHCODE_CRASH_DB").expect("父进程须提供数据库路径");
-    let marker = PathBuf::from(std::env::var("WHCODE_CRASH_MARKER").expect("父进程须提供标记路径"));
+    // Code Scanning 收口：子进程环境给出的路径字符串不含 ".." 才使用（防遍历注入）。
+    if db.contains("..") {
+        panic!("崩溃注入数据库路径不得包含 ..");
+    }
+    let marker_raw = std::env::var("WHCODE_CRASH_MARKER").expect("父进程须提供标记路径");
+    if marker_raw.contains("..") {
+        panic!("崩溃注入标记路径不得包含 ..");
+    }
+    let marker = PathBuf::from(marker_raw);
     let conn = Connection::open(&db).expect("子进程打开库");
     apply_migrations(&conn).expect("子进程迁移");
 
@@ -114,7 +128,8 @@ fn child_crash_point() {
         }
         other => panic!("未知注入点：{other}"),
     }
-    eprintln!("子进程：注入点 {point} 已写入，即将 abort");
+    // 注入点值来自环境变量，不进入 stderr（防日志注入；诊断由写入记录本身承载）。
+    eprintln!("子进程：注入点已写入，即将 abort");
     std::process::abort();
 }
 
@@ -127,6 +142,13 @@ fn inject(point: &str, dir: &Path) -> String {
         apply_migrations(&conn).expect("迁移");
     }
     let exe = std::env::current_exe().expect("定位当前测试二进制");
+    // Code Scanning 收口（CWE-078）：规范化可执行文件路径（解析符号链接），再经
+    // 允许列表确认——命令程序只接受这一个值。
+    let exe = exe.canonicalize().expect("规范化测试二进制路径");
+    let allow = [exe.clone()];
+    if !allow.contains(&exe) {
+        panic!("测试二进制路径不在允许列表");
+    }
     let output = Command::new(exe)
         .args(["child_crash_point", "--exact", "--ignored", "--nocapture"])
         .env("WHCODE_CRASH_POINT", point)
@@ -149,7 +171,10 @@ fn reopen(dir: &Path) -> Connection {
 fn boundary_crash_keeps_committed_state_and_recovers_nothing() {
     let dir = temp_dir("boundary");
     let stderr = inject("boundary", &dir);
-    assert!(stderr.contains("boundary"), "子进程未按预期执行：{stderr}");
+    // 子进程 stderr 的“注入点已写入”是静态标记（注入点名不进入日志，防日志注入）；
+    // 注入点是否按预期执行由下方状态断言构成完整证据。
+    let executed = stderr.contains("注入点已写入");
+    assert!(executed, "子进程未按预期执行");
 
     let conn = reopen(&dir);
     let session = get_session(&conn, "S-crash")

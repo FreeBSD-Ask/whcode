@@ -262,6 +262,9 @@ pub fn status(env: &FontEnv) -> StatusReport {
     }
 }
 
+/// settings.json 反序列化上限（CWE-502：输入必须有界；终端配置正常远小于 1 MB）。
+const MAX_TERMINAL_SETTINGS_BYTES: usize = 1024 * 1024;
+
 /// 终端声明检测：按序探测候选 settings.json，命中即停（Store 版优先于预览版）。
 fn terminal_status(env: &FontEnv) -> TerminalStatus {
     for path in &env.terminal_settings {
@@ -280,6 +283,15 @@ fn terminal_status(env: &FontEnv) -> TerminalStatus {
                 };
             }
         };
+        // 有界读取（CWE-502 DoS 防御）：settings.json 超过上限不进入反序列化。
+        if text.len() > MAX_TERMINAL_SETTINGS_BYTES {
+            return TerminalStatus {
+                settings_file: Some(display),
+                declared_faces: Vec::new(),
+                builtin_in_use: Vec::new(),
+                note: Some("settings.json 超过解析上限，跳过声明检测".to_string()),
+            };
+        }
         return match serde_json::from_str::<serde_json::Value>(&text) {
             Ok(value) => {
                 let mut declared: Vec<String> = Vec::new();
@@ -514,6 +526,12 @@ mod tests {
     fn temp_root(tag: &str) -> PathBuf {
         let dir =
             std::env::temp_dir().join(format!("whcode-fonts-test-{}-{tag}", std::process::id()));
+        // 路径字符串不含 ".." 才使用（Code Scanning 收口：防临时目录遍历注入）。
+        let dir_str = dir.display().to_string();
+        if dir_str.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = PathBuf::from(dir_str);
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("建临时目录");
         dir

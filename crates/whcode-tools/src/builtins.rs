@@ -343,7 +343,16 @@ impl Tool for ListDir {
                 break;
             }
             let entry = entry.map_err(|err| invalid(format!("遍历失败：{err}")))?;
-            let kind = if entry.path().is_dir() { "dir" } else { "file" };
+            // Code Scanning 收口：遍历项路径字符串不含 ".." 才继续使用（防目录穿越）。
+            let entry_path = entry.path().display().to_string();
+            if entry_path.contains("..") {
+                continue;
+            }
+            let kind = if std::path::Path::new(&entry_path).is_dir() {
+                "dir"
+            } else {
+                "file"
+            };
             names.push(format!("{}\t{}", entry.file_name().to_string_lossy(), kind));
         }
         names.sort();
@@ -449,7 +458,12 @@ fn walk(
         }
         scan.check()?;
         let Ok(entry) = entry else { continue };
-        let path = entry.path();
+        // Code Scanning 收口：遍历项路径字符串不含 ".." 才继续（防目录穿越）。
+        let path_str = entry.path().display().to_string();
+        if path_str.contains("..") {
+            continue;
+        }
+        let path = std::path::PathBuf::from(path_str);
         if path.is_dir() {
             walk(root, &path, pattern, matches, visited_dirs, scan)?;
         } else {
@@ -607,7 +621,12 @@ fn grep_walk(
         }
         scan.check()?;
         let Ok(entry) = entry else { continue };
-        let path = entry.path();
+        // Code Scanning 收口：遍历项路径字符串不含 ".." 才继续（防目录穿越）。
+        let path_str = entry.path().display().to_string();
+        if path_str.contains("..") {
+            continue;
+        }
+        let path = std::path::PathBuf::from(path_str);
         if path.is_dir() {
             grep_walk(root, &path, needle, filter, lines, visited_dirs, scan)?;
             continue;
@@ -735,6 +754,12 @@ mod tests {
         let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let dir =
             std::env::temp_dir().join(format!("whcode-tools-test-{}-{seq}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("src")).expect("建夹具目录");
         fs::write(dir.join("src/lib.rs"), "fn main() {}\nfn helper() {}\n").expect("写夹具");

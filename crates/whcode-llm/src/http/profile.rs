@@ -817,10 +817,16 @@ mod tests {
         let stamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |elapsed| elapsed.as_millis());
-        std::env::temp_dir().join(format!(
+        let path = std::env::temp_dir().join(format!(
             "whcode-llm-profile-{}-{stamp}-{name}",
             std::process::id()
-        ))
+        ));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let path_str = path.display().to_string();
+        if path_str.contains("..") {
+            panic!("临时路径不得包含 ..");
+        }
+        PathBuf::from(path_str)
     }
 
     fn write_secret_file(name: &str, content: &str) -> PathBuf {

@@ -593,6 +593,12 @@ fn stability_run_collects_section_11_5_series() {
     let dir = env_path("WHCODE_STABILITY_DIR").unwrap_or_else(|| {
         std::env::temp_dir().join(format!("whcode-stability-{}", std::process::id()))
     });
+    // Code Scanning 收口：路径字符串不含 ".." 才使用（防环境变量/临时目录遍历注入）。
+    let dir_str = dir.display().to_string();
+    if dir_str.contains("..") {
+        panic!("稳定性目录不得包含 ..");
+    }
+    let dir = std::path::PathBuf::from(dir_str);
     let out_path = env_path("WHCODE_STABILITY_OUT").unwrap_or_else(|| dir.join("timeseries.jsonl"));
     // 默认窗口 5.5 小时（19 800 s，ADR-033）；显式给小时数时仍按小时换算。
     let hours = env_u64("WHCODE_STABILITY_HOURS", 0);

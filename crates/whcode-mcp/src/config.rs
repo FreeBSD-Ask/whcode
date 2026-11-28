@@ -16,6 +16,9 @@ use whcode_domain::{ErrorCode, WhError};
 pub const CONFIG_PATH: &str = ".whcode/mcp.json";
 
 /// 服务器数量上限（ADR-054 §2.3）。
+/// 配置文件字节上限（CWE-502：反序列化输入必须有界）。
+pub const MAX_CONFIG_BYTES: usize = 1024 * 1024;
+
 pub const MAX_SERVERS: usize = 8;
 
 /// 单服务器显式 env 键数上限（ADR-054 §2.9：授权通道收口，防配置膨胀）。
@@ -113,6 +116,14 @@ impl McpConfig {
                 ));
             }
         };
+        // 有界读取（CWE-502 DoS 防御）：配置文件超过上限直接拒绝，不进入反序列化。
+        if bytes.len() > MAX_CONFIG_BYTES {
+            return Err(WhError::parse_error(format!(
+                "MCP 配置超过 {} 字节上限：{}",
+                MAX_CONFIG_BYTES,
+                path.display()
+            )));
+        }
         Self::parse(&bytes).map(Some)
     }
 
@@ -316,6 +327,12 @@ mod tests {
     #[test]
     fn missing_file_is_correct_empty() {
         let dir = std::env::temp_dir().join(format!("whcode-mcp-cfg-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = std::fs::create_dir_all(&dir);
         let loaded = McpConfig::load(&dir).expect("缺文件=Ok(None)");
         assert!(loaded.is_none(), "无配置文件=功能关闭（正确的空）");
@@ -325,6 +342,12 @@ mod tests {
     #[test]
     fn load_present_but_malformed_is_explicit_error() {
         let dir = std::env::temp_dir().join(format!("whcode-mcp-bad-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let cfg_dir = dir.join(".whcode");
         std::fs::create_dir_all(&cfg_dir).expect("建目录");
         std::fs::write(cfg_dir.join("mcp.json"), b"{ not json }").expect("写坏配置");

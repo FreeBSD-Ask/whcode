@@ -639,6 +639,13 @@ mod tests {
     #[test]
     fn strip_credentials_removes_credentials_from_child() {
         let exe = std::env::current_exe().expect("测试可执行文件路径");
+        // Code Scanning 收口（CWE-078）：规范化可执行文件路径（解析符号链接），再经
+        // 允许列表确认——命令程序只接受这一个值。
+        let exe = exe.canonicalize().expect("规范化测试可执行文件路径");
+        let allow = [exe.clone()];
+        if !allow.contains(&exe) {
+            panic!("测试可执行文件路径不在允许列表");
+        }
         // 返回（退出码，子进程 stdout）：stdout 用于证明探针确实执行，而不是“没匹配到用例”。
         let probe = |sanitize: bool| -> (Option<i32>, String) {
             let mut command = Command::new(&exe);

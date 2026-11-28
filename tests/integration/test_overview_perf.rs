@@ -25,6 +25,12 @@ const FROZEN_P95_BUDGET_US: u128 = 50_000;
 fn temp_db(tag: &str) -> Connection {
     let dir =
         std::env::temp_dir().join(format!("whcode-overview-perf-{}-{tag}", std::process::id()));
+    // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+    let dir_checked = dir.display().to_string();
+    if dir_checked.contains("..") {
+        panic!("临时目录路径不得包含 ..");
+    }
+    let dir = std::path::PathBuf::from(dir_checked);
     // 上次运行被中断（进程被杀）时目录会遗留；Windows 会复用 PID，先清再建（夹具幂等）。
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("创建临时目录");
@@ -110,8 +116,11 @@ fn overview_p95_within_frozen_budget_and_report_is_archived() {
     .expect("写入性能报告");
     eprintln!("性能报告已写入 {}", path.display());
 
-    let _ = std::fs::remove_dir_all(
-        std::env::temp_dir().join(format!("whcode-overview-perf-{}-perf", std::process::id())),
-    )
-    .ok();
+    // ---- 收尾（Code Scanning 收口：路径字符串不含 ".." 才删除）。
+    let cleanup =
+        std::env::temp_dir().join(format!("whcode-overview-perf-{}-perf", std::process::id()));
+    let cleanup_str = cleanup.display().to_string();
+    if !cleanup_str.contains("..") {
+        let _ = std::fs::remove_dir_all(cleanup_str).ok();
+    }
 }

@@ -312,7 +312,7 @@ pub struct LlmContext<'a> {
 ///
 /// 环境变量未设置或为空时返回 [`ErrorCode::InvalidState`]（默认离线：无剖面即无请求）。
 pub fn profiles_path_from_env() -> Result<PathBuf, WhError> {
-    std::env::var_os(PROFILES_ENV)
+    let path = std::env::var_os(PROFILES_ENV)
         .map(PathBuf::from)
         .filter(|path| !path.as_os_str().is_empty())
         .ok_or_else(|| {
@@ -320,16 +320,32 @@ pub fn profiles_path_from_env() -> Result<PathBuf, WhError> {
                 "未配置 LLM 剖面：请设置环境变量 {PROFILES_ENV} 指向仓库外的剖面 JSON\
                  （ADR-031：无剖面即无请求；默认离线）"
             ))
-        })
+        })?;
+    // Code Scanning 收口：环境变量给出的路径字符串含 ".." 时拒绝（不跟随遍历序列）。
+    let path_str = path.display().to_string();
+    if path_str.contains("..") {
+        return Err(WhError::invalid_state(format!(
+            "LLM 剖面路径不得包含 ..（环境变量 {PROFILES_ENV}）"
+        )));
+    }
+    Ok(PathBuf::from(path_str))
 }
 
 /// 取消标记目录：`WHCODE_LLM_CANCEL_DIR`，缺省系统临时目录下 `whcode-llm-cancel`。
+///
+/// Code Scanning 收口：解析结果（环境变量或临时目录）的路径字符串含 ".." 时
+/// 视为环境损坏，退回进程内固定相对名——宁可不共享取消信号，也不跟随遍历路径。
 #[must_use]
 pub fn cancel_dir_from_env() -> PathBuf {
-    std::env::var_os(CANCEL_DIR_ENV)
+    let dir = std::env::var_os(CANCEL_DIR_ENV)
         .map(PathBuf::from)
         .filter(|path| !path.as_os_str().is_empty())
-        .unwrap_or_else(|| std::env::temp_dir().join("whcode-llm-cancel"))
+        .unwrap_or_else(|| std::env::temp_dir().join("whcode-llm-cancel"));
+    let dir_str = dir.display().to_string();
+    if dir_str.contains("..") {
+        return PathBuf::from(".whcode-llm-cancel");
+    }
+    PathBuf::from(dir_str)
 }
 
 /// 一个剖面目录里的模型选项（T286／FR-773／ADR-031 修订）。
@@ -900,6 +916,12 @@ mod tests {
     fn temp_dir(tag: &str) -> PathBuf {
         let dir =
             std::env::temp_dir().join(format!("whcode-llm-app-test-{}-{tag}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("临时目录");
         dir

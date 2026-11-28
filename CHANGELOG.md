@@ -13,6 +13,28 @@
 
 ### 变更
 
+- **Code Scanning 切换 advanced setup（2026-11-28，用户指令）**：新增
+  `.github/workflows/codeql.yml`（`github/codeql-action` v4.39.5 固定 SHA，rust＋javascript，
+  `build-mode: none`，`security-extended`），并经 API 关闭 default setup。**威胁模型由
+  `remote_and_local` 收窄为 advanced setup 默认的 `remote`（用户批准）**——当日 683 条存量
+  告警的 source 全部属本地模型（`temp_dir` 603、`current_dir` 42、`env::var(_os)` 11、
+  `entry.path()` 3、文件读取 13、`current_exe` 3、stdin 1 等），该类别在 remote 模型下
+  不再产生。**此变化属分析范围收窄，不表述为
+  修复**；本地源类别的代码级收口另行推进（见下条）。`check-actions.py` 同步修复：
+  `uses:` 正则支持三层路径（`owner/repo/sub@SHA`，此前 `github/codeql-action/init@…`
+  整体漏扫）并登记该 action。
+- **CodeQL 告警代码级收口（2026-11-28，AGENTS §5.2）**：按官方查询模型逐类修复并保留
+  真实防御价值——`..` 字符串清洗（DotDotCheck）覆盖全部 `temp_dir`/`current_dir` 派生的
+  测试辅助与生产路径构造（cert/turn/cui_dispatch 等 40+ 文件）；生产入口
+  `cancel_dir_from_env`／`profiles_path_from_env`／`local_appdata`／store build.rs 的
+  `env::var` 流改为「非法即拒绝/回退静态值」；`entry.path()` 目录遍历三处加遍历项清洗；
+  `current_exe`→`Command` 三处改 canonicalize＋允许列表确认（CWE-078）；日志外泄面
+  （测试断言/`cargo:warning`/sshd 日志回显）改 bool 化或换行剥离
+  （`replace(['\n','\r'], "")`）；MCP/webhook/字体 settings 三个反序列化入口补字节上限
+  （CWE-502 DoS 防御）。未取得：`rust/unsafe-deserialization` 在查询侧无 sanitizer 建模
+  （官方 GOOD 样例的 `len()` 检查经实测不消除告警，`lsp`/`shell` 已有上限仍被报），
+  该类别 source 属本地模型、remote 下不再产生；不追求该规则的告警清零，真实防御以
+  大小上限落地。
 - **中文检索更正（2026-11-25，T422 复审）**：11-24 曾登记“中文相关度排序未达可用”，
   该结论**错误**，现更正。真实根因是 DuckDB fts 默认 unicode tokenizer 按空白切分，
   无空格中文长句整体成一个 token，故中文子串 0 命中；并非中文不可索引。实测

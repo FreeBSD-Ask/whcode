@@ -164,6 +164,12 @@ mod tests {
             let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let root = std::env::temp_dir()
                 .join(format!("whcode-present-{}-{tag}-{seq}", std::process::id()));
+            // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+            let root_str = root.display().to_string();
+            if root_str.contains("..") {
+                panic!("临时目录路径不得包含 ..");
+            }
+            let root = std::path::PathBuf::from(root_str);
             let _ = fs::remove_dir_all(&root);
             fs::create_dir_all(root.join("out")).expect("工作区");
             fs::write(root.join("out/report.md"), "报告\n").expect("文件");

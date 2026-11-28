@@ -1095,6 +1095,12 @@ mod tests {
                 "whcode-doctor-tls-{}-{tag}-{stamp}",
                 std::process::id()
             ));
+            // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+            let path_checked = path.display().to_string();
+            if path_checked.contains("..") {
+                panic!("临时目录路径不得包含 ..");
+            }
+            let path = std::path::PathBuf::from(path_checked);
             let _ = std::fs::remove_dir_all(&path);
             std::fs::create_dir_all(&path).expect("创建测试工作区");
             Self { path }

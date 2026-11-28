@@ -158,6 +158,12 @@ mod tests {
     #[test]
     fn workspace_connection_denies_extension_installs_and_repositories() {
         let dir = std::env::temp_dir().join(format!("whcode-ws-ext-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = fs::remove_dir_all(&dir);
         let config = Config::for_workspace(dir.clone());
         let conn = open_workspace_db(&dir, &config).expect("打开工作区");
@@ -186,6 +192,12 @@ mod tests {
     #[test]
     fn opening_workspace_recovers_uncertain_executions() {
         let dir = std::env::temp_dir().join(format!("whcode-ws-recover-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = fs::remove_dir_all(&dir);
         let config = Config::for_workspace(dir.clone());
         let conn = open_workspace_db(&dir, &config).expect("首次打开");
@@ -214,6 +226,12 @@ mod tests {
     #[test]
     fn opening_workspace_backs_up_before_migration_and_only_once() {
         let dir = std::env::temp_dir().join(format!("whcode-ws-backup-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = fs::remove_dir_all(&dir);
         let config = Config::for_workspace(dir.clone());
 

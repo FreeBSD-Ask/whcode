@@ -53,6 +53,8 @@ fn provided_stamp() -> Option<String> {
     let Ok(raw) = env::var("WHCODE_BUILD_STAMP") else {
         return None;
     };
+    // 剥离换行与回车：合法戳不含换行（恒等），注入值不再进入构建日志与 rustc-env。
+    let raw = raw.replace(['\n', '\r'], "");
     let trimmed = raw.trim();
     let parsed = if trimmed.len() == 17 && trimmed.ends_with('Z') && valid_head(&trimmed[..16]) {
         Some(trimmed.to_string())

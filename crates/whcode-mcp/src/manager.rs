@@ -521,6 +521,12 @@ mod tests {
     #[test]
     fn missing_workspace_config_is_correct_empty() {
         let dir = std::env::temp_dir().join(format!("whcode-mcp-mgr-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = std::fs::create_dir_all(&dir);
         let manager = McpManager::connect_workspace(Some(&dir)).expect("无配置");
         assert!(manager.is_empty(), "无 .whcode/mcp.json=功能关闭");
@@ -530,6 +536,12 @@ mod tests {
     #[test]
     fn connect_failure_is_recorded_not_fatal() {
         let dir = std::env::temp_dir().join(format!("whcode-mcp-fail-{}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let cfg_dir = dir.join(".whcode");
         std::fs::create_dir_all(&cfg_dir).expect("建目录");
         std::fs::write(

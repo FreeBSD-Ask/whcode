@@ -2729,6 +2729,12 @@ mod tests {
             "whcode-turn-test-{}-{tag}-{seq}",
             std::process::id()
         ));
+        // 路径字符串不含 ".." 才使用（Code Scanning 收口：防临时目录遍历注入）。
+        let dir_str = dir.display().to_string();
+        if dir_str.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_str);
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("临时目录");
         dir
@@ -4675,6 +4681,12 @@ mod subagent_tests {
         let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let dir =
             std::env::temp_dir().join(format!("whcode-sub-test-{}-{seq}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("临时目录");
         let registry: &'static ProviderRegistry = Box::leak(Box::new(registry));

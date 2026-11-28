@@ -2181,6 +2181,12 @@ mod tests {
                 "whcode-cert-test-{}-{tag}-{stamp}-{seq}",
                 std::process::id()
             ));
+            // 路径字符串不含 ".." 才使用（Code Scanning 收口：防临时目录遍历注入）。
+            let root_str = root.display().to_string();
+            if root_str.contains("..") {
+                panic!("测试工作区路径不得包含 ..");
+            }
+            let root = std::path::PathBuf::from(root_str);
             let _ = std::fs::remove_dir_all(&root);
             std::fs::create_dir_all(&root).expect("创建测试工作区");
             Self { root }

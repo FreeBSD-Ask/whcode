@@ -52,13 +52,28 @@ pub fn windows_terminal_settings_paths() -> Vec<PathBuf> {
 }
 
 /// `%LOCALAPPDATA%`，缺失时回退 `%USERPROFILE%\AppData\Local`。
+///
+/// Code Scanning 收口：环境变量给出的路径字符串含 ".." 时视为不可用（返回 `None`），
+/// 由调用方走「无配置」分支——不让遍历序列进入文件访问。
 fn local_appdata() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("LOCALAPPDATA")
         && !dir.is_empty()
     {
-        return Some(PathBuf::from(dir));
+        let text = PathBuf::from(dir).display().to_string();
+        if text.contains("..") {
+            return None;
+        }
+        return Some(PathBuf::from(text));
     }
-    std::env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join(r"AppData\Local"))
+    std::env::var_os("USERPROFILE")
+        .map(PathBuf::from)
+        .and_then(|home| {
+            let text = home.join(r"AppData\Local").display().to_string();
+            if text.contains("..") {
+                return None;
+            }
+            Some(PathBuf::from(text))
+        })
 }
 
 /// 查询 HKCU Fonts 键的值（存在返回 REG_SZ 数据，本模块注册的值是字体文件完整路径）。

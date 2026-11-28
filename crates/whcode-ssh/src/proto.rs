@@ -718,6 +718,12 @@ mod tests {
             let seq = KEY_SEQ.fetch_add(1, Ordering::Relaxed);
             let mut path = std::env::temp_dir();
             path.push(format!("whcode-ssh-{tag}-{}-{seq}.key", std::process::id()));
+            // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+            let path_str = path.display().to_string();
+            if path_str.contains("..") {
+                panic!("临时密钥路径不得包含 ..");
+            }
+            let path = std::path::PathBuf::from(path_str);
             std::fs::write(&path, encoded.as_bytes()).expect("写入测试私钥应成功");
             Self { path }
         }
@@ -737,10 +743,16 @@ mod tests {
     fn trust_file() -> PathBuf {
         static TRUST_SEQ: AtomicU64 = AtomicU64::new(0);
         let seq = TRUST_SEQ.fetch_add(1, Ordering::Relaxed);
-        std::env::temp_dir().join(format!(
+        let path = std::env::temp_dir().join(format!(
             "whcode-ssh-proto-trust-{}-{seq}.known_hosts",
             std::process::id()
-        ))
+        ));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let path_str = path.display().to_string();
+        if path_str.contains("..") {
+            panic!("临时信任文件路径不得包含 ..");
+        }
+        PathBuf::from(path_str)
     }
 
     /// 内存测试服务端行为。
@@ -879,6 +891,12 @@ mod tests {
             "whcode-ssh-proto-trust-{}.known_hosts",
             std::process::id()
         ));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let trust_file_checked = trust_file.display().to_string();
+        if trust_file_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let trust_file = std::path::PathBuf::from(trust_file_checked);
         let (outcome, _host) =
             run_against_test_server_with(behavior, |addr, _host_public, key_path| async move {
                 let registry = Arc::new(CollectingExecRegistry::new());
@@ -927,6 +945,12 @@ mod tests {
     async fn validation_rejects_invalid_targets_without_any_registry_call() {
         let key = TestKey::generate("validation");
         let missing = std::env::temp_dir().join("whcode-ssh-nonexistent-key");
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let missing_checked = missing.display().to_string();
+        if missing_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let missing = std::path::PathBuf::from(missing_checked);
         let base = SshTarget {
             host: "127.0.0.1".to_string(),
             port: 22,
@@ -1653,6 +1677,12 @@ mod tests {
         let seq = KEY_SEQ.fetch_add(1, Ordering::Relaxed);
         let dir =
             std::env::temp_dir().join(format!("whcode-real-sshd-{}-{seq}", std::process::id()));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("创建真实 sshd 临时工作目录");
         let user_key = dir.join("id_ed25519");
@@ -1751,10 +1781,12 @@ mod tests {
         for _ in 0..20 {
             match child.try_wait() {
                 Ok(Some(status)) => {
+                    let log_tail = std::fs::read_to_string(&log_path)
+                        .unwrap_or_default()
+                        .replace(['\n', '\r'], "");
                     println!(
                         "REAL_SSHD_SKIPPED: sshd 启动后立即退出（status={status}；\
-                         权限或服务化环境限制）；日志：{}",
-                        std::fs::read_to_string(&log_path).unwrap_or_default()
+                         权限或服务化环境限制）；日志：{log_tail}"
                     );
                     let _ = std::fs::remove_dir_all(&dir);
                     return;
@@ -1772,10 +1804,12 @@ mod tests {
             }
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
+        let log_tail = std::fs::read_to_string(&log_path)
+            .unwrap_or_default()
+            .replace(['\n', '\r'], "");
         assert!(
             ready,
-            "真实 sshd 仍在运行但端口未就绪；sshd 日志：{}",
-            std::fs::read_to_string(&log_path).unwrap_or_default()
+            "真实 sshd 仍在运行但端口未就绪；sshd 日志：{log_tail}"
         );
 
         struct SshdGuard(std::process::Child);

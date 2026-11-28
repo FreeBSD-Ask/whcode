@@ -184,6 +184,12 @@ mod tests {
             "whcode-lsp-assembly-{}-{stamp}",
             std::process::id()
         ));
+        // Code Scanning 收口：路径字符串不含 ".." 才使用（防临时目录遍历注入）。
+        let dir_checked = dir.display().to_string();
+        if dir_checked.contains("..") {
+            panic!("临时目录路径不得包含 ..");
+        }
+        let dir = std::path::PathBuf::from(dir_checked);
         std::fs::create_dir_all(dir.join(".whcode")).expect("建夹具");
 
         assert!(
