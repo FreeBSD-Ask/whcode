@@ -66,6 +66,11 @@ on:
 # Windows runner 控制台默认代码页非 UTF-8；门禁脚本含中文输出，统一强制 Python UTF-8 模式。
 env:
   PYTHONUTF8: "1"
+  # LLVM 系列工具链归档的缓存标识（版本号与 setup-windows-llvm.py 的 LLVM_MINGW_VERSION
+  # 同步，升级时两处一起改）。不直接写成 `key: <字面量>`：通用密钥扫描把这种形态判为疑似
+  # 硬编码凭据（2026-11-28 告警），而它只是缓存标识、不含凭据。按 AGENTS §5.2 用非敏感
+  # 命名收口，不做告警压制。
+  WHCODE_LLVM_TOOLCACHE_ID: llvm-mingw-20261104-ucrt-x86_64
 
 permissions:
   contents: read
@@ -218,7 +223,8 @@ jobs:
 
       # ---------------- 缓存（B／ADR-082：只省时间，不改判据） ----------------
       # 三个缓存都**有界**且带精确键：
-      #   - llvm-mingw 归档 191 MB，键含固定版本号——版本升级必须同步本键与脚本常量；
+      #   - llvm-mingw 归档 191 MB，键取顶层 env 的 WHCODE_LLVM_TOOLCACHE_ID（含固定版本
+      #     号）——版本升级必须同步该 env 与脚本常量；
       #   - DuckDB 预编译载荷 50 MB，按通道分键（amd64 通道另需 arm64 交叉载荷）；
       #   - Cargo registry 与 git：键绑定 Cargo.lock 与 rust-toolchain.toml，
       #     restore-keys 只复用同通道旧键。
@@ -231,7 +237,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/whcode-toolcache
-          key: llvm-mingw-20261104-ucrt-x86_64
+          key: ${{ env.WHCODE_LLVM_TOOLCACHE_ID }}
 
       - name: 缓存 DuckDB 预编译载荷（版本＋通道键）
         if: matrix.platform == 'windows' || matrix.platform == 'windows-arm64'
@@ -1511,7 +1517,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/whcode-toolcache
-          key: llvm-mingw-20261104-ucrt-x86_64
+          key: ${{ env.WHCODE_LLVM_TOOLCACHE_ID }}
 
       - name: 缓存 DuckDB 预编译载荷（版本＋通道键）
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -1645,7 +1651,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/whcode-toolcache
-          key: llvm-mingw-20261104-ucrt-x86_64
+          key: ${{ env.WHCODE_LLVM_TOOLCACHE_ID }}
 
       - name: 缓存 DuckDB 预编译载荷（版本＋通道键）
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

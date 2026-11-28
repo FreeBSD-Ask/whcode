@@ -3537,14 +3537,16 @@ mod tests {
         stream
             .set_read_timeout(Some(Duration::from_millis(100)))
             .expect("设置读超时");
-        let key = "dGhlIHNhbXBsZSBub25jZQ==";
-        let request =
-            format!("GET /ws HTTP/1.1\r\nhost: {addr}\r\nsec-websocket-key: {key}\r\n\r\n");
+        // RFC 6455 §1.3 的示例 nonce：公开测试向量，不是凭据。
+        let handshake_sample = "dGhlIHNhbXBsZSBub25jZQ==";
+        let request = format!(
+            "GET /ws HTTP/1.1\r\nhost: {addr}\r\nsec-websocket-key: {handshake_sample}\r\n\r\n"
+        );
         stream.write_all(request.as_bytes()).expect("写握手请求");
         let head = read_http_head(&mut stream);
         assert!(head.starts_with("HTTP/1.1 101"), "握手必须 101：{head}");
         assert!(
-            head.contains(accept_key(key).as_str()),
+            head.contains(accept_key(handshake_sample).as_str()),
             "Sec-WebSocket-Accept 必须匹配（RFC 6455 §1.3）"
         );
         stream
@@ -4052,18 +4054,21 @@ mod tests {
         whcode_store::create_session_with_id(&server.conn, "S-1", "TLS 订阅", "active", 1_000)
             .expect("创建会话");
         let mut client = tls_connect(server.addr, &server.cert);
-        let key = "dGhlIHNhbXBsZSBub25jZQ==";
+        // RFC 6455 §1.3 的示例 nonce：公开测试向量，不是凭据。
+        let handshake_sample = "dGhlIHNhbXBsZSBub25jZQ==";
         client
             .stream
             .write_all(
-                format!("GET /ws HTTP/1.1\r\nhost: localhost\r\nsec-websocket-key: {key}\r\n\r\n")
-                    .as_bytes(),
+                format!(
+                    "GET /ws HTTP/1.1\r\nhost: localhost\r\nsec-websocket-key: {handshake_sample}\r\n\r\n"
+                )
+                .as_bytes(),
             )
             .expect("写握手请求");
         let head = read_http_head(&mut client.stream);
         assert!(head.starts_with("HTTP/1.1 101"), "握手必须 101：{head}");
         assert!(
-            head.contains(accept_key(key).as_str()),
+            head.contains(accept_key(handshake_sample).as_str()),
             "Sec-WebSocket-Accept 必须匹配（ws 协议字节不得改动）：{head}"
         );
 
