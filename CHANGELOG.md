@@ -13,6 +13,29 @@
 
 ### 变更
 
+- **SonarCloud 全项目分析与 CI／脚本修补（2026-11-28，用户登录后补跑）**：CLI 1.13.1 连接
+  SonarCloud（org `freebsd-ask`，项目 `FreeBSD-Ask_whcode`）；既有分析 revision `e039b51`
+  覆盖 316 文件、127,613 行，93 条未解决（50 vulnerabilities、35 bugs、8 code smells），
+  PR #17 质量门 OK（新代码三项 A、0 条）。8 条已修：`a2-diagnosis` 与 `platform-verification`
+  的 `curl | sh` 改用固定版本＋SHA256 校验的 rustup-init；`clean.py` 临时目录扫描跳过符号
+  链接；三个表单输入补 `aria-label`。其余 85 条为误报、本地操作者／代理边界或非安全技术债，
+  逐类判定见 `docs/analysis/2026-11-28-multi-tool-security-scan.md` §3.7；前端 28 条
+  Promise 缺陷登记为技术债。
+- **Semgrep 全仓扫描与两处 CI 修补（2026-11-28，用户指令）**：仓库外隔离环境安装
+  `semgrep==1.136.0`，548 条规则跑 830 个跟踪文件，首轮 93 条、修补后 90 条。真实问题 3 条已修：
+  Dependabot 两个更新项补 7 天冷却期；FreeBSD 发布步骤不再 `curl | sh.rustup.rs`，改为固定
+  版本 `rustup-init` 1.29.3（FreeBSD x86_64）＋SHA256 校验后执行。其余 87 条为 INFO 级通用
+  建议或经反证的误报；主会话复核另记一条未修 high：工作区 `.whcode/mcp.json` 每轮自动连接并
+  执行其命令、无工作区信任确认（`crates/whcode-app/src/turn.rs:578`），修复需 ADR 与四端
+  确认交互。四工具覆盖与判定见 `docs/analysis/2026-11-28-multi-tool-security-scan.md`。
+- **Mimosa 全量深扫与 triage（2026-11-28，用户指令）**：主密封扫描 250 文件上限之外，按目录补跑
+  22 次密封扫描，覆盖工作树内全部 283 个受支持源文件（245 `.rs`、4 `.js`、34 `.py`）；去重后
+  64 条唯一发现逐条判定（high 57、medium 6、low 1）。62 条为测试夹具、浏览器同源请求、本地
+  操作者 `--config` 路径、常量 URL 与同名符号解析造成的误报；2 条真实问题已修：
+  `requirements-dev.txt` 四份依赖改为精确版本加 SHA256 哈希锁（`pip download --require-hashes`
+  在 win_amd64 的 cp312／cp313 实跑通过），`AGENTS.md` 删除重复禁令行。报告与逐条反证见
+  `docs/analysis/2026-11-28-mimosa-deep-scan-triage.md`；Semgrep 第二意见另在仓库外隔离
+  环境完成，结果并入四工具报告。
 - **Code Scanning 切换 advanced setup（2026-11-28，用户指令）**：新增
   `.github/workflows/codeql.yml`（`github/codeql-action` v4.39.5 固定 SHA，rust＋javascript，
   `build-mode: none`，`security-extended`），并经 API 关闭 default setup。**威胁模型由

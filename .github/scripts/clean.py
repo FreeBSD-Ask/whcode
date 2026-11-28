@@ -216,6 +216,10 @@ def scan_temp(now: float) -> list[dict[str, object]]:
     items: list[dict[str, object]] = []
     temp = pathlib.Path(os.environ.get("TEMP") or os.environ.get("TMP") or "/tmp")
     for entry in sorted(temp.glob("whcode-*")) + sorted(temp.glob("wt-probe-*")):
+        # 共享临时目录可能被其他本机用户预置同名符号链接：不跟随、不统计、不删除
+        # （2026-11-28，SonarCloud python:S5443）。只处理真实目录与普通文件。
+        if entry.is_symlink():
+            continue
         if not entry.is_dir() and not entry.is_file():
             continue
         if entry.name in TEMP_KEEP_ALWAYS:
@@ -360,7 +364,10 @@ def build_processes_running() -> list[str]:
 def remove(item: dict[str, object]) -> str | None:
     path = pathlib.Path(str(item["path"]))
     try:
-        if path.is_dir():
+        if path.is_symlink():
+            # 只移除链接本身，绝不跟随到目标（2026-11-28，SonarCloud python:S5443）。
+            path.unlink()
+        elif path.is_dir():
             # ignore_errors：占用/权限错误不中断整批；删除后仍存在即记失败。
             # Python 3.14 已弃用 onerror 回调（旧签名会 TypeError），不用回调。
             shutil.rmtree(path, ignore_errors=True)

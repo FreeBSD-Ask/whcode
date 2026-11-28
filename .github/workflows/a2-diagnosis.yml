@@ -71,8 +71,18 @@ jobs:
             export HOME=/root
             export PATH="$HOME/.cargo/bin:$PATH"
             if [ ! -x "$HOME/.cargo/bin/cargo" ]; then
-              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-                | sh -s -- -y --profile minimal --default-toolchain 1.100.0
+              # rustup-init 固定版本＋SHA256（2026-11-28，SonarCloud githubactions:S8482）：
+              # 不再把远端脚本直接喂给 sh；校验失败即退出，由宿主步骤判红。
+              rustup_init=/tmp/rustup-init
+              curl --proto '=https' --tlsv1.2 -sSf -o "$rustup_init" \
+                https://static.rust-lang.org/rustup/archive/1.29.3/x86_64-unknown-freebsd/rustup-init
+              actual_sha=$(sha256 -q "$rustup_init")
+              if [ "$actual_sha" != "6c2fd1ace77dae186d34ad7b59d848d37d48f447cfc02c60c211e3503dc789cf" ]; then
+                echo "rustup-init 校验失败：$actual_sha" >&2
+                exit 1
+              fi
+              chmod +x "$rustup_init"
+              "$rustup_init" -y --profile minimal --default-toolchain 1.100.0
             fi
             echo "rustc_version=$(rustc --version)" >> "$progress"
             echo "phase=toolchain-ok at=$(date -u +%FT%TZ)" >> "$progress"

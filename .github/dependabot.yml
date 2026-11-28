@@ -19,6 +19,11 @@ updates:
       time: "09:00"
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 5
+    # 冷却期（2026-11-28，Semgrep package_managers 规则）：新发布版本在索引中先放
+    # 7 天再提案，降低投毒包与“发布即撤版”的曝光面；Dependabot 的 security update
+    # 通道不受 version update 冷却影响。
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore(deps)"
     ignore:
@@ -42,6 +47,8 @@ updates:
       time: "09:00"
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore(ci)"
     groups:
